@@ -135,8 +135,14 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeEditJSON(w, http.StatusServiceUnavailable, editError{Error: "no free port from " + h.portRange() + " served the other configuration; run " + peer.command()})
 }
 
+// serves also requires a global server to link back to this project, so
+// its page offers the right way back and it does not stop with another
+// project's server.
 func (h *switchHandler) serves(running *viewServer) bool {
-	return running.UI && running.Global == h.peer.global && sameProjectRoot(running.Root, h.peer.root)
+	if !running.UI || running.Global != h.peer.global || !sameProjectRoot(running.Root, h.peer.root) {
+		return false
+	}
+	return !h.peer.global || (running.ProjectRoot != "" && sameProjectRoot(running.ProjectRoot, h.peer.dir))
 }
 
 // awaitHealthy waits for a started server to answer, and gives up when
@@ -173,6 +179,16 @@ func (h *switchHandler) close() {
 	h.started = nil
 }
 
+// peerServerCommand returns the serve arguments and working directory
+// for a peer. A global server runs in the project so its health names it.
+func peerServerCommand(peer switchPeer, addr string) ([]string, string) {
+	args := []string{"serve", "--addr", addr}
+	if peer.global {
+		return append(args, "--global"), peer.dir
+	}
+	return append(args, "--dir", peer.root), ""
+}
+
 // startPeerServer runs this binary's serve with fixed arguments. Its
 // output is discarded; the health probe decides whether it started.
 func startPeerServer(peer switchPeer, addr string) (*peerProcess, error) {
@@ -180,14 +196,10 @@ func startPeerServer(peer switchPeer, addr string) (*peerProcess, error) {
 	if err != nil {
 		return nil, fmt.Errorf("find the agnostic-ai binary: %w", err)
 	}
-	args := []string{"serve", "--addr", addr}
-	if peer.global {
-		args = append(args, "--global")
-	} else {
-		args = append(args, "--dir", peer.root)
-	}
+	args, dir := peerServerCommand(peer, addr)
 	cmd := exec.Command(exe, args...)
-	cmd.Dir = peer.dir
+	cmd.Dir = dir
+	cmd.SysProcAttr = peerSysProcAttr()
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start %s: %w", filepath.Base(exe), err)
 	}

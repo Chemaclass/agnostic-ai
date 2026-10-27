@@ -81,12 +81,12 @@ func TestSwitch_StartsTheGlobalServerOnTheFirstFreePort(t *testing.T) {
 }
 
 func TestSwitch_ReusesARunningServerForTheOtherConfiguration(t *testing.T) {
-	home := t.TempDir()
+	home, project := t.TempDir(), t.TempDir()
 	ports := freeLoopbackAddrs(t, 3)
 	fakePeer(t, ports[0], viewServer{OK: true, Root: t.TempDir(), UI: true})
-	fakePeer(t, ports[1], viewServer{OK: true, Root: home, Global: true})
-	fakePeer(t, ports[2], viewServer{OK: true, Root: home, Global: true, UI: true})
-	h := newSwitchHandler(&switchPeer{root: home, global: true}, ports, probeViewServer, func(switchPeer, string) (*peerProcess, error) {
+	fakePeer(t, ports[1], viewServer{OK: true, Root: home, Global: true, ProjectRoot: project})
+	fakePeer(t, ports[2], viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project})
+	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(switchPeer, string) (*peerProcess, error) {
 		t.Error("started a server while one runs")
 		return nil, errors.New("unexpected")
 	})
@@ -95,6 +95,35 @@ func TestSwitch_ReusesARunningServerForTheOtherConfiguration(t *testing.T) {
 	rec, reply := postSwitch(t, h)
 	if rec.Code != http.StatusOK || reply.Started || reply.URL != "http://"+ports[2]+"/" {
 		t.Fatalf("switch = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSwitch_StartsItsOwnGlobalServerWhenTheRunningOneLinksToAnotherProject(t *testing.T) {
+	home, project := t.TempDir(), t.TempDir()
+	ports := freeLoopbackAddrs(t, 3)
+	fakePeer(t, ports[0], viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: t.TempDir()})
+	fakePeer(t, ports[1], viewServer{OK: true, Root: home, Global: true, UI: true})
+	var started []string
+	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+		started = append(started, addr)
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project}), nil
+	})
+	defer h.close()
+
+	rec, reply := postSwitch(t, h)
+	if rec.Code != http.StatusOK || !reply.Started || reply.URL != "http://"+ports[2]+"/" || !slices.Equal(started, ports[2:]) {
+		t.Fatalf("switch = %d %s, started %v", rec.Code, rec.Body, started)
+	}
+}
+
+func TestPeerServerCommand_UsesFixedArguments(t *testing.T) {
+	args, dir := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", global: true, dir: "/work/repo"}, "127.0.0.1:4311")
+	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--global"}) || dir != "/work/repo" {
+		t.Errorf("global = %v in %q", args, dir)
+	}
+	args, dir = peerServerCommand(switchPeer{root: "/work/repo"}, "127.0.0.1:4312")
+	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4312", "--dir", "/work/repo"}) || dir != "" {
+		t.Errorf("project = %v in %q", args, dir)
 	}
 }
 
@@ -162,11 +191,11 @@ func TestSwitch_RefusesOtherMethodsAndBodyTypes(t *testing.T) {
 }
 
 func TestSwitch_CloseStopsTheServersItStarted(t *testing.T) {
-	home := t.TempDir()
+	home, project := t.TempDir(), t.TempDir()
 	ports := freeLoopbackAddrs(t, 1)
 	var peer *peerProcess
-	h := newSwitchHandler(&switchPeer{root: home, global: true}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
-		peer = fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true})
+	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+		peer = fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project})
 		return peer, nil
 	})
 	if rec, _ := postSwitch(t, h); rec.Code != http.StatusOK {
