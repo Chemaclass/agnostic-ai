@@ -670,6 +670,43 @@ test.describe('overview', () => {
     await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null, expected: 'opus' })
   })
 
+  test('shows a configured value from another source beside the editor and hides only the value the editor shows', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
+    const [team, local, pack] = ['.agnostic-ai/settings/defaults.yaml', '.agnostic-ai/local/settings/defaults.yaml', '.agnostic-ai/packs/team/settings/team.yaml']
+    const editable = { kind: 'text', path: team, paths: [team], localPath: local, syncCommand: 'agnostic-ai sync' }
+    Object.assign(field('model'), { set: [{ spec: 'team', path: pack, values: [{ key: 'model', type: 'text', value: 'sonnet' }] }], editable })
+    Object.assign(field('effort'), { set: [{ spec: 'defaults', path: local, local: true, values: [{ key: 'effort', type: 'text', value: 'low' }] }], editable })
+    Object.assign(field('session-retention-days'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'session-retention-days', type: 'text', value: '30' }] }], editable: { ...editable, kind: 'number' } })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=settings')
+    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(model.locator('.field-source')).toContainText('sonnet')
+    await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveAttribute('placeholder', 'Not set in this file')
+    await expect(model).toContainText(`Saves to ${team}`)
+
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await expect(effort).toContainText('Your local value overrides the team value.')
+    await expect(effort.locator('.field-source')).toContainText('low')
+    await expect(effort.locator('.field-source')).toContainText(`from ${local}`)
+
+    const retention = page.locator('.field-row').filter({ has: page.getByText('Session retention', { exact: true }) })
+    await expect(retention.getByRole('spinbutton', { name: 'Session retention value' })).toHaveValue('30')
+    await expect(retention.locator('.field-source')).toHaveCount(0)
+    await expect(retention).toContainText(`from ${team}`)
+
+    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
+    await expect(effort.locator('.field-source')).toHaveCount(0)
+    await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    await expect(retention.getByRole('spinbutton', { name: 'Session retention value' })).toHaveValue('30')
+    await expect(retention.locator('.field-source')).toContainText(`from ${team}`)
+  })
+
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await openApp(page)
