@@ -28,17 +28,17 @@ func (r settingRequest) clearing() bool {
 	return bytes.Equal(bytes.TrimSpace(r.value), []byte("null"))
 }
 
-func (r settingRequest) title(where editScope) string {
+func (r settingRequest) title(where editAudience) string {
 	var value string
 	subject := r.addr.label()
 	switch {
-	case r.clearing() && where == scopeLocal:
+	case r.clearing() && where == audiencePersonal:
 		return "personal " + subject + " reset to the team value"
 	case r.clearing():
 		return subject + " cleared"
 	case json.Unmarshal(r.value, &value) != nil:
 		return subject + " changed"
-	case where == scopeLocal:
+	case where == audiencePersonal:
 		return preview.RedactText(fmt.Sprintf("%s set to %s for you", subject, value))
 	}
 	return preview.RedactText(fmt.Sprintf("%s set to %s", subject, value))
@@ -46,7 +46,7 @@ func (r settingRequest) title(where editScope) string {
 
 // settingSourceEdit resolves the settings file and edit exactly as a field
 // save does, with the same stale-value check when the page sent one.
-func settingSourceEdit(root string, where editScope, req settingRequest) (string, func([]byte) ([]byte, error), error) {
+func settingSourceEdit(root string, where editAudience, req settingRequest) (string, func([]byte) ([]byte, error), error) {
 	var chosen spec.Entry
 	h := &editHandler{root: root}
 	file, edit, err := h.fieldEdit(where, req.path, req.addr, req.value, &chosen)

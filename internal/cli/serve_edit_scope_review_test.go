@@ -21,7 +21,7 @@ func TestEditField_JustMeRefusesALocalFolderLinkedIntoTeamSources(t *testing.T) 
 	if err := os.Symlink("../settings", ".agnostic-ai/local/settings"); err != nil {
 		t.Skip("symlinks unavailable:", err)
 	}
-	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":"`+shared+`","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":"`+shared+`","key":"model","value":"opus"}`, nil)
 	if rec.Code != 400 {
 		t.Errorf("save = %d %s, want a refusal", rec.Code, rec.Body)
 	}
@@ -35,7 +35,7 @@ func TestEditBuiltin_JustMeRefusesAPersonalListFromAYAMLMerge(t *testing.T) {
 	local := "<<: {builtins: [memory, rtk]}\n"
 	mustWrite(t, "agnostic-ai.local.yaml", local)
 	h := newEditHandler(project, false)
-	for _, body := range []string{`{"scope":"local","name":"handoff","enabled":true}`, `{"scope":"team","name":"handoff","enabled":true}`} {
+	for _, body := range []string{`{"audience":"personal","name":"handoff","enabled":true}`, `{"audience":"shared","name":"handoff","enabled":true}`} {
 		if rec := postEdit(t, h, editBuiltinPath, body, nil); rec.Code < 400 {
 			t.Errorf("%s = %d %s, want a refusal", body, rec.Code, rec.Body)
 		}
@@ -57,7 +57,7 @@ func TestEditBuiltin_JustMeInALinkedWorktreeKeepsTheInheritedMemoryMode(t *testi
 	linked := filepath.Join(t.TempDir(), "linked")
 	git(t, main, "worktree", "add", "-q", "--detach", linked)
 	testutil.Chdir(t, linked)
-	rec := postEdit(t, newEditHandler(linked, false), editBuiltinPath, `{"scope":"local","name":"handoff","enabled":true}`, nil)
+	rec := postEdit(t, newEditHandler(linked, false), editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("turn on = %d %s", rec.Code, rec.Body)
 	}
@@ -73,7 +73,7 @@ func TestEditValue_JustMeResetRemovesAPersonalBoolean(t *testing.T) {
 	overlay := ".agnostic-ai/local/settings/native.yaml"
 	mustWrite(t, overlay, "name: native\nx-claude:\n  verbose: true\n  model: mine\n")
 	h := newEditHandler(project, false)
-	rec := postEdit(t, h, editValuePath, `{"scope":"local","path":"`+shared+`","key":"x-claude.verbose","value":null}`, nil)
+	rec := postEdit(t, h, editValuePath, `{"audience":"personal","path":"`+shared+`","key":"x-claude.verbose","value":null}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("reset = %d %s", rec.Code, rec.Body)
 	}
@@ -85,8 +85,8 @@ func TestEditValue_JustMeResetRemovesAPersonalBoolean(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, body := range []string{
-		`{"scope":"local","path":"` + shared + `","key":"x-claude.verbose","value":true}`,
-		`{"scope":"local","path":"` + shared + `","key":"x-claude.verbose","value":null}`,
+		`{"audience":"personal","path":"` + shared + `","key":"x-claude.verbose","value":true}`,
+		`{"audience":"personal","path":"` + shared + `","key":"x-claude.verbose","value":null}`,
 	} {
 		if rec := postEdit(t, h, editValuePath, body, nil); rec.Code != 200 {
 			t.Fatalf("%s = %d %s", body, rec.Code, rec.Body)
@@ -95,7 +95,7 @@ func TestEditValue_JustMeResetRemovesAPersonalBoolean(t *testing.T) {
 	if _, err := os.Stat(overlay); !os.IsNotExist(err) {
 		t.Errorf("reset kept the created overlay: %q", readOptional(t, overlay))
 	}
-	if rec := postEdit(t, h, editValuePath, `{"scope":"team","path":"`+shared+`","key":"x-claude.verbose","value":null}`, nil); rec.Code != 400 {
+	if rec := postEdit(t, h, editValuePath, `{"audience":"shared","path":"`+shared+`","key":"x-claude.verbose","value":null}`, nil); rec.Code != 400 {
 		t.Errorf("team null = %d %s, want a refusal", rec.Code, rec.Body)
 	}
 }
@@ -107,7 +107,7 @@ func TestEditField_JustMeOverlayKeepsASpecNameWithAHash(t *testing.T) {
 	}
 	shared := ".agnostic-ai/settings/team.yaml"
 	mustWrite(t, shared, "name: \"a # b\"\ndescription: Team.\nmodel: sonnet\n")
-	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":"`+shared+`","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":"`+shared+`","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
 	}
@@ -123,11 +123,11 @@ func TestEditField_JustMeOverlayKeepsASpecNameWithAHash(t *testing.T) {
 func TestEditBuiltin_ResetRemovesTheWholePersonalList(t *testing.T) {
 	project := scopeProject(t)
 	h := newEditHandler(project, false)
-	if rec := postEdit(t, h, editBuiltinPath, `{"scope":"team","reset":true}`, nil); rec.Code != 400 {
+	if rec := postEdit(t, h, editBuiltinPath, `{"audience":"shared","reset":true}`, nil); rec.Code != 400 {
 		t.Errorf("team reset = %d %s, want a refusal", rec.Code, rec.Body)
 	}
 	mustWrite(t, "agnostic-ai.local.yaml", "builtins:\n  - memory\nmemory:\n  personal: checkout\n")
-	if rec := postEdit(t, h, editBuiltinPath, `{"scope":"local","reset":true}`, nil); rec.Code != 200 {
+	if rec := postEdit(t, h, editBuiltinPath, `{"audience":"personal","reset":true}`, nil); rec.Code != 200 {
 		t.Fatalf("reset = %d %s", rec.Code, rec.Body)
 	}
 	if got := readOptional(t, "agnostic-ai.local.yaml"); got != "memory:\n  personal: checkout\n" {
@@ -141,7 +141,7 @@ func TestEditField_TeamSaveCreatesTheSharedSpecBesideAPersonalOne(t *testing.T) 
 		t.Fatal(err)
 	}
 	mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\ndescription: Mine.\neffort: high\n")
-	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"team","path":".agnostic-ai/local/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"shared","path":".agnostic-ai/local/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("team save = %d %s", rec.Code, rec.Body)
 	}
@@ -156,12 +156,12 @@ func TestEditField_TeamSaveCreatesTheSharedSpecBesideAPersonalOne(t *testing.T) 
 func TestBuiltinChanges_PreviewNamesItsScopeAndResetsAPersonalList(t *testing.T) {
 	root := builtinChangeProject(t)
 	h := newBuiltinChangeHandler(root, false)
-	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
-	if proposal.Scope != "local" {
-		t.Errorf("scope = %q, want local", proposal.Scope)
+	proposal := builtinScopedProposal(t, h, audiencePersonal, "caveman", true)
+	if proposal.Audience != "personal" {
+		t.Errorf("audience = %q, want personal", proposal.Audience)
 	}
 	builtinAction(t, h, builtinApplyPath, proposal.ID)
-	rec := postEdit(t, h, builtinPreviewPath, `{"scope":"local","reset":true}`, nil)
+	rec := postEdit(t, h, builtinPreviewPath, `{"audience":"personal","reset":true}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("reset preview = %d %s", rec.Code, rec.Body)
 	}
@@ -176,7 +176,7 @@ func TestBuiltinChanges_PreviewNamesItsScopeAndResetsAPersonalList(t *testing.T)
 }
 
 func TestEditBuiltin_ResetInALinkedWorktreeKeepsTheMemoryModeInEffect(t *testing.T) {
-	for _, body := range []string{`{"scope":"local","name":"handoff","enabled":false}`, `{"scope":"local","reset":true}`} {
+	for _, body := range []string{`{"audience":"personal","name":"handoff","enabled":false}`, `{"audience":"personal","reset":true}`} {
 		t.Run(body, func(t *testing.T) {
 			silence(t)
 			isolateGit(t)
@@ -208,7 +208,7 @@ func TestEditBuiltin_RefusesAMergedBuiltinsNull(t *testing.T) {
 	project := scopeProject(t)
 	local := "<<: {builtins: null}\n"
 	mustWrite(t, "agnostic-ai.local.yaml", local)
-	if rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"scope":"local","name":"handoff","enabled":true}`, nil); rec.Code < 400 {
+	if rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true}`, nil); rec.Code < 400 {
 		t.Errorf("save = %d %s, want a refusal", rec.Code, rec.Body)
 	}
 	if got := readOptional(t, "agnostic-ai.local.yaml"); got != local {

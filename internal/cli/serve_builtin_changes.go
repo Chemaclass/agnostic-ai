@@ -38,6 +38,7 @@ type builtinChangeView struct {
 	Title         string              `json:"title,omitempty"`
 	Enabled       bool                `json:"enabled"`
 	Reset         bool                `json:"reset,omitempty"`
+	Audience      string              `json:"audience,omitempty"`
 	Scope         string              `json:"scope,omitempty"`
 	Config        string              `json:"config,omitempty"`
 	Targets       []string            `json:"targets"`
@@ -86,7 +87,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var request struct {
-		Scope   string `json:"scope"`
+		audienceFields
 		Name    string `json:"name"`
 		Enabled *bool  `json:"enabled"`
 		Reset   bool   `json:"reset"`
@@ -109,7 +110,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send exactly one JSON object"})
 		return
 	}
-	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Reset || request.Scope != "" || request.Setting != nil || request.ID == "") {
+	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Reset || request.sent() || request.Setting != nil || request.ID == "") {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "apply, undo, and cancel require only a proposal id"})
 		return
 	}
@@ -134,13 +135,13 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			}
 			change.setting = &settingRequest{path: request.Setting.Path, addr: newFieldAddress(request.Setting.Key, request.Setting.Target), value: request.Setting.Value, expected: request.Setting.Expected}
 		}
-		scope, scopeErr := parseEditScope(request.Scope)
-		if scopeErr != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: scopeErr.Error()})
+		audience, audienceErr := request.audience()
+		if audienceErr != nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: audienceErr.Error()})
 			return
 		}
 		var plan *builtinChangePlan
-		plan, err = planProjectChange(h.root, change, scope)
+		plan, err = planProjectChange(h.root, change, audience)
 		if err == nil {
 			var token [24]byte
 			if _, err = rand.Read(token[:]); err == nil {
@@ -284,7 +285,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	if err := plan.inputs.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}
-	if _, err := planProjectChange(h.root, plan.change, plan.scope); err != nil {
+	if _, err := planProjectChange(h.root, plan.change, plan.audience); err != nil {
 		return builtinChangeView{}, err
 	}
 	if err := plan.inputs.check(h.root); err != nil {

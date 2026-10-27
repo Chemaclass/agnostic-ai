@@ -94,7 +94,7 @@ test('shares a proposal and keeps undo through filtering, cancellation, and relo
   await expect(page.getByText('Last applied: handoff.')).toBeVisible()
   await toggle(page, 'caveman').evaluate((button: HTMLButtonElement) => { button.click(); button.click() })
   await expect(page.getByRole('region', { name: 'Caveman change preview' })).toBeVisible()
-  expect(server.previews).toEqual([{ scope: 'team', name: 'handoff', enabled: true }, { scope: 'team', name: 'caveman', enabled: true }])
+  expect(server.previews).toEqual([{ audience: 'shared', name: 'handoff', enabled: true }, { audience: 'shared', name: 'caveman', enabled: true }])
   await expect(toggle(page, 'handoff')).toBeDisabled()
   await expect(page.getByRole('region', { name: 'Handoff change preview' })).toHaveCount(0)
   await page.getByRole('searchbox', { name: 'Search settings', exact: true }).fill('handoff')
@@ -210,11 +210,11 @@ test('recovers retained undo after a failed apply without a source-only fallback
   expect(server.edits()).toBe(0)
 })
 
-test('drops a proposal when the save scope changes and resets the whole personal list', async ({ page }) => {
+test('drops a proposal when the save audience changes and resets the whole personal list', async ({ page }) => {
   const server = await session(page)
   await toggle(page, 'caveman').click()
   await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for the team')
-  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await expect.poll(() => server.cancels).toEqual(['proposal-1'])
@@ -223,14 +223,14 @@ test('drops a proposal when the save scope changes and resets the whole personal
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
   await toggle(page, 'caveman').click()
   await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for you only')
-  expect(server.previews.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: true })
+  expect(server.previews.at(-1)).toEqual({ audience: 'personal', name: 'caveman', enabled: true })
 })
 
-test('a failed scope-switch cancellation can be retried', async ({ page }) => {
+test('a failed audience-switch cancellation can be retried', async ({ page }) => {
   const server = await session(page)
   await toggle(page, 'caveman').click()
   server.failCancel(true)
-  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Preview could not be cancelled.')
   await expect(page.getByRole('alert')).toContainText('The server stopped answering.')
   await expect(toggle(page, 'caveman')).toBeDisabled()
@@ -239,23 +239,23 @@ test('a failed scope-switch cancellation can be retried', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveCount(0)
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await page.reload()
-  await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+  await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Caveman change preview' })).toHaveCount(0)
   expect(server.cancels).toEqual(['proposal-1', 'proposal-1'])
 })
 
-test('switching scope during apply does not cancel the applied preview', async ({ page }) => {
+test('switching audience during apply does not cancel the applied preview', async ({ page }) => {
   const server = await session(page)
   let answer: () => void = () => {}
   const answered = new Promise<void>((resolve) => { answer = resolve })
   await page.route('**/api/changes/builtin/apply', async (route) => {
     server.otherTabApply()
     await answered
-    await route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'applied', id: 'proposal-1', name: 'caveman', enabled: true, scope: 'team', supported: true, undoAvailable: true, undoId: 'proposal-1', undoName: 'caveman', config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } })
+    await route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'applied', id: 'proposal-1', name: 'caveman', enabled: true, audience: 'shared', supported: true, undoAvailable: true, undoId: 'proposal-1', undoName: 'caveman', config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } })
   })
   await toggle(page, 'caveman').click()
   await page.getByRole('button', { name: 'Apply change', exact: true }).click()
-  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
   await page.waitForTimeout(200)
   expect(server.cancels).toEqual([])
   answer()
@@ -275,17 +275,17 @@ test('resets a personal built-in list that matches the team list', async ({ page
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } }))
   await page.route('**/api/changes/builtin/preview', (route) => {
     previews.push(route.request().postDataJSON())
-    return route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'reset-1', enabled: false, reset: true, scope: 'local', supported: true, undoAvailable: false, config: 'agnostic-ai.local.yaml', targets: ['claude'], changes: [], findings: [] } })
+    return route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'reset-1', enabled: false, reset: true, audience: 'personal', supported: true, undoAvailable: false, config: 'agnostic-ai.local.yaml', targets: ['claude'], changes: [], findings: [] } })
   })
   await page.goto('/?view=settings')
   const block = page.locator('section.block').filter({ has: page.getByRole('heading', { name: /Built-ins/ }) })
   await expect(block.locator('.badge', { hasText: 'local' })).toBeVisible()
   await block.getByRole('button', { name: 'Reset built-ins to the team list' }).click()
-  await expect.poll(() => previews.at(-1)).toEqual({ scope: 'local', reset: true })
+  await expect.poll(() => previews.at(-1)).toEqual({ audience: 'personal', reset: true })
   await expect(page.getByRole('region', { name: 'Built-in list reset preview' })).toContainText('agnostic-ai.local.yaml')
 })
 
-test('discards a preview that answers after the save scope changed', async ({ page }) => {
+test('discards a preview that answers after the save audience changed', async ({ page }) => {
   const cancels: unknown[] = []
   let answer: () => void = () => {}
   const answered = new Promise<void>((resolve) => { answer = resolve })
@@ -293,16 +293,16 @@ test('discards a preview that answers after the save scope changed', async ({ pa
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } }))
   await page.route('**/api/changes/builtin/preview', async (route) => {
     await answered
-    await route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'late', name: 'caveman', enabled: true, scope: 'team', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } })
+    await route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'late', name: 'caveman', enabled: true, audience: 'shared', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } })
   })
   await page.route('**/api/changes/builtin/cancel', (route) => {
     cancels.push(route.request().postDataJSON())
     return route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } })
   })
   await page.goto('/?view=settings')
-  await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+  await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
   await toggle(page, 'caveman').click()
-  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
   answer()
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
@@ -318,7 +318,7 @@ test('a failed cancellation of a late preview can be retried', async ({ page }) 
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: idle }))
   await page.route('**/api/changes/builtin/preview', async (route) => {
     await answered
-    await route.fulfill({ json: { ...idle, status: 'proposed', id: 'late', name: 'caveman', enabled: true, scope: 'team', config: 'agnostic-ai.yaml' } })
+    await route.fulfill({ json: { ...idle, status: 'proposed', id: 'late', name: 'caveman', enabled: true, audience: 'shared', config: 'agnostic-ai.yaml' } })
   })
   await page.route('**/api/changes/builtin/cancel', (route) => {
     expect(route.request().postDataJSON()).toEqual({ id: 'late' })
@@ -327,7 +327,7 @@ test('a failed cancellation of a late preview can be retried', async ({ page }) 
   })
   await page.goto('/?view=settings')
   await toggle(page, 'caveman').click()
-  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
   answer()
   await expect(page.getByRole('alert')).toContainText('Cancellation failed.')
   await expect(toggle(page, 'caveman')).toBeDisabled()
@@ -336,21 +336,21 @@ test('a failed cancellation of a late preview can be retried', async ({ page }) 
   expect(attempts).toBe(2)
 })
 
-test('drops a restored proposal saved for another scope', async ({ page }) => {
+test('drops a restored proposal saved for another audience', async ({ page }) => {
   await page.addInitScript(() => window.localStorage.setItem('agnostic-ai.edit-scope', 'local'))
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
-  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'team-1', name: 'caveman', enabled: true, scope: 'team', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } }))
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'team-1', name: 'caveman', enabled: true, audience: 'shared', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } }))
   const cancels: unknown[] = []
   await page.route('**/api/changes/builtin/cancel', (route) => {
     cancels.push(route.request().postDataJSON())
     return route.fulfill({ status: 409, json: { error: 'unexpected' } })
   })
   await page.goto('/?view=settings')
-  await expect(page.getByRole('button', { name: 'Just me (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Personal (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Team (committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Shared (committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.waitForTimeout(300)
   expect(cancels).toEqual([])
 })
@@ -361,7 +361,7 @@ test('shows why a linked worktree needs the CLI for a personal built-in', async 
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } }))
   await page.route('**/api/changes/builtin/preview', (route) => route.fulfill({ status: 400, json: { error: message } }))
   await page.goto('/?view=settings')
-  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
   await toggle(page, 'caveman').click()
   await expect(page.getByRole('alert')).toContainText(message)
   await page.getByRole('button', { name: 'Reload change state' }).click()
@@ -388,7 +388,7 @@ test('previews an effort change with pending source changes and shows a stale va
     previews.push(route.request().postDataJSON())
     if (stale && (route.request().postDataJSON() as { setting: { expected: string } }).setting.expected === 'high') return route.fulfill({ status: 409, json: { error: `${team}: effort changed after this page loaded and is now medium. Reload to review it, then save again` } })
     return route.fulfill({ json: {
-      ...idle, status: 'proposed', id: 'p1', name: 'effort', key: 'effort', title: 'effort set to low', scope: 'team', config: team, targets: ['claude', 'codex'],
+      ...idle, status: 'proposed', id: 'p1', name: 'effort', key: 'effort', title: 'effort set to low', audience: 'shared', config: team, targets: ['claude', 'codex'],
       changes: [{ path: team, action: 'update', diff: '-effort: high\n+effort: low' }, { path: '.claude/agents/reviewer.md', action: 'update', diff: '+Review one change.' }],
       findings: ['This preview also applies pending source changes.'],
     } })
@@ -401,7 +401,7 @@ test('previews an effort change with pending source changes and shows a stale va
   await expect(preview.getByRole('heading', { name: 'Effort set to low' })).toBeVisible()
   await expect(preview.getByRole('note')).toContainText('This preview also applies pending source changes.')
   await expect(preview).toContainText('.claude/agents/reviewer.md')
-  expect(previews.at(-1)).toEqual({ scope: 'team', setting: { path: team, key: 'effort', value: 'low', expected: 'high' } })
+  expect(previews.at(-1)).toEqual({ audience: 'shared', setting: { path: team, key: 'effort', value: 'low', expected: 'high' } })
 
   await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
   stale = true
@@ -412,7 +412,7 @@ test('previews an effort change with pending source changes and shows a stale va
   await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
   await effort.getByRole('button', { name: 'Preview and apply' }).click()
   await expect(preview).toBeVisible()
-  expect(previews.at(-1)).toEqual({ scope: 'team', setting: { path: team, key: 'effort', value: 'low', expected: 'medium' } })
+  expect(previews.at(-1)).toEqual({ audience: 'shared', setting: { path: team, key: 'effort', value: 'low', expected: 'medium' } })
   await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toBeDisabled()
   await expect(page.getByRole('heading', { name: /^Built-ins/ }).locator('..').getByRole('alert')).toHaveCount(0)
 })

@@ -47,9 +47,9 @@ func TestEditScope_FirstPersonalSaveStaysOutOfGit(t *testing.T) {
 	for _, tc := range []struct {
 		name, path, body, file string
 	}{
-		{"scalar field", editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, ".agnostic-ai/local/settings/defaults.yaml"},
-		{"boolean value", editValuePath, `{"scope":"local","path":".agnostic-ai/settings/native.yaml","key":"x-claude.verbose","value":true}`, ".agnostic-ai/local/settings/native.yaml"},
-		{"built-in", editBuiltinPath, `{"scope":"local","name":"handoff","enabled":true}`, "agnostic-ai.local.yaml"},
+		{"scalar field", editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, ".agnostic-ai/local/settings/defaults.yaml"},
+		{"boolean value", editValuePath, `{"audience":"personal","path":".agnostic-ai/settings/native.yaml","key":"x-claude.verbose","value":true}`, ".agnostic-ai/local/settings/native.yaml"},
+		{"built-in", editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true}`, "agnostic-ai.local.yaml"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			project := gitScopeProject(t)
@@ -71,7 +71,7 @@ func TestEditScope_PersonalSaveKeepsAnExistingIgnoreRule(t *testing.T) {
 	mustWrite(t, ".gitignore", "/.agnostic-ai/local/\n")
 	git(t, project, "add", ".gitignore")
 	git(t, project, "commit", "-qm", "ignore")
-	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
 	}
@@ -93,7 +93,7 @@ func TestEditScope_PersonalSaveInANestedProjectAnchorsItsFolder(t *testing.T) {
 	git(t, repo, "commit", "-qm", "base")
 	silence(t)
 	testutil.Chdir(t, project)
-	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
 	}
@@ -108,7 +108,7 @@ func TestEditScope_PersonalSaveInALinkedWorktreeStaysOutOfGit(t *testing.T) {
 	linked := filepath.Join(t.TempDir(), "linked")
 	git(t, main, "worktree", "add", "-q", "--detach", linked)
 	testutil.Chdir(t, linked)
-	rec := postEdit(t, newEditHandler(linked, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(linked, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
 	}
@@ -122,7 +122,7 @@ func TestEditScope_PersonalSaveInAGlobalSourceRepositoryStaysOutOfGit(t *testing
 	git(t, source, "init", "-q")
 	git(t, source, "add", ".")
 	git(t, source, "commit", "-qm", "base")
-	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"scope":"local","path":"settings/native.yaml","key":"effort","value":"high"}`, nil)
+	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"audience":"personal","path":"settings/native.yaml","key":"effort","value":"high"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
 	}
@@ -133,7 +133,7 @@ func TestEditScope_PersonalSaveOutsideGitNeedsNoExclusion(t *testing.T) {
 	isolateGit(t)
 	t.Setenv("GIT_CEILING_DIRECTORIES", os.TempDir())
 	project := scopeProject(t)
-	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
 	}
@@ -147,7 +147,7 @@ func TestEditScope_PersonalSaveRefusesWhenGitLayoutFails(t *testing.T) {
 	t.Setenv("GIT_CONFIG_COUNT", "invalid")
 	gitquery.Reset()
 	t.Cleanup(gitquery.Reset)
-	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "Git") {
 		t.Fatalf("save = %d %s, want a refusal that names Git", rec.Code, rec.Body)
 	}
@@ -155,7 +155,7 @@ func TestEditScope_PersonalSaveRefusesWhenGitLayoutFails(t *testing.T) {
 		t.Errorf("the refused save wrote the overlay: %v", err)
 	}
 	t.Setenv("GIT_CONFIG_COUNT", "0")
-	rec = postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	rec = postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("retry after Git recovered = %d %s", rec.Code, rec.Body)
 	}
@@ -188,7 +188,7 @@ func TestEditScope_PersonalSaveRefusesWhenGitCannotIgnoreIt(t *testing.T) {
 	if err := os.MkdirAll(".git/info/exclude", 0o755); err != nil {
 		t.Fatal(err)
 	}
-	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "Git") {
 		t.Fatalf("save = %d %s, want a refusal that names Git", rec.Code, rec.Body)
 	}

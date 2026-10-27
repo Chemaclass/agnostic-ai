@@ -169,7 +169,7 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
     await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
     expect(await readFile(f.config, 'utf8')).toBe(f.configBytes)
 
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     const verbose = page.getByRole('switch', { name: 'x-claude.verbose', exact: true })
     await expect(verbose).toHaveAttribute('aria-checked', 'false')
     await verbose.click()
@@ -205,7 +205,7 @@ test('live just-me built-in outside the team block goes to info/exclude and rese
     const personalBlock = '# >>> agnostic-ai (personal)'
 
     await page.goto(`${f.url}?view=settings`)
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     const caveman = page.getByRole('switch', { name: 'caveman built-in' })
     await caveman.click()
     await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
@@ -238,7 +238,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the team valu
     await git('commit', '--quiet', '-m', 'Team setup')
 
     await page.goto(`${f.url}?view=settings`)
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await model.getByRole('textbox', { name: 'Default model value' }).fill('opus')
     await model.getByRole('button', { name: 'Preview and apply' }).click()
@@ -262,7 +262,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the team valu
     await expect(stat(join(f.root, '.claude', 'skills', 'handoff', 'SKILL.md'))).rejects.toThrow()
     expect(await readFile(shared, 'utf8')).toBe('name: defaults\ndescription: Team defaults.\nmodel: sonnet\n')
 
-    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
     await model.getByRole('button', { name: 'Preview personal reset' }).click()
     await page.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
     await expect(model.locator('.badge', { hasText: 'local' })).toHaveCount(0)
@@ -290,7 +290,7 @@ test('live first just-me save before any ignore rule stays out of Git', async ({
     await git('commit', '--quiet', '-m', 'Team setup')
 
     await page.goto(`${f.url}?view=settings`)
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await model.getByRole('textbox', { name: 'Default model value' }).fill('opus')
     await model.getByRole('button', { name: 'Preview and apply' }).click()
@@ -315,7 +315,7 @@ test('live global edits keep the last local builtin disabled and enforce browser
     await expect(page.getByText('Saves source files. Run agnostic-ai sync --global to apply them to your tools.', { exact: true })).toHaveCount(1)
     const memory = page.getByRole('switch', { name: 'memory built-in' })
     await expect(memory).toHaveAttribute('aria-checked', 'true')
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     await memory.click()
     await expect(memory).toHaveAttribute('aria-checked', 'false')
     await page.reload()
@@ -328,15 +328,15 @@ test('live global edits keep the last local builtin disabled and enforce browser
 
     const edit = `${f.url}api/edit/builtin`
     const before = await readFile(join(f.root, 'local', 'agnostic-ai.yaml'), 'utf8')
-    const foreign = await request.post(edit, { headers: { Origin: 'http://localhost:9876' }, data: { scope: 'team', name: 'memory', enabled: true } })
+    const foreign = await request.post(edit, { headers: { Origin: 'http://localhost:9876' }, data: { audience: 'shared', name: 'memory', enabled: true } })
     expect(foreign.status()).toBe(403)
     const wrongHost = await request.get(`${f.url}api/views/authority/schema`, { headers: { Host: 'attacker.example' } })
     expect(wrongHost.status()).toBe(421)
     const wrongType = await request.post(edit, { headers: { 'Content-Type': 'text/plain' }, data: '{}' })
     expect(wrongType.status()).toBe(415)
-    const crossSite = await request.post(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' }, data: { scope: 'team', name: 'memory', enabled: true } })
+    const crossSite = await request.post(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' }, data: { audience: 'shared', name: 'memory', enabled: true } })
     expect(crossSite.status()).toBe(403)
-    const missingBoolean = await request.post(edit, { data: { scope: 'local', name: 'memory' } })
+    const missingBoolean = await request.post(edit, { data: { audience: 'personal', name: 'memory' } })
     expect(missingBoolean.status()).toBe(400)
     expect(await readFile(join(f.root, 'local', 'agnostic-ai.yaml'), 'utf8')).toBe(before)
   } finally {
@@ -377,7 +377,7 @@ test('live Authority, overview, and edit errors redact configured credentials', 
     expect(await readFile(permissions, 'utf8')).toBe(rules)
     const invalid = f.configBytes.replace('builtins: []', `builtins: [${token}]`)
     await put(f.config, invalid)
-    const refused = await request.post(`${f.url}api/edit/builtin`, { data: { scope: 'team', name: 'memory', enabled: true } })
+    const refused = await request.post(`${f.url}api/edit/builtin`, { data: { audience: 'shared', name: 'memory', enabled: true } })
     expect(refused.status()).toBe(422)
     expect(JSON.stringify(await refused.json())).not.toContain(token)
     expect(await readFile(f.config, 'utf8')).toBe(invalid)
@@ -490,7 +490,7 @@ test('Caveman preview repairs pending Handoff outputs and undo restores the orig
     const config = f.configBytes.replace('- claude # team tool', '- claude # team tool\n    - codex')
     await put(f.config, config)
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
-    const legacy = await request.post(`${f.url}api/edit/builtin`, { data: { scope: 'team', name: 'handoff', enabled: true } })
+    const legacy = await request.post(`${f.url}api/edit/builtin`, { data: { audience: 'shared', name: 'handoff', enabled: true } })
     expect(legacy.status()).toBe(200)
     await put(f.localSettings, f.localBytes.replace('alwaysThinkingEnabled: true', 'alwaysThinkingEnabled: false'))
     const before = await projectFiles(f.root)
@@ -788,7 +788,7 @@ test('live Settings rejects a stale personal preview from another tab', async ({
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
     for (const tab of [page, other]) {
       await tab.goto(`${f.url}?view=settings`)
-      await tab.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+      await tab.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     }
     const model = (tab: typeof page) => tab.locator('.field-row').filter({ has: tab.getByText('Default model', { exact: true }) })
     await model(other).getByRole('textbox', { name: 'Default model value' }).fill('haiku')

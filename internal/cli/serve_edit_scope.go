@@ -23,22 +23,62 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// editScope says which files an edit writes: the committed team files,
-// or the personal, git-ignored ones that overlay them.
-type editScope string
+// editAudience says which files an edit writes: the committed shared
+// files, or the personal, git-ignored ones that overlay them.
+type editAudience string
 
 const (
-	scopeTeam  editScope = "team"
-	scopeLocal editScope = "local"
+	audienceShared   editAudience = "shared"
+	audiencePersonal editAudience = "personal"
 )
 
-var errEditScope = errors.New(`scope must be "team" or "local"`)
+// legacyScopes are the names requests sent before audience. They stay
+// accepted until the next minor release.
+var legacyScopes = map[string]editAudience{"team": audienceShared, "local": audiencePersonal}
 
-func parseEditScope(s string) (editScope, error) {
-	if s := editScope(s); s == scopeTeam || s == scopeLocal {
-		return s, nil
+var (
+	errEditAudience = errors.New(`audience must be "shared" or "personal"`)
+	errEditScope    = errors.New(`scope must be "team" or "local"; send audience "shared" or "personal" instead`)
+	errAudienceDiff = errors.New("audience and scope disagree; send audience alone")
+)
+
+type audienceFields struct {
+	Audience string `json:"audience"`
+	Scope    string `json:"scope"`
+}
+
+func (f audienceFields) sent() bool {
+	return f.Audience != "" || f.Scope != ""
+}
+
+func (f audienceFields) audience() (editAudience, error) {
+	audience := editAudience(f.Audience)
+	if f.Audience != "" && audience != audienceShared && audience != audiencePersonal {
+		return "", errEditAudience
 	}
-	return "", errEditScope
+	if f.Scope == "" {
+		if f.Audience == "" {
+			return "", errEditAudience
+		}
+		return audience, nil
+	}
+	legacy, ok := legacyScopes[f.Scope]
+	switch {
+	case !ok:
+		return "", errEditScope
+	case f.Audience != "" && legacy != audience:
+		return "", errAudienceDiff
+	}
+	return legacy, nil
+}
+
+func (a editAudience) legacyScope() string {
+	for scope, audience := range legacyScopes {
+		if audience == a {
+			return scope
+		}
+	}
+	return ""
 }
 
 // builtinsConfigFiles are the committed config and the personal one whose
@@ -67,16 +107,16 @@ type builtinRequest struct {
 // local edit copies the team list into the personal config first, since
 // that list replaces the team one whole, and drops it again once it
 // matches the team list.
-func (h *editHandler) builtinsEdit(scope editScope, req builtinRequest) (string, func([]byte) ([]byte, error), error) {
+func (h *editHandler) builtinsEdit(where editAudience, req builtinRequest) (string, func([]byte) ([]byte, error), error) {
 	team, local := h.builtinsConfigFiles()
 	localData, err := os.ReadFile(local)
 	localMissing := os.IsNotExist(err)
 	if err != nil && !localMissing {
 		return "", nil, fmt.Errorf("%s: %w", local, err)
 	}
-	if scope == scopeTeam {
+	if where == audienceShared {
 		if req.reset {
-			return "", nil, fmt.Errorf("%s: reset applies to your personal list; send scope local", overviewDisplay(h.root, local))
+			return "", nil, fmt.Errorf("%s: reset applies to your personal list; send audience personal", overviewDisplay(h.root, local))
 		}
 		if personal, err := personalBuiltins(localData); err != nil || personal != nil {
 			return "", nil, cmp.Or(err, fmt.Errorf("%s sets builtins for you; reset it before changing the team list", overviewDisplay(h.root, local)))
@@ -236,9 +276,9 @@ func overviewBuiltins(root string, global bool) ([]string, bool) {
 // spec e writes, and the text that file starts from when it is new. A team
 // edit writes the shared spec behind a local overlay; a local edit writes
 // the overlay, which is created next to the other personal specs.
-func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editScope) (string, string, error) {
+func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, where editAudience) (string, string, error) {
 	local := overview.LocalLayer(e)
-	if scope == scopeLocal {
+	if where == audiencePersonal {
 		file, scaffold := e.Path, fieldCreatedSpec
 		switch {
 		case local && e.Base != nil:
@@ -260,7 +300,7 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editSco
 		return e.Path, "", nil
 	}
 	if e.Base == nil {
-		return "", "", fmt.Errorf("%s is a personal spec with no team value; switch to Just me to edit it", overview.SpecPath(h.root, e))
+		return "", "", fmt.Errorf("%s is a personal spec with no team value; switch to Personal to edit it", overview.SpecPath(h.root, e))
 	}
 	if overview.LocalSets(e, key) {
 		return "", "", fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, e), key)}
@@ -271,7 +311,7 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editSco
 	return e.Base.Path, "", nil
 }
 
-// checkPersonalTarget refuses a Just me write unless file resolves,
+// checkPersonalTarget refuses a personal write unless file resolves,
 // through every link, inside the personal folder (or is the personal
 // config itself), outside every team source, and is not tracked by Git.
 func (h *editHandler) checkPersonalTarget(file string) error {
@@ -298,7 +338,7 @@ func (h *editHandler) checkPersonalTarget(file string) error {
 	return nil
 }
 
-// personalRoot is the personal folder a Just me write of file must stay
+// personalRoot is the personal folder a personal write of file must stay
 // in, or the personal config when file is that config.
 func (h *editHandler) personalRoot(file string) (root string, folder bool) {
 	if _, personalConfig := h.builtinsConfigFiles(); filepath.Clean(file) == filepath.Clean(personalConfig) && !h.global {
@@ -307,7 +347,7 @@ func (h *editHandler) personalRoot(file string) (root string, folder bool) {
 	return filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x")))), true
 }
 
-// keepPersonalOutOfGit makes sure Git ignores file before a Just me write
+// keepPersonalOutOfGit makes sure Git ignores file before a personal write
 // creates it. When no rule ignores it yet, the personal folder, or the
 // personal config, goes into the repository's info/exclude, which a
 // linked worktree shares with its main checkout. Outside a work tree

@@ -31,7 +31,7 @@ const fieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Defa
 
 // fieldEdit resolves an editable source spec, never an arbitrary client path,
 // and stores the loaded spec it edits in picked.
-func (h *editHandler) fieldEdit(where editScope, shown string, addr fieldAddress, raw json.RawMessage, picked *spec.Entry) (string, func([]byte) ([]byte, error), error) {
+func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddress, raw json.RawMessage, picked *spec.Entry) (string, func([]byte) ([]byte, error), error) {
 	key := addr.key
 	if key != "model" && key != "effort" && key != "session-retention-days" {
 		return "", nil, fmt.Errorf("%s is not an editable field", key)
@@ -151,7 +151,7 @@ func (h *editHandler) fieldEdit(where editScope, shown string, addr fieldAddress
 		}
 	}
 	scaffold := fieldCreatedSpec
-	if where == scopeLocal {
+	if where == audiencePersonal {
 		return h.localFieldEdit(chosen, addr, value)
 	}
 	if chosen.Path != "" && overview.LocalLayer(chosen) && chosen.Base == nil {
@@ -159,7 +159,7 @@ func (h *editHandler) fieldEdit(where editScope, shown string, addr fieldAddress
 	}
 	if chosen.Path != "" {
 		var err error
-		if file, _, err = h.scopedSettingsFile(chosen, addr.personalKey(chosen), scopeTeam); err != nil {
+		if file, _, err = h.scopedSettingsFile(chosen, addr.personalKey(chosen), audienceShared); err != nil {
 			return "", nil, err
 		}
 	}
@@ -195,7 +195,7 @@ func (h *editHandler) localFieldEdit(chosen spec.Entry, addr fieldAddress, value
 		return "", nil, noPersonalValueError{fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), addr.label())}
 	}
 	if chosen.Path != "" {
-		file, scaffold, err := h.scopedSettingsFile(chosen, key, scopeLocal)
+		file, scaffold, err := h.scopedSettingsFile(chosen, key, audiencePersonal)
 		if err != nil {
 			return "", nil, err
 		}
@@ -368,9 +368,9 @@ func expectFieldValue(addr fieldAddress, expected *string, clearing bool, inheri
 
 // inheritedFieldText is the value the page shows for key at file, the one
 // a field edit of chosen writes, when file leaves the key out.
-func inheritedFieldText(where editScope, chosen spec.Entry, file string, addr fieldAddress) *fieldText {
+func inheritedFieldText(where editAudience, chosen spec.Entry, file string, addr fieldAddress) *fieldText {
 	local := overview.LocalLayer(chosen)
-	if chosen.Path == "" || where == scopeLocal && (!local || chosen.Base != nil) || where == scopeTeam && local && chosen.Base == nil {
+	if chosen.Path == "" || where == audiencePersonal && (!local || chosen.Base != nil) || where == audienceShared && local && chosen.Base == nil {
 		return nil
 	}
 	if data, err := os.ReadFile(file); err == nil {

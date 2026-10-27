@@ -80,11 +80,11 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var file string
 	var edit func([]byte) ([]byte, error)
 	var sourceGuard func() error
-	var scope editScope
+	var audience editAudience
 	switch r.URL.Path {
 	case editBuiltinPath:
 		var req struct {
-			Scope    string          `json:"scope"`
+			audienceFields
 			Target   string          `json:"target"`
 			Name     string          `json:"name"`
 			Enabled  *bool           `json:"enabled"`
@@ -107,12 +107,12 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
 			return
 		}
-		scope, err = parseEditScope(req.Scope)
+		audience, err = req.audience()
 		if err == nil && len(req.Expected) > 0 {
 			err = h.checkBuiltinExpected(req.Name, req.Reset, req.Expected)
 		}
 		if err == nil {
-			file, edit, err = h.builtinsEdit(scope, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
+			file, edit, err = h.builtinsEdit(audience, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
 		}
 		if err == nil && len(req.Expected) > 0 {
 			team, local := h.builtinsConfigFiles()
@@ -123,7 +123,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if err := h.checkBuiltinExpected(req.Name, req.Reset, req.Expected); err != nil {
 					return nil, err
 				}
-				currentFile, next, err := h.builtinsEdit(scope, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
+				currentFile, next, err := h.builtinsEdit(audience, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
 				if err != nil {
 					return nil, err
 				}
@@ -139,7 +139,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	case editValuePath:
 		var req struct {
-			Scope    string          `json:"scope"`
+			audienceFields
 			Target   string          `json:"target"`
 			Path     string          `json:"path"`
 			Key      string          `json:"key"`
@@ -155,12 +155,12 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "the key names the tool already; send target all or leave it out"})
 			return
 		}
-		scope, err = parseEditScope(req.Scope)
+		audience, err = req.audience()
 		if err == nil && len(req.Expected) > 0 {
 			err = h.checkBooleanExpected(req.Path, req.Key, req.Expected)
 		}
 		if err == nil {
-			file, edit, err = h.settingsEdit(scope, req.Path, req.Key, value)
+			file, edit, err = h.settingsEdit(audience, req.Path, req.Key, value)
 		}
 		if err == nil && len(req.Expected) > 0 {
 			var paths []string
@@ -174,7 +174,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if err := h.checkBooleanExpected(req.Path, req.Key, req.Expected); err != nil {
 					return nil, err
 				}
-				currentFile, next, err := h.settingsEdit(scope, req.Path, req.Key, value)
+				currentFile, next, err := h.settingsEdit(audience, req.Path, req.Key, value)
 				if err != nil {
 					return nil, err
 				}
@@ -190,7 +190,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	case editFieldPath:
 		var req struct {
-			Scope    string          `json:"scope"`
+			audienceFields
 			Target   string          `json:"target"`
 			Path     string          `json:"path"`
 			Key      string          `json:"key"`
@@ -208,9 +208,9 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		var chosen spec.Entry
 		addr := newFieldAddress(req.Key, req.Target)
-		scope, err = parseEditScope(req.Scope)
+		audience, err = req.audience()
 		if err == nil {
-			file, edit, err = h.fieldEdit(scope, req.Path, addr, req.Value, &chosen)
+			file, edit, err = h.fieldEdit(audience, req.Path, addr, req.Value, &chosen)
 		}
 		var source fieldSourceError
 		var nothing noPersonalValueError
@@ -230,14 +230,14 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(req.Expected) > 0 {
-			edit = expectFieldValue(addr, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(scope, chosen, file, addr), edit)
+			edit = expectFieldValue(addr, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(audience, chosen, file, addr), edit)
 		}
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})
 		return
 	}
 	var prepare func() (func(bool) error, error)
-	if scope == scopeLocal {
+	if audience == audiencePersonal {
 		prepare = func() (func(bool) error, error) {
 			finish, err := h.preparePersonalOutOfGit(file)
 			if err != nil {
@@ -291,7 +291,7 @@ func editRequestGuard(r *http.Request) (int, string) {
 // Only a boolean present in the loaded settings can gain a local override.
 // A nil value resets the personal override, and removes a personal file
 // that then only names its spec.
-func (h *editHandler) settingsEdit(where editScope, shown, key string, value *bool) (string, func([]byte) ([]byte, error), error) {
+func (h *editHandler) settingsEdit(where editAudience, shown, key string, value *bool) (string, func([]byte) ([]byte, error), error) {
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
 		return "", nil, err
@@ -311,8 +311,8 @@ func (h *editHandler) settingsEdit(where editScope, shown, key string, value *bo
 		if _, ok := current.(bool); !ok {
 			return "", nil, fmt.Errorf("%s is not a boolean", key)
 		}
-		if value == nil && (where != scopeLocal || !overview.LocalSets(e, key)) {
-			return "", nil, fmt.Errorf("%s has no personal value to reset; send scope local for a key your file sets", key)
+		if value == nil && (where != audiencePersonal || !overview.LocalSets(e, key)) {
+			return "", nil, fmt.Errorf("%s has no personal value to reset; send audience personal for a key your file sets", key)
 		}
 		file, scaffold, err := h.scopedSettingsFile(e, key, where)
 		if err != nil {
