@@ -10,7 +10,7 @@ target_id = "codebuddy"
 
 # CodeBuddy Code (`codebuddy`)
 
-Use `codebuddy` for Tencent's CodeBuddy Code CLI. This adapter follows the [official CLI documentation](https://www.codebuddy.ai/docs/cli/installation) and npm package `@tencent-ai/codebuddy-code` 2.173.0.
+Use `codebuddy` for Tencent's CodeBuddy Code CLI. This adapter follows the [official CLI documentation](https://www.codebuddy.ai/docs/cli/installation) and npm package `@tencent-ai/codebuddy-code` 2.177.0.
 
 Select it explicitly with `targets: [codebuddy]`. It is outside the default target list because native agent names reject digits, and scoped or empty agent tool lists cannot always be represented.
 

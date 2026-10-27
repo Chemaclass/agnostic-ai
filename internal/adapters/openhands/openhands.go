@@ -62,7 +62,7 @@
 // which will run every time OpenHands begins working with your
 // repository" (docs.openhands.dev/openhands/usage/customization/repository).
 // Hooks emit to `.openhands/hooks.json`, configured "per-repository"
-// and honored "across Cloud, CLI, and local GUI setups". The vendor's
+// and honored "across Agent Canvas, OpenHands Cloud, and OpenHands Enterprise". The vendor's
 // native layout uses snake_case event keys with no wrapper, and
 // documents the Claude shape as equally supported: "PascalCase event
 // keys (e.g., `PreToolUse`) and the `{"hooks": {...}}` wrapper are both

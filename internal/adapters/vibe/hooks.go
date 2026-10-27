@@ -25,7 +25,7 @@ func (Adapter) UserHookRecordsForPlatform(hooks []spec.Entry, scriptsDir, platfo
 			switch key {
 			case "name", "type", "command", "match", "timeout", "strict", "description", "event", "matcher", "args", "commandWindows":
 			default:
-				return nil, fmt.Errorf("vibe: hook %s native field %q is not supported by v3.0.2", h.Name, key)
+				return nil, fmt.Errorf("vibe: hook %s native field %q is not supported by v3.0.3", h.Name, key)
 			}
 		}
 		event, _ := m["event"].(string)

@@ -71,7 +71,7 @@ opencode.json                             # when MCP entries exist (merged with 
 
 - `disable-model-invocation: true` keeps a skill out of the model's available list in OpenCode V2 (verified with 2.0.26). Explicit loading by ID still works. V1 does not enforce this field. Native `metadata.opencode/autoinvoke` takes precedence when both forms are set, and import preserves both.
 - `outputs.opencode.emit-skills-as-commands: true` also writes the command form. Its relative links to bundled files point into the skill folder (`../skills/<name>/references/x.md`). Other links stay as written.
-- Names must be 1-64 lowercase letters or digits, with single hyphens between segments (the vendor's `name` rule, which Zed also enforces). `Deploy`, `my_skill`, and `my--skill` fail sync with the required format. Sync does not rename them, because OpenCode would skip the folder.
+- Names must be 1-64 lowercase letters or digits, with single hyphens between segments (the vendor's `name` rule, which Zed also enforces). `Deploy`, `my_skill`, and `my--skill` fail sync with the required format. Sync does not rename them, because OpenCode V1 would skip the folder (V2 does not enforce the pattern).
 
 ### Commands
 
@@ -93,7 +93,7 @@ One [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. T
 
 ### MCP
 
-`opencode.json` in the project root gets a `$schema` link and the `mcp` map.
+`opencode.json` in the project root gets a `$schema` link and the `mcp` map. The linked schema marks the V1 keys sync writes (`permission`, `mcp.<name>`) as deprecated. Sync keeps them because V1 and V2 both read them.
 
 - OpenCode V2 stores servers under `mcp.servers`. `import opencode` keeps the complete native MCP configuration in `settings/opencode-mcp.yaml`, under `x-opencode.mcp`. Sync restores it even without the original JSON file. This import and sync behavior is verified against V2 2.0.26.
 - Native V2 settings and portable MCP specs cannot both own the MCP configuration. Sync reports the conflicting spec paths. Use one representation for OpenCode.
