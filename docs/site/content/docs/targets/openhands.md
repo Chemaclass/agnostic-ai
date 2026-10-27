@@ -98,7 +98,7 @@ No file. OpenHands keeps MCP servers in its [settings store](https://docs.openha
 
 The next sync removes a `config.toml` that an earlier release wrote. `import openhands` still reads the `[mcp]` table of a legacy `config.toml` into specs.
 
-Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --global` no longer writes it. The next `sync --global` removes the servers an earlier release wrote there, and the file too when sync created it and nothing else is left. Servers you added stay. `import --global openhands` still reads the file into specs.
+Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --global` no longer writes it. The next `sync --global` removes the servers sync recorded as its own there. That includes a hand-written server an earlier sync adopted because it matched a spec exactly. Sync also removes the file when it created it and nothing else is left. Other servers stay. Run `sync --global --backup` to keep a copy of the file first. `import --global openhands` still reads the file into specs.
 
 </details>
 

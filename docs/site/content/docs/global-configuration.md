@@ -204,7 +204,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
 
-OpenHands has no user MCP file sync can write. Sync prints a note that points at Agent Canvas **Customize > MCP Servers**, and removes the servers an earlier release wrote to `~/.openhands/mcp.json`. See [OpenHands MCP](@/docs/targets/openhands.md#mcp).
+OpenHands has no user MCP file sync can write. Sync prints a note that points at Agent Canvas **Customize > MCP Servers**, and removes the servers an earlier sync recorded as its own in `~/.openhands/mcp.json`. See [OpenHands MCP](@/docs/targets/openhands.md#mcp).
 
 Each server follows the per-key rules above:
 

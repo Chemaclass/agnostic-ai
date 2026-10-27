@@ -402,6 +402,30 @@ func TestSyncGlobal_OpenHandsCleanupFollowsPersistenceDir(t *testing.T) {
 	}
 }
 
+// A hand-written server an earlier sync adopted because it matched a spec
+// is recorded as sync's own, so the cleanup takes it; --backup keeps the
+// file as it was.
+func TestSyncGlobal_OpenHandsCleanupRemovesAnAdoptedServerAndBackupKeepsIt(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	path := filepath.Join(home, ".openhands", "mcp.json")
+	adopted := "{\"mcpServers\": {\"docs\": {\"command\": \"docs-mcp\", \"args\": [\"--stdio\"]}, \"web\": {\"url\": \"https://x.test/sse\"}}}\n"
+	mustWriteGlobalTest(t, path, adopted)
+	syncOpenHandsMCPAsBefore(t)
+	if got := readGlobalTest(t, path); got != adopted {
+		t.Fatalf("the earlier sync changed the adopted file:\n%s", got)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "openhands", "--backup"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); strings.Contains(got, "docs-mcp") || !strings.Contains(got, "x.test") {
+		t.Errorf("cleanup must take the adopted server and keep web:\n%s", got)
+	}
+	if got := readGlobalTest(t, path+".bak"); got != adopted {
+		t.Errorf("mcp.json.bak = %q, want %q", got, adopted)
+	}
+}
+
 // A user's own mcp.json, which no sync wrote, stays byte for byte.
 func TestSyncGlobal_OpenHandsLeavesAHandWrittenUserFile(t *testing.T) {
 	home, source := globalAgentTestHome(t)

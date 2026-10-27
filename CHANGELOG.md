@@ -21,7 +21,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### OpenHands
 
-- **Breaking:** `sync --global` no longer writes `~/.openhands/mcp.json`, which only the unmaintained OpenHands-CLI reads. Add MCP servers in Agent Canvas under **Customize > MCP Servers**, or pass `mcp_config` to the SDK. The next sync removes the servers it wrote there and keeps yours; `import --global openhands` still reads the file (#2576).
+- **Breaking:** `sync --global` no longer writes `~/.openhands/mcp.json`, which only the unmaintained OpenHands-CLI reads. Add MCP servers in Agent Canvas under **Customize > MCP Servers**, or pass `mcp_config` to the SDK. The next sync removes the servers it recorded as its own there, including a hand-written one an earlier sync adopted because it matched a spec exactly; `--backup` keeps a copy, and `import --global openhands` still reads the file (#2576).
 
 ### Site
 
