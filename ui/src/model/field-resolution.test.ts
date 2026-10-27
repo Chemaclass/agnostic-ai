@@ -23,12 +23,22 @@ describe('field resolution answers', () => {
     expect(generatedAnswer(tool({ value: 'gpt-6.1-sol', alias: 'sol', tier: 'deep' }))).toBe('Sync writes gpt-6.1-sol (resolved from sol and from model tier deep).')
     expect(generatedAnswer(tool({}))).toBe('No settings spec sets a value for Claude Code, so sync writes none and Claude Code keeps its own default.')
     expect(generatedAnswer(tool({ value: 'high', dropped: 'the settings file has no repository effort key' }))).toBe('Sync writes no value: the settings file has no repository effort key. Claude Code keeps its own default.')
-    expect(generatedAnswer(tool({ value: 'opus', checked: false }))).toContain('was not checked')
+    expect(generatedAnswer(tool({ value: 'opus', checked: false }))).toContain('is unknown')
   })
 
   it('reports installed files from the generated-file status only', () => {
     expect(installedAnswer('Codex', 'in-sync')).toBe('Installed Codex files match what sync would write.')
     expect(installedAnswer('Codex', 'drifted')).toContain('run sync')
     expect(installedAnswer('Codex', undefined)).toBe('Installed Codex files were not checked.')
+  })
+
+  it('does not claim an unchecked value is written or absent', () => {
+    const unchecked = tool({ target: 'cursor', label: 'Cursor', value: 'high', checked: false })
+    expect(valueGroups([unchecked, tool({})])).toEqual([
+      { unchecked: true, labels: ['Cursor'] },
+      { value: undefined, labels: ['Claude Code'] },
+    ])
+    expect(generatedAnswer(unchecked)).toBe('The configured value for Cursor is high, but sync was not rendered here, so whether its files take this value is unknown.')
+    expect(generatedAnswer(tool({ checked: false }))).toBe('No settings spec sets a value for Claude Code. Sync was not rendered here, so what its files take is unknown.')
   })
 })
