@@ -19,6 +19,14 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `post_agent` hooks accept `match` and `matcher`, so a hook runs only after one agent, as Vibe 3.0.3 allows (#2577).
 - Sync stops on an agent named `main` in any case, which Vibe 3.0.3 reserves and does not load; import notes it (#2575).
 
+#### OpenCode
+
+- Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
+
+#### OpenHands
+
+- **Breaking:** `sync --global` no longer writes `~/.openhands/mcp.json`, which only the unmaintained OpenHands-CLI reads. Add MCP servers in Agent Canvas under **Customize > MCP Servers**, or pass `mcp_config` to the SDK. The next sync removes the servers it recorded as its own there, including a hand-written one an earlier sync adopted because it matched a spec exactly; `--backup` keeps a copy, and `import --global openhands` still reads the file (#2576).
+
 ### Site
 
 - The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).

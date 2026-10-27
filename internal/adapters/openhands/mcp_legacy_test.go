@@ -25,10 +25,9 @@ func mcpSpecimens() []spec.Entry {
 	}
 }
 
-// Current OpenHands releases read MCP servers only from
-// ~/.openhands/mcp.json, never a project config.toml (#1252), so project
-// sync writes nothing for them, wherever outputs.openhands.mcp-file
-// points (#1259).
+// OpenHands keeps MCP servers in its settings store and never reads a
+// project config.toml (#1252, #2576), so project sync writes nothing for
+// them, wherever outputs.openhands.mcp-file points (#1259).
 func TestEmit_MCPWritesNoProjectFile(t *testing.T) {
 	for name, cfg := range map[string]*config.Config{
 		"default":  {},
@@ -46,9 +45,9 @@ func TestEmit_MCPWritesNoProjectFile(t *testing.T) {
 	}
 }
 
-// The servers still reach OpenHands through sync --global, so one note
-// says where they went, and no unsupported warning claims they are lost.
-func TestEmit_MCPNotesGlobalSyncOnce(t *testing.T) {
+// One note says where to add the servers, and no unsupported warning
+// claims they are lost: an agent's mcp_servers still takes them.
+func TestEmit_MCPNotesSettingsOnce(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
 	emit.ResetCapabilityWarnings()
@@ -70,7 +69,7 @@ func TestEmit_MCPNotesGlobalSyncOnce(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("want one note, got %d:\n%s", len(lines), buf.String())
 	}
-	for _, want := range []string{"4 mcps reach openhands", "~/.openhands/mcp.json", "~/.agnostic-ai/mcps/", "agnostic-ai sync --global"} {
+	for _, want := range []string{"4 mcps reach openhands", "Customize > MCP Servers", "mcp_config"} {
 		if !strings.Contains(lines[0], want) {
 			t.Errorf("note lacks %q: %s", want, lines[0])
 		}

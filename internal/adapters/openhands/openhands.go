@@ -47,12 +47,14 @@
 // key. See path_rules.go for the glob-resolution and rendering.
 //
 
-// MCP servers have no project output. Current OpenHands releases read
-// them from ~/.openhands/mcp.json and never from a project config.toml
-// `[mcp]` section, which the vendor calls legacy V0 (#1252). Project sync
-// prints one coverage note, and sync --global writes the user file
-// through UserMCPServers (#1259). `import openhands` still reads a legacy
-// config.toml, so a team can move its servers into specs.
+// MCP servers have no file output. Agent Canvas, Cloud, and the SDK keep
+// them in the OpenHands settings store, "Customize > MCP Servers", and
+// read no project config.toml `[mcp]` section, which the vendor calls
+// legacy V0 (#1252), nor ~/.openhands/mcp.json, which only the
+// unmaintained OpenHands-CLI reads (#2576). Project and global sync print
+// one note each. `import openhands` still reads a legacy config.toml, and
+// `import --global openhands` a legacy mcp.json, so a team can move its
+// servers into specs.
 //
 // An environment spec's `install` field writes `.openhands/setup.sh`
 // (override via outputs.openhands.setup-file), the vendor's documented
@@ -100,7 +102,7 @@ var caps = emit.Capabilities{
 	// only through the shared AGENTS.md entry-point sync writes
 	// centrally, while a path-triggered rule (paths/globs/scope) writes
 	// its own skill folder directly (see path_rules.go). KindMCP reaches
-	// OpenHands only through sync --global.
+	// OpenHands only through an agent's mcp_servers.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindEnvironment},
 	// Each name in an agent's mcpServers is written to mcp_servers as
 	// the MCP spec's inline definition, the only form OpenHands takes.
@@ -144,7 +146,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
-	noteMCPGlobalOnly(b.MCPs)
+	noteMCPSettingsOnly(b.MCPs)
 	return nil
 }
 
@@ -187,32 +189,36 @@ func noteDroppedAgentColor(agents []spec.Entry) {
 		"`.agents/agents/<name>.md` is shared byte-for-byte with Goose, whose frontmatter has no color key; set x-openhands.color to emit it for openhands only")
 }
 
-// noteMCPGlobalOnly points MCP specs at sync --global.
-// docs.openhands.dev/openhands/usage/settings/mcp-settings: "Current
-// OpenHands releases don't read MCP servers from a config.toml [mcp]
-// section ... That format belongs to legacy OpenHands (V0)".
-func noteMCPGlobalOnly(mcps []spec.Entry) {
+// MCPSettingsHint says where OpenHands users add MCP servers instead.
+// docs.openhands.dev/openhands/usage/settings/mcp-settings: "Agent
+// Canvas saves MCP servers in its settings store ... Manage servers from
+// Customize > MCP Servers rather than editing that file. There is no
+// per-project MCP configuration file."
+const MCPSettingsHint = "OpenHands keeps MCP servers in its settings, not in a file sync can write; add them in Agent Canvas under Customize > MCP Servers, or pass mcp_config to the SDK"
+
+// noteMCPSettingsOnly points MCP specs at the OpenHands settings.
+func noteMCPSettingsOnly(mcps []spec.Entry) {
 	for _, m := range mcps {
 		emit.NoteEntryOmitted(target, spec.KindMCP, m.Name)
 	}
-	emit.NoteCoverageGap(target, spec.KindMCP, len(mcps),
-		"current OpenHands releases read MCP servers from ~/.openhands/mcp.json; copy the specs to ~/.agnostic-ai/mcps/ and run `agnostic-ai sync --global`")
+	emit.NoteCoverageGap(target, spec.KindMCP, len(mcps), MCPSettingsHint)
 }
 
-// UserMCPServers renders mcps as the `mcpServers` map of
-// ~/.openhands/mcp.json, the file `openhands mcp add` writes
+// UserMCPServers renders mcps as an OpenHands `mcpServers` map, the
+// fastmcp configuration format an agent's `mcp_servers` and the legacy
+// ~/.openhands/mcp.json share
 // (docs.openhands.dev/openhands/usage/cli/mcp-servers): a stdio server
 // is {command, args, env}, a remote one {url, transport, headers,
-// auth}, in the fastmcp configuration format the page names. The page
-// shows no disabled key, so a disabled server is left out.
+// auth}. The page shows no disabled key, so a disabled server is left
+// out.
 //
 // A remote `api_key` becomes an `Authorization: Bearer` header, which is
 // what OpenHands sends for one (docs.openhands.dev/openhands/usage/settings/mcp-settings,
 // "Bearer token: Enter the token in API Key. OpenHands sends
 // Authorization: Bearer <token>"). Neither page documents a per-server
-// timeout for mcp.json, so a `timeout` is named as lost (#1306).
+// timeout, so a `timeout` is named as lost (#1306).
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
-	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of ~/.openhands/mcp.json, whose disabled key is undocumented")
+	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of the OpenHands MCP config, whose disabled key is undocumented")
 	timeouts, shadowedKeys := 0, 0
 	out := map[string]any{}
 	for _, e := range mcps {
@@ -266,7 +272,7 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 		}
 		out[e.Name] = server
 	}
-	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", timeouts, "~/.openhands/mcp.json documents no per-server timeout")
+	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", timeouts, "the OpenHands MCP config documents no per-server timeout")
 	emit.NoteFieldNoOp(target, spec.KindMCP, "api_key", shadowedKeys, "the server's own Authorization header wins")
 	return out
 }

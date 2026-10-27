@@ -54,7 +54,7 @@ func TestUserMCPServers_AuthorizationHeaderWinsOverAPIKey(t *testing.T) {
 	}
 }
 
-// mcp.json documents no per-server timeout, so a timeout is named as lost
+// The OpenHands MCP config documents no per-server timeout, so a timeout is named as lost
 // instead of being dropped without a word.
 func TestUserMCPServers_TimeoutIsNamedAsLost(t *testing.T) {
 	buf := captureNotes(t)
@@ -67,7 +67,7 @@ func TestUserMCPServers_TimeoutIsNamedAsLost(t *testing.T) {
 	}
 	emit.FlushCoverageNotes()
 	note := buf.String()
-	for _, want := range []string{"`timeout`", "1 mcp", "~/.openhands/mcp.json"} {
+	for _, want := range []string{"`timeout`", "1 mcp", "OpenHands MCP config"} {
 		if !strings.Contains(note, want) {
 			t.Errorf("note lacks %q: %s", want, note)
 		}

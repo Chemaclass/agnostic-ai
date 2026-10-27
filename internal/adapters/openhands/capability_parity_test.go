@@ -18,9 +18,9 @@ import (
 // header_coverage_test.go): r1-r3 stay always-on and reach OpenHands
 // only through the shared AGENTS.md entry-point `sync` writes
 // centrally, a write this per-package test never observes because it
-// calls Adapter.Emit directly. KindMCP has no project output at all: it
-// reaches OpenHands through sync --global, and mcp_legacy_test.go covers
-// the note project sync prints instead.
+// calls Adapter.Emit directly. KindMCP has no project file: it reaches
+// only an agent's mcp_servers, and mcp_legacy_test.go covers the note
+// project sync prints instead.
 func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{}, false); err != nil {
