@@ -496,4 +496,7 @@
 # #2556 measured 23580832 on Go 1.27.3: personal saves check Git
 # exclusions before writing and retry Git layout checks after failures.
 # Linux amd64 release flags; no added headroom or dependencies.
-23580832
+# #2558 measured 23589024 on Go 1.27.3: findings can be rechecked in
+# place, including moved findings and incomplete checks.
+# Linux amd64 release flags; no added headroom or dependencies.
+23589024

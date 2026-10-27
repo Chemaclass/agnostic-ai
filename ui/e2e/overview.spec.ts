@@ -333,9 +333,9 @@ test.describe('overview', () => {
     }, true))
     await vscode.focus()
     await page.keyboard.press('Enter')
-    await expect(finding.getByRole('status')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
+    await expect(finding.locator('.editor-hint')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
     await choice.getByRole('button', { name: 'Cursor' }).click()
-    await expect(finding.getByRole('status')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
+    await expect(finding.locator('.editor-hint')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
     await choice.getByRole('button', { name: 'VS Code' }).click()
     await finding.getByRole('button', { name: `Copy path of ${path}` }).click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('C:\\Users\\Some One\\project #1\\.agnostic-ai\\settings\\permissions.yaml')
@@ -362,10 +362,14 @@ test.describe('overview', () => {
 
   test('keeps the header and navigation in place while the content scrolls', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 500 })
+    if (MOCK) await page.route('**/assets/overview.mock-*.js', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await route.continue()
+    })
     await openApp(page, '?view=lifecycle')
     await expect(page.locator('.footer')).toHaveCount(0)
     const main = page.locator('#main')
-    expect(await main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+    await expect.poll(() => main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
     expect(await page.evaluate(() => document.scrollingElement!.scrollHeight <= window.innerHeight + 1)).toBe(true)
     const navTop = await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)
     await main.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
