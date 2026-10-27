@@ -4,9 +4,6 @@ const path = require('node:path')
 const { createRequire } = require('node:module')
 
 const registry = 'https://registry.npmjs.org/'
-// registry.npmjs.org caches an attestation response for a year, so a copy read
-// before npm finishes signing stays wrong; this host serves it uncached.
-const attestationRegistry = 'https://registry.npmjs.com/'
 const repository = 'https://github.com/Chemaclass/agnostic-ai'
 const workflow = '.github/workflows/release.yml'
 const provenanceType = 'https://slsa.dev/provenance/v1'
@@ -19,7 +16,7 @@ async function verifyPackage(name, version, commit, deps) {
   const options = {
     registry,
     verifySignatures: true,
-    verifyAttestations: false,
+    verifyAttestations: true,
     '//registry.npmjs.org/:_keys': keys.map(key => ({
       keyid: key.keyId,
       pemkey: `-----BEGIN PUBLIC KEY-----\n${key.publicKey.rawBytes}\n-----END PUBLIC KEY-----`,
@@ -33,7 +30,7 @@ async function verifyPackage(name, version, commit, deps) {
   }
   const url = new URL(manifest._attestations.url)
   if (url.origin !== new URL(registry).origin) throw new Error('unexpected attestation registry')
-  const { attestations } = await deps.fetch.json(new URL(url.pathname + url.search, attestationRegistry).href, { registry: attestationRegistry })
+  const { attestations } = await deps.fetch.json(url.href, { registry })
   const provenance = attestations.find(value => value.predicateType === provenanceType)
   if (!provenance || !attestations.some(value => value.predicateType === publishType)) {
     throw new Error('required build or registry publish attestation is missing')

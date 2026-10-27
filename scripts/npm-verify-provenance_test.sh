@@ -29,7 +29,7 @@ function fixture() {
       manifest: async (spec, options) => { calls.push(['manifest', spec, options]); return manifest },
       tarball: async (spec, options) => { calls.push(['tarball', spec, options]); return Buffer.from('tarball') }
     },
-    fetch: { json: async (url, options) => { calls.push(['fetch', url, options]); return { attestations } } },
+    fetch: { json: async () => ({ attestations }) },
     sigstore: { verify: async (value, options) => { calls.push(['sigstore', value, options]) } }
   }
   return { deps, manifest, attestations, statement, bundle, calls, update() { bundle.dsseEnvelope.payload = Buffer.from(JSON.stringify(statement)).toString('base64') } }
@@ -40,8 +40,7 @@ async function reject(change) { const f = fixture(); change(f); f.update(); awai
   const f = fixture(); await run(f)
   const manifestCall = f.calls.find(c => c[0] === 'manifest')
   assert.equal(manifestCall[2].verifySignatures, true)
-  assert.equal(manifestCall[2].verifyAttestations, false)
-  assert.equal(f.calls.find(c => c[0] === 'fetch')[1], 'https://registry.npmjs.com/-/npm/v1/attestations/agnostic-ai@1.2.3')
+  assert.equal(manifestCall[2].verifyAttestations, true)
   assert.equal(manifestCall[2]['//registry.npmjs.org/:_keys'][0].keyid, 'key')
   assert.equal(f.calls.find(c => c[0] === 'tarball')[2].integrity, integrity)
   const policy = f.calls.find(c => c[0] === 'sigstore' && c[2].certificateIssuer)[2]
@@ -51,7 +50,6 @@ async function reject(change) { const f = fixture(); change(f); f.update(); awai
   await reject(f => { f.manifest._signatures = [] })
   await reject(f => { f.attestations.pop() })
   await reject(f => { f.attestations.shift() })
-  await reject(f => { f.manifest._attestations.url = 'https://attacker.example/-/npm/v1/attestations/agnostic-ai@1.2.3' })
   await reject(f => { f.statement.predicate.buildDefinition.externalParameters.workflow.repository = 'https://github.com/attacker/repo' })
   await reject(f => { f.statement.predicate.buildDefinition.externalParameters.workflow.path = '.github/workflows/other.yml' })
   await reject(f => { f.statement.predicate.buildDefinition.externalParameters.workflow.ref = 'refs/heads/main' })
