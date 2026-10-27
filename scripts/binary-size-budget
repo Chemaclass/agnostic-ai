@@ -525,4 +525,7 @@
 # startup passages, serve answers /api/views/context, and the embedded UI
 # bundle carries the Context size panel.
 # Linux amd64 release flags; no added headroom or dependencies.
-23716000
+# #2581 measured 23724192 on Go 1.27.3: sync --global notes that a global
+# Claude effort reaches older models only; one 8 KiB linker step.
+# Linux amd64 release flags; no added headroom or dependencies.
+23724192
