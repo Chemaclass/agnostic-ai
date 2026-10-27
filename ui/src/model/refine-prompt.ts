@@ -4,7 +4,7 @@
 export function instructionsRefinePrompt(path: string): string {
   return `Refine my global agent instructions in ${path} against current best practice for instruction files. Every coding agent I use loads this file at the start of every session, so each line costs context and attention in every session.
 
-Scope: work on that file alone, and leave every other file as it is.
+Scope: edit that file alone. Read the skills/ and agents/ folders beside it to match its content against them, and leave every other file as it is.
 
 ## 1. Check current guidance
 
@@ -19,7 +19,7 @@ Start by reading the current guidance on writing instruction files and prompts. 
 - The AGENTS.md format: https://agents.md/
 - Writing documents agents read: https://github.com/mattpocock/skills/blob/main/skills/productivity/writing-for-agents/SKILL.md
 
-Note anything new since the principles below were written, and anything that contradicts them. Where the guidance and the principles conflict, follow the guidance and tell me. Where the guidance recommends moving content into another file, keep the content in this file and list the recommendation as a follow-up.
+Note anything new since the principles below were written, and anything that contradicts them. Where the guidance and the principles conflict, follow the guidance and tell me. Where the guidance recommends moving content into another file, keep the content in this file and list it as a candidate in step 3.
 
 ## 2. Principles
 
@@ -36,13 +36,24 @@ Note anything new since the principles below were written, and anything that con
 - **Structure for scanning.** Use short sections with clear headings, one rule per bullet, the most important rules first, and concrete commands and paths in place of prose.
 - **Lean examples.** Keep an example only where the rule is ambiguous without it.
 
-## 3. Boundaries
+## 3. Find skill and agent candidates
+
+Read the name and description of every skill in skills/ and every agent in agents/ beside the file. Then go through each rule in the file:
+
+- Mark a **skill candidate** when the rule is a procedure or reference that only some sessions need, so loading it on demand would save context in every other session.
+- Mark an **agent candidate** when the rule describes a role the main agent hands work to, with its own instructions, tools or model.
+- Match each candidate to the existing skill or agent it belongs in. When none fits, propose a new one with a name and a description that says what it does and when to use it.
+- Draft the one-line pointer that would replace the content in this file.
+
+Keep the content in this file. Candidates are recommendations for me to decide on.
+
+## 4. Boundaries
 
 - Preserve the meaning of every rule. If shortening would weaken, broaden or reinterpret a rule, keep its original wording and ask me about it.
 - Keep every hard limit at least as strict as it is now.
 - Ensure no secrets are contained within the prompt.
 
-## 4. Propose, then wait
+## 5. Propose, then wait
 
 Before editing, give me:
 
@@ -50,11 +61,12 @@ Before editing, give me:
 2. A change table that accounts for every rule in the current file, one row each: section, decision (kept, cut, merged, reworded, replaced by a pointer), why, and the words saved.
 3. The proposed file in full.
 4. The word count before and after.
-5. Questions about any rule whose intent was unclear to you.
+5. A candidates table, one row per skill or agent candidate: the rules, the destination (an existing skill or agent by name, or a new one), why, the description for a new one, the replacement pointer line, and the words this file would save.
+6. Questions about any rule whose intent was unclear to you.
 
 Then wait for my approval.
 
-## 5. After approval
+## 6. After approval
 
 1. Copy the current file to a .bak.<date> copy beside it.
 2. Write the approved version.

@@ -5,7 +5,14 @@ describe('instructions refine prompt', () => {
   it('names the file and limits the work to it', () => {
     const prompt = instructionsRefinePrompt('/home/me/.agnostic-ai/AGNOSTIC_AI.md')
     expect(prompt).toContain('global agent instructions in /home/me/.agnostic-ai/AGNOSTIC_AI.md')
-    expect(prompt).toContain('work on that file alone')
+    expect(prompt).toContain('edit that file alone')
+  })
+
+  it('recommends skill and agent candidates without moving content', () => {
+    const prompt = instructionsRefinePrompt('AGNOSTIC_AI.md')
+    expect(prompt).toContain('every skill in skills/ and every agent in agents/')
+    expect(prompt).toContain('A candidates table')
+    expect(prompt).toContain('Keep the content in this file. Candidates are recommendations')
   })
 
   it('stops for approval before editing, then syncs and checks', () => {
