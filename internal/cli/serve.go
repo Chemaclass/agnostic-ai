@@ -198,13 +198,23 @@ func serializeAPI(next http.Handler) http.Handler {
 	})
 }
 
+// serveSignals stops serve on hangup too, unless the hangup was ignored
+// at start, as under nohup: naming it would handle it again.
+func serveSignals(ignored func(os.Signal) bool) []os.Signal {
+	signals := []os.Signal{os.Interrupt, syscall.SIGTERM}
+	if !ignored(syscall.SIGHUP) {
+		signals = append(signals, syscall.SIGHUP)
+	}
+	return signals
+}
+
 // serveUntilInterrupted serves on ln until the context ends or the
 // process receives an interrupt, then shuts down gracefully.
 func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Handler) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	ctx, stop := signal.NotifyContext(ctx, serveSignals(signal.Ignored)...)
 	defer stop()
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 	served := make(chan error, 1)

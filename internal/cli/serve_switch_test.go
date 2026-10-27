@@ -6,10 +6,12 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -269,5 +271,53 @@ func TestSwitchPeerFor_GlobalServerPointsBackAtTheProjectItStartedIn(t *testing.
 	}
 	if got := switchPeerFor(t.TempDir(), true); got != nil {
 		t.Errorf("outside a project, peer = %+v", got)
+	}
+}
+
+func TestSwitch_RefusesOnceClosed(t *testing.T) {
+	home, project := t.TempDir(), t.TempDir()
+	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, freeLoopbackAddrs(t, 1), probeViewServer, func(switchPeer, string) (*peerProcess, error) {
+		t.Error("started a server after close")
+		return nil, errors.New("unexpected")
+	})
+	h.close()
+	if rec, _ := postSwitch(t, h); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("switch after close = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSwitch_ReusesAGlobalServerItStartedWhoseHealthNamesNoProject(t *testing.T) {
+	home, project := t.TempDir(), t.TempDir()
+	ports := freeLoopbackAddrs(t, 2)
+	var started []string
+	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+		started = append(started, addr)
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true}), nil
+	})
+	defer h.close()
+
+	for range 2 {
+		if rec, reply := postSwitch(t, h); rec.Code != http.StatusOK || reply.URL != "http://"+ports[0]+"/" {
+			t.Fatalf("switch = %d %s", rec.Code, rec.Body)
+		}
+	}
+	if !slices.Equal(started, ports[:1]) {
+		t.Errorf("started = %v", started)
+	}
+}
+
+func TestSwitchPeerCommand_QuotesTheProjectPath(t *testing.T) {
+	got := switchPeer{root: "/Users/x/My Code/it's"}.command()
+	if want := `agnostic-ai ui --dir '/Users/x/My Code/it'\''s'`; got != want {
+		t.Errorf("command = %s, want %s", got, want)
+	}
+}
+
+func TestServeSignals_KeepsAnIgnoredHangup(t *testing.T) {
+	if got := serveSignals(func(os.Signal) bool { return true }); slices.Contains(got, os.Signal(syscall.SIGHUP)) {
+		t.Errorf("ignored hangup is handled again: %v", got)
+	}
+	if got := serveSignals(func(os.Signal) bool { return false }); !slices.Contains(got, os.Signal(syscall.SIGHUP)) || !slices.Contains(got, os.Interrupt) {
+		t.Errorf("signals = %v", got)
 	}
 }

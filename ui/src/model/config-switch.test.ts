@@ -24,8 +24,13 @@ describe('switch between project and global', () => {
     expect(switchOffer({ root: '/home/.agnostic-ai', global: true, projectRoot: '/work/repo' })).toEqual({
       label: 'Open project repo',
       title: 'Open /work/repo in a new tab, starting its server when none runs',
-      command: 'agnostic-ai ui --dir /work/repo',
+      command: "agnostic-ai ui --dir '/work/repo'",
     })
+  })
+
+  it('quotes the project path so the command pastes into a shell', () => {
+    expect(switchOffer({ root: '/home', global: true, projectRoot: "/Users/x/My Code/it's" })?.command)
+      .toBe("agnostic-ai ui --dir '/Users/x/My Code/it'\\''s'")
   })
 
   it('accepts only a loopback http address for the new tab', () => {

@@ -24,6 +24,10 @@ export function parseServedConfig(value: unknown): ServedConfig | undefined {
   return served
 }
 
+function shellQuote(path: string): string {
+  return `'${path.replaceAll("'", "'\\''")}'`
+}
+
 function baseName(path: string): string {
   return path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
 }
@@ -40,7 +44,7 @@ export function switchOffer(served: ServedConfig): SwitchOffer | undefined {
   return {
     label: `Open project ${baseName(served.projectRoot)}`,
     title: `Open ${served.projectRoot} in a new tab, starting its server when none runs`,
-    command: `agnostic-ai ui --dir ${served.projectRoot}`,
+    command: `agnostic-ai ui --dir ${shellQuote(served.projectRoot)}`,
   }
 }
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -51,11 +52,12 @@ type switchHandler struct {
 	start func(switchPeer, string) (*peerProcess, error)
 
 	mu      sync.Mutex
-	started []*peerProcess
+	started map[string]*peerProcess
+	closed  bool
 }
 
 func newSwitchHandler(peer *switchPeer, ports []string, probe func(string, time.Duration) *viewServer, start func(switchPeer, string) (*peerProcess, error)) *switchHandler {
-	return &switchHandler{peer: peer, ports: ports, probe: probe, start: start}
+	return &switchHandler{peer: peer, ports: ports, probe: probe, start: start, started: map[string]*peerProcess{}}
 }
 
 // switchPeerFor names the other configuration of a server reading root:
@@ -84,7 +86,11 @@ func (p switchPeer) command() string {
 	if p.global {
 		return "agnostic-ai ui --global"
 	}
-	return "agnostic-ai ui --dir " + p.root
+	return "agnostic-ai ui --dir " + shellQuote(p.root)
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +109,10 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.closed {
+		writeEditJSON(w, http.StatusServiceUnavailable, editError{Error: "this server is stopping"})
+		return
+	}
 	peer := *h.peer
 	reply := func(addr string, started bool) {
 		writeEditJSON(w, http.StatusOK, switchReply{URL: "http://" + addr + "/", Root: peer.root, Global: peer.global, Started: started})
@@ -114,7 +124,7 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			free = append(free, addr)
 			continue
 		}
-		if h.serves(running) {
+		if h.serves(addr, running) {
 			reply(addr, false)
 			return
 		}
@@ -125,24 +135,42 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusServiceUnavailable, editError{Error: fmt.Sprintf("could not start a server (%v); run %s", err, peer.command())})
 			return
 		}
-		h.started = append(h.started, process)
+		h.started[addr] = process
 		if h.awaitHealthy(addr, process) {
 			reply(addr, true)
 			return
 		}
 		process.stop()
+		delete(h.started, addr)
 	}
 	writeEditJSON(w, http.StatusServiceUnavailable, editError{Error: "no free port from " + h.portRange() + " served the other configuration; run " + peer.command()})
 }
 
 // serves also requires a global server to link back to this project, so
 // its page offers the right way back and it does not stop with another
-// project's server.
-func (h *switchHandler) serves(running *viewServer) bool {
+// project's server. A server this one started counts too: in a folder
+// without a config its health names an ancestor project or none.
+func (h *switchHandler) serves(addr string, running *viewServer) bool {
 	if !running.UI || running.Global != h.peer.global || !sameProjectRoot(running.Root, h.peer.root) {
 		return false
 	}
-	return !h.peer.global || (running.ProjectRoot != "" && sameProjectRoot(running.ProjectRoot, h.peer.dir))
+	if !h.peer.global || h.runs(addr) {
+		return true
+	}
+	return running.ProjectRoot != "" && sameProjectRoot(running.ProjectRoot, h.peer.dir)
+}
+
+func (h *switchHandler) runs(addr string) bool {
+	process, ok := h.started[addr]
+	if !ok {
+		return false
+	}
+	select {
+	case <-process.done:
+		return false
+	default:
+		return true
+	}
 }
 
 // awaitHealthy waits for a started server to answer, and gives up when
@@ -151,7 +179,7 @@ func (h *switchHandler) awaitHealthy(addr string, process *peerProcess) bool {
 	deadline := time.Now().Add(switchStartTimeout)
 	for time.Now().Before(deadline) {
 		if running := h.probe(addr, viewProbeTimeout); running != nil {
-			return h.serves(running)
+			return h.serves(addr, running)
 		}
 		select {
 		case <-process.done:
@@ -173,10 +201,11 @@ func (h *switchHandler) portRange() string {
 func (h *switchHandler) close() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.closed = true
 	for _, process := range h.started {
 		process.stop()
 	}
-	h.started = nil
+	clear(h.started)
 }
 
 // peerServerCommand returns the serve arguments and working directory
