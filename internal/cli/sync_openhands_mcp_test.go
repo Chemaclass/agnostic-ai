@@ -12,7 +12,7 @@ import (
 
 // Current OpenHands releases ignore a project config.toml [mcp] section
 // (#1252). Sync writes none, removes the one an earlier release wrote,
-// and prints one note pointing at sync --global (#1259).
+// and prints one note pointing at the OpenHands settings (#1259, #2576).
 func TestSync_OpenhandsMCPWritesNoConfigTOML(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
@@ -33,7 +33,7 @@ func TestSync_OpenhandsMCPWritesNoConfigTOML(t *testing.T) {
 		t.Errorf("sync left config.toml in place: %v", err)
 	}
 	lines := strings.Split(strings.TrimSpace(notes.String()), "\n")
-	if len(lines) != 1 || !strings.Contains(lines[0], "agnostic-ai sync --global") {
-		t.Errorf("want one note pointing at sync --global, got:\n%s", notes.String())
+	if len(lines) != 1 || !strings.Contains(lines[0], "Customize > MCP Servers") {
+		t.Errorf("want one note pointing at Customize > MCP Servers, got:\n%s", notes.String())
 	}
 }

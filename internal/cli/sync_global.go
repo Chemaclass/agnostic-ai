@@ -1504,9 +1504,13 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				}
 			}
 		}
-		if g.mcp.path != "" && g.mcp.format != "toml-array" {
+		if g.mcp.path != "" && g.mcp.format != "toml-array" && (g.mcp.retired == "" || len(old.MCP[target]) > 0) {
 			path := g.mcpPath(home)
 			previous := old.MCP[target]
+			mcps := b.MCPs
+			if g.mcp.retired != "" {
+				mcps = nil
+			}
 			if moved := old.MCPPaths[target]; moved != "" && moved != path {
 				m, err := mergeGlobalMCP(moved, g.mcp, baseFor(moved), target, nil, previous)
 				if err != nil {
@@ -1517,7 +1521,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				}
 				previous = nil
 			}
-			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, b.MCPs, previous)
+			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, mcps, previous)
 			if err != nil {
 				return nil, next, err
 			}
