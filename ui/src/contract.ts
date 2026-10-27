@@ -457,6 +457,9 @@ export interface KindSupport {
   unsupported: string[]
 }
 
+/** The code of the finding that stands in for a lint run that stopped early. */
+export const LINT_INCOMPLETE = 'lint-incomplete'
+
 /** A read-only check result, shown on what it concerns. */
 export interface ItemFinding {
   source: 'lint' | 'doctor'
