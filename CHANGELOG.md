@@ -6,9 +6,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+- `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
+- Sync notes `x-claude` settings keys that Claude Code ignores in project settings, such as `autoMode` and `deniedModels`, and says to set them in user or managed settings (#2583).
+
 #### Claude Code
 
-- `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
+
 
 #### Mistral Vibe
 
