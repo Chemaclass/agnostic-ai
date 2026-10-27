@@ -9,6 +9,7 @@ import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
 import { ErrorPanel, RefreshFailure } from './components/Banner'
 import { Header, Nav, type Remote } from './components/Shell'
+import { RecheckProvider, useRecheck } from './components/Recheck'
 import { SyncStatus } from './components/SyncStatus'
 import { APPLE_PLATFORM } from './components/ui'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
@@ -89,6 +90,7 @@ export default function App() {
   }, [])
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
   const stale = overview.loaded !== undefined && overview.error !== undefined
+  const recheck = useRecheck(overview, refresh, source.kind === 'api', sourceKey)
   useEffect(() => {
     if (overview.status !== 'ready') return
     setSavedBeforeRefresh(false)
@@ -189,32 +191,34 @@ export default function App() {
 
   return (
     <AppContext.Provider value={app}>
-      <div className="app">
-        <a className="skip-link" href="#main">
-          Skip to content
-        </a>
-        <Header
-          overview={overview}
-          inspectorOpen={inspectorOpen}
-          onToggleInspector={() => setInspectorOpen((open) => !open)}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onOpenSearch={openSearch}
-        />
-        <div className="shell">
-          <Nav overview={overview} />
-          <main id="main" className="main" tabIndex={-1}>
-            <div className="page">
-              {sourceError && <ErrorPanel error={sourceError} />}
-              {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
-              <SyncStatus overview={overview} snapshot={source.kind !== 'api'} saved={savedSinceRefresh} onRefresh={refresh} />
-              <SectionPage sectionId={state.view} overview={overview} stale={stale} />
-            </div>
-          </main>
+      <RecheckProvider value={recheck}>
+        <div className="app">
+          <a className="skip-link" href="#main">
+            Skip to content
+          </a>
+          <Header
+            overview={overview}
+            inspectorOpen={inspectorOpen}
+            onToggleInspector={() => setInspectorOpen((open) => !open)}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onOpenSearch={openSearch}
+          />
+          <div className="shell">
+            <Nav overview={overview} />
+            <main id="main" className="main" tabIndex={-1}>
+              <div className="page">
+                {sourceError && <ErrorPanel error={sourceError} />}
+                {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
+                <SyncStatus overview={overview} snapshot={source.kind !== 'api'} saved={savedSinceRefresh} onRefresh={refresh} />
+                <SectionPage sectionId={state.view} overview={overview} stale={stale} />
+              </div>
+            </main>
+          </div>
+          {searchOpen && <GlobalSearch overview={overview.loaded?.data} onClose={closeSearch} />}
+          {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} />}
         </div>
-        {searchOpen && <GlobalSearch overview={overview.loaded?.data} onClose={closeSearch} />}
-        {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} />}
-      </div>
+      </RecheckProvider>
     </AppContext.Provider>
   )
 }
