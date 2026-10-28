@@ -45,6 +45,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Set `model` and `effort` for one tool under **What each tool gets**, which shows what sync writes (#2602, #2614, #2619, #2620, #2622, #2624, #2636).
 - A project page opens global settings in a new tab on its own server, which links back, and `serve` stops at once on Ctrl-C (#2602, #2607, #2616, #2627).
 - Generated-file status moves to the sidebar, lifecycle stages start closed with counts and search, and the authority view loads faster (#2610, #2631, #2632).
+- The web UI scrolls the page from the sidebar too; before, a wheel over the sidebar moved nothing.
 
 ### By tool
 
