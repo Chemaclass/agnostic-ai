@@ -200,6 +200,104 @@ func mcpCredentialValue(value string) bool {
 	return value != "" && !spec.OnlyEscapedEnvRefs(value)
 }
 
+// settingSchemeWord is an auth scheme a value may name before its
+// reference, as in `Bearer ${TOKEN}`. Under an authorization header any
+// one word may, as in `SSWS ${OKTA_TOKEN}`; elsewhere any other word is
+// literal text, so `hunter ${X}` holds a secret.
+var (
+	settingSchemeWord = regexp.MustCompile(`^(?i:bearer|basic|token)\s+`)
+	settingHeaderWord = regexp.MustCompile(`^[A-Za-z]+\s+`)
+	settingAuthHeader = regexp.MustCompile(`(?i)authorization$`)
+	settingShellRef   = regexp.MustCompile(`\$[A-Za-z_][A-Za-z0-9_]*`)
+)
+
+// literalSettingValue reports whether value, under key, holds text that
+// is not a `${NAME}` or `$NAME` reference: any literal, or a reference
+// with a default. A scheme word before the references is not literal.
+func literalSettingValue(key, value string) bool {
+	stripped, defaulted := spec.StripEnvRefDefaults(value)
+	if value == "" || len(defaulted) > 0 {
+		return value != ""
+	}
+	scheme := settingSchemeWord
+	if settingAuthHeader.MatchString(key) {
+		scheme = settingHeaderWord
+	}
+	rest := settingShellRef.ReplaceAllString(scheme.ReplaceAllString(strings.TrimSpace(stripped), ""), "")
+	return strings.TrimSpace(rest) != "" && !spec.OnlyEnvRefs(rest)
+}
+
+var (
+	settingSwitch   = regexp.MustCompile(`^(?i:true|false|yes|no|on|off|0|1)$`)
+	settingPath     = regexp.MustCompile(`^(?:~/|\.\.?/|[A-Za-z]:[\\/]|/[^/]+/)`)
+	settingFileName = regexp.MustCompile(`(?i)^[^/\\\s]+\.(?:json|txt|pem|key|env|ya?ml|toml|crt|p12|db)$`)
+	settingBase64   = regexp.MustCompile(`^[A-Za-z0-9+=]+$`)
+)
+
+// settingPathShaped reports whether v has the shape of a path, not of a
+// base64 secret that starts with `/`, such as `/9j/4AAQSkZJRg...`. It is
+// a heuristic: base64 has no `.`, `-`, `_`, or `~`, and real paths
+// almost always do, or have short segments.
+func settingPathShaped(v string) bool {
+	if !settingPath.MatchString(v) {
+		return false
+	}
+	for _, segment := range strings.FieldsFunc(v, func(r rune) bool { return r == '/' || r == '\\' }) {
+		if settingBase64Like(segment) {
+			return false
+		}
+	}
+	joined := strings.NewReplacer("/", "", "\\", "").Replace(v)
+	return strings.ContainsAny(v, ".-_~ ") || len(joined) < 20 || !settingBase64.MatchString(joined) || !settingDigitsAndLetters(joined) || !settingMixedCase(joined)
+}
+
+// settingBase64Like reports whether segment reads as base64: at least
+// 16 characters with a digit and letters, or at least 24 with both
+// letter cases.
+func settingBase64Like(segment string) bool {
+	if !settingBase64.MatchString(segment) {
+		return false
+	}
+	if len(segment) >= 16 && settingDigitsAndLetters(segment) {
+		return true
+	}
+	return len(segment) >= 24 && settingMixedCase(segment)
+}
+
+func settingMixedCase(text string) bool {
+	return strings.ToLower(text) != text && strings.ToUpper(text) != text
+}
+
+func settingDigitsAndLetters(text string) bool {
+	return strings.ContainsAny(text, "0123456789") && strings.ToLower(text) != strings.ToUpper(text)
+}
+
+// settingNamesNoSecret reports whether value names no secret even under
+// a credential name: a boolean such as `CLAUDE_CODE_SKIP_BEDROCK_AUTH=1`,
+// or a path or file name such as `GOOGLE_APPLICATION_CREDENTIALS` holds
+// that does not look like a token. A plain number still counts, since a
+// PIN or numeric token is one.
+func settingNamesNoSecret(value string) bool {
+	v := strings.Trim(strings.TrimSpace(value), `'"`)
+	if settingSwitch.MatchString(v) {
+		return true
+	}
+	return (settingPathShaped(v) || settingFileName.MatchString(v)) && !mcpTokenIn(v) && !mcpCredentialDetected(v)
+}
+
+// credentialSettingValue reports whether an imported setting, such as an
+// `env` or header value, holds a literal credential: a literal under a
+// credential name that settingNamesNoSecret does not clear, or a literal
+// that holds one by its shape. A value of only references holds no
+// secret. Every tool import uses this rule, since the spec it writes is
+// committed (#2716).
+func credentialSettingValue(key, value string) bool {
+	if !literalSettingValue(key, value) {
+		return false
+	}
+	return mcpCredentialKey(key) && !settingNamesNoSecret(value) || mcpCredentialSetting(key, value)
+}
+
 type mcpCredentialSpan struct {
 	name       string
 	start, end int

@@ -83,8 +83,3 @@ func validateGlobalGrokImport(home string, targets []string) error {
 	}
 	return nil
 }
-
-func grokHookCredentialValue(key, value string) bool {
-	stripped, _ := spec.StripEnvRefDefaults(value)
-	return mcpCredentialKey(key) && value != "" && (!mcpRefOnly(value) || stripped != value) || mcpCredentialSetting(key, value)
-}
