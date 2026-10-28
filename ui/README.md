@@ -7,7 +7,7 @@ Inspect project or user configuration in a local browser. Installed binaries inc
 | Context | The instructions file, rules, agents, and skills |
 | Authority | The permission files, each rule as a chip |
 | Tools | MCP servers, each with the tools `agnostic-ai mcp tools` last listed |
-| Lifecycle | Every point in a session a hook can run at, with the coding tools that run it and the hooks configured there |
+| Lifecycle | Every session stage and its hook counts; expand a stage for its tools and hooks, or use Expand all and Collapse all |
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
 
 Findings use compact rows with severity, check code, and source path. Long messages expand with **Show full message**; **Copy fix prompt** always copies the complete diagnostic. **Details** shows the suggested fix, explanation, and the exact prompt the button copies. With a running server, **Recheck** reloads the overview through the shared refresh and compares finding ids, which ignore line numbers, to say whether that finding still appears. A failed refresh, or the `lint-incomplete` finding the server sends when lint stopped early, is never read as a fix. Doctor findings that disappear are shown as not confirmed, because the overview's doctor checks skip files they cannot read. Native settings group keys by tool. Target lists use logos with full names on hover.
@@ -20,7 +20,7 @@ Each page has a search field for names, paths, descriptions, and values. Matchin
 
 The interface shares the website’s warm neutral palette and rust accent in light and dark themes. Source paths sit below descriptions, edit controls stay alongside their rows, and lifecycle stages form a numbered timeline. The sidebar shows the configured tools and becomes a horizontal navigation row on narrow screens.
 
-Source lists use aligned rows. Unconfigured fields stay in a disclosure, empty lifecycle stages show their descriptions on demand, and support groups stack on mobile. The findings summary jumps to the full list; errors remain above the controls.
+Source lists use aligned rows. Unconfigured fields stay in a disclosure. Lifecycle stages start closed, with names, counts, and descriptions visible. Search opens matching stages; a linked hook or finding opens its stage and receives focus. Clearing search closes the stages, and open states are not saved. Support groups stack on mobile. The findings summary jumps to the full list; errors remain above the controls.
 
 Values render by type: a list as chips, a boolean as a switch, anything
 else as text. Project built-in switches preview and apply changes across the configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
