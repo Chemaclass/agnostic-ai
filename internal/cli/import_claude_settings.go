@@ -325,7 +325,7 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 	for _, key := range claudeCredentialHelpers {
 		raw, ok := doc.Get(key)
 		var command string
-		if !ok || json.Unmarshal(raw, &command) != nil || !globalPermissionCommandCredentialDetected(command, 0) {
+		if !ok || json.Unmarshal(raw, &command) != nil || !globalPermissionCommandCredentialDetected(command) {
 			continue
 		}
 		doc.Delete(key)
@@ -335,7 +335,7 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 		var line struct {
 			Command string `json:"command"`
 		}
-		if json.Unmarshal(raw, &line) == nil && globalPermissionCommandCredentialDetected(line.Command, 0) {
+		if json.Unmarshal(raw, &line) == nil && globalPermissionCommandCredentialDetected(line.Command) {
 			doc.Delete("statusLine")
 			warnClaudeLeftOut("statusLine", "holds a credential")
 		}

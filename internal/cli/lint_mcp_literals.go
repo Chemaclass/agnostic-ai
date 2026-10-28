@@ -7,6 +7,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -25,7 +26,7 @@ type mcpUnmarked struct {
 // or, in a header, another one-word scheme such as `token ${GITHUB_TOKEN}`.
 func mcpReferenceValue(field, value string) bool {
 	if field == "headers" {
-		value = mcpSchemeWord.ReplaceAllString(value, "")
+		value = preview.StripSchemeWord(value)
 	}
 	return spec.OnlyEnvRefs(value) || spec.OnlyEscapedEnvRefs(value)
 }

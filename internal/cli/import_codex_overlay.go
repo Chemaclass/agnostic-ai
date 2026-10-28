@@ -230,7 +230,7 @@ func codexCredentialIn(key string, value any, names bool) bool {
 				words = append(words, word)
 			}
 		}
-		return len(words) > 0 && globalPermissionCommandCredentialDetected(adapters.ExecFormCommand(words[0], words[1:]), 0)
+		return len(words) > 0 && globalPermissionCommandCredentialDetected(adapters.ExecFormCommand(words[0], words[1:]))
 	}
 	return false
 }
