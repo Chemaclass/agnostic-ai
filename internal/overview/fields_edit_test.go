@@ -334,3 +334,31 @@ func TestSettingsFields_ModelTierAndNestedValuesStayReadOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsOverride_CountsOnlyToolsTheLaterSpecGivesAValue(t *testing.T) {
+	both := []string{"claude", "codex"}
+	a := spec.Entry{Name: "a", Meta: map[string]any{"model": "gpt-5.4", "effort": "high"}}
+	for _, tc := range []struct {
+		name     string
+		later    map[string]any
+		claude   int
+		codex    int
+		inEffect int
+	}{
+		{"claude entry only", map[string]any{"model": map[string]any{"claude": "opus"}, "effort": map[string]any{"claude": "low"}}, 1, -1, 0},
+		{"default", map[string]any{"model": map[string]any{"default": "gpt-5.5"}, "effort": map[string]any{"default": "low"}}, 1, 1, 1},
+	} {
+		settings := []spec.Entry{a, {Name: "b", Meta: tc.later}}
+		for _, key := range []string{"model", "effort"} {
+			if got := SettingsOverride(settings, 0, key, []string{"claude"}); got != tc.claude {
+				t.Errorf("%s %s claude override = %d, want %d", tc.name, key, got, tc.claude)
+			}
+			if got := SettingsOverride(settings, 0, key, []string{"codex"}); got != tc.codex {
+				t.Errorf("%s %s codex override = %d, want %d", tc.name, key, got, tc.codex)
+			}
+			if got := SettingsInEffect(settings, key, both); got != tc.inEffect {
+				t.Errorf("%s %s in effect = %d, want %d", tc.name, key, got, tc.inEffect)
+			}
+		}
+	}
+}
