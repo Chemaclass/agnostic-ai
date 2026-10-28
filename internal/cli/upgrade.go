@@ -130,7 +130,13 @@ func newUpgradeCmdWithDeps(deps upgradeDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "upgrade",
 		Aliases: []string{"update"},
-		Short:   "Upgrade agnostic-ai or reconcile the project with the installed release.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 && releaseVersionRE.MatchString(args[0]) {
+				return fmt.Errorf("unknown command %q for %q; did you mean --version %s?", args[0], cmd.CommandPath(), args[0])
+			}
+			return cobra.NoArgs(cmd, args)
+		},
+		Short: "Upgrade agnostic-ai or reconcile the project with the installed release.",
 		Long: `upgrade detects how the running agnostic-ai binary was installed
 (Homebrew, ` + "`go install`" + `, Scoop, winget, npm, or a raw prebuilt
 binary) and upgrades it to the latest release. Package-manager installs
@@ -167,9 +173,6 @@ is still accepted for compatibility.`,
 					if cmd.Flags().Changed(flag) {
 						return errs.Coded(errs.CodeFlagConflict, "--requires cannot be combined with --%s", flag)
 					}
-				}
-				if err := cobra.NoArgs(cmd, args); err != nil {
-					return err
 				}
 				return runUpgradeRequires()
 			}
