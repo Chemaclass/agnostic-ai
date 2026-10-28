@@ -692,6 +692,20 @@ func TestImport_PreviewSkipsUnusedSymlinkLoop(t *testing.T) {
 }
 
 func TestImport_RelativeAndAbsoluteSourceAliasesShareNewFiles(t *testing.T) {
+	for name, rule := range map[string]string{
+		"glob":         "---\nglobs: \"*.go\"\n---\nCursor rule.\n",
+		"always-apply": "---\nalwaysApply: false\n---\nCursor rule.\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			testImportSourceAliasesShareNewFiles(t, rule)
+		})
+	}
+}
+
+// The preview must write what the real import writes when the agent lands
+// on the rule's file through another spelling of its folder (#2675).
+func testImportSourceAliasesShareNewFiles(t *testing.T, cursorRule string) {
+	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	external := t.TempDir()
 	rules := filepath.Join(defaultBaseDir, "rules")
@@ -706,8 +720,7 @@ func TestImport_RelativeAndAbsoluteSourceAliasesShareNewFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, claude]\nsources:\n  rules: .agnostic-ai/rules\n  agents: "+filepath.ToSlash(external)+"\n")
-	// A narrow glob keeps this rule clear of #2675.
-	mustWriteFile(t, ".cursor/rules/foo.mdc", "---\nglobs: \"*.go\"\n---\nCursor rule.\n")
+	mustWriteFile(t, ".cursor/rules/foo.mdc", cursorRule)
 	mustWriteFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nClaude agent.\n")
 	preview, err := planImportPreview([]string{"cursor", "claude"})
 	if err != nil {

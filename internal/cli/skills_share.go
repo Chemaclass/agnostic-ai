@@ -306,6 +306,9 @@ func (st *sharedSkillsState) reconcile(prior []string, previous syncStateFile, d
 // fresh temporary sibling and swapped in only when complete, so a failed
 // copy leaves the link untouched.
 func materializeLink(p string) error {
+	if err := config.CheckProjectLinks(".", p, "write", false); err != nil {
+		return err
+	}
 	src, err := filepath.EvalSymlinks(p)
 	if err != nil {
 		return fmt.Errorf("%s: %w", p, err)
@@ -422,6 +425,10 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 		}
 		if dryRun {
 			summaryf("  would link %s -> %s\n", l.path, rel)
+			continue
+		}
+		if err := config.CheckProjectLinks(".", l.path, "write", false); err != nil {
+			warnf("%v", err)
 			continue
 		}
 		tmp := l.path + ".agnostic-link"

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/gitexclude"
 )
 
@@ -45,32 +46,12 @@ func GitExcludePath() (string, bool) {
 		return "", false
 	}
 	for {
-		dotGit := filepath.Join(dir, ".git")
-		info, err := os.Stat(dotGit)
-		if err == nil {
-			gitDir := dotGit
-			if !info.IsDir() {
-				data, err := os.ReadFile(dotGit)
-				if err != nil {
-					return "", false
-				}
-				ref, found := strings.CutPrefix(strings.TrimSpace(string(data)), "gitdir: ")
-				if !found {
-					return "", false
-				}
-				if !filepath.IsAbs(ref) {
-					ref = filepath.Join(dir, ref)
-				}
-				gitDir = ref
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			_, common, ok := config.GitDirs(dir)
+			if !ok {
+				return "", false
 			}
-			if common, err := os.ReadFile(filepath.Join(gitDir, "commondir")); err == nil {
-				ref := strings.TrimSpace(string(common))
-				if !filepath.IsAbs(ref) {
-					ref = filepath.Join(gitDir, ref)
-				}
-				gitDir = ref
-			}
-			return filepath.Join(gitDir, "info", "exclude"), true
+			return filepath.Join(common, "info", "exclude"), true
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
