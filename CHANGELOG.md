@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Case-only rule, skill, or agent renames keep generated files and protect hand edits with backups or `--keep-edits` (#2640).
+- `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
 - Sync saves edited outputs as `.bak` before removing them when a spec or target leaves, and `revert` restores them (#2639).
 
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
