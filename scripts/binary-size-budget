@@ -585,4 +585,9 @@
 # metadata grows 6.7 KB with the new functions; readLedger and the snapshot methods
 # add 2.2 KB. No new dependency. Passing the snapshot by pointer would trim part of
 # the closure growth and is left for part 2 of #2667, which reshapes these call sites.
-24088736
+#
+# Keeping one project escape check (#2730) adds 10 bytes of symbols to main f74b8c69
+# (checkProjectPath +75, removeOwned +71, escapesProjectRoot -136) and crosses a page
+# boundary: 24088736 to 24092832 with Go 1.27.3 and Linux amd64 release flags. Main sat
+# at 0 bytes under its budget, so any growth needed a raise. No new dependency.
+24092832
