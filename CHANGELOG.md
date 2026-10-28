@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `packs update` installs each Git pack at the commit recorded in `agnostic.packs.lock`. Before, it fetched the current tip of the recorded tag or branch and overwrote the recorded commit, so a moved tag or a force push changed the pack with no error. It now fails and leaves the lockfile unchanged when the remote no longer has that commit. `packs update --latest` moves a pack to the newest commit of its ref and prints the old and new commit (#2638).
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 
