@@ -190,6 +190,12 @@ func runPacksRemove(root, name string, out io.Writer) error {
 	if !lock.has(name) {
 		return fmt.Errorf("packs remove: %q not installed", name)
 	}
+	if err := validatePackName(name); err != nil {
+		return fmt.Errorf("packs remove %q: %w", name, err)
+	}
+	if err := checkPacksDirInsideProject(root); err != nil {
+		return fmt.Errorf("packs remove %q: %w", name, err)
+	}
 	dest := filepath.Join(root, packsDir, name)
 	if err := os.RemoveAll(dest); err != nil {
 		return fmt.Errorf("packs remove: %w", err)
@@ -457,6 +463,12 @@ func copyTree(src, dst string) error {
 // and returns the resolved HEAD commit. When ref is empty the default
 // branch is fetched.
 func gitClone(source, ref, dest string) (string, error) {
+	if strings.HasPrefix(source, "-") {
+		return "", fmt.Errorf("source %q must not start with -", source)
+	}
+	if strings.HasPrefix(ref, "-") {
+		return "", fmt.Errorf("ref %q must not start with -", ref)
+	}
 	cloneURL := source
 	if !strings.Contains(cloneURL, "://") && !strings.HasPrefix(cloneURL, "git@") {
 		cloneURL = "https://" + cloneURL
@@ -475,7 +487,7 @@ func gitClone(source, ref, dest string) (string, error) {
 }
 
 func gitCloneArgs(source, ref, dest string) []string {
-	args := []string{"clone", "--depth", "1"}
+	args := []string{"-c", "protocol.ext.allow=never", "clone", "--depth", "1"}
 	if ref != "" {
 		args = append(args, "--branch", ref)
 	}

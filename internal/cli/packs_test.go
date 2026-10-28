@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -224,7 +225,7 @@ func writeLock(t *testing.T, root string, entries ...packEntry) {
 }
 
 func TestPacksUpdate_RefusesLockfileNameOutsidePacksDir(t *testing.T) {
-	for _, name := range []string{"../victim", "a/b", "..", `a\b`} {
+	for _, name := range []string{"../victim", "a/b", "..", `a\b`, ""} {
 		t.Run(name, func(t *testing.T) {
 			parent := t.TempDir()
 			root := filepath.Join(parent, "project")
@@ -235,8 +236,9 @@ func TestPacksUpdate_RefusesLockfileNameOutsidePacksDir(t *testing.T) {
 			writeLock(t, root, packEntry{Name: name, Source: "./payload"})
 
 			var out bytes.Buffer
-			if err := runPacksUpdate(root, "", &out); err == nil {
-				t.Fatal("expected update to refuse the lockfile name")
+			err := runPacksUpdate(root, "", &out)
+			if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("%q", name)) {
+				t.Fatalf("err=%v, want a refusal that names the entry %q", err, name)
 			}
 			if _, err := os.Stat(filepath.Join(victim, "keep.txt")); err != nil {
 				t.Errorf("update removed a folder outside the project: %v", err)
@@ -440,6 +442,49 @@ func TestPacksUpdate_RefusesLocalSourceOutsideProject(t *testing.T) {
 		if _, statErr := os.Stat(filepath.Join(root, packsDir, "p")); !os.IsNotExist(statErr) {
 			t.Errorf("source %q: update copied a folder from outside the project", source)
 		}
+	}
+}
+
+func TestPacksRemove_RefusesLockfileNameOutsidePacksDir(t *testing.T) {
+	for _, name := range []string{"../victim", "a/b", "..", `a\b`, ""} {
+		t.Run(name, func(t *testing.T) {
+			parent := t.TempDir()
+			root := filepath.Join(parent, "project")
+			victim := filepath.Join(parent, "victim")
+			mustWrite(t, filepath.Join(victim, "keep.txt"), "keep")
+			mustWrite(t, filepath.Join(root, packsDir, "other", "keep.txt"), "keep")
+			testutil.Chdir(t, root)
+			writeLock(t, root, packEntry{Name: name, Source: "./x"}, packEntry{Name: "other", Source: "./x"})
+
+			var out bytes.Buffer
+			err := runPacksRemove(root, name, &out)
+			if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("%q", name)) {
+				t.Fatalf("err=%v, want a refusal that names the entry %q", err, name)
+			}
+			for _, kept := range []string{filepath.Join(victim, "keep.txt"), filepath.Join(root, packsDir, "other", "keep.txt")} {
+				if _, err := os.Stat(kept); err != nil {
+					t.Errorf("remove deleted %s: %v", kept, err)
+				}
+			}
+		})
+	}
+}
+
+func TestGitClone_RefusesOptionLikeSourceOrRef(t *testing.T) {
+	for _, c := range []struct{ source, ref string }{
+		{"--upload-pack=x", ""},
+		{"https://example.com/p", "--upload-pack=x"},
+	} {
+		if _, err := gitClone(c.source, c.ref, filepath.Join(t.TempDir(), "dest")); err == nil || !strings.Contains(err.Error(), "must not start with -") {
+			t.Errorf("gitClone(%q, %q) err=%v, want a refusal before git runs", c.source, c.ref, err)
+		}
+	}
+}
+
+func TestGitCloneArgs_DisablesExtTransport(t *testing.T) {
+	args := gitCloneArgs("https://example.com/p", "", "dest")
+	if len(args) < 3 || args[0] != "-c" || args[1] != "protocol.ext.allow=never" || args[2] != "clone" {
+		t.Errorf("gitCloneArgs = %q, want -c protocol.ext.allow=never before clone", args)
 	}
 }
 
