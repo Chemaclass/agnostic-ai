@@ -1826,13 +1826,15 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		mark("<file>")
 	}
 	if err == nil {
-		if err := json.Unmarshal(data, &doc); err != nil {
+		// The text edit keeps comments, so only the parse drops them.
+		stripped, _ := adapters.StripJSONC(data)
+		if err := json.Unmarshal(stripped, &doc); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
-		if err := json.Unmarshal(data, &before); err != nil {
+		if err := json.Unmarshal(stripped, &before); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
-		if err := json.Unmarshal(data, ordered); err != nil {
+		if err := json.Unmarshal(stripped, ordered); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
 	} else if !absent {
@@ -2135,7 +2137,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	}
 	// Nothing of ours left and nothing of the user's either: drop a file
 	// sync created rather than leave a shell behind.
-	if len(doc) == 0 && (absent || owns("<file>")) {
+	if len(doc) == 0 && absent {
 		merge.created = nil
 		return nil, nil
 	}
@@ -2149,10 +2151,22 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		if err := json.Unmarshal(raw, &merged); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
+		out := data
+		if !reflect.DeepEqual(merged, before) {
+			if out, err = editGlobalHooksText(path, data, before, merged, restore); err != nil {
+				return nil, err
+			}
+		}
+		// A comment left after the edit is the user's, so it keeps the
+		// file; one inside what the edit removed went with it.
+		if _, commented := adapters.StripJSONC(out); len(doc) == 0 && owns("<file>") && !commented {
+			merge.created = nil
+			return nil, nil
+		}
 		if reflect.DeepEqual(merged, before) {
 			return nil, errGlobalFileUnchanged
 		}
-		return editGlobalHooksText(path, data, before, merged, restore)
+		return out, nil
 	}
 	for _, key := range []string{"version", "hooks"} {
 		value, ok := doc[key]
