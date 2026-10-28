@@ -522,70 +522,10 @@
         {
           "kind": "hook",
           "label": "Hooks",
-          "count": 2
+          "count": 0
         }
       ],
-      "items": [
-        {
-          "kind": "hook",
-          "name": "prepare-session",
-          "label": "Prepare session",
-          "description": "Check the project before starting work.",
-          "path": ".agnostic-ai/hooks/prepare-session.yaml",
-          "layer": "project",
-          "group": "session-start",
-          "values": [
-            {
-              "key": "command",
-              "type": "text",
-              "value": "./scripts/prepare-session.sh"
-            },
-            {
-              "key": "on",
-              "type": "text",
-              "value": "session-start"
-            },
-            {
-              "key": "timeout",
-              "type": "text",
-              "value": "10"
-            }
-          ],
-          "findings": []
-        },
-        {
-          "kind": "hook",
-          "name": "review-session",
-          "label": "Review session",
-          "description": "Review the project context before starting work.",
-          "path": ".agnostic-ai/hooks/review-session.yaml",
-          "layer": "project",
-          "group": "session-start",
-          "values": [
-            {
-              "key": "type",
-              "type": "text",
-              "value": "prompt"
-            },
-            {
-              "key": "prompt",
-              "type": "text",
-              "value": "Review the project context."
-            },
-            {
-              "key": "disabled",
-              "type": "bool",
-              "value": "true"
-            },
-            {
-              "key": "on",
-              "type": "text",
-              "value": "session-start"
-            }
-          ],
-          "findings": []
-        }
-      ],
+      "items": [],
       "support": [
         {
           "kind": "hook",

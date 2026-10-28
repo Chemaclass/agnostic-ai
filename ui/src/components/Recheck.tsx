@@ -24,6 +24,7 @@ export interface Rechecked extends Request {
 export interface RecheckApi {
   live: boolean
   pending?: string
+  pendingPlace?: string
   rechecked?: Rechecked
   start(id: string, finding: ItemFinding, section: string, place: string): void
   dismiss(): void
@@ -69,7 +70,7 @@ export function useRecheck(overview: Remote<OverviewView>, refresh: () => void, 
     refresh()
   }, [before, refresh])
   const dismiss = useCallback(() => setRechecked(undefined), [])
-  return useMemo(() => ({ live, pending: request?.id, rechecked, start, dismiss }), [live, request, rechecked, start, dismiss])
+  return useMemo(() => ({ live, pending: request?.id, pendingPlace: request?.place, rechecked, start, dismiss }), [live, request, rechecked, start, dismiss])
 }
 
 export function useRechecks(): RecheckApi {

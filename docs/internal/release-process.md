@@ -54,7 +54,7 @@ Each publishing channel requires its own credential. Without the secret, GoRelea
 
 The parent requires exact versions of six platform packages, so the release publishes them first and the parent last:
 
-1. `scripts/npm-binaries.sh <tag> <dir>` downloads the six release archives, verifies them against `checksums.txt`, and unpacks one program per platform.
+1. `scripts/npm-binaries.sh <tag> <dir>` downloads the six release archives, verifies them against `checksums.txt` and against the build provenance `release.yml` signed for the same tag, and unpacks one program per platform.
 2. `npm/scripts/build-platform-packages.js --binaries <dir> --version <x.y.z>` writes `npm/platforms/<os>-<cpu>/` and pins the parent to all six.
 3. `scripts/npm-publish.sh <x.y.z>` publishes the six platform packages with required provenance and waits until npm serves them. When this run uploaded any of them, it waits five more minutes (`NPM_ATTESTATION_SETTLE`) before verifying those uploads. The parent follows the same steps. A version an earlier run published is verified straight away. Each check retries with backoff (`NPM_PROVENANCE_RETRIES`, default 10) so a short registry outage does not fail a good version.
 
@@ -69,6 +69,8 @@ Every new publish uses `--provenance`, which attaches signed records of the buil
 `scripts/npm-verify-provenance.js` uses the pinned npm CLI's bundled verification libraries and Sigstore trust root. It verifies the registry signature, build and registry publish attestations, and downloaded tarball integrity. It requires the build certificate to name this repository's `.github/workflows/release.yml` at the version tag, issued by GitHub Actions, and the signed source commit to match the release commit. A registry signature alone does not prove where a package was built.
 
 Re-run the same release after a temporary registry or signing-service failure when the published packages have valid attestations. Verified platform packages are skipped and missing packages publish before the parent. If a tarball reached npm without its required attestation, stop: npm versions are immutable and re-running cannot attach a replacement. Prepare a new version of all seven packages through the normal release process. Do not plain-publish, unpublish, or move the old tag to bypass verification.
+
+If the **Attest build provenance** step failed, the archives already on the release page carry no attestation, and `scripts/npm-binaries.sh` refuses them. A re-run attests the archives it rebuilds, which match the uploaded ones only when the build is byte-for-byte reproducible. Prepare a new version instead.
 
 See [npm provenance verification](https://docs.npmjs.com/viewing-package-provenance/) and the [npm verifier implementation](https://github.com/npm/cli/blob/v11.5.1/lib/utils/verify-signatures.js).
 
