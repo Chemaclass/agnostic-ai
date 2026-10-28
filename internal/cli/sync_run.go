@@ -247,6 +247,9 @@ func readStateFileStrict(projectRoot string) (syncStateFile, error) {
 
 func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesDigest string, ledger syncLedger) error {
 	p := stateFilePath(projectRoot)
+	if err := adapters.CheckBookkeepingPath(projectRoot, p); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(p), err)
 	}
@@ -298,6 +301,9 @@ func recordOutputSums(projectRoot string, sums map[string]string) error {
 	}
 	maps.Copy(s.OutputSums, sums)
 	if data, err = json.Marshal(s); err != nil {
+		return err
+	}
+	if err := adapters.CheckBookkeepingPath(projectRoot, p); err != nil {
 		return err
 	}
 	return os.WriteFile(p, data, 0o644)

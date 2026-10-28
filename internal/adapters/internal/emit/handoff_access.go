@@ -348,6 +348,12 @@ func (s *Session) CreateHandoffStore(dir string, dryRun bool) error {
 	if dir == "" || dryRun || s.IsCapturing() {
 		return nil
 	}
+	if info, err := os.Stat(dir); err == nil && info.IsDir() {
+		return nil
+	}
+	if err := confine(dir, "write", false); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("%s: %w", dir, err)
 	}

@@ -928,6 +928,20 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		return fmt.Errorf("refusing to write outside the project root: %s", path)
 	}
 	cur := &onDisk{path: path}
+	if err := confine(path, "write", false); err != nil {
+		// Matching bytes need no write, so a linked spec folder that
+		// already holds the scaffold still syncs.
+		existing, readErr := cur.bytes()
+		if readErr != nil || string(existing) != content || enforceMode && !cur.hasPerm(mode) {
+			return err
+		}
+		if detailing {
+			s.mu.Lock()
+			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip", Sum: ContentSum(content)})
+			s.mu.Unlock()
+		}
+		return nil
+	}
 	// A file already found there proves its folder exists, so an
 	// unchanged output costs no extra call.
 	ensureParent := func() error {
@@ -1055,6 +1069,9 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 }
 
 func writeBackup(path string, content []byte) error {
+	if err := confine(path, "write", false); err != nil {
+		return err
+	}
 	ownershipReads.RLock()
 	defer ownershipReads.RUnlock()
 	return os.WriteFile(path, content, filePerm)
@@ -1123,6 +1140,11 @@ func (s *Session) createUntrackedFileExclusive(path, content string, dryRun bool
 	}
 	if escapesProjectRoot(path) {
 		return false, fmt.Errorf("refusing to write outside the project root: %s", path)
+	}
+	// O_EXCL below refuses a link at path itself; only its folders can
+	// lead elsewhere.
+	if err := confine(path, "write", true); err != nil {
+		return false, err
 	}
 	defer lockPath(path)()
 	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
@@ -1331,6 +1353,14 @@ func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun 
 	if dryRun {
 		fmt.Printf("--- rm %s ---\n", path)
 		return true, nil
+	}
+	if err := confine(path, "remove", true); err != nil {
+		return false, err
+	}
+	if backup {
+		if err := confine(path+".bak", "write", false); err != nil {
+			return false, err
+		}
 	}
 
 	ownershipReads.RLock()

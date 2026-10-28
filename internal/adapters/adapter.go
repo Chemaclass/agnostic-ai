@@ -125,6 +125,15 @@ type Session = emit.Session
 // share capture or recording buffers.
 func NewSession() *Session { return emit.NewSession() }
 
+// CheckProjectPath mirrors emit.CheckProjectPath: it refuses a write
+// inside the project at root that a link leads outside root or into
+// Git's own folder.
+func CheckProjectPath(root, path string) error { return emit.CheckProjectPath(root, path) }
+
+// CheckBookkeepingPath mirrors emit.CheckBookkeepingPath, for the lock
+// and ledger sync keeps in a spec folder that may be a link.
+func CheckBookkeepingPath(root, path string) error { return emit.CheckBookkeepingPath(root, path) }
+
 // ContentSum mirrors emit.ContentSum: the fingerprint the sync ledger
 // records for every output.
 func ContentSum(content string) string { return emit.ContentSum(content) }

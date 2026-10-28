@@ -299,6 +299,9 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) (*adapters.S
 // fresh temporary sibling and swapped in only when complete, so a failed
 // copy leaves the link untouched.
 func materializeLink(p string) error {
+	if err := adapters.CheckProjectPath(".", p); err != nil {
+		return err
+	}
 	src, err := filepath.EvalSymlinks(p)
 	if err != nil {
 		return fmt.Errorf("%s: %w", p, err)

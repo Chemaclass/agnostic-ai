@@ -645,6 +645,9 @@ func ensureManagedGitignore(root string) error {
 	if content == string(data) {
 		return nil
 	}
+	if err := adapters.CheckProjectPath(root, path); err != nil {
+		return err
+	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("write runtime ignores: %w", err)
 	}
@@ -710,6 +713,9 @@ func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel
 	if updated == string(existing) {
 		return rel, false, nil
 	}
+	if err := adapters.CheckProjectPath(root, path); err != nil {
+		return rel, false, err
+	}
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
 		return rel, false, err
 	}
@@ -741,6 +747,9 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 	updated := renderWorktreeInclude(string(existing), cfg, block)
 	if updated == string(existing) {
 		return false, nil
+	}
+	if err := adapters.CheckProjectPath(root, path); err != nil {
+		return false, err
 	}
 	if strings.TrimSpace(updated) == "" {
 		return true, os.Remove(path)

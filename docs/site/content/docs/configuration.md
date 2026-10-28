@@ -569,6 +569,7 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 ## Path semantics
 
 - Relative `sources` and `outputs` paths start at the directory holding `agnostic-ai.yaml`. Absolute `sources` paths are used as written.
+- Project sync refuses to write or remove through a link that leads outside the project or into a `.git` folder, and names the link. A link that stays inside the project, such as `CLAUDE.md` linked to `AGENTS.md`, still works. `sync --global` follows linked dotfiles as before.
 - Sync creates output directories as needed and overwrites existing files.
 
 ## Entry-point files
