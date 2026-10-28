@@ -61,6 +61,14 @@ func TestUpgradeRequires_UpdatesProjectPinsAndSyncs(t *testing.T) {
 			t.Errorf("requires failure lacks %q:\n%s", want, out)
 		}
 	}
+	for _, unwanted := range []string{"PATH shadows", "global home config", "Choose a next step:"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("noninteractive failure includes unrelated advice or a menu %q:\n%s", unwanted, out)
+		}
+	}
+	if strings.Count(out, "upgrade --requires") != 1 {
+		t.Errorf("requires failure repeats its fix:\n%s", out)
+	}
 	if strings.Contains(out, "upgrade --version v0.76.0") {
 		t.Errorf("requires failure suggests downgrading the installed package:\n%s", out)
 	}

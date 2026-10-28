@@ -138,6 +138,24 @@ func TestProjectCommands_ExactRequiresStopsOlderAndNewerBinaries(t *testing.T) {
 	}
 }
 
+func TestProjectCommands_NewerReleaseExplainsProjectRequirement(t *testing.T) {
+	requiresProject(t, "0.88.0")
+	writeFile(t, "agnostic-ai.local.yaml", "requires: \"0.88.0\"\n")
+
+	_, _, err := runAsVersion(t, "v0.89.0", "sync")
+	assertUnmetRequires(t, err, "agnostic-ai.yaml + agnostic-ai.local.yaml", "0.88.0", "0.89.0")
+	for _, want := range []string{
+		"The installed release is newer than this project allows.",
+		"\n  fix: run `agnostic-ai upgrade --requires`",
+		"This updates requires and the schema URL, then runs sync.",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message misses %q: %v", want, err)
+		}
+	}
+	assertAbsent(t, "CLAUDE.md", "AGENTS.md", ".claude", ".agnostic-ai/.sync-state")
+}
+
 func TestProjectCommands_RangeRequiresStopsBinariesOutsideIt(t *testing.T) {
 	requiresProject(t, ">=0.73.0 <0.74.0")
 	silence(t)

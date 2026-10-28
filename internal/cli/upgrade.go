@@ -229,7 +229,8 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 		return installRequestedVersion(out, info, requestedVersion, deps)
 	}
 	if info.Latest != "" && info.Version != "" && versionsEqual(info.Version, info.Latest) {
-		_, _ = fmt.Fprintf(out, "\nAlready on latest (%s). Nothing to do.\n", info.Latest)
+		_, _ = fmt.Fprintf(out, "\nAlready on latest (%s). No binary update needed.\n", info.Latest)
+		printUpgradeRequiresHint(out, info.Version)
 		return nil
 	}
 	if info.Method == installBinary {
@@ -269,7 +270,8 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 // re-running the installer by hand.
 func installRequestedVersion(out io.Writer, info upgradeInfo, requestedVersion string, deps upgradeDeps) error {
 	if info.Version != "" && versionsEqual(info.Version, requestedVersion) {
-		_, _ = fmt.Fprintf(out, "\nAlready on %s. Nothing to do.\n", requestedVersion)
+		_, _ = fmt.Fprintf(out, "\nAlready on %s. No binary install needed.\n", requestedVersion)
+		printUpgradeRequiresHint(out, info.Version)
 		return nil
 	}
 	if info.Method != installBinary {

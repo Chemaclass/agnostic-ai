@@ -47,6 +47,8 @@ With Claude Code and Codex selected, your note is now in `AGENTS.md`, and `CLAUD
 
 Homebrew, the install script, Windows, and Go are on the [installation page](https://agnostic-ai.org/docs/installation/).
 
+When a project version requirement blocks a command, the terminal offers a fix, a configured AI CLI, or a prompt to copy. See [version mismatch help](https://agnostic-ai.org/docs/errors/#aai-005-installed-version-outside-requires).
+
 ## Set up with a coding agent
 
 Or paste this into Claude Code, Codex, Cursor, or another coding agent:

@@ -571,4 +571,9 @@
 # (#2630 to #2704) grew the binary 168 KB over 36 merges, about 4.7 KB each, as the PRs
 # claimed. Five of its PRs are still open. Set to 24060000 for them. The next raise needs
 # a size review first: what grew, and whether any of it can be trimmed.
-24060000
+# Interactive version recovery adds 16384 bytes to main 5ce97e81:
+# 24051872 to 24068256 with Go 1.27.3 and Linux amd64 release flags.
+# Project-root context, the action menu, prompt handoff, and ignoring
+# Ctrl-C while the launched AI tool runs use existing dependencies.
+# Raise only to the measured size, with no added headroom.
+24068256

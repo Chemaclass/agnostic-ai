@@ -12,12 +12,13 @@ import (
 )
 
 // UnknownKeysError lists the keys config files hold that no setting
-// reads. Requires is the loaded config's requires value, so a caller can
-// tell an older binary about the upgrade before the keys a newer release
-// added.
+// reads. Requires and Targets are the loaded config's values, so a caller
+// can tell an older binary about the upgrade, and which tools could help,
+// before the keys a newer release added.
 type UnknownKeysError struct {
 	Source   string
 	Requires string
+	Targets  []string
 	Keys     []string
 }
 
