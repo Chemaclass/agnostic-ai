@@ -212,6 +212,7 @@ kbd {
    their heights into --topbar-offset and --nav-offset. */
 html {
   scroll-padding-top: calc(var(--topbar-offset, var(--topbar-height)) + 16px);
+  scrollbar-gutter: stable;
 }
 
 .app {
