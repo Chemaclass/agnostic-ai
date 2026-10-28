@@ -15,6 +15,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -435,8 +436,8 @@ func memorySecretIn(line string) bool {
 // memoryBearerIn finds a `Bearer` token with a digit and 16 or more
 // characters, so prose such as "bearer authentication." does not count.
 func memoryBearerIn(text string) bool {
-	for _, m := range mcpBearer.FindAllStringSubmatch(text, -1) {
-		token := strings.TrimRight(m[1], ".,;:!?)`")
+	for _, token := range preview.BearerTokens(text) {
+		token = strings.TrimRight(token, ".,;:!?)`")
 		if len(token) >= 16 && strings.ContainsAny(token, "0123456789") && !strings.Contains(token, mcpRefSentinel) {
 			return true
 		}

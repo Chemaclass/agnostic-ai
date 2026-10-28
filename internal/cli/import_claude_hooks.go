@@ -114,7 +114,7 @@ func claudeGroupCredentialField(g claudehooks.Group) string {
 func claudeHookCredentialField(h claudehooks.CommandEntry) string {
 	command := adapters.ExecFormCommand(adapters.StripCursorGuard(h.Command), h.Args)
 	switch {
-	case h.Command != "" && (globalPermissionCommandCredentialDetected(command, 0) || claudeWebhookURL(command)):
+	case h.Command != "" && (globalPermissionCommandCredentialDetected(command) || claudeWebhookURL(command)):
 		return "command"
 	case h.URL != "" && (mcpCredentialDetected(h.URL) || claudeWebhookURL(h.URL)):
 		return "url"

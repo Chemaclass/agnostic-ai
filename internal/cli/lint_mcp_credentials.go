@@ -66,7 +66,7 @@ func mcpBlockLiteral(field, key, value string) bool {
 		return false
 	}
 	if field == "headers" {
-		value = mcpSchemeWord.ReplaceAllString(value, "")
+		value = preview.StripSchemeWord(value)
 	}
 	return !mcpNativeReference.MatchString(value) && mcpCredentialUnder(key, value)
 }
