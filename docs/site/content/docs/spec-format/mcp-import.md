@@ -46,6 +46,10 @@ It reads each tool's own reference form in `env`, `headers`, `url`, and `args` b
 
 `import --global` cannot change a server, so it leaves out each server with a literal credential: any credential above, or an `env` or header value with a [credential name](#credential-names) or that looks like a credential. It names the server and field, never the value. A plain setting such as `NODE_ENV: production`, a path, a number, or `Bearer ${TOKEN}` imports as written, marked [`!literal`](@/docs/spec-format/mcps.md#plain-settings). A value under a credential name that does not look like a credential stays unmarked, so `lint` asks about it. Add a left-out server by hand under `local/mcps`, or with a `${NAME}` reference.
 
+## Setting values
+
+Imports of other settings use one rule for each value: Claude Code `env` values, hook headers, and `mcp_tool` inputs, Codex overlay values, and Grok hook and agent metadata. A value holds a credential when it has literal text (plain text, or a `${NAME:-default}` with a default) and either its key has a [credential name](#credential-names) or the text looks like a credential by the rules above. So `API_TOKEN: x`, `API_TOKEN: ${API_TOKEN:-x}`, and `Authorization: Bearer abc` hold one, and `API_TOKEN: ${API_TOKEN}`, `Authorization: Bearer ${AUTH}`, and `PATH: /usr/bin` do not. Claude Code and Codex import leave such a value out with a warning naming its key; Grok import stops before writing.
+
 ## Credential names
 
 A name is a credential name when its last word is `token`, `secret`, `password`, `passwd`, `pwd`, `pass`, `accesstoken`, `authtoken`, `credential`, `credentials`, `cookie`, `bearer`, `apikey`, `authentication`, or `authorization`. Words split at punctuation and camelCase, so `clientSecret` and `API_TOKEN` count and `token_type` does not. A one-word name ending in `password`, `passwd`, `secret`, or `token` counts too, as `PGPASSWORD` and `MYTOKEN` do.

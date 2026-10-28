@@ -355,13 +355,11 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 		if json.Unmarshal(rawValue, &value) != nil || value == "" {
 			continue
 		}
-		stripped, defaulted := spec.StripEnvRefDefaults(value)
-		literal := len(defaulted) > 0 || !mcpRefOnly(stripped)
 		reason := "holds a credential"
 		switch {
-		case !literal:
+		case !literalSettingValue(value):
 			continue
-		case mcpCredentialSetting(key, value) || claudeTokenEnv.MatchString(key):
+		case credentialSettingValue(key, value) || claudeTokenEnv.MatchString(key):
 		case claudeHeaderEnv.MatchString(key):
 			reason = "may hold a credential"
 		default:

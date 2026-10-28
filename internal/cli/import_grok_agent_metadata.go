@@ -125,7 +125,7 @@ func grokNonStringKeyPath(value any, path string) string {
 func validateGrokRetainedCredentials(entries map[string]any) error {
 	unsafe := false
 	walkMCPStrings("", "", entries, func(_, key, value string) {
-		if grokHookCredentialValue(key, value) {
+		if credentialSettingValue(key, value) {
 			unsafe = true
 		}
 	})
@@ -140,7 +140,7 @@ func validateGrokRetainedCredentials(entries map[string]any) error {
 			if !hasValue && i+1 < len(args) {
 				value = args[i+1]
 			}
-			if grokHookCredentialValue(flag, value) {
+			if credentialSettingValue(flag, value) {
 				unsafe = true
 			}
 		}

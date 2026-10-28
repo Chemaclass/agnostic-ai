@@ -200,6 +200,22 @@ func mcpCredentialValue(value string) bool {
 	return value != "" && !spec.OnlyEscapedEnvRefs(value)
 }
 
+// literalSettingValue reports whether value holds text that is not a
+// ${NAME} reference: any literal, or a reference with a default.
+func literalSettingValue(value string) bool {
+	stripped, defaulted := spec.StripEnvRefDefaults(value)
+	return value != "" && (len(defaulted) > 0 || !mcpRefOnly(stripped))
+}
+
+// credentialSettingValue reports whether an imported setting, such as an
+// `env` or header value, holds a literal credential: any literal under a
+// credential name, or a literal that holds one by its shape. A value of
+// only references holds no secret. Every tool import uses this rule,
+// since the spec it writes is committed (#2716).
+func credentialSettingValue(key, value string) bool {
+	return literalSettingValue(value) && (mcpCredentialKey(key) || mcpCredentialSetting(key, value))
+}
+
 type mcpCredentialSpan struct {
 	name       string
 	start, end int

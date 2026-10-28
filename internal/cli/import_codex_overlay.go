@@ -19,7 +19,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
-	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -204,16 +203,15 @@ func codexCredentialPaths(table map[string]any, prefix []string, names bool) [][
 func codexCredentialIn(key string, value any, names bool) bool {
 	switch value := value.(type) {
 	case string:
-		stripped, defaulted := spec.StripEnvRefDefaults(value)
 		switch {
-		case value == "" || len(defaulted) == 0 && mcpRefOnly(stripped):
+		case !literalSettingValue(value):
 			return false
 		case names:
 			return mcpCredentialDetected(value)
 		case codexProseKeys[key]:
 			return preview.TokenIn(value)
 		}
-		return mcpCredentialSetting(key, value)
+		return credentialSettingValue(key, value)
 	case []map[string]any:
 		for _, item := range value {
 			if len(codexCredentialPaths(item, nil, names)) > 0 {
