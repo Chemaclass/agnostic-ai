@@ -31,8 +31,8 @@ const (
 
 // packEntry is one row of agnostic.packs.lock. Source is the user-given
 // argument verbatim (Git URL or local path); Ref is the resolved branch,
-// tag, or commit; Sha is the commit hash captured at install time and
-// used by `update` to detect changes.
+// tag, or commit; Sha is the commit hash captured at install time, which
+// `update` restores exactly.
 type packEntry struct {
 	Name   string `yaml:"name"`
 	Source string `yaml:"source"`
@@ -63,9 +63,12 @@ func newPacksCmd() *cobra.Command {
   # List installed packs
   agnostic-ai packs list
 
-  # Update one or all packs
+  # Reinstall one or all packs at the commits in agnostic.packs.lock
   agnostic-ai packs update
   agnostic-ai packs update superpowers
+
+  # Move packs to the newest commit of their recorded tag or branch
+  agnostic-ai packs update --latest
 
   # Remove a pack
   agnostic-ai packs remove superpowers`,
@@ -116,9 +119,10 @@ func newPacksListCmd() *cobra.Command {
 }
 
 func newPacksUpdateCmd() *cobra.Command {
-	return &cobra.Command{
+	var latest bool
+	cmd := &cobra.Command{
 		Use:   "update [<name>]",
-		Short: "Reinstall pack(s) at the lockfile-recorded ref.",
+		Short: "Reinstall pack(s) at the commit recorded in the lockfile.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
@@ -128,9 +132,11 @@ func newPacksUpdateCmd() *cobra.Command {
 			if len(args) == 1 {
 				only = args[0]
 			}
-			return runPacksUpdate(".", only, cmd.OutOrStdout())
+			return runPacksUpdate(".", only, latest, cmd.OutOrStdout())
 		},
 	}
+	cmd.Flags().BoolVar(&latest, "latest", false, "Move each pack to the newest commit of its recorded tag or branch and record it; it does not switch to a newer tag")
+	return cmd
 }
 
 // runPacksAdd installs one pack and updates the lockfile. Re-installing
@@ -231,7 +237,7 @@ func runPacksList(root string, out io.Writer) error {
 	return nil
 }
 
-func runPacksUpdate(root, only string, out io.Writer) error {
+func runPacksUpdate(root, only string, latest bool, out io.Writer) error {
 	lock, err := readPacksLock(root)
 	if err != nil {
 		return err
@@ -264,12 +270,12 @@ func runPacksUpdate(root, only string, out io.Writer) error {
 		if err := os.RemoveAll(dest); err != nil {
 			return fmt.Errorf("packs update %s: %w", p.Name, err)
 		}
-		sha, err := fetchPack(p.Source, p.Ref, dest)
+		sha, err := fetchLockedPack(p, latest, dest)
 		if err != nil {
 			return fmt.Errorf("packs update %s: %w", p.Name, err)
 		}
 		lock.Packs[i].Sha = sha
-		_, _ = fmt.Fprintf(out, "✓ updated %s\n", p.Name)
+		reportPackUpdate(out, p, sha)
 		updated++
 	}
 	if only != "" && updated == 0 {
@@ -401,6 +407,40 @@ func pathInside(base, path string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
+// fetchLockedPack restores a Git pack at its recorded commit, so a moved
+// tag or a force-pushed branch cannot change what the project gets. With
+// latest, or when no commit is recorded yet, it fetches the ref's tip.
+func fetchLockedPack(p packEntry, latest bool, dest string) (string, error) {
+	if latest || p.Sha == "" || isLocalSource(p.Source) {
+		return fetchPack(p.Source, p.Ref, dest)
+	}
+	sha, err := gitFetchCommit(p.Source, p.Sha, dest)
+	if err == nil {
+		return sha, nil
+	}
+	// A server on the old wire protocol refuses a fetch by commit unless
+	// that commit is a branch or tag tip, so try the ref and keep it only
+	// when it still points at the recorded commit.
+	if isCommitHash(p.Sha) && os.RemoveAll(dest) == nil {
+		if tip, cloneErr := gitClone(p.Source, p.Ref, dest); cloneErr == nil && strings.EqualFold(tip, p.Sha) {
+			return p.Sha, nil
+		}
+	}
+	_ = os.RemoveAll(dest)
+	return "", fmt.Errorf("restore recorded commit %s: %w; run `agnostic-ai packs update --latest %s` to move to the newest commit of its ref", short(p.Sha), err, p.Name)
+}
+
+func reportPackUpdate(out io.Writer, p packEntry, sha string) {
+	switch {
+	case p.Sha != "" && sha != "" && p.Sha != sha:
+		_, _ = fmt.Fprintf(out, "✓ updated %s from %s to %s\n", p.Name, short(p.Sha), short(sha))
+	case sha != "":
+		_, _ = fmt.Fprintf(out, "✓ updated %s at %s\n", p.Name, short(sha))
+	default:
+		_, _ = fmt.Fprintf(out, "✓ updated %s\n", p.Name)
+	}
+}
+
 // fetchPack populates dest with the pack contents and returns the
 // resolved commit sha when the source is a Git URL. Local-directory
 // sources (file://, ./, ../, /) copy the tree and return an empty sha.
@@ -469,10 +509,7 @@ func gitClone(source, ref, dest string) (string, error) {
 	if strings.HasPrefix(ref, "-") {
 		return "", fmt.Errorf("ref %q must not start with -", ref)
 	}
-	cloneURL := source
-	if !strings.Contains(cloneURL, "://") && !strings.HasPrefix(cloneURL, "git@") {
-		cloneURL = "https://" + cloneURL
-	}
+	cloneURL := gitSourceURL(source)
 	if err := runCmd("git", gitCloneArgs(cloneURL, ref, dest)...); err != nil {
 		return "", fmt.Errorf("git clone: %w", err)
 	}
@@ -492,6 +529,64 @@ func gitCloneArgs(source, ref, dest string) []string {
 		args = append(args, "--branch", ref)
 	}
 	return append(args, "--", source, dest)
+}
+
+func gitSourceURL(source string) string {
+	if !strings.Contains(source, "://") && !strings.HasPrefix(source, "git@") {
+		return "https://" + source
+	}
+	return source
+}
+
+// gitFetchCommit fetches exactly one commit into dest and fails when the
+// remote no longer has it.
+func gitFetchCommit(source, sha, dest string) (string, error) {
+	if !isCommitHash(sha) {
+		return "", fmt.Errorf("%q is not a commit hash", sha)
+	}
+	steps := []struct {
+		name string
+		args []string
+	}{
+		{"init", initArgs(sha, dest)},
+		{"fetch", []string{"-C", dest, "-c", "protocol.ext.allow=never", "fetch", "--quiet", "--depth", "1", "--", gitSourceURL(source), sha}},
+		{"checkout", []string{"-C", dest, "-c", "advice.detachedHead=false", "checkout", "--quiet", "FETCH_HEAD"}},
+	}
+	for _, step := range steps {
+		if err := runCmd("git", step.args...); err != nil {
+			return "", fmt.Errorf("git %s: %w", step.name, err)
+		}
+	}
+	got, err := captureCmd(dest, "git", "rev-parse", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse: %w", err)
+	}
+	if got = strings.TrimSpace(got); !strings.EqualFold(got, sha) {
+		return "", fmt.Errorf("fetched commit %s, want %s", short(got), short(sha))
+	}
+	if err := os.RemoveAll(filepath.Join(dest, ".git")); err != nil {
+		return "", fmt.Errorf("strip .git: %w", err)
+	}
+	return sha, nil
+}
+
+func initArgs(sha, dest string) []string {
+	if len(sha) == 64 {
+		return []string{"init", "--quiet", "--object-format=sha256", dest}
+	}
+	return []string{"init", "--quiet", dest}
+}
+
+func isCommitHash(s string) bool {
+	if len(s) != 40 && len(s) != 64 {
+		return false
+	}
+	for _, r := range s {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", r) {
+			return false
+		}
+	}
+	return true
 }
 
 func runCmd(name string, args ...string) error {

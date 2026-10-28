@@ -39,12 +39,13 @@ Checked on 2026-10-03. Each repo keeps its skills in a root `skills/` directory.
 
 ```bash
 agnostic-ai packs list
-agnostic-ai packs update                # all packs
+agnostic-ai packs update                # all packs, at the recorded commits
 agnostic-ai packs update superpowers     # one pack
+agnostic-ai packs update --latest        # move to the newest commit of each ref
 agnostic-ai packs remove superpowers
 ```
 
-`update` fetches each pack again at the version in the lockfile.
+`update` installs each Git pack at the commit `sha` in the lockfile, so a moved tag or a force-pushed branch does not change what you get. It fails and leaves the lockfile unchanged when the remote no longer has that commit. `update --latest` fetches the newest commit of each pack's `ref`, prints the old and new commit, and records the new one. A local folder pack is copied again as it is now.
 
 The lockfile comes from the repository, so `update` checks every entry before it changes any file. It stops on a pack name that starts with a dot or is not a single folder name, and on a Git source other than `https://`, `ssh://`, `git@host:path`, or a host path such as `github.com/foo/bar`. It skips a pack from a local folder outside the project and prints the `packs add` command that refreshes it; `packs update <name>` stops with that command instead. `packs add` refuses the same names and Git sources.
 
@@ -87,7 +88,7 @@ packs:
     sha: 8ca22dba9a94f28898bbce59f2537ff4d87c747d
 ```
 
-Commit it so teammates and CI install the same versions.
+Commit it so teammates and CI install the same commits.
 
 </details>
 
