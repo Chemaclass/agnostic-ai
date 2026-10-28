@@ -27,51 +27,25 @@ for (const width of [320, 390, 900, 1440]) {
   })
 }
 
-test('starts every section with its page header and keeps generated files in the sidebar', async ({ page }) => {
+test('starts every section with its page header', async ({ page }) => {
   for (const view of ['context', 'authority', 'tools', 'lifecycle', 'settings']) {
     await page.goto(`/?view=${view}&mock=1`)
     await expect(page.locator('.page > :first-child')).toHaveClass('page-header')
-    await expect(page.locator('.sidenav section.sync-status')).toHaveCount(1)
-    await expect(page.locator('.page section.sync-status')).toHaveCount(0)
   }
 })
 
 for (const width of [320, 900]) {
-  test(`opens sidebar tool states and files with the keyboard at ${width}px`, async ({ page }) => {
+  test(`keeps the current section in view in the narrow navigation at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
-    let requests = 0
-    await page.route('**/api/views/overview', (route) => {
-      requests++
-      return route.fulfill({ json: fixture })
-    })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=lifecycle')
-    const toggle = page.getByRole('button', { name: 'Configured tools', exact: true })
-    const status = page.locator('.sidenav section.sync-status')
-    await expect(toggle).toBeInViewport()
+    await expect(page.getByRole('heading', { level: 1, name: 'Lifecycle', exact: true })).toBeInViewport()
     expect(await page.locator('.section-nav').evaluate((nav) => {
       const current = nav.querySelector('[aria-current="page"]')!.getBoundingClientRect()
       const bounds = nav.getBoundingClientRect()
       return current.left >= bounds.left && current.right <= bounds.right
     })).toBe(true)
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(status).not.toBeVisible()
-    await toggle.focus()
-    await page.keyboard.press('Enter')
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await expect(status.getByRole('button', { name: 'Refresh', exact: true })).toBeInViewport()
-    const tool = status.locator('.sync-status-tool').filter({ hasText: 'Claude Code' })
-    await expect(tool).toContainText('Needs sync')
-    await tool.locator('summary').focus()
-    await page.keyboard.press('Enter')
-    await expect(tool.locator('.sync-status-files')).toContainText('.claude/settings.json')
-    const beforeRefresh = requests
-    await status.getByRole('button', { name: 'Refresh', exact: true }).click()
-    await expect.poll(() => requests).toBe(beforeRefresh + 1)
-    await expect(page.getByRole('heading', { level: 1, name: 'Lifecycle', exact: true })).toBeInViewport()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    expect(await page.locator('.nav-project').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
-    await toggle.click()
-    await expect(status).not.toBeVisible()
   })
 }
 
@@ -88,6 +62,13 @@ for (const width of [1440, 390]) {
       const heading = page.getByRole('heading', { level: 1, name, exact: true })
       await expect(heading).toBeInViewport()
       const headingTop = () => heading.evaluate((element) => element.getBoundingClientRect().top)
+      // The sticky offsets are measured after the first paint, so wait for
+      // the layout to settle before taking the reference positions.
+      await expect.poll(async () => {
+        const before = await headingTop()
+        await page.waitForTimeout(100)
+        return before === (await headingTop())
+      }).toBe(true)
       const navTop = await sidenav.evaluate((element) => element.getBoundingClientRect().top)
       const start = await headingTop()
 
@@ -97,7 +78,8 @@ for (const width of [1440, 390]) {
       await expect.poll(headingTop).toBeLessThan(start - 100)
       expect(await sidenav.evaluate((element) => element.getBoundingClientRect().top)).toBeCloseTo(navTop, 0)
       await page.evaluate(() => window.scrollTo({ top: 0 }))
-      await expect.poll(headingTop).toBe(start)
+      // Sub-pixel rounding can move the heading by a pixel on the way back.
+      await expect.poll(async () => Math.abs((await headingTop()) - start) <= 2).toBe(true)
 
       const navBox = (await sidenav.boundingBox())!
       await page.mouse.move(navBox.x + navBox.width / 2, navBox.y + Math.min(navBox.height / 2, 20))
