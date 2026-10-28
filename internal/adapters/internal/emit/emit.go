@@ -25,6 +25,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/filealias"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -155,9 +156,12 @@ type Session struct {
 	// them as `<path>.bak` and records the path in overwrote (see
 	// BackUpEditsSince). merging holds the paths a merged write is
 	// writing, which hold user keys by design.
-	backupSums map[string]string
-	merging    map[string]bool
-	overwrote  []string
+	backupSums      map[string]string
+	priorPaths      map[string]string
+	priorCandidates []string
+	priorAliases    filealias.Cache
+	merging         map[string]bool
+	overwrote       []string
 	// backedUp holds the edits left in place because `<path>.bak`
 	// already existed, so writing over them would lose one.
 	backedUp []string
@@ -365,7 +369,7 @@ func (s *Session) BackupBlockedEdits() []string {
 func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 	path := cur.path
 	s.mu.Lock()
-	sum := s.backupSums[path]
+	sum := s.priorChecksum(path, s.backupSums)
 	merging := s.merging[path]
 	committed := s.committedSum
 	s.mu.Unlock()
@@ -415,7 +419,7 @@ func (s *Session) KeptEdits() []string {
 // edit in place, and returns the sum the last sync recorded for it.
 func (s *Session) keepsEdit(path, content string) (string, bool) {
 	s.mu.Lock()
-	sum := s.keepSums[path]
+	sum := s.priorChecksum(path, s.keepSums)
 	keeping := s.keepSums != nil
 	committed := s.committedSum
 	s.mu.Unlock()
@@ -930,6 +934,9 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	// Ordering is always pathLock (outer) then s.mu (inner); the early s.mu
 	// section above has already been released, so the two never deadlock.
 	defer lockPath(path)()
+	if err := s.resolvePriorOutput(path); err != nil {
+		return err
+	}
 	if sum, keep := s.keepsEdit(path, content); keep {
 		s.mu.Lock()
 		if _, watched := s.planned[path]; watched {
@@ -967,7 +974,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			s.mu.Lock()
 			s.backedUp = append(s.backedUp, path)
 			if detailing {
-				s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: s.backupSums[path]})
+				s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: s.priorChecksum(path, s.backupSums)})
 			}
 			s.mu.Unlock()
 			return nil
