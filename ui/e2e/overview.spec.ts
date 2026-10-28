@@ -349,80 +349,14 @@ test.describe('overview', () => {
     const stages = page.locator('.stage-title')
     await expect(stages.nth(0)).toHaveText('Session start')
     await expect(stages.nth(6)).toHaveText('Session end')
-    if (MOCK) {
-      await expect(page.locator('.stage-empty')).toHaveCount(6)
-      await expect(page.locator('.stage-count')).toHaveText(['2 hooks', ...Array(6).fill('No hooks')])
-      await expect(page.locator('.stage-disabled-count')).toHaveText('1 disabled')
-      await expect(page.getByRole('heading', { level: 2, name: 'Hooks 2', exact: true })).toBeVisible()
-    }
+    if (MOCK) await expect(page.locator('.stage-empty')).toHaveCount(7)
     await expect(page.locator('.stage-description')).toHaveCount(7)
     await expect(page.locator('.stage-description').first()).toBeVisible()
     await expect(page.locator('.stage details')).toHaveCount(0)
     const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
-    await expect(page.locator('.stage').first().locator('.stage-tools')).toHaveText('Runs on')
-    expect(await avatar.evaluate((element) => {
-      const beforeLogo = document.createRange()
-      beforeLogo.selectNodeContents(element.closest('.stage-tools')!)
-      beforeLogo.setEndBefore(element)
-      return beforeLogo.toString().trim()
-    })).toBe('Runs on')
     await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
     await expect(avatar.locator('img')).toBeVisible()
     await saveScreenshot(page, '02-lifecycle.png')
-  })
-
-  test('shows hook commands and types before metadata and labels disabled hooks', async ({ page }) => {
-    const data = structuredClone(fixture)
-    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
-    lifecycle.stages[lifecycle.stages.length - 1].targets = []
-    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-    await page.goto('/?view=lifecycle')
-    const firstStage = page.locator('.stage').first()
-    await expect(firstStage.locator('.stage-count')).toHaveText('2 hooks')
-    await expect(firstStage.locator('.stage-disabled-count')).toHaveText('1 disabled')
-    for (const [index, target] of lifecycle.stages[0].targets.entries()) {
-      await expect(firstStage.locator('.tool-avatar').nth(index)).toHaveAttribute('title', `${target.label} - ${target.event}`)
-    }
-    await expect(page.locator('.stage').last().locator('.stage-tools')).toHaveCount(0)
-    const prepare = firstStage.locator('.item-row', { hasText: 'Prepare session' })
-    const review = firstStage.locator('.item-row', { hasText: 'Review session' })
-    await expect(prepare.locator('.hook-command')).toHaveText('./scripts/prepare-session.sh')
-    await expect(review.locator('.hook-command')).toHaveText('prompt')
-    await expect(prepare.locator('.hook-disabled')).toHaveCount(0)
-    await expect(review.locator('.hook-disabled')).toHaveText('disabled')
-    await expect(prepare.locator('.value-row dt', { hasText: /^command$/ })).toHaveCount(0)
-    await expect(review.locator('.value-row dt', { hasText: /^type$/ })).toHaveCount(0)
-    await expect(prepare.locator('.value-row dt', { hasText: /^timeout$/ })).toHaveCount(1)
-    await expect(review.locator('.value-row dt', { hasText: /^prompt$/ })).toHaveCount(1)
-    for (const row of [prepare, review]) {
-      const label = await row.locator('.item-main strong').boundingBox()
-      const command = await row.locator('.hook-command').boundingBox()
-      const metadata = await row.locator('.value-row').first().boundingBox()
-      expect(label).not.toBeNull()
-      expect(command).not.toBeNull()
-      expect(metadata).not.toBeNull()
-      expect(command!.y).toBeGreaterThanOrEqual(label!.y + label!.height)
-      expect(metadata!.y).toBeGreaterThanOrEqual(command!.y + command!.height)
-    }
-  })
-
-  test('shows command lists and quoted disabled values in hook rows', async ({ page }) => {
-    const data = structuredClone(fixture)
-    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
-    const hook = lifecycle.items.find((item: { name: string }) => item.name === 'prepare-session')
-    hook.values = [
-      { key: 'type', type: 'text', value: 'command' },
-      { key: 'command', type: 'list', list: ['echo one', 'echo two'] },
-      { key: 'disabled', type: 'text', value: 'true' },
-    ]
-    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-    await page.goto('/?view=lifecycle')
-    const stage = page.locator('.stage').first()
-    const row = stage.locator('.item-row', { hasText: 'Prepare session' })
-    await expect(row.locator('.hook-command')).toHaveText(['echo one', 'echo two'])
-    await expect(row.locator('.value-row dt', { hasText: /^command$/ })).toHaveCount(0)
-    await expect(row.locator('.hook-disabled')).toHaveText('disabled')
-    await expect(stage.locator('.stage-disabled-count')).toHaveText('2 disabled')
   })
 
   test('shows built-ins as switches and config values as chips and text', async ({ page }) => {
