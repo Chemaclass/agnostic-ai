@@ -47,8 +47,6 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Review the plan before syncing. `sync --check` should exit 0. Then select **Refresh** in the browser to see the updated findings.
-
-The **Generated files** panel at the top of each page lists every configured tool as **Matches source**, **Needs sync**, or **Not checked**, with the files that differ and the time of the last check. A save in the browser changes only your source files, so the tools it affects show **Needs sync** until you run sync. Refresh keeps your page, search, and unsaved input. A static snapshot or the mock data shows the state when the snapshot was taken, not a live check.
+Review the plan before syncing. `sync --check` should exit 0 once the generated files match the source. Then select **Refresh** in the browser to see the updated findings.
 
 For per-agent permission decisions, browser switches, and undo, see [`serve`](@/docs/cli-reference/inspect.md#serve).

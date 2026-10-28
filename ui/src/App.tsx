@@ -72,36 +72,21 @@ export default function App() {
   const sourceKey = JSON.stringify(source)
   const [reloads, setReloads] = useState(0)
   const [savedBeforeRefresh, setSavedBeforeRefresh] = useState(false)
-  const [savedSinceRefresh, setSavedSinceRefresh] = useState(false)
-  const refreshRequested = useRef(false)
   const reload = useCallback((saved = false) => {
     if (saved) {
       setSavedBeforeRefresh(true)
-      setSavedSinceRefresh(true)
-      refreshRequested.current = false
     }
     setReloads((n) => n + 1)
   }, [])
   const retry = useCallback(() => setReloads((n) => n + 1), [])
-  const refresh = useCallback(() => {
-    refreshRequested.current = true
-    setReloads((n) => n + 1)
-  }, [])
+  const refresh = retry
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
   const stale = overview.loaded !== undefined && overview.error !== undefined
   const recheck = useRecheck(overview, refresh, source.kind === 'api', sourceKey)
   useEffect(() => {
     if (overview.status !== 'ready') return
     setSavedBeforeRefresh(false)
-    if (refreshRequested.current) {
-      refreshRequested.current = false
-      setSavedSinceRefresh(false)
-    }
   }, [overview.status])
-  useEffect(() => {
-    refreshRequested.current = false
-    setSavedSinceRefresh(false)
-  }, [sourceKey])
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
     const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`
@@ -205,7 +190,7 @@ export default function App() {
             onOpenSearch={openSearch}
           />
           <div className="shell">
-            <Nav overview={overview} snapshot={source.kind !== 'api'} saved={savedSinceRefresh} onRefresh={refresh} />
+            <Nav overview={overview} />
             <main id="main" className="main" tabIndex={-1}>
               <div className="page">
                 {sourceError && <ErrorPanel error={sourceError} />}

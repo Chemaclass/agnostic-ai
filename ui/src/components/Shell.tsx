@@ -7,7 +7,6 @@ import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { EditorChoice } from './EditorLink'
 import { APPLE_PLATFORM, Icon } from './ui'
-import { SyncStatus } from './SyncStatus'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -124,10 +123,9 @@ export function Header({
   )
 }
 
-export function Nav({ overview, snapshot, saved, onRefresh }: { overview: Remote<OverviewView>; snapshot: boolean; saved: boolean; onRefresh: () => void }) {
+export function Nav({ overview }: { overview: Remote<OverviewView> }) {
   const app = useApp()
   const navRef = useRef<HTMLElement>(null)
-  const [toolsOpen, setToolsOpen] = useState(false)
   // On narrow screens the navigation is one scrolling row; keep the
   // current page in view.
   useEffect(() => {
@@ -159,14 +157,6 @@ export function Nav({ overview, snapshot, saved, onRefresh }: { overview: Remote
       <nav className="section-nav" aria-label="Configuration sections" ref={navRef}>
         <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
       </nav>
-      {overview.loaded && <>
-        <button type="button" className="button nav-tools-toggle" aria-expanded={toolsOpen} aria-controls="configured-tools" onClick={() => setToolsOpen((open) => !open)}>
-          Configured tools
-        </button>
-        <div id="configured-tools" className={`nav-project${toolsOpen ? ' is-open' : ''}`}>
-          <SyncStatus overview={overview} snapshot={snapshot} saved={saved} onRefresh={onRefresh} />
-        </div>
-      </>}
     </aside>
   )
 }

@@ -499,7 +499,6 @@ test.describe('overview', () => {
     await expect(permissions.getByRole('button', { name: 'Copy path of .agnostic-ai/settings/permissions.yaml' })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Open files in' })).toHaveCount(0)
     await expect(permissions.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
-    await expect(page.locator('.sidenav .sync-status-time')).toContainText('Rechecking a finding needs a running agnostic-ai serve.')
     await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
     await expect(page.locator('.field-row', { hasText: 'Default permission mode' })).toContainText('Not set')
     await expect(page.getByText('Capability domains')).toHaveCount(0)
@@ -676,7 +675,6 @@ test.describe('overview', () => {
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(posted).toEqual([{ audience: 'shared', name: 'memory', enabled: true, expected: false }])
-    await expect(page.locator('.sidenav .sync-status-saved')).toHaveText('Saved to the source configuration. Generated files change only when you run sync.')
 
     refuse = true
     await toggle.click()
@@ -985,73 +983,5 @@ test.describe('overview', () => {
     await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)
     const retention = page.locator('.field-row').filter({ has: page.getByText('Session retention', { exact: true }) })
     await expect(retention.locator('a', { hasText: 'Global view instructions' })).toHaveCount(1)
-  })
-})
-
-test.describe('generated-file status', () => {
-  const withSync = (states: { target: string; label: string; state: string; files?: string[] }[]) => {
-    const data = structuredClone(fixture)
-    data.targets = states.map(({ target, label, state, files = [] }) => ({ target, label, kinds: [], sync: { state, files: files.map((path) => ({ path, state: 'stale' })) } }))
-    return data
-  }
-  const status = (page: import('@playwright/test').Page) => page.locator('.sidenav section.sync-status')
-
-  test('shows each tool as Matches source, Needs sync, or Not checked, with the files that differ', async ({ page }) => {
-    const data = withSync([
-      { target: 'claude', label: 'Claude Code', state: 'drifted', files: ['.claude/settings.json'] },
-      { target: 'codex', label: 'Codex', state: 'in-sync' },
-      { target: 'external', label: 'External', state: 'not-checked' },
-    ])
-    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-    await page.goto('/?view=settings')
-    await expect(status(page)).toContainText('Claude Code needs sync. External was not checked.')
-    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Checked /)
-    const row = (name: string) => status(page).locator('.sync-status-tool').filter({ hasText: name })
-    await expect(row('Claude Code')).toContainText('Needs sync')
-    await expect(row('Codex')).toContainText('Matches source')
-    await expect(row('External')).toContainText('Not checked')
-    await row('Claude Code').getByText('1 file').click()
-    await expect(row('Claude Code')).toContainText('.claude/settings.json')
-  })
-
-  test('never reports a match for an empty tool list', async ({ page }) => {
-    await page.route('**/api/views/overview', (route) => route.fulfill({ json: withSync([]) }))
-    await page.goto('/?view=context')
-    await expect(status(page)).toContainText('No coding tools are configured, so no generated files were checked.')
-    await expect(status(page)).not.toContainText('match the source')
-  })
-
-  test('keeps the previous results after a failed refresh without calling them checked', async ({ page }) => {
-    let failing = false
-    let hold: Promise<void> | undefined
-    await page.route('**/api/views/overview', async (route) => {
-      if (hold) await hold
-      return failing ? route.fulfill({ status: 500, json: { error: 'down' } }) : route.fulfill({ json: withSync([{ target: 'claude', label: 'Claude Code', state: 'in-sync' }]) })
-    })
-    await page.goto('/?view=context')
-    await expect(status(page)).toContainText('Generated files match the source for 1 tool.')
-    failing = true
-    await status(page).getByRole('button', { name: 'Refresh' }).click()
-    await expect(status(page)).toContainText('The latest refresh failed, so these results may be out of date.')
-    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Last successful check /)
-    await expect(status(page)).toHaveAttribute('data-tone', 'unknown')
-    failing = false
-    let release = () => {}
-    hold = new Promise((done) => { release = done })
-    await status(page).getByRole('button', { name: 'Refresh' }).click()
-    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Last successful check .* Checking again…$/)
-    await expect(status(page)).toHaveAttribute('data-tone', 'unknown')
-    hold = undefined
-    release()
-    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Checked /)
-    await expect(status(page)).toHaveAttribute('data-tone', 'match')
-  })
-
-  test('labels mock data as a snapshot, not a live check', async ({ page }) => {
-    await page.goto('/?view=context&mock=1')
-    await expect(status(page)).toContainText('Generated files at snapshot time')
-    await expect(status(page)).toContainText('Not a live check of your files.')
-    await expect(status(page).getByRole('button', { name: 'Reload snapshot' })).toBeVisible()
-    await expect(status(page).getByRole('button', { name: 'Refresh' })).toHaveCount(0)
   })
 })
