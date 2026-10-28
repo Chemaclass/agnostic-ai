@@ -183,16 +183,21 @@ type Session struct {
 func (s *Session) SetProjectRoot(root string) { s.projectRoot = root }
 
 // checkProjectPath refuses a path that climbs above the project, lies in
-// its .git folder, or, with a project root set, resolves outside it.
-func (s *Session) checkProjectPath(path string) error {
+// its .git folder, or, with a project root set, resolves outside it. It
+// then follows the links along path, inside the working directory, the
+// project root, and refuses one that leads outside it or into a Git
+// folder (see config.CheckProjectLinks), with a *config.LinkRefusal.
+// parentsOnly follows only the folders above path, for a removal or an
+// exclusive create.
+func (s *Session) checkProjectPath(path, verb string, parentsOnly bool) error {
 	switch {
 	case escapesProjectRoot(path):
-		return fmt.Errorf("refusing to write outside the project root: %s", path)
+		return fmt.Errorf("refusing to %s outside the project root: %s", verb, path)
 	case !filepath.IsAbs(path) && config.UnsafeProjectPath(path),
 		filepath.IsAbs(path) && s.projectRoot != "" && config.UnsafeProjectPathIn(s.projectRoot, path):
 		return fmt.Errorf("refusing a path outside the project or inside .git: %s", path)
 	}
-	return nil
+	return config.CheckProjectLinks(".", path, verb, parentsOnly)
 }
 
 // SetUserTier marks a session that writes a tool's user-level
@@ -975,10 +980,25 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		fmt.Printf("--- %s ---\n%s\n", path, preview.Display(path, content).Text)
 		return nil
 	}
-	if err := s.checkProjectPath(path); err != nil {
-		return err
-	}
 	cur := &onDisk{path: path}
+	if err := s.checkProjectPath(path, "write", false); err != nil {
+		// Matching bytes need no write, so a linked spec folder that
+		// already holds the scaffold still syncs.
+		var linked *config.LinkRefusal
+		if !errors.As(err, &linked) {
+			return err
+		}
+		existing, readErr := cur.bytes()
+		if readErr != nil || string(existing) != content || enforceMode && !cur.hasPerm(mode) {
+			return err
+		}
+		if detailing {
+			s.mu.Lock()
+			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip", Sum: ContentSum(content)})
+			s.mu.Unlock()
+		}
+		return nil
+	}
 	// A file already found there proves its folder exists, so an
 	// unchanged output costs no extra call.
 	ensureParent := func() error {
@@ -1211,7 +1231,9 @@ func (s *Session) createUntrackedFileExclusive(path, content string, dryRun bool
 	if s.IsCapturing() || dryRun {
 		return false, nil
 	}
-	if err := s.checkProjectPath(path); err != nil {
+	// O_EXCL below refuses a link at path itself; only its folders can
+	// lead elsewhere.
+	if err := s.checkProjectPath(path, "write", true); err != nil {
 		return false, err
 	}
 	defer lockPath(path)()
@@ -1498,7 +1520,7 @@ func (s *Session) removeWithBackup(path, sum string, existing []byte, handWritte
 		fmt.Printf("--- rm %s ---\n", path)
 		return true, nil
 	}
-	if err := s.checkProjectPath(path); err != nil {
+	if err := s.checkProjectPath(path, "remove", true); err != nil {
 		return false, err
 	}
 

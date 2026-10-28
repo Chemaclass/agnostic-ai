@@ -17,6 +17,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Security
 
 - **Breaking:** `packs update` installs each Git pack at its locked commit instead of the newest; pass `--latest` to move to the newest (#2638, #2690).
+- Sync refuses to write or remove through a link that leads outside the project or into `.git`; links inside the project still work (#2706).
 - `compare` hides credentials in permission rules and `x-<target>` overrides behind `<redacted>`, as `sync --global` does (#2650).
 - Pack commands refuse unsafe names and sources; a refused name says how to reinstall it with `packs add --name` (#2638, #2690).
 - `install.sh`, `install.ps1`, and `upgrade` check build provenance when `gh` is logged in, and the installers refuse a version that is not a release (#2655).
@@ -33,6 +34,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `doctor` fails on an unknown `-t` target, on findings `--json` skipped, and on `--json --fix`; `doctor config` checks as `sync` does (#2659, #2660).
 - `lint` and the editor report a spec a selected tool refuses at sync (LINT053) and a hook spec with nothing to run (LINT052) (#2642, #2645).
 - Commands that take no arguments fail on one, so `upgrade v0.56.1` no longer installs the latest; `new --dry-run` fails on an existing spec (#2661, #2662).
+- `import --dry-run` shows what the real import writes when rules and agents reach one folder by a relative and an absolute path (#2675).
 - `sync --json` prepares and seeds personal memory like `sync`, and its `notes` list every project note (#2663).
 - `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
 
