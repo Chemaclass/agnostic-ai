@@ -34,12 +34,12 @@ type importViewFile struct {
 
 // currentInfo is the file info from before the run or, for a file the
 // run created, what path holds now, so a later name for it links here.
+// Caching it is safe because import writes files in place.
 func (f *importViewFile) currentInfo(path string) os.FileInfo {
-	if f.info != nil {
-		return f.info
+	if f.info == nil {
+		f.info, _ = os.Stat(path)
 	}
-	info, _ := os.Stat(path)
-	return info
+	return f.info
 }
 
 // importView is the active guard, or nil outside an import run.
