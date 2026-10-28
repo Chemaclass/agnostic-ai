@@ -200,43 +200,63 @@ func mcpCredentialValue(value string) bool {
 	return value != "" && !spec.OnlyEscapedEnvRefs(value)
 }
 
-// settingSchemeWord is an auth scheme a header value may name before
-// its reference, as in `Bearer ${TOKEN}`. Any other word is literal
-// text, so `hunter ${X}` holds a secret.
-var settingSchemeWord = regexp.MustCompile(`^(?i:bearer|basic|token)\s+`)
+// settingSchemeWord is an auth scheme a value may name before its
+// reference, as in `Bearer ${TOKEN}`. Under an authorization header any
+// one word may, as in `SSWS ${OKTA_TOKEN}`; elsewhere any other word is
+// literal text, so `hunter ${X}` holds a secret.
+var (
+	settingSchemeWord = regexp.MustCompile(`^(?i:bearer|basic|token)\s+`)
+	settingHeaderWord = regexp.MustCompile(`^[A-Za-z]+\s+`)
+	settingAuthHeader = regexp.MustCompile(`(?i)authorization$`)
+	settingShellRef   = regexp.MustCompile(`\$[A-Za-z_][A-Za-z0-9_]*`)
+)
 
-var settingShellVariable = regexp.MustCompile(`^\$[A-Za-z_][A-Za-z0-9_]*$`)
-
-// literalSettingValue reports whether value holds text that is not a
-// reference: any literal, or a reference with a default. A known scheme
-// word before the reference is not literal.
-func literalSettingValue(value string) bool {
+// literalSettingValue reports whether value, under key, holds text that
+// is not a `${NAME}` or `$NAME` reference: any literal, or a reference
+// with a default. A scheme word before the references is not literal.
+func literalSettingValue(key, value string) bool {
 	stripped, defaulted := spec.StripEnvRefDefaults(value)
 	if value == "" || len(defaulted) > 0 {
 		return value != ""
 	}
-	rest := settingSchemeWord.ReplaceAllString(strings.TrimSpace(stripped), "")
-	return !spec.OnlyEnvRefs(rest) && !settingShellVariable.MatchString(rest)
+	scheme := settingSchemeWord
+	if settingAuthHeader.MatchString(key) {
+		scheme = settingHeaderWord
+	}
+	rest := settingShellRef.ReplaceAllString(scheme.ReplaceAllString(strings.TrimSpace(stripped), ""), "")
+	return strings.TrimSpace(rest) != "" && !spec.OnlyEnvRefs(rest)
 }
 
-// settingSwitchOrFile matches a value that names no secret even under a
-// credential name: a boolean such as `CLAUDE_CODE_SKIP_BEDROCK_AUTH=1`,
-// or a path or file name such as `GOOGLE_APPLICATION_CREDENTIALS`
-// holds. A plain number still counts, since a PIN or numeric token is one.
-var settingSwitchOrFile = regexp.MustCompile(`^(?i:true|false|yes|no|on|off|0|1)$|^(?:[/~]|\.\.?/|[A-Za-z]:[\\/])|(?i)\.(?:json|txt|pem|key|env|ya?ml|toml|crt|p12|db)$`)
+var (
+	settingSwitch   = regexp.MustCompile(`^(?i:true|false|yes|no|on|off|0|1)$`)
+	settingPath     = regexp.MustCompile(`^(?:~/|\.\.?/|[A-Za-z]:[\\/]|/[^/]+/)`)
+	settingFileName = regexp.MustCompile(`(?i)^[^/\\\s]+\.(?:json|txt|pem|key|env|ya?ml|toml|crt|p12|db)$`)
+)
+
+// settingNamesNoSecret reports whether value names no secret even under
+// a credential name: a boolean such as `CLAUDE_CODE_SKIP_BEDROCK_AUTH=1`,
+// or a path or file name such as `GOOGLE_APPLICATION_CREDENTIALS` holds
+// that does not look like a token. A plain number still counts, since a
+// PIN or numeric token is one.
+func settingNamesNoSecret(value string) bool {
+	v := strings.Trim(strings.TrimSpace(value), `'"`)
+	if settingSwitch.MatchString(v) {
+		return true
+	}
+	return (settingPath.MatchString(v) || settingFileName.MatchString(v)) && !mcpTokenIn(v) && !mcpCredentialDetected(v)
+}
 
 // credentialSettingValue reports whether an imported setting, such as an
 // `env` or header value, holds a literal credential: a literal under a
-// credential name other than a boolean, path, or file name, or a literal
+// credential name that settingNamesNoSecret does not clear, or a literal
 // that holds one by its shape. A value of only references holds no
 // secret. Every tool import uses this rule, since the spec it writes is
 // committed (#2716).
 func credentialSettingValue(key, value string) bool {
-	if !literalSettingValue(value) {
+	if !literalSettingValue(key, value) {
 		return false
 	}
-	named := mcpCredentialKey(key) && !settingSwitchOrFile.MatchString(strings.Trim(strings.TrimSpace(value), `'"`))
-	return named || mcpCredentialSetting(key, value)
+	return mcpCredentialKey(key) && !settingNamesNoSecret(value) || mcpCredentialSetting(key, value)
 }
 
 type mcpCredentialSpan struct {

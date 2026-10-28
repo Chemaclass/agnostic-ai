@@ -34,6 +34,17 @@ func TestLiteralSettingValueRuleAgrees(t *testing.T) {
 		{"CLAUDE_CODE_SKIP_BEDROCK_AUTH", "1", false},
 		{"GOOGLE_APPLICATION_CREDENTIALS", "/path/sa.json", false},
 		{"CLAUDE_CODE_CLIENT_KEY", "/path/client.key", false},
+		{"API_KEY", "/9j4kXq2bLw8Zp0Rv7TnYc3Hs6Ue1Mf5", true},
+		{"PASSWORD", "~hunter2", true},
+		{"API_TOKEN", "sk-ant-api03abcdef123456.json", true},
+		{"API_TOKEN", "/home/me/ghp_abcdefgh12345678", true},
+		{"CLIENT_KEY", "~/.config/x", false},
+		{"CLIENT_KEY", `C:\keys\client.key`, false},
+		{"CLIENT_KEY", "client.key", false},
+		{"Authorization", "ApiKey ${ES_KEY}", false},
+		{"Proxy-Authorization", "SSWS ${OKTA_TOKEN}", false},
+		{"API_TOKEN", "hunter ${X}", true},
+		{"API_TOKEN", "$A $B", false},
 	} {
 		checks := map[string]bool{
 			"claude hook":         claudeHookCredentialField(claudehooks.CommandEntry{URL: "https://hooks.example.com", Headers: map[string]string{c.key: c.value}}) != "",

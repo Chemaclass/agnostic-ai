@@ -204,7 +204,7 @@ func codexCredentialIn(key string, value any, names bool) bool {
 	switch value := value.(type) {
 	case string:
 		switch {
-		case !literalSettingValue(value):
+		case !literalSettingValue(key, value):
 			return false
 		case names:
 			return mcpCredentialDetected(value)

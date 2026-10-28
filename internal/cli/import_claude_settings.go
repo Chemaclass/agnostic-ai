@@ -357,7 +357,7 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 		}
 		reason := "holds a credential"
 		switch {
-		case !literalSettingValue(value):
+		case !literalSettingValue(key, value):
 			continue
 		case credentialSettingValue(key, value) || claudeTokenEnv.MatchString(key):
 		case claudeHeaderEnv.MatchString(key):
