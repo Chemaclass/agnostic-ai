@@ -182,7 +182,7 @@ func newSyncCmd() *cobra.Command {
 			// A preview of a tool use has not imported yet would pass while
 			// the next write would replace its native config.
 			if tree == nil {
-				if err := stopOnPendingImportsIn(ledger().state, cfg); err != nil {
+				if err := stopOnPendingImports(ledger().state, cfg); err != nil {
 					return err
 				}
 			}
@@ -192,7 +192,7 @@ func newSyncCmd() *cobra.Command {
 			}
 			if plan {
 				resetDrops()
-				if err := checkHandWrittenInstructionsWith(effective, backup, ledger().state.Outputs); err != nil {
+				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
 					return err
 				}
 				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
@@ -219,7 +219,7 @@ func newSyncCmd() *cobra.Command {
 				resetDrops()
 				// --against compares what Git holds, not these files.
 				if tree == nil {
-					if err := checkHandWrittenInstructionsWith(effective, backup, ledger().state.Outputs); err != nil {
+					if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
 						return err
 					}
 				}
@@ -293,7 +293,7 @@ func newSyncCmd() *cobra.Command {
 			}
 			if jsonOut && dryRun {
 				resetDrops()
-				if err := checkHandWrittenInstructionsWith(effective, backup, ledger().state.Outputs); err != nil {
+				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
 					return err
 				}
 				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
@@ -304,7 +304,7 @@ func newSyncCmd() *cobra.Command {
 				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true, drops, notesErr)
 			}
 			if jsonOut {
-				return runSyncJSONWith(cmd, ".", ledger(), effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
+				return runSyncJSON(cmd, ".", ledger(), effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
 			}
 			return runSyncPassWith(".", ledger(), effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
 		},

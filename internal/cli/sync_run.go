@@ -192,7 +192,8 @@ func (l ledgerSnapshot) unparsable() error {
 	return fmt.Errorf("%s does not parse (%v)", filepath.ToSlash(l.path), l.parseErr)
 }
 
-// checkError is ledgerCheckError for this read.
+// checkError fails `sync --check` on a ledger that does not parse,
+// which would otherwise hide every leftover the lost ledger listed.
 func (l ledgerSnapshot) checkError() error {
 	if err := l.unparsable(); err != nil {
 		return fmt.Errorf("%w; run agnostic-ai sync to rebuild the ledger", err)
@@ -356,12 +357,6 @@ func recordOutputSums(projectRoot string, sums map[string]string) error {
 // missing (ledgerMissing) and the next sync replaces it.
 func unparsableLedger(root string) error {
 	return readLedger(root).unparsable()
-}
-
-// ledgerCheckError fails `sync --check` on a ledger that does not parse,
-// which would otherwise hide every leftover the lost ledger listed.
-func ledgerCheckError(root string) error {
-	return readLedger(root).checkError()
 }
 
 // emitTarget resolves target t and emits it under detailed recording, shared by
@@ -655,7 +650,7 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 		return nil, nil, err
 	}
 	warnBareCapabilitiesTo(out, cfg, b, targets)
-	if err := stopOnPendingImportsIn(prior.state, cfg); err != nil {
+	if err := stopOnPendingImports(prior.state, cfg); err != nil {
 		return nil, nil, err
 	}
 	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, backup, keepEdits); err != nil {
@@ -1325,14 +1320,9 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 }
 
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
-// file written, updated, or skipped per target.
-func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
-	return runSyncJSONWith(cmd, root, readLedger(root), targets, backup, keepEdits, untrack, gitignoreFlag, jobs)
-}
-
-// runSyncJSONWith is runSyncJSON with the state file the caller read
-// under root.
-func runSyncJSONWith(cmd *cobra.Command, root string, prior ledgerSnapshot, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
+// file written, updated, or skipped per target. prior is the state file
+// the caller read under root.
+func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
 	resetSyncBuffers()
 	defer resetSyncBuffers()
 	cfg, b, err := loadProject(root)
