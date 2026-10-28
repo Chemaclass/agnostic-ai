@@ -43,6 +43,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
 
+#### Cursor
+
+- `import cursor` writes `alwaysApply: false` for a rule with neither `alwaysApply` nor `globs`, so sync no longer makes it always on (#2643).
+- A rule imported and synced before keeps the `alwaysApply: true` sync wrote; set `alwaysApply: false` in its spec to turn it off (#2643).
+
 #### Mistral Vibe
 
 - `post_agent` hooks accept `match` and `matcher`, so a hook runs only after one agent, as Vibe 3.0.3 allows (#2577).
