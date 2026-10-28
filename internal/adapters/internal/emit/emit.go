@@ -1025,7 +1025,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			s.mu.Unlock()
 		}
 		if backup && action == "update" {
-			if err := writeBackup(path+".bak", existing); err != nil {
+			if err := writeBackup(path+".bak", existing, sourcePerm(cur.stat())); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 			s.noteBackup(path)
@@ -1066,7 +1066,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 
 	if backup {
 		if existing, err := cur.bytes(); err == nil && string(existing) != content {
-			if err := writeBackup(path+".bak", existing); err != nil {
+			if err := writeBackup(path+".bak", existing, sourcePerm(cur.stat())); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 			s.noteBackup(path)
@@ -1083,10 +1083,49 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	return nil
 }
 
-func writeBackup(path string, content []byte) error {
+// writeBackup keeps content at path with perm, the source file's mode.
+// It replaces an earlier backup with a new file, so the copy never takes
+// the old file's wider mode, and it refuses a link or other non-file
+// there rather than write through it.
+func writeBackup(path string, content []byte, perm os.FileMode) error {
 	ownershipReads.RLock()
 	defer ownershipReads.RUnlock()
-	return os.WriteFile(path, content, filePerm)
+	return writeBackupLocked(path, content, perm)
+}
+
+func writeBackupLocked(path string, content []byte, perm os.FileMode) error {
+	info, err := os.Lstat(path)
+	switch {
+	case err == nil && !info.Mode().IsRegular():
+		return fmt.Errorf("%s exists and is not a regular file", path)
+	case err == nil:
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	case !IsAbsent(err):
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(content)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		_ = os.Remove(path)
+	}
+	return err
+}
+
+// sourcePerm is the permission bits of a stat result, filePerm when the
+// stat failed.
+func sourcePerm(info fs.FileInfo, err error) os.FileMode {
+	if err != nil {
+		return filePerm
+	}
+	return info.Mode().Perm()
 }
 
 // backUpEdit copies path to backup, which must not exist yet in any form,
@@ -1458,7 +1497,7 @@ func (s *Session) removeWithBackup(path, sum string, existing []byte, handWritte
 	}
 
 	if backup {
-		if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
+		if err := writeBackupLocked(path+".bak", existing, sourcePerm(os.Stat(path))); err != nil {
 			return false, fmt.Errorf("backup %s: %w", path, err)
 		}
 		s.noteBackup(path)
