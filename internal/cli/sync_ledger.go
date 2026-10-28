@@ -174,8 +174,8 @@ func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session 
 // ledger it carries that ledger's list forward, minus what it wrote.
 // With none, it records every candidate it did not write and names none:
 // a later check or full sync drops the ones a full render emits.
-func keepUnledgered(cfg *config.Config, prev syncStateFile, ledger *syncLedger, written map[string]string, complete bool) driftReport {
-	if !complete && !ledgerMissing(".") {
+func keepUnledgered(cfg *config.Config, prev syncStateFile, missing bool, ledger *syncLedger, written map[string]string, complete bool) driftReport {
+	if !complete && !missing {
 		for _, p := range prev.Unledgered {
 			if _, ok := written[p]; !ok {
 				ledger.unledgered = append(ledger.unledgered, p)
@@ -187,7 +187,7 @@ func keepUnledgered(cfg *config.Config, prev syncStateFile, ledger *syncLedger, 
 	for _, p := range ledger.outputs {
 		emitted[p] = true
 	}
-	rep := unledgeredReport(cfg, emitted, prev, strandedOutput(cfg, emitted, prev))
+	rep := unledgeredReport(cfg, emitted, prev, missing, strandedOutput(cfg, emitted, prev))
 	ledger.unledgered = finalizeLedger(append(append([]string{}, rep.Leftover...), rep.Orphaned...))
 	if !complete {
 		return driftReport{Target: unledgeredReportTarget}

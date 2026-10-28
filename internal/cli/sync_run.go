@@ -138,14 +138,73 @@ func stateFilePath(projectRoot string) string {
 // next sync rewrites, so an unreadable one means "no prior state" rather
 // than a fatal error. Sync warns about a corrupt one (unparsableLedger).
 func readStateFile(projectRoot string) syncStateFile {
-	var s syncStateFile
-	data, err := os.ReadFile(stateFilePath(projectRoot))
-	if err != nil {
-		return s
+	return readLedger(projectRoot).state
+}
+
+var readStateBytes = os.ReadFile
+
+// ledgerSnapshot is one read of the state file. The state file lists
+// every output, so a sync or check reads it once and asks this copy.
+// A file that does not parse keeps what decoded before the error.
+type ledgerSnapshot struct {
+	path     string
+	state    syncStateFile
+	absent   bool
+	readErr  error
+	parseErr error
+}
+
+func readLedger(root string) ledgerSnapshot {
+	l := ledgerSnapshot{path: stateFilePath(root)}
+	if _, err := os.Lstat(l.path); errors.Is(err, fs.ErrNotExist) {
+		l.absent = true
+		return l
 	}
-	_ = json.Unmarshal(data, &s)
-	s.dropEscapingEntries(projectRoot, stateFilePath(projectRoot))
-	return s
+	data, err := readStateBytes(l.path)
+	if err != nil {
+		l.readErr = err
+		return l
+	}
+	l.parseErr = json.Unmarshal(data, &l.state)
+	l.state.dropEscapingEntries(root, l.path)
+	return l
+}
+
+// missing is ledgerMissing for this read.
+func (l ledgerSnapshot) missing() bool {
+	return l.absent || l.readErr == nil && (l.parseErr != nil || l.state.SyncedAt.IsZero())
+}
+
+// workdir is the working directory's ledger, which the leftover scan
+// and the shared-skills cleanup read whatever root a pass syncs.
+func (l ledgerSnapshot) workdir(root string) ledgerSnapshot {
+	if filepath.Clean(root) == "." {
+		return l
+	}
+	return readLedger(".")
+}
+
+// unparsable is unparsableLedger for this read.
+func (l ledgerSnapshot) unparsable() error {
+	if l.absent || l.readErr != nil || l.parseErr == nil {
+		return nil
+	}
+	return fmt.Errorf("%s does not parse (%v)", filepath.ToSlash(l.path), l.parseErr)
+}
+
+// checkError is ledgerCheckError for this read.
+func (l ledgerSnapshot) checkError() error {
+	if err := l.unparsable(); err != nil {
+		return fmt.Errorf("%w; run agnostic-ai sync to rebuild the ledger", err)
+	}
+	return nil
+}
+
+// warn tells the user sync treats a ledger that does not parse as missing.
+func (l ledgerSnapshot) warn() {
+	if err := l.unparsable(); err != nil {
+		fmt.Fprintf(os.Stderr, "! %v; treating the ledger as missing until a sync writes a new one\n", err)
+	}
 }
 
 // A nil frame state masks outer snapshots while history changes directories.
@@ -296,31 +355,13 @@ func recordOutputSums(projectRoot string, sums map[string]string) error {
 // as a full disk or a stop mid-write leaves it. Such a ledger counts as
 // missing (ledgerMissing) and the next sync replaces it.
 func unparsableLedger(root string) error {
-	p := stateFilePath(root)
-	data, err := os.ReadFile(p)
-	if err != nil {
-		return nil
-	}
-	var s syncStateFile
-	if err := json.Unmarshal(data, &s); err != nil {
-		return fmt.Errorf("%s does not parse (%v)", filepath.ToSlash(p), err)
-	}
-	return nil
+	return readLedger(root).unparsable()
 }
 
 // ledgerCheckError fails `sync --check` on a ledger that does not parse,
 // which would otherwise hide every leftover the lost ledger listed.
 func ledgerCheckError(root string) error {
-	if err := unparsableLedger(root); err != nil {
-		return fmt.Errorf("%w; run agnostic-ai sync to rebuild the ledger", err)
-	}
-	return nil
-}
-
-func warnUnparsableLedger(root string) {
-	if err := unparsableLedger(root); err != nil {
-		fmt.Fprintf(os.Stderr, "! %v; treating the ledger as missing until a sync writes a new one\n", err)
-	}
+	return readLedger(root).checkError()
 }
 
 // emitTarget resolves target t and emits it under detailed recording, shared by
@@ -603,7 +644,7 @@ func resetSyncBuffers() {
 // prepareSyncTargets runs the checks and setup both `sync` and
 // `sync --json` share before emitting: it queues the personal memory seed,
 // stops on errors in the specs, and notes overlay files no target reads.
-func prepareSyncTargets(out io.Writer, root string, cfg *config.Config, b spec.Bundle, targets []string, dryRun, backup, keepEdits bool) ([]string, map[string]string, error) {
+func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *config.Config, b spec.Bundle, targets []string, dryRun, backup, keepEdits bool) ([]string, map[string]string, error) {
 	if !dryRun {
 		preparePersonalMemorySync(root, cfg)
 	}
@@ -614,10 +655,10 @@ func prepareSyncTargets(out io.Writer, root string, cfg *config.Config, b spec.B
 		return nil, nil, err
 	}
 	warnBareCapabilitiesTo(out, cfg, b, targets)
-	if err := stopOnPendingImports(root, cfg); err != nil {
+	if err := stopOnPendingImportsIn(prior.state, cfg); err != nil {
 		return nil, nil, err
 	}
-	if err := keepHandWrittenInstructions(cfg, b, targets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
+	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, backup, keepEdits); err != nil {
 		return nil, nil, err
 	}
 	winners, err := detectCollisions(cfg, b, targets)
@@ -631,7 +672,13 @@ func prepareSyncTargets(out io.Writer, root string, cfg *config.Config, b spec.B
 // last sync is left in place and named, and the rest is written. With
 // untrack, a generated path git both tracks and ignores is removed from
 // the index (not the working tree) after the sweep.
-func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) (retErr error) {
+func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
+	return runSyncPassWith(root, readLedger(root), targets, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
+}
+
+// runSyncPassWith is runSyncPass with the state file the caller read
+// under root. Nothing writes the state file before the pass ends.
+func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) (retErr error) {
 	start := time.Now()
 	originalLog := logOut
 	var earlyMessages strings.Builder
@@ -648,7 +695,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		return err
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
-	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, cfg, b, targets, dryRun, backup, keepEdits)
+	prev := prior.state
+	release := holdPriorState(root, prev)
+	defer release()
+	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, prior, cfg, b, targets, dryRun, backup, keepEdits)
 	if err != nil {
 		return err
 	}
@@ -689,10 +739,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if err != nil {
 		return err
 	}
-	warnUnparsableLedger(root)
-	prev := readStateFile(root)
-	release := holdPriorState(root, prev)
-	defer release()
+	prior.warn()
 	edits := editGuardFor(keepEdits, prev)
 
 	// mainSess drives the serial post-emission writes (entry points,
@@ -728,7 +775,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 
-	reconciled, err := shared.reconcile(prev.Outputs, dryRun)
+	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, dryRun)
 	sessions = append(sessions, reconciled) // written first (link removals), rolled back last
 	if err != nil {
 		return err
@@ -837,7 +884,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, personal, err := personalSplitBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
+		block, personal, err := personalSplitBlock(root, cfg, b, effectiveTargets, gitignoreEntries, prior.missing())
 		if err != nil {
 			return err
 		}
@@ -934,7 +981,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		printKept("  ~ kept orphan %s (%s; run `agnostic-ai doctor --fix` to choose removal, or list it under sync.unmanaged)\n", p, reason)
 	}
 	if !dryRun {
-		unledgered := keepUnledgered(cfg, prev, &ledger, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
+		unledgered := keepUnledgered(cfg, prev, prior.workdir(root).missing(), &ledger, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
 		for _, p := range unledgered.Leftover {
 			printKept("  ~ kept leftover %s (no ledger proves sync wrote it; run `agnostic-ai doctor --fix` to remove it)\n", filepath.ToSlash(p))
 		}
@@ -1280,6 +1327,12 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
 func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
+	return runSyncJSONWith(cmd, root, readLedger(root), targets, backup, keepEdits, untrack, gitignoreFlag, jobs)
+}
+
+// runSyncJSONWith is runSyncJSON with the state file the caller read
+// under root.
+func runSyncJSONWith(cmd *cobra.Command, root string, prior ledgerSnapshot, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
 	resetSyncBuffers()
 	defer resetSyncBuffers()
 	cfg, b, err := loadProject(root)
@@ -1287,7 +1340,10 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		return err
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
-	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, cfg, b, targets, false, backup, keepEdits)
+	prev := prior.state
+	release := holdPriorState(root, prev)
+	defer release()
+	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, prior, cfg, b, targets, false, backup, keepEdits)
 	if err != nil {
 		return err
 	}
@@ -1295,10 +1351,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err != nil {
 		return err
 	}
-	warnUnparsableLedger(root)
-	prev := readStateFile(root)
-	release := holdPriorState(root, prev)
-	defer release()
+	prior.warn()
 	edits := editGuardFor(keepEdits, prev)
 
 	// JSON retains partial target output except when coverage acceptance rejects the run.
@@ -1310,7 +1363,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	edits.apply(mainSess)
 	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
-	reconciled, err := shared.reconcile(prev.Outputs, false)
+	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, false)
 	if err != nil {
 		return err
 	}
@@ -1410,7 +1463,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, personal, err := personalSplitBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
+		block, personal, err := personalSplitBlock(root, cfg, b, effectiveTargets, gitignoreEntries, prior.missing())
 		if err != nil {
 			return undoSweep(mainSess, nil, err)
 		}
@@ -1443,7 +1496,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	for _, p := range kept {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "orphan"})
 	}
-	unledgered := keepUnledgered(cfg, prev, &ledger, ledgerWritten, len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
+	unledgered := keepUnledgered(cfg, prev, prior.workdir(root).missing(), &ledger, ledgerWritten, len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
 	for _, p := range unledgered.Leftover {
 		out.Skipped = append(out.Skipped, fileRecord{Target: unledgered.Target, Path: filepath.ToSlash(p), Action: "leftover"})
 	}

@@ -248,7 +248,7 @@ func folderFingerprint(files map[string]string) string {
 // returned even with an error, and is nil under dryRun, so a sync that
 // fails later can put the links back once the trees written in their
 // place are rolled back.
-func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) (*adapters.Session, error) {
+func (st *sharedSkillsState) reconcile(prior []string, previous syncStateFile, dryRun bool) (*adapters.Session, error) {
 	if dryRun {
 		return nil, nil
 	}
@@ -260,7 +260,6 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) (*adapters.S
 		keep[l.path] = l.canonical
 	}
 	pruned := map[string]bool{}
-	previous := readStateFile(".")
 	for _, p := range prior {
 		// Recorded file values cannot become shared skill-folder links.
 		if previous.OutputSums[p] != "" || len(previous.Merged[p].Keys) > 0 {

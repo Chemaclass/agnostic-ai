@@ -549,8 +549,12 @@ func entryNames(entries []spec.Entry) string {
 // whose own config it has not imported yet. A pending tool no longer in
 // targets has nothing for the sync to write over.
 func stopOnPendingImports(root string, cfg *config.Config) error {
+	return stopOnPendingImportsIn(readStateFile(root), cfg)
+}
+
+func stopOnPendingImportsIn(state syncStateFile, cfg *config.Config) error {
 	var pending []string
-	for _, t := range readStateFile(root).PendingImports {
+	for _, t := range state.PendingImports {
 		if slices.Contains(cfg.Targets, t) {
 			pending = append(pending, t)
 		}

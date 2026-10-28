@@ -1,10 +1,7 @@
 package cli
 
 import (
-	"encoding/json"
-	"errors"
 	"io"
-	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -27,18 +24,7 @@ const headerProbeBytes = 8 << 10
 // file too, with no sync time, to keep their own records; that is no
 // ledger either.
 func ledgerMissing(root string) bool {
-	if _, err := os.Lstat(stateFilePath(root)); errors.Is(err, fs.ErrNotExist) {
-		return true
-	}
-	data, err := os.ReadFile(stateFilePath(root))
-	if err != nil {
-		return false
-	}
-	var s syncStateFile
-	if json.Unmarshal(data, &s) != nil {
-		return true
-	}
-	return s.SyncedAt.IsZero()
+	return readLedger(root).missing()
 }
 
 // unledgeredReport lists the leftovers no ledger proves sync wrote. With
@@ -55,9 +41,8 @@ func ledgerMissing(root string) bool {
 // the user to delete, and so does a headerless JSON file only an older
 // commit's render proves. Sync removes neither. Outside a git work tree
 // the scan finds nothing.
-func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncStateFile, stranded func(string) bool) driftReport {
+func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncStateFile, missing bool, stranded func(string) bool) driftReport {
 	rep := driftReport{Target: unledgeredReportTarget}
-	missing := ledgerMissing(".")
 	candidates := state.Unledgered
 	if missing {
 		tracked, ok := trackedFiles(".")
