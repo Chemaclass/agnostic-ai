@@ -133,8 +133,8 @@ func handWrittenUncaptured(path, captured string) (bool, error) {
 
 // checkHandWrittenInstructions runs keepHandWrittenInstructions for a
 // preview (--check, --plan, --json --dry-run), so it agrees with the sync
-// it previews.
-func checkHandWrittenInstructions(targets []string, backup bool) error {
+// it previews. outputs are the ones the ledger lists.
+func checkHandWrittenInstructions(targets []string, backup bool, outputs []string) error {
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return err
@@ -142,5 +142,5 @@ func checkHandWrittenInstructions(targets []string, backup bool) error {
 	if len(targets) == 0 {
 		targets = cfg.Targets
 	}
-	return keepHandWrittenInstructions(cfg, b, targets, readStateFile(".").Outputs, backup, false)
+	return keepHandWrittenInstructions(cfg, b, targets, outputs, backup, false)
 }

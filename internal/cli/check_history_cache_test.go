@@ -32,7 +32,7 @@ func TestUnledgeredReport_HeadAndFileHistoryShareOneRender(t *testing.T) {
 	log := recordHistoryGitRenders(t)
 	cfg := &config.Config{Targets: []string{"claude"}}
 	emitted := map[string]bool{}
-	rep := unledgeredReport(cfg, emitted, syncStateFile{}, strandedOutput(cfg, emitted, syncStateFile{}))
+	rep := unledgeredReport(cfg, emitted, syncStateFile{}, ledgerMissing("."), strandedOutput(cfg, emitted, syncStateFile{}))
 	if len(rep.Leftover) != 0 || len(rep.Orphaned) != 0 {
 		t.Errorf("handwritten launch classified as generated: %+v", rep)
 	}
