@@ -350,3 +350,23 @@ func TestRevertCmd_RestoresRemovedAgentsCompanion(t *testing.T) {
 		t.Errorf("expected CLAUDE.md.bak removed after restore, stat err = %v", err)
 	}
 }
+
+func TestRevert_RecordedMissingBackupRequiresIntactSafePath(t *testing.T) {
+	handEditProject(t, "claude")
+	edited := readFile(t, handEditSkill) + "edit\n"
+	mustWriteFile(t, handEditSkill, edited)
+	if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
+		t.Fatal(err)
+	}
+	runSyncOK(t)
+	mustWriteFile(t, handEditSkill+".bak", "changed backup\n")
+	if out, err := runCLI(t, "revert"); err != nil {
+		t.Fatalf("revert: %v\n%s", err, out)
+	}
+	if _, err := os.Lstat(handEditSkill); !os.IsNotExist(err) {
+		t.Errorf("restored changed backup: %v", err)
+	}
+	if got := readFile(t, handEditSkill+".bak"); got != "changed backup\n" {
+		t.Errorf("changed backup = %q", got)
+	}
+}
