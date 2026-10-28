@@ -120,7 +120,7 @@ func TestUpgradeRequires_DoesNotDetectOrInstall(t *testing.T) {
 			t.Error("reconciliation ran an installer command")
 			return fmt.Errorf("unexpected installer command")
 		},
-		install: func(string, string, string, *http.Client) error {
+		install: func(io.Writer, string, string, string, *http.Client) error {
 			t.Error("reconciliation downloaded a release")
 			return fmt.Errorf("unexpected release download")
 		},

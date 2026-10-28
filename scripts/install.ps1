@@ -5,8 +5,9 @@
 
 .DESCRIPTION
   Downloads the release zip for this machine's architecture, verifies its
-  SHA256 against checksums.txt, extracts it, and puts the install directory
-  on the user PATH. No Go toolchain, no package manager.
+  SHA256 against checksums.txt and, when the GitHub CLI (gh) is installed
+  and logged in, its build provenance, extracts it, and puts the install
+  directory on the user PATH. No Go toolchain, no package manager.
 
 .EXAMPLE
   irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex
@@ -16,7 +17,8 @@
 
 .EXAMPLE
   .\install.ps1 -VerifyAttestation
-  Also checks the zip's build provenance with the GitHub CLI (gh).
+  Fails unless the GitHub CLI (gh) verifies the zip's build provenance.
+  Set AGNOSTIC_AI_VERIFY_ATTESTATION=0 to skip that check instead.
 #>
 [CmdletBinding()]
 param(
@@ -34,6 +36,11 @@ $ProgressPreference = 'SilentlyContinue'
 
 $repo = 'Chemaclass/agnostic-ai'
 $binary = 'agnostic-ai.exe'
+# releaseVersionRE in internal/cli/upgrade.go, with \z because $ in .NET
+# also matches before a trailing newline.
+$versionPattern = '^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?\z'
+# Releases before this one were published without build provenance.
+$firstAttestedRelease = [version]'0.75.0'
 
 function Write-Step($message) { Write-Host "-> $message" }
 
@@ -111,7 +118,7 @@ function Test-Checksum($archive, $asset, $tag, $workDir) {
         throw "checksums.txt unavailable for $tag, so $asset cannot be verified"
     }
 
-    $line = Select-String -Path $sums -Pattern ([regex]::Escape($asset)) | Select-Object -First 1
+    $line = Select-String -Path $sums -Pattern ('\s' + [regex]::Escape($asset) + '$') | Select-Object -First 1
     if (-not $line) { throw "$asset missing from checksums.txt" }
 
     $expected = ($line.Line -split '\s+')[0]
@@ -120,16 +127,63 @@ function Test-Checksum($archive, $asset, $tag, $workDir) {
     Write-Step 'checksum verified'
 }
 
+function Get-ReleaseTag($version) {
+    if ($version -cnotmatch $versionPattern) {
+        throw "'$version' is not a release version; use one like v0.89.0"
+    }
+    return 'v' + $version.TrimStart('v')
+}
+
 # Test-Attestation checks the zip's build provenance with the GitHub CLI:
 # proof that this repository's release workflow built it from the tagged
 # commit, which a matching checksum from the same release page cannot give.
-function Test-Attestation($archive) {
-    if (-not $VerifyAttestation) { return }
-    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-        throw '-VerifyAttestation needs the GitHub CLI (gh)'
+# It runs whenever gh is installed and logged in. -VerifyAttestation makes a
+# skipped check fail, and AGNOSTIC_AI_VERIFY_ATTESTATION=0 skips it. Only a
+# version the user named may predate provenance, since whoever can publish
+# release assets could mark such a release latest.
+function Test-Attestation($archive, $tag, $pinned) {
+    if ($env:AGNOSTIC_AI_VERIFY_ATTESTATION -eq '0' -and -not $VerifyAttestation) {
+        Write-Step 'build provenance not checked: AGNOSTIC_AI_VERIFY_ATTESTATION=0'
+        return
     }
-    & gh attestation verify $archive --repo $repo | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "build provenance did not verify for $(Split-Path $archive -Leaf)" }
+    $core = [version](($tag.TrimStart('v') -split '-')[0])
+    if ($core -lt $firstAttestedRelease) {
+        if ($VerifyAttestation) { throw "$tag predates build provenance, which starts at v$firstAttestedRelease, and -VerifyAttestation requires it" }
+        if (-not $pinned) { throw "the latest release $tag predates build provenance, which starts at v$firstAttestedRelease; pass -Version to install it on the checksum alone" }
+        Write-Step "build provenance not checked: releases before v$firstAttestedRelease do not publish it"
+        return
+    }
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+        if ($VerifyAttestation) { throw '-VerifyAttestation needs the GitHub CLI (gh)' }
+        Write-Step 'build provenance not checked: install the GitHub CLI (gh) to verify it'
+        return
+    }
+    # Windows PowerShell 5.1 turns redirected native stderr into errors, which
+    # 'Stop' would throw on before the exit code is read.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        # The host is pinned: a gh logged in to GitHub Enterprise only would
+        # ask that server, which does not hold these attestations.
+        $detail = (& gh attestation verify $archive --hostname github.com --repo $repo `
+            --signer-workflow "$repo/.github/workflows/release.yml" `
+            --source-ref "refs/tags/$tag" --deny-self-hosted-runners 2>&1 | ForEach-Object { "$_" } | Out-String).Trim()
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    if ($code -ne 0 -and -not $VerifyAttestation) {
+        # gh exits 4 when a command needs a login it does not have.
+        if ($code -eq 4) {
+            Write-Step 'build provenance not checked: gh is not logged in (run gh auth login)'
+            return
+        }
+        if ($detail -match 'unknown (flag|command)') {
+            Write-Step 'build provenance not checked: this gh cannot verify build provenance; update gh'
+            return
+        }
+    }
+    if ($code -ne 0) { throw "build provenance did not verify for $(Split-Path $archive -Leaf): $detail" }
     Write-Step 'build provenance verified'
 }
 
@@ -149,7 +203,7 @@ function Add-ToUserPath($directory) {
 }
 
 $arch = Get-Architecture
-$tag = if ($Version -eq 'latest') { Get-LatestVersion } else { $Version }
+$tag = Get-ReleaseTag $(if ($Version -eq 'latest') { Get-LatestVersion } else { $Version })
 $asset = "agnostic-ai_windows_$arch.zip"
 
 Write-Step "installing agnostic-ai $tag (windows/$arch) into $InstallDir"
@@ -161,7 +215,7 @@ try {
     $archive = Join-Path $workDir $asset
     Invoke-WebRequest -Uri (Get-DownloadUrl $tag $asset) -OutFile $archive -UseBasicParsing
     Test-Checksum $archive $asset $tag $workDir
-    Test-Attestation $archive
+    Test-Attestation $archive $tag ($Version -ne 'latest')
 
     Expand-Archive -Path $archive -DestinationPath $workDir -Force
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
