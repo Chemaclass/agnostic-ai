@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -62,6 +61,16 @@ func validateConfigTargets(cfg *config.Config, source string) error {
 	return nil
 }
 
+// resolveRequestedTargets fails on the first -t name no adapter resolves.
+func resolveRequestedTargets(targets []string) error {
+	for _, t := range targets {
+		if _, err := adapters.Resolve(t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // validateAgentsOutput fails on an `outputs.<target>.agents` value sync
 // cannot honor: one other than skill, or a target that has subagents of
 // its own or writes no skills.
@@ -77,13 +86,13 @@ func validateAgentsOutput(cfg *config.Config, source string) error {
 			continue
 		}
 		if v != adapters.AgentsAsSkills {
-			return fmt.Errorf("%s: outputs.%s.agents: unknown value %q; the only value is %s", source, t, v, adapters.AgentsAsSkills)
+			return errs.Coded(errs.CodeConfigDecode, "%s: outputs.%s.agents: unknown value %q; the only value is %s", source, t, v, adapters.AgentsAsSkills)
 		}
 		if !adapters.AgentsAsSkillsTarget(t) {
-			return fmt.Errorf("%s: outputs.%s.agents: skill applies to amp, crush, warp, and zed, which write skills and have no subagents", source, t)
+			return errs.Coded(errs.CodeConfigDecode, "%s: outputs.%s.agents: skill applies to amp, crush, warp, and zed, which write skills and have no subagents", source, t)
 		}
 		if o := cfg.Outputs[t]; o.RulesFile != "" || o.WorkflowsDir != "" {
-			return fmt.Errorf("%s: outputs.%s.agents: skill cannot combine with rules-file or workflows-dir, which already carry the agents; keep one", source, t)
+			return errs.Coded(errs.CodeConfigDecode, "%s: outputs.%s.agents: skill cannot combine with rules-file or workflows-dir, which already carry the agents; keep one", source, t)
 		}
 	}
 	return nil

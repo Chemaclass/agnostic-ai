@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 func newRevertCmd() *cobra.Command {
@@ -26,7 +30,8 @@ func newRevertCmd() *cobra.Command {
 			"    that happens to share a path with an adapter-emitted file (e.g. a\n" +
 			"    helper script next to SKILL.md). Pass --force to delete unbacked files.\n" +
 			"Pair with `sync --backup` so the .bak trail exists for the files you want\n" +
-			"restored to their pre-sync content.",
+			"restored to their pre-sync content. An unfiltered revert also restores\n" +
+			"intact recorded backups of outputs sync removed.",
 		Example: `  # Preview what would be reverted
   agnostic-ai revert --dry-run
 
@@ -66,7 +71,7 @@ func newRevertCmd() *cobra.Command {
 			cfg = cfg.WithAdditionalTargets(effective...)
 
 			if jsonOut {
-				return runRevertJSON(cmd, effective, dryRun, force)
+				return runRevertJSON(cmd, effective, dryRun, force, len(targets) == 0 && len(only) == 0 && len(except) == 0)
 			}
 
 			seen := map[string]bool{}
@@ -119,6 +124,7 @@ func newRevertCmd() *cobra.Command {
 			summaryf("← revert entry-points\n")
 			var preserved int
 			for _, p := range paths {
+				seen[p] = true
 				action, err := revertOne(p, dryRun, force)
 				if err != nil {
 					return fmt.Errorf("entry-point: %w", err)
@@ -135,8 +141,19 @@ func newRevertCmd() *cobra.Command {
 				return err
 			}
 			for _, p := range companions {
+				seen[p] = true
 				if _, err := revertOne(p, dryRun, false); err != nil {
 					return fmt.Errorf("claude: %w", err)
+				}
+			}
+			if len(targets) == 0 && len(only) == 0 && len(except) == 0 {
+				for _, p := range missingRecordedBackups(cfg) {
+					if seen[p] {
+						continue
+					}
+					if _, err := revertOne(p, dryRun, false); err != nil {
+						return fmt.Errorf("recorded backup: %w", err)
+					}
 				}
 			}
 			return nil
@@ -169,7 +186,26 @@ func revertOne(path string, dryRun, force bool) (string, error) {
 			verbosef("    restore: %s ← %s\n", path, bak)
 			return "restore", nil
 		}
-		if err := os.WriteFile(path, data, 0o644); err != nil {
+		if _, statErr := os.Lstat(path); errors.Is(statErr, fs.ErrNotExist) {
+			info, err := os.Stat(bak)
+			if err != nil {
+				return "", fmt.Errorf("stat backup %s: %w", bak, err)
+			}
+			f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
+			if err != nil {
+				return "", fmt.Errorf("restore %s: %w", path, err)
+			}
+			_, err = f.Write(data)
+			if err == nil {
+				err = f.Chmod(info.Mode().Perm())
+			}
+			if closeErr := f.Close(); err == nil {
+				err = closeErr
+			}
+			if err != nil {
+				return "", fmt.Errorf("restore %s: %w", path, err)
+			}
+		} else if err := os.WriteFile(path, data, 0o644); err != nil {
 			return "", fmt.Errorf("restore %s: %w", path, err)
 		}
 		if err := os.Remove(bak); err != nil {
@@ -205,7 +241,7 @@ func revertOne(path string, dryRun, force bool) (string, error) {
 
 // runRevertJSON performs the revert and emits a JSON result describing each
 // file restored, removed, preserved, or skipped per target.
-func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) error {
+func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool) error {
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return err
@@ -250,6 +286,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 	// Entry-point files are written outside adapter emission; revert them
 	// too so the JSON report matches the text path.
 	for _, p := range entryPointPaths(cfg, targets) {
+		seen[p] = true
 		action, err := revertOne(p, dryRun, force)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
@@ -267,6 +304,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 		out.Errors = append(out.Errors, errorRecord{Target: "claude", Message: err.Error()})
 	}
 	for _, p := range companions {
+		seen[p] = true
 		action, err := revertOne(p, dryRun, false)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "claude", Message: err.Error()})
@@ -276,5 +314,44 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 			out.Writes = append(out.Writes, fileRecord{Target: "claude", Path: p, Action: action})
 		}
 	}
+	if all {
+		for _, p := range missingRecordedBackups(cfg) {
+			if seen[p] {
+				continue
+			}
+			action, err := revertOne(p, dryRun, false)
+			if err != nil {
+				out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
+				continue
+			}
+			if action == "restore" {
+				out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: action})
+			}
+		}
+	}
 	return emitJSON(cmd, out)
+}
+
+// missingRecordedBackups finds intact sync backups whose output no longer exists.
+func missingRecordedBackups(cfg *config.Config) []string {
+	var paths []string
+	for bak, sum := range readStateFile(".").Backups {
+		if !strings.HasSuffix(bak, ".bak") || filepath.IsAbs(bak) {
+			continue
+		}
+		p := strings.TrimSuffix(bak, ".bak")
+		clean := filepath.Clean(p)
+		if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) || cfg.IsUnmanaged(p) || underSymlinkedDir(p) {
+			continue
+		}
+		if _, err := os.Lstat(p); !errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if sum == "" || fileSum(bak) != sum {
+			continue
+		}
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	return paths
 }
