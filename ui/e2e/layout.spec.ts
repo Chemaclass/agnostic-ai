@@ -44,6 +44,18 @@ test('moves focus to the page title after keyboard navigation without drawing a 
   expect(await title.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('none')
 })
 
+for (const width of [1440, 390]) {
+  test(`puts the search result count under the search field at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('/?view=tools')
+    const input = (await page.getByRole('searchbox', { name: 'Search tools' }).boundingBox())!
+    const status = (await page.locator('.section-search-status').boundingBox())!
+    expect(status.y).toBeGreaterThanOrEqual(input.y + input.height)
+    expect(status.x).toBeCloseTo(input.x, 0)
+  })
+}
+
 for (const width of [320, 900]) {
   test(`keeps the current section in view in the narrow navigation at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
