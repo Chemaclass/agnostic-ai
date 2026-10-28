@@ -748,10 +748,15 @@ func escapesProjectRoot(path string) bool {
 }
 
 func symlinkedParent(path string) bool {
-	for dir := filepath.Dir(path); dir != "." && dir != "/" && dir != ""; dir = filepath.Dir(dir) {
+	for dir := filepath.Dir(path); dir != "." && dir != ""; {
 		if info, err := os.Lstat(dir); err == nil && info.Mode()&os.ModeSymlink != 0 {
 			return true
 		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
 	}
 	return false
 }

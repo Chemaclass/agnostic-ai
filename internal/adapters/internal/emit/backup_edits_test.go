@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -128,5 +129,20 @@ func TestRemoveGenerated_KeepsEditBehindSymlinkedDirectory(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(outside, "config.toml.bak")); !os.IsNotExist(err) {
 		t.Errorf("wrote backup through link: %v", err)
+	}
+}
+
+func TestSymlinkedParent_AbsolutePathStopsAtRoot(t *testing.T) {
+	root := filepath.VolumeName(t.TempDir()) + string(filepath.Separator)
+	path := filepath.Join(root, "agnostic-ai-root-termination-test", "config.toml")
+	result := make(chan bool, 1)
+	go func() { result <- symlinkedParent(path) }()
+	select {
+	case got := <-result:
+		if got {
+			t.Error("unexpected symlink in root path")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("parent traversal did not stop at the root")
 	}
 }
