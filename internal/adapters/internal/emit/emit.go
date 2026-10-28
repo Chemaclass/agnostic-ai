@@ -191,7 +191,7 @@ func (s *Session) SetProjectRoot(root string) { s.projectRoot = root }
 // exclusive create.
 func (s *Session) checkProjectPath(path, verb string, parentsOnly bool) error {
 	switch {
-	case escapesProjectRoot(path):
+	case !filepath.IsAbs(path) && config.EscapesProject(path):
 		return fmt.Errorf("refusing to %s outside the project root: %s", verb, path)
 	case !filepath.IsAbs(path) && config.UnsafeProjectPath(path),
 		filepath.IsAbs(path) && s.projectRoot != "" && config.UnsafeProjectPathIn(s.projectRoot, path):
@@ -763,19 +763,6 @@ func normalizeTrailingNewline(content string) string {
 		return content
 	}
 	return strings.TrimRight(content, "\n") + "\n"
-}
-
-// escapesProjectRoot reports whether a project-relative output path climbs
-// above the project root via `..`. Adapters always emit inside the project,
-// so a relative path that escapes upward signals a traversal (e.g. from a
-// crafted spec `name:` or `scope:`). Defense-in-depth behind the loader's
-// name check; absolute paths are left to the caller.
-func escapesProjectRoot(path string) bool {
-	if filepath.IsAbs(path) {
-		return false
-	}
-	clean := filepath.Clean(path)
-	return clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator))
 }
 
 func symlinkedParent(path string) bool {
@@ -1374,7 +1361,7 @@ func (s *Session) removeOwned(path, sum string, dryRun, protectEdit bool) (remov
 		if statErr != nil {
 			return false, fmt.Errorf("lstat %s: %w", path, statErr)
 		}
-		if !info.Mode().IsRegular() || escapesProjectRoot(path) || symlinkedParent(path) {
+		if !info.Mode().IsRegular() || (!filepath.IsAbs(path) && config.EscapesProject(path)) || symlinkedParent(path) {
 			s.mu.Lock()
 			s.kept = append(s.kept, path)
 			if s.detailing {

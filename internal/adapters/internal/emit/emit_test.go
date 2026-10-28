@@ -36,6 +36,67 @@ func TestWriteFile_RefusesProjectRootEscape(t *testing.T) {
 	}
 }
 
+// A drive-relative or rooted path names a place outside the project on
+// Windows, so WriteFile refuses it with the same message as a ".." path.
+func TestWriteFile_RefusesWindowsVolumeAndRootedPathsLikeAParentPath(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("drive-relative and rooted relative paths exist only on Windows")
+	}
+	testutilChdir(t, t.TempDir())
+	sess := NewSession()
+
+	parentErr := sess.WriteFile(`..\escape.md`, "x", false)
+	if parentErr == nil {
+		t.Fatal(`..\escape.md: expected escape rejection, got nil`)
+	}
+	for _, bad := range []string{`C:escape.md`, `\escape.md`, `/escape.md`} {
+		err := sess.WriteFile(bad, "x", false)
+		want := strings.Replace(parentErr.Error(), `..\escape.md`, bad, 1)
+		if err == nil || err.Error() != want {
+			t.Errorf("path %q: error = %v, want %q", bad, err, want)
+		}
+	}
+
+	sess.SetProjectRoot(".")
+	volumePath := `Z:\escape.md`
+	want := "refusing a path outside the project or inside .git: " + volumePath
+	if err := sess.WriteFile(volumePath, "x", false); err == nil || err.Error() != want {
+		t.Errorf("path %q: error = %v, want %q", volumePath, err, want)
+	}
+}
+
+// A hand-edited file named by a drive-relative path is kept as it is: no
+// backup is written for a path that resolves outside the project.
+func TestRemoveOwned_KeepsAHandEditOnADriveRelativePathWithoutABackup(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("drive-relative paths exist only on Windows")
+	}
+	dir := t.TempDir()
+	volume := filepath.VolumeName(dir)
+	if len(volume) != 2 {
+		t.Skip("the temporary folder has no drive letter")
+	}
+	testutilChdir(t, dir)
+	path := volume + "edited.md"
+	if err := os.WriteFile("edited.md", []byte("hand edit\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess := NewSession()
+	sess.BackUpEditsSince(map[string]string{path: ContentSum("generated\n")})
+
+	removed, err := sess.RemoveOwned(path, ContentSum("hand edit\n"), false)
+
+	if err != nil || removed {
+		t.Errorf("RemoveOwned(%q) = %v, %v, want false, nil", path, removed, err)
+	}
+	if _, err := os.Lstat("edited.md.bak"); err == nil {
+		t.Error("a backup was written for a drive-relative path")
+	}
+	if data, _ := os.ReadFile("edited.md"); string(data) != "hand edit\n" {
+		t.Errorf("edited.md = %q, want the hand edit kept", data)
+	}
+}
+
 // testutilChdir changes into dir for the test and restores cwd after, kept
 // local to avoid importing internal/testutil from the emit package.
 func testutilChdir(t *testing.T, dir string) {
