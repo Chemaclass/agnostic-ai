@@ -76,7 +76,10 @@ func checkProjectPath(root, path, verb string, parentsOnly, bookkeeping bool) er
 		if err != nil {
 			return fmt.Errorf("%s %s: %w", verb, path, err)
 		}
-		if holdsSpecs(source) {
+		if !isWithin(realRoot, source) {
+			if !holdsSpecs(source) {
+				return fmt.Errorf("refusing to %s %s: %s is a link to %s, which holds no %s, so it is not a spec folder sync can keep its files in", verb, path, sourceDir, source, specMarker)
+			}
 			allowed = append(allowed, source)
 		}
 	}
@@ -203,23 +206,17 @@ func windowsVolume(p string) string {
 	return p[:end]
 }
 
-// specEntries are the spec folder entries sync reads by default: the
-// shared instructions and one folder per spec kind.
-var specEntries = []string{
-	"AGNOSTIC_AI.md", "agents", "skills", "rules", "hooks", "mcps",
-	"commands", "settings", "reviews", "environments", "ignore",
-}
+// specMarker is the shared instructions file every synced spec folder
+// holds. Tool folders such as ~/.claude also hold agents/ or skills/, so
+// only this file marks a folder as one sync reads specs from.
+const specMarker = "AGNOSTIC_AI.md"
 
-// holdsSpecs reports whether dir, a resolved spec folder, holds an entry
-// sync reads as specs. A link to a folder of other files, such as a tool
-// folder or a Git folder, does not make sync keep its files there.
+// holdsSpecs reports whether dir, a resolved spec folder, holds the spec
+// marker. A link to a folder of other files, such as a tool folder or a
+// Git folder, does not make sync keep its files there.
 func holdsSpecs(dir string) bool {
-	for _, name := range specEntries {
-		if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
-			return true
-		}
-	}
-	return false
+	info, err := os.Stat(filepath.Join(dir, specMarker))
+	return err == nil && info.Mode().IsRegular()
 }
 
 func splitPath(path string) []string {
@@ -231,9 +228,31 @@ func pathWithin(root, path string) bool {
 	return path == root || strings.HasPrefix(path, strings.TrimSuffix(root, string(filepath.Separator))+string(filepath.Separator))
 }
 
+// isWithin is pathWithin that also matches when the spelling differs but
+// the folders are the same, as letter case can on macOS and Windows. It
+// compares the nearest existing folder above path, and each one above
+// that, with root.
+func isWithin(root, path string) bool {
+	if pathWithin(root, path) {
+		return true
+	}
+	rootInfo, err := os.Stat(root)
+	if err != nil {
+		return false
+	}
+	for dir := path; ; dir = filepath.Dir(dir) {
+		if info, err := os.Stat(dir); err == nil && os.SameFile(info, rootInfo) {
+			return true
+		}
+		if filepath.Dir(dir) == dir {
+			return false
+		}
+	}
+}
+
 func withinAny(roots []string, path string) bool {
 	for _, root := range roots {
-		if pathWithin(root, path) {
+		if isWithin(root, path) {
 			return true
 		}
 	}
@@ -254,16 +273,19 @@ func inGitFolder(root, path string) bool {
 			}
 		}
 	}
+	rootInfo, _ := os.Stat(root)
 	for dir := path; !pathWithin(dir, root); dir = filepath.Dir(dir) {
+		info, statErr := os.Stat(dir)
+		if statErr == nil && rootInfo != nil && os.SameFile(info, rootInfo) {
+			break
+		}
 		if gitFolderName(filepath.Base(dir), runtime.GOOS) {
 			return true
 		}
-		if len(git) > 0 {
-			if info, err := os.Stat(dir); err == nil {
-				for _, folder := range git {
-					if os.SameFile(info, folder) {
-						return true
-					}
+		if statErr == nil {
+			for _, folder := range git {
+				if os.SameFile(info, folder) {
+					return true
 				}
 			}
 		}

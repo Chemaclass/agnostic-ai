@@ -420,6 +420,10 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			summaryf("  would link %s -> %s\n", l.path, rel)
 			continue
 		}
+		if err := adapters.CheckProjectPath(".", l.path); err != nil {
+			warnf("%v", err)
+			continue
+		}
 		tmp := l.path + ".agnostic-link"
 		if fi, err := os.Lstat(tmp); err == nil && fi.Mode()&os.ModeSymlink != 0 {
 			// Leftover from an interrupted swap; anything else at this

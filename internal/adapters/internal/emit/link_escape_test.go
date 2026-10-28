@@ -328,3 +328,21 @@ func TestGitFolderName(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteFile_FollowsAnInProjectLinkSpelledInAnotherLetterCase(t *testing.T) {
+	project, _ := linkProject(t)
+	if err := os.MkdirAll(filepath.Join(project, "tools"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	upper := filepath.Join(strings.ToUpper(project), "tools")
+	if a, errA := os.Stat(upper); errA != nil {
+		t.Skip("file system is case-sensitive")
+	} else if b, _ := os.Stat(filepath.Join(project, "tools")); !os.SameFile(a, b) {
+		t.Skip("file system is case-sensitive")
+	}
+	symlinkOrSkip(t, upper, filepath.Join(project, ".claude"))
+
+	if err := NewSession().WriteFile(filepath.Join(".claude", "rules", "r1.md"), "rule\n", false); err != nil {
+		t.Errorf("an in-project link in another letter case must be followed: %v", err)
+	}
+}

@@ -216,12 +216,13 @@ func mustNotExist(t *testing.T, paths ...string) {
 
 func TestSync_RefusesOutputsSpelledThroughALinkedSpecFolder(t *testing.T) {
 	victim := t.TempDir()
+	mustWrite(t, filepath.Join(victim, "AGNOSTIC_AI.md"), "Be brief.\n")
 	specLinkProject(t, victim, "outputs:\n  claude:\n    file: .agnostic-ai/new.sh\n    rules-dir: .agnostic-ai/planted\n")
 
 	if err := runProjectSync(); err == nil || !strings.Contains(err.Error(), "outside the project") {
 		t.Errorf("sync must refuse outputs through the linked spec folder, got %v", err)
 	}
-	mustNotExist(t, filepath.Join(victim, "new.sh"), filepath.Join(victim, "planted"), filepath.Join(victim, "AGNOSTIC_AI.md"), filepath.Join(victim, ".command-lock"), filepath.Join(victim, ".sync-state"))
+	mustNotExist(t, filepath.Join(victim, "new.sh"), filepath.Join(victim, "planted"))
 }
 
 func TestSync_RefusesOutputsIntoASiblingRepositorysGitFolder(t *testing.T) {
@@ -267,4 +268,50 @@ func TestSync_RefusesASkillNamedGit(t *testing.T) {
 	_ = runProjectSync()
 
 	mustNotExist(t, filepath.Join(dir, ".claude", "skills", ".git"))
+}
+
+func TestSync_SharedSkillsLeavesASkillFolderLinkedOutsideTheProject(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	dir := setupSharedSkillsFixture(t, "version: 1\ntargets: [codex, cursor]\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	if err := runSync(t); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+	outside := filepath.Join(t.TempDir(), "skills")
+	if err := os.Rename(filepath.Join(dir, ".cursor", "skills"), outside); err != nil {
+		t.Fatal(err)
+	}
+	mustSymlink(t, outside, filepath.Join(dir, ".cursor", "skills"))
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
+
+	_ = runSync(t)
+
+	if info, err := os.Lstat(filepath.Join(outside, "greet")); err != nil || !info.IsDir() {
+		t.Errorf("the skill folder outside the project must stay a real folder: %v, %v", info, err)
+	}
+	if _, err := os.Stat(filepath.Join(outside, "greet", "SKILL.md")); err != nil {
+		t.Errorf("the skill outside the project must keep its file: %v", err)
+	}
+}
+
+func TestSync_RefusesASpecFolderLinkedToAToolFolder(t *testing.T) {
+	dir := linkEscapeProject(t)
+	tool := filepath.Join(t.TempDir(), ".claude")
+	mustWrite(t, filepath.Join(tool, "agents", "a.md"), "---\nname: a\ndescription: d\n---\nbody\n")
+	mustWrite(t, filepath.Join(tool, "rules", "r1.md"), "---\nname: r1\n---\nrule body\n")
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
+		t.Fatal(err)
+	}
+	mustSymlink(t, tool, filepath.Join(dir, ".agnostic-ai"))
+
+	err := runProjectSync()
+
+	if err == nil || !strings.Contains(err.Error(), "holds no AGNOSTIC_AI.md") {
+		t.Errorf("sync must refuse a spec folder linked to a tool folder, got %v", err)
+	}
+	mustNotExist(t, filepath.Join(tool, ".command-lock"), filepath.Join(tool, ".sync-state"), filepath.Join(tool, "AGNOSTIC_AI.md"))
 }
