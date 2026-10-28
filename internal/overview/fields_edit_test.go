@@ -362,3 +362,16 @@ func TestSettingsOverride_CountsOnlyToolsTheLaterSpecGivesAValue(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsOverride_SkipsALaterClaudeModelForToolsThatDropIt(t *testing.T) {
+	settings := []spec.Entry{
+		{Name: "a", Meta: map[string]any{"model": map[string]any{"codex": "gpt-5.4"}}},
+		{Name: "b", Meta: map[string]any{"model": "claude-opus-4"}},
+	}
+	if got := SettingsOverride(settings, 0, "model", []string{"codex"}); got != -1 {
+		t.Errorf("codex override = %d, want -1", got)
+	}
+	if got := SettingsOverride(settings, 0, "model", []string{"claude"}); got != 1 {
+		t.Errorf("claude override = %d, want 1", got)
+	}
+}

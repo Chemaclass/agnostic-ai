@@ -371,3 +371,22 @@ func TestEditFieldTarget_LaterPerToolValueOverridesOnlyItsTool(t *testing.T) {
 		})
 	}
 }
+
+func TestEditFieldTarget_LaterClaudeModelDoesNotOverrideCodex(t *testing.T) {
+	h := targetProject(t, "")
+	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel:\n  codex: gpt-5.4\n")
+	mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\nmodel: claude-opus-4\n")
+	edit := func(target, value string) (int, string) {
+		rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"model","target":"`+target+`","value":"`+value+`"}`, nil)
+		return rec.Code, rec.Body.String()
+	}
+	if code, body := edit("codex", "gpt-5.5"); code != http.StatusOK {
+		t.Fatalf("codex edit = %d %s", code, body)
+	}
+	if got := readProjectFile(t, ".agnostic-ai/settings/a.yaml"); got != "name: a\nmodel:\n  codex: gpt-5.5\n" {
+		t.Fatalf("a.yaml = %q", got)
+	}
+	if code, body := edit("claude", "opus"); code != http.StatusBadRequest || !strings.Contains(body, "b.yaml sets model and overrides") {
+		t.Fatalf("claude edit = %d %s", code, body)
+	}
+}

@@ -301,11 +301,20 @@ func SettingsWriteTarget(settings []spec.Entry, inEffect int, key string, target
 func SettingsOverride(settings []spec.Entry, i int, key string, targets []string) int {
 	applies := appliesTo(settings, i, targets)
 	for j := len(settings) - 1; j > i; j-- {
-		if hasField(settings[j], key) && !slices.ContainsFunc(applies, func(t string) bool { return !setsFor(settings[j], key, t) }) {
+		if hasField(settings[j], key) && !slices.ContainsFunc(applies, func(t string) bool { return !overridesFor(settings[j], key, t) }) {
 			return j
 		}
 	}
 	return -1
+}
+
+// overridesFor is setsFor for a later spec, without the Claude model
+// name target cannot load, as the resolver drops it.
+func overridesFor(e spec.Entry, key, target string) bool {
+	if key == "model" && foreignClaudeModel(e, target) {
+		e = withoutSharedModel(e)
+	}
+	return setsFor(e, key, target)
 }
 
 // setsFor reports whether e gives target a value for key: a per-tool map
