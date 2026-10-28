@@ -761,12 +761,13 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	ledgerMergedWrites := map[string]mergedOutput{}
 	var gitignoreEntries []string
 	complete := true
-	var emitted []string
+	var emitted, unresolved []string
 	var emitRows []emitRow
 	for _, e := range emits {
 		if e.err != nil && !e.resolved {
 			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
 			complete = false
+			unresolved = append(unresolved, e.target)
 			continue
 		}
 		emitted = append(emitted, e.target)
@@ -805,7 +806,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
 		report.addWrites("", entryWrites)
-		creditEntryPointReaders(&report, emitRows, effectiveTargets, entryWrites, entryFiles)
+		creditEntryPointReaders(&report, emitRows, emitted, entryWrites, entryFiles)
 		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), dryRun)
 		if err != nil {
 			return err
@@ -822,14 +823,14 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	applied := shared.apply(mainSess, dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
-	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, effectiveTargets, cfg.Targets, dryRun)
+	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, dryRun)
 	if gitignoreOn {
 		for _, l := range applied {
 			gitignoreEntries = append(gitignoreEntries, l.path)
 		}
 
 		retained := ledger.orphans
-		if sweepErr != nil || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+		if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
 			retained = ledger.outputs
 		}
 		for _, path := range retained {
@@ -923,6 +924,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
 	}
+	if len(unresolved) > 0 && !dryRun {
+		printKept("  ~ skipped removing stale files: %s did not load; a sync that loads every target removes them\n", strings.Join(unresolved, ", "))
+	}
 	for _, p := range removed {
 		report.removed = append(report.removed, filepath.ToSlash(p))
 	}
@@ -966,7 +970,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		if verbosity == levelVerbose {
 			flushDrops()
 		}
-		summaryf("%s would sync %d target%s · %s\n", tick(), len(effectiveTargets), plural(len(effectiveTargets)), shortDuration(time.Since(start)))
+		summaryf("%s would sync %d target%s · %s\n", tick(), len(emitted), plural(len(emitted)), shortDuration(time.Since(start)))
 		return nil
 	}
 	// Every write this sync makes is done; an --untrack failure below
@@ -978,7 +982,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// A partial run leaves other targets on older specs; keep the old
 	// baseline so the run that updates them still names the change.
 	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
-	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+	if coversAllConfiguredTargets(emitted, cfg.Targets) {
 		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
@@ -1032,9 +1036,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if verbosity >= levelDefault {
 		if verbosity == levelVerbose {
 			logOut = originalLog
-			report.renderCompact(logOut, len(effectiveTargets), time.Since(start))
+			report.renderCompact(logOut, len(emitted), time.Since(start))
 		} else {
-			report.render(logOut, len(effectiveTargets), time.Since(start), verbosity > levelVerbose)
+			report.render(logOut, len(emitted), time.Since(start), verbosity > levelVerbose)
 		}
 		if verbose && len(emitRows) > 0 {
 			renderTargetRows(logOut, emitRows, verbosity > levelVerbose)
