@@ -22,6 +22,7 @@ on:
 
 permissions:
   contents: read
+  attestations: read
 
 jobs:
   unix:
@@ -31,6 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+    # Logs gh in and requires the build provenance check, so a wrong flag
+    # or value in the installer fails here instead of being skipped.
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AGNOSTIC_AI_VERIFY_ATTESTATION: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -51,6 +57,11 @@ jobs:
   windows:
     name: install.ps1 (windows-latest)
     runs-on: windows-latest
+    # Logs gh in and requires the build provenance check, so a wrong flag
+    # or value in the installer fails here instead of being skipped.
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AGNOSTIC_AI_VERIFY_ATTESTATION: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

@@ -221,7 +221,7 @@ Subcommands run one check:
 
 | Subcommand | Check |
 |------------|-------|
-| `doctor config` | Validate `agnostic-ai.yaml`. |
+| `doctor config` | Validate `agnostic-ai.yaml` with the checks every command runs when it loads the project. |
 | `doctor install` | Which AI CLIs are on PATH. |
 | `doctor mcp` | Find each MCP server's command and list its unset `${NAME}` references. Fails when the config does not load. |
 | `doctor rtk --command '<command>'` | Preview an RTK rewrite and compare declared Claude Code approval rules. Add `--json` for JSON. |

@@ -441,7 +441,7 @@ func TestUpgradeCommand_ExecutesAndChecksBothInstallPaths(t *testing.T) {
 						}
 						return nil
 					},
-					install: func(path, version, baseURL string, _ *http.Client) error {
+					install: func(_ io.Writer, path, version, baseURL string, _ *http.Client) error {
 						runs++
 						if path != "/tmp/agnostic-ai" || version != "2.0.0" || baseURL != releasesBaseURL {
 							t.Errorf("install arguments = %q, %q, %q", path, version, baseURL)

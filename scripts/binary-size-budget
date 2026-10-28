@@ -557,4 +557,10 @@
 # #2679 measured 23863456 on Go 1.27.3: doctor --json runs the glob,
 # nested CLAUDE.md, and hook script checks and lists their findings.
 # Linux amd64 release flags; no added headroom or dependencies.
-23863456
+# #2655 measured 23875744 on Go 1.27.3 on top of main after #2679: upgrade verifies the build provenance of the release it installs with gh.
+# Linux amd64 release flags; no added headroom or dependencies.
+# The open fix PRs of the review batch (#2630 to #2675) each measured 23867552 on
+# Go 1.27.3 against the 23863456 their base allowed, 4096 over, on main's growth
+# rather than their own; main after #2686 allows 23875744. Set to 23900000 for 24 KB
+# of headroom over the batch's remaining validation and error paths, a few KB each.
+23900000
