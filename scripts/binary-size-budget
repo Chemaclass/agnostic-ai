@@ -554,4 +554,7 @@
 # #2631 measured 23859360 on Go 1.27.3: collapsed lifecycle summaries,
 # controls, and recheck ownership add one page to the embedded UI.
 # Linux amd64 release flags; no added headroom or dependencies.
-23859360
+# #2679 measured 23863456 on Go 1.27.3: doctor --json runs the glob,
+# nested CLAUDE.md, and hook script checks and lists their findings.
+# Linux amd64 release flags; no added headroom or dependencies.
+23863456
