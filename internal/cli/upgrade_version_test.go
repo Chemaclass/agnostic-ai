@@ -25,7 +25,7 @@ func runUpgradeVersion(t *testing.T, installed string, args ...string) (out stri
 			runs++
 			return nil
 		},
-		install: func(_, version, _ string, _ *http.Client) error {
+		install: func(_ io.Writer, _, version, _ string, _ *http.Client) error {
 			runs++
 			installedVersion = version
 			return nil
@@ -121,7 +121,7 @@ func TestUpgradeVersion_PackageManagerInstallIsRefusedWithItsOwnName(t *testing.
 			}, nil
 		},
 		run: func(io.Writer, string) error { t.Fatal("ran the package manager's latest-only command"); return nil },
-		install: func(string, string, string, *http.Client) error {
+		install: func(io.Writer, string, string, string, *http.Client) error {
 			t.Fatal("installed a binary over a cask")
 			return nil
 		},

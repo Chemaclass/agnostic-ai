@@ -557,4 +557,6 @@
 # #2679 measured 23863456 on Go 1.27.3: doctor --json runs the glob,
 # nested CLAUDE.md, and hook script checks and lists their findings.
 # Linux amd64 release flags; no added headroom or dependencies.
-23863456
+# #2655 measured 23875744 on Go 1.27.3 on top of main after #2679: upgrade verifies the build provenance of the release it installs with gh.
+# Linux amd64 release flags; no added headroom or dependencies.
+23875744
