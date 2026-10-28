@@ -102,12 +102,12 @@ func newNewCmd() *cobra.Command {
 			if scope != "" {
 				body = strings.Replace(body, "globs: \"**/*\"\nalwaysApply: true", yamlFrontmatterLine("scope", scope), 1)
 			}
+			if _, err := os.Stat(path); err == nil {
+				return fmt.Errorf("%s already exists", path)
+			}
 			if dryRun {
 				summaryf("would create %s\n\n%s", path, body)
 				return nil
-			}
-			if _, err := os.Stat(path); err == nil {
-				return fmt.Errorf("%s already exists", path)
 			}
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)

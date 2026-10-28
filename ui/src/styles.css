@@ -1306,15 +1306,23 @@ input:hover {
   counter-reset: stage;
 }
 
-.stage {
+.lifecycle-head {
+  flex-wrap: wrap;
+}
+
+.lifecycle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stage-step {
   position: relative;
-  display: grid;
-  gap: 12px;
   padding: 0 0 28px 48px;
   counter-increment: stage;
 }
 
-.stage::before {
+.stage-step::before {
   content: counter(stage);
   position: absolute;
   inset: 0 auto auto 0;
@@ -1330,7 +1338,7 @@ input:hover {
   font-variant-numeric: tabular-nums;
 }
 
-.stage:not(:last-child)::after {
+.stage-step:not(:last-child)::after {
   content: '';
   position: absolute;
   left: 13px;
@@ -1340,19 +1348,43 @@ input:hover {
   background: var(--line);
 }
 
-.stage:last-child {
+.stage-step:last-child {
   border-bottom: 0;
 }
 
-.stage.has-hooks::before {
+.stage-step.has-hooks::before {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-wash);
 }
 
 .stage-head {
-  display: grid;
+  cursor: pointer;
+  min-height: 44px;
+  padding-left: 4px;
+}
+
+.stage-head::marker {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.stage-head:hover .stage-title {
+  color: var(--accent-strong);
+}
+
+.stage-summary {
+  display: inline-grid;
+  width: calc(100% - 20px);
   gap: 4px;
+  font-size: inherit;
+  vertical-align: top;
+}
+
+.stage-body {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
 }
 
 .stage-title {
@@ -1367,27 +1399,9 @@ input:hover {
   gap: 4px 12px;
 }
 
-.stage-counts {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.stage-label .stage-empty {
-  flex-basis: 100%;
-}
-
-.hook-command {
-  display: block;
-  margin-top: 4px;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
 .stage-description {
   font-size: 13px;
+  font-weight: 400;
 }
 
 .stage .item-list {
@@ -1402,13 +1416,12 @@ input:hover {
 
 .stage-tools {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
 }
 
-.stage-head .stage-tools {
+.stage-body .stage-tools {
   max-width: none;
 }
 
@@ -2125,7 +2138,7 @@ input:hover {
     padding: 14px;
   }
 
-  .stage {
+  .stage-step {
     padding-left: 40px;
   }
 

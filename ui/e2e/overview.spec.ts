@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { MOCK, openApp, saveScreenshot } from './helpers'
+import { findingEntryIds, itemEntryId } from '../src/model/identity'
+import type { SectionItem } from '../src/contract'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -164,6 +166,7 @@ test.describe('overview', () => {
     data.sections.find((section: { id: string }) => section.id === 'lifecycle').stages[0].targets = targets
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=lifecycle')
+    await page.locator('.stage').first().locator('summary').click()
     const avatars = page.locator('.stage').first().locator('.tool-avatar')
     await expect(avatars).toHaveCount(targets.length)
     for (const target of targets) {
@@ -350,79 +353,125 @@ test.describe('overview', () => {
     await expect(stages.nth(0)).toHaveText('Session start')
     await expect(stages.nth(6)).toHaveText('Session end')
     if (MOCK) {
-      await expect(page.locator('.stage-empty')).toHaveCount(6)
-      await expect(page.locator('.stage-count')).toHaveText(['2 hooks', ...Array(6).fill('No hooks')])
-      await expect(page.locator('.stage-disabled-count')).toHaveText('1 disabled')
-      await expect(page.getByRole('heading', { level: 2, name: 'Hooks 2', exact: true })).toBeVisible()
+      await expect(page.locator('.stage-empty')).toHaveCount(7)
+      await expect(page.locator('.stage-count')).toHaveText(Array(7).fill('No hooks'))
     }
     await expect(page.locator('.stage-description')).toHaveCount(7)
     await expect(page.locator('.stage-description').first()).toBeVisible()
-    await expect(page.locator('.stage details')).toHaveCount(0)
+    await expect(page.locator('details.stage')).toHaveCount(7)
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
+    await expect(page.locator('.stages > li > details.stage')).toHaveCount(7)
+    await expect(page.locator('.stage summary .stage-description')).toHaveCount(7)
+    await expect(page.locator('.stage summary .stage-count')).toHaveCount(7)
+    await expect(page.locator('.stage').first().locator('.stage-tools')).toBeHidden()
+    await saveScreenshot(page, '02-lifecycle-collapsed.png')
+    await page.locator('.stage').first().locator('summary').focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.stage[open]')).toHaveCount(1)
     const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
-    await expect(page.locator('.stage').first().locator('.stage-tools')).toHaveText('Runs on')
-    expect(await avatar.evaluate((element) => {
-      const beforeLogo = document.createRange()
-      beforeLogo.selectNodeContents(element.closest('.stage-tools')!)
-      beforeLogo.setEndBefore(element)
-      return beforeLogo.toString().trim()
-    })).toBe('Runs on')
     await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
     await expect(avatar.locator('img')).toBeVisible()
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(page.locator('.stage[open]')).toHaveCount(7)
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await page.getByRole('link', { name: 'Context', exact: false }).first().click()
+    await expect(page.getByRole('button', { name: 'Expand all', exact: true })).toHaveCount(0)
+    await page.getByRole('link', { name: 'Lifecycle', exact: false }).first().click()
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
     await saveScreenshot(page, '02-lifecycle.png')
   })
 
-  test('shows hook commands and types before metadata and labels disabled hooks', async ({ page }) => {
+  test('opens the stage and focuses a linked hook or its finding', async ({ page }) => {
     const data = structuredClone(fixture)
     const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
-    lifecycle.stages[lifecycle.stages.length - 1].targets = []
+    const hook: SectionItem = { kind: 'hook', name: 'prepare', label: 'Prepare session', description: '', path: '.agnostic-ai/hooks/prepare.yaml', layer: 'project', group: 'session-start', values: [], findings: [] }
+    lifecycle.items = [hook]
+    lifecycle.kinds[0].count = 1
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-    await page.goto('/?view=lifecycle')
-    const firstStage = page.locator('.stage').first()
-    await expect(firstStage.locator('.stage-count')).toHaveText('2 hooks')
-    await expect(firstStage.locator('.stage-disabled-count')).toHaveText('1 disabled')
-    for (const [index, target] of lifecycle.stages[0].targets.entries()) {
-      await expect(firstStage.locator('.tool-avatar').nth(index)).toHaveAttribute('title', `${target.label} - ${target.event}`)
-    }
-    await expect(page.locator('.stage').last().locator('.stage-tools')).toHaveCount(0)
-    const prepare = firstStage.locator('.item-row', { hasText: 'Prepare session' })
-    const review = firstStage.locator('.item-row', { hasText: 'Review session' })
-    await expect(prepare.locator('.hook-command')).toHaveText('./scripts/prepare-session.sh')
-    await expect(review.locator('.hook-command')).toHaveText('prompt')
-    await expect(prepare.locator('.hook-disabled')).toHaveCount(0)
-    await expect(review.locator('.hook-disabled')).toHaveText('disabled')
-    await expect(prepare.locator('.value-row dt', { hasText: /^command$/ })).toHaveCount(0)
-    await expect(review.locator('.value-row dt', { hasText: /^type$/ })).toHaveCount(0)
-    await expect(prepare.locator('.value-row dt', { hasText: /^timeout$/ })).toHaveCount(1)
-    await expect(review.locator('.value-row dt', { hasText: /^prompt$/ })).toHaveCount(1)
-    for (const row of [prepare, review]) {
-      const label = await row.locator('.item-main strong').boundingBox()
-      const command = await row.locator('.hook-command').boundingBox()
-      const metadata = await row.locator('.value-row').first().boundingBox()
-      expect(label).not.toBeNull()
-      expect(command).not.toBeNull()
-      expect(metadata).not.toBeNull()
-      expect(command!.y).toBeGreaterThanOrEqual(label!.y + label!.height)
-      expect(metadata!.y).toBeGreaterThanOrEqual(command!.y + command!.height)
+    const entry = itemEntryId(hook)
+    for (const id of [entry, ...findingEntryIds(hook.findings, entry)]) {
+      await page.goto(`/?view=lifecycle&entry=${encodeURIComponent(id)}`)
+      await expect(page.locator('.stage[open]')).toHaveCount(1)
+      await expect(page.locator('.stage').first()).toHaveAttribute('open', '')
+      await expect(page.locator(`[data-entry="${id}"]`)).toBeFocused()
+      await expect(page.locator(`[data-entry="${id}"]`)).toBeVisible()
     }
   })
 
-  test('shows command lists and quoted disabled values in hook rows', async ({ page }) => {
+  test('keeps a linked hook stage open and focuses resolved recheck feedback until dismissed', async ({ page }) => {
     const data = structuredClone(fixture)
     const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
-    const hook = lifecycle.items.find((item: { name: string }) => item.name === 'prepare-session')
-    hook.values = [
-      { key: 'type', type: 'text', value: 'command' },
-      { key: 'command', type: 'list', list: ['echo one', 'echo two'] },
-      { key: 'disabled', type: 'text', value: 'true' },
-    ]
-    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-    await page.goto('/?view=lifecycle')
+    const hook: SectionItem = { kind: 'hook', name: 'prepare', label: 'Prepare session', description: '', path: '.agnostic-ai/hooks/prepare.yaml', layer: 'project', group: 'session-start', values: [], findings: [] }
+    lifecycle.items = [hook]
+    lifecycle.kinds[0].count = 1
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
+    let finishRefresh: (() => void) | undefined
+    let refreshing = false
+    await page.route('**/api/views/overview', async (route) => {
+      if (refreshing) await new Promise<void>((resolve) => { finishRefresh = resolve })
+      return route.fulfill({ json: data })
+    })
+    const id = findingEntryIds(hook.findings, itemEntryId(hook))[0]
+    await page.goto(`/?view=lifecycle&q=no-such-hook&entry=${encodeURIComponent(id)}`)
     const stage = page.locator('.stage').first()
-    const row = stage.locator('.item-row', { hasText: 'Prepare session' })
-    await expect(row.locator('.hook-command')).toHaveText(['echo one', 'echo two'])
-    await expect(row.locator('.value-row dt', { hasText: /^command$/ })).toHaveCount(0)
-    await expect(row.locator('.hook-disabled')).toHaveText('disabled')
-    await expect(stage.locator('.stage-disabled-count')).toHaveText('2 disabled')
+    const finding = stage.locator('.finding')
+    await expect(finding).toBeFocused()
+    refreshing = true
+    await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+    await expect(finding.getByRole('button', { name: 'Rechecking…', exact: true })).toBeFocused()
+    await expect(stage).toHaveAttribute('open', '')
+    hook.findings = []
+    await expect.poll(() => Boolean(finishRefresh)).toBe(true)
+    finishRefresh!()
+    const feedback = stage.locator('.finding-rechecked')
+    await expect(feedback).toBeVisible()
+    await expect(feedback).toBeFocused()
+    await expect(feedback).toContainText('This lint finding no longer appears.')
+    await expect(page.getByRole('searchbox', { name: 'Search lifecycle' })).toHaveValue('no-such-hook')
+    await expect(stage).toHaveAttribute('open', '')
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(stage).not.toHaveAttribute('open')
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(feedback).toBeVisible()
+    await feedback.getByRole('button', { name: 'Dismiss', exact: true }).click()
+    await expect(feedback).toHaveCount(0)
+    await expect(stage).not.toHaveAttribute('open')
+    await expect(page.getByRole('heading', { name: 'Hooks 1', exact: true })).toBeFocused()
+  })
+
+  test('keeps a linked hook stage open and focuses last known feedback when lint is incomplete', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
+    const hook: SectionItem = { kind: 'hook', name: 'prepare', label: 'Prepare session', description: '', path: '.agnostic-ai/hooks/prepare.yaml', layer: 'project', group: 'session-start', values: [], findings: [] }
+    lifecycle.items = [hook]
+    lifecycle.kinds[0].count = 1
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    const id = findingEntryIds(hook.findings, itemEntryId(hook))[0]
+    await page.goto(`/?view=lifecycle&entry=${encodeURIComponent(id)}`)
+    const stage = page.locator('.stage').first()
+    const finding = stage.locator('.finding')
+    await expect(finding).toBeFocused()
+    hook.findings = []
+    lifecycle.findings.push({ source: 'lint', code: 'lint-incomplete', severity: 'warning', message: 'Lint stopped.' })
+    await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+    const feedback = stage.locator('.finding-recheck-result')
+    await expect(feedback).toBeVisible()
+    await expect(feedback).toBeFocused()
+    await expect(feedback).toContainText('Lint stopped before it finished')
+    await expect(stage).toHaveAttribute('open', '')
+    const search = page.getByRole('searchbox', { name: 'Search lifecycle' })
+    await search.fill('no-such-hook')
+    await expect(search).toBeFocused()
+    await expect(feedback).toBeVisible()
+    await expect(stage.locator('.stage-count')).toHaveText('No matching hooks')
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(stage).not.toHaveAttribute('open')
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(feedback).toBeVisible()
   })
 
   test('shows built-ins as switches and config values as chips and text', async ({ page }) => {
