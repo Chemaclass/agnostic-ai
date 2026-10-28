@@ -463,37 +463,6 @@ func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 	sb.WriteString("]\n")
 }
 
-// hookCommands normalizes a spec's `command:` value (string, []string,
-// or []any) into a slice of non-empty strings. Mirrors the helper used
-// by the claude + gemini adapters; kept private here to avoid a shared
-// import cycle.
-func hookCommands(raw any) []string {
-	switch v := raw.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []string{v}
-	case []string:
-		out := make([]string, 0, len(v))
-		for _, s := range v {
-			if s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	}
-	return nil
-}
-
 // UserMCPServerTables renders each MCP server as its `[mcp_servers.<name>]`
 // table text, subtables included, keyed by server name, the same text the
 // project config.toml carries.

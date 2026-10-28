@@ -148,27 +148,6 @@ func buildHooks(hooks []spec.Entry, scriptDirs ...string) *hooksDoc {
 		sort.SliceStable(groups, func(i, j int) bool { return groups[i].Matcher < groups[j].Matcher })
 		doc.events[event] = groups
 	}
-	doc.order = orderGooseEvents(doc.order)
+	doc.order = emit.OrderByLifecycle(doc.order, hookLifecycle)
 	return doc
-}
-
-func orderGooseEvents(seen []string) []string {
-	present := map[string]bool{}
-	for _, event := range seen {
-		present[event] = true
-	}
-	out := make([]string, 0, len(seen))
-	for _, event := range hookLifecycle {
-		if present[event] {
-			out = append(out, event)
-			delete(present, event)
-		}
-	}
-	for _, event := range seen {
-		if present[event] {
-			out = append(out, event)
-			delete(present, event)
-		}
-	}
-	return out
 }
