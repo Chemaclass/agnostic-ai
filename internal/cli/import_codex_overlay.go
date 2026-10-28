@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -234,20 +235,50 @@ func codexCredentialIn(key string, value any, names bool) bool {
 	return false
 }
 
-// withoutOverlayCredentials applies withoutCodexCredentials to the Codex
-// overlay at path, which an import restores as an older release wrote it.
+// withoutOverlayCredentials removes credentials from the Claude or Codex
+// overlay at path, which an import restores as an earlier import wrote it
+// when the tool file still matches the last sync.
 func withoutOverlayCredentials(path string, data []byte, root string) ([]byte, error) {
-	if len(data) == 0 || filepath.Clean(path) != filepath.Clean(codexOverlayPath(root)) {
+	if len(data) == 0 {
 		return data, nil
 	}
-	text, err := withoutCodexCredentials(string(data))
-	if err != nil || text == string(data) {
+	switch filepath.Clean(path) {
+	case filepath.Clean(codexOverlayPath(root)):
+		text, err := withoutCodexCredentials(string(data))
+		if err != nil || text == string(data) {
+			return data, err
+		}
+		if strings.TrimSpace(text) == "" {
+			return nil, nil
+		}
+		return []byte(text), nil
+	case filepath.Clean(claudeOverlayPath(root)):
+		return withoutClaudeOverlayCredentials(data)
+	}
+	return data, nil
+}
+
+func withoutClaudeOverlayCredentials(data []byte) ([]byte, error) {
+	doc := adapters.NewOrderedJSON()
+	if json.Unmarshal(data, doc) != nil {
+		return data, nil
+	}
+	indent := adapters.DetectJSONIndent(data)
+	before, err := adapters.MarshalJSONIndentWith(doc, indent)
+	if err != nil {
+		return data, nil
+	}
+	if err := excludeClaudeCredentials(doc); err != nil {
 		return data, err
 	}
-	if strings.TrimSpace(text) == "" {
-		return nil, nil
+	after, err := adapters.MarshalJSONIndentWith(doc, indent)
+	if err != nil {
+		return data, fmt.Errorf("marshal overlay: %w", err)
 	}
-	return []byte(text), nil
+	if bytes.Equal(before, after) {
+		return data, nil
+	}
+	return append(after, '\n'), nil
 }
 
 // deleteCodexPath removes the value at path and each table it leaves

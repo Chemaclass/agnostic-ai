@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- **Security:** a re-import no longer keeps a Claude or Codex overlay an earlier release wrote with a credential in it. Import prints the warnings and stops; `--overwrite` writes the overlay without the credential (#2669).
 - `packs update` installs each Git pack at the commit recorded in `agnostic.packs.lock`. Before, it fetched the current tip of the recorded tag or branch and overwrote the recorded commit, so a moved tag or a force push changed the pack with no error. It now fails and leaves the lockfile unchanged when the remote no longer has that commit. `packs update --latest` moves a pack to the newest commit of its ref and prints the old and new commit (#2638).
 - `doctor config` fails as `sync` does on an unknown builtin or tier target, an unmet `requires`, or a bad `outputs.<target>.agents`, now AAI-004 (#2660).
 - `sync --json` prepares and seeds personal memory like `sync`. Its `notes` now list every project note a plain `sync` prints, such as an overlay file no tool reads, the facts copied into personal memory, and the entry point and worktree notes. Before, a project synced only with `--json` never got its personal memory seeded (#2663).

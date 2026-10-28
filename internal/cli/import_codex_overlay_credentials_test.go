@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -71,8 +72,9 @@ func TestImportCodexConfigOverlay_KeepsLayoutWithoutCredentials(t *testing.T) {
 	}
 }
 
-// A re-import restores the overlay an earlier import wrote when the tool
-// file still matches the last sync; a credential in it stays out.
+// A re-import keeps the overlay an earlier import wrote when the tool file
+// still matches the last sync. One that holds a credential is not kept:
+// import stops, and --overwrite writes it without the credential.
 func TestImport_RestoredCodexOverlayLeavesOutCredentials(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
@@ -82,8 +84,11 @@ func TestImport_RestoredCodexOverlayLeavesOutCredentials(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 
-	if out, err := runCLI(t, "import", "codex"); err != nil {
-		t.Fatalf("import codex: %v\n%s", err, out)
+	if _, err := runCLI(t, "import", "codex"); errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("import codex = %v, want AAI-203 instead of keeping the credential", err)
+	}
+	if out, err := runCLI(t, "import", "codex", "--overwrite"); err != nil {
+		t.Fatalf("import codex --overwrite: %v\n%s", err, out)
 	}
 
 	got := readFile(t, ".agnostic-ai/overlays/codex.config.toml")
@@ -133,5 +138,27 @@ func TestImportCodexConfigOverlay_WritesNoOverlayForOnlyCredentials(t *testing.T
 	}
 	if _, err := os.Stat(codexOverlayPath(root)); !os.IsNotExist(err) {
 		t.Errorf("overlay written for a credentials-only config: %v", err)
+	}
+}
+
+func TestImport_RestoredClaudeOverlayLeavesOutCredentials(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".agnostic-ai/overlays/claude.settings.json", "{\n  \"env\": {\n    \"ANTHROPIC_AUTH_TOKEN\": \"sk-ant-api03-RESTOREDCLAUDE99\",\n    \"DISABLE_TELEMETRY\": \"1\"\n  },\n  \"model\": \"opus\"\n}\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	if _, err := runCLI(t, "import", "claude"); errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("import claude = %v, want AAI-203 instead of keeping the credential", err)
+	}
+	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+		t.Fatalf("import claude --overwrite: %v\n%s", err, out)
+	}
+
+	got := readFile(t, ".agnostic-ai/overlays/claude.settings.json")
+	if strings.Contains(got, "RESTOREDCLAUDE") || !strings.Contains(got, "DISABLE_TELEMETRY") || !strings.Contains(got, "opus") {
+		t.Errorf("restored overlay = %q, want the token out and the rest kept", got)
 	}
 }
