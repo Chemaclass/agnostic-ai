@@ -98,7 +98,7 @@ With no `.sync-state`, as in a fresh checkout of a repo that commits generated f
 - It still holds exactly what the last commit's specs would write, such as a headerless `.claude/launch.json` whose spec you deleted but have not committed.
 - After that deletion is committed, a headerless JSON file still holds exactly what the commit that last changed it would write. Up to eight past commits are checked per run, and you delete these by hand.
 
-A plain full `sync` removes none of these. It records them under target `unledgered` and lists each as `~ kept leftover <path>` (`--only` and `--except` record them without naming them). An empty `.sync-state` still counts as a record and turns this scan off. `doctor --fix` removes a leftover in a tool directory or root dotfile; delete a scope document such as `services/api/AGENTS.md` by hand, or add it to `sync.unmanaged`.
+A plain full `sync` removes none of these. It records them under target `unledgered` and lists each as `~ kept leftover <path>` (`--only` and `--except` record them without naming them). A `.sync-state` that does not parse, such as one cut short by a full disk, counts as missing: `sync` warns, runs this scan, and writes a new one, and `sync --check` fails until then (with `--against`, it only warns, since Git does not hold the ledger). `doctor --fix` removes a leftover in a tool directory or root dotfile; delete a scope document such as `services/api/AGENTS.md` by hand, or add it to `sync.unmanaged`.
 
 </details>
 
