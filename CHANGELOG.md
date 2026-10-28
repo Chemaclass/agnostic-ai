@@ -11,6 +11,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Web interface
 
+- Lifecycle stages start closed, with counts and descriptions visible; expand one or all, search hooks, or follow a link to open its stage (#2631).
 - Lifecycle shows hook counts per stage, labels tool logos **Runs on**, leads hook rows with commands or types, and marks disabled hooks (#2630).
 
 - A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).

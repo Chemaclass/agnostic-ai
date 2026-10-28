@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { MOCK, openApp, saveScreenshot } from './helpers'
+import { findingEntryIds, itemEntryId } from '../src/model/identity'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -164,6 +165,7 @@ test.describe('overview', () => {
     data.sections.find((section: { id: string }) => section.id === 'lifecycle').stages[0].targets = targets
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=lifecycle')
+    await page.locator('.stage').first().locator('summary').click()
     const avatars = page.locator('.stage').first().locator('.tool-avatar')
     await expect(avatars).toHaveCount(targets.length)
     for (const target of targets) {
@@ -357,7 +359,17 @@ test.describe('overview', () => {
     }
     await expect(page.locator('.stage-description')).toHaveCount(7)
     await expect(page.locator('.stage-description').first()).toBeVisible()
-    await expect(page.locator('.stage details')).toHaveCount(0)
+    await expect(page.locator('details.stage')).toHaveCount(7)
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
+    await expect(page.locator('.stages > li > details.stage')).toHaveCount(7)
+    await expect(page.locator('.stage summary .stage-description')).toHaveCount(7)
+    await expect(page.locator('.stage summary .stage-count')).toHaveCount(7)
+    await expect(page.locator('.stage').first().locator('.stage-tools')).toBeHidden()
+    await expect(page.locator('.stage').first().locator('.item-row').first()).toBeHidden()
+    await saveScreenshot(page, '02-lifecycle-collapsed.png')
+    await page.locator('.stage').first().locator('summary').focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.stage[open]')).toHaveCount(1)
     const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
     await expect(page.locator('.stage').first().locator('.stage-tools')).toHaveText('Runs on')
     expect(await avatar.evaluate((element) => {
@@ -368,7 +380,32 @@ test.describe('overview', () => {
     })).toBe('Runs on')
     await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
     await expect(avatar.locator('img')).toBeVisible()
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(page.locator('.stage[open]')).toHaveCount(7)
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await page.getByRole('link', { name: 'Context', exact: false }).first().click()
+    await expect(page.getByRole('button', { name: 'Expand all', exact: true })).toHaveCount(0)
+    await page.getByRole('link', { name: 'Lifecycle', exact: false }).first().click()
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
     await saveScreenshot(page, '02-lifecycle.png')
+  })
+
+  test('opens the stage and focuses a linked hook or its finding', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
+    const hook = lifecycle.items[0]
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    const entry = itemEntryId(hook)
+    for (const id of [entry, ...findingEntryIds(hook.findings, entry)]) {
+      await page.goto(`/?view=lifecycle&entry=${encodeURIComponent(id)}`)
+      await expect(page.locator('.stage[open]')).toHaveCount(1)
+      await expect(page.locator('.stage').first()).toHaveAttribute('open', '')
+      await expect(page.locator(`[data-entry="${id}"]`)).toBeFocused()
+      await expect(page.locator(`[data-entry="${id}"]`)).toBeVisible()
+    }
   })
 
   test('shows hook commands and types before metadata and labels disabled hooks', async ({ page }) => {
@@ -378,6 +415,7 @@ test.describe('overview', () => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=lifecycle')
     const firstStage = page.locator('.stage').first()
+    await firstStage.locator('summary').click()
     await expect(firstStage.locator('.stage-count')).toHaveText('2 hooks')
     await expect(firstStage.locator('.stage-disabled-count')).toHaveText('1 disabled')
     for (const [index, target] of lifecycle.stages[0].targets.entries()) {
@@ -418,6 +456,7 @@ test.describe('overview', () => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=lifecycle')
     const stage = page.locator('.stage').first()
+    await stage.locator('summary').click()
     const row = stage.locator('.item-row', { hasText: 'Prepare session' })
     await expect(row.locator('.hook-command')).toHaveText(['echo one', 'echo two'])
     await expect(row.locator('.value-row dt', { hasText: /^command$/ })).toHaveCount(0)

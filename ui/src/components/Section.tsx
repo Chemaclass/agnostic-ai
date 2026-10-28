@@ -149,7 +149,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       {errors > 0 && otherFindings}
       {section.kinds.map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
-        if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} />
+        if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         return (
@@ -425,38 +425,55 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   </div></>
 }
 
-function Lifecycle({ stages, hooks, count, filtering }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean }) {
+function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean; matchingHooks: Set<SectionItem> }) {
+  const root = useRef<HTMLElement>(null)
+  const entry = useApp().state.entry
+  const setExpanded = (open: boolean) => {
+    root.current?.querySelectorAll<HTMLDetailsElement>('details.stage').forEach((stage) => { stage.open = open })
+  }
   return (
-    <section className="block" aria-labelledby="lifecycle-hooks">
-      <h2 id="lifecycle-hooks">
-        Hooks <span className="muted kind-count">{count}</span>
-      </h2>
+    <section ref={root} className="block" aria-labelledby="lifecycle-hooks">
+      <div className="section-head lifecycle-head">
+        <h2 id="lifecycle-hooks">Hooks <span className="muted kind-count">{count}</span></h2>
+        <div className="lifecycle-actions">
+          <button type="button" className="button button-quiet" onClick={() => setExpanded(true)}>Expand all</button>
+          <button type="button" className="button button-quiet" onClick={() => setExpanded(false)}>Collapse all</button>
+        </div>
+      </div>
       <ol className="stages">
         {stages.map((st) => {
           const here = hooks.filter((h) => h.group === st.id)
-          const disabled = here.filter(hookDisabled).length
+          const matching = filtering ? here.filter((hook) => matchingHooks.has(hook)) : here
+          const disabled = matching.filter(hookDisabled).length
+          const linked = entry !== undefined && here.some((hook) => itemEntryId(hook) === entry || findingEntryIds(hook.findings, itemEntryId(hook)).includes(entry))
           return (
-            <li key={st.id} className={`stage${here.length ? ' has-hooks' : ''}`}>
-              <div className="stage-head">
-                <div className="stage-label">
-                  <h3 className="stage-title">{st.label}</h3>
-                  <span className="stage-counts">
-                    <Badge tone="neutral" className="stage-count">{here.length ? `${here.length} ${here.length === 1 ? 'hook' : 'hooks'}` : 'No hooks'}</Badge>
-                    {disabled > 0 && <span className="muted stage-disabled-count">{disabled} disabled</span>}
-                  </span>
+            <li key={st.id} className={`stage-step${here.length ? ' has-hooks' : ''}`}>
+              <details className="stage" open={linked || (filtering && matching.length > 0)}>
+                <summary className="stage-head">
+                  <h3 className="stage-summary">
+                    <span className="stage-label">
+                      <span className="stage-title">{st.label}</span>
+                      <span className="stage-counts">
+                        <Badge tone="neutral" className="stage-count">{matching.length ? `${matching.length} ${matching.length === 1 ? 'hook' : 'hooks'}` : filtering ? 'No matching hooks' : 'No hooks'}</Badge>
+                        {disabled > 0 && <span className="muted stage-disabled-count">{disabled} disabled</span>}
+                      </span>
+                    </span>
+                    <span className="muted stage-description">{st.description}</span>
+                  </h3>
+                </summary>
+                <div className="stage-body">
+                  {st.targets.length > 0 && (
+                    <p className="stage-tools">
+                      <span className="muted">Runs on</span>
+                      {st.targets.map((t) => (
+                        <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
+                      ))}
+                    </p>
+                  )}
                   {!here.length && <p className="muted stage-empty">{filtering ? 'No matching hooks.' : 'No hook runs here.'}</p>}
+                  {here.length > 0 && <ItemList items={here} />}
                 </div>
-                <p className="muted stage-description">{st.description}</p>
-                {st.targets.length > 0 && (
-                  <p className="stage-tools">
-                    <span className="muted">Runs on</span>
-                    {st.targets.map((t) => (
-                      <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
-                    ))}
-                  </p>
-                )}
-              </div>
-              {here.length > 0 && <ItemList items={here} />}
+              </details>
             </li>
           )
         })}
