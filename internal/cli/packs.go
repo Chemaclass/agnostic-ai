@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"os/exec"
@@ -146,6 +148,11 @@ func runPacksAdd(root, source, nameOverride string, out io.Writer) error {
 	if err := validatePackName(name); err != nil {
 		return err
 	}
+	if !isLocalSource(src) {
+		if err := checkLockedSource(root, src); err != nil {
+			return fmt.Errorf("packs add: %w", err)
+		}
+	}
 
 	dest := filepath.Join(root, packsDir, name)
 	if err := os.RemoveAll(dest); err != nil {
@@ -227,9 +234,24 @@ func runPacksUpdate(root, only string, out io.Writer) error {
 		_, _ = fmt.Fprintln(out, "no packs installed.")
 		return nil
 	}
+	skipped := map[string]bool{}
+	for _, p := range lock.Packs {
+		if only != "" && p.Name != only {
+			continue
+		}
+		err := checkLockedEntry(root, p)
+		if only == "" && errors.Is(err, errLocalSourceOutsideProject) {
+			_, _ = fmt.Fprintf(out, "! skipped %s: %v\n", p.Name, err)
+			skipped[p.Name] = true
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("packs update %q: %w", p.Name, err)
+		}
+	}
 	updated := 0
 	for i, p := range lock.Packs {
-		if only != "" && p.Name != only {
+		if (only != "" && p.Name != only) || skipped[p.Name] {
 			continue
 		}
 		dest := filepath.Join(root, packsDir, p.Name)
@@ -248,6 +270,129 @@ func runPacksUpdate(root, only string, out io.Writer) error {
 		return fmt.Errorf("packs update: %q not installed", only)
 	}
 	return writePacksLock(root, lock)
+}
+
+// checkLockedEntry refuses a lockfile entry that update does not trust,
+// because a cloned project's lockfile is not trusted input.
+func checkLockedEntry(root string, p packEntry) error {
+	if err := validatePackName(p.Name); err != nil {
+		return fmt.Errorf("%w; reinstall it with `agnostic-ai packs add <source> --name <name>`", err)
+	}
+	if err := checkPacksDirInsideProject(root); err != nil {
+		return err
+	}
+	if strings.HasPrefix(p.Ref, "-") {
+		return fmt.Errorf("ref %q must not start with -", p.Ref)
+	}
+	err := checkLockedSource(root, p.Source)
+	if errors.Is(err, errLocalSourceOutsideProject) {
+		return fmt.Errorf("%w; refresh it with `agnostic-ai packs add %s --name %s`", err, shellQuote(p.Source), shellQuote(p.Name))
+	}
+	return err
+}
+
+func checkPacksDirInsideProject(root string) error {
+	realRoot, err := realAbs(root)
+	if err != nil {
+		return err
+	}
+	for _, dir := range []string{packsDir, filepath.Dir(packsDir)} {
+		path := filepath.Join(root, dir)
+		real, err := realAbs(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			if _, lerr := os.Lstat(path); lerr == nil {
+				return fmt.Errorf("%s is a broken link; remove it and run `agnostic-ai packs update` again", dir)
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if !pathInside(realRoot, real) {
+			return fmt.Errorf("%s links outside the project; remove the link and run `agnostic-ai packs update` again", dir)
+		}
+		return nil
+	}
+	return nil
+}
+
+func checkLockedSource(root, source string) error {
+	if strings.HasPrefix(source, "-") {
+		return fmt.Errorf("source %q must not start with -", source)
+	}
+	if isLocalSource(source) {
+		return checkLocalSource(root, source)
+	}
+	switch {
+	case strings.HasPrefix(source, "https://"), strings.HasPrefix(source, "ssh://"):
+		return nil
+	case strings.HasPrefix(source, "git@"):
+		if !isSCPLikeSource(source) {
+			return fmt.Errorf("source %q must have the form git@host:path", source)
+		}
+		return nil
+	case strings.Contains(source, "://") || strings.Contains(source, "::"):
+		return fmt.Errorf("source %q: only https://, ssh://, git@host:path, and local folders are allowed", source)
+	}
+	return nil
+}
+
+func isSCPLikeSource(source string) bool {
+	host, path, ok := strings.Cut(strings.TrimPrefix(source, "git@"), ":")
+	return ok && host != "" && path != "" && !strings.ContainsAny(host, `/\`)
+}
+
+var errLocalSourceOutsideProject = errors.New("local source is outside the project")
+
+// checkLocalSource compares volumes before resolving links so a Windows
+// network path is refused without being opened.
+func checkLocalSource(root, source string) error {
+	path := localPath(source)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(filepath.VolumeName(absRoot), filepath.VolumeName(absPath)) {
+		return errLocalSourceOutsideProject
+	}
+	realRoot, err := filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		return err
+	}
+	realPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return fmt.Errorf("local source %q: %w", source, err)
+	}
+	if !pathInside(realRoot, realPath) {
+		return errLocalSourceOutsideProject
+	}
+	// Lowercase so a case-insensitive disk cannot spell the packs folder differently.
+	packs := strings.ToLower(filepath.Join(realRoot, packsDir))
+	lowerPath := strings.ToLower(realPath)
+	if pathInside(lowerPath, packs) || pathInside(packs, lowerPath) {
+		return fmt.Errorf("local source %q must not hold or sit inside %s", source, packsDir)
+	}
+	return nil
+}
+
+func realAbs(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
+func pathInside(base, path string) bool {
+	rel, err := filepath.Rel(base, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // fetchPack populates dest with the pack contents and returns the
@@ -316,12 +461,7 @@ func gitClone(source, ref, dest string) (string, error) {
 	if !strings.Contains(cloneURL, "://") && !strings.HasPrefix(cloneURL, "git@") {
 		cloneURL = "https://" + cloneURL
 	}
-	args := []string{"clone", "--depth", "1"}
-	if ref != "" {
-		args = append(args, "--branch", ref)
-	}
-	args = append(args, cloneURL, dest)
-	if err := runCmd("git", args...); err != nil {
+	if err := runCmd("git", gitCloneArgs(cloneURL, ref, dest)...); err != nil {
 		return "", fmt.Errorf("git clone: %w", err)
 	}
 	sha, err := captureCmd(dest, "git", "rev-parse", "HEAD")
@@ -332,6 +472,14 @@ func gitClone(source, ref, dest string) (string, error) {
 		return "", fmt.Errorf("strip .git: %w", err)
 	}
 	return strings.TrimSpace(sha), nil
+}
+
+func gitCloneArgs(source, ref, dest string) []string {
+	args := []string{"clone", "--depth", "1"}
+	if ref != "" {
+		args = append(args, "--branch", ref)
+	}
+	return append(args, "--", source, dest)
 }
 
 func runCmd(name string, args ...string) error {
@@ -385,8 +533,11 @@ func derivePackName(source string) string {
 // or collide with disallowed characters. A pack name is a single path
 // segment.
 func validatePackName(name string) error {
-	if name == "" || name == "." || name == ".." {
+	if name == "" {
 		return fmt.Errorf("packs: invalid pack name %q", name)
+	}
+	if strings.HasPrefix(name, ".") {
+		return fmt.Errorf("packs: pack name must not start with a dot, got %q", name)
 	}
 	if strings.ContainsAny(name, "/\\") {
 		return fmt.Errorf("packs: pack name must be a single path segment, got %q", name)
@@ -486,6 +637,10 @@ func resolvePacksLayers(projectRoot string) []spec.Layer {
 	}
 	out := make([]spec.Layer, 0, len(lock.Packs))
 	for _, p := range lock.Packs {
+		if err := validatePackName(p.Name); err != nil {
+			fmt.Fprintf(os.Stderr, "! %v in %s; skipped\n", err, packsLockfile)
+			continue
+		}
 		root := filepath.Join(projectRoot, packsDir, p.Name)
 		if !dirExists(root) {
 			fmt.Fprintf(os.Stderr, "! pack %q listed in %s but missing on disk; run `agnostic-ai packs update`\n", p.Name, packsLockfile)

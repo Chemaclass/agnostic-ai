@@ -3,7 +3,9 @@ package cli
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -52,7 +54,7 @@ func TestValidatePackName(t *testing.T) {
 			t.Errorf("validatePackName(%q) unexpected err: %v", n, err)
 		}
 	}
-	bad := []string{"", ".", "..", "foo/bar", `foo\bar`}
+	bad := []string{"", ".", "..", "foo/bar", `foo\bar`, ".git", ".GIT", ".hidden"}
 	for _, n := range bad {
 		if err := validatePackName(n); err == nil {
 			t.Errorf("validatePackName(%q) accepted, expected error", n)
@@ -119,7 +121,7 @@ func TestPacksRemove_NotInstalled(t *testing.T) {
 func TestPacksUpdate_LocalSource(t *testing.T) {
 	root := testutil.TempCwd(t)
 
-	src := filepath.Join(t.TempDir(), "go-rules")
+	src := filepath.Join(root, "shared", "go-rules")
 	mustWrite(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nv1")
 
 	var out bytes.Buffer
@@ -211,5 +213,283 @@ func mustWrite(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func writeLock(t *testing.T, root string, entries ...packEntry) {
+	t.Helper()
+	if err := writePacksLock(root, &packsLock{Version: 1, Packs: entries}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPacksUpdate_RefusesLockfileNameOutsidePacksDir(t *testing.T) {
+	for _, name := range []string{"../victim", "a/b", "..", `a\b`} {
+		t.Run(name, func(t *testing.T) {
+			parent := t.TempDir()
+			root := filepath.Join(parent, "project")
+			victim := filepath.Join(parent, "victim")
+			mustWrite(t, filepath.Join(victim, "keep.txt"), "keep")
+			mustWrite(t, filepath.Join(root, "payload", "rules", "x.md"), "---\nname: x\n---\nb")
+			testutil.Chdir(t, root)
+			writeLock(t, root, packEntry{Name: name, Source: "./payload"})
+
+			var out bytes.Buffer
+			if err := runPacksUpdate(root, "", &out); err == nil {
+				t.Fatal("expected update to refuse the lockfile name")
+			}
+			if _, err := os.Stat(filepath.Join(victim, "keep.txt")); err != nil {
+				t.Errorf("update removed a folder outside the project: %v", err)
+			}
+			if _, err := os.Stat(filepath.Join(parent, "rules")); !os.IsNotExist(err) {
+				t.Errorf("update wrote outside the project, stat err=%v", err)
+			}
+		})
+	}
+}
+
+func TestPacksUpdate_ChecksEveryEntryBeforeChangingAny(t *testing.T) {
+	root := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(root, "good", "rules", "x.md"), "---\nname: x\n---\nnew")
+	mustWrite(t, filepath.Join(root, packsDir, "a-good", "rules", "x.md"), "old")
+	writeLock(t, root,
+		packEntry{Name: "a-good", Source: "./good"},
+		packEntry{Name: "z-bad/x", Source: "./good"},
+	)
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", &out); err == nil {
+		t.Fatal("expected update to refuse the lockfile")
+	}
+	got, _ := os.ReadFile(filepath.Join(root, packsDir, "a-good", "rules", "x.md"))
+	if string(got) != "old" {
+		t.Errorf("update changed a pack before refusing the lockfile, got %q", got)
+	}
+}
+
+func TestPacksUpdate_RefusesSymlinkedPacksDir(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "project")
+	outside := filepath.Join(parent, "outside")
+	mustWrite(t, filepath.Join(outside, "p", "keep.txt"), "keep")
+	mustWrite(t, filepath.Join(root, "payload", "rules", "x.md"), "b")
+	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, packsDir)); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	testutil.Chdir(t, root)
+	writeLock(t, root, packEntry{Name: "p", Source: "./payload"})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", &out); err == nil {
+		t.Fatal("expected update to refuse a packs folder that links outside the project")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "p", "keep.txt")); err != nil {
+		t.Errorf("update removed a folder outside the project: %v", err)
+	}
+}
+
+func TestPacksUpdate_RefusesOptionLikeSourceBeforeGitRuns(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("the upload-pack command needs a POSIX shell")
+	}
+	root := testutil.TempCwd(t)
+	marker := filepath.Join(t.TempDir(), "ran")
+	bare := filepath.Join(root, packsDir, "p.git")
+	if err := exec.Command("git", "init", "--quiet", "--bare", bare).Run(); err != nil {
+		t.Fatalf("git init --bare: %v", err)
+	}
+	writeLock(t, root, packEntry{Name: "p", Source: "--upload-pack=touch " + marker + ";://"})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", &out); err == nil {
+		t.Fatal("expected update to refuse a source that starts with -")
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("git ran the command from the lockfile source, stat err=%v", err)
+	}
+}
+
+func TestPacksUpdate_RefusesUnsupportedSources(t *testing.T) {
+	for _, source := range []string{
+		"-c",
+		"ext::sh -c touch% /tmp/x",
+		"http://example.com/pack",
+		"git://example.com/pack",
+		"fd::17",
+		"git@/../../outside",
+		"git@:foo/bar",
+		"git@host/path",
+	} {
+		t.Run(source, func(t *testing.T) {
+			if err := checkLockedSource(t.TempDir(), source); err == nil {
+				t.Errorf("checkLockedSource(%q) accepted, expected error", source)
+			}
+		})
+	}
+}
+
+func TestPacksUpdate_AcceptsSupportedSources(t *testing.T) {
+	for _, source := range []string{
+		"github.com/foo/bar",
+		"https://github.com/foo/bar.git",
+		"ssh://git@github.com/foo/bar.git",
+		"git@github.com:foo/bar.git",
+	} {
+		if err := checkLockedSource(t.TempDir(), source); err != nil {
+			t.Errorf("checkLockedSource(%q) = %v, want nil", source, err)
+		}
+	}
+}
+
+func TestPacksUpdate_RefusesWindowsNetworkPathBeforeOpeningIt(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("network share paths are absolute only on Windows")
+	}
+	for _, source := range []string{`\\attacker\share\x`, "//attacker/share/x", "file:////attacker/share"} {
+		if err := checkLockedSource(t.TempDir(), source); err == nil {
+			t.Errorf("checkLockedSource(%q) accepted, expected error", source)
+		}
+	}
+}
+
+func TestPacksUpdate_RefusesLocalSourceHoldingPacksDir(t *testing.T) {
+	root := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(root, packsDir, "keep.txt"), "x")
+	for _, source := range []string{"./", "./.agnostic-ai", "./" + packsDir, "./.AGNOSTIC-AI"} {
+		if err := checkLockedSource(root, source); err == nil {
+			t.Errorf("checkLockedSource(%q) accepted a folder that holds the packs folder", source)
+		}
+	}
+}
+
+func TestPacksUpdate_AbsoluteLocalSourceInsideProjectWithDotRoot(t *testing.T) {
+	root := testutil.TempCwd(t)
+	src := filepath.Join(root, "shared", "p")
+	mustWrite(t, filepath.Join(src, "rules", "x.md"), "v2")
+	writeLock(t, ".", packEntry{Name: "p", Source: src}, packEntry{Name: "q", Source: "../" + filepath.Base(root) + "/shared/p"})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(".", "", &out); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	for _, name := range []string{"p", "q"} {
+		if _, err := os.Stat(filepath.Join(root, packsDir, name, "rules", "x.md")); err != nil {
+			t.Errorf("pack %s not updated: %v", name, err)
+		}
+	}
+}
+
+func TestPacksUpdate_SkipsOutsideLocalSourceAndUpdatesTheRest(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "project")
+	mustWrite(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
+	mustWrite(t, filepath.Join(root, "inside", "rules", "x.md"), "new")
+	testutil.Chdir(t, root)
+	writeLock(t, root,
+		packEntry{Name: "far", Source: "../elsewhere"},
+		packEntry{Name: "near", Source: "./inside"},
+	)
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", &out); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if !strings.Contains(out.String(), "packs add '../elsewhere' --name 'far'") {
+		t.Errorf("expected a skip notice naming the packs add command, got %q", out.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, packsDir, "near", "rules", "x.md")); err != nil {
+		t.Errorf("inside pack not updated: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, packsDir, "far")); !os.IsNotExist(err) {
+		t.Errorf("update copied a folder from outside the project, stat err=%v", err)
+	}
+}
+
+func TestResolvePacksLayers_SkipsInvalidLockfileNames(t *testing.T) {
+	root := t.TempDir()
+	writeLock(t, root, packEntry{Name: "../other", Source: "./x"})
+	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai", "other"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if layers := resolvePacksLayers(root); len(layers) != 0 {
+		t.Errorf("resolvePacksLayers loaded a layer outside the packs folder: %+v", layers)
+	}
+}
+
+func TestPacksUpdate_RefusesLocalSourceOutsideProject(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "project")
+	mustWrite(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, root)
+	for _, source := range []string{"../elsewhere", filepath.Join(parent, "elsewhere"), "file://" + filepath.Join(parent, "elsewhere")} {
+		writeLock(t, root, packEntry{Name: "p", Source: source})
+		var out bytes.Buffer
+		err := runPacksUpdate(root, "p", &out)
+		if err == nil || !strings.Contains(err.Error(), "--name 'p'") {
+			t.Errorf("source %q: err=%v, want a refusal that points to packs add", source, err)
+		}
+		if _, statErr := os.Stat(filepath.Join(root, packsDir, "p")); !os.IsNotExist(statErr) {
+			t.Errorf("source %q: update copied a folder from outside the project", source)
+		}
+	}
+}
+
+func TestGitCloneArgs_EndOptionsBeforeSource(t *testing.T) {
+	cases := []struct{ ref string }{{""}, {"v1.2.0"}}
+	for _, c := range cases {
+		args := gitCloneArgs("https://example.com/p", c.ref, "dest")
+		n := len(args)
+		if n < 3 || args[n-3] != "--" || args[n-2] != "https://example.com/p" || args[n-1] != "dest" {
+			t.Errorf("gitCloneArgs(ref=%q) = %q, want -- before source and dest", c.ref, args)
+		}
+	}
+}
+
+func TestPacksUpdate_SkipNoticeQuotesLockfileValues(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "project")
+	mustWrite(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, root)
+	writeLock(t, root, packEntry{Name: "x$(touch pwned)", Source: "../elsewhere"})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", &out); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if !strings.Contains(out.String(), "--name 'x$(touch pwned)'") {
+		t.Errorf("skip notice must quote the lockfile name, got %q", out.String())
+	}
+}
+
+func TestPacksUpdate_DotNameErrorPointsToPacksAdd(t *testing.T) {
+	root := testutil.TempCwd(t)
+	writeLock(t, root, packEntry{Name: ".github", Source: "github.com/org/.github"})
+
+	var out bytes.Buffer
+	err := runPacksUpdate(root, "", &out)
+	if err == nil || !strings.Contains(err.Error(), "--name") {
+		t.Errorf("err=%v, want a refusal that names packs add --name", err)
+	}
+}
+
+func TestPacksAdd_RefusesGitSourcesUpdateRefuses(t *testing.T) {
+	root := testutil.TempCwd(t)
+	for _, source := range []string{"http://example.com/pack", "git://example.com/pack", "-c"} {
+		var out bytes.Buffer
+		if err := runPacksAdd(root, source, "pack", &out); err == nil {
+			t.Errorf("packs add %q accepted, expected error", source)
+		}
 	}
 }

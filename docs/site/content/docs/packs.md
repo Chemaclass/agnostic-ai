@@ -46,6 +46,8 @@ agnostic-ai packs remove superpowers
 
 `update` fetches each pack again at the version in the lockfile.
 
+The lockfile comes from the repository, so `update` checks every entry before it changes any file. It stops on a pack name that starts with a dot or is not a single folder name, and on a Git source other than `https://`, `ssh://`, `git@host:path`, or a host path such as `github.com/foo/bar`. It skips a pack from a local folder outside the project and prints the `packs add` command that refreshes it; `packs update <name>` stops with that command instead. `packs add` refuses the same names and Git sources.
+
 <details>
 <summary>Share a pack, choose its source, and inspect its lockfile</summary>
 
