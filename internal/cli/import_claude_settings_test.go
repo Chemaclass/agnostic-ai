@@ -166,6 +166,8 @@ func TestImportClaudeSettingsOverlay_LeavesOutEnvCredentials(t *testing.T) {
     "OTEL_EXPORTER_OTLP_HEADERS": "x-honeycomb-team=hcaik01jabcdefghijk",
     "AWS_BEARER_TOKEN_BEDROCK": "ABSKQmVkcm9ja0FQSUtleS1hYmNk",
     "PROXY_URL": "https://user:pw123456@proxy.example.com",
+    "ANTHROPIC_BASE_KEY": "${ANTHROPIC_API_KEY:-sk-ant-api03-defaultsecret99}",
+    "AWS_SESSION_TOKEN": "${AWS_SESSION_TOKEN:-FQoGZXIvYXdzEJr}",
     "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
     "DISABLE_TELEMETRY": "1"
   }
@@ -176,14 +178,14 @@ func TestImportClaudeSettingsOverlay_LeavesOutEnvCredentials(t *testing.T) {
 		t.Fatalf("import: %v", err)
 	}
 
-	assertNoSpecHolds(t, root, "sk-ant-api03-abcdefghijklmnop", "hcaik01jabcdefghijk", "ABSKQmVkcm9ja0FQSUtleS1hYmNk", "pw123456")
+	assertNoSpecHolds(t, root, "sk-ant-api03-abcdefghijklmnop", "hcaik01jabcdefghijk", "ABSKQmVkcm9ja0FQSUtleS1hYmNk", "pw123456", "defaultsecret99", "FQoGZXIvYXdzEJr")
 	overlay := readFileString(t, claudeOverlayPath(root))
 	for _, kept := range []string{`"DISABLE_TELEMETRY": "1"`, `"ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"`} {
 		if !strings.Contains(overlay, kept) {
 			t.Errorf("overlay lost %s:\n%s", kept, overlay)
 		}
 	}
-	for _, key := range []string{"ANTHROPIC_AUTH_TOKEN", "OTEL_EXPORTER_OTLP_HEADERS", "AWS_BEARER_TOKEN_BEDROCK", "PROXY_URL"} {
+	for _, key := range []string{"ANTHROPIC_AUTH_TOKEN", "OTEL_EXPORTER_OTLP_HEADERS", "AWS_BEARER_TOKEN_BEDROCK", "PROXY_URL", "ANTHROPIC_BASE_KEY", "AWS_SESSION_TOKEN"} {
 		if !strings.Contains(log.String(), "left out env "+key) {
 			t.Errorf("no warning names %s:\n%s", key, log.String())
 		}
@@ -252,5 +254,31 @@ func TestImportClaudeSettingsOverlay_LeavesOutCredentialRule(t *testing.T) {
 	want := "warning: claude: left out a permissions.allow rule in " + filepath.Join(claudeDir, "settings.json") + ": it holds a credential or cannot be checked safely; add it under local/settings by hand"
 	if !strings.Contains(log.String(), want) {
 		t.Errorf("warning = %q, want %q", log.String(), want)
+	}
+}
+
+// A header variable carries keys under names no detector knows, so any
+// literal value is left out, with a warning that says it may be one.
+func TestImportClaudeSettingsOverlay_LeavesOutLiteralHeaderEnv(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"), `{"env": {
+  "ANTHROPIC_CUSTOM_HEADERS": "anthropic-beta: context-1m",
+  "OTEL_EXPORTER_OTLP_METRICS_HEADERS": "x-scope-orgid=tenant1",
+  "OTEL_EXPORTER_OTLP_TRACES_HEADERS": "${OTEL_TRACES_HEADERS}"
+}}`)
+	log := captureImportLog(t)
+
+	if _, err := importClaudeSettingsOverlay(root, filepath.Join(root, "settings")); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	overlay := readFileString(t, claudeOverlayPath(root))
+	if strings.Contains(overlay, "context-1m") || strings.Contains(overlay, "tenant1") || !strings.Contains(overlay, "${OTEL_TRACES_HEADERS}") {
+		t.Errorf("overlay kept a literal header value or lost a reference:\n%s", overlay)
+	}
+	for _, key := range []string{"ANTHROPIC_CUSTOM_HEADERS", "OTEL_EXPORTER_OTLP_METRICS_HEADERS"} {
+		if !strings.Contains(log.String(), "left out env "+key+" in "+filepath.Join(claudeDir, "settings.json")+": it may hold a credential") {
+			t.Errorf("no warning names %s:\n%s", key, log.String())
+		}
 	}
 }

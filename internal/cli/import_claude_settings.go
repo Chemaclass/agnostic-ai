@@ -151,7 +151,7 @@ func moveClaudePermissions(root string, doc *adapters.OrderedJSON, settingsDir s
 				continue
 			}
 			if globalPermissionCredentialDetected(rule) {
-				keptf("warning: claude: left out a permissions.%s rule in %s: it holds a credential or cannot be checked safely; add it under local/settings by hand\n", list, claudeSettingsRelPath())
+				keptf("warning: claude: left out a permissions.%s rule in %s: it holds a credential or cannot be checked safely; add it under local/settings by hand; the next sync removes it from that file\n", list, claudeSettingsRelPath())
 				continue
 			}
 			lists[list] = appendUnique(lists[list], rule)
@@ -307,11 +307,15 @@ func excludeClaudeHookTargetEnv(doc *adapters.OrderedJSON) error {
 // Claude runs for a credential.
 var claudeCredentialHelpers = []string{"apiKeyHelper", "awsAuthRefresh", "awsCredentialExport", "otelHeadersHelper"}
 
-// claudeSecretEnv names the env variables Claude Code reads a credential
-// from, whose value is a secret whatever its shape, such as a Bedrock key
-// or an `x-honeycomb-team=...` header the detectors cannot tell apart from
-// a setting.
-var claudeSecretEnv = regexp.MustCompile(`^(?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_CUSTOM_HEADERS|CLAUDE_CODE_OAUTH_TOKEN|AWS_BEARER_TOKEN_BEDROCK|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|OTEL_EXPORTER_OTLP(?:_[A-Z]+)?_HEADERS)$`)
+// claudeTokenEnv names the env variables Claude Code reads a token
+// from, whose literal value is a secret whatever its shape, such as a
+// Bedrock key the detectors cannot tell apart from a setting.
+var claudeTokenEnv = regexp.MustCompile(`^(?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_OAUTH_TOKEN|AWS_BEARER_TOKEN_BEDROCK|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)$`)
+
+// claudeHeaderEnv names the env variables that carry request headers. A
+// header such as `x-honeycomb-team=...` holds a key under a name no
+// detector knows, so any literal value counts.
+var claudeHeaderEnv = regexp.MustCompile(`^(?:ANTHROPIC_CUSTOM_HEADERS|OTEL_EXPORTER_OTLP(?:_[A-Z]+)?_HEADERS)$`)
 
 // excludeClaudeCredentials removes each `env` value, helper command, and
 // status line command that holds a literal credential, by the rules the
@@ -325,7 +329,7 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 			continue
 		}
 		doc.Delete(key)
-		warnClaudeCredentialLeftOut(key)
+		warnClaudeLeftOut(key, "holds a credential")
 	}
 	if raw, ok := doc.Get("statusLine"); ok {
 		var line struct {
@@ -333,7 +337,7 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 		}
 		if json.Unmarshal(raw, &line) == nil && globalPermissionCommandCredentialDetected(line.Command, 0) {
 			doc.Delete("statusLine")
-			warnClaudeCredentialLeftOut("statusLine")
+			warnClaudeLeftOut("statusLine", "holds a credential")
 		}
 	}
 	raw, ok := doc.Get("env")
@@ -348,15 +352,24 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 	for _, key := range env.Keys() {
 		var value string
 		rawValue, _ := env.Get(key)
-		if json.Unmarshal(rawValue, &value) != nil || value == "" || mcpRefOnly(value) {
+		if json.Unmarshal(rawValue, &value) != nil || value == "" {
 			continue
 		}
-		if !claudeSecretEnv.MatchString(key) && !mcpCredentialSetting(key, value) {
+		stripped, defaulted := spec.StripEnvRefDefaults(value)
+		literal := len(defaulted) > 0 || !mcpRefOnly(stripped)
+		reason := "holds a credential"
+		switch {
+		case !literal:
+			continue
+		case mcpCredentialSetting(key, value) || claudeTokenEnv.MatchString(key):
+		case claudeHeaderEnv.MatchString(key):
+			reason = "may hold a credential"
+		default:
 			continue
 		}
 		env.Delete(key)
 		removed = true
-		warnClaudeCredentialLeftOut("env " + key)
+		warnClaudeLeftOut("env "+key, reason)
 	}
 	switch {
 	case !removed:
@@ -370,8 +383,8 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 	return nil
 }
 
-func warnClaudeCredentialLeftOut(key string) {
-	keptf("warning: claude: left out %s in %s: it holds a credential, and the next sync removes it from that file; to keep it, set it under x-claude in a settings spec in .agnostic-ai/local/settings\n", key, claudeSettingsRelPath())
+func warnClaudeLeftOut(key, reason string) {
+	keptf("warning: claude: left out %s in %s: it %s, and the next sync removes it from that file; to keep it, set it under x-claude in a settings spec in .agnostic-ai/local/settings\n", key, claudeSettingsRelPath(), reason)
 }
 
 func claudeSettingsRelPath() string { return filepath.Join(claudeDir, "settings.json") }
