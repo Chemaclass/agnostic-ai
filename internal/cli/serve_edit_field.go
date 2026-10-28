@@ -146,7 +146,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 	}
 	*picked = chosen
 	if key == "effort" && addr.target != "" && value != nil {
-		fromTier, err := tierGivesEffort(chosen, scope.cfg.Models)
+		fromTier, err := tierGivesEffort(chosen, scope.models)
 		if err != nil {
 			return "", nil, err
 		}

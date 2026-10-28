@@ -3,6 +3,7 @@ package cli
 import (
 	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -369,6 +370,17 @@ func TestEditFieldTarget_LaterPerToolValueOverridesOnlyItsTool(t *testing.T) {
 				t.Fatalf("codex edit under default = %d %s", code, body)
 			}
 		})
+	}
+}
+
+func TestEditFieldTarget_GlobalPerToolEffortSaves(t *testing.T) {
+	source := editHome(t)
+	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"audience":"shared","key":"effort","target":"claude","value":"high"}`, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("global claude effort = %d %s", rec.Code, rec.Body)
+	}
+	if got := readProjectFile(t, filepath.Join(source, "settings", "native.yaml")); !strings.Contains(got, "claude: high") {
+		t.Fatalf("native.yaml = %q", got)
 	}
 }
 

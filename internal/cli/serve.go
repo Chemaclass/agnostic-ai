@@ -231,6 +231,7 @@ func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Ha
 	ctx, stop := signal.NotifyContext(ctx, serveSignals(signal.Ignored)...)
 	defer stop()
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	srv.RegisterOnShutdown(trackFreshConns(srv).close)
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ln) }()
 	select {
@@ -289,4 +290,41 @@ func bufferAPIBody(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// freshConns are connections that have not sent a request yet.
+// Shutdown waits up to 5 seconds for them, and clients such as browsers
+// and Go's transport open them ahead of a request that may never come.
+// Closing them after shutdown begins drops no request: the server skips
+// the handler for a request it reads once shutdown has begun.
+type freshConns struct {
+	mu      sync.Mutex
+	conns   map[net.Conn]struct{}
+	closing bool
+}
+
+func trackFreshConns(srv *http.Server) *freshConns {
+	f := &freshConns{conns: map[net.Conn]struct{}{}}
+	srv.ConnState = func(c net.Conn, state http.ConnState) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		switch {
+		case state != http.StateNew:
+			delete(f.conns, c)
+		case f.closing:
+			_ = c.Close()
+		default:
+			f.conns[c] = struct{}{}
+		}
+	}
+	return f
+}
+
+func (f *freshConns) close() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.closing = true
+	for c := range f.conns {
+		_ = c.Close()
+	}
 }

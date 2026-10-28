@@ -546,4 +546,6 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # #2616 measured 23826592 on Go 1.27.3 on top of main: a started server goes back to the server that started it on any address.
 # Linux amd64 release flags; no added headroom or dependencies.
-23826592
+# #2635 measured 23834784 on Go 1.27.3 on top of main: serve closes connections that sent no request when it shuts down.
+# Linux amd64 release flags; no added headroom or dependencies.
+23834784
