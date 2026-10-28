@@ -8,6 +8,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
+- `new <kind> <name> --dry-run` fails with "already exists" for a spec file that exists, like the real run. Before, it printed "would create" and exited 0 (#2661).
 
 #### Web interface
 
