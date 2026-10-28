@@ -220,7 +220,7 @@ func loadValidConfig(root string) (*config.Config, []string, error) {
 	cfg, sources, err := config.LoadWithSources(root)
 	if unknown, ok := errors.AsType[*config.UnknownKeysError](err); ok {
 		if rerr := requireVersion(unknown.Source, unknown.Requires); rerr != nil {
-			return nil, nil, withRequiresProject(rerr, root)
+			return nil, nil, withRequiresProject(rerr, root, unknown.Requires, unknown.Targets)
 		}
 	}
 	if err != nil {
@@ -228,7 +228,7 @@ func loadValidConfig(root string) (*config.Config, []string, error) {
 	}
 	source := strings.Join(sources, " + ")
 	if err := requireVersion(source, cfg.Requires); err != nil {
-		return nil, nil, withRequiresProject(err, root)
+		return nil, nil, withRequiresProject(err, root, cfg.Requires, cfg.Targets)
 	}
 	if err := validateConfigTargets(cfg, source); err != nil {
 		return nil, nil, err

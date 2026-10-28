@@ -52,7 +52,7 @@ func TestErrorRecovery_OnlyOffersConfiguredInstalledCLIs(t *testing.T) {
 		return "", exec.ErrNotFound
 	}
 	cfg := &config.Config{Requires: "0.88.0", Targets: []string{"claude", "codex", "cursor", "missing"}}
-	handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg, deps)
+	handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg.Requires, cfg.Targets, deps)
 	if handled || err != nil {
 		t.Errorf("exit = (%v, %v), want unhandled original error", handled, err)
 	}
@@ -79,7 +79,7 @@ func TestErrorRecovery_AppliesTheExistingRequiresFix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg, deps)
+	handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg.Requires, cfg.Targets, deps)
 	if !handled || err != nil {
 		t.Fatalf("apply = (%v, %v), want successful fix", handled, err)
 	}
@@ -198,7 +198,7 @@ func TestErrorRecovery_LaunchesTheSelectedCLIWithTheErrorPrompt(t *testing.T) {
 	}
 	cfg := &config.Config{Requires: "0.88.0", Targets: []string{"claude", "codex"}}
 	original := requireVersion("agnostic-ai.yaml + agnostic-ai.local.yaml", cfg.Requires)
-	handled, err := runErrorRecovery(cmd, original, cfg, deps)
+	handled, err := runErrorRecovery(cmd, original, cfg.Requires, cfg.Targets, deps)
 	if !handled || err != nil || launched != "/tools/codex" {
 		t.Errorf("launch = (%v, %v, %q), want selected Codex", handled, err, launched)
 	}
@@ -214,7 +214,7 @@ func TestErrorRecovery_PropagatesActionFailures(t *testing.T) {
 	want := errors.New("sync failed")
 	deps.apply = func() error { return want }
 	cfg := &config.Config{Requires: "0.88.0"}
-	handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg, deps)
+	handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg.Requires, cfg.Targets, deps)
 	if !handled || !errors.Is(err, want) {
 		t.Errorf("apply failure = (%v, %v), want sync failure", handled, err)
 	}
@@ -224,7 +224,7 @@ func TestErrorRecovery_CopyPromptKeepsTheOriginalFailure(t *testing.T) {
 	setRunningVersion(t, "v0.88.0")
 	cmd, out := recoveryTestCommand("invalid\n1\n")
 	cfg := &config.Config{Requires: ">=0.89.0"}
-	handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg, recoveryTestDeps(t))
+	handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg.Requires, cfg.Targets, recoveryTestDeps(t))
 	if handled || err != nil {
 		t.Errorf("copy = (%v, %v), want original failure", handled, err)
 	}
@@ -243,7 +243,7 @@ func TestErrorRecovery_EmptyInputDoesNotAct(t *testing.T) {
 	for _, input := range []string{"", "\n", "0\n"} {
 		cmd, _ := recoveryTestCommand(input)
 		cfg := &config.Config{Requires: "0.88.0"}
-		handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg, recoveryTestDeps(t))
+		handled, err := runErrorRecovery(cmd, requireVersion("agnostic-ai.yaml", cfg.Requires), cfg.Requires, cfg.Targets, recoveryTestDeps(t))
 		if handled || err != nil {
 			t.Errorf("input %q = (%v, %v), want original failure", input, handled, err)
 		}
@@ -286,5 +286,35 @@ func TestErrorRecovery_LaunchedToolExitStatusIsNotAFailure(t *testing.T) {
 	}
 	if err := childLaunchFailure(exec.ErrNotFound); !errors.Is(err, exec.ErrNotFound) {
 		t.Errorf("start failure lost: %v", err)
+	}
+}
+
+func TestErrorRecovery_OffersToolsWhenAnOlderBinaryCannotReadTheConfig(t *testing.T) {
+	requiresProject(t, ">=0.90.0")
+	writeFile(t, config.ConfigFileName, "version: 1\nrequires: \">=0.90.0\"\ntargets: [codex]\nfuture-key: true\n")
+	setRunningVersion(t, "v0.89.0")
+	root := NewRootCmd("0.89.0")
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetIn(strings.NewReader("1\n"))
+	root.SetArgs([]string{"ui"})
+	cmd, original := root.ExecuteC()
+	if errs.CodeOf(original) != errs.CodeRequiresUnmet {
+		t.Fatalf("ui error = %v, want AAI-005", original)
+	}
+	deps := recoveryTestDeps(t)
+	deps.lookPath = func(name string) (string, error) { return "/tools/" + name, nil }
+	var launched string
+	deps.launch = func(_ *cobra.Command, path, _ string) error {
+		launched = path
+		return nil
+	}
+	handled, err := runProjectErrorRecovery(cmd, original, deps)
+	if !handled || err != nil || launched != "/tools/codex" {
+		t.Errorf("recovery = (%v, %v, %q), want Codex launched", handled, err, launched)
+	}
+	if strings.Contains(out.String(), "Apply suggested fix") {
+		t.Errorf("older binary offered project adoption: %s", out.String())
 	}
 }

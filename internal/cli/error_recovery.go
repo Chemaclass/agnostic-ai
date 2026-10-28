@@ -25,20 +25,24 @@ type errorRecoveryDeps struct {
 	launch   func(*cobra.Command, string, string) error
 }
 
+// requiresProjectError carries what the menu needs from the project, since
+// an older binary cannot reload a config that uses keys it does not know.
 type requiresProjectError struct {
-	err  error
-	root string
+	err      error
+	root     string
+	requires string
+	targets  []string
 }
 
 func (e *requiresProjectError) Error() string { return e.err.Error() }
 func (e *requiresProjectError) Unwrap() error { return e.err }
 
-func withRequiresProject(err error, root string) error {
+func withRequiresProject(err error, root, requires string, targets []string) error {
 	abs, pathErr := filepath.Abs(root)
 	if pathErr != nil {
 		return err
 	}
-	return &requiresProjectError{err: err, root: abs}
+	return &requiresProjectError{err: err, root: abs, requires: requires, targets: targets}
 }
 
 // OfferErrorRecovery shows the next-step menu for a project version mismatch.
@@ -70,11 +74,7 @@ func runProjectErrorRecovery(cmd *cobra.Command, original error, deps errorRecov
 		return false, err
 	}
 	defer source.close()
-	cfg, _, err := config.LoadWithSources(".")
-	if err != nil {
-		return false, nil
-	}
-	return runErrorRecovery(cmd, original, cfg, deps)
+	return runErrorRecovery(cmd, original, project.requires, project.targets, deps)
 }
 
 func errorRecoveryEligible(cmd *cobra.Command) bool {
@@ -111,16 +111,16 @@ type errorRecoveryAction struct {
 	apply bool
 }
 
-func runErrorRecovery(cmd *cobra.Command, original error, cfg *config.Config, deps errorRecoveryDeps) (bool, error) {
+func runErrorRecovery(cmd *cobra.Command, original error, requires string, targets []string, deps errorRecoveryDeps) (bool, error) {
 	var actions []errorRecoveryAction
-	if req, err := config.ParseRequirement(cfg.Requires); err == nil && req.Above(runningVersion) {
+	if req, err := config.ParseRequirement(requires); err == nil && req.Above(runningVersion) {
 		actions = append(actions, errorRecoveryAction{
 			label: "Apply suggested fix (update project requires and schema, then sync)",
 			apply: true,
 		})
 	}
 	prompt := errorRecoveryPrompt(cmd.CommandPath(), original)
-	for _, target := range cfg.Targets {
+	for _, target := range targets {
 		label := ""
 		switch target {
 		case "claude":
