@@ -6,11 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -382,6 +384,69 @@ func TestCompare_PermissionFilenamePatternsKeepTheirOrdinaryActions(t *testing.T
 			}
 			if after := snapshotTree(t, dir); !reflect.DeepEqual(before, after) {
 				t.Error("comparison changed filename-pattern policy sources")
+			}
+		})
+	}
+}
+
+// A credential in a source permission rule stays out of compare output,
+// with the marker sync --global prints (#2650).
+func TestCompare_PermissionSourceRuleCredentialHiddenInTextAndJSON(t *testing.T) {
+	const secret = "COMPARE_RULE_SECRET_1234"
+	rule := "shell(curl -H 'Authorization: Bearer " + secret + "' https://api.example.com)"
+	for _, execPolicies := range []bool{false, true} {
+		t.Run("exec-policies="+strconv.FormatBool(execPolicies), func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "targets: [claude, codex]\noutputs:\n  codex:\n    exec-policies-from-permissions: "+strconv.FormatBool(execPolicies)+"\n")
+			mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow:\n    - \""+strings.ReplaceAll(rule, `"`, `\"`)+"\"\n    - shell(go test:*)\n")
+			for _, format := range [][]string{nil, {"--json"}} {
+				out, err := runCompare(t, append([]string{"claude", "codex"}, format...)...)
+				if err != nil {
+					t.Fatalf("compare: %v", err)
+				}
+				if strings.Contains(out, secret) {
+					t.Errorf("compare %v exposed the source rule credential:\n%s", format, out)
+				}
+				if !strings.Contains(out, "shell(go test:*)") {
+					t.Errorf("compare %v hid an ordinary rule:\n%s", format, out)
+				}
+			}
+			result := findCompareResult(t, compareJSON(t, "claude", "codex"), ".agnostic-ai/settings/policy.yaml", "permissions.allow[0]", "claude")
+			if !strings.HasPrefix(result.Reason, "shell("+preview.Redacted+")") {
+				t.Errorf("reason = %q, want it to start with shell(%s)", result.Reason, preview.Redacted)
+			}
+		})
+	}
+}
+
+// A native rule built from a credential rule, or an `x-<target>` override
+// holding one, stays hidden in every tool's spelling (#2650).
+func TestCompare_PermissionNativeCredentialHiddenInTextAndJSON(t *testing.T) {
+	const secret = "NATIVE_RULE_SECRET_5678"
+	command := "curl -HX-Api-Key:" + secret + " https://api.example.com"
+	for _, test := range []struct{ target, config, policy string }{
+		{"windsurf", "", ""},
+		{"codex", "outputs:\n  codex:\n    exec-policies-from-permissions: true\n", ""},
+		{"opencode", "", "x-opencode:\n  permission:\n    bash:\n      \"" + command + "\": allow\n"},
+		{"kilo", "", ""},
+	} {
+		t.Run(test.target, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "targets: ["+test.target+", claude]\n"+test.config)
+			mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow:\n    - \"shell("+command+":*)\"\n    - shell(go test:*)\n"+test.policy)
+			for _, format := range [][]string{nil, {"--json"}} {
+				out, err := runCompare(t, append([]string{test.target, "claude"}, format...)...)
+				if err != nil {
+					t.Fatalf("compare: %v", err)
+				}
+				if strings.Contains(out, secret) {
+					t.Errorf("compare %v exposed the native rule credential:\n%s", format, out)
+				}
+				if !strings.Contains(out, "go test") {
+					t.Errorf("compare %v hid an ordinary rule:\n%s", format, out)
+				}
 			}
 		})
 	}

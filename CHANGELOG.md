@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- **Security:** `compare` text and JSON output hide a credential in a permission rule, on the source side, in each tool's native spelling, and in `x-<target>` override values, with the `<redacted>` marker `sync --global` prints, as in `shell(<redacted>)`. Before, a rule such as `shell(curl -H 'Authorization: Bearer ...' ...)` printed the token (#2650).
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 
