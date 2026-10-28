@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync` keeps the files of a configured target whose external adapter (`agnostic-ai-adapter-<name>`) is not on PATH. Before, it warned with AAI-301, then deleted every file that target wrote on the last sync and reported it as synced. It now keeps them, says it skipped the stale file cleanup, and counts only the targets whose adapter loaded in the summary. The gitignore block and the spec change baseline keep that target's entries (#2657).
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 
