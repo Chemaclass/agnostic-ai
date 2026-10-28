@@ -95,6 +95,17 @@ func TestSplitManagedBlock_ListsOutputsOnlyThePersonalConfigAdds(t *testing.T) {
 	}
 }
 
+func TestSplitManagedBlock_KeepsAPersonalOutputsBackupPersonal(t *testing.T) {
+	const bak = "/.claude/skills/handoff/SKILL.md.bak"
+	block, personal := splitWithLocal(t, "[]", "[handoff]", []string{".claude/skills/handoff/SKILL.md"})
+	if blockCovers(block, bak) {
+		t.Errorf("block lists a personal output's backup: %v", block)
+	}
+	if !slices.Contains(personal, bak) {
+		t.Errorf("personal = %v, want the skill's backup", personal)
+	}
+}
+
 func TestBuiltinChanges_PersonalToggleKeepsCommittedIgnores(t *testing.T) {
 	personalProject(t, "[]")
 	root, _ := os.Getwd()

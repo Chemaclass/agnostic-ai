@@ -212,3 +212,34 @@ func TestLSPLinter_ReportsUnknownConfigKeyPosition(t *testing.T) {
 	}
 	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-004", 2)
 }
+
+func TestLSPLinter_ReportsTargetRefusal(t *testing.T) {
+	dir := newProject(t)
+	writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: [claude, codebuddy]\n")
+	agent := filepath.Join(dir, ".agnostic-ai", "agents", "reviewer2.md")
+	writeFile(t, agent, "---\nname: reviewer2\ndescription: Reviews code.\n---\n\nReview the diff.\n")
+	diagnostics, err := lspLinter(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, list := range diagnostics {
+		for _, d := range list {
+			if d.Code == "LINT053" {
+				if resolved, _ := filepath.EvalSymlinks(path); resolved != mustEvalSymlinks(t, agent) {
+					t.Errorf("LINT053 on %s, want %s", path, agent)
+				}
+				return
+			}
+		}
+	}
+	t.Errorf("editor must show LINT053 as lint does: %+v", diagnostics)
+}
+
+func mustEvalSymlinks(t *testing.T, path string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
+}

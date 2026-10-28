@@ -215,6 +215,28 @@ func mustWrite(t *testing.T, path, content string) {
 	}
 }
 
+func TestPacksUpdateAndRemove_RefuseALockedNameOutsideThePacksFolder(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "proj")
+	victim := filepath.Join(base, "victim", "data")
+	mustWrite(t, victim, "keep\n")
+	mustWrite(t, filepath.Join(root, packsLockfile), "version: 1\npacks:\n  - name: ../../../victim\n    source: "+filepath.ToSlash(t.TempDir())+"\n")
+	testutil.Chdir(t, root)
+
+	var out bytes.Buffer
+	updateErr := runPacksUpdate(root, "", false, &out)
+	removeErr := runPacksRemove(root, "../../../victim", &out)
+
+	for name, err := range map[string]error{"update": updateErr, "remove": removeErr} {
+		if err == nil || !strings.Contains(err.Error(), packsLockfile) {
+			t.Errorf("%s error = %v, want one naming %s", name, err, packsLockfile)
+		}
+	}
+	if _, err := os.Stat(victim); err != nil {
+		t.Errorf("a locked pack name removed a folder outside the project: %v", err)
+	}
+}
+
 const gitPackSource = "example.test/pack"
 
 // gitPackRemote is a local repository that a pack source of gitPackSource
