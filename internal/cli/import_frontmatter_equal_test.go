@@ -93,7 +93,7 @@ func TestImport_EqualFrontmatterHoldsForRulesAndCommands(t *testing.T) {
 	const folded = "---\nname: style\ndescription: >-\n  Keep the style guide.\n---\nBody\n"
 	const plain = "---\nname: style\ndescription: Keep the style guide.\n---\nBody\n"
 	for _, tc := range []struct{ name, target, native, nativeBody, source string }{
-		{"cursor rule", "cursor", ".cursor/rules/style.mdc", "---\ndescription: Keep the style guide.\n---\nBody\n", ".agnostic-ai/rules/style.md"},
+		{"cursor rule", "cursor", ".cursor/rules/style.mdc", "---\ndescription: Keep the style guide.\nglobs: \"**/*\"\n---\nBody\n", ".agnostic-ai/rules/style.md"},
 		{"claude rule", "claude", ".claude/rules/style.md", plain, ".agnostic-ai/rules/style.md"},
 		{"claude command", "claude", ".claude/commands/style.md", plain, ".agnostic-ai/commands/style.md"},
 	} {

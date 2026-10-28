@@ -166,7 +166,7 @@ func newDoctorMCPCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, b, err := loadProject(".")
 			if err != nil {
-				return nil
+				return err
 			}
 			reportMCPCommandResolution(cmd, b)
 			reportMCPUnsetEnvRefs(cmd, cfg, b, nil)

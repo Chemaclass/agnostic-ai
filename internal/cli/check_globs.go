@@ -27,7 +27,30 @@ func reportUnmatchedGlobs(cmd *cobra.Command, root string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	var unmatched []ruleGlob
+	unmatched, err := collectUnmatchedGlobs(root, b)
+	if err != nil {
+		return 0, err
+	}
+	if len(unmatched) == 0 {
+		cmd.Println("  ✓ every rule's `globs:` pattern matches at least one file")
+		return 0, nil
+	}
+	cmd.Printf("  ! %d rule(s) with no matching files in repo (rule will never load):\n", len(unmatched))
+	for _, u := range unmatched {
+		if u.Invalid != "" {
+			cmd.Printf("      %s (globs: %s; %s is not a pattern this check can read)\n", u.Rule, u.Globs, u.Invalid)
+			continue
+		}
+		cmd.Printf("      %s (globs: %s)\n", u.Rule, u.Globs)
+	}
+	cmd.Println("    fix: update the rule's `globs:` or remove the rule")
+	return len(unmatched), nil
+}
+
+// collectUnmatchedGlobs lists, by rule name, the rules in b whose
+// `globs:` match no path under root or hold a pattern this check cannot read.
+func collectUnmatchedGlobs(root string, b spec.Bundle) ([]unmatchedGlob, error) {
+	unmatched := []unmatchedGlob{}
 	for _, r := range b.Rules {
 		raw := strings.TrimSpace(r.Globs())
 		if raw == "" {
@@ -39,38 +62,27 @@ func reportUnmatchedGlobs(cmd *cobra.Command, root string) (int, error) {
 		}
 		// A pattern that cannot compile names its rule; the rest still run.
 		if bad := invalidGlob(patterns); bad != "" {
-			unmatched = append(unmatched, ruleGlob{name: r.Name, globs: raw, invalid: bad})
+			unmatched = append(unmatched, unmatchedGlob{Rule: r.Name, Globs: raw, Invalid: bad})
 			continue
 		}
 		matched, err := anyGlobMatches(root, patterns)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		if !matched {
-			unmatched = append(unmatched, ruleGlob{name: r.Name, globs: raw})
+			unmatched = append(unmatched, unmatchedGlob{Rule: r.Name, Globs: raw})
 		}
 	}
-	if len(unmatched) == 0 {
-		cmd.Println("  ✓ every rule's `globs:` pattern matches at least one file")
-		return 0, nil
-	}
-	sort.Slice(unmatched, func(i, j int) bool { return unmatched[i].name < unmatched[j].name })
-	cmd.Printf("  ! %d rule(s) with no matching files in repo (rule will never load):\n", len(unmatched))
-	for _, u := range unmatched {
-		if u.invalid != "" {
-			cmd.Printf("      %s (globs: %s; %s is not a pattern this check can read)\n", u.name, u.globs, u.invalid)
-			continue
-		}
-		cmd.Printf("      %s (globs: %s)\n", u.name, u.globs)
-	}
-	cmd.Println("    fix: update the rule's `globs:` or remove the rule")
-	return len(unmatched), nil
+	sort.Slice(unmatched, func(i, j int) bool { return unmatched[i].Rule < unmatched[j].Rule })
+	return unmatched, nil
 }
 
-type ruleGlob struct {
-	name    string
-	globs   string
-	invalid string
+// unmatchedGlob is a rule that never loads. Invalid names the pattern
+// this check cannot read, when that is the reason.
+type unmatchedGlob struct {
+	Rule    string `json:"rule"`
+	Globs   string `json:"globs"`
+	Invalid string `json:"invalid,omitempty"`
 }
 
 // invalidGlob returns the first pattern compileGlob cannot compile, or "".
