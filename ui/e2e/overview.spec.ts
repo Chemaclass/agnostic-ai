@@ -384,7 +384,7 @@ test.describe('overview', () => {
     await expect(permissions.getByRole('button', { name: 'Copy path of .agnostic-ai/settings/permissions.yaml' })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Open files in' })).toHaveCount(0)
     await expect(permissions.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
-    await expect(page.locator('.sync-status-time')).toContainText('Rechecking a finding needs a running agnostic-ai serve.')
+    await expect(page.locator('.sidenav .sync-status-time')).toContainText('Rechecking a finding needs a running agnostic-ai serve.')
     await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
     await expect(page.locator('.field-row', { hasText: 'Default permission mode' })).toContainText('Not set')
     await expect(page.getByText('Capability domains')).toHaveCount(0)
@@ -545,6 +545,7 @@ test.describe('overview', () => {
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(posted).toEqual([{ audience: 'shared', name: 'memory', enabled: true, expected: false }])
+    await expect(page.locator('.sidenav .sync-status-saved')).toHaveText('Saved to the source configuration. Generated files change only when you run sync.')
 
     refuse = true
     await toggle.click()
@@ -862,7 +863,7 @@ test.describe('generated-file status', () => {
     data.targets = states.map(({ target, label, state, files = [] }) => ({ target, label, kinds: [], sync: { state, files: files.map((path) => ({ path, state: 'stale' })) } }))
     return data
   }
-  const status = (page: import('@playwright/test').Page) => page.locator('section.sync-status')
+  const status = (page: import('@playwright/test').Page) => page.locator('.sidenav section.sync-status')
 
   test('shows each tool as Matches source, Needs sync, or Not checked, with the files that differ', async ({ page }) => {
     const data = withSync([
@@ -874,7 +875,6 @@ test.describe('generated-file status', () => {
     await page.goto('/?view=settings')
     await expect(status(page)).toContainText('Claude Code needs sync. External was not checked.')
     await expect(status(page).locator('.sync-status-time')).toHaveText(/^Checked /)
-    await status(page).getByText('3 configured tools').click()
     const row = (name: string) => status(page).locator('.sync-status-tool').filter({ hasText: name })
     await expect(row('Claude Code')).toContainText('Needs sync')
     await expect(row('Codex')).toContainText('Matches source')

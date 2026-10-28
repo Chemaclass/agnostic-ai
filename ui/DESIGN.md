@@ -37,7 +37,7 @@ System sans serves headings, controls, and body text (15px, 1.5 line height). Pa
 
 ## Layout
 
-The viewport shell keeps a header and a 244px sidebar beside the scrolling content. Pages have a 1320px maximum width. The sidebar includes section descriptions and configured tool icons. At 900px and below, it becomes one horizontally scrolling navigation row, keeps the current page in view, and hides descriptions and the configured tools footer. At 760px and below, content uses 16px side gutters and fields, values, metadata, and support groups stack.
+The viewport shell keeps a header and a 244px sidebar beside the scrolling content. Pages have a 1320px maximum width. The sidebar includes section descriptions and configured tools with their generated-file status. At 900px and below, section links become one horizontally scrolling navigation row and keep the current page in view. Descriptions hide; a Configured tools button opens a bounded, scrolling disclosure beside the links. At 760px and below, content uses 16px side gutters and fields, values, metadata, and support groups stack.
 
 ## Elevation & Depth
 
@@ -52,7 +52,7 @@ Small rounded corners soften controls and metadata. Larger corners group content
 - **Source rows:** show name, description, then muted monospace path. Layer, scope, edit action, and switches stay alongside the row on wide screens and below its text on narrow screens.
 - **Settings:** configured fields place label and description beside values and their source path. Lists use chips, booleans use switches, and other values use text. Native values group by tool. Unconfigured fields live in a disclosure.
 - **Lifecycle:** an ordered list forms a numbered vertical timeline. Stages with hooks receive rust markers; empty stages keep descriptions in a disclosure. Tool icons identify stage support.
-- **Generated files:** a panel above each page title sums up which configured tools match the source, need sync, or were not checked, with the check time and Refresh. A disclosure lists each tool's state badge and differing files. A failed refresh or a snapshot never reads as a fresh check.
+- **Generated files:** the sidebar's Configured tools area sums up which tools match the source, need sync, or were not checked, with the check time and Refresh. Each tool logo has its name, state badge, and a disclosure for differing files. A failed refresh or a snapshot never reads as a fresh check.
 - **Search:** each page has a labeled search input and live result count. Search matches names, paths, descriptions, and values; matching unconfigured fields open automatically. Items with findings remain visible. Clearing search restores focus to the input; changing pages resets search.
 - **Findings:** flat rows use fine separators, quiet metadata, and plain source paths. Warning icons align vertically with their severity labels. Long messages preview three lines and expand on demand; copy actions always include the complete message. The summary scrolls only the main content and focuses the findings heading, keeping mobile navigation in place. Section errors appear before configuration controls. Individual findings retain severity, source, copy action, and a Details disclosure.
 - **Accessible states:** current navigation uses `aria-current`; controls have visible focus outlines. Loading announces busy state, failed edits use alerts, and pending switches prevent repeat actions. Narrow-screen navigation, edit controls, and switches have 44px minimum touch targets. Reduced-motion styles remove animations and transitions.
