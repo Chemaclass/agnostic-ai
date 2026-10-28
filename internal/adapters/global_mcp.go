@@ -1,8 +1,6 @@
 package adapters
 
 import (
-	"runtime"
-
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -106,10 +104,6 @@ func UserMCPArrayRecords(target string, mcps []spec.Entry) ([]map[string]any, er
 // UserHookArrayRenderer emits native hook records after script relocation.
 type UserHookArrayRenderer interface {
 	UserHookRecords([]spec.Entry, string) ([]map[string]any, error)
-}
-
-func UserHookArrayRecords(target string, hooks []spec.Entry, scriptsDir string) ([]map[string]any, error) {
-	return UserHookArrayRecordsForPlatform(target, hooks, scriptsDir, runtime.GOOS)
 }
 
 type userHookPlatformRenderer interface {

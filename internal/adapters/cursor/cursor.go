@@ -309,7 +309,7 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 			continue
 		}
 		matcher, _ := h.Meta["matcher"].(string)
-		cmds := hookCommands(h.Meta["command"])
+		cmds := emit.HookCommands(h.Meta["command"])
 		if len(cmds) == 0 {
 			continue
 		}
@@ -351,7 +351,7 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 		return err
 	}
 	for _, h := range hooks {
-		for _, raw := range hookCommands(h.Meta["command"]) {
+		for _, raw := range emit.HookCommands(h.Meta["command"]) {
 			raw = emit.RewriteNeutralHookPath(raw, ".")
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
@@ -366,36 +366,6 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 // rewriteHookPath maps a shared script path to Cursor's hook directory.
 func rewriteHookPath(path string) string {
 	return emit.RewriteHookPath(path, target)
-}
-
-// hookCommands normalizes a `command:` field that may be a string or a
-// list of strings into a single []string. Empty strings drop out.
-func hookCommands(raw any) []string {
-	switch v := raw.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []string{v}
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		out := make([]string, 0, len(v))
-		for _, s := range v {
-			if s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
 }
 
 // command renders a Cursor command file: Markdown whose body is the

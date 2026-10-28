@@ -186,7 +186,6 @@ func (v *mcpURLValue) String() string { return strings.Join(v.pieces, "") }
 type mcpCredentialStrength = preview.CredentialStrength
 
 const (
-	mcpNoCredential     = preview.NoCredential
 	mcpWeakCredential   = preview.WeakCredential
 	mcpStrongCredential = preview.StrongCredential
 )

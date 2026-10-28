@@ -13,7 +13,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 
 | Code | Finding |
 |------|---------|
-| LINT001 | Warning. A spec has no body and no description. |
+| LINT001 | Warning. A spec has no body and no description. Hook specs are skipped; see LINT052. |
 | LINT003 | Error. Two specs of one kind share a `name`. Hooks that share an event and matcher are fine. |
 | LINT004 | Warning. No enabled target supports the spec's kind, so sync writes it nowhere. The finding lists the tools that do. |
 | LINT005 | Warning. A hook sets `matcher` on an event that does not read one. Drop it or use a tool-call event such as `PreToolUse`. |
@@ -63,6 +63,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT049 | Warning. An MCP spec holds what looks like a credential where LINT035 does not look: user info or a token in `url`, a token in `args`, an `env` or `headers` value in an `x-<target>` block, or the default of a `${NAME:-default}` reference. The finding names the server and field, never the value. Write a `${NAME}` reference with no default; `!literal` plain settings pass. See [secrets and plain settings](@/docs/spec-format/mcps.md#plain-settings). |
 | LINT050 | Error, and sync stops before writing any agent. An agent's `maxTurns` is not a whole number of 1 or more, or its `background` is not `true` or `false`. Values under `x-<target>` are not checked. |
 | LINT051 | Warning, also printed by `sync`. A file under `.agnostic-ai/overlays/` is not one sync reads, so its keys reach no tool. A `<target>.settings.*` file of a tool that merges `x-<target>` from a [settings spec](@/docs/spec-format/settings.md), such as `gemini.settings.json`, points there. Any other file, such as a misspelled `claude.setings.json`, gets the list of [overlays](@/docs/spec-format/overlays.md) sync reads; a case-only mismatch is told to rename. Dot files, dot folders, and top-level README files are skipped. |
+| LINT052 | Error, also reported by `validate`. A hook spec has no `command`, no other handler such as `prompt` or `url`, at the top level or under an `x-<target>` block, and no native form such as `x-kiro.action` or `x-gemini.hooks`, so no tool runs it. A key such as `run:` or `comand:` is named as the likely misspelling. |
 
 ## Context budgets
 

@@ -181,40 +181,10 @@ func hookActions(h spec.Entry) ([]any, error) {
 			return []any{action}, nil
 		}
 	}
-	commands := hookCommands(h.Meta["command"])
+	commands := emit.HookCommands(h.Meta["command"])
 	actions := make([]any, 0, len(commands))
 	for _, command := range commands {
 		actions = append(actions, commandHookAction{Type: "command", Command: emit.ShellHookCommand(command, target, h.Meta)})
 	}
 	return actions, nil
-}
-
-// hookCommands normalizes a `command:` field that may be a string or a
-// list of strings into a single []string. Empty strings drop out.
-func hookCommands(raw any) []string {
-	switch v := raw.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []string{v}
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		out := make([]string, 0, len(v))
-		for _, s := range v {
-			if s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
 }
