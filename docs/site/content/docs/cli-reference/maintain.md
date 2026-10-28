@@ -49,7 +49,7 @@ It suggests removal only when local Git ancestry proves the branch merged into t
 
 ## revert
 
-Undo a `sync --backup`: for every generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restore `<path>.bak` and remove it. It also restores a nested `CLAUDE.md` that sync deleted. Paths under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are never touched.
+Undo a `sync --backup`: for every generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restore `<path>.bak` and remove it. It also restores a nested `CLAUDE.md` that sync deleted. An unfiltered `revert` restores intact recorded backups of removed outputs, including those from dropped targets. Paths under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are never touched.
 
 | Flag | Description |
 |------|-------------|

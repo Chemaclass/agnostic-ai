@@ -136,6 +136,27 @@ func TestNew_ErrorsIfFileExists(t *testing.T) {
 	}
 }
 
+func TestNew_DryRunRefusesAnExistingFileLikeTheRealRun(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	out := captureSummary(t)
+	run := func(args ...string) error { root := NewRootCmd("test"); root.SetArgs(args); return root.Execute() }
+	if err := run("new", "rule", "r"); err != nil {
+		t.Fatal(err)
+	}
+	real := run("new", "rule", "r")
+	out.Reset()
+
+	dry := run("new", "rule", "r", "--dry-run")
+
+	if real == nil || dry == nil || dry.Error() != real.Error() {
+		t.Fatalf("dry run error = %v, want the real run's %v", dry, real)
+	}
+	if strings.Contains(out.String(), "would create") {
+		t.Errorf("dry run on an existing file printed:\n%s", out.String())
+	}
+}
+
 func TestNew_RejectsUnknownKind(t *testing.T) {
 	dir := setupEmptyProject(t)
 	testutil.Chdir(t, dir)
