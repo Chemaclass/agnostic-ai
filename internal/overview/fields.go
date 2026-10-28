@@ -230,6 +230,18 @@ func SettingsTeamPath(root string, e spec.Entry) string {
 	return SpecPath(root, e)
 }
 
+// SettingsValuePath is the shown path of the file that gives key its
+// value in e for targets: the personal file when it changes the value
+// for one of them, else the shared spec beneath it.
+func SettingsValuePath(root string, e spec.Entry, key string, targets []string, tiers map[string]config.ModelTier) string {
+	if e.Base == nil || LocalSets(e, key) && slices.ContainsFunc(targets, func(t string) bool {
+		return settingsValueFor(e, key, t) != baseValue(e, key, t, tiers)
+	}) {
+		return SpecPath(root, e)
+	}
+	return SettingsTeamPath(root, e)
+}
+
 // SettingsOverlayPath is the personal file, relative to the project or
 // global source root, that overlays the settings spec named name.
 func SettingsOverlayPath(global bool, name string) string {
