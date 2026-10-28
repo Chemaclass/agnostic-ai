@@ -32,7 +32,6 @@ const (
 	globalStart       = "<!-- agnostic-ai:global:start -->"
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
-	defaultUserGlobal = ".agnostic-ai"
 	// Version 6 records the hooks file containers sync created; version
 	// 8 records the permission rules sync wrote; version 9 records the
 	// settings parents sync created.
