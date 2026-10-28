@@ -32,6 +32,18 @@ type importViewFile struct {
 	info    os.FileInfo
 }
 
+// currentInfo returns the file info recorded before the run, or, for a
+// file the run created, the info of what path holds now: another source
+// may reach that new file under a second name, such as an absolute
+// alias of a relative source folder (#2675).
+func (f *importViewFile) currentInfo(path string) os.FileInfo {
+	if f.info != nil {
+		return f.info
+	}
+	info, _ := os.Stat(path)
+	return info
+}
+
 // importView is the active guard, or nil outside an import run.
 // Sequential use only, like importSandbox.
 var importView *importViewGuard
@@ -56,8 +68,8 @@ func (g *importViewGuard) note(path string) {
 	f, ok := g.files[path]
 	if !ok {
 		info, _ := os.Stat(path)
-		for _, prior := range g.files {
-			if info != nil && prior.info != nil && os.SameFile(info, prior.info) {
+		for priorPath, prior := range g.files {
+			if info != nil && os.SameFile(info, prior.currentInfo(priorPath)) {
 				f = prior
 				break
 			}
