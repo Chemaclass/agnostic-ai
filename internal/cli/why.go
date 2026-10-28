@@ -459,6 +459,9 @@ func lastSyncTimestamp(projectRoot string) *string {
 // whyNotTrackedError builds a clear "not tracked" error. When no sync has
 // written the state file, suggest running sync first.
 func whyNotTrackedError(input, projectRoot string) error {
+	if err := unparsableLedger(projectRoot); err != nil {
+		return fmt.Errorf("%s: %w. Run `agnostic-ai sync` to rebuild it", input, err)
+	}
 	if ledgerMissing(projectRoot) {
 		return fmt.Errorf("%s: no sync state found at %s. Run `agnostic-ai sync` first",
 			input, filepath.ToSlash(stateFilePath(projectRoot)))

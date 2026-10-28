@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync` writes `.agnostic-ai/.sync-state` to a temporary file and then moves it into place, so a full disk or a stop mid-write no longer leaves a cut-short ledger. When the ledger does not parse, `sync` warns with its path, looks for leftover files as if no ledger existed, and writes a new one; `sync --check` fails and says to run `sync`. Before, both read it as empty without a word, so leftovers stayed and the check passed (#2665).
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 
