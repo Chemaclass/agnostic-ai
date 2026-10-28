@@ -548,4 +548,7 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # #2635 measured 23834784 on Go 1.27.3 on top of main: serve closes connections that sent no request when it shuts down.
 # Linux amd64 release flags; no added headroom or dependencies.
-23834784
+# #2672 measured 23855264 on Go 1.27.3: sync preserves edited outputs
+# before removal, and revert restores their bytes and permissions.
+# Linux amd64 release flags; no added headroom or dependencies.
+23855264
