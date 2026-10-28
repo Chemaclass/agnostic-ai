@@ -16,6 +16,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - When two project pages open the global settings at the same moment, each opens a global server that links back to its own project. Before, one could open the other project's server, which stopped when that project's server stopped (#2607).
 - The authority view checks each distinct text for credentials once per request, so large projects load it several times faster (#2610).
 - **Settings** marks a value from a personal file with a **personal** badge instead of **local**, and its notes and built-in previews say personal and shared instead of local and team (#2615).
+- Going back from a global page the project page opened returns to the project server that opened it, also when that server runs on `--addr` outside ports 4310 to 4319. Before, it started a second project server on another port (#2616).
 
 ### By tool
 

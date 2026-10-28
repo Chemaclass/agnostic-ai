@@ -544,4 +544,6 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # #2602 measured 23818400 on Go 1.27.3 on top of main: edit requests take audience, with scope kept as an alias for one release.
 # Linux amd64 release flags; no added headroom or dependencies.
-23818400
+# #2616 measured 23826592 on Go 1.27.3 on top of main: a started server goes back to the server that started it on any address.
+# Linux amd64 release flags; no added headroom or dependencies.
+23826592

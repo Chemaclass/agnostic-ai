@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,9 @@ type switchPeer struct {
 	// dir is where a started global server runs, so its health names the
 	// project it came from.
 	dir string
+	// back is this server's address. A started peer tries it first on
+	// the way back, so a server on --addr outside the scan is found.
+	back string
 }
 
 // peerProcess is a server this one started. done closes when it exits.
@@ -48,6 +52,8 @@ type switchReply struct {
 type switchHandler struct {
 	peer  *switchPeer
 	ports []string
+	// back is the server that started this one, tried before ports.
+	back  string
 	probe func(string, time.Duration) *viewServer
 	start func(switchPeer, string) (*peerProcess, error)
 
@@ -118,7 +124,7 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusOK, switchReply{URL: "http://" + addr + "/", Root: peer.root, Global: peer.global, Started: started})
 	}
 	var free []string
-	for _, addr := range h.ports {
+	for _, addr := range h.candidates() {
 		running := h.probe(addr, viewProbeTimeout)
 		if running == nil {
 			free = append(free, addr)
@@ -143,7 +149,7 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		process.stop()
 		delete(h.started, addr)
 	}
-	writeEditJSON(w, http.StatusServiceUnavailable, editError{Error: "no free port from " + h.portRange() + " served the other configuration; run " + peer.command()})
+	writeEditJSON(w, http.StatusServiceUnavailable, editError{Error: "no free port " + h.portRange() + " served the other configuration; run " + peer.command()})
 }
 
 // serves also requires a global server to link back to this project, so
@@ -213,11 +219,22 @@ func (h *switchHandler) awaitHealthy(addr string, process *peerProcess) bool {
 	return false
 }
 
-func (h *switchHandler) portRange() string {
-	if len(h.ports) == 0 {
-		return "the scanned range"
+func (h *switchHandler) candidates() []string {
+	if h.back == "" {
+		return h.ports
 	}
-	return h.ports[0] + " to " + h.ports[len(h.ports)-1]
+	return append([]string{h.back}, slices.DeleteFunc(slices.Clone(h.ports), func(addr string) bool { return addr == h.back })...)
+}
+
+func (h *switchHandler) portRange() string {
+	scan := "in the scanned range"
+	if len(h.ports) > 0 {
+		scan = "from " + h.ports[0] + " to " + h.ports[len(h.ports)-1]
+	}
+	if h.back == "" || slices.Contains(h.ports, h.back) {
+		return scan
+	}
+	return "at " + h.back + " (the server that started this one) or " + scan
 }
 
 // close stops the servers this one started, so none outlives it.
@@ -235,11 +252,20 @@ func (h *switchHandler) close() {
 // for a peer. A global server runs in the project so its health names it.
 func peerServerCommand(peer switchPeer, addr string) ([]string, string) {
 	args := []string{"serve", "--addr", addr}
+	dir := ""
 	if peer.global {
-		return append(args, "--global"), peer.dir
+		args, dir = append(args, "--global"), peer.dir
+	} else {
+		args = append(args, "--dir", peer.root)
 	}
-	return append(args, "--dir", peer.root), ""
+	if peer.back != "" {
+		args = append(args, "--switch-back", peer.back)
+	}
+	return args, dir
 }
+
+// peerStarter is swapped in tests so serve starts no real child.
+var peerStarter = startPeerServer
 
 // startPeerServer runs this binary's serve with fixed arguments. Its
 // output is discarded; the health probe decides whether it started.

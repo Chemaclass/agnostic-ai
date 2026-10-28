@@ -37,7 +37,7 @@ func newServeCmd() *cobra.Command {
 
 func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	var (
-		addr, dir, uiDir                   string
+		addr, dir, uiDir, switchBack       string
 		open, global, noInstalled, apiOnly bool
 		allowedOrigins                     []string
 	)
@@ -67,6 +67,14 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			}
 			if err := validateServeAddr(addr); err != nil {
 				return err
+			}
+			if switchBack != "" {
+				if err := validateServeAddr(switchBack); err != nil {
+					return fmt.Errorf("--switch-back: %w", err)
+				}
+				if _, port, _ := net.SplitHostPort(switchBack); strings.TrimLeft(port, "0") == "" {
+					return fmt.Errorf("--switch-back %s needs a port other than 0", switchBack)
+				}
 			}
 			for i, origin := range allowedOrigins {
 				parsed, err := authority.ParseOrigin(origin)
@@ -123,7 +131,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}
-			switches := newSwitchHandler(peer, viewPortCandidates(), probeViewServer, startPeerServer)
+			if peer != nil {
+				peer.back = ln.Addr().String()
+			}
+			switches := newSwitchHandler(peer, viewPortCandidates(), probeViewServer, peerStarter)
+			switches.back = switchBack
 			defer switches.close()
 			return serveUntilInterrupted(cmd.Context(), ln, newServeMuxWithSwitch(src.load, opts, !noInstalled, switches))
 		},
@@ -136,6 +148,8 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	cmd.Flags().BoolVar(&open, "open", false, "Open the served URL in a browser.")
 	cmd.Flags().BoolVar(&global, "global", false, "Serve the user-level configuration sync --global uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	cmd.Flags().BoolVar(&noInstalled, "no-installed", false, "Skip comparing the generated files with disk.")
+	cmd.Flags().StringVar(&switchBack, "switch-back", "", "Loopback address of the server that started this one; its way back tries it first.")
+	_ = cmd.Flags().MarkHidden("switch-back")
 	return cmd
 }
 
