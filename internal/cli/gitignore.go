@@ -352,7 +352,7 @@ func holdsCommitted(committed map[string]struct{}, entry string) bool {
 // theirs when there is no ledger, as in a fresh clone, or when the block
 // would drop a line the file lists. The ledger then lacks their outputs:
 // the sync that started it left them out, or a pull added their specs.
-func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string) ([]string, error) {
+func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string, noLedger bool) ([]string, error) {
 	blockTargets := slices.Clone(targets)
 	var leftOut []string
 	for _, target := range cfg.Targets {
@@ -368,7 +368,7 @@ func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, r
 	entries := append(withBackups(recorded, committed), gitignoreHintsForTargets(cfg, blockTargets)...)
 	scopes := specScopes(b, blockTargets)
 	block := buildManagedBlockCommitting(cfg, entries, scopes, committed)
-	if len(leftOut) > 0 && (ledgerMissing(root) || dropsListedEntries(root, cfg, block)) {
+	if len(leftOut) > 0 && (noLedger || dropsListedEntries(root, cfg, block)) {
 		entries = append(entries, withBackups(renderedOutputs(cfg, b, leftOut), committed)...)
 		block = buildManagedBlockCommitting(cfg, entries, scopes, committed)
 	}

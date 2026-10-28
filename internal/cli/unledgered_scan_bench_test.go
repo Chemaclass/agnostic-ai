@@ -102,7 +102,7 @@ func TestUnledgeredScan_RendersEachCommitOnceAndCreatesNoUnrelatedDirectories(t 
 		t.Fatal(err)
 	}
 	emitted := map[string]bool{}
-	rep := unledgeredReport(cfg, emitted, syncStateFile{}, strandedOutput(cfg, emitted, syncStateFile{}))
+	rep := unledgeredReport(cfg, emitted, syncStateFile{}, ledgerMissing("."), strandedOutput(cfg, emitted, syncStateFile{}))
 
 	for _, p := range dotfiles {
 		for _, listed := range append(append([]string{}, rep.Leftover...), rep.Orphaned...) {

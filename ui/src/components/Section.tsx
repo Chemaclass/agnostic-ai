@@ -138,9 +138,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           <strong>{findingCounts}</strong>
           <button type="button" className="button button-quiet" onClick={() => {
             const heading = document.getElementById(findingsId)
-            const main = document.getElementById('main')
-            if (heading && main) {
-              main.scrollTo({ top: main.scrollTop + heading.getBoundingClientRect().top - main.getBoundingClientRect().top - 16 })
+            if (heading) {
+              heading.scrollIntoView({ block: 'start' })
               heading.focus({ preventScroll: true })
             }
           }}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>

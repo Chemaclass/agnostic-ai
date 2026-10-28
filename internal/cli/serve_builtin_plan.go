@@ -316,7 +316,7 @@ func planProjectChange(root string, change projectChange, where editAudience) (*
 		if err != nil {
 			return nil, err
 		}
-		block, personal, err := splitManagedBlock(".", cfg, bundle, team, prev, cfg.Targets, outputs)
+		block, personal, err := splitManagedBlock(".", cfg, bundle, team, prev, cfg.Targets, outputs, ledgerMissing("."))
 		if err != nil {
 			return nil, err
 		}

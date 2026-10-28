@@ -13,6 +13,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Sync backs up an edited output it removes, keeps `.bak` files private and out of Git, and keeps outputs after case-only renames (#2639, #2640, #2654, #2704).
 - `sync` writes `.agnostic-ai/.sync-state` whole, skips entries outside the project, and rebuilds it with a warning when it does not parse (#2665, #2701).
 - Config errors name the file, line, key, and expected shape; a `version` other than `1` and line breaks in `sync.unmanaged` fail (#2648, #2664, #2701).
+- `sync` reads `.agnostic-ai/.sync-state` once per run instead of up to 25 times, so a sync of a 500-spec project runs about a quarter faster (#2667).
 
 #### Security
 
@@ -47,6 +48,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Set `model` and `effort` for one tool under **What each tool gets**, which shows what sync writes (#2602, #2614, #2619, #2620, #2622, #2624, #2636).
 - A project page opens global settings in a new tab on its own server, which links back, and `serve` stops at once on Ctrl-C (#2602, #2607, #2616, #2627).
 - Generated-file status moves to the sidebar, lifecycle stages start closed with counts and search, and the authority view loads faster (#2610, #2631, #2632).
+- The web UI scrolls the page from the sidebar too; before, a wheel over the sidebar moved nothing (#2729).
 
 ### By tool
 
