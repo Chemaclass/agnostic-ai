@@ -17,6 +17,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Security
 
 - **Breaking:** `packs update` installs each Git pack at its locked commit instead of the newest; pass `--latest` to move to the newest (#2638, #2690).
+- Sync refuses to write or remove through a link that leads outside the project or into `.git`; links inside the project still work (#2706).
 - `compare` hides credentials in permission rules and `x-<target>` overrides behind `<redacted>`, as `sync --global` does (#2650).
 - Pack commands refuse unsafe names and sources; a refused name says how to reinstall it with `packs add --name` (#2638, #2690).
 - `install.sh`, `install.ps1`, and `upgrade` check build provenance when `gh` is logged in, and the installers refuse a version that is not a release (#2655).
