@@ -383,3 +383,44 @@ func TestEditFieldTarget_GlobalPerToolEffortSaves(t *testing.T) {
 		t.Fatalf("native.yaml = %q", got)
 	}
 }
+
+func TestEditFieldTarget_LaterClaudeModelDoesNotOverrideCodex(t *testing.T) {
+	h := targetProject(t, "")
+	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel:\n  codex: gpt-5.4\n")
+	mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\nmodel: claude-opus-4\n")
+	edit := func(target, value string) (int, string) {
+		rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"model","target":"`+target+`","value":"`+value+`"}`, nil)
+		return rec.Code, rec.Body.String()
+	}
+	if code, body := edit("codex", "gpt-5.5"); code != http.StatusOK {
+		t.Fatalf("codex edit = %d %s", code, body)
+	}
+	if got := readProjectFile(t, ".agnostic-ai/settings/a.yaml"); got != "name: a\nmodel:\n  codex: gpt-5.5\n" {
+		t.Fatalf("a.yaml = %q", got)
+	}
+	if code, body := edit("claude", "opus"); code != http.StatusBadRequest || !strings.Contains(body, "b.yaml sets model and overrides") {
+		t.Fatalf("claude edit = %d %s", code, body)
+	}
+}
+
+func TestEditFieldTarget_OverrideErrorNamesTheFileThatHoldsTheValue(t *testing.T) {
+	h := targetProject(t, "")
+	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+	mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\nmodel: gpt-5.5\n")
+	edit := func(target string) (int, string) {
+		rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"model","target":"`+target+`","value":"x"}`, nil)
+		return rec.Code, rec.Body.String()
+	}
+	shared := `".agnostic-ai/settings/b.yaml sets model and overrides`
+	personal := `".agnostic-ai/local/settings/b.yaml sets model and overrides`
+	for _, tc := range []struct{ overlay, target, want string }{
+		{"name: b\neffort: high\n", "codex", shared},
+		{"name: b\nmodel:\n  claude: opus\n", "codex", shared},
+		{"name: b\nmodel:\n  claude: opus\n", "claude", personal},
+	} {
+		mustWrite(t, ".agnostic-ai/local/settings/b.yaml", tc.overlay)
+		if code, body := edit(tc.target); code != http.StatusBadRequest || !strings.Contains(body, tc.want) {
+			t.Errorf("overlay %q, %s edit = %d %s, want %s", tc.overlay, tc.target, code, body, tc.want)
+		}
+	}
+}
