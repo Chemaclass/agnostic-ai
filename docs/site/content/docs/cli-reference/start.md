@@ -110,7 +110,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 - It leaves out anything a home spec provides, `local/` included, and never replaces a spec file, except that it appends new rules to `settings/permissions-claude.yaml` and removes none.
 - Permission rules come only from `permissions.allow`, `ask`, and `deny` in `~/.claude/settings.json`, never managed or project settings. Rules sync recorded there are left out; rules with credentials or shell syntax it cannot inspect are left out with a warning.
 - It warns and skips a server another tool defined differently (the first tool wins), one it cannot convert, and one with a literal [credential](@/docs/spec-format/mcps.md#what-import-writes), naming the server and field. A plain setting such as `NODE_ENV: production` still imports.
-- A full `sync --global` writes the imported MCP servers to every tool it manages. After a one-tool import, the printed `sync --global --target <tool> --check` passes while that tool's files match; after more, import points at `sync --global --dry-run`.
+- A full `sync --global` writes the imported MCP servers to every tool it manages. After a one-tool import, the printed `sync --global --target <tool> --check` passes while that tool's files match. When the home `targets` list leaves the tool out, import asks you to add it first. After an import from several tools, it points at `sync --global --dry-run`.
 
 ### Keep existing specs
 

@@ -125,3 +125,24 @@ func TestSyncGlobalCheck_MissingStateDriftsBesideAChangedFile(t *testing.T) {
 		t.Errorf("json check error = %v, want a record for %s:\n%s", err, statePath, jsonOut)
 	}
 }
+
+// A home `targets` list without the imported tool keeps sync away from
+// it, so the hint says to add it before the check (#2647).
+func TestImportGlobal_HintAsksToAddAnUnmanagedTool(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	importClaudeUserFiles(t, home)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+
+	out, warnings, err := runImportGlobalTest("claude")
+	if err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	if !strings.Contains(out, "add it to `targets`") {
+		t.Errorf("hint does not ask to add claude to targets:\n%s", out)
+	}
+	args := printedGlobalCommand(t, out)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\n")
+	if checkOut, checkWarnings, err := runGlobalAgentTest(args...); err != nil {
+		t.Fatalf("%v: %v\n%s%s", args, err, checkOut, checkWarnings)
+	}
+}
