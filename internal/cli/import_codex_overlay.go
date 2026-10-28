@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -16,6 +17,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -124,7 +127,18 @@ func importCodexConfigOverlay(root, settingsDir string, syncRoots adapters.Grant
 		filtered = buf.String()
 	}
 
+	if filtered, err = withoutCodexCredentials(filtered); err != nil {
+		return false, promoted, err
+	}
 	dst := codexOverlayPath(root)
+	if strings.TrimSpace(filtered) == "" {
+		if _, err := os.Stat(dst); err == nil {
+			if err := importWriteFile(dst, nil, 0o644); err != nil {
+				return false, promoted, fmt.Errorf("write %s: %w", dst, err)
+			}
+		}
+		return false, promoted, nil
+	}
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return false, promoted, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
@@ -132,6 +146,125 @@ func importCodexConfigOverlay(root, settingsDir string, syncRoots adapters.Grant
 		return false, promoted, fmt.Errorf("write %s: %w", dst, err)
 	}
 	return true, promoted, nil
+}
+
+// withoutCodexCredentials removes from text, an overlay, each value that
+// holds a literal credential, by the checks the MCP import uses, since the
+// overlay is committed (#2669). A key under an `env_` name holds variable
+// names, not values. Text with no credential comes back as written;
+// otherwise it is encoded again and loses its comments and layout.
+func withoutCodexCredentials(text string) (string, error) {
+	doc := map[string]any{}
+	if _, err := toml.Decode(text, &doc); err != nil {
+		return text, fmt.Errorf("parse overlay: %w", err)
+	}
+	paths := codexCredentialPaths(doc, nil, false)
+	if len(paths) == 0 {
+		return text, nil
+	}
+	for _, path := range paths {
+		deleteCodexPath(doc, path)
+		keptf("warning: codex: left out %s in %s: it holds a credential, and the next sync removes it from that file; keep it in ~/.codex/config.toml\n", strings.Join(path, "."), codexConfigTOML)
+	}
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(doc); err != nil {
+		return text, fmt.Errorf("encode overlay: %w", err)
+	}
+	keptf("note: %s lost its comments and layout in the overlay, which import wrote again without those values\n", codexConfigTOML)
+	return buf.String(), nil
+}
+
+// codexProseKeys hold instructions, where a URL or a `Name: value` line
+// is prose, so only a token by its prefix counts there.
+var codexProseKeys = map[string]bool{"instructions": true, "developer_instructions": true, "compact_prompt": true}
+
+// codexCredentialPaths returns the path of each value in table that holds
+// a credential. Under a key that starts with `env_`, values are variable
+// names, so only a credential by its shape counts.
+func codexCredentialPaths(table map[string]any, prefix []string, names bool) [][]string {
+	var paths [][]string
+	for _, key := range slices.Sorted(maps.Keys(table)) {
+		path := append(slices.Clone(prefix), key)
+		underNames := names || strings.HasPrefix(key, "env_")
+		switch value := table[key].(type) {
+		case map[string]any:
+			paths = append(paths, codexCredentialPaths(value, path, underNames)...)
+		default:
+			if codexCredentialIn(key, value, underNames) {
+				paths = append(paths, path)
+			}
+		}
+	}
+	return paths
+}
+
+// codexCredentialIn reports whether value, under key, holds a credential.
+// A string list is also read as one command, as `notify` is.
+func codexCredentialIn(key string, value any, names bool) bool {
+	switch value := value.(type) {
+	case string:
+		stripped, defaulted := spec.StripEnvRefDefaults(value)
+		switch {
+		case value == "" || len(defaulted) == 0 && mcpRefOnly(stripped):
+			return false
+		case names:
+			return mcpCredentialDetected(value)
+		case codexProseKeys[key]:
+			return preview.TokenIn(value)
+		}
+		return mcpCredentialSetting(key, value)
+	case []map[string]any:
+		for _, item := range value {
+			if len(codexCredentialPaths(item, nil, names)) > 0 {
+				return true
+			}
+		}
+	case []any:
+		var words []string
+		for _, item := range value {
+			if table, ok := item.(map[string]any); ok && len(codexCredentialPaths(table, nil, names)) > 0 || codexCredentialIn(key, item, names) {
+				return true
+			}
+			if word, ok := item.(string); ok {
+				words = append(words, word)
+			}
+		}
+		return len(words) > 0 && globalPermissionCommandCredentialDetected(adapters.ExecFormCommand(words[0], words[1:]), 0)
+	}
+	return false
+}
+
+// withoutOverlayCredentials applies withoutCodexCredentials to the Codex
+// overlay at path, which an import restores as an older release wrote it.
+func withoutOverlayCredentials(path string, data []byte, root string) ([]byte, error) {
+	if len(data) == 0 || filepath.Clean(path) != filepath.Clean(codexOverlayPath(root)) {
+		return data, nil
+	}
+	text, err := withoutCodexCredentials(string(data))
+	if err != nil || text == string(data) {
+		return data, err
+	}
+	if strings.TrimSpace(text) == "" {
+		return nil, nil
+	}
+	return []byte(text), nil
+}
+
+// deleteCodexPath removes the value at path and each table it leaves
+// empty.
+func deleteCodexPath(table map[string]any, path []string) {
+	if len(path) == 1 {
+		delete(table, path[0])
+		return
+	}
+	child, ok := table[path[0]].(map[string]any)
+	if !ok {
+		return
+	}
+	deleteCodexPath(child, path[1:])
+	if len(child) == 0 {
+		delete(table, path[0])
+	}
 }
 
 // emptyCodexOverlay empties an overlay a past import filled with roots sync

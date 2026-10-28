@@ -48,6 +48,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
 
+#### Codex
+
+- **Security:** `import codex` leaves out of the committed overlay each `config.toml` value that holds a credential, such as a provider bearer token, an `http_headers` value, or a `shell_environment_policy.set` token, and prints a warning naming the key (#2669).
+
 #### Cursor
 
 - `import cursor` writes `alwaysApply: false` for a rule with neither `alwaysApply` nor `globs`, so sync no longer makes it always on (#2643).
