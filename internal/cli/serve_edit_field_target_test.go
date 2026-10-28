@@ -371,3 +371,22 @@ func TestEditFieldTarget_LaterPerToolValueOverridesOnlyItsTool(t *testing.T) {
 		})
 	}
 }
+
+func TestEditFieldTarget_OverrideErrorNamesTheFileThatSetsTheValue(t *testing.T) {
+	for _, tc := range []struct{ name, personal, want string }{
+		{"shared value", "name: b\neffort: low\n", ".agnostic-ai/settings/b.yaml sets model"},
+		{"personal value", "name: b\nmodel: haiku\n", ".agnostic-ai/local/settings/b.yaml sets model"},
+		{"personal value for another tool", "name: b\nmodel:\n  codex: gpt-5.5\n", ".agnostic-ai/settings/b.yaml sets model"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := targetProject(t, "")
+			mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+			mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\nmodel: opus\n")
+			mustWrite(t, ".agnostic-ai/local/settings/b.yaml", tc.personal)
+			rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"model","target":"claude","value":"haiku"}`, nil)
+			if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"error":"`+tc.want) {
+				t.Fatalf("edit = %d %s, want %q", rec.Code, rec.Body, tc.want)
+			}
+		})
+	}
+}

@@ -112,7 +112,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 		switch {
 		case at >= 0:
 			if j := overview.SettingsOverride(settings, at, key, edited); j >= 0 {
-				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, settings[j]), key, shown)
+				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overridingFile(h.root, settings, at, j, key, edited), key, shown)
 			}
 			chosen, file = settings[at], settings[at].Path
 		case shown == defaultShown:
@@ -126,7 +126,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 				}
 			}
 			if j := overview.SettingsOverride(later, -1, key, edited); j >= 0 {
-				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, later[j]), key, shown)
+				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overridingFile(h.root, later, -1, j, key, edited), key, shown)
 			}
 			if len(candidates) > 0 && !unreachable {
 				return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
@@ -544,4 +544,26 @@ func setScalarField(data []byte, key string, value any) ([]byte, error) {
 		return nil, nil
 	}
 	return out, nil
+}
+
+// overridingFile names the file that holds the value of settings[j] that
+// overrides settings[i]: the personal file when its own value does, else
+// the shared spec under it when that does.
+func overridingFile(root string, settings []spec.Entry, i, j int, key string, targets []string) string {
+	e := settings[j]
+	if !overview.LocalLayer(e) || e.Base == nil {
+		return overview.SpecPath(root, e)
+	}
+	alone := slices.Clone(settings)
+	personal := e
+	personal.Meta = e.LocalMeta
+	alone[j] = personal
+	if overview.SettingsOverride(alone, i, key, targets) == j {
+		return overview.SpecPath(root, e)
+	}
+	alone[j] = *e.Base
+	if overview.SettingsOverride(alone, i, key, targets) == j {
+		return overview.SpecPath(root, *e.Base)
+	}
+	return overview.SpecPath(root, e)
 }
