@@ -375,6 +375,25 @@ func TestBuild_GroupsHooksByLifecyclePoint(t *testing.T) {
 	}
 }
 
+func TestBuild_HookValuesShowWhatRunsAndWhetherItIsDisabled(t *testing.T) {
+	hook := entry(spec.KindHook, "prepare", ".agnostic-ai/hooks/prepare.yaml", map[string]any{
+		"on": "session-start", "command": "./prepare.sh", "disabled": true,
+	})
+	v := Build(Inputs{Bundle: spec.Bundle{Hooks: []spec.Entry{hook}}})
+	items := sectionByID(t, v, SectionLifecycle).Items
+	if len(items) != 1 {
+		t.Fatalf("hooks = %+v, want prepare", items)
+	}
+	want := []Value{
+		{Key: "command", Type: ValueText, Value: "./prepare.sh"},
+		{Key: "disabled", Type: ValueBool, Value: "true"},
+		{Key: "on", Type: ValueText, Value: "session-start"},
+	}
+	if !reflect.DeepEqual(items[0].Values, want) {
+		t.Errorf("hook values = %+v, want %+v", items[0].Values, want)
+	}
+}
+
 func TestBuild_PlacesFindingsOnTheItemsTheyName(t *testing.T) {
 	in := fullInputs()
 	in.Findings = []Finding{
@@ -588,5 +607,51 @@ func TestBuild_KeepsAFindingsOpenPath(t *testing.T) {
 	got := sectionByID(t, v, SectionSettings).Findings
 	if len(got) != 1 || got[0].OpenPath != "/work/x.yaml" || got[0].Line != 4 {
 		t.Errorf("settings findings = %+v, want the open path and line kept", got)
+	}
+}
+
+func TestHookValuesRedactCommandsAndExecArguments(t *testing.T) {
+	tests := []struct {
+		name string
+		meta map[string]any
+		want []Value
+	}{
+		{"multiline", map[string]any{"command": "curl --api-key plain-secret-value\ntrue"}, []Value{{Key: "command", Type: ValueText, Value: redacted}}},
+		{"list", map[string]any{"command": []any{"echo safe", "curl --api-key list-secret\ntrue", "curl --api-key ${API_KEY}"}}, []Value{{Key: "command", Type: ValueList, List: []string{"echo safe", redacted, "curl --api-key ${API_KEY}"}}}},
+		{"exec", map[string]any{"command": "curl", "args": []any{"--api-key", "exec-secret"}}, []Value{{Key: "args", Type: ValueList, List: []string{"--api-key", redacted}}, {Key: "command", Type: ValueText, Value: "curl"}}},
+		{"nested", map[string]any{"x-target": map[string]any{"command": "curl", "args": []any{"--api-key", "nested-secret"}}}, []Value{{Key: "x-target.args", Type: ValueList, List: []string{"--api-key", redacted}}, {Key: "x-target.command", Type: ValueText, Value: "curl"}}},
+		{"reference", map[string]any{"command": "curl", "args": []any{"--api-key", "${API_KEY}"}}, []Value{{Key: "args", Type: ValueList, List: []string{"--api-key", "${API_KEY}"}}, {Key: "command", Type: ValueText, Value: "curl"}}},
+		{"windows", map[string]any{"commandWindows": "curl --api-key sentinel-credential\ntrue"}, []Value{{Key: "commandWindows", Type: ValueText, Value: redacted}}},
+		{"bash alias", map[string]any{"x-copilot": map[string]any{"bash": "curl --api-key sentinel-credential\ntrue"}}, []Value{{Key: "x-copilot.bash", Type: ValueText, Value: redacted}}},
+		{"powershell alias", map[string]any{"x-copilot": map[string]any{"powershell": "curl --api-key sentinel-credential\ntrue"}}, []Value{{Key: "x-copilot.powershell", Type: ValueText, Value: redacted}}},
+		{"nested windows", map[string]any{"x-codex": map[string]any{"commandWindows": "curl --api-key sentinel-credential\ntrue"}}, []Value{{Key: "x-codex.commandWindows", Type: ValueText, Value: redacted}}},
+		{"list interpreter", map[string]any{"command": []any{"bash"}, "args": []any{"-c", "curl --api-key sentinel-credential\ntrue"}}, []Value{{Key: "args", Type: ValueList, List: []string{"-c", redacted}}, {Key: "command", Type: ValueList, List: []string{"bash"}}}},
+		{"inherited interpreter", map[string]any{"command": "bash", "x-codex": map[string]any{"args": []any{"-c", "curl --api-key sentinel-credential\ntrue"}}}, []Value{{Key: "command", Type: ValueText, Value: "bash"}, {Key: "x-codex.args", Type: ValueList, List: []string{"-c", redacted}}}},
+		{"nested shell", map[string]any{"command": "bash -c 'curl --api-key sentinel-credential'\ntrue"}, []Value{{Key: "command", Type: ValueText, Value: redacted}}},
+		{"nested shell list", map[string]any{"command": []any{"echo safe", "bash -c 'curl --api-key sentinel-credential'\ntrue"}}, []Value{{Key: "command", Type: ValueList, List: []string{"echo safe", redacted}}}},
+		{"nested shell windows", map[string]any{"x-target": map[string]any{"commandWindows": "bash -c 'curl --api-key sentinel-credential'\ntrue"}}, []Value{{Key: "x-target.commandWindows", Type: ValueText, Value: redacted}}},
+		{"nested shell bash", map[string]any{"bash": "bash -c 'curl --api-key sentinel-credential'\ntrue"}, []Value{{Key: "bash", Type: ValueText, Value: redacted}}},
+		{"nested shell powershell", map[string]any{"powershell": "bash -c 'curl --api-key sentinel-credential'\ntrue"}, []Value{{Key: "powershell", Type: ValueText, Value: redacted}}},
+		{"nested shell args", map[string]any{"command": "bash", "x-target": map[string]any{"args": []any{"-c", "bash -c 'curl --api-key sentinel-credential'\ntrue"}}}, []Value{{Key: "command", Type: ValueText, Value: "bash"}, {Key: "x-target.args", Type: ValueList, List: []string{"-c", redacted}}}},
+		{"safe nested shell", map[string]any{"command": "bash -c 'curl --api-key $API_KEY'\ntrue"}, []Value{{Key: "command", Type: ValueText, Value: "bash -c 'curl --api-key $API_KEY'\ntrue"}}},
+		{"safe alias and number", map[string]any{"commandWindows": "echo ${API_KEY}", "timeout": json.Number("9007199254740993")}, []Value{{Key: "commandWindows", Type: ValueText, Value: "echo ${API_KEY}"}, {Key: "timeout", Type: ValueText, Value: "9007199254740993"}}},
+		{"ordinary args", map[string]any{"command": "echo", "args": []any{"hello world", "it's safe"}}, []Value{{Key: "args", Type: ValueList, List: []string{"hello world", "it's safe"}}, {Key: "command", Type: ValueText, Value: "echo"}}},
+		{"nested list", map[string]any{"x-target": []any{map[string]any{"command": "curl", "args": []any{"--api-key", "nested-secret"}}}}, []Value{{Key: "x-target", Type: ValueList, List: []string{`{"args":["--api-key","\u003credacted\u003e"],"command":"curl"}`}}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sectionItem("", entry(spec.KindHook, "hook", "hook.yaml", tt.meta)).Values
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("values = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHookValuesWithholdUnserializableMetadata(t *testing.T) {
+	values := sectionItem("", entry(spec.KindHook, "hook", "hook.yaml", map[string]any{"command": "secret", "bad": make(chan int)})).Values
+	want := []Value{{Key: "metadata", Type: ValueText, Value: redacted}}
+	if !reflect.DeepEqual(values, want) {
+		t.Errorf("values = %+v, want %+v", values, want)
 	}
 }
