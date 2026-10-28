@@ -660,13 +660,15 @@ function test_the_committed_surface_cases_file_is_well_formed() {
   assert_empty "$(awk -F '\t' '!/^#/ && seen[$1]++ { print "duplicate " $1 }' "$cases")"
 }
 
-# local/target-audit/ is ignored by Git, so a path there resolves on no fresh
-# checkout. The one exception is a snapshot the lock names: any fetch of that
-# source stores it under the same hash.
+# local/target-audit/ is ignored by Git, so a path there, or an
+# audit:<date> pointer at its date report, resolves on no fresh checkout. The
+# one exception is a snapshot the lock names: any fetch of that source stores
+# it under the same hash.
 function unresolved_local_paths() {
   local dir="$1" lock="$2" hit path sha
-  grep -oE 'local/target-audit/[A-Za-z0-9][A-Za-z0-9._/-]*' "$dir"/* | while IFS= read -r hit; do
+  grep -oE 'local/target-audit/[A-Za-z0-9][A-Za-z0-9._/-]*|(^|[^A-Za-z0-9_-])audit:[0-9]{4}-[0-9]{2}-[0-9]{2}' "$dir"/* | while IFS= read -r hit; do
     path=${hit#*:}
+    path=${path%.}
     case "$path" in
       local/target-audit/snapshots/*.txt)
         sha=${path#local/target-audit/snapshots/}
@@ -686,13 +688,18 @@ function test_unresolved_local_paths_flags_a_run_path_and_allows_a_locked_snapsh
     printf 'b\tlocal/target-audit/snapshots/fff999.txt\n'
     printf 'c\tlocal/target-audit/2026-09-25-run/pages/claude/x.body\n'
     printf 'd\thttps://x.example fetched 2026-10-01\n'
+    printf 'e\tSee local/target-audit/snapshots/abc123.txt.\n'
+    printf 'f\taudit:2026-10-27\n'
+    printf 'g\ttarget-capability-audit:2026-09-15\n'
   } >"$FIXTURES/audit/cases.tsv"
   local out
   out=$(unresolved_local_paths "$FIXTURES/audit" "$FIXTURES/audit/sources.lock")
   assert_not_contains "abc123" "$out"
   assert_contains "local/target-audit/snapshots/fff999.txt" "$out"
   assert_contains "local/target-audit/2026-09-25-run/pages/claude/x.body" "$out"
-  assert_equals 2 "$(printf '%s\n' "$out" | grep -c .)"
+  assert_contains "audit:2026-10-27" "$out"
+  assert_not_contains "2026-09-15" "$out"
+  assert_equals 3 "$(printf '%s\n' "$out" | grep -c .)"
 }
 
 function test_the_committed_audit_files_cite_no_local_path_a_checkout_lacks() {
