@@ -108,3 +108,33 @@ func TestSyncGlobal_CommentKeepsHooksFileSyncCreated(t *testing.T) {
 		t.Errorf("want the comment kept and the hook gone:\n%s", text)
 	}
 }
+
+// A comment inside what sync removes goes with it, so the file sync
+// created goes too.
+func TestSyncGlobal_CommentRemovedWithHooksDropsFileSyncCreated(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(home, ".claude", "settings.json")
+	spec := filepath.Join(source, "hooks", "guard.yaml")
+	mustWriteGlobalTest(t, spec, "name: guard\non: before-tool\ncommand: guard.sh\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Replace(string(data), `"PreToolUse": [`, "\"PreToolUse\": [\n      // inside sync array", 1)
+	if text == string(data) {
+		t.Fatalf("no PreToolUse array to comment:\n%s", data)
+	}
+	mustWriteGlobalTest(t, settings, text)
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(settings); !os.IsNotExist(err) {
+		t.Errorf("the file sync created must go with its last hook, got %v:\n%s", err, data)
+	}
+}

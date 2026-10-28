@@ -1804,7 +1804,6 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	data, err := os.ReadFile(path)
 	absent := os.IsNotExist(err)
 	merge.read = &diskSnapshot{data: data, absent: absent}
-	var commented bool
 	owns := func(token string) bool { return legacy || slices.Contains(created, token) }
 	made := slices.Clone(created)
 	mark := func(token string) {
@@ -1828,8 +1827,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	}
 	if err == nil {
 		// The text edit keeps comments, so only the parse drops them.
-		var stripped []byte
-		stripped, commented = adapters.StripJSONC(data)
+		stripped, _ := adapters.StripJSONC(data)
 		if err := json.Unmarshal(stripped, &doc); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
@@ -2138,9 +2136,8 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		merge.created = nil
 	}
 	// Nothing of ours left and nothing of the user's either: drop a file
-	// sync created rather than leave a shell behind. A comment is the
-	// user's, so it keeps the file.
-	if len(doc) == 0 && (absent || (owns("<file>") && !commented)) {
+	// sync created rather than leave a shell behind.
+	if len(doc) == 0 && absent {
 		merge.created = nil
 		return nil, nil
 	}
@@ -2154,10 +2151,22 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		if err := json.Unmarshal(raw, &merged); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
+		out := data
+		if !reflect.DeepEqual(merged, before) {
+			if out, err = editGlobalHooksText(path, data, before, merged, restore); err != nil {
+				return nil, err
+			}
+		}
+		// A comment left after the edit is the user's, so it keeps the
+		// file; one inside what the edit removed went with it.
+		if _, commented := adapters.StripJSONC(out); len(doc) == 0 && owns("<file>") && !commented {
+			merge.created = nil
+			return nil, nil
+		}
 		if reflect.DeepEqual(merged, before) {
 			return nil, errGlobalFileUnchanged
 		}
-		return editGlobalHooksText(path, data, before, merged, restore)
+		return out, nil
 	}
 	for _, key := range []string{"version", "hooks"} {
 		value, ok := doc[key]
