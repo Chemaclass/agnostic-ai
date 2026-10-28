@@ -5,10 +5,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
@@ -41,6 +44,42 @@ func driftFindings(findings []overview.Finding) []overview.Finding {
 		}
 	}
 	return out
+}
+
+func TestGlobalOverview_LaterClaudeModelMatchesWhatSyncWritesForCodex(t *testing.T) {
+	home := globalOverviewHome(t)
+	source := filepath.Join(home, "source")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "model: {codex: gpt-5}\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "b.yaml"), "model: claude-opus-4\n")
+
+	root := NewRootCmd("test")
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"sync", "--global", "--only", "codex"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("sync --global: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var written struct {
+		Model string `toml:"model"`
+	}
+	if _, err := toml.Decode(string(content), &written); err != nil {
+		t.Fatal(err)
+	}
+	if written.Model != "claude-opus-4" {
+		t.Fatalf("sync wrote model %q, want claude-opus-4", written.Model)
+	}
+	in, err := globalOverviewInputs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := resolvedByTarget(t, overview.Build(in))["model"]["codex"]
+	if got.Value != written.Model || got.From == nil || got.From.Path != "settings/b.yaml" || got.Dropped != "" {
+		t.Errorf("codex model = %+v, want %q from settings/b.yaml with no drop note", got, written.Model)
+	}
 }
 
 func TestGlobalOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
