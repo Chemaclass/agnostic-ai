@@ -52,7 +52,7 @@ An unknown key, in `agnostic-ai.local.yaml` too, fails every command that reads 
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `version` | int | `1` | Schema version, reserved for migrations. |
+| `version` | int | `1` | Schema version. Any value other than `1` fails with [AAI-004](@/docs/errors.md#aai-004-config-decode-failed). |
 | [`requires`](#requires) | string | none | Releases the specs work with: a minimum, one release, or a range. |
 | [`sources`](#sources) | map | `.agnostic-ai/<kind>/` | Source directories. |
 | [`targets`](#targets) | list | see [targets](#targets) | Tools to write files for. |

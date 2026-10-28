@@ -82,15 +82,16 @@ func TestLSPLinter_ReportsLayerResolutionFailureAsWorkspaceError(t *testing.T) {
 	}
 }
 
-func TestLSPLinter_MergedConfigFailureDoesNotInventSourcePosition(t *testing.T) {
+func TestLSPLinter_LocalConfigShapeFailureNamesTheLocalFile(t *testing.T) {
 	dir := newProject(t)
 	writeFile(t, filepath.Join(dir, config.LocalOverrideFileName), "targets: {wrong: shape}\n")
 	diagnostics, err := lspLinter(dir)
-	if err == nil || !strings.Contains(err.Error(), "parse merged config") {
-		t.Fatalf("merged config failure = %v", err)
+	if err == nil || !strings.Contains(err.Error(), config.LocalOverrideFileName+":1: targets: expected a list, got a map") {
+		t.Fatalf("local config failure = %v", err)
 	}
-	if len(diagnostics) != 0 {
-		t.Errorf("merged YAML line is not an original source position: %+v", diagnostics)
+	local := diagnostics[filepath.Join(dir, config.LocalOverrideFileName)]
+	if len(diagnostics) != 1 || len(local) != 1 || local[0].Range.Start.Line != 0 {
+		t.Errorf("want one diagnostic on line 1 of the local file: %+v", diagnostics)
 	}
 }
 

@@ -471,6 +471,25 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	localPath := filepath.Join(root, LocalOverrideFileName)
 	localExists := fileExists(localPath)
 
+	shapePaths := []string{basePath}
+	if localExists {
+		shapePaths = append(shapePaths, localPath)
+	}
+	var wrong []string
+	for _, src := range shapePaths {
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read %s: %w", src, err)
+		}
+		wrong = append(wrong, typeErrors(src, data)...)
+		if msg := versionError(src, data); msg != "" {
+			wrong = append(wrong, msg)
+		}
+	}
+	if len(wrong) > 0 {
+		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s", strings.Join(wrong, "\n"))
+	}
+
 	cfg := defaults()
 	if localExists {
 		if err := loadAndMerge(cfg, basePath, localPath); err != nil {
