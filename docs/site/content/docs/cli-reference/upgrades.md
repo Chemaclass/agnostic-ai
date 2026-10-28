@@ -63,7 +63,7 @@ After updating through a package manager, run its installed CLI from the project
 | `*\scoop\apps\*`, `*\scoop\shims\*` | `scoop update agnostic-ai` |
 | `*\Microsoft\WinGet\*` | `winget upgrade Chemaclass.agnostic-ai` |
 | `*/node_modules/*` | `npm install -g agnostic-ai@latest` |
-| Standalone binary on macOS or Linux | `upgrade` downloads the release, checks it, and replaces the binary. |
+| Standalone binary on macOS or Linux | `upgrade` downloads the release, checks its checksum and its [build provenance](@/docs/verify-a-release.md#build-provenance), and replaces the binary. |
 | Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md). Windows cannot replace a running program. |
 
 The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` also reports other copies on `PATH` that would run instead of the one it found.

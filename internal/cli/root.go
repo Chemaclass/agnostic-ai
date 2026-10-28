@@ -193,31 +193,8 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 }
 
 func loadProjectWithLoader(root string, load func([]spec.Layer) (spec.Bundle, error)) (*config.Config, spec.Bundle, error) {
-	cfg, sources, err := config.LoadWithSources(root)
-	if unknown, ok := errors.AsType[*config.UnknownKeysError](err); ok {
-		if rerr := requireVersion(unknown.Source, unknown.Requires); rerr != nil {
-			return nil, spec.Bundle{}, rerr
-		}
-	}
+	cfg, sources, err := loadValidConfig(root)
 	if err != nil {
-		return nil, spec.Bundle{}, err
-	}
-	if err := requireVersion(strings.Join(sources, " + "), cfg.Requires); err != nil {
-		return nil, spec.Bundle{}, err
-	}
-	if err := validateConfigTargets(cfg, strings.Join(sources, " + ")); err != nil {
-		return nil, spec.Bundle{}, err
-	}
-	if err := validateBuiltinNames(cfg.Builtins, strings.Join(sources, " + ")); err != nil {
-		return nil, spec.Bundle{}, err
-	}
-	if err := validateAgentsOutput(cfg, strings.Join(sources, " + ")); err != nil {
-		return nil, spec.Bundle{}, err
-	}
-	if err := validateCoverageTargets(cfg); err != nil {
-		return nil, spec.Bundle{}, err
-	}
-	if err := validateTierTargets(cfg.Models, strings.Join(sources, " + ")); err != nil {
 		return nil, spec.Bundle{}, err
 	}
 	if len(sources) > 1 {
@@ -234,6 +211,41 @@ func loadProjectWithLoader(root string, load func([]spec.Layer) (spec.Bundle, er
 	}
 	b.ApplyModelTiers(cfg.Models)
 	return cfg, b, nil
+}
+
+// loadValidConfig loads the project config with its layer sources and
+// rejects what sync cannot honor, so doctor config and every command
+// that loads the project agree on what a valid config is.
+func loadValidConfig(root string) (*config.Config, []string, error) {
+	cfg, sources, err := config.LoadWithSources(root)
+	if unknown, ok := errors.AsType[*config.UnknownKeysError](err); ok {
+		if rerr := requireVersion(unknown.Source, unknown.Requires); rerr != nil {
+			return nil, nil, rerr
+		}
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	source := strings.Join(sources, " + ")
+	if err := requireVersion(source, cfg.Requires); err != nil {
+		return nil, nil, err
+	}
+	if err := validateConfigTargets(cfg, source); err != nil {
+		return nil, nil, err
+	}
+	if err := validateBuiltinNames(cfg.Builtins, source); err != nil {
+		return nil, nil, err
+	}
+	if err := validateAgentsOutput(cfg, source); err != nil {
+		return nil, nil, err
+	}
+	if err := validateCoverageTargets(cfg); err != nil {
+		return nil, nil, err
+	}
+	if err := validateTierTargets(cfg.Models, source); err != nil {
+		return nil, nil, err
+	}
+	return cfg, sources, nil
 }
 
 // startCPUProfile begins a runtime/pprof CPU profile for the current run. The
