@@ -554,4 +554,6 @@
 # #2631 measured 23859360 on Go 1.27.3: collapsed lifecycle summaries,
 # controls, and recheck ownership add one page to the embedded UI.
 # Linux amd64 release flags; no added headroom or dependencies.
-23859360
+# #2645 measured 23871648 on Go 1.27.3 on top of main: validate and lint report a hook spec with nothing to run.
+# Linux amd64 release flags; no added headroom or dependencies.
+23871648
