@@ -559,7 +559,7 @@ function NativeServers({ servers, matches, filtering }: { servers: NativeServer[
   return (
     <section className="block" aria-labelledby="tools-native">
       <h2 id="tools-native">
-        Found in a tool's own config <span className="muted kind-count">{servers.length}</span>
+        Found in a tool's own config <span className="muted kind-count">{filtering ? `${visible.length} of ${servers.length} match` : servers.length}</span>
       </h2>
       <p className="muted">These servers work only in the tool that holds them. No spec covers them, so sync does not share them with your other tools.</p>
       {visible.length === 0 && filtering ? <p className="muted">No matches.</p> : (

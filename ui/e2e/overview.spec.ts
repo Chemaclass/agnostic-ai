@@ -574,7 +574,10 @@ test.describe('overview', () => {
     await expect(row).toContainText('~/.claude.json')
     await expect(row).toContainText('http')
     await expect(row.locator('.tool-state')).toContainText('Run agnostic-ai import --global claude to make it a spec.')
+    await page.getByRole('searchbox').fill('notion')
+    await expect(block.locator('.kind-count')).toHaveText('1 of 1 match')
     await page.getByRole('searchbox').fill('github')
+    await expect(block.locator('.kind-count')).toHaveText('0 of 1 match')
     await expect(block).toContainText('No matches.')
   })
 

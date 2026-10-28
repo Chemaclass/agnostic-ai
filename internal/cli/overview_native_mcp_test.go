@@ -171,19 +171,44 @@ func TestNativeMCPTransport_ReturnsOnlyKnownNames(t *testing.T) {
 	}
 }
 
-// Every target whose adapter declares a project MCP file has a reader
-// entry, so a new target cannot be missed silently.
-func TestProjectNativeMCP_CoversEveryTargetWithAProjectMCPFile(t *testing.T) {
+// nativeMCPUnread are the targets whose project MCP servers the
+// overview does not read, and why.
+var nativeMCPUnread = map[string]string{
+	"aider":     "no MCP file",
+	"cline":     "no project MCP file",
+	"continue":  "one YAML file per server in a folder",
+	"ellipsis":  "servers sit in the environment file",
+	"goose":     "no project MCP file",
+	"jules":     "no MCP file",
+	"openhands": "no project MCP file",
+}
+
+// Every target has a project MCP reader entry or a reason it has none,
+// so a new target cannot be missed silently.
+func TestProjectNativeMCP_CoversEveryTarget(t *testing.T) {
 	cfg := &config.Config{}
 	for _, name := range adapters.Names() {
+		_, read := projectNativeMCP[name]
+		_, unread := nativeMCPUnread[name]
+		if read == unread {
+			t.Errorf("%s: in projectNativeMCP %v, in nativeMCPUnread %v; want exactly one", name, read, unread)
+		}
 		for _, a := range adapters.NativeArtifactsFor(name, cfg) {
-			if a.Label != "MCP servers" {
-				continue
-			}
-			if _, ok := projectNativeMCP[name]; !ok {
+			if a.Label == "MCP servers" && !read {
 				t.Errorf("%s declares project MCP file %s but projectNativeMCP has no entry", name, a.Location)
 			}
 		}
+	}
+}
+
+func TestNativeMCPServers_DropsTheImportHintForAnOverrideTheImporterSkips(t *testing.T) {
+	home := nativeMCPHome(t)
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "tools", "mcp.json"), `{"mcpServers": {"notion": {"type": "http", "url": "https://x"}}}`)
+	cfg := &config.Config{Targets: []string{"claude"}, Outputs: map[string]config.Output{"claude": {MCPFile: "tools/mcp.json"}}}
+	got := nativeMCPServers(home, ".", "", cfg, false)
+	if len(got) != 1 || got[0].Path != "tools/mcp.json" || got[0].Import != "" {
+		t.Errorf("servers = %+v, want notion from tools/mcp.json with no import hint", got)
 	}
 }
 

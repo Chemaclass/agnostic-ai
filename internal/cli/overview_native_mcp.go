@@ -19,36 +19,41 @@ import (
 // nativeMCPFile is where a target keeps project MCP servers: a JSON map
 // at key, a TOML table (toml), an array of TOML tables (toml-array), or
 // OpenCode's mcp block (opencode). noImport marks a file that
-// `agnostic-ai import` does not read.
+// `agnostic-ai import` does not read, and followsOutputs an importer
+// that reads the outputs override too.
 type nativeMCPFile struct {
-	path, format, key string
-	noImport          bool
+	path, format, key        string
+	noImport, followsOutputs bool
 }
 
 // projectNativeMCP lists each target's project MCP file, as its importer
 // reads it. A path a target's adapter declares wins over path, so an
-// outputs override is kept.
+// outputs override is kept. Continue keeps one file per server in a
+// folder and Ellipsis keeps servers in its environment file; neither is
+// read here.
 var projectNativeMCP = map[string]nativeMCPFile{
 	"amp":         {path: ".amp/settings.json", format: "json", key: "amp.mcpServers"},
 	"antigravity": {path: antigravityMCPFile, format: "json", key: antigravityMCPKey},
+	"augment":     {path: ".augment/settings.json", format: "json", key: "mcpServers", noImport: true},
 	"claude":      {path: claudeMCPFile, format: "json", key: claudeMCPKey},
-	"codebuddy":   {format: "json", key: "mcpServers"},
+	"codebuddy":   {path: ".mcp.json", format: "json", key: "mcpServers", followsOutputs: true},
 	"codex":       {path: codexConfigTOML, format: "toml", key: "mcp_servers"},
 	"copilot":     {path: copilotMCPFile, format: "json", key: "servers"},
 	"crush":       {path: crushMCPFile, format: "json", key: crushMCPKey},
 	"cursor":      {path: ".cursor/mcp.json", format: "json", key: "mcpServers", noImport: true},
 	"factory":     {path: factoryMCPFile, format: "json", key: factoryMCPKey},
 	"gemini":      {path: ".gemini/settings.json", format: "json", key: "mcpServers"},
-	"grok":        {format: "toml", key: "mcp_servers"},
+	"grok":        {format: "toml", key: "mcp_servers", followsOutputs: true},
 	"junie":       {path: ".junie/mcp/mcp.json", format: "json", key: "mcpServers"},
-	"kimi":        {path: ".kimi-code/mcp.json", format: "json", key: "mcpServers"},
+	"kilo":        {path: "kilo.jsonc", format: "json", key: "mcp", noImport: true},
+	"kimi":        {path: ".kimi-code/mcp.json", format: "json", key: "mcpServers", followsOutputs: true},
 	"kiro":        {path: kiroMCPFile, format: "json", key: kiroMCPKey},
 	"opencode":    {path: opencodeMCPFile, format: "opencode"},
-	"pi":          {path: ".pi/mcp.json", format: "json", key: "mcpServers"},
+	"pi":          {path: ".pi/mcp.json", format: "json", key: "mcpServers", followsOutputs: true},
 	"qoder":       {path: qoderSettingsFile, format: "json", key: "mcpServers"},
 	"qwen":        {path: ".qwen/settings.json", format: "json", key: "mcpServers"},
 	"trae":        {path: traeMCPFile, format: "json", key: traeMCPKey},
-	"vibe":        {path: ".vibe/config.toml", format: "toml-array", key: "mcp_servers"},
+	"vibe":        {path: ".vibe/config.toml", format: "toml-array", key: "mcp_servers", followsOutputs: true},
 	"warp":        {path: warpMCPFile, format: "json", key: warpMCPKey},
 	"windsurf":    {path: windsurfMCPFile, format: "json", key: windsurfMCPKey},
 	"zed":         {path: zedSettings, format: "json", key: zedMCPKey},
@@ -81,13 +86,13 @@ func nativeMCPServers(home, root, source string, cfg *config.Config, global bool
 				continue
 			}
 			importCmd := "agnostic-ai import " + target
-			if f.noImport {
+			if f.noImport || (path != f.path && !f.followsOutputs) {
 				importCmd = ""
 			}
 			servers := readNativeMCPServers(filepath.Join(root, path), f.format, f.key)
 			out = appendNativeMCPs(out, servers, target, filepath.ToSlash(path), overview.NativeScopeProject, importCmd, nil)
 		}
-		if slices.Contains(cfg.Targets, "claude") {
+		if slices.Contains(cfg.Targets, "claude") && globalTargets["claude"].rootError("claude") == nil {
 			path := globalTargets["claude"].mcpPath(home)
 			out = appendNativeMCPs(out, claudeLocalMCPServers(path, root), "claude", nativeHomePath(home, path), overview.NativeScopeProject, "", nil)
 		}

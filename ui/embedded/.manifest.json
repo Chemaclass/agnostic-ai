@@ -54,7 +54,7 @@
     "src/components/GlobalSearch.tsx": "5b465360de36e1fbb12e1947397d1cf9f125694d0b466207e9fbf315b892f71e",
     "src/components/JsonInspector.tsx": "bba406ce05c8f856bd57ee2c013c7f22a486115dff0ad955facd4927f796e3f3",
     "src/components/Recheck.tsx": "af66e5eb35e39d921e398a6991f2c45c1d6e3158e9691dfc81978759f5d4190b",
-    "src/components/Section.tsx": "985382391f027730bdcc0b4506b6b51057412a4a5e6c04aed91401930934a485",
+    "src/components/Section.tsx": "829fbe0faf0dba4633f06c33663337c247e2dbecc28a0b977b86ad09a7eda04c",
     "src/components/Shell.tsx": "c8fd3c15291709d17c89921c9d59cfaa5f400562ef1fed7d85de2cabcc9de583",
     "src/components/SyncStatus.tsx": "b6c8ee7bc59b9da76544b254da08ba1c97643d19812402c5606951263d589b23",
     "src/components/app-context.tsx": "38eb4eac754c0b1acf879ce11475e983b2e7d9e8d8b539eec0c6e0c28f006d07",
@@ -102,12 +102,12 @@
     "assets/antigravity-DgAQAdn3.svg": "652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca",
     "assets/context.mock-BEFzWJiC.js": "e310bb8b38bc8ebf80f844c477f05cf05f507f5c0e2da8bc58f5fbd1083daac8",
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
-    "assets/index-Dp8vsMRB.js": "00339bfdaa749c9b6ed0e42b11c18f69a79c363990e6686b52343172bee3723d",
+    "assets/index-DF9d-g8g.js": "07496e39d746c4fed4bdc205d7e912cd75eb33a7085e49b30a69cb27127867f9",
     "assets/index-GJfqlNjT.css": "9b8f2f056f95cdbb1a3ec95633e46a70e2664751ea9936901aed824a4098a6d9",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-BRHdh5sr.js": "3a9383b9d1c4026aad52490653d4c946e7adc0c2b7357389011c1f7612340ec1",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "09dc95de9a92a3581a34fd92a351abdbb6ca1d5d099a7dd1bb903c6ad24b1dcc",
+    "index.html": "88ee6ea2dbc75773f11b7e50cac89ed54b98284f3976a9ec7136fd04c8e8a986",
     "third-party-notices.txt": "a323be697d4e49da32e67813843982098f6331c7872fc0c181e0f60451e71438"
   }
 }
