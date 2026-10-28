@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,9 @@ type switchPeer struct {
 	// dir is where a started global server runs, so its health names the
 	// project it came from.
 	dir string
+	// back is this server's address. A started peer tries it first on
+	// the way back, so a server on --addr outside the scan is found.
+	back string
 }
 
 // peerProcess is a server this one started. done closes when it exits.
@@ -235,10 +239,26 @@ func (h *switchHandler) close() {
 // for a peer. A global server runs in the project so its health names it.
 func peerServerCommand(peer switchPeer, addr string) ([]string, string) {
 	args := []string{"serve", "--addr", addr}
+	dir := ""
 	if peer.global {
-		return append(args, "--global"), peer.dir
+		args, dir = append(args, "--global"), peer.dir
+	} else {
+		args = append(args, "--dir", peer.root)
 	}
-	return append(args, "--dir", peer.root), ""
+	if peer.back != "" {
+		args = append(args, "--switch-back", peer.back)
+	}
+	return args, dir
+}
+
+// switchCandidates puts the server that started this one, when any,
+// before the scanned ports.
+func switchCandidates(back string) []string {
+	scan := viewPortCandidates()
+	if back == "" {
+		return scan
+	}
+	return append([]string{back}, slices.DeleteFunc(scan, func(addr string) bool { return addr == back })...)
 }
 
 // startPeerServer runs this binary's serve with fixed arguments. Its

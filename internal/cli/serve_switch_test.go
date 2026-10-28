@@ -465,3 +465,49 @@ func TestSwitchPeerFor_ProjectServedWithDirLinksBackToThatProject(t *testing.T) 
 		t.Errorf("peer = %+v, want dir %s", peer, repo)
 	}
 }
+
+func TestPeerServerCommand_PassesTheAddressToGoBackTo(t *testing.T) {
+	args, _ := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", global: true, dir: "/work/repo", back: "127.0.0.1:5000"}, "127.0.0.1:4311")
+	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--global", "--switch-back", "127.0.0.1:5000"}) {
+		t.Errorf("args = %v", args)
+	}
+}
+
+func TestSwitchCandidates_TriesTheServerThatStartedThisOneFirst(t *testing.T) {
+	scan := viewPortCandidates()
+	if got := switchCandidates(""); !slices.Equal(got, scan) {
+		t.Errorf("no back = %v", got)
+	}
+	if got := switchCandidates("127.0.0.1:5000"); !slices.Equal(got, append([]string{"127.0.0.1:5000"}, scan...)) {
+		t.Errorf("outside the range = %v", got)
+	}
+	got := switchCandidates(scan[2])
+	if len(got) != len(scan) || got[0] != scan[2] || slices.Index(got[1:], scan[2]) >= 0 {
+		t.Errorf("inside the range = %v", got)
+	}
+}
+
+func TestServe_RejectsASwitchBackAddressOffLoopback(t *testing.T) {
+	cmd := newServeCmd()
+	cmd.SetArgs([]string{"--addr", "127.0.0.1:0", "--switch-back", "0.0.0.0:5000"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "--switch-back") {
+		t.Errorf("error = %v", err)
+	}
+}
+
+func TestSwitch_GoesBackToAProjectServerOutsideTheScannedRange(t *testing.T) {
+	project := t.TempDir()
+	back := freeLoopbackAddrs(t, 1)[0]
+	fakePeer(t, back, viewServer{OK: true, Root: project, UI: true})
+	scan := freeLoopbackAddrs(t, 2)
+	var started []string
+	h := newSwitchHandler(&switchPeer{root: project}, append([]string{back}, scan...), probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+		started = append(started, addr)
+		return fakePeer(t, addr, viewServer{OK: true, Root: project, UI: true}), nil
+	})
+	defer h.close()
+
+	if rec, reply := postSwitch(t, h); rec.Code != http.StatusOK || reply.Started || reply.URL != "http://"+back+"/" || len(started) != 0 {
+		t.Fatalf("switch = %d %s, started %v", rec.Code, rec.Body, started)
+	}
+}
