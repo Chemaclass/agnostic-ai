@@ -44,6 +44,18 @@ type Inputs struct {
 	// FieldNotes are the settings model and effort notes the drift
 	// check's render raised.
 	FieldNotes []FieldNote
+	// NativeMCPs are the MCP servers the caller found in the configured
+	// tools' own config files, whether or not a spec covers them.
+	NativeMCPs []NativeMCP
+}
+
+// NativeMCP is one MCP server a tool's own config file defines. It
+// holds strings only: the caller never passes a server's values.
+type NativeMCP struct {
+	Name, Target, Path, Scope, Transport string
+	// Import is the command that turns the server into a spec, or empty
+	// when no import reads Path.
+	Import string
 }
 
 // builtinLayer is the layer name the loader gives a built-in spec. Its
@@ -382,6 +394,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 		}
 		if def.id == SectionTools {
 			attachTools(s.Items, in)
+			s.Native = nativeServers(in, newLabeler())
 		}
 		sections = append(sections, s)
 	}
@@ -623,6 +636,47 @@ func attachTools(items []SectionItem, in Inputs) {
 		}
 		items[i].Tools = listing
 	}
+}
+
+// nativeServers groups the servers found in tools' own config files by
+// name, leaving out each one a spec covers. Names that differ only in
+// case share one spec file, so they share one row.
+func nativeServers(in Inputs, labels labeler) []NativeServer {
+	covered := map[string]bool{}
+	for _, m := range in.Bundle.MCPs {
+		covered[strings.ToLower(spec.MCPFileName(m.Name))] = true
+	}
+	byKey := map[string]*NativeServer{}
+	var keys []string
+	for _, n := range in.NativeMCPs {
+		key := strings.ToLower(spec.MCPFileName(n.Name))
+		if n.Name == "" || covered[key] {
+			continue
+		}
+		row, ok := byKey[key]
+		if !ok {
+			row = &NativeServer{Name: n.Name}
+			byKey[key] = row
+			keys = append(keys, key)
+		}
+		holder := NativeHolder{Target: n.Target, Label: labels.of(n.Target), Path: n.Path, Scope: n.Scope, Transport: n.Transport}
+		if slices.Contains(row.Holders, holder) {
+			continue
+		}
+		row.Holders = append(row.Holders, holder)
+		if row.Import == "" {
+			row.Import = n.Import
+		}
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	slices.Sort(keys)
+	out := make([]NativeServer, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, *byKey[key])
+	}
+	return out
 }
 
 // editableExts are the file types a view offers to open in an editor.

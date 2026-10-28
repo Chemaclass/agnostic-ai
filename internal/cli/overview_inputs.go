@@ -393,7 +393,20 @@ func overviewInputsWith(root string, compareInstalled bool) (overview.Inputs, er
 		RefreshCommand: "agnostic-ai mcp tools",
 		BuiltinsTeam:   team,
 		BuiltinsLocal:  local,
+		NativeMCPs:     projectNativeMCPServers(cfg),
 	}, nil
+}
+
+// projectNativeMCPServers lists the MCP servers the project's targets
+// hold in their own project and user files. Without a home it lists
+// none.
+func projectNativeMCPServers(cfg *config.Config) []overview.NativeMCP {
+	home, err := globalUserHome()
+	if err != nil {
+		return nil
+	}
+	source, _ := globalSourceRoot()
+	return nativeMCPServers(home, ".", source, cfg, false)
 }
 
 // instructionFile is one instructions file a configuration loads.

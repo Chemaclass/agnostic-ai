@@ -539,6 +539,24 @@ export interface Section {
   stages?: Stage[]
   /** Authority and Settings: every settings field, even when unset. */
   fields?: SettingField[]
+  /** Tools only: MCP servers found in a tool's own config that no spec covers. Names and paths only, never a server's values. */
+  native?: NativeServer[]
+}
+
+/** One MCP server name found in tools' own config files. `import` is absent when no import reads the file that holds it. */
+export interface NativeServer {
+  name: string
+  holders: NativeHolder[]
+  import?: string
+}
+
+/** One tool config file that defines a native server. */
+export interface NativeHolder {
+  target: string
+  label: string
+  path: string
+  scope: 'project' | 'user'
+  transport?: 'stdio' | 'http' | 'sse' | 'streamable-http' | 'remote'
 }
 
 /** One field a settings spec can set, with what each spec sets it to. */
