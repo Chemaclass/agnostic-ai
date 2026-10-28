@@ -553,7 +553,7 @@ test.describe('overview', () => {
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
   })
 
-  test('saves settings and built-ins for just me, marks local values, and resets them', async ({ page }) => {
+  test('saves settings and built-ins as personal, marks personal values, and resets them', async ({ page }) => {
     const data = structuredClone(fixture)
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
     const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
@@ -591,20 +591,20 @@ test.describe('overview', () => {
     await expect(shared).toHaveAttribute('aria-pressed', 'true')
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
-    await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
-    await expect(model).toContainText('Your local value overrides the shared value.')
+    await expect(model.locator('.badge', { hasText: 'personal' })).toBeVisible()
+    await expect(model).toContainText('Your personal value overrides the shared value.')
     await model.getByRole('button', { name: 'Reset to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'model', value: null, expected: 'opus' })
 
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
-    await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
+    await expect(caveman.locator('.badge', { hasText: 'personal' })).toBeVisible()
     await caveman.getByRole('button', { name: 'Reset caveman to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', name: 'caveman', enabled: false, expected: true })
 
     await personal.click()
     await expect(personal).toHaveAttribute('aria-pressed', 'true')
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
-    await expect(effort.locator('.badge', { hasText: 'local' })).toHaveCount(0)
+    await expect(effort.locator('.badge', { hasText: 'personal' })).toHaveCount(0)
     await expect(effort).toContainText(`Saves to ${local}`)
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
     await effort.getByRole('button', { name: 'Save' }).click()
@@ -758,7 +758,7 @@ test.describe('overview', () => {
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.getByRole('button', { name: 'Reset to shared value' })).toHaveCount(0)
     await model.getByRole('combobox').selectOption(b)
-    await expect(model).toContainText('Your local value overrides the shared value.')
+    await expect(model).toContainText('Your personal value overrides the shared value.')
     await model.getByRole('button', { name: 'Reset to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: b, key: 'model', value: null, expected: 'opus' })
   })
@@ -783,7 +783,7 @@ test.describe('overview', () => {
     await expect(model).toContainText(`Saves to ${team}`)
 
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
-    await expect(effort).toContainText('Your local value overrides the shared value.')
+    await expect(effort).toContainText('Your personal value overrides the shared value.')
     await expect(effort.locator('.field-source')).toContainText('low')
     await expect(effort.locator('.field-source')).toContainText(`from ${local}`)
 

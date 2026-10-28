@@ -213,7 +213,7 @@ test('recovers retained undo after a failed apply without a source-only fallback
 test('drops a proposal when the save audience changes and resets the whole personal list', async ({ page }) => {
   const server = await session(page)
   await toggle(page, 'caveman').click()
-  await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for the team')
+  await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for everyone')
   await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
   await expect(toggle(page, 'caveman')).toBeEnabled()
@@ -264,7 +264,7 @@ test('switching audience during apply does not cancel the applied preview', asyn
   expect(server.cancels).toEqual([])
 })
 
-test('resets a personal built-in list that matches the team list', async ({ page }) => {
+test('resets a personal built-in list that matches the shared list', async ({ page }) => {
   const previews: unknown[] = []
   await page.route('**/api/views/overview', (route) => {
     const view = structuredClone(fixture)
@@ -279,7 +279,7 @@ test('resets a personal built-in list that matches the team list', async ({ page
   })
   await page.goto('/?view=settings')
   const block = page.locator('section.block').filter({ has: page.getByRole('heading', { name: /Built-ins/ }) })
-  await expect(block.locator('.badge', { hasText: 'local' })).toBeVisible()
+  await expect(block.locator('.badge', { hasText: 'personal' })).toBeVisible()
   await block.getByRole('button', { name: 'Reset built-ins to the shared list' }).click()
   await expect.poll(() => previews.at(-1)).toEqual({ audience: 'personal', reset: true })
   await expect(page.getByRole('region', { name: 'Built-in list reset preview' })).toContainText('agnostic-ai.local.yaml')

@@ -193,7 +193,7 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
   }
 })
 
-test('live just-me built-in outside the team block goes to info/exclude and resets cleanly', async ({ page }) => {
+test('live personal built-in outside the shared block goes to info/exclude and resets cleanly', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
     await put(f.config, f.configBytes.replace('builtins: []', 'builtins: []\ngitignore:\n    enabled: true'))
@@ -225,7 +225,7 @@ test('live just-me built-in outside the team block goes to info/exclude and rese
   }
 })
 
-test('live just-me edits stay out of Git, reach sync, and reset to the shared value', async ({ page }) => {
+test('live personal edits stay out of Git, reach sync, and reset to the shared value', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
     const shared = join(f.root, '.agnostic-ai', 'settings', 'defaults.yaml')
@@ -243,7 +243,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the shared va
     await model.getByRole('textbox', { name: 'Default model value' }).fill('opus')
     await model.getByRole('button', { name: 'Preview and apply' }).click()
     await page.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
-    await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
+    await expect(model.locator('.badge', { hasText: 'personal' })).toBeVisible()
     expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
     const handoff = page.getByRole('switch', { name: 'handoff built-in' })
     await expect(handoff).toHaveAttribute('aria-checked', 'true')
@@ -253,7 +253,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the shared va
     await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(handoff).toHaveAttribute('aria-checked', 'false')
     const handoffRow = page.locator('.item-row').filter({ has: handoff })
-    await expect(handoffRow.locator('.badge', { hasText: 'local' })).toBeVisible()
+    await expect(handoffRow.locator('.badge', { hasText: 'personal' })).toBeVisible()
 
     expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
     for (const personal of ['agnostic-ai.local.yaml', '.agnostic-ai/local/settings/defaults.yaml']) await git('check-ignore', '--quiet', personal)
@@ -265,7 +265,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the shared va
     await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
     await model.getByRole('button', { name: 'Preview personal reset' }).click()
     await page.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
-    await expect(model.locator('.badge', { hasText: 'local' })).toHaveCount(0)
+    await expect(model.locator('.badge', { hasText: 'personal' })).toHaveCount(0)
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('sonnet')
     await expect(stat(overlay)).rejects.toThrow()
     await handoffRow.getByRole('button', { name: 'Reset handoff to shared value' }).click()
@@ -278,7 +278,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the shared va
   }
 })
 
-test('live first just-me save before any ignore rule stays out of Git', async ({ page }) => {
+test('live first personal save before any ignore rule stays out of Git', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
     const overlay = '.agnostic-ai/local/settings/defaults.yaml'
@@ -296,7 +296,7 @@ test('live first just-me save before any ignore rule stays out of Git', async ({
     await model.getByRole('button', { name: 'Preview and apply' }).click()
     await expect(stat(join(f.root, overlay))).rejects.toThrow()
     await page.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
-    await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
+    await expect(model.locator('.badge', { hasText: 'personal' })).toBeVisible()
 
     expect(await readFile(join(f.root, overlay), 'utf8')).toContain('model: opus')
     await git('check-ignore', '--quiet', overlay)
@@ -709,7 +709,7 @@ test('live Settings previews, cancels, applies, and undoes an effort change for 
   } finally { await f.close() }
 })
 
-test('live Settings explains which model each tool gets from team, personal, and per-tool settings', async ({ page }) => {
+test('live Settings explains which model each tool gets from shared, personal, and per-tool settings', async ({ page }) => {
   const f = await fixture()
   try {
     await put(f.config, f.configBytes.replace('    - claude # team tool\n', '    - claude # team tool\n    - codex\n'))
@@ -794,7 +794,7 @@ test('live Settings rejects a stale personal preview from another tab', async ({
     await model(other).getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model(other).getByRole('button', { name: 'Preview and apply' }).click()
     await other.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
-    await expect(model(other).locator('.badge', { hasText: 'local' })).toBeVisible()
+    await expect(model(other).locator('.badge', { hasText: 'personal' })).toBeVisible()
     await model(page).getByRole('textbox', { name: 'Default model value' }).fill('opus')
     await model(page).getByRole('button', { name: 'Preview and apply' }).click()
     await expect(model(page).getByRole('alert')).toContainText('is now haiku')
