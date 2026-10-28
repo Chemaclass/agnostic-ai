@@ -29,7 +29,7 @@ func GuardCursorCopies(cfg *config.Config, hooks []spec.Entry) []spec.Entry {
 			continue
 		}
 		var guarded []any
-		for _, command := range hookCommands(h.Meta["command"]) {
+		for _, command := range emit.HookCommands(h.Meta["command"]) {
 			guarded = append(guarded, emit.GuardCursorCopy(command))
 		}
 		if len(guarded) == 0 {
