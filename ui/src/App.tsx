@@ -10,7 +10,6 @@ import { SectionPage } from './components/Section'
 import { ErrorPanel, RefreshFailure } from './components/Banner'
 import { Header, Nav, type Remote } from './components/Shell'
 import { RecheckProvider, useRecheck } from './components/Recheck'
-import { SyncStatus } from './components/SyncStatus'
 import { APPLE_PLATFORM } from './components/ui'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
 
@@ -206,12 +205,11 @@ export default function App() {
             onOpenSearch={openSearch}
           />
           <div className="shell">
-            <Nav overview={overview} />
+            <Nav overview={overview} snapshot={source.kind !== 'api'} saved={savedSinceRefresh} onRefresh={refresh} />
             <main id="main" className="main" tabIndex={-1}>
               <div className="page">
                 {sourceError && <ErrorPanel error={sourceError} />}
                 {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
-                <SyncStatus overview={overview} snapshot={source.kind !== 'api'} saved={savedSinceRefresh} onRefresh={refresh} />
                 <SectionPage sectionId={state.view} overview={overview} stale={stale} />
               </div>
             </main>

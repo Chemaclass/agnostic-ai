@@ -73,7 +73,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const search = app.state.q ?? ''
   const setSearch = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
   const entry = app.state.entry
-  const rechecked = useRechecks().rechecked
+  const { rechecked, pendingPlace } = useRechecks()
   const sectionPlace = `section:${section.id}`
   const remainingHere = rechecked?.result.state === 'remaining' && sectionEntryIds(section).has(rechecked.result.id ?? rechecked.id)
   const orphan = rechecked?.section === section.id && rechecked.place !== sectionPlace && !remainingHere && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
@@ -84,7 +84,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const matchingItems = new Set(section.items.filter((item) => matches(itemSearchText(item))))
   const fieldMatches = section.fields?.filter((field) => matches(fieldSearchText(field)))
   const matchingFields = section.fields?.filter((field) => fieldMatches?.includes(field) || fieldEntryId(field) === entry)
-  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === rechecked?.place)
+  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === pendingPlace || itemEntryId(item) === rechecked?.place)
   const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
   useEffect(() => {
     if (!entry) return
@@ -149,7 +149,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       {errors > 0 && otherFindings}
       {section.kinds.map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
-        if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} />
+        if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         return (
@@ -425,38 +425,52 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   </div></>
 }
 
-function Lifecycle({ stages, hooks, count, filtering }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean }) {
+function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean; matchingHooks: Set<SectionItem> }) {
+  const root = useRef<HTMLElement>(null)
+  const entry = useApp().state.entry
+  const recheck = useRechecks()
+  const setExpanded = (open: boolean) => {
+    root.current?.querySelectorAll<HTMLDetailsElement>('details.stage').forEach((stage) => { stage.open = open })
+  }
   return (
-    <section className="block" aria-labelledby="lifecycle-hooks">
-      <h2 id="lifecycle-hooks">
-        Hooks <span className="muted kind-count">{count}</span>
-      </h2>
+    <section ref={root} className="block" aria-labelledby="lifecycle-hooks">
+      <div className="section-head lifecycle-head">
+        <h2 id="lifecycle-hooks">Hooks <span className="muted kind-count">{count}</span></h2>
+        <div className="lifecycle-actions">
+          <button type="button" className="button button-quiet" onClick={() => setExpanded(true)}>Expand all</button>
+          <button type="button" className="button button-quiet" onClick={() => setExpanded(false)}>Collapse all</button>
+        </div>
+      </div>
       <ol className="stages">
         {stages.map((st) => {
           const here = hooks.filter((h) => h.group === st.id)
-          const disabled = here.filter(hookDisabled).length
+          const matching = filtering ? here.filter((hook) => matchingHooks.has(hook)) : here
+          const linked = entry !== undefined && here.some((hook) => itemEntryId(hook) === entry || findingEntryIds(hook.findings, itemEntryId(hook)).includes(entry))
+          const rechecking = here.some((hook) => itemEntryId(hook) === (recheck.pendingPlace ?? recheck.rechecked?.place))
           return (
-            <li key={st.id} className={`stage${here.length ? ' has-hooks' : ''}`}>
-              <div className="stage-head">
-                <div className="stage-label">
-                  <h3 className="stage-title">{st.label}</h3>
-                  <span className="stage-counts">
-                    <Badge tone="neutral" className="stage-count">{here.length ? `${here.length} ${here.length === 1 ? 'hook' : 'hooks'}` : 'No hooks'}</Badge>
-                    {disabled > 0 && <span className="muted stage-disabled-count">{disabled} disabled</span>}
-                  </span>
+            <li key={st.id} className={`stage-step${here.length ? ' has-hooks' : ''}`}>
+              <details className="stage" open={linked || rechecking || (filtering && matching.length > 0)}>
+                <summary className="stage-head">
+                  <h3 className="stage-summary">
+                    <span className="stage-label">
+                      <span className="stage-title">{st.label}</span>
+                      <Badge tone="neutral" className="stage-count">{matching.length ? `${matching.length} ${matching.length === 1 ? 'hook' : 'hooks'}` : filtering ? 'No matching hooks' : 'No hooks'}</Badge>
+                    </span>
+                    <span className="muted stage-description">{st.description}</span>
+                  </h3>
+                </summary>
+                <div className="stage-body">
+                  {st.targets.length > 0 && (
+                    <p className="stage-tools">
+                      {st.targets.map((t) => (
+                        <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
+                      ))}
+                    </p>
+                  )}
                   {!here.length && <p className="muted stage-empty">{filtering ? 'No matching hooks.' : 'No hook runs here.'}</p>}
+                  {here.length > 0 && <ItemList items={here} />}
                 </div>
-                <p className="muted stage-description">{st.description}</p>
-                {st.targets.length > 0 && (
-                  <p className="stage-tools">
-                    <span className="muted">Runs on</span>
-                    {st.targets.map((t) => (
-                      <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
-                    ))}
-                  </p>
-                )}
-              </div>
-              {here.length > 0 && <ItemList items={here} />}
+              </details>
             </li>
           )
         })}
@@ -491,8 +505,6 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
   return (
     <ul className="item-list">
       {items.map((item) => {
-        const action = hookAction(item)
-        const values = item.values.filter((value) => value !== action && !(hookDisabled(item) && value.key === 'disabled'))
         const control = item.enabled !== undefined && <>
           <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { audience, name: item.name, enabled: on, expected: item.enabled })} />
           {item.local && <ResetAction label={`Reset ${item.name} to shared value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !item.enabled, expected: item.enabled })} />}
@@ -503,7 +515,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
             {item.kind === 'builtin' && item.enabled !== undefined
               ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
               : heading(control)}
-            {!hideValues && values.length > 0 && <Values values={values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
+            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && <Tools listing={item.tools} />}
             <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
           </ItemRow>
@@ -521,17 +533,14 @@ function ItemRow({ item, children }: { item: SectionItem; children: ReactNode })
 function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
   const root = useContext(ConfigurationRoot)
   const refinable = item.kind === 'instructions' && item.layer === 'global'
-  const action = hookAction(item)
   return (
     <div className="item-heading">
       <div className="item-main">
         <strong>{item.label}</strong>
-        {action && (action.type === 'list' ? action.list ?? [] : [action.value]).map((command, index) => <code className="hook-command" key={index}>{command}</code>)}
         {item.description && <span className="muted item-description">{item.description}</span>}
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
       </div>
       <div className="item-meta">
-        {hookDisabled(item) && <Badge tone="neutral" className="hook-disabled">disabled</Badge>}
         {item.local && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
@@ -541,16 +550,6 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
       </div>
     </div>
   )
-}
-
-function hookAction(item: SectionItem): Value | undefined {
-  if (item.kind !== 'hook') return undefined
-  return item.values.find((value) => value.key === 'command' && ((value.type === 'text' && value.value) || (value.type === 'list' && value.list?.length)))
-    ?? item.values.find((value) => value.key === 'type' && value.type === 'text' && value.value)
-}
-
-function hookDisabled(item: SectionItem): boolean {
-  return item.kind === 'hook' && item.values.some((value) => value.key === 'disabled' && (value.type === 'bool' || value.type === 'text') && value.value === 'true')
 }
 
 /** An MCP server's tools, from the cache `agnostic-ai mcp tools` fills. */

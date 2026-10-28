@@ -25,6 +25,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/filealias"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -155,14 +156,18 @@ type Session struct {
 	// them as `<path>.bak` and records the path in overwrote (see
 	// BackUpEditsSince). merging holds the paths a merged write is
 	// writing, which hold user keys by design.
-	backupSums map[string]string
-	merging    map[string]bool
-	overwrote  []string
+	backupSums      map[string]string
+	priorPaths      map[string]string
+	priorCandidates []string
+	priorAliases    filealias.Cache
+	merging         map[string]bool
+	overwrote       []string
 	// backedUp holds the edits left in place because `<path>.bak`
 	// already existed, so writing over them would lose one.
 	backedUp []string
 	// backups lists every `<path>.bak` this session wrote.
-	backups []string
+	backups      []string
+	removedEdits []string
 	// committedSum, when set, gives a path with no recorded sum the sum of
 	// its committed version, "" when there is none (see SetCommittedSum).
 	committedSum func(path string) string
@@ -328,6 +333,13 @@ func (s *Session) OverwroteEdits() []string {
 	return append([]string(nil), s.overwrote...)
 }
 
+// RemovedEdits returns edited orphan paths saved before removal.
+func (s *Session) RemovedEdits() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.removedEdits...)
+}
+
 // Backups returns every `<path>.bak` this session wrote, for a hand edit
 // or under --backup, in write order.
 func (s *Session) Backups() []string {
@@ -357,7 +369,7 @@ func (s *Session) BackupBlockedEdits() []string {
 func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 	path := cur.path
 	s.mu.Lock()
-	sum := s.backupSums[path]
+	sum := s.priorChecksum(path, s.backupSums)
 	merging := s.merging[path]
 	committed := s.committedSum
 	s.mu.Unlock()
@@ -407,7 +419,7 @@ func (s *Session) KeptEdits() []string {
 // edit in place, and returns the sum the last sync recorded for it.
 func (s *Session) keepsEdit(path, content string) (string, bool) {
 	s.mu.Lock()
-	sum := s.keepSums[path]
+	sum := s.priorChecksum(path, s.keepSums)
 	keeping := s.keepSums != nil
 	committed := s.committedSum
 	s.mu.Unlock()
@@ -739,6 +751,20 @@ func escapesProjectRoot(path string) bool {
 	return clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator))
 }
 
+func symlinkedParent(path string) bool {
+	for dir := filepath.Dir(path); dir != "." && dir != ""; {
+		if info, err := os.Lstat(dir); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return false
+}
+
 // pathLocks serializes concurrent access to the same output path across
 // sessions. Parallel sync (`--jobs > 1`) emits every target on its own
 // Session, but several targets legitimately write the SAME shared path
@@ -908,6 +934,9 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	// Ordering is always pathLock (outer) then s.mu (inner); the early s.mu
 	// section above has already been released, so the two never deadlock.
 	defer lockPath(path)()
+	if err := s.resolvePriorOutput(path); err != nil {
+		return err
+	}
 	if sum, keep := s.keepsEdit(path, content); keep {
 		s.mu.Lock()
 		if _, watched := s.planned[path]; watched {
@@ -945,7 +974,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			s.mu.Lock()
 			s.backedUp = append(s.backedUp, path)
 			if detailing {
-				s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: s.backupSums[path]})
+				s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: s.priorChecksum(path, s.backupSums)})
 			}
 			s.mu.Unlock()
 			return nil
@@ -1213,6 +1242,16 @@ func (s *Session) RemoveGenerated(path string, dryRun bool) error {
 // dryRun, so callers can tell a refusal from a removal without a
 // second stat.
 func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err error) {
+	return s.removeOwned(path, sum, dryRun, false)
+}
+
+// RemoveOwnedOrphan protects recorded hand edits before removing owned files.
+func (s *Session) RemoveOwnedOrphan(path, sum string) (bool, error) {
+	return s.removeOwned(path, sum, false, true)
+}
+
+func (s *Session) removeOwned(path, sum string, dryRun, protectEdit bool) (removed bool, err error) {
+	defer lockPath(path)()
 	existing, err := os.ReadFile(path)
 	if IsAbsent(err) {
 		return false, nil
@@ -1225,6 +1264,68 @@ func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err 
 	// file that is user-owned counts as a refused removal.
 	if !owned || s.skipUnmanaged(path) {
 		return false, nil
+	}
+	s.mu.Lock()
+	capturing := s.capturing
+	backupSum := s.backupSums[path]
+	s.mu.Unlock()
+	if capturing {
+		return s.remove(path, sum, existing, false, dryRun)
+	}
+	if keepSum, keep := s.keepsEdit(path, ""); keep {
+		s.mu.Lock()
+		s.kept = append(s.kept, path)
+		if s.detailing {
+			s.detailed = append(s.detailed, WrittenFile{Path: path, Action: "edited", Sum: keepSum})
+		}
+		s.mu.Unlock()
+		return false, nil
+	}
+	editSum := backupSum
+	if protectEdit {
+		editSum = sum
+	}
+	if !dryRun && editSum != "" && ContentSum(string(existing)) != editSum {
+		cur := &onDisk{path: path}
+		info, statErr := cur.lstat()
+		if statErr != nil {
+			return false, fmt.Errorf("lstat %s: %w", path, statErr)
+		}
+		if !info.Mode().IsRegular() || escapesProjectRoot(path) || symlinkedParent(path) {
+			s.mu.Lock()
+			s.kept = append(s.kept, path)
+			if s.detailing {
+				s.detailed = append(s.detailed, WrittenFile{Path: path, Action: "edited", Sum: editSum})
+			}
+			s.mu.Unlock()
+			return false, nil
+		}
+		backup := path + ".bak"
+		switch err := backUpEdit(cur, backup); {
+		case errors.Is(err, fs.ErrExist):
+			s.mu.Lock()
+			s.backedUp = append(s.backedUp, path)
+			if s.detailing {
+				s.detailed = append(s.detailed, WrittenFile{Path: path, Action: "edited", Sum: editSum})
+			}
+			s.mu.Unlock()
+			return false, nil
+		case err != nil:
+			return false, fmt.Errorf("backup %s: %w", path, err)
+		}
+		s.noteBackup(path)
+		s.mu.Lock()
+		if s.transacting {
+			s.txLog = append(s.txLog, txEntry{path: backup})
+		}
+		s.mu.Unlock()
+		removed, err := s.removeWithBackup(path, sum, existing, false, dryRun, backup)
+		if removed && err == nil {
+			s.mu.Lock()
+			s.removedEdits = append(s.removedEdits, path)
+			s.mu.Unlock()
+		}
+		return removed, err
 	}
 	return s.remove(path, sum, existing, false, dryRun)
 }
@@ -1314,7 +1415,11 @@ func (s *Session) ReplaceFolderWithLink(path string, replace func() error) error
 // the bytes it resolves to, so Rollback restores the link itself.
 // handWritten marks a file sync did not write, which backup mode keeps as
 // `<path>.bak` so revert can restore it.
-func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun bool) (removed bool, err error) {
+func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun bool) (bool, error) {
+	return s.removeWithBackup(path, sum, existing, handWritten, dryRun, "")
+}
+
+func (s *Session) removeWithBackup(path, sum string, existing []byte, handWritten, dryRun bool, backupPath string) (removed bool, err error) {
 	s.mu.Lock()
 	capturing := s.capturing
 	detailing := s.detailing
@@ -1364,7 +1469,7 @@ func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun 
 
 	if detailing {
 		s.mu.Lock()
-		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: 0, Action: "delete"})
+		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: 0, Action: "delete", Backup: backupPath})
 		s.mu.Unlock()
 	}
 	return true, nil

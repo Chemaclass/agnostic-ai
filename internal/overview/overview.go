@@ -497,9 +497,6 @@ func sectionItem(root string, e spec.Entry) SectionItem {
 		Layer:       e.Layer,
 		Scope:       e.EffectiveScope(),
 	}
-	if e.Kind == spec.KindHook {
-		item.Values = specValues(sanitizeHookMeta(e.Meta))
-	}
 	if e.Kind == spec.KindSettings {
 		item.Values = settingsValues(e)
 		if LocalLayer(e) {
