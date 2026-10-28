@@ -551,4 +551,6 @@
 # #2672 measured 23855264 on Go 1.27.3: sync preserves edited outputs
 # before removal, and revert restores their bytes and permissions.
 # Linux amd64 release flags; no added headroom or dependencies.
-23855264
+# #2655 measured 23871648 on Go 1.27.3 on top of main after #2673: upgrade verifies the build provenance of the release it installs with gh.
+# Linux amd64 release flags; no added headroom or dependencies.
+23871648

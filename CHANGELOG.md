@@ -9,6 +9,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Case-only rule, skill, or agent renames keep generated files and protect hand edits with backups or `--keep-edits` (#2640).
 - `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
 - Sync saves edited outputs as `.bak` before removing them when a spec or target leaves, and `revert` restores them (#2639).
+- `install.sh`, `install.ps1`, and `upgrade` verify each archive's build provenance when `gh` is logged in, and stop on a mismatch (#2655).
+- The installers reject a version that is not a release, such as `v1.0.0/../x`, before downloading anything (#2655).
 
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
