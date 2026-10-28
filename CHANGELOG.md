@@ -6,14 +6,14 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Sync saves edited outputs as `.bak` before removing them when a spec or target leaves, and `revert` restores them (#2639).
+
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 
 #### Web interface
 
 - Lifecycle stages start closed, with counts and descriptions visible; expand one or all, search hooks, or follow a link to open its stage (#2631).
-- Lifecycle shows hook counts per stage, labels tool logos **Runs on**, leads hook rows with commands or types, and marks disabled hooks (#2630).
-
 - A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).
 - Set `model` and `effort` for one tool under **What each tool gets**, saved as `model.<tool>` or `effort.<tool>`. Each tool shows where its value comes from, such as `personal · codex`, and when an `agnostic-ai.yaml` output key replaces it; **Use the value for every tool** removes the tool's entry. `/api/edit/field` and setting previews take `target` (#2602).
 - **Settings** names where an edit goes **Shared (committed)** or **Personal (not committed)**, and edit and preview requests take `audience: shared` or `audience: personal`. The older `scope: team` or `scope: local` is accepted until the next minor release; a request that sends both with different meanings returns 400. Change plans carry `audience` beside `scope` until then, and a saved choice on the page carries over (#2602).

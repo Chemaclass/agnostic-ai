@@ -445,7 +445,6 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
         {stages.map((st) => {
           const here = hooks.filter((h) => h.group === st.id)
           const matching = filtering ? here.filter((hook) => matchingHooks.has(hook)) : here
-          const disabled = matching.filter(hookDisabled).length
           const linked = entry !== undefined && here.some((hook) => itemEntryId(hook) === entry || findingEntryIds(hook.findings, itemEntryId(hook)).includes(entry))
           const rechecking = here.some((hook) => itemEntryId(hook) === (recheck.pendingPlace ?? recheck.rechecked?.place))
           return (
@@ -455,10 +454,7 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
                   <h3 className="stage-summary">
                     <span className="stage-label">
                       <span className="stage-title">{st.label}</span>
-                      <span className="stage-counts">
-                        <Badge tone="neutral" className="stage-count">{matching.length ? `${matching.length} ${matching.length === 1 ? 'hook' : 'hooks'}` : filtering ? 'No matching hooks' : 'No hooks'}</Badge>
-                        {disabled > 0 && <span className="muted stage-disabled-count">{disabled} disabled</span>}
-                      </span>
+                      <Badge tone="neutral" className="stage-count">{matching.length ? `${matching.length} ${matching.length === 1 ? 'hook' : 'hooks'}` : filtering ? 'No matching hooks' : 'No hooks'}</Badge>
                     </span>
                     <span className="muted stage-description">{st.description}</span>
                   </h3>
@@ -466,7 +462,6 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
                 <div className="stage-body">
                   {st.targets.length > 0 && (
                     <p className="stage-tools">
-                      <span className="muted">Runs on</span>
                       {st.targets.map((t) => (
                         <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
                       ))}
@@ -510,8 +505,6 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
   return (
     <ul className="item-list">
       {items.map((item) => {
-        const action = hookAction(item)
-        const values = item.values.filter((value) => value !== action && !(hookDisabled(item) && value.key === 'disabled'))
         const control = item.enabled !== undefined && <>
           <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { audience, name: item.name, enabled: on, expected: item.enabled })} />
           {item.local && <ResetAction label={`Reset ${item.name} to shared value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !item.enabled, expected: item.enabled })} />}
@@ -522,7 +515,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
             {item.kind === 'builtin' && item.enabled !== undefined
               ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
               : heading(control)}
-            {!hideValues && values.length > 0 && <Values values={values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
+            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && <Tools listing={item.tools} />}
             <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
           </ItemRow>
@@ -540,17 +533,14 @@ function ItemRow({ item, children }: { item: SectionItem; children: ReactNode })
 function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
   const root = useContext(ConfigurationRoot)
   const refinable = item.kind === 'instructions' && item.layer === 'global'
-  const action = hookAction(item)
   return (
     <div className="item-heading">
       <div className="item-main">
         <strong>{item.label}</strong>
-        {action && (action.type === 'list' ? action.list ?? [] : [action.value]).map((command, index) => <code className="hook-command" key={index}>{command}</code>)}
         {item.description && <span className="muted item-description">{item.description}</span>}
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
       </div>
       <div className="item-meta">
-        {hookDisabled(item) && <Badge tone="neutral" className="hook-disabled">disabled</Badge>}
         {item.local && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
@@ -560,16 +550,6 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
       </div>
     </div>
   )
-}
-
-function hookAction(item: SectionItem): Value | undefined {
-  if (item.kind !== 'hook') return undefined
-  return item.values.find((value) => value.key === 'command' && ((value.type === 'text' && value.value) || (value.type === 'list' && value.list?.length)))
-    ?? item.values.find((value) => value.key === 'type' && value.type === 'text' && value.value)
-}
-
-function hookDisabled(item: SectionItem): boolean {
-  return item.kind === 'hook' && item.values.some((value) => value.key === 'disabled' && (value.type === 'bool' || value.type === 'text') && value.value === 'true')
 }
 
 /** An MCP server's tools, from the cache `agnostic-ai mcp tools` fills. */
