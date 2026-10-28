@@ -573,6 +573,7 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 - A `sync.unmanaged` entry that climbs above the project root fails to load. A leading `/` anchors an entry at the project root.
 - Sync skips a `.agnostic-ai/.sync-state` entry outside the project or inside `.git/` and names it in a warning. It never removes or changes that file.
 - A spec or MCP server named `.git` fails to load.
+- Project sync refuses to write or remove through a link that leads outside the project or into a `.git` folder, and names the link. A link that stays inside the project, such as `CLAUDE.md` linked to `AGENTS.md`, still works. `sync --global` follows linked dotfiles as before. A linked `.agnostic-ai` folder keeps the sync lock and ledger only when it holds `AGNOSTIC_AI.md`.
 - Sync creates output directories as needed and overwrites existing files.
 
 ## Entry-point files
