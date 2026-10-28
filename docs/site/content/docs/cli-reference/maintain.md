@@ -75,7 +75,8 @@ Add, update, and remove collections of shared specs. See the [packs](@/docs/pack
 agnostic-ai packs add github.com/obra/superpowers@v6.4.2
 agnostic-ai packs add ./path/to/pack
 agnostic-ai packs list
-agnostic-ai packs update [name]
+agnostic-ai packs update [name]            # at the commit in agnostic.packs.lock
+agnostic-ai packs update --latest [name]   # move to the newest commit of the ref
 agnostic-ai packs remove superpowers
 ```
 

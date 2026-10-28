@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 // graphEdge is one spec → target → file relationship.
@@ -40,6 +42,7 @@ func newGraphCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "graph",
+		Args:  cobra.NoArgs,
 		Short: "Render the spec → target → file dependency graph.",
 		Long: "Walks the loaded spec bundle, asks every configured target adapter " +
 			"which files each spec would produce, and prints the resulting graph. " +
@@ -64,9 +67,15 @@ func newGraphCmd() *cobra.Command {
 			if err := validateGraphFormat(format); err != nil {
 				return err
 			}
+			if err := validateGraphKind(kindFilter); err != nil {
+				return err
+			}
 			cfg, bundle, err := loadProject(".")
 			if err != nil {
 				return err
+			}
+			if targets := graphTargets(cfg); targetFilter != "" && !slices.Contains(targets, targetFilter) {
+				return notATargetError(targetFilter, targets)
 			}
 			edges, err := computeGraphEdges(bundle, cfg, graphFilter{spec: specFilter, target: targetFilter, kind: kindFilter})
 			if err != nil {
@@ -77,9 +86,9 @@ func newGraphCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", graphFormatText, "Output format: text, mermaid, dot, json.")
-	cmd.Flags().StringVar(&targetFilter, "target", "", "Restrict to one target.")
+	cmd.Flags().StringVar(&targetFilter, "target", "", "Restrict to one configured target.")
 	cmd.Flags().StringVar(&specFilter, "spec", "", "Restrict to one spec name.")
-	cmd.Flags().StringVar(&kindFilter, "kind", "", "Restrict to one spec kind (agent, skill, rule, hook, mcp, command).")
+	cmd.Flags().StringVar(&kindFilter, "kind", "", "Restrict to one spec kind (agent, skill, rule, hook, mcp, command, settings, review, environment, ignore).")
 	registerTargetCompletion(cmd)
 	return cmd
 }
@@ -92,10 +101,36 @@ func validateGraphFormat(f string) error {
 	return fmt.Errorf("unknown --format %q (want text, mermaid, dot, or json)", f)
 }
 
+func validateGraphKind(kind string) error {
+	if kind == "" {
+		return nil
+	}
+	kinds := make([]string, 0, len(spec.AllKinds))
+	for _, k := range spec.AllKinds {
+		kinds = append(kinds, string(k))
+	}
+	if slices.Contains(kinds, kind) {
+		return nil
+	}
+	if s := suggest.Name(kind, kinds); s != "" {
+		return fmt.Errorf("unknown --kind %q (did you mean %s?); expected one of: %s", kind, s, strings.Join(kinds, ", "))
+	}
+	return fmt.Errorf("unknown --kind %q; expected one of: %s", kind, strings.Join(kinds, ", "))
+}
+
 // graphFilter narrows the graph to one spec, target, or kind. An empty
 // field matches everything.
 type graphFilter struct {
 	spec, target, kind string
+}
+
+// graphTargets returns the configured targets, or every adapter when the
+// config names none.
+func graphTargets(cfg *config.Config) []string {
+	if len(cfg.Targets) == 0 {
+		return adapters.Names()
+	}
+	return cfg.Targets
 }
 
 // computeGraphEdges asks every configured target which files each spec
@@ -110,11 +145,7 @@ func computeGraphEdges(b spec.Bundle, cfg *config.Config, f graphFilter) ([]grap
 	defer adapters.SetWarner(os.Stderr)
 	defer holdStateFile(".")()
 
-	targets := cfg.Targets
-	if len(targets) == 0 {
-		targets = adapters.Names()
-	}
-
+	targets := graphTargets(cfg)
 	if err := adapters.ValidateScopedRules(cfg, b, targets); err != nil {
 		return nil, err
 	}
