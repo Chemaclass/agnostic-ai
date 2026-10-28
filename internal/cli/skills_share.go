@@ -54,23 +54,24 @@ type sharedSkillsState struct {
 // cannot see all participants, so it must not pick a canonical copy.
 // A target whose adapter does not load counts as not emitted.
 func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sharedSkillsState, error) {
+	loaded := make([]string, 0, len(targets))
+	for _, t := range targets {
+		if _, err := adapters.Resolve(t); err == nil {
+			loaded = append(loaded, t)
+		}
+	}
 	st := &sharedSkillsState{
 		enabled:   cfg.Sync.SharedSkills,
-		coversAll: coversAllConfiguredTargets(targets, cfg.Targets),
+		coversAll: coversAllConfiguredTargets(loaded, cfg.Targets),
 		unmanaged: cfg.Sync.Unmanaged,
 	}
 	if !st.enabled {
 		return st, nil
 	}
-	captures, err := captureRenders(cfg, b, targets)
+	captures, err := captureRenders(cfg, b, loaded)
 	if err != nil {
 		return nil, err
 	}
-	loaded := make([]string, 0, len(captures))
-	for _, tc := range captures {
-		loaded = append(loaded, tc.target)
-	}
-	st.coversAll = coversAllConfiguredTargets(loaded, cfg.Targets)
 	if st.coversAll {
 		st.links = planSkillLinks(captures, cfg.Sync.Unmanaged)
 	}
