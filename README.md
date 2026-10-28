@@ -41,6 +41,8 @@ agnostic-ai sync --check
 
 Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files. Sync saves hand edits as `.bak` before replacing or removing a generated file; `revert` restores them.
 
+Changing only the capitalization of a rule, skill, or agent name needs one sync, including on macOS and Windows.
+
 With Claude Code and Codex selected, your note is now in `AGENTS.md`, and `CLAUDE.md` points to it. To change what both tools read, edit `.agnostic-ai/AGNOSTIC_AI.md` and sync again. Do not edit the generated files: sync replaces them.
 
 Homebrew, the install script, Windows, and Go are on the [installation page](https://agnostic-ai.org/docs/installation/).
@@ -59,6 +61,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [Import an existing setup](https://agnostic-ai.org/docs/migration/): review your current tool files before the first sync.
 - [What you can share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when): rules, skills, agents, hooks, MCP servers, settings, and memory.
 - [Supported tools](https://agnostic-ai.org/docs/targets/): what each tool receives, and where.
+- [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` finds its source even when an unselected tool rejects your setup.
 - [Inspect settings in the browser](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): **What each tool gets** follows project sync or `sync --global`, according to the page's scope.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails.
 
