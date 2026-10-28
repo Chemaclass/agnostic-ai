@@ -101,7 +101,7 @@ test.describe('section search', () => {
     const section = data.sections.find((entry) => entry.id === 'lifecycle')!
     section.items = [
       { kind: 'hook', name: 'prepare', label: 'Prepare session', description: '', path: '.agnostic-ai/hooks/prepare.yaml', layer: 'project', group: 'session-start', values: [], findings: [] },
-      { kind: 'hook', name: 'record', label: 'Record result', description: '', path: '.agnostic-ai/hooks/record.yaml', layer: 'project', group: 'after-tool', values: [], findings: [] },
+      { kind: 'hook', name: 'record', label: 'Record result', description: '', path: '.agnostic-ai/hooks/record.yaml', layer: 'project', group: 'after-tool', values: [{ key: 'disabled', type: 'bool', value: 'true' }], findings: [] },
     ]
     section.kinds[0].count = section.items.length
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
@@ -111,12 +111,22 @@ test.describe('section search', () => {
     await expect(page.locator('.item-row')).toHaveCount(1)
     await expect(page.locator('.item-row')).toContainText('Prepare session')
     await expect(page.locator('.stage-title')).toHaveText(section.stages!.map((stage) => stage.label))
+    await expect(page.locator('.stage-count')).toHaveText(section.stages!.map((stage) => stage.id === 'session-start' ? '1 hook' : 'No hooks'))
+    await expect(page.locator('.stage-disabled-count')).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 2, name: 'Hooks 2', exact: true })).toBeVisible()
+    await search.fill('record')
+    await expect(page.locator('.stage-count')).toHaveText(section.stages!.map((stage) => stage.id === 'after-tool' ? '1 hook' : 'No hooks'))
+    await expect(page.locator('.stage-disabled-count')).toHaveText('1 disabled')
     await search.fill('no-such-hook')
     await expect(page.locator('.item-row')).toHaveCount(0)
     await expect(page.locator('.stage-title')).toHaveText(section.stages!.map((stage) => stage.label))
     await expect(page.locator('.stage-empty')).toHaveText(section.stages!.map(() => 'No matching hooks.'))
+    await expect(page.locator('.stage-count')).toHaveText(section.stages!.map(() => 'No hooks'))
+    await expect(page.locator('.stage-disabled-count')).toHaveCount(0)
     await page.getByRole('button', { name: 'Clear search', exact: true }).click()
     await expect(page.locator('.item-row')).toHaveCount(2)
+    await expect(page.locator('.stage-count')).toHaveText(section.stages!.map((stage) => ['session-start', 'after-tool'].includes(stage.id) ? '1 hook' : 'No hooks'))
+    await expect(page.locator('.stage-disabled-count')).toHaveText('1 disabled')
   })
 })
 

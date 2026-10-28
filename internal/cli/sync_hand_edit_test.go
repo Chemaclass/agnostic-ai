@@ -379,3 +379,247 @@ func TestImport_KeepsAnUnrelatedCopyOfASyncBackup(t *testing.T) {
 		t.Error("import copied the sync backup")
 	}
 }
+
+func TestSync_BacksUpEditedOrphanWhenSpecIsRemoved(t *testing.T) {
+	handEditProject(t, "claude")
+	edited := readFile(t, handEditSkill) + "my local tweak\n"
+	mustWriteFile(t, handEditSkill, edited)
+	if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
+		t.Fatal(err)
+	}
+	log := captureLog(t)
+	runSyncOK(t)
+	if got, err := os.ReadFile(handEditSkill + ".bak"); err != nil || string(got) != edited {
+		t.Fatalf("backup = %q, %v; want edit", got, err)
+	}
+	if _, err := os.Stat(handEditSkill); !os.IsNotExist(err) {
+		t.Errorf("orphan still exists: %v", err)
+	}
+	if !strings.Contains(log.String(), "removed a hand edit to "+handEditSkill) {
+		t.Errorf("missing removal warning: %s", log.String())
+	}
+	if out, err := runCLI(t, "revert"); err != nil {
+		t.Fatalf("revert: %v\n%s", err, out)
+	}
+	if got := readFile(t, handEditSkill); got != edited {
+		t.Errorf("restored = %q, want edit", got)
+	}
+}
+
+func TestSync_BacksUpEditedOrphanWhenTargetIsDropped(t *testing.T) {
+	handEditProject(t, "claude, gemini")
+	edited := readFile(t, handEditSkill) + "my local tweak\n"
+	mustWriteFile(t, handEditSkill, edited)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	runSyncOK(t)
+	if got, err := os.ReadFile(handEditSkill + ".bak"); err != nil || string(got) != edited {
+		t.Fatalf("backup = %q, %v; want edit", got, err)
+	}
+	if out, err := runCLI(t, "revert"); err != nil {
+		t.Fatalf("revert: %v\n%s", err, out)
+	}
+	if got := readFile(t, handEditSkill); got != edited {
+		t.Errorf("restored = %q, want edit", got)
+	}
+}
+
+func TestSync_OrphanBackupConflictsAndKeepEdits(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		backup, keep bool
+	}{
+		{"existing backup", true, false}, {"keep edits", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			handEditProject(t, "claude")
+			edited := readFile(t, handEditSkill) + "edit\n"
+			mustWriteFile(t, handEditSkill, edited)
+			if tc.backup {
+				mustWriteFile(t, handEditSkill+".bak", "earlier\n")
+			}
+			if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
+				t.Fatal(err)
+			}
+			log := captureLog(t)
+			if tc.keep {
+				runSyncOK(t, "--keep-edits")
+			} else {
+				runSyncOK(t)
+			}
+			if got := readFile(t, handEditSkill); got != edited {
+				t.Errorf("kept = %q", got)
+			}
+			if tc.backup {
+				if got := readFile(t, handEditSkill+".bak"); got != "earlier\n" {
+					t.Errorf("backup = %q", got)
+				}
+				if !strings.Contains(log.String(), "already holds an earlier one") {
+					t.Errorf("missing conflict warning: %s", log.String())
+				}
+			} else if _, err := os.Lstat(handEditSkill + ".bak"); !os.IsNotExist(err) {
+				t.Errorf("unexpected backup: %v", err)
+			}
+		})
+	}
+}
+
+func TestSync_UneditedOrphanIsRemovedWithoutBackup(t *testing.T) {
+	handEditProject(t, "claude")
+	if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
+		t.Fatal(err)
+	}
+	runSyncOK(t)
+	for _, p := range []string{handEditSkill, handEditSkill + ".bak"} {
+		if _, err := os.Lstat(p); !os.IsNotExist(err) {
+			t.Errorf("%s remains: %v", p, err)
+		}
+	}
+}
+
+func TestSyncJSON_NamesBackupOfRemovedEdit(t *testing.T) {
+	handEditProject(t, "claude")
+	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"edit\n")
+	if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCLI(t, "sync", "--json")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	var got jsonOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range got.Writes {
+		if w.Path == handEditSkill && w.Action == "delete" && w.Backup == handEditSkill+".bak" {
+			return
+		}
+	}
+	t.Errorf("missing removed edit backup: %s", out)
+}
+
+func TestSync_KeepsEditedOrphanWhenBackupIsASymlink(t *testing.T) {
+	handEditProject(t, "claude")
+	edited := readFile(t, handEditSkill) + "edit\n"
+	mustWriteFile(t, handEditSkill, edited)
+	outside := filepath.Join(t.TempDir(), "outside")
+	if err := os.Symlink(outside, handEditSkill+".bak"); err != nil {
+		t.Skip(err)
+	}
+	if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
+		t.Fatal(err)
+	}
+	runSyncOK(t)
+	if got := readFile(t, handEditSkill); got != edited {
+		t.Errorf("kept = %q", got)
+	}
+	if _, err := os.Lstat(outside); !os.IsNotExist(err) {
+		t.Errorf("wrote through backup link: %v", err)
+	}
+}
+
+func TestSync_ProtectsEditedCodexConfigWhenLastMCPIsRemoved(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		args           []string
+		existing, keep bool
+	}{
+		{"text", nil, false, false}, {"json", []string{"--json"}, false, false},
+		{"backup conflict", nil, true, false}, {"keep edits", []string{"--keep-edits"}, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+			mustWriteFile(t, ".agnostic-ai/mcps/local.yaml", "name: local\ncommand: server\n")
+			runSyncOK(t)
+			const path = ".codex/config.toml"
+			edited := readFile(t, path) + "# local edit\n"
+			mustWriteFile(t, path, edited)
+			if tc.existing {
+				mustWriteFile(t, path+".bak", "earlier\n")
+			}
+			if err := os.Remove(".agnostic-ai/mcps/local.yaml"); err != nil {
+				t.Fatal(err)
+			}
+			log := captureLog(t)
+			out, err := runCLI(t, append([]string{"sync"}, tc.args...)...)
+			if err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if tc.existing || tc.keep {
+				if got := readFile(t, path); got != edited {
+					t.Errorf("edit = %q", got)
+				}
+				if tc.existing && readFile(t, path+".bak") != "earlier\n" {
+					t.Error("earlier backup changed")
+				}
+				return
+			}
+			if got, err := os.ReadFile(path + ".bak"); err != nil || string(got) != edited {
+				t.Fatalf("backup = %q, %v", got, err)
+			}
+			if tc.name == "json" {
+				var result jsonOutput
+				if err := json.Unmarshal([]byte(out), &result); err != nil {
+					t.Fatal(err)
+				}
+				found := false
+				for _, w := range result.Writes {
+					if w.Path == path && w.Action == "delete" && w.Backup == path+".bak" {
+						found = true
+					}
+				}
+				if !found {
+					t.Errorf("missing backup in JSON: %s", out)
+				}
+			} else if !strings.Contains(log.String(), "removed a hand edit to "+path) {
+				t.Errorf("missing warning: %s", log.String())
+			}
+			if out, err := runCLI(t, "revert"); err != nil {
+				t.Fatalf("revert: %v %s", err, out)
+			}
+			if got := readFile(t, path); got != edited {
+				t.Error("revert did not restore edited bytes")
+			}
+		})
+	}
+}
+
+func TestRevert_RestoresRemovedEditWithItsMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits")
+	}
+	for _, tc := range []struct {
+		name string
+		mode os.FileMode
+		args []string
+	}{
+		{"private text", 0o600, nil}, {"executable json", 0o755, []string{"--json"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			handEditProject(t, "claude")
+			edited := readFile(t, handEditSkill) + "edit\n"
+			mustWriteFile(t, handEditSkill, edited)
+			if err := os.Chmod(handEditSkill, tc.mode); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
+				t.Fatal(err)
+			}
+			runSyncOK(t)
+			if out, err := runCLI(t, append([]string{"revert"}, tc.args...)...); err != nil {
+				t.Fatalf("revert: %v %s", err, out)
+			}
+			info, err := os.Stat(handEditSkill)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.Mode().Perm() != tc.mode {
+				t.Errorf("mode = %o, want %o", info.Mode().Perm(), tc.mode)
+			}
+			if readFile(t, handEditSkill) != edited {
+				t.Error("restored bytes changed")
+			}
+		})
+	}
+}

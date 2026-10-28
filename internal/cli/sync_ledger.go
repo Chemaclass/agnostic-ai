@@ -260,7 +260,7 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 			kept = append(kept, p)
 			continue
 		}
-		ok, err := sess.RemoveOwned(p, priorSums[p], false)
+		ok, err := sess.RemoveOwnedOrphan(p, priorSums[p])
 		if err != nil {
 			return removed, kept, err
 		}

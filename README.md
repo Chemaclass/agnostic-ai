@@ -39,7 +39,7 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files.
+Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files. Sync saves hand edits as `.bak` before replacing or removing a generated file; `revert` restores them.
 
 Changing only the capitalization of a rule, skill, or agent name needs one sync, including on macOS and Windows.
 
@@ -61,6 +61,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [Import an existing setup](https://agnostic-ai.org/docs/migration/): review your current tool files before the first sync.
 - [What you can share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when): rules, skills, agents, hooks, MCP servers, settings, and memory.
 - [Supported tools](https://agnostic-ai.org/docs/targets/): what each tool receives, and where.
+- [Inspect lifecycle hooks](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): see hook counts per stage, where they run, and their commands.
 - [Inspect settings in the browser](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): **What each tool gets** follows project sync or `sync --global`, according to the page's scope.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails.
 
