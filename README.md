@@ -39,7 +39,7 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files.
+Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files. Sync saves hand edits as `.bak` before replacing or removing a generated file; `revert` restores them.
 
 With Claude Code and Codex selected, your note is now in `AGENTS.md`, and `CLAUDE.md` points to it. To change what both tools read, edit `.agnostic-ai/AGNOSTIC_AI.md` and sync again. Do not edit the generated files: sync replaces them.
 
