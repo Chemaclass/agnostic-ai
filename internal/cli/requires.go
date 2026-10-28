@@ -133,6 +133,9 @@ func requireVersionInScope(source, requires string, global bool) error {
 		return nil
 	}
 	if !allowed {
+		if !global && req.Above(runningVersion) {
+			return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed.\n  The installed release is newer than this project allows.\n  fix: %s\n       This updates requires and the schema URL, then runs sync.", source, req, running, requiresFix(req, source))
+		}
 		var fix string
 		if global && req.Above(runningVersion) {
 			fix = "update `requires` and the schema in " + source + " to adopt installed agnostic-ai " + running

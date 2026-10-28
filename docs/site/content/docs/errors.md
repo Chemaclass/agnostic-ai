@@ -57,18 +57,41 @@ The config file is not valid YAML, has keys the config does not accept, or holds
 
 ### AAI-005: Installed version outside requires
 
-The installed binary is outside the releases the config's [`requires`](@/docs/configuration.md#requires) key allows. Every command that reads the specs stops before it reads them or writes files, including `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the file, the required version, and the installed one:
+The installed binary is outside the releases the config's [`requires`](@/docs/configuration.md#requires) key allows. An exact pin blocks newer releases too. Every command that reads the specs stops before it reads them or writes files, including `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the config files, the required version, and the installed one:
 
 ```
-[AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.71.0, but 0.70.0 is installed; run `agnostic-ai upgrade`
+[AAI-005] agnostic-ai.yaml + agnostic-ai.local.yaml requires agnostic-ai 0.88.0, but 0.89.0 is installed.
+  The installed release is newer than this project allows.
+  fix: run `agnostic-ai upgrade --requires` to adopt installed agnostic-ai 0.89.0
+       This updates requires and the schema URL, then runs sync.
 ```
 
 **Fix:** to adopt a newer installed release, run `agnostic-ai upgrade --requires` from the project root (through your package manager for a project install, such as `pnpm exec agnostic-ai upgrade --requires`). It sets `requires` and the schema tag to the installed release, then syncs.
+
+Running `upgrade` or `update` alone updates the installed tool. Pass `--requires` to adopt an already-installed release in this project. Run `agnostic-ai explain AAI-005` for the full list of fixes.
 
 - **Installed release is older:** run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. For a package-manager install, the message names the install command, such as `pnpm install`.
 - **You want to keep an older pin:** install the release it names through your package manager or `upgrade --version`, which also downgrades a standalone binary.
 - **Global home config:** edit `requires` in the named file to adopt the installed release. `upgrade --requires` changes project config only.
 - **The version does not change:** `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.
+
+In an interactive terminal, a project version mismatch also offers a menu:
+
+```text
+Choose a next step:
+  1. Apply suggested fix (update project requires and schema, then sync)
+  2. Open Claude Code with a fix prompt
+  3. Open Codex with a fix prompt
+  4. Show the fix prompt to copy
+  0. Exit
+Choice [0]:
+```
+
+The apply option appears when the installed release is newer than the project allows. Selecting it runs `upgrade --requires`. Review the changed files and rerun your original command.
+
+Claude Code and Codex appear when they are in the project's merged `targets` and installed on `PATH`. Selecting one shows the prompt and opens an interactive session in the project directory with the error and suggested fix. The tool keeps its normal permissions. Use the copy option for another tool.
+
+Enter or `0` exits without taking action. Every option keeps the original error status, because the failed command does not run again; a chained command such as `agnostic-ai sync && git push` stops either way. After the fix, rerun your original command. The menu is skipped for redirected input or output, CI, quiet or JSON output, global commands, checks, previews, watch mode, hooks, and editor services.
 
 ### AAI-102: Tools write to the same file {#aai-102-targets-emit-to-the-same-output-path}
 

@@ -2,10 +2,28 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
+
+func printUpgradeRequiresHint(out io.Writer, version string) {
+	if err := refuseGlobalHome(".", ""); err != nil {
+		return
+	}
+	cfg, sources, err := config.LoadWithSources(".")
+	if err != nil {
+		return
+	}
+	req, err := config.ParseRequirement(cfg.Requires)
+	if err != nil || !req.Above(version) {
+		return
+	}
+	_, _ = fmt.Fprintf(out, "\nProject config (%s) still requires agnostic-ai %s.\n", strings.Join(sources, " + "), req)
+	_, _ = fmt.Fprintf(out, "Run `agnostic-ai upgrade --requires` to use installed agnostic-ai %s in this project.\n", strings.TrimPrefix(version, "v"))
+	_, _ = fmt.Fprintln(out, "This updates requires and the schema URL, then runs sync.")
+}
 
 func runUpgradeRequires() error {
 	version, err := installedReleaseVersion()

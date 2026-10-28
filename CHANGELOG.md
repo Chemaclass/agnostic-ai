@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Version mismatch errors offer a fix, a prompt to copy, or a project Claude Code or Codex session; `upgrade` names a remaining project pin.
 - With `grok` selected, sync checks whether Git ignores the generated rules with one Git call for all rules, once per run. Before, it started one Git process per rule on every pass, so `sync --check` on a project with 150 rules took about three times as long as without grok (#2646).
 - With `sync.shared-skills: true`, `sync` keeps shared skill links and plans no new ones while a configured external adapter is not on PATH. Before, it treated the run as covering every target and could remove the link of a deleted skill (#2702).
 - **Security:** a re-import no longer keeps a Claude or Codex overlay an earlier release wrote with a credential in it. Import prints the warnings and stops; `--overwrite` writes the overlay without the credential (#2669).
