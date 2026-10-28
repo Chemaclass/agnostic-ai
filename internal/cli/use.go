@@ -471,7 +471,7 @@ func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []stri
 		}
 		for _, kind := range []string{"Rules", "Skills", "Agents", "Commands", "Hooks", "MCP servers"} {
 			entries := slices.DeleteFunc(slices.Clone(entriesFor(mine, kind)), func(e spec.Entry) bool {
-				return adapters.OmittedEntry(t, kindOf(kind), e.Name)
+				return adapters.OmittedEntry(t, kindOf(kind), e.Name) || e.Kind == spec.KindHook && !hookRunnable(e)
 			})
 			if len(entries) == 0 || supports != nil && !slices.Contains(supports, kindOf(kind)) {
 				continue

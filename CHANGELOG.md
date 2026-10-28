@@ -15,6 +15,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - The installers reject a version that is not a release, such as `v1.0.0/../x`, before downloading anything (#2655).
 
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
+- `validate` and `lint` report a hook spec with no `command` and nothing else to run (LINT052), and name a key such as `run:` as the likely misspelling. Before, both passed it, lint warned that it had no body (LINT001), and the sync summary and `explain --global` listed the hook although no tool got it. Lint no longer reports LINT001 for hook specs (#2645).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 - `sync --global` keeps comments in a JSON settings file that also holds hooks, such as `~/.gemini/settings.json` or `~/.claude/settings.json`. Before, one comment stopped the sync with `invalid character '/'`, even with no hook specs, so model, MCP, and settings changes did not reach that tool (#2644).
 - `doctor` fails on an unknown `-t` name, a config `doctor mcp` cannot load, and the glob, nested copy, and hook script findings `--json` skipped (#2659).
