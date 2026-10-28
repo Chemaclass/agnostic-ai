@@ -41,6 +41,8 @@ agnostic-ai sync --check
 
 Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files. Sync saves hand edits as `.bak` before replacing or removing a generated file; `revert` restores them.
 
+Changing only the capitalization of a rule, skill, or agent name needs one sync, including on macOS and Windows.
+
 With Claude Code and Codex selected, your note is now in `AGENTS.md`, and `CLAUDE.md` points to it. To change what both tools read, edit `.agnostic-ai/AGNOSTIC_AI.md` and sync again. Do not edit the generated files: sync replaces them.
 
 Homebrew, the install script, Windows, and Go are on the [installation page](https://agnostic-ai.org/docs/installation/).
