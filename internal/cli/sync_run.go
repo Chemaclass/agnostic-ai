@@ -145,6 +145,7 @@ func readStateFile(projectRoot string) syncStateFile {
 		return s
 	}
 	_ = json.Unmarshal(data, &s)
+	s.dropEscapingEntries(stateFilePath(projectRoot))
 	return s
 }
 
@@ -242,6 +243,7 @@ func readStateFileStrict(projectRoot string) (syncStateFile, error) {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return s, fmt.Errorf("parse %s: %w", p, err)
 	}
+	s.dropEscapingEntries(p)
 	return s, nil
 }
 

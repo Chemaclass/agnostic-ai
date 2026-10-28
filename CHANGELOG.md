@@ -6,6 +6,9 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- **Breaking:** `agnostic-ai.yaml` fails to load when an `outputs` path or `gitignore.path` is absolute, above the project root, or in `.git/`. Use a path inside the project (#PR).
+- Sync skips a `.agnostic-ai/.sync-state` entry outside the project or in `.git/` and names it in a warning, instead of removing or changing that file (#PR).
+- A line break in `gitignore.allow` or `sync.unmanaged`, a `sync.unmanaged` entry above the root, or a pack lock name that is not one folder name now fails (#PR).
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 
