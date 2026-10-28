@@ -248,7 +248,7 @@ func settingPathShaped(v string) bool {
 		}
 	}
 	joined := strings.NewReplacer("/", "", "\\", "").Replace(v)
-	return strings.ContainsAny(v, ".-_~ ") || len(joined) < 20 || !settingBase64.MatchString(joined) || !settingDigitsAndLetters(joined)
+	return strings.ContainsAny(v, ".-_~ ") || len(joined) < 20 || !settingBase64.MatchString(joined) || !settingDigitsAndLetters(joined) || !settingMixedCase(joined)
 }
 
 // settingBase64Like reports whether segment reads as base64: at least
@@ -261,7 +261,11 @@ func settingBase64Like(segment string) bool {
 	if len(segment) >= 16 && settingDigitsAndLetters(segment) {
 		return true
 	}
-	return len(segment) >= 24 && strings.ToLower(segment) != segment && strings.ToUpper(segment) != segment
+	return len(segment) >= 24 && settingMixedCase(segment)
+}
+
+func settingMixedCase(text string) bool {
+	return strings.ToLower(text) != text && strings.ToUpper(text) != text
 }
 
 func settingDigitsAndLetters(text string) bool {

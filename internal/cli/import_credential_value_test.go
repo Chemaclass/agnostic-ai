@@ -54,6 +54,8 @@ func TestLiteralSettingValueRuleAgrees(t *testing.T) {
 		{"CLIENT_KEY", "/Users/x/Library/ApplicationSupport/y", false},
 		{"CLIENT_KEY", "/home/me/project1/Src2", false},
 		{"CLIENT_KEY", "/opt/app2/config.yaml", false},
+		{"GOOGLE_APPLICATION_CREDENTIALS", "/var/run/secrets/gcp1/key", false},
+		{"GOOGLE_APPLICATION_CREDENTIALS", "/home/user1/credentials/gcp", false},
 	} {
 		checks := map[string]bool{
 			"claude hook":         claudeHookCredentialField(claudehooks.CommandEntry{URL: "https://hooks.example.com", Headers: map[string]string{c.key: c.value}}) != "",
