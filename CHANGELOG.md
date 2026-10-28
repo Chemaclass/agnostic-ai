@@ -15,6 +15,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Case-only rule, skill, or agent renames keep generated files and protect hand edits with backups or `--keep-edits` (#2640).
 - `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
 - Sync saves edited outputs as `.bak` before removing them when a spec or target leaves, and `revert` restores them (#2639).
+- `lint` and the editor integration report LINT053 for a spec or setting a tool in `targets` refuses, which stops sync for every tool: a CodeBuddy or Junie agent name, a Zed or OpenCode skill name such as `Lint-It` (commands and agents written as skills included), or Grok rules while the managed `.gitignore` hides them. Before, `lint` passed and the next sync wrote nothing (#2642).
+- `init` with Grok and the managed `.gitignore` writes `gitignore.commit: [grok:instructions]`, so `init --all` followed by an always-on rule syncs. Grok's refusal names the tool once instead of `grok: grok:`, and a name a tool refuses now starts with the spec's path (#2642).
 - `install.sh`, `install.ps1`, and `upgrade` verify each archive's build provenance when `gh` is logged in, and stop on a mismatch (#2655).
 - The installers reject a version that is not a release, such as `v1.0.0/../x`, before downloading anything (#2655).
 

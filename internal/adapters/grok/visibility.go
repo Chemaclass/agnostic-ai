@@ -19,8 +19,8 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 	if len(rules) == 0 {
 		return nil
 	}
-	if cfg.Gitignore.Enabled && !slices.Contains(cfg.Gitignore.CommitKinds(target), config.GitignoreInstructions) {
-		return fmt.Errorf("grok: project rules cannot be Git-ignored; set gitignore.commit: [grok:instructions] or explicitly disable gitignore management")
+	if err := refuseIgnoredRules(rules, cfg); err != nil {
+		return err
 	}
 	layout, err := gitquery.LayoutAt(".")
 	if err != nil {
@@ -32,7 +32,7 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 	}
 	scratch, err := os.MkdirTemp("", "agnostic-ai-grok-ignore-")
 	if err != nil {
-		return fmt.Errorf("grok: create ignore check: %w", err)
+		return fmt.Errorf("create ignore check: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(scratch) }()
 	managedIgnore := cfg.Gitignore.Path
@@ -92,6 +92,15 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 		if err != nil && (!errors.As(err, &exit) || exit.ExitCode() != 1) {
 			return fmt.Errorf("%s: grok check instruction visibility: %w", path, err)
 		}
+	}
+	return nil
+}
+
+// refuseIgnoredRules rejects a config whose managed .gitignore would hide
+// the rules Grok reads.
+func refuseIgnoredRules(rules []spec.Entry, cfg *config.Config) error {
+	if len(rules) > 0 && cfg.Gitignore.Enabled && !slices.Contains(cfg.Gitignore.CommitKinds(target), config.GitignoreInstructions) {
+		return &emit.Refusal{Err: errors.New("project rules cannot be Git-ignored; set gitignore.commit: [grok:instructions] or explicitly disable gitignore management")}
 	}
 	return nil
 }
