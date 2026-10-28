@@ -51,10 +51,11 @@ func testSyncRemovesHardLinkedOutput(t *testing.T, oldName, currentName string) 
 		t.Errorf("current output changed: %q", got)
 	}
 	state := readStateFile(".")
-	if slices.Contains(state.Outputs, old) || slices.Contains(state.Orphans, old) || slices.Contains(state.Unledgered, old) {
+	nativeOld, nativeCurrent := filepath.FromSlash(old), filepath.FromSlash(current)
+	if slices.Contains(state.Outputs, nativeOld) || slices.Contains(state.Orphans, nativeOld) || slices.Contains(state.Unledgered, nativeOld) {
 		t.Errorf("removed hard link remains in ledger: %+v", state)
 	}
-	if !slices.Contains(state.Outputs, current) {
+	if !slices.Contains(state.Outputs, nativeCurrent) {
 		t.Errorf("current output lost ownership: %v", state.Outputs)
 	}
 	runSyncOK(t, "--check")
@@ -78,9 +79,10 @@ func TestSync_CaseOnlyRenamePreservesHandEdits(t *testing.T) {
 			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 			const source = ".agnostic-ai/rules/example.md"
 			const old, current = ".claude/rules/My Rule.md", ".claude/rules/my rule.md"
+			nativeOld, nativeCurrent := filepath.FromSlash(old), filepath.FromSlash(current)
 			mustWriteFile(t, source, "---\nname: My Rule\ndescription: Rule.\n---\nOriginal.\n")
 			runSyncOK(t)
-			baseline := readStateFile(".").OutputSums[old]
+			baseline := readStateFile(".").OutputSums[nativeOld]
 			edited := readFile(t, old) + "\nUser edit.\n"
 			mustWriteFile(t, old, edited)
 			if mode == "backup conflict" {
@@ -93,7 +95,7 @@ func TestSync_CaseOnlyRenamePreservesHandEdits(t *testing.T) {
 			}
 			result := runSyncJSONArgs(t, args...)
 			state := readStateFile(".")
-			if slices.Contains(state.Outputs, old) || !slices.Contains(state.Outputs, current) {
+			if slices.Contains(state.Outputs, nativeOld) || !slices.Contains(state.Outputs, nativeCurrent) {
 				t.Errorf("rename ownership not transferred: %v", state.Outputs)
 			}
 			if mode == "backup" {
@@ -103,7 +105,7 @@ func TestSync_CaseOnlyRenamePreservesHandEdits(t *testing.T) {
 				if got := readFile(t, current); !strings.Contains(got, "Updated.") || strings.Contains(got, "User edit.") {
 					t.Errorf("output not updated: %q", got)
 				}
-				if state.OutputSums[current] == baseline || state.OutputSums[current] == "" {
+				if state.OutputSums[nativeCurrent] == baseline || state.OutputSums[nativeCurrent] == "" {
 					t.Errorf("new baseline not saved: %v", state.OutputSums)
 				}
 				runSyncOK(t, "--check")
@@ -118,8 +120,8 @@ func TestSync_CaseOnlyRenamePreservesHandEdits(t *testing.T) {
 			if got := readFile(t, current); got != edited {
 				t.Errorf("preserved output=%q, want hand edit", got)
 			}
-			if state.OutputSums[current] != baseline {
-				t.Errorf("lost prior baseline: got %q, want %q", state.OutputSums[current], baseline)
+			if state.OutputSums[nativeCurrent] != baseline {
+				t.Errorf("lost prior baseline: got %q, want %q", state.OutputSums[nativeCurrent], baseline)
 			}
 			if record, ok := recordFor(result.Skipped, current); !ok || record.Action != "edited" {
 				t.Errorf("edit not reported as kept: %+v", result)
@@ -224,10 +226,11 @@ func testSyncCaseOnlyRename(t *testing.T, sameFile bool) {
 							t.Errorf("old output %s remains: %v", old, err)
 						}
 					}
-					if slices.Contains(state.Outputs, old) || !slices.Contains(state.Outputs, current) {
+					nativeOld, nativeCurrent := filepath.FromSlash(old), filepath.FromSlash(current)
+					if slices.Contains(state.Outputs, nativeOld) || !slices.Contains(state.Outputs, nativeCurrent) {
 						t.Errorf("ledger did not replace %s with %s: %v", old, current, state.Outputs)
 					}
-					if slices.Contains(state.Orphans, old) || slices.Contains(state.Orphans, current) {
+					if slices.Contains(state.Orphans, nativeOld) || slices.Contains(state.Orphans, nativeCurrent) {
 						t.Errorf("renamed output became an orphan: %v", state.Orphans)
 					}
 				}
