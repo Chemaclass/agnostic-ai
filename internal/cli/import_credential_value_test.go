@@ -45,6 +45,10 @@ func TestLiteralSettingValueRuleAgrees(t *testing.T) {
 		{"Proxy-Authorization", "SSWS ${OKTA_TOKEN}", false},
 		{"API_TOKEN", "hunter ${X}", true},
 		{"API_TOKEN", "$A $B", false},
+		{"API_TOKEN", "${A}$B", false},
+		{"API_KEY", "/9j/4AAQSkZJRgABAQAAAQABAAD2wBDAAgGBgcGBQgH", true},
+		{"AWS_SECRET_ACCESS_KEY", "/Jalr/XUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY", true},
+		{"CLIENT_KEY", "/home/me/.ssh/id_ed25519", false},
 	} {
 		checks := map[string]bool{
 			"claude hook":         claudeHookCredentialField(claudehooks.CommandEntry{URL: "https://hooks.example.com", Headers: map[string]string{c.key: c.value}}) != "",

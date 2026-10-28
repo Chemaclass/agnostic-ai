@@ -231,7 +231,25 @@ var (
 	settingSwitch   = regexp.MustCompile(`^(?i:true|false|yes|no|on|off|0|1)$`)
 	settingPath     = regexp.MustCompile(`^(?:~/|\.\.?/|[A-Za-z]:[\\/]|/[^/]+/)`)
 	settingFileName = regexp.MustCompile(`(?i)^[^/\\\s]+\.(?:json|txt|pem|key|env|ya?ml|toml|crt|p12|db)$`)
+	settingBase64   = regexp.MustCompile(`^[A-Za-z0-9+=]{16,}$`)
 )
+
+// settingPathShaped reports whether v has the shape of a path, not of a
+// base64 secret that starts with `/`, such as `/9j/4AAQSkZJRg...`: no
+// segment of 16 or more characters that mixes upper case, lower case,
+// and digits.
+func settingPathShaped(v string) bool {
+	if !settingPath.MatchString(v) {
+		return false
+	}
+	for _, segment := range strings.FieldsFunc(v, func(r rune) bool { return r == '/' || r == '\\' }) {
+		if settingBase64.MatchString(segment) && strings.ContainsAny(segment, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") &&
+			strings.ContainsAny(segment, "abcdefghijklmnopqrstuvwxyz") && strings.ContainsAny(segment, "0123456789") {
+			return false
+		}
+	}
+	return true
+}
 
 // settingNamesNoSecret reports whether value names no secret even under
 // a credential name: a boolean such as `CLAUDE_CODE_SKIP_BEDROCK_AUTH=1`,
@@ -243,7 +261,7 @@ func settingNamesNoSecret(value string) bool {
 	if settingSwitch.MatchString(v) {
 		return true
 	}
-	return (settingPath.MatchString(v) || settingFileName.MatchString(v)) && !mcpTokenIn(v) && !mcpCredentialDetected(v)
+	return (settingPathShaped(v) || settingFileName.MatchString(v)) && !mcpTokenIn(v) && !mcpCredentialDetected(v)
 }
 
 // credentialSettingValue reports whether an imported setting, such as an

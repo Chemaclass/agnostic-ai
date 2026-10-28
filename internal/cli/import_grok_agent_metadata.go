@@ -148,9 +148,29 @@ func validateGrokRetainedCredentials(entries map[string]any) error {
 	if unsafe {
 		return errors.New("native metadata contains a credential; remove literal credentials before importing")
 	}
-	return withoutMCPCredentials("grok", entries, func(_, _, _ string) error {
+	return withoutMCPCredentials("grok", withoutReferenceSettings(entries), func(_, _, _ string) error {
 		return errors.New("native metadata contains a credential; remove literal credentials before importing")
 	})
+}
+
+// withoutReferenceSettings returns a copy of entries with each `env` and
+// `headers` value the shared setting rule reads as only references
+// emptied, so the MCP filter, which reads `$NAME` as literal, checks the
+// rest by the same rule.
+func withoutReferenceSettings(entries map[string]any) map[string]any {
+	probe, _ := jsonRoundTrip(entries).(map[string]any)
+	for _, raw := range probe {
+		entry, _ := raw.(map[string]any)
+		for _, field := range []string{"env", "headers"} {
+			values, _ := entry[field].(map[string]any)
+			for key, value := range values {
+				if text, ok := value.(string); ok && !literalSettingValue(key, text) {
+					values[key] = ""
+				}
+			}
+		}
+	}
+	return probe
 }
 
 func validateGrokHookCredentials(entries map[string]any) error {
