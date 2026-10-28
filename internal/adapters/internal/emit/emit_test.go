@@ -636,3 +636,38 @@ func TestCapture_ReportsOnlyEnforcedModes(t *testing.T) {
 		t.Errorf("capture wrote a file: %v", err)
 	}
 }
+
+func TestSession_RefusesTheGitFolderAndAbsolutePathsOutsideTheProject(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "victim.md")
+	testutilChdir(t, root)
+	sess := NewSession()
+	sess.SetProjectRoot(".")
+	paths := []string{
+		filepath.Join(".git", "hooks", "post-checkout"),
+		filepath.Join(".claude", "skills", ".GIT ", "HEAD"),
+		outside,
+		filepath.Join(root, ".git", "config"),
+	}
+
+	for _, path := range paths {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := sess.WriteFile(path, "y\n", false); err == nil {
+			t.Errorf("WriteFile(%s) succeeded, want a refusal", path)
+		}
+		if removed, _ := sess.RemoveOwned(path, ContentSum("x\n"), false); removed {
+			t.Errorf("RemoveOwned(%s) removed it, want a refusal", path)
+		}
+		if got, err := os.ReadFile(path); err != nil || string(got) != "x\n" {
+			t.Errorf("%s changed: %q, %v", path, got, err)
+		}
+	}
+	if err := sess.WriteFile(filepath.Join(root, "inside.md"), "x\n", false); err != nil {
+		t.Errorf("absolute path inside the project refused: %v", err)
+	}
+}
