@@ -490,7 +490,7 @@ export interface SectionItem {
   values: Value[]
   /** For a built-in: whether the config turns it on. */
   enabled?: boolean
-  /** For a built-in: the personal config turns it on or off against the team's list. */
+  /** For a built-in: the personal config turns it on or off against the shared list. */
   local?: boolean
   /** For a personal settings file: the dotted keys it sets itself. */
   localKeys?: string[]

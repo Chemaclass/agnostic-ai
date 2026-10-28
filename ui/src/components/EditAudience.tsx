@@ -60,7 +60,7 @@ export function EditAudienceSwitch() {
         {option('personal', 'Personal (not committed)')}
       </div>
       <p className="muted edit-scope-hint" role="status">
-        {state.audience === 'shared' ? 'Changes go to the files your team commits.' : 'Changes go to personal files that Git ignores. Your team does not get them.'}
+        {state.audience === 'shared' ? 'Changes go to shared files that Git tracks.' : 'Changes go to personal files that Git ignores. Nobody else gets them.'}
       </p>
     </div>
   )

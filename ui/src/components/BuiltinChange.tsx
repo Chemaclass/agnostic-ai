@@ -223,7 +223,7 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
   const { pending, request, cancel } = useBuiltinChanges()
   return <section className="builtin-change builtin-change-preview" aria-label={`${title} preview`} aria-busy={!!pending}>
     <h3>{heading}</h3>
-    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : 'for the team'} and sync <span className="tool-list">{change.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</p>
+    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : 'for everyone'} and sync <span className="tool-list">{change.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</p>
     {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> Applying writes source changes that were not synced yet, too. Every affected file is listed below.</p>}
     <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
     <div className="builtin-change-files">
