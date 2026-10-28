@@ -6,7 +6,6 @@ package gitquery
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -180,13 +179,8 @@ func Ignored(root, path string) bool {
 // other ignore file. One Git check answers every path, once per run for
 // the same patterns and paths.
 func IgnoredBy(patterns []byte, paths []string) (map[string]bool, error) {
-	key := sha256.New()
-	key.Write(patterns)
-	for _, p := range paths {
-		key.Write([]byte{0})
-		key.Write([]byte(p))
-	}
-	r := ignoredBy.get(string(key.Sum(nil)), func() matchResult {
+	key := string(patterns) + "\x00" + strings.Join(paths, "\x00")
+	r := ignoredBy.get(key, func() matchResult {
 		matched, err := ignoredByFresh(patterns, paths)
 		return matchResult{matched: matched, err: err}
 	})
