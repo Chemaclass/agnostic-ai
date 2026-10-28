@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync` writes `.agnostic-ai/.sync-state` to a temporary file and then moves it into place, so a full disk or a stop mid-write no longer leaves a cut-short ledger. When the ledger does not parse, `sync` warns with its path, looks for leftover files as if no ledger existed, and writes a new one; `sync --check` fails and says to run `sync`. Before, both read it as empty without a word, so leftovers stayed and the check passed (#2665).
 - **Breaking:** Sync refuses an `outputs` path or `gitignore.path` outside the project or in `.git/`, and a spec named `.git`. Use a path inside the project (#2701).
 - Sync skips a `.agnostic-ai/.sync-state` entry outside the project or in `.git/` and names it in a warning, instead of removing or changing that file (#2701).
 - A line break in `gitignore.allow` or `sync.unmanaged`, a `sync.unmanaged` entry above the root, or a pack lock name that is not one folder name now fails (#2701).
