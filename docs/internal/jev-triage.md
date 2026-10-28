@@ -72,7 +72,7 @@ The full audit of 2026-09-28 (25 targets, 19 changed pages) made 13 requests wit
 Two sets with expected answers live beside the saved source versions:
 
 - `scripts/target-audit/triage-cases.tsv`: a claim, a short exact vendor quote, and the expected verdict, from closed target-audit issues.
-- `scripts/target-audit/surface-cases.tsv`: a vendor quote and whether it documents a project configuration feature, from records of newly supported features, issues, and fetched pages. A page source is its URL and fetch date, so the row holds without a local file.
+- `scripts/target-audit/surface-cases.tsv`: a vendor quote and whether it documents a project configuration feature, from records of newly supported features, issues, and fetched pages. A page source is its URL and "as of <date>", so the row holds without a local file.
 
 Run both with a key before changing a default, a threshold, or the question wording, and at least twice, because Jev's answers vary slightly between runs:
 

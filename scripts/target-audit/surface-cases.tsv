@@ -1,5 +1,5 @@
 # Labeled cases for scripts/jev-triage.sh --replay-surface, built from capability signals, audit issues, and fetched vendor pages.
-# source: an issue number, issue:<n>, signal:<id>, or the vendor URL with "fetched <date>", or "unverified since <date>" when no stored copy confirms the quote. Never a path under the ignored local/target-audit/.
+# source: an issue number, issue:<n>, signal:<id>, or the vendor URL with "as of <date>", the date of the stored page text that holds the quote (the lock row date or the run date), or "unverified since <date>" when no stored copy confirms it. Never a path under the ignored local/target-audit/.
 # yes: the excerpt adds, removes, renames, or alters a project-scoped config surface. no: UI, CLI UX, models, packaging, or user-level changes.
 # case	target	excerpt	expected	source
 copilot-default-model-pin	copilot	Pin the default model for this repo.	yes	signal:cap-project-default-model-settings
@@ -9,15 +9,15 @@ openhands-agent-lifecycle-hooks	openhands	File-based agents can define lifecycle
 amp-orb-setup-script	amp	Add an executable .agents/setup shell script at the repository root.	yes	637
 antigravity-agent-hooks-frontmatter	antigravity	A Markdown agent can list hook files in its front matter with a hooks: entry.	yes	signal:cap-agent-scoped-lifecycle-hooks
 factory-mcp-empty-list	factory	Setting mcpServers: [] excludes every MCP server, even globally configured ones.	yes	signal:cap-agent-mcp-scoping
-gemini-geminiignore-path	gemini	Create a file named .geminiignore in the root of your project directory.	yes	https://geminicli.com/docs/cli/gemini-ignore/ fetched 2026-09-25
-claude-attribution-boolean	claude	Added "attribution": false in settings.json to hide all commit and PR attribution; older CLI versions skip a settings file that holds it, so keep the object form in files shared across versions	yes	https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md fetched 2026-10-27
+gemini-geminiignore-path	gemini	Create a file named .geminiignore in the root of your project directory.	yes	https://geminicli.com/docs/cli/gemini-ignore/ as of 2026-09-25
+claude-attribution-boolean	claude	Added "attribution": false in settings.json to hide all commit and PR attribution; older CLI versions skip a settings file that holds it, so keep the object form in files shared across versions	yes	https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md as of 2026-10-27
 crush-mcp-channel-key	crush	channel_enabled: "Enable this MCP server as a channel (equivalent to --channels)"	yes	signal:cap-mcp-channel-message-routing
-copilot-mcp-disable-ux	copilot	A disabled server remains configured but is not used by Copilot. This setting persists across sessions.	no	https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers.md fetched 2026-10-21
-amp-npm-package-rename	amp	The Amp CLI is now @ampcode/cli (was @sourcegraph/amp).	no	https://ampcode.com/news.rss fetched 2026-10-24
-antigravity-theme-toggle-ui	antigravity	A new "Toggle Between Light/Dark Themes" command flips the theme without a trip to Settings.	no	https://antigravity.google/docs/changelog fetched 2026-10-24
-cline-model-catalog-refresh	cline	Refreshed the model catalog: still 209 providers, 6,188 to 6,237 models. The Cline Pass tier gains cline-pass/mimo-v2.6-flash and cline-pass/mimo-v2.6-pro.	no	https://github.com/cline/cline/releases fetched 2026-09-25
-warp-skill-source-analytics	warp	The Conversation API returns skill loads as read_skill actions.	no	https://docs.warp.dev/agents/capabilities/skills.md fetched 2026-10-20
-kiro-gpt-context-window	kiro	GPT-5.6 Sol, Terra, and Luna now support a 1M token context window, up from 272K, in the Kiro IDE, CLI, and Web.	no	https://kiro.dev/changelog/ fetched 2026-09-25
+copilot-mcp-disable-ux	copilot	A disabled server remains configured but is not used by Copilot. This setting persists across sessions.	no	https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers.md as of 2026-10-21
+amp-npm-package-rename	amp	The Amp CLI is now @ampcode/cli (was @sourcegraph/amp).	no	https://ampcode.com/news.rss as of 2026-10-24
+antigravity-theme-toggle-ui	antigravity	A new "Toggle Between Light/Dark Themes" command flips the theme without a trip to Settings.	no	https://antigravity.google/docs/changelog as of 2026-10-24
+cline-model-catalog-refresh	cline	Refreshed the model catalog: still 209 providers, 6,188 to 6,237 models. The Cline Pass tier gains cline-pass/mimo-v2.6-flash and cline-pass/mimo-v2.6-pro.	no	https://github.com/cline/cline/releases as of 2026-09-25
+warp-skill-source-analytics	warp	The Conversation API returns skill loads as read_skill actions.	no	https://docs.warp.dev/agents/capabilities/skills.md as of 2026-10-20
+kiro-gpt-context-window	kiro	GPT-5.6 Sol, Terra, and Luna now support a 1M token context window, up from 272K, in the Kiro IDE, CLI, and Web.	no	https://kiro.dev/changelog/ as of 2026-09-25
 copilot-subagentstart-matcher	copilot	Supports an optional `matcher` field that filters by agent name. The value is treated as a regular expression wrapped as `^(?:matcher)$` and tested against `agentName`.	yes	1377
 cursor-security-review-dashboard	cursor	Security Review is available today. It reads every pull request in the context of the codebase and posts one review comment reporting exploitable bugs.	no	signal:cap-cursor-security-review
 kiro-workflow-recipes	kiro	Recipes can come from your workspace (`.kiro/workflows/`), your user configuration, recipes synchronized for your account, or the set bundled with Kiro.	yes	signal:cap-project-agent-workflows
