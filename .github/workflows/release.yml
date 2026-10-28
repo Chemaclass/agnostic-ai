@@ -175,7 +175,8 @@ jobs:
     # job failed: assets upload before the Homebrew, Scoop, and winget pushes,
     # so a package-manager token going stale must not also hold back npm.
     # scripts/npm-binaries.sh is the real gate, rather than the job result: it
-    # fails when an archive is missing or does not match its checksum.
+    # fails when an archive is missing, does not match its checksum, or has no
+    # build provenance from this workflow for the tag.
     needs: goreleaser
     if: always() && needs.goreleaser.result != 'cancelled' && needs.goreleaser.result != 'skipped'
     runs-on: ubuntu-latest
@@ -185,6 +186,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      # Read the build provenance each archive must carry before it is packed.
+      attestations: read
     env:
       NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
     steps:
@@ -208,8 +211,9 @@ jobs:
       #
       # Collecting the binaries is also the gate on the release being
       # complete: the script downloads all six archives, verifies them against
-      # checksums.txt, and refuses a partial set, so a missing asset stops the
-      # publish here.
+      # checksums.txt and the provenance this workflow signed for the tag, and
+      # refuses a partial set, so a missing or swapped asset stops the publish
+      # here.
       - name: Collect the release binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
