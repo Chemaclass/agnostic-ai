@@ -269,7 +269,7 @@ func SettingsInEffect(settings []spec.Entry, key string, targets []string) int {
 		if last < 0 {
 			last = i
 		}
-		if !slices.ContainsFunc(targets, func(t string) bool { return !settings[i].EmitsTo(t) }) && SettingsOverride(settings, i, key, targets) < 0 {
+		if !slices.ContainsFunc(targets, func(t string) bool { return !setsFor(settings[i], key, t) }) && SettingsOverride(settings, i, key, targets) < 0 {
 			return i
 		}
 	}
@@ -295,17 +295,26 @@ func SettingsWriteTarget(settings []spec.Entry, inEffect int, key string, target
 	return -1
 }
 
-// SettingsOverride is the index of a spec after i that sets key for every
-// target settings[i] applies to, or -1. With i < 0 the edited spec applies
-// to every target and every spec counts as later.
+// SettingsOverride is the index of a spec after i that gives key a value
+// for every target settings[i] applies to, or -1. With i < 0 the edited
+// spec applies to every target and every spec counts as later.
 func SettingsOverride(settings []spec.Entry, i int, key string, targets []string) int {
 	applies := appliesTo(settings, i, targets)
 	for j := len(settings) - 1; j > i; j-- {
-		if hasField(settings[j], key) && coversTargets(settings[j], applies) {
+		if hasField(settings[j], key) && !slices.ContainsFunc(applies, func(t string) bool { return !setsFor(settings[j], key, t) }) {
 			return j
 		}
 	}
 	return -1
+}
+
+// setsFor reports whether e gives target a value for key: a per-tool map
+// without target or a default gives it nothing.
+func setsFor(e spec.Entry, key, target string) bool {
+	if !hasField(e, key) || !e.EmitsTo(target) {
+		return false
+	}
+	return !slices.Contains(resolvedFields, key) || settingsValueFor(e, key, target) != ""
 }
 
 func appliesTo(settings []spec.Entry, i int, targets []string) []string {

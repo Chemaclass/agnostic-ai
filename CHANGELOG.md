@@ -17,6 +17,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - The authority view checks each distinct text for credentials once per request, so large projects load it several times faster (#2610).
 - **Settings** marks a value from a personal file with a **personal** badge instead of **local**, and its notes and built-in previews say personal and shared instead of local and team (#2615).
 - Going back from a global page the project page opened returns to the project server that opened it, also when that server runs on `--addr` outside ports 4310 to 4319. Before, it started a second project server on another port (#2616).
+- Editing one tool's `model` or `effort` on **Settings** saves when a later spec sets that field only for other tools. Before, a later `model: {claude: opus}` blocked a codex edit in the earlier spec, though codex took its model from it (#2614).
 
 ### By tool
 

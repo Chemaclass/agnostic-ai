@@ -341,3 +341,33 @@ func TestSetFieldAt_KeepsAnInlineCommentOnTheDefault(t *testing.T) {
 		t.Fatalf("crlf expand = %q %v", out, err)
 	}
 }
+
+func TestEditFieldTarget_LaterPerToolValueOverridesOnlyItsTool(t *testing.T) {
+	for _, tc := range []struct{ key, shared, claude, codex string }{
+		{"model", "sonnet", "opus", "gpt-5.5"},
+		{"effort", "high", "low", "medium"},
+	} {
+		t.Run(tc.key, func(t *testing.T) {
+			h := targetProject(t, "")
+			mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\n"+tc.key+": "+tc.shared+"\n")
+			mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\n"+tc.key+":\n  claude: "+tc.claude+"\n")
+			edit := func(target, value string) (int, string) {
+				rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"`+tc.key+`","target":"`+target+`","value":"`+value+`"}`, nil)
+				return rec.Code, rec.Body.String()
+			}
+			if code, body := edit("codex", tc.codex); code != http.StatusOK {
+				t.Fatalf("codex edit = %d %s", code, body)
+			}
+			if got := readProjectFile(t, ".agnostic-ai/settings/a.yaml"); !strings.Contains(got, "codex: "+tc.codex) {
+				t.Fatalf("a.yaml = %q", got)
+			}
+			if code, body := edit("claude", tc.codex); code != http.StatusBadRequest || !strings.Contains(body, "b.yaml sets "+tc.key+" and overrides") {
+				t.Fatalf("claude edit = %d %s", code, body)
+			}
+			mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\n"+tc.key+":\n  default: "+tc.codex+"\n")
+			if code, body := edit("codex", tc.shared); code != http.StatusBadRequest || !strings.Contains(body, "b.yaml sets "+tc.key+" and overrides") {
+				t.Fatalf("codex edit under default = %d %s", code, body)
+			}
+		})
+	}
+}
