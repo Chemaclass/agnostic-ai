@@ -10,6 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Sync skips a `.agnostic-ai/.sync-state` entry outside the project or in `.git/` and names it in a warning, instead of removing or changing that file (#2701).
 - A line break in `gitignore.allow` or `sync.unmanaged`, a `sync.unmanaged` entry above the root, or a pack lock name that is not one folder name now fails (#2701).
 - `doctor config` fails as `sync` does on an unknown builtin or tier target, an unmet `requires`, or a bad `outputs.<target>.agents`, now AAI-004 (#2660).
+- `sync --json` prepares and seeds personal memory like `sync`. Its `notes` now list every project note a plain `sync` prints, such as an overlay file no tool reads, the facts copied into personal memory, and the entry point and worktree notes. Before, a project synced only with `--json` never got its personal memory seeded (#2663).
 - Case-only rule, skill, or agent renames keep generated files and protect hand edits with backups or `--keep-edits` (#2640).
 - `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
 - Sync saves edited outputs as `.bak` before removing them when a spec or target leaves, and `revert` restores them (#2639).
