@@ -317,6 +317,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintPortableHooks(b.Hooks, targets)...)
 	findings = append(findings, lintAgentCapabilities(b.Agents, b.Settings)...)
 	findings = append(findings, lintAgentLimits(b.Agents)...)
+	findings = append(findings, lintHookCommands(b.Hooks)...)
 	for _, issue := range skillCapabilityIssues(b.Skills) {
 		findings = append(findings, lintFinding{Code: "LINT036", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
@@ -347,12 +348,12 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 }
 
 // lintEmptySpecs flags specs with no body and no description (LINT001,
-// warn). Settings and environment specs are fields alone, so they never
-// have either.
+// warn). Settings, environment, and hook specs are fields alone, so they
+// never have either; a hook with nothing to run is LINT052.
 func lintEmptySpecs(entries []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range entries {
-		if e.Kind == spec.KindSettings || e.Kind == spec.KindEnvironment || hasHandler(e) {
+		if e.Kind == spec.KindSettings || e.Kind == spec.KindEnvironment || e.Kind == spec.KindHook || hasHandler(e) {
 			continue
 		}
 		body := strings.TrimSpace(e.Body)
@@ -369,11 +370,11 @@ func lintEmptySpecs(entries []spec.Entry) []lintFinding {
 	return out
 }
 
-// hasHandler reports whether a hook or MCP spec names what it runs or
+// hasHandler reports whether an MCP spec names what it runs or
 // connects to. Its YAML fields are its content, so no body or
 // description makes it empty.
 func hasHandler(e spec.Entry) bool {
-	if e.Kind != spec.KindHook && e.Kind != spec.KindMCP {
+	if e.Kind != spec.KindMCP {
 		return false
 	}
 	for _, k := range []string{"command", "prompt", "server", "tool", "url", "agent"} {

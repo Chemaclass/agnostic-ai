@@ -23,7 +23,7 @@ gitignore:
   commit: [grok:instructions]
 ```
 
-`agnostic-ai init` writes the `commit` line when it selects Grok with the managed `.gitignore` on. Without it, `lint` reports [LINT052](@/docs/cli-reference/lint-codes.md) and sync stops for every tool.
+`agnostic-ai init` writes the `commit` line when it selects Grok with the managed `.gitignore` on. Without it, `lint` reports [LINT053](@/docs/cli-reference/lint-codes.md) and sync stops for every tool.
 
 Create `.agnostic-ai/rules/style.md`:
 

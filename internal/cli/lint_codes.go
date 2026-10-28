@@ -26,7 +26,7 @@ var lintCodes = map[string]lintCode{
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",
-		Cause:    "A spec has no body and no description, so every target receives an empty file or entry.",
+		Cause:    "A spec has no body and no description, so every target receives an empty file or entry. Hook specs are skipped: one with nothing to run is LINT052.",
 		Fix:      "Write the spec's body or description, or delete the file.",
 	},
 	"LINT003": {
@@ -303,13 +303,19 @@ var lintCodes = map[string]lintCode{
 		Cause:    "An MCP spec holds what the import detector reads as a credential in a place LINT035 does not check: user info or a token in `url`, a token in `args`, an `env` or `headers` value in an `x-<target>` block, or the default of a `${NAME:-default}` reference. Sync writes it into each tool's MCP file. The finding names the server and the field, never the value.",
 		Fix:      "Write the credential as a `${NAME}` reference with no default and set the variable. `lint --strict` fails until you do.",
 	},
+	"LINT052": {
+		Severity: lintError,
+		Title:    "Hook with nothing to run",
+		Cause:    "A hook spec has no `command`, no other handler such as `prompt` or `url`, at the top level or under an `x-<target>` block, and no native form such as `x-kiro.action` or `x-gemini.hooks`, so sync writes it to no tool. A key such as `run:` or `comand:` is named as the likely misspelling. `validate` reports the same problem.",
+		Fix:      "Add `command:` with the shell command to run, or rename the misspelled key to `command:`.",
+	},
 	"LINT051": {
 		Severity: lintWarn,
 		Title:    "Overlay file sync does not read",
 		Cause:    "A file under `.agnostic-ai/overlays/` is not one any target reads, such as `gemini.settings.json` or a misspelled `claude.setings.json`. Its keys reach no tool. A name that differs from a known overlay only in case is read only where file names ignore case, such as macOS and Windows. Sync prints the same note. A known overlay of a target missing from `targets` is not flagged. Dot files, dot folders, and README files at the top of `overlays/` are skipped.",
 		Fix:      "For a `<target>.settings.*` file of a tool that merges `x-<target>` from settings specs, such as Gemini CLI, move the keys there. Otherwise rename the file to an overlay the finding lists, or delete it.",
 	},
-	"LINT052": {
+	"LINT053": {
 		Severity: lintError,
 		Title:    "Spec or setting a selected tool refuses",
 		Cause:    "A tool in `targets` refuses a spec or setting before it writes anything, and that stops sync for every tool. CodeBuddy takes agent names of lowercase letters and hyphens only. Zed and OpenCode take skill names of 1 to 64 lowercase letters or digits with single hyphens, and Junie takes agent names that start with a lowercase letter followed by lowercase letters, digits, hyphens, or underscores; this covers commands and agents a tool writes as skills. Grok reads project rules only from committed files, so it refuses rules while `gitignore.enabled` is on and `gitignore.commit` lacks `grok:instructions`. Each tool reports its first refusal. Tools outside `targets` and `lint --global` are not checked.",

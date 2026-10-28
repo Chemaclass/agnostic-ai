@@ -63,7 +63,7 @@ func TestLint_TargetRefusalsFailLint(t *testing.T) {
 			}
 			var found bool
 			for _, f := range report.Findings {
-				if f.Code == "LINT052" && f.Severity == "error" && strings.Contains(f.Message, tc.want) {
+				if f.Code == "LINT053" && f.Severity == "error" && strings.Contains(f.Message, tc.want) {
 					found = true
 					if tc.want != "grok" && f.Path != tc.file {
 						t.Errorf("finding path = %q, want %q", f.Path, tc.file)
@@ -74,7 +74,7 @@ func TestLint_TargetRefusalsFailLint(t *testing.T) {
 				}
 			}
 			if !found {
-				t.Errorf("want one LINT052 error naming %s, got %+v", tc.want, report.Findings)
+				t.Errorf("want one LINT053 error naming %s, got %+v", tc.want, report.Findings)
 			}
 		})
 	}
@@ -86,8 +86,8 @@ func TestLint_TargetRefusalsSkipUnselectedTargets(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/skills/lint-it/SKILL.md"), "---\nname: lint-it\ndescription: Lints code.\n---\n\nRun the linter.\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/rules/demo.md"), "---\nname: demo\ndescription: Demo rule.\nalwaysApply: true\n---\n\nDemo body.\n")
 
-	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT052")) != 0 {
-		t.Errorf("targets outside the project must not raise LINT052:\n%s", out)
+	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT053")) != 0 {
+		t.Errorf("targets outside the project must not raise LINT053:\n%s", out)
 	}
 }
 
@@ -95,8 +95,8 @@ func TestLint_GrokWithCommittedInstructionsIsClean(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, grok]\ngitignore:\n  enabled: true\n  commit: [grok:instructions]\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/rules/demo.md"), "---\nname: demo\ndescription: Demo rule.\nalwaysApply: true\n---\n\nDemo body.\n")
 
-	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT052")) != 0 {
-		t.Errorf("committed grok instructions must clear LINT052:\n%s", out)
+	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT053")) != 0 {
+		t.Errorf("committed grok instructions must clear LINT053:\n%s", out)
 	}
 }
 
@@ -104,7 +104,7 @@ func TestLint_GrokRuleSyncDropsIsClean(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, grok]\ngitignore:\n  enabled: true\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/rules/go.md"), "---\nname: go\ndescription: Go rule.\nglobs: [\"**/*.go\"]\n---\n\nGo body.\n")
 
-	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT052")) != 0 {
-		t.Errorf("a rule sync drops before grok must not raise LINT052:\n%s", out)
+	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT053")) != 0 {
+		t.Errorf("a rule sync drops before grok must not raise LINT053:\n%s", out)
 	}
 }

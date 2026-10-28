@@ -224,15 +224,15 @@ func TestLSPLinter_ReportsTargetRefusal(t *testing.T) {
 	}
 	for path, list := range diagnostics {
 		for _, d := range list {
-			if d.Code == "LINT052" {
+			if d.Code == "LINT053" {
 				if resolved, _ := filepath.EvalSymlinks(path); resolved != mustEvalSymlinks(t, agent) {
-					t.Errorf("LINT052 on %s, want %s", path, agent)
+					t.Errorf("LINT053 on %s, want %s", path, agent)
 				}
 				return
 			}
 		}
 	}
-	t.Errorf("editor must show LINT052 as lint does: %+v", diagnostics)
+	t.Errorf("editor must show LINT053 as lint does: %+v", diagnostics)
 }
 
 func mustEvalSymlinks(t *testing.T, path string) string {

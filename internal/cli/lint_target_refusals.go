@@ -11,7 +11,7 @@ import (
 )
 
 // lintTargetRefusals flags the first spec or setting each selected target
-// refuses, which stops sync for every target (LINT052, error). The check
+// refuses, which stops sync for every target (LINT053, error). The check
 // is the adapter's own, so each rule lives in one place. Global scope has
 // no project config and is not checked.
 func lintTargetRefusals(cfg *config.Config, targets []string, b spec.Bundle, configPath string) []lintFinding {
@@ -37,7 +37,7 @@ func lintTargetRefusals(cfg *config.Config, targets []string, b spec.Bundle, con
 			message = target + ": " + message
 		}
 		out = append(out, lintFinding{
-			Code: "LINT052", Severity: lintError, Path: path,
+			Code: "LINT053", Severity: lintError, Path: path,
 			Message: fmt.Sprintf("%s; sync stops for every tool until this is fixed", message),
 		})
 	}

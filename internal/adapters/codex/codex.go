@@ -346,7 +346,7 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 		return err
 	}
 	for _, h := range hooks {
-		cmds := hookCommands(h.Meta["command"])
+		cmds := emit.HookCommands(h.Meta["command"])
 		for _, raw := range cmds {
 			raw = emit.RewriteNeutralHookPath(raw, ".")
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
