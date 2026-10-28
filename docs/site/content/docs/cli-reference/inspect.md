@@ -270,6 +270,8 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 Edit the path under `sources`, then run `agnostic-ai sync`.
 
+`why` can recognize files from tools outside your `targets` list. If one of those tools cannot generate files with your configuration, it skips that tool. A failure from a tool in `targets` stops the command and names that tool once.
+
 | Field | Meaning |
 |-------|---------|
 | `adapter` | Tool that wrote the file. For a shared file such as `AGENTS.md`, the first tool that reads it. For a path several tools share (`.agents/skills/`), a tool listed in `targets`. If only a tool you did not list writes the path, it reads `adapter: amp (not configured)`. |
