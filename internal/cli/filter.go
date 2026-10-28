@@ -62,6 +62,16 @@ func validateConfigTargets(cfg *config.Config, source string) error {
 	return nil
 }
 
+// resolveRequestedTargets fails on the first -t name no adapter resolves.
+func resolveRequestedTargets(targets []string) error {
+	for _, t := range targets {
+		if _, err := adapters.Resolve(t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // validateAgentsOutput fails on an `outputs.<target>.agents` value sync
 // cannot honor: one other than skill, or a target that has subagents of
 // its own or writes no skills.

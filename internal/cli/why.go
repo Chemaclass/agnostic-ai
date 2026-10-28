@@ -313,14 +313,21 @@ func findEmittingAdapter(rel, abs string, b spec.Bundle, cfg *config.Config) (st
 		if err != nil {
 			continue
 		}
+		configured := slices.Contains(cfg.Targets, name)
 		captured, err := captureEmit(adapter, b, cfg)
 		if err != nil {
-			return "", adapters.CapturedFile{}, false, fmt.Errorf("%s: %w", name, err)
+			if !configured {
+				continue
+			}
+			if !strings.HasPrefix(err.Error(), name+":") {
+				err = fmt.Errorf("%s: %w", name, err)
+			}
+			return "", adapters.CapturedFile{}, false, err
 		}
 		for _, f := range captured {
 			score := scoreCapturedMatch(f.Path, rel, abs)
 			if score > 0 {
-				matches = append(matches, match{target: name, file: f, score: score, configured: slices.Contains(cfg.Targets, name)})
+				matches = append(matches, match{target: name, file: f, score: score, configured: configured})
 			}
 		}
 	}
