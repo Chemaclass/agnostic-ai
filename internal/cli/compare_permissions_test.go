@@ -451,3 +451,21 @@ func TestCompare_PermissionNativeCredentialHiddenInTextAndJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestDisplayPermissionNative_KeepsToolAndDecisionAroundRedaction(t *testing.T) {
+	got := displayPermissionNative(`prefix_rule(pattern=["curl", "-HX-Api-Key:SECRET123456"], decision="forbidden"): forbidden`, true)
+	if want := "prefix_rule(" + preview.Redacted + "): forbidden"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// Two hidden command patterns keep apart, in a stable order.
+func TestDisplayPermissionNative_NumbersHiddenOverrideKeys(t *testing.T) {
+	native := `bash: {"curl -HX-Api-Key:SECRETAAAA1111 https://a":"allow","curl -HX-Api-Key:SECRETBBBB2222 https://b":"deny","git *":"ask"}`
+	want := `bash: {"<redacted>#1":"allow","<redacted>#2":"deny","git *":"ask"}`
+	for range 8 {
+		if got := displayPermissionNative(native, false); got != want {
+			t.Fatalf("got %q, want %q", got, want)
+		}
+	}
+}

@@ -184,8 +184,12 @@ func displayPermissionNative(native string, fromCredential bool) string {
 	case fromCredential && keyed:
 		return key + ": " + preview.Redacted
 	case fromCredential:
-		if name, _, ok := strings.Cut(native, "("); ok && strings.HasSuffix(native, ")") {
-			return name + "(" + preview.Redacted + ")"
+		rule, decision := native, ""
+		if i := strings.LastIndex(native, "): "); i >= 0 && !strings.Contains(native[i+1:], ")") {
+			rule, decision = native[:i+1], native[i+1:]
+		}
+		if name, _, ok := strings.Cut(rule, "("); ok && strings.HasSuffix(rule, ")") {
+			return name + "(" + preview.Redacted + ")" + decision
 		}
 		return preview.Redacted
 	case keyed:
@@ -210,10 +214,21 @@ func redactPermissionOverride(body string) string {
 	walk = func(v any) any {
 		switch v := v.(type) {
 		case map[string]any:
+			var hidden []string
+			for key := range v {
+				if permissionRuleCredential(key) {
+					hidden = append(hidden, key)
+				}
+			}
+			slices.Sort(hidden)
 			out := make(map[string]any, len(v))
 			for key, item := range v {
-				if permissionRuleCredential(key) {
-					key, changed = preview.Redacted, true
+				if i := slices.Index(hidden, key); i >= 0 {
+					changed = true
+					key = preview.Redacted
+					if len(hidden) > 1 {
+						key += "#" + strconv.Itoa(i+1)
+					}
 				}
 				out[key] = walk(item)
 			}
