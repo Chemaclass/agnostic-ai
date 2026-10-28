@@ -104,7 +104,7 @@ It also stops when a tool edit would replace a spec that holds `::target` blocks
 
 A target named in `--target`, `--only`, or the config is not built in, and no `agnostic-ai-adapter-<name>` binary is on PATH.
 
-A name passed with `--target` fails the run. A config target that does not resolve only warns, so a teammate without an external adapter can still sync. When the name is close to a built-in name, the message suggests it: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
+A name passed with `--target` fails the run. A config target that does not resolve only warns, so a teammate without an external adapter can still sync. That sync keeps the missing target's files and prints `~ skipped removing stale files: <target> did not load; a sync that loads every target removes them`. When the name is close to a built-in name, the message suggests it: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
 
 A known target that is not in this run (`sync --only codex` with `targets: [claude]`) reports `codex is not in this run's targets (claude)`.
 

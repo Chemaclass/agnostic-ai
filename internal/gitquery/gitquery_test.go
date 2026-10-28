@@ -87,3 +87,17 @@ func must(t *testing.T, err error) {
 		t.Fatal(err)
 	}
 }
+
+func TestIgnoredBy_MatchesOnlyThePatternsGiven(t *testing.T) {
+	Reset()
+	got, err := IgnoredBy([]byte("/out/*\n!out/keep.md\n*.log\n"), []string{"out/a.md", "out/keep.md", "src/a.md", "src/x.log"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got["out/a.md"] || got["out/keep.md"] || got["src/a.md"] || !got["src/x.log"] {
+		t.Errorf("IgnoredBy = %v", got)
+	}
+	if got, err := IgnoredBy(nil, []string{"a.md"}); err != nil || len(got) != 0 {
+		t.Errorf("no patterns: %v, %v", got, err)
+	}
+}
