@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -77,13 +76,13 @@ func validateAgentsOutput(cfg *config.Config, source string) error {
 			continue
 		}
 		if v != adapters.AgentsAsSkills {
-			return fmt.Errorf("%s: outputs.%s.agents: unknown value %q; the only value is %s", source, t, v, adapters.AgentsAsSkills)
+			return errs.Coded(errs.CodeConfigDecode, "%s: outputs.%s.agents: unknown value %q; the only value is %s", source, t, v, adapters.AgentsAsSkills)
 		}
 		if !adapters.AgentsAsSkillsTarget(t) {
-			return fmt.Errorf("%s: outputs.%s.agents: skill applies to amp, crush, warp, and zed, which write skills and have no subagents", source, t)
+			return errs.Coded(errs.CodeConfigDecode, "%s: outputs.%s.agents: skill applies to amp, crush, warp, and zed, which write skills and have no subagents", source, t)
 		}
 		if o := cfg.Outputs[t]; o.RulesFile != "" || o.WorkflowsDir != "" {
-			return fmt.Errorf("%s: outputs.%s.agents: skill cannot combine with rules-file or workflows-dir, which already carry the agents; keep one", source, t)
+			return errs.Coded(errs.CodeConfigDecode, "%s: outputs.%s.agents: skill cannot combine with rules-file or workflows-dir, which already carry the agents; keep one", source, t)
 		}
 	}
 	return nil
