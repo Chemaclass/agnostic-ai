@@ -48,6 +48,7 @@ func newStatusCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "status",
+		Args:  cobra.NoArgs,
 		Short: "Show project configuration and sync state.",
 		Example: `  # Print project status
   agnostic-ai status

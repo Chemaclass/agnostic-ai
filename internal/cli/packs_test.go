@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -130,7 +131,7 @@ func TestPacksUpdate_LocalSource(t *testing.T) {
 	mustWrite(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nv2")
 
 	out.Reset()
-	if err := runPacksUpdate(root, "", &out); err != nil {
+	if err := runPacksUpdate(root, "", false, &out); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 	got, _ := os.ReadFile(filepath.Join(root, packsDir, "go-rules", "rules", "x.md"))
@@ -223,7 +224,7 @@ func TestPacksUpdateAndRemove_RefuseALockedNameOutsideThePacksFolder(t *testing.
 	testutil.Chdir(t, root)
 
 	var out bytes.Buffer
-	updateErr := runPacksUpdate(root, "", &out)
+	updateErr := runPacksUpdate(root, "", false, &out)
 	removeErr := runPacksRemove(root, "../../../victim", &out)
 
 	for name, err := range map[string]error{"update": updateErr, "remove": removeErr} {
@@ -233,5 +234,240 @@ func TestPacksUpdateAndRemove_RefuseALockedNameOutsideThePacksFolder(t *testing.
 	}
 	if _, err := os.Stat(victim); err != nil {
 		t.Errorf("a locked pack name removed a folder outside the project: %v", err)
+	}
+}
+
+const gitPackSource = "example.test/pack"
+
+// gitPackRemote is a local repository that a pack source of gitPackSource
+// reaches through an isolated Git config.
+type gitPackRemote struct {
+	t   *testing.T
+	dir string
+}
+
+func newGitPackRemote(t *testing.T, extraConfig ...string) *gitPackRemote {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	dir := filepath.Join(t.TempDir(), "remote")
+	cfg := filepath.Join(t.TempDir(), "gitconfig")
+	url := "file://" + filepath.ToSlash(dir)
+	if !strings.HasPrefix(filepath.ToSlash(dir), "/") {
+		url = "file:///" + filepath.ToSlash(dir)
+	}
+	mustWrite(t, cfg, "[url \""+url+"\"]\n\tinsteadOf = https://"+gitPackSource+"\n"+strings.Join(extraConfig, "\n"))
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	for _, k := range []string{"GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME"} {
+		t.Setenv(k, "test")
+	}
+	for _, k := range []string{"GIT_AUTHOR_EMAIL", "GIT_COMMITTER_EMAIL"} {
+		t.Setenv(k, "test@example.test")
+	}
+	r := &gitPackRemote{t: t, dir: dir}
+	r.git("init", "--quiet", "-b", "main", dir)
+	return r
+}
+
+func (r *gitPackRemote) git(args ...string) string {
+	r.t.Helper()
+	cmd := exec.Command("git", args...)
+	if args[0] != "init" {
+		cmd.Dir = r.dir
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		r.t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func (r *gitPackRemote) commit(body string) string {
+	r.t.Helper()
+	mustWrite(r.t, filepath.Join(r.dir, "rules", "x.md"), body)
+	r.git("add", "-A")
+	r.git("commit", "--quiet", "-m", body)
+	return r.git("rev-parse", "HEAD")
+}
+
+func installedRule(t *testing.T, root string) string {
+	t.Helper()
+	got, err := os.ReadFile(filepath.Join(root, packsDir, "p", "rules", "x.md"))
+	if err != nil {
+		t.Fatalf("read installed pack: %v", err)
+	}
+	return string(got)
+}
+
+func lockedSha(t *testing.T, root string) string {
+	t.Helper()
+	lock, err := readPacksLock(root)
+	if err != nil || len(lock.Packs) != 1 {
+		t.Fatalf("read lock: %v %+v", err, lock)
+	}
+	return lock.Packs[0].Sha
+}
+
+func TestPacksUpdate_InstallsRecordedCommitAfterTagMoves(t *testing.T) {
+	remote := newGitPackRemote(t)
+	pinned := remote.commit("v1")
+	remote.git("tag", "--no-sign", "v1")
+	remote.commit("moved")
+	remote.git("tag", "--no-sign", "-f", "v1")
+
+	root := testutil.TempCwd(t)
+	writeLock(t, root, packEntry{Name: "p", Source: gitPackSource, Ref: "v1", Sha: pinned})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", false, &out); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if got := installedRule(t, root); got != "v1" {
+		t.Errorf("installed %q, want the recorded commit's content v1", got)
+	}
+	if got := lockedSha(t, root); got != pinned {
+		t.Errorf("lock sha = %s, want %s", got, pinned)
+	}
+}
+
+func TestPacksUpdate_ForcePushedBranch(t *testing.T) {
+	t.Run("installs the recorded commit while the remote still has it", func(t *testing.T) {
+		remote := newGitPackRemote(t)
+		pinned := remote.commit("pinned")
+		remote.git("update-ref", "refs/keep/pinned", pinned)
+		remote.git("checkout", "--quiet", "--orphan", "rewrite")
+		remote.commit("rewritten")
+		remote.git("branch", "--quiet", "-M", "main")
+
+		root := testutil.TempCwd(t)
+		writeLock(t, root, packEntry{Name: "p", Source: gitPackSource, Ref: "main", Sha: pinned})
+
+		var out bytes.Buffer
+		if err := runPacksUpdate(root, "", false, &out); err != nil {
+			t.Fatalf("update: %v", err)
+		}
+		if got := installedRule(t, root); got != "pinned" {
+			t.Errorf("installed %q, want pinned", got)
+		}
+	})
+
+	t.Run("fails and keeps the lockfile when the commit is gone", func(t *testing.T) {
+		remote := newGitPackRemote(t)
+		pinned := remote.commit("pinned")
+		remote.git("checkout", "--quiet", "--orphan", "rewrite")
+		remote.commit("rewritten")
+		remote.git("branch", "--quiet", "-M", "main")
+		remote.git("reflog", "expire", "--expire=now", "--all")
+		remote.git("gc", "--quiet", "--prune=now")
+
+		root := testutil.TempCwd(t)
+		writeLock(t, root, packEntry{Name: "p", Source: gitPackSource, Ref: "main", Sha: pinned})
+		before, _ := os.ReadFile(filepath.Join(root, packsLockfile))
+
+		var out bytes.Buffer
+		err := runPacksUpdate(root, "", false, &out)
+		if err == nil || !strings.Contains(err.Error(), short(pinned)) || !strings.Contains(err.Error(), "--latest") {
+			t.Fatalf("err=%v, want a failure that names the recorded commit and --latest", err)
+		}
+		after, _ := os.ReadFile(filepath.Join(root, packsLockfile))
+		if !bytes.Equal(before, after) {
+			t.Errorf("lockfile changed after a failed restore:\n%s", after)
+		}
+	})
+}
+
+func TestPacksUpdate_RestoresAnnotatedTagOverProtocolV0(t *testing.T) {
+	remote := newGitPackRemote(t, "[protocol]\n\tversion = 0\n")
+	pinned := remote.commit("v1")
+	remote.git("tag", "--no-sign", "-a", "-m", "v1", "v1")
+	remote.commit("later")
+
+	root := testutil.TempCwd(t)
+	writeLock(t, root, packEntry{Name: "p", Source: gitPackSource, Ref: "v1", Sha: pinned})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", false, &out); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if got := installedRule(t, root); got != "v1" {
+		t.Errorf("installed %q, want v1", got)
+	}
+}
+
+func TestPacksUpdate_FailedRestoreLeavesNoEmptyPack(t *testing.T) {
+	remote := newGitPackRemote(t)
+	remote.commit("tip")
+	root := testutil.TempCwd(t)
+	writeLock(t, root, packEntry{Name: "p", Source: gitPackSource, Ref: "main", Sha: strings.Repeat("0", 40)})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", false, &out); err == nil {
+		t.Fatal("expected update to fail for a commit the remote does not have")
+	}
+	if _, err := os.Stat(filepath.Join(root, packsDir, "p")); !os.IsNotExist(err) {
+		t.Errorf("failed restore left a pack folder behind, stat err=%v", err)
+	}
+}
+
+func TestPacksUpdate_LatestMovesToTheRefTipAndShowsBothCommits(t *testing.T) {
+	remote := newGitPackRemote(t)
+	pinned := remote.commit("v1")
+	remote.git("tag", "--no-sign", "v1")
+	moved := remote.commit("moved")
+	remote.git("tag", "--no-sign", "-f", "v1")
+
+	root := testutil.TempCwd(t)
+	writeLock(t, root, packEntry{Name: "p", Source: gitPackSource, Ref: "v1", Sha: pinned})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", true, &out); err != nil {
+		t.Fatalf("update --latest: %v", err)
+	}
+	if got := installedRule(t, root); got != "moved" {
+		t.Errorf("installed %q, want moved", got)
+	}
+	if got := lockedSha(t, root); got != moved {
+		t.Errorf("lock sha = %s, want %s", got, moved)
+	}
+	if !strings.Contains(out.String(), short(pinned)) || !strings.Contains(out.String(), short(moved)) {
+		t.Errorf("output %q must show the old and new commits", out.String())
+	}
+}
+
+func TestPacksUpdate_RecordsCommitWhenLockfileHasNone(t *testing.T) {
+	remote := newGitPackRemote(t)
+	tip := remote.commit("tip")
+
+	root := testutil.TempCwd(t)
+	writeLock(t, root, packEntry{Name: "p", Source: gitPackSource})
+
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", false, &out); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if got := lockedSha(t, root); got != tip {
+		t.Errorf("lock sha = %s, want %s", got, tip)
+	}
+}
+
+func TestPacksUpdate_RefusesRecordedShaThatIsNotACommitHash(t *testing.T) {
+	remote := newGitPackRemote(t)
+	remote.commit("tip")
+	root := testutil.TempCwd(t)
+	writeLock(t, root, packEntry{Name: "p", Source: gitPackSource, Sha: "+refs/*:refs/*"})
+
+	var out bytes.Buffer
+	err := runPacksUpdate(root, "", false, &out)
+	if err == nil || !strings.Contains(err.Error(), "not a commit hash") {
+		t.Fatalf("err=%v, want a refusal of a sha that is not a commit hash", err)
+	}
+}
+
+func writeLock(t *testing.T, root string, entries ...packEntry) {
+	t.Helper()
+	if err := writePacksLock(root, &packsLock{Version: 1, Packs: entries}); err != nil {
+		t.Fatal(err)
 	}
 }
