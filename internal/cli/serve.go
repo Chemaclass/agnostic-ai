@@ -72,6 +72,9 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				if err := validateServeAddr(switchBack); err != nil {
 					return fmt.Errorf("--switch-back: %w", err)
 				}
+				if _, port, _ := net.SplitHostPort(switchBack); strings.TrimLeft(port, "0") == "" {
+					return fmt.Errorf("--switch-back %s needs a port other than 0", switchBack)
+				}
 			}
 			for i, origin := range allowedOrigins {
 				parsed, err := authority.ParseOrigin(origin)
@@ -131,7 +134,8 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			if peer != nil {
 				peer.back = ln.Addr().String()
 			}
-			switches := newSwitchHandler(peer, switchCandidates(switchBack), probeViewServer, startPeerServer)
+			switches := newSwitchHandler(peer, viewPortCandidates(), probeViewServer, peerStarter)
+			switches.back = switchBack
 			defer switches.close()
 			return serveUntilInterrupted(cmd.Context(), ln, newServeMuxWithSwitch(src.load, opts, !noInstalled, switches))
 		},

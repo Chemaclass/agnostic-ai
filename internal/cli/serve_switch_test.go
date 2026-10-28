@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -473,41 +474,95 @@ func TestPeerServerCommand_PassesTheAddressToGoBackTo(t *testing.T) {
 	}
 }
 
-func TestSwitchCandidates_TriesTheServerThatStartedThisOneFirst(t *testing.T) {
+func TestSwitch_TriesTheServerThatStartedThisOneFirst(t *testing.T) {
 	scan := viewPortCandidates()
-	if got := switchCandidates(""); !slices.Equal(got, scan) {
+	h := newSwitchHandler(nil, scan, probeViewServer, nil)
+	if got := h.candidates(); !slices.Equal(got, scan) {
 		t.Errorf("no back = %v", got)
 	}
-	if got := switchCandidates("127.0.0.1:5000"); !slices.Equal(got, append([]string{"127.0.0.1:5000"}, scan...)) {
+	h.back = "127.0.0.1:5000"
+	if got := h.candidates(); !slices.Equal(got, append([]string{"127.0.0.1:5000"}, scan...)) {
 		t.Errorf("outside the range = %v", got)
 	}
-	got := switchCandidates(scan[2])
-	if len(got) != len(scan) || got[0] != scan[2] || slices.Index(got[1:], scan[2]) >= 0 {
-		t.Errorf("inside the range = %v", got)
+	h.back = scan[2]
+	if got := h.candidates(); len(got) != len(scan) || got[0] != scan[2] || slices.Index(got[1:], scan[2]) >= 0 || !slices.Equal(h.ports, scan) {
+		t.Errorf("inside the range = %v, ports %v", got, h.ports)
 	}
 }
 
-func TestServe_RejectsASwitchBackAddressOffLoopback(t *testing.T) {
-	cmd := newServeCmd()
-	cmd.SetArgs([]string{"--addr", "127.0.0.1:0", "--switch-back", "0.0.0.0:5000"})
-	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "--switch-back") {
-		t.Errorf("error = %v", err)
+func TestServe_RejectsASwitchBackAddressOffLoopbackOrOnPortZero(t *testing.T) {
+	silence(t)
+	for addr, want := range map[string]string{
+		"0.0.0.0:5000": "--switch-back: listen address 0.0.0.0:5000 must use an explicit loopback IP",
+		"127.0.0.1:0":  "--switch-back 127.0.0.1:0 needs a port other than 0",
+		"[::1]:00":     "--switch-back [::1]:00 needs a port other than 0",
+	} {
+		cmd := newServeCmd()
+		cmd.SetArgs([]string{"--addr", "127.0.0.1:0", "--switch-back", addr})
+		if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: error = %v", addr, err)
+		}
 	}
 }
 
-func TestSwitch_GoesBackToAProjectServerOutsideTheScannedRange(t *testing.T) {
-	project := t.TempDir()
-	back := freeLoopbackAddrs(t, 1)[0]
-	fakePeer(t, back, viewServer{OK: true, Root: project, UI: true})
-	scan := freeLoopbackAddrs(t, 2)
-	var started []string
-	h := newSwitchHandler(&switchPeer{root: project}, append([]string{back}, scan...), probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
-		started = append(started, addr)
-		return fakePeer(t, addr, viewServer{OK: true, Root: project, UI: true}), nil
-	})
+func TestSwitch_NamesTheSwitchBackAddressApartFromTheScannedRange(t *testing.T) {
+	home := t.TempDir()
+	addrs := freeLoopbackAddrs(t, 3)
+	for _, addr := range addrs {
+		fakePeer(t, addr, viewServer{OK: true, Root: t.TempDir(), UI: true})
+	}
+	h := newSwitchHandler(&switchPeer{root: home, global: true}, addrs[1:], probeViewServer, nil)
+	h.back = addrs[0]
 	defer h.close()
 
-	if rec, reply := postSwitch(t, h); rec.Code != http.StatusOK || reply.Started || reply.URL != "http://"+back+"/" || len(started) != 0 {
-		t.Fatalf("switch = %d %s, started %v", rec.Code, rec.Body, started)
+	rec, _ := postSwitch(t, h)
+	want := "no free port at " + addrs[0] + " (the server that started this one) or from " + addrs[1] + " to " + addrs[2] + " served"
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("switch = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestServe_GlobalServerGoesBackToTheProjectServerThatStartedIt(t *testing.T) {
+	silence(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	project := configuredProject(t, t.TempDir())
+	testutil.Chdir(t, project)
+	back := freeLoopbackAddrs(t, 1)[0]
+	fakePeer(t, back, viewServer{OK: true, Root: project, UI: true})
+	restore := peerStarter
+	t.Cleanup(func() { peerStarter = restore })
+	peerStarter = func(_ switchPeer, addr string) (*peerProcess, error) {
+		return nil, errors.New("started a server on " + addr)
+	}
+
+	served := make(chan string, 1)
+	cmd := newServeCmdWithBrowser(func(url string) error { served <- url; return nil })
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd.SetContext(ctx)
+	cmd.SetArgs([]string{"--global", "--open", "--addr", "127.0.0.1:0", "--switch-back", back})
+	var serveErr error
+	done := make(chan struct{})
+	go func() { serveErr = cmd.Execute(); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+
+	var url string
+	select {
+	case url = <-served:
+	case <-done:
+		t.Fatalf("serve exited: %v", serveErr)
+	case <-time.After(10 * time.Second):
+		t.Fatal("serve did not start")
+	}
+	req, _ := http.NewRequest(http.MethodPost, url+strings.TrimPrefix(switchPath, "/"), strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", strings.TrimSuffix(url, "/"))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var reply switchReply
+	if err := json.NewDecoder(resp.Body).Decode(&reply); err != nil || resp.StatusCode != http.StatusOK || reply.Started || reply.URL != "http://"+back+"/" {
+		t.Fatalf("switch = %d %+v (%v)", resp.StatusCode, reply, err)
 	}
 }
