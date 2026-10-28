@@ -706,7 +706,8 @@ func TestImport_RelativeAndAbsoluteSourceAliasesShareNewFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, claude]\nsources:\n  rules: .agnostic-ai/rules\n  agents: "+filepath.ToSlash(external)+"\n")
-	mustWriteFile(t, ".cursor/rules/foo.mdc", "Cursor rule.\n")
+	// A narrow glob keeps this rule clear of #2675.
+	mustWriteFile(t, ".cursor/rules/foo.mdc", "---\nglobs: \"*.go\"\n---\nCursor rule.\n")
 	mustWriteFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nClaude agent.\n")
 	preview, err := planImportPreview([]string{"cursor", "claude"})
 	if err != nil {

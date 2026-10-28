@@ -199,6 +199,20 @@ func TestReleaseWorkflow_BuildsPlatformPackagesBeforeItPublishes(t *testing.T) {
 	}
 }
 
+// TestReleaseWorkflow_NpmJobCanReadBuildProvenance keeps the provenance
+// check in scripts/npm-binaries.sh able to run. Without
+// `attestations: read` the job token cannot fetch the attestations, and
+// every release stops at that step.
+func TestReleaseWorkflow_NpmJobCanReadBuildProvenance(t *testing.T) {
+	job := workflowJobs(t, releaseWorkflowPath)["npm"]
+	if job.Permissions["attestations"] != "read" {
+		t.Errorf("the npm job needs `attestations: read` to verify the archives it packs, got %q", job.Permissions["attestations"])
+	}
+	if !strings.Contains(readRepoFile(t, npmBinariesShell), "gh attestation verify") {
+		t.Errorf("%s no longer verifies build provenance", npmBinariesShell)
+	}
+}
+
 // TestReleaseWorkflow_PublishesPlatformPackagesBeforeTheParent guards
 // the ordering that makes a partial publish survivable.
 //

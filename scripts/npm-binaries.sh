@@ -6,7 +6,9 @@
 #   scripts/npm-binaries.sh <tag> <destdir>
 #
 # Downloads the six release archives and checksums.txt, verifies every archive
-# against the published digest, and unpacks each binary into
+# against the published digest and against the build provenance this
+# repository's release workflow signed for the same tag, and unpacks each
+# binary into
 # <destdir>/<goos>_<goarch>/. That is the layout
 # npm/scripts/build-platform-packages.js reads.
 #
@@ -16,7 +18,8 @@
 
 set -euo pipefail
 
-REPO="${AGNOSTIC_AI_REPO:-Chemaclass/agnostic-ai}"
+# GITHUB_REPOSITORY in Actions, so a fork checks its own releases.
+REPO="${GITHUB_REPOSITORY:-Chemaclass/agnostic-ai}"
 BINARY="agnostic-ai"
 
 # Must stay level with PLATFORMS in npm/lib/platforms.js. The Go test
@@ -79,6 +82,22 @@ verify_checksums() {
   fi
 }
 
+# checksums.txt comes from the same release page as the archives, so whoever
+# can replace one can replace both. The attestation is signed by the release
+# workflow's own identity and cannot be uploaded in its place.
+verify_provenance() {
+  local dir="$1" tag="$2" target archive
+  for target in "${TARGETS[@]}"; do
+    archive="$(archive_name "$target")"
+    gh attestation verify "$dir/$archive" --repo "$REPO" \
+      --signer-workflow "$REPO/.github/workflows/release.yml" \
+      --source-ref "refs/tags/$tag" --deny-self-hosted-runners >/dev/null || {
+      err "$archive has no build provenance from $REPO release.yml at $tag"
+      return 1
+    }
+  done
+}
+
 # Extract by format, not with one call for both. `tar` on macOS is bsdtar,
 # which does read zip, so a single `tar -xf` passes locally and then fails on
 # ubuntu-latest, where `tar` is GNU tar and cannot read zip at all. The
@@ -131,6 +150,7 @@ main() {
   {
     fetch_release "$tag" "$work" \
       && verify_checksums "$work" \
+      && verify_provenance "$work" "$tag" \
       && unpack "$work" "$dest" \
       && require_every_binary "$dest"
   } || status=$?

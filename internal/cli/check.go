@@ -17,6 +17,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -645,12 +646,12 @@ func newDoctorCmd() *cobra.Command {
 			"     import merged so each hook runs twice.\n" +
 			"  8. Check existing packaging ignore files against generated paths.\n" +
 			"  9. Suggest a concrete next step.\n\n" +
-			"Exits non-zero on any drift, lint error, or inactive Codex hook; lint warnings show without\n" +
+			"Exits non-zero on any drift, lint error, inactive Codex hook, or unknown -t target; lint warnings show without\n" +
 			"failing. Subcommands run individual checks.\n\n" +
 			"--scope project skips local Codex hook trust and reports it as skipped, " +
 			"and reads only the shared Claude settings file for skillOverrides. " +
 			"All project checks stay enabled. With --fix, only project drift is repaired; " +
-			"trust is never approved. JSON output stays read-only.",
+			"trust is never approved. JSON output stays read-only, so --json rejects --fix.",
 		Example: `  # Project and local runtime diagnostic
   agnostic-ai doctor
 
@@ -675,9 +676,15 @@ func newDoctorCmd() *cobra.Command {
 			if err := validateDoctorScope(diagnosticScope); err != nil {
 				return err
 			}
+			if jsonOut && fix {
+				return errs.Coded(errs.CodeFlagConflict, "--json is read-only and cannot be combined with --fix")
+			}
 
 			// JSON mode: emit only the drift report, skip human-readable sections.
 			if jsonOut {
+				if err := resolveRequestedTargets(targets); err != nil {
+					return err
+				}
 				reports, err := collectDrift(targets)
 				if err != nil {
 					return err
@@ -696,12 +703,23 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				gate := doctorGateFindings{nestedCopies: nestedClaudeCopies(scope.cfg, scope.bundle)}
+				if checkGlobs {
+					globs, err := collectUnmatchedGlobs(".", scope.bundle)
+					if err != nil {
+						return err
+					}
+					gate.globs = &globs
+				}
+				if gate.hookScripts, _, err = collectDivergentHookScripts("."); err != nil {
+					return err
+				}
 				hookTrust, trustCheck := doctorTrustForScope(scope.cfg, targets, diagnosticScope)
 				var overrides []*skillOverrideReport
 				if claudeSkillOverridesSelected(scope.cfg, targets) {
 					overrides = collectClaudeSkillOverrides(scope.cfg, scope.bundle, diagnosticScope == "project")
 				}
-				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck, skillOverrideRecords(overrides))
+				return printDoctorJSON(cmd, reports, gate, refs, checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck, skillOverrideRecords(overrides))
 			}
 
 			configOK := doctorConfigOK()
@@ -716,6 +734,10 @@ func newDoctorCmd() *cobra.Command {
 				cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
 				doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, errDoctorNoConfig, 0, 0)
 				return errDoctorNoConfig
+			}
+			if err := resolveRequestedTargets(targets); err != nil {
+				cmd.Printf("  ✗ %v\n", err)
+				return err
 			}
 			scope, err := loadCheckScope(false)
 			if err != nil {
@@ -919,11 +941,36 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
-// doctorJSONOutput adds lint, hook trust, packaging warnings, skill overrides, and opt-in references.
+// doctorGateFindings are the checks besides drift that fail text mode.
+// A nil globs means --check-globs was not passed.
+type doctorGateFindings struct {
+	globs        *[]unmatchedGlob
+	nestedCopies []nestedClaudeCopy
+	hookScripts  []divergentHookScript
+}
+
+// nestedCopyRecord is a nested CLAUDE.md a rule holds, as doctor --json lists it.
+type nestedCopyRecord struct {
+	Path string `json:"path"`
+	Rule string `json:"rule"`
+}
+
+func nestedCopyRecords(copies []nestedClaudeCopy) []nestedCopyRecord {
+	out := make([]nestedCopyRecord, 0, len(copies))
+	for _, c := range copies {
+		out = append(out, nestedCopyRecord{Path: filepath.ToSlash(c.path), Rule: c.rule})
+	}
+	return out
+}
+
+// doctorJSONOutput adds lint, hook trust, packaging warnings, skill overrides, the checks text mode fails on, and opt-in references and globs.
 type doctorJSONOutput struct {
 	jsonOutput
 	Lint            []lintFinding            `json:"lint"`
 	References      *[]referenceFinding      `json:"references,omitempty"`
+	Globs           *[]unmatchedGlob         `json:"globs,omitempty"`
+	NestedCopies    []nestedCopyRecord       `json:"nested_copies"`
+	HookScriptDrift []divergentHookScript    `json:"hook_script_drift"`
 	HookTrust       []codex.HookTrustFinding `json:"hook_trust"`
 	HookTrustCheck  *doctorTrustCheck        `json:"hook_trust_check,omitempty"`
 	PackagingIgnore []packagingIgnoreFinding `json:"packaging_ignore"`
@@ -934,13 +981,17 @@ type doctorJSONOutput struct {
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
-// in writes. Lint, hook trust, and packaging findings have their own lists. With checkRefs, broken skill
-// references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding, trustCheck *doctorTrustCheck, skillOverrides []skillOverrideRecord) error {
+// in writes. Lint, hook trust, packaging, nested copy, and hook script findings have their own lists. With checkRefs, broken skill
+// references appear in references, and with --check-globs, rules that never load appear in globs.
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, gate doctorGateFindings, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding, trustCheck *doctorTrustCheck, skillOverrides []skillOverrideRecord) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: slashLintPaths(lint), HookTrust: slashHookTrustPaths(hookTrust), PackagingIgnore: slashPackagingPaths(packaging), CoverageAccepted: coverageAccepted, HookTrustCheck: trustCheck, SkillOverrides: skillOverrides}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: slashLintPaths(lint), HookTrust: slashHookTrustPaths(hookTrust), PackagingIgnore: slashPackagingPaths(packaging), CoverageAccepted: coverageAccepted, HookTrustCheck: trustCheck, SkillOverrides: skillOverrides,
+		Globs: gate.globs, NestedCopies: nestedCopyRecords(gate.nestedCopies), HookScriptDrift: gate.hookScripts}
+	if out.HookScriptDrift == nil {
+		out.HookScriptDrift = []divergentHookScript{}
+	}
 	if out.HookTrust == nil {
 		out.HookTrust = []codex.HookTrustFinding{}
 	}
@@ -957,7 +1008,10 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 	if err := writeIndentedJSON(cmd, out); err != nil {
 		return err
 	}
-	if len(out.Writes) > 0 {
+	if gate.globs != nil && len(*gate.globs) > 0 {
+		return fmt.Errorf("%d rule(s) have a glob matching no files and will never load", len(*gate.globs))
+	}
+	if len(out.Writes) > 0 || len(out.NestedCopies) > 0 || len(out.HookScriptDrift) > 0 {
 		return fmt.Errorf("drift detected")
 	}
 	if len(refs) > 0 {

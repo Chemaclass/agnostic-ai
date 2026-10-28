@@ -128,13 +128,13 @@ It exits non-zero on any drift, [lint](#lint) error, or untrusted, modified, or 
 
 | Flag | Description |
 |------|-------------|
-| `-t, --target <list>` | Comma-separated targets (default: all in config) |
+| `-t, --target <list>` | Comma-separated targets (default: all in config). An unknown name fails with AAI-301, as in `sync`. |
 | `--scope <all\|project>` | `all` (default) includes local Codex hook trust and your own Claude settings files. `project` skips them and keeps all project checks. |
 | `--fix` | Write missing files and overwrite stale or edited generated files. Remove each nested `CLAUDE.md` whose text is already in a scoped rule. In a terminal, ask before removing each kept orphan and each group of [Claude skill overrides](#claude-skill-overrides), with No as the default. Without a terminal, keep them and explain why. Exit non-zero while any orphan remains. |
 | `--backup` | With `--fix`, copy each file to `<path>.bak` before overwriting it, removing a confirmed orphan, or removing confirmed skill overrides. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing. Off by default. |
-| `--json` | Drift report as JSON, same schema as `sync --check --json`, plus the lists below. |
+| `--json` | Drift report as JSON, same schema as `sync --check --json`, plus the lists below. It fails on the same findings as text mode. It cannot be combined with `--fix`. |
 
 On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references`. Codex hook trust then shows `SKIPPED` in text, and JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` with an empty `hook_trust`. `--scope project --fix` repairs drift without reading or approving trust. `--json` stays read-only.
 
@@ -149,6 +149,9 @@ Skill references:
 | `--json` list | Fields |
 |------|--------|
 | `references` | With `--check-references`: `target`, `source` (omitted when unknown), `path`, `line`, `destination`. |
+| `globs` | With `--check-globs`: one item per rule that never loads: `rule`, `globs`, and `invalid` (the pattern doctor cannot read) when that is the reason. |
+| `nested_copies` | `path` and `rule` for each nested `CLAUDE.md` a rule already holds. |
+| `hook_script_drift` | `script` (the basename) and `tools` for each hook script whose body differs across tools. |
 | `lint` | `code`, `severity` (`error` or `warn`), `path`, `message`. |
 | `hook_trust` | `path`, `event`, `group`, `handler`, `hook`, `status` (`untrusted`, `modified`, `disabled`, or `unknown`). An `unknown` entry adds `problem` with the failed check. |
 | `packaging_ignore` | `path`, and either `uncovered` (generated paths) or `problem` (why coverage could not be checked). |
@@ -218,9 +221,9 @@ Subcommands run one check:
 
 | Subcommand | Check |
 |------------|-------|
-| `doctor config` | Validate `agnostic-ai.yaml`. |
+| `doctor config` | Validate `agnostic-ai.yaml` with the checks every command runs when it loads the project. |
 | `doctor install` | Which AI CLIs are on PATH. |
-| `doctor mcp` | Find each MCP server's command and list its unset `${NAME}` references. |
+| `doctor mcp` | Find each MCP server's command and list its unset `${NAME}` references. Fails when the config does not load. |
 | `doctor rtk --command '<command>'` | Preview an RTK rewrite and compare declared Claude Code approval rules. Add `--json` for JSON. |
 
 ### RTK approval diagnostics
