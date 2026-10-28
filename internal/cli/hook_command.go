@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
@@ -15,21 +15,24 @@ import (
 var hookCommandAliases = []string{"run", "cmd", "exec", "execute", "script", "commands"}
 
 // hookRunnable reports whether a hook spec names something a target
-// runs: a command or another handler at the top level or under an
-// `x-<target>` block, or a native form such as `x-kiro.action` or the
+// runs: a command or another handler at the top level or under the
+// `x-<target>` block of a tool it reaches, Kiro's `x-kiro.action`, or the
 // `hooks` an import writes under `x-gemini`, `x-qwen`, or `x-grok`. A
 // hook with none of them is written nowhere.
 func hookRunnable(e spec.Entry) bool {
 	if hasHookHandler(e.Meta) {
 		return true
 	}
-	for key, value := range e.Meta {
-		native, ok := value.(map[string]any)
-		if !strings.HasPrefix(key, "x-") || !ok {
+	for _, target := range adapters.Names() {
+		native, ok := e.Meta["x-"+target].(map[string]any)
+		if !ok || !e.EmitsTo(target) {
 			continue
 		}
-		if hasHookHandler(native) || native["action"] != nil {
+		if hasHookHandler(native) || target == "kiro" && native["action"] != nil {
 			return true
+		}
+		if target != "gemini" && target != "qwen" && target != "grok" {
+			continue
 		}
 		switch hooks := native["hooks"].(type) {
 		case []any:
