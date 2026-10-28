@@ -47,6 +47,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Editing the `model` of a tool such as codex on **Settings** saves when a later spec sets a Claude model name such as `model: claude-opus-4`, which that tool leaves out. Before, the edit returned 400 although **What each tool gets** showed the tool keeping the earlier value (#2619). This applies to project settings only: `sync --global` writes that name, so the global page still returns 400 for that edit.
 - On the global **Settings** page, **What each tool gets** shows a later Claude model name such as `model: claude-opus-4` as the value codex gets, as `sync --global` writes it. Before, it showed codex keeping the earlier spec's value (#2624).
 - When a later spec blocks a **Settings** edit, the error names the file that holds the value: the shared spec when your personal file on top of it does not change that value for the edited tool. Before, it named the personal file (#2620).
+- With `serve --global --no-installed`, **What each tool gets** marks the `model` and `effort` of a tool `sync --global` writes no user settings for, such as cursor or opencode, as not written, as it does without the flag. Before, it showed the spec value as if sync wrote it (#2636).
 - Editing `effort` for one tool on the global **Settings** page saves. Before, the request failed with a network error (#2622).
 
 ### By tool
