@@ -231,7 +231,7 @@ func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Ha
 	ctx, stop := signal.NotifyContext(ctx, serveSignals(signal.Ignored)...)
 	defer stop()
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
-	fresh := trackFreshConns(srv)
+	srv.RegisterOnShutdown(trackFreshConns(srv).close)
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ln) }()
 	select {
@@ -244,8 +244,6 @@ func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Ha
 	}
 	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	srv.SetKeepAlivesEnabled(false)
-	fresh.close()
 	if err := srv.Shutdown(shutdown); err != nil {
 		return fmt.Errorf("stop the server: %w", err)
 	}
@@ -297,51 +295,36 @@ func bufferAPIBody(next http.Handler) http.Handler {
 // freshConns are connections that have not sent a request yet.
 // Shutdown waits up to 5 seconds for them, and clients such as browsers
 // and Go's transport open them ahead of a request that may never come.
-// A connection whose request was just read stays fresh until the state
-// hook runs, so one is closed only once it has stayed fresh for
-// freshConnGrace.
+// Closing them after shutdown begins drops no request: the server skips
+// the handler for a request it reads once shutdown has begun.
 type freshConns struct {
 	mu      sync.Mutex
-	conns   map[net.Conn]time.Time
+	conns   map[net.Conn]struct{}
 	closing bool
 }
 
-const freshConnGrace = 100 * time.Millisecond
-
 func trackFreshConns(srv *http.Server) *freshConns {
-	f := &freshConns{conns: map[net.Conn]time.Time{}}
+	f := &freshConns{conns: map[net.Conn]struct{}{}}
 	srv.ConnState = func(c net.Conn, state http.ConnState) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		if state != http.StateNew {
+		switch {
+		case state != http.StateNew:
 			delete(f.conns, c)
-			return
-		}
-		f.conns[c] = time.Now()
-		if f.closing {
-			f.closeLater(c, freshConnGrace)
+		case f.closing:
+			_ = c.Close()
+		default:
+			f.conns[c] = struct{}{}
 		}
 	}
 	return f
 }
 
-// close closes each fresh connection once it has been fresh for
-// freshConnGrace, including ones accepted after close.
 func (f *freshConns) close() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.closing = true
-	for c, opened := range f.conns {
-		f.closeLater(c, freshConnGrace-time.Since(opened))
+	for c := range f.conns {
+		_ = c.Close()
 	}
-}
-
-func (f *freshConns) closeLater(c net.Conn, wait time.Duration) {
-	time.AfterFunc(max(wait, 0), func() {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		if _, fresh := f.conns[c]; fresh {
-			_ = c.Close()
-		}
-	})
 }
