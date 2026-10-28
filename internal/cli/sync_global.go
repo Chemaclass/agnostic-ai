@@ -1804,6 +1804,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	data, err := os.ReadFile(path)
 	absent := os.IsNotExist(err)
 	merge.read = &diskSnapshot{data: data, absent: absent}
+	var commented bool
 	owns := func(token string) bool { return legacy || slices.Contains(created, token) }
 	made := slices.Clone(created)
 	mark := func(token string) {
@@ -1826,13 +1827,16 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		mark("<file>")
 	}
 	if err == nil {
-		if err := json.Unmarshal(data, &doc); err != nil {
+		// The text edit keeps comments, so only the parse drops them.
+		var stripped []byte
+		stripped, commented = adapters.StripJSONC(data)
+		if err := json.Unmarshal(stripped, &doc); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
-		if err := json.Unmarshal(data, &before); err != nil {
+		if err := json.Unmarshal(stripped, &before); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
-		if err := json.Unmarshal(data, ordered); err != nil {
+		if err := json.Unmarshal(stripped, ordered); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
 	} else if !absent {
@@ -2134,8 +2138,9 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		merge.created = nil
 	}
 	// Nothing of ours left and nothing of the user's either: drop a file
-	// sync created rather than leave a shell behind.
-	if len(doc) == 0 && (absent || owns("<file>")) {
+	// sync created rather than leave a shell behind. A comment is the
+	// user's, so it keeps the file.
+	if len(doc) == 0 && (absent || (owns("<file>") && !commented)) {
 		merge.created = nil
 		return nil, nil
 	}
