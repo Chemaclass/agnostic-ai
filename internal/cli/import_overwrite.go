@@ -516,8 +516,8 @@ func (t *importTransaction) entries(rec *importRecorder) ([]importPreviewEntry, 
 // record already holds its bytes keeps that record, with the sources
 // added to the tools that hold them.
 func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs []string) error {
-	// An unreadable ledger still counts as one (#1334); a stub written
-	// over it would not, so the records wait for the next sync.
+	// A stub written over a ledger that does not parse would hide it from
+	// sync's warning and the check, so the records wait for the next sync.
 	state, err := readStateFileStrict(root)
 	if err != nil {
 		return nil

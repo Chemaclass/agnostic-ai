@@ -1,4 +1,4 @@
-package emit
+package config
 
 import (
 	"errors"
@@ -14,39 +14,38 @@ import (
 // opening one path.
 const maxLinkHops = 40
 
-// sourceDir is the project's spec folder, which users may link to share
-// specs between projects.
-const sourceDir = ".agnostic-ai"
+// LinkRefusal is the error for a path whose links lead outside the
+// project or into a Git folder.
+type LinkRefusal struct{ msg string }
 
-// CheckProjectPath refuses a write to path, inside the project at root,
-// when a link along it leads outside root or into a Git folder: a cloned
-// repository can commit such links in its output folders to plant Git
-// hooks or edit the user's global tool settings. A path that lies
-// outside root before any link is followed is not checked here.
-func CheckProjectPath(root, path string) error {
-	return checkProjectPath(root, path, "write", false, false)
+func (e *LinkRefusal) Error() string { return e.msg }
+
+func refuse(format string, args ...any) error {
+	return &LinkRefusal{msg: fmt.Sprintf(format, args...)}
 }
 
-// CheckBookkeepingPath is CheckProjectPath for a file sync keeps for
+// CheckProjectLinks refuses to verb path, inside the project at root,
+// when a link along it leads outside root or into a Git folder: a cloned
+// repository can commit such links in its output folders to plant Git
+// hooks or edit the user's global tool settings. parentsOnly checks only
+// the folders above path, for a removal or an exclusive create, which
+// never follow a link at path itself. A path that lies outside root
+// before any link is followed is left to UnsafeProjectPathIn.
+func CheckProjectLinks(root, path, verb string, parentsOnly bool) error {
+	return checkProjectLinks(root, path, verb, parentsOnly, false)
+}
+
+// CheckBookkeepingPath is CheckProjectLinks for a file sync keeps for
 // itself in the spec folder, such as its lock or ledger, which follows a
 // linked spec folder so a project sharing its specs still syncs. It
 // follows the link only when sync reads specs from that folder (see
 // holdsSpecs). The file itself must not be a link, and it never lands in
 // a Git folder.
 func CheckBookkeepingPath(root, path string) error {
-	return checkProjectPath(root, path, "write", false, true)
+	return checkProjectLinks(root, path, "write", false, true)
 }
 
-// confine is checkProjectPath for a session write or removal, whose
-// relative paths are relative to the project root, the working
-// directory. parentsOnly checks only the folders above path, for a
-// removal: removing a link deletes the link itself, never what it
-// points to.
-func confine(path, verb string, parentsOnly bool) error {
-	return checkProjectPath(".", path, verb, parentsOnly, false)
-}
-
-func checkProjectPath(root, path, verb string, parentsOnly, bookkeeping bool) error {
+func checkProjectLinks(root, path, verb string, parentsOnly, bookkeeping bool) error {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return fmt.Errorf("%s %s: %w", verb, path, err)
@@ -65,20 +64,20 @@ func checkProjectPath(root, path, verb string, parentsOnly, bookkeeping bool) er
 	}
 	allowed := []string{realRoot}
 	if bookkeeping {
-		if splitPath(rel)[0] != sourceDir || len(splitPath(rel)) != 2 {
-			return fmt.Errorf("refusing to %s %s: not a file directly in %s", verb, path, sourceDir)
+		if splitPath(rel)[0] != SourceBaseDir || len(splitPath(rel)) != 2 {
+			return refuse("refusing to %s %s: not a file directly in %s", verb, path, SourceBaseDir)
 		}
 		if info, err := os.Lstat(clean); err == nil && info.Mode()&fs.ModeSymlink != 0 {
 			target, _ := os.Readlink(clean)
-			return fmt.Errorf("refusing to %s %s: it is a link to %s", verb, path, target)
+			return refuse("refusing to %s %s: it is a link to %s", verb, path, target)
 		}
-		source, _, err := resolvePath(filepath.Join(absRoot, sourceDir), "")
+		source, _, err := resolvePath(filepath.Join(absRoot, SourceBaseDir), "")
 		if err != nil {
 			return fmt.Errorf("%s %s: %w", verb, path, err)
 		}
 		if !isWithin(realRoot, source) {
 			if !holdsSpecs(source) {
-				return fmt.Errorf("refusing to %s %s: %s is a link to %s, which holds no %s, so it is not a spec folder sync can keep its files in", verb, path, sourceDir, source, specMarker)
+				return refuse("refusing to %s %s: %s is a link to %s, which holds no %s, so it is not a spec folder sync can keep its files in", verb, path, SourceBaseDir, source, specMarker)
 			}
 			allowed = append(allowed, source)
 		}
@@ -94,14 +93,14 @@ func checkProjectPath(root, path, verb string, parentsOnly, bookkeeping bool) er
 		raw = cwd + string(filepath.Separator) + raw
 	}
 	if parentsOnly {
-		raw = strings.TrimRight(raw, `/`+string(filepath.Separator))
+		raw = strings.TrimRightFunc(raw, func(r rune) bool { return r == '/' || r == filepath.Separator })
 		if i := strings.LastIndexAny(raw, `/`+string(filepath.Separator)); i >= 0 {
 			raw = raw[:i+1]
 		}
 	}
 	real, link, err := resolvePath(raw, realRoot)
 	if err != nil {
-		return fmt.Errorf("refusing to %s %s: %w", verb, path, err)
+		return refuse("refusing to %s %s: %v", verb, path, err)
 	}
 	where := ""
 	if !withinAny(allowed, real) {
@@ -113,10 +112,10 @@ func checkProjectPath(root, path, verb string, parentsOnly, bookkeeping bool) er
 		return nil
 	}
 	if link == "" {
-		return fmt.Errorf("refusing to %s %s: it is %s", verb, path, where)
+		return refuse("refusing to %s %s: it is %s", verb, path, where)
 	}
 	name, _ := filepath.Rel(realRoot, link)
-	return fmt.Errorf("refusing to %s %s: %s is a link, and the path leads to %s, %s", verb, path, name, real, where)
+	return refuse("refusing to %s %s: %s is a link, and the path leads to %s, %s", verb, path, name, real, where)
 }
 
 // resolvePath returns where path lands once every link along it is
@@ -260,13 +259,13 @@ func withinAny(roots []string, path string) bool {
 }
 
 // inGitFolder reports whether path, already resolved, lies in a folder
-// Git treats as .git (see gitFolderName), such as a vendored or sibling clone's,
+// Git treats as .git (see GitDirName), such as a vendored or sibling clone's,
 // or in the Git directory of the checkout at root, which a linked
 // worktree keeps elsewhere. The folders holding root itself do not
 // count.
 func inGitFolder(root, path string) bool {
 	var git []fs.FileInfo
-	if gitDir, common, ok := gitDirsAt(root); ok {
+	if gitDir, common, ok := GitDirs(root); ok {
 		for _, dir := range []string{gitDir, common} {
 			if info, err := os.Stat(dir); err == nil && info.IsDir() {
 				git = append(git, info)
@@ -279,7 +278,7 @@ func inGitFolder(root, path string) bool {
 		if statErr == nil && rootInfo != nil && os.SameFile(info, rootInfo) {
 			break
 		}
-		if gitFolderName(filepath.Base(dir), runtime.GOOS) {
+		if GitDirName(filepath.Base(dir)) {
 			return true
 		}
 		if statErr == nil {
@@ -296,15 +295,37 @@ func inGitFolder(root, path string) bool {
 	return false
 }
 
-// gitFolderName reports whether one path segment names a .git folder:
-// in any letter case and with trailing dots or spaces, which
-// case-insensitive and Windows file systems drop, and on Windows also as
-// the short name GIT~1 or with a colon, which names an NTFS stream such
-// as `.git::$INDEX_ALLOCATION`.
-func gitFolderName(seg, goos string) bool {
-	trimmed := strings.TrimRight(seg, ". ")
-	if strings.EqualFold(trimmed, ".git") {
-		return true
+// GitDirs returns the Git directory of a checkout whose top folder is
+// dir, and the common directory a linked worktree shares with its main
+// checkout. Both are the same folder in a main checkout.
+func GitDirs(dir string) (gitDir, common string, ok bool) {
+	dotGit := filepath.Join(dir, ".git")
+	info, err := os.Stat(dotGit)
+	if err != nil {
+		return "", "", false
 	}
-	return goos == "windows" && (strings.EqualFold(trimmed, "git~1") || strings.HasPrefix(strings.ToLower(seg), ".git:"))
+	gitDir = dotGit
+	if !info.IsDir() {
+		data, err := os.ReadFile(dotGit)
+		if err != nil {
+			return "", "", false
+		}
+		ref, found := strings.CutPrefix(strings.TrimSpace(string(data)), "gitdir: ")
+		if !found {
+			return "", "", false
+		}
+		if !filepath.IsAbs(ref) {
+			ref = filepath.Join(dir, ref)
+		}
+		gitDir = ref
+	}
+	common = gitDir
+	if data, err := os.ReadFile(filepath.Join(gitDir, "commondir")); err == nil {
+		ref := strings.TrimSpace(string(data))
+		if !filepath.IsAbs(ref) {
+			ref = filepath.Join(gitDir, ref)
+		}
+		common = ref
+	}
+	return gitDir, common, true
 }

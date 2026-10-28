@@ -598,6 +598,9 @@ func setPendingImports(tools []string) error {
 // replaceStateFile writes state as the state file under root whole.
 func replaceStateFile(root string, state syncStateFile) error {
 	p := stateFilePath(root)
+	if err := config.CheckBookkeepingPath(root, p); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return fmt.Errorf("%s: %w", filepath.Dir(p), err)
 	}

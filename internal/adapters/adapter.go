@@ -125,15 +125,6 @@ type Session = emit.Session
 // share capture or recording buffers.
 func NewSession() *Session { return emit.NewSession() }
 
-// CheckProjectPath mirrors emit.CheckProjectPath: it refuses a write
-// inside the project at root that a link leads outside root or into
-// Git's own folder.
-func CheckProjectPath(root, path string) error { return emit.CheckProjectPath(root, path) }
-
-// CheckBookkeepingPath mirrors emit.CheckBookkeepingPath, for the lock
-// and ledger sync keeps in a spec folder that may be a link.
-func CheckBookkeepingPath(root, path string) error { return emit.CheckBookkeepingPath(root, path) }
-
 // ContentSum mirrors emit.ContentSum: the fingerprint the sync ledger
 // records for every output.
 func ContentSum(content string) string { return emit.ContentSum(content) }
@@ -506,6 +497,45 @@ type gitignoreHinter interface {
 	GitignoreHints(cfg *config.Config) []string
 }
 
+// specRefuser is the optional interface an adapter implements when its
+// Emit refuses some specs or settings before writing anything. Lint calls
+// it, so the refusal shows before sync stops for every target.
+type specRefuser interface {
+	RefuseSpecs(b spec.Bundle, cfg *config.Config) error
+}
+
+// Refusal is the error RefuseSpecs returns, naming the refused spec.
+type Refusal = emit.Refusal
+
+// RefuseSpecs returns the error the named target's Emit raises for b
+// before writing, nil when the target accepts b or declares no checks.
+func RefuseSpecs(name string, b spec.Bundle, cfg *config.Config) error {
+	r, ok := registry[name].(specRefuser)
+	if !ok {
+		return nil
+	}
+	defer SkipNotes()()
+	// A bundle sync cannot prepare fails there with its own error first.
+	own, err := targetSkills(b.For(name), cfg, name)
+	if err != nil {
+		return nil
+	}
+	own, _, err = emit.PrepareScopedDocuments(own, cfg, name, nil)
+	if err != nil {
+		return nil
+	}
+	return r.RefuseSpecs(own, cfg)
+}
+
+// targetSkills adds the agents and commands target writes as skills.
+func targetSkills(b spec.Bundle, cfg *config.Config, target string) (spec.Bundle, error) {
+	own, err := withAgentsAsSkills(b, cfg, target)
+	if err != nil {
+		return spec.Bundle{}, err
+	}
+	return withCommandsAsSkills(own, cfg, target), nil
+}
+
 // GitignoreHintsFor returns the ignore-only paths the named target
 // declares, nil when the adapter does not implement gitignoreHinter.
 // Lookup is in-tree only: external adapters have no hint protocol yet.
@@ -813,11 +843,10 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		sess.SetCodexSkillsDir(codexSkills)
 		sess.SetSkillsDirWriters(SkillDirectoryWriters(cfg))
 	}
-	own, err := withAgentsAsSkills(b.For(a.Name()), cfg, a.Name())
+	own, err := targetSkills(b.For(a.Name()), cfg, a.Name())
 	if err != nil {
 		return err
 	}
-	own = withCommandsAsSkills(own, cfg, a.Name())
 	mode := ""
 	if cfg != nil {
 		mode = cfg.OnUnsupported

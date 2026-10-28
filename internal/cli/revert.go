@@ -169,6 +169,24 @@ func newRevertCmd() *cobra.Command {
 	return cmd
 }
 
+// restorePerm sets path to bak's mode before the bytes land, so private
+// bytes are never readable through a wider file. It never widens path's
+// read and write bits, since older versions wrote every backup at 0644,
+// and keeps path's owner write and executable bits so the write succeeds
+// and a hook still runs.
+func restorePerm(path, bak string) (os.FileMode, error) {
+	info, err := os.Stat(bak)
+	if err != nil {
+		return 0, err
+	}
+	cur, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	perm := info.Mode().Perm()&cur.Mode().Perm()&0o666 | cur.Mode().Perm()&0o311
+	return perm, os.Chmod(path, perm)
+}
+
 // revertOne restores path from path+".bak" when the backup exists. When
 // there is no .bak the default is to leave path alone ("preserve") so a
 // user-authored file that happens to share a path with adapter output
@@ -205,7 +223,9 @@ func revertOne(path string, dryRun, force bool) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("restore %s: %w", path, err)
 			}
-		} else if err := os.WriteFile(path, data, 0o644); err != nil {
+		} else if perm, err := restorePerm(path, bak); err != nil {
+			return "", fmt.Errorf("restore %s: %w", path, err)
+		} else if err := os.WriteFile(path, data, perm); err != nil {
 			return "", fmt.Errorf("restore %s: %w", path, err)
 		}
 		if err := os.Remove(bak); err != nil {

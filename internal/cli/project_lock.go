@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 const projectLockName = ".command-lock"
@@ -29,7 +29,7 @@ func acquireProjectLock(root, command string) (*os.File, error) {
 func openProjectLock(root, command string) (*os.File, error) {
 	dir := filepath.Join(root, defaultBaseDir)
 	path := filepath.Join(dir, projectLockName)
-	if err := adapters.CheckBookkeepingPath(root, path); err != nil {
+	if err := config.CheckBookkeepingPath(root, path); err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {

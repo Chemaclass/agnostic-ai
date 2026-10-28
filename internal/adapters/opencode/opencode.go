@@ -128,6 +128,11 @@ func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool 
 // ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
 func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
 
+// RefuseSpecs rejects a skill name OpenCode does not load.
+func (Adapter) RefuseSpecs(b spec.Bundle, _ *config.Config) error {
+	return emit.ValidateNames(b.Skills, target, "skill", skillNameRule)
+}
+
 // Emit writes one native agent definition per agent, one native skill
 // folder per skill (plus the command form when opted in), one command
 // file per command spec, one plugin module per hook spec,
@@ -147,7 +152,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	b = emit.WithoutForeignClaudeModels(coverage, b)
-	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
+	if err := (Adapter{}).RefuseSpecs(b, cfg); err != nil {
 		return err
 	}
 	hooks, err := prepareHooks(b.Hooks)

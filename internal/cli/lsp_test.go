@@ -82,15 +82,16 @@ func TestLSPLinter_ReportsLayerResolutionFailureAsWorkspaceError(t *testing.T) {
 	}
 }
 
-func TestLSPLinter_MergedConfigFailureDoesNotInventSourcePosition(t *testing.T) {
+func TestLSPLinter_LocalConfigShapeFailureNamesTheLocalFile(t *testing.T) {
 	dir := newProject(t)
 	writeFile(t, filepath.Join(dir, config.LocalOverrideFileName), "targets: {wrong: shape}\n")
 	diagnostics, err := lspLinter(dir)
-	if err == nil || !strings.Contains(err.Error(), "parse merged config") {
-		t.Fatalf("merged config failure = %v", err)
+	if err == nil || !strings.Contains(err.Error(), config.LocalOverrideFileName+":1: targets: expected a list, got a map") {
+		t.Fatalf("local config failure = %v", err)
 	}
-	if len(diagnostics) != 0 {
-		t.Errorf("merged YAML line is not an original source position: %+v", diagnostics)
+	local := diagnostics[filepath.Join(dir, config.LocalOverrideFileName)]
+	if len(diagnostics) != 1 || len(local) != 1 || local[0].Range.Start.Line != 0 {
+		t.Errorf("want one diagnostic on line 1 of the local file: %+v", diagnostics)
 	}
 }
 
@@ -211,4 +212,35 @@ func TestLSPLinter_ReportsUnknownConfigKeyPosition(t *testing.T) {
 		t.Fatal("unknown setting must fail loading")
 	}
 	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-004", 2)
+}
+
+func TestLSPLinter_ReportsTargetRefusal(t *testing.T) {
+	dir := newProject(t)
+	writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: [claude, codebuddy]\n")
+	agent := filepath.Join(dir, ".agnostic-ai", "agents", "reviewer2.md")
+	writeFile(t, agent, "---\nname: reviewer2\ndescription: Reviews code.\n---\n\nReview the diff.\n")
+	diagnostics, err := lspLinter(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, list := range diagnostics {
+		for _, d := range list {
+			if d.Code == "LINT053" {
+				if resolved, _ := filepath.EvalSymlinks(path); resolved != mustEvalSymlinks(t, agent) {
+					t.Errorf("LINT053 on %s, want %s", path, agent)
+				}
+				return
+			}
+		}
+	}
+	t.Errorf("editor must show LINT053 as lint does: %+v", diagnostics)
+}
+
+func mustEvalSymlinks(t *testing.T, path string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
 }

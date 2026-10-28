@@ -136,8 +136,7 @@ func stateFilePath(projectRoot string) string {
 // readStateFile loads the sync-state cache. A missing or corrupt file
 // yields the zero value on purpose: the state is a self-healing cache the
 // next sync rewrites, so an unreadable one means "no prior state" rather
-// than a fatal error. Mirrors lastSyncTimestamp, which swallows the same
-// read for the same reason.
+// than a fatal error. Sync warns about a corrupt one (unparsableLedger).
 func readStateFile(projectRoot string) syncStateFile {
 	var s syncStateFile
 	data, err := os.ReadFile(stateFilePath(projectRoot))
@@ -145,6 +144,7 @@ func readStateFile(projectRoot string) syncStateFile {
 		return s
 	}
 	_ = json.Unmarshal(data, &s)
+	s.dropEscapingEntries(projectRoot, stateFilePath(projectRoot))
 	return s
 }
 
@@ -242,18 +242,12 @@ func readStateFileStrict(projectRoot string) (syncStateFile, error) {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return s, fmt.Errorf("parse %s: %w", p, err)
 	}
+	s.dropEscapingEntries(projectRoot, p)
 	return s, nil
 }
 
 func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesDigest string, ledger syncLedger) error {
-	p := stateFilePath(projectRoot)
-	if err := adapters.CheckBookkeepingPath(projectRoot, p); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(p), err)
-	}
-	data, err := json.Marshal(syncStateFile{
+	return replaceStateFile(projectRoot, syncStateFile{
 		Version:        syncStateVersion,
 		SyncedAt:       time.Now().UTC(),
 		FilesChanged:   filesChanged,
@@ -273,10 +267,6 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Backups:        ledger.backups,
 		Listed:         ledger.listed,
 	})
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(p, data, 0o644)
 }
 
 // recordOutputSums merges sums of files written outside a sync, such as
@@ -287,8 +277,7 @@ func recordOutputSums(projectRoot string, sums map[string]string) error {
 	if len(sums) == 0 {
 		return nil
 	}
-	p := stateFilePath(projectRoot)
-	data, err := os.ReadFile(p)
+	data, err := os.ReadFile(stateFilePath(projectRoot))
 	if err != nil {
 		return nil
 	}
@@ -300,13 +289,38 @@ func recordOutputSums(projectRoot string, sums map[string]string) error {
 		s.OutputSums = map[string]string{}
 	}
 	maps.Copy(s.OutputSums, sums)
-	if data, err = json.Marshal(s); err != nil {
-		return err
+	return replaceStateFile(projectRoot, s)
+}
+
+// unparsableLedger reports a state file that exists but does not parse,
+// as a full disk or a stop mid-write leaves it. Such a ledger counts as
+// missing (ledgerMissing) and the next sync replaces it.
+func unparsableLedger(root string) error {
+	p := stateFilePath(root)
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return nil
 	}
-	if err := adapters.CheckBookkeepingPath(projectRoot, p); err != nil {
-		return err
+	var s syncStateFile
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("%s does not parse (%v)", filepath.ToSlash(p), err)
 	}
-	return os.WriteFile(p, data, 0o644)
+	return nil
+}
+
+// ledgerCheckError fails `sync --check` on a ledger that does not parse,
+// which would otherwise hide every leftover the lost ledger listed.
+func ledgerCheckError(root string) error {
+	if err := unparsableLedger(root); err != nil {
+		return fmt.Errorf("%w; run agnostic-ai sync to rebuild the ledger", err)
+	}
+	return nil
+}
+
+func warnUnparsableLedger(root string) {
+	if err := unparsableLedger(root); err != nil {
+		fmt.Fprintf(os.Stderr, "! %v; treating the ledger as missing until a sync writes a new one\n", err)
+	}
 }
 
 // emitTarget resolves target t and emits it under detailed recording, shared by
@@ -452,6 +466,7 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 					return nil // group already failing; do not start new work
 				}
 				sess := adapters.NewSession()
+				sess.SetProjectRoot(".")
 				sessions[idx] = sess
 				if backup {
 					sess.SetBackup(true)
@@ -674,6 +689,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if err != nil {
 		return err
 	}
+	warnUnparsableLedger(root)
 	prev := readStateFile(root)
 	release := holdPriorState(root, prev)
 	defer release()
@@ -684,6 +700,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// own session; sessions collects every session with a rollback log in
 	// write order, so the deferred rollback undoes the latest phase first.
 	mainSess := adapters.NewSession()
+	mainSess.SetProjectRoot(".")
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
 		mainSess.SetBackup(true)
@@ -744,12 +761,13 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	ledgerMergedWrites := map[string]mergedOutput{}
 	var gitignoreEntries []string
 	complete := true
-	var emitted []string
+	var emitted, unresolved []string
 	var emitRows []emitRow
 	for _, e := range emits {
 		if e.err != nil && !e.resolved {
 			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
 			complete = false
+			unresolved = append(unresolved, e.target)
 			continue
 		}
 		emitted = append(emitted, e.target)
@@ -788,7 +806,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
 		report.addWrites("", entryWrites)
-		creditEntryPointReaders(&report, emitRows, effectiveTargets, entryWrites, entryFiles)
+		creditEntryPointReaders(&report, emitRows, emitted, entryWrites, entryFiles)
 		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), dryRun)
 		if err != nil {
 			return err
@@ -805,14 +823,14 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	applied := shared.apply(mainSess, dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
-	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, effectiveTargets, cfg.Targets, dryRun)
+	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, dryRun)
 	if gitignoreOn {
 		for _, l := range applied {
 			gitignoreEntries = append(gitignoreEntries, l.path)
 		}
 
 		retained := ledger.orphans
-		if sweepErr != nil || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+		if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
 			retained = ledger.outputs
 		}
 		for _, path := range retained {
@@ -829,6 +847,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		if err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
+		personal = withLeftoverBackups(personal, block, syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups)))
 		if err := writePersonalExcludes(root, personal); err != nil {
 			return fmt.Errorf("git exclude: %w", err)
 		}
@@ -906,6 +925,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
 	}
+	if len(unresolved) > 0 && !dryRun {
+		printKept("  ~ skipped removing stale files: %s did not load; a sync that loads every target removes them\n", strings.Join(unresolved, ", "))
+	}
 	for _, p := range removed {
 		report.removed = append(report.removed, filepath.ToSlash(p))
 	}
@@ -949,7 +971,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		if verbosity == levelVerbose {
 			flushDrops()
 		}
-		summaryf("%s would sync %d target%s · %s\n", tick(), len(effectiveTargets), plural(len(effectiveTargets)), shortDuration(time.Since(start)))
+		summaryf("%s would sync %d target%s · %s\n", tick(), len(emitted), plural(len(emitted)), shortDuration(time.Since(start)))
 		return nil
 	}
 	// Every write this sync makes is done; an --untrack failure below
@@ -961,7 +983,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// A partial run leaves other targets on older specs; keep the old
 	// baseline so the run that updates them still names the change.
 	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
-	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+	if coversAllConfiguredTargets(emitted, cfg.Targets) {
 		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
@@ -1015,9 +1037,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if verbosity >= levelDefault {
 		if verbosity == levelVerbose {
 			logOut = originalLog
-			report.renderCompact(logOut, len(effectiveTargets), time.Since(start))
+			report.renderCompact(logOut, len(emitted), time.Since(start))
 		} else {
-			report.render(logOut, len(effectiveTargets), time.Since(start), verbosity > levelVerbose)
+			report.render(logOut, len(emitted), time.Since(start), verbosity > levelVerbose)
 		}
 		if verbose && len(emitRows) > 0 {
 			renderTargetRows(logOut, emitRows, verbosity > levelVerbose)
@@ -1278,6 +1300,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err != nil {
 		return err
 	}
+	warnUnparsableLedger(root)
 	prev := readStateFile(root)
 	release := holdPriorState(root, prev)
 	defer release()
@@ -1285,6 +1308,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 
 	// JSON retains partial target output except when coverage acceptance rejects the run.
 	mainSess := adapters.NewSession()
+	mainSess.SetProjectRoot(".")
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
 		mainSess.SetBackup(true)
@@ -1399,6 +1423,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return undoSweep(mainSess, prior, fmt.Errorf("gitignore: %w", err))
 		}
+		personal = withLeftoverBackups(personal, block, syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups)))
 		if err := writePersonalExcludes(root, personal); err != nil {
 			return undoSweep(mainSess, prior, fmt.Errorf("git exclude: %w", err))
 		}

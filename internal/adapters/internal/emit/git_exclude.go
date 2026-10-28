@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/gitexclude"
 )
 
@@ -46,7 +47,7 @@ func GitExcludePath() (string, bool) {
 	}
 	for {
 		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-			_, common, ok := gitDirsAt(dir)
+			_, common, ok := config.GitDirs(dir)
 			if !ok {
 				return "", false
 			}
@@ -58,39 +59,4 @@ func GitExcludePath() (string, bool) {
 		}
 		dir = parent
 	}
-}
-
-// gitDirsAt returns the Git directory of a checkout whose top folder is
-// dir, and the common directory a linked worktree shares with its main
-// checkout. Both are the same folder in a main checkout.
-func gitDirsAt(dir string) (gitDir, common string, ok bool) {
-	dotGit := filepath.Join(dir, ".git")
-	info, err := os.Stat(dotGit)
-	if err != nil {
-		return "", "", false
-	}
-	gitDir = dotGit
-	if !info.IsDir() {
-		data, err := os.ReadFile(dotGit)
-		if err != nil {
-			return "", "", false
-		}
-		ref, found := strings.CutPrefix(strings.TrimSpace(string(data)), "gitdir: ")
-		if !found {
-			return "", "", false
-		}
-		if !filepath.IsAbs(ref) {
-			ref = filepath.Join(dir, ref)
-		}
-		gitDir = ref
-	}
-	common = gitDir
-	if data, err := os.ReadFile(filepath.Join(gitDir, "commondir")); err == nil {
-		ref := strings.TrimSpace(string(data))
-		if !filepath.IsAbs(ref) {
-			ref = filepath.Join(gitDir, ref)
-		}
-		common = ref
-	}
-	return gitDir, common, true
 }

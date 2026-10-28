@@ -52,16 +52,23 @@ type sharedSkillsState struct {
 // Returns an inert state when sync.shared-skills is off. Links are only
 // planned on full runs (every configured target emitted): a partial run
 // cannot see all participants, so it must not pick a canonical copy.
+// A target whose adapter does not load counts as not emitted.
 func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sharedSkillsState, error) {
+	loaded := make([]string, 0, len(targets))
+	for _, t := range targets {
+		if _, err := adapters.Resolve(t); err == nil {
+			loaded = append(loaded, t)
+		}
+	}
 	st := &sharedSkillsState{
 		enabled:   cfg.Sync.SharedSkills,
-		coversAll: coversAllConfiguredTargets(targets, cfg.Targets),
+		coversAll: coversAllConfiguredTargets(loaded, cfg.Targets),
 		unmanaged: cfg.Sync.Unmanaged,
 	}
 	if !st.enabled {
 		return st, nil
 	}
-	captures, err := captureRenders(cfg, b, targets)
+	captures, err := captureRenders(cfg, b, loaded)
 	if err != nil {
 		return nil, err
 	}
@@ -253,6 +260,7 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) (*adapters.S
 		return nil, nil
 	}
 	sess := adapters.NewSession()
+	sess.SetProjectRoot(".")
 	sess.StartTransaction()
 	keep := map[string]string{}
 	for _, l := range st.links {
@@ -299,7 +307,7 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) (*adapters.S
 // fresh temporary sibling and swapped in only when complete, so a failed
 // copy leaves the link untouched.
 func materializeLink(p string) error {
-	if err := adapters.CheckProjectPath(".", p); err != nil {
+	if err := config.CheckProjectLinks(".", p, "write", false); err != nil {
 		return err
 	}
 	src, err := filepath.EvalSymlinks(p)
@@ -420,7 +428,7 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			summaryf("  would link %s -> %s\n", l.path, rel)
 			continue
 		}
-		if err := adapters.CheckProjectPath(".", l.path); err != nil {
+		if err := config.CheckProjectLinks(".", l.path, "write", false); err != nil {
 			warnf("%v", err)
 			continue
 		}
