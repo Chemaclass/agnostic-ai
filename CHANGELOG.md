@@ -12,10 +12,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
+- `new <kind> <name> --dry-run` fails with "already exists" for a spec file that exists, like the real run. Before, it printed "would create" and exited 0 (#2661).
 - `sync`, `status`, `list`, `validate`, `cleanup`, `graph`, and `upgrade` fail on a positional argument instead of ignoring it. `upgrade v0.56.1` points at `--version v0.56.1`; before, it installed the latest release. `graph --kind` and `graph --target` fail on a value that is not a spec kind or a configured target, with a suggestion when one is close (#2662).
 
 #### Web interface
 
+- Lifecycle stages start closed, with counts and descriptions visible; expand one or all, search hooks, or follow a link to open its stage (#2631).
 - A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).
 - Set `model` and `effort` for one tool under **What each tool gets**, saved as `model.<tool>` or `effort.<tool>`. Each tool shows where its value comes from, such as `personal · codex`, and when an `agnostic-ai.yaml` output key replaces it; **Use the value for every tool** removes the tool's entry. `/api/edit/field` and setting previews take `target` (#2602).
 - **Settings** names where an edit goes **Shared (committed)** or **Personal (not committed)**, and edit and preview requests take `audience: shared` or `audience: personal`. The older `scope: team` or `scope: local` is accepted until the next minor release; a request that sends both with different meanings returns 400. Change plans carry `audience` beside `scope` until then, and a saved choice on the page carries over (#2602).
@@ -41,6 +43,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### CodeBuddy Code
 
 - Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
+
+#### Cursor
+
+- `import cursor` writes `alwaysApply: false` for a rule with neither `alwaysApply` nor `globs`, so sync no longer makes it always on (#2643).
+- A rule imported and synced before keeps the `alwaysApply: true` sync wrote; set `alwaysApply: false` in its spec to turn it off (#2643).
 
 #### Mistral Vibe
 
