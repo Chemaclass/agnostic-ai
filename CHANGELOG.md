@@ -12,6 +12,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
+- `sync`, `status`, `list`, `validate`, `cleanup`, `graph`, and `upgrade` fail on a positional argument instead of ignoring it. `upgrade v0.56.1` points at `--version v0.56.1`; before, it installed the latest release. `graph --kind` and `graph --target` fail on a value that is not a spec kind or a configured target, with a suggestion when one is close (#2662).
 
 #### Web interface
 

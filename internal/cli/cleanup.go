@@ -27,6 +27,7 @@ func newCleanupCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "cleanup",
+		Args:  cobra.NoArgs,
 		Short: "Remove .bak backups left by `sync --backup`.",
 		Long: `cleanup removes housekeeping leftovers from previous agnostic-ai runs.
 

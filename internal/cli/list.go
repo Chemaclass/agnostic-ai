@@ -11,6 +11,7 @@ func newListCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "list",
+		Args:  cobra.NoArgs,
 		Short: "List loaded specs.",
 		Example: `  # Print every loaded entry as <kind>\t<name>\t<layer>
   agnostic-ai list

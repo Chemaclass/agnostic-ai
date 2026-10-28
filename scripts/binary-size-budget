@@ -551,4 +551,6 @@
 # #2672 measured 23855264 on Go 1.27.3: sync preserves edited outputs
 # before removal, and revert restores their bytes and permissions.
 # Linux amd64 release flags; no added headroom or dependencies.
-23855264
+# #2662 measured 23863456 on Go 1.27.3 on top of main: commands that take no arguments reject them, and graph checks --kind and --target.
+# Linux amd64 release flags; no added headroom or dependencies.
+23863456
