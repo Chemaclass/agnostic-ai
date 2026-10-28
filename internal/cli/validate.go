@@ -22,6 +22,7 @@ func newValidateCmd() *cobra.Command {
 	var fix, global bool
 	cmd := &cobra.Command{
 		Use:   "validate",
+		Args:  cobra.NoArgs,
 		Short: "Validate agnostic specs.",
 		Long: "Parses every spec and reports problems. Exit code 1 when any " +
 			"issue is reported, so a CI step can gate on it.",
