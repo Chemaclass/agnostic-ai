@@ -32,10 +32,8 @@ type importViewFile struct {
 	info    os.FileInfo
 }
 
-// currentInfo returns the file info recorded before the run, or, for a
-// file the run created, the info of what path holds now: another source
-// may reach that new file under a second name, such as an absolute
-// alias of a relative source folder (#2675).
+// currentInfo is the file info from before the run or, for a file the
+// run created, what path holds now, so a later name for it links here.
 func (f *importViewFile) currentInfo(path string) os.FileInfo {
 	if f.info != nil {
 		return f.info
