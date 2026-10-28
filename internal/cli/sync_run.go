@@ -916,6 +916,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	for _, p := range sessionPaths(sessions, (*adapters.Session).KeptEdits) {
 		printKept("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
 	}
+	for _, p := range sessionPaths(sessions, (*adapters.Session).RemovedEdits) {
+		printKept("%s removed a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
+	}
 	for _, p := range sessionPaths(sessions, (*adapters.Session).OverwroteEdits) {
 		printKept("%s overwrote a hand edit to %s (saved as %s.bak); %s\n", bang(), p, p, overwrittenEditAdvice(cfg, effectiveTargets, p))
 	}
@@ -1398,7 +1401,11 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: sweepErr.Error()})
 	}
 	for _, p := range removed {
-		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "delete"})
+		rec := fileRecord{Target: "agnostic-ai", Path: p, Action: "delete"}
+		if slices.Contains(mainSess.RemovedEdits(), p) {
+			rec.Backup = p + ".bak"
+		}
+		out.Writes = append(out.Writes, rec)
 	}
 	for _, p := range stripped {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "update"})

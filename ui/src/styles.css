@@ -1367,25 +1367,6 @@ input:hover {
   gap: 4px 12px;
 }
 
-.stage-counts {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.stage-label .stage-empty {
-  flex-basis: 100%;
-}
-
-.hook-command {
-  display: block;
-  margin-top: 4px;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
 .stage-description {
   font-size: 13px;
 }
@@ -1402,7 +1383,6 @@ input:hover {
 
 .stage-tools {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;

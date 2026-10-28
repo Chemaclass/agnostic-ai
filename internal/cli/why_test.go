@@ -81,6 +81,58 @@ func TestWhy_HumanOutputReportsAdapterAndSource(t *testing.T) {
 	}
 }
 
+func TestWhy_DefaultProjectIgnoresUnconfiguredAdapterErrors(t *testing.T) {
+	dir, _ := gitRepo(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "demo.md"), "---\nname: demo\ndescription: Demo rule.\nalwaysApply: true\n---\n\nUse plain words.\n")
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	got := runWhyJSON(t, "CLAUDE.md")
+	if got.Target != "claude" || !got.Configured {
+		t.Errorf("want configured claude, got target %q, configured %v", got.Target, got.Configured)
+	}
+	if len(got.Sources) == 0 || got.Sources[0].Path != ".agnostic-ai/AGNOSTIC_AI.md" {
+		t.Errorf("want shared instructions provenance, got %v", got.Sources)
+	}
+
+	got = runWhyJSON(t, ".devin/rules/demo.md")
+	if got.Target != "windsurf" || got.Configured {
+		t.Errorf("want unconfigured windsurf, got target %q, configured %v", got.Target, got.Configured)
+	}
+	if !slices.ContainsFunc(got.Sources, func(s whySource) bool { return s.Name == "demo" }) {
+		t.Errorf("want demo rule provenance, got %v", got.Sources)
+	}
+}
+
+func TestWhy_ConfiguredAdapterErrorHasOneTargetPrefix(t *testing.T) {
+	dir := setupWhyFixture(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets: [claude, grok]\ngitignore:\n  enabled: true\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"why", "CLAUDE.md"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected configured grok emission to fail")
+	}
+	const want = "grok: project rules cannot be Git-ignored; set gitignore.commit: [grok:instructions] or explicitly disable gitignore management"
+	if err.Error() != want {
+		t.Errorf("want %q, got %q", want, err)
+	}
+}
+
 func TestWhy_UnknownFileEmitsActionableError(t *testing.T) {
 	dir := setupWhyFixture(t)
 	testutil.Chdir(t, dir)

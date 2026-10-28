@@ -7,7 +7,7 @@ Inspect project or user configuration in a local browser. Installed binaries inc
 | Context | The instructions file, rules, agents, and skills |
 | Authority | The permission files, each rule as a chip |
 | Tools | MCP servers, each with the tools `agnostic-ai mcp tools` last listed |
-| Lifecycle | Every session stage, its hook and disabled counts, the tools under Runs on, and each hook's command or type |
+| Lifecycle | Every point in a session a hook can run at, with the coding tools that run it and the hooks configured there |
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
 
 Findings use compact rows with severity, check code, and source path. Long messages expand with **Show full message**; **Copy fix prompt** always copies the complete diagnostic. **Details** shows the suggested fix, explanation, and the exact prompt the button copies. With a running server, **Recheck** reloads the overview through the shared refresh and compares finding ids, which ignore line numbers, to say whether that finding still appears. A failed refresh, or the `lint-incomplete` finding the server sends when lint stopped early, is never read as a fix. Doctor findings that disappear are shown as not confirmed, because the overview's doctor checks skip files they cannot read. Native settings group keys by tool. Target lists use logos with full names on hover.
