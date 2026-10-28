@@ -1,10 +1,90 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { MOCK, openApp, saveScreenshot } from './helpers'
+import { findingEntryIds, itemEntryId } from '../src/model/identity'
+import type { SectionItem } from '../src/contract'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
+async function sourceOnly(page: import('@playwright/test').Page) {
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+}
+
 test.describe('overview', () => {
+  test('keeps recheck feedback when a finding moves to another section', async ({ page }) => {
+    const data = structuredClone(fixture)
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=authority')
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding).toBeVisible()
+    const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const index = authority.items.findIndex((item: { name: string }) => item.name === 'permissions')
+    settings.items.push(authority.items.splice(index, 1)[0])
+    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
+  })
+
+  test('keeps recheck feedback when a finding moves but its item stays', async ({ page }) => {
+    const data = structuredClone(fixture)
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=authority')
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding).toBeVisible()
+    const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const item = authority.items.find((entry: { name: string }) => entry.name === 'permissions')
+    settings.findings.push(item.findings.pop())
+    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
+  })
+
+  test('keeps recheck feedback when a section finding moves to another section', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const item = authority.items.find((entry: { name: string }) => entry.name === 'permissions')
+    authority.findings.push(item.findings.pop())
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=authority')
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding).toBeVisible()
+    settings.items.push({ ...item, findings: [authority.findings.pop()] })
+    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
+  })
+
+  test('copies a refine prompt for the global instructions file only', async ({ page, context }) => {
+    const data = structuredClone(fixture)
+    const contextSection = data.sections.find((section: { id: string }) => section.id === 'context')
+    const instructions = { kind: 'instructions', name: 'AGNOSTIC_AI.md', label: 'AGNOSTIC_AI.md', description: 'Loaded at the start of every session: 120 words.', values: [], findings: [] }
+    contextSection.items.push(
+      { ...instructions, path: 'AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/AGNOSTIC_AI.md', layer: 'global' },
+      { ...instructions, path: 'local/AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/local/AGNOSTIC_AI.md', layer: 'global-local' },
+    )
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=context')
+    const refine = page.getByRole('button', { name: /^Copy refine prompt/ })
+    await expect(refine).toHaveCount(1)
+    await expect(page.locator('.item-row', { hasText: 'local/AGNOSTIC_AI.md' }).getByRole('button', { name: /^Copy refine prompt/ })).toHaveCount(0)
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await refine.click()
+    await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
+    const prompt = await page.evaluate(() => navigator.clipboard.readText())
+    expect(prompt).toContain('global agent instructions in /home/me/.agnostic-ai/AGNOSTIC_AI.md')
+    expect(prompt).toContain('Then wait for my explicit approval.')
+  })
+
+  test('spaces each kind block apart from the one before it', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('/?view=context')
+    const blocks = page.locator('.stale-guard > .block')
+    await expect(blocks.nth(1)).toBeVisible()
+    const first = await blocks.nth(0).boundingBox()
+    const second = await blocks.nth(1).boundingBox()
+    expect(second!.y - (first!.y + first!.height)).toBeGreaterThanOrEqual(24)
+  })
+
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
     const data = structuredClone(fixture)
     data.snapshot.project.name = 'agnostic-ai'
@@ -22,6 +102,58 @@ test.describe('overview', () => {
     await expect(page.locator('.project-name')).not.toHaveClass(/chip/)
   })
 
+  test('offers reload when a boolean save is stale', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    settings.fields.find((field: { key: string }) => field.key === 'x-').set = [{ spec: 'native', path: '.agnostic-ai/settings/native.yaml', values: [{ key: 'x-claude.verbose', type: 'bool', value: 'false' }] }]
+    let failRefresh = false
+    await page.route('**/api/views/overview', (route) => {
+      if (failRefresh) { failRefresh = false; return route.fulfill({ status: 500, json: { error: 'Refresh failed.' } }) }
+      return route.fulfill({ json: data })
+    })
+    await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', supported: false, enabled: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+    let sent: unknown
+    await page.route('**/api/edit/value', (route) => {
+      sent = route.request().postDataJSON()
+      settings.fields.find((field: { key: string }) => field.key === 'x-').set[0].values[0].value = 'true'
+      failRefresh = true
+      return route.fulfill({ status: 409, json: { error: 'The value changed. Git protection was kept.' } })
+    })
+    await page.goto('/?view=settings')
+    const toggle = page.getByRole('switch', { name: 'x-claude.verbose' })
+    await toggle.click()
+    await expect(page.getByRole('alert')).toContainText('The value changed. Git protection was kept.')
+    await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(sent).toEqual({ audience: 'shared', path: '.agnostic-ai/settings/native.yaml', key: 'x-claude.verbose', value: true, expected: false })
+    await page.getByRole('button', { name: 'Reload saved values' }).click()
+    await expect(page.getByText('The overview could not be refreshed.')).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByText('The value changed. Git protection was kept.')).toBeVisible()
+    await page.getByRole('button', { name: 'Retry', exact: true }).click()
+    await expect(page.getByText('The overview could not be refreshed.')).toHaveCount(0)
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByText('The value changed. Git protection was kept.')).toHaveCount(0)
+  })
+
+  test('offers reload when a built-in save is stale', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', supported: false, enabled: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+    let sent: unknown
+    await page.route('**/api/edit/builtin', (route) => {
+      sent = route.request().postDataJSON()
+      return route.fulfill({ status: 409, json: { error: 'The built-in changed.' } })
+    })
+    await page.goto('/?view=settings')
+    const toggle = page.getByRole('switch', { name: 'memory built-in' })
+    const before = await toggle.getAttribute('aria-checked')
+    await toggle.click()
+    await expect(page.getByRole('alert')).toContainText('The built-in changed.')
+    await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
+    expect(sent).toEqual({ audience: 'shared', name: 'memory', enabled: before !== 'true', expected: before === 'true' })
+  })
+
   test('loads a logo for every registered target', async ({ page }) => {
     const data = structuredClone(fixture)
     const capabilities = readFileSync(new URL('../../docs/site/data/capabilities.toml', import.meta.url), 'utf8')
@@ -34,6 +166,7 @@ test.describe('overview', () => {
     data.sections.find((section: { id: string }) => section.id === 'lifecycle').stages[0].targets = targets
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=lifecycle')
+    await page.locator('.stage').first().locator('summary').click()
     const avatars = page.locator('.stage').first().locator('.tool-avatar')
     await expect(avatars).toHaveCount(targets.length)
     for (const target of targets) {
@@ -85,7 +218,7 @@ test.describe('overview', () => {
     await expect(native.locator('.native-group-title')).toHaveText('x-ellipsis')
     await expect(native.locator('dt').first()).toHaveText('environment.repository.name')
     await native.getByRole('switch', { name: 'x-ellipsis.pull_requests.draft' }).click()
-    expect(edit).toEqual({ scope: 'team', path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true })
+    expect(edit).toEqual({ audience: 'shared', path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true, expected: false })
     const finding = page.locator('.finding', { hasText: 'LINT038' })
     await expect(finding.getByText('This rule grants all file reads.', { exact: true })).not.toBeVisible()
     await finding.getByText('Details', { exact: true }).click()
@@ -206,9 +339,10 @@ test.describe('overview', () => {
     const before = await theme.getAttribute('aria-label')
     await theme.click()
     await expect(theme).not.toHaveAttribute('aria-label', before ?? '')
-    await expect(page.getByRole('combobox')).toHaveCount(0)
-    const open = page.locator('.item-row', { hasText: 'agents/' }).first().getByRole('link', { name: /^Edit .+ in Cursor$/ })
-    await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.md$/)
+    await expect(page.locator('.topbar').getByRole('combobox')).toHaveCount(0)
+    const open = page.locator('.item-row', { hasText: 'agents/' }).first().getByRole('link', { name: /^Open .+ in Cursor$/ })
+    if (MOCK) await expect(open).toHaveCount(0)
+    else await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.md$/)
     await saveScreenshot(page, '01-context.png')
   })
 
@@ -218,11 +352,126 @@ test.describe('overview', () => {
     const stages = page.locator('.stage-title')
     await expect(stages.nth(0)).toHaveText('Session start')
     await expect(stages.nth(6)).toHaveText('Session end')
-    if (MOCK) await expect(page.locator('.stage-empty')).toHaveCount(7)
+    if (MOCK) {
+      await expect(page.locator('.stage-empty')).toHaveCount(7)
+      await expect(page.locator('.stage-count')).toHaveText(Array(7).fill('No hooks'))
+    }
+    await expect(page.locator('.stage-description')).toHaveCount(7)
+    await expect(page.locator('.stage-description').first()).toBeVisible()
+    await expect(page.locator('details.stage')).toHaveCount(7)
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
+    await expect(page.locator('.stages > li > details.stage')).toHaveCount(7)
+    await expect(page.locator('.stage summary .stage-description')).toHaveCount(7)
+    await expect(page.locator('.stage summary .stage-count')).toHaveCount(7)
+    await expect(page.locator('.stage').first().locator('.stage-tools')).toBeHidden()
+    await saveScreenshot(page, '02-lifecycle-collapsed.png')
+    await page.locator('.stage').first().locator('summary').focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.stage[open]')).toHaveCount(1)
     const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
     await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
     await expect(avatar.locator('img')).toBeVisible()
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(page.locator('.stage[open]')).toHaveCount(7)
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await page.getByRole('link', { name: 'Context', exact: false }).first().click()
+    await expect(page.getByRole('button', { name: 'Expand all', exact: true })).toHaveCount(0)
+    await page.getByRole('link', { name: 'Lifecycle', exact: false }).first().click()
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
     await saveScreenshot(page, '02-lifecycle.png')
+  })
+
+  test('opens the stage and focuses a linked hook or its finding', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
+    const hook: SectionItem = { kind: 'hook', name: 'prepare', label: 'Prepare session', description: '', path: '.agnostic-ai/hooks/prepare.yaml', layer: 'project', group: 'session-start', values: [], findings: [] }
+    lifecycle.items = [hook]
+    lifecycle.kinds[0].count = 1
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    const entry = itemEntryId(hook)
+    for (const id of [entry, ...findingEntryIds(hook.findings, entry)]) {
+      await page.goto(`/?view=lifecycle&entry=${encodeURIComponent(id)}`)
+      await expect(page.locator('.stage[open]')).toHaveCount(1)
+      await expect(page.locator('.stage').first()).toHaveAttribute('open', '')
+      await expect(page.locator(`[data-entry="${id}"]`)).toBeFocused()
+      await expect(page.locator(`[data-entry="${id}"]`)).toBeVisible()
+    }
+  })
+
+  test('keeps a linked hook stage open and focuses resolved recheck feedback until dismissed', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
+    const hook: SectionItem = { kind: 'hook', name: 'prepare', label: 'Prepare session', description: '', path: '.agnostic-ai/hooks/prepare.yaml', layer: 'project', group: 'session-start', values: [], findings: [] }
+    lifecycle.items = [hook]
+    lifecycle.kinds[0].count = 1
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
+    let finishRefresh: (() => void) | undefined
+    let refreshing = false
+    await page.route('**/api/views/overview', async (route) => {
+      if (refreshing) await new Promise<void>((resolve) => { finishRefresh = resolve })
+      return route.fulfill({ json: data })
+    })
+    const id = findingEntryIds(hook.findings, itemEntryId(hook))[0]
+    await page.goto(`/?view=lifecycle&q=no-such-hook&entry=${encodeURIComponent(id)}`)
+    const stage = page.locator('.stage').first()
+    const finding = stage.locator('.finding')
+    await expect(finding).toBeFocused()
+    refreshing = true
+    await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+    await expect(finding.getByRole('button', { name: 'Rechecking…', exact: true })).toBeFocused()
+    await expect(stage).toHaveAttribute('open', '')
+    hook.findings = []
+    await expect.poll(() => Boolean(finishRefresh)).toBe(true)
+    finishRefresh!()
+    const feedback = stage.locator('.finding-rechecked')
+    await expect(feedback).toBeVisible()
+    await expect(feedback).toBeFocused()
+    await expect(feedback).toContainText('This lint finding no longer appears.')
+    await expect(page.getByRole('searchbox', { name: 'Search lifecycle' })).toHaveValue('no-such-hook')
+    await expect(stage).toHaveAttribute('open', '')
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(stage).not.toHaveAttribute('open')
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(feedback).toBeVisible()
+    await feedback.getByRole('button', { name: 'Dismiss', exact: true }).click()
+    await expect(feedback).toHaveCount(0)
+    await expect(stage).not.toHaveAttribute('open')
+    await expect(page.getByRole('heading', { name: 'Hooks 1', exact: true })).toBeFocused()
+  })
+
+  test('keeps a linked hook stage open and focuses last known feedback when lint is incomplete', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
+    const hook: SectionItem = { kind: 'hook', name: 'prepare', label: 'Prepare session', description: '', path: '.agnostic-ai/hooks/prepare.yaml', layer: 'project', group: 'session-start', values: [], findings: [] }
+    lifecycle.items = [hook]
+    lifecycle.kinds[0].count = 1
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    const id = findingEntryIds(hook.findings, itemEntryId(hook))[0]
+    await page.goto(`/?view=lifecycle&entry=${encodeURIComponent(id)}`)
+    const stage = page.locator('.stage').first()
+    const finding = stage.locator('.finding')
+    await expect(finding).toBeFocused()
+    hook.findings = []
+    lifecycle.findings.push({ source: 'lint', code: 'lint-incomplete', severity: 'warning', message: 'Lint stopped.' })
+    await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+    const feedback = stage.locator('.finding-recheck-result')
+    await expect(feedback).toBeVisible()
+    await expect(feedback).toBeFocused()
+    await expect(feedback).toContainText('Lint stopped before it finished')
+    await expect(stage).toHaveAttribute('open', '')
+    const search = page.getByRole('searchbox', { name: 'Search lifecycle' })
+    await search.fill('no-such-hook')
+    await expect(search).toBeFocused()
+    await expect(feedback).toBeVisible()
+    await expect(stage.locator('.stage-count')).toHaveText('No matching hooks')
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(stage).not.toHaveAttribute('open')
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(feedback).toBeVisible()
   })
 
   test('shows built-ins as switches and config values as chips and text', async ({ page }) => {
@@ -232,7 +481,9 @@ test.describe('overview', () => {
     await expect(builtins).toHaveCount(5)
     await expect(builtins.filter({ hasText: 'memory' }).locator('.switch-text')).toHaveText(/On|Off/)
     const config = page.locator('.item-row', { hasText: 'agnostic-ai.yaml' })
-    await expect(config.getByRole('link', { name: /^Edit .+ in Cursor$/ })).toHaveAttribute('href', /^cursor:\/\/file\/.+\.yaml$/)
+    const open = config.getByRole('link', { name: /^Open .+ in Cursor$/ })
+    if (MOCK) await expect(open).toHaveCount(0)
+    else await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.yaml$/)
     await expect(config.locator('.value-row', { hasText: 'targets' }).locator('.tool-avatar').first()).toBeVisible()
     await saveScreenshot(page, '03-settings.png')
   })
@@ -244,11 +495,66 @@ test.describe('overview', () => {
     const permissions = page.locator('.item-row', { hasText: 'permissions.yaml' }).first()
     await expect(permissions).toHaveClass(/has-findings/)
     await expect(permissions.locator('.finding')).toContainText('LINT038')
+    await expect(permissions.locator('.finding-source')).toContainText('Files open in an editor only from a running agnostic-ai serve.')
+    await expect(permissions.getByRole('button', { name: 'Copy path of .agnostic-ai/settings/permissions.yaml' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Open files in' })).toHaveCount(0)
+    await expect(permissions.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
+    await expect(page.locator('.sidenav .sync-status-time')).toContainText('Rechecking a finding needs a running agnostic-ai serve.')
     await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
     await expect(page.locator('.field-row', { hasText: 'Default permission mode' })).toContainText('Not set')
     await expect(page.getByText('Capability domains')).toHaveCount(0)
     await expect(page.getByText('Uncertainties')).toHaveCount(0)
     await saveScreenshot(page, '04-authority.png')
+  })
+
+  test('opens a finding at its line in the chosen editor, with Copy path beside it', async ({ page, context }) => {
+    const path = 'C:/Users/Some One/project #1/.agnostic-ai/settings/permissions.yaml'
+    const data = structuredClone(fixture)
+    const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+    const item = authority.items.find((it: { name: string }) => it.name === 'permissions')
+    item.findings = [
+      { ...item.findings[0], path, line: 7, openPath: path },
+      { source: 'doctor', code: 'gone', severity: 'warn', message: 'Names a file that is not on disk', path: 'missing.yaml' },
+    ]
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=authority')
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding.locator('.finding-source')).toContainText(`${path}:7`)
+    const open = finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` })
+    await expect(open).toHaveAttribute('href', 'cursor://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
+
+    const choice = page.getByRole('group', { name: 'Open files in' })
+    await expect(choice.getByRole('button', { name: 'Cursor' })).toHaveAttribute('aria-pressed', 'true')
+    await choice.getByRole('button', { name: 'VS Code' }).focus()
+    await page.keyboard.press('Space')
+    await expect(choice.getByRole('button', { name: 'VS Code' })).toHaveAttribute('aria-pressed', 'true')
+    const vscode = finding.getByRole('link', { name: `Open ${path} in VS Code at line 7` })
+    await expect(vscode).toHaveAttribute('href', 'vscode://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
+    await expect(page.locator('.item-row', { hasText: 'protected' }).first().getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', /^vscode:\/\/file\/.+protected\.yaml$/)
+
+    await page.evaluate(() => document.addEventListener('click', (event) => {
+      if ((event.target as Element).closest('a[href^="vscode:"]')) event.preventDefault()
+    }, true))
+    await vscode.focus()
+    await page.keyboard.press('Enter')
+    await expect(finding.locator('.editor-hint')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
+    await choice.getByRole('button', { name: 'Cursor' }).click()
+    await expect(finding.locator('.editor-hint')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
+    await choice.getByRole('button', { name: 'VS Code' }).click()
+    await finding.getByRole('button', { name: `Copy path of ${path}` }).click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('C:\\Users\\Some One\\project #1\\.agnostic-ai\\settings\\permissions.yaml')
+
+    const gone = page.locator('.finding', { hasText: 'Names a file that is not on disk' })
+    await expect(gone.locator('.finding-source')).toContainText('missing.yaml')
+    await expect(gone.locator('.finding-source')).toContainText('This path is not a file on disk, so it cannot be opened in an editor.')
+    await expect(gone.getByRole('button', { name: 'Copy path of missing.yaml' })).toBeVisible()
+    await expect(gone.getByRole('link')).toHaveCount(0)
+    await saveScreenshot(page, '04b-finding-editor.png')
+
+    await page.reload()
+    await expect(page.getByRole('group', { name: 'Open files in' }).getByRole('button', { name: 'VS Code' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.finding', { hasText: 'LINT038' }).getByRole('link', { name: `Open ${path} in VS Code at line 7` })).toBeVisible()
   })
 
   test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
@@ -259,12 +565,32 @@ test.describe('overview', () => {
     if (MOCK) await expect(servers.first().locator('.tool-state')).toContainText('agnostic-ai mcp tools')
   })
 
+  test("lists MCP servers found only in a tool's own config, with the import hint", async ({ page }) => {
+    test.skip(!MOCK, 'the mock fixture holds a native server')
+    await openApp(page, '?view=tools')
+    const block = page.getByRole('region', { name: /Found in a tool's own config/ })
+    const row = block.locator('.item-row', { hasText: 'notion' })
+    await expect(row).toContainText('Claude Code only')
+    await expect(row).toContainText('~/.claude.json')
+    await expect(row).toContainText('http')
+    await expect(row.locator('.tool-state')).toContainText('Run agnostic-ai import --global claude to make it a spec.')
+    await page.getByRole('searchbox').fill('notion')
+    await expect(block.locator('.kind-count')).toHaveText('1 of 1 match')
+    await page.getByRole('searchbox').fill('github')
+    await expect(block.locator('.kind-count')).toHaveText('0 of 1 match')
+    await expect(block).toContainText('No matches.')
+  })
+
   test('keeps the header and navigation in place while the content scrolls', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 500 })
+    if (MOCK) await page.route('**/assets/overview.mock-*.js', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await route.continue()
+    })
     await openApp(page, '?view=lifecycle')
     await expect(page.locator('.footer')).toHaveCount(0)
     const main = page.locator('#main')
-    expect(await main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+    await expect.poll(() => main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
     expect(await page.evaluate(() => document.scrollingElement!.scrollHeight <= window.innerHeight + 1)).toBe(true)
     const navTop = await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)
     await main.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
@@ -292,6 +618,7 @@ test.describe('overview', () => {
     await page.route('**/api/changes/builtin/preview', (route) => route.fulfill(refuse
       ? { status: 422, json: { error: 'The snapshot contains a symbolic link.' } }
       : { json: { ...state, status: 'proposed', id: 'preview', enabled: true, config: 'agnostic-ai.yaml', targets: ['claude'] } }))
+    await page.route('**/api/changes/builtin/cancel', (route) => route.fulfill({ json: state }))
     await page.goto('/?view=settings')
     const row = page.locator('.item-row', { has: page.getByRole('switch', { name: 'caveman built-in', exact: true }) })
     const toggle = row.locator('.item-heading').getByRole('switch', { name: 'caveman built-in', exact: true })
@@ -348,7 +675,8 @@ test.describe('overview', () => {
     await expect(page.getByRole('switch')).toHaveCount(5)
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    expect(posted).toEqual([{ scope: 'team', name: 'memory', enabled: true }])
+    expect(posted).toEqual([{ audience: 'shared', name: 'memory', enabled: true, expected: false }])
+    await expect(page.locator('.sidenav .sync-status-saved')).toHaveText('Saved to the source configuration. Generated files change only when you run sync.')
 
     refuse = true
     await toggle.click()
@@ -357,7 +685,7 @@ test.describe('overview', () => {
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
   })
 
-  test('saves settings and built-ins for just me, marks local values, and resets them', async ({ page }) => {
+  test('saves settings and built-ins as personal, marks personal values, and resets them', async ({ page }) => {
     const data = structuredClone(fixture)
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
     const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
@@ -390,38 +718,144 @@ test.describe('overview', () => {
       })
     }
     await page.goto('/?view=settings')
-    const teamButton = page.getByRole('button', { name: 'Team (committed)', exact: true })
-    const justMe = page.getByRole('button', { name: 'Just me (not committed)', exact: true })
-    await expect(teamButton).toHaveAttribute('aria-pressed', 'true')
+    const shared = page.getByRole('button', { name: 'Shared (committed)', exact: true })
+    const personal = page.getByRole('button', { name: 'Personal (not committed)', exact: true })
+    await expect(shared).toHaveAttribute('aria-pressed', 'true')
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
-    await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
-    await expect(model).toContainText('Your local value overrides the team value.')
-    await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null })
+    await expect(model.locator('.badge', { hasText: 'personal' })).toBeVisible()
+    await expect(model).toContainText('Your personal value overrides the shared value.')
+    await model.getByRole('button', { name: 'Reset to shared value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'model', value: null, expected: 'opus' })
 
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
-    await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
-    await caveman.getByRole('button', { name: 'Reset caveman to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: false })
+    await expect(caveman.locator('.badge', { hasText: 'personal' })).toBeVisible()
+    await caveman.getByRole('button', { name: 'Reset caveman to shared value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', name: 'caveman', enabled: false, expected: true })
 
-    await justMe.click()
-    await expect(justMe).toHaveAttribute('aria-pressed', 'true')
+    await personal.click()
+    await expect(personal).toHaveAttribute('aria-pressed', 'true')
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
-    await expect(effort.locator('.badge', { hasText: 'local' })).toHaveCount(0)
+    await expect(effort.locator('.badge', { hasText: 'personal' })).toHaveCount(0)
     await expect(effort).toContainText(`Saves to ${local}`)
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
     await effort.getByRole('button', { name: 'Save' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low' })
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'effort', value: 'low', expected: null })
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
     await page.getByRole('switch', { name: 'memory built-in' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'memory', enabled: true })
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', name: 'memory', enabled: true, expected: false })
 
     await page.reload()
-    await expect(justMe).toHaveAttribute('aria-pressed', 'true')
+    await expect(personal).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  const refreshFailures: { name: string; fail: (route: import('@playwright/test').Route) => Promise<void>; message: RegExp }[] = [
+    { name: 'an HTTP error', fail: (route) => route.fulfill({ status: 500, json: { error: 'audit-simulated-overview-failure' } }), message: /answered 500: audit-simulated-overview-failure/ },
+    { name: 'a network failure', fail: (route) => route.abort('connectionrefused'), message: /Could not reach/ },
+    { name: 'a malformed response', fail: (route) => route.fulfill({ status: 200, contentType: 'text/plain', body: 'not json' }), message: /did not return JSON/ },
+  ]
+  for (const failure of refreshFailures) {
+    test(`shows ${failure.name} when the refresh after a save fails, then recovers on retry`, async ({ page }) => {
+      await sourceOnly(page)
+      const data = structuredClone(fixture)
+      const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+      const team = '.agnostic-ai/settings/defaults.yaml'
+      const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
+      const edit = { kind: 'text', path: team, paths: [team], syncCommand: 'agnostic-ai sync' }
+      Object.assign(field('effort'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'effort', type: 'text', value: 'high' }] }], editable: edit })
+      Object.assign(field('model'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'model', type: 'text', value: 'sonnet' }] }], editable: edit })
+      let failing = false
+      await page.route('**/api/views/overview', (route) => {
+        if (failing) return failure.fail(route)
+        const view = structuredClone(data)
+        const effort = view.sections.find((section: { id: string }) => section.id === 'settings').fields.find((f: { key: string }) => f.key === 'effort')
+        effort.set[0].values[0].value = saved
+        return route.fulfill({ json: view })
+      })
+      let saved = 'high'
+      await page.route('**/api/edit/field', (route) => {
+        saved = route.request().postDataJSON().value
+        return route.fulfill({ json: { ok: true } })
+      })
+      await page.goto('/?view=settings')
+      const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+      const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+      await model.getByRole('textbox', { name: 'Default model value' }).fill('draft-model')
+
+      failing = true
+      await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+      await effort.getByRole('button', { name: 'Update' }).click()
+      const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
+      await expect(alert).toContainText('Your change was saved, but the overview could not be refreshed.')
+      await expect(alert).toContainText(failure.message)
+      await expect(alert).toContainText('previous overview')
+      await expect(effort.getByRole('button', { name: 'Update' })).toBeDisabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toBeDisabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('draft-model')
+      await expect(page).toHaveURL(/view=settings/)
+
+      await alert.getByRole('button', { name: 'Retry' }).click()
+      await expect(alert).toBeVisible()
+      failing = false
+      await alert.getByRole('button', { name: 'Retry' }).click()
+      await expect(alert).toHaveCount(0)
+      await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
+      await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toBeEnabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('draft-model')
+    })
+  }
+
+  test('keeps an unsaved draft and shows the changed saved value when a retry brings a different source', async ({ page }) => {
+    await sourceOnly(page)
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const team = '.agnostic-ai/settings/defaults.yaml'
+    const edit = { kind: 'text', path: team, paths: [team], syncCommand: 'agnostic-ai sync' }
+    const model = settings.fields.find((f: { key: string }) => f.key === 'model')
+    const effort = settings.fields.find((f: { key: string }) => f.key === 'effort')
+    Object.assign(model, { set: [{ spec: 'defaults', path: team, values: [{ key: 'model', type: 'text', value: 'sonnet' }] }], editable: edit })
+    Object.assign(effort, { set: [{ spec: 'defaults', path: team, values: [{ key: 'effort', type: 'text', value: 'high' }] }], editable: edit })
+    let failing = false
+    let onDisk = 'sonnet'
+    await page.route('**/api/views/overview', (route) => {
+      if (failing) return route.fulfill({ status: 500, json: { error: 'down' } })
+      const view = structuredClone(data)
+      view.sections.find((section: { id: string }) => section.id === 'settings').fields.find((f: { key: string }) => f.key === 'model').set[0].values[0].value = onDisk
+      return route.fulfill({ json: view })
+    })
+    await page.route('**/api/edit/field', (route) => route.fulfill({ json: { ok: true } }))
+    await page.goto('/?view=settings')
+    const modelRow = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    const effortRow = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await modelRow.getByRole('textbox', { name: 'Default model value' }).fill('my-draft')
+
+    failing = true
+    await effortRow.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+    await effortRow.getByRole('button', { name: 'Update' }).click()
+    const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
+    await expect(alert).toBeVisible()
+    await page.getByRole('button', { name: 'JSON' }).click()
+    await expect(page.getByText('Not refreshed: this is the previous overview')).toBeVisible()
+    await page.getByRole('button', { name: 'Close the JSON inspector' }).click()
+
+    failing = false
+    onDisk = 'opus'
+    await alert.getByRole('button', { name: 'Retry' }).click()
+    await expect(alert).toHaveCount(0)
+    await expect(modelRow.getByRole('textbox', { name: 'Default model value' })).toHaveValue('my-draft')
+    await expect(modelRow.getByRole('status')).toContainText('The saved value changed after you started editing')
+    await expect(modelRow.getByRole('status')).toContainText('opus')
+  })
+
+  test('shows an error panel, not stale data, when the first overview load fails', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ status: 500, json: { error: 'audit-simulated-overview-failure' } }))
+    await page.goto('/?view=settings')
+    await expect(page.getByRole('alert')).toContainText('audit-simulated-overview-failure')
+    await expect(page.getByRole('alert')).not.toContainText('previous overview')
   })
 
   test('resets a personal boolean and the override of the spec chosen to save to', async ({ page }) => {
+    await sourceOnly(page)
     const data = structuredClone(fixture)
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
     const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
@@ -446,19 +880,56 @@ test.describe('overview', () => {
       })
     }
     await page.goto('/?view=settings')
-    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
 
     const native = page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })
-    await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to team value' })).toHaveCount(1)
-    await native.getByRole('button', { name: 'Reset x-claude.verbose to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: nativeLocal, key: 'x-claude.verbose', value: null })
+    await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to shared value' })).toHaveCount(1)
+    await native.getByRole('button', { name: 'Reset x-claude.verbose to shared value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: nativeLocal, key: 'x-claude.verbose', value: null, expected: true })
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
-    await expect(model.getByRole('button', { name: 'Reset to team value' })).toHaveCount(0)
+    await expect(model.getByRole('button', { name: 'Reset to shared value' })).toHaveCount(0)
     await model.getByRole('combobox').selectOption(b)
-    await expect(model).toContainText('Your local value overrides the team value.')
-    await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null })
+    await expect(model).toContainText('Your personal value overrides the shared value.')
+    await model.getByRole('button', { name: 'Reset to shared value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: b, key: 'model', value: null, expected: 'opus' })
+  })
+
+  test('shows a configured value from another source beside the editor and hides only the value the editor shows', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
+    const [team, local, pack] = ['.agnostic-ai/settings/defaults.yaml', '.agnostic-ai/local/settings/defaults.yaml', '.agnostic-ai/packs/team/settings/team.yaml']
+    const editable = { kind: 'text', path: team, paths: [team], localPath: local, syncCommand: 'agnostic-ai sync' }
+    Object.assign(field('model'), { set: [{ spec: 'team', path: pack, values: [{ key: 'model', type: 'text', value: 'sonnet' }] }], editable })
+    Object.assign(field('effort'), { set: [{ spec: 'defaults', path: local, local: true, values: [{ key: 'effort', type: 'text', value: 'low' }] }], editable })
+    Object.assign(field('session-retention-days'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'session-retention-days', type: 'text', value: '30' }] }], editable: { ...editable, kind: 'number' } })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=settings')
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
+
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(model.locator('.field-source')).toContainText('sonnet')
+    await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveAttribute('placeholder', 'Not set in this file')
+    await expect(model).toContainText(`Saves to ${team}`)
+
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await expect(effort).toContainText('Your personal value overrides the shared value.')
+    await expect(effort.locator('.field-source')).toContainText('low')
+    await expect(effort.locator('.field-source')).toContainText(`from ${local}`)
+
+    const retention = page.locator('.field-row').filter({ has: page.getByText('Session retention', { exact: true }) })
+    await expect(retention.getByRole('spinbutton', { name: 'Session retention value' })).toHaveValue('30')
+    await expect(retention.locator('.field-source')).toHaveCount(0)
+    await expect(retention).toContainText(`from ${team}`)
+
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
+    await expect(effort.locator('.field-source')).toHaveCount(0)
+    await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    await expect(retention.getByRole('spinbutton', { name: 'Session retention value' })).toHaveValue('30')
+    await expect(retention.locator('.field-source')).toContainText(`from ${team}`)
   })
 
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
@@ -476,6 +947,7 @@ test.describe('overview', () => {
   })
 
   test('starts a field edit on the spec in effect and links global instructions only for retention', async ({ page }) => {
+    await sourceOnly(page)
     const data = structuredClone(fixture)
     const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
     const field = (key: string) => fields.find((f: { key: string }) => f.key === key)
@@ -507,11 +979,79 @@ test.describe('overview', () => {
     await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Update' }).click()
-    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku' })
+    await expect.poll(() => edit).toEqual({ audience: 'shared', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort).toContainText('edit the spec directly')
     await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)
     const retention = page.locator('.field-row').filter({ has: page.getByText('Session retention', { exact: true }) })
     await expect(retention.locator('a', { hasText: 'Global view instructions' })).toHaveCount(1)
+  })
+})
+
+test.describe('generated-file status', () => {
+  const withSync = (states: { target: string; label: string; state: string; files?: string[] }[]) => {
+    const data = structuredClone(fixture)
+    data.targets = states.map(({ target, label, state, files = [] }) => ({ target, label, kinds: [], sync: { state, files: files.map((path) => ({ path, state: 'stale' })) } }))
+    return data
+  }
+  const status = (page: import('@playwright/test').Page) => page.locator('.sidenav section.sync-status')
+
+  test('shows each tool as Matches source, Needs sync, or Not checked, with the files that differ', async ({ page }) => {
+    const data = withSync([
+      { target: 'claude', label: 'Claude Code', state: 'drifted', files: ['.claude/settings.json'] },
+      { target: 'codex', label: 'Codex', state: 'in-sync' },
+      { target: 'external', label: 'External', state: 'not-checked' },
+    ])
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=settings')
+    await expect(status(page)).toContainText('Claude Code needs sync. External was not checked.')
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Checked /)
+    const row = (name: string) => status(page).locator('.sync-status-tool').filter({ hasText: name })
+    await expect(row('Claude Code')).toContainText('Needs sync')
+    await expect(row('Codex')).toContainText('Matches source')
+    await expect(row('External')).toContainText('Not checked')
+    await row('Claude Code').getByText('1 file').click()
+    await expect(row('Claude Code')).toContainText('.claude/settings.json')
+  })
+
+  test('never reports a match for an empty tool list', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: withSync([]) }))
+    await page.goto('/?view=context')
+    await expect(status(page)).toContainText('No coding tools are configured, so no generated files were checked.')
+    await expect(status(page)).not.toContainText('match the source')
+  })
+
+  test('keeps the previous results after a failed refresh without calling them checked', async ({ page }) => {
+    let failing = false
+    let hold: Promise<void> | undefined
+    await page.route('**/api/views/overview', async (route) => {
+      if (hold) await hold
+      return failing ? route.fulfill({ status: 500, json: { error: 'down' } }) : route.fulfill({ json: withSync([{ target: 'claude', label: 'Claude Code', state: 'in-sync' }]) })
+    })
+    await page.goto('/?view=context')
+    await expect(status(page)).toContainText('Generated files match the source for 1 tool.')
+    failing = true
+    await status(page).getByRole('button', { name: 'Refresh' }).click()
+    await expect(status(page)).toContainText('The latest refresh failed, so these results may be out of date.')
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Last successful check /)
+    await expect(status(page)).toHaveAttribute('data-tone', 'unknown')
+    failing = false
+    let release = () => {}
+    hold = new Promise((done) => { release = done })
+    await status(page).getByRole('button', { name: 'Refresh' }).click()
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Last successful check .* Checking again…$/)
+    await expect(status(page)).toHaveAttribute('data-tone', 'unknown')
+    hold = undefined
+    release()
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Checked /)
+    await expect(status(page)).toHaveAttribute('data-tone', 'match')
+  })
+
+  test('labels mock data as a snapshot, not a live check', async ({ page }) => {
+    await page.goto('/?view=context&mock=1')
+    await expect(status(page)).toContainText('Generated files at snapshot time')
+    await expect(status(page)).toContainText('Not a live check of your files.')
+    await expect(status(page).getByRole('button', { name: 'Reload snapshot' })).toBeVisible()
+    await expect(status(page).getByRole('button', { name: 'Refresh' })).toHaveCount(0)
   })
 })

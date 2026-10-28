@@ -14,7 +14,7 @@ func TestResolveMeta_ResolvesAVendorModelAliasForItsTarget(t *testing.T) {
 		want   any
 	}{
 		{name: "scalar on codex", meta: map[string]any{"model": "sol"}, target: "codex", want: "gpt-6.1-sol"},
-		{name: "terra on codex", meta: map[string]any{"model": "terra"}, target: "codex", want: "gpt-5.6-terra"},
+		{name: "terra on codex", meta: map[string]any{"model": "terra"}, target: "codex", want: "gpt-6.1-terra"},
 		{name: "map entry on codex", meta: map[string]any{"model": map[string]any{"claude": "opus", "codex": "luna"}}, target: "codex", want: "gpt-6-luna"},
 		{name: "map default on codex", meta: map[string]any{"model": map[string]any{"claude": "opus", "default": "astra"}}, target: "codex", want: "gpt-6-astra"},
 		{name: "claude keeps its alias", meta: map[string]any{"model": map[string]any{"claude": "opus", "codex": "sol"}}, target: "claude", want: "opus"},
@@ -34,8 +34,8 @@ func TestResolveMeta_ResolvesAVendorModelAliasForItsTarget(t *testing.T) {
 
 func TestSettingsModel_ResolvesCodexTerraAlias(t *testing.T) {
 	entries := []spec.Entry{{Name: "team", Meta: map[string]any{"model": map[string]any{"codex": "terra"}}}}
-	if got := SettingsModel(entries, "codex"); got != "gpt-5.6-terra" {
-		t.Errorf("SettingsModel(codex) = %q, want gpt-5.6-terra", got)
+	if got := SettingsModel(entries, "codex"); got != "gpt-6.1-terra" {
+		t.Errorf("SettingsModel(codex) = %q, want gpt-6.1-terra", got)
 	}
 }
 

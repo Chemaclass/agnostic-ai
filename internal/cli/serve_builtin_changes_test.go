@@ -40,12 +40,12 @@ func builtinProposal(t *testing.T, h http.Handler, enabled bool) builtinChangeVi
 
 func builtinNamedProposal(t *testing.T, h http.Handler, name string, enabled bool) builtinChangeView {
 	t.Helper()
-	return builtinScopedProposal(t, h, scopeTeam, name, enabled)
+	return builtinScopedProposal(t, h, audienceShared, name, enabled)
 }
 
-func builtinScopedProposal(t *testing.T, h http.Handler, scope editScope, name string, enabled bool) builtinChangeView {
+func builtinScopedProposal(t *testing.T, h http.Handler, audience editAudience, name string, enabled bool) builtinChangeView {
 	t.Helper()
-	body, _ := json.Marshal(map[string]any{"scope": scope, "name": name, "enabled": enabled})
+	body, _ := json.Marshal(map[string]any{"audience": audience, "name": name, "enabled": enabled})
 	rec := postEdit(t, h, builtinPreviewPath, string(body), nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("preview: %d %s", rec.Code, rec.Body)
@@ -215,7 +215,7 @@ func TestBuiltinChanges_UsesLocalConfigAndKeepsPrivateModes(t *testing.T) {
 	original, _ := os.ReadFile("agnostic-ai.local.yaml")
 	shared, _ := os.ReadFile("agnostic-ai.yaml")
 	h := newBuiltinChangeHandler(root, false)
-	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
+	proposal := builtinScopedProposal(t, h, audiencePersonal, "caveman", true)
 	if proposal.Config != "agnostic-ai.local.yaml" {
 		t.Fatalf("config = %s", proposal.Config)
 	}
@@ -393,7 +393,7 @@ func TestBuiltinChanges_RejectsUnsafeProjectsBeforeWriting(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"caveman","enabled":true}`, nil)
 			if rec.Code == http.StatusOK {
 				t.Fatalf("unsafe preview accepted: %s", rec.Body)
 			}
@@ -481,7 +481,7 @@ func TestBuiltinChanges_SymlinkInputRefused(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"caveman","enabled":true}`, nil)
 			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "not a regular file") {
 				t.Fatalf("unsafe input not rejected: %d %s", rec.Code, rec.Body)
 			}
@@ -507,13 +507,13 @@ func TestBuiltinChanges_RequestBoundaries(t *testing.T) {
 		{"method", func(r *http.Request) { r.Method = http.MethodGet }, http.StatusMethodNotAllowed},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, tc.mutate)
+			rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"caveman","enabled":true}`, tc.mutate)
 			if rec.Code != tc.status {
 				t.Errorf("status = %d, want %d: %s", rec.Code, tc.status, rec.Body)
 			}
 		})
 	}
-	for _, body := range []string{`{"scope":"team","name":"caveman"}`, `{"scope":"team","name":"unknown","enabled":true}`, `{"scope":"team","name":"caveman","enabled":true,"unknown":1}`, `{"scope":"team","name":"caveman","enabled":true} {}`} {
+	for _, body := range []string{`{"audience":"shared","name":"caveman"}`, `{"audience":"shared","name":"unknown","enabled":true}`, `{"audience":"shared","name":"caveman","enabled":true,"unknown":1}`, `{"audience":"shared","name":"caveman","enabled":true} {}`} {
 		rec := postEdit(t, h, builtinPreviewPath, body, nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("invalid body = %d: %s", rec.Code, rec.Body)
@@ -526,7 +526,7 @@ func TestBuiltinChanges_RequestBoundaries(t *testing.T) {
 		t.Errorf("foreign status = %d", rec.Code)
 	}
 	global := newBuiltinChangeHandler(t.TempDir(), true)
-	rec = postEdit(t, global, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
+	rec = postEdit(t, global, builtinPreviewPath, `{"audience":"shared","name":"caveman","enabled":true}`, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("global mutation = %d", rec.Code)
 	}
@@ -542,7 +542,7 @@ func TestBuiltinChanges_RedactsPreviewAndLeavesEnvironmentUntouched(t *testing.T
 		t.Fatal(err)
 	}
 	h := newBuiltinChangeHandler(root, false)
-	rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
+	rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"caveman","enabled":true}`, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("preview: %d %s", rec.Code, rec.Body)
 	}
@@ -664,6 +664,9 @@ func TestBuiltinChanges_DisablingUnsupportedSkillClearsWarnings(t *testing.T) {
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
+	if state := readStateFile("."); len(state.NoteRecords) == 0 {
+		t.Fatal("sync did not record the skill coverage note")
+	}
 	h := newBuiltinChangeHandler(root, false)
 	proposal := builtinProposal(t, h, false)
 	if len(proposal.Findings) != 0 {
@@ -671,6 +674,9 @@ func TestBuiltinChanges_DisablingUnsupportedSkillClearsWarnings(t *testing.T) {
 	}
 	builtinAction(t, h, builtinApplyPath, proposal.ID)
 	before := readStateFile(".")
+	if len(before.NoteRecords) != 0 {
+		t.Errorf("disable kept coverage note records: %v", before.NoteRecords)
+	}
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
@@ -805,7 +811,7 @@ func TestBuiltinChanges_NativePathsUseRecordedSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := planBuiltinChange(root, builtinRequest{name: "caveman", enabled: true}, scopeTeam)
+	plan, err := planBuiltinChange(root, builtinRequest{name: "caveman", enabled: true}, audienceShared)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -971,7 +977,7 @@ func TestBuiltinChanges_RefusesUnprovenOutputWrites(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"caveman","enabled":true}`, nil)
 			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), path) {
 				t.Fatalf("unproven write: %d %s", rec.Code, rec.Body)
 			}
@@ -1103,7 +1109,7 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"memory","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"memory","enabled":true}`, nil)
 			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "CLI") {
 				t.Fatalf("unsafe memory preview: %d %s", rec.Code, rec.Body)
 			}
@@ -1212,7 +1218,7 @@ func TestBuiltinChanges_UnsyncedProjectRefusesUnsafeLock(t *testing.T) {
 			root := unsyncedBuiltinProject(t)
 			tc.setup(t, root)
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"caveman","enabled":true}`, nil)
 			if rec.Code == http.StatusOK {
 				t.Fatalf("unsafe preview accepted: %s", rec.Body)
 			}
@@ -1360,11 +1366,71 @@ func TestBuiltinChanges_MemoryExclusionOutsideLinkedWorktreeRequiresCLI(t *testi
 		t.Fatal(err)
 	}
 	h := newBuiltinChangeHandler(".", false)
-	rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"memory","enabled":true}`, nil)
+	rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"memory","enabled":true}`, nil)
 	if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "need a Git exclusion outside this project; use agnostic-ai sync in the CLI") {
 		t.Fatalf("linked worktree preview: %d %s", rec.Code, rec.Body)
 	}
 	if after, err := os.ReadFile(exclude); err != nil || !bytes.Equal(after, before) {
 		t.Errorf("preview changed info/exclude: %q, %v", after, err)
+	}
+}
+
+func TestBuiltinChanges_CancelDiscardsOnlyTheNamedProposalAndKeepsUndo(t *testing.T) {
+	root := builtinChangeProject(t)
+	h := newBuiltinChangeHandler(root, false)
+	applied := builtinAction(t, h, builtinApplyPath, builtinNamedProposal(t, h, "handoff", true).ID)
+	before, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	older := builtinProposal(t, h, true)
+	newer := builtinProposal(t, h, true)
+	if rec := postEdit(t, h, builtinCancelPath, `{"id":"`+older.ID+`"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("cancel of a replaced proposal: %d %s", rec.Code, rec.Body)
+	}
+	if status := builtinStatus(t, h); status.Status != "proposed" || status.ID != newer.ID {
+		t.Fatalf("a cancel of a replaced proposal discarded the newer one: %s %s", status.Status, status.ID)
+	}
+	closed := builtinAction(t, h, builtinCancelPath, newer.ID)
+	for _, view := range []builtinChangeView{closed, builtinStatus(t, h)} {
+		if view.Status == "proposed" || view.ID == newer.ID {
+			t.Errorf("discarded proposal is still offered: %s %s", view.Status, view.ID)
+		}
+		if !view.UndoAvailable || view.UndoID != applied.ID || view.UndoName != "handoff" {
+			t.Errorf("cancel dropped the previous undo: %+v", view)
+		}
+	}
+	if rec := postEdit(t, h, builtinApplyPath, `{"id":"`+newer.ID+`"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("apply after cancel: %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, builtinCancelPath, `{"id":"`+newer.ID+`"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("repeated cancel: %d %s", rec.Code, rec.Body)
+	}
+	if err := before.check(root); err != nil {
+		t.Errorf("cancel changed project files: %v", err)
+	}
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	if config, _ := os.ReadFile("agnostic-ai.yaml"); strings.Contains(string(config), "handoff") {
+		t.Error("undo after cancel did not restore the config")
+	}
+}
+
+func TestBuiltinChanges_CancelDiscardsASettingPreview(t *testing.T) {
+	root := builtinChangeProject(t)
+	h := newBuiltinChangeHandler(root, false)
+	before, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal := settingProposal(t, h, audienceShared, map[string]any{"key": "effort", "value": "high", "expected": nil}, http.StatusOK)
+	builtinAction(t, h, builtinCancelPath, proposal.ID)
+	if status := builtinStatus(t, h); status.Status == "proposed" {
+		t.Errorf("setting preview survived cancel: %s", status.ID)
+	}
+	if rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("apply after cancel: %d %s", rec.Code, rec.Body)
+	}
+	if err := before.check(root); err != nil {
+		t.Errorf("cancel changed project files: %v", err)
 	}
 }

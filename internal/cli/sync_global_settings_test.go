@@ -446,6 +446,28 @@ effort:
 	}
 }
 
+func TestSyncGlobal_ClaudeEffortNotesOlderModelsOnly(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "s.yaml"), "effort: high\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "claude")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["effortLevel"] != "high" {
+		t.Errorf("effortLevel = %v, want high", doc["effortLevel"])
+	}
+	for _, want := range []string{"Opus 5.5 and later models", "Opus 5, Fable 5.1, and earlier models only"} {
+		if !strings.Contains(warnings, want) {
+			t.Errorf("warnings miss %q:\n%s", want, warnings)
+		}
+	}
+}
+
 func TestSyncGlobal_SettingsPermissionModeLifecycle(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
@@ -553,5 +575,30 @@ func TestSyncGlobal_SettingsPermissionModeExclusionRemovesOwnedValue(t *testing.
 	}
 	if got := readGlobalTest(t, path); got != original {
 		t.Errorf("exclusion left owned mode or changed handwritten permissions: %s", got)
+	}
+}
+
+func TestSyncGlobal_SettingsNoteClaudeManagedOnlyKeys(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), `x-claude:
+  deniedModels: [opus]
+  autoMode:
+    soft_deny: [x]
+`)
+	_, warnings, err := runGlobalAgentTest("--only", "claude")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if !strings.Contains(warnings, "x-claude.deniedModels") || !strings.Contains(warnings, "managed settings only") {
+		t.Errorf("warnings lack the deniedModels note:\n%s", warnings)
+	}
+	if strings.Contains(warnings, "autoMode") {
+		t.Errorf("autoMode takes user settings, yet warnings name it:\n%s", warnings)
+	}
+	raw := readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))
+	for _, key := range []string{`"deniedModels"`, `"autoMode"`} {
+		if !strings.Contains(raw, key) {
+			t.Errorf("sync must keep writing %s: %s", key, raw)
+		}
 	}
 }

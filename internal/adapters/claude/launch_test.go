@@ -126,3 +126,38 @@ func TestEmit_LaunchJSONFollowsClaudeDir(t *testing.T) {
 		t.Errorf("launch.json also written to .claude/: %v", err)
 	}
 }
+
+// A dev command with a url and no command writes `{name, url}`: Claude
+// attaches the preview to a server already running instead of starting
+// one (#2579).
+func TestEmit_DevCommandWithOnlyURLAttachesToRunningServer(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{{
+		Kind: spec.KindEnvironment, Name: "dev", Path: "environments/dev.yaml",
+		Meta: map[string]any{"dev-commands": []any{
+			map[string]any{"name": "app", "url": "https://app.localhost:3000"},
+			map[string]any{"name": "nothing"},
+		}},
+	}})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(cwd, ".claude", "launch.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{
+  "configurations": [
+    {
+      "name": "app",
+      "url": "https://app.localhost:3000"
+    }
+  ],
+  "version": "0.0.1"
+}
+`
+	if string(got) != want {
+		t.Errorf("launch.json:\n%s\nwant:\n%s", got, want)
+	}
+}

@@ -5,13 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
@@ -51,6 +54,13 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 		for _, g := range s.Hooks[event] {
 			// Command handlers that differ in any setting become separate
 			// specs, so one handler's settings never spread to its siblings.
+			// A group sync does not plan whole stays in settings.json as
+			// written, so leaving out one handler would make sync add the
+			// others a second time.
+			if field := claudeGroupCredentialField(g); field != "" {
+				keptf("warning: claude: left out the %s hooks matching %q in %s: a hook's %s holds a credential; sync leaves them in that file as written but does not manage them; to manage them, add them under .agnostic-ai/local/hooks\n", event, g.Matcher, filepath.Join(claudeDir, "settings.json"), field)
+				continue
+			}
 			var groups []*claudeCommandGroup
 			for _, h := range g.Hooks {
 				h.Command = adapters.StripCursorGuard(h.Command)
@@ -76,6 +86,78 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+// claudeWebhookPaths are chat webhook URL paths, where the path is the
+// secret. A match anywhere in a command or URL counts, since a false match
+// only leaves a hook out.
+var claudeWebhookPaths = []string{"hooks.slack.com/services/", "hooks.slack.com/workflows/", "hooks.slack.com/triggers/", "discord.com/api/webhooks/", "discordapp.com/api/webhooks/"}
+
+func claudeWebhookURL(text string) bool {
+	text = strings.ToLower(text)
+	return slices.ContainsFunc(claudeWebhookPaths, func(path string) bool { return strings.Contains(text, path) })
+}
+
+// claudeGroupCredentialField names the first field of a hook in g that
+// holds a literal credential, by the checks the settings overlay and MCP
+// import use, or returns "". A hook spec is committed, and its name and
+// description come from the command (#2668).
+func claudeGroupCredentialField(g claudehooks.Group) string {
+	for _, h := range g.Hooks {
+		if field := claudeHookCredentialField(h); field != "" {
+			return field
+		}
+	}
+	return ""
+}
+
+func claudeHookCredentialField(h claudehooks.CommandEntry) string {
+	command := adapters.ExecFormCommand(adapters.StripCursorGuard(h.Command), h.Args)
+	switch {
+	case h.Command != "" && (globalPermissionCommandCredentialDetected(command, 0) || claudeWebhookURL(command)):
+		return "command"
+	case h.URL != "" && (mcpCredentialDetected(h.URL) || claudeWebhookURL(h.URL)):
+		return "url"
+	case h.If != "" && globalPermissionCredentialDetected(h.If):
+		return "if"
+	case h.StatusMessage != "" && mcpCredentialDetected(h.StatusMessage):
+		return "statusMessage"
+	case h.Prompt != "" && mcpCredentialDetected(h.Prompt):
+		return "prompt"
+	}
+	for _, key := range slices.Sorted(maps.Keys(h.Headers)) {
+		if claudeHookCredentialValue(key, h.Headers[key]) {
+			return "headers." + key
+		}
+	}
+	if key := claudeHookInputCredential(h.Input, ""); key != "" {
+		return "input." + key
+	}
+	return ""
+}
+
+func claudeHookCredentialValue(key, value string) bool {
+	stripped, defaulted := spec.StripEnvRefDefaults(value)
+	return value != "" && (len(defaulted) > 0 || !mcpRefOnly(stripped)) && mcpCredentialSetting(key, value)
+}
+
+// claudeHookInputCredential returns the dotted key of the first string in
+// an `mcp_tool` input that holds a credential.
+func claudeHookInputCredential(input map[string]any, prefix string) string {
+	for _, key := range slices.Sorted(maps.Keys(input)) {
+		path := prefix + key
+		switch value := input[key].(type) {
+		case string:
+			if claudeHookCredentialValue(key, value) || claudeWebhookURL(value) {
+				return path
+			}
+		case map[string]any:
+			if found := claudeHookInputCredential(value, path+"."); found != "" {
+				return found
+			}
+		}
+	}
+	return ""
 }
 
 type claudeCommandSettings struct {

@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
@@ -25,6 +24,7 @@ func newSyncCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "sync",
+		Args:  cobra.NoArgs,
 		Short: "Emit per-target configs from agnostic specs.",
 		Example: `  # Emit every target listed in agnostic-ai.yaml
   agnostic-ai sync
@@ -34,6 +34,12 @@ func newSyncCmd() *cobra.Command {
 
   # Emit everything except Codex
   agnostic-ai sync --except codex
+
+  # Show changed targets and a short report
+  agnostic-ai sync -v
+
+  # Run sync again and show every target, path, and coverage note
+  agnostic-ai sync -vv
 
   # Preview without writing
   agnostic-ai sync --dry-run
@@ -121,7 +127,12 @@ func newSyncCmd() *cobra.Command {
 				}
 				defer func() { _ = lock.Close() }()
 			}
+			firstLoadOut := logOut
+			if verbosity == levelVerbose && !check && !plan && !dryRun && !jsonOut {
+				logOut = io.Discard
+			}
 			cfg, bundle, err := loadProject(".")
+			logOut = firstLoadOut
 			if err != nil {
 				return err
 			}
@@ -129,10 +140,8 @@ func newSyncCmd() *cobra.Command {
 			// not installed, so emit only warns about it. A name typed on
 			// the command line is a request, and a typo must not pass as
 			// "up to date".
-			for _, t := range targets {
-				if _, err := adapters.Resolve(t); err != nil {
-					return err
-				}
+			if err := resolveRequestedTargets(targets); err != nil {
+				return err
 			}
 			base := targets
 			if len(base) == 0 {
@@ -184,6 +193,9 @@ func newSyncCmd() *cobra.Command {
 				if check && slices.ContainsFunc(reports, driftReport.hasDrift) {
 					driftErr = errDriftDetected()
 				}
+				if check {
+					notesErr = errors.Join(notesErr, ledgerCheckError("."))
+				}
 				if jsonOut {
 					return errors.Join(printSyncPlanJSON(cmd, "sync --plan", reports, false, drops, notesErr), driftErr)
 				}
@@ -208,6 +220,13 @@ func newSyncCmd() *cobra.Command {
 					}
 				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
+				// --against compares what Git holds, and Git does not hold the
+				// ledger, so a hook gating a commit only hears about it.
+				if tree == nil {
+					notesErr = errors.Join(notesErr, ledgerCheckError("."))
+				} else if err := unparsableLedger(tree.origin); err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! %v; run agnostic-ai sync to rebuild the ledger\n", err)
+				}
 				var linkFailures []againstSkillLinkFailure
 				if tree != nil {
 					filtered := len(targets) > 0 || len(only) > 0 || len(except) > 0

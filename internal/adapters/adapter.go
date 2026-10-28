@@ -337,6 +337,19 @@ func PendingCapabilityWarnings() []DropRecord { return emit.PendingCapabilityWar
 // target and note, without clearing them.
 func PendingCoverageNotes() []DropRecord { return emit.PendingCoverageNotes() }
 
+// DropRecordFingerprint identifies the full diagnostic and its fix.
+func DropRecordFingerprint(r DropRecord) string { return emit.DropRecordFingerprint(r) }
+
+// SuppressKnownCapabilityWarnings removes previously reported warnings.
+func SuppressKnownCapabilityWarnings(known map[string]bool) int {
+	return emit.SuppressKnownCapabilityWarnings(known)
+}
+
+// SuppressKnownCoverageNotes removes previously reported notes.
+func SuppressKnownCoverageNotes(known map[string]bool) int {
+	return emit.SuppressKnownCoverageNotes(known)
+}
+
 // OrderBufferedDropsByTarget reorders the buffered capability warnings and
 // coverage notes to the given target sequence so their flushed output is
 // deterministic regardless of the order concurrent emission appended them
@@ -482,6 +495,45 @@ func AlwaysOnRule(name string, r spec.Entry) bool {
 // stay ignored without hand maintenance.
 type gitignoreHinter interface {
 	GitignoreHints(cfg *config.Config) []string
+}
+
+// specRefuser is the optional interface an adapter implements when its
+// Emit refuses some specs or settings before writing anything. Lint calls
+// it, so the refusal shows before sync stops for every target.
+type specRefuser interface {
+	RefuseSpecs(b spec.Bundle, cfg *config.Config) error
+}
+
+// Refusal is the error RefuseSpecs returns, naming the refused spec.
+type Refusal = emit.Refusal
+
+// RefuseSpecs returns the error the named target's Emit raises for b
+// before writing, nil when the target accepts b or declares no checks.
+func RefuseSpecs(name string, b spec.Bundle, cfg *config.Config) error {
+	r, ok := registry[name].(specRefuser)
+	if !ok {
+		return nil
+	}
+	defer SkipNotes()()
+	// A bundle sync cannot prepare fails there with its own error first.
+	own, err := targetSkills(b.For(name), cfg, name)
+	if err != nil {
+		return nil
+	}
+	own, _, err = emit.PrepareScopedDocuments(own, cfg, name, nil)
+	if err != nil {
+		return nil
+	}
+	return r.RefuseSpecs(own, cfg)
+}
+
+// targetSkills adds the agents and commands target writes as skills.
+func targetSkills(b spec.Bundle, cfg *config.Config, target string) (spec.Bundle, error) {
+	own, err := withAgentsAsSkills(b, cfg, target)
+	if err != nil {
+		return spec.Bundle{}, err
+	}
+	return withCommandsAsSkills(own, cfg, target), nil
 }
 
 // GitignoreHintsFor returns the ignore-only paths the named target
@@ -791,11 +843,10 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		sess.SetCodexSkillsDir(codexSkills)
 		sess.SetSkillsDirWriters(SkillDirectoryWriters(cfg))
 	}
-	own, err := withAgentsAsSkills(b.For(a.Name()), cfg, a.Name())
+	own, err := targetSkills(b.For(a.Name()), cfg, a.Name())
 	if err != nil {
 		return err
 	}
-	own = withCommandsAsSkills(own, cfg, a.Name())
 	mode := ""
 	if cfg != nil {
 		mode = cfg.OnUnsupported

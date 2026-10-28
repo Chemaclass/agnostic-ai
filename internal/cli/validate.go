@@ -22,6 +22,7 @@ func newValidateCmd() *cobra.Command {
 	var fix, global bool
 	cmd := &cobra.Command{
 		Use:   "validate",
+		Args:  cobra.NoArgs,
 		Short: "Validate agnostic specs.",
 		Long: "Parses every spec and reports problems. Exit code 1 when any " +
 			"issue is reported, so a CI step can gate on it.",
@@ -82,7 +83,7 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	entries := b.All()
 	var scopeIssues []validationIssue
 	if scope.global {
-		scopeIssues = lintGlobalRules(b.Rules)
+		scopeIssues = lintGlobalRules(b.Rules, scope.targets)
 		scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 	} else {
 		scopeIssues = lintEntryPointFences(".", scope.cfg)
@@ -119,6 +120,10 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 		if e.Kind == spec.KindSettings {
 			out = append(out, permissionCapabilityIssues([]spec.Entry{e})...)
 			out = append(out, sessionRetentionIssues([]spec.Entry{e})...)
+			continue
+		}
+		if e.Kind == spec.KindHook {
+			out = append(out, hookCommandIssues([]spec.Entry{e})...)
 			continue
 		}
 		if e.Kind == spec.KindMCP {

@@ -1,18 +1,26 @@
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
+import { API, type ItemFinding, type NativeServer, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type TargetSupport, type TargetValue, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
-import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './BuiltinChange'
-import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
-import { cursorUrl } from '../model/editor'
+import { ContextUsage } from './ContextUsage'
+import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
+import { EditAudienceProvider, EditAudienceSwitch, useEditAudience, usePageAudience, type EditAudience } from './EditAudience'
+import { OpenInEditor } from './EditorLink'
+import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
+import { instructionsRefinePrompt } from '../model/refine-prompt'
+import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
+import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, perToolEdit, valueAt } from '../model/field-address'
+import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
+import { fieldSearchText, itemSearchText } from '../model/search'
 import type { Remote } from './Shell'
 import { Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
 const ConfigurationRoot = createContext<string | undefined>(undefined)
+const ConfiguredTools = createContext<TargetSupport[]>([])
 
-export function SectionPage({ sectionId, overview }: { sectionId: string; overview: Remote<OverviewView> }) {
+export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
   const data = overview.loaded?.data
   if (!data) {
     return (
@@ -36,51 +44,80 @@ export function SectionPage({ sectionId, overview }: { sectionId: string; overvi
   return (
     <>
       <PageHeader title={section.label} subtitle={section.question} />
-      <ConfigurationRoot.Provider value={data.snapshot.project.root}>
-        <EditScopeProvider key={section.id} enabled={section.id === 'settings'}>
-          <SectionContents section={section} />
-        </EditScopeProvider>
-      </ConfigurationRoot.Provider>
-      <SupportTable section={section} toolLabel={toolLabel} />
+      <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
+        <ConfigurationRoot.Provider value={data.snapshot.project.root}>
+          <ConfiguredTools.Provider value={data.targets}>
+            <EditAudienceProvider key={section.id} enabled={section.id === 'settings'}>
+              <SectionContents section={section} />
+            </EditAudienceProvider>
+          </ConfiguredTools.Provider>
+        </ConfigurationRoot.Provider>
+        <SupportTable section={section} toolLabel={toolLabel} />
+      </fieldset>
     </>
   )
 }
 
-export function SectionContents({ section }: { section: Section }) {
-  return <BuiltinChangeProvider active={section.items.some((item) => item.kind === 'builtin')}><SectionContentsBody section={section} /></BuiltinChangeProvider>
+// Built-ins and model or effort fields share one preview, apply, and undo flow.
+function hasChanges(section: Section) {
+  return section.items.some((item) => item.kind === 'builtin') || (section.fields ?? []).some((field) => (field.key === 'model' || field.key === 'effort') && field.editable && !field.editable.disabledReason)
 }
 
-function SectionContentsBody({ section }: { section: Section }) {
-  const [search, setSearch] = useState('')
+export function SectionContents({ section }: { section: Section }) {
+  const changes = hasChanges(section)
+  return <BuiltinChangeProvider active={changes}><SectionContentsBody section={section} changes={changes} /></BuiltinChangeProvider>
+}
+
+function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
+  const app = useApp()
+  const search = app.state.q ?? ''
+  const setSearch = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
+  const entry = app.state.entry
+  const { rechecked, pendingPlace } = useRechecks()
+  const sectionPlace = `section:${section.id}`
+  const remainingHere = rechecked?.result.state === 'remaining' && sectionEntryIds(section).has(rechecked.result.id ?? rechecked.id)
+  const orphan = rechecked?.section === section.id && rechecked.place !== sectionPlace && !remainingHere && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const query = search.trim().toLowerCase()
   const matches = (parts: (string | undefined)[]) => parts.some((part) => part?.toLowerCase().includes(query))
-  const matchingItems = new Set(section.items.filter((item) => matches([
-    item.name, item.label, item.path, item.description, ...searchValues(item.values),
-    ...(item.tools?.tools.flatMap((tool) => [tool.name, tool.title, tool.description]) ?? []),
-  ])))
-  const matchingFields = section.fields?.filter((field) => matches([
-    field.key, field.label, field.description,
-    ...field.set.flatMap((source) => [source.spec, source.path, ...searchValues(source.values)]),
-  ]))
-  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0)
-  const matchCount = matchingItems.size + (matchingFields?.length ?? 0)
+  const matchingItems = new Set(section.items.filter((item) => matches(itemSearchText(item))))
+  const fieldMatches = section.fields?.filter((field) => matches(fieldSearchText(field)))
+  const matchingFields = section.fields?.filter((field) => fieldMatches?.includes(field) || fieldEntryId(field) === entry)
+  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === pendingPlace || itemEntryId(item) === rechecked?.place)
+  const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
+  useEffect(() => {
+    if (!entry) return
+    const target = document.querySelector<HTMLElement>(`[data-entry="${CSS.escape(entry)}"]`)
+    if (!target) return
+    const details = target.closest('details')
+    if (details) details.open = true
+    target.scrollIntoView({ block: 'center' })
+    target.focus({ preventScroll: true })
+  }, [entry, section.id])
+  const matchCount = matchingItems.size + (fieldMatches?.length ?? 0)
   const totalCount = section.items.length + (section.fields?.length ?? 0)
   const retainedFindings = section.items.some((item) => item.findings.length > 0 && !matchingItems.has(item))
   const errors = section.findings.filter((finding) => finding.severity === 'error').length
   const warnings = section.findings.length - errors
   const findingsId = `${section.id}-findings`
   const findingCounts = [errors ? `${errors} error${errors === 1 ? '' : 's'}` : '', warnings ? `${warnings} warning${warnings === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')
-  const otherFindings = section.findings.length > 0 && (
+  const otherFindings = (section.findings.length > 0 || rechecked?.place === sectionPlace || orphan !== undefined) && (
     <section className="block" aria-labelledby={findingsId}>
       <h2 id={findingsId} tabIndex={-1}>Other findings</h2>
-      <Findings findings={section.findings} />
+      <Findings findings={section.findings} place={sectionPlace} orphanPlace={orphan} />
     </section>
   )
   return (
-    <>
-      <EditScopeSwitch />
+    <RecheckSection.Provider value={section.id}>
+      <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
+      <EditAudienceSwitch />
+      {entryMissing && (
+        <div className="entry-missing" role="status">
+          <p>The linked {entry.startsWith('finding:') ? 'finding' : entry.startsWith('field:') ? 'setting' : 'item'} is not in this {section.label.toLowerCase()} section. It may have been removed, renamed, or fixed, or the link may come from another configuration.</p>
+          <button type="button" className="button button-quiet" onClick={() => app.navigate({ entry: undefined }, { replace: true })}>Dismiss</button>
+        </div>
+      )}
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
         <div className="section-search-controls">
@@ -112,39 +149,46 @@ function SectionContentsBody({ section }: { section: Section }) {
       {errors > 0 && otherFindings}
       {section.kinds.map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
-        if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} />
+        if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
-              {k.local && <Badge tone="accent" title="Your personal config replaces the team list">local</Badge>}
+              {k.local && <Badge tone="accent" title="Your personal config replaces the shared list">personal</Badge>}
             </h2>
-            {k.kind === 'builtin' && <BuiltinChangeControls labels={section.items} local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { scope: 'local', reset: true })} />} />}
+            {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
+            {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
             {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
         )
       })}
+      {section.native && section.native.length > 0 && <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} />}
+      {section.id === 'context' && <ContextUsage />}
       {errors === 0 && otherFindings}
-    </>
+      </RecheckSectionEntries.Provider>
+    </RecheckSection.Provider>
   )
 }
 
-function searchValues(values: Value[]): string[] {
-  return values.flatMap((value) => [value.key, value.value ?? '', ...(value.list ?? [])])
+function useEntry(id: string): { 'data-entry': string; tabIndex?: number; linked: boolean } {
+  const linked = useApp().state.entry === id
+  return { 'data-entry': id, tabIndex: linked ? -1 : undefined, linked }
 }
 
-function SettingsFields({ title, fields, files, filtering }: { title: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean }) {
+function SettingsFields({ title, fields, files, filtering, status }: { title: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
+  const entry = useApp().state.entry
   const id = `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
   const configured = fields.filter((field) => field.set.length > 0)
   const unconfigured = fields.filter((field) => field.set.length === 0)
   return (
     <section className="block" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
+      {status}
       {configured.length ? <FieldList fields={configured} files={files} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
       {unconfigured.length > 0 && (
-        <details className="unconfigured-fields" open={filtering || undefined}>
+        <details className="unconfigured-fields" open={filtering || unconfigured.some((field) => fieldEntryId(field) === entry) || undefined}>
           <summary>Unconfigured fields ({unconfigured.length})</summary>
           <FieldList fields={unconfigured} files={files} />
         </details>
@@ -160,133 +204,274 @@ function SettingsFields({ title, fields, files, filtering }: { title: string; fi
 }
 
 function FieldList({ fields, files }: { fields: SettingField[]; files: SectionItem[] }) {
-  const app = useApp()
-  const scope = useEditScope()
+  const audience = useEditAudience()
   return (
     <ul className="fields">
       {fields.map((f) => (
-        <li key={f.key} className={`field-row${f.set.length ? ' is-set' : ''}`}>
+        <FieldRow key={f.key} field={f}>
           <div className="field-head">
             <strong>{f.label}</strong>
             {f.key !== 'x-' && <code className="muted">{f.key}</code>}
-            {f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a personal file Git ignores">local</Badge>}
+            {f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
             <p className="muted">{f.description}</p>
           </div>
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
-          {!(app.source.kind === 'api' && f.key !== 'x-' && f.set.length === 1 && f.editable && !f.editable.disabledReason) && f.set.map((src) => (
+          <FieldEditControl key={audience} field={f} files={files} sources={(shown) => f.set.filter((src) => src.path !== shown).map((src) => (
             <div key={`${src.spec}:${src.path}`} className="field-source">
               {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
             </div>
-          ))}
-          <FieldEditControl key={scope} field={f} />
-        </li>
+          ))} />
+          {f.resolved && f.resolved.length > 0 && <FieldResolution field={f} files={files} resolved={f.resolved} />}
+        </FieldRow>
       ))}
     </ul>
   )
 }
 
-function FieldEditControl({ field }: { field: SettingField }) {
+function FieldResolution({ field, files, resolved }: { field: SettingField; files: SectionItem[]; resolved: TargetValue[] }) {
   const app = useApp()
-  const scope = useEditScope()
+  const audience = useEditAudience()
+  const label = field.label
+  const tools = useContext(ConfiguredTools)
+  const [selected, setSelected] = useState(resolved[0].target)
+  const current = resolved.find((r) => r.target === selected) ?? resolved[0]
+  const groups = valueGroups(resolved)
+  const origin = originLabel(current)
+  const override = configOverride(current)
+  const toolEdit = app.source.kind === 'api' && perToolEdit(field, current.target)
+  return (
+    <details className="field-resolution">
+      <summary>What each tool gets</summary>
+      <ul className="field-resolution-groups" aria-label={`${label} by tool`}>
+        {groups.map((g) => <li key={g.unchecked ? 'unchecked' : g.value ?? ''}>{g.labels.join(', ')}: {g.unchecked ? <span className="muted">not checked</span> : g.value ? <Code>{g.value}</Code> : <span className="muted">no value written</span>}</li>)}
+      </ul>
+      {resolved.length > 1 && <label className="field-resolution-tool">Tool <select value={current.target} onChange={(event) => setSelected(event.target.value)}>
+        {resolved.map((r) => <option key={r.target} value={r.target}>{r.label}</option>)}
+      </select></label>}
+      <div className="field-resolution-detail" aria-live="polite">
+        <p>{generatedAnswer(current)}</p>
+        {current.from && <p className="muted">From <Code>{current.from.path}</Code>{origin ? <>, {origin}</> : ' in the config'}</p>}
+        {override && <p className="muted"><Code>{override}</Code> in the config replaces every spec value for {current.label}. An edit below changes the spec only; remove that key for {current.label} to get it.</p>}
+        {current.others.length > 0 && <>
+          <p className="muted">Values that do not win:</p>
+          <ul className="field-resolution-others">
+            {current.others.map((o, i) => <li key={`${o.path}:${i}`}>{o.value ? <Code>{o.value}</Code> : 'No value'} in <Code>{o.path}</Code>: {o.reason}</li>)}
+          </ul>
+        </>}
+        {current.native?.map((n) => <p key={n.path} className="muted"><Code>{n.value}</Code> is also set under <Code>{`x-${current.target}.model`}</Code> in <Code>{n.path}</Code>. {current.checked ? `Sync writes that native key as is, so check the generated file for the value ${current.label} reads.` : 'Sync was not rendered here, so this native key was not checked.'}</p>)}
+        <p className="muted">{installedAnswer(current.label, tools.find((t) => t.target === current.target)?.sync.state)} agnostic-ai does not see what a running tool uses. Other <Code>{`x-${current.target}`}</Code> keys and imported native settings files are not covered here.</p>
+        {typeof toolEdit === 'string' && <p className="muted field-tool-edit">{toolEdit}</p>}
+        {toolEdit === true && <div className="field-tool-edit">
+          <p className="muted">Set a value for {current.label} only. It is saved as <Code>{addressKey(field.key, current.target)}</Code> and wins over the value for every tool.</p>
+          <FieldEditControl key={`${audience}:${current.target}`} field={field} files={files} target={current.target} toolLabel={current.label} sources={() => null} />
+        </div>}
+      </div>
+    </details>
+  )
+}
+
+function FieldRow({ field, children }: { field: SettingField; children: ReactNode }) {
+  const { linked, ...entry } = useEntry(fieldEntryId(field))
+  return <li {...entry} className={`field-row${field.set.length ? ' is-set' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
+}
+
+function FieldEditControl({ field, files, sources, target, toolLabel }: { field: SettingField; files: SectionItem[]; sources: (shown?: string) => ReactNode; target?: string; toolLabel?: string }) {
+  const app = useApp()
+  const audience = useEditAudience()
+  const transaction = useSettingChange(field.key, target)
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const [path, setPath] = useState(edit?.path ?? paths[0] ?? '')
-  const valueOf = (source?: SettingField['set'][number]) => source?.values.find((entry) => entry.key === field.key)?.value
-  const specPath = scope === 'local' ? edit?.path ?? path : path
+  const valueOf = (source?: SettingField['set'][number]) => source && valueAt(source.values, field.key, target)
+  const specPath = audience === 'personal' ? edit?.path ?? path : path
   const specName = field.set.find((source) => source.path === specPath)?.spec
-  const localCurrent = valueOf(field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath)))
-  const teamCurrent = valueOf(field.set.find((source) => source.path === path && !source.local))
-  const current = (scope === 'local' ? localCurrent ?? teamCurrent : teamCurrent) ?? ''
+  const localSource = field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath))
+  const localKeys = localSource && files.find((item) => item.name === localSource.spec && item.path === localSource.path)?.localKeys
+  const teamSource = field.set.find((source) => source.path === path && !source.local)
+  const localCurrent = localSource && personalValueAt(localSource.values, localKeys, field.key, target)
+  const wholePersonal = target !== undefined && localSource !== undefined && personalSetsWhole(localKeys, field.key)
+  const teamCurrent = valueOf(teamSource)
+  const current = (audience === 'personal' ? localCurrent ?? teamCurrent : teamCurrent) ?? ''
   const [value, setValue] = useState(current)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError>()
-  useEffect(() => { setValue(current) }, [current, path])
-  if (!edit) return null
-  if (edit.disabledReason) return <p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p>
-  if (app.source.kind !== 'api') return null
+  const [reloaded, setReloaded] = useState(false)
+  // A draft keeps the values it started from, so a save after another reload still detects the change.
+  const basis = useRef({ current, local: localCurrent, team: teamCurrent })
+  const draft = useRef(value)
+  draft.current = value
+  const latest = useRef(basis.current)
+  latest.current = { current, local: localCurrent, team: teamCurrent }
+  const conflict = useRef(false)
+  useEffect(() => {
+    const clean = draft.current === basis.current.current || draft.current === current
+    if (conflict.current) {
+      conflict.current = false
+      setError(undefined)
+      setReloaded(true)
+    } else if (!clean) {
+      const was = basis.current
+      if (current !== was.current || localCurrent !== was.local || teamCurrent !== was.team) setReloaded(true)
+      return
+    }
+    basis.current = { current, local: localCurrent, team: teamCurrent }
+    if (clean) setValue(current)
+  }, [current, localCurrent, teamCurrent])
+  if (!edit) return sources()
+  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p></>
+  if (app.source.kind !== 'api') return sources()
   const setSelectedPath = (next: string) => {
+    const team = valueOf(field.set.find((source) => source.path === next && !source.local))
     setPath(next)
-    setValue(valueOf(field.set.find((source) => source.path === next && !source.local)) ?? '')
+    setValue(team ?? '')
+    basis.current = { current: team ?? '', local: localCurrent, team }
     setError(undefined)
+    setReloaded(false)
+    conflict.current = false
   }
-  const target = specPath
-  const post = async (body: Record<string, unknown>) => {
+  const specFile = specPath
+  const post = async (body: Record<string, unknown>, expected: string | undefined) => {
     setPending(true)
     setError(undefined)
+    setReloaded(false)
+    conflict.current = false
     try {
-      await postEdit(API.editField, { path: target || undefined, key: field.key, ...body })
-      app.reload()
+      await postEdit(API.editField, { path: specFile || undefined, key: field.key, target, ...body, expected: expected ?? null })
+      const saved = body.value === null ? undefined : String(body.value)
+      const next = body.audience === 'personal' ? { ...basis.current, local: saved } : { ...basis.current, team: saved }
+      basis.current = { ...next, current: (audience === 'personal' ? next.local ?? next.team : next.team) ?? '' }
+      setValue(basis.current.current)
+      app.reload(true)
     } catch (err) {
-      setError(err instanceof EditError ? err : new EditError(String(err)))
+      const failure = err instanceof EditError ? err : new EditError(String(err))
+      const now = latest.current
+      const shown = basis.current
+      if (failure.status === 409 && (now.current !== shown.current || now.local !== shown.local || now.team !== shown.team)) {
+        basis.current = now
+        setReloaded(true)
+        conflict.current = true
+        app.reload()
+        return
+      }
+      conflict.current = failure.status === 409
+      setError(failure)
     } finally { setPending(false) }
   }
-  const save = (clear: boolean) => post({ scope, value: clear ? null : edit.kind === 'number' ? Number(value) : value })
-  const reset = () => post({ scope: 'local', value: null })
-  const overridden = scope === 'team' && localCurrent !== undefined
-  const configured = scope === 'local' ? localCurrent !== undefined : teamCurrent !== undefined
+  const save = (clear: boolean) => post({ audience, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, audience === 'personal' ? basis.current.local : basis.current.team)
+  const reset = () => post({ audience: 'personal', value: null }, basis.current.local)
+  const overridden = audience === 'shared' && (localCurrent !== undefined || wholePersonal)
+  const resetLabel = target ? 'Use the value for every tool' : 'Reset to shared value'
+  const valueLabel = `${field.label}${toolLabel ? ` for ${toolLabel}` : ''} value`
+  const allowed = target ? edit.toolAllowed?.[target] : edit.allowed
+  const configured = audience === 'personal' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
-  const resetButton = localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={pending} onClick={reset}>Reset to team value</button>
-  return <div className="field-edit">
+  // A shown preview keeps its draft, so the applied value becomes the new basis.
+  const locked = pending || !!transaction.proposal
+  const resetButton = !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>{resetLabel}</button>
+  const previewing = pending || !transaction.ready
+  const preview = async (next: string | null, where: EditAudience) => {
+    setError(undefined)
+    setReloaded(false)
+    conflict.current = false
+    const stale = await transaction.previewSetting({ path: specFile || undefined, key: field.key as 'model' | 'effort', target, value: next, expected: (where === 'personal' ? basis.current.local : basis.current.team) ?? null }, where)
+    if (stale) {
+      const now = latest.current
+      const shown = basis.current
+      if (now.current !== shown.current || now.local !== shown.local || now.team !== shown.team) {
+        basis.current = now
+        setReloaded(true)
+      } else conflict.current = true
+    }
+  }
+  const shown = overridden ? undefined : audience === 'personal' ? (localCurrent !== undefined ? localSource?.path : undefined) : teamCurrent !== undefined ? teamSource?.path : undefined
+  return <>{sources(shown)}<div className="field-edit">
     {overridden
       ? <div className="field-edit-row">
-        <p className="muted">Your local value overrides the team value. Reset it to change the team value.</p>
+        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the shared per-tool values. Reset it to change the shared value.' : 'Your personal value overrides the shared value. Reset it to change the shared value.'}</p>
         {resetButton}
       </div>
       : <div className="field-edit-row">
-        {edit.allowed && edit.allowed.length > 0
-          ? <select aria-label={`${field.label} value`} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending}>
-            {!edit.allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
-            {edit.allowed.map((option) => <option key={option} value={option}>{option}</option>)}
+        {allowed && allowed.length > 0
+          ? <select aria-label={valueLabel} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}>
+            {!allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
+            {allowed.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-          : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder="Not set" onChange={(event) => setValue(event.target.value)} disabled={pending} />}
-        <button type="button" className="button button-primary" disabled={pending || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
-        {scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={pending} onClick={() => save(true)}>Clear</button>}
+          : <input aria-label={valueLabel} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
+        {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>}
+        {!transaction.supported && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>{target ? resetLabel : 'Clear'}</button>}
         {resetButton}
       </div>}
-    {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
-    {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}</span>}
+    {audience === 'shared' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
+    {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
+      {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => app.reload()}>Reload saved values</button></>}</span>}
+    {transaction.supported && <div className="field-edit-row field-edit-apply">
+      <span className="muted">Apply to your tools now:</span>
+      {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, audience) }}>Preview and apply</button>}
+      {!overridden && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'shared') }}>{target ? 'Preview using the value for every tool' : 'Preview removal'}</button>}
+      {localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'personal') }}>Preview personal reset</button>}
+      {transaction.preparing && <span className="muted">Preparing preview…</span>}
+    </div>}
+    {transaction.error && <ChangeError reloadLabel="Reload saved values" />}
+    {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={toolLabel ? `${field.label} for ${toolLabel}` : field.label} />}
+    {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
-      {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
-      {scope === 'team' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
-      Run <Code>{syncCommand}</Code> to apply.
+      {audience === 'personal' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
+      {audience === 'shared' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
+      {audience === 'shared' && !configured && field.set.length > 0 && paths.length <= 1 && path && <>Saves to <Code>{path}</Code> · </>}
+      {!transaction.supported && <>Run <Code>{syncCommand}</Code> to apply.</>}
     </p>
-  </div>
+  </div></>
 }
 
-function Lifecycle({ stages, hooks, count, filtering }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean }) {
+function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean; matchingHooks: Set<SectionItem> }) {
+  const root = useRef<HTMLElement>(null)
+  const entry = useApp().state.entry
+  const recheck = useRechecks()
+  const setExpanded = (open: boolean) => {
+    root.current?.querySelectorAll<HTMLDetailsElement>('details.stage').forEach((stage) => { stage.open = open })
+  }
   return (
-    <section className="block" aria-labelledby="lifecycle-hooks">
-      <h2 id="lifecycle-hooks">
-        Hooks <span className="muted kind-count">{count}</span>
-      </h2>
+    <section ref={root} className="block" aria-labelledby="lifecycle-hooks">
+      <div className="section-head lifecycle-head">
+        <h2 id="lifecycle-hooks">Hooks <span className="muted kind-count">{count}</span></h2>
+        <div className="lifecycle-actions">
+          <button type="button" className="button button-quiet" onClick={() => setExpanded(true)}>Expand all</button>
+          <button type="button" className="button button-quiet" onClick={() => setExpanded(false)}>Collapse all</button>
+        </div>
+      </div>
       <ol className="stages">
         {stages.map((st) => {
           const here = hooks.filter((h) => h.group === st.id)
+          const matching = filtering ? here.filter((hook) => matchingHooks.has(hook)) : here
+          const linked = entry !== undefined && here.some((hook) => itemEntryId(hook) === entry || findingEntryIds(hook.findings, itemEntryId(hook)).includes(entry))
+          const rechecking = here.some((hook) => itemEntryId(hook) === (recheck.pendingPlace ?? recheck.rechecked?.place))
           return (
-            <li key={st.id} className={`stage${here.length ? ' has-hooks' : ''}`}>
-              <div className="stage-head">
-                <div className="stage-label">
-                  <h3 className="stage-title">{st.label}</h3>
+            <li key={st.id} className={`stage-step${here.length ? ' has-hooks' : ''}`}>
+              <details className="stage" open={linked || rechecking || (filtering && matching.length > 0)}>
+                <summary className="stage-head">
+                  <h3 className="stage-summary">
+                    <span className="stage-label">
+                      <span className="stage-title">{st.label}</span>
+                      <Badge tone="neutral" className="stage-count">{matching.length ? `${matching.length} ${matching.length === 1 ? 'hook' : 'hooks'}` : filtering ? 'No matching hooks' : 'No hooks'}</Badge>
+                    </span>
+                    <span className="muted stage-description">{st.description}</span>
+                  </h3>
+                </summary>
+                <div className="stage-body">
+                  {st.targets.length > 0 && (
+                    <p className="stage-tools">
+                      {st.targets.map((t) => (
+                        <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
+                      ))}
+                    </p>
+                  )}
                   {!here.length && <p className="muted stage-empty">{filtering ? 'No matching hooks.' : 'No hook runs here.'}</p>}
+                  {here.length > 0 && <ItemList items={here} />}
                 </div>
-                {here.length ? <p className="muted stage-description">{st.description}</p> : (
-                  <details className="stage-description">
-                    <summary>When this runs</summary>
-                    <p className="muted">{st.description}</p>
-                  </details>
-                )}
-                {st.targets.length > 0 && (
-                  <p className="stage-tools">
-                    {st.targets.map((t) => (
-                      <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
-                    ))}
-                  </p>
-                )}
-              </div>
-              {here.length > 0 && <ItemList items={here} />}
+              </details>
             </li>
           )
         })}
@@ -317,31 +502,38 @@ function GroupedItems({ items }: { items: SectionItem[] }) {
 }
 
 function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: boolean }) {
-  const scope = useEditScope()
+  const audience = useEditAudience()
   return (
     <ul className="item-list">
       {items.map((item) => {
         const control = item.enabled !== undefined && <>
-          <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { scope, name: item.name, enabled: on })} />
-          {item.local && <ResetAction label={`Reset ${item.name} to team value`} reset={() => postEdit(API.editBuiltin, { scope: 'local', name: item.name, enabled: !item.enabled })} />}
+          <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { audience, name: item.name, enabled: on, expected: item.enabled })} />
+          {item.local && <ResetAction label={`Reset ${item.name} to shared value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !item.enabled, expected: item.enabled })} />}
         </>
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
-          <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
+          <ItemRow key={itemEntryId(item)} item={item}>
             {item.kind === 'builtin' && item.enabled !== undefined
               ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
               : heading(control)}
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && <Tools listing={item.tools} />}
-            {item.findings.length > 0 && <Findings findings={item.findings} />}
-          </li>
+            <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
+          </ItemRow>
         )
       })}
     </ul>
   )
 }
 
+function ItemRow({ item, children }: { item: SectionItem; children: ReactNode }) {
+  const { linked, ...entry } = useEntry(itemEntryId(item))
+  return <li {...entry} className={`item-row${item.findings.length ? ' has-findings' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
+}
+
 function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
+  const root = useContext(ConfigurationRoot)
+  const refinable = item.kind === 'instructions' && item.layer === 'global'
   return (
     <div className="item-heading">
       <div className="item-main">
@@ -350,17 +542,56 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
       </div>
       <div className="item-meta">
-        {item.local && <Badge tone="accent" title="Set in a personal file Git ignores">local</Badge>}
+        {item.local && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
-        {item.openPath && (
-          <a className="edit-link" href={cursorUrl(item.openPath)} aria-label={`Edit ${item.label} in Cursor`} title="Edit in Cursor">
-            <Icon name="edit" />
-          </a>
-        )}
+        {refinable && <CopyButton text={instructionsRefinePrompt(item.openPath ?? (root ? `${root}/${item.path}` : item.path))} label="Copy refine prompt" ariaLabel={`Copy refine prompt for ${item.label}`} className="refine-copy" />}
+        <OpenInEditor path={item.openPath} label={item.label} compact />
       </div>
     </div>
+  )
+}
+
+/** MCP servers a tool holds in its own config file that no spec covers. */
+function NativeServers({ servers, matches, filtering }: { servers: NativeServer[]; matches: (parts: (string | undefined)[]) => boolean; filtering: boolean }) {
+  const visible = servers.filter((s) => matches([s.name, ...s.holders.flatMap((h) => [h.label, h.path, h.transport])]))
+  return (
+    <section className="block" aria-labelledby="tools-native">
+      <h2 id="tools-native">
+        Found in a tool's own config <span className="muted kind-count">{filtering ? `${visible.length} of ${servers.length} match` : servers.length}</span>
+      </h2>
+      <p className="muted">These servers work only in the tool that holds them. No spec covers them, so sync does not share them with your other tools.</p>
+      {visible.length === 0 && filtering ? <p className="muted">No matches.</p> : (
+        <ul className="item-list">
+          {visible.map((s) => {
+            const tools = [...new Set(s.holders.map((h) => h.label))]
+            const transports = [...new Set(s.holders.flatMap((h) => (h.transport ? [h.transport] : [])))]
+            return (
+              <li key={s.name} className="item-row">
+                <div className="item-heading">
+                  <div className="item-main">
+                    <strong>{s.name}</strong>
+                    <span className="muted item-description">{tools.length === 1 ? `${tools[0]} only` : tools.join(', ')}</span>
+                    {s.holders.map((h) => (
+                      <code key={`${h.target}:${h.path}:${h.scope}`} className="item-path" title={`${h.label}, ${h.scope === 'user' ? 'every project' : 'this project'}`}>{h.path}</code>
+                    ))}
+                  </div>
+                  <div className="item-meta">
+                    {transports.map((t) => <Chip key={t}>{t}</Chip>)}
+                  </div>
+                </div>
+                {s.import && (
+                  <p className="muted tool-state">
+                    Run <Code>{s.import}</Code> to make it a spec.
+                  </p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -407,25 +638,39 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
+  const [choice, setChoice] = useState<boolean | undefined>()
+  const reloadBasis = useRef<object | undefined>(undefined)
+  const waitingForReload = useRef(false)
+  useEffect(() => {
+    if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
+      waitingForReload.current = false
+      setChoice(undefined)
+      setError(undefined)
+    }
+  }, [app.overviewRevision])
   if (app.source.kind !== 'api') return <Switch on={on} />
   const toggle = async () => {
     setPending(true)
     setError(undefined)
+    const selected = !(choice ?? on)
     try {
-      await save(!on)
-      app.reload()
+      await save(selected)
+      app.reload(true)
     } catch (err) {
-      setError(err instanceof EditError ? err : new EditError(String(err)))
+      const failure = err instanceof EditError ? err : new EditError(String(err))
+      if (failure.status === 409) setChoice(selected)
+      setError(failure)
     } finally {
       setPending(false)
     }
   }
   return (
     <span className="edit-switch">
-      <Toggle on={on} label={label} pending={pending} onToggle={toggle} />
+      <Toggle on={choice ?? on} label={label} pending={pending} disabled={choice !== undefined} onToggle={toggle} />
       {error && (
         <span className="edit-error" role="alert">
           {error.message}
+          {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}
           {error.problems.length > 0 && (
             <ul>
               {error.problems.map((p) => (
@@ -444,13 +689,21 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<voi
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
+  const reloadBasis = useRef<object | undefined>(undefined)
+  const waitingForReload = useRef(false)
+  useEffect(() => {
+    if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
+      waitingForReload.current = false
+      setError(undefined)
+    }
+  }, [app.overviewRevision])
   if (app.source.kind !== 'api') return null
   const run = async () => {
     setPending(true)
     setError(undefined)
     try {
       await reset()
-      app.reload()
+      app.reload(true)
     } catch (err) {
       setError(err instanceof EditError ? err : new EditError(String(err)))
     } finally {
@@ -459,8 +712,8 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<voi
   }
   return (
     <span className="edit-switch">
-      <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to team value</button>
-      {error && <span className="edit-error" role="alert">{error.message}</span>}
+      <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to shared value</button>
+      {error && <span className="edit-error" role="alert">{error.message}{error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}</span>}
     </span>
   )
 }
@@ -486,7 +739,7 @@ function NativeValues({ values, file, localKeys }: { values: Value[]; file: stri
 }
 
 function Values({ values, file, prefix, personal, localKeys }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[] }) {
-  const scope = usePageScope() ?? (personal ? 'local' : 'team')
+  const audience = usePageAudience() ?? (personal ? 'personal' : 'shared')
   return (
     <dl className="values">
       {values.map((v) => (
@@ -508,8 +761,8 @@ function Values({ values, file, prefix, personal, localKeys }: { values: Value[]
             ) : v.type === 'bool' ? (
               file ? (
                 <>
-                  <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { scope, path: file, key: v.key, value: on })} />
-                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to team value`} reset={() => postEdit(API.editValue, { scope: 'local', path: file, key: v.key, value: null })} />}
+                  <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { audience, path: file, key: v.key, value: on, expected: v.value === 'true' })} />
+                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to shared value`} reset={() => postEdit(API.editValue, { audience: 'personal', path: file, key: v.key, value: null, expected: v.value === 'true' })} />}
                 </>
               ) : (
                 <Switch on={v.value === 'true'} />
@@ -524,22 +777,28 @@ function Values({ values, file, prefix, personal, localKeys }: { values: Value[]
   )
 }
 
-function Findings({ findings }: { findings: ItemFinding[] }) {
+function Findings({ findings, owner, place, orphanPlace }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string }) {
+  const ids = findingEntryIds(findings, owner)
+  const gone = useGoneFinding(place, ids, orphanPlace)
+  if (!findings.length && !gone) return null
   return (
     <ul className="findings">
       {findings.map((f, i) => (
-        <Finding key={`${f.code ?? f.source}-${f.line ?? 0}-${i}`} finding={f} />
+        <Finding key={ids[i]} finding={f} entryId={ids[i]} place={place} />
       ))}
+      {gone && (gone.result.state === 'incomplete' ? <Finding key={gone.id} finding={gone.finding} entryId={gone.id} place={place} /> : <GoneFinding rechecked={gone} />)}
     </ul>
   )
 }
 
-function Finding({ finding: f }: { finding: ItemFinding }) {
+function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId: string; place: string }) {
   const root = useContext(ConfigurationRoot)
+  const fresh = isNewSinceRecheck(useRechecks(), entryId)
   const prompt = findingFixPrompt(f, root)
   const promptId = useId()
+  const { linked, ...entry } = useEntry(entryId)
   return (
-    <li className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}`}>
+    <li {...entry} className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}${linked ? ' is-linked' : ''}`}>
       <div className="finding-body">
         <div className="finding-head">
           <div className="finding-meta">
@@ -547,14 +806,20 @@ function Finding({ finding: f }: { finding: ItemFinding }) {
             <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
             {f.code && <Code>{f.code}</Code>}
             <span className="muted">{f.source}</span>
+            {fresh && <Badge tone="accent">New since recheck</Badge>}
           </div>
-          <CopyButton text={prompt} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
+          <div className="finding-actions">
+            <CopyButton text={prompt} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
+            <RecheckAction id={entryId} finding={f} place={place} />
+          </div>
         </div>
         <FindingMessage message={f.message} />
+        <RecheckNote id={entryId} finding={f} />
         {f.path ? (
-          <p className="finding-source muted">
+          <div className="finding-source muted">
             <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
-          </p>
+            <OpenInEditor path={f.openPath} line={f.line} label={f.path} shownPath={f.path} />
+          </div>
         ) : f.line ? <p className="finding-source muted">Line {f.line}</p> : null}
         <details className="finding-details">
           <summary>Details</summary>

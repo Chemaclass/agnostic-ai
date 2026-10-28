@@ -43,17 +43,48 @@ jobs:
   # already tested, and a full matrix on every merge tripled the runner time.
   # Nightly and manual runs add macOS and a focused Windows smoke check.
   # The full Windows Go suite is manual only, with full_windows=true.
-  test:
-    name: Test
-    timeout-minutes: ${{ matrix.os == 'windows-latest' && inputs.full_windows != true && 7 || 10 }}
+  #
+  # One Linux job ran internal/cli and tests/integration side by side and
+  # reached the ten-minute limit (#2610), so they run in shards split by test
+  # name. Each last shard skips the earlier ones, so a new test lands in
+  # exactly one shard.
+  linux:
+    name: Test (ubuntu-latest, ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') }}
-    runs-on: ${{ matrix.os }}
+        include:
+          - shard: packages
+            packages: ''
+            run: ''
+            skip: ''
+          - shard: cli a-h
+            packages: ./internal/cli
+            run: '^Test[A-H]'
+            skip: ''
+          - shard: cli i-l
+            packages: ./internal/cli
+            run: '^Test[I-L]'
+            skip: ''
+          - shard: cli m-z
+            packages: ./internal/cli
+            run: ''
+            skip: '^Test[A-L]'
+          - shard: integration a-h
+            packages: ./tests/integration
+            run: '^Test[A-H]'
+            skip: ''
+          - shard: integration i-z
+            packages: ./tests/integration
+            run: ''
+            skip: '^Test[A-H]'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -62,9 +93,67 @@ jobs:
           cache: true
 
       - name: Test with coverage
-        if: matrix.os == 'ubuntu-latest'
         shell: bash
-        run: go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic ./...
+        env:
+          PACKAGES: ${{ matrix.packages }}
+          RUN: ${{ matrix.run }}
+          SKIP: ${{ matrix.skip }}
+        run: |
+          packages=()
+          if [ -n "$PACKAGES" ]; then
+            packages=("$PACKAGES")
+          else
+            module=$(go list -m)
+            all_packages=$(go list ./...)
+            while IFS= read -r package; do
+              case "$package" in
+                "$module/tests/integration"|"$module/internal/cli") ;;
+                *) packages+=("$package") ;;
+              esac
+            done <<< "$all_packages"
+          fi
+          go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic -run "$RUN" -skip "$SKIP" "${packages[@]}"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
+
+  # Branch protection requires this check name, so it passes only when every
+  # Linux shard passed.
+  linux-result:
+    name: Test (ubuntu-latest)
+    if: always()
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every Linux shard
+        env:
+          RESULT: ${{ needs.linux.result }}
+        run: test "$RESULT" = success
+
+  test:
+    name: Test
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && inputs.full_windows != true && 7 || 10 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
 
       - name: Test
         if: matrix.os == 'windows-latest' && inputs.full_windows == true
@@ -92,7 +181,7 @@ jobs:
         run: |
           go test -timeout=5m -count=1 ./internal/config ./internal/adapters/internal/emit ./internal/adapters/pi ./internal/adapters/grok ./internal/adapters/qwen ./internal/adapters/vibe ./internal/adapters/kimi ./internal/adapters/codebuddy
           go test -timeout=5m -count=1 ./internal/adapters/cline -run 'VSCode|GlobalHooks_|ActualBuiltin'
-          go test -timeout=5m -count=1 ./internal/cli -run '^(TestCodebuddy_(Import|Scoped|Controlled|Instruction|DeleteCapability|Overrides|GlobalRejects|DefaultSync)|TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestHookMemory_Trae|TestHookMemory_Devin|TestSync_DevinMemory|TestHookMemory_Augment|TestSyncGlobal_AugmentMemory|TestSyncGlobal_AugmentLocal|TestSync_AugmentLocal|TestSync_AntigravityMemory|TestSyncGlobal_AntigravityMemory|TestHookMemory_Cline|TestHookRun_ClineVSCode|TestHookRun_VSCodeRuntime|TestSync_ClineUnixRemoves|TestGitRepo_DoesNotStartAutomaticMaintenance$|TestImportPi_|TestImportGlobal_Pi|TestSyncGlobal_Pi|TestSyncPi_|TestPiExposure_|TestPiMCPMap_|TestPiBOM_|TestLintMCPMissingRequiredField_PiControls|TestImportGrok_|TestSyncGlobal_Grok|TestGrokTOML_|TestQwen_|TestImportVibe_|TestSyncVibe_|TestSyncGlobal_Vibe|TestImportGlobal_Vibe|TestImportKimi_|TestSyncKimi_|TestSyncGlobal_Kimi|TestImportGlobal_Kimi|TestTOMLArray_)'
+          go test -timeout=5m -count=1 ./internal/cli -run '^(TestCodebuddy_(Import|Scoped|Controlled|Instruction|DeleteCapability|Overrides|GlobalRejects|DefaultSync)|TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestHookMemory_Trae|TestHookMemory_Devin|TestSync_DevinMemory|TestHookMemory_Augment|TestSyncGlobal_AugmentMemory|TestSyncGlobal_AugmentLocal|TestSync_AugmentLocal|TestSync_AntigravityMemory|TestSyncGlobal_AntigravityMemory|TestHookMemory_Cline|TestHookRun_ClineVSCode|TestHookRun_VSCodeRuntime|TestSync_ClineUnixRemoves|TestSync_CaseOnlyRename|TestSync_RemovesDistinctHardLinkedOutput|TestGitRepo_DoesNotStartAutomaticMaintenance$|TestImportPi_|TestImportGlobal_Pi|TestSyncGlobal_Pi|TestSyncPi_|TestPiExposure_|TestPiMCPMap_|TestPiBOM_|TestLintMCPMissingRequiredField_PiControls|TestImportGrok_|TestSyncGlobal_Grok|TestGrokTOML_|TestQwen_|TestImportVibe_|TestSyncVibe_|TestSyncGlobal_Vibe|TestImportGlobal_Vibe|TestImportKimi_|TestSyncKimi_|TestSyncGlobal_Kimi|TestImportGlobal_Kimi|TestTOMLArray_)'
           go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestProjectLifecycle_LaunchDiagnostic.*|TestPiRoundTrip_NativeProject|TestGrokNativeProject_ImportSyncCheckAndLint|TestQwenNativeProject_BuiltBinaryImportSyncCheck|TestVibeRoundTrip_NativeProject|TestKimiRoundTrip_NativeProject|TestCodebuddy_NativeImportRecreatesAnEmptyOutputTree|TestVerify_.*)$'
 
       - name: Windows local API, verification, and MCP lifecycle
@@ -110,16 +199,8 @@ jobs:
           AGNOSTIC_AI_WINDOWS_STARTUP_TESTS: "1"
         run: go test -v -failfast -timeout=3m -count=10 ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$'
 
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
-        with:
-          files: coverage.out
-          fail_ci_if_error: false
-
-  # internal/cli alone runs close to ten minutes under -race on macOS, so it
-  # gets its own job, split in two by test name; -skip keeps the halves
-  # complementary, so a new test lands in one of them.
+  # Split the macOS CLI race tests by name to stay within the job timeout.
+  # The last shard skips the first two, so new tests land in exactly one shard.
   macos-cli:
     name: Test cli (macos-latest, ${{ matrix.shard }})
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -129,8 +210,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - shard: a-l
-            run: '^Test[A-L]'
+          - shard: a-h
+            run: '^Test[A-H]'
+            skip: ''
+          - shard: i-l
+            run: '^Test[I-L]'
             skip: ''
           - shard: m-z
             run: ''
@@ -138,6 +222,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -173,6 +259,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -192,6 +280,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -215,6 +305,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -239,6 +331,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -257,6 +351,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -275,6 +371,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -304,6 +402,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -327,6 +427,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -353,6 +455,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Version bumped when the plugin changed
@@ -385,6 +488,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # One pinned release file, checked against its published sha256
       # before it runs, instead of piping an install script into bash.
@@ -409,6 +514,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - id: filter
@@ -462,6 +568,8 @@ jobs:
         working-directory: editors/vscode
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
@@ -491,6 +599,8 @@ jobs:
         working-directory: editors/jetbrains
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # Fails if the committed gradle-wrapper.jar is not a published Gradle
       # release, the jar the build would otherwise run unchecked.
@@ -526,8 +636,10 @@ jobs:
         working-directory: ui
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
           cache: 'npm'

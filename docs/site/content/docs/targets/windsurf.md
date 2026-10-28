@@ -35,7 +35,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Shared memory
 
-With `builtins: [memory]`, a Devin CLI `SessionStart` hook adds shared memory indexes. It needs POSIX `sh` and prefers the project's installed agnostic-ai. Native memory stays available. See [shared memory](@/docs/memory.md#load-at-session-start).
+With `builtins: [memory]`, a Devin CLI `SessionStart` hook adds shared memory indexes. It needs POSIX `sh`. Native memory stays available. See [shared memory](@/docs/memory.md#load-at-session-start) for which agnostic-ai it runs.
 
 Devin does not document the hook's default shell, working directory, timeout, or Windows execution. Local modeled checks do not establish native recall or Windows support; the memory rule remains the fallback when hooks do not run.
 

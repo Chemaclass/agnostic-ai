@@ -43,7 +43,10 @@ type HandlerOptions struct {
 	// Now stamps each view; nil means the current time.
 	Now func() time.Time
 	// Global serves the user-level configuration, as Options.Global.
-	Global         bool
+	Global bool
+	// ProjectRoot is the project a global server started in, so the
+	// page can offer the way back. Empty for a project server.
+	ProjectRoot    string
 	AllowedOrigins []string
 }
 
@@ -76,6 +79,8 @@ type serverIdentity struct {
 	Root   string `json:"root"`
 	Global bool   `json:"global"`
 	UI     bool   `json:"ui"`
+	// ProjectRoot is set only on a global server started in a project.
+	ProjectRoot string `json:"projectRoot,omitempty"`
 }
 
 // endpoint documents one route for the schema endpoint.
@@ -89,13 +94,16 @@ var endpoints = []endpoint{
 	{Method: http.MethodGet, Path: pathView + "?agentId=<id>&target=<tool>", Description: "The Authority view for one subject on one coding tool."},
 	{Method: http.MethodPost, Path: pathImpact, Description: "The impact of a proposed permission change, computed on a copy of the specs; nothing is written."},
 	{Method: http.MethodGet, Path: pathSchema, Description: "The schema version and these endpoints."},
-	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, and whether it serves the web interface."},
+	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, and for a global server the project it started in."},
 }
 
 // NewHandler serves the Authority view as JSON, and the built client
 // when HandlerOptions.UIDir or UIFiles is set.
 func NewHandler(load Loader, opts HandlerOptions) http.Handler {
 	h := &handler{load: load, opts: opts, identity: serverIdentity{OK: true, Root: absoluteRoot(opts.Root), Global: opts.Global, UI: opts.UIDir != "" || opts.UIFiles != nil}}
+	if opts.Global && opts.ProjectRoot != "" {
+		h.identity.ProjectRoot = absoluteRoot(opts.ProjectRoot)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(pathView, h.view)
 	mux.HandleFunc(pathImpact, h.impact)

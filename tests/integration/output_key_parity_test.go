@@ -65,7 +65,7 @@ var valueOutputKeys = map[string]bool{
 var documentedNoOpKeys = map[string]string{
 	"amp.commands-dir":       "Amp removed its file-based command surface, so nothing is emitted to point at",
 	"junie.rules-dir":        "rules inline into .junie/AGENTS.md; the key only redirects the legacy-tree sweep",
-	"openhands.mcp-file":     "OpenHands reads MCP servers from ~/.openhands/mcp.json only, so project sync writes no MCP file",
+	"openhands.mcp-file":     "OpenHands keeps MCP servers in its settings store, so project sync writes no MCP file",
 	"windsurf.workflows-dir": "Devin Desktop removed Cascade, the only agent that read a Workflow file",
 }
 
@@ -80,6 +80,7 @@ var probeKinds = map[string]string{
 	"windsurf.conf-file":  "settings",
 	"factory.conf-file":   "settings",
 	"qwen.conf-file":      "settings",
+	"qwen.rules-dir":      "path-rule",
 
 	"pi.conf-file": "settings",
 }
@@ -132,6 +133,8 @@ func outputKeyProbeEntry(kind string) spec.Entry {
 		return spec.Entry{Kind: spec.KindCommand, Name: "probe", Path: "commands/probe.md", Body: "b"}
 	case "rule":
 		return spec.Entry{Kind: spec.KindRule, Name: "probe", Path: "rules/probe.md", Body: "b"}
+	case "path-rule":
+		return spec.Entry{Kind: spec.KindRule, Name: "probe", Path: "rules/probe.md", Body: "b", Meta: map[string]any{"globs": "src/**/*.ts"}}
 	case "mcp":
 		return spec.Entry{Kind: spec.KindMCP, Name: "probe", Meta: map[string]any{"command": "x"}}
 	case "hook":

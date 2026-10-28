@@ -35,11 +35,18 @@ type globalSettingsFile struct {
 	itemLists       []string
 	retention       string
 	effortLevel     func() []string
+	// effortGap names the models a written effort key does not reach.
+	effortGap globalSurfaceGap
 	// reserved are keys an x-<target> block may not set: surfaces sync
 	// owns another way, or ones that need their own design.
 	reserved map[string]string
 	allowed  map[string]string
+	// ignored names the key a written dotted key sits at or under when
+	// the target ignores it in user settings, with the reason.
+	ignored func(key string) (field, reason string, ok bool)
 }
+
+type globalSurfaceGap struct{ surface, reason string }
 
 // accepts reports whether the effort key takes value. A nil level list
 // accepts any string.
@@ -73,9 +80,11 @@ type globalSetting struct {
 }
 
 // globalSettingsFor resolves the settings specs for target into the
-// native keys its user settings file takes. Unsupported fields raise a coverage note.
+// native keys its user settings file takes, from the specs that emit to
+// target. Unsupported fields raise a coverage note.
 func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []globalSetting {
 	f := g.settings
+	settings = slices.DeleteFunc(slices.Clone(settings), func(entry spec.Entry) bool { return !entry.EmitsTo(target) })
 	models, efforts, custom, protected := 0, 0, 0, 0
 	for _, entry := range settings {
 		if _, ok := entry.Meta["protected"]; ok {
@@ -116,16 +125,44 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 			adapters.NoteSettingsFieldNoOp(target, "effort", efforts, "its user settings file has no default effort key")
 		case f.accepts(effort):
 			out = append(out, globalSetting{target: target, key: f.effort, value: effort, field: "effort", source: lastSettingsSource(settings, "effort", target)})
+			if f.effortGap.surface != "" {
+				adapters.NoteSettingsSurfaceGap(target, efforts, f.effortGap.surface, f.effortGap.reason)
+			}
 		default:
 			adapters.NoteSettingsFieldNoOp(target, "effort", 1, fmt.Sprintf("%s does not accept %v; it takes %s", f.effort, effort, f.levelsText()))
 		}
 	}
 	passthrough := customGlobalSettings(target, f, settings)
+	noteIgnoredGlobalSettings(target, f, passthrough)
 	// An x-<target> key wins over the portable field it shares a key with.
 	out = slices.DeleteFunc(out, func(s globalSetting) bool {
 		return slices.ContainsFunc(passthrough, func(c globalSetting) bool { return c.key == s.key })
 	})
 	return append(out, passthrough...)
+}
+
+// noteIgnoredGlobalSettings keeps each key the target ignores in user
+// settings and names it in a note, counting the specs it comes from.
+func noteIgnoredGlobalSettings(target string, f globalSettingsFile, written []globalSetting) {
+	if f.ignored == nil {
+		return
+	}
+	sources := map[string]map[string]bool{}
+	reasons := map[string]string{}
+	for _, s := range written {
+		field, reason, ok := f.ignored(s.key)
+		if !ok {
+			continue
+		}
+		if sources[field] == nil {
+			sources[field] = map[string]bool{}
+		}
+		sources[field][s.source] = true
+		reasons[field] = reason
+	}
+	for _, field := range slices.Sorted(maps.Keys(sources)) {
+		adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+field, len(sources[field]), reasons[field])
+	}
 }
 
 var globalPermissionModes = []string{"default", "manual", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"}
@@ -291,6 +328,17 @@ type globalSettingsMerge struct {
 	conflicts []string
 	// owned is the value per key sync owns after the write.
 	owned map[string]any
+	// parents lists the JSON objects above owned keys that sync created.
+	parents []string
+}
+
+// jsonParents is what sync knows about the objects above the JSON keys
+// it owns. Without it, removal takes away every parent it leaves empty.
+type jsonParents struct {
+	// created lists the parents sync added; removal keeps the others.
+	created []string
+	// keep is the text to restore per parent removal leaves empty.
+	keep map[string]string
 }
 
 // mergeGlobalSettings sets the managed keys in a user settings file and
@@ -306,7 +354,7 @@ type globalSettingsComparison struct {
 	equal   func(any, any) bool
 }
 
-func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalSetting, previous map[string]any, keep map[string]string, comparison ...globalSettingsComparison) (globalSettingsMerge, error) {
+func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalSetting, previous map[string]any, parents *jsonParents, comparison ...globalSettingsComparison) (globalSettingsMerge, error) {
 	data := base
 	absent := false
 	if data == nil {
@@ -372,6 +420,11 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		if wanted[key] {
 			continue
 		}
+		if object, ok := previous[key].(map[string]any); ok && len(object) == 0 {
+			if slices.ContainsFunc(want, func(setting globalSetting) bool { return strings.HasPrefix(setting.key, key+".") }) {
+				continue
+			}
+		}
 		// A value changed since sync wrote it is the user's now.
 		if have, ok := settingsLookup(current, key, format); ok && equal(have, previous[key]) {
 			m.changes = append(m.changes, "remove "+key)
@@ -382,6 +435,11 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		if _, ownsModel := m.owned["models.default"]; !ownsModel {
 			delete(m.owned, grokModelsContainer)
 		}
+	}
+	var keep map[string]string
+	if parents != nil && format == "json" {
+		keep = maps.Clone(parents.keep)
+		m.parents, keep = settingsParents(*parents, current, set, remove, m.owned, keep)
 	}
 	if len(set) == 0 && len(remove) == 0 {
 		return m, nil
@@ -421,6 +479,68 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 	}
 	m.data, err = editJSONRootKeeping(path, data, "", order, set, remove, keep)
 	return m, err
+}
+
+// settingsParents works out which parents of the owned keys sync
+// created, adding the ones setting a key creates now, and marks in keep
+// every parent of a removed key that the user wrote.
+func settingsParents(parents jsonParents, current, set map[string]any, remove []string, owned map[string]any, keep map[string]string) ([]string, map[string]string) {
+	created := map[string]bool{}
+	for _, parent := range parents.created {
+		created[parent] = true
+	}
+	for key, value := range set {
+		if object, ok := value.(map[string]any); ok && len(object) == 0 {
+			if _, present := settingsLookup(current, key, "json"); !present {
+				created[key] = true
+			}
+		}
+		for _, parent := range jsonParentKeys(key) {
+			if _, present := settingsLookup(current, parent, "json"); !present {
+				created[parent] = true
+			}
+		}
+	}
+	for _, key := range remove {
+		for _, parent := range jsonParentKeys(key) {
+			if _, present := keep[parent]; !present && !created[parent] {
+				if keep == nil {
+					keep = map[string]string{}
+				}
+				keep[parent] = ""
+			}
+		}
+	}
+	var out []string
+	for key := range owned {
+		if created[key] && !slices.Contains(out, key) {
+			out = append(out, key)
+		}
+		for _, parent := range jsonParentKeys(key) {
+			if created[parent] && !slices.Contains(out, parent) {
+				out = append(out, parent)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out, keep
+}
+
+// joinParents is the sorted union of two parent lists.
+func joinParents(a, b []string) []string {
+	out := slices.Concat(a, b)
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+// jsonParentKeys lists the dotted paths of the objects above key.
+func jsonParentKeys(key string) []string {
+	parts := strings.Split(key, ".")
+	out := make([]string, 0, len(parts)-1)
+	for i := 1; i < len(parts); i++ {
+		out = append(out, strings.Join(parts[:i], "."))
+	}
+	return out
 }
 
 // settingsLookup reads key from decoded settings: a dotted path into
@@ -521,7 +641,7 @@ func lintGlobalSettings(settings []spec.Entry, targets []string) []validationIss
 			if mode, present := permissions["default-mode"]; present && entry.EmitsTo(target) && f.permissionMode != "" && !acceptsGlobalPermissionMode(mode) {
 				out = append(out, validationIssue{Path: entry.Path, Field: "permissions.default-mode", Message: fmt.Sprintf("%s: %s does not accept permissions.default-mode %v; it takes %s", target, f.permissionMode, mode, strings.Join(globalPermissionModes, ", "))})
 			}
-			if f.path == "" || f.effort == "" {
+			if f.path == "" || f.effort == "" || !entry.EmitsTo(target) {
 				continue
 			}
 			effort := adapters.SettingsEffort([]spec.Entry{entry}, target)

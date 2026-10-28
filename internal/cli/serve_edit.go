@@ -19,6 +19,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // Source-only edit endpoints.
@@ -78,16 +79,24 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var file string
 	var edit func([]byte) ([]byte, error)
+	var sourceGuard func() error
+	var audience editAudience
 	switch r.URL.Path {
 	case editBuiltinPath:
 		var req struct {
-			Scope   string `json:"scope"`
-			Name    string `json:"name"`
-			Enabled *bool  `json:"enabled"`
-			Reset   bool   `json:"reset"`
+			audienceFields
+			Target   string          `json:"target"`
+			Name     string          `json:"name"`
+			Enabled  *bool           `json:"enabled"`
+			Reset    bool            `json:"reset"`
+			Expected json.RawMessage `json:"expected"`
 		}
 		if err := json.Unmarshal(body, &req); err != nil || req.Reset != (req.Name == "") || req.Reset && req.Enabled != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a built-in name and enabled, or reset alone"})
+			return
+		}
+		if newFieldAddress("", req.Target).target != "" {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "built-ins apply to every tool; send target all or leave it out"})
 			return
 		}
 		if !req.Reset && !slices.Contains(builtins.Names(), req.Name) {
@@ -98,58 +107,164 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
 			return
 		}
-		scope, err := parseEditScope(req.Scope)
+		audience, err = req.audience()
+		if err == nil && len(req.Expected) > 0 {
+			err = h.checkBuiltinExpected(req.Name, req.Reset, req.Expected)
+		}
 		if err == nil {
-			file, edit, err = h.builtinsEdit(scope, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
+			file, edit, err = h.builtinsEdit(audience, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
+		}
+		if err == nil && len(req.Expected) > 0 {
+			team, local := h.builtinsConfigFiles()
+			sourceGuard, err = watchEditSources([]string{team, local}, file, req.Name)
+		}
+		if err == nil && len(req.Expected) > 0 {
+			edit = func(data []byte) ([]byte, error) {
+				if err := h.checkBuiltinExpected(req.Name, req.Reset, req.Expected); err != nil {
+					return nil, err
+				}
+				currentFile, next, err := h.builtinsEdit(audience, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
+				if err != nil {
+					return nil, err
+				}
+				if currentFile != file {
+					return nil, staleToggleError{req.Name}
+				}
+				return next(data)
+			}
 		}
 		if err != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			writeExpectedError(w, err)
 			return
 		}
 	case editValuePath:
 		var req struct {
-			Scope string          `json:"scope"`
-			Path  string          `json:"path"`
-			Key   string          `json:"key"`
-			Value json.RawMessage `json:"value"`
+			audienceFields
+			Target   string          `json:"target"`
+			Path     string          `json:"path"`
+			Key      string          `json:"key"`
+			Value    json.RawMessage `json:"value"`
+			Expected json.RawMessage `json:"expected"`
 		}
 		var value *bool
 		if err := json.Unmarshal(body, &req); err != nil || req.Path == "" || req.Key == "" || len(req.Value) == 0 || json.Unmarshal(req.Value, &value) != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "path, key, and a boolean or null value are required"})
 			return
 		}
-		scope, err := parseEditScope(req.Scope)
+		if newFieldAddress(req.Key, req.Target).target != "" {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "the key names the tool already; send target all or leave it out"})
+			return
+		}
+		audience, err = req.audience()
+		if err == nil && len(req.Expected) > 0 {
+			err = h.checkBooleanExpected(req.Path, req.Key, req.Expected)
+		}
 		if err == nil {
-			file, edit, err = h.settingsEdit(scope, req.Path, req.Key, value)
+			file, edit, err = h.settingsEdit(audience, req.Path, req.Key, value)
+		}
+		if err == nil && len(req.Expected) > 0 {
+			var paths []string
+			paths, err = h.booleanSourcePaths(req.Path)
+			if err == nil {
+				sourceGuard, err = watchEditSources(paths, file, req.Key)
+			}
+		}
+		if err == nil && len(req.Expected) > 0 {
+			edit = func(data []byte) ([]byte, error) {
+				if err := h.checkBooleanExpected(req.Path, req.Key, req.Expected); err != nil {
+					return nil, err
+				}
+				currentFile, next, err := h.settingsEdit(audience, req.Path, req.Key, value)
+				if err != nil {
+					return nil, err
+				}
+				if currentFile != file {
+					return nil, staleToggleError{req.Key}
+				}
+				return next(data)
+			}
 		}
 		if err != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			writeExpectedError(w, err)
 			return
 		}
 	case editFieldPath:
 		var req struct {
-			Scope string          `json:"scope"`
-			Path  string          `json:"path"`
-			Key   string          `json:"key"`
-			Value json.RawMessage `json:"value"`
+			audienceFields
+			Target   string          `json:"target"`
+			Path     string          `json:"path"`
+			Key      string          `json:"key"`
+			Value    json.RawMessage `json:"value"`
+			Expected json.RawMessage `json:"expected"`
 		}
 		if err := json.Unmarshal(body, &req); err != nil || req.Key == "" || len(req.Value) == 0 {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "key and value are required (null clears the field)"})
 			return
 		}
-		scope, err := parseEditScope(req.Scope)
-		if err == nil {
-			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value)
+		var expected *string
+		if len(req.Expected) > 0 && json.Unmarshal(req.Expected, &expected) != nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "expected must be the value the page showed, as text, or null when it was not set"})
+			return
 		}
-		if err != nil {
+		var chosen spec.Entry
+		addr := newFieldAddress(req.Key, req.Target)
+		audience, err = req.audience()
+		if err == nil {
+			file, edit, err = h.fieldEdit(audience, req.Path, addr, req.Value, &chosen)
+		}
+		var source fieldSourceError
+		var nothing noPersonalValueError
+		var tier tierEffortError
+		switch {
+		case errors.As(err, &tier):
+			writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error()})
+			return
+		case err != nil && len(req.Expected) > 0 && errors.As(err, &source):
+			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error() + ". This changed after the page loaded; reload to review it"})
+			return
+		case err != nil && len(req.Expected) > 0 && errors.As(err, &nothing):
+			writeEditJSON(w, http.StatusOK, map[string]any{"ok": true})
+			return
+		case err != nil:
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
+		}
+		if len(req.Expected) > 0 {
+			edit = expectFieldValue(addr, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(audience, chosen, file, addr), edit)
 		}
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})
 		return
 	}
-	if problems, err := h.applyValidated(file, edit); err != nil {
+	var prepare func() (func(bool) error, error)
+	if audience == audiencePersonal {
+		prepare = func() (func(bool) error, error) {
+			finish, err := h.preparePersonalOutOfGit(file)
+			if err != nil {
+				return nil, personalGitError{err}
+			}
+			return finish, nil
+		}
+	}
+	if sourceGuard == nil {
+		sourceGuard = func() error { return nil }
+	}
+	if problems, err := h.applyValidatedWithPrepare(file, edit, prepare, sourceGuard); err != nil {
+		var protection personalGitError
+		if errors.As(err, &protection) {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			return
+		}
+		var stale staleFieldError
+		var staleValue staleToggleError
+		if errors.As(err, &staleValue) {
+			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
+			return
+		}
+		if errors.As(err, &stale) {
+			writeEditJSON(w, http.StatusConflict, editError{Error: overviewDisplay(h.root, file) + ": " + stale.Error()})
+			return
+		}
 		writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error(), Problems: problems})
 		return
 	}
@@ -176,7 +291,7 @@ func editRequestGuard(r *http.Request) (int, string) {
 // Only a boolean present in the loaded settings can gain a local override.
 // A nil value resets the personal override, and removes a personal file
 // that then only names its spec.
-func (h *editHandler) settingsEdit(where editScope, shown, key string, value *bool) (string, func([]byte) ([]byte, error), error) {
+func (h *editHandler) settingsEdit(where editAudience, shown, key string, value *bool) (string, func([]byte) ([]byte, error), error) {
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
 		return "", nil, err
@@ -196,8 +311,8 @@ func (h *editHandler) settingsEdit(where editScope, shown, key string, value *bo
 		if _, ok := current.(bool); !ok {
 			return "", nil, fmt.Errorf("%s is not a boolean", key)
 		}
-		if value == nil && (where != scopeLocal || !overview.LocalSets(e, key)) {
-			return "", nil, fmt.Errorf("%s has no personal value to reset; send scope local for a key your file sets", key)
+		if value == nil && (where != audiencePersonal || !overview.LocalSets(e, key)) {
+			return "", nil, fmt.Errorf("%s has no personal value to reset; send audience personal for a key your file sets", key)
 		}
 		file, scaffold, err := h.scopedSettingsFile(e, key, where)
 		if err != nil {

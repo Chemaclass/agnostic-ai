@@ -182,7 +182,7 @@ func TestOverviewInputs_RefusesARootOtherThanTheWorkingDirectory(t *testing.T) {
 func TestNewOverviewHandler_ServesTheProjectInTheWorkingDirectory(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeBareReadProject(t, dir)
-	h := newOverviewHandler(".")
+	h := newOverviewHandler(".", true)
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+overview.OverviewPath, nil))
@@ -238,5 +238,60 @@ func TestCompareInstalled_PresentBesideMissingIsNotInSync(t *testing.T) {
 	want := []authority.InstalledFile{{Path: "a.txt", State: authority.InstalledInSync}, {Path: "b.txt", State: authority.InstalledNotGenerated}}
 	if !reflect.DeepEqual(state.Files, want) {
 		t.Errorf("files = %+v, want %+v", state.Files, want)
+	}
+}
+
+func TestRunOverviewChecks_GivesAFindingOnAFileItsAbsolutePath(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeBareReadProject(t, dir)
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	findings := runOverviewChecks(".", cfg, b).findings
+
+	want, err := filepath.Abs(filepath.Join(".agnostic-ai", "settings", "permissions.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range findings {
+		if f.Code == "LINT038" && f.OpenPath != filepath.ToSlash(want) {
+			t.Errorf("LINT038 open path = %q, want %q", f.OpenPath, filepath.ToSlash(want))
+		}
+		if f.Source == overview.SourceDrift && f.OpenPath != "" {
+			t.Errorf("drift finding %s has open path %q, want none", f.Path, f.OpenPath)
+		}
+	}
+}
+
+func TestFindingOpenPath_NamesOnlyAFileOnDiskInsideTheConfiguration(t *testing.T) {
+	base := t.TempDir()
+	mustWrite(t, filepath.Join(base, "rules with spaces", "ågent#1.md"), "x\n")
+	outside := filepath.Join(t.TempDir(), "outside.md")
+	mustWrite(t, outside, "x\n")
+
+	for _, c := range []struct{ path, want string }{
+		{"rules with spaces/ågent#1.md", filepath.ToSlash(filepath.Join(base, "rules with spaces", "ågent#1.md"))},
+		{filepath.ToSlash(filepath.Join(base, "rules with spaces", "ågent#1.md")), filepath.ToSlash(filepath.Join(base, "rules with spaces", "ågent#1.md"))},
+		{filepath.ToSlash(outside), ""},
+		{"rules with spaces", ""},
+		{"missing.md", ""},
+		{"", ""},
+	} {
+		if got := findingOpenPath(base, c.path); got != c.want {
+			t.Errorf("findingOpenPath(%q) = %q, want %q", c.path, got, c.want)
+		}
+	}
+}
+
+func TestOverviewScopeLintFindings_MarksALintRunThatStopped(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "lint: [not, a, map]\n")
+
+	got := overviewScopeLintFindings(checkScope{global: true, source: dir}, "agnostic-ai.yaml", filepath.ToSlash)
+
+	if len(got) != 1 || got[0].Code != overview.CodeLintIncomplete || !strings.HasPrefix(got[0].Message, "Lint stopped before it finished") {
+		t.Fatalf("findings = %+v, want one %s finding", got, overview.CodeLintIncomplete)
 	}
 }

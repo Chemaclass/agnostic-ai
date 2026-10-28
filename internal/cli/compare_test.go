@@ -519,3 +519,57 @@ func TestCompare_ServesEveryPriorStateLookupFromOneHeldCopy(t *testing.T) {
 		t.Error("compare still holds the state file after it returns")
 	}
 }
+
+func TestCompare_HeldStateReportsWhatPerEmitReadsReport(t *testing.T) {
+	dir := setupCompareMCPFixture(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "targets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/hooks/guard.yaml"), `name: guard
+on: before-tool
+match: shell
+command: echo hook-check
+timeout: 15
+`)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLog(t)
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	if len(readStateFile(".").Merged) == 0 {
+		t.Fatal("fixture must record merged keys, or the held state proves nothing")
+	}
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	targets := []string{"claude", "codex"}
+	want, err := compareEntriesAcross(cfg, bundle, targets)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var asked, unheld int
+	adapters.SetPriorOutputSum(func(path string) string {
+		heldState.Lock()
+		held := heldState.frame != nil && heldState.frame.state != nil
+		heldState.Unlock()
+		asked++
+		if !held {
+			unheld++
+		}
+		return priorStateFile().OutputSums[path]
+	})
+	t.Cleanup(func() {
+		adapters.SetPriorOutputSum(func(path string) string { return priorStateFile().OutputSums[path] })
+	})
+	got, err := compareTargets(cfg, bundle, targets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if asked == 0 || unheld > 0 {
+		t.Errorf("prior-state hook asked %d times, %d without a held state; want every ask served from one held read", asked, unheld)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("held state changed the report:\ngot:  %+v\nwant: %+v", got, want)
+	}
+}

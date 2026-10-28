@@ -17,18 +17,18 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 	if kind == "" {
 		kind = "command"
 	}
-	base := claudehooks.CommandEntry{Type: kind, Timeout: hookIntMeta(meta, "timeout"), Once: hookBoolMeta(meta, "once")}
+	base := claudehooks.CommandEntry{Type: kind, Timeout: hookIntMeta(meta, "timeout"), Once: emit.HookBoolMeta(meta, "once")}
 	base.StatusMessage, _ = meta["statusMessage"].(string)
 	base.If, _ = meta["if"].(string)
 	base.OnFailure = onFailure(meta)
 	switch kind {
 	case "command":
 		base.Args = emit.StringSlice(meta["args"])
-		base.Async = hookBoolMeta(meta, "async")
-		base.AsyncRewake = hookBoolMeta(meta, "asyncRewake")
+		base.Async = emit.HookBoolMeta(meta, "async")
+		base.AsyncRewake = emit.HookBoolMeta(meta, "asyncRewake")
 		base.Shell, _ = meta["shell"].(string)
 		var handlers []claudehooks.CommandEntry
-		for _, command := range hookCommands(meta["command"]) {
+		for _, command := range emit.HookCommands(meta["command"]) {
 			handler := base
 			handler.Command = emit.RewriteHookPath(command, target, meta)
 			// The wrapper runs a command line, so args fold in.
@@ -58,7 +58,7 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 			return nil
 		}
 		base.Model, _ = meta["model"].(string)
-		base.ContinueOnBlock = hookBoolMeta(meta, "continueOnBlock")
+		base.ContinueOnBlock = emit.HookBoolMeta(meta, "continueOnBlock")
 	default:
 		emit.NoteFieldNoOp(target, spec.KindHook, "type", 1, "supported hook handlers are command, http, mcp_tool, and prompt")
 		return nil
@@ -83,7 +83,7 @@ func SettingsFilePath(cfg *config.Config) string {
 func NoteFailClosedNoOps(hooks []spec.Entry) {
 	count := 0
 	for _, h := range hooks {
-		if !hookBoolMeta(h.Meta, "failClosed") {
+		if !emit.HookBoolMeta(h.Meta, "failClosed") {
 			continue
 		}
 		event, _ := h.Meta["event"].(string)
@@ -91,7 +91,7 @@ func NoteFailClosedNoOps(hooks []spec.Entry) {
 		if kind == "" {
 			kind = "command"
 		}
-		handler := claudehooks.CommandEntry{Type: kind, Async: hookBoolMeta(h.Meta, "async"), AsyncRewake: hookBoolMeta(h.Meta, "asyncRewake")}
+		handler := claudehooks.CommandEntry{Type: kind, Async: emit.HookBoolMeta(h.Meta, "async"), AsyncRewake: emit.HookBoolMeta(h.Meta, "asyncRewake")}
 		if failClosedIgnored(event, handler) {
 			count++
 		}
@@ -110,7 +110,7 @@ func failClosedIgnored(event string, handler claudehooks.CommandEntry) bool {
 }
 
 func onFailure(meta map[string]any) string {
-	if hookBoolMeta(meta, "failClosed") {
+	if emit.HookBoolMeta(meta, "failClosed") {
 		return "block"
 	}
 	native, _ := emit.CustomTargetMeta(meta, target)

@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { API, type OverviewView } from '../contract'
 import type { Loaded } from '../api'
+import { parseServedConfig, type ServedConfig } from '../model/config-switch'
+import { ConfigSwitch } from './ConfigSwitch'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
-import { Icon, ToolAvatar } from './ui'
+import { EditorChoice } from './EditorLink'
+import { APPLE_PLATFORM, Icon } from './ui'
+import { SyncStatus } from './SyncStatus'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -35,22 +39,25 @@ export function Header({
   onToggleInspector,
   theme,
   onToggleTheme,
+  onOpenSearch,
 }: {
   overview: Remote<OverviewView>
   inspectorOpen: boolean
   onToggleInspector: () => void
   theme: 'dark' | 'light'
   onToggleTheme: () => void
+  onOpenSearch: () => void
 }) {
   const app = useApp()
   const snapshot = overview.loaded?.data.snapshot
   const projectName = snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
-  const [served, setServed] = useState<{ root: string; global: boolean }>()
+  const [served, setServed] = useState<ServedConfig>()
   useEffect(() => {
     if (app.source.kind !== 'api') return
     let live = true
     fetch(API.health).then((response) => response.ok ? response.json() : undefined).then((health) => {
-      if (live && health && typeof health.root === 'string') setServed({ root: health.root, global: health.global === true })
+      const config = parseServedConfig(health)
+      if (live && config) setServed(config)
     }).catch(() => undefined)
     return () => { live = false }
   }, [app.source.kind])
@@ -73,15 +80,16 @@ export function Header({
         </svg>
         <span className="brand-name">{PRODUCT_NAME}</span>
       </div>
-      {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
+      {(projectName || served || app.source.kind === 'static' || app.source.kind === 'mock') && (
         <div className="topbar-context">
           {projectName && (
             <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
               <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
-              <span className="project-title">{projectName}{served?.global && <span className="chip chip-source">Global</span>}</span>
+              <span className="project-title">{projectName}{served && <span className="chip chip-source">{served.global ? 'Global' : 'Project'}</span>}</span>
               {root && <code className="project-root"><bdi>{root}</bdi></code>}
             </span>
           )}
+          {served && <ConfigSwitch served={served} />}
           {app.source.kind === 'static' && (
             <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
               Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}
@@ -94,9 +102,15 @@ export function Header({
           )}
         </div>
       )}
+      <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
+        <Icon name="search" />
+        <span className="button-search-label">Search</span>
+        <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
+      </button>
       <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
         JSON
       </button>
+      <EditorChoice />
       <button
         type="button"
         className="button button-quiet button-icon"
@@ -110,18 +124,20 @@ export function Header({
   )
 }
 
-export function Nav({ overview }: { overview: Remote<OverviewView> }) {
+export function Nav({ overview, snapshot, saved, onRefresh }: { overview: Remote<OverviewView>; snapshot: boolean; saved: boolean; onRefresh: () => void }) {
   const app = useApp()
   const navRef = useRef<HTMLElement>(null)
+  const [toolsOpen, setToolsOpen] = useState(false)
   // On narrow screens the navigation is one scrolling row; keep the
   // current page in view.
   useEffect(() => {
     const current = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]')
     const nav = navRef.current
     if (current && nav && nav.scrollWidth > nav.clientWidth) {
-      nav.scrollLeft = Math.max(0, current.offsetLeft - nav.clientWidth / 2 + current.offsetWidth / 2)
+      const bounds = current.getBoundingClientRect()
+      nav.scrollLeft += bounds.left - nav.getBoundingClientRect().left - nav.clientWidth / 2 + bounds.width / 2
     }
-  }, [app.state.view])
+  }, [app.state.view, overview.loaded])
   const sections = overview.loaded?.data.sections
   const ordered = sections?.length
     ? [...sections].sort((a, b) => a.order - b.order).map((s) => ({ id: s.id as ViewId, label: s.label }))
@@ -139,18 +155,18 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
   }
 
   return (
-    <nav className="sidenav" aria-label="Configuration sections" ref={navRef}>
-      <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
-      {overview.loaded && (
-        <div className="nav-project">
-          <span className="nav-project-label">Configured tools</span>
-          <div className="nav-targets">
-            {overview.loaded.data.targets.map((target) => <ToolAvatar key={target.target} target={target.target} label={target.label} />)}
-            {overview.loaded.data.targets.length === 0 && <span className="muted">None selected</span>}
-          </div>
-          <p>{app.source.kind === 'api' ? 'Changes are saved to your source configuration.' : 'Read-only configuration snapshot.'}</p>
+    <aside className="sidenav">
+      <nav className="section-nav" aria-label="Configuration sections" ref={navRef}>
+        <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
+      </nav>
+      {overview.loaded && <>
+        <button type="button" className="button nav-tools-toggle" aria-expanded={toolsOpen} aria-controls="configured-tools" onClick={() => setToolsOpen((open) => !open)}>
+          Configured tools
+        </button>
+        <div id="configured-tools" className={`nav-project${toolsOpen ? ' is-open' : ''}`}>
+          <SyncStatus overview={overview} snapshot={snapshot} saved={saved} onRefresh={onRefresh} />
         </div>
-      )}
-    </nav>
+      </>}
+    </aside>
   )
 }

@@ -23,6 +23,8 @@ gitignore:
   commit: [grok:instructions]
 ```
 
+`agnostic-ai init` writes the `commit` line when it selects Grok with the managed `.gitignore` on. Without it, `lint` reports [LINT053](@/docs/cli-reference/lint-codes.md) and sync stops for every tool.
+
 Create `.agnostic-ai/rules/style.md`:
 
 ```markdown
@@ -91,6 +93,6 @@ Not enforced. Use an instruction rule or explicit permission rules. See [protect
 <details>
 <summary>Native evidence and runtime limits</summary>
 
-Paths and fields were checked against the [official project rules](https://docs.x.ai/build/features/project-rules), [MCP](https://docs.x.ai/build/features/mcp-servers), [hooks](https://docs.x.ai/build/features/hooks), [subagents](https://docs.x.ai/build/features/subagents), [skills](https://docs.x.ai/build/features/skills-plugins-marketplaces), and [settings](https://docs.x.ai/build/settings) documentation, plus public source snapshot [2bdd1d6a](https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8). The stable installer endpoint reported 1.0.67 on October 23, 2026. The source snapshot is an independent format reference, not proof of exact binary source parity. Validation uses native-format fixtures and isolated filesystem tests; it does not install, authenticate, approve trust, or run a model session. Grok also reads compatibility files from other enabled tools, so those can contribute additional instructions, hooks, or servers.
+Paths and fields were checked against the [official project rules](https://docs.x.ai/build/features/project-rules), [MCP](https://docs.x.ai/build/features/mcp-servers), [hooks](https://docs.x.ai/build/features/hooks), [subagents](https://docs.x.ai/build/features/subagents), [skills](https://docs.x.ai/build/features/skills-plugins-marketplaces), and [settings](https://docs.x.ai/build/settings) documentation, plus public source snapshot [2bdd1d6a](https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8). The source snapshot is an independent format reference, not proof of exact binary source parity. Validation uses native-format fixtures and isolated filesystem tests; it does not install, authenticate, approve trust, or run a model session. Grok also reads compatibility files from other enabled tools, so those can contribute additional instructions, hooks, or servers.
 
 </details>

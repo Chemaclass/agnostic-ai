@@ -203,7 +203,7 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 		return err
 	}
 	for _, h := range hooks {
-		cmds := hookCommands(h.Meta["command"])
+		cmds := emit.HookCommands(h.Meta["command"])
 		for _, raw := range cmds {
 			raw = emit.RewriteNeutralHookPath(raw, ".")
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
@@ -331,6 +331,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	configSettings := buildConfigSettings(cfg)
 	retired := retiredConfigKeys(cfg)
 	custom := emit.SettingsCustomKeys(settings, target)
+	noteProjectIgnoredSettings(settings, custom)
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
@@ -859,7 +860,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		if len(handlers) == 0 {
 			continue
 		}
-		if hookBoolMeta(h.Meta, "once") {
+		if emit.HookBoolMeta(h.Meta, "once") {
 			onceNoOp++
 		}
 		emittedHooks = append(emittedHooks, h)
@@ -870,6 +871,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		byKey[k] = append(byKey[k], handlers...)
 	}
 	NoteFailClosedNoOps(emittedHooks)
+	NoteHookEventNoOps(emittedHooks)
 	emit.NoteFieldNoOp(target, spec.KindHook, "once", onceNoOp,
 		"Claude Code only honors once for hooks declared in skill frontmatter; a settings.json or agent-frontmatter hook keeps running every time")
 	byEvent := map[string][]claudehooks.Group{}
@@ -898,7 +900,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 // then canonical lifecycle order for the remainder.
 func mergePreferredAndLifecycle(preferred, seen []string) []string {
 	if len(preferred) == 0 {
-		return orderedHookEvents(seen)
+		return emit.OrderByLifecycle(seen, hookEventLifecycleOrder)
 	}
 	have := map[string]bool{}
 	for _, e := range seen {
@@ -919,7 +921,7 @@ func mergePreferredAndLifecycle(preferred, seen []string) []string {
 			rest = append(rest, e)
 		}
 	}
-	out = append(out, orderedHookEvents(rest)...)
+	out = append(out, emit.OrderByLifecycle(rest, hookEventLifecycleOrder)...)
 	return out
 }
 
@@ -965,28 +967,6 @@ var hookEventLifecycleOrder = []string{
 	"SessionEnd",
 }
 
-func orderedHookEvents(seen []string) []string {
-	have := make(map[string]bool, len(seen))
-	for _, e := range seen {
-		have[e] = true
-	}
-	out := make([]string, 0, len(seen))
-	emitted := make(map[string]bool, len(seen))
-	for _, e := range hookEventLifecycleOrder {
-		if have[e] {
-			out = append(out, e)
-			emitted[e] = true
-		}
-	}
-	for _, e := range seen {
-		if !emitted[e] {
-			out = append(out, e)
-			emitted[e] = true
-		}
-	}
-	return out
-}
-
 // hookIntMeta extracts an integer field from a hook spec's Meta map.
 // YAML decodes numerics as int/int64/float64 depending on representation,
 // so each plausible concrete type is checked. Returns 0 when the key is
@@ -1008,49 +988,6 @@ func hookIntMeta(meta map[string]any, key string) int {
 		return n
 	}
 	return 0
-}
-
-// hookBoolMeta reads a bool-typed meta key, accepting bool and the
-// string forms "true"/"false" a hand-edited YAML may carry. Returns
-// false when missing or any other type.
-func hookBoolMeta(meta map[string]any, key string) bool {
-	switch v := meta[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-// hookCommands normalizes a `command:` field that may be a string or a
-// list of strings into a single []string. Empty strings drop out.
-func hookCommands(raw any) []string {
-	switch v := raw.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []string{v}
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		out := make([]string, 0, len(v))
-		for _, s := range v {
-			if s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
 }
 
 // UserMCPServers renders mcps as the top-level `mcpServers` map of

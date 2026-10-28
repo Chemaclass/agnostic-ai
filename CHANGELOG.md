@@ -6,18 +6,147 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- **Breaking:** web edit and built-in preview requests must send `scope` (`team` or `local`); the server no longer guesses the file from which ones exist.
-- `compare` reads the sync state once per run instead of once per spec, so a 500-spec project compares in about a second instead of five minutes (#2498).
-- The web interface's Settings page saves for the team or just you: Just me writes Git-ignored local files, and local values show a badge and a reset.
-- `ui` opens another project or scope on the next free port up to 4319 and reuses it later, instead of failing; an explicit `--addr` stays put (#2492).
-- A `builtins` list in `agnostic-ai.local.yaml` no longer changes the committed `.gitignore` block; its extra outputs go to `.git/info/exclude` (#2494).
-- Turning on the `memory` built-in in the web interface now previews and applies the `.git/info/exclude` line that keeps Claude Code's private settings out of Git, as `sync` does, instead of sending you to the CLI (#2486).
-- Set, update, and clear scalar model, effort, and global session-retention settings in the web interface, with validated source-only edits; fields with a fixed set of values, such as effort, offer them as a list, and each setting shows its value once beside its controls (#2476).
-- The web interface shows the full configuration path under the project name, and marks the user-level view as Global.
-- **Added:** `ui` aliases `view`. Opening the same project or global interface again reuses its running server; another scope or an `--api-only` server on the port suggests `--addr`. `/api/health` answers without loading specs and returns the root, scope, and `ui`; it no longer returns `revision` (#2477).
+- With `grok` selected, sync checks whether Git ignores the generated rules with one Git call for all rules, once per run. Before, it started one Git process per rule on every pass, so `sync --check` on a project with 150 rules took about three times as long as without grok (#2646).
+- With `sync.shared-skills: true`, `sync` keeps shared skill links and plans no new ones while a configured external adapter is not on PATH. Before, it treated the run as covering every target and could remove the link of a deleted skill (#2702).
+- **Security:** a re-import no longer keeps a Claude or Codex overlay an earlier release wrote with a credential in it. Import prints the warnings and stops; `--overwrite` writes the overlay without the credential (#2669).
+- `sync --global` leaves your text in `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, and the other global instructions files byte for byte. It adds one newline and its block, and removing the block takes back only those. Before, it trimmed blank lines around your text and added a final newline, so a file with CRLF line endings, a leading blank line, or no final newline changed after every add and remove (#2658).
+- `sync` keeps the files of a configured target whose external adapter (`agnostic-ai-adapter-<name>`) is not on PATH. Before, it warned with AAI-301, then deleted every file that target wrote on the last sync and reported it as synced. It now keeps them, says it skipped the stale file cleanup, and counts only the targets whose adapter loaded in the summary. The gitignore block and the spec change baseline keep that target's entries (#2657).
+- **Security:** `compare` text and JSON output hide a credential in a permission rule, on the source side, in each tool's native spelling, and in `x-<target>` override values, with the `<redacted>` marker `sync --global` prints, as in `shell(<redacted>)`. Before, a rule such as `shell(curl -H 'Authorization: Bearer ...' ...)` printed the token (#2650).
+- A config value of the wrong shape now names the file, line, and key with the shape it expects, such as `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`, instead of a Go type name. A mistake in `agnostic-ai.local.yaml` names that file and its own line, where before it named a line in an internal merged document. A `version` other than `1` now fails `validate` and `sync` with AAI-004; before, `version: 7` passed (#2648, #2664).
+- `packs update` checks every `agnostic.packs.lock` entry before it changes any file, and always passes `--` to `git clone` before the source, with Git's `ext::` transport turned off. It stops on a pack name that starts with a dot or is not a single folder name, a source or ref that starts with `-`, and a Git source other than `https://`, `ssh://`, `git@host:path`, or a host path. It skips a pack from a local folder outside the project and prints the `packs add` command that refreshes it. `packs add` refuses the same pack names and Git sources, so reinstall a pack with a name that starts with a dot under another `--name`. `packs remove` refuses a lockfile entry with an invalid name before it deletes anything, and sync ignores such entries.
+- `sync` writes `.agnostic-ai/.sync-state` to a temporary file and then moves it into place, so a full disk or a stop mid-write no longer leaves a cut-short ledger. When the ledger does not parse, `sync` warns with its path, looks for leftover files as if no ledger existed, and writes a new one; `sync --check` fails and says to run `sync`. Before, both read it as empty without a word, so leftovers stayed and the check passed (#2665).
+- **Breaking:** Sync refuses an `outputs` path or `gitignore.path` outside the project or in `.git/`, and a spec named `.git`. Use a path inside the project (#2701).
+- **Breaking:** Sync refuses an `outputs` path or `gitignore.path` outside the project or in `.git/`, and a spec named `.git`. `gitignore.path: .git/info/exclude` keeps working. Use a path inside the project (#2701).
+- Sync skips a `.agnostic-ai/.sync-state` entry outside the project or in `.git/` and names it in a warning, instead of removing or changing that file (#2701).
+- A line break in `gitignore.allow` or `sync.unmanaged`, or a `sync.unmanaged` entry above the root, now fails (#2701).
+- **Security:** `compare` text and JSON output hide a credential in a permission rule, on the source side, in each tool's native spelling, and in `x-<target>` override values, with the `<redacted>` marker `sync --global` prints, as in `shell(<redacted>)`. Before, a rule such as `shell(curl -H 'Authorization: Bearer ...' ...)` printed the token (#2650).
+- **Security:** a re-import no longer keeps a Claude or Codex overlay an earlier release wrote with a credential in it. Import prints the warnings and stops; `--overwrite` writes the overlay without the credential (#2649, #2668, #2669).
+- `packs update` installs each Git pack at the commit recorded in `agnostic.packs.lock` and fails, leaving the lockfile unchanged, when the remote no longer has that commit; `packs update --latest` moves a pack to the newest commit of its ref and prints the old and new commit. Before, `update` fetched the current tip of the recorded ref and overwrote the recorded commit. `update` checks every lockfile entry before it changes any file, passes `--` to `git clone` before the source with Git's `ext::` transport off, and stops on a pack name that starts with a dot or is not a single folder name, a source or ref that starts with `-`, or a Git source other than `https://`, `ssh://`, `git@host:path`, or a host path; a refused name says to reinstall with `packs add <source> --name <name>`. It skips a pack from a local folder outside the project and prints the `packs add` command that refreshes it. `packs add` refuses the same names and sources, and `packs remove` refuses a lockfile entry with an invalid name before it deletes anything (#2638, #2690).
+- `sync` keeps the files of a configured target whose external adapter (`agnostic-ai-adapter-<name>`) is not on PATH, says it skipped the stale file cleanup, and counts only the targets whose adapter loaded. The gitignore block and the spec change baseline keep that target's entries. With `sync.shared-skills: true`, it also keeps shared skill links and plans no new ones. Before, it warned with AAI-301, then deleted every file that target wrote on the last sync, could remove the link of a deleted skill, and reported the target as synced (#2657, #2702).
+- `sync` writes `.agnostic-ai/.sync-state` to a temporary file and then moves it into place, so a full disk or a stop mid-write no longer leaves a cut-short ledger. When the ledger does not parse, `sync` warns with its path, looks for leftover files as if no ledger existed, and writes a new one; `sync --check` fails and says to run `sync`. Before, both read it as empty without a word (#2665).
+- Sync saves an edited output as `.bak` before removing it when a spec or target leaves, and `revert` restores it. `sync --backup` keeps each `<path>.bak` at the permissions of the file it copies, `revert` restores them without widening the file, and a link at `<path>.bak` stops the backup instead of being written through. The managed `.gitignore` block lists the `.bak` of each output it ignores; a copy the block does not list, such as one whose target was dropped, goes in `.git/info/exclude`, so the committed `.gitignore` does not change (#2639, #2654, #2704).
+- Case-only rule, skill, or agent renames keep generated files and protect hand edits with backups or `--keep-edits` (#2640).
+- `sync --global` leaves your text in `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, and the other global instructions files byte for byte. It adds one newline and its block, and removing the block takes back only those. Before, it trimmed blank lines around your text and added a final newline, so a file with CRLF line endings, a leading blank line, or no final newline changed after every add and remove (#2658).
+- `sync --global` keeps comments in a JSON settings file that also holds hooks, such as `~/.gemini/settings.json` or `~/.claude/settings.json`. Before, one comment stopped the sync with `invalid character '/'`, even with no hook specs (#2644).
+- `sync --global --check` passes when every tool file matches and only the ownership record is missing or out of date, and notes the record instead. `import --global claude` prints that command, which passes, and says a full sync writes the imported MCP servers to your other tools (#2647).
+- `sync --json` prepares and seeds personal memory like `sync`. Its `notes` now list every project note a plain `sync` prints (#2663).
+- A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out (#2602).
+- A config value of the wrong shape now names the file, line, and key with the shape it expects, such as `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`, instead of a Go type name. A mistake in `agnostic-ai.local.yaml` names that file and its own line. A `version` other than `1` now fails `validate` and `sync` with AAI-004 (#2648, #2664).
+- `doctor` fails on an unknown `-t` name (AAI-301, as `sync` does), on a config `doctor mcp` cannot load, and on the glob, nested copy, and hook script findings `--json` skipped; `--json --fix` is rejected. `doctor config` runs the checks every command runs when it loads the project, so it fails as `sync` does on an unknown builtin or tier target, an unmet `requires`, or a bad `outputs.<target>.agents` (#2659, #2660).
+- `lint` and the editor integration report LINT053 for a spec or setting a tool in `targets` refuses, which would stop sync for every tool: a CodeBuddy or Junie agent name, a Zed or OpenCode skill name such as `Lint-It`, or Grok rules while the managed `.gitignore` hides them. `init` with Grok and the managed `.gitignore` writes `gitignore.commit: [grok:instructions]`, Grok's refusal names the tool once, and a name a tool refuses starts with the spec's path (#2642).
+- `validate` and `lint` report a hook spec with no `command` and nothing else to run (LINT052), and name a key such as `run:` as the likely misspelling. Lint no longer reports LINT001 for hook specs (#2645).
+- `new <kind> <name> --dry-run` fails with "already exists" for a spec file that exists, like the real run (#2661).
+- `sync`, `status`, `list`, `validate`, `cleanup`, `graph`, and `upgrade` fail on a positional argument instead of ignoring it. `upgrade v0.56.1` points at `--version v0.56.1`; before, it installed the latest release. `graph --kind` and `graph --target` fail on a value that is not a spec kind or a configured target, with a suggestion when one is close (#2662).
+- `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
+- `install.sh`, `install.ps1`, and `upgrade` verify each archive's build provenance when `gh` is logged in and stop on a mismatch; the installers reject a version that is not a release, such as `v1.0.0/../x`, before downloading anything (#2655).
+- `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request (#2627).
+
+#### Web interface
+
+- **Tools** lists MCP servers a tool keeps only in its own config, such as a Notion server in `~/.claude.json`, under **Found in a tool's own config**: the tool, the file, the transport, and the `agnostic-ai import` command that makes it a spec. Claude Code servers kept for one project under `projects` in `~/.claude.json` are listed without a command, since no import reads them yet. A server a spec covers is not repeated, and no command, URL, environment, or header value is shown (#2633).
+- Generated-file status and **Refresh** move to **Configured tools** in the sidebar, with a disclosure beside the section links on narrow screens (#2632).
+- Lifecycle stages start closed, with counts and descriptions visible; expand one or all, search hooks, or follow a link to open its stage (#2631).
+- A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).
+- Set `model` and `effort` for one tool under **What each tool gets**, saved as `model.<tool>` or `effort.<tool>`. Each tool shows where its value comes from, such as `personal · codex`, and when an `agnostic-ai.yaml` output key replaces it; **Use the value for every tool** removes the tool's entry. `/api/edit/field` and setting previews take `target` (#2602).
+- **Settings** names where an edit goes **Shared (committed)** or **Personal (not committed)**, and edit and preview requests take `audience: shared` or `audience: personal`. The older `scope: team` or `scope: local` is accepted until the next minor release; a request that sends both with different meanings returns 400. Change plans carry `audience` beside `scope` until then, and a saved choice on the page carries over (#2602).
+- When two project pages open the global settings at the same moment, each opens a global server that links back to its own project. Before, one could open the other project's server, which stopped when that project's server stopped (#2607).
+- The authority view checks each distinct text for credentials once per request, so large projects load it several times faster (#2610).
+- **Settings** marks a value from a personal file with a **personal** badge instead of **local**, and its notes and built-in previews say personal and shared instead of local and team (#2615).
+- Going back from a global page the project page opened returns to the project server that opened it, also when that server runs on `--addr` outside ports 4310 to 4319. Before, it started a second project server on another port (#2616).
+- Editing one tool's `model` or `effort` on **Settings** saves when a later spec sets that field only for other tools. Before, a later `model: {claude: opus}` blocked a codex edit in the earlier spec, though codex took its model from it (#2614).
+- Editing the `model` of a tool such as codex on **Settings** saves when a later spec sets a Claude model name such as `model: claude-opus-4`, which that tool leaves out. Before, the edit returned 400 although **What each tool gets** showed the tool keeping the earlier value (#2619). This applies to project settings only: `sync --global` writes that name, so the global page still returns 400 for that edit.
+- On the global **Settings** page, **What each tool gets** shows a later Claude model name such as `model: claude-opus-4` as the value codex gets, as `sync --global` writes it. Before, it showed codex keeping the earlier spec's value (#2624).
+- When a later spec blocks a **Settings** edit, the error names the file that holds the value: the shared spec when your personal file on top of it does not change that value for the edited tool. Before, it named the personal file (#2620).
+- With `serve --global --no-installed`, **What each tool gets** marks the `model` and `effort` of a tool `sync --global` writes no user settings for, such as cursor or opencode, as not written, as it does without the flag. Before, it showed the spec value as if sync wrote it (#2636).
+- Editing `effort` for one tool on the global **Settings** page saves. Before, the request failed with a network error (#2622).
+
+### By tool
+
+#### Claude Code
+
+- **Security:** `import claude` and `init --from claude` leave out each `env` value, helper command such as `apiKeyHelper`, `statusLine` command, and permission rule in `.claude/settings.json` that holds a credential, and any literal header variable such as `OTEL_EXPORTER_OTLP_HEADERS`, and print a warning naming the key or list. Before, they copied the token into `.agnostic-ai/`. The next sync removes the value from `.claude/settings.json`; set it under `x-claude` in a settings spec in `.agnostic-ai/local/settings` to keep it (#2649).
+- **Security:** `import claude` and `init --from claude` leave out a hook matcher group when one of its hooks holds a credential in its command, arguments, URL, header, `if` rule, status message, prompt, or MCP tool input, or names a Slack or Discord webhook, and print a warning naming the event and field. Before, the token was written into a hook spec under `.agnostic-ai/hooks/`. Sync leaves the group in `.claude/settings.json` as written (#2668).
+- `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
+- Sync notes `x-claude` settings keys that Claude Code ignores in project settings, such as `autoMode` and `deniedModels`, and says to set them in user or managed settings, as each key allows. `sync --global` notes the keys Claude Code reads from managed settings only (#2583).
+- A `dev-commands` entry with a `url` and no `command` writes `{name, url}` to `.claude/launch.json`, so the preview attaches to a server you already run; import reads it back as a spec. With Codex enabled, lint reports the entry (LINT016) and sync notes that Codex skips it (#2579).
+- Sync notes a prompt, HTTP, or MCP tool hook on an event that cannot run it, and an `if` filter on a non-tool event, where the hook never runs (#2582).
+
+#### CodeBuddy Code
+
+- Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
+
+#### Codex
+
+- **Security:** `import codex` leaves out of the committed overlay each `config.toml` value that holds a credential, such as a provider bearer token, an `http_headers` value, or a `shell_environment_policy.set` token, and prints a warning naming the key (#2669).
+
+#### Cursor
+
+- `import cursor` writes `alwaysApply: false` for a rule with neither `alwaysApply` nor `globs`, so sync no longer makes it always on (#2643).
+- A rule imported and synced before keeps the `alwaysApply: true` sync wrote; set `alwaysApply: false` in its spec to turn it off (#2643).
+
+#### Mistral Vibe
+
+- `post_agent` hooks accept `match` and `matcher`, so a hook runs only after one agent, as Vibe 3.0.3 allows (#2577).
+- Sync stops on an agent named `main` in any case, which Vibe 3.0.3 reserves and does not load; import notes it (#2575).
+- Docs and the unsupported-hook-field error now cite Vibe v3.0.3, and say a subagent's `active_model` needs v3.0.3 (#2585).
+
+#### OpenCode
+
+- Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
+
+#### OpenHands
+
+- **Breaking:** `sync --global` no longer writes `~/.openhands/mcp.json`, which only the unmaintained OpenHands-CLI reads. Add MCP servers in Agent Canvas under **Customize > MCP Servers**, or pass `mcp_config` to the SDK. The next sync removes the servers it recorded as its own there, including a hand-written one an earlier sync adopted because it matched a spec exactly; `--backup` keeps a copy, and `import --global openhands` still reads the file (#2576).
+
+### Site
+
+- The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).
+
+## v0.89.0 - 2026-10-27
+
+### General
+
+- **Breaking:** Web edit and built-in preview requests must send `scope` (`team` or `local`).
+
+#### Web interface
+
+- Find duplicate startup passages and copy a prompt to review global instructions (#2572, #2567).
+- Edit and preview team or personal settings, and see which values each tool receives (#2511, #2553, #2476, #2526, #2512, #2527).
+- Search, recheck, and open findings in an editor; see which generated files match their source (#2514, #2515, #2513, #2510, #2519).
+- Toggle built-ins in unsynced projects; stale saves keep drafts and cancelled previews stay cancelled (#2484, #2486, #2518, #2542, #2520).
+- `ui` reuses servers; lifecycle stages show when they run; `serve --no-installed` skips installed comparisons (#2477, #2492, #2568, #2528).
+
+#### Sync and configuration
+
+- **Breaking:** Global ownership state moves to version 9; older releases cannot read it (#2529).
+- Global sync preserves empty objects, guards changed symlink targets, and backs up removed files with `--backup` (#2529, #2517, #2516).
+- `sync -v` highlights changes, `sync -vv` shows every target, and parallel sync keeps shared Copilot commands (#2570, #2561).
+- Global settings honor target filters, and global rule validation rejects scoped rules in target blocks (#2525, #2508).
+- Personal built-ins stay out of the committed `.gitignore`; `init` creates a shared placeholder note (#2494, #2534).
+
+#### Built-ins
+
+- The `caveman` built-in and example pack ship only `SKILL.md`; sync removes generated extras and keeps edited files.
+- Edited `caveman` extras remain unowned. Delete them, run `doctor --fix`, or list them in `sync.unmanaged`.
+
+#### Performance and benchmarks
+
+- `compare` finishes in about a second at 500 specs instead of several minutes, with the same report (#2498).
 - Command benchmarks can retain paired raw samples and compare fixture, binary, and machine metadata (#2459).
-- Built-in toggles in the web interface work in a project that was never synced: the preview creates the outputs, and the project lock and its ignore entries that sync would add (#2484).
-- The `caveman` built-in and example pack now hold only `SKILL.md`, so sync writes only that file into each tool's skill folder, in project and global sync. The next sync removes the license, notice, and readme files an earlier sync wrote there, and leaves files you wrote yourself. If you edited one of those files, sync keeps it and `sync --check` reports it as unowned until you delete it, run `doctor --fix` in a terminal, or list it under `sync.unmanaged`.
+
+### By tool
+
+#### Codex
+
+- The `terra` model alias now resolves to `gpt-6.1-terra`.
+
+#### Qwen Code
+
+- Rules with `globs` go to `.qwen/rules/<name>.md` with `paths:`, so Qwen loads them only for matching files; import reads them back (#2502).
+
+### Site
+
+- The README and guides give new users a clearer path from installation to project setup (#2522).
 
 ## v0.88.0 - 2026-10-25
 

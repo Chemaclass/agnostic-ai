@@ -226,7 +226,8 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 				}
 				continue
 			}
-			if o := cfg.Outputs[target]; o.File != "" || o.RulesDir != "" {
+			// Qwen's rules-dir holds only its path rules, never <scope>/QWEN.md.
+			if o := cfg.Outputs[target]; o.File != "" || o.RulesDir != "" && target != "qwen" {
 				return out, nil, fmt.Errorf("%s: %s: remove file/rules-dir overrides to use native scoped %s", r.Path, target, doc)
 			}
 			for _, directory := range directories {
@@ -584,6 +585,9 @@ func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) sp
 			if m["instruction-file"] != nil || m["enabled"] == false || m["alwaysApply"] == false || m["paths"] != nil || m["globs"] != nil {
 				continue
 			}
+		}
+		if PathRulePatterns(cfg, target, r) != nil {
+			continue
 		}
 		scope, err := spec.RuleScope(resolved)
 		if err == nil && scope == "" {

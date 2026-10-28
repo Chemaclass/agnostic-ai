@@ -9,15 +9,13 @@ group = "Reference"
 
 # Troubleshooting
 
-Start with `doctor` from the directory that holds `agnostic-ai.yaml`:
+Run `doctor` from the directory that holds `agnostic-ai.yaml` first:
 
 ```bash
 agnostic-ai doctor
 ```
 
-Read its findings and follow the final **Next step**. Doctor is read-only by default. Use [`doctor --fix`](@/docs/cli-reference/check.md#doctor) only when you choose to apply its repairs, then rerun `doctor`.
-
-Use the symptoms below when a finding needs more detail or the command cannot start.
+Follow its final **Next step**. Doctor is read-only by default; [`doctor --fix`](@/docs/cli-reference/check.md#doctor) applies its repairs, after which you rerun `doctor`. When a finding needs more detail or `doctor` cannot start, find the symptom below.
 
 | Symptom | Next step |
 |---|---|
@@ -39,9 +37,12 @@ Use the symptoms below when a finding needs more detail or the command cannot st
 
 ## Inspect the project
 
-After `doctor`, use the command its finding names. [`validate`](@/docs/cli-reference/check.md#validate) checks spec formats, [`lint`](@/docs/cli-reference/check.md#lint) checks spec quality, and [`sync --check`](@/docs/cli-reference/sync.md#sync) checks generated files. For a project summary, use [`status`](@/docs/cli-reference/check.md#status).
+After `doctor`, use the command its finding names:
 
-To trace a generated file to its source, use [why](@/docs/trace.md). To see which tools receive a spec, use [graph](@/docs/graph.md). To explain a diagnostic code, use [`explain`](@/docs/cli-reference/inspect.md#explain), such as `agnostic-ai explain AAI-003` or `agnostic-ai explain LINT011`. Each command's reference covers its flags and exit behavior.
+- [`validate`](@/docs/cli-reference/check.md#validate) checks spec formats, [`lint`](@/docs/cli-reference/check.md#lint) spec quality, and [`sync --check`](@/docs/cli-reference/sync.md#sync) generated files.
+- [`status`](@/docs/cli-reference/check.md#status) summarizes the project.
+- [why](@/docs/cli-reference/inspect.md#why) traces a generated file to its source, and [graph](@/docs/cli-reference/inspect.md#graph) shows which tools receive a spec.
+- [`explain`](@/docs/cli-reference/inspect.md#explain) explains a diagnostic code, such as `agnostic-ai explain AAI-003` or `agnostic-ai explain LINT011`.
 
 <details>
 <summary>Fix directory-specific rule problems</summary>
@@ -66,9 +67,9 @@ To trace a generated file to its source, use [why](@/docs/trace.md). To see whic
 
 ## Broken skill references
 
-A skill can sync successfully even if it contains a broken relative link. `agnostic-ai doctor --check-references` lists each broken link by source spec and destination, with every affected target on one line.
+A skill with a broken relative link still syncs. `agnostic-ai doctor --check-references` lists each broken link by source spec and destination, with every affected target on one line.
 
-A link that works from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder lacks the file. Not every tool resolves links from the project root, so prefer a path the agent can open from where it runs. A link that leaves the project, such as `../shared/setup.md`, never counts.
+A link that works from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder lacks the file. Not every tool resolves links from the project root, so prefer a path the agent can open from where it runs. A link that leaves the project never counts.
 
 | Cause | Fix |
 |---|---|
@@ -86,13 +87,13 @@ A message such as `Skill "deploy" is disabled via skillOverrides` means your Cla
 
 ## Hook timeouts
 
-A message such as `UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool running a hook. It does not say who installed the hook or why its command was slow.
+A message such as `UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool. It does not say who installed the hook or why its command was slow.
 
 In Claude Code, open `/hooks` and find the event and command named in the message. Check project settings, user settings, and enabled plugins. A command containing `${CLAUDE_PLUGIN_ROOT}` belongs to a plugin; update or diagnose that plugin, not your agnostic-ai specs. The [Claude Code hook reference](https://code.claude.com/docs/en/hooks) explains hook locations and timeouts.
 
-For a hook generated from `.agnostic-ai/hooks/`, use [`why`](@/docs/trace.md) to find its source and [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md) to inspect or test it. Make changes in the source, then sync.
+For a hook generated from `.agnostic-ai/hooks/`, use [`why`](@/docs/cli-reference/inspect.md#why) to find its source and [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md) to inspect or test it. Make changes in the source, then sync.
 
-Check whether an ordinary terminal command and the hook's runtime, such as `node --version`, are also slow. If several unrelated hooks time out together, check CPU load, memory pressure, and runtime startup before increasing their timeouts. Raise a timeout only once you know the command needs longer; a longer timeout also makes a stuck command take longer to report.
+Check whether an ordinary terminal command and the hook's runtime, such as `node --version`, are also slow. If several unrelated hooks time out together, check CPU load, memory pressure, and runtime startup first. Raise a timeout only once you know the command needs longer, because a stuck command then takes longer to report.
 
 The [Caveman built-in](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman) supplies a skill, not the separate Caveman plugin's mode-tracking hooks.
 

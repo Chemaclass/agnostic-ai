@@ -40,21 +40,21 @@ func TestEditHandler_SwitchesABuiltinAndKeepsComments(t *testing.T) {
 	h := newEditHandler(source, true)
 	config := filepath.Join(source, "agnostic-ai.yaml")
 
-	if rec := postEdit(t, h, editBuiltinPath, `{"scope":"team","name":"memory","enabled":true}`, nil); rec.Code != http.StatusOK {
+	if rec := postEdit(t, h, editBuiltinPath, `{"audience":"shared","name":"memory","enabled":true}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("enable = %d %s", rec.Code, rec.Body)
 	}
 	data, _ := os.ReadFile(config)
 	if !strings.Contains(string(data), "# Global targets.") || !strings.Contains(string(data), "builtins:\n  - memory") {
 		t.Errorf("after enabling:\n%s", data)
 	}
-	if rec := postEdit(t, h, editBuiltinPath, `{"scope":"team","name":"memory","enabled":false}`, nil); rec.Code != http.StatusOK {
+	if rec := postEdit(t, h, editBuiltinPath, `{"audience":"shared","name":"memory","enabled":false}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("disable = %d %s", rec.Code, rec.Body)
 	}
 	data, _ = os.ReadFile(config)
 	if strings.Contains(string(data), "builtins") || !strings.Contains(string(data), "- claude") {
 		t.Errorf("after disabling, want the emptied list gone and targets kept:\n%s", data)
 	}
-	if rec := postEdit(t, h, editBuiltinPath, `{"scope":"team","name":"not-a-builtin","enabled":true}`, nil); rec.Code != http.StatusBadRequest {
+	if rec := postEdit(t, h, editBuiltinPath, `{"audience":"shared","name":"not-a-builtin","enabled":true}`, nil); rec.Code != http.StatusBadRequest {
 		t.Errorf("unknown built-in = %d, want 400", rec.Code)
 	}
 }
@@ -63,14 +63,14 @@ func TestEditHandler_FlipsABooleanInASettingsSpec(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	h := newEditHandler(source, true)
-	if rec := postEdit(t, h, editValuePath, `{"scope":"team","path":"settings/native.yaml","key":"x-claude.verbose","value":true}`, nil); rec.Code != http.StatusOK {
+	if rec := postEdit(t, h, editValuePath, `{"audience":"shared","path":"settings/native.yaml","key":"x-claude.verbose","value":true}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("flip = %d %s", rec.Code, rec.Body)
 	}
 	data, _ := os.ReadFile(filepath.Join(source, "settings", "native.yaml"))
 	if !strings.Contains(string(data), "verbose: true") || !strings.Contains(string(data), "# Native keys.") {
 		t.Errorf("after flipping:\n%s", data)
 	}
-	if rec := postEdit(t, h, editValuePath, `{"scope":"team","path":"../outside.yaml","key":"a","value":true}`, nil); rec.Code != http.StatusBadRequest {
+	if rec := postEdit(t, h, editValuePath, `{"audience":"shared","path":"../outside.yaml","key":"a","value":true}`, nil); rec.Code != http.StatusBadRequest {
 		t.Errorf("a path outside the settings specs = %d, want 400", rec.Code)
 	}
 }
@@ -78,7 +78,7 @@ func TestEditHandler_FlipsABooleanInASettingsSpec(t *testing.T) {
 func TestEditHandler_RefusesRequestsAnotherSiteCouldSend(t *testing.T) {
 	source := editHome(t)
 	h := newEditHandler(source, true)
-	body := `{"scope":"team","name":"memory","enabled":true}`
+	body := `{"audience":"shared","name":"memory","enabled":true}`
 	cases := map[string]struct {
 		mutate func(*http.Request)
 		want   int

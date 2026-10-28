@@ -21,10 +21,18 @@ describe('builtin change contract', () => {
     expect(() => parseBuiltinChange({ ...proposal, ...change })).toThrow('invalid change')
   })
 
-  it('keeps the scope and a reset of the whole personal list', () => {
-    expect(parseBuiltinChange({ ...proposal, name: undefined, enabled: false, reset: true, scope: 'local' }))
-      .toMatchObject({ reset: true, scope: 'local' })
-    expect(() => parseBuiltinChange({ ...proposal, scope: 'everyone' })).toThrow('invalid change')
+  it('keeps the one tool a setting change targets', () => {
+    const setting = { ...proposal, name: 'model', key: 'model', title: 'model for codex set to gpt-5' }
+    expect(parseBuiltinChange({ ...setting, target: 'codex' })).toMatchObject({ key: 'model', target: 'codex' })
+    expect(() => parseBuiltinChange({ ...setting, target: '' })).toThrow('invalid change')
+    expect(() => parseBuiltinChange({ ...proposal, target: 'codex' })).toThrow('invalid change')
+  })
+
+  it('keeps the audience and a reset of the whole personal list', () => {
+    const reset = parseBuiltinChange({ ...proposal, name: undefined, enabled: false, reset: true, audience: 'personal', scope: 'local' })
+    expect(reset).toMatchObject({ reset: true, audience: 'personal' })
+    expect(reset).not.toHaveProperty('scope')
+    expect(() => parseBuiltinChange({ ...proposal, audience: 'local' })).toThrow('invalid change')
   })
 
   it('keeps the selected built-in and the previous successful undo owner', () => {
@@ -42,5 +50,13 @@ describe('builtin change contract', () => {
 
   it('accepts older undo metadata without an owner', () => {
     expect(parseBuiltinChange({ ...proposal, undoAvailable: true, undoId: 'previous' }).undoId).toBe('previous')
+  })
+
+  it('keeps a setting change and the title that names it for undo', () => {
+    const setting = { ...proposal, name: 'effort', key: 'effort', title: 'effort set to high', undoAvailable: true, undoId: 'proposal', undoName: 'effort', undoTitle: 'effort set to high' }
+    expect(parseBuiltinChange(setting)).toMatchObject({ key: 'effort', title: 'effort set to high', undoTitle: 'effort set to high' })
+    for (const unsafe of [{ key: 'permissions' }, { key: 'model' }, { title: undefined }, { title: ' ' }, { undoTitle: '' }, { undoTitle: 'x', undoId: undefined, undoName: undefined, undoAvailable: false }]) {
+      expect(() => parseBuiltinChange({ ...setting, ...unsafe })).toThrow('invalid change')
+    }
   })
 })

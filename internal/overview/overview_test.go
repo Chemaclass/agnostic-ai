@@ -582,3 +582,50 @@ func TestBuild_OnlyListsSpecsForConfiguredTargetsAndKeepsTheirFindings(t *testin
 		}
 	}
 }
+
+func TestBuild_KeepsAFindingsOpenPath(t *testing.T) {
+	v := Build(Inputs{Findings: []Finding{{Source: SourceLint, Code: "LINT999", Severity: "warn", Message: "m", Path: "x.yaml", Line: 4, OpenPath: "/work/x.yaml"}}})
+	got := sectionByID(t, v, SectionSettings).Findings
+	if len(got) != 1 || got[0].OpenPath != "/work/x.yaml" || got[0].Line != 4 {
+		t.Errorf("settings findings = %+v, want the open path and line kept", got)
+	}
+}
+
+func TestBuild_ListsServersFoundOnlyInAToolsOwnConfig(t *testing.T) {
+	in := Inputs{
+		Cfg:    &config.Config{Targets: []string{"claude", "cursor"}},
+		Bundle: spec.Bundle{MCPs: []spec.Entry{entry(spec.KindMCP, "github", ".agnostic-ai/mcps/github.yaml", map[string]any{"command": "gh"})}},
+		NativeMCPs: []NativeMCP{
+			{Name: "notion", Target: "claude", Path: ".mcp.json", Scope: NativeScopeProject, Transport: "http", Import: "agnostic-ai import claude"},
+			{Name: "GitHub", Target: "claude", Path: "~/.claude.json", Scope: NativeScopeUser, Transport: "stdio", Import: "agnostic-ai import --global claude"},
+			{Name: "notion", Target: "cursor", Path: "~/.cursor/mcp.json", Scope: NativeScopeUser, Transport: "remote", Import: "agnostic-ai import --global cursor"},
+			{Name: "db", Target: "claude", Path: "~/.claude.json", Scope: NativeScopeProject, Transport: "stdio"},
+		},
+	}
+	got := sectionByID(t, Build(in), SectionTools).Native
+	want := []NativeServer{
+		{Name: "db", Holders: []NativeHolder{{Target: "claude", Label: "Claude Code", Path: "~/.claude.json", Scope: "project", Transport: "stdio"}}},
+		{Name: "notion", Import: "agnostic-ai import claude", Holders: []NativeHolder{
+			{Target: "claude", Label: "Claude Code", Path: ".mcp.json", Scope: "project", Transport: "http"},
+			{Target: "cursor", Label: "Cursor", Path: "~/.cursor/mcp.json", Scope: "user", Transport: "remote"},
+		}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("native =\n%+v\nwant\n%+v", got, want)
+	}
+	for _, s := range Build(in).Sections {
+		if s.ID != SectionTools && s.Native != nil {
+			t.Errorf("section %s has native servers", s.ID)
+		}
+	}
+}
+
+func TestBuild_LeavesTheNativeKeyOutWhenNoToolFileHoldsAServer(t *testing.T) {
+	data, err := json.Marshal(Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}}, Bundle: handcraftedBundle()}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), `"native":[`) || strings.Contains(string(data), `"native":null`) {
+		t.Errorf("view carries an empty native list: %s", data)
+	}
+}

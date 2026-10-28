@@ -37,7 +37,7 @@ func newServeCmd() *cobra.Command {
 
 func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	var (
-		addr, dir, uiDir                   string
+		addr, dir, uiDir, switchBack       string
 		open, global, noInstalled, apiOnly bool
 		allowedOrigins                     []string
 	)
@@ -68,6 +68,14 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			if err := validateServeAddr(addr); err != nil {
 				return err
 			}
+			if switchBack != "" {
+				if err := validateServeAddr(switchBack); err != nil {
+					return fmt.Errorf("--switch-back: %w", err)
+				}
+				if _, port, _ := net.SplitHostPort(switchBack); strings.TrimLeft(port, "0") == "" {
+					return fmt.Errorf("--switch-back %s needs a port other than 0", switchBack)
+				}
+			}
 			for i, origin := range allowedOrigins {
 				parsed, err := authority.ParseOrigin(origin)
 				if err != nil {
@@ -93,7 +101,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				return err
 			}
 			defer src.close()
+			peer := switchPeerFor(".", global)
 			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global, AllowedOrigins: allowedOrigins}
+			if global && peer != nil {
+				opts.ProjectRoot = peer.root
+			}
 			if !apiOnly && uiDir == "" {
 				opts.UIFiles = webui.Files()
 			}
@@ -119,7 +131,13 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}
-			return serveUntilInterrupted(cmd.Context(), ln, newServeMux(src.load, opts))
+			if peer != nil {
+				peer.back = ln.Addr().String()
+			}
+			switches := newSwitchHandler(peer, viewPortCandidates(), probeViewServer, peerStarter)
+			switches.back = switchBack
+			defer switches.close()
+			return serveUntilInterrupted(cmd.Context(), ln, newServeMuxWithSwitch(src.load, opts, !noInstalled, switches))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -130,6 +148,8 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	cmd.Flags().BoolVar(&open, "open", false, "Open the served URL in a browser.")
 	cmd.Flags().BoolVar(&global, "global", false, "Serve the user-level configuration sync --global uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	cmd.Flags().BoolVar(&noInstalled, "no-installed", false, "Skip comparing the generated files with disk.")
+	cmd.Flags().StringVar(&switchBack, "switch-back", "", "Loopback address of the server that started this one; its way back tries it first.")
+	_ = cmd.Flags().MarkHidden("switch-back")
 	return cmd
 }
 
@@ -141,11 +161,23 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 // --global it runs the global lint and compares the files sync --global
 // would write with disk, from any directory.
 func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Handler {
+	return newServeMuxWith(load, opts, true)
+}
+
+// newServeMuxWith is newServeMux that leaves the generated files
+// uncompared in the overview when compareInstalled is false.
+func newServeMuxWith(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool) http.Handler {
+	return newServeMuxWithSwitch(load, opts, compareInstalled, nil)
+}
+
+// newServeMuxWithSwitch also mounts the switch to the other
+// configuration when switches is set.
+func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
-	views := newOverviewHandler(".")
+	views := newOverviewHandler(".", compareInstalled)
 	if opts.Global {
-		views = newGlobalOverviewHandler()
+		views = newGlobalOverviewHandler(compareInstalled)
 	}
 	mux.Handle(overview.OverviewPath, views)
 	edits := newEditHandler(".", false)
@@ -158,21 +190,36 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 	changes := newBuiltinChangeHandler(opts.Root, opts.Global)
 	mux.Handle(builtinStatusPath, changes)
 	mux.Handle(builtinStatusPath+"/", changes)
+	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
+	if switches != nil {
+		mux.Handle(switchPath, switches)
+	}
 	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
 }
 
 // serializeAPI runs one API request at a time. Rendering adapters in
 // capture mode swaps package-level warning state, so two views rendering
-// at once would interleave it.
+// at once would interleave it. Health and the switch render nothing, and
+// the switch may wait seconds for a server to start.
 func serializeAPI(next http.Handler) http.Handler {
 	var mu sync.Mutex
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath {
+		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath && r.URL.Path != switchPath {
 			mu.Lock()
 			defer mu.Unlock()
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// serveSignals stops serve on hangup too, unless the hangup was ignored
+// at start, as under nohup: naming it would handle it again.
+func serveSignals(ignored func(os.Signal) bool) []os.Signal {
+	signals := []os.Signal{os.Interrupt, syscall.SIGTERM}
+	if !ignored(syscall.SIGHUP) {
+		signals = append(signals, syscall.SIGHUP)
+	}
+	return signals
 }
 
 // serveUntilInterrupted serves on ln until the context ends or the
@@ -181,9 +228,10 @@ func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Ha
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(ctx, serveSignals(signal.Ignored)...)
 	defer stop()
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	srv.RegisterOnShutdown(trackFreshConns(srv).close)
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ln) }()
 	select {
@@ -242,4 +290,41 @@ func bufferAPIBody(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// freshConns are connections that have not sent a request yet.
+// Shutdown waits up to 5 seconds for them, and clients such as browsers
+// and Go's transport open them ahead of a request that may never come.
+// Closing them after shutdown begins drops no request: the server skips
+// the handler for a request it reads once shutdown has begun.
+type freshConns struct {
+	mu      sync.Mutex
+	conns   map[net.Conn]struct{}
+	closing bool
+}
+
+func trackFreshConns(srv *http.Server) *freshConns {
+	f := &freshConns{conns: map[net.Conn]struct{}{}}
+	srv.ConnState = func(c net.Conn, state http.ConnState) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		switch {
+		case state != http.StateNew:
+			delete(f.conns, c)
+		case f.closing:
+			_ = c.Close()
+		default:
+			f.conns[c] = struct{}{}
+		}
+	}
+	return f
+}
+
+func (f *freshConns) close() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.closing = true
+	for c := range f.conns {
+		_ = c.Close()
+	}
 }

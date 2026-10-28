@@ -5,8 +5,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -42,6 +44,10 @@ func renderConfig(base string, targets []string, gitignoreEnabled bool, version 
 	sb.WriteString("\n" + onUnsupportedScaffold)
 	if gitignoreEnabled {
 		sb.WriteString("\ngitignore:\n  enabled: true\n")
+		// Grok refuses project rules it cannot read from committed files.
+		if slices.Contains(targets, "grok") {
+			sb.WriteString("  commit: [grok:instructions]\n")
+		}
 	}
 	return sb.String()
 }
@@ -151,6 +157,14 @@ func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 			}
 		}
 	}
+	note := filepath.Join(opts.Root, agnosticMainFile)
+	if !isGlobalSourceDir(filepath.Dir(note)) {
+		if _, err := os.Lstat(note); os.IsNotExist(err) {
+			fmt.Printf("create: %s\n", note)
+		} else if err != nil {
+			return fmt.Errorf("%s: %w", note, err)
+		}
+	}
 	for _, k := range declaredSourceDirs(opts.Base) {
 		fmt.Printf("mkdir:  %s\n", filepath.Join(opts.Root, opts.Base, k))
 	}
@@ -226,6 +240,9 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 	if err := updateGitignore(opts.Root, gicfg, buildManagedBlock(gicfg, nil, nil)); err != nil {
 		return err
 	}
+	if err := writeStarterNote(opts.Root); err != nil {
+		return err
+	}
 	if opts.MemoryEnabled && opts.GitignoreEnabled && gitIgnores(opts.Root, config.LocalOverrideFileName) {
 		if _, err := writeNewFile(filepath.Join(opts.Root, config.LocalOverrideFileName), []byte("memory:\n  personal: repo\n")); err != nil {
 			return err
@@ -242,6 +259,46 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 		}
 	}
 	return nil
+}
+
+// writeStarterNote seeds AGNOSTIC_AI.md with the text sync would seed,
+// so a new project has a file to edit before its first sync. An existing
+// note is kept, and an import later replaces the seed. In the home folder
+// the file would be the global instructions `sync --global` shares, so it
+// is left alone there.
+func writeStarterNote(root string) error {
+	path := filepath.Join(root, agnosticMainFile)
+	if isGlobalSourceDir(filepath.Dir(path)) {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	_, err := writeNewFile(path, []byte(adapters.EntryPointBody()))
+	return err
+}
+
+// isGlobalSourceDir reports whether dir is the global source folder,
+// which a project in the home folder shares with `sync --global`.
+func isGlobalSourceDir(dir string) bool {
+	global, err := globalSourceRoot()
+	if err != nil {
+		return false
+	}
+	if filepath.Base(dir) == filepath.Base(global) && sameDir(resolvedDir(filepath.Dir(dir)), resolvedDir(filepath.Dir(global))) {
+		return true
+	}
+	a, errA := os.Stat(dir)
+	b, errB := os.Stat(global)
+	return errA == nil && errB == nil && os.SameFile(a, b)
+}
+
+// resolvedDir is dir with symlinks resolved, or dir when it cannot be.
+func resolvedDir(dir string) string {
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		return resolved
+	}
+	return dir
 }
 
 // listDemoFiles prints the paths that writeDemoFiles would create.
@@ -303,6 +360,9 @@ func printNextSteps(root, base string, targets []string, seeded bool) {
 	}
 	summaryf("\n")
 	summaryf("next steps:\n")
+	if regularFileInside(root, filepath.Join(root, agnosticMainFile)) && !isGlobalSourceDir(filepath.Join(root, defaultBaseDir)) {
+		summaryf("  edit %s # the note every tool reads; commit it\n", agnosticMainFile)
+	}
 	if seeded {
 		summaryf("  agnostic-ai sync --plan       # preview what changes\n")
 		summaryf("  agnostic-ai sync              # emit to your configured targets\n")

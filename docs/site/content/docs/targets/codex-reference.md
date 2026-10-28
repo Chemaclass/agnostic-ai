@@ -60,7 +60,7 @@ Imported `$CLAUDE_PROJECT_DIR` paths use the Git worktree root and need Git and 
 
 Reviews become `## Code Review Rules` in root or scoped `AGENTS.md`. Other tools reading that file see the review section too. A legacy `rules-file` override prevents root reviews and raises a note.
 
-Environment specs write the Codex app's `.codex/environments/environment.toml`. `setup`, `cleanup`, and `setup-windows` become native scripts; `dev-commands` become action buttons with name, command, and icon (default `run`). `cwd` prefixes the command with `cd`. Last top-level values win. Ports, environment maps, URLs, install, and terminals have no native key and get a note.
+Environment specs write the Codex app's `.codex/environments/environment.toml`. `setup`, `cleanup`, and `setup-windows` become native scripts; `dev-commands` become action buttons with name, command, and icon (default `run`). `cwd` prefixes the command with `cd`. Last top-level values win. Ports, environment maps, URLs, install, and terminals have no native key and get a note. An entry with a `url` and no `command` has nothing to run, so sync skips it with a note and lint reports it (LINT016).
 
 ## MCP mappings
 
@@ -135,6 +135,7 @@ How sync resolves conflicts:
 - `model` wins in this order, lowest first: portable Settings spec, `outputs.codex.config.model`, overlay. Either of the last two replaces the settings model, so a Claude model name in a settings spec raises no note.
 - The overlay wins any other conflict with `outputs.codex.config.*`, and the lower value is dropped.
 - On import, a top-level `model_reasoning_effort` moves to `effort` in `<settings>/codex.yaml` when no settings spec sets `effort`, so every target syncs it. `[profiles.*]` values, and a value another settings spec shadows, stay in the overlay.
+- On import, a value that holds a credential, such as a `[model_providers.*]` bearer token, an `http_headers` key, or a `shell_environment_policy.set` token, is left out of the overlay with a warning naming its key. Keys whose names start with `env_` hold variable names and stay. The overlay is then written again without its comments. Keep such values in `~/.codex/config.toml`.
 
 ### Codex exec-policies
 

@@ -72,7 +72,7 @@ var hookLifecycle = []string{
 }
 
 // emitHooks writes `.openhands/hooks.json`, the file OpenHands reads
-// "per-repository" and honors "across Cloud, CLI, and local GUI setups".
+// "per-repository" and honors "across Agent Canvas, OpenHands Cloud, and OpenHands Enterprise".
 //
 // The emitted form is the Claude-compatible one the vendor documents as
 // equivalent to its own snake_case layout: "PascalCase event keys (e.g.,
@@ -159,29 +159,6 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		sort.SliceStable(groups, func(i, j int) bool { return groups[i].Matcher < groups[j].Matcher })
 		doc.events[event] = groups
 	}
-	doc.order = orderEvents(doc.order)
+	doc.order = emit.OrderByLifecycle(doc.order, hookLifecycle)
 	return doc
-}
-
-// orderEvents puts the vendor's documented lifecycle first, then any
-// remaining event in the order it was seen.
-func orderEvents(seen []string) []string {
-	present := map[string]bool{}
-	for _, e := range seen {
-		present[e] = true
-	}
-	out := make([]string, 0, len(seen))
-	for _, e := range hookLifecycle {
-		if present[e] {
-			out = append(out, e)
-			delete(present, e)
-		}
-	}
-	for _, e := range seen {
-		if present[e] {
-			out = append(out, e)
-			delete(present, e)
-		}
-	}
-	return out
 }

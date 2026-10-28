@@ -95,6 +95,17 @@ func TestSplitManagedBlock_ListsOutputsOnlyThePersonalConfigAdds(t *testing.T) {
 	}
 }
 
+func TestSplitManagedBlock_KeepsAPersonalOutputsBackupPersonal(t *testing.T) {
+	const bak = "/.claude/skills/handoff/SKILL.md.bak"
+	block, personal := splitWithLocal(t, "[]", "[handoff]", []string{".claude/skills/handoff/SKILL.md"})
+	if blockCovers(block, bak) {
+		t.Errorf("block lists a personal output's backup: %v", block)
+	}
+	if !slices.Contains(personal, bak) {
+		t.Errorf("personal = %v, want the skill's backup", personal)
+	}
+}
+
 func TestBuiltinChanges_PersonalToggleKeepsCommittedIgnores(t *testing.T) {
 	personalProject(t, "[]")
 	root, _ := os.Getwd()
@@ -105,7 +116,7 @@ func TestBuiltinChanges_PersonalToggleKeepsCommittedIgnores(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	h := newBuiltinChangeHandler(".", false)
-	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
+	proposal := builtinScopedProposal(t, h, audiencePersonal, "caveman", true)
 	if proposal.Config != "agnostic-ai.local.yaml" {
 		t.Fatalf("config = %s", proposal.Config)
 	}
@@ -233,7 +244,7 @@ func TestBuiltinChanges_ApplyHoldsTheGitExcludeLock(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	h := newBuiltinChangeHandler(".", false)
-	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
+	proposal := builtinScopedProposal(t, h, audiencePersonal, "caveman", true)
 	held := holdExcludeLock(t, filepath.Join(root, ".git", "info", "exclude"))
 	done := make(chan error, 1)
 	go func() {
@@ -295,7 +306,7 @@ func TestBuiltinChanges_ApplyRefusesAnExcludeChangedDuringPreview(t *testing.T) 
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	h := newBuiltinChangeHandler(".", false)
-	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
+	proposal := builtinScopedProposal(t, h, audiencePersonal, "caveman", true)
 	exclude := filepath.Join(".git", "info", "exclude")
 	data, _ := os.ReadFile(exclude)
 	other := withPersonalExcludes(string(data), personalExcludeKey(t.TempDir()), "", []string{"/other.md"})

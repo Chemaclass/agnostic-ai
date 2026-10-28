@@ -147,12 +147,13 @@ go tool pprof -top cpu.prof
 go tool pprof -http=:0 cpu.prof   # flame graph in the browser
 ```
 
-`sync --verbose` appends elapsed time for each target to each target line, so you can identify a slow adapter without a profile:
+`sync -vv` shows elapsed time for every target, so you can identify a slow adapter without a profile. This runs sync again:
 
 ```
-→ claude: 12 created, 3 updated, 0 unchanged in 42ms
-→ codex: 40 created, 0 updated, 2 unchanged in 210ms
 ✓ synced 2 targets · 52 created · 3 updated · 260ms
+Target  Created  Updated  Unchanged  Time
+claude       12        3          0  42ms
+codex        40        0          2  210ms
 ```
 
 Each target's time measures its emit call. With `--jobs > 1`, these times overlap and do not add up to the total run time.

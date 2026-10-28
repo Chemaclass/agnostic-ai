@@ -32,10 +32,10 @@ const (
 	globalStart       = "<!-- agnostic-ai:global:start -->"
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
-	defaultUserGlobal = ".agnostic-ai"
 	// Version 6 records the hooks file containers sync created; version
-	// 8 records the permission rules sync wrote.
-	globalStateVersion = 8
+	// 8 records the permission rules sync wrote; version 9 records the
+	// settings parents sync created.
+	globalStateVersion = 9
 )
 
 type globalSyncOptions struct {
@@ -72,6 +72,10 @@ type globalState struct {
 	// only its own and import leaves them out.
 	PermissionRules  map[string]map[string][]string     `json:"permissionRules,omitempty"`
 	SessionRetention map[string]globalRetentionOriginal `json:"sessionRetention,omitempty"`
+	// SettingsParents records, per target, the JSON objects sync created
+	// as settings or above the settings keys it owns. Removal takes away only these
+	// once empty, so an object the user wrote stays.
+	SettingsParents map[string][]string `json:"settingsParents,omitempty"`
 	// MCP records each MCP server written per target, by its key in the
 	// target's user MCP file, so a later sync removes only its own.
 	MCP map[string]map[string]any `json:"mcp,omitempty"`
@@ -286,7 +290,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
 			return fmt.Errorf("global rule %q is conditional for codebuddy; global rules must apply unconditionally", rule.Name)
 		}
-		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
+		if globalRuleConditional(rule, targets) {
 			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
 		}
 	}
@@ -341,6 +345,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if o.check && o.jsonOut {
 		records := globalFileRecords(writes, existingPaths(removals), statePath, next, true)
 		jsonWritten = true
+		if len(records) == 0 && !globalStateCurrent(statePath, next) {
+			drops.Notes = append(drops.Notes, dropRecord{Kind: "ownership", Count: 1, Message: globalOwnershipNote(statePath)})
+		}
 		if err := emitGlobalJSON(cmd, "sync --global --check", records, drops); err != nil {
 			return err
 		}
@@ -537,11 +544,19 @@ func globalFileRecords(writes []globalWrite, removals []string, statePath string
 		create, update, remove = "missing", "stale", "leftover"
 	}
 	out := []globalFileRecord{}
+	var staleState *globalFileRecord
 	for _, w := range writes {
 		action := update
 		// Check counts the state file as drift only when its ownership
-		// differs; a plan reports the bytes a sync writes.
-		if check && w.path == statePath && globalStateCurrent(statePath, next) {
+		// differs beside a changed tool file; a plan reports the bytes a
+		// sync writes.
+		if check && w.path == statePath {
+			if globalStateMissing(statePath) {
+				action = create
+			}
+			if !globalStateCurrent(statePath, next) {
+				staleState = &globalFileRecord{fileRecord: fileRecord{Path: filepath.ToSlash(w.path), Action: action, Bytes: len(w.data)}}
+			}
 			continue
 		}
 		data, err := os.ReadFile(w.path)
@@ -559,6 +574,9 @@ func globalFileRecords(writes []globalWrite, removals []string, statePath string
 	}
 	for _, path := range removals {
 		out = append(out, globalFileRecord{fileRecord: fileRecord{Path: filepath.ToSlash(path), Action: remove}})
+	}
+	if staleState != nil && len(out) > 0 {
+		out = append(out, *staleState)
 	}
 	return out
 }
@@ -605,18 +623,11 @@ func settingsAdoptions(writes []globalWrite) []string {
 // per file, limited to the managed block when both sides carry one.
 func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []string, statePath string, next globalState, diff bool) error {
 	var drifted []string
+	var stateStale bool
 	out := cmd.OutOrStdout()
 	for _, w := range writes {
 		if w.path == statePath {
-			if globalStateCurrent(statePath, next) {
-				continue
-			}
-			drifted = append(drifted, w.path)
-			if diff {
-				if _, err := fmt.Fprintf(out, "would update ownership state %s\n", filepath.ToSlash(w.path)); err != nil {
-					return fmt.Errorf("write global diff: %w", err)
-				}
-			}
+			stateStale = !globalStateCurrent(statePath, next)
 			continue
 		}
 		data, err := os.ReadFile(w.path)
@@ -645,6 +656,23 @@ func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []stri
 		drifted = append(drifted, path)
 		if diff {
 			if _, err := fmt.Fprintf(out, "would remove %s\n", filepath.ToSlash(path)); err != nil {
+				return fmt.Errorf("write global diff: %w", err)
+			}
+		}
+	}
+	if stateStale && len(drifted) == 0 {
+		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", globalOwnershipNote(statePath)); err != nil {
+			return fmt.Errorf("write global check: %w", err)
+		}
+	}
+	if stateStale && len(drifted) > 0 {
+		drifted = append(drifted, statePath)
+		if diff {
+			verb := "update"
+			if globalStateMissing(statePath) {
+				verb = "create"
+			}
+			if _, err := fmt.Fprintf(out, "would %s ownership state %s\n", verb, filepath.ToSlash(statePath)); err != nil {
 				return fmt.Errorf("write global diff: %w", err)
 			}
 		}
@@ -680,6 +708,22 @@ func agentFailure(explicit bool, warn io.Writer) func(target string, err error) 
 		}
 		return nil
 	}
+}
+
+// globalOwnershipNote explains an ownership record that is missing or
+// out of date while every tool file matches. Recording it changes no tool
+// file, so check counts it as drift only beside a file that changes.
+func globalOwnershipNote(path string) string {
+	record := "the ownership record at " + filepath.ToSlash(path) + " is out of date"
+	if globalStateMissing(path) {
+		record = "no ownership record at " + filepath.ToSlash(path) + " yet"
+	}
+	return record + "; until `agnostic-ai sync --global` writes it, removing a spec leaves its output in place"
+}
+
+func globalStateMissing(path string) bool {
+	_, err := os.Lstat(path)
+	return errors.Is(err, fs.ErrNotExist)
 }
 
 // globalStateCurrent reports whether the recorded state already
@@ -718,6 +762,15 @@ func pruneEmptyGlobalDirs(removals, trees []string) {
 			}
 		}
 	}
+}
+
+func globalRuleConditional(rule spec.Entry, targets []string) bool {
+	if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
+		return true
+	}
+	return slices.ContainsFunc(targets, func(target string) bool {
+		return hasGlobalRuleCondition(adapters.ResolveMeta(rule.Meta, target))
+	})
 }
 
 func hasGlobalRuleCondition(meta map[string]any) bool {
@@ -792,7 +845,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 		}
 	}
-	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, SettingsParents: map[string][]string{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	if next.TOMLArrays == nil {
 		next.TOMLArrays = map[string]map[string]tomlArrayLayout{}
 	}
@@ -822,6 +875,11 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 	for target, settings := range old.Settings {
 		if !slices.Contains(targets, target) {
 			next.Settings[target] = settings
+		}
+	}
+	for target, parents := range old.SettingsParents {
+		if !slices.Contains(targets, target) {
+			next.SettingsParents[target] = slices.Clone(parents)
 		}
 	}
 	for target, rules := range old.PermissionRules {
@@ -1034,7 +1092,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 		path := g.path(home, g.hooks)
 		hooks := adapters.TargetHooks(target, b.HooksFor(target))
 		if target == "codebuddy" {
-			if err := codebuddy.ValidateHooks(hooks); err != nil {
+			if err := codebuddy.ValidateUserHooks(hooks); err != nil {
 				return nil, next, err
 			}
 		}
@@ -1279,14 +1337,15 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			if saved, present := old.SessionRetention[target]; present {
 				original = &saved
 			}
+			parents := jsonParents{created: old.SettingsParents[target]}
 			// Keys recorded in a file the root no longer resolves to go
 			// from that file, and the new one starts unowned.
 			if moved := old.SettingsPaths[target]; moved != "" && moved != path {
-				m, _, err := mergeGlobalRetention(moved, g.settings.format, baseFor(moved), nil, previous, original, g.settings.retention, target, false, warn)
+				m, _, err := mergeGlobalRetention(moved, g.settings.format, baseFor(moved), nil, previous, original, parents, g.settings.retention, target, false, warn)
 				if err != nil {
 					return nil, next, err
 				}
-				if m, _, err = withGlobalPermissionRules(moved, m, baseFor(moved), nil, previousRules); err != nil {
+				if m, _, err = withGlobalPermissionRules(moved, m, baseFor(moved), nil, previousRules, parents); err != nil {
 					return nil, next, err
 				}
 				if err := placeEdit(moved, m, g.settings.fileMode()); err != nil {
@@ -1295,8 +1354,9 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				previous = nil
 				previousRules = nil
 				original = nil
+				parents = jsonParents{}
 			}
-			m, retention, err := mergeGlobalRetention(path, g.settings.format, baseFor(path), want, previous, original, g.settings.retention, target, hasSessionRetention(b.Settings, target), warn)
+			m, retention, err := mergeGlobalRetention(path, g.settings.format, baseFor(path), want, previous, original, parents, g.settings.retention, target, hasSessionRetention(b.Settings, target), warn)
 			if err != nil {
 				return nil, next, err
 			}
@@ -1305,7 +1365,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 			var rules map[string][]string
 			if g.settings.permissionLists {
-				if m, rules, err = withGlobalPermissionRules(path, m, baseFor(path), wantRules, previousRules); err != nil {
+				if m, rules, err = withGlobalPermissionRules(path, m, baseFor(path), wantRules, previousRules, parents); err != nil {
 					return nil, next, err
 				}
 			}
@@ -1316,6 +1376,9 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			if len(m.owned) > 0 {
 				next.Settings[target] = m.owned
 				next.SettingsPaths[target] = path
+			}
+			if len(m.parents) > 0 {
+				next.SettingsParents[target] = m.parents
 			}
 			mode := g.settings.fileMode()
 			if g.mcp.private && path == g.mcpPath(home) {
@@ -1480,9 +1543,13 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				}
 			}
 		}
-		if g.mcp.path != "" && g.mcp.format != "toml-array" {
+		if g.mcp.path != "" && g.mcp.format != "toml-array" && (g.mcp.retired == "" || len(old.MCP[target]) > 0) {
 			path := g.mcpPath(home)
 			previous := old.MCP[target]
+			mcps := b.MCPs
+			if g.mcp.retired != "" {
+				mcps = nil
+			}
 			if moved := old.MCPPaths[target]; moved != "" && moved != path {
 				m, err := mergeGlobalMCP(moved, g.mcp, baseFor(moved), target, nil, previous)
 				if err != nil {
@@ -1493,7 +1560,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				}
 				previous = nil
 			}
-			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, b.MCPs, previous)
+			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, mcps, previous)
 			if err != nil {
 				return nil, next, err
 			}
@@ -1706,6 +1773,9 @@ func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, ov
 	})
 }
 
+// mergeGlobalBlock edits only the managed block and the one newline
+// separator sync inserts before it, so the user's bytes around it stay
+// as they were and add then remove restores the file.
 func mergeGlobalBlock(path, managed string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -1716,23 +1786,40 @@ func mergeGlobalBlock(path, managed string) (string, error) {
 	if (start >= 0) != (end >= 0) || (start >= 0 && end < start) {
 		return "", fmt.Errorf("%s: corrupt agnostic-ai managed block", path)
 	}
-	if start >= 0 {
-		end += len(globalEnd)
-		body = strings.TrimSpace(body[:start] + body[end:])
+	removing := strings.TrimSpace(managed) == globalStart+"\n\n"+globalEnd
+	if start < 0 {
+		return insertGlobalBlock(body, managed, removing), nil
 	}
-	body = strings.TrimSpace(body)
-	if strings.TrimSpace(managed) == globalStart+"\n\n"+globalEnd {
-		if body == "" {
-			return "", nil
-		}
-		// The file is now the user's text alone. Keep it a well-formed
-		// text file rather than handing it back without its newline.
-		return body + "\n", nil
+	end += len(globalEnd)
+	if !removing {
+		return body[:start] + managed + body[end:], nil
 	}
-	if body != "" {
-		body += "\n\n"
+	before, after := body[:start], body[end:]
+	if rest, ok := strings.CutPrefix(after, "\r\n"); ok {
+		after = rest
+	} else {
+		after = strings.TrimPrefix(after, "\n")
 	}
-	return body + managed + "\n", nil
+	switch {
+	case strings.HasSuffix(before, "\r\n\r\n"):
+		before = before[:len(before)-2]
+	case strings.HasSuffix(before, "\n\n"):
+		before = before[:len(before)-1]
+	case after == "" && strings.HasSuffix(before, "\n") && !strings.HasSuffix(before, "\r\n"):
+		before = before[:len(before)-1]
+	}
+	return before + after, nil
+}
+
+func insertGlobalBlock(body, managed string, removing bool) string {
+	switch {
+	case removing:
+		return body
+	case body == "":
+		return managed + "\n"
+	default:
+		return body + "\n" + managed + "\n"
+	}
 }
 
 // errGlobalFileUnchanged reports that a merge leaves an existing file's
@@ -1798,13 +1885,15 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		mark("<file>")
 	}
 	if err == nil {
-		if err := json.Unmarshal(data, &doc); err != nil {
+		// The text edit keeps comments, so only the parse drops them.
+		stripped, _ := adapters.StripJSONC(data)
+		if err := json.Unmarshal(stripped, &doc); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
-		if err := json.Unmarshal(data, &before); err != nil {
+		if err := json.Unmarshal(stripped, &before); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
-		if err := json.Unmarshal(data, ordered); err != nil {
+		if err := json.Unmarshal(stripped, ordered); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
 	} else if !absent {
@@ -1938,6 +2027,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		}
 	}
 	claude.NoteFailClosedNoOps(claudeHooks)
+	claude.NoteHookEventNoOps(claudeHooks)
 	// writesNow reports that an edited copy of a recorded entry is what
 	// sync writes now. The form without the target signal counts only
 	// for a record that lacked it too, as versions before it wrote:
@@ -2106,7 +2196,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	}
 	// Nothing of ours left and nothing of the user's either: drop a file
 	// sync created rather than leave a shell behind.
-	if len(doc) == 0 && (absent || owns("<file>")) {
+	if len(doc) == 0 && absent {
 		merge.created = nil
 		return nil, nil
 	}
@@ -2120,10 +2210,22 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		if err := json.Unmarshal(raw, &merged); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
+		out := data
+		if !reflect.DeepEqual(merged, before) {
+			if out, err = editGlobalHooksText(path, data, before, merged, restore); err != nil {
+				return nil, err
+			}
+		}
+		// A comment left after the edit is the user's, so it keeps the
+		// file; one inside what the edit removed went with it.
+		if _, commented := adapters.StripJSONC(out); len(doc) == 0 && owns("<file>") && !commented {
+			merge.created = nil
+			return nil, nil
+		}
 		if reflect.DeepEqual(merged, before) {
 			return nil, errGlobalFileUnchanged
 		}
-		return editGlobalHooksText(path, data, before, merged, restore)
+		return out, nil
 	}
 	for _, key := range []string{"version", "hooks"} {
 		value, ok := doc[key]
@@ -2762,8 +2864,9 @@ func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState
 }
 
 // globalFolderMatches reports whether every file in dir is one this run
-// writes, with the same bytes. Files the run adds are allowed; a file of
-// any other content, or one the run does not write, is not.
+// writes, with the same bytes. Files the run adds are allowed, and so is
+// the .bak copy that --backup keeps of one of them; a file of any other
+// content, or one the run does not write, is not.
 func globalFolderMatches(dir string, planned map[string][]byte) (bool, error) {
 	same := true
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -2771,6 +2874,9 @@ func globalFolderMatches(dir string, planned map[string][]byte) (bool, error) {
 			return err
 		}
 		if d.IsDir() {
+			return nil
+		}
+		if _, ok := planned[strings.TrimSuffix(path, ".bak")]; ok && strings.HasSuffix(path, ".bak") && d.Type().IsRegular() {
 			return nil
 		}
 		want, ok := planned[path]
@@ -2847,6 +2953,13 @@ func removedGlobalFiles(old, next []string) []string {
 	return out
 }
 
+func removalChangedSincePlan(guards map[string]*diskSnapshot, path string, data []byte) error {
+	if guard, ok := guards[path]; ok && !bytes.Equal(guard.data, data) {
+		return fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", path)
+	}
+	return nil
+}
+
 // applyGlobalChanges writes and removes files, rolling everything back
 // on the first failure. It returns a note for each symlink it wrote
 // through or removed.
@@ -2871,8 +2984,34 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 				_ = os.Remove(p.path)
 			} else {
 				_ = os.WriteFile(p.path, p.data, p.mode)
+				_ = os.Chmod(p.path, p.mode.Perm())
 			}
 		}
+	}
+	keepBackup := func(path string, data []byte, mode fs.FileMode) error {
+		bak := path + ".bak"
+		if info, err := os.Lstat(bak); err == nil && !info.Mode().IsRegular() {
+			return fmt.Errorf("backup %s: %s is not a regular file; move it aside and rerun", path, bak)
+		}
+		old, err := os.ReadFile(bak)
+		absent := os.IsNotExist(err)
+		if err != nil && !absent {
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
+		oldMode := mode
+		if info, err := os.Stat(bak); err == nil {
+			oldMode = info.Mode()
+		}
+		done = append(done, prior{path: bak, data: old, mode: oldMode, absent: absent})
+		if err := os.WriteFile(bak, data, mode.Perm()); err != nil {
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
+		// An existing .bak keeps its own mode on write; the copy of a
+		// private file must be private too.
+		if err := os.Chmod(bak, mode.Perm()); err != nil {
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
+		return nil
 	}
 	for _, w := range writes {
 		old, err := os.ReadFile(w.path)
@@ -2907,15 +3046,9 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 			return nil, fmt.Errorf("create directory for %s: %w", w.path, err)
 		}
 		if backup && !absent {
-			if err := os.WriteFile(w.path+".bak", old, mode); err != nil {
+			if err := keepBackup(w.path, old, mode); err != nil {
 				rollback()
-				return nil, fmt.Errorf("backup %s: %w", w.path, err)
-			}
-			// An existing .bak keeps its own mode on write; the copy of a
-			// private file must be private too.
-			if err := os.Chmod(w.path+".bak", mode.Perm()); err != nil {
-				rollback()
-				return nil, fmt.Errorf("backup %s: %w", w.path, err)
+				return nil, err
 			}
 		}
 		tmp, err := os.CreateTemp(filepath.Dir(target), ".agnostic-ai-global-*")
@@ -2966,6 +3099,16 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 					rollback()
 					return nil, fmt.Errorf("read managed %s: %w", target, errors.Join(readErr, statErr))
 				}
+				if err := removalChangedSincePlan(guards, path, data); err != nil {
+					rollback()
+					return nil, err
+				}
+				if backup {
+					if err := keepBackup(path, data, targetInfo.Mode()); err != nil {
+						rollback()
+						return nil, err
+					}
+				}
 				done = append(done, prior{path: target, data: data, mode: targetInfo.Mode()})
 				if err := os.Remove(target); err != nil {
 					rollback()
@@ -2988,14 +3131,20 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 			rollback()
 			return nil, fmt.Errorf("read managed %s: %w", path, err)
 		}
-		if guard, ok := guards[path]; ok && !bytes.Equal(guard.data, data) {
+		if err := removalChangedSincePlan(guards, path, data); err != nil {
 			rollback()
-			return nil, fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", path)
+			return nil, err
 		}
 		info, err := os.Stat(path)
 		if err != nil {
 			rollback()
 			return nil, fmt.Errorf("stat managed %s: %w", path, err)
+		}
+		if backup {
+			if err := keepBackup(path, data, info.Mode()); err != nil {
+				rollback()
+				return nil, err
+			}
 		}
 		done = append(done, prior{path: path, data: data, mode: info.Mode()})
 		if err := os.Remove(path); err != nil {

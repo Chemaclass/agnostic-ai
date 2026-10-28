@@ -51,6 +51,36 @@ type Section struct {
 	// Fields are every settings field this section's specs can set, each
 	// listed even when no spec sets it. Authority and Settings have them.
 	Fields []SettingField `json:"fields,omitempty"`
+	// Native are the MCP servers found only in a coding tool's own
+	// config, which no spec of the same name covers. Only Tools has
+	// them. They carry names and paths, never a server's values.
+	Native []NativeServer `json:"native,omitempty"`
+}
+
+// Native MCP server scopes.
+const (
+	NativeScopeProject = "project"
+	NativeScopeUser    = "user"
+)
+
+// NativeServer is one MCP server name found in tools' own config files.
+type NativeServer struct {
+	Name    string         `json:"name"`
+	Holders []NativeHolder `json:"holders"`
+	// Import is the command that turns the server into a spec, or empty
+	// when no import reads the file that holds it.
+	Import string `json:"import,omitempty"`
+}
+
+// NativeHolder is one tool config file that defines a native server.
+type NativeHolder struct {
+	Target string `json:"target"`
+	Label  string `json:"label"`
+	Path   string `json:"path"`
+	Scope  string `json:"scope"`
+	// Transport is stdio, http, sse, streamable-http, or remote; empty
+	// when the entry names none of them.
+	Transport string `json:"transport,omitempty"`
 }
 
 // SettingField is one field a settings spec can set, with the value each
@@ -63,17 +93,68 @@ type SettingField struct {
 	// field's key. Empty when nothing sets it.
 	Set      []FieldSource `json:"set"`
 	Editable *FieldEdit    `json:"editable,omitempty"`
+	// Resolved is, for model and effort, the value sync writes for each
+	// configured tool and why. It never claims what a tool runs with.
+	Resolved []TargetValue `json:"resolved,omitempty"`
+}
+
+// TargetValue is the value sync writes for one tool from the settings
+// specs and the config, with the values that lose and why.
+type TargetValue struct {
+	Target string `json:"target"`
+	Label  string `json:"label"`
+	// Value is empty when sync writes none and the tool keeps its own
+	// default, which agnostic-ai does not know.
+	Value string `json:"value,omitempty"`
+	// Alias is the model name Value resolved from, such as sol.
+	Alias string `json:"alias,omitempty"`
+	// Tier is the model tier the winning spec names.
+	Tier string       `json:"tier,omitempty"`
+	From *ValueOrigin `json:"from,omitempty"`
+	// Dropped is the coverage note sync raised when the tool's files
+	// have no place for the value, so it is not written.
+	Dropped string `json:"dropped,omitempty"`
+	// Checked is false when sync did not render this tool, so whether
+	// it writes the value is unknown.
+	Checked bool          `json:"checked"`
+	Others  []ValueOrigin `json:"others"`
+	// Native are the specs that also set x-<target>.model, a native key
+	// sync writes as is.
+	Native []ValueOrigin `json:"native,omitempty"`
+}
+
+// ValueOrigin is where a value comes from: a settings spec, or a config
+// key when Spec is empty. Reason says why a losing value does not win.
+type ValueOrigin struct {
+	Spec  string `json:"spec,omitempty"`
+	Path  string `json:"path"`
+	Value string `json:"value,omitempty"`
+	Tier  string `json:"tier,omitempty"`
+	Local bool   `json:"local,omitempty"`
+	// PerTool marks a value from the tool's own entry in the per-tool
+	// map, such as model.codex, rather than the value for every tool.
+	PerTool bool   `json:"perTool,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+}
+
+// FieldNote is a coverage note sync raised for a settings field on one
+// target: the field resolved but the target's files do not take it.
+type FieldNote struct {
+	Target, Field, Reason string
 }
 
 // FieldEdit describes the source-only edit available for a scalar field.
 type FieldEdit struct {
-	Path           string   `json:"path,omitempty"`
-	Paths          []string `json:"paths,omitempty"`
-	Kind           string   `json:"kind"`
-	Allowed        []string `json:"allowed,omitempty"`
-	DisabledReason string   `json:"disabledReason,omitempty"`
-	SyncCommand    string   `json:"syncCommand,omitempty"`
-	// LocalPath is the personal, git-ignored file a "just me" edit of
+	Path    string   `json:"path,omitempty"`
+	Paths   []string `json:"paths,omitempty"`
+	Kind    string   `json:"kind"`
+	Allowed []string `json:"allowed,omitempty"`
+	// ToolAllowed lists, for each tool that takes the field, the values
+	// it accepts; an empty list accepts any value.
+	ToolAllowed    map[string][]string `json:"toolAllowed,omitempty"`
+	DisabledReason string              `json:"disabledReason,omitempty"`
+	SyncCommand    string              `json:"syncCommand,omitempty"`
+	// LocalPath is the personal, git-ignored file a personal edit of
 	// Path writes.
 	LocalPath string `json:"localPath,omitempty"`
 }
@@ -211,6 +292,9 @@ type ItemFinding struct {
 	Message  string `json:"message"`
 	Path     string `json:"path,omitempty"`
 	Line     int    `json:"line,omitempty"`
+	// OpenPath is the absolute path of the file Path names, when that
+	// file is on disk, so a local client can open it in an editor.
+	OpenPath string `json:"openPath,omitempty"`
 	// Fix is the command or edit that resolves it, when known.
 	Fix string `json:"fix,omitempty"`
 	// Explanation says why it matters, when known.
@@ -255,6 +339,11 @@ const (
 	SourceDrift  = "drift"
 )
 
+// CodeLintIncomplete is the code of the finding that stands in for a
+// lint run that stopped early, so a client never reads the missing lint
+// findings as fixed.
+const CodeLintIncomplete = "lint-incomplete"
+
 // Finding is one read-only check result handed in by the caller. The
 // overview package cannot run lint, doctor, or drift itself; the CLI
 // collects them and passes them here.
@@ -266,6 +355,8 @@ type Finding struct {
 	Message  string
 	Path     string
 	Line     int
+	// OpenPath is the absolute path of the file Path names, when it is on disk.
+	OpenPath string
 	// Target names the coding tool a drift finding concerns.
 	Target string
 	// Fix is the command or edit that resolves the finding, when known.

@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"os/exec"
@@ -29,8 +31,8 @@ const (
 
 // packEntry is one row of agnostic.packs.lock. Source is the user-given
 // argument verbatim (Git URL or local path); Ref is the resolved branch,
-// tag, or commit; Sha is the commit hash captured at install time and
-// used by `update` to detect changes.
+// tag, or commit; Sha is the commit hash captured at install time, which
+// `update` restores exactly.
 type packEntry struct {
 	Name   string `yaml:"name"`
 	Source string `yaml:"source"`
@@ -61,9 +63,12 @@ func newPacksCmd() *cobra.Command {
   # List installed packs
   agnostic-ai packs list
 
-  # Update one or all packs
+  # Reinstall one or all packs at the commits in agnostic.packs.lock
   agnostic-ai packs update
   agnostic-ai packs update superpowers
+
+  # Move packs to the newest commit of their recorded tag or branch
+  agnostic-ai packs update --latest
 
   # Remove a pack
   agnostic-ai packs remove superpowers`,
@@ -114,9 +119,10 @@ func newPacksListCmd() *cobra.Command {
 }
 
 func newPacksUpdateCmd() *cobra.Command {
-	return &cobra.Command{
+	var latest bool
+	cmd := &cobra.Command{
 		Use:   "update [<name>]",
-		Short: "Reinstall pack(s) at the lockfile-recorded ref.",
+		Short: "Reinstall pack(s) at the commit recorded in the lockfile.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
@@ -126,9 +132,11 @@ func newPacksUpdateCmd() *cobra.Command {
 			if len(args) == 1 {
 				only = args[0]
 			}
-			return runPacksUpdate(".", only, cmd.OutOrStdout())
+			return runPacksUpdate(".", only, latest, cmd.OutOrStdout())
 		},
 	}
+	cmd.Flags().BoolVar(&latest, "latest", false, "Move each pack to the newest commit of its recorded tag or branch and record it; it does not switch to a newer tag")
+	return cmd
 }
 
 // runPacksAdd installs one pack and updates the lockfile. Re-installing
@@ -145,6 +153,11 @@ func runPacksAdd(root, source, nameOverride string, out io.Writer) error {
 	}
 	if err := validatePackName(name); err != nil {
 		return err
+	}
+	if !isLocalSource(src) {
+		if err := checkLockedSource(root, src); err != nil {
+			return fmt.Errorf("packs add: %w", err)
+		}
 	}
 
 	dest := filepath.Join(root, packsDir, name)
@@ -183,6 +196,12 @@ func runPacksRemove(root, name string, out io.Writer) error {
 	if !lock.has(name) {
 		return fmt.Errorf("packs remove: %q not installed", name)
 	}
+	if err := validatePackName(name); err != nil {
+		return fmt.Errorf("packs remove %q: %w", name, err)
+	}
+	if err := checkPacksDirInsideProject(root); err != nil {
+		return fmt.Errorf("packs remove %q: %w", name, err)
+	}
 	dest := filepath.Join(root, packsDir, name)
 	if err := os.RemoveAll(dest); err != nil {
 		return fmt.Errorf("packs remove: %w", err)
@@ -218,7 +237,7 @@ func runPacksList(root string, out io.Writer) error {
 	return nil
 }
 
-func runPacksUpdate(root, only string, out io.Writer) error {
+func runPacksUpdate(root, only string, latest bool, out io.Writer) error {
 	lock, err := readPacksLock(root)
 	if err != nil {
 		return err
@@ -227,27 +246,199 @@ func runPacksUpdate(root, only string, out io.Writer) error {
 		_, _ = fmt.Fprintln(out, "no packs installed.")
 		return nil
 	}
+	skipped := map[string]bool{}
+	for _, p := range lock.Packs {
+		if only != "" && p.Name != only {
+			continue
+		}
+		err := checkLockedEntry(root, p)
+		if only == "" && errors.Is(err, errLocalSourceOutsideProject) {
+			_, _ = fmt.Fprintf(out, "! skipped %s: %v\n", p.Name, err)
+			skipped[p.Name] = true
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("packs update %q: %w", p.Name, err)
+		}
+	}
 	updated := 0
 	for i, p := range lock.Packs {
-		if only != "" && p.Name != only {
+		if (only != "" && p.Name != only) || skipped[p.Name] {
 			continue
 		}
 		dest := filepath.Join(root, packsDir, p.Name)
 		if err := os.RemoveAll(dest); err != nil {
 			return fmt.Errorf("packs update %s: %w", p.Name, err)
 		}
-		sha, err := fetchPack(p.Source, p.Ref, dest)
+		sha, err := fetchLockedPack(p, latest, dest)
 		if err != nil {
 			return fmt.Errorf("packs update %s: %w", p.Name, err)
 		}
 		lock.Packs[i].Sha = sha
-		_, _ = fmt.Fprintf(out, "✓ updated %s\n", p.Name)
+		reportPackUpdate(out, p, sha)
 		updated++
 	}
 	if only != "" && updated == 0 {
 		return fmt.Errorf("packs update: %q not installed", only)
 	}
 	return writePacksLock(root, lock)
+}
+
+// checkLockedEntry refuses a lockfile entry that update does not trust,
+// because a cloned project's lockfile is not trusted input.
+func checkLockedEntry(root string, p packEntry) error {
+	if err := validatePackName(p.Name); err != nil {
+		return lockedNameError(err)
+	}
+	if err := checkPacksDirInsideProject(root); err != nil {
+		return err
+	}
+	if strings.HasPrefix(p.Ref, "-") {
+		return fmt.Errorf("ref %q must not start with -", p.Ref)
+	}
+	err := checkLockedSource(root, p.Source)
+	if errors.Is(err, errLocalSourceOutsideProject) {
+		return fmt.Errorf("%w; refresh it with `agnostic-ai packs add %s --name %s`", err, shellQuote(p.Source), shellQuote(p.Name))
+	}
+	return err
+}
+
+func checkPacksDirInsideProject(root string) error {
+	realRoot, err := realAbs(root)
+	if err != nil {
+		return err
+	}
+	for _, dir := range []string{packsDir, filepath.Dir(packsDir)} {
+		path := filepath.Join(root, dir)
+		real, err := realAbs(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			if _, lerr := os.Lstat(path); lerr == nil {
+				return fmt.Errorf("%s is a broken link; remove it and run `agnostic-ai packs update` again", dir)
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if !pathInside(realRoot, real) {
+			return fmt.Errorf("%s links outside the project; remove the link and run `agnostic-ai packs update` again", dir)
+		}
+		return nil
+	}
+	return nil
+}
+
+func checkLockedSource(root, source string) error {
+	if strings.HasPrefix(source, "-") {
+		return fmt.Errorf("source %q must not start with -", source)
+	}
+	if isLocalSource(source) {
+		return checkLocalSource(root, source)
+	}
+	switch {
+	case strings.HasPrefix(source, "https://"), strings.HasPrefix(source, "ssh://"):
+		return nil
+	case strings.HasPrefix(source, "git@"):
+		if !isSCPLikeSource(source) {
+			return fmt.Errorf("source %q must have the form git@host:path", source)
+		}
+		return nil
+	case strings.Contains(source, "://") || strings.Contains(source, "::"):
+		return fmt.Errorf("source %q: only https://, ssh://, git@host:path, and local folders are allowed", source)
+	}
+	return nil
+}
+
+func isSCPLikeSource(source string) bool {
+	host, path, ok := strings.Cut(strings.TrimPrefix(source, "git@"), ":")
+	return ok && host != "" && path != "" && !strings.ContainsAny(host, `/\`)
+}
+
+var errLocalSourceOutsideProject = errors.New("local source is outside the project")
+
+// checkLocalSource compares volumes before resolving links so a Windows
+// network path is refused without being opened.
+func checkLocalSource(root, source string) error {
+	path := localPath(source)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(filepath.VolumeName(absRoot), filepath.VolumeName(absPath)) {
+		return errLocalSourceOutsideProject
+	}
+	realRoot, err := filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		return err
+	}
+	realPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return fmt.Errorf("local source %q: %w", source, err)
+	}
+	if !pathInside(realRoot, realPath) {
+		return errLocalSourceOutsideProject
+	}
+	// Lowercase so a case-insensitive disk cannot spell the packs folder differently.
+	packs := strings.ToLower(filepath.Join(realRoot, packsDir))
+	lowerPath := strings.ToLower(realPath)
+	if pathInside(lowerPath, packs) || pathInside(packs, lowerPath) {
+		return fmt.Errorf("local source %q must not hold or sit inside %s", source, packsDir)
+	}
+	return nil
+}
+
+func realAbs(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
+func pathInside(base, path string) bool {
+	rel, err := filepath.Rel(base, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// fetchLockedPack restores a Git pack at its recorded commit, so a moved
+// tag or a force-pushed branch cannot change what the project gets. With
+// latest, or when no commit is recorded yet, it fetches the ref's tip.
+func fetchLockedPack(p packEntry, latest bool, dest string) (string, error) {
+	if latest || p.Sha == "" || isLocalSource(p.Source) {
+		return fetchPack(p.Source, p.Ref, dest)
+	}
+	sha, err := gitFetchCommit(p.Source, p.Sha, dest)
+	if err == nil {
+		return sha, nil
+	}
+	// A server on the old wire protocol refuses a fetch by commit unless
+	// that commit is a branch or tag tip, so try the ref and keep it only
+	// when it still points at the recorded commit.
+	if isCommitHash(p.Sha) && os.RemoveAll(dest) == nil {
+		if tip, cloneErr := gitClone(p.Source, p.Ref, dest); cloneErr == nil && strings.EqualFold(tip, p.Sha) {
+			return p.Sha, nil
+		}
+	}
+	_ = os.RemoveAll(dest)
+	return "", fmt.Errorf("restore recorded commit %s: %w; run `agnostic-ai packs update --latest %s` to move to the newest commit of its ref", short(p.Sha), err, p.Name)
+}
+
+func reportPackUpdate(out io.Writer, p packEntry, sha string) {
+	switch {
+	case p.Sha != "" && sha != "" && p.Sha != sha:
+		_, _ = fmt.Fprintf(out, "✓ updated %s from %s to %s\n", p.Name, short(p.Sha), short(sha))
+	case sha != "":
+		_, _ = fmt.Fprintf(out, "✓ updated %s at %s\n", p.Name, short(sha))
+	default:
+		_, _ = fmt.Fprintf(out, "✓ updated %s\n", p.Name)
+	}
 }
 
 // fetchPack populates dest with the pack contents and returns the
@@ -312,16 +503,14 @@ func copyTree(src, dst string) error {
 // and returns the resolved HEAD commit. When ref is empty the default
 // branch is fetched.
 func gitClone(source, ref, dest string) (string, error) {
-	cloneURL := source
-	if !strings.Contains(cloneURL, "://") && !strings.HasPrefix(cloneURL, "git@") {
-		cloneURL = "https://" + cloneURL
+	if strings.HasPrefix(source, "-") {
+		return "", fmt.Errorf("source %q must not start with -", source)
 	}
-	args := []string{"clone", "--depth", "1"}
-	if ref != "" {
-		args = append(args, "--branch", ref)
+	if strings.HasPrefix(ref, "-") {
+		return "", fmt.Errorf("ref %q must not start with -", ref)
 	}
-	args = append(args, cloneURL, dest)
-	if err := runCmd("git", args...); err != nil {
+	cloneURL := gitSourceURL(source)
+	if err := runCmd("git", gitCloneArgs(cloneURL, ref, dest)...); err != nil {
 		return "", fmt.Errorf("git clone: %w", err)
 	}
 	sha, err := captureCmd(dest, "git", "rev-parse", "HEAD")
@@ -332,6 +521,72 @@ func gitClone(source, ref, dest string) (string, error) {
 		return "", fmt.Errorf("strip .git: %w", err)
 	}
 	return strings.TrimSpace(sha), nil
+}
+
+func gitCloneArgs(source, ref, dest string) []string {
+	args := []string{"-c", "protocol.ext.allow=never", "clone", "--depth", "1"}
+	if ref != "" {
+		args = append(args, "--branch", ref)
+	}
+	return append(args, "--", source, dest)
+}
+
+func gitSourceURL(source string) string {
+	if !strings.Contains(source, "://") && !strings.HasPrefix(source, "git@") {
+		return "https://" + source
+	}
+	return source
+}
+
+// gitFetchCommit fetches exactly one commit into dest and fails when the
+// remote no longer has it.
+func gitFetchCommit(source, sha, dest string) (string, error) {
+	if !isCommitHash(sha) {
+		return "", fmt.Errorf("%q is not a commit hash", sha)
+	}
+	steps := []struct {
+		name string
+		args []string
+	}{
+		{"init", initArgs(sha, dest)},
+		{"fetch", []string{"-C", dest, "-c", "protocol.ext.allow=never", "fetch", "--quiet", "--depth", "1", "--", gitSourceURL(source), sha}},
+		{"checkout", []string{"-C", dest, "-c", "advice.detachedHead=false", "checkout", "--quiet", "FETCH_HEAD"}},
+	}
+	for _, step := range steps {
+		if err := runCmd("git", step.args...); err != nil {
+			return "", fmt.Errorf("git %s: %w", step.name, err)
+		}
+	}
+	got, err := captureCmd(dest, "git", "rev-parse", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse: %w", err)
+	}
+	if got = strings.TrimSpace(got); !strings.EqualFold(got, sha) {
+		return "", fmt.Errorf("fetched commit %s, want %s", short(got), short(sha))
+	}
+	if err := os.RemoveAll(filepath.Join(dest, ".git")); err != nil {
+		return "", fmt.Errorf("strip .git: %w", err)
+	}
+	return sha, nil
+}
+
+func initArgs(sha, dest string) []string {
+	if len(sha) == 64 {
+		return []string{"init", "--quiet", "--object-format=sha256", dest}
+	}
+	return []string{"init", "--quiet", dest}
+}
+
+func isCommitHash(s string) bool {
+	if len(s) != 40 && len(s) != 64 {
+		return false
+	}
+	for _, r := range s {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", r) {
+			return false
+		}
+	}
+	return true
 }
 
 func runCmd(name string, args ...string) error {
@@ -385,8 +640,11 @@ func derivePackName(source string) string {
 // or collide with disallowed characters. A pack name is a single path
 // segment.
 func validatePackName(name string) error {
-	if name == "" || name == "." || name == ".." {
+	if name == "" {
 		return fmt.Errorf("packs: invalid pack name %q", name)
+	}
+	if strings.HasPrefix(name, ".") {
+		return fmt.Errorf("packs: pack name must not start with a dot, got %q", name)
 	}
 	if strings.ContainsAny(name, "/\\") {
 		return fmt.Errorf("packs: pack name must be a single path segment, got %q", name)
@@ -419,7 +677,18 @@ func readPacksLock(root string) (*packsLock, error) {
 	if lock.Version == 0 {
 		lock.Version = 1
 	}
+	for _, p := range lock.Packs {
+		if err := validatePackName(p.Name); err != nil {
+			return nil, fmt.Errorf("%s: %w", packsLockfile, lockedNameError(err))
+		}
+	}
 	return &lock, nil
+}
+
+// lockedNameError points at the one command that can replace a lockfile
+// entry whose name update and sync refuse.
+func lockedNameError(err error) error {
+	return fmt.Errorf("%w; reinstall it with `agnostic-ai packs add <source> --name <name>`", err)
 }
 
 // writePacksLock atomically rewrites agnostic.packs.lock. When the
@@ -486,6 +755,10 @@ func resolvePacksLayers(projectRoot string) []spec.Layer {
 	}
 	out := make([]spec.Layer, 0, len(lock.Packs))
 	for _, p := range lock.Packs {
+		if err := validatePackName(p.Name); err != nil {
+			fmt.Fprintf(os.Stderr, "! %v in %s; skipped\n", err, packsLockfile)
+			continue
+		}
 		root := filepath.Join(projectRoot, packsDir, p.Name)
 		if !dirExists(root) {
 			fmt.Fprintf(os.Stderr, "! pack %q listed in %s but missing on disk; run `agnostic-ai packs update`\n", p.Name, packsLockfile)

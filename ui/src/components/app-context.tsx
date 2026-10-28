@@ -10,7 +10,8 @@ export interface AppApi {
   navigate(patch: Partial<UrlState>, options?: { replace?: boolean }): void
   href(patch: Partial<UrlState>): string
   /** Loads the overview again, after an edit. */
-  reload(): void
+  reload(saved?: boolean): void
+  overviewRevision?: object
 }
 
 export const AppContext = createContext<AppApi | null>(null)

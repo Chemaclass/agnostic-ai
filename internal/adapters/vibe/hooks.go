@@ -25,7 +25,7 @@ func (Adapter) UserHookRecordsForPlatform(hooks []spec.Entry, scriptsDir, platfo
 			switch key {
 			case "name", "type", "command", "match", "timeout", "strict", "description", "event", "matcher", "args", "commandWindows":
 			default:
-				return nil, fmt.Errorf("vibe: hook %s native field %q is not supported by v3.0.2", h.Name, key)
+				return nil, fmt.Errorf("vibe: hook %s native field %q is not supported by v3.0.3", h.Name, key)
 			}
 		}
 		event, _ := m["event"].(string)
@@ -70,13 +70,8 @@ func (Adapter) UserHookRecordsForPlatform(hooks []spec.Entry, scriptsDir, platfo
 		d["name"] = h.Name
 		d["type"] = event
 		d["command"] = command
-		if event == "post_agent" {
-			if _, ok := d["match"]; ok {
-				return nil, fmt.Errorf("vibe: post_agent hook %s cannot have a matcher", h.Name)
-			}
-			if d["strict"] == true {
-				return nil, fmt.Errorf("vibe: post_agent hook %s cannot set strict", h.Name)
-			}
+		if event == "post_agent" && d["strict"] == true {
+			return nil, fmt.Errorf("vibe: post_agent hook %s cannot set strict", h.Name)
 		}
 		if strings.TrimSpace(h.Name) == "" {
 			return nil, fmt.Errorf("vibe: hooks require a name")

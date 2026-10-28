@@ -511,7 +511,22 @@
           "unsupported": []
         }
       ],
-      "findings": []
+      "findings": [],
+      "native": [
+        {
+          "name": "notion",
+          "holders": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "path": "~/.claude.json",
+              "scope": "user",
+              "transport": "http"
+            }
+          ],
+          "import": "agnostic-ai import --global claude"
+        }
+      ]
     },
     {
       "id": "lifecycle",
@@ -804,13 +819,53 @@
           "key": "model",
           "label": "Default model",
           "description": "The model each tool starts with: one value, a map per tool, or a model tier name.",
-          "set": []
+          "set": [],
+          "resolved": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "checked": true,
+              "others": []
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "checked": true,
+              "others": []
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "checked": true,
+              "others": []
+            }
+          ]
         },
         {
           "key": "effort",
           "label": "Reasoning effort",
           "description": "The default reasoning effort: one value, or a map per tool.",
-          "set": []
+          "set": [],
+          "resolved": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "checked": true,
+              "others": []
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "checked": true,
+              "others": []
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "checked": true,
+              "others": []
+            }
+          ]
         },
         {
           "key": "session-retention-days",

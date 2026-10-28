@@ -31,7 +31,7 @@ import (
 const configSpecKey = "config"
 
 // reportPathsShown caps the paths listed per action at the default
-// verbosity; -v lists every path.
+// verbosity; -vv lists every path.
 const reportPathsShown = 3
 
 // syncReport collects what one sync run changed, for the closing summary.
@@ -112,10 +112,48 @@ func (r *syncReport) filesChanged() int {
 	return len(r.created) + len(r.updated) + len(r.removed)
 }
 
+func renderTargetRows(w io.Writer, rows []emitRow, full bool) {
+	if !full {
+		changed := make([]emitRow, 0, len(rows))
+		for _, row := range rows {
+			if row.created+row.updated > 0 {
+				changed = append(changed, row)
+			}
+		}
+		if len(changed) > 0 {
+			renderTargetRows(w, changed, true)
+		}
+		if n := len(rows) - len(changed); n > 0 {
+			_, _ = fmt.Fprintf(w, "  %d target%s had no writes\n", n, plural(n))
+		}
+		return
+	}
+	width := len("Target")
+	for _, row := range rows {
+		if len(row.target) > width {
+			width = len(row.target)
+		}
+	}
+	_, _ = fmt.Fprintf(w, "%-*s  %7s  %7s  %9s  %s\n", width, "Target", "Created", "Updated", "Unchanged", "Time")
+	for _, row := range rows {
+		_, _ = fmt.Fprintf(w, "%-*s  %7d  %7d  %9d  %dms\n", width, row.target, row.created, row.updated, row.skipped, row.dur.Milliseconds())
+	}
+}
+
 const untrackPullAdvice = "other clones lose these files on their next pull after this deletion is committed; run `agnostic-ai install-hook --post-checkout` there before pulling, or `agnostic-ai sync` after pulling"
 
 // render prints the change list and the closing summary line.
 func (r *syncReport) render(w io.Writer, targets int, elapsed time.Duration, verbose bool) {
+	r.renderDetails(w, verbose)
+	r.renderSummary(w, targets, elapsed)
+}
+
+func (r *syncReport) renderCompact(w io.Writer, targets int, elapsed time.Duration) {
+	r.renderSummary(w, targets, elapsed)
+	r.renderDetails(w, false)
+}
+
+func (r *syncReport) renderDetails(w io.Writer, verbose bool) {
 	if len(r.specs) > 0 {
 		labels := make([]string, len(r.specs))
 		for i, s := range r.specs {
@@ -137,6 +175,9 @@ func (r *syncReport) render(w io.Writer, targets int, elapsed time.Duration, ver
 		_, _ = fmt.Fprintf(w, "  %s %d file%s tracked despite being ignored: git rm --cached %s\n", term.Bang(w), n, plural(n), strings.Join(r.trackedIgnored, " "))
 	}
 
+}
+
+func (r *syncReport) renderSummary(w io.Writer, targets int, elapsed time.Duration) {
 	if r.filesChanged() == 0 {
 		_, _ = fmt.Fprintf(w, "%s %d target%s up to date · %s\n", term.Tick(w), targets, plural(targets), shortDuration(elapsed))
 		return

@@ -1,7 +1,7 @@
 +++
 title = "Set up your project"
 description = "Share one project note across your coding tools, then change it once and update them together."
-weight = 20
+weight = 15
 
 [extra]
 nav_title = "Set up your project"
@@ -31,17 +31,15 @@ in-your-terminal = "@/docs/getting-started.md#install-agnostic-ai"
 
 # Set up your project {#getting-started}
 
-Claude Code and Codex read project notes to learn how to work in your codebase. Keep those notes in one place with agnostic-ai. Edit once, then sync the files your tools read.
+This walkthrough writes one project note, generates the files Claude Code and Codex read, then changes the note and updates both. It takes a few minutes. Run each step from your project folder, with the tools you use.
 
-To have your coding agent handle setup, [paste this prompt](@/docs/agent-setup.md), then follow [the daily loop](#daily-use).
-
-The walkthrough below writes one project note, generates files for Claude Code and Codex, then edits the note and updates both. Follow along with the tools you use, from your project folder.
+Prefer to have your coding agent do the setup? [Paste this prompt](@/docs/agent-setup.md) instead, then come back for [the daily loop](#daily-use).
 
 ## Install agnostic-ai
 
 {{ <install_picker /> }}
 
-Verify the command:
+Check that the command works:
 
 ```bash
 agnostic-ai --version
@@ -51,43 +49,35 @@ If the command is not found, open a new terminal or see [Installation](@/docs/in
 
 ## Initialize your project {#quickstart}
 
-From your project root:
-
 ```bash
 agnostic-ai init
 ```
 
-Select `claude` and `codex` for this example, or select the tools you use. These are the CLI names for Claude Code and Codex. `init` creates `agnostic-ai.yaml` and updates `.gitignore`; the next step puts your note in `.agnostic-ai/`.
+Select `claude` and `codex` for this example, or the tools you use. These are the names agnostic-ai uses for Claude Code and Codex. `init` creates `agnostic-ai.yaml`, the project note `.agnostic-ai/AGNOSTIC_AI.md`, and a block in `.gitignore`.
 
-When asked about Git, keep **Ignore them** (the default) for this walkthrough. Commit the sources; teammates run `sync` after cloning. Choose **Commit them** if you want Git to track generated files so a clone has them ready. See [Commit or ignore generated outputs](#commit-or-ignore-generated-outputs) after your first sync.
+When asked about Git, keep **Ignore them** (the default). You commit the sources, and each teammate runs `sync` after cloning. See [Commit or ignore generated outputs](#commit-or-ignore-generated-outputs) for the other choice.
 
-**Already have tool files?** In a terminal, `init` offers to import existing configuration such as `CLAUDE.md` and `AGENTS.md`. Accept to keep those instructions, then inspect the imported sources before syncing. Import can report sections that need a manual merge. For a selective import, use the [import reference](@/docs/migration.md#import-existing-tool-configuration). If `agnostic-ai.yaml` and `.agnostic-ai/` already exist, keep them and skip `init`.
+**Already have tool files?** In a terminal, `init` offers to import existing files such as `CLAUDE.md` and `AGENTS.md`. Accept to keep their instructions, and check the imported sources before you sync. Import tells you when a section needs a manual merge. To import only some files, see the [import reference](@/docs/migration.md#import-existing-tool-configuration). If `agnostic-ai.yaml` and `.agnostic-ai/` already exist, skip `init`.
 
 ## Write a project note {#scaffold}
 
-Create the source folder if needed:
-
-```bash
-mkdir -p .agnostic-ai
-```
-
-Create or edit `.agnostic-ai/AGNOSTIC_AI.md`. Keep any imported instructions and add a useful note, for example:
+Open `.agnostic-ai/AGNOSTIC_AI.md` in your editor. Replace the placeholder comment with one note, or add it below any imported instructions, for example:
 
 ```markdown
 Run the project tests before finishing a change.
 ```
 
-Adapt this to your project’s test command if you know it. This is the only instruction source you need to edit for this walkthrough.
+Use your project's real test command if you know it. This file is the only source you edit in this walkthrough.
 
 ## Generate and inspect {#sync}
 
-Preview the files before writing them:
+Preview the files first:
 
 ```bash
 agnostic-ai sync --plan
 ```
 
-Check the paths and reported changes. Sync can replace generated files, so confirm that existing instructions have been imported. If it reports a file it does not own or would overwrite, stop and review that path before proceeding.
+Sync can replace generated files. If the plan names a file it does not own or would overwrite, stop and check that its instructions were imported.
 
 Then generate and check:
 
@@ -96,20 +86,20 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-The check should exit 0, meaning the generated files match their sources. In this fresh, note-only Claude Code and Codex example, the outputs are:
+`sync --check` exits 0 when the generated files match their sources. In this Claude Code and Codex example, you get:
 
 | Tool | Generated project notes |
 |---|---|
 | Claude Code | `CLAUDE.md`, which points to `AGENTS.md` |
 | Codex | `AGENTS.md` |
 
-Find “Run the project tests before finishing a change.” in `AGENTS.md`. Here, `CLAUDE.md` contains `@AGENTS.md` so Claude Code reads the same notes. A Claude-only setup keeps the note directly in `CLAUDE.md`; imported setups can also keep full Claude text. Inspect your selected tools’ native files and follow references when present. Keep editing the source in `.agnostic-ai/AGNOSTIC_AI.md`.
+Find "Run the project tests before finishing a change." in `AGENTS.md`. `CLAUDE.md` contains `@AGENTS.md`, so Claude Code reads the same note. With only Claude Code selected, the note goes straight into `CLAUDE.md`, and an imported setup can keep its full Claude text there. For other tools, open their generated files and follow any references.
 
-Start a new Claude Code or Codex session from this project folder. Ask: “How should you check a change before finishing?” Compare the answer with your note. Matching files do not prove the model loaded or followed the text; see the [tool's loading limits](@/docs/targets/_index.md).
+To see it work, start a new Claude Code or Codex session in this folder and ask: "How should you check a change before finishing?" Matching files show the note was delivered, not that the model followed it; see each [tool's loading limits](@/docs/targets/_index.md).
 
 ## Change one note, update both tools {#daily-use}
 
-Add another sentence to the same `.agnostic-ai/AGNOSTIC_AI.md`:
+Add a sentence to `.agnostic-ai/AGNOSTIC_AI.md`:
 
 ```markdown
 Summarize which tests you ran.
@@ -123,27 +113,46 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-In this fresh two-tool example, open `AGENTS.md` again to find the new sentence. `CLAUDE.md` still points to it, so both tools use the updated instructions. For another setup, check the native files you inspected above. For later changes, edit the source, review the plan, and sync.
+Open `AGENTS.md` to find the new sentence. `CLAUDE.md` still points to it, so both tools read the update. This is the daily loop: edit the source, review the plan, sync. Never edit the generated files; sync replaces them.
 
-After cloning, install agnostic-ai using the project's documented method, then run `sync`. For a project dependency, install its locked dependencies and use the local command, such as `pnpm exec agnostic-ai`.
+After cloning, install agnostic-ai the way the project documents, then run `sync`. If the project lists agnostic-ai as a dependency, install its locked dependencies and use the local command, such as `pnpm exec agnostic-ai`.
 
 <details>
 <summary>Watch for edits, inspect status, or add another coding tool</summary>
 
 Use `agnostic-ai sync --watch` while editing. `agnostic-ai status` lists loaded specs, selected tools, and out-of-date files. Run `agnostic-ai use codex` to add Codex to an existing setup, or change `targets:` in [configuration](@/docs/configuration.md#targets).
 
-[Checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) restore ignored files in new checkouts. Automated environments can use [project readiness checks](@/docs/cli-reference/maintain.md#project-readiness).
+[Checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) restore ignored files in new checkouts. Automated environments can use [project readiness checks](@/docs/cli-reference/project.md#project-readiness).
 
 </details>
 
 ## Commit or ignore generated outputs
 
-Keep source changes in Git with the policy you chose during `init`:
+Choose this during `init`:
 
-- **Ignore (default):** commit `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. Teammates install agnostic-ai and run `sync` after cloning. Use the [ignored-output CI recipe](@/docs/ci.md#ignored-outputs).
-- **Commit (`init --gitignore=off`):** also commit generated files with their source changes. A clone has them ready. Use the [committed-output CI check](@/docs/ci.md#committed-outputs).
+- **Ignore (default):** commit `.agnostic-ai/`, `agnostic-ai.yaml`, `.gitignore`, and any other file sync lists to commit. Teammates install agnostic-ai and run `sync` after cloning. Use the [ignored-output CI recipe](@/docs/ci.md#ignored-outputs).
+- **Commit (`init --gitignore=off`):** also commit the generated files with their source changes, so a clone has them ready. Use the [committed-output CI check](@/docs/ci.md#committed-outputs).
 
-Inspect ignored output files directly because `git diff` does not show them. To change this choice later, see [Git ignore settings](@/docs/configuration.md#gitignore).
+`git diff` does not show ignored files, so open them directly to review them. To change this choice later, see [Git ignore settings](@/docs/configuration.md#gitignore).
+
+## Everyday commands
+
+Run these from the folder that contains `agnostic-ai.yaml`:
+
+| Command | What it does |
+|---|---|
+| `agnostic-ai status` | Lists selected tools and out-of-date files. |
+| `agnostic-ai sync --plan` | Previews what sync will change. |
+| `agnostic-ai sync` | Writes the tool files. |
+| `agnostic-ai sync --check` | Confirms the tool files match their sources. |
+| `agnostic-ai ui` | Opens the project or user configuration in your browser. See the [browser walkthrough](@/docs/inspect-configuration.md). |
+| `agnostic-ai view --json` | Prints the same configuration overview as JSON. |
+| `agnostic-ai doctor` | Diagnoses problems and suggests a next step. `doctor --fix` repairs generated files. |
+| `agnostic-ai why AGENTS.md` | Traces a generated file back to its source. |
+| `agnostic-ai explain <spec> --layers` | Shows which built-in, pack, project, and personal sources replace or extend a spec. |
+| `agnostic-ai verify --evaluation smoke-v1 --record run.json` | Saves a check you can [compare after configuration changes](@/docs/cli-reference/check.md#record-and-compare-runs). |
+
+If something looks wrong, start with `doctor` and then [Troubleshooting](@/docs/troubleshooting.md). The [CLI reference](@/docs/cli-reference/_index.md) covers every command, including import, compare, and upgrade.
 
 <details>
 <summary>Add a standing convention when you need one</summary>
@@ -169,7 +178,7 @@ Start commit subjects with feat:, fix:, docs:, refactor:, test:, or chore:.
 Keep the subject under 72 characters.
 ```
 
-Use your team's prefixes. A rule asks the model to follow the convention; a Git check is needed to enforce the format.
+Use your team's prefixes. A rule asks the model to follow the convention; enforcing the format needs a Git check.
 
 Run `agnostic-ai sync --plan`, review the changes, then run `agnostic-ai sync` and `agnostic-ai sync --check`. Claude Code receives `.claude/rules/conventional-commits.md`. Codex receives a Rules section in `AGENTS.md`.
 
@@ -177,13 +186,13 @@ Run `agnostic-ai sync --plan`, review the changes, then run `agnostic-ai sync` a
 
 ## Next steps
 
-Using Composer? [Set up its Claude Code and Codex providers](@/docs/composer.md) from the same sources.
-
 Add more only when a task needs it:
 
 - Repeat a task with several steps: write a [skill](@/docs/spec-format/skills.md), such as a release checklist.
-- Run a command automatically at a supported tool event: add a [hook](@/docs/spec-format/hooks.md).
-- Keep a standing convention separate from the project note: add a [rule](@/docs/spec-format/rules.md).
+- Run a command at a tool event: add a [hook](@/docs/spec-format/hooks.md).
+- Keep a standing convention apart from the project note: add a [rule](@/docs/spec-format/rules.md).
 - Give one folder different instructions: use [directory-specific instructions](@/docs/scoped-context.md).
+- Keep personal specs for every project in `~/.agnostic-ai/`: see [global configuration](@/docs/configuration.md#global-configuration), written with `agnostic-ai sync --global`.
+- Using Composer? [Set up its Claude Code and Codex providers](@/docs/composer.md) from the same sources.
 
-The [setup overview](@/docs/why-agnostic-ai.md) explains the other kinds of configuration. If a file is missing or a check fails, start with [Troubleshooting](@/docs/troubleshooting.md).
+[Why agnostic-ai?](@/docs/why-agnostic-ai.md#what-to-add-and-when) lists every kind of spec you can add.

@@ -246,7 +246,10 @@
     "Config": {
       "properties": {
         "version": {
-          "type": "integer"
+          "type": "integer",
+          "enum": [
+            1
+          ]
         },
         "requires": {
           "type": "string",

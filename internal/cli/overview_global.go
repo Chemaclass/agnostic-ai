@@ -18,8 +18,10 @@ import (
 // user-level configuration sync --global reads, built afresh on every
 // request. Unlike the project handler it runs from any working
 // directory: every path comes from $HOME and the global source root.
-func newGlobalOverviewHandler() http.Handler {
-	return overview.NewHandler(globalOverviewInputs)
+func newGlobalOverviewHandler(compareInstalled bool) http.Handler {
+	return overview.NewHandler(func() (overview.Inputs, error) {
+		return globalOverviewInputsWith(compareInstalled)
+	})
 }
 
 // globalOverviewInputs loads the global and global-local layers as
@@ -28,6 +30,13 @@ func newGlobalOverviewHandler() http.Handler {
 // the served Authority view uses for --global, so both report one
 // revision for the same sources.
 func globalOverviewInputs() (overview.Inputs, error) {
+	return globalOverviewInputsWith(true)
+}
+
+// globalOverviewInputsWith is globalOverviewInputs that skips comparing
+// the files sync --global would write with disk when compareInstalled is
+// false.
+func globalOverviewInputsWith(compareInstalled bool) (overview.Inputs, error) {
 	scope, err := loadCheckScope(true)
 	if err != nil {
 		return overview.Inputs{}, err
@@ -37,7 +46,7 @@ func globalOverviewInputs() (overview.Inputs, error) {
 		return overview.Inputs{}, err
 	}
 	cfg := &config.Config{Targets: scope.targets, Builtins: builtins, Models: scope.models, Requires: globalRequires(scope.source)}
-	checks := runGlobalOverviewChecks(scope)
+	checks := runGlobalOverviewChecks(scope, compareInstalled)
 	src := &authoritySource{root: scope.source, global: true}
 	opts := authority.Options{Root: scope.source, ConfigFiles: src.configFiles(), Global: true}
 	snapshot := authority.NewSnapshot(cfg, scope.bundle, opts)
@@ -59,11 +68,23 @@ func globalOverviewInputs() (overview.Inputs, error) {
 		Instructions:   instructions,
 		Findings:       checks.findings,
 		Compared:       checks.compared,
+		FieldNotes:     checks.fieldNotes,
 		MCPTools:       mcpprobe.LoadCache(scope.source),
 		RefreshCommand: "agnostic-ai mcp tools --global",
 		BuiltinsTeam:   team,
 		BuiltinsLocal:  local,
+		NativeMCPs:     globalNativeMCPServers(scope.source, cfg),
 	}, nil
+}
+
+// globalNativeMCPServers lists the MCP servers the targets hold in their
+// own user files. Without a home it lists none.
+func globalNativeMCPServers(source string, cfg *config.Config) []overview.NativeMCP {
+	home, err := globalUserHome()
+	if err != nil {
+		return nil
+	}
+	return nativeMCPServers(home, ".", source, cfg, true)
 }
 
 // globalRequires is the requires value of the home config, where
@@ -88,7 +109,7 @@ func globalRequires(source string) string {
 // reads: every finding lint --global reports, and drift between the
 // files sync --global would write and the files on disk. The doctor
 // checks read a project's generated files and do not run.
-func runGlobalOverviewChecks(scope checkScope) overviewChecks {
+func runGlobalOverviewChecks(scope checkScope, compareInstalled bool) overviewChecks {
 	overviewChecksMu.Lock()
 	defer overviewChecksMu.Unlock()
 	// Planning the global writes prints capability warnings and buffers
@@ -99,10 +120,42 @@ func runGlobalOverviewChecks(scope checkScope) overviewChecks {
 	display := func(path string) string { return globalOverviewPath(scope.source, path) }
 	var out overviewChecks
 	out.findings = append(out.findings, overviewScopeLintFindings(scope, globalConfigPaths(scope.source)[0], display)...)
-	drift, compared, skipped := globalOverviewDriftFindings(scope)
-	out.findings = append(out.findings, drift...)
-	out.compared, out.skipped = compared, skipped
+	setFindingOpenPaths(out.findings, scope.source)
+	adapters.DrainNotes()
+	if compareInstalled {
+		drift, compared, skipped := globalOverviewDriftFindings(scope)
+		out.fieldNotes = settingsFieldNotes(adapters.DrainNotes())
+		out.findings = append(out.findings, drift...)
+		out.compared, out.skipped = compared, skipped
+	} else {
+		out.fieldNotes = globalSettingsFieldNotes(scope)
+	}
 	return out
+}
+
+// globalSettingsFieldNotes resolves the user settings sync --global
+// would write for each target it syncs, without planning any file, and
+// returns the model and effort notes that raises.
+func globalSettingsFieldNotes(scope checkScope) []overview.FieldNote {
+	targets, _ := globalSyncedTargets(scope.targets)
+	for _, target := range targets {
+		globalSettingsFor(target, globalTargets[target], scope.bundle.Settings)
+	}
+	return settingsFieldNotes(adapters.DrainNotes())
+}
+
+// globalSyncedTargets splits targets into the ones a default sync
+// --global writes and the ones it skips: unsupported, or with a
+// configuration root that cannot be resolved.
+func globalSyncedTargets(all []string) (targets, skipped []string) {
+	for _, target := range all {
+		if unsupportedGlobalTarget("--global", target) != nil || globalTargets[target].rootError(target) != nil {
+			skipped = append(skipped, target)
+			continue
+		}
+		targets = append(targets, target)
+	}
+	return targets, skipped
 }
 
 // globalOverviewPath shows a path under the global source relative to
@@ -129,14 +182,7 @@ func globalOverviewDriftFindings(scope checkScope) (findings []overview.Finding,
 	if err != nil {
 		return nil, nil, scope.targets
 	}
-	var targets []string
-	for _, target := range scope.targets {
-		if unsupportedGlobalTarget("--global", target) != nil || globalTargets[target].rootError(target) != nil {
-			skipped = append(skipped, target)
-			continue
-		}
-		targets = append(targets, target)
-	}
+	targets, skipped := globalSyncedTargets(scope.targets)
 	if len(targets) == 0 {
 		return nil, nil, skipped
 	}
@@ -185,6 +231,9 @@ func planGlobalWrites(home string, scope checkScope, targets []string) ([]global
 // configuration and which did not.
 func globalOverviewEvidenceNote(checks overviewChecks) string {
 	var parts []string
+	if len(checks.compared) == 0 && len(checks.skipped) == 0 {
+		parts = append(parts, "The files sync --global would write were not compared with disk.")
+	}
 	if len(checks.compared) > 0 {
 		parts = append(parts, "The files sync --global would write were compared with disk for "+strings.Join(checks.compared, ", ")+".")
 	}

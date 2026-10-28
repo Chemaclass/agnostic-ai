@@ -182,10 +182,10 @@ func (s checkScope) emptyHint() string {
 
 // lintGlobalRules reports each rule sync --global would refuse, so
 // lint and validate catch it before a sync does.
-func lintGlobalRules(rules []spec.Entry) []validationIssue {
+func lintGlobalRules(rules []spec.Entry, targets []string) []validationIssue {
 	var out []validationIssue
 	for _, rule := range rules {
-		if rule.Scope == "" && !hasGlobalRuleCondition(rule.Meta) {
+		if !globalRuleConditional(rule, targets) {
 			continue
 		}
 		out = append(out, validationIssue{
@@ -198,9 +198,9 @@ func lintGlobalRules(rules []spec.Entry) []validationIssue {
 
 // lintGlobalRuleFindings reports the same rules as lint findings
 // (LINT010, error).
-func lintGlobalRuleFindings(rules []spec.Entry) []lintFinding {
+func lintGlobalRuleFindings(rules []spec.Entry, targets []string) []lintFinding {
 	var out []lintFinding
-	for _, issue := range lintGlobalRules(rules) {
+	for _, issue := range lintGlobalRules(rules, targets) {
 		out = append(out, lintFinding{Code: "LINT010", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out

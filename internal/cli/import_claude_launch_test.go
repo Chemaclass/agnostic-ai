@@ -69,12 +69,33 @@ x-claude:
 	}
 }
 
+// A configuration with a url and no command attaches the preview to a
+// running server, which a dev command without `command` expresses
+// (#2579).
+func TestImportFromClaude_ReadsAURLOnlyConfiguration(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude", "launch.json"),
+		`{"version": "0.0.1", "configurations": [{"name": "app", "url": "https://app.localhost:3000"}]}`)
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFileString(t, filepath.Join(dir, "environments", "dev.yaml"))
+	want := `name: dev
+dev-commands:
+    - name: app
+      url: https://app.localhost:3000
+`
+	if got != want {
+		t.Errorf("environments/dev.yaml:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 // A configuration import cannot express keeps the whole file as written:
 // sync rebuilds launch.json from the spec, so a partial import would
 // drop that configuration.
 func TestImportFromClaude_LeavesAPartlyImportableLaunchJSON(t *testing.T) {
 	for name, config := range map[string]string{
-		"url only":       `{"name": "Remote", "url": "https://example.test"}`,
+		"nothing to run": `{"name": "Empty", "port": 3000}`,
 		"non-string arg": `{"name": "Bad", "runtimeExecutable": "npm", "runtimeArgs": ["run", 3]}`,
 		"nested env":     `{"name": "Env", "runtimeExecutable": "npm", "env": {"A": ["x"]}}`,
 		"null env":       `{"name": "Env", "runtimeExecutable": "npm", "env": {"A": null}}`,

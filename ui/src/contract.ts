@@ -457,6 +457,9 @@ export interface KindSupport {
   unsupported: string[]
 }
 
+/** The code of the finding that stands in for a lint run that stopped early. */
+export const LINT_INCOMPLETE = 'lint-incomplete'
+
 /** A read-only check result, shown on what it concerns. */
 export interface ItemFinding {
   source: 'lint' | 'doctor'
@@ -465,6 +468,8 @@ export interface ItemFinding {
   message: string
   path?: string
   line?: number
+  /** Absolute path of the file it names, when that file is on the server's disk. */
+  openPath?: string
   fix?: string
   explanation?: string
 }
@@ -485,7 +490,7 @@ export interface SectionItem {
   values: Value[]
   /** For a built-in: whether the config turns it on. */
   enabled?: boolean
-  /** For a built-in: the personal config turns it on or off against the team's list. */
+  /** For a built-in: the personal config turns it on or off against the shared list. */
   local?: boolean
   /** For a personal settings file: the dotted keys it sets itself. */
   localKeys?: string[]
@@ -534,6 +539,24 @@ export interface Section {
   stages?: Stage[]
   /** Authority and Settings: every settings field, even when unset. */
   fields?: SettingField[]
+  /** Tools only: MCP servers found in a tool's own config that no spec covers. Names and paths only, never a server's values. */
+  native?: NativeServer[]
+}
+
+/** One MCP server name found in tools' own config files. `import` is absent when no import reads the file that holds it. */
+export interface NativeServer {
+  name: string
+  holders: NativeHolder[]
+  import?: string
+}
+
+/** One tool config file that defines a native server. */
+export interface NativeHolder {
+  target: string
+  label: string
+  path: string
+  scope: 'project' | 'user'
+  transport?: 'stdio' | 'http' | 'sse' | 'streamable-http' | 'remote'
 }
 
 /** One field a settings spec can set, with what each spec sets it to. */
@@ -543,8 +566,40 @@ export interface SettingField {
   description: string
   /** Each spec that sets the field; `local` marks a personal file Git ignores. */
   set: { spec: string; path: string; values: Value[]; local?: boolean }[]
-  /** `localPath` is the personal file a "just me" edit of `path` writes. */
-  editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; disabledReason?: string; syncCommand?: string; localPath?: string }
+  /** `localPath` is the personal file a personal edit of `path` writes. `toolAllowed` lists the values one tool accepts, for tools with a fixed list. */
+  editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; toolAllowed?: Record<string, string[]>; disabledReason?: string; syncCommand?: string; localPath?: string }
+  /** For model and effort: the value sync writes for each configured tool, and why. */
+  resolved?: TargetValue[]
+}
+
+/** Where a value comes from: a settings spec, or a config key when `spec` is absent. `reason` says why a losing value does not win. */
+export interface ValueOrigin {
+  spec?: string
+  path: string
+  value?: string
+  tier?: string
+  local?: boolean
+  /** The value is the tool's own entry in the per-tool map, such as `model.codex`, not the value for every tool. */
+  perTool?: boolean
+  reason?: string
+}
+
+/**
+ * The value sync writes for one tool. An absent `value` means sync writes none and the tool keeps a default agnostic-ai does not know.
+ * `dropped` is the sync note when the tool's files have no place for the value; `checked` is false when sync did not render the tool.
+ */
+export interface TargetValue {
+  target: string
+  label: string
+  value?: string
+  alias?: string
+  tier?: string
+  from?: ValueOrigin
+  dropped?: string
+  checked: boolean
+  others: ValueOrigin[]
+  /** Specs that also set `x-<target>.model`, a native key sync writes as is. */
+  native?: ValueOrigin[]
 }
 
 export type SyncState = 'in-sync' | 'drifted' | 'not-checked'
@@ -568,20 +623,96 @@ export interface OverviewView {
   targets: TargetSupport[]
 }
 
+// ---------------------------------------------------------------------
+// Context size, schema `1`: the `explain --context` report for one target.
+// Words and bytes measure planned instruction text, not model tokens.
+// ---------------------------------------------------------------------
+
+export const CONTEXT_SCHEMA_VERSION = '1'
+
+export type ContextLoad = 'startup' | 'file-scope' | 'on-demand'
+
+export interface ContextSize {
+  words: number
+  bytes: number
+}
+
+export interface ContextContribution extends ContextSize {
+  /** Project-relative path with forward slashes. */
+  source: string
+  category: string
+  load: ContextLoad
+}
+
+export interface ContextOpportunity {
+  kind: string
+  target: string
+  load: ContextLoad
+  passage: string
+  copies: number
+  /** One copy. */
+  size: ContextSize
+  /** (copies - 1) * size. */
+  reduction: ContextSize
+  sources: { source: string; category: string }[]
+  suggestion: string
+}
+
+export interface ContextReport {
+  version: string
+  command: string
+  target: string
+  /** The project-relative file the report counted file-scoped rules for, when one was given. */
+  file?: string
+  note: string
+  startup: ContextSize
+  file_scope: ContextSize
+  on_demand: ContextSize
+  /** Startup first, then file-scope, then on-demand; largest first within each. */
+  contributions: ContextContribution[]
+  /** Largest reduction first. */
+  opportunities: ContextOpportunity[]
+}
+
+export interface ContextView {
+  schemaVersion: string
+  /** False for user configuration (`serve --global`), with the reason. */
+  supported: boolean
+  reason: string
+  root?: string
+  targets: string[]
+  /** Targets that accept a file, so scoped rules can count as file-scoped. */
+  fileTargets: string[]
+  target: string
+  report?: ContextReport
+}
+
 // HTTP API served by `agnostic-ai serve`.
 //
 //   GET  /api/views/authority?agentId=<id>&target=<tool>  → AuthorityView
 //   POST /api/views/authority/impact                      → ImpactResult (body: Proposal)
 //   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
 //   GET  /api/views/overview                              → OverviewView
-//   GET  /api/health                                      → { ok, root, global, ui }
+//   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
+//   GET  /api/health                                      → { ok, root, global, ui, projectRoot? }
+//   POST /api/switch                                      → SwitchReply (body: {})
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
   schema: '/api/views/authority/schema',
   overview: '/api/views/overview',
+  context: '/api/views/context',
   editBuiltin: '/api/edit/builtin',
   editValue: '/api/edit/value',
   editField: '/api/edit/field',
   health: '/api/health',
+  switch: '/api/switch',
 } as const
+
+/** The server for the other configuration, found running or just started. */
+export interface SwitchReply {
+  url: string
+  root: string
+  global: boolean
+  started: boolean
+}

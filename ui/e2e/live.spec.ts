@@ -169,7 +169,7 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
     await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
     expect(await readFile(f.config, 'utf8')).toBe(f.configBytes)
 
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     const verbose = page.getByRole('switch', { name: 'x-claude.verbose', exact: true })
     await expect(verbose).toHaveAttribute('aria-checked', 'false')
     await verbose.click()
@@ -193,7 +193,7 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
   }
 })
 
-test('live just-me built-in outside the team block goes to info/exclude and resets cleanly', async ({ page }) => {
+test('live personal built-in outside the shared block goes to info/exclude and resets cleanly', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
     await put(f.config, f.configBytes.replace('builtins: []', 'builtins: []\ngitignore:\n    enabled: true'))
@@ -205,7 +205,7 @@ test('live just-me built-in outside the team block goes to info/exclude and rese
     const personalBlock = '# >>> agnostic-ai (personal)'
 
     await page.goto(`${f.url}?view=settings`)
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     const caveman = page.getByRole('switch', { name: 'caveman built-in' })
     await caveman.click()
     await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
@@ -214,7 +214,7 @@ test('live just-me built-in outside the team block goes to info/exclude and rese
     expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
     expect(await readFile(exclude, 'utf8')).toContain(personalBlock)
 
-    await page.locator('.item-row').filter({ has: caveman }).getByRole('button', { name: 'Reset caveman to team value' }).click()
+    await page.locator('.item-row').filter({ has: caveman }).getByRole('button', { name: 'Reset caveman to shared value' }).click()
     await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(caveman).toHaveAttribute('aria-checked', 'false')
     await expect(stat(join(f.root, 'agnostic-ai.local.yaml'))).rejects.toThrow()
@@ -225,7 +225,7 @@ test('live just-me built-in outside the team block goes to info/exclude and rese
   }
 })
 
-test('live just-me edits stay out of Git, reach sync, and reset to the team value', async ({ page }) => {
+test('live personal edits stay out of Git, reach sync, and reset to the shared value', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
     const shared = join(f.root, '.agnostic-ai', 'settings', 'defaults.yaml')
@@ -238,11 +238,12 @@ test('live just-me edits stay out of Git, reach sync, and reset to the team valu
     await git('commit', '--quiet', '-m', 'Team setup')
 
     await page.goto(`${f.url}?view=settings`)
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await model.getByRole('textbox', { name: 'Default model value' }).fill('opus')
-    await model.getByRole('button', { name: 'Save' }).click()
-    await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
+    await model.getByRole('button', { name: 'Preview and apply' }).click()
+    await page.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
+    await expect(model.locator('.badge', { hasText: 'personal' })).toBeVisible()
     expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
     const handoff = page.getByRole('switch', { name: 'handoff built-in' })
     await expect(handoff).toHaveAttribute('aria-checked', 'true')
@@ -252,7 +253,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the team valu
     await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(handoff).toHaveAttribute('aria-checked', 'false')
     const handoffRow = page.locator('.item-row').filter({ has: handoff })
-    await expect(handoffRow.locator('.badge', { hasText: 'local' })).toBeVisible()
+    await expect(handoffRow.locator('.badge', { hasText: 'personal' })).toBeVisible()
 
     expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
     for (const personal of ['agnostic-ai.local.yaml', '.agnostic-ai/local/settings/defaults.yaml']) await git('check-ignore', '--quiet', personal)
@@ -261,16 +262,46 @@ test('live just-me edits stay out of Git, reach sync, and reset to the team valu
     await expect(stat(join(f.root, '.claude', 'skills', 'handoff', 'SKILL.md'))).rejects.toThrow()
     expect(await readFile(shared, 'utf8')).toBe('name: defaults\ndescription: Team defaults.\nmodel: sonnet\n')
 
-    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
-    await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect(model.locator('.badge', { hasText: 'local' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
+    await model.getByRole('button', { name: 'Preview personal reset' }).click()
+    await page.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
+    await expect(model.locator('.badge', { hasText: 'personal' })).toHaveCount(0)
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('sonnet')
     await expect(stat(overlay)).rejects.toThrow()
-    await handoffRow.getByRole('button', { name: 'Reset handoff to team value' }).click()
+    await handoffRow.getByRole('button', { name: 'Reset handoff to shared value' }).click()
     await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(handoff).toHaveAttribute('aria-checked', 'true')
     await expect(stat(join(f.root, 'agnostic-ai.local.yaml'))).rejects.toThrow()
     expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+  } finally {
+    await f.close()
+  }
+})
+
+test('live first personal save before any ignore rule stays out of Git', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    const overlay = '.agnostic-ai/local/settings/defaults.yaml'
+    await rm(f.localSettings)
+    await rm(join(f.root, '.gitignore'))
+    await put(join(f.root, '.agnostic-ai', 'settings', 'defaults.yaml'), 'name: defaults\ndescription: Team defaults.\nmodel: sonnet\n')
+    const git = (...args: string[]) => run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: f.root, env: f.env })
+    await git('add', '-A')
+    await git('commit', '--quiet', '-m', 'Team setup')
+
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await model.getByRole('textbox', { name: 'Default model value' }).fill('opus')
+    await model.getByRole('button', { name: 'Preview and apply' }).click()
+    await expect(stat(join(f.root, overlay))).rejects.toThrow()
+    await page.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
+    await expect(model.locator('.badge', { hasText: 'personal' })).toBeVisible()
+
+    expect(await readFile(join(f.root, overlay), 'utf8')).toContain('model: opus')
+    await git('check-ignore', '--quiet', overlay)
+    await git('add', '-A')
+    expect((await git('ls-files', '--', overlay)).stdout).toBe('')
   } finally {
     await f.close()
   }
@@ -284,7 +315,7 @@ test('live global edits keep the last local builtin disabled and enforce browser
     await expect(page.getByText('Saves source files. Run agnostic-ai sync --global to apply them to your tools.', { exact: true })).toHaveCount(1)
     const memory = page.getByRole('switch', { name: 'memory built-in' })
     await expect(memory).toHaveAttribute('aria-checked', 'true')
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     await memory.click()
     await expect(memory).toHaveAttribute('aria-checked', 'false')
     await page.reload()
@@ -297,15 +328,15 @@ test('live global edits keep the last local builtin disabled and enforce browser
 
     const edit = `${f.url}api/edit/builtin`
     const before = await readFile(join(f.root, 'local', 'agnostic-ai.yaml'), 'utf8')
-    const foreign = await request.post(edit, { headers: { Origin: 'http://localhost:9876' }, data: { scope: 'team', name: 'memory', enabled: true } })
+    const foreign = await request.post(edit, { headers: { Origin: 'http://localhost:9876' }, data: { audience: 'shared', name: 'memory', enabled: true } })
     expect(foreign.status()).toBe(403)
     const wrongHost = await request.get(`${f.url}api/views/authority/schema`, { headers: { Host: 'attacker.example' } })
     expect(wrongHost.status()).toBe(421)
     const wrongType = await request.post(edit, { headers: { 'Content-Type': 'text/plain' }, data: '{}' })
     expect(wrongType.status()).toBe(415)
-    const crossSite = await request.post(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' }, data: { scope: 'team', name: 'memory', enabled: true } })
+    const crossSite = await request.post(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' }, data: { audience: 'shared', name: 'memory', enabled: true } })
     expect(crossSite.status()).toBe(403)
-    const missingBoolean = await request.post(edit, { data: { scope: 'local', name: 'memory' } })
+    const missingBoolean = await request.post(edit, { data: { audience: 'personal', name: 'memory' } })
     expect(missingBoolean.status()).toBe(400)
     expect(await readFile(join(f.root, 'local', 'agnostic-ai.yaml'), 'utf8')).toBe(before)
   } finally {
@@ -346,10 +377,44 @@ test('live Authority, overview, and edit errors redact configured credentials', 
     expect(await readFile(permissions, 'utf8')).toBe(rules)
     const invalid = f.configBytes.replace('builtins: []', `builtins: [${token}]`)
     await put(f.config, invalid)
-    const refused = await request.post(`${f.url}api/edit/builtin`, { data: { scope: 'team', name: 'memory', enabled: true } })
+    const refused = await request.post(`${f.url}api/edit/builtin`, { data: { audience: 'shared', name: 'memory', enabled: true } })
     expect(refused.status()).toBe(422)
     expect(JSON.stringify(await refused.json())).not.toContain(token)
     expect(await readFile(f.config, 'utf8')).toBe(invalid)
+  } finally {
+    await f.close()
+  }
+})
+
+test('live global Tools lists a server held only in ~/.claude.json and none of its values', async ({ page, request }) => {
+  const f = await fixture(true)
+  const token = 'ghp_live_native_token_123'
+  const claudeJSON = join(f.userHome, '.claude.json')
+  const bytes = JSON.stringify({
+    mcpServers: {
+      notion: { type: 'http', url: 'https://mcp.notion.com/mcp' },
+      private: { command: 'private-mcp', args: ['--token', token], env: { API_TOKEN: token }, headers: { Authorization: `Bearer ${token}` } },
+    },
+    projects: { [f.root]: { mcpServers: { local: { command: 'local-mcp' } } } },
+  })
+  try {
+    await writeFile(claudeJSON, bytes, { mode: 0o600 })
+    const response = await request.get(`${f.url}api/views/overview`)
+    expect(response.status()).toBe(200)
+    const body = JSON.stringify(await response.json())
+    expect(body).not.toContain(token)
+    expect(body).not.toContain('mcp.notion.com')
+    await page.goto(`${f.url}?view=tools`)
+    const block = page.getByRole('region', { name: /Found in a tool's own config/ })
+    const row = block.locator('.item-row', { hasText: 'notion' })
+    await expect(row).toContainText('Claude Code only')
+    await expect(row).toContainText('~/.claude.json')
+    await expect(row).toContainText('Run agnostic-ai import --global claude to make it a spec.')
+    await expect(block.locator('.item-row', { hasText: 'private' })).toBeVisible()
+    await expect(block.locator('.item-row', { hasText: 'local' })).toHaveCount(0)
+    expect(await page.locator('body').innerText()).not.toContain(token)
+    expect(await readFile(claudeJSON, 'utf8')).toBe(bytes)
+    expect((await stat(claudeJSON)).mode & 0o777).toBe(0o600)
   } finally {
     await f.close()
   }
@@ -459,7 +524,7 @@ test('Caveman preview repairs pending Handoff outputs and undo restores the orig
     const config = f.configBytes.replace('- claude # team tool', '- claude # team tool\n    - codex')
     await put(f.config, config)
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
-    const legacy = await request.post(`${f.url}api/edit/builtin`, { data: { scope: 'team', name: 'handoff', enabled: true } })
+    const legacy = await request.post(`${f.url}api/edit/builtin`, { data: { audience: 'shared', name: 'handoff', enabled: true } })
     expect(legacy.status()).toBe(200)
     await put(f.localSettings, f.localBytes.replace('alwaysThinkingEnabled: true', 'alwaysThinkingEnabled: false'))
     const before = await projectFiles(f.root)
@@ -495,7 +560,7 @@ test('Caveman preview repairs pending Handoff outputs and undo restores the orig
   }
 })
 
-test('a cancelled preview keeps the previous built-in undo through reload and filtering', async ({ page }) => {
+test('a cancelled preview stays cancelled and keeps the previous undo through reload, navigation, and filtering', async ({ page }) => {
   const f = await fixture()
   try {
     const before = await projectFiles(f.root)
@@ -516,6 +581,14 @@ test('a cancelled preview keeps the previous built-in undo through reload and fi
     await search.fill('')
     await expect(preview).toBeVisible()
     await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(preview).toHaveCount(0)
+    await page.reload()
+    await expect(handoff).toBeEnabled()
+    await expect(preview).toHaveCount(0)
+    await page.getByRole('navigation').getByRole('link', { name: /^Tools/ }).click()
+    await page.getByRole('navigation').getByRole('link', { name: /^Settings/ }).click()
+    await expect(handoff).toBeEnabled()
+    await expect(preview).toHaveCount(0)
     await page.getByRole('button', { name: 'Undo last change', exact: true }).click()
     await expect(handoff).toHaveAttribute('aria-checked', 'false')
     expect(await projectFiles(f.root)).toEqual(before)
@@ -589,14 +662,313 @@ test('live Settings picks an unset effort from its levels, updates, and clears i
     await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveCount(0)
     await expect(level.locator('option', { hasText: /^low$/ })).toHaveCount(1)
     await level.selectOption('high')
-    await effort.getByRole('button', { name: 'Save' }).click()
+    await effort.getByRole('button', { name: 'Preview and apply' }).click()
+    await page.getByRole('region', { name: 'Reasoning effort change preview' }).getByRole('button', { name: 'Apply change' }).click()
     await expect(effort).toContainText('from .agnostic-ai/settings/defaults.yaml')
     expect(await readFile(created, 'utf8')).toContain('effort: high')
     await level.selectOption('low')
-    await effort.getByRole('button', { name: 'Update' }).click()
+    await effort.getByRole('button', { name: 'Preview and apply' }).click()
+    await page.getByRole('region', { name: 'Reasoning effort change preview' }).getByRole('button', { name: 'Apply change' }).click()
     await expect.poll(() => readFile(created, 'utf8')).toContain('effort: low')
-    await effort.getByRole('button', { name: 'Clear' }).click()
+    await effort.getByRole('button', { name: 'Preview removal' }).click()
+    await page.getByRole('region', { name: 'Reasoning effort change preview' }).getByRole('button', { name: 'Apply change' }).click()
     await expect(effort).toContainText('Not set')
     await expect(readFile(created)).rejects.toThrow()
+  } finally { await f.close() }
+})
+
+test('live Settings keeps a pack model visible while the editor targets the project spec', async ({ page }) => {
+  const f = await fixture()
+  const pack = '.agnostic-ai/packs/team/settings/team.yaml'
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    await put(join(f.root, 'agnostic.packs.lock'), 'version: 1\npacks:\n  - name: team\n')
+    await put(join(f.root, pack), 'name: team\nmodel: sonnet\n')
+    await page.goto(`${f.url}?view=settings`)
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(model.locator('.field-source')).toContainText('sonnet')
+    await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    const input = model.getByRole('textbox', { name: 'Default model value' })
+    await expect(input).toHaveValue('')
+    await expect(input).toHaveAttribute('placeholder', 'Not set in this file')
+    await expect(model).toContainText('Saves to .agnostic-ai/settings/defaults.yaml')
+    await input.fill('opus')
+    await model.getByRole('button', { name: 'Preview and apply' }).click()
+    await page.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
+    await expect(model.locator('.field-source')).toHaveCount(1)
+    await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    await expect(input).toHaveValue('opus')
+    await expect(model).toContainText('from .agnostic-ai/settings/defaults.yaml')
+  } finally { await f.close() }
+})
+
+test('live Settings previews, cancels, applies, and undoes an effort change for Claude Code and Codex', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.config, f.configBytes.replace('    - claude # team tool\n', '    - claude # team tool\n    - codex\n'))
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const before = await projectFiles(f.root)
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByText('Unconfigured fields', { exact: false }).click()
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('high')
+    await expect(effort.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0)
+    await expect(effort.getByRole('button', { name: 'Update', exact: true })).toHaveCount(0)
+    await expect(effort.getByRole('button', { name: 'Clear', exact: true })).toHaveCount(0)
+    await effort.getByRole('button', { name: 'Preview and apply' }).click()
+    const preview = page.getByRole('region', { name: 'Reasoning effort change preview' })
+    await expect(preview).toContainText('Effort set to high')
+    for (const path of ['.agnostic-ai/settings/native.yaml', '.claude/settings.json', '.codex/config.toml', '.agnostic-ai/.sync-state']) {
+      await expect(preview).toContainText(path)
+    }
+    expect(await projectFiles(f.root)).toEqual(before)
+    await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(preview).toHaveCount(0)
+    expect(await projectFiles(f.root)).toEqual(before)
+
+    await effort.getByRole('button', { name: 'Preview and apply' }).click()
+    await expect(preview).toBeVisible()
+    await page.reload()
+    await page.getByText('Unconfigured fields', { exact: false }).click()
+    await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(page.getByText('Last applied: effort set to high.')).toBeVisible()
+    await expect(effort.getByRole('combobox', { name: 'Reasoning effort value' })).toHaveValue('high')
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+    expect(await readFile(join(f.root, '.codex', 'config.toml'), 'utf8')).toContain('model_reasoning_effort = "high"')
+
+    await page.getByRole('button', { name: 'Undo last change' }).click()
+    await expect(page.getByText('Previous files restored.')).toBeVisible()
+    expect(await projectFiles(f.root)).toEqual(before)
+  } finally { await f.close() }
+})
+
+test('live Settings explains which model each tool gets from shared, personal, and per-tool settings', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.config, f.configBytes.replace('    - claude # team tool\n', '    - claude # team tool\n    - codex\n'))
+    await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    await put(f.localSettings, 'name: native\nmodel: sonnet\n')
+    await put(join(f.root, '.agnostic-ai', 'settings', 'z-codex.yaml'), 'name: z-codex\ntargets: [codex]\nmodel: gpt-5.5\n')
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await model.getByText('What each tool gets').click()
+    const groups = model.getByRole('list', { name: 'Default model by tool' })
+    await expect(groups).toContainText('Claude Code: sonnet')
+    await expect(groups).toContainText('Codex: gpt-5.5')
+
+    const detail = model.locator('.field-resolution-detail')
+    await expect(detail).toContainText('Sync writes sonnet.')
+    await expect(detail).toContainText('From .agnostic-ai/local/settings/native.yaml')
+    await expect(detail).toContainText('opus in .agnostic-ai/settings/native.yaml: Your personal file .agnostic-ai/local/settings/native.yaml overrides it.')
+    await expect(detail).toContainText('in .agnostic-ai/settings/z-codex.yaml: This spec does not apply to Claude Code.')
+    await expect(detail).toContainText('Installed Claude Code files match what sync would write.')
+    await expect(detail).toContainText('agnostic-ai does not see what a running tool uses.')
+
+    await model.getByRole('combobox', { name: 'Tool' }).selectOption('codex')
+    await expect(detail).toContainText('Sync writes gpt-5.5.')
+    await expect(detail).toContainText('sonnet in .agnostic-ai/local/settings/native.yaml: It is a Claude model name, which Codex cannot load, so sync leaves it out.')
+    await expect(model.getByRole('button', { name: 'Preview personal reset' })).toBeEnabled()
+
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await effort.getByText('What each tool gets').click()
+    await expect(effort.getByRole('list', { name: 'Reasoning effort by tool' })).toContainText('Claude Code, Codex: high')
+  } finally { await f.close() }
+})
+
+test('live Settings rejects a stale preview and keeps the draft until reloaded', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.settings, 'name: native\nmodel: sonnet\neffort: high\n')
+    await rm(f.localSettings)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    const input = model.getByRole('textbox', { name: 'Default model value' })
+    await expect(input).toHaveValue('sonnet')
+    await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    await input.fill('haiku')
+    await model.getByRole('button', { name: 'Preview and apply' }).click()
+    await expect(model.getByRole('alert')).toContainText('model changed after this page loaded and is now opus')
+    expect(await readFile(f.settings, 'utf8')).toBe('name: native\nmodel: opus\neffort: high\n')
+    await expect(input).toHaveValue('haiku')
+    await page.route('**/api/views/overview', (route) => route.abort())
+    await model.getByRole('button', { name: 'Reload saved values' }).click()
+    const failed = page.getByRole('alert').filter({ hasText: 'The overview could not be refreshed.' })
+    await expect(failed).toBeVisible()
+    await expect(failed).not.toContainText('Your change was saved')
+    await expect(input).toHaveValue('haiku')
+    await page.unroute('**/api/views/overview')
+    await failed.getByRole('button', { name: 'Retry' }).click()
+    await expect(model.getByRole('status')).toContainText('is now opus. Your draft is kept')
+    await expect(input).toHaveValue('haiku')
+    await model.getByRole('button', { name: 'Preview and apply' }).click()
+    const preview = page.getByRole('region', { name: 'Default model change preview' })
+    await expect(preview).toBeVisible()
+    expect(await readFile(f.settings, 'utf8')).toBe('name: native\nmodel: opus\neffort: high\n')
+    await preview.getByRole('button', { name: 'Apply change' }).click()
+    await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: haiku\neffort: high\n')
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+  } finally { await f.close() }
+})
+
+test('live Settings rejects a stale personal preview from another tab', async ({ page, browser }) => {
+  const f = await fixture()
+  const other = await browser.newPage()
+  try {
+    await put(f.settings, 'name: native\nmodel: sonnet\n')
+    await rm(f.localSettings)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    for (const tab of [page, other]) {
+      await tab.goto(`${f.url}?view=settings`)
+      await tab.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    }
+    const model = (tab: typeof page) => tab.locator('.field-row').filter({ has: tab.getByText('Default model', { exact: true }) })
+    await model(other).getByRole('textbox', { name: 'Default model value' }).fill('haiku')
+    await model(other).getByRole('button', { name: 'Preview and apply' }).click()
+    await other.getByRole('region', { name: 'Default model change preview' }).getByRole('button', { name: 'Apply change' }).click()
+    await expect(model(other).locator('.badge', { hasText: 'personal' })).toBeVisible()
+    await model(page).getByRole('textbox', { name: 'Default model value' }).fill('opus')
+    await model(page).getByRole('button', { name: 'Preview and apply' }).click()
+    await expect(model(page).getByRole('alert')).toContainText('is now haiku')
+    expect(await readFile(f.localSettings, 'utf8')).toContain('model: haiku')
+    await expect(model(page).getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
+  } finally { await other.close(); await f.close() }
+})
+
+test('live Settings keeps a draft when a delayed overview contains a newer value', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.settings, 'name: native\nmodel: sonnet\neffort: high\n')
+    await rm(f.localSettings)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    const input = model.getByRole('textbox', { name: 'Default model value' })
+    await input.fill('haiku')
+    let release = () => {}
+    const held = new Promise<void>((resolve) => { release = resolve })
+    await page.route('**/api/views/overview', async (route) => { await held; await route.continue() })
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('low')
+    await effort.getByRole('button', { name: 'Preview and apply' }).click()
+    await page.getByRole('region', { name: 'Reasoning effort change preview' }).getByRole('button', { name: 'Apply change' }).click()
+    await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: sonnet\neffort: low\n')
+    await put(f.settings, 'name: native\nmodel: opus\neffort: low\n')
+    const refreshed = page.waitForResponse('**/api/views/overview')
+    release()
+    await refreshed
+    await page.unroute('**/api/views/overview')
+    await expect(input).toHaveValue('haiku')
+    await model.getByRole('button', { name: 'Preview and apply' }).click()
+    await expect(model.getByRole('alert')).toContainText('is now opus')
+    expect(await readFile(f.settings, 'utf8')).toBe('name: native\nmodel: opus\neffort: low\n')
+    await expect(input).toHaveValue('haiku')
+  } finally { await f.close() }
+})
+
+test('live finding opens its file on the server disk in the chosen editor', async ({ page }) => {
+  const f = await fixture()
+  try {
+    const permissions = join(f.root, '.agnostic-ai', 'settings', 'permissions.yaml')
+    await put(permissions, 'permissions:\n  allow: [read]\n')
+    await page.goto(`${f.url}?view=authority`)
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    const open = finding.getByRole('link', { name: /^Open .+ in Cursor$/ })
+    const href = await open.getAttribute('href')
+    expect(href).toMatch(/^cursor:\/\/file\/.+\/\.agnostic-ai\/settings\/permissions\.yaml$/)
+    expect(await stat(fileURLToPath(`file://${new URL(href!).pathname}`))).toBeTruthy()
+    await page.getByRole('group', { name: 'Open files in' }).getByRole('button', { name: 'VS Code' }).click()
+    await expect(finding.getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', href!.replace(/^cursor:/, 'vscode:'))
+    await expect(finding.getByRole('button', { name: /^Copy path of / })).toBeVisible()
+  } finally {
+    await f.close()
+  }
+})
+
+test('live generated-file status shows a save as needing sync and refreshes after an external sync without losing the page', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.settings, 'name: native\nmodel: sonnet\neffort: high\n')
+    await rm(f.localSettings)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const status = page.locator('.sidenav section.sync-status')
+    await expect(status).toContainText('Generated files match the source for 1 tool.')
+    await expect(status.locator('.sync-status-time')).toHaveText(/^Checked /)
+
+    await page.getByRole('searchbox').fill('default')
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await model.getByRole('textbox', { name: 'Default model value' }).fill('my-draft')
+    await put(f.settings, 'name: native\nmodel: sonnet\neffort: low\n')
+    await status.getByRole('button', { name: 'Refresh' }).click()
+    await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: sonnet\neffort: low\n')
+    await expect(status).toContainText('Claude Code needs sync.')
+    await expect(status.locator('.sync-status-tool')).toContainText('Needs sync')
+    await status.locator('.sync-status-tool').getByText(/^\d+ files?$/).click()
+    await expect(status.locator('.sync-status-files')).toContainText('.claude/settings.json')
+
+    await put(f.settings, 'name: native\nmodel: opus\neffort: low\n')
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const main = page.locator('#main')
+    await main.evaluate((element) => { element.scrollTop = 100 })
+    expect(await main.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    await status.getByRole('button', { name: 'Refresh' }).evaluate((button: HTMLButtonElement) => button.click())
+    await expect(status).toContainText('Generated files match the source for 1 tool.')
+    await expect(status).not.toContainText('Saved to the source configuration.')
+    await expect(status.locator('.sync-status-tool')).toContainText('Matches source')
+    await expect(page).toHaveURL(/view=settings/)
+    await expect(page.getByRole('searchbox')).toHaveValue('default')
+    expect(await main.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('my-draft')
+    await expect(model.getByRole('status')).toContainText('The saved value changed after you started editing and is now opus')
+  } finally { await f.close() }
+})
+
+test('live Recheck tells a fixed finding from a remaining, new, or unchecked one without leaving the page', async ({ page }) => {
+  const f = await fixture()
+  try {
+    const permissions = join(f.root, '.agnostic-ai', 'settings', 'permissions.yaml')
+    await put(permissions, 'permissions:\n  allow: [read, edit]\n')
+    await page.goto(`${f.url}?view=authority`)
+    const finding = (word: string) => page.locator('.finding:not(.finding-rechecked)', { hasText: `bare ${word} now covers` })
+    const read = finding('read')
+    await expect(read.getByRole('link', { name: /^Open .+ in Cursor$/ })).toBeVisible()
+    await expect(read.getByRole('button', { name: 'Copy fix prompt' })).toBeVisible()
+    await page.getByRole('searchbox').fill('permissions')
+    const url = page.url()
+
+    await put(permissions, 'permissions:\n  allow: ["read(src/**)", edit, shell]\n')
+    await read.getByRole('button', { name: 'Recheck' }).click()
+    const gone = page.locator('.finding-rechecked')
+    await expect(gone.getByRole('status')).toHaveText('This lint finding no longer appears. 1 new lint finding appears in .agnostic-ai/settings/permissions.yaml.')
+    await expect(gone).toBeFocused()
+    await expect(read).toHaveCount(0)
+    await expect(finding('shell').getByText('New since recheck')).toBeVisible()
+    await expect(page.getByRole('searchbox')).toHaveValue('permissions')
+    expect(page.url()).toBe(url)
+
+    const edit = finding('edit')
+    await edit.getByRole('button', { name: 'Recheck' }).click()
+    await expect(edit.locator('.finding-recheck-result')).toHaveText('This finding still appears after the recheck.')
+    await expect(gone).toHaveCount(0)
+
+    await page.route('**/api/views/overview', (route) => route.abort())
+    await edit.getByRole('button', { name: 'Recheck' }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'The overview could not be refreshed.' })).toBeVisible()
+    await expect(edit.locator('.finding-recheck-result')).toHaveText('The recheck did not finish, so this finding may still apply.')
+    await expect(edit).toContainText('bare edit now covers every file edit')
+
+    await page.unroute('**/api/views/overview')
+    await page.getByRole('alert').getByRole('button', { name: 'Retry' }).click()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(edit.locator('.finding-recheck-result')).toHaveText('')
+
+    await rm(permissions)
+    await edit.getByRole('button', { name: 'Recheck' }).click()
+    const other = page.locator('section.block', { has: page.getByRole('heading', { name: 'Other findings' }) })
+    await expect(other.locator('.finding-rechecked .finding-recheck-result')).toHaveText('This lint finding no longer appears.')
+    await expect(other.locator('.finding-rechecked')).toBeFocused()
   } finally { await f.close() }
 })

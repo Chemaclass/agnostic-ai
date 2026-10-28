@@ -196,7 +196,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	}
 
 	doc := emit.NewOrderedJSON()
-	for _, event := range orderHookEvents(eventOrder) {
+	for _, event := range emit.OrderByLifecycle(eventOrder, hookLifecycle) {
 		_ = doc.Set(event, byEvent[event])
 	}
 	return doc
@@ -232,27 +232,4 @@ func nonCommandHook(h spec.Entry, hookType string) *hookEntry {
 	entry.Once = emit.HookBoolMeta(h.Meta, "once")
 	entry.StatusMessage, _ = h.Meta["statusMessage"].(string)
 	return entry
-}
-
-// orderHookEvents puts the vendor's documented lifecycle order first,
-// then any remaining event in the order it was first seen.
-func orderHookEvents(seen []string) []string {
-	present := map[string]bool{}
-	for _, e := range seen {
-		present[e] = true
-	}
-	out := make([]string, 0, len(seen))
-	for _, e := range hookLifecycle {
-		if present[e] {
-			out = append(out, e)
-			delete(present, e)
-		}
-	}
-	for _, e := range seen {
-		if present[e] {
-			out = append(out, e)
-			delete(present, e)
-		}
-	}
-	return out
 }

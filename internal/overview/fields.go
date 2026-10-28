@@ -103,6 +103,13 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 					if !ok {
 						continue
 					}
+					if edit.ToolAllowed == nil {
+						edit.ToolAllowed = map[string][]string{}
+					}
+					edit.ToolAllowed[target] = slices.Sorted(slices.Values(accepter.SettingsEffortLevels()))
+					if edit.ToolAllowed[target] == nil {
+						edit.ToolAllowed[target] = []string{}
+					}
 					for _, level := range accepter.SettingsEffortLevels() {
 						if !slices.Contains(edit.Allowed, level) {
 							edit.Allowed = append(edit.Allowed, level)
@@ -122,7 +129,7 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			if !global {
 				defaultPath = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
 			}
-			inEffect := SettingsInEffect(entries, d.key, cfg.Targets)
+			inEffect := SettingsInEffect(entries, d.key, cfg.Targets, global)
 			if target := SettingsWriteTarget(entries, inEffect, d.key, cfg.Targets); target >= 0 {
 				edit.Path = paths[entries[target].Name]
 			} else if inEffect >= 0 || len(edit.Paths) == 0 {
@@ -148,19 +155,33 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			} else if edit.Path == defaultPath {
 				edit.LocalPath = SettingsOverlayPath(global, "defaults")
 			}
-			// Maps and other non-scalar shapes remain read-only in this slice.
 			for _, source := range f.Set {
 				for _, value := range source.Values {
-					if value.Key != d.key || value.Type != ValueText && d.key != "session-retention-days" {
+					if !d.editableValue(value) {
 						edit.DisabledReason = "This field has a non-scalar value; edit the spec directly."
 					}
 				}
+			}
+			if d.key == "model" && slices.ContainsFunc(entries, func(e spec.Entry) bool {
+				return e.ModelTier != "" && slices.ContainsFunc(f.Set, func(s FieldSource) bool { return s.Spec == e.Name })
+			}) {
+				edit.DisabledReason = "This model names a tier from models: in the config; edit the spec directly."
 			}
 			f.Editable = edit
 		}
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+// editableValue reports whether the page can edit v in place: the
+// field's own scalar, or one tool's scalar in its per-tool map.
+func (d fieldDef) editableValue(v Value) bool {
+	if d.key == "session-retention-days" {
+		return v.Key == d.key
+	}
+	entry, nested := strings.CutPrefix(v.Key, d.key+".")
+	return v.Type == ValueText && (v.Key == d.key || nested && entry != "" && !strings.Contains(entry, "."))
 }
 
 func (d fieldDef) values(all []Value) []Value {
@@ -209,6 +230,18 @@ func SettingsTeamPath(root string, e spec.Entry) string {
 	return SpecPath(root, e)
 }
 
+// SettingsValuePath is the shown path of the file that gives key its
+// value in e for targets: the personal file when it changes the value
+// for one of them, else the shared spec beneath it.
+func SettingsValuePath(root string, e spec.Entry, key string, targets []string, tiers map[string]config.ModelTier) string {
+	if e.Base == nil || LocalSets(e, key) && slices.ContainsFunc(targets, func(t string) bool {
+		return settingsValueFor(e, key, t) != baseValue(e, key, t, tiers)
+	}) {
+		return SpecPath(root, e)
+	}
+	return SettingsTeamPath(root, e)
+}
+
 // SettingsOverlayPath is the personal file, relative to the project or
 // global source root, that overlays the settings spec named name.
 func SettingsOverlayPath(global bool, name string) string {
@@ -239,7 +272,7 @@ func SettingsEditCandidate(e spec.Entry, key string) bool {
 // SettingsInEffect is the index in the ordered settings of the spec whose
 // key sync uses: the last one that sets it for every target and no later
 // spec overrides, else the last one that sets it. -1 when none does.
-func SettingsInEffect(settings []spec.Entry, key string, targets []string) int {
+func SettingsInEffect(settings []spec.Entry, key string, targets []string, global bool) int {
 	last := -1
 	for i := len(settings) - 1; i >= 0; i-- {
 		if !hasField(settings[i], key) {
@@ -248,7 +281,7 @@ func SettingsInEffect(settings []spec.Entry, key string, targets []string) int {
 		if last < 0 {
 			last = i
 		}
-		if !slices.ContainsFunc(targets, func(t string) bool { return !settings[i].EmitsTo(t) }) && SettingsOverride(settings, i, key, targets) < 0 {
+		if !slices.ContainsFunc(targets, func(t string) bool { return !setsFor(settings[i], key, t) }) && SettingsOverride(settings, i, key, targets, global) < 0 {
 			return i
 		}
 	}
@@ -274,17 +307,36 @@ func SettingsWriteTarget(settings []spec.Entry, inEffect int, key string, target
 	return -1
 }
 
-// SettingsOverride is the index of a spec after i that sets key for every
-// target settings[i] applies to, or -1. With i < 0 the edited spec applies
-// to every target and every spec counts as later.
-func SettingsOverride(settings []spec.Entry, i int, key string, targets []string) int {
+// SettingsOverride is the index of a spec after i that gives key a value
+// for every target settings[i] applies to, or -1. With i < 0 the edited
+// spec applies to every target and every spec counts as later.
+func SettingsOverride(settings []spec.Entry, i int, key string, targets []string, global bool) int {
 	applies := appliesTo(settings, i, targets)
 	for j := len(settings) - 1; j > i; j-- {
-		if hasField(settings[j], key) && coversTargets(settings[j], applies) {
+		if hasField(settings[j], key) && !slices.ContainsFunc(applies, func(t string) bool { return !overridesFor(settings[j], key, t, global) }) {
 			return j
 		}
 	}
 	return -1
+}
+
+// overridesFor is setsFor for a later spec, without the Claude model
+// name target cannot load, as project sync drops it. sync --global
+// writes it.
+func overridesFor(e spec.Entry, key, target string, global bool) bool {
+	if key == "model" && !global && foreignClaudeModel(e, target) {
+		e = withoutSharedModel(e)
+	}
+	return setsFor(e, key, target)
+}
+
+// setsFor reports whether e gives target a value for key: a per-tool map
+// without target or a default gives it nothing.
+func setsFor(e spec.Entry, key, target string) bool {
+	if !hasField(e, key) || !e.EmitsTo(target) {
+		return false
+	}
+	return !slices.Contains(resolvedFields, key) || settingsValueFor(e, key, target) != ""
 }
 
 func appliesTo(settings []spec.Entry, i int, targets []string) []string {

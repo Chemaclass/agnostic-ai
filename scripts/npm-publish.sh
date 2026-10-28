@@ -67,19 +67,42 @@ npm_dist_tag() {
   esac
 }
 
-verify_npm_provenance() {
+npm_provenance_verifies() {
   local name="$1" version="$2" commit npm_root
   commit="${GITHUB_SHA:-}"
   if [[ -z "$commit" ]]; then
     commit="$(git -C "$ROOT" rev-parse "v${version}^{commit}")" || return 1
   fi
   npm_root="$(npm root -g)" || return 1
-  if ! node "$ROOT/scripts/npm-verify-provenance.js" "$name" "$version" "$commit" "$npm_root"; then
-    err "$name@$version has missing or invalid provenance. Retry after registry availability recovers. If published without provenance, this immutable version cannot be repaired; stop and cut a new version for all seven packages."
-    return 1
-  fi
+  node "$ROOT/scripts/npm-verify-provenance.js" "$name" "$version" "$commit" "$npm_root"
 }
 
+verify_npm_provenance() {
+  # Retry with backoff so a short registry outage does not fail a good version.
+  local name="$1" version="$2" attempt
+  local retries="${NPM_PROVENANCE_RETRIES:-10}" delay="${NPM_PUBLISH_FIRST_DELAY:-5}"
+  local max_delay="${NPM_PUBLISH_MAX_DELAY:-60}"
+  for ((attempt = 1; attempt <= retries; attempt++)); do
+    if npm_provenance_verifies "$name" "$version"; then
+      return 0
+    fi
+    printf 'attempt %s: %s@%s provenance does not verify yet\n' "$attempt" "$name" "$version"
+    if [[ "$attempt" -lt "$retries" ]]; then
+      sleep "$delay"
+      delay=$((delay * 2))
+      [[ "$delay" -le "$max_delay" ]] || delay="$max_delay"
+    fi
+  done
+  err "$name@$version has missing or invalid provenance. Retry after registry availability recovers. If published without provenance, this immutable version cannot be repaired; stop and cut a new version for all seven packages."
+  return 1
+}
+
+# Packages this run uploaded and has not verified yet.
+fresh=()
+
+# publish_package <dir> <version>: publishes and waits until npm serves it.
+# A version from an earlier run is verified now; a new upload is verified later
+# by verify_after_settle.
 publish_package() {
   local dir="$1" name version="$2" tag
   name="$(package_name "$dir")"
@@ -94,13 +117,33 @@ publish_package() {
   if ! (cd "$dir" && npm publish --access public --provenance --tag "$tag"); then
     err "provenance publish failed for $name@$version; no plain publish will be attempted"
     if published "$name" "$version"; then
-      verify_npm_provenance "$name" "$version" || return 1
+      fresh+=("$name")
       return 0
     fi
     return 1
   fi
-  wait_for "$name" "$version" || return 1
-  verify_npm_provenance "$name" "$version"
+  fresh+=("$name")
+  wait_for "$name" "$version"
+}
+
+# verify_after_settle <version>: verifies each package this run uploaded.
+#
+# npm caches an attestation response for a year, on both registry hosts. A
+# read before npm adds its own publish attestation stores an incomplete copy
+# that fails every later check at that cache location. npm gives no signal
+# that signing is done, so the first read waits well past the minute or so it
+# usually takes.
+verify_after_settle() {
+  local version="$1" name settle="${NPM_ATTESTATION_SETTLE:-300}"
+  [[ "${#fresh[@]}" -gt 0 ]] || return 0
+  if [[ "$settle" -gt 0 ]]; then
+    printf 'waiting %ss for npm to finish signing before reading attestations\n' "$settle"
+    sleep "$settle"
+  fi
+  for name in "${fresh[@]}"; do
+    verify_npm_provenance "$name" "$version" || return 1
+  done
+  fresh=()
 }
 
 wait_for() {
@@ -176,7 +219,10 @@ main() {
     fi
   done
 
+  verify_after_settle "$version" || return 1
+
   publish_package "$parent" "$version" || return 1
+  verify_after_settle "$version" || return 1
   printf 'npm-publish: published %s packages at %s under dist-tag %s\n' \
     "$((${#dirs[@]} + 1))" "$version" "$(npm_dist_tag "$version")"
 }

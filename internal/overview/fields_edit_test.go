@@ -290,3 +290,91 @@ func TestSettingsItem_ListsTheKeysOfAPersonalOnlySpec(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsFields_PerToolMapsAreEditable(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude", "codex"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	in := Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{
+		entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"name": "team", "model": map[string]any{"default": "sonnet", "codex": "gpt-5"}, "effort": map[string]any{"claude": "high"}, "x-claude": map[string]any{"model": "opus"}}),
+	}}}
+	byKey := map[string]SettingField{}
+	for _, f := range sectionByID(t, Build(in), SectionSettings).Fields {
+		byKey[f.Key] = f
+	}
+	for _, key := range []string{"model", "effort"} {
+		if got := byKey[key].Editable; got == nil || got.DisabledReason != "" || got.Path != ".agnostic-ai/settings/team.yaml" {
+			t.Errorf("%s edit = %+v", key, got)
+		}
+	}
+	if got := byKey["x-"].Editable; got != nil {
+		t.Errorf("native keys edit = %+v, want none", got)
+	}
+	effort := byKey["effort"].Editable
+	if !slices.Equal(effort.ToolAllowed["claude"], []string{"high", "low", "medium", "xhigh"}) {
+		t.Errorf("claude levels = %v", effort.ToolAllowed)
+	}
+	if levels, takes := effort.ToolAllowed["codex"]; !takes || levels == nil || len(levels) != 0 {
+		t.Errorf("codex levels = %v, want any value", effort.ToolAllowed)
+	}
+}
+
+func TestSettingsFields_ModelTierAndNestedValuesStayReadOnly(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}, Models: map[string]config.ModelTier{"fast": {Models: map[string]string{"claude": "haiku"}}}}
+	tiered := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"name": "team", "model": "fast"})
+	b := spec.Bundle{Settings: []spec.Entry{tiered}}
+	b.ApplyModelTiers(cfg.Models)
+	for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: b}), SectionSettings).Fields {
+		if f.Key == "model" && (f.Editable == nil || !strings.Contains(f.Editable.DisabledReason, "tier")) {
+			t.Errorf("tier model edit = %+v", f.Editable)
+		}
+	}
+	nested := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"name": "team", "effort": map[string]any{"claude": map[string]any{"level": "high"}}})
+	for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{nested}}}), SectionSettings).Fields {
+		if f.Key == "effort" && (f.Editable == nil || f.Editable.DisabledReason == "") {
+			t.Errorf("nested effort edit = %+v", f.Editable)
+		}
+	}
+}
+
+func TestSettingsOverride_CountsOnlyToolsTheLaterSpecGivesAValue(t *testing.T) {
+	both := []string{"claude", "codex"}
+	a := spec.Entry{Name: "a", Meta: map[string]any{"model": "gpt-5.4", "effort": "high"}}
+	for _, tc := range []struct {
+		name     string
+		later    map[string]any
+		claude   int
+		codex    int
+		inEffect int
+	}{
+		{"claude entry only", map[string]any{"model": map[string]any{"claude": "opus"}, "effort": map[string]any{"claude": "low"}}, 1, -1, 0},
+		{"default", map[string]any{"model": map[string]any{"default": "gpt-5.5"}, "effort": map[string]any{"default": "low"}}, 1, 1, 1},
+	} {
+		settings := []spec.Entry{a, {Name: "b", Meta: tc.later}}
+		for _, key := range []string{"model", "effort"} {
+			if got := SettingsOverride(settings, 0, key, []string{"claude"}, false); got != tc.claude {
+				t.Errorf("%s %s claude override = %d, want %d", tc.name, key, got, tc.claude)
+			}
+			if got := SettingsOverride(settings, 0, key, []string{"codex"}, false); got != tc.codex {
+				t.Errorf("%s %s codex override = %d, want %d", tc.name, key, got, tc.codex)
+			}
+			if got := SettingsInEffect(settings, key, both, false); got != tc.inEffect {
+				t.Errorf("%s %s in effect = %d, want %d", tc.name, key, got, tc.inEffect)
+			}
+		}
+	}
+}
+
+func TestSettingsOverride_SkipsALaterClaudeModelForToolsThatDropIt(t *testing.T) {
+	settings := []spec.Entry{
+		{Name: "a", Meta: map[string]any{"model": map[string]any{"codex": "gpt-5.4"}}},
+		{Name: "b", Meta: map[string]any{"model": "claude-opus-4"}},
+	}
+	if got := SettingsOverride(settings, 0, "model", []string{"codex"}, false); got != -1 {
+		t.Errorf("codex override = %d, want -1", got)
+	}
+	if got := SettingsOverride(settings, 0, "model", []string{"claude"}, false); got != 1 {
+		t.Errorf("claude override = %d, want 1", got)
+	}
+	if got := SettingsOverride(settings, 0, "model", []string{"codex"}, true); got != 1 {
+		t.Errorf("global codex override = %d, want 1", got)
+	}
+}
