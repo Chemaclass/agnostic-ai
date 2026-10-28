@@ -414,12 +414,11 @@ input:hover {
   letter-spacing: -0.02em;
 }
 
-.page-header h1:focus {
-  outline: none;
-}
-
+/* The title takes focus only from script after a navigation, so screen
+   readers announce the new page; Tab never reaches it, so it shows no ring. */
+.page-header h1:focus,
 .page-header h1:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: none;
 }
 
 .page-subtitle {

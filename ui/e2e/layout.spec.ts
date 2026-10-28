@@ -34,6 +34,16 @@ test('starts every section with its page header', async ({ page }) => {
   }
 })
 
+test('moves focus to the page title after keyboard navigation without drawing a ring', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context')
+  await page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: /^Tools/ }).focus()
+  await page.keyboard.press('Enter')
+  const title = page.getByRole('heading', { level: 1, name: 'Tools', exact: true })
+  await expect(title).toBeFocused()
+  expect(await title.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('none')
+})
+
 for (const width of [320, 900]) {
   test(`keeps the current section in view in the narrow navigation at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
