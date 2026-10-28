@@ -191,29 +191,6 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		sort.SliceStable(groups, func(i, j int) bool { return groups[i].Matcher < groups[j].Matcher })
 		doc.events[event] = groups
 	}
-	doc.order = orderHookEvents(doc.order)
+	doc.order = emit.OrderByLifecycle(doc.order, hookLifecycle)
 	return doc
-}
-
-// orderHookEvents puts the vendor's documented lifecycle first, then
-// any remaining event in the order it was seen.
-func orderHookEvents(seen []string) []string {
-	present := map[string]bool{}
-	for _, e := range seen {
-		present[e] = true
-	}
-	out := make([]string, 0, len(seen))
-	for _, e := range hookLifecycle {
-		if present[e] {
-			out = append(out, e)
-			delete(present, e)
-		}
-	}
-	for _, e := range seen {
-		if present[e] {
-			out = append(out, e)
-			delete(present, e)
-		}
-	}
-	return out
 }

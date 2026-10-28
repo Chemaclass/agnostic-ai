@@ -43,7 +43,6 @@ var copilotSkillsDirs = []string{
 
 const (
 	copilotInstructionSuffix = ".instructions.md"
-	copilotAgentSuffix       = ".agent.md"
 	copilotChatmodeSuffix    = ".chatmode.md"
 )
 
