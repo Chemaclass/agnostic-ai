@@ -24,6 +24,7 @@ func newSyncCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "sync",
+		Args:  cobra.NoArgs,
 		Short: "Emit per-target configs from agnostic specs.",
 		Example: `  # Emit every target listed in agnostic-ai.yaml
   agnostic-ai sync

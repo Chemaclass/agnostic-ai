@@ -356,7 +356,8 @@ func editJSONArray(path string, data []byte, key string, items []any) ([]byte, e
 	kept := 0
 	for i, element := range elements {
 		var have any
-		if err := json.Unmarshal([]byte(text[element.start:element.end]), &have); err != nil {
+		raw, _ := adapters.StripJSONC([]byte(text[element.start:element.end]))
+		if err := json.Unmarshal(raw, &have); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
 		if kept < len(want) && reflect.DeepEqual(have, want[kept]) {
