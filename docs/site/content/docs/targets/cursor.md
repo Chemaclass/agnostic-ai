@@ -213,6 +213,7 @@ Both skill directories are project-level, at the root and in nested subdirectori
 - Cursor writes no `argument-hint` or `allowed-tools` on a skill, so import leaves both on the spec.
 - Keys Cursor does write, such as a skill's `icon` or an agent's `model`, follow the native file.
 - A rule's frontmatter comes from the `.mdc` alone, so widening `globs` to `**/*` unscopes the spec.
+- A rule with neither `alwaysApply` nor `globs` gets `alwaysApply: false`, since Cursor does not load it on every request. A rule scoped to a directory gets no flag; it already loads only there.
 
 `import cursor` also reads environment files:
 

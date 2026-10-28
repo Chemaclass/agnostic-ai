@@ -176,7 +176,8 @@ func importCursorRules(root, dstDir string) (int, error) {
 		}
 		importReadingNative(path)
 		name := strings.TrimSuffix(d.Name(), ".mdc")
-		translated, err := translateCursorRule(name, data)
+		folderScoped := filepath.Dir(rel) != "." && dirExists(filepath.Join(root, filepath.Dir(rel)))
+		translated, err := translateCursorRule(name, data, folderScoped)
 		if err != nil {
 			return fmt.Errorf("translate %s: %w", rel, err)
 		}
@@ -204,13 +205,13 @@ var cursorRuleKeys = []string{"name", "description", "globs", "alwaysApply"}
 // re-marshaled. Body is preserved verbatim except for the agnostic-ai
 // provenance header, which is stripped when present so it does not
 // roundtrip back into the source spec.
-func translateCursorRule(name string, data []byte) ([]byte, error) {
+func translateCursorRule(name string, data []byte, folderScoped bool) ([]byte, error) {
 	data = []byte(header.Strip(string(data)))
 	meta, body := splitMdcFrontmatter(data)
 	if _, ok := meta["name"]; !ok {
 		meta["name"] = name
 	}
-	normalizeCursorRuleMeta(meta)
+	normalizeCursorRuleMeta(meta, folderScoped)
 
 	var fm bytes.Buffer
 	enc := yaml.NewEncoder(&fm)
@@ -240,7 +241,19 @@ func translateCursorRule(name string, data []byte) ([]byte, error) {
 // empty globs with `**/*`) is dropped, as is an empty `description`;
 // carrying either back makes import->sync non-idempotent on the source.
 // Nil-valued keys are dropped too.
-func normalizeCursorRuleMeta(meta map[string]any) {
+// Cursor reads a rule with neither `alwaysApply` nor globs as not always
+// on, while a spec without either syncs as always on, so the import
+// writes `alwaysApply: false` (#2643). A rule scoped to a directory, by
+// `scope` or a folder that names one, loads only there already; the flag
+// would switch it off in tools such as CodeBuddy.
+func normalizeCursorRuleMeta(meta map[string]any, folderScoped bool) {
+	scoped := folderScoped
+	// A `scope` key replaces the folder's, and an empty one scopes nothing.
+	if v, explicit := meta["scope"]; explicit {
+		s, _ := v.(string)
+		scoped = strings.Trim(filepath.ToSlash(s), "/") != ""
+	}
+	loadsOnDemand := meta["alwaysApply"] == nil && strings.TrimSpace(spec.JoinGlobs(meta["globs"])) == "" && !scoped
 	if g, ok := meta["globs"]; ok && spec.IsCatchAllGlobs(spec.JoinGlobs(g)) && spec.ValidGlobs(g) {
 		delete(meta, "globs")
 	}
@@ -248,6 +261,9 @@ func normalizeCursorRuleMeta(meta map[string]any) {
 		if v == nil {
 			delete(meta, k)
 		}
+	}
+	if loadsOnDemand {
+		meta["alwaysApply"] = false
 	}
 }
 

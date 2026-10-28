@@ -114,7 +114,7 @@ func newUpgradeCmd() *cobra.Command {
 type upgradeDeps struct {
 	detect  func(string) (upgradeInfo, error)
 	run     func(io.Writer, string) error
-	install func(string, string, string, *http.Client) error
+	install func(io.Writer, string, string, string, *http.Client) error
 }
 
 func defaultUpgradeDeps() upgradeDeps {
@@ -135,7 +135,9 @@ func newUpgradeCmdWithDeps(deps upgradeDeps) *cobra.Command {
 (Homebrew, ` + "`go install`" + `, Scoop, winget, npm, or a raw prebuilt
 binary) and upgrades it to the latest release. Package-manager installs
 use their package manager. Standalone binaries on macOS and Linux are
-downloaded, verified against release checksums, and replaced in place.
+downloaded, verified against release checksums and, when the GitHub CLI
+(gh) is installed and logged in, against the release's build provenance,
+then replaced in place.
 
 Pass --version to install one specific release instead of the latest,
 which is how a project pinned to an older version gets there in one
@@ -234,6 +236,9 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 			}
 			return fmt.Errorf("upgrade: latest release tag unavailable")
 		}
+		if err := requireLatestProvenance(info.Latest); err != nil {
+			return err
+		}
 		if err := downloadRelease(out, info.Path, info.Latest, deps); err != nil {
 			return err
 		}
@@ -280,7 +285,7 @@ func installRequestedVersion(out io.Writer, info upgradeInfo, requestedVersion s
 // and installing a named version say different things about the same work.
 func downloadRelease(out io.Writer, path, version string, deps upgradeDeps) error {
 	_, _ = fmt.Fprintf(out, "\nDownloading and installing %s...\n", version)
-	if err := deps.install(path, version, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
+	if err := deps.install(out, path, version, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
 		return fmt.Errorf("upgrade: %w", err)
 	}
 	return nil
