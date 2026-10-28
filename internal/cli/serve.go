@@ -297,29 +297,51 @@ func bufferAPIBody(next http.Handler) http.Handler {
 // freshConns are connections that have not sent a request yet.
 // Shutdown waits up to 5 seconds for them, and clients such as browsers
 // and Go's transport open them ahead of a request that may never come.
+// A connection whose request was just read stays fresh until the state
+// hook runs, so one is closed only once it has stayed fresh for
+// freshConnGrace.
 type freshConns struct {
-	mu    sync.Mutex
-	conns map[net.Conn]struct{}
+	mu      sync.Mutex
+	conns   map[net.Conn]time.Time
+	closing bool
 }
 
+const freshConnGrace = 100 * time.Millisecond
+
 func trackFreshConns(srv *http.Server) *freshConns {
-	f := &freshConns{conns: map[net.Conn]struct{}{}}
+	f := &freshConns{conns: map[net.Conn]time.Time{}}
 	srv.ConnState = func(c net.Conn, state http.ConnState) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		if state == http.StateNew {
-			f.conns[c] = struct{}{}
-		} else {
+		if state != http.StateNew {
 			delete(f.conns, c)
+			return
+		}
+		f.conns[c] = time.Now()
+		if f.closing {
+			f.closeLater(c, freshConnGrace)
 		}
 	}
 	return f
 }
 
+// close closes each fresh connection once it has been fresh for
+// freshConnGrace, including ones accepted after close.
 func (f *freshConns) close() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for c := range f.conns {
-		_ = c.Close()
+	f.closing = true
+	for c, opened := range f.conns {
+		f.closeLater(c, freshConnGrace-time.Since(opened))
 	}
+}
+
+func (f *freshConns) closeLater(c net.Conn, wait time.Duration) {
+	time.AfterFunc(max(wait, 0), func() {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if _, fresh := f.conns[c]; fresh {
+			_ = c.Close()
+		}
+	})
 }
