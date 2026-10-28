@@ -2,16 +2,15 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
-	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/filealias"
 )
 
 // recordLedgerWrites appends every create/update/skip path from writes
@@ -213,8 +212,7 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 		return nil, nil, nil
 	}
 	currentSet := make(map[string]struct{}, len(current))
-	currentInfo := make(map[string]os.FileInfo)
-	directoryEntries := make(map[string][]os.DirEntry)
+	var aliases filealias.Cache
 	for _, p := range current {
 		currentSet[p] = struct{}{}
 	}
@@ -229,11 +227,11 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 		// is already gone.
 		fi, err := os.Lstat(p)
 		if err == nil {
-			same, matchErr := sameOutputFile(p, fi, current, currentInfo, directoryEntries)
+			same, matchErr := aliases.Match(p, fi, current)
 			if matchErr != nil {
 				return removed, kept, matchErr
 			}
-			if same {
+			if same != "" {
 				continue
 			}
 		}
@@ -273,60 +271,6 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 		}
 	}
 	return removed, kept, nil
-}
-
-func sameOutputFile(path string, info os.FileInfo, paths []string, cached map[string]os.FileInfo, entries map[string][]os.DirEntry) (bool, error) {
-	for _, output := range paths {
-		if !strings.EqualFold(filepath.Base(path), filepath.Base(output)) {
-			continue
-		}
-		current := ledgerPathInfo(output, cached)
-		if current != nil && os.SameFile(info, current) {
-			same, err := sameOutputEntry(path, output, cached, entries)
-			if same || err != nil {
-				return same, err
-			}
-		}
-	}
-	return false, nil
-}
-
-func ledgerPathInfo(path string, cached map[string]os.FileInfo) os.FileInfo {
-	info, ok := cached[path]
-	if !ok {
-		// Compare links themselves so distinct links to one target stay distinct.
-		info, _ = os.Lstat(path)
-		cached[path] = info
-	}
-	return info
-}
-
-func sameOutputEntry(path, output string, cached map[string]os.FileInfo, entries map[string][]os.DirEntry) (bool, error) {
-	dir, outputDir := filepath.Dir(path), filepath.Dir(output)
-	parent, outputParent := ledgerPathInfo(dir, cached), ledgerPathInfo(outputDir, cached)
-	if parent == nil || outputParent == nil || !os.SameFile(parent, outputParent) {
-		return false, nil
-	}
-	name, outputName := filepath.Base(path), filepath.Base(output)
-	if name == outputName {
-		return true, nil
-	}
-	children, ok := entries[dir]
-	if !ok {
-		var err error
-		children, err = os.ReadDir(dir)
-		if err != nil {
-			return false, fmt.Errorf("%s: %w", dir, err)
-		}
-		entries[dir] = children
-	}
-	var foundPath, foundOutput bool
-	for _, child := range children {
-		foundPath = foundPath || child.Name() == name
-		foundOutput = foundOutput || child.Name() == outputName
-	}
-	// Two recorded spellings are separate directory entries even when hard-linked.
-	return !foundPath || !foundOutput, nil
 }
 
 // editedSince reports whether the file at path no longer holds the bytes

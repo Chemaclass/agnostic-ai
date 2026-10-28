@@ -87,7 +87,7 @@ Each list shows three paths (`-vv` lists all). A `config` spec means `agnostic-a
 
 **Remove leftover files.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files, and then empty directories, it no longer writes, if it can prove it wrote them (generated-file header or recorded hash). A generated file edited since sync is saved as `<path>.bak` before removal. A headerless file edited since sync, or written by a sync that recorded no checksum, is kept as `~ kept orphan <path>` with the reason. Kept orphans stay in the managed `.gitignore` block and count as drift until removed or listed under `sync.unmanaged`. In a terminal, `doctor --fix` offers to remove them, defaulting to no.
 
-Changing only a rule, skill, or agent name's capitalization keeps the newly written outputs on case-insensitive disks. On case-sensitive disks, sync removes the old spelling's files.
+Changing only a rule, skill, or agent name's capitalization keeps the newly written outputs on case-insensitive disks. Hand-edit backups and `--keep-edits` still apply. On case-sensitive disks, sync removes the old spelling's files.
 
 <details>
 <summary>Find leftover files without .sync-state (fresh checkout)</summary>
