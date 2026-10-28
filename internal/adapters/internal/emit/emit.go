@@ -171,6 +171,28 @@ type Session struct {
 	// committedSum, when set, gives a path with no recorded sum the sum of
 	// its committed version, "" when there is none (see SetCommittedSum).
 	committedSum func(path string) string
+	// projectRoot, when set, bounds every absolute path the session
+	// writes or removes (see SetProjectRoot).
+	projectRoot string
+}
+
+// SetProjectRoot makes the session refuse an absolute path outside root.
+// Project sync sets it before any write: its paths come from a config a
+// cloned repository commits. Global sync leaves it unset, since it writes
+// tool folders under the user's home.
+func (s *Session) SetProjectRoot(root string) { s.projectRoot = root }
+
+// checkProjectPath refuses a path that climbs above the project, lies in
+// its .git folder, or, with a project root set, resolves outside it.
+func (s *Session) checkProjectPath(path string) error {
+	switch {
+	case escapesProjectRoot(path):
+		return fmt.Errorf("refusing to write outside the project root: %s", path)
+	case !filepath.IsAbs(path) && config.UnsafeProjectPath(path),
+		filepath.IsAbs(path) && s.projectRoot != "" && config.UnsafeProjectPathIn(s.projectRoot, path):
+		return fmt.Errorf("refusing a path outside the project or inside .git: %s", path)
+	}
+	return nil
 }
 
 // SetUserTier marks a session that writes a tool's user-level
@@ -953,8 +975,8 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		fmt.Printf("--- %s ---\n%s\n", path, preview.Display(path, content).Text)
 		return nil
 	}
-	if escapesProjectRoot(path) {
-		return fmt.Errorf("refusing to write outside the project root: %s", path)
+	if err := s.checkProjectPath(path); err != nil {
+		return err
 	}
 	cur := &onDisk{path: path}
 	// A file already found there proves its folder exists, so an
@@ -1025,7 +1047,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			s.mu.Unlock()
 		}
 		if backup && action == "update" {
-			if err := writeBackup(path+".bak", existing); err != nil {
+			if err := writeBackup(path+".bak", existing, sourcePerm(cur.stat())); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 			s.noteBackup(path)
@@ -1066,7 +1088,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 
 	if backup {
 		if existing, err := cur.bytes(); err == nil && string(existing) != content {
-			if err := writeBackup(path+".bak", existing); err != nil {
+			if err := writeBackup(path+".bak", existing, sourcePerm(cur.stat())); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 			s.noteBackup(path)
@@ -1083,10 +1105,49 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	return nil
 }
 
-func writeBackup(path string, content []byte) error {
+// writeBackup keeps content at path with perm, the source file's mode.
+// It replaces an earlier backup with a new file, so the copy never takes
+// the old file's wider mode, and it refuses a link or other non-file
+// there rather than write through it.
+func writeBackup(path string, content []byte, perm os.FileMode) error {
 	ownershipReads.RLock()
 	defer ownershipReads.RUnlock()
-	return os.WriteFile(path, content, filePerm)
+	return writeBackupLocked(path, content, perm)
+}
+
+func writeBackupLocked(path string, content []byte, perm os.FileMode) error {
+	info, err := os.Lstat(path)
+	switch {
+	case err == nil && !info.Mode().IsRegular():
+		return fmt.Errorf("%s exists and is not a regular file", path)
+	case err == nil:
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	case !IsAbsent(err):
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(content)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		_ = os.Remove(path)
+	}
+	return err
+}
+
+// sourcePerm is the permission bits of a stat result, filePerm when the
+// stat failed.
+func sourcePerm(info fs.FileInfo, err error) os.FileMode {
+	if err != nil {
+		return filePerm
+	}
+	return info.Mode().Perm()
 }
 
 // backUpEdit copies path to backup, which must not exist yet in any form,
@@ -1150,8 +1211,8 @@ func (s *Session) createUntrackedFileExclusive(path, content string, dryRun bool
 	if s.IsCapturing() || dryRun {
 		return false, nil
 	}
-	if escapesProjectRoot(path) {
-		return false, fmt.Errorf("refusing to write outside the project root: %s", path)
+	if err := s.checkProjectPath(path); err != nil {
+		return false, err
 	}
 	defer lockPath(path)()
 	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
@@ -1437,6 +1498,9 @@ func (s *Session) removeWithBackup(path, sum string, existing []byte, handWritte
 		fmt.Printf("--- rm %s ---\n", path)
 		return true, nil
 	}
+	if err := s.checkProjectPath(path); err != nil {
+		return false, err
+	}
 
 	ownershipReads.RLock()
 	defer ownershipReads.RUnlock()
@@ -1458,7 +1522,7 @@ func (s *Session) removeWithBackup(path, sum string, existing []byte, handWritte
 	}
 
 	if backup {
-		if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
+		if err := writeBackupLocked(path+".bak", existing, sourcePerm(os.Stat(path))); err != nil {
 			return false, fmt.Errorf("backup %s: %w", path, err)
 		}
 		s.noteBackup(path)

@@ -30,7 +30,7 @@ agnostic-ai sync --only claude,cursor
 | `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there, not the working tree. See [`--against` details](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
 | `--diff` | With `--check`, print a diff per changed file, on disk vs what sync would write. Fails without `--check` or `--dry-run`. |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
-| `--backup` | Copy each existing output file to `<path>.bak` before overwriting. Pair with `revert`. |
+| `--backup` | Copy each existing output file to `<path>.bak` before overwriting, with the file's own permissions. When the managed `.gitignore` block is on, it lists the `.bak` of each output it ignores. Pair with `revert`. |
 | `--keep-edits` | Write every output except those edited since the last sync (with no record, tracked outputs that differ from `HEAD`), and print `~ kept <path>` for each (stderr under `--quiet`). Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
 | `--untrack` | Run `git rm --cached` on generated paths that git tracks and ignores, keeping the working copy. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
@@ -98,7 +98,7 @@ With no `.sync-state`, as in a fresh checkout of a repo that commits generated f
 - It still holds exactly what the last commit's specs would write, such as a headerless `.claude/launch.json` whose spec you deleted but have not committed.
 - After that deletion is committed, a headerless JSON file still holds exactly what the commit that last changed it would write. Up to eight past commits are checked per run, and you delete these by hand.
 
-A plain full `sync` removes none of these. It records them under target `unledgered` and lists each as `~ kept leftover <path>` (`--only` and `--except` record them without naming them). An empty `.sync-state` still counts as a record and turns this scan off. `doctor --fix` removes a leftover in a tool directory or root dotfile; delete a scope document such as `services/api/AGENTS.md` by hand, or add it to `sync.unmanaged`.
+A plain full `sync` removes none of these. It records them under target `unledgered` and lists each as `~ kept leftover <path>` (`--only` and `--except` record them without naming them). A `.sync-state` that does not parse, such as one cut short by a full disk, counts as missing: `sync` warns, runs this scan, and writes a new one, and `sync --check` fails until then (with `--against`, it only warns, since Git does not hold the ledger). `doctor --fix` removes a leftover in a tool directory or root dotfile; delete a scope document such as `services/api/AGENTS.md` by hand, or add it to `sync.unmanaged`.
 
 </details>
 

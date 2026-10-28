@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -43,6 +44,10 @@ func renderConfig(base string, targets []string, gitignoreEnabled bool, version 
 	sb.WriteString("\n" + onUnsupportedScaffold)
 	if gitignoreEnabled {
 		sb.WriteString("\ngitignore:\n  enabled: true\n")
+		// Grok refuses project rules it cannot read from committed files.
+		if slices.Contains(targets, "grok") {
+			sb.WriteString("  commit: [grok:instructions]\n")
+		}
 	}
 	return sb.String()
 }
