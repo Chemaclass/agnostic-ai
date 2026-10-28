@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -65,5 +68,32 @@ func TestServeMux_ServesHealthAndTheView(t *testing.T) {
 	_ = pre.Body.Close()
 	if pre.Header.Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
 		t.Error("the mux does not answer a local preflight for routes mounted beside the authority view")
+	}
+}
+
+func TestServeUntilInterrupted_StopsWithAnOpenConnectionThatSentNoRequest(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- serveUntilInterrupted(ctx, ln, http.NotFoundHandler()) }()
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	if resp, err := http.Get("http://" + ln.Addr().String()); err == nil {
+		_ = resp.Body.Close()
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("stop = %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("serve still waits for a connection that sent no request")
 	}
 }
