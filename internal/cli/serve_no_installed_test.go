@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/overview"
@@ -129,5 +130,26 @@ func TestServe_NoInstalledSkipsTheGlobalOverviewComparison(t *testing.T) {
 	}
 	if got := serveAndFetchEvidence(t, "--global").overview.Snapshot.Evidence.Installed; got != "checked" {
 		t.Errorf("overview installed evidence = %q, want checked without the flag", got)
+	}
+}
+
+func TestServe_NoInstalledKeepsTheGlobalNoteForSettingsSyncDoesNotWrite(t *testing.T) {
+	home := globalOverviewHome(t)
+	source := filepath.Join(home, "source")
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n  - cursor\n  - opencode\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "base.yaml"), "model: gpt-5\neffort: high\n")
+	testutil.Chdir(t, t.TempDir())
+
+	const reason = "sync --global does not write this target's user settings yet"
+	for _, args := range [][]string{{"--global"}, {"--global", "--no-installed"}} {
+		served := serveAndFetchEvidence(t, args...)
+		rows := resolvedByTarget(t, &served.overview)
+		for _, field := range []string{"model", "effort"} {
+			for _, target := range []string{"cursor", "opencode"} {
+				if got := rows[field][target]; !strings.Contains(got.Dropped, reason) {
+					t.Errorf("%v: %s %s = %+v, want dropped with %q", args, target, field, got, reason)
+				}
+			}
+		}
 	}
 }

@@ -44,7 +44,7 @@ func TestKiroRoundTrip_PromptsPreserveNativeTemplates(t *testing.T) {
 				source = filepath.Join(t.TempDir(), "commands")
 			}
 			if layout == "absolute-native" {
-				native = filepath.Join(t.TempDir(), "prompts")
+				native = filepath.Join(dir, "native", "prompts")
 				outputs = "outputs:\n  kiro:\n    commands-dir: " + filepath.ToSlash(native) + "\n"
 			}
 			if layout == "target-dir" {

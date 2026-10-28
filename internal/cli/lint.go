@@ -291,6 +291,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 		configPath = globalConfigPaths(scope.source)[0]
 	}
 	findings = append(findings, lintModels(scope.models, configPath, scope.targets, scope.support, scope.bundle)...)
+	findings = append(findings, lintTargetRefusals(scope.cfg, scope.targets, scope.bundle, configPath)...)
 	return withoutBuiltinFindings(findings, scope.bundle), accepted, nil
 }
 

@@ -108,6 +108,11 @@ func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool 
 	}
 }
 
+// RefuseSpecs rejects a skill name Zed does not load.
+func (Adapter) RefuseSpecs(b spec.Bundle, _ *config.Config) error {
+	return emit.ValidateNames(b.Skills, target, "skill", skillNameRule)
+}
+
 // SkillMarkdown renders s with the field that keeps it user-run.
 func (Adapter) SkillMarkdown(s spec.Entry) string { return userOnly.Markdown(s) }
 
@@ -124,7 +129,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
+	if err := (Adapter{}).RefuseSpecs(b, cfg); err != nil {
 		return err
 	}
 	if err := userOnly.WriteFolders(sess, b.Skills, skillsDir, dryRun); err != nil {

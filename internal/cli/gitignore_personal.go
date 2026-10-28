@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -110,7 +111,7 @@ func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, pre
 	if err != nil {
 		return nil, nil, err
 	}
-	for e := range only {
+	for _, e := range withBackups(slices.Collect(maps.Keys(only)), nil) {
 		if !blockCovers(block, e) {
 			personal = append(personal, e)
 		}
