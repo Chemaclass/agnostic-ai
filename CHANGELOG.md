@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `compare`, `import`, and `sync --global` check a shell command for a credential with one shared rule, so a rule `compare` hides and a hook `import` leaves out are judged the same way (#2717).
 - With `sync.shared-skills: true`, `sync` keeps shared skill links and plans no new ones while a configured external adapter is not on PATH. Before, it treated the run as covering every target and could remove the link of a deleted skill (#2702).
 - **Security:** a re-import no longer keeps a Claude or Codex overlay an earlier release wrote with a credential in it. Import prints the warnings and stops; `--overwrite` writes the overlay without the credential (#2669).
 - `sync --global` leaves your text in `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, and the other global instructions files byte for byte. It adds one newline and its block, and removing the block takes back only those. Before, it trimmed blank lines around your text and added a final newline, so a file with CRLF line endings, a leading blank line, or no final newline changed after every add and remove (#2658).

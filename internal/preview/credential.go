@@ -315,6 +315,12 @@ func RedactRule(rule string) string {
 	}
 	return Redacted
 }
+
+// CommandCredentialDetected reports whether a shell command holds a
+// literal credential, nested `sh -c` included. It is the one shell
+// reading compare, import, and sync --global share (#2717).
+func CommandCredentialDetected(command string) bool { return commandCredentialDetected(command, 0) }
+
 func commandCredentialDetected(command string, depth int) bool {
 	if depth >= 4 || CredentialDetected(command) {
 		return true
