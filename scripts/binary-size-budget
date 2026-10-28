@@ -571,13 +571,18 @@
 # (#2630 to #2704) grew the binary 168 KB over 36 merges, about 4.7 KB each, as the PRs
 # claimed. Five of its PRs are still open. Set to 24060000 for them. The next raise needs
 # a size review first: what grew, and whether any of it can be trimmed.
+# Interactive version recovery adds 16384 bytes to main 5ce97e81:
+# 24051872 to 24068256 with Go 1.27.3 and Linux amd64 release flags.
+# Project-root context, the action menu, prompt handoff, and ignoring
+# Ctrl-C while the launched AI tool runs use existing dependencies.
+# Raise only to the measured size, with no added headroom.
 #
-# Reading the sync ledger once per run (#2713) adds 20480 bytes to main 5ce97e81:
-# 24051872 to 24072352 with Go 1.27.3 and Linux amd64 release flags. Symbol diff of
+# Reading the sync ledger once per run (#2713) adds 20480 bytes to main c3e96337:
+# 24068256 to 24088736 with Go 1.27.3 and Linux amd64 release flags. Symbol diff of
 # unstripped builds (19.4 KB): the sync pass, drift collection, and entry-point drift
 # grow about 3.2 KB together from the extra ledger parameter; the sync command closure
 # grows 5.3 KB because it copies the ledger struct into ten call sites; Go func
 # metadata grows 6.7 KB with the new functions; readLedger and the snapshot methods
 # add 2.2 KB. No new dependency. Passing the snapshot by pointer would trim part of
 # the closure growth and is left for part 2 of #2667, which reshapes these call sites.
-24072352
+24088736
