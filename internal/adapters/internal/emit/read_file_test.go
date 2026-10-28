@@ -188,7 +188,7 @@ func TestOutputMutationsWaitForOwnershipRead(t *testing.T) {
 		run  func() error
 	}{
 		{"write", func() error { return writeFileAt(path, "generated", 0o644, false) }},
-		{"backup", func() error { return writeBackup(path+".bak", []byte("old")) }},
+		{"backup", func() error { return writeBackup(path+".bak", []byte("old"), 0o644) }},
 		{"remove", func() error { _, err := sess.remove(path, "", []byte("generated"), false, false); return err }},
 		{"rollback", sess.Rollback},
 	}
