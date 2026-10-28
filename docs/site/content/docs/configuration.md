@@ -52,7 +52,7 @@ An unknown key, in `agnostic-ai.local.yaml` too, fails every command that reads 
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `version` | int | `1` | Schema version, reserved for migrations. |
+| `version` | int | `1` | Schema version. Any value other than `1` fails with [AAI-004](@/docs/errors.md#aai-004-config-decode-failed). |
 | [`requires`](#requires) | string | none | Releases the specs work with: a minimum, one release, or a range. |
 | [`sources`](#sources) | map | `.agnostic-ai/<kind>/` | Source directories. |
 | [`targets`](#targets) | list | see [targets](#targets) | Tools to write files for. |
@@ -507,9 +507,9 @@ Notes that start with a target name, such as `note: codex: outputs.codex.config.
 | Field | Default | Description |
 |-------|---------|-------------|
 | `enabled` | `false` when absent; `agnostic-ai init` writes `true` | Every `sync` rewrites a managed `.gitignore` block listing every path the configured adapters write. |
-| `path` | `.gitignore` | Another file, for monorepos or local-only ignore files. |
+| `path` | `.gitignore` | Another file inside the project, such as a nested folder's `.gitignore` or the local-only `.git/info/exclude`. Any other path outside the project or in `.git/` fails to load. |
 | `commit` | empty | Kinds of generated output to keep in Git, for every target or as `<target>:<kind>` for one. The block leaves out their paths. |
-| `allow` | empty | Gitignore globs written as `!` lines at the end of the block, so a hand-written file at a generated path (such as a `testdata/AGENTS.md` fixture) is not ignored. |
+| `allow` | empty | Gitignore globs written as `!` lines at the end of the block, so a hand-written file at a generated path (such as a `testdata/AGENTS.md` fixture) is not ignored. One pattern per entry; a line break fails to load. |
 | `worktree-include` | `true` | Keep the same block in `.worktreeinclude`. See [Claude Code worktrees](#claude-code-worktrees). |
 | `ignore-worktree-include` | `false` | Keep `.worktreeinclude` out of Git. See [Claude Code worktrees](#claude-code-worktrees). |
 
@@ -569,6 +569,10 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 ## Path semantics
 
 - Relative `sources` and `outputs` paths start at the directory holding `agnostic-ai.yaml`. Absolute `sources` paths are used as written.
+- `outputs` paths and `gitignore.path` must stay inside the project and out of `.git/`, so a cloned repository cannot make sync write elsewhere. The config fails to load when one climbs above the project root or points into `.git/`, and sync stops before writing to an absolute `outputs` path outside the project. `gitignore.path` must be relative; `.git/info/exclude` is its one `.git/` exception.
+- A `sync.unmanaged` entry that climbs above the project root fails to load. A leading `/` anchors an entry at the project root.
+- Sync skips a `.agnostic-ai/.sync-state` entry outside the project or inside `.git/` and names it in a warning. It never removes or changes that file.
+- A spec or MCP server named `.git` fails to load.
 - Sync creates output directories as needed and overwrites existing files.
 
 ## Entry-point files

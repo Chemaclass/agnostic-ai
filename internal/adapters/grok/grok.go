@@ -23,6 +23,12 @@ func (Adapter) Capabilities() []spec.Kind { return slices.Clone(caps.Supports) }
 func rulesOpts(cfg *config.Config) emit.RulesDirOpts {
 	return emit.RulesDirOpts{Dir: emit.OutputRulesDir(cfg, target, emit.OutputSubDir(cfg, target, "rules", ".grok/rules")), ScopeAtRoot: true, SkipAgents: true, SkipSkills: true, FormatRule: func(e spec.Entry) string { return emit.WithHeader(e.Body, emit.FormatMarkdown) }}
 }
+
+// RefuseSpecs rejects rules the managed .gitignore would hide from Grok.
+func (Adapter) RefuseSpecs(b spec.Bundle, cfg *config.Config) error {
+	return refuseIgnoredRules(b.Rules, cfg)
+}
+
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err

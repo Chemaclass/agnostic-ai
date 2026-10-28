@@ -64,6 +64,7 @@ func lspLinter(root string) (map[string][]lsp.Diagnostic, error) {
 	b.ApplyModelTiers(cfg.Models)
 	findings := collectLintFindings(cfg.Targets, projectKindSupport(cfg), b)
 	findings = append(findings, lintModels(cfg.Models, filepath.Join(root, config.ConfigFileName), cfg.Targets, targetsSupportingKind, b)...)
+	findings = append(findings, lintTargetRefusals(cfg, cfg.Targets, b, filepath.Join(root, config.ConfigFileName))...)
 	findings = withoutBuiltinFindings(findings, b)
 
 	out := map[string][]lsp.Diagnostic{}

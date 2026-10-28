@@ -1027,12 +1027,18 @@ func ValidateName(kind Kind, name string) error {
 		if name == "" || hasDotPathSegment(name) || strings.ContainsRune(name, '\\') || strings.ContainsRune(name, '\x00') {
 			return fmt.Errorf("invalid MCP name %q: must not be empty, contain dot path segments, a backslash, or a NUL byte", name)
 		}
+		if slices.ContainsFunc(strings.Split(name, "/"), config.DotGitName) {
+			return fmt.Errorf("invalid MCP name %q: names the Git folder", name)
+		}
 		return nil
 	}
 	if name != filepath.Base(name) || name == "." || name == ".." ||
 		strings.ContainsRune(name, '/') || strings.ContainsRune(name, '\\') ||
 		strings.ContainsRune(name, '\x00') {
 		return fmt.Errorf("invalid spec name %q: must be a single path segment (no %q, %q, path separators, or a NUL byte)", name, "/", "..")
+	}
+	if config.GitDirName(name) {
+		return fmt.Errorf("invalid spec name %q: names the Git folder", name)
 	}
 	return nil
 }
