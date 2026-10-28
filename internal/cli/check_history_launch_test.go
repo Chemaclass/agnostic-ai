@@ -27,7 +27,7 @@ func TestHistoryDefaultAbsence_HandwrittenFilesSkipRenderWithoutChangingClassifi
 		t.Fatal(err)
 	}
 	emitted := map[string]bool{}
-	got := unledgeredReport(cfg, emitted, syncStateFile{}, strandedOutput(cfg, emitted, syncStateFile{}))
+	got := unledgeredReport(cfg, emitted, syncStateFile{}, ledgerMissing("."), strandedOutput(cfg, emitted, syncStateFile{}))
 	if len(got.Leftover) != 0 || len(got.Orphaned) != 0 {
 		t.Errorf("manual launch classified as generated: %+v", got)
 	}
@@ -153,7 +153,7 @@ func TestHistoryLaunch_DeletedEnvironmentKeepsHistoricalOwnership(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	rep := unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, func(p string) bool { return filepath.ToSlash(p) == ".claude/launch.json" })
+	rep := unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, ledgerMissing("."), func(p string) bool { return filepath.ToSlash(p) == ".claude/launch.json" })
 	if !reflect.DeepEqual(rep.Orphaned, []string{filepath.FromSlash(".claude/launch.json")}) || len(rep.Leftover) != 0 {
 		t.Errorf("deleted environment classification: %+v", rep)
 	}
@@ -434,7 +434,7 @@ func TestHistoryDefaultAbsence_ConfiguredIgnoreOutputKeepsOwnership(t *testing.T
 	if len(h.renders) != 1 {
 		t.Errorf("full renders=%d, want one", len(h.renders))
 	}
-	rep := unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, func(p string) bool { return filepath.ToSlash(p) == ".gitignore" })
+	rep := unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, ledgerMissing("."), func(p string) bool { return filepath.ToSlash(p) == ".gitignore" })
 	if !reflect.DeepEqual(rep.Leftover, []string{filepath.FromSlash(".gitignore")}) || len(rep.Orphaned) != 0 {
 		t.Errorf("configured ignore classification: %+v", rep)
 	}
@@ -442,7 +442,7 @@ func TestHistoryDefaultAbsence_ConfiguredIgnoreOutputKeepsOwnership(t *testing.T
 	if h.provesAtHEAD(filepath.FromSlash(".gitignore")) {
 		t.Error("edited ignore remains owned")
 	}
-	rep = unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, func(p string) bool { return filepath.ToSlash(p) == ".gitignore" })
+	rep = unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, ledgerMissing("."), func(p string) bool { return filepath.ToSlash(p) == ".gitignore" })
 	if rep.hasDrift() {
 		t.Errorf("edited ignore classified as generated: %+v", rep)
 	}

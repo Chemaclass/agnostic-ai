@@ -487,7 +487,7 @@ func TestSharedSkillsReconcile_PreservesNativeFileSymlinks(t *testing.T) {
 				if mode == "unmanaged" {
 					state.unmanaged = []string{path}
 				}
-				sess, err := state.reconcile([]string{path}, false)
+				sess, err := state.reconcile([]string{path}, readStateFile("."), false)
 				if err != nil {
 					t.Fatalf("reconcile native settings: %v", err)
 				}
@@ -525,7 +525,7 @@ func TestSharedSkillsReconcile_RemovesOwnedFolderLinks(t *testing.T) {
 				t.Fatal(err)
 			}
 			state := &sharedSkillsState{coversAll: true}
-			sess, err := state.reconcile([]string{path}, false)
+			sess, err := state.reconcile([]string{path}, readStateFile("."), false)
 			if err != nil {
 				t.Fatal(err)
 			}

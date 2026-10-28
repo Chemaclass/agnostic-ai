@@ -21,8 +21,12 @@ import (
 //   - the caller hasn't opted out via --all, -t, --only, or --except
 //     (handled upstream).
 func shouldPromptTargetSelection(root string, cfg *config.Config) bool {
+	return shouldPromptTargetSelectionFor(readLedger(root), cfg)
+}
+
+func shouldPromptTargetSelectionFor(ledger ledgerSnapshot, cfg *config.Config) bool {
 	// A ledger that does not parse was written by an earlier sync.
-	if !ledgerMissing(root) || unparsableLedger(root) != nil {
+	if !ledger.missing() || ledger.unparsable() != nil {
 		return false
 	}
 	return targetsMatchDefault(cfg.Targets)

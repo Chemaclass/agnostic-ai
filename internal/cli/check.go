@@ -186,16 +186,26 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 }
 
 func collectDriftWithGitignore(targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
+	return collectDriftWithLedger(targets, entryPointTargets, gitignoreFlag, readLedger("."))
+}
+
+// collectDriftWithLedger is collectDriftWithGitignore with the state
+// file the caller read.
+func collectDriftWithLedger(targets, entryPointTargets []string, gitignoreFlag string, ledger ledgerSnapshot) ([]driftReport, error) {
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return nil, err
 	}
-	return collectLoadedDrift(cfg, b, targets, entryPointTargets, gitignoreFlag)
+	return collectLoadedDriftWith(ledger, cfg, b, targets, entryPointTargets, gitignoreFlag)
 }
 
 // collectLoadedDrift is collectDriftWithGitignore for a project the
 // caller already loaded. It leaves cfg unchanged.
 func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
+	return collectLoadedDriftWith(readLedger("."), loaded, b, targets, entryPointTargets, gitignoreFlag)
+}
+
+func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
 	reports := make([]driftReport, 0, len(targets))
 	view := *loaded
 	cfg := &view
@@ -209,7 +219,7 @@ func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPoin
 	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), targets...)); err != nil {
 		return nil, err
 	}
-	state := readStateFile(".")
+	state := ledger.state
 	release := holdCaptureState(state)
 	defer release()
 	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)
@@ -258,7 +268,7 @@ func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPoin
 		rep.Blocking = blockingRemovals(sess.CapturedRemovals(), rep.Missing)
 		reports = append(reports, rep)
 	}
-	epRep, err := collectEntryPointDrift(readerCfg, b, entryPointTargets)
+	epRep, err := collectEntryPointDriftIn(readerCfg, b, entryPointTargets, state)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +305,7 @@ func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPoin
 	// The ledger does not record which target wrote a file, so leftovers
 	// get a report of their own.
 	if resolvedAll {
-		for _, rep := range leftoverReports(cfg, emitted) {
+		for _, rep := range leftoverReportsIn(cfg, emitted, ledger) {
 			if rep.hasDrift() {
 				reports = append(reports, rep)
 			}
@@ -321,10 +331,15 @@ const unledgeredReportTarget = "unledgered"
 // applies. Kept orphans are reported apart (recordedOrphans), and links
 // and directories never are.
 func leftoverReports(cfg *config.Config, emitted map[string]bool) []driftReport {
-	state := readStateFile(".")
+	return leftoverReportsIn(cfg, emitted, readLedger("."))
+}
+
+func leftoverReportsIn(cfg *config.Config, emitted map[string]bool, ledger ledgerSnapshot) []driftReport {
+	state := ledger.state
 	stranded := strandedOutput(cfg, emitted, state)
-	unledgered := unledgeredReport(cfg, emitted, state, stranded)
-	if ledgerMissing(".") {
+	missing := ledger.missing()
+	unledgered := unledgeredReport(cfg, emitted, state, missing, stranded)
+	if missing {
 		return []driftReport{unledgered}
 	}
 	rep := driftReport{Target: ledgerReport}
@@ -388,8 +403,12 @@ func captureAdapterFiles(sess *adapters.Session, adapter adapters.Adapter, b spe
 // sync would write. The body source is AGNOSTIC_AI.md when it exists;
 // otherwise the template body is used.
 func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string) (driftReport, error) {
+	return collectEntryPointDriftIn(cfg, b, targets, readStateFile("."))
+}
+
+func collectEntryPointDriftIn(cfg *config.Config, b spec.Bundle, targets []string, state syncStateFile) (driftReport, error) {
 	rep := driftReport{Target: "agnostic-ai"}
-	sums := readStateFile(".").OutputSums
+	sums := state.OutputSums
 
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
 	var body string
@@ -430,7 +449,7 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 		rep.Current = append(rep.Current, file)
 	}
 	generated := driftGeneratedPaths([]driftReport{rep})
-	rep.Orphaned = slices.DeleteFunc(recordedOrphans(cfg), func(path string) bool {
+	rep.Orphaned = slices.DeleteFunc(recordedOrphans(cfg, state.Orphans), func(path string) bool {
 		return slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) })
 	})
 	return rep, nil
@@ -440,9 +459,9 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 // syncStateFile.Orphans) that are still on disk and not user-owned. The
 // state file is the only record of them: once the source spec is gone,
 // no adapter render mentions the path again (#785).
-func recordedOrphans(cfg *config.Config) []string {
+func recordedOrphans(cfg *config.Config, orphans []string) []string {
 	var out []string
-	for _, p := range readStateFile(".").Orphans {
+	for _, p := range orphans {
 		if cfg.IsUnmanaged(p) {
 			continue
 		}

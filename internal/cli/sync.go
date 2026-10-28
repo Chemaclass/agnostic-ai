@@ -136,6 +136,19 @@ func newSyncCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// The state file lists every output, so one read serves the
+			// whole run. --against reads the trees it enters instead.
+			var read *ledgerSnapshot
+			if tree == nil {
+				l := readLedger(".")
+				read = &l
+			}
+			ledger := func() ledgerSnapshot {
+				if read != nil {
+					return *read
+				}
+				return readLedger(".")
+			}
 			// A config target may name an external adapter a teammate has
 			// not installed, so emit only warns about it. A name typed on
 			// the command line is a request, and a typo must not pass as
@@ -148,7 +161,7 @@ func newSyncCmd() *cobra.Command {
 				base = cfg.Targets
 			}
 			if !check && !plan && !dryRun && !allTargets && len(targets) == 0 && len(only) == 0 && len(except) == 0 {
-				if shouldPromptTargetSelection(".", cfg) {
+				if shouldPromptTargetSelectionFor(ledger(), cfg) {
 					pickerOut := cmd.OutOrStdout()
 					if jsonOut {
 						pickerOut = cmd.ErrOrStderr()
@@ -169,7 +182,7 @@ func newSyncCmd() *cobra.Command {
 			// A preview of a tool use has not imported yet would pass while
 			// the next write would replace its native config.
 			if tree == nil {
-				if err := stopOnPendingImports(".", cfg); err != nil {
+				if err := stopOnPendingImports(ledger().state, cfg); err != nil {
 					return err
 				}
 			}
@@ -179,10 +192,10 @@ func newSyncCmd() *cobra.Command {
 			}
 			if plan {
 				resetDrops()
-				if err := checkHandWrittenInstructions(effective, backup); err != nil {
+				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
 					return err
 				}
-				reports, err := collectDriftWithGitignore(effective, nil, gitignoreFlag)
+				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
 				if err != nil {
 					return err
 				}
@@ -194,7 +207,7 @@ func newSyncCmd() *cobra.Command {
 					driftErr = errDriftDetected()
 				}
 				if check {
-					notesErr = errors.Join(notesErr, ledgerCheckError("."))
+					notesErr = errors.Join(notesErr, ledger().checkError())
 				}
 				if jsonOut {
 					return errors.Join(printSyncPlanJSON(cmd, "sync --plan", reports, false, drops, notesErr), driftErr)
@@ -206,11 +219,11 @@ func newSyncCmd() *cobra.Command {
 				resetDrops()
 				// --against compares what Git holds, not these files.
 				if tree == nil {
-					if err := checkHandWrittenInstructions(effective, backup); err != nil {
+					if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
 						return err
 					}
 				}
-				reports, err := collectDriftWithGitignore(effective, nil, gitignoreFlag)
+				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
 				if err != nil {
 					return err
 				}
@@ -223,7 +236,7 @@ func newSyncCmd() *cobra.Command {
 				// --against compares what Git holds, and Git does not hold the
 				// ledger, so a hook gating a commit only hears about it.
 				if tree == nil {
-					notesErr = errors.Join(notesErr, ledgerCheckError("."))
+					notesErr = errors.Join(notesErr, ledger().checkError())
 				} else if err := unparsableLedger(tree.origin); err != nil {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! %v; run agnostic-ai sync to rebuild the ledger\n", err)
 				}
@@ -280,10 +293,10 @@ func newSyncCmd() *cobra.Command {
 			}
 			if jsonOut && dryRun {
 				resetDrops()
-				if err := checkHandWrittenInstructions(effective, backup); err != nil {
+				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
 					return err
 				}
-				reports, err := collectDriftWithGitignore(effective, nil, gitignoreFlag)
+				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
 				if err != nil {
 					return err
 				}
@@ -291,9 +304,9 @@ func newSyncCmd() *cobra.Command {
 				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true, drops, notesErr)
 			}
 			if jsonOut {
-				return runSyncJSON(cmd, ".", effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
+				return runSyncJSON(cmd, ".", ledger(), effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
 			}
-			return runSyncPass(".", effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
+			return runSyncPassWith(".", ledger(), effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
