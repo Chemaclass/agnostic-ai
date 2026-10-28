@@ -26,6 +26,7 @@ const (
 	// gitignoreBlockHint's "Not committed" note is wrong for them; this comment
 	// scopes that note to the ignored paths listed above it (#1335).
 	gitignoreBlockAllowNote = "# Committed although generated (gitignore.allow):"
+	backupSuffix            = ".bak"
 )
 
 // fixedManagedEntries are the always-ignored agnostic-ai paths that are
@@ -89,14 +90,15 @@ func stripLooseFixedDuplicates(text string) string {
 // does not enable the target never sees them. They also cover each file
 // that holds the repo store of personal memory once agnostic-ai.local.yaml
 // asks for it, listed from the shared config alone, so the block a team
-// commits is the same with and without that file (#1936).
+// commits is the same with and without that file (#1936). Each file hint
+// carries its backup, since sync writes some of them only in some setups.
 func gitignoreHintsForTargets(cfg *config.Config, targets []string) []string {
 	var out []string
 	for _, t := range targets {
 		out = append(out, adapters.GitignoreHintsFor(t, cfg)...)
 		out = append(out, adapters.RepoMemoryFiles(cfg, t)...)
 	}
-	return out
+	return withBackups(out, nil)
 }
 
 // normalizeAndSort converts a slice of filesystem paths to gitignore
@@ -363,14 +365,34 @@ func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, r
 	if err != nil {
 		return nil, fmt.Errorf("gitignore.commit: %w", err)
 	}
-	entries := append(slices.Clone(recorded), gitignoreHintsForTargets(cfg, blockTargets)...)
+	entries := append(withBackups(recorded, committed), gitignoreHintsForTargets(cfg, blockTargets)...)
 	scopes := specScopes(b, blockTargets)
 	block := buildManagedBlockCommitting(cfg, entries, scopes, committed)
 	if len(leftOut) > 0 && (ledgerMissing(root) || dropsListedEntries(root, cfg, block)) {
-		entries = append(entries, renderedOutputs(cfg, b, leftOut)...)
+		entries = append(entries, withBackups(renderedOutputs(cfg, b, leftOut), committed)...)
 		block = buildManagedBlockCommitting(cfg, entries, scopes, committed)
 	}
 	return block, nil
+}
+
+// withBackups adds the `<path>.bak` that `sync --backup` and
+// `doctor --fix --backup` keep beside each ignored output file, so a copy
+// of a private file is never committed. Listing it per output keeps the
+// block the same whether or not this checkout made a backup.
+func withBackups(outputs []string, committed map[string]struct{}) []string {
+	out := slices.Clone(outputs)
+	for _, p := range dropTrackedEntries(outputs) {
+		e := normalizeGitignorePath(p)
+		if strings.HasSuffix(e, "/") || strings.HasSuffix(e, backupSuffix) || holdsCommitted(committed, e) {
+			continue
+		}
+		// A linked output, such as a shared skill folder, is never backed up.
+		if info, err := os.Lstat(p); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		out = append(out, p+backupSuffix)
+	}
+	return out
 }
 
 // renderedOutputs returns the paths targets write, rendered in memory:
@@ -766,7 +788,8 @@ func renderWorktreeInclude(existing string, cfg *config.Config, block []string) 
 	var entries, exclusions []string
 	for _, e := range block {
 		// Each worktree starts with its own ledger and runtime files.
-		if e == "/.agnostic-ai/.sync-state" || e == "/.agnostic-ai/"+projectLockName || slices.Contains(excluded, e) {
+		// A backup belongs to the checkout that made it.
+		if e == "/.agnostic-ai/.sync-state" || e == "/.agnostic-ai/"+projectLockName || slices.Contains(excluded, e) || strings.HasSuffix(e, backupSuffix) {
 			continue
 		}
 		entries = append(entries, e)

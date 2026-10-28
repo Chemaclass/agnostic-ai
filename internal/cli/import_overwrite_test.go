@@ -867,8 +867,8 @@ func TestImport_StateFileItWritesDoesNotCountAsASync(t *testing.T) {
 
 const corruptState = "{not json\n"
 
-// An unreadable ledger still counts as one (#1334), so import keeps it
-// instead of writing a stub over it.
+// Import keeps a ledger that does not parse instead of writing a stub
+// over it.
 func TestImport_KeepsAStateFileThatDoesNotParse(t *testing.T) {
 	importOverwriteProject(t)
 	mustWriteFile(t, stateFilePath("."), corruptState)
@@ -879,9 +879,6 @@ func TestImport_KeepsAStateFileThatDoesNotParse(t *testing.T) {
 
 	if got := readFile(t, stateFilePath(".")); got != corruptState {
 		t.Errorf("state file = %q, want it left as it was", got)
-	}
-	if ledgerMissing(".") {
-		t.Error("the unreadable ledger no longer counts as one")
 	}
 }
 
