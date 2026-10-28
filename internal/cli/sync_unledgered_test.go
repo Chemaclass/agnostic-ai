@@ -277,7 +277,7 @@ func TestKeepUnledgered_PartialRunCarriesRecordForward(t *testing.T) {
 	prev := syncStateFile{Unledgered: []string{unledgeredToolFile, unledgeredScopedDoc}}
 	var ledger syncLedger
 
-	rep := keepUnledgered(&config.Config{Targets: []string{"codex"}}, prev, &ledger, map[string]string{unledgeredScopedDoc: ""}, false)
+	rep := keepUnledgered(&config.Config{Targets: []string{"codex"}}, prev, ledgerMissing("."), &ledger, map[string]string{unledgeredScopedDoc: ""}, false)
 
 	if rep.hasDrift() || !slices.Equal(ledger.unledgered, []string{unledgeredToolFile}) {
 		t.Errorf("got report %+v and record %v, want record [%s]", rep, ledger.unledgered, unledgeredToolFile)

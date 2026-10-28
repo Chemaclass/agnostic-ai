@@ -23,7 +23,7 @@ const (
 
 // personalSplitBlock is splitManagedBlock with the team's built-ins read
 // from the shared config when agnostic-ai.local.yaml exists.
-func personalSplitBlock(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string) (block, personal []string, err error) {
+func personalSplitBlock(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string, noLedger bool) (block, personal []string, err error) {
 	team := cfg.Builtins
 	if fileExists(filepath.Join(root, config.LocalOverrideFileName)) {
 		if team, err = config.TeamBuiltins(root); err != nil {
@@ -34,7 +34,7 @@ func personalSplitBlock(root string, cfg *config.Config, b spec.Bundle, targets,
 	if err != nil {
 		return nil, nil, err
 	}
-	return splitManagedBlock(root, cfg, b, team, prev, targets, recorded)
+	return splitManagedBlock(root, cfg, b, team, prev, targets, recorded, noLedger)
 }
 
 // previousPersonal returns the outputs the project's block in
@@ -62,10 +62,10 @@ func previousPersonal(root string) ([]string, error) {
 // A recorded path the last sync excluded as personal (prev) stays
 // personal while the team does not write it, as an edited output
 // --keep-edits leaves behind does.
-func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, prev, targets, recorded []string) (block, personal []string, err error) {
+func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, prev, targets, recorded []string, noLedger bool) (block, personal []string, err error) {
 	same := sameBuiltins(team, cfg.Builtins)
 	if same && len(prev) == 0 {
-		block, err := syncManagedBlock(root, cfg, b, targets, recorded)
+		block, err := syncManagedBlock(root, cfg, b, targets, recorded, noLedger)
 		return block, nil, err
 	}
 	teamCfg, teamBundle := cfg, b
@@ -109,7 +109,7 @@ func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, pre
 			entries = append(entries, e)
 		}
 	}
-	block, err = syncManagedBlock(root, teamCfg, teamBundle, targets, entries)
+	block, err = syncManagedBlock(root, teamCfg, teamBundle, targets, entries, noLedger)
 	if err != nil {
 		return nil, nil, err
 	}
