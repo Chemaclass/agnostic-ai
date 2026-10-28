@@ -36,7 +36,11 @@ func standalonePlatformError(goos string) error {
 	return nil
 }
 
-func installReleaseBinary(path, version, baseURL string, client *http.Client) error {
+func installReleaseBinary(out io.Writer, path, version, baseURL string, client *http.Client) error {
+	return installVerifiedRelease(out, path, version, baseURL, client, ghProvenance)
+}
+
+func installVerifiedRelease(out io.Writer, path, version, baseURL string, client *http.Client, verify provenanceCheck) error {
 	if err := standalonePlatformError(runtime.GOOS); err != nil {
 		return err
 	}
@@ -67,6 +71,9 @@ func installReleaseBinary(path, version, baseURL string, client *http.Client) er
 	got := sha256.Sum256(archive)
 	if got != want {
 		return fmt.Errorf("%s: checksum mismatch", asset)
+	}
+	if err := checkReleaseProvenance(out, archive, asset, version, verify); err != nil {
+		return err
 	}
 
 	staged, err := os.CreateTemp(filepath.Dir(path), ".agnostic-ai-update-*")

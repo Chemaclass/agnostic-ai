@@ -554,6 +554,11 @@
 # #2631 measured 23859360 on Go 1.27.3: collapsed lifecycle summaries,
 # controls, and recheck ownership add one page to the embedded UI.
 # Linux amd64 release flags; no added headroom or dependencies.
-# #2662 measured 23863456 on Go 1.27.3 on top of main: commands that take no arguments reject them, and graph checks --kind and --target.
+# #2679 measured 23863456 on Go 1.27.3: doctor --json runs the glob,
+# nested CLAUDE.md, and hook script checks and lists their findings.
 # Linux amd64 release flags; no added headroom or dependencies.
-23863456
+# #2655 measured 23875744 on Go 1.27.3 on top of main after #2679: upgrade verifies the build provenance of the release it installs with gh.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2662 measured 23879840 on Go 1.27.3 on top of main after #2686: commands that take no arguments reject them, and graph checks --kind and --target.
+# Linux amd64 release flags; no added headroom or dependencies.
+23879840
