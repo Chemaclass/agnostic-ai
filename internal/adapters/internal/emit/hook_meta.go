@@ -9,10 +9,6 @@ import "fmt"
 // and a hand-edited file may quote it. These readers normalize that
 // instead of each adapter type-asserting one shape and dropping the
 // others.
-//
-// claude and codex still carry private copies predating this file. New
-// hook emitters use these; consolidating those two is a separate change,
-// since it touches their emit paths for no behavior difference.
 
 // HookCommands reads a hook's `command` meta key, which is either one
 // command string or a list of them. Empty strings are skipped, so a

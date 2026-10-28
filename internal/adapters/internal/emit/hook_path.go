@@ -59,10 +59,6 @@ func HookScriptsDir(target string) string {
 	}
 }
 
-func HasNeutralHookPath(command string) bool {
-	return len(neutralHookReferences(command, false)) > 0
-}
-
 func RewriteNeutralHookPath(command, dir string, literal ...bool) string {
 	return rewriteHookPathPrefix(command, agnosticScriptsDir+"/", dir, false, literal...)
 }
