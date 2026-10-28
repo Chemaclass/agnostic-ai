@@ -4,8 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -30,47 +32,61 @@ func reportDivergentHookScripts(cmd *cobra.Command, root string) (bool, error) {
 	cmd.Println()
 	cmd.Println("Hook script divergence:")
 
-	scriptsRoot := filepath.Join(root, agnosticScriptsDir)
-	variants, err := collectHookScriptVariants(scriptsRoot)
+	divergent, captured, err := collectDivergentHookScripts(root)
 	if err != nil {
 		return false, err
 	}
-	if len(variants) == 0 {
+	if !captured {
 		cmd.Println("  (no per-tool hook scripts captured)")
 		return false, nil
 	}
-
-	diverged := false
-	basenames := make([]string, 0, len(variants))
-	for b := range variants {
-		basenames = append(basenames, b)
-	}
-	sort.Strings(basenames)
-	for _, basename := range basenames {
-		vs := variants[basename]
-		if len(vs) < 2 || allSameHash(vs) {
-			continue
-		}
-		diverged = true
-		tools := make([]string, len(vs))
-		for i, v := range vs {
-			tools[i] = v.tool
-		}
+	for _, d := range divergent {
 		cmd.Printf("  ✗ divergent hook script: scripts/{%s}/%s\n",
-			joinSorted(tools), basename)
-		for _, v := range vs {
+			strings.Join(d.Tools, ","), d.Script)
+		for _, v := range d.variants {
 			cmd.Printf("      %-7s variant: %d bytes  sha256: %s\n",
 				v.tool, v.size, v.sha[:12])
 		}
 		cmd.Println("      consolidate by moving the agreed body to")
 		cmd.Printf("      %s/%s and deleting the per-tool copies,\n",
-			agnosticScriptsDir, basename)
+			agnosticScriptsDir, d.Script)
 		cmd.Println("      or document the intentional divergence in a sibling note.")
 	}
-	if !diverged {
+	if len(divergent) == 0 {
 		cmd.Println("  ✓ no divergent hook scripts")
 	}
-	return diverged, nil
+	return len(divergent) > 0, nil
+}
+
+// divergentHookScript is a script basename whose body differs across the
+// tools, sorted by name, that captured it.
+type divergentHookScript struct {
+	Script   string   `json:"script"`
+	Tools    []string `json:"tools"`
+	variants []hookScriptVariant
+}
+
+// collectDivergentHookScripts lists, by basename, the hook scripts under
+// root whose bodies differ across tools. captured reports whether any
+// per-tool script exists at all.
+func collectDivergentHookScripts(root string) (divergent []divergentHookScript, captured bool, err error) {
+	variants, err := collectHookScriptVariants(filepath.Join(root, agnosticScriptsDir))
+	if err != nil {
+		return nil, false, err
+	}
+	divergent = []divergentHookScript{}
+	for _, basename := range slices.Sorted(maps.Keys(variants)) {
+		vs := variants[basename]
+		if len(vs) < 2 || allSameHash(vs) {
+			continue
+		}
+		tools := make([]string, len(vs))
+		for i, v := range vs {
+			tools[i] = v.tool
+		}
+		divergent = append(divergent, divergentHookScript{Script: basename, Tools: tools, variants: vs})
+	}
+	return divergent, len(variants) > 0, nil
 }
 
 // collectHookScriptVariants returns basename → variants list for every
@@ -131,12 +147,4 @@ func allSameHash(vs []hookScriptVariant) bool {
 		}
 	}
 	return true
-}
-
-// joinSorted returns the tool names comma-joined in alphabetical order,
-// used inside the `scripts/{<tools>}/<basename>` finding line.
-func joinSorted(tools []string) string {
-	cp := append([]string(nil), tools...)
-	sort.Strings(cp)
-	return strings.Join(cp, ",")
 }
