@@ -565,6 +565,22 @@ test.describe('overview', () => {
     if (MOCK) await expect(servers.first().locator('.tool-state')).toContainText('agnostic-ai mcp tools')
   })
 
+  test("lists MCP servers found only in a tool's own config, with the import hint", async ({ page }) => {
+    test.skip(!MOCK, 'the mock fixture holds a native server')
+    await openApp(page, '?view=tools')
+    const block = page.getByRole('region', { name: /Found in a tool's own config/ })
+    const row = block.locator('.item-row', { hasText: 'notion' })
+    await expect(row).toContainText('Claude Code only')
+    await expect(row).toContainText('~/.claude.json')
+    await expect(row).toContainText('http')
+    await expect(row.locator('.tool-state')).toContainText('Run agnostic-ai import --global claude to make it a spec.')
+    await page.getByRole('searchbox').fill('notion')
+    await expect(block.locator('.kind-count')).toHaveText('1 of 1 match')
+    await page.getByRole('searchbox').fill('github')
+    await expect(block.locator('.kind-count')).toHaveText('0 of 1 match')
+    await expect(block).toContainText('No matches.')
+  })
+
   test('keeps the header and navigation in place while the content scrolls', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 500 })
     if (MOCK) await page.route('**/assets/overview.mock-*.js', async (route) => {
