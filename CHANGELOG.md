@@ -46,6 +46,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
+- **Security:** `import claude` and `init --from claude` leave out each `env` value, helper command such as `apiKeyHelper`, `statusLine` command, and permission rule in `.claude/settings.json` that holds a credential, and any literal header variable such as `OTEL_EXPORTER_OTLP_HEADERS`, and print a warning naming the key or list. Before, they copied the token into `.agnostic-ai/`. The next sync removes the value from `.claude/settings.json`; set it under `x-claude` in a settings spec in `.agnostic-ai/local/settings` to keep it (#2649).
 - `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
 - Sync notes `x-claude` settings keys that Claude Code ignores in project settings, such as `autoMode` and `deniedModels`, and says to set them in user or managed settings, as each key allows. `sync --global` notes the keys Claude Code reads from managed settings only (#2583).
 - A `dev-commands` entry with a `url` and no `command` writes `{name, url}` to `.claude/launch.json`, so the preview attaches to a server you already run; import reads it back as a spec. With Codex enabled, lint reports the entry (LINT016) and sync notes that Codex skips it (#2579).
