@@ -49,7 +49,7 @@ It suggests removal only when local Git ancestry proves the branch merged into t
 
 ## revert
 
-Undo a `sync --backup`: for every generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restore `<path>.bak` and remove it. It also restores a nested `CLAUDE.md` that sync deleted. Paths under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are never touched.
+Undo a `sync --backup`: for every generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restore `<path>.bak` and remove it. It also restores a nested `CLAUDE.md` that sync deleted. An unfiltered `revert` restores intact recorded backups of removed outputs, including those from dropped targets. Paths under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are never touched.
 
 | Flag | Description |
 |------|-------------|
@@ -75,7 +75,8 @@ Add, update, and remove collections of shared specs. See the [packs](@/docs/pack
 agnostic-ai packs add github.com/obra/superpowers@v6.4.2
 agnostic-ai packs add ./path/to/pack
 agnostic-ai packs list
-agnostic-ai packs update [name]
+agnostic-ai packs update [name]            # at the commit in agnostic.packs.lock
+agnostic-ai packs update --latest [name]   # move to the newest commit of the ref
 agnostic-ai packs remove superpowers
 ```
 
