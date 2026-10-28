@@ -10,6 +10,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/filealias"
 )
 
 // recordLedgerWrites appends every create/update/skip path from writes
@@ -211,6 +212,7 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 		return nil, nil, nil
 	}
 	currentSet := make(map[string]struct{}, len(current))
+	var aliases filealias.Cache
 	for _, p := range current {
 		currentSet[p] = struct{}{}
 	}
@@ -224,6 +226,15 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 		// delete it through the link) or dangle forever when the target
 		// is already gone.
 		fi, err := os.Lstat(p)
+		if err == nil {
+			same, matchErr := aliases.Match(p, fi, current)
+			if matchErr != nil {
+				return removed, kept, matchErr
+			}
+			if same != "" {
+				continue
+			}
+		}
 		// A ledgered link that is now a real directory (shared-skills
 		// turned off, or the folder holds a user-owned file) is not an
 		// orphan: its files carry their own ledger entries.
