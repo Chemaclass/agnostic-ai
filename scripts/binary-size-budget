@@ -554,4 +554,8 @@
 # #2631 measured 23859360 on Go 1.27.3: collapsed lifecycle summaries,
 # controls, and recheck ownership add one page to the embedded UI.
 # Linux amd64 release flags; no added headroom or dependencies.
-23859360
+# #2647 measured 23863456 on Go 1.27.3 on top of main: import --global
+# names a check that passes, and check notes an ownership record it does
+# not count as drift.
+# Linux amd64 release flags; no added headroom or dependencies.
+23863456
