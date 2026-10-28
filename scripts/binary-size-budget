@@ -590,4 +590,11 @@
 # (checkProjectPath +75, removeOwned +71, escapesProjectRoot -136) and crosses a page
 # boundary: 24088736 to 24092832 with Go 1.27.3 and Linux amd64 release flags. Main sat
 # at 0 bytes under its budget, so any growth needed a raise. No new dependency.
-24092832
+#
+# One literal value rule for credential settings (#2732) adds 3149 bytes of symbols to
+# main 348ddd46 and crosses a page boundary: 24092832 to 24096928 with Go 1.27.3 and
+# Linux amd64 release flags. The shared rule removes three per-tool helpers (-464) but
+# adds the path, file name, and base64 shape checks that keep harmless values
+# (settingPathShaped +703, withoutReferenceSettings +572, literalSettingValue +390,
+# settingNamesNoSecret +302, settingBase64Like +203). No new dependency.
+24096928

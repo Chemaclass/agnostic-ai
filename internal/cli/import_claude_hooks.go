@@ -14,7 +14,6 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
-	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
@@ -126,7 +125,7 @@ func claudeHookCredentialField(h claudehooks.CommandEntry) string {
 		return "prompt"
 	}
 	for _, key := range slices.Sorted(maps.Keys(h.Headers)) {
-		if claudeHookCredentialValue(key, h.Headers[key]) {
+		if credentialSettingValue(key, h.Headers[key]) {
 			return "headers." + key
 		}
 	}
@@ -136,11 +135,6 @@ func claudeHookCredentialField(h claudehooks.CommandEntry) string {
 	return ""
 }
 
-func claudeHookCredentialValue(key, value string) bool {
-	stripped, defaulted := spec.StripEnvRefDefaults(value)
-	return value != "" && (len(defaulted) > 0 || !mcpRefOnly(stripped)) && mcpCredentialSetting(key, value)
-}
-
 // claudeHookInputCredential returns the dotted key of the first string in
 // an `mcp_tool` input that holds a credential.
 func claudeHookInputCredential(input map[string]any, prefix string) string {
@@ -148,7 +142,7 @@ func claudeHookInputCredential(input map[string]any, prefix string) string {
 		path := prefix + key
 		switch value := input[key].(type) {
 		case string:
-			if claudeHookCredentialValue(key, value) || claudeWebhookURL(value) {
+			if credentialSettingValue(key, value) || claudeWebhookURL(value) {
 				return path
 			}
 		case map[string]any:

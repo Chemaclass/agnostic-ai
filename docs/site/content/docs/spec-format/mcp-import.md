@@ -46,6 +46,17 @@ It reads each tool's own reference form in `env`, `headers`, `url`, and `args` b
 
 `import --global` cannot change a server, so it leaves out each server with a literal credential: any credential above, or an `env` or header value with a [credential name](#credential-names) or that looks like a credential. It names the server and field, never the value. A plain setting such as `NODE_ENV: production`, a path, a number, or `Bearer ${TOKEN}` imports as written, marked [`!literal`](@/docs/spec-format/mcps.md#plain-settings). A value under a credential name that does not look like a credential stays unmarked, so `lint` asks about it. Add a left-out server by hand under `local/mcps`, or with a `${NAME}` reference.
 
+## Setting values
+
+Imports of other settings use one rule for each value: Claude Code `env` values, hook headers, and `mcp_tool` inputs, Codex overlay values, and Grok hook and agent metadata. A value holds a credential when it has literal text and either the text looks like a credential by the rules above, or its key has a [credential name](#credential-names) and the value is not a boolean (`true`, `false`, `yes`, `no`, `on`, `off`, `0`, `1`), a path, or a file name.
+
+- Literal text is anything other than `${NAME}` and `$NAME` references, with an optional `Bearer`, `Basic`, or `Token` before them. Under a key that ends in `authorization`, such as `Proxy-Authorization`, any one word may come first, as in `SSWS ${OKTA_TOKEN}`. A `${NAME:-default}` with a default and an escaped `$${NAME}` count as literal.
+- A path starts with `~/`, `./`, `../`, a drive such as `C:\`, or `/` with at least two segments, such as `/etc/x`. A value that reads as base64 with slashes, such as `/9j/4AAQSkZJRg...`, is not a path: a segment of 16 or more letters and digits with a digit, or 24 or more in both letter cases, or 20 or more letters and digits in all, in both letter cases, with no `.`, `-`, `_`, or `~`. A file name has no path and ends in an extension listed above. Neither may hold a token.
+
+So `API_TOKEN: 12345678`, `API_TOKEN: hunter $X`, `API_TOKEN: ${API_TOKEN:-x}`, `PASSWORD: ~hunter2`, and `Authorization: Bearer abc` hold one. `API_TOKEN: ${API_TOKEN}`, `API_TOKEN: $A $B`, `Authorization: ApiKey ${ES_KEY}`, `CLAUDE_CODE_SKIP_BEDROCK_AUTH: 1`, `GOOGLE_APPLICATION_CREDENTIALS: /path/sa.json`, and `CLIENT_KEY: client.key` do not.
+
+Claude Code import leaves out such an `env` value with a warning, and the whole matcher group of a hook with such a header or input. It also leaves out any literal value of its fixed token variables, such as `ANTHROPIC_API_KEY`, and header variables, such as `OTEL_EXPORTER_OTLP_HEADERS` (see [overlays](@/docs/spec-format/overlays.md)). Codex import leaves out such a value with a warning; keys that start with `env_` and prose keys such as `instructions` use their own checks, as the [Codex reference](@/docs/targets/codex-reference.md) says. Grok import stops before writing.
+
 ## Credential names
 
 A name is a credential name when its last word is `token`, `secret`, `password`, `passwd`, `pwd`, `pass`, `accesstoken`, `authtoken`, `credential`, `credentials`, `cookie`, `bearer`, `apikey`, `authentication`, or `authorization`. Words split at punctuation and camelCase, so `clientSecret` and `API_TOKEN` count and `token_type` does not. A one-word name ending in `password`, `passwd`, `secret`, or `token` counts too, as `PGPASSWORD` and `MYTOKEN` do.
