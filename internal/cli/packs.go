@@ -677,6 +677,11 @@ func readPacksLock(root string) (*packsLock, error) {
 	if lock.Version == 0 {
 		lock.Version = 1
 	}
+	for _, p := range lock.Packs {
+		if err := validatePackName(p.Name); err != nil {
+			return nil, fmt.Errorf("%s: %w", packsLockfile, err)
+		}
+	}
 	return &lock, nil
 }
 
