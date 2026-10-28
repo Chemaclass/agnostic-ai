@@ -10,6 +10,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
+- `import --global claude` prints `sync --global --target claude --check`, which passes, and says a full sync writes the imported MCP servers to your other tools (#2647).
+- `sync --global --check` passes when every tool file matches and only the ownership record is missing or out of date, and notes the record instead (#2647).
 
 #### Web interface
 
