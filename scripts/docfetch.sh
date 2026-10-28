@@ -770,11 +770,11 @@ run_name_safe() {
 # run_cited <runs root> <run dir> succeeds when the run's name appears as a
 # whole token in an audit table beside the lock or in any Markdown file under
 # the runs root outside that run: a path into it, a relative link, or a bare
-# "Run: <name>" line all count.
+# "Run: <name>" line all count, also before a sentence's closing period.
 run_cited() {
   local name re f hit
   name=$(basename "$2")
-  re="(^|[^A-Za-z0-9._-])$(printf '%s' "$name" | sed 's/\./\\./g')([^A-Za-z0-9._-]|$)"
+  re="(^|[^A-Za-z0-9._-])$(printf '%s' "$name" | sed 's/\./\\./g')\.?([^A-Za-z0-9._-]|$)"
   for f in "$(dirname "$LOCK")"/*.tsv; do
     [ ! -f "$f" ] || ! grep -Eqs -- "$re" "$f" || return 0
   done

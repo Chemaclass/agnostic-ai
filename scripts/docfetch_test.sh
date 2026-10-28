@@ -1279,6 +1279,13 @@ function test_pages_prune_keeps_a_run_a_report_names_without_a_path() {
   assert_directory_not_exists "$DOCFETCH_RUNS/2026-01-01-run.b/pages"
 }
 
+function test_pages_prune_keeps_a_run_named_at_the_end_of_a_sentence() {
+  old_run 2026-01-01-run
+  printf 'Diffed against local/target-audit/2026-01-01-run.\n' >"$DOCFETCH_RUNS/2026-01-02.md"
+  pages_prune "$DOCFETCH_RUNS/2026-10-28-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01-run/pages"
+}
+
 function test_pages_prune_keeps_a_run_with_a_recent_write() {
   old_run 2026-01-01-run
   printf 'late report\n' >"$DOCFETCH_RUNS/2026-01-01-run/late.txt"
