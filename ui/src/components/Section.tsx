@@ -73,7 +73,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const search = app.state.q ?? ''
   const setSearch = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
   const entry = app.state.entry
-  const rechecked = useRechecks().rechecked
+  const { rechecked, pendingPlace } = useRechecks()
   const sectionPlace = `section:${section.id}`
   const remainingHere = rechecked?.result.state === 'remaining' && sectionEntryIds(section).has(rechecked.result.id ?? rechecked.id)
   const orphan = rechecked?.section === section.id && rechecked.place !== sectionPlace && !remainingHere && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
@@ -84,7 +84,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const matchingItems = new Set(section.items.filter((item) => matches(itemSearchText(item))))
   const fieldMatches = section.fields?.filter((field) => matches(fieldSearchText(field)))
   const matchingFields = section.fields?.filter((field) => fieldMatches?.includes(field) || fieldEntryId(field) === entry)
-  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === rechecked?.place)
+  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === pendingPlace || itemEntryId(item) === rechecked?.place)
   const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
   useEffect(() => {
     if (!entry) return
@@ -428,6 +428,7 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
 function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean; matchingHooks: Set<SectionItem> }) {
   const root = useRef<HTMLElement>(null)
   const entry = useApp().state.entry
+  const recheck = useRechecks()
   const setExpanded = (open: boolean) => {
     root.current?.querySelectorAll<HTMLDetailsElement>('details.stage').forEach((stage) => { stage.open = open })
   }
@@ -446,9 +447,10 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
           const matching = filtering ? here.filter((hook) => matchingHooks.has(hook)) : here
           const disabled = matching.filter(hookDisabled).length
           const linked = entry !== undefined && here.some((hook) => itemEntryId(hook) === entry || findingEntryIds(hook.findings, itemEntryId(hook)).includes(entry))
+          const rechecking = here.some((hook) => itemEntryId(hook) === (recheck.pendingPlace ?? recheck.rechecked?.place))
           return (
             <li key={st.id} className={`stage-step${here.length ? ' has-hooks' : ''}`}>
-              <details className="stage" open={linked || (filtering && matching.length > 0)}>
+              <details className="stage" open={linked || rechecking || (filtering && matching.length > 0)}>
                 <summary className="stage-head">
                   <h3 className="stage-summary">
                     <span className="stage-label">

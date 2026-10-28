@@ -408,6 +408,75 @@ test.describe('overview', () => {
     }
   })
 
+  test('keeps a linked hook stage open and focuses resolved recheck feedback until dismissed', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
+    const hook = lifecycle.items[0]
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
+    let finishRefresh: (() => void) | undefined
+    let refreshing = false
+    await page.route('**/api/views/overview', async (route) => {
+      if (refreshing) await new Promise<void>((resolve) => { finishRefresh = resolve })
+      return route.fulfill({ json: data })
+    })
+    const id = findingEntryIds(hook.findings, itemEntryId(hook))[0]
+    await page.goto(`/?view=lifecycle&q=no-such-hook&entry=${encodeURIComponent(id)}`)
+    const stage = page.locator('.stage').first()
+    const finding = stage.locator('.finding')
+    await expect(finding).toBeFocused()
+    refreshing = true
+    await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+    await expect(finding.getByRole('button', { name: 'Rechecking…', exact: true })).toBeFocused()
+    await expect(stage).toHaveAttribute('open', '')
+    hook.findings = []
+    await expect.poll(() => Boolean(finishRefresh)).toBe(true)
+    finishRefresh!()
+    const feedback = stage.locator('.finding-rechecked')
+    await expect(feedback).toBeVisible()
+    await expect(feedback).toBeFocused()
+    await expect(feedback).toContainText('This lint finding no longer appears.')
+    await expect(page.getByRole('searchbox', { name: 'Search lifecycle' })).toHaveValue('no-such-hook')
+    await expect(stage).toHaveAttribute('open', '')
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(stage).not.toHaveAttribute('open')
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(feedback).toBeVisible()
+    await feedback.getByRole('button', { name: 'Dismiss', exact: true }).click()
+    await expect(feedback).toHaveCount(0)
+    await expect(stage).not.toHaveAttribute('open')
+    await expect(page.getByRole('heading', { name: 'Hooks 2', exact: true })).toBeFocused()
+  })
+
+  test('keeps a linked hook stage open and focuses last known feedback when lint is incomplete', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
+    const hook = lifecycle.items[0]
+    hook.findings = [{ source: 'lint', code: 'LINT001', severity: 'warning', message: 'Check the session hook.', path: hook.path }]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    const id = findingEntryIds(hook.findings, itemEntryId(hook))[0]
+    await page.goto(`/?view=lifecycle&entry=${encodeURIComponent(id)}`)
+    const stage = page.locator('.stage').first()
+    const finding = stage.locator('.finding')
+    await expect(finding).toBeFocused()
+    hook.findings = []
+    lifecycle.findings.push({ source: 'lint', code: 'lint-incomplete', severity: 'warning', message: 'Lint stopped.' })
+    await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+    const feedback = stage.locator('.finding-recheck-result')
+    await expect(feedback).toBeVisible()
+    await expect(feedback).toBeFocused()
+    await expect(feedback).toContainText('Lint stopped before it finished')
+    await expect(stage).toHaveAttribute('open', '')
+    const search = page.getByRole('searchbox', { name: 'Search lifecycle' })
+    await search.fill('no-such-hook')
+    await expect(search).toBeFocused()
+    await expect(feedback).toBeVisible()
+    await expect(stage.locator('.stage-count')).toHaveText('No matching hooks')
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(stage).not.toHaveAttribute('open')
+    await page.getByRole('button', { name: 'Expand all', exact: true }).click()
+    await expect(feedback).toBeVisible()
+  })
+
   test('shows hook commands and types before metadata and labels disabled hooks', async ({ page }) => {
     const data = structuredClone(fixture)
     const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
