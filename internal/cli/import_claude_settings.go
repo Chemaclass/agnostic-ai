@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -84,6 +85,9 @@ func importClaudeSettingsOverlay(root, settingsDir string) (claudeSettingsImport
 	if err := excludeClaudeHookTargetEnv(doc); err != nil {
 		return out, err
 	}
+	if err := excludeClaudeCredentials(doc); err != nil {
+		return out, err
+	}
 	if rawHooks, ok := doc.Get("hooks"); ok {
 		if err := captureClaudeHookOrder(root, doc.Keys(), rawHooks); err != nil {
 			return out, err
@@ -143,9 +147,14 @@ func moveClaudePermissions(root string, doc *adapters.OrderedJSON, settingsDir s
 			return false, fmt.Errorf("parse Claude settings permissions.%s: %w", list, err)
 		}
 		for _, rule := range rules {
-			if rule != "" && !owned[list][rule] {
-				lists[list] = appendUnique(lists[list], rule)
+			if rule == "" || owned[list][rule] {
+				continue
 			}
+			if globalPermissionCredentialDetected(rule) {
+				keptf("warning: claude: left out a permissions.%s rule in %s: it holds a credential or cannot be checked safely; add it under local/settings by hand\n", list, claudeSettingsRelPath())
+				continue
+			}
+			lists[list] = appendUnique(lists[list], rule)
 		}
 		perms.Delete(list)
 	}
@@ -293,6 +302,79 @@ func excludeClaudeHookTargetEnv(doc *adapters.OrderedJSON) error {
 	}
 	return nil
 }
+
+// claudeCredentialHelpers are the settings keys that hold a command
+// Claude runs for a credential.
+var claudeCredentialHelpers = []string{"apiKeyHelper", "awsAuthRefresh", "awsCredentialExport", "otelHeadersHelper"}
+
+// claudeSecretEnv names the env variables Claude Code reads a credential
+// from, whose value is a secret whatever its shape, such as a Bedrock key
+// or an `x-honeycomb-team=...` header the detectors cannot tell apart from
+// a setting.
+var claudeSecretEnv = regexp.MustCompile(`^(?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_CUSTOM_HEADERS|CLAUDE_CODE_OAUTH_TOKEN|AWS_BEARER_TOKEN_BEDROCK|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|OTEL_EXPORTER_OTLP(?:_[A-Z]+)?_HEADERS)$`)
+
+// excludeClaudeCredentials removes each `env` value, helper command, and
+// status line command that holds a literal credential, by the rules the
+// MCP and global permission imports use, since the overlay is committed
+// (#2649). The warning names the key, never the value.
+func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
+	for _, key := range claudeCredentialHelpers {
+		raw, ok := doc.Get(key)
+		var command string
+		if !ok || json.Unmarshal(raw, &command) != nil || !globalPermissionCommandCredentialDetected(command, 0) {
+			continue
+		}
+		doc.Delete(key)
+		warnClaudeCredentialLeftOut(key)
+	}
+	if raw, ok := doc.Get("statusLine"); ok {
+		var line struct {
+			Command string `json:"command"`
+		}
+		if json.Unmarshal(raw, &line) == nil && globalPermissionCommandCredentialDetected(line.Command, 0) {
+			doc.Delete("statusLine")
+			warnClaudeCredentialLeftOut("statusLine")
+		}
+	}
+	raw, ok := doc.Get("env")
+	if !ok {
+		return nil
+	}
+	env := adapters.NewOrderedJSON()
+	if json.Unmarshal(raw, env) != nil {
+		return nil
+	}
+	removed := false
+	for _, key := range env.Keys() {
+		var value string
+		rawValue, _ := env.Get(key)
+		if json.Unmarshal(rawValue, &value) != nil || value == "" || mcpRefOnly(value) {
+			continue
+		}
+		if !claudeSecretEnv.MatchString(key) && !mcpCredentialSetting(key, value) {
+			continue
+		}
+		env.Delete(key)
+		removed = true
+		warnClaudeCredentialLeftOut("env " + key)
+	}
+	switch {
+	case !removed:
+	case env.Len() == 0:
+		doc.Delete("env")
+	default:
+		if err := doc.Set("env", env); err != nil {
+			return fmt.Errorf("marshal Claude settings env: %w", err)
+		}
+	}
+	return nil
+}
+
+func warnClaudeCredentialLeftOut(key string) {
+	keptf("warning: claude: left out %s in %s: it holds a credential, and the next sync removes it from that file; to keep it, set it under x-claude in a settings spec in .agnostic-ai/local/settings\n", key, claudeSettingsRelPath())
+}
+
+func claudeSettingsRelPath() string { return filepath.Join(claudeDir, "settings.json") }
 
 // claudeOverlayRelPath returns the overlay path relative to the project
 // root, suitable for printing in import summary lines.

@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -123,5 +125,132 @@ func TestImportClaudeSettingsOverlay_KeepsRulesASpecForAnotherTargetAlsoLists(t 
 	spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))
 	if !strings.Contains(spec, "shell(rm:*)") || !strings.Contains(spec, "WebFetch") {
 		t.Errorf("spec dropped a rule only a spec for another target lists:\n%s", spec)
+	}
+}
+
+func captureImportLog(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var out bytes.Buffer
+	prev := logOut
+	logOut = &out
+	t.Cleanup(func() { logOut = prev })
+	return &out
+}
+
+func assertNoSpecHolds(t *testing.T, root string, secrets ...string) {
+	t.Helper()
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || strings.Contains(path, string(filepath.Separator)+claudeDir+string(filepath.Separator)) {
+			return err
+		}
+		data := readFileString(t, path)
+		for _, secret := range secrets {
+			if strings.Contains(data, secret) {
+				t.Errorf("%s holds %q:\n%s", path, secret, data)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+}
+
+// The overlay is a committed spec file, so an env credential stays out
+// of it, like an MCP server's (#2649).
+func TestImportClaudeSettingsOverlay_LeavesOutEnvCredentials(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"), `{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-ant-api03-abcdefghijklmnop",
+    "OTEL_EXPORTER_OTLP_HEADERS": "x-honeycomb-team=hcaik01jabcdefghijk",
+    "AWS_BEARER_TOKEN_BEDROCK": "ABSKQmVkcm9ja0FQSUtleS1hYmNk",
+    "PROXY_URL": "https://user:pw123456@proxy.example.com",
+    "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+    "DISABLE_TELEMETRY": "1"
+  }
+}`)
+	log := captureImportLog(t)
+
+	if _, err := importClaudeSettingsOverlay(root, filepath.Join(root, "settings")); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	assertNoSpecHolds(t, root, "sk-ant-api03-abcdefghijklmnop", "hcaik01jabcdefghijk", "ABSKQmVkcm9ja0FQSUtleS1hYmNk", "pw123456")
+	overlay := readFileString(t, claudeOverlayPath(root))
+	for _, kept := range []string{`"DISABLE_TELEMETRY": "1"`, `"ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"`} {
+		if !strings.Contains(overlay, kept) {
+			t.Errorf("overlay lost %s:\n%s", kept, overlay)
+		}
+	}
+	for _, key := range []string{"ANTHROPIC_AUTH_TOKEN", "OTEL_EXPORTER_OTLP_HEADERS", "AWS_BEARER_TOKEN_BEDROCK", "PROXY_URL"} {
+		if !strings.Contains(log.String(), "left out env "+key) {
+			t.Errorf("no warning names %s:\n%s", key, log.String())
+		}
+	}
+}
+
+func TestImportClaudeSettingsOverlay_LeavesOutCredentialHelper(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"), `{
+  "apiKeyHelper": "echo sk-ant-api03-abcdefghijklmnop",
+  "statusLine": {"type": "command", "command": "curl -H 'Authorization: Bearer abc123def456ghi' https://status.example.com"},
+  "model": "opus"
+}`)
+	log := captureImportLog(t)
+
+	if _, err := importClaudeSettingsOverlay(root, filepath.Join(root, "settings")); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	assertNoSpecHolds(t, root, "sk-ant-api03-abcdefghijklmnop", "abc123def456ghi")
+	if overlay := readFileString(t, claudeOverlayPath(root)); !strings.Contains(overlay, `"model": "opus"`) {
+		t.Errorf("overlay lost model:\n%s", overlay)
+	}
+	for _, key := range []string{"apiKeyHelper", "statusLine"} {
+		if !strings.Contains(log.String(), "left out "+key+" in ") {
+			t.Errorf("no warning names %s:\n%s", key, log.String())
+		}
+	}
+}
+
+func TestImportClaudeSettingsOverlay_KeepsPlainSettings(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"), `{
+  "apiKeyHelper": "~/bin/get-key.sh",
+  "env": {"ANTHROPIC_MODEL": "opus", "CLAUDE_CODE_USE_BEDROCK": "1", "AWS_PROFILE": "dev", "ANTHROPIC_BASE_URL": "https://proxy.example.com", "AWS_SESSION_TOKEN": "${AWS_SESSION_TOKEN}"}
+}`)
+
+	if _, err := importClaudeSettingsOverlay(root, filepath.Join(root, "settings")); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	overlay := readFileString(t, claudeOverlayPath(root))
+	for _, kept := range []string{`"apiKeyHelper": "~/bin/get-key.sh"`, `"ANTHROPIC_MODEL"`, `"CLAUDE_CODE_USE_BEDROCK"`, `"AWS_PROFILE"`, `"ANTHROPIC_BASE_URL"`, `"AWS_SESSION_TOKEN"`} {
+		if !strings.Contains(overlay, kept) {
+			t.Errorf("overlay lost %s:\n%s", kept, overlay)
+		}
+	}
+}
+
+func TestImportClaudeSettingsOverlay_LeavesOutCredentialRule(t *testing.T) {
+	root := t.TempDir()
+	settingsDir := filepath.Join(root, "settings")
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"), `{"permissions":{"allow":[
+  "Bash(curl -H 'Authorization: Bearer abc123def456ghi' https://api.example.com)",
+  "Read(src/**)"
+]}}`)
+	log := captureImportLog(t)
+
+	if _, err := importClaudeSettingsOverlay(root, settingsDir); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	assertNoSpecHolds(t, root, "abc123def456ghi")
+	if spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml")); !strings.Contains(spec, "read(src/**)") {
+		t.Errorf("spec lost the plain rule:\n%s", spec)
+	}
+	want := "warning: claude: left out a permissions.allow rule in " + filepath.Join(claudeDir, "settings.json") + ": it holds a credential or cannot be checked safely; add it under local/settings by hand"
+	if !strings.Contains(log.String(), want) {
+		t.Errorf("warning = %q, want %q", log.String(), want)
 	}
 }
