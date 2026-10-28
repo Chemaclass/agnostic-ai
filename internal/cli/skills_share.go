@@ -52,6 +52,7 @@ type sharedSkillsState struct {
 // Returns an inert state when sync.shared-skills is off. Links are only
 // planned on full runs (every configured target emitted): a partial run
 // cannot see all participants, so it must not pick a canonical copy.
+// A target whose adapter does not load counts as not emitted.
 func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sharedSkillsState, error) {
 	st := &sharedSkillsState{
 		enabled:   cfg.Sync.SharedSkills,
@@ -65,6 +66,11 @@ func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sha
 	if err != nil {
 		return nil, err
 	}
+	loaded := make([]string, 0, len(captures))
+	for _, tc := range captures {
+		loaded = append(loaded, tc.target)
+	}
+	st.coversAll = coversAllConfiguredTargets(loaded, cfg.Targets)
 	if st.coversAll {
 		st.links = planSkillLinks(captures, cfg.Sync.Unmanaged)
 	}

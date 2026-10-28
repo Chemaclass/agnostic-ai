@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- With `sync.shared-skills: true`, `sync` keeps shared skill links and plans no new ones while a configured external adapter is not on PATH. Before, it treated the run as covering every target and could remove the link of a deleted skill (#2702).
 - `packs update` installs each Git pack at the commit recorded in `agnostic.packs.lock`. Before, it fetched the current tip of the recorded tag or branch and overwrote the recorded commit, so a moved tag or a force push changed the pack with no error. It now fails and leaves the lockfile unchanged when the remote no longer has that commit. `packs update --latest` moves a pack to the newest commit of its ref and prints the old and new commit (#2638).
 - `doctor config` fails as `sync` does on an unknown builtin or tier target, an unmet `requires`, or a bad `outputs.<target>.agents`, now AAI-004 (#2660).
 - `sync --json` prepares and seeds personal memory like `sync`. Its `notes` now list every project note a plain `sync` prints, such as an overlay file no tool reads, the facts copied into personal memory, and the entry point and worktree notes. Before, a project synced only with `--json` never got its personal memory seeded (#2663).
