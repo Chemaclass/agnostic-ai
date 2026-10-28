@@ -250,9 +250,9 @@ no-console-log | rule   rule   rule
 | Flag | Description |
 |------|-------------|
 | `--format` | `text` (default, aligned table), `mermaid`, `dot`, `json`. |
-| `--target` | Restrict to one target. |
+| `--target` | Restrict to one configured target. Any other name fails. |
 | `--spec` | Restrict to one spec name. |
-| `--kind` | Restrict to one kind: agent, skill, rule, hook, mcp, command. |
+| `--kind` | Restrict to one kind: agent, skill, rule, hook, mcp, command, settings, review, environment, ignore. Any other kind fails. |
 
 ## why
 
