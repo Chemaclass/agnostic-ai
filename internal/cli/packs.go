@@ -288,7 +288,7 @@ func runPacksUpdate(root, only string, latest bool, out io.Writer) error {
 // because a cloned project's lockfile is not trusted input.
 func checkLockedEntry(root string, p packEntry) error {
 	if err := validatePackName(p.Name); err != nil {
-		return fmt.Errorf("%w; reinstall it with `agnostic-ai packs add <source> --name <name>`", err)
+		return lockedNameError(err)
 	}
 	if err := checkPacksDirInsideProject(root); err != nil {
 		return err
@@ -679,10 +679,16 @@ func readPacksLock(root string) (*packsLock, error) {
 	}
 	for _, p := range lock.Packs {
 		if err := validatePackName(p.Name); err != nil {
-			return nil, fmt.Errorf("%s: %w", packsLockfile, err)
+			return nil, fmt.Errorf("%s: %w", packsLockfile, lockedNameError(err))
 		}
 	}
 	return &lock, nil
+}
+
+// lockedNameError points at the one command that can replace a lockfile
+// entry whose name update and sync refuse.
+func lockedNameError(err error) error {
+	return fmt.Errorf("%w; reinstall it with `agnostic-ai packs add <source> --name <name>`", err)
 }
 
 // writePacksLock atomically rewrites agnostic.packs.lock. When the
