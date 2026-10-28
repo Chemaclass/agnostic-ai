@@ -231,24 +231,41 @@ var (
 	settingSwitch   = regexp.MustCompile(`^(?i:true|false|yes|no|on|off|0|1)$`)
 	settingPath     = regexp.MustCompile(`^(?:~/|\.\.?/|[A-Za-z]:[\\/]|/[^/]+/)`)
 	settingFileName = regexp.MustCompile(`(?i)^[^/\\\s]+\.(?:json|txt|pem|key|env|ya?ml|toml|crt|p12|db)$`)
-	settingBase64   = regexp.MustCompile(`^[A-Za-z0-9+=]{16,}$`)
+	settingBase64   = regexp.MustCompile(`^[A-Za-z0-9+=]+$`)
 )
 
 // settingPathShaped reports whether v has the shape of a path, not of a
-// base64 secret that starts with `/`, such as `/9j/4AAQSkZJRg...`: no
-// segment of 16 or more characters that mixes upper case, lower case,
-// and digits.
+// base64 secret that starts with `/`, such as `/9j/4AAQSkZJRg...`. It is
+// a heuristic: base64 has no `.`, `-`, `_`, or `~`, and real paths
+// almost always do, or have short segments.
 func settingPathShaped(v string) bool {
 	if !settingPath.MatchString(v) {
 		return false
 	}
 	for _, segment := range strings.FieldsFunc(v, func(r rune) bool { return r == '/' || r == '\\' }) {
-		if settingBase64.MatchString(segment) && strings.ContainsAny(segment, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") &&
-			strings.ContainsAny(segment, "abcdefghijklmnopqrstuvwxyz") && strings.ContainsAny(segment, "0123456789") {
+		if settingBase64Like(segment) {
 			return false
 		}
 	}
-	return true
+	joined := strings.NewReplacer("/", "", "\\", "").Replace(v)
+	return strings.ContainsAny(v, ".-_~ ") || len(joined) < 20 || !settingBase64.MatchString(joined) || !settingDigitsAndLetters(joined)
+}
+
+// settingBase64Like reports whether segment reads as base64: at least
+// 16 characters with a digit and letters, or at least 24 with both
+// letter cases.
+func settingBase64Like(segment string) bool {
+	if !settingBase64.MatchString(segment) {
+		return false
+	}
+	if len(segment) >= 16 && settingDigitsAndLetters(segment) {
+		return true
+	}
+	return len(segment) >= 24 && strings.ToLower(segment) != segment && strings.ToUpper(segment) != segment
+}
+
+func settingDigitsAndLetters(text string) bool {
+	return strings.ContainsAny(text, "0123456789") && strings.ToLower(text) != strings.ToUpper(text)
 }
 
 // settingNamesNoSecret reports whether value names no secret even under

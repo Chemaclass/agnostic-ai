@@ -49,6 +49,11 @@ func TestLiteralSettingValueRuleAgrees(t *testing.T) {
 		{"API_KEY", "/9j/4AAQSkZJRgABAQAAAQABAAD2wBDAAgGBgcGBQgH", true},
 		{"AWS_SECRET_ACCESS_KEY", "/Jalr/XUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY", true},
 		{"CLIENT_KEY", "/home/me/.ssh/id_ed25519", false},
+		{"API_KEY", "/Jalr/XUtnFEMIKMDENGbPxRfiCYEXAMPLEKEY", true},
+		{"API_KEY", "/Ab3/Cd4Ef5Gh/6Ij7Kl8Mn/9Op0Qr1St/2Uv3Wx4Yz5Ab", true},
+		{"CLIENT_KEY", "/Users/x/Library/ApplicationSupport/y", false},
+		{"CLIENT_KEY", "/home/me/project1/Src2", false},
+		{"CLIENT_KEY", "/opt/app2/config.yaml", false},
 	} {
 		checks := map[string]bool{
 			"claude hook":         claudeHookCredentialField(claudehooks.CommandEntry{URL: "https://hooks.example.com", Headers: map[string]string{c.key: c.value}}) != "",
