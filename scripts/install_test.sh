@@ -20,6 +20,11 @@ SCRIPT_DIR="$(cd "$(dirname "$BASH_SOURCE")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/install.sh"
 
+# A value exported in the developer's shell would change what these check.
+function set_up() {
+  unset AGNOSTIC_AI_VERIFY_ATTESTATION AGNOSTIC_AI_VERSION
+}
+
 # ---- asset_name / download_url -----------------------------------------------
 
 function test_asset_name_uses_targz_per_os_arch() {
@@ -140,30 +145,142 @@ function test_verify_checksum_fails_when_checksums_cannot_be_fetched() {
 
 # ---- verify_attestation ------------------------------------------------------
 
-function test_verify_attestation_is_off_by_default() {
-  local out
-  out="$(AGNOSTIC_AI_VERIFY_ATTESTATION='' verify_attestation /tmp/archive 2>&1)" || fail "skipped check failed"
-  assert_empty "$out"
-}
+ATTESTED_ARGS="attestation verify /tmp/archive --hostname github.com --repo Chemaclass/agnostic-ai --signer-workflow Chemaclass/agnostic-ai/.github/workflows/release.yml --source-ref refs/tags/v0.90.0 --deny-self-hosted-runners"
 
-function test_verify_attestation_fails_without_gh() {
-  local out
-  out="$(PATH=/nonexistent AGNOSTIC_AI_VERIFY_ATTESTATION=1 verify_attestation /tmp/archive 2>&1)" && fail "passed without gh"
-  assert_contains "needs the GitHub CLI" "$out"
+function test_verify_attestation_checks_by_default_when_gh_is_present() {
+  local out code
+  # shellcheck disable=SC2317
+  function gh() { [[ "$*" == "$ATTESTED_ARGS" ]]; }
+  code=0
+  out="$(AGNOSTIC_AI_VERIFY_ATTESTATION='' verify_attestation /tmp/archive v0.90.0 2>&1)" || code=$?
+  assert_same "0" "$code"
+  unset -f gh
+  assert_contains "build provenance verified" "$out"
 }
 
 function test_verify_attestation_fails_when_gh_rejects_it() {
-  local out
+  local out code
+  # shellcheck disable=SC2317
   function gh() { return 1; }
-  out="$(AGNOSTIC_AI_VERIFY_ATTESTATION=1 verify_attestation /tmp/archive 2>&1)" && fail "passed a rejected attestation"
-  assert_contains "did not verify" "$out"
+  code=0
+  out="$(verify_attestation /tmp/archive v0.90.0 2>&1)" || code=$?
+  assert_not_same "0" "$code"
   unset -f gh
+  assert_contains "did not verify for archive" "$out"
 }
 
-function test_verify_attestation_accepts_a_verified_archive() {
-  function gh() { [[ "$1 $2 $4 $5" == "attestation verify --repo Chemaclass/agnostic-ai" ]]; }
-  assert_contains "build provenance verified" "$(AGNOSTIC_AI_VERIFY_ATTESTATION=1 verify_attestation /tmp/archive 2>&1)"
+function test_verify_attestation_notes_and_continues_without_gh() {
+  local out code
+  code=0
+  out="$(PATH=/nonexistent verify_attestation /tmp/archive v0.90.0 2>&1)" || code=$?
+  assert_same "0" "$code"
+  assert_contains "build provenance not checked: install the GitHub CLI (gh)" "$out"
+}
+
+function test_verify_attestation_notes_and_continues_when_gh_is_logged_out() {
+  local out code
+  # shellcheck disable=SC2317
+  function gh() { return 4; }
+  code=0
+  out="$(verify_attestation /tmp/archive v0.90.0 2>&1)" || code=$?
+  assert_same "0" "$code"
   unset -f gh
+  assert_contains "gh is not logged in" "$out"
+}
+
+function test_verify_attestation_forced_fails_without_gh() {
+  local out code
+  code=0
+  out="$(PATH=/nonexistent AGNOSTIC_AI_VERIFY_ATTESTATION=1 verify_attestation /tmp/archive v0.90.0 2>&1)" || code=$?
+  assert_not_same "0" "$code"
+  assert_contains "needs the GitHub CLI" "$out"
+}
+
+function test_verify_attestation_forced_fails_when_gh_is_logged_out() {
+  local out code
+  # shellcheck disable=SC2317
+  function gh() { return 4; }
+  code=0
+  out="$(AGNOSTIC_AI_VERIFY_ATTESTATION=1 verify_attestation /tmp/archive v0.90.0 2>&1)" || code=$?
+  assert_not_same "0" "$code"
+  unset -f gh
+  assert_contains "did not verify" "$out"
+}
+
+function test_verify_attestation_skips_releases_before_provenance_existed() {
+  local out code
+  # shellcheck disable=SC2317
+  function gh() { echo "gh called" >&2; return 1; }
+  code=0
+  out="$(verify_attestation /tmp/archive v0.74.0 pinned 2>&1)" || code=$?
+  assert_same "0" "$code"
+  unset -f gh
+  assert_not_contains "gh called" "$out"
+  assert_contains "releases before v0.75.0" "$out"
+}
+
+function test_verify_attestation_refuses_a_latest_release_that_predates_provenance() {
+  local out code
+  code=0
+  out="$(verify_attestation /tmp/archive v0.74.9 2>&1)" || code=$?
+  assert_not_same "0" "$code"
+  assert_contains "the latest release v0.74.9 predates build provenance" "$out"
+  assert_contains "AGNOSTIC_AI_VERSION" "$out"
+}
+
+function test_verify_attestation_is_skipped_when_turned_off() {
+  local out code
+  # shellcheck disable=SC2317
+  function gh() { echo "gh called" >&2; return 1; }
+  code=0
+  out="$(AGNOSTIC_AI_VERIFY_ATTESTATION=0 verify_attestation /tmp/archive v0.74.9 2>&1)" || code=$?
+  unset -f gh
+  assert_same "0" "$code"
+  assert_not_contains "gh called" "$out"
+  assert_contains "AGNOSTIC_AI_VERIFY_ATTESTATION=0" "$out"
+}
+
+function test_verify_attestation_notes_a_gh_too_old_to_verify() {
+  local out code
+  # shellcheck disable=SC2317
+  function gh() { echo "unknown flag: --source-ref" >&2; return 1; }
+  code=0
+  out="$(verify_attestation /tmp/archive v0.90.0 2>&1)" || code=$?
+  unset -f gh
+  assert_same "0" "$code"
+  assert_contains "update gh" "$out"
+}
+
+# ---- release_tag -------------------------------------------------------------
+
+function test_release_tag_accepts_a_release_with_or_without_v() {
+  assert_same "v0.90.0" "$(release_tag 0.90.0)"
+  assert_same "v0.90.0" "$(release_tag v0.90.0)"
+  assert_same "v1.2.3-rc.1" "$(release_tag v1.2.3-rc.1)"
+}
+
+function test_release_tag_rejects_anything_else() {
+  local input out code
+  for input in 'v1.0.0/../../evil' 'latest' '1.0' 'v1.0.0 ' 'v1.0.0?x=1' ''; do
+    code=0
+    out="$(release_tag "$input" 2>&1)" || code=$?
+    assert_not_same "0" "$code"
+    assert_contains "is not a release version" "$out"
+  done
+}
+
+function test_main_rejects_an_invalid_version_before_any_download() {
+  local tmp out code
+  tmp="$(mktemp -d)"
+  # shellcheck disable=SC2317
+  function curl() { touch "$tmp/curl-called"; return 1; }
+  code=0
+  out="$(AGNOSTIC_AI_INSTALL_DIR="$tmp/bin" AGNOSTIC_AI_VERSION='v1.0.0/../../evil' main 2>&1)" || code=$?
+  assert_not_same "0" "$code"
+  unset -f curl
+  assert_contains "is not a release version" "$out"
+  assert_file_not_exists "$tmp/curl-called"
+  rm -rf "$tmp"
 }
 
 # ---- latest_version ----------------------------------------------------------
@@ -267,6 +384,38 @@ function test_ps1_disables_redirect_following_so_the_location_survives() {
 function test_ps1_names_rate_limiting_rather_than_printing_a_status() {
   assert_contains "rate limited" "$(ps1_code)"
   assert_contains "no published release" "$(ps1_code)"
+}
+
+function test_ps1_validates_the_version_before_any_download() {
+  local code
+  code="$(ps1_code)"
+  assert_contains "'^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?\\z'" "$code"
+  assert_contains '$version -cnotmatch $versionPattern' "$code"
+  local check download
+  check="$(grep -n '^\$tag = Get-ReleaseTag' <<<"$code" | head -1 | cut -d: -f1)"
+  download="$(grep -n 'Invoke-WebRequest -Uri (Get-DownloadUrl \$tag \$asset)' <<<"$code" | head -1 | cut -d: -f1)"
+  assert_not_empty "$download"
+  assert_not_empty "$check"
+  assert_less_than "$download" "$check"
+  assert_contains 'throw "'"'"'$version'"'"' is not a release version' "$code"
+}
+
+function test_ps1_verifies_provenance_by_default_pinned_to_the_release_workflow() {
+  local code
+  code="$(ps1_code)"
+  assert_not_contains 'if (-not $VerifyAttestation) { return }' "$code"
+  assert_contains '--signer-workflow "$repo/.github/workflows/release.yml"' "$code"
+  assert_contains '--source-ref "refs/tags/$tag"' "$code"
+  assert_contains '--hostname github.com' "$code"
+  assert_contains '$code -eq 4' "$code"
+  assert_contains "unknown (flag|command)" "$code"
+  assert_contains "AGNOSTIC_AI_VERIFY_ATTESTATION -eq '0'" "$code"
+  assert_contains 'Test-Attestation $archive $tag ($Version -ne '"'latest'"')' "$code"
+  assert_contains 'the latest release $tag predates build provenance' "$code"
+}
+
+function test_ps1_matches_the_archive_line_exactly() {
+  assert_contains "-Pattern ('\\s' + [regex]::Escape(\$asset) + '\$')" "$(ps1_code)"
 }
 
 function test_released_install_checks_the_exact_binary_version() {
