@@ -515,7 +515,7 @@ func LoadWithSources(root string) (*Config, []string, error) {
 		unknown = append(unknown, keys...)
 	}
 	if len(unknown) > 0 {
-		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%w", &UnknownKeysError{Source: strings.Join(sources, " + "), Requires: cfg.Requires, Keys: unknown})
+		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%w", &UnknownKeysError{Source: strings.Join(sources, " + "), Requires: cfg.Requires, Targets: cfg.Targets, Keys: unknown})
 	}
 	if !slices.Contains(OnUnsupportedModes, cfg.OnUnsupported) {
 		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: on-unsupported: %q is not one of %s",

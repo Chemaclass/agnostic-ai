@@ -207,18 +207,25 @@ kbd {
 
 /* Layout ---------------------------------------------------------------- */
 
-/* The app fills the viewport: the header and the navigation stay put,
-   and only the content area scrolls. */
+/* The document is the one scroll container, so a wheel anywhere moves the
+   content; the header and the navigation stick in place. Shell.tsx measures
+   their heights into --topbar-offset and --nav-offset. */
+html {
+  scroll-padding-top: calc(var(--topbar-offset, var(--topbar-height)) + 16px);
+  scrollbar-gutter: stable;
+}
+
 .app {
-  height: 100vh;
-  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .topbar {
   flex: none;
+  position: sticky;
+  top: 0;
   z-index: 30;
   display: flex;
   align-items: center;
@@ -322,13 +329,16 @@ input:hover {
 
 .shell {
   flex: 1;
-  min-height: 0;
   display: grid;
   grid-template-columns: var(--nav-width) minmax(0, 1fr);
 }
 
 .sidenav {
-  min-height: 0;
+  position: sticky;
+  top: var(--topbar-offset, var(--topbar-height));
+  align-self: start;
+  height: calc(100vh - var(--topbar-offset, var(--topbar-height)));
+  height: calc(100dvh - var(--topbar-offset, var(--topbar-height)));
   overflow: auto;
   padding: 24px 14px;
   display: flex;
@@ -373,8 +383,6 @@ input:hover {
 
 .main {
   min-width: 0;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .page {
@@ -1965,6 +1973,7 @@ input:hover {
   flex: 1;
   margin: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -2149,6 +2158,10 @@ input:hover {
 }
 
 @media (max-width: 900px) {
+  html {
+    scroll-padding-top: calc(var(--topbar-offset, var(--topbar-height)) + var(--nav-offset, 60px) + 16px);
+  }
+
   .shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
@@ -2156,6 +2169,8 @@ input:hover {
 
   /* Keep section links in a scrolling row beside the tools disclosure. */
   .sidenav {
+    z-index: 20;
+    height: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     padding: 8px 12px;
@@ -2261,7 +2276,6 @@ input:hover {
 
   .topbar {
     padding: 10px 16px;
-    position: static;
     gap: 10px 12px;
   }
 
@@ -2553,6 +2567,11 @@ input:hover {
   color: var(--text-muted);
 }
 
+/* The search dialog is modal: the page behind it holds still. */
+html:has(.search-backdrop) {
+  overflow: hidden;
+}
+
 .search-backdrop {
   position: fixed;
   inset: 0;
@@ -2598,6 +2617,7 @@ input:hover {
   padding: 0;
   list-style: none;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .search-result {

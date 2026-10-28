@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // runUpgradeVersion executes `upgrade` with the given arguments against a
@@ -79,6 +82,43 @@ func TestUpgradeVersion_RequestingTheInstalledVersionDoesNothing(t *testing.T) {
 	}
 	if !strings.Contains(out, "Already on 2.0.0") {
 		t.Errorf("output does not say the request is already met:\n%s", out)
+	}
+}
+
+func TestUpgrade_AlreadyLatestExplainsTheRemainingProjectPin(t *testing.T) {
+	requiresProject(t, "1.5.0")
+	writeFile(t, config.LocalOverrideFileName, "requires: \"1.6.0\"\n")
+	for _, args := range [][]string{nil, {"--version", "v2.0.0"}, {"--run"}} {
+		out, _, runs, err := runUpgradeVersion(t, "2.0.0", args...)
+		if err != nil || runs != 0 {
+			t.Errorf("upgrade %v = (%v, %d installs), want no installation", args, err, runs)
+		}
+		for _, want := range []string{"Project config (agnostic-ai.yaml + agnostic-ai.local.yaml)", "requires agnostic-ai 1.6.0", "upgrade --requires", "schema URL, then runs sync"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("upgrade %v missing %q:\n%s", args, want, out)
+			}
+		}
+		if strings.Contains(out, "Nothing to do") {
+			t.Errorf("upgrade ignored remaining project work:\n%s", out)
+		}
+	}
+	cfg, err := config.Load(".")
+	if err != nil || cfg.Requires != "1.6.0" {
+		t.Errorf("upgrade changed the project pin: config %v, error %v", cfg, err)
+	}
+	assertAbsent(t, "CLAUDE.md", ".agnostic-ai/.sync-state")
+}
+
+func TestUpgrade_AlreadyLatestDoesNotSuggestChangingAnAllowedRequirement(t *testing.T) {
+	requiresProject(t, ">=1.5.0")
+	out, _, _, err := runUpgradeVersion(t, "2.0.0")
+	if err != nil || strings.Contains(out, "upgrade --requires") {
+		t.Errorf("allowed requirement got reconciliation advice: %v\n%s", err, out)
+	}
+	testutil.TempCwd(t)
+	out, _, _, err = runUpgradeVersion(t, "2.0.0")
+	if err != nil || strings.Contains(out, "upgrade --requires") {
+		t.Errorf("non-project upgrade got reconciliation advice: %v\n%s", err, out)
 	}
 }
 

@@ -145,7 +145,7 @@ export default function App() {
       return
     }
     if (stateRef.current.entry) return
-    document.getElementById('main')?.scrollTo({ top: 0 })
+    window.scrollTo({ top: 0 })
     document.getElementById('page-title')?.focus({ preventScroll: true })
   }, [state.view])
 

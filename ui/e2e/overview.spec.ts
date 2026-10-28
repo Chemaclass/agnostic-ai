@@ -588,13 +588,12 @@ test.describe('overview', () => {
     })
     await openApp(page, '?view=lifecycle')
     await expect(page.locator('.footer')).toHaveCount(0)
-    const main = page.locator('#main')
-    await expect.poll(() => main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
-    expect(await page.evaluate(() => document.scrollingElement!.scrollHeight <= window.innerHeight + 1)).toBe(true)
+    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollHeight > window.innerHeight)).toBe(true)
     const navTop = await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)
-    await main.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
+    await page.evaluate(() => window.scrollTo({ top: document.scrollingElement!.scrollHeight }))
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
     expect(await page.locator('.topbar').evaluate((el) => el.getBoundingClientRect().top)).toBe(0)
-    expect(await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)).toBe(navTop)
+    expect(await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)).toBeCloseTo(navTop, 0)
   })
 
   test('follows the system colour scheme until the person picks a theme', async ({ page }) => {

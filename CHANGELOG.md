@@ -31,6 +31,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Commands
 
+- Version mismatch errors offer a fix, a prompt to copy, or a project Claude Code or Codex session; `upgrade` names a remaining project pin (#2726).
 - `doctor` fails on an unknown `-t` target, on findings `--json` skipped, and on `--json --fix`; `doctor config` checks as `sync` does (#2659, #2660).
 - `lint` and the editor report a spec a selected tool refuses at sync (LINT053) and a hook spec with nothing to run (LINT052) (#2642, #2645).
 - Commands that take no arguments fail on one, so `upgrade v0.56.1` no longer installs the latest; `new --dry-run` fails on an existing spec (#2661, #2662).
@@ -46,6 +47,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - A project page opens global settings in a new tab on its own server, which links back, and `serve` stops at once on Ctrl-C (#2602, #2607, #2616, #2627).
 - Lifecycle stages start closed with counts and search, and the authority view loads faster (#2610, #2631, #2632).
 - The web UI no longer shows the configured tools card in the sidebar. `sync --check` and `status` report whether generated files match the source.
+- The web UI scrolls the page from the sidebar too; before, a wheel over the sidebar moved nothing (#2729).
 
 ### By tool
 

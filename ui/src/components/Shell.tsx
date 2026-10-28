@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { API, type OverviewView } from '../contract'
 import type { Loaded } from '../api'
 import { parseServedConfig, type ServedConfig } from '../model/config-switch'
@@ -32,6 +32,22 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
 
 const PRODUCT_NAME = 'agnostic-ai'
 
+// The header and the navigation stick over the scrolling document; their
+// heights wrap with the window, so the layout reads them from these variables.
+function useHeightVariable(ref: RefObject<HTMLElement | null>, name: string) {
+  useEffect(() => {
+    const element = ref.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const root = document.documentElement.style
+    const observer = new ResizeObserver(() => root.setProperty(name, `${element.getBoundingClientRect().height}px`))
+    observer.observe(element)
+    return () => {
+      observer.disconnect()
+      root.removeProperty(name)
+    }
+  }, [ref, name])
+}
+
 export function Header({
   overview,
   inspectorOpen,
@@ -48,6 +64,8 @@ export function Header({
   onOpenSearch: () => void
 }) {
   const app = useApp()
+  const headerRef = useRef<HTMLElement>(null)
+  useHeightVariable(headerRef, '--topbar-offset')
   const snapshot = overview.loaded?.data.snapshot
   const projectName = snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
   const [served, setServed] = useState<ServedConfig>()
@@ -63,7 +81,7 @@ export function Header({
   const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
 
   return (
-    <header className="topbar">
+    <header className="topbar" ref={headerRef}>
       <div className="brand">
         <svg className="logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
           <path d="M43 32H50.5M39.78 39.78L45.08 45.08M32 43V50.5M24.22 39.78L18.92 45.08M21 32H13.5M24.22 24.22L18.92 18.92M32 21V13.5M39.78 24.22L45.08 18.92" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
@@ -126,6 +144,8 @@ export function Header({
 export function Nav({ overview }: { overview: Remote<OverviewView> }) {
   const app = useApp()
   const navRef = useRef<HTMLElement>(null)
+  const asideRef = useRef<HTMLElement>(null)
+  useHeightVariable(asideRef, '--nav-offset')
   // On narrow screens the navigation is one scrolling row; keep the
   // current page in view.
   useEffect(() => {
@@ -153,7 +173,7 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
   }
 
   return (
-    <aside className="sidenav">
+    <aside className="sidenav" ref={asideRef}>
       <nav className="section-nav" aria-label="Configuration sections" ref={navRef}>
         <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
       </nav>
