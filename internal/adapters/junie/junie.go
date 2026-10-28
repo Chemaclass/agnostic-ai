@@ -246,11 +246,16 @@ const permissionsUserTierOnlyReason = "Junie documents its allowlist.json at ~/.
 // entries. A stale managed
 // tree at the pre-#552 `.junie/rules/` default (or its
 // outputs.junie.rules-dir override) is swept.
+// RefuseSpecs rejects an agent name Junie does not load.
+func (Adapter) RefuseSpecs(b spec.Bundle, _ *config.Config) error {
+	return emit.ValidateNames(b.Agents, target, "agent", agentNameRule)
+}
+
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	if err := emit.ValidateNames(b.Agents, target, "agent", agentNameRule); err != nil {
+	if err := (Adapter{}).RefuseSpecs(b, cfg); err != nil {
 		return err
 	}
 	if err := emitEntryPoint(sess, b, cfg, dryRun); err != nil {

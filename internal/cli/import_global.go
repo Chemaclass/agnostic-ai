@@ -166,8 +166,26 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	if updated > 0 {
 		written += fmt.Sprintf(", %d updated", updated)
 	}
-	_, err = fmt.Fprintf(out, "Imported into %s: %s, %d already there, %d skipped. Run `agnostic-ai sync --global --check` to confirm nothing would change.\n", source, written, kept, differ)
+	managed, err := loadGlobalTargets(source, io.Discard)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "Imported into %s: %s, %d already there, %d skipped. %s\n", source, written, kept, differ, globalImportNextStep(targets, managed))
 	return err
+}
+
+// globalImportNextStep names a check that passes right after the import.
+// Sync writes each imported MCP server to every tool, so only a one-tool
+// import has files that already match. managed is the home's `targets`
+// list, nil when it has none.
+func globalImportNextStep(targets, managed []string) string {
+	if len(targets) != 1 {
+		return "Each imported MCP server goes to every tool `agnostic-ai sync --global` manages; run `agnostic-ai sync --global --dry-run` to see what it would write."
+	}
+	if managed != nil && !slices.Contains(managed, targets[0]) {
+		return fmt.Sprintf("Sync does not manage %s yet: add it to `targets` in agnostic-ai.yaml, then run `agnostic-ai sync --global --only %s --check`.", targets[0], targets[0])
+	}
+	return fmt.Sprintf("Run `agnostic-ai sync --global --target %s --check` to confirm nothing would change for %s. The next full `agnostic-ai sync --global` also writes the imported MCP servers to every other tool it manages.", targets[0], targets[0])
 }
 
 // globalImportTargets is the named targets, or every target sync

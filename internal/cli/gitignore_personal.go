@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -17,7 +18,7 @@ import (
 const (
 	personalExcludeStart = "# >>> agnostic-ai (personal) "
 	personalExcludeEnd   = "# <<< agnostic-ai (personal) "
-	personalExcludeNote  = "# Outputs only " + config.LocalOverrideFileName + " adds. Run `agnostic-ai sync` to refresh."
+	personalExcludeNote  = "# Outputs only " + config.LocalOverrideFileName + " adds, and backups the managed block does not list. Run `agnostic-ai sync` to refresh."
 )
 
 // personalSplitBlock is splitManagedBlock with the team's built-ins read
@@ -49,6 +50,8 @@ func previousPersonal(root string) ([]string, error) {
 		prev = personalPatternsOf(content, personalExcludeKey(root), ex.prefix)
 		return content
 	})
+	// Backups are listed again from the ledger; only outputs carry over.
+	prev = slices.DeleteFunc(prev, func(p string) bool { return strings.HasSuffix(p, backupSuffix) })
 	return prev, err
 }
 
@@ -110,13 +113,28 @@ func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, pre
 	if err != nil {
 		return nil, nil, err
 	}
-	for e := range only {
+	for _, e := range withBackups(slices.Collect(maps.Keys(only)), nil) {
 		if !blockCovers(block, e) {
 			personal = append(personal, e)
 		}
 	}
 	slices.Sort(personal)
 	return block, personal, nil
+}
+
+// withLeftoverBackups adds to personal each backup sync keeps whose output
+// the block no longer lists, such as a backup of a file a dropped target
+// wrote. Backups belong to the checkout that made them, so they go to its
+// info/exclude, never to the committed block.
+func withLeftoverBackups(personal, block []string, backups map[string]string) []string {
+	out := slices.Clone(personal)
+	for b := range backups {
+		if e := normalizeGitignorePath(b); !blockCovers(block, e) && !slices.Contains(out, e) {
+			out = append(out, e)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 func sameBuiltins(a, b []string) bool {
@@ -375,11 +393,14 @@ func writePersonalExcludes(root string, patterns []string) error {
 	if !ex.linked {
 		return write(ex.path, patterns)
 	}
-	if len(patterns) > 0 {
-		names := make([]string, len(patterns))
-		for i, p := range patterns {
-			names[i] = strings.TrimPrefix(p, "/")
+	var names []string
+	for _, p := range patterns {
+		// A backup is this checkout's own file, not a personal output.
+		if !strings.HasSuffix(p, backupSuffix) {
+			names = append(names, strings.TrimPrefix(p, "/"))
 		}
+	}
+	if len(names) > 0 {
 		summaryf("%s untracked in this linked worktree: %s. Its info/exclude is shared with every checkout, so sync ignores personal outputs only in the main checkout.\n", bang(), strings.Join(names, ", "))
 	}
 	if err := write(ex.state, patterns); err != nil {

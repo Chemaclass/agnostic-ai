@@ -350,14 +350,7 @@ func updateStateFile(root string, update func(*syncStateFile)) error {
 		return fmt.Errorf("parse %s: %w", p, err)
 	}
 	update(&state)
-	out, err := json.Marshal(state)
-	if err != nil {
-		return fmt.Errorf("%s: %w", p, err)
-	}
-	if err := os.WriteFile(p, out, 0o644); err != nil {
-		return fmt.Errorf("%s: %w", p, err)
-	}
-	return nil
+	return replaceStateFile(root, state)
 }
 
 func releaseMergedRecords(state *syncStateFile, records map[string]*mergedOutput) {
