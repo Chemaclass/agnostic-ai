@@ -26,6 +26,14 @@ func TestLiteralSettingValueRuleAgrees(t *testing.T) {
 		{"Authorization", "Bearer abc", true},
 		{"Authorization", "${AUTH}", false},
 		{"Authorization", "Bearer $AUTH", false},
+		{"Authorization", "Bearer ${TOKEN}", false},
+		{"API_TOKEN", "hunter $X", true},
+		{"PASSWORD", "correcthorsebatterystaple ${SUFFIX}", true},
+		{"API_TOKEN", "$${API_TOKEN}", true},
+		{"API_TOKEN", "${API_TOKEN:-}", false},
+		{"CLAUDE_CODE_SKIP_BEDROCK_AUTH", "1", false},
+		{"GOOGLE_APPLICATION_CREDENTIALS", "/path/sa.json", false},
+		{"CLAUDE_CODE_CLIENT_KEY", "/path/client.key", false},
 	} {
 		checks := map[string]bool{
 			"claude hook":         claudeHookCredentialField(claudehooks.CommandEntry{URL: "https://hooks.example.com", Headers: map[string]string{c.key: c.value}}) != "",

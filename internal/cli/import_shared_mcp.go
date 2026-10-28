@@ -200,20 +200,43 @@ func mcpCredentialValue(value string) bool {
 	return value != "" && !spec.OnlyEscapedEnvRefs(value)
 }
 
+// settingSchemeWord is an auth scheme a header value may name before
+// its reference, as in `Bearer ${TOKEN}`. Any other word is literal
+// text, so `hunter ${X}` holds a secret.
+var settingSchemeWord = regexp.MustCompile(`^(?i:bearer|basic|token)\s+`)
+
+var settingShellVariable = regexp.MustCompile(`^\$[A-Za-z_][A-Za-z0-9_]*$`)
+
 // literalSettingValue reports whether value holds text that is not a
-// ${NAME} reference: any literal, or a reference with a default.
+// reference: any literal, or a reference with a default. A known scheme
+// word before the reference is not literal.
 func literalSettingValue(value string) bool {
 	stripped, defaulted := spec.StripEnvRefDefaults(value)
-	return value != "" && (len(defaulted) > 0 || !mcpRefOnly(stripped))
+	if value == "" || len(defaulted) > 0 {
+		return value != ""
+	}
+	rest := settingSchemeWord.ReplaceAllString(strings.TrimSpace(stripped), "")
+	return !spec.OnlyEnvRefs(rest) && !settingShellVariable.MatchString(rest)
 }
 
+// settingSwitchOrFile matches a value that names no secret even under a
+// credential name: a boolean such as `CLAUDE_CODE_SKIP_BEDROCK_AUTH=1`,
+// or a path or file name such as `GOOGLE_APPLICATION_CREDENTIALS`
+// holds. A plain number still counts, since a PIN or numeric token is one.
+var settingSwitchOrFile = regexp.MustCompile(`^(?i:true|false|yes|no|on|off|0|1)$|^(?:[/~]|\.\.?/|[A-Za-z]:[\\/])|(?i)\.(?:json|txt|pem|key|env|ya?ml|toml|crt|p12|db)$`)
+
 // credentialSettingValue reports whether an imported setting, such as an
-// `env` or header value, holds a literal credential: any literal under a
-// credential name, or a literal that holds one by its shape. A value of
-// only references holds no secret. Every tool import uses this rule,
-// since the spec it writes is committed (#2716).
+// `env` or header value, holds a literal credential: a literal under a
+// credential name other than a boolean, path, or file name, or a literal
+// that holds one by its shape. A value of only references holds no
+// secret. Every tool import uses this rule, since the spec it writes is
+// committed (#2716).
 func credentialSettingValue(key, value string) bool {
-	return literalSettingValue(value) && (mcpCredentialKey(key) || mcpCredentialSetting(key, value))
+	if !literalSettingValue(value) {
+		return false
+	}
+	named := mcpCredentialKey(key) && !settingSwitchOrFile.MatchString(strings.Trim(strings.TrimSpace(value), `'"`))
+	return named || mcpCredentialSetting(key, value)
 }
 
 type mcpCredentialSpan struct {
