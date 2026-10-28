@@ -27,7 +27,7 @@ type nativeMCPFile struct {
 
 // projectNativeMCP lists each target's project MCP file, as its importer
 // reads it. A path a target's adapter declares wins over path, so an
-// outputs override is honoured.
+// outputs override is kept.
 var projectNativeMCP = map[string]nativeMCPFile{
 	"amp":         {path: ".amp/settings.json", format: "json", key: "amp.mcpServers"},
 	"antigravity": {path: antigravityMCPFile, format: "json", key: antigravityMCPKey},
