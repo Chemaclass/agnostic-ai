@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type TargetSupport, type TargetValue, type ToolListing, type Value } from '../contract'
+import { API, type ItemFinding, type NativeServer, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type TargetSupport, type TargetValue, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
@@ -164,6 +164,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           </section>
         )
       })}
+      {section.native && section.native.length > 0 && <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} />}
       {section.id === 'context' && <ContextUsage />}
       {errors === 0 && otherFindings}
       </RecheckSectionEntries.Provider>
@@ -549,6 +550,48 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         <OpenInEditor path={item.openPath} label={item.label} compact />
       </div>
     </div>
+  )
+}
+
+/** MCP servers a tool holds in its own config file that no spec covers. */
+function NativeServers({ servers, matches, filtering }: { servers: NativeServer[]; matches: (parts: (string | undefined)[]) => boolean; filtering: boolean }) {
+  const visible = servers.filter((s) => matches([s.name, ...s.holders.flatMap((h) => [h.label, h.path, h.transport])]))
+  return (
+    <section className="block" aria-labelledby="tools-native">
+      <h2 id="tools-native">
+        Found in a tool's own config <span className="muted kind-count">{servers.length}</span>
+      </h2>
+      <p className="muted">These servers work only in the tool that holds them. No spec covers them, so sync does not share them with your other tools.</p>
+      {visible.length === 0 && filtering ? <p className="muted">No matches.</p> : (
+        <ul className="item-list">
+          {visible.map((s) => {
+            const tools = [...new Set(s.holders.map((h) => h.label))]
+            const transports = [...new Set(s.holders.flatMap((h) => (h.transport ? [h.transport] : [])))]
+            return (
+              <li key={s.name} className="item-row">
+                <div className="item-heading">
+                  <div className="item-main">
+                    <strong>{s.name}</strong>
+                    <span className="muted item-description">{tools.length === 1 ? `${tools[0]} only` : tools.join(', ')}</span>
+                    {s.holders.map((h) => (
+                      <code key={`${h.target}:${h.path}:${h.scope}`} className="item-path" title={`${h.label}, ${h.scope === 'user' ? 'every project' : 'this project'}`}>{h.path}</code>
+                    ))}
+                  </div>
+                  <div className="item-meta">
+                    {transports.map((t) => <Chip key={t}>{t}</Chip>)}
+                  </div>
+                </div>
+                {s.import && (
+                  <p className="muted tool-state">
+                    Run <Code>{s.import}</Code> to make it a spec.
+                  </p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
   )
 }
 

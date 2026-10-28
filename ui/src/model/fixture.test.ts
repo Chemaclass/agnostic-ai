@@ -38,6 +38,23 @@ describe(`overview fixture (${OVERVIEW_FIXTURE})`, () => {
     expect(lifecycle?.stages?.slice(0, 7).map((st) => st.id)).toEqual(['session-start', 'prompt-submit', 'before-tool', 'after-tool', 'after-edit', 'stop', 'session-end'])
   })
 
+  it('lists native MCP servers on Tools only, with names and paths but no values', () => {
+    for (const s of overview.sections) {
+      if (s.id !== 'tools') expect(s.native, s.id).toBeUndefined()
+      const specs = new Set(s.items.filter((it) => it.kind === 'mcp').map((it) => it.name.toLowerCase()))
+      for (const server of s.native ?? []) {
+        expect(Object.keys(server).sort().every((k) => ['holders', 'import', 'name'].includes(k)), server.name).toBe(true)
+        expect(specs.has(server.name.toLowerCase()), `${server.name} has a spec`).toBe(false)
+        expect(server.holders.length, server.name).toBeGreaterThan(0)
+        for (const h of server.holders) {
+          expect(Object.keys(h).every((k) => ['label', 'path', 'scope', 'target', 'transport'].includes(k)), server.name).toBe(true)
+          expect(['project', 'user']).toContain(h.scope)
+          if (h.transport) expect(['stdio', 'http', 'sse', 'streamable-http', 'remote']).toContain(h.transport)
+        }
+      }
+    }
+  })
+
   it('lists every built-in with its state', () => {
     const builtins = overview.sections.find((s) => s.id === 'settings')?.items.filter((it) => it.kind === 'builtin') ?? []
     expect(builtins.map((b) => b.name)).toEqual(expect.arrayContaining(['memory', 'handoff', 'handoff-hook', 'rtk', 'caveman']))

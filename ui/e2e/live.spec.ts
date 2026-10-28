@@ -386,6 +386,40 @@ test('live Authority, overview, and edit errors redact configured credentials', 
   }
 })
 
+test('live global Tools lists a server held only in ~/.claude.json and none of its values', async ({ page, request }) => {
+  const f = await fixture(true)
+  const token = 'ghp_live_native_token_123'
+  const claudeJSON = join(f.userHome, '.claude.json')
+  const bytes = JSON.stringify({
+    mcpServers: {
+      notion: { type: 'http', url: 'https://mcp.notion.com/mcp' },
+      private: { command: 'private-mcp', args: ['--token', token], env: { API_TOKEN: token }, headers: { Authorization: `Bearer ${token}` } },
+    },
+    projects: { [f.root]: { mcpServers: { local: { command: 'local-mcp' } } } },
+  })
+  try {
+    await writeFile(claudeJSON, bytes, { mode: 0o600 })
+    const response = await request.get(`${f.url}api/views/overview`)
+    expect(response.status()).toBe(200)
+    const body = JSON.stringify(await response.json())
+    expect(body).not.toContain(token)
+    expect(body).not.toContain('mcp.notion.com')
+    await page.goto(`${f.url}?view=tools`)
+    const block = page.getByRole('region', { name: /Found in a tool's own config/ })
+    const row = block.locator('.item-row', { hasText: 'notion' })
+    await expect(row).toContainText('Claude Code only')
+    await expect(row).toContainText('~/.claude.json')
+    await expect(row).toContainText('Run agnostic-ai import --global claude to make it a spec.')
+    await expect(block.locator('.item-row', { hasText: 'private' })).toBeVisible()
+    await expect(block.locator('.item-row', { hasText: 'local' })).toHaveCount(0)
+    expect(await page.locator('body').innerText()).not.toContain(token)
+    expect(await readFile(claudeJSON, 'utf8')).toBe(bytes)
+    expect((await stat(claudeJSON)).mode & 0o777).toBe(0o600)
+  } finally {
+    await f.close()
+  }
+})
+
 test('the development proxy preserves real API edits with an explicitly allowed origin', async ({ page, request }) => {
   const port = await availablePort()
   const origin = `http://127.0.0.1:${port}`

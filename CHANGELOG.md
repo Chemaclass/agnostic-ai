@@ -34,6 +34,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Web interface
 
+- **Tools** lists MCP servers a tool keeps only in its own config, such as a Notion server added inside Claude Code, under **Found in a tool's own config**: the tool, the file, the transport, and the `agnostic-ai import` command that makes it a spec. A server a spec covers is not repeated, and no command, URL, environment, or header value is shown (#2633).
 - Generated-file status and **Refresh** move to **Configured tools** in the sidebar, with a disclosure beside the section links on narrow screens (#2632).
 - Lifecycle stages start closed, with counts and descriptions visible; expand one or all, search hooks, or follow a link to open its stage (#2631).
 - A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).
