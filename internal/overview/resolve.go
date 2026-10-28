@@ -57,7 +57,7 @@ func resolveTargets(in Inputs, key string, labels labeler, caps map[string][]spe
 				}
 			}
 			origin.PerTool = !fromTier && perToolValue(e, key, target, origin.Local, in.Cfg.Models)
-			foreign := key == "model" && foreignClaudeModel(e, target)
+			foreign := key == "model" && !in.Global && foreignClaudeModel(e, target)
 			if foreign {
 				origin.Value = settingsValueFor(withoutSharedModel(e), key, target)
 			}
@@ -133,7 +133,8 @@ func perToolValue(e spec.Entry, key, target string, local bool, tiers map[string
 }
 
 // foreignClaudeModel reports whether e's shared model is a Claude model
-// name target cannot load, which the adapter drops before it resolves.
+// name target cannot load, which project sync drops before it resolves.
+// sync --global writes it.
 func foreignClaudeModel(e spec.Entry, target string) bool {
 	return adapters.ForeignClaudeModel(target, adapters.SharedModel(map[string]any{"model": e.Meta["model"]}, target))
 }
@@ -210,7 +211,7 @@ func configOverride(cfg *config.Config, key, target string) (string, string) {
 func (in Inputs) droppedReason(target, field string) string {
 	var reasons []string
 	for _, n := range in.FieldNotes {
-		// resolveTargets already skips a foreign Claude model name, as the adapter does.
+		// resolveTargets already skips a foreign Claude model name, as project sync does.
 		if strings.Contains(n.Reason, "is a Claude model name") {
 			continue
 		}
