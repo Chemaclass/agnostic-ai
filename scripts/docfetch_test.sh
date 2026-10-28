@@ -21,6 +21,7 @@ function set_up() {
   export TARGET_AUDIT_LOCK="$FIXTURES/sources.lock"
   LOCK="$TARGET_AUDIT_LOCK"
   export DOCFETCH_SNAPSHOTS="$FIXTURES/snapshots"
+  export DOCFETCH_RUNS="$FIXTURES/runs"
 }
 
 function tear_down() {
@@ -1192,6 +1193,66 @@ function test_snapshot_prune_keeps_locked_and_recent_text() {
   assert_file_not_exists "$(snapshot_file deadbeef)"
   assert_file_exists "$(snapshot_file cafef00d)"
   assert_file_exists "$(snapshot_file "$(row_sha "$FIXTURES/a")")"
+}
+
+# old_run <name> builds a run fetched on 2026-01-01 with pages and the small
+# files that always stay.
+function old_run() {
+  local run="$DOCFETCH_RUNS/$1"
+  mkdir -p "$run/pages/claude" "$run/rows"
+  printf 'page\n' >"$run/pages/claude/docs-1-memory.txt"
+  printf 'row\n' >"$run/rows/claude.tsv"
+  printf 'row\n' >"$run/docfetch.tsv"
+  printf '# finding\n' >"$run/claude-mcp.md"
+  touch -t 202601010000 "$run/pages"
+}
+
+function test_pages_prune_removes_pages_of_an_old_unreferenced_run() {
+  old_run 2026-01-01-run
+  local out
+  out=$(pages_prune "$DOCFETCH_RUNS/2026-10-28-run")
+  assert_contains "pages: removed 2026-01-01-run/pages" "$out"
+  assert_directory_not_exists "$DOCFETCH_RUNS/2026-01-01-run/pages"
+  assert_file_exists "$DOCFETCH_RUNS/2026-01-01-run/rows/claude.tsv"
+  assert_file_exists "$DOCFETCH_RUNS/2026-01-01-run/docfetch.tsv"
+  assert_file_exists "$DOCFETCH_RUNS/2026-01-01-run/claude-mcp.md"
+}
+
+function test_pages_prune_keeps_a_run_an_audit_table_cites() {
+  old_run 2026-01-01-run
+  printf 'case\tlocal/target-audit/2026-01-01-run/pages/claude/docs-1-memory.txt\n' >"$(dirname "$LOCK")/surface-cases.tsv"
+  pages_prune "$DOCFETCH_RUNS/2026-10-28-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01-run/pages"
+}
+
+function test_pages_prune_keeps_a_run_a_report_links_into() {
+  old_run 2026-01-01-run
+  old_run 2026-01-01-run2
+  printf 'See [mcp](2026-01-01-run/claude-mcp.md).\n' >"$DOCFETCH_RUNS/2026-01-02.md"
+  pages_prune "$DOCFETCH_RUNS/2026-10-28-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01-run/pages"
+  assert_directory_not_exists "$DOCFETCH_RUNS/2026-01-01-run2/pages"
+}
+
+function test_pages_prune_keeps_the_run_being_finalized() {
+  old_run 2026-01-01-run
+  pages_prune "$DOCFETCH_RUNS/2026-01-01-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01-run/pages"
+}
+
+function test_pages_prune_keeps_a_recent_run() {
+  old_run 2026-10-28-run
+  touch "$DOCFETCH_RUNS/2026-10-28-run/pages"
+  pages_prune "$DOCFETCH_RUNS/2026-10-29-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-10-28-run/pages"
+}
+
+function test_update_prunes_old_run_pages() {
+  old_run 2026-01-01-run
+  run_row claude https://code.claude.com/docs/en/memory new 2026-10-16 >"$FIXTURES/docfetch.tsv"
+  local out
+  out=$(docfetch_main --update-unvalidated "$FIXTURES/docfetch.tsv" 2>/dev/null)
+  assert_contains "pages: removed 2026-01-01-run/pages" "$out"
 }
 
 function test_lock_prune_drops_urls_no_source_lists() {

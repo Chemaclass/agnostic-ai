@@ -54,7 +54,9 @@ Usage: scripts/docfetch.sh [--out DIR] [<target>...]
   <target>...    fetch only the named targets
   --out DIR      run directory (default: a unique directory under local/target-audit)
   --urls         print "<target>\t<kind>\t<url>" without fetching
-  --update FILE  validate the run's audit.json coverage, then update the lock
+  --update FILE  validate the run's audit.json coverage, then update the lock;
+                 also removes pages/ of runs over 30 days old that no audit
+                 table or report cites
   --update-unvalidated FILE
                  manual compatibility path, skips audit coverage validation
   --mirrors      also fetch each scraped page's .md copy into mirrors.tsv
@@ -752,6 +754,51 @@ snapshot_prune() {
   done
 }
 
+# run_dir prints where audit runs and their date reports live.
+run_dir() {
+  printf '%s\n' "${DOCFETCH_RUNS:-$DOCFETCH_ROOT/local/target-audit}"
+}
+
+# referenced_runs prints every path segment that the audit tables beside the
+# lock and the date reports cite, one per line.
+referenced_runs() {
+  local f
+  for f in "$(dirname "$LOCK")"/*.tsv "$(run_dir)"/*.md; do
+    if [ -f "$f" ]; then cat "$f"; fi
+  done | awk '
+    {
+      n = split($0, tok, /[^A-Za-z0-9._\/-]+/)
+      for (i = 1; i <= n; i++) {
+        if (index(tok[i], "/") == 0) continue
+        m = split(tok[i], seg, "/")
+        for (j = 1; j <= m; j++) if (seg[j] != "") print seg[j]
+      }
+    }
+  ' | sort -u
+}
+
+# pages_prune <finalized run dir> removes the fetched pages/ of runs older
+# than DOCFETCH_PAGES_DAYS (30) that no audit table or report cites by path.
+# A new run fetches every source fresh, so old pages only matter as cited
+# evidence. Reports, rows/, docfetch.tsv and the other small files stay.
+pages_prune() {
+  local runs keep refs pages run kb
+  runs=$(run_dir)
+  [ -d "$runs" ] || return 0
+  runs=$(CDPATH='' cd -- "$runs" && pwd -P)
+  keep=$(CDPATH='' cd -- "$1" 2>/dev/null && pwd -P) || keep=""
+  refs=$(referenced_runs)
+  find "$runs" -mindepth 2 -maxdepth 2 -type d -name pages -mtime +"${DOCFETCH_PAGES_DAYS:-30}" | while read -r pages; do
+    run=$(dirname "$pages")
+    [ "$run" != "$keep" ] || continue
+    case "$run" in "$runs"/?*) ;; *) continue ;; esac
+    ! printf '%s\n' "$refs" | grep -Fqx -- "$(basename "$run")" || continue
+    kb=$(du -sk "$pages" | cut -f1)
+    rm -rf -- "$pages"
+    printf 'pages: removed %s (%s KB)\n' "${pages#"$runs"/}" "$kb"
+  done
+}
+
 # lock_prune drops lock rows whose URL no registered target lists any more,
 # so a moved or removed source stops counting as audited.
 lock_prune() {
@@ -1274,6 +1321,7 @@ docfetch_main() {
         lock_prune
       fi
       snapshot_prune
+      pages_prune "$(dirname "$file")"
       return
       ;;
   esac
