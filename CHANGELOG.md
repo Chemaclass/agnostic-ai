@@ -9,6 +9,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Case-only rule, skill, or agent renames keep generated files and protect hand edits with backups or `--keep-edits` (#2640).
 - `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
 - Sync saves edited outputs as `.bak` before removing them when a spec or target leaves, and `revert` restores them (#2639).
+- `lint` and the editor integration report LINT052 for a spec or setting a tool in `targets` refuses, which stops sync for every tool: a CodeBuddy or Junie agent name, a Zed or OpenCode skill name such as `Lint-It` (commands and agents written as skills included), or Grok rules while the managed `.gitignore` hides them. Before, `lint` passed and the next sync wrote nothing (#2642).
+- `init` with Grok and the managed `.gitignore` writes `gitignore.commit: [grok:instructions]`, so `init --all` followed by an always-on rule syncs. Grok's refusal names the tool once instead of `grok: grok:`, and a name a tool refuses now starts with the spec's path (#2642).
 
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).

@@ -309,6 +309,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A file under `.agnostic-ai/overlays/` is not one any target reads, such as `gemini.settings.json` or a misspelled `claude.setings.json`. Its keys reach no tool. A name that differs from a known overlay only in case is read only where file names ignore case, such as macOS and Windows. Sync prints the same note. A known overlay of a target missing from `targets` is not flagged. Dot files, dot folders, and README files at the top of `overlays/` are skipped.",
 		Fix:      "For a `<target>.settings.*` file of a tool that merges `x-<target>` from settings specs, such as Gemini CLI, move the keys there. Otherwise rename the file to an overlay the finding lists, or delete it.",
 	},
+	"LINT052": {
+		Severity: lintError,
+		Title:    "Spec or setting a selected tool refuses",
+		Cause:    "A tool in `targets` refuses a spec or setting before it writes anything, and that stops sync for every tool. CodeBuddy takes agent names of lowercase letters and hyphens only. Zed and OpenCode take skill names of 1 to 64 lowercase letters or digits with single hyphens, and Junie takes agent names that start with a lowercase letter followed by lowercase letters, digits, hyphens, or underscores; this covers commands and agents a tool writes as skills. Grok reads project rules only from committed files, so it refuses rules while `gitignore.enabled` is on and `gitignore.commit` lacks `grok:instructions`. Each tool reports its first refusal. Tools outside `targets` and `lint --global` are not checked.",
+		Fix:      "Rename the spec as the message says, or add `grok:instructions` to `gitignore.commit`. Removing the tool from `targets` also clears it.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",

@@ -918,3 +918,28 @@ func TestFallbackInitTargets_SingularForOneTarget(t *testing.T) {
 		t.Errorf("want %q, got %q", want, buf.String())
 	}
 }
+
+func TestRenderConfig_GitignoreWithGrokCommitsItsInstructions(t *testing.T) {
+	got := renderConfig("", []string{"claude", "grok"}, true, "test", false)
+	if !strings.Contains(got, "gitignore:\n  enabled: true\n  commit: [grok:instructions]\n") {
+		t.Errorf("grok refuses ignored rules, so its instructions must be committed:\n%s", got)
+	}
+	if got := renderConfig("", []string{"claude"}, true, "test", false); strings.Contains(got, "commit:") {
+		t.Errorf("without grok nothing needs committing:\n%s", got)
+	}
+}
+
+func TestInitAll_SyncsAnAlwaysOnRule(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	if out, err := runCLI(t, "init", "--all"); err != nil {
+		t.Fatalf("init --all: %v\n%s", err, out)
+	}
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/rules/demo.md"), "---\nname: demo\ndescription: Demo rule.\nalwaysApply: true\n---\n\nDemo body.\n")
+	if out, err := runCLI(t, "lint"); err != nil {
+		t.Fatalf("lint after init --all: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync after init --all: %v\n%s", err, out)
+	}
+}
