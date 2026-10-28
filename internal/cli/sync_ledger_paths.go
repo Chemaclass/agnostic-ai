@@ -23,10 +23,10 @@ var warnedLedgerEntries sync.Map
 // ledger fields sync writes to or removes through. The ledger is
 // committed with the project, so such an entry is corrupt or crafted:
 // sync names it and never touches the file it points at.
-func (s *syncStateFile) dropEscapingEntries(statePath string) {
+func (s *syncStateFile) dropEscapingEntries(projectRoot, statePath string) {
 	var dropped []string
 	keep := func(p string) bool {
-		if config.UnsafeProjectPath(p) {
+		if config.UnsafeProjectPathIn(projectRoot, p) {
 			dropped = append(dropped, p)
 			return false
 		}

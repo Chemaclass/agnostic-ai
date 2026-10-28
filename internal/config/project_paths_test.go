@@ -17,8 +17,6 @@ func TestLoad_RefusesPathsOutsideTheProject(t *testing.T) {
 		{"absolute gitignore path", "gitignore:\n  path: \"" + abs + "/.gitignore\"\n", "gitignore.path"},
 		{"gitignore allow with a newline", "gitignore:\n  allow: [\"x\\ntouch PWNED\"]\n", "gitignore.allow"},
 		{"gitignore allow with a carriage return", "gitignore:\n  allow: [\"x\\rtouch PWNED\"]\n", "gitignore.allow"},
-		{"absolute rules dir", "outputs:\n  claude:\n    rules-dir: \"" + abs + "/rules\"\n", "outputs.claude.rules-dir"},
-		{"absolute entry point", "outputs:\n  claude:\n    file: \"" + abs + "/C.md\"\n", "outputs.claude.file"},
 		{"output dir above the root", "outputs:\n  codex:\n    dir: ../elsewhere\n", "outputs.codex.dir"},
 		{"mcp file above the root", "outputs:\n  claude:\n    mcp-file: tools/../../m.json\n", "outputs.claude.mcp-file"},
 		{"setup file in the git hooks", "outputs:\n  amp:\n    setup-file: .git/hooks/post-checkout\n", "outputs.amp.setup-file"},
@@ -64,5 +62,20 @@ func TestLoad_AcceptsTheLocalGitExcludeFileAsGitignorePath(t *testing.T) {
 
 	if _, err := config.Load(dir); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLoad_AcceptsAnAbsoluteOutputInsideTheProjectOnly(t *testing.T) {
+	dir := t.TempDir()
+	inside := filepath.ToSlash(filepath.Join(dir, "tools", "rules"))
+	writeConfig(t, dir, "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-dir: \""+inside+"\"\n")
+	if _, err := config.Load(dir); err != nil {
+		t.Fatalf("absolute rules dir inside the project: %v", err)
+	}
+
+	hooks := filepath.ToSlash(filepath.Join(dir, ".git", "hooks"))
+	writeConfig(t, dir, "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-dir: \""+hooks+"\"\n")
+	if _, err := config.Load(dir); err == nil || !strings.Contains(err.Error(), "outputs.claude.rules-dir") {
+		t.Fatalf("absolute rules dir in .git: error = %v, want one naming outputs.claude.rules-dir", err)
 	}
 }

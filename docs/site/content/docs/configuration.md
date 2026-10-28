@@ -569,9 +569,10 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 ## Path semantics
 
 - Relative `sources` and `outputs` paths start at the directory holding `agnostic-ai.yaml`. Absolute `sources` paths are used as written.
-- `outputs` paths and `gitignore.path` must stay inside the project and out of `.git/`. The config fails to load when one is absolute, climbs above the project root, or points into `.git/`, so a cloned repository cannot make sync write there. `gitignore.path: .git/info/exclude` is the one exception.
+- `outputs` paths and `gitignore.path` must stay inside the project and out of `.git/`, so a cloned repository cannot make sync write elsewhere. The config fails to load when one climbs above the project root or points into `.git/`, and sync stops before writing to an absolute `outputs` path outside the project. `gitignore.path` must be relative; `.git/info/exclude` is its one `.git/` exception.
 - A `sync.unmanaged` entry that climbs above the project root fails to load. A leading `/` anchors an entry at the project root.
 - Sync skips a `.agnostic-ai/.sync-state` entry outside the project or inside `.git/` and names it in a warning. It never removes or changes that file.
+- A spec or MCP server named `.git` fails to load.
 - Sync creates output directories as needed and overwrites existing files.
 
 ## Entry-point files

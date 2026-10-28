@@ -145,7 +145,7 @@ func readStateFile(projectRoot string) syncStateFile {
 		return s
 	}
 	_ = json.Unmarshal(data, &s)
-	s.dropEscapingEntries(stateFilePath(projectRoot))
+	s.dropEscapingEntries(projectRoot, stateFilePath(projectRoot))
 	return s
 }
 
@@ -243,7 +243,7 @@ func readStateFileStrict(projectRoot string) (syncStateFile, error) {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return s, fmt.Errorf("parse %s: %w", p, err)
 	}
-	s.dropEscapingEntries(p)
+	s.dropEscapingEntries(projectRoot, p)
 	return s, nil
 }
 
@@ -448,6 +448,7 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 					return nil // group already failing; do not start new work
 				}
 				sess := adapters.NewSession()
+				sess.SetProjectRoot(".")
 				sessions[idx] = sess
 				if backup {
 					sess.SetBackup(true)
@@ -672,6 +673,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// own session; sessions collects every session with a rollback log in
 	// write order, so the deferred rollback undoes the latest phase first.
 	mainSess := adapters.NewSession()
+	mainSess.SetProjectRoot(".")
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
 		mainSess.SetBackup(true)
@@ -1275,6 +1277,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 
 	// JSON retains partial target output except when coverage acceptance rejects the run.
 	mainSess := adapters.NewSession()
+	mainSess.SetProjectRoot(".")
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
 		mainSess.SetBackup(true)

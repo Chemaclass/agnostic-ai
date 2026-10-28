@@ -120,13 +120,14 @@ func TestRunSyncOnce_LeavesALinkOutsideTheProjectThatTheLedgerNames(t *testing.T
 }
 
 func TestReadStateFile_DropsEntriesOutsideTheProject(t *testing.T) {
-	testutil.TempCwd(t)
+	root := testutil.TempCwd(t)
 	abs := filepath.Join(t.TempDir(), "elsewhere.md")
+	absInside := filepath.Join(root, "tools", "rules", "r1.md")
 	escaping := filepath.Join("..", "elsewhere.md")
 	gitHead := filepath.Join(".git", "HEAD")
 	inside := filepath.Join("x", "..", "CLAUDE.md")
 	writeCraftedLedger(t, syncStateFile{
-		Outputs:    []string{escaping, abs, gitHead, inside},
+		Outputs:    []string{escaping, abs, gitHead, inside, absInside},
 		OutputSums: map[string]string{escaping: "s", abs: "s", gitHead: "s", inside: "s"},
 		Orphans:    []string{escaping},
 		Unledgered: []string{abs},
@@ -137,16 +138,33 @@ func TestReadStateFile_DropsEntriesOutsideTheProject(t *testing.T) {
 
 	state := readStateFile(".")
 
-	if len(state.Outputs) != 1 || state.Outputs[0] != inside {
-		t.Errorf("outputs = %v, want only %s", state.Outputs, inside)
+	if len(state.Outputs) != 2 || state.Outputs[0] != inside || state.Outputs[1] != absInside {
+		t.Errorf("outputs = %v, want only %s and %s", state.Outputs, inside, absInside)
 	}
 	if len(state.OutputSums) != 1 || len(state.Orphans) != 0 || len(state.Unledgered) != 0 || len(state.Merged) != 0 || len(state.Backups) != 0 {
 		t.Errorf("escaping entries kept: %+v", state)
 	}
-	if strict, err := readStateFileStrict("."); err != nil || len(strict.Outputs) != 1 {
+	if strict, err := readStateFileStrict("."); err != nil || len(strict.Outputs) != 2 {
 		t.Errorf("strict read = %v, %v; want only %s", strict.Outputs, err, inside)
 	}
 	if n := strings.Count(warnings.String(), strconv.Quote(escaping)+"\n"); n != 1 {
 		t.Errorf("want one warning naming %s, got %d:\n%s", escaping, n, warnings.String())
+	}
+}
+
+func TestRunSyncOnce_RefusesAnAbsoluteOutputOutsideTheProject(t *testing.T) {
+	f := newEscapeFixture(t)
+	rules := filepath.Join(f.victim, "rules")
+	mustWriteFile(t, filepath.Join(f.proj, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-dir: "+strconv.Quote(filepath.ToSlash(rules))+"\n")
+	silence(t)
+	captureLog(t)
+
+	err := runSyncOnce(".", nil, false, false, "off", 1)
+
+	if err == nil || !strings.Contains(err.Error(), "outside the project") {
+		t.Fatalf("sync error = %v, want a refusal to write outside the project", err)
+	}
+	if _, err := os.Stat(rules); !os.IsNotExist(err) {
+		t.Errorf("sync wrote outside the project: %v", err)
 	}
 }

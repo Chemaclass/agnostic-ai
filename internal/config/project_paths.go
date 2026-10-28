@@ -3,6 +3,7 @@ package config
 import (
 	"path"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -27,19 +28,74 @@ func UnsafeProjectPath(p string) bool {
 	return EscapesProject(p) || inGitDir(p)
 }
 
+// UnsafeProjectPathIn is UnsafeProjectPath for a path that may also be
+// written absolute, as a ledger entry can be: an absolute path is safe
+// only when it resolves inside root and outside its Git folder.
+func UnsafeProjectPathIn(root, p string) bool {
+	if !filepath.IsAbs(p) {
+		return UnsafeProjectPath(p)
+	}
+	rel, inside := relativeToRoot(root, p)
+	return !inside || UnsafeProjectPath(rel)
+}
+
+// relativeToRoot returns absolute p relative to root, and whether it
+// lies inside root.
+func relativeToRoot(root, p string) (string, bool) {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(resolvedPath(absRoot), resolvedPath(filepath.Clean(p)))
+	return rel, err == nil && !EscapesProject(rel)
+}
+
+// resolvedPath follows the links in p's longest existing prefix, so a
+// path through /var and one through /private/var compare equal on macOS.
+func resolvedPath(p string) string {
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		return real
+	}
+	parent := filepath.Dir(p)
+	if parent == p {
+		return p
+	}
+	return filepath.Join(resolvedPath(parent), filepath.Base(p))
+}
+
 // gitExcludeFile is the local-only ignore file gitignore.path may name.
 const gitExcludeFile = ".git/info/exclude"
 
-// inGitDir reports whether any segment of p names the Git folder. The
-// match ignores case and trailing dots or spaces, which case-insensitive
-// and Windows file systems drop.
+// inGitDir reports whether any segment of p names the Git folder.
 func inGitDir(p string) bool {
 	for _, seg := range strings.Split(path.Clean(filepath.ToSlash(p)), "/") {
-		if strings.EqualFold(strings.TrimRight(seg, ". "), ".git") {
+		if GitDirName(seg) {
 			return true
 		}
 	}
 	return false
+}
+
+// GitDirName reports whether one path segment names the Git folder on
+// this system, as Git itself refuses it in a tree.
+func GitDirName(seg string) bool {
+	return gitDirName(seg, runtime.GOOS)
+}
+
+// gitDirName matches DotGitName, since case-insensitive and Windows file
+// systems drop the difference. On Windows it also matches the short name `git~1` and any segment with a colon,
+// which names an NTFS stream such as `.git::$INDEX_ALLOCATION`.
+func gitDirName(seg, goos string) bool {
+	if DotGitName(seg) {
+		return true
+	}
+	return goos == "windows" && (strings.EqualFold(strings.TrimRight(seg, ". "), "git~1") || strings.Contains(seg, ":"))
+}
+
+// DotGitName reports whether seg is `.git` once case and trailing dots
+// or spaces are ignored, on any system.
+func DotGitName(seg string) bool {
+	return strings.EqualFold(strings.TrimRight(seg, ". "), ".git")
 }
 
 // outputPaths lists the path-valued keys of one outputs.<target> entry.
@@ -57,9 +113,10 @@ func (o Output) outputPaths() map[string]string {
 }
 
 // validateProjectPaths refuses config paths that point outside the
-// project or into .git, and gitignore lines that would split into several. Project
-// sync writes these paths; `sync --global` does not read these keys.
-func validateProjectPaths(cfg *Config, source string) error {
+// project at root or into its .git folder, and gitignore lines that would
+// split into several. Project sync writes these paths; `sync --global`
+// does not read these keys.
+func validateProjectPaths(cfg *Config, root, source string) error {
 	targets := make([]string, 0, len(cfg.Outputs))
 	for target := range cfg.Outputs {
 		targets = append(targets, target)
@@ -73,7 +130,7 @@ func validateProjectPaths(cfg *Config, source string) error {
 		}
 		slices.Sort(keys)
 		for _, key := range keys {
-			if p := paths[key]; p != "" && UnsafeProjectPath(p) {
+			if p := paths[key]; p != "" && unsafeOutputPath(root, p) {
 				return errs.Coded(errs.CodeConfigDecode, "%s: outputs.%s.%s: %q is outside the project or inside .git; use a path relative to the project root", source, target, key, p)
 			}
 		}
@@ -95,4 +152,17 @@ func validateProjectPaths(cfg *Config, source string) error {
 		}
 	}
 	return nil
+}
+
+// unsafeOutputPath reports whether an output override must fail to
+// load: a relative path above root or in .git, or an absolute one inside
+// root's .git. An absolute path elsewhere loads, because import previews
+// read the config from a copy of the project; the session sync writes
+// through refuses it instead (see emit.Session.SetProjectRoot).
+func unsafeOutputPath(root, p string) bool {
+	if !filepath.IsAbs(p) {
+		return UnsafeProjectPath(p)
+	}
+	rel, inside := relativeToRoot(root, p)
+	return inside && inGitDir(rel)
 }

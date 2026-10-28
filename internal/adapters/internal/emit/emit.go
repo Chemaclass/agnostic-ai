@@ -171,6 +171,28 @@ type Session struct {
 	// committedSum, when set, gives a path with no recorded sum the sum of
 	// its committed version, "" when there is none (see SetCommittedSum).
 	committedSum func(path string) string
+	// projectRoot, when set, bounds every absolute path the session
+	// writes or removes (see SetProjectRoot).
+	projectRoot string
+}
+
+// SetProjectRoot makes the session refuse an absolute path outside root.
+// Project sync sets it before any write: its paths come from a config a
+// cloned repository commits. Global sync leaves it unset, since it writes
+// tool folders under the user's home.
+func (s *Session) SetProjectRoot(root string) { s.projectRoot = root }
+
+// checkProjectPath refuses a path that climbs above the project, lies in
+// its .git folder, or, with a project root set, resolves outside it.
+func (s *Session) checkProjectPath(path string) error {
+	switch {
+	case escapesProjectRoot(path):
+		return fmt.Errorf("refusing to write outside the project root: %s", path)
+	case !filepath.IsAbs(path) && config.UnsafeProjectPath(path),
+		filepath.IsAbs(path) && s.projectRoot != "" && config.UnsafeProjectPathIn(s.projectRoot, path):
+		return fmt.Errorf("refusing a path outside the project or inside .git: %s", path)
+	}
+	return nil
 }
 
 // SetUserTier marks a session that writes a tool's user-level
@@ -953,8 +975,8 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		fmt.Printf("--- %s ---\n%s\n", path, preview.Display(path, content).Text)
 		return nil
 	}
-	if escapesProjectRoot(path) {
-		return fmt.Errorf("refusing to write outside the project root: %s", path)
+	if err := s.checkProjectPath(path); err != nil {
+		return err
 	}
 	cur := &onDisk{path: path}
 	// A file already found there proves its folder exists, so an
@@ -1150,8 +1172,8 @@ func (s *Session) createUntrackedFileExclusive(path, content string, dryRun bool
 	if s.IsCapturing() || dryRun {
 		return false, nil
 	}
-	if escapesProjectRoot(path) {
-		return false, fmt.Errorf("refusing to write outside the project root: %s", path)
+	if err := s.checkProjectPath(path); err != nil {
+		return false, err
 	}
 	defer lockPath(path)()
 	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
@@ -1436,6 +1458,9 @@ func (s *Session) removeWithBackup(path, sum string, existing []byte, handWritte
 	if dryRun {
 		fmt.Printf("--- rm %s ---\n", path)
 		return true, nil
+	}
+	if err := s.checkProjectPath(path); err != nil {
+		return false, err
 	}
 
 	ownershipReads.RLock()
