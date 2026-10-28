@@ -52,10 +52,11 @@ Usage: scripts/docfetch.sh [--out DIR] [<target>...]
 
   (no args)      fetch every registered target's docs, changelog, schema, and code URLs
   <target>...    fetch only the named targets
-  --out DIR      run directory (default: a unique directory under local/target-audit)
+  --out DIR      run directory (default: a unique directory under local/target-audit);
+                 its name may use only letters, digits, dot, underscore, hyphen
   --urls         print "<target>\t<kind>\t<url>" without fetching
   --update FILE  validate the run's audit.json coverage, then update the lock;
-                 also removes pages/ of runs over 30 days old that no audit
+                 also removes pages/ of runs idle for 30 days that no audit
                  table or report cites
   --update-unvalidated FILE
                  manual compatibility path, skips audit coverage validation
@@ -759,43 +760,64 @@ run_dir() {
   printf '%s\n' "${DOCFETCH_RUNS:-$DOCFETCH_ROOT/local/target-audit}"
 }
 
-# referenced_runs prints every path segment that the audit tables beside the
-# lock and the date reports cite, one per line.
-referenced_runs() {
-  local f
-  for f in "$(dirname "$LOCK")"/*.tsv "$(run_dir)"/*.md; do
-    if [ -f "$f" ]; then cat "$f"; fi
-  done | awk '
-    {
-      n = split($0, tok, /[^A-Za-z0-9._\/-]+/)
-      for (i = 1; i <= n; i++) {
-        if (index(tok[i], "/") == 0) continue
-        m = split(tok[i], seg, "/")
-        for (j = 1; j <= m; j++) if (seg[j] != "") print seg[j]
-      }
-    }
-  ' | sort -u
+# run_name_safe <name> succeeds for a run directory name made only of
+# letters, digits, dot, underscore and hyphen: the names a citation scan can
+# find as a whole token.
+run_name_safe() {
+  case "$1" in '' | *[!A-Za-z0-9._-]*) return 1 ;; esac
 }
 
-# pages_prune <finalized run dir> removes the fetched pages/ of runs older
-# than DOCFETCH_PAGES_DAYS (30) that no audit table or report cites by path.
-# A new run fetches every source fresh, so old pages only matter as cited
-# evidence. Reports, rows/, docfetch.tsv and the other small files stay.
+# run_cited <runs root> <run dir> succeeds when the run's name appears as a
+# whole token in an audit table beside the lock or in any Markdown file under
+# the runs root outside that run: a path into it, a relative link, or a bare
+# "Run: <name>" line all count.
+run_cited() {
+  local name re f hit
+  name=$(basename "$2")
+  re="(^|[^A-Za-z0-9._-])$(printf '%s' "$name" | sed 's/\./\\./g')([^A-Za-z0-9._-]|$)"
+  for f in "$(dirname "$LOCK")"/*.tsv; do
+    [ ! -f "$f" ] || ! grep -Eqs -- "$re" "$f" || return 0
+  done
+  # Stopping at the first hit can end find early, so its status is not checked.
+  hit=$(find "$1" -path "$2" -prune -o -type f -name '*.md' -print | while IFS= read -r f; do
+    if grep -Eqs -- "$re" "$f"; then
+      printf '%s\n' "$f"
+      break
+    fi
+  done) || true
+  [ -n "$hit" ]
+}
+
+# run_idle <run dir> succeeds when nothing in the run changed in the last
+# DOCFETCH_PAGES_DAYS (30) days.
+run_idle() {
+  [ -z "$(find "$1" ! -mtime +"${DOCFETCH_PAGES_DAYS:-30}" -print 2>/dev/null | head -n 1)" ]
+}
+
+# pages_prune <finalized run dir> removes the fetched pages/ of idle runs
+# that no audit table or report cites. A new run fetches every source fresh,
+# so old pages only matter as cited evidence. Reports, rows/, docfetch.tsv
+# and the other small files stay. The lock is already written, so a failed
+# removal is reported, not fatal.
 pages_prune() {
-  local runs keep refs pages run kb
+  local runs keep pages run kb
   runs=$(run_dir)
   [ -d "$runs" ] || return 0
   runs=$(CDPATH='' cd -- "$runs" && pwd -P)
   keep=$(CDPATH='' cd -- "$1" 2>/dev/null && pwd -P) || keep=""
-  refs=$(referenced_runs)
-  find "$runs" -mindepth 2 -maxdepth 2 -type d -name pages -mtime +"${DOCFETCH_PAGES_DAYS:-30}" | while read -r pages; do
+  find "$runs" -mindepth 2 -maxdepth 2 -type d -name pages | while IFS= read -r pages; do
     run=$(dirname "$pages")
     [ "$run" != "$keep" ] || continue
     case "$run" in "$runs"/?*) ;; *) continue ;; esac
-    ! printf '%s\n' "$refs" | grep -Fqx -- "$(basename "$run")" || continue
-    kb=$(du -sk "$pages" | cut -f1)
-    rm -rf -- "$pages"
-    printf 'pages: removed %s (%s KB)\n' "${pages#"$runs"/}" "$kb"
+    run_name_safe "$(basename "$run")" || continue
+    run_idle "$run" || continue
+    ! run_cited "$runs" "$run" || continue
+    kb=$(du -sk "$pages" 2>/dev/null | cut -f1) || kb=""
+    if rm -rf -- "$pages" 2>/dev/null; then
+      printf 'pages: removed %s (%s KB)\n' "${pages#"$runs"/}" "${kb:-?}"
+    else
+      printf 'pages: could not remove %s\n' "$pages" >&2
+    fi
   done
 }
 
@@ -1263,6 +1285,10 @@ docfetch_main() {
           echo "--out needs a directory" >&2
           return 2
         fi
+        if ! run_name_safe "$(basename -- "$2")"; then
+          echo "--out folder name may use only letters, digits, dot, underscore and hyphen: $2" >&2
+          return 2
+        fi
         out="$2"
         shift 2
         ;;
@@ -1321,7 +1347,7 @@ docfetch_main() {
         lock_prune
       fi
       snapshot_prune
-      pages_prune "$(dirname "$file")"
+      pages_prune "$(dirname "$file")" || echo "pages: prune stopped early" >&2
       return
       ;;
   esac

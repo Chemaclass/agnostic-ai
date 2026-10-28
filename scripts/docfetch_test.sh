@@ -1203,8 +1203,8 @@ function old_run() {
   printf 'page\n' >"$run/pages/claude/docs-1-memory.txt"
   printf 'row\n' >"$run/rows/claude.tsv"
   printf 'row\n' >"$run/docfetch.tsv"
-  printf '# finding\n' >"$run/claude-mcp.md"
-  touch -t 202601010000 "$run/pages"
+  printf 'Quote from local/target-audit/%s/pages/claude/docs-1-memory.txt\n' "$1" >"$run/claude-mcp.md"
+  find "$run" -exec touch -t 202601010000 {} +
 }
 
 function test_pages_prune_removes_pages_of_an_old_unreferenced_run() {
@@ -1245,6 +1245,84 @@ function test_pages_prune_keeps_a_recent_run() {
   touch "$DOCFETCH_RUNS/2026-10-28-run/pages"
   pages_prune "$DOCFETCH_RUNS/2026-10-29-run" >/dev/null
   assert_directory_exists "$DOCFETCH_RUNS/2026-10-28-run/pages"
+}
+
+function test_pages_prune_keeps_a_cited_run_among_many_citations() {
+  old_run 2026-01-01-aaa
+  {
+    printf 'case\tlocal/target-audit/2026-01-01-aaa/pages/claude/docs-1-memory.txt\n'
+    local i
+    for i in $(seq 1 2000); do
+      printf 'case-%s\tlocal/target-audit/2026-09-%s-run/pages/claude/docs-1-memory.txt\n' "$i" "$i"
+    done
+  } >"$(dirname "$LOCK")/surface-cases.tsv"
+  pages_prune "$DOCFETCH_RUNS/2026-10-28-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01-aaa/pages"
+}
+
+function test_pages_prune_keeps_a_run_a_sub_report_of_another_run_cites() {
+  old_run 2026-01-01-run
+  old_run 2026-01-05-run
+  printf 'Evidence: local/target-audit/2026-01-01-run/pages/claude/docs-1-memory.txt\n' >"$DOCFETCH_RUNS/2026-01-05-run/batch-4.md"
+  touch -t 202601050000 "$DOCFETCH_RUNS/2026-01-05-run/batch-4.md" "$DOCFETCH_RUNS/2026-01-05-run"
+  pages_prune "$DOCFETCH_RUNS/2026-10-28-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01-run/pages"
+  assert_directory_not_exists "$DOCFETCH_RUNS/2026-01-05-run/pages"
+}
+
+function test_pages_prune_keeps_a_run_a_report_names_without_a_path() {
+  old_run 2026-01-01-run
+  old_run 2026-01-01-run.b
+  printf 'Run: `2026-01-01-run`\n' >"$DOCFETCH_RUNS/2026-01-02.md"
+  pages_prune "$DOCFETCH_RUNS/2026-10-28-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01-run/pages"
+  assert_directory_not_exists "$DOCFETCH_RUNS/2026-01-01-run.b/pages"
+}
+
+function test_pages_prune_keeps_a_run_with_a_recent_write() {
+  old_run 2026-01-01-run
+  printf 'late report\n' >"$DOCFETCH_RUNS/2026-01-01-run/late.txt"
+  pages_prune "$DOCFETCH_RUNS/2026-10-28-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01-run/pages"
+}
+
+function test_pages_prune_keeps_a_run_whose_name_a_scan_cannot_match() {
+  old_run '2026-01-01T12:00 run'
+  pages_prune "$DOCFETCH_RUNS/2026-10-28-run" >/dev/null
+  assert_directory_exists "$DOCFETCH_RUNS/2026-01-01T12:00 run/pages"
+}
+
+function test_out_rejects_a_folder_name_a_citation_scan_cannot_match() {
+  local status=0 err
+  err=$(docfetch_main --out "$FIXTURES/2026-10-28 run" claude 2>&1 >/dev/null) || status=$?
+  assert_equals 2 "$status"
+  assert_contains "--out folder name may use only" "$err"
+  assert_directory_not_exists "$FIXTURES/2026-10-28 run"
+}
+
+function test_pages_prune_reports_a_failed_removal_and_continues() {
+  old_run 2026-01-01-run
+  old_run 2026-01-02-run
+  chmod 555 "$DOCFETCH_RUNS/2026-01-01-run/pages/claude"
+  local out err
+  out=$(pages_prune "$DOCFETCH_RUNS/2026-10-28-run" 2>"$FIXTURES/err")
+  err=$(cat "$FIXTURES/err")
+  chmod 755 "$DOCFETCH_RUNS/2026-01-01-run/pages/claude"
+  assert_contains "pages: could not remove" "$err"
+  assert_contains "pages: removed 2026-01-02-run/pages" "$out"
+}
+
+function test_validated_update_prunes_old_run_pages_after_finalizing() {
+  old_run 2026-01-01-run
+  mkdir -p "$DOCFETCH_RUNS/2026-10-28-run"
+  run_row claude https://code.claude.com/docs/en/memory new 2026-10-16 >"$DOCFETCH_RUNS/2026-10-28-run/docfetch.tsv"
+  # The coverage checker has its own Go tests; here it only has to pass.
+  function go() { printf '%s\n' "$*" >"$FIXTURES/go.args"; }
+  local out
+  out=$(docfetch_main --update "$DOCFETCH_RUNS/2026-10-28-run/docfetch.tsv" 2>/dev/null)
+  unset -f go
+  assert_contains "finalize $DOCFETCH_RUNS/2026-10-28-run" "$(cat "$FIXTURES/go.args")"
+  assert_contains "pages: removed 2026-01-01-run/pages" "$out"
 }
 
 function test_update_prunes_old_run_pages() {
