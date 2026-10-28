@@ -264,6 +264,18 @@ func TestEditField_TargetedSpecOverridesOnlyItsTools(t *testing.T) {
 	}
 }
 
+func TestEditField_GlobalLaterClaudeModelNameOverridesCodex(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "name: a\nmodel:\n  codex: gpt-5\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "b.yaml"), "name: b\nmodel: claude-opus-4\n")
+	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"audience":"shared","path":"settings/a.yaml","key":"model","target":"codex","value":"gpt-5.5"}`, nil)
+	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "b.yaml sets model and overrides") {
+		t.Fatalf("codex edit = %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestEditField_PackValueSavesToProjectDefault(t *testing.T) {
 	silence(t)
 	project := t.TempDir()

@@ -95,7 +95,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 	if addr.target != "" {
 		edited = []string{addr.target}
 	}
-	inEffect := overview.SettingsInEffect(settings, key, edited)
+	inEffect := overview.SettingsInEffect(settings, key, edited, h.global)
 	target := overview.SettingsWriteTarget(settings, inEffect, key, edited)
 	unreachable := inEffect >= 0 && target < 0
 	defaultFile := filepath.Join(h.root, "settings", "defaults.yaml")
@@ -111,7 +111,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 		})
 		switch {
 		case at >= 0:
-			if j := overview.SettingsOverride(settings, at, key, edited); j >= 0 {
+			if j := overview.SettingsOverride(settings, at, key, edited, h.global); j >= 0 {
 				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SettingsValuePath(h.root, settings[j], key, edited, scope.models), key, shown)
 			}
 			chosen, file = settings[at], settings[at].Path
@@ -125,7 +125,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 					}
 				}
 			}
-			if j := overview.SettingsOverride(later, -1, key, edited); j >= 0 {
+			if j := overview.SettingsOverride(later, -1, key, edited, h.global); j >= 0 {
 				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SettingsValuePath(h.root, later[j], key, edited, scope.models), key, shown)
 			}
 			if len(candidates) > 0 && !unreachable {

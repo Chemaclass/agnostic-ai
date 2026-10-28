@@ -350,13 +350,13 @@ func TestSettingsOverride_CountsOnlyToolsTheLaterSpecGivesAValue(t *testing.T) {
 	} {
 		settings := []spec.Entry{a, {Name: "b", Meta: tc.later}}
 		for _, key := range []string{"model", "effort"} {
-			if got := SettingsOverride(settings, 0, key, []string{"claude"}); got != tc.claude {
+			if got := SettingsOverride(settings, 0, key, []string{"claude"}, false); got != tc.claude {
 				t.Errorf("%s %s claude override = %d, want %d", tc.name, key, got, tc.claude)
 			}
-			if got := SettingsOverride(settings, 0, key, []string{"codex"}); got != tc.codex {
+			if got := SettingsOverride(settings, 0, key, []string{"codex"}, false); got != tc.codex {
 				t.Errorf("%s %s codex override = %d, want %d", tc.name, key, got, tc.codex)
 			}
-			if got := SettingsInEffect(settings, key, both); got != tc.inEffect {
+			if got := SettingsInEffect(settings, key, both, false); got != tc.inEffect {
 				t.Errorf("%s %s in effect = %d, want %d", tc.name, key, got, tc.inEffect)
 			}
 		}
@@ -368,10 +368,13 @@ func TestSettingsOverride_SkipsALaterClaudeModelForToolsThatDropIt(t *testing.T)
 		{Name: "a", Meta: map[string]any{"model": map[string]any{"codex": "gpt-5.4"}}},
 		{Name: "b", Meta: map[string]any{"model": "claude-opus-4"}},
 	}
-	if got := SettingsOverride(settings, 0, "model", []string{"codex"}); got != -1 {
+	if got := SettingsOverride(settings, 0, "model", []string{"codex"}, false); got != -1 {
 		t.Errorf("codex override = %d, want -1", got)
 	}
-	if got := SettingsOverride(settings, 0, "model", []string{"claude"}); got != 1 {
+	if got := SettingsOverride(settings, 0, "model", []string{"claude"}, false); got != 1 {
 		t.Errorf("claude override = %d, want 1", got)
+	}
+	if got := SettingsOverride(settings, 0, "model", []string{"codex"}, true); got != 1 {
+		t.Errorf("global codex override = %d, want 1", got)
 	}
 }

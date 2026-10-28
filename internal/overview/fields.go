@@ -129,7 +129,7 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			if !global {
 				defaultPath = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
 			}
-			inEffect := SettingsInEffect(entries, d.key, cfg.Targets)
+			inEffect := SettingsInEffect(entries, d.key, cfg.Targets, global)
 			if target := SettingsWriteTarget(entries, inEffect, d.key, cfg.Targets); target >= 0 {
 				edit.Path = paths[entries[target].Name]
 			} else if inEffect >= 0 || len(edit.Paths) == 0 {
@@ -272,7 +272,7 @@ func SettingsEditCandidate(e spec.Entry, key string) bool {
 // SettingsInEffect is the index in the ordered settings of the spec whose
 // key sync uses: the last one that sets it for every target and no later
 // spec overrides, else the last one that sets it. -1 when none does.
-func SettingsInEffect(settings []spec.Entry, key string, targets []string) int {
+func SettingsInEffect(settings []spec.Entry, key string, targets []string, global bool) int {
 	last := -1
 	for i := len(settings) - 1; i >= 0; i-- {
 		if !hasField(settings[i], key) {
@@ -281,7 +281,7 @@ func SettingsInEffect(settings []spec.Entry, key string, targets []string) int {
 		if last < 0 {
 			last = i
 		}
-		if !slices.ContainsFunc(targets, func(t string) bool { return !setsFor(settings[i], key, t) }) && SettingsOverride(settings, i, key, targets) < 0 {
+		if !slices.ContainsFunc(targets, func(t string) bool { return !setsFor(settings[i], key, t) }) && SettingsOverride(settings, i, key, targets, global) < 0 {
 			return i
 		}
 	}
@@ -310,10 +310,10 @@ func SettingsWriteTarget(settings []spec.Entry, inEffect int, key string, target
 // SettingsOverride is the index of a spec after i that gives key a value
 // for every target settings[i] applies to, or -1. With i < 0 the edited
 // spec applies to every target and every spec counts as later.
-func SettingsOverride(settings []spec.Entry, i int, key string, targets []string) int {
+func SettingsOverride(settings []spec.Entry, i int, key string, targets []string, global bool) int {
 	applies := appliesTo(settings, i, targets)
 	for j := len(settings) - 1; j > i; j-- {
-		if hasField(settings[j], key) && !slices.ContainsFunc(applies, func(t string) bool { return !overridesFor(settings[j], key, t) }) {
+		if hasField(settings[j], key) && !slices.ContainsFunc(applies, func(t string) bool { return !overridesFor(settings[j], key, t, global) }) {
 			return j
 		}
 	}
@@ -321,9 +321,10 @@ func SettingsOverride(settings []spec.Entry, i int, key string, targets []string
 }
 
 // overridesFor is setsFor for a later spec, without the Claude model
-// name target cannot load, as the resolver drops it.
-func overridesFor(e spec.Entry, key, target string) bool {
-	if key == "model" && foreignClaudeModel(e, target) {
+// name target cannot load, as project sync drops it. sync --global
+// writes it.
+func overridesFor(e spec.Entry, key, target string, global bool) bool {
+	if key == "model" && !global && foreignClaudeModel(e, target) {
 		e = withoutSharedModel(e)
 	}
 	return setsFor(e, key, target)
