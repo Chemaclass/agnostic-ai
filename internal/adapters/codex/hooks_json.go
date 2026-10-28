@@ -192,7 +192,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		// An mcp_tool hook calls a tool on an already-connected MCP
 		// server instead of running a shell command, so it carries no
 		// `command` at all. Routing it through the command path below
-		// would make hookCommands return nothing and drop the entry
+		// would make emit.HookCommands return nothing and drop the entry
 		// silently. See #693.
 		if hookType, _ := h.Meta["type"].(string); hookType == "mcp_tool" {
 			server, _ := h.Meta["server"].(string)
@@ -228,8 +228,8 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 
 		commandWindows := specCommandWindows(h)
 		additionalContextLimit := hookIntMetaPtr(h.Meta, "additionalContextLimit")
-		async := hookBoolMeta(h.Meta, "async")
-		for _, raw := range hookCommands(h.Meta["command"]) {
+		async := emit.HookBoolMeta(h.Meta, "async")
+		for _, raw := range emit.HookCommands(h.Meta["command"]) {
 			cmd := specCommand(h, raw)
 			k := key{event: event, kind: "command", identity: cmd}
 			a, ok := byKey[k]
@@ -319,7 +319,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 	}
 
 	doc := &hooksDoc{Events: map[string][]matcherGroup{}}
-	for _, event := range orderedHookEvents(eventOrder) {
+	for _, event := range emit.OrderByLifecycle(eventOrder, hookLifecycle) {
 		doc.Order = append(doc.Order, event)
 		doc.Events[event] = byEvent[event]
 	}
@@ -477,53 +477,19 @@ func hookIntMetaPtr(meta map[string]any, key string) *int {
 	return &value
 }
 
-// hookBoolMeta reads a bool-typed meta key, accepting bool and the
-// string forms "true"/"false" a hand-edited YAML may carry. Returns
-// false when missing or any other type.
-func hookBoolMeta(meta map[string]any, key string) bool {
-	switch v := meta[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-// orderedHookEvents reorders event names by the canonical Codex/Claude
-// lifecycle (Pre before Post, etc.). Events not in the lifecycle list
-// fall through to the tail in first-seen order.
-func orderedHookEvents(seen []string) []string {
-	lifecycle := []string{
-		"SessionStart",
-		"SubagentStart",
-		"UserPromptSubmit",
-		"PreToolUse",
-		"PermissionRequest",
-		"PostToolUse",
-		"Notification",
-		"PreCompact",
-		"PostCompact",
-		"Stop",
-		"SubagentStop",
-		"SessionEnd",
-	}
-	have := map[string]bool{}
-	for _, e := range seen {
-		have[e] = true
-	}
-	out := make([]string, 0, len(seen))
-	for _, e := range lifecycle {
-		if have[e] {
-			out = append(out, e)
-			have[e] = false
-		}
-	}
-	for _, e := range seen {
-		if have[e] {
-			out = append(out, e)
-			have[e] = false
-		}
-	}
-	return out
+// hookLifecycle is the canonical Codex/Claude lifecycle (Pre before Post,
+// etc.). Events not in it fall through to the tail in first-seen order.
+var hookLifecycle = []string{
+	"SessionStart",
+	"SubagentStart",
+	"UserPromptSubmit",
+	"PreToolUse",
+	"PermissionRequest",
+	"PostToolUse",
+	"Notification",
+	"PreCompact",
+	"PostCompact",
+	"Stop",
+	"SubagentStop",
+	"SessionEnd",
 }
