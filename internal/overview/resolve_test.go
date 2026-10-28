@@ -116,3 +116,23 @@ func TestResolveTargets_MarksAValueFromTheToolsOwnEntry(t *testing.T) {
 		t.Errorf("claude = %+v, want the shared value for every tool", claude.From)
 	}
 }
+
+func TestResolveTargets_GlobalKeepsALaterClaudeModelNameForCodex(t *testing.T) {
+	settings := []spec.Entry{
+		entry(spec.KindSettings, "a", "settings/a.yaml", map[string]any{"model": map[string]any{"codex": "gpt-5"}}),
+		entry(spec.KindSettings, "b", "settings/b.yaml", map[string]any{"model": "claude-opus-4"}),
+	}
+	for _, tc := range []struct {
+		global     bool
+		value, src string
+	}{
+		{false, "gpt-5", "settings/a.yaml"},
+		{true, "claude-opus-4", "settings/b.yaml"},
+	} {
+		in := Inputs{Cfg: &config.Config{Targets: []string{"claude", "codex"}}, Global: tc.global, Bundle: spec.Bundle{Settings: settings}}
+		codex := resolvedField(t, in, "model")["codex"]
+		if codex.Value != tc.value || codex.From == nil || codex.From.Path != tc.src {
+			t.Errorf("global %v: codex model = %+v, want %s from %s", tc.global, codex, tc.value, tc.src)
+		}
+	}
+}
