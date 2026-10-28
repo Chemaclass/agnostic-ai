@@ -258,7 +258,7 @@ func noteEditHookPayload(sess *emit.Session, hooks []spec.Entry, mode string) er
 		if !firesOnEdit(h.Meta) {
 			continue
 		}
-		for _, command := range hookCommands(h.Meta["command"]) {
+		for _, command := range emit.HookCommands(h.Meta["command"]) {
 			reads := readsFilePath.MatchString(command)
 			if !reads {
 				sourceTool, _ := emit.SourceToolFromHookCommand(command)
