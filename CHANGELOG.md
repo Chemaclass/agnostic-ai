@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- **Security:** a re-import no longer keeps a Claude or Codex overlay an earlier release wrote with a credential in it. Import prints the warnings and stops; `--overwrite` writes the overlay without the credential (#2669).
 - `sync --global` leaves your text in `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, and the other global instructions files byte for byte. It adds one newline and its block, and removing the block takes back only those. Before, it trimmed blank lines around your text and added a final newline, so a file with CRLF line endings, a leading blank line, or no final newline changed after every add and remove (#2658).
 - `sync` keeps the files of a configured target whose external adapter (`agnostic-ai-adapter-<name>`) is not on PATH. Before, it warned with AAI-301, then deleted every file that target wrote on the last sync and reported it as synced. It now keeps them, says it skipped the stale file cleanup, and counts only the targets whose adapter loaded in the summary. The gitignore block and the spec change baseline keep that target's entries (#2657).
 - **Security:** `compare` text and JSON output hide a credential in a permission rule, on the source side, in each tool's native spelling, and in `x-<target>` override values, with the `<redacted>` marker `sync --global` prints, as in `shell(<redacted>)`. Before, a rule such as `shell(curl -H 'Authorization: Bearer ...' ...)` printed the token (#2650).
@@ -68,6 +69,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### CodeBuddy Code
 
 - Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
+
+#### Codex
+
+- **Security:** `import codex` leaves out of the committed overlay each `config.toml` value that holds a credential, such as a provider bearer token, an `http_headers` value, or a `shell_environment_policy.set` token, and prints a warning naming the key (#2669).
 
 #### Cursor
 
