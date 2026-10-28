@@ -499,6 +499,7 @@ test.describe('overview', () => {
     await expect(permissions.getByRole('button', { name: 'Copy path of .agnostic-ai/settings/permissions.yaml' })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Open files in' })).toHaveCount(0)
     await expect(permissions.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
+    await expect(permissions.locator('.finding-recheck-result')).toHaveText('Rechecking a finding needs a running agnostic-ai serve.')
     await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
     await expect(page.locator('.field-row', { hasText: 'Default permission mode' })).toContainText('Not set')
     await expect(page.getByText('Capability domains')).toHaveCount(0)

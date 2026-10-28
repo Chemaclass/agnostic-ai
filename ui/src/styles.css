@@ -2167,16 +2167,16 @@ input:hover {
     grid-template-rows: auto minmax(0, 1fr);
   }
 
-  /* Keep section links in a scrolling row beside the tools disclosure. */
+  /* Keep section links in one scrolling row. */
   .sidenav {
     z-index: 20;
     height: auto;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     padding: 8px 12px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
-    gap: 4px 8px;
+    gap: 4px;
     overflow: hidden;
   }
 

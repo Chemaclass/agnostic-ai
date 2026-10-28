@@ -47,6 +47,6 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Review the plan before syncing. `sync --check` should exit 0 once the generated files match the source. Then select **Refresh** in the browser to see the updated findings.
+Review the plan before syncing. `sync --check` should exit 0 once the generated files match the source. Then reload the browser page to see the updated findings. The view and search stay in the address bar; unsaved input is lost.
 
 For per-agent permission decisions, browser switches, and undo, see [`serve`](@/docs/cli-reference/inspect.md#serve).
