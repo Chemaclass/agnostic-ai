@@ -20,6 +20,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Editing one tool's `model` or `effort` on **Settings** saves when a later spec sets that field only for other tools. Before, a later `model: {claude: opus}` blocked a codex edit in the earlier spec, though codex took its model from it (#2614).
 - Editing the `model` of a tool such as codex on **Settings** saves when a later spec sets a Claude model name such as `model: claude-opus-4`, which that tool leaves out. Before, the edit returned 400 although **What each tool gets** showed the tool keeping the earlier value (#2619).
 - When a later spec blocks a **Settings** edit, the error names the file that holds the value: the shared spec when your personal file on top of it does not change that value for the edited tool. Before, it named the personal file (#2620).
+- Editing `effort` for one tool on the global **Settings** page saves. Before, the request failed with a network error (#2622).
 
 ### By tool
 
