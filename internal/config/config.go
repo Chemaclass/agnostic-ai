@@ -532,6 +532,9 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	if err := validateUnmanaged(cfg.Sync.Unmanaged, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
+	if err := validateProjectPaths(cfg, root, strings.Join(sources, " + ")); err != nil {
+		return nil, nil, err
+	}
 	if err := validateRequires(cfg.Requires, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}

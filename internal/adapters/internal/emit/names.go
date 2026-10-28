@@ -36,5 +36,5 @@ func ValidateNames(entries []spec.Entry, target, kind string, rule NameRule) err
 }
 
 func nameRuleError(e spec.Entry, target, kind string, rule NameRule) error {
-	return fmt.Errorf("%s %s %q: name must %s", target, kind, e.Name, rule.Rule)
+	return &Refusal{Path: e.Path, Err: fmt.Errorf("%s %s %q: name must %s", target, kind, e.Name, rule.Rule)}
 }

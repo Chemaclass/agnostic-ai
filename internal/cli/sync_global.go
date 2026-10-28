@@ -345,6 +345,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if o.check && o.jsonOut {
 		records := globalFileRecords(writes, existingPaths(removals), statePath, next, true)
 		jsonWritten = true
+		if len(records) == 0 && !globalStateCurrent(statePath, next) {
+			drops.Notes = append(drops.Notes, dropRecord{Kind: "ownership", Count: 1, Message: globalOwnershipNote(statePath)})
+		}
 		if err := emitGlobalJSON(cmd, "sync --global --check", records, drops); err != nil {
 			return err
 		}
@@ -541,11 +544,19 @@ func globalFileRecords(writes []globalWrite, removals []string, statePath string
 		create, update, remove = "missing", "stale", "leftover"
 	}
 	out := []globalFileRecord{}
+	var staleState *globalFileRecord
 	for _, w := range writes {
 		action := update
 		// Check counts the state file as drift only when its ownership
-		// differs; a plan reports the bytes a sync writes.
-		if check && w.path == statePath && globalStateCurrent(statePath, next) {
+		// differs beside a changed tool file; a plan reports the bytes a
+		// sync writes.
+		if check && w.path == statePath {
+			if globalStateMissing(statePath) {
+				action = create
+			}
+			if !globalStateCurrent(statePath, next) {
+				staleState = &globalFileRecord{fileRecord: fileRecord{Path: filepath.ToSlash(w.path), Action: action, Bytes: len(w.data)}}
+			}
 			continue
 		}
 		data, err := os.ReadFile(w.path)
@@ -563,6 +574,9 @@ func globalFileRecords(writes []globalWrite, removals []string, statePath string
 	}
 	for _, path := range removals {
 		out = append(out, globalFileRecord{fileRecord: fileRecord{Path: filepath.ToSlash(path), Action: remove}})
+	}
+	if staleState != nil && len(out) > 0 {
+		out = append(out, *staleState)
 	}
 	return out
 }
@@ -609,18 +623,11 @@ func settingsAdoptions(writes []globalWrite) []string {
 // per file, limited to the managed block when both sides carry one.
 func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []string, statePath string, next globalState, diff bool) error {
 	var drifted []string
+	var stateStale bool
 	out := cmd.OutOrStdout()
 	for _, w := range writes {
 		if w.path == statePath {
-			if globalStateCurrent(statePath, next) {
-				continue
-			}
-			drifted = append(drifted, w.path)
-			if diff {
-				if _, err := fmt.Fprintf(out, "would update ownership state %s\n", filepath.ToSlash(w.path)); err != nil {
-					return fmt.Errorf("write global diff: %w", err)
-				}
-			}
+			stateStale = !globalStateCurrent(statePath, next)
 			continue
 		}
 		data, err := os.ReadFile(w.path)
@@ -649,6 +656,23 @@ func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []stri
 		drifted = append(drifted, path)
 		if diff {
 			if _, err := fmt.Fprintf(out, "would remove %s\n", filepath.ToSlash(path)); err != nil {
+				return fmt.Errorf("write global diff: %w", err)
+			}
+		}
+	}
+	if stateStale && len(drifted) == 0 {
+		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", globalOwnershipNote(statePath)); err != nil {
+			return fmt.Errorf("write global check: %w", err)
+		}
+	}
+	if stateStale && len(drifted) > 0 {
+		drifted = append(drifted, statePath)
+		if diff {
+			verb := "update"
+			if globalStateMissing(statePath) {
+				verb = "create"
+			}
+			if _, err := fmt.Fprintf(out, "would %s ownership state %s\n", verb, filepath.ToSlash(statePath)); err != nil {
 				return fmt.Errorf("write global diff: %w", err)
 			}
 		}
@@ -684,6 +708,22 @@ func agentFailure(explicit bool, warn io.Writer) func(target string, err error) 
 		}
 		return nil
 	}
+}
+
+// globalOwnershipNote explains an ownership record that is missing or
+// out of date while every tool file matches. Recording it changes no tool
+// file, so check counts it as drift only beside a file that changes.
+func globalOwnershipNote(path string) string {
+	record := "the ownership record at " + filepath.ToSlash(path) + " is out of date"
+	if globalStateMissing(path) {
+		record = "no ownership record at " + filepath.ToSlash(path) + " yet"
+	}
+	return record + "; until `agnostic-ai sync --global` writes it, removing a spec leaves its output in place"
+}
+
+func globalStateMissing(path string) bool {
+	_, err := os.Lstat(path)
+	return errors.Is(err, fs.ErrNotExist)
 }
 
 // globalStateCurrent reports whether the recorded state already

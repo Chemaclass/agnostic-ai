@@ -193,6 +193,9 @@ func newSyncCmd() *cobra.Command {
 				if check && slices.ContainsFunc(reports, driftReport.hasDrift) {
 					driftErr = errDriftDetected()
 				}
+				if check {
+					notesErr = errors.Join(notesErr, ledgerCheckError("."))
+				}
 				if jsonOut {
 					return errors.Join(printSyncPlanJSON(cmd, "sync --plan", reports, false, drops, notesErr), driftErr)
 				}
@@ -217,6 +220,13 @@ func newSyncCmd() *cobra.Command {
 					}
 				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
+				// --against compares what Git holds, and Git does not hold the
+				// ledger, so a hook gating a commit only hears about it.
+				if tree == nil {
+					notesErr = errors.Join(notesErr, ledgerCheckError("."))
+				} else if err := unparsableLedger(tree.origin); err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! %v; run agnostic-ai sync to rebuild the ledger\n", err)
+				}
 				var linkFailures []againstSkillLinkFailure
 				if tree != nil {
 					filtered := len(targets) > 0 || len(only) > 0 || len(except) > 0
