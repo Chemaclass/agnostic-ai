@@ -7,9 +7,14 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - `sync` writes `.agnostic-ai/.sync-state` to a temporary file and then moves it into place, so a full disk or a stop mid-write no longer leaves a cut-short ledger. When the ledger does not parse, `sync` warns with its path, looks for leftover files as if no ledger existed, and writes a new one; `sync --check` fails and says to run `sync`. Before, both read it as empty without a word, so leftovers stayed and the check passed (#2665).
+- `doctor config` fails as `sync` does on an unknown builtin or tier target, an unmet `requires`, or a bad `outputs.<target>.agents`, now AAI-004 (#2660).
+- `sync --json` prepares and seeds personal memory like `sync`. Its `notes` now list every project note a plain `sync` prints, such as an overlay file no tool reads, the facts copied into personal memory, and the entry point and worktree notes. Before, a project synced only with `--json` never got its personal memory seeded (#2663).
 - Case-only rule, skill, or agent renames keep generated files and protect hand edits with backups or `--keep-edits` (#2640).
 - `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
 - Sync saves edited outputs as `.bak` before removing them when a spec or target leaves, and `revert` restores them (#2639).
+- `install.sh`, `install.ps1`, and `upgrade` verify each archive's build provenance when `gh` is logged in, and stop on a mismatch (#2655).
+- The installers reject a version that is not a release, such as `v1.0.0/../x`, before downloading anything (#2655).
+
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 - `doctor` fails on an unknown `-t` name, a config `doctor mcp` cannot load, and the glob, nested copy, and hook script findings `--json` skipped (#2659).

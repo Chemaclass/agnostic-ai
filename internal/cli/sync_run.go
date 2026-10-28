@@ -589,7 +589,21 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	return runSyncPass(root, targets, dryRun, backup, false, false, gitignoreFlag, jobs)
 }
 
-func prepareSyncTargets(out io.Writer, root string, cfg *config.Config, b spec.Bundle, targets []string, backup, keepEdits bool) ([]string, map[string]string, error) {
+// resetSyncBuffers clears what an earlier pass left in the adapter buffers.
+func resetSyncBuffers() {
+	adapters.ResetCapabilityWarnings()
+	adapters.ResetCoverageNotes()
+	adapters.TakeResolvedAliases()
+	adapters.TakeMemorySeeds()
+}
+
+// prepareSyncTargets runs the checks and setup both `sync` and
+// `sync --json` share before emitting: it queues the personal memory seed,
+// stops on errors in the specs, and notes overlay files no target reads.
+func prepareSyncTargets(out io.Writer, root string, cfg *config.Config, b spec.Bundle, targets []string, dryRun, backup, keepEdits bool) ([]string, map[string]string, error) {
+	if !dryRun {
+		preparePersonalMemorySync(root, cfg)
+	}
 	if len(targets) == 0 {
 		targets = cfg.Targets
 	}
@@ -604,7 +618,10 @@ func prepareSyncTargets(out io.Writer, root string, cfg *config.Config, b spec.B
 		return nil, nil, err
 	}
 	winners, err := detectCollisions(cfg, b, targets)
-	return targets, winners, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return targets, winners, noteUnreadOverlays(root)
 }
 
 // runSyncPass is one sync pass. With keepEdits, an output edited since the
@@ -622,23 +639,14 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 			_, _ = fmt.Fprint(originalLog, earlyMessages.String())
 		}()
 	}
-	adapters.ResetCapabilityWarnings()
-	adapters.ResetCoverageNotes()
-	adapters.TakeResolvedAliases()
-	adapters.TakeMemorySeeds()
+	resetSyncBuffers()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
-	if !dryRun {
-		preparePersonalMemorySync(root, cfg)
-	}
-	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, cfg, b, targets, backup, keepEdits)
+	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, cfg, b, targets, dryRun, backup, keepEdits)
 	if err != nil {
-		return err
-	}
-	if err := noteUnreadOverlays(root); err != nil {
 		return err
 	}
 	// A mistyped key parses and emits, so without this line nothing in a
@@ -1268,16 +1276,14 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
 func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
-	adapters.ResetCapabilityWarnings()
-	adapters.ResetCoverageNotes()
-	defer adapters.ResetCapabilityWarnings()
-	defer adapters.ResetCoverageNotes()
+	resetSyncBuffers()
+	defer resetSyncBuffers()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
-	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, cfg, b, targets, backup, keepEdits)
+	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, cfg, b, targets, false, backup, keepEdits)
 	if err != nil {
 		return err
 	}
@@ -1415,6 +1421,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		}
 	}
 	mainSess.Commit()
+	runMemorySeeds()
 	if sweepErr != nil {
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: sweepErr.Error()})
 	}
@@ -1477,6 +1484,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
+	drops.syncDrops = pendingSyncDrops()
 	drops.jsonOutput = out.forOutput()
 	return writeIndentedJSON(cmd, drops)
 }

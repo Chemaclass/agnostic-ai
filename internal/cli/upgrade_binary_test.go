@@ -40,6 +40,7 @@ func TestInstallReleaseBinary_ReplacesVerifiedBinary(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("running binaries cannot be replaced on Windows")
 	}
+	clearVerifyAttestation(t)
 	version := "0.58.0"
 	newBinary := []byte("#!/bin/sh\nprintf 'agnostic-ai version 0.58.0\\n'\n")
 	archive := testReleaseArchive(t, newBinary)
@@ -61,7 +62,7 @@ func TestInstallReleaseBinary_ReplacesVerifiedBinary(t *testing.T) {
 	if err := os.WriteFile(path, []byte("old binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := installReleaseBinary(path, version, server.URL, server.Client()); err != nil {
+	if err := installVerifiedRelease(io.Discard, path, version, server.URL, server.Client(), skipProvenance); err != nil {
 		t.Fatalf("install release binary: %v", err)
 	}
 	got, err := os.ReadFile(path)
@@ -77,6 +78,7 @@ func TestInstallReleaseBinary_LeavesOriginalOnVerificationFailure(t *testing.T) 
 	if runtime.GOOS == "windows" {
 		t.Skip("running binaries cannot be replaced on Windows")
 	}
+	clearVerifyAttestation(t)
 	version := "0.58.0"
 	asset := fmt.Sprintf("%s_%s_%s.tar.gz", binaryName, runtime.GOOS, runtime.GOARCH)
 	archive := testReleaseArchive(t, []byte("#!/bin/sh\nprintf 'agnostic-ai version 0.57.0\\n'\n"))
@@ -108,7 +110,7 @@ func TestInstallReleaseBinary_LeavesOriginalOnVerificationFailure(t *testing.T) 
 			if err := os.WriteFile(path, old, 0o755); err != nil {
 				t.Fatal(err)
 			}
-			err := installReleaseBinary(path, version, server.URL, server.Client())
+			err := installVerifiedRelease(io.Discard, path, version, server.URL, server.Client(), skipProvenance)
 			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
 				t.Fatalf("error = %v, want %q", err, tc.wantError)
 			}
