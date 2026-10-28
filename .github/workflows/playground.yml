@@ -54,6 +54,7 @@ jobs:
           # Full history: sitemap lastmod comes from each page's real commit
           # date, and a shallow clone cannot resolve it.
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
