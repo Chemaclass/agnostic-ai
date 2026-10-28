@@ -35,6 +35,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `doctor` fails on an unknown `-t` name, a config `doctor mcp` cannot load, and the glob, nested copy, and hook script findings `--json` skipped (#2659).
 - `new <kind> <name> --dry-run` fails with "already exists" for a spec file that exists, like the real run. Before, it printed "would create" and exited 0 (#2661).
 - `sync --backup` keeps each `<path>.bak` at the permissions of the file it copies, and `revert` restores them without widening the file. The managed `.gitignore` block lists the `.bak` of each output it ignores, so a copy of a private `.mcp.json` is no longer world-readable or committable. A link at `<path>.bak` stops the backup instead of being written through (#2654).
+- A `sync --backup` copy the managed `.gitignore` block does not list stays ignored, such as one whose target was dropped. Sync lists it in `.git/info/exclude`, so the committed `.gitignore` does not change (#2704).
 - `sync`, `status`, `list`, `validate`, `cleanup`, `graph`, and `upgrade` fail on a positional argument instead of ignoring it. `upgrade v0.56.1` points at `--version v0.56.1`; before, it installed the latest release. `graph --kind` and `graph --target` fail on a value that is not a spec kind or a configured target, with a suggestion when one is close (#2662).
 
 #### Web interface
