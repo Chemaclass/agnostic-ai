@@ -118,10 +118,11 @@ func classifyPermissions(cfg *config.Config, settings []spec.Entry, e spec.Entry
 			continue
 		}
 		list, rule, _ := permissionFieldSource(e, field)
+		shown := preview.RedactRule(rule)
 		translated := adapters.TranslatePermissionCapabilityIn(target, list, rule, e, settings, cfg)
 		variant, err := capturePermissions(cfg, withoutPermission(settings, e, field), target)
 		if err != nil {
-			r.Status, r.Reason = statusUnknown, rule+": the adapter cannot emit a valid comparison for this permission"
+			r.Status, r.Reason = statusUnknown, shown+": the adapter cannot emit a valid comparison for this permission"
 			results[field] = r
 			continue
 		}
@@ -137,25 +138,25 @@ func classifyPermissions(cfg *config.Config, settings []spec.Entry, e spec.Entry
 			}
 			displayed := make([]string, len(translated.Native))
 			for i, native := range translated.Native {
-				displayed[i] = displayPermissionNative(native)
+				displayed[i] = displayPermissionNative(native, shown != rule)
 			}
-			r.Reason = rule + ": " + list + " maps to " + strings.Join(displayed, ", ")
+			r.Reason = shown + ": " + list + " maps to " + strings.Join(displayed, ", ")
 			if !translated.Supported {
 				r.Reason += "; part of this permission is unsupported"
 			}
 		case !translated.Supported:
-			r.Status, r.Reason = statusUnsupported, rule+": the adapter does not write this portable "+list+" permission"
+			r.Status, r.Reason = statusUnsupported, shown+": the adapter does not write this portable "+list+" permission"
 			if target == "codex" && !cfg.Outputs[target].ExecPoliciesFromPermissions {
 				r.Next = "set outputs.codex.exec-policies-from-permissions: true to translate supported shell permissions"
 			}
 		case len(base.files) == 0 && translated.Override == "":
 			r = noOutputResult(base.notes, spec.KindSettings, target)
 			r.Target = target
-			r.Reason = rule + ": " + r.Reason
+			r.Reason = shown + ": " + r.Reason
 		default:
-			r.Status, r.Reason = statusUnknown, rule+": the emitted permission cannot be attributed to this source rule"
+			r.Status, r.Reason = statusUnknown, shown+": the emitted permission cannot be attributed to this source rule"
 			if len(changed) == 0 {
-				r.Reason = rule + ": this source rule makes no isolated native permission change"
+				r.Reason = shown + ": this source rule makes no isolated native permission change"
 			}
 		}
 		if translated.Override != "" {
@@ -169,11 +170,104 @@ func classifyPermissions(cfg *config.Config, settings []spec.Entry, e spec.Entry
 	return results, nil
 }
 
-func displayPermissionNative(native string) string {
+// displayPermissionNative hides a credential in a native rule. A native
+// built from a source rule that holds one is hidden whole, since its
+// tool spelling, such as Codex `prefix_rule`, can split the credential
+// where the detector cannot see it.
+func displayPermissionNative(native string, fromCredential bool) string {
 	if json.Valid([]byte(native)) {
 		return strings.TrimSpace(preview.Display("permission.json", native).Text)
 	}
+	key, body, keyed := strings.Cut(native, ": ")
+	keyed = keyed && json.Valid([]byte(body))
+	switch {
+	case fromCredential && keyed:
+		return key + ": " + preview.Redacted
+	case fromCredential:
+		rule, decision := native, ""
+		if i := strings.LastIndex(native, "): "); i >= 0 && !strings.Contains(native[i+1:], ")") {
+			rule, decision = native[:i+1], native[i+1:]
+		}
+		if name, _, ok := strings.Cut(rule, "("); ok && strings.HasSuffix(rule, ")") {
+			return name + "(" + preview.Redacted + ")" + decision
+		}
+		return preview.Redacted
+	case keyed:
+		return key + ": " + redactPermissionOverride(body)
+	case permissionRuleCredential(native):
+		return displayPermissionNative(native, true)
+	}
 	return native
+}
+
+// redactPermissionOverride hides each map key and string in an
+// `x-<target>` permission body that holds a credential, such as an
+// OpenCode `bash` command pattern, and keeps filename patterns and
+// decisions as written.
+func redactPermissionOverride(body string) string {
+	var value any
+	if json.Unmarshal([]byte(body), &value) != nil {
+		return body
+	}
+	changed := false
+	var walk func(any) any
+	walk = func(v any) any {
+		switch v := v.(type) {
+		case map[string]any:
+			var hidden []string
+			for key := range v {
+				if permissionRuleCredential(key) {
+					hidden = append(hidden, key)
+				}
+			}
+			slices.Sort(hidden)
+			out := make(map[string]any, len(v))
+			for key, item := range v {
+				if i := slices.Index(hidden, key); i >= 0 {
+					changed = true
+					key = preview.Redacted
+					if len(hidden) > 1 {
+						key += "#" + strconv.Itoa(i+1)
+					}
+				}
+				out[key] = walk(item)
+			}
+			return out
+		case []any:
+			for i, item := range v {
+				v[i] = walk(item)
+			}
+			return v
+		case string:
+			if permissionRuleCredential(v) {
+				changed = true
+				return preview.Redacted
+			}
+		}
+		return v
+	}
+	value = walk(value)
+	if !changed {
+		return body
+	}
+	var raw strings.Builder
+	encoder := json.NewEncoder(&raw)
+	encoder.SetEscapeHTML(false)
+	if encoder.Encode(value) != nil {
+		return preview.Redacted
+	}
+	return strings.TrimSpace(raw.String())
+}
+
+// permissionRuleCredential reads text as a rule in any tool's spelling,
+// such as `Exec(...)` or a bare command pattern, and checks its command
+// as shell too.
+func permissionRuleCredential(text string) bool {
+	command := text
+	if _, inner, ok := strings.Cut(text, "("); ok && strings.HasSuffix(text, ")") {
+		command = strings.TrimSuffix(inner, ")")
+	}
+	return preview.CredentialInRule(text) || preview.CredentialInRule("shell("+command+")")
 }
 
 func permissionNativePaths(files []adapters.CapturedFile, list, rule string, translated adapters.CapabilityTranslation) ([]string, bool, string) {

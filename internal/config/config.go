@@ -43,7 +43,7 @@ func defaultSource(kind string) string {
 }
 
 type Config struct {
-	Version int `yaml:"version"                  json:"version"`
+	Version int `yaml:"version"                  json:"version" jsonschema:"enum=1"`
 	// The pattern mirrors ParseRequirement so editors flag a bad value.
 	Requires string            `yaml:"requires,omitempty"       json:"requires,omitempty" jsonschema:"pattern=^\\s*$|^\\s*(>=|<=|<|=)?\\s*v?\\d+\\.\\d+\\.\\d+(\\s+(>=|<=|<|=)?\\s*v?\\d+\\.\\d+\\.\\d+)*\\s*$" jsonschema_description:"agnostic-ai releases the specs work with: a minimum (>=0.71.0), one release (0.73.0), or a range (>=0.73.0 <0.74.0)."`
 	Sources  Sources           `yaml:"sources,omitempty"        json:"sources,omitempty"`
@@ -470,6 +470,25 @@ func LoadWithSources(root string) (*Config, []string, error) {
 
 	localPath := filepath.Join(root, LocalOverrideFileName)
 	localExists := fileExists(localPath)
+
+	shapePaths := []string{basePath}
+	if localExists {
+		shapePaths = append(shapePaths, localPath)
+	}
+	var wrong []string
+	for _, src := range shapePaths {
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read %s: %w", src, err)
+		}
+		wrong = append(wrong, typeErrors(src, data)...)
+		if msg := versionError(src, data); msg != "" {
+			wrong = append(wrong, msg)
+		}
+	}
+	if len(wrong) > 0 {
+		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s", strings.Join(wrong, "\n"))
+	}
 
 	cfg := defaults()
 	if localExists {
