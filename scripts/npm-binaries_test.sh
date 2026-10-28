@@ -8,8 +8,8 @@
 # The script runs once per tag and nothing downstream rechecks it, so a defect
 # here first shows up as a broken npm install. `gh` is stubbed as a shell
 # function and the archives are built locally, which covers everything except
-# the download itself: naming, checksum verification, unpacking, and the
-# refusal to hand a partial set to the generator.
+# the download itself: naming, checksum and provenance verification,
+# unpacking, and the refusal to hand a partial set to the generator.
 
 SCRIPT_DIR="$(cd "$(dirname "$BASH_SOURCE")" && pwd)"
 # shellcheck disable=SC1091
@@ -58,19 +58,28 @@ function fake_release() {
   (cd "$dir" && shasum -a 256 ./*.tar.gz ./*.zip | sed 's| \./| |' > checksums.txt)
 }
 
-# Stubs `gh release download` with a copy out of the fixture directory. The
-# directory goes in a global: the stub body is expanded when gh is called, by
-# which time a local in this function is long gone.
+# Stubs `gh`. `release download` copies out of the fixture directory and
+# `attestation verify` logs its arguments, failing for every archive named in
+# STUB_UNATTESTED. Globals, because the stub body is expanded when gh is
+# called, by which time a local in this function is long gone.
 function stub_gh() {
   STUB_RELEASE_DIR="$1"
+  STUB_GH_LOG="$1/gh.log"
+  STUB_UNATTESTED="${2:-}"
   # shellcheck disable=SC2317
   function gh() {
+    if [[ "$1 $2" == "attestation verify" ]]; then
+      printf '%s\n' "$*" >>"$STUB_GH_LOG"
+      [[ " $STUB_UNATTESTED " != *" $(basename "$3") "* ]]
+      return
+    fi
     local dir=""
     while [[ $# -gt 0 ]]; do
       [[ "$1" == "--dir" ]] && dir="$2"
       shift
     done
-    cp "$STUB_RELEASE_DIR"/* "$dir/"
+    [[ -n "$dir" ]] || return 1
+    cp "$STUB_RELEASE_DIR"/*.tar.gz "$STUB_RELEASE_DIR"/*.zip "$STUB_RELEASE_DIR"/checksums.txt "$dir/"
   }
 }
 
@@ -107,6 +116,48 @@ function test_verify_checksums_fails_when_an_archive_is_not_listed() {
   rm -rf "$tmp"
 
   assert_contains "no entry for agnostic-ai_linux_amd64.tar.gz" "$out"
+}
+
+# ---- verify_provenance -------------------------------------------------------
+
+function test_verify_provenance_pins_every_archive_to_the_release_workflow_and_tag() {
+  local tmp log
+  tmp="$(mktemp -d)"
+  fake_release "$tmp/release"
+  stub_gh "$tmp/release"
+  verify_provenance "$tmp/release" v9.9.9 >/dev/null 2>&1
+  unset -f gh
+  log="$(cat "$tmp/release/gh.log")"
+  rm -rf "$tmp"
+
+  assert_same "6" "$(grep -c . <<<"$log")"
+  assert_contains "attestation verify ${tmp}/release/agnostic-ai_windows_arm64.zip" "$log"
+  # shellcheck disable=SC2153 # REPO comes from the sourced script.
+  assert_contains "--repo $REPO --signer-workflow $REPO/.github/workflows/release.yml --source-ref refs/tags/v9.9.9 --deny-self-hosted-runners" "$log"
+}
+
+function test_verify_provenance_rejects_an_archive_without_an_attestation() {
+  local tmp out code
+  tmp="$(mktemp -d)"
+  fake_release "$tmp/release"
+  stub_gh "$tmp/release" agnostic-ai_linux_amd64.tar.gz
+  out="$(verify_provenance "$tmp/release" v9.9.9 2>&1)"
+  code=$?
+  unset -f gh
+  rm -rf "$tmp"
+
+  assert_not_same "0" "$code"
+  assert_contains "agnostic-ai_linux_amd64.tar.gz has no build provenance from $REPO release.yml at v9.9.9" "$out"
+}
+
+function test_repo_follows_the_actions_environment_not_an_override() {
+  local repo
+  # shellcheck disable=SC2016 # $REPO expands in the child shell.
+  repo="$(GITHUB_REPOSITORY=fork/agnostic-ai AGNOSTIC_AI_REPO=other/repo bash -c 'source "$1"; printf %s "$REPO"' _ "$SCRIPT_DIR/npm-binaries.sh")"
+  assert_same "fork/agnostic-ai" "$repo"
+  # shellcheck disable=SC2016
+  repo="$(env -u GITHUB_REPOSITORY AGNOSTIC_AI_REPO=other/repo bash -c 'source "$1"; printf %s "$REPO"' _ "$SCRIPT_DIR/npm-binaries.sh")"
+  assert_same "Chemaclass/agnostic-ai" "$repo"
 }
 
 # ---- unpack ------------------------------------------------------------------
@@ -210,6 +261,21 @@ function test_main_fails_when_the_release_is_missing_an_archive() {
   rm -rf "$tmp"
 
   assert_not_same "0" "$code"
+}
+
+function test_main_publishes_nothing_when_an_archive_has_no_attestation() {
+  local tmp code
+  tmp="$(mktemp -d)"
+  fake_release "$tmp/release"
+  stub_gh "$tmp/release" agnostic-ai_darwin_arm64.tar.gz
+  code="$(main v9.9.9 "$tmp/out" >/dev/null 2>&1; echo $?)"
+  unset -f gh
+  local unpacked
+  unpacked="$(find "$tmp/out" -type f | wc -l | tr -d ' ')"
+  rm -rf "$tmp"
+
+  assert_not_same "0" "$code"
+  assert_same "0" "$unpacked"
 }
 
 function test_main_needs_a_tag_and_a_destination() {

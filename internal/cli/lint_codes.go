@@ -26,7 +26,7 @@ var lintCodes = map[string]lintCode{
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",
-		Cause:    "A spec has no body and no description, so every target receives an empty file or entry.",
+		Cause:    "A spec has no body and no description, so every target receives an empty file or entry. Hook specs are skipped: one with nothing to run is LINT052.",
 		Fix:      "Write the spec's body or description, or delete the file.",
 	},
 	"LINT003": {
@@ -302,6 +302,12 @@ var lintCodes = map[string]lintCode{
 		Title:    "MCP credential outside env and headers",
 		Cause:    "An MCP spec holds what the import detector reads as a credential in a place LINT035 does not check: user info or a token in `url`, a token in `args`, an `env` or `headers` value in an `x-<target>` block, or the default of a `${NAME:-default}` reference. Sync writes it into each tool's MCP file. The finding names the server and the field, never the value.",
 		Fix:      "Write the credential as a `${NAME}` reference with no default and set the variable. `lint --strict` fails until you do.",
+	},
+	"LINT052": {
+		Severity: lintError,
+		Title:    "Hook with nothing to run",
+		Cause:    "A hook spec has no `command`, no other handler such as `prompt` or `url`, at the top level or under an `x-<target>` block, and no native form such as `x-kiro.action` or `x-gemini.hooks`, so sync writes it to no tool. A key such as `run:` or `comand:` is named as the likely misspelling. `validate` reports the same problem.",
+		Fix:      "Add `command:` with the shell command to run, or rename the misspelled key to `command:`.",
 	},
 	"LINT051": {
 		Severity: lintWarn,

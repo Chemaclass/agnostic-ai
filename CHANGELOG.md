@@ -7,11 +7,27 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - With `grok` selected, sync checks whether Git ignores the generated rules with one Git call for all rules, once per run. Before, it started one Git process per rule on every pass, so `sync --check` on a project with 150 rules took about three times as long as without grok (#2646).
+- `packs update` installs each Git pack at the commit recorded in `agnostic.packs.lock`. Before, it fetched the current tip of the recorded tag or branch and overwrote the recorded commit, so a moved tag or a force push changed the pack with no error. It now fails and leaves the lockfile unchanged when the remote no longer has that commit. `packs update --latest` moves a pack to the newest commit of its ref and prints the old and new commit (#2638).
+- `doctor config` fails as `sync` does on an unknown builtin or tier target, an unmet `requires`, or a bad `outputs.<target>.agents`, now AAI-004 (#2660).
+- `sync --json` prepares and seeds personal memory like `sync`. Its `notes` now list every project note a plain `sync` prints, such as an overlay file no tool reads, the facts copied into personal memory, and the entry point and worktree notes. Before, a project synced only with `--json` never got its personal memory seeded (#2663).
+- Case-only rule, skill, or agent renames keep generated files and protect hand edits with backups or `--keep-edits` (#2640).
+- `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
+- Sync saves edited outputs as `.bak` before removing them when a spec or target leaves, and `revert` restores them (#2639).
+- `install.sh`, `install.ps1`, and `upgrade` verify each archive's build provenance when `gh` is logged in, and stop on a mismatch (#2655).
+- The installers reject a version that is not a release, such as `v1.0.0/../x`, before downloading anything (#2655).
+
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
+- `validate` and `lint` report a hook spec with no `command` and nothing else to run (LINT052), and name a key such as `run:` as the likely misspelling. Before, both passed it, lint warned that it had no body (LINT001), and the sync summary and `explain --global` listed the hook although no tool got it. Lint no longer reports LINT001 for hook specs (#2645).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
+- `sync --global` keeps comments in a JSON settings file that also holds hooks, such as `~/.gemini/settings.json` or `~/.claude/settings.json`. Before, one comment stopped the sync with `invalid character '/'`, even with no hook specs, so model, MCP, and settings changes did not reach that tool (#2644).
+- `doctor` fails on an unknown `-t` name, a config `doctor mcp` cannot load, and the glob, nested copy, and hook script findings `--json` skipped (#2659).
+- `new <kind> <name> --dry-run` fails with "already exists" for a spec file that exists, like the real run. Before, it printed "would create" and exited 0 (#2661).
+- `sync`, `status`, `list`, `validate`, `cleanup`, `graph`, and `upgrade` fail on a positional argument instead of ignoring it. `upgrade v0.56.1` points at `--version v0.56.1`; before, it installed the latest release. `graph --kind` and `graph --target` fail on a value that is not a spec kind or a configured target, with a suggestion when one is close (#2662).
 
 #### Web interface
 
+- Generated-file status and **Refresh** move to **Configured tools** in the sidebar, with a disclosure beside the section links on narrow screens (#2632).
+- Lifecycle stages start closed, with counts and descriptions visible; expand one or all, search hooks, or follow a link to open its stage (#2631).
 - A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).
 - Set `model` and `effort` for one tool under **What each tool gets**, saved as `model.<tool>` or `effort.<tool>`. Each tool shows where its value comes from, such as `personal · codex`, and when an `agnostic-ai.yaml` output key replaces it; **Use the value for every tool** removes the tool's entry. `/api/edit/field` and setting previews take `target` (#2602).
 - **Settings** names where an edit goes **Shared (committed)** or **Personal (not committed)**, and edit and preview requests take `audience: shared` or `audience: personal`. The older `scope: team` or `scope: local` is accepted until the next minor release; a request that sends both with different meanings returns 400. Change plans carry `audience` beside `scope` until then, and a saved choice on the page carries over (#2602).
@@ -29,6 +45,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
+- **Security:** `import claude` and `init --from claude` leave out each `env` value, helper command such as `apiKeyHelper`, `statusLine` command, and permission rule in `.claude/settings.json` that holds a credential, and any literal header variable such as `OTEL_EXPORTER_OTLP_HEADERS`, and print a warning naming the key or list. Before, they copied the token into `.agnostic-ai/`. The next sync removes the value from `.claude/settings.json`; set it under `x-claude` in a settings spec in `.agnostic-ai/local/settings` to keep it (#2649).
 - `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
 - Sync notes `x-claude` settings keys that Claude Code ignores in project settings, such as `autoMode` and `deniedModels`, and says to set them in user or managed settings, as each key allows. `sync --global` notes the keys Claude Code reads from managed settings only (#2583).
 - A `dev-commands` entry with a `url` and no `command` writes `{name, url}` to `.claude/launch.json`, so the preview attaches to a server you already run; import reads it back as a spec. With Codex enabled, lint reports the entry (LINT016) and sync notes that Codex skips it (#2579).
@@ -37,6 +54,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### CodeBuddy Code
 
 - Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
+
+#### Cursor
+
+- `import cursor` writes `alwaysApply: false` for a rule with neither `alwaysApply` nor `globs`, so sync no longer makes it always on (#2643).
+- A rule imported and synced before keeps the `alwaysApply: true` sync wrote; set `alwaysApply: false` in its spec to turn it off (#2643).
 
 #### Mistral Vibe
 

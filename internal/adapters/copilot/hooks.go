@@ -78,7 +78,7 @@ func invalidMatcherRegex(matcher string) bool {
 // table on docs.github.com/en/copilot/reference/hooks-reference is
 // alphabetical by camelCase name. A spec authored in Copilot's native
 // camelCase form (or any other casing) is not in this list and falls
-// through to first-seen order in orderEvents, same as every other event
+// through to first-seen order in emit.OrderByLifecycle, same as every other event
 // this adapter does not recognize.
 //
 // The page documents 12 PascalCase spellings: ten as `camelCase /
@@ -393,7 +393,7 @@ func buildHooksAt(hooks []spec.Entry, scriptsDir ...string) *hooksDoc {
 		sort.SliceStable(entries, func(i, j int) bool { return entries[i].Matcher < entries[j].Matcher })
 		byEvent[event] = entries
 	}
-	return &hooksDoc{events: byEvent, order: orderEvents(eventOrder)}
+	return &hooksDoc{events: byEvent, order: emit.OrderByLifecycle(eventOrder, hookLifecycle)}
 }
 
 // isCamelCaseEvent reports whether event starts with a lowercase
@@ -406,29 +406,4 @@ func isCamelCaseEvent(event string) bool {
 	}
 	first := event[0]
 	return first >= 'a' && first <= 'z'
-}
-
-// orderEvents puts the vendor's documented lifecycle first (in its
-// PascalCase spelling), then any remaining event — including one
-// authored in camelCase or any other casing this adapter does not
-// enumerate — in the order it was first seen.
-func orderEvents(seen []string) []string {
-	present := map[string]bool{}
-	for _, e := range seen {
-		present[e] = true
-	}
-	out := make([]string, 0, len(seen))
-	for _, e := range hookLifecycle {
-		if present[e] {
-			out = append(out, e)
-			delete(present, e)
-		}
-	}
-	for _, e := range seen {
-		if present[e] {
-			out = append(out, e)
-			delete(present, e)
-		}
-	}
-	return out
 }

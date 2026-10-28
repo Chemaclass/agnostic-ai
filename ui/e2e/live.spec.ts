@@ -860,7 +860,7 @@ test('live generated-file status shows a save as needing sync and refreshes afte
     await rm(f.localSettings)
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
     await page.goto(`${f.url}?view=settings`)
-    const status = page.locator('section.sync-status')
+    const status = page.locator('.sidenav section.sync-status')
     await expect(status).toContainText('Generated files match the source for 1 tool.')
     await expect(status.locator('.sync-status-time')).toHaveText(/^Checked /)
 
@@ -871,7 +871,6 @@ test('live generated-file status shows a save as needing sync and refreshes afte
     await status.getByRole('button', { name: 'Refresh' }).click()
     await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: sonnet\neffort: low\n')
     await expect(status).toContainText('Claude Code needs sync.')
-    await status.getByText('1 configured tool').click()
     await expect(status.locator('.sync-status-tool')).toContainText('Needs sync')
     await status.locator('.sync-status-tool').getByText(/^\d+ files?$/).click()
     await expect(status.locator('.sync-status-files')).toContainText('.claude/settings.json')

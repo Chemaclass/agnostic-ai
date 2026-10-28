@@ -10,6 +10,10 @@
 #   AGNOSTIC_AI_VERSION      tag to install (default: latest release)
 #   AGNOSTIC_AI_INSTALL_DIR  install directory (default: /usr/local/bin when
 #                            writable, else ~/.local/bin)
+#   AGNOSTIC_AI_VERIFY_ATTESTATION
+#                            build provenance is checked whenever gh is
+#                            installed and logged in; 1 fails when it cannot
+#                            be checked, 0 skips it
 #
 # Windows has no tar.gz path here: use scripts/install.ps1.
 
@@ -25,6 +29,12 @@ set -euo pipefail
 
 REPO="Chemaclass/agnostic-ai"
 BINARY="agnostic-ai"
+# Same pattern as releaseVersionRE in internal/cli/upgrade.go.
+VERSION_RE='^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
+# Releases before this one were published without build provenance.
+FIRST_ATTESTED_MINOR=75
+# gh exits 4 when a command needs a login it does not have.
+GH_AUTH_REQUIRED=4
 
 die()  { printf 'error: %s\n' "$*" >&2; return 1; }
 note() { printf '→ %s\n' "$*"; }
@@ -101,6 +111,23 @@ latest_version() {
   printf '%s\n' "$tag"
 }
 
+# release_tag validates a version before it goes into a download URL and
+# prints it as the tag, with its leading v.
+release_tag() {
+  [[ "$1" =~ $VERSION_RE ]] || { die "'$1' is not a release version; use one like v0.89.0"; return 1; }
+  printf 'v%s\n' "${1#v}"
+}
+
+# Assumes a 0.x floor: every 1.0 or later release has provenance.
+has_provenance() {
+  local core="${1#v}" major minor
+  core="${core%%-*}"
+  major="${core%%.*}"
+  minor="${core#*.}"
+  minor="${minor%%.*}"
+  (( 10#$major > 0 || 10#$minor >= FIRST_ATTESTED_MINOR ))
+}
+
 resolve_install_dir() {
   if [[ -n "${AGNOSTIC_AI_INSTALL_DIR:-}" ]]; then
     printf '%s\n' "$AGNOSTIC_AI_INSTALL_DIR"
@@ -135,16 +162,53 @@ verify_checksum() {
 }
 
 # verify_attestation checks the archive's build provenance with the GitHub
-# CLI when AGNOSTIC_AI_VERIFY_ATTESTATION=1: proof that this repository's
-# release workflow built it from the tagged commit, which a matching
-# checksum from the same release page cannot give.
+# CLI: proof that this repository's release workflow built it from the
+# tagged commit, which a matching checksum from the same release page cannot
+# give. Pass "pinned" as $3 when the user named the version: only then may a
+# release from before provenance existed install without it, since whoever
+# can publish release assets could mark such a release latest.
 verify_attestation() {
-  local archive="$1"
-  [[ "${AGNOSTIC_AI_VERIFY_ATTESTATION:-}" == "1" ]] || return 0
-  command -v gh >/dev/null 2>&1 \
-    || { die "AGNOSTIC_AI_VERIFY_ATTESTATION=1 needs the GitHub CLI (gh)"; return 1; }
-  gh attestation verify "$archive" --repo "$REPO" >/dev/null \
-    || { die "build provenance did not verify for $(basename "$archive")"; return 1; }
+  local archive="$1" tag="$2" pinned="${3:-}" forced=0 status=0 detail
+  case "${AGNOSTIC_AI_VERIFY_ATTESTATION:-}" in
+    1) forced=1 ;;
+    0) note "build provenance not checked: AGNOSTIC_AI_VERIFY_ATTESTATION=0"; return 0 ;;
+  esac
+  if ! has_provenance "$tag"; then
+    if (( forced )); then
+      die "$tag predates build provenance, which starts at v0.$FIRST_ATTESTED_MINOR.0, and AGNOSTIC_AI_VERIFY_ATTESTATION=1 requires it"
+      return 1
+    fi
+    if [[ "$pinned" != "pinned" ]]; then
+      die "the latest release $tag predates build provenance, which starts at v0.$FIRST_ATTESTED_MINOR.0; set AGNOSTIC_AI_VERSION to install it on the checksum alone"
+      return 1
+    fi
+    note "build provenance not checked: releases before v0.$FIRST_ATTESTED_MINOR.0 do not publish it"
+    return 0
+  fi
+  if ! command -v gh >/dev/null 2>&1; then
+    (( forced )) && { die "AGNOSTIC_AI_VERIFY_ATTESTATION=1 needs the GitHub CLI (gh)"; return 1; }
+    note "build provenance not checked: install the GitHub CLI (gh) to verify it"
+    return 0
+  fi
+  # The host is pinned: a gh logged in to GitHub Enterprise only would ask
+  # that server, which does not hold these attestations.
+  detail="$(gh attestation verify "$archive" --hostname github.com --repo "$REPO" \
+    --signer-workflow "$REPO/.github/workflows/release.yml" \
+    --source-ref "refs/tags/$tag" --deny-self-hosted-runners 2>&1 >/dev/null)" || status=$?
+  if (( status != 0 && ! forced )); then
+    if (( status == GH_AUTH_REQUIRED )); then
+      note "build provenance not checked: gh is not logged in (run gh auth login)"
+      return 0
+    fi
+    if [[ "$detail" == *"unknown flag"* || "$detail" == *"unknown command"* ]]; then
+      note "build provenance not checked: this gh cannot verify build provenance; update gh"
+      return 0
+    fi
+  fi
+  if (( status != 0 )); then
+    die "build provenance did not verify for ${archive##*/}${detail:+: $detail}"
+    return 1
+  fi
   note "build provenance verified"
 }
 
@@ -157,6 +221,7 @@ main() {
   arch="$(detect_arch)"
   version="${AGNOSTIC_AI_VERSION:-$(latest_version)}"
   [[ -n "$version" ]] || die "could not resolve a version to install"
+  version="$(release_tag "$version")" || return 1
   asset="$(asset_name "$os" "$arch")"
   dir="$(resolve_install_dir)"
 
@@ -171,7 +236,7 @@ main() {
   curl -fsSL -o "$tmp/$asset" "$(download_url "$version" "$asset")" \
     || die "download failed: $(download_url "$version" "$asset")"
   verify_checksum "$tmp/$asset" "$asset" "$version"
-  verify_attestation "$tmp/$asset"
+  verify_attestation "$tmp/$asset" "$version" "${AGNOSTIC_AI_VERSION:+pinned}"
   tar -xzf "$tmp/$asset" -C "$tmp" "$BINARY"
 
   mkdir -p "$dir"

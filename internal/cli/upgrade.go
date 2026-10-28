@@ -114,7 +114,7 @@ func newUpgradeCmd() *cobra.Command {
 type upgradeDeps struct {
 	detect  func(string) (upgradeInfo, error)
 	run     func(io.Writer, string) error
-	install func(string, string, string, *http.Client) error
+	install func(io.Writer, string, string, string, *http.Client) error
 }
 
 func defaultUpgradeDeps() upgradeDeps {
@@ -130,12 +130,20 @@ func newUpgradeCmdWithDeps(deps upgradeDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "upgrade",
 		Aliases: []string{"update"},
-		Short:   "Upgrade agnostic-ai or reconcile the project with the installed release.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 && releaseVersionRE.MatchString(args[0]) {
+				return fmt.Errorf("unknown command %q for %q; did you mean --version %s?", args[0], cmd.CommandPath(), args[0])
+			}
+			return cobra.NoArgs(cmd, args)
+		},
+		Short: "Upgrade agnostic-ai or reconcile the project with the installed release.",
 		Long: `upgrade detects how the running agnostic-ai binary was installed
 (Homebrew, ` + "`go install`" + `, Scoop, winget, npm, or a raw prebuilt
 binary) and upgrades it to the latest release. Package-manager installs
 use their package manager. Standalone binaries on macOS and Linux are
-downloaded, verified against release checksums, and replaced in place.
+downloaded, verified against release checksums and, when the GitHub CLI
+(gh) is installed and logged in, against the release's build provenance,
+then replaced in place.
 
 Pass --version to install one specific release instead of the latest,
 which is how a project pinned to an older version gets there in one
@@ -165,9 +173,6 @@ is still accepted for compatibility.`,
 					if cmd.Flags().Changed(flag) {
 						return errs.Coded(errs.CodeFlagConflict, "--requires cannot be combined with --%s", flag)
 					}
-				}
-				if err := cobra.NoArgs(cmd, args); err != nil {
-					return err
 				}
 				return runUpgradeRequires()
 			}
@@ -234,6 +239,9 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 			}
 			return fmt.Errorf("upgrade: latest release tag unavailable")
 		}
+		if err := requireLatestProvenance(info.Latest); err != nil {
+			return err
+		}
 		if err := downloadRelease(out, info.Path, info.Latest, deps); err != nil {
 			return err
 		}
@@ -280,7 +288,7 @@ func installRequestedVersion(out io.Writer, info upgradeInfo, requestedVersion s
 // and installing a named version say different things about the same work.
 func downloadRelease(out io.Writer, path, version string, deps upgradeDeps) error {
 	_, _ = fmt.Fprintf(out, "\nDownloading and installing %s...\n", version)
-	if err := deps.install(path, version, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
+	if err := deps.install(out, path, version, releasesBaseURL, &http.Client{Timeout: time.Minute}); err != nil {
 		return fmt.Errorf("upgrade: %w", err)
 	}
 	return nil

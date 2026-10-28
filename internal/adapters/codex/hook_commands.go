@@ -21,7 +21,7 @@ func HookCommands(h spec.Entry) []HookCommand {
 	}
 	windows := specCommandWindows(h)
 	var out []HookCommand
-	for _, raw := range hookCommands(h.Meta["command"]) {
+	for _, raw := range emit.HookCommands(h.Meta["command"]) {
 		cmd := specCommand(h, raw)
 		c := HookCommand{Command: emit.ExportHookTarget(cmd, target), CommandWindows: windows, Timeout: hookIntMeta(h.Meta, "timeout")}
 		if c.CommandWindows == "" {
