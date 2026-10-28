@@ -304,7 +304,7 @@ func TestEmit_HookAsyncPropagates(t *testing.T) {
 // learn.chatgpt.com/docs/hooks documents an MCP tool hook as
 // `{type: "mcp_tool", server, tool, input, timeout, statusMessage}`.
 // Before this, buildHooksJSON wrote `Type: "command"` unconditionally,
-// so such a hook carried no `command` and hookCommands returned
+// so such a hook carried no `command` and emit.HookCommands returned
 // nothing: the entry silently disappeared from hooks.json rather than
 // emitting the wrong shape (target-audit 2026-09-08, #693).
 func TestEmit_HooksJSON_MCPToolHook(t *testing.T) {

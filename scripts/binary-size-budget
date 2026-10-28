@@ -563,4 +563,12 @@
 # Go 1.27.3 against the 23863456 their base allowed, 4096 over, on main's growth
 # rather than their own; main after #2686 allows 23875744. Set to 23900000 for 24 KB
 # of headroom over the batch's remaining validation and error paths, a few KB each.
-23900000
+# Main after #2700 measured 23908512 on Go 1.27.3, 8512 over the budget, after five
+# review batch fixes landed in one hour at 4 to 8 KB each. Ten more are open. Set to
+# 24000000: 90 KB of headroom so the rest of the batch (#2630 to #2704) lands without a
+# raise per merge.
+# Main after #2709 measured 24002720 on Go 1.27.3, 2720 over the budget. The review batch
+# (#2630 to #2704) grew the binary 168 KB over 36 merges, about 4.7 KB each, as the PRs
+# claimed. Five of its PRs are still open. Set to 24060000 for them. The next raise needs
+# a size review first: what grew, and whether any of it can be trimmed.
+24060000

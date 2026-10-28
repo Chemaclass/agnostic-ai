@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -19,8 +18,8 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 	if len(rules) == 0 {
 		return nil
 	}
-	if cfg.Gitignore.Enabled && !slices.Contains(cfg.Gitignore.CommitKinds(target), config.GitignoreInstructions) {
-		return fmt.Errorf("grok: project rules cannot be Git-ignored; set gitignore.commit: [grok:instructions] or explicitly disable gitignore management")
+	if err := refuseIgnoredRules(rules, cfg); err != nil {
+		return err
 	}
 	layout, err := gitquery.LayoutAt(".")
 	if err != nil {
@@ -30,11 +29,6 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 	if err != nil {
 		return fmt.Errorf("%s: %w", layout.Toplevel, err)
 	}
-	scratch, err := os.MkdirTemp("", "agnostic-ai-grok-ignore-")
-	if err != nil {
-		return fmt.Errorf("grok: create ignore check: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(scratch) }()
 	managedIgnore := cfg.Gitignore.Path
 	if managedIgnore == "" {
 		managedIgnore = ".gitignore"
@@ -63,13 +57,9 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 		}
 		data = append(data, append([]byte("\n"), global...)...)
 	}
-	if output, err := exec.Command("git", "-c", "init.templateDir=", "init", "--quiet", scratch).CombinedOutput(); err != nil {
-		return fmt.Errorf("grok create visibility check: %w (%s)", err, output)
-	}
-	if err := os.WriteFile(filepath.Join(scratch, ".gitignore"), data, 0600); err != nil {
-		return fmt.Errorf("grok visibility check: %w", err)
-	}
-	for _, rule := range rules {
+	paths := make([]string, len(rules))
+	queries := make([]string, len(rules))
+	for i, rule := range rules {
 		path := filepath.Join(emit.RulesDirectoryEntryDir(opts, rule), rule.Name+".md")
 		abs, err := resolveVisibilityPath(path)
 		if err != nil {
@@ -83,15 +73,25 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 		if err != nil || emit.ScopeEscapesRoot(nativeRel) {
 			return fmt.Errorf("%s: grok rule must stay inside the Git worktree", path)
 		}
-		cmd := exec.Command("git", "-C", scratch, "-c", "core.excludesFile=", "check-ignore", "--no-index", "--", filepath.ToSlash(nativeRel))
-		output, err := cmd.CombinedOutput()
-		if err == nil && len(output) > 0 {
+		paths[i], queries[i] = path, filepath.ToSlash(nativeRel)
+	}
+	ignored, err := gitquery.IgnoredBy(data, queries)
+	if err != nil {
+		return fmt.Errorf("grok check instruction visibility: %w", err)
+	}
+	for i, path := range paths {
+		if ignored[queries[i]] {
 			return fmt.Errorf("%s: grok instruction visibility check rejects ignored output; remove the matching root or global ignore pattern, or re-include its parent directories and file, then sync again", path)
 		}
-		var exit *exec.ExitError
-		if err != nil && (!errors.As(err, &exit) || exit.ExitCode() != 1) {
-			return fmt.Errorf("%s: grok check instruction visibility: %w", path, err)
-		}
+	}
+	return nil
+}
+
+// refuseIgnoredRules rejects a config whose managed .gitignore would hide
+// the rules Grok reads.
+func refuseIgnoredRules(rules []spec.Entry, cfg *config.Config) error {
+	if len(rules) > 0 && cfg.Gitignore.Enabled && !slices.Contains(cfg.Gitignore.CommitKinds(target), config.GitignoreInstructions) {
+		return &emit.Refusal{Err: errors.New("project rules cannot be Git-ignored; set gitignore.commit: [grok:instructions] or explicitly disable gitignore management")}
 	}
 	return nil
 }
@@ -155,10 +155,8 @@ func withoutManagedIgnore(data []byte) []byte {
 }
 
 func grokGlobalIgnorePath() string {
-	for _, scope := range []string{"--global", "--system"} {
-		if output, err := exec.Command("git", "config", scope, "--path", "--get", "core.excludesFile").Output(); err == nil && strings.TrimSpace(string(output)) != "" {
-			return strings.TrimSpace(string(output))
-		}
+	if path := gitquery.ExcludesFile(); path != "" {
+		return path
 	}
 	if home, err := os.UserHomeDir(); err == nil {
 		return filepath.Join(home, ".gitignore")

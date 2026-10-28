@@ -73,7 +73,18 @@ func globalOverviewInputsWith(compareInstalled bool) (overview.Inputs, error) {
 		RefreshCommand: "agnostic-ai mcp tools --global",
 		BuiltinsTeam:   team,
 		BuiltinsLocal:  local,
+		NativeMCPs:     globalNativeMCPServers(scope.source, cfg),
 	}, nil
+}
+
+// globalNativeMCPServers lists the MCP servers the targets hold in their
+// own user files. Without a home it lists none.
+func globalNativeMCPServers(source string, cfg *config.Config) []overview.NativeMCP {
+	home, err := globalUserHome()
+	if err != nil {
+		return nil
+	}
+	return nativeMCPServers(home, ".", source, cfg, true)
 }
 
 // globalRequires is the requires value of the home config, where
@@ -116,8 +127,35 @@ func runGlobalOverviewChecks(scope checkScope, compareInstalled bool) overviewCh
 		out.fieldNotes = settingsFieldNotes(adapters.DrainNotes())
 		out.findings = append(out.findings, drift...)
 		out.compared, out.skipped = compared, skipped
+	} else {
+		out.fieldNotes = globalSettingsFieldNotes(scope)
 	}
 	return out
+}
+
+// globalSettingsFieldNotes resolves the user settings sync --global
+// would write for each target it syncs, without planning any file, and
+// returns the model and effort notes that raises.
+func globalSettingsFieldNotes(scope checkScope) []overview.FieldNote {
+	targets, _ := globalSyncedTargets(scope.targets)
+	for _, target := range targets {
+		globalSettingsFor(target, globalTargets[target], scope.bundle.Settings)
+	}
+	return settingsFieldNotes(adapters.DrainNotes())
+}
+
+// globalSyncedTargets splits targets into the ones a default sync
+// --global writes and the ones it skips: unsupported, or with a
+// configuration root that cannot be resolved.
+func globalSyncedTargets(all []string) (targets, skipped []string) {
+	for _, target := range all {
+		if unsupportedGlobalTarget("--global", target) != nil || globalTargets[target].rootError(target) != nil {
+			skipped = append(skipped, target)
+			continue
+		}
+		targets = append(targets, target)
+	}
+	return targets, skipped
 }
 
 // globalOverviewPath shows a path under the global source relative to
@@ -144,14 +182,7 @@ func globalOverviewDriftFindings(scope checkScope) (findings []overview.Finding,
 	if err != nil {
 		return nil, nil, scope.targets
 	}
-	var targets []string
-	for _, target := range scope.targets {
-		if unsupportedGlobalTarget("--global", target) != nil || globalTargets[target].rootError(target) != nil {
-			skipped = append(skipped, target)
-			continue
-		}
-		targets = append(targets, target)
-	}
+	targets, skipped := globalSyncedTargets(scope.targets)
 	if len(targets) == 0 {
 		return nil, nil, skipped
 	}

@@ -54,7 +54,7 @@ targets: [claude, codex, cursor]
 - Some user hook routes have their own limits. Copilot: `import --global copilot` adopts matching handlers from neighboring user JSON files; see [Copilot hooks](@/docs/targets/copilot.md#hooks). Cline: the VS Code extension does not read the hooks sync writes; see [Cline global hooks](@/docs/targets/cline.md#global-hooks). Kiro CLI V3: one `~/.kiro/hooks/<name>.json` per spec, in the project hook format, with shared scripts in `~/.kiro/scripts/`; unrelated hook files stay, and a conflicting file stops sync.
 - Targets without global agent output warn and skip agents.
 - Output is real files, never symlinks. A user file that is itself a symlink, such as a dotfiles-managed `CLAUDE.md`, is written through. A symlink inside a skills, agents, or rules directory stops the run.
-- Sync records what it wrote in `$AGNOSTIC_AI_HOME/state/global.json` and removes only those files and settings for the targets in the run. With `--only`, other targets' output stays in place.
+- Sync records what it wrote in `$AGNOSTIC_AI_HOME/state/global.json` and removes only those files and settings for the targets in the run. With `--only`, other targets' output stays in place. When the record is missing or lacks newly imported specs, `--check` notes it and fails only when a tool file differs too.
 - A hand edit to a file sync owns, or to an instructions file's managed block, stops the run and names the file. Move the edit into the source, or rerun with `--backup` to overwrite or remove it and keep `<path>.bak`. Text outside the managed block never counts.
 - A file or hook that already matches what sync would write is adopted. The run stops on one that differs by even one byte, an unmanaged agent, skill, or rule collision, a damaged marker, invalid native JSON, corrupt state, or state recorded under another `HOME`.
 - Without `--only`, explicit targets, or a home `targets` list, a target with a relative root variable or an invalid agent name is skipped with a warning. Naming it makes that an error.
@@ -203,6 +203,8 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | warp | `~/.warp/.mcp.json` (Warp app only; [the Agent CLI reads its own file](@/docs/targets/warp.md#app-and-cli)) | `mcpServers.<name>`: `{command, args, env, working_directory}` or `{url, headers}` |
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
+
+`serve --global` lists, on its **Tools** page, the servers in these files that no home spec covers and sync did not write, with the `import --global <target>` command that makes each one a spec. See [serve](@/docs/cli-reference/inspect.md#serve).
 
 OpenHands has no user MCP file sync can write. Sync prints a note that points at Agent Canvas **Customize > MCP Servers**, and removes the servers an earlier sync recorded as its own in `~/.openhands/mcp.json`. See [OpenHands MCP](@/docs/targets/openhands.md#mcp).
 

@@ -168,7 +168,11 @@ func (g *importViewGuard) settle(root string) error {
 	v.before = withEntries(after, olds)
 	for _, path := range overlays {
 		if v.toolsUnedited(importingTools(g.files[path].sources)) {
-			if err := g.rewrite(path, withoutGrantedRoots(path, g.files[path].before, importSyncRoots(root), root)); err != nil {
+			restored, err := withoutOverlayCredentials(path, withoutGrantedRoots(path, g.files[path].before, importSyncRoots(root), root), root)
+			if err != nil {
+				return err
+			}
+			if err := g.rewrite(path, restored); err != nil {
 				return err
 			}
 			setImportDrops(path, nil)

@@ -511,7 +511,22 @@
           "unsupported": []
         }
       ],
-      "findings": []
+      "findings": [],
+      "native": [
+        {
+          "name": "notion",
+          "holders": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "path": "~/.claude.json",
+              "scope": "user",
+              "transport": "http"
+            }
+          ],
+          "import": "agnostic-ai import --global claude"
+        }
+      ]
     },
     {
       "id": "lifecycle",

@@ -135,6 +135,7 @@ How sync resolves conflicts:
 - `model` wins in this order, lowest first: portable Settings spec, `outputs.codex.config.model`, overlay. Either of the last two replaces the settings model, so a Claude model name in a settings spec raises no note.
 - The overlay wins any other conflict with `outputs.codex.config.*`, and the lower value is dropped.
 - On import, a top-level `model_reasoning_effort` moves to `effort` in `<settings>/codex.yaml` when no settings spec sets `effort`, so every target syncs it. `[profiles.*]` values, and a value another settings spec shadows, stay in the overlay.
+- On import, a value that holds a credential, such as a `[model_providers.*]` bearer token, an `http_headers` key, or a `shell_environment_policy.set` token, is left out of the overlay with a warning naming its key. Keys whose names start with `env_` hold variable names and stay. The overlay is then written again without its comments. Keep such values in `~/.codex/config.toml`.
 
 ### Codex exec-policies
 

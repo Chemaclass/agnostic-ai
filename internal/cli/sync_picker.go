@@ -14,13 +14,15 @@ import (
 
 // shouldPromptTargetSelection reports whether sync should run the
 // first-time target picker. True only when:
-//   - no sync has written `.agnostic-ai/.sync-state` (first sync),
+//   - no sync has written `.agnostic-ai/.sync-state` (first sync), and
+//     the file is not merely cut short,
 //   - the config still has every supported target enabled (proxy for
 //     "user hasn't already curated"),
 //   - the caller hasn't opted out via --all, -t, --only, or --except
 //     (handled upstream).
 func shouldPromptTargetSelection(root string, cfg *config.Config) bool {
-	if !ledgerMissing(root) {
+	// A ledger that does not parse was written by an earlier sync.
+	if !ledgerMissing(root) || unparsableLedger(root) != nil {
 		return false
 	}
 	return targetsMatchDefault(cfg.Targets)
