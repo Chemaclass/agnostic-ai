@@ -1773,6 +1773,9 @@ func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, ov
 	})
 }
 
+// mergeGlobalBlock edits only the managed block and the one newline
+// separator sync inserts before it, so the user's bytes around it stay
+// as they were and add then remove restores the file.
 func mergeGlobalBlock(path, managed string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -1783,23 +1786,40 @@ func mergeGlobalBlock(path, managed string) (string, error) {
 	if (start >= 0) != (end >= 0) || (start >= 0 && end < start) {
 		return "", fmt.Errorf("%s: corrupt agnostic-ai managed block", path)
 	}
-	if start >= 0 {
-		end += len(globalEnd)
-		body = strings.TrimSpace(body[:start] + body[end:])
+	removing := strings.TrimSpace(managed) == globalStart+"\n\n"+globalEnd
+	if start < 0 {
+		return insertGlobalBlock(body, managed, removing), nil
 	}
-	body = strings.TrimSpace(body)
-	if strings.TrimSpace(managed) == globalStart+"\n\n"+globalEnd {
-		if body == "" {
-			return "", nil
-		}
-		// The file is now the user's text alone. Keep it a well-formed
-		// text file rather than handing it back without its newline.
-		return body + "\n", nil
+	end += len(globalEnd)
+	if !removing {
+		return body[:start] + managed + body[end:], nil
 	}
-	if body != "" {
-		body += "\n\n"
+	before, after := body[:start], body[end:]
+	if rest, ok := strings.CutPrefix(after, "\r\n"); ok {
+		after = rest
+	} else {
+		after = strings.TrimPrefix(after, "\n")
 	}
-	return body + managed + "\n", nil
+	switch {
+	case strings.HasSuffix(before, "\r\n\r\n"):
+		before = before[:len(before)-2]
+	case strings.HasSuffix(before, "\n\n"):
+		before = before[:len(before)-1]
+	case after == "" && strings.HasSuffix(before, "\n") && !strings.HasSuffix(before, "\r\n"):
+		before = before[:len(before)-1]
+	}
+	return before + after, nil
+}
+
+func insertGlobalBlock(body, managed string, removing bool) string {
+	switch {
+	case removing:
+		return body
+	case body == "":
+		return managed + "\n"
+	default:
+		return body + "\n" + managed + "\n"
+	}
 }
 
 // errGlobalFileUnchanged reports that a merge leaves an existing file's

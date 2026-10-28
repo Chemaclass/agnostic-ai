@@ -320,7 +320,7 @@ func planProjectChange(root string, change projectChange, where editAudience) (*
 		if err != nil {
 			return nil, err
 		}
-		if err := planPersonalExcludes(root, personal, desired, plan.excludeBase); err != nil {
+		if err := planPersonalExcludes(root, personal, withLeftoverBackups(nil, block, syncBackups(previous.Backups, nil)), desired, plan.excludeBase); err != nil {
 			return nil, err
 		}
 		ignore, err := builtinRelativePath(root, gitignoreRel(cfg))

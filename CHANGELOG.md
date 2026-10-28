@@ -7,6 +7,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - `sync` and `sync --check` read `.agnostic-ai/.sync-state` once per run. Before, a sync read and parsed it about 25 times, and a check 9 times, which cost more as the file lists more outputs (#2667).
+- With `sync.shared-skills: true`, `sync` keeps shared skill links and plans no new ones while a configured external adapter is not on PATH. Before, it treated the run as covering every target and could remove the link of a deleted skill (#2702).
+- **Security:** a re-import no longer keeps a Claude or Codex overlay an earlier release wrote with a credential in it. Import prints the warnings and stops; `--overwrite` writes the overlay without the credential (#2669).
+- `sync --global` leaves your text in `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, and the other global instructions files byte for byte. It adds one newline and its block, and removing the block takes back only those. Before, it trimmed blank lines around your text and added a final newline, so a file with CRLF line endings, a leading blank line, or no final newline changed after every add and remove (#2658).
+- `sync` keeps the files of a configured target whose external adapter (`agnostic-ai-adapter-<name>`) is not on PATH. Before, it warned with AAI-301, then deleted every file that target wrote on the last sync and reported it as synced. It now keeps them, says it skipped the stale file cleanup, and counts only the targets whose adapter loaded in the summary. The gitignore block and the spec change baseline keep that target's entries (#2657).
+- **Security:** `compare` text and JSON output hide a credential in a permission rule, on the source side, in each tool's native spelling, and in `x-<target>` override values, with the `<redacted>` marker `sync --global` prints, as in `shell(<redacted>)`. Before, a rule such as `shell(curl -H 'Authorization: Bearer ...' ...)` printed the token (#2650).
+- A config value of the wrong shape now names the file, line, and key with the shape it expects, such as `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`, instead of a Go type name. A mistake in `agnostic-ai.local.yaml` names that file and its own line, where before it named a line in an internal merged document. A `version` other than `1` now fails `validate` and `sync` with AAI-004; before, `version: 7` passed (#2648, #2664).
 - `packs update` checks every `agnostic.packs.lock` entry before it changes any file, and always passes `--` to `git clone` before the source, with Git's `ext::` transport turned off. It stops on a pack name that starts with a dot or is not a single folder name, a source or ref that starts with `-`, and a Git source other than `https://`, `ssh://`, `git@host:path`, or a host path. It skips a pack from a local folder outside the project and prints the `packs add` command that refreshes it. `packs add` refuses the same pack names and Git sources, so reinstall a pack with a name that starts with a dot under another `--name`. `packs remove` refuses a lockfile entry with an invalid name before it deletes anything, and sync ignores such entries.
 - `sync` writes `.agnostic-ai/.sync-state` to a temporary file and then moves it into place, so a full disk or a stop mid-write no longer leaves a cut-short ledger. When the ledger does not parse, `sync` warns with its path, looks for leftover files as if no ledger existed, and writes a new one; `sync --check` fails and says to run `sync`. Before, both read it as empty without a word, so leftovers stayed and the check passed (#2665).
 - **Breaking:** Sync refuses an `outputs` path or `gitignore.path` outside the project or in `.git/`, and a spec named `.git`. Use a path inside the project (#2701).
@@ -22,7 +28,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `init` with Grok and the managed `.gitignore` writes `gitignore.commit: [grok:instructions]`, so `init --all` followed by an always-on rule syncs. Grok's refusal names the tool once instead of `grok: grok:`, and a name a tool refuses now starts with the spec's path (#2642).
 - `install.sh`, `install.ps1`, and `upgrade` verify each archive's build provenance when `gh` is logged in, and stop on a mismatch (#2655).
 - The installers reject a version that is not a release, such as `v1.0.0/../x`, before downloading anything (#2655).
-
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - `validate` and `lint` report a hook spec with no `command` and nothing else to run (LINT052), and name a key such as `run:` as the likely misspelling. Before, both passed it, lint warned that it had no body (LINT001), and the sync summary and `explain --global` listed the hook although no tool got it. Lint no longer reports LINT001 for hook specs (#2645).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
@@ -32,10 +37,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `doctor` fails on an unknown `-t` name, a config `doctor mcp` cannot load, and the glob, nested copy, and hook script findings `--json` skipped (#2659).
 - `new <kind> <name> --dry-run` fails with "already exists" for a spec file that exists, like the real run. Before, it printed "would create" and exited 0 (#2661).
 - `sync --backup` keeps each `<path>.bak` at the permissions of the file it copies, and `revert` restores them without widening the file. The managed `.gitignore` block lists the `.bak` of each output it ignores, so a copy of a private `.mcp.json` is no longer world-readable or committable. A link at `<path>.bak` stops the backup instead of being written through (#2654).
+- A `sync --backup` copy the managed `.gitignore` block does not list stays ignored, such as one whose target was dropped. Sync lists it in `.git/info/exclude`, so the committed `.gitignore` does not change (#2704).
 - `sync`, `status`, `list`, `validate`, `cleanup`, `graph`, and `upgrade` fail on a positional argument instead of ignoring it. `upgrade v0.56.1` points at `--version v0.56.1`; before, it installed the latest release. `graph --kind` and `graph --target` fail on a value that is not a spec kind or a configured target, with a suggestion when one is close (#2662).
 
 #### Web interface
 
+- **Tools** lists MCP servers a tool keeps only in its own config, such as a Notion server in `~/.claude.json`, under **Found in a tool's own config**: the tool, the file, the transport, and the `agnostic-ai import` command that makes it a spec. Claude Code servers kept for one project under `projects` in `~/.claude.json` are listed without a command, since no import reads them yet. A server a spec covers is not repeated, and no command, URL, environment, or header value is shown (#2633).
 - Generated-file status and **Refresh** move to **Configured tools** in the sidebar, with a disclosure beside the section links on narrow screens (#2632).
 - Lifecycle stages start closed, with counts and descriptions visible; expand one or all, search hooks, or follow a link to open its stage (#2631).
 - A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).
@@ -57,6 +64,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Claude Code
 
 - **Security:** `import claude` and `init --from claude` leave out each `env` value, helper command such as `apiKeyHelper`, `statusLine` command, and permission rule in `.claude/settings.json` that holds a credential, and any literal header variable such as `OTEL_EXPORTER_OTLP_HEADERS`, and print a warning naming the key or list. Before, they copied the token into `.agnostic-ai/`. The next sync removes the value from `.claude/settings.json`; set it under `x-claude` in a settings spec in `.agnostic-ai/local/settings` to keep it (#2649).
+- **Security:** `import claude` and `init --from claude` leave out a hook matcher group when one of its hooks holds a credential in its command, arguments, URL, header, `if` rule, status message, prompt, or MCP tool input, or names a Slack or Discord webhook, and print a warning naming the event and field. Before, the token was written into a hook spec under `.agnostic-ai/hooks/`. Sync leaves the group in `.claude/settings.json` as written (#2668).
 - `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
 - Sync notes `x-claude` settings keys that Claude Code ignores in project settings, such as `autoMode` and `deniedModels`, and says to set them in user or managed settings, as each key allows. `sync --global` notes the keys Claude Code reads from managed settings only (#2583).
 - A `dev-commands` entry with a `url` and no `command` writes `{name, url}` to `.claude/launch.json`, so the preview attaches to a server you already run; import reads it back as a spec. With Codex enabled, lint reports the entry (LINT016) and sync notes that Codex skips it (#2579).
@@ -65,6 +73,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### CodeBuddy Code
 
 - Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
+
+#### Codex
+
+- **Security:** `import codex` leaves out of the committed overlay each `config.toml` value that holds a credential, such as a provider bearer token, an `http_headers` value, or a `shell_environment_policy.set` token, and prints a warning naming the key (#2669).
 
 #### Cursor
 

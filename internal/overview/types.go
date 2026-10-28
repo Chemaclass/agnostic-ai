@@ -51,6 +51,36 @@ type Section struct {
 	// Fields are every settings field this section's specs can set, each
 	// listed even when no spec sets it. Authority and Settings have them.
 	Fields []SettingField `json:"fields,omitempty"`
+	// Native are the MCP servers found only in a coding tool's own
+	// config, which no spec of the same name covers. Only Tools has
+	// them. They carry names and paths, never a server's values.
+	Native []NativeServer `json:"native,omitempty"`
+}
+
+// Native MCP server scopes.
+const (
+	NativeScopeProject = "project"
+	NativeScopeUser    = "user"
+)
+
+// NativeServer is one MCP server name found in tools' own config files.
+type NativeServer struct {
+	Name    string         `json:"name"`
+	Holders []NativeHolder `json:"holders"`
+	// Import is the command that turns the server into a spec, or empty
+	// when no import reads the file that holds it.
+	Import string `json:"import,omitempty"`
+}
+
+// NativeHolder is one tool config file that defines a native server.
+type NativeHolder struct {
+	Target string `json:"target"`
+	Label  string `json:"label"`
+	Path   string `json:"path"`
+	Scope  string `json:"scope"`
+	// Transport is stdio, http, sse, streamable-http, or remote; empty
+	// when the entry names none of them.
+	Transport string `json:"transport,omitempty"`
 }
 
 // SettingField is one field a settings spec can set, with the value each

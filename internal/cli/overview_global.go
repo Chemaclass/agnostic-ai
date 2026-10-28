@@ -73,7 +73,18 @@ func globalOverviewInputsWith(compareInstalled bool) (overview.Inputs, error) {
 		RefreshCommand: "agnostic-ai mcp tools --global",
 		BuiltinsTeam:   team,
 		BuiltinsLocal:  local,
+		NativeMCPs:     globalNativeMCPServers(scope.source, cfg),
 	}, nil
+}
+
+// globalNativeMCPServers lists the MCP servers the targets hold in their
+// own user files. Without a home it lists none.
+func globalNativeMCPServers(source string, cfg *config.Config) []overview.NativeMCP {
+	home, err := globalUserHome()
+	if err != nil {
+		return nil
+	}
+	return nativeMCPServers(home, ".", source, cfg, true)
 }
 
 // globalRequires is the requires value of the home config, where
