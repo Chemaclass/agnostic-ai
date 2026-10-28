@@ -9,7 +9,7 @@ group = "Reference"
 
 # Verify a release
 
-The install scripts and `agnostic-ai upgrade` already check each download against the release checksum. Use the checks below for a manual download, or for proof of where a release came from. Replace `vX.Y.Z` and the archive filename with your release and platform.
+The install scripts and `agnostic-ai upgrade` already check each download against the release checksum, and against its [build provenance](#build-provenance) when the GitHub CLI is installed and logged in. Use the checks below for a manual download, or for proof of where a release came from. Replace `vX.Y.Z` and the archive filename with your release and platform.
 
 | Check | Proves | Command |
 |---|---|---|
@@ -53,7 +53,7 @@ A pass means a workflow in `Chemaclass/agnostic-ai` built the file from a tagged
 gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-ai --bundle agnostic-ai.intoto.jsonl
 ```
 
-To make the installers run this check, set `AGNOSTIC_AI_VERIFY_ATTESTATION=1` for `install.sh` or pass `-VerifyAttestation` to `install.ps1`. Both stop if `gh` is missing or the check fails.
+`install.sh`, `install.ps1`, and `agnostic-ai upgrade` run this check whenever `gh` is installed and logged in, require the attestation to come from `.github/workflows/release.yml` at the release tag, and stop when it fails. Without `gh`, with a `gh` that is logged out or too old to verify, or for a version you name from before 0.75.0, they say so in one line and install on the checksum alone. They refuse a latest release from before 0.75.0, since whoever can replace release files could publish one. `AGNOSTIC_AI_VERIFY_ATTESTATION` changes this for all three: `1` stops when the check cannot run (`-VerifyAttestation` for `install.ps1`), and `0` skips it.
 
 </details>
 
