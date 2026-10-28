@@ -40,7 +40,7 @@ func hasCommandHook(hooks []spec.Entry) bool {
 	for _, h := range hooks {
 		kind, _ := h.Meta["type"].(string)
 		event, _ := h.Meta["event"].(string)
-		if (kind == "" || kind == "command") && event != "" && len(hookCommands(h.Meta["command"])) > 0 {
+		if (kind == "" || kind == "command") && event != "" && len(emit.HookCommands(h.Meta["command"])) > 0 {
 			return true
 		}
 	}
