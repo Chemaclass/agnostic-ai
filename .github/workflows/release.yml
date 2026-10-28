@@ -10,8 +10,34 @@ permissions:
   contents: read
 
 jobs:
+  # The UI dependencies run in their own job, which holds no token beyond
+  # read access. GoReleaser hooks and every step of its job share the
+  # publish tokens and the OIDC request token, so a bad dependency bump
+  # must not run there.
+  ui-bundle:
+    name: Bundled client
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+
+      - name: Check the bundled client against its sources
+        run: |
+          npm --prefix ui ci --ignore-scripts
+          npm --prefix ui run bundle:check
+
   goreleaser:
     name: GoReleaser
+    needs: ui-bundle
     runs-on: ubuntu-latest
     # id-token and attestations let the job sign build provenance for each
     # release file through Sigstore, with no key of ours to leak or rotate.
@@ -31,19 +57,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
-          cache: true
-
-      - name: Set up Node for the bundled client
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: ui/package-lock.json
+          # Release binaries build from a clean cache. A cache entry saved
+          # earlier in the same tag run, such as from ui-bundle, would
+          # otherwise feed the signed build.
+          cache: false
 
       - name: Build release notes from CHANGELOG.md
         run: |
@@ -93,12 +116,6 @@ jobs:
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
-      - name: Verify the archived web interface
-        run: |
-          archive_dir="$(mktemp -d)"
-          tar -xzf dist/agnostic-ai_linux_amd64.tar.gz -C "$archive_dir" agnostic-ai
-          node scripts/ui-smoke.js "$archive_dir/agnostic-ai"
-
       - name: Attest build provenance
         id: attest
         # Also after a failed package-manager push: the archives are already
@@ -120,6 +137,36 @@ jobs:
         run: |
           cp "$BUNDLE" agnostic-ai.intoto.jsonl
           gh release upload "$GITHUB_REF_NAME" agnostic-ai.intoto.jsonl --clobber
+
+  ui-smoke:
+    name: Archived web interface
+    # Its own job for the same reason as ui-bundle: Node never runs where
+    # the publish tokens or the OIDC request token are.
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+
+      - name: Download the Linux archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern agnostic-ai_linux_amd64.tar.gz --dir "$RUNNER_TEMP/archive"
+
+      - name: Verify the archived web interface
+        run: |
+          archive_dir="$(mktemp -d)"
+          tar -xzf "$RUNNER_TEMP/archive/agnostic-ai_linux_amd64.tar.gz" -C "$archive_dir" agnostic-ai
+          node scripts/ui-smoke.js "$archive_dir/agnostic-ai"
 
   npm:
     name: npm
@@ -143,6 +190,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -205,6 +254,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node for npm provenance verification
         if: env.NPM_TOKEN_CONFIGURED == 'true'
