@@ -27,7 +27,7 @@ export function personalValueAt(values: Value[], localKeys: string[] | undefined
   return own(`${key}.default`) ? valueAt(values, key) : undefined
 }
 
-/** Whether a personal file sets the field as one value for every tool, which replaces any per-tool team value. */
+/** Whether a personal file sets the field as one value for every tool, which replaces any per-tool shared value. */
 export function personalSetsWhole(localKeys: string[] | undefined, key: string): boolean {
   return !!localKeys?.includes(key)
 }

@@ -156,7 +156,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
-              {k.local && <Badge tone="accent" title="Your personal config replaces the shared list">local</Badge>}
+              {k.local && <Badge tone="accent" title="Your personal config replaces the shared list">personal</Badge>}
             </h2>
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
             {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
@@ -211,7 +211,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
           <div className="field-head">
             <strong>{f.label}</strong>
             {f.key !== 'x-' && <code className="muted">{f.key}</code>}
-            {f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a personal file Git ignores">local</Badge>}
+            {f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
             <p className="muted">{f.description}</p>
           </div>
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
@@ -389,7 +389,7 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   return <>{sources(shown)}<div className="field-edit">
     {overridden
       ? <div className="field-edit-row">
-        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the shared per-tool values. Reset it to change the shared value.' : 'Your local value overrides the shared value. Reset it to change the shared value.'}</p>
+        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the shared per-tool values. Reset it to change the shared value.' : 'Your personal value overrides the shared value. Reset it to change the shared value.'}</p>
         {resetButton}
       </div>
       : <div className="field-edit-row">
@@ -521,7 +521,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
       </div>
       <div className="item-meta">
-        {item.local && <Badge tone="accent" title="Set in a personal file Git ignores">local</Badge>}
+        {item.local && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
