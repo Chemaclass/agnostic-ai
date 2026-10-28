@@ -6,7 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- A config value of the wrong shape now names the file, line, and key with the shape it expects, such as `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`, instead of a Go type name. A mistake in `agnostic-ai.local.yaml` names that file and its own line, where before it named a line in an internal merged document. A `version` other than `1` now fails `validate` and `sync` with AAI-004; before, `version: 7` passed (#2648).
+- A config value of the wrong shape now names the file, line, and key with the shape it expects, such as `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`, instead of a Go type name. A mistake in `agnostic-ai.local.yaml` names that file and its own line, where before it named a line in an internal merged document. A `version` other than `1` now fails `validate` and `sync` with AAI-004; before, `version: 7` passed (#2648, #2664).
 - `serve` stops at once on Ctrl-C when a browser or client holds a connection open without sending a request. Before, it could wait 5 seconds and fail with "stop the server: context deadline exceeded" (#2627).
 - A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
 

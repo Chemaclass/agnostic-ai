@@ -31,7 +31,10 @@ func typeErrors(path string, data []byte) []string {
 
 func walkTypes(n *yaml.Node, t reflect.Type, key string, wrong func(n *yaml.Node, key, want string)) {
 	if n.Kind == yaml.AliasNode {
-		n = n.Alias
+		// Report at the alias, where the key is, not at its anchor.
+		at := *n.Alias
+		at.Line = n.Line
+		n = &at
 	}
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
@@ -55,7 +58,7 @@ func walkTypes(n *yaml.Node, t reflect.Type, key string, wrong func(n *yaml.Node
 				walkMergedTypes(v, t, key, wrong)
 				continue
 			}
-			ft := t
+			var ft reflect.Type
 			if t.Kind() == reflect.Map {
 				ft = t.Elem()
 			} else if ft = fields[k.Value]; ft == nil {
@@ -130,14 +133,17 @@ func nodeShape(n *yaml.Node) string {
 
 // versionError refuses a version key other than SupportedVersion. A
 // missing version is left to `doctor config`, and one that is not a
-// whole number to typeErrors.
+// number to typeErrors.
 func versionError(path string, data []byte) string {
 	var doc struct {
 		Version yaml.Node `yaml:"version"`
 	}
-	var version int
-	if yaml.Unmarshal(data, &doc) != nil || doc.Version.Tag != "!!int" || doc.Version.Decode(&version) != nil || version == SupportedVersion {
+	if yaml.Unmarshal(data, &doc) != nil || doc.Version.Tag != "!!int" && doc.Version.Tag != "!!float" {
 		return ""
 	}
-	return fmt.Sprintf("%s:%d: version: %d is not supported; this release reads version: %d", path, doc.Version.Line, version, SupportedVersion)
+	var version float64
+	if doc.Version.Decode(&version) != nil || version == SupportedVersion {
+		return ""
+	}
+	return fmt.Sprintf("%s:%d: version: %s is not supported; this release reads version: %d", path, doc.Version.Line, doc.Version.Value, SupportedVersion)
 }

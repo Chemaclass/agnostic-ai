@@ -51,7 +51,7 @@ Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the p
 
 ### AAI-004: Config decode failed
 
-The config file is not valid YAML, has keys the config does not accept, or holds a value of the wrong shape. Each finding names its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)` or `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`. A mistake in `agnostic-ai.local.yaml` names that file and its own line. A `version` other than `1` fails here too, as does a [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`, fails here too.
+The config file is not valid YAML, has keys the config does not accept, or holds a value of the wrong shape. Each finding names its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)` or `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`. A mistake in `agnostic-ai.local.yaml` names that file and its own line. A `version` other than `1` fails here too, as does a [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`.
 
 **Fix:** go to the file and line the message names. Give the key the shape it expects, rename or remove an unknown key (using its did-you-mean suggestion when there is one), or set `version: 1`. Check indentation, or check the file against `docs/schemas/config.schema.json`. Run `agnostic-ai doctor` for a full diagnosis.
 
