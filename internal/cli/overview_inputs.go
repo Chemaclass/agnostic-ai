@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -334,21 +333,13 @@ func overviewCodexTrustFindings(cfg *config.Config) []overview.Finding {
 // overviewHookScriptFindings reports each hook script captured for two
 // or more tools under .agnostic-ai/scripts with different bodies.
 func overviewHookScriptFindings(root string) []overview.Finding {
-	variants, err := collectHookScriptVariants(filepath.Join(root, agnosticScriptsDir))
+	divergent, _, err := collectDivergentHookScripts(root)
 	if err != nil {
 		return nil
 	}
 	var out []overview.Finding
-	for _, basename := range slices.Sorted(maps.Keys(variants)) {
-		vs := variants[basename]
-		if len(vs) < 2 || allSameHash(vs) {
-			continue
-		}
-		tools := make([]string, len(vs))
-		for i, v := range vs {
-			tools[i] = v.tool
-		}
-		path := vs[0].path
+	for _, d := range divergent {
+		path := d.variants[0].path
 		if rel, err := filepath.Rel(root, path); err == nil {
 			path = rel
 		}
@@ -356,7 +347,7 @@ func overviewHookScriptFindings(root string) []overview.Finding {
 			Source:      overview.SourceDoctor,
 			Code:        "divergent-hook-script",
 			Severity:    lintError.String(),
-			Message:     fmt.Sprintf("Hook script %s differs between %s; move the agreed body to %s/%s and delete the per-tool copies", basename, joinSorted(tools), agnosticScriptsDir, basename),
+			Message:     fmt.Sprintf("Hook script %s differs between %s; move the agreed body to %s/%s and delete the per-tool copies", d.Script, strings.Join(d.Tools, ","), agnosticScriptsDir, d.Script),
 			Path:        filepath.ToSlash(path),
 			Explanation: "The tools hold different bodies for one hook script, so the hook may not behave the same in every tool.",
 			Section:     overview.SectionLifecycle,
