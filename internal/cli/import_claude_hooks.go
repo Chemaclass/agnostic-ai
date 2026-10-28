@@ -8,7 +8,6 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -89,8 +88,15 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 	return count, nil
 }
 
-// claudeWebhookURL matches a chat webhook URL, whose path is the secret.
-var claudeWebhookURL = regexp.MustCompile(`(?i)hooks\.slack\.com/(?:services|workflows|triggers)/|discord(?:app)?\.com/api/webhooks/`)
+// claudeWebhookPaths are chat webhook URL paths, where the path is the
+// secret. A match anywhere in a command or URL counts, since a false match
+// only leaves a hook out.
+var claudeWebhookPaths = []string{"hooks.slack.com/services/", "hooks.slack.com/workflows/", "hooks.slack.com/triggers/", "discord.com/api/webhooks/", "discordapp.com/api/webhooks/"}
+
+func claudeWebhookURL(text string) bool {
+	text = strings.ToLower(text)
+	return slices.ContainsFunc(claudeWebhookPaths, func(path string) bool { return strings.Contains(text, path) })
+}
 
 // claudeGroupCredentialField names the first field of a hook in g that
 // holds a literal credential, by the checks the settings overlay and MCP
@@ -108,9 +114,9 @@ func claudeGroupCredentialField(g claudehooks.Group) string {
 func claudeHookCredentialField(h claudehooks.CommandEntry) string {
 	command := adapters.ExecFormCommand(adapters.StripCursorGuard(h.Command), h.Args)
 	switch {
-	case h.Command != "" && (globalPermissionCommandCredentialDetected(command, 0) || claudeWebhookURL.MatchString(command)):
+	case h.Command != "" && (globalPermissionCommandCredentialDetected(command, 0) || claudeWebhookURL(command)):
 		return "command"
-	case h.URL != "" && (mcpCredentialDetected(h.URL) || claudeWebhookURL.MatchString(h.URL)):
+	case h.URL != "" && (mcpCredentialDetected(h.URL) || claudeWebhookURL(h.URL)):
 		return "url"
 	case h.If != "" && globalPermissionCredentialDetected(h.If):
 		return "if"
@@ -142,7 +148,7 @@ func claudeHookInputCredential(input map[string]any, prefix string) string {
 		path := prefix + key
 		switch value := input[key].(type) {
 		case string:
-			if claudeHookCredentialValue(key, value) || claudeWebhookURL.MatchString(value) {
+			if claudeHookCredentialValue(key, value) || claudeWebhookURL(value) {
 				return path
 			}
 		case map[string]any:
