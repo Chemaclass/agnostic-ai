@@ -490,7 +490,7 @@ func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) 
 func TestGitignoreHintsForTargets_ClaudeLocalArtifactsFollowDirOverride(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
 	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
-	want := []string{"vendor/.claude/agent-memory-local/", "vendor/.claude/settings.local.json", "vendor/.claude/worktrees/", "vendor/.claude/scheduled_tasks.lock"}
+	want := []string{"vendor/.claude/agent-memory-local/", "vendor/.claude/settings.local.json", "vendor/.claude/worktrees/", "vendor/.claude/scheduled_tasks.lock", "vendor/.claude/settings.local.json.bak", "vendor/.claude/scheduled_tasks.lock.bak"}
 	if len(hints) != len(want) {
 		t.Fatalf("hints = %v, want %v", hints, want)
 	}

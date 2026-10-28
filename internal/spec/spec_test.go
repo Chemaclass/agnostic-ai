@@ -795,3 +795,20 @@ func TestParseMarkdownBytes_LeavesDuplicateKeysEmptyWhenEachKeyIsOnce(t *testing
 		t.Errorf("DuplicateKeys = %v, want none", e.DuplicateKeys)
 	}
 }
+
+func TestValidateName_RefusesTheGitFolder(t *testing.T) {
+	t.Parallel()
+	for _, bad := range []string{".git", ".GIT ", ".Git."} {
+		if err := ValidateName(KindSkill, bad); err == nil || !strings.Contains(err.Error(), "Git folder") {
+			t.Errorf("skill name %q: error = %v, want one naming the Git folder", bad, err)
+		}
+	}
+	if err := ValidateName(KindMCP, "vendor/.git"); err == nil {
+		t.Error("MCP name with a .git segment: expected validation error")
+	}
+	for _, good := range []string{".github", "git", "gitlab"} {
+		if err := ValidateName(KindSkill, good); err != nil {
+			t.Errorf("skill name %q rejected: %v", good, err)
+		}
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -134,14 +135,29 @@ func selected(meta map[string]any, keys ...string) map[string]any {
 	}
 	return out
 }
+
+// RefuseSpecs rejects an agent name CodeBuddy does not accept.
+func (Adapter) RefuseSpecs(b spec.Bundle, _ *config.Config) error {
+	return validateAgentNames(b.Agents)
+}
+
+func validateAgentNames(agents []spec.Entry) error {
+	for _, a := range agents {
+		if a.Name == "" || strings.Trim(a.Name, "abcdefghijklmnopqrstuvwxyz-") != "" {
+			return &emit.Refusal{Path: a.Path, Err: fmt.Errorf("codebuddy: agent name %q must use lowercase letters and hyphens", a.Name)}
+		}
+	}
+	return nil
+}
+
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	if err := validateAgentTools(agents); err != nil {
 		return err
 	}
+	if err := validateAgentNames(agents); err != nil {
+		return err
+	}
 	for _, a := range agents {
-		if a.Name == "" || strings.Trim(a.Name, "abcdefghijklmnopqrstuvwxyz-") != "" {
-			return fmt.Errorf("%s: codebuddy: agent name %q must use lowercase letters and hyphens", a.Path, a.Name)
-		}
 		a = emit.WithValidAgentLimits(a, target, emit.AgentMaxTurns, emit.AgentBackground)
 		m := emit.ResolveMeta(a.Meta, target)
 		meta := selected(m, "description", "model", "tools", "disallowedTools", "skills", "mcpServers", "effort", "permissionMode", "maxTurns", "background", "initialPrompt", "memory", "hooks", "disable-model-invocation")

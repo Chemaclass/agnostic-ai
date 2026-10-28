@@ -260,6 +260,7 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) (*adapters.S
 		return nil, nil
 	}
 	sess := adapters.NewSession()
+	sess.SetProjectRoot(".")
 	sess.StartTransaction()
 	keep := map[string]string{}
 	for _, l := range st.links {
