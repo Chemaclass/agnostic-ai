@@ -823,6 +823,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		if err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
+		personal = withLeftoverBackups(personal, block, syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups)))
 		if err := writePersonalExcludes(root, personal); err != nil {
 			return fmt.Errorf("git exclude: %w", err)
 		}
@@ -1393,6 +1394,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return undoSweep(mainSess, prior, fmt.Errorf("gitignore: %w", err))
 		}
+		personal = withLeftoverBackups(personal, block, syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups)))
 		if err := writePersonalExcludes(root, personal); err != nil {
 			return undoSweep(mainSess, prior, fmt.Errorf("git exclude: %w", err))
 		}

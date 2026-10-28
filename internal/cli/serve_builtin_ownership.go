@@ -287,8 +287,9 @@ func builtinExcludeRel(root, exclude string) (string, bool) {
 // planPersonalExcludes adds to desired the info/exclude update sync makes
 // for the outputs only the personal built-ins add. A linked worktree's
 // file is shared with every checkout and sits outside the project, so a
-// change that needs lines there goes through the CLI.
-func planPersonalExcludes(root string, personal []string, desired, base map[string][]byte) error {
+// change that needs lines there goes through the CLI. Leftover backups
+// join the outputs there, as sync writes them.
+func planPersonalExcludes(root string, personal, leftovers []string, desired, base map[string][]byte) error {
 	ex, ok := personalExcludeFile(root)
 	if !ok {
 		return nil
@@ -304,7 +305,8 @@ func planPersonalExcludes(root string, personal []string, desired, base map[stri
 	if err != nil {
 		return err
 	}
-	if updated := withPersonalExcludes(string(snap.data), personalExcludeKey(root), ex.prefix, personal); updated != string(snap.data) {
+	patterns := slices.Compact(slices.Sorted(slices.Values(append(slices.Clone(personal), leftovers...))))
+	if updated := withPersonalExcludes(string(snap.data), personalExcludeKey(root), ex.prefix, patterns); updated != string(snap.data) {
 		desired[rel] = []byte(updated)
 		base[rel] = snap.data
 	}

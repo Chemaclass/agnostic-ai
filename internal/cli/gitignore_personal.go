@@ -120,6 +120,21 @@ func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, pre
 	return block, personal, nil
 }
 
+// withLeftoverBackups adds to personal each backup sync keeps whose output
+// the block no longer lists, such as a backup of a file a dropped target
+// wrote. Backups belong to the checkout that made them, so they go to its
+// info/exclude, never to the committed block.
+func withLeftoverBackups(personal, block []string, backups map[string]string) []string {
+	out := slices.Clone(personal)
+	for b := range backups {
+		if e := normalizeGitignorePath(b); !blockCovers(block, e) && !slices.Contains(out, e) {
+			out = append(out, e)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
 func sameBuiltins(a, b []string) bool {
 	return slices.Equal(slices.Compact(slices.Sorted(slices.Values(a))), slices.Compact(slices.Sorted(slices.Values(b))))
 }
