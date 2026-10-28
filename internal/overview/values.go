@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -67,6 +68,47 @@ func specValues(meta map[string]any) []Value {
 		return []Value{}
 	}
 	return out
+}
+
+func sanitizeHookMeta(meta map[string]any) map[string]any {
+	withheld := map[string]any{"metadata": redacted}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return withheld
+	}
+	shown := preview.Display("hook.json", string(data))
+	if shown.Withheld {
+		return withheld
+	}
+	var out map[string]any
+	decoder := json.NewDecoder(bytes.NewBufferString(shown.Text))
+	decoder.UseNumber()
+	if err := decoder.Decode(&out); err != nil {
+		return withheld
+	}
+	return sanitizeHookCommands("", out).(map[string]any)
+}
+
+func sanitizeHookCommands(key string, value any) any {
+	switch value := value.(type) {
+	case map[string]any:
+		for childKey, child := range value {
+			value[childKey] = sanitizeHookCommands(childKey, child)
+		}
+	case []any:
+		for i, child := range value {
+			value[i] = sanitizeHookCommands(key, child)
+		}
+	case string:
+		normal := strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(key))
+		switch normal {
+		case "command", "commandwindows", "bash", "powershell", "args":
+			if preview.CredentialInRule("shell(" + value + ")") {
+				return redacted
+			}
+		}
+	}
+	return value
 }
 
 func joinKey(prefix, key string) string {
