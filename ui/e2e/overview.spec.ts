@@ -560,9 +560,24 @@ test.describe('overview', () => {
   test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
     await openApp(page, '?view=tools')
     await expect(page.getByRole('heading', { level: 1, name: 'Tools' })).toBeVisible()
-    const servers = page.locator('.item-row', { has: page.locator('.tool-listing') })
-    await expect(servers.first()).toBeVisible()
-    if (MOCK) await expect(servers.first().locator('.tool-state')).toContainText('agnostic-ai mcp tools')
+    const block = page.getByRole('region', { name: /^MCP servers/ })
+    await expect(block.locator('.item-row').first()).toBeVisible()
+    if (MOCK) {
+      await expect(block.locator('.tools-unlisted')).toHaveText('Tools not listed yet. Run agnostic-ai mcp tools to list them.')
+      await expect(block.locator('.item-row .tool-state')).toHaveCount(0)
+    }
+  })
+
+  test('says tools are not listed on each server only when others have a list', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const servers: SectionItem[] = data.sections.find((section: { id: string }) => section.id === 'tools')!.items
+    servers[0].tools = { state: 'listed', command: 'agnostic-ai mcp tools', tools: [{ name: 'query_metrics' }] }
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('./?view=tools')
+    const block = page.getByRole('region', { name: /^MCP servers/ })
+    await expect(block.locator('.tools-unlisted')).toHaveCount(0)
+    await expect(block.locator('.item-row').first().locator('.tool-listing')).toContainText('query_metrics')
+    await expect(block.locator('.item-row .tool-state')).toHaveCount(servers.length - 1)
   })
 
   test("lists MCP servers found only in a tool's own config, with the import hint", async ({ page }) => {

@@ -151,6 +151,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
+        const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
@@ -159,7 +160,12 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
             </h2>
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
             {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
-            {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
+            {unlisted !== undefined && items.length > 0 && (
+              <p className="muted tool-state tools-unlisted">
+                Tools not listed yet. Run <Code>{unlisted}</Code> to list them.
+              </p>
+            )}
+            {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} sharedUnlisted={unlisted !== undefined} />}
           </section>
         )
       })}
@@ -479,8 +485,16 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
   )
 }
 
-function GroupedItems({ items }: { items: SectionItem[] }) {
-  if (!items.some((it) => it.group)) return <ItemList items={items} />
+// When no server has a tool list yet, one notice under the heading replaces
+// the same line on every server.
+function sharedUnlistedCommand(items: SectionItem[]): string | undefined {
+  const listings = items.flatMap((item) => (item.tools ? [item.tools] : []))
+  const command = listings[0]?.command
+  return listings.length > 0 && listings.every((listing) => listing.state === 'not-listed' && listing.command === command) ? command : undefined
+}
+
+function GroupedItems({ items, sharedUnlisted }: { items: SectionItem[]; sharedUnlisted?: boolean }) {
+  if (!items.some((it) => it.group)) return <ItemList items={items} sharedUnlisted={sharedUnlisted} />
   const groups: { name: string; items: SectionItem[] }[] = []
   for (const it of items) {
     const name = it.group ?? ''
@@ -493,14 +507,14 @@ function GroupedItems({ items }: { items: SectionItem[] }) {
       {groups.map((g) => (
         <div key={g.name} className="item-group">
           <h3 className="item-group-title">{g.name}</h3>
-          <ItemList items={g.items} />
+          <ItemList items={g.items} sharedUnlisted={sharedUnlisted} />
         </div>
       ))}
     </div>
   )
 }
 
-function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: boolean }) {
+function ItemList({ items, hideValues, sharedUnlisted }: { items: SectionItem[]; hideValues?: boolean; sharedUnlisted?: boolean }) {
   const audience = useEditAudience()
   return (
     <ul className="item-list">
@@ -516,7 +530,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
               ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
               : heading(control)}
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
-            {item.tools && <Tools listing={item.tools} />}
+            {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
             <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
           </ItemRow>
         )
