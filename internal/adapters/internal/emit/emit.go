@@ -382,6 +382,24 @@ func (s *Session) noteBackup(path string) {
 	s.mu.Unlock()
 }
 
+// noteKeptEdit records a hand edit the session left in place on list,
+// and as an "edited" record under detailed recording.
+func (s *Session) noteKeptEdit(list *[]string, edit WrittenFile) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.noteKeptEditLocked(list, edit, s.detailing)
+}
+
+// noteKeptEditLocked is noteKeptEdit for a caller that holds s.mu and
+// read detailing earlier in the same write.
+func (s *Session) noteKeptEditLocked(list *[]string, edit WrittenFile, detailing bool) {
+	*list = append(*list, edit.Path)
+	if detailing {
+		edit.Action = "edited"
+		s.detailed = append(s.detailed, edit)
+	}
+}
+
 // BackupBlockedEdits returns the paths whose hand edit this session left
 // in place because `<path>.bak` already existed, in write order.
 func (s *Session) BackupBlockedEdits() []string {
@@ -956,10 +974,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		if _, watched := s.planned[path]; watched {
 			s.planned[path] = nil
 		}
-		s.kept = append(s.kept, path)
-		if detailing {
-			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: sum})
-		}
+		s.noteKeptEditLocked(&s.kept, WrittenFile{Path: path, Bytes: len(content), Sum: sum}, detailing)
 		s.mu.Unlock()
 		return nil
 	}
@@ -1001,10 +1016,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		switch err := backUpEdit(cur, backupPath); {
 		case errors.Is(err, fs.ErrExist):
 			s.mu.Lock()
-			s.backedUp = append(s.backedUp, path)
-			if detailing {
-				s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: s.priorChecksum(path, s.backupSums)})
-			}
+			s.noteKeptEditLocked(&s.backedUp, WrittenFile{Path: path, Bytes: len(content), Sum: s.priorChecksum(path, s.backupSums)}, detailing)
 			s.mu.Unlock()
 			return nil
 		case err != nil:
@@ -1343,12 +1355,7 @@ func (s *Session) removeOwned(path, sum string, dryRun, protectEdit bool) (remov
 		return s.remove(path, sum, existing, false, dryRun)
 	}
 	if keepSum, keep := s.keepsEdit(path, ""); keep {
-		s.mu.Lock()
-		s.kept = append(s.kept, path)
-		if s.detailing {
-			s.detailed = append(s.detailed, WrittenFile{Path: path, Action: "edited", Sum: keepSum})
-		}
-		s.mu.Unlock()
+		s.noteKeptEdit(&s.kept, WrittenFile{Path: path, Sum: keepSum})
 		return false, nil
 	}
 	editSum := backupSum
@@ -1362,23 +1369,13 @@ func (s *Session) removeOwned(path, sum string, dryRun, protectEdit bool) (remov
 			return false, fmt.Errorf("lstat %s: %w", path, statErr)
 		}
 		if !info.Mode().IsRegular() || (!filepath.IsAbs(path) && config.EscapesProject(path)) || symlinkedParent(path) {
-			s.mu.Lock()
-			s.kept = append(s.kept, path)
-			if s.detailing {
-				s.detailed = append(s.detailed, WrittenFile{Path: path, Action: "edited", Sum: editSum})
-			}
-			s.mu.Unlock()
+			s.noteKeptEdit(&s.kept, WrittenFile{Path: path, Sum: editSum})
 			return false, nil
 		}
 		backup := path + ".bak"
 		switch err := backUpEdit(cur, backup); {
 		case errors.Is(err, fs.ErrExist):
-			s.mu.Lock()
-			s.backedUp = append(s.backedUp, path)
-			if s.detailing {
-				s.detailed = append(s.detailed, WrittenFile{Path: path, Action: "edited", Sum: editSum})
-			}
-			s.mu.Unlock()
+			s.noteKeptEdit(&s.backedUp, WrittenFile{Path: path, Sum: editSum})
 			return false, nil
 		case err != nil:
 			return false, fmt.Errorf("backup %s: %w", path, err)
