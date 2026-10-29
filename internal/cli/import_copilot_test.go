@@ -487,3 +487,15 @@ func TestImportCopilot_ImportsPluginKeysAnotherSpecLeavesNull(t *testing.T) {
 		t.Errorf("sync skips a null hatch value, so import must still carry the native plugins:\n%s", spec)
 	}
 }
+
+func TestImportCopilot_ImportsPluginKeysASpecForAnotherToolSets(t *testing.T) {
+	dir := importEffortProject(t, "copilot")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "targets: [claude]\nx-copilot:\n  enabledPlugins:\n    other@mkt: true\n")
+	writeFile(t, filepath.Join(dir, ".github", "copilot", "settings.json"), `{"enabledPlugins": {"team@mkt": true}}`)
+
+	execCLI(t, "import", "copilot")
+
+	if spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")); !strings.Contains(spec, "team@mkt: true") {
+		t.Errorf("sync never sends team.yaml to copilot, so import must carry the native plugins:\n%s", spec)
+	}
+}

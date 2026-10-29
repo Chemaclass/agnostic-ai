@@ -112,9 +112,9 @@ func importPortableSettings(root, nativePath, dstDir string, shape portableSetti
 // importSettingsHatch copies shape.hatchKeys from native into the
 // `x-<target>` block of the target's own settings spec. The block's other
 // keys are hand-written and absent from what import reads, so they stay.
-// A key another settings spec sets is left alone: sync lets the last spec
-// win the whole key, so copying the merged native value here would
-// duplicate that spec's entries.
+// A key another settings spec for the target sets is left alone: sync
+// lets the last spec win the whole key, so copying the merged native value
+// here would duplicate that spec's entries.
 func importSettingsHatch(doc, native map[string]any, dstDir string, shape portableSettingsShape) error {
 	hatchName := "x-" + shape.target
 	own := filepath.Join(dstDir, shape.target+".yaml")
@@ -141,7 +141,7 @@ func importSettingsHatch(doc, native map[string]any, dstDir string, shape portab
 	if imported, ok := doc[hatchName].(map[string]any); ok {
 		maps.Copy(hatch, imported)
 	}
-	others, err := otherSettingsSpecs(dstDir, own)
+	others, err := otherSettingsSpecsFor(shape.target, dstDir, own)
 	if err != nil {
 		return err
 	}

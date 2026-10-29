@@ -14,6 +14,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
 
+### By tool
+
+#### Copilot
+
+- `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` when only a settings spec for another tool sets them (#2799).
+
 ## v0.90.0 - 2026-10-29
 
 ### General
