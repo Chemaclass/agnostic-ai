@@ -87,6 +87,25 @@ func TestFindUnmanagedConfig_FlagsNestedQwenRules(t *testing.T) {
 	}
 }
 
+func TestFindUnmanagedConfig_FlagsNestedGeminiCommands(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "deploy.toml"), "prompt = \"Ship\"\n")
+	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "git", "commit.toml"), "prompt = \"Commit\"\n")
+	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "git", "push.toml"), "# "+header.Marker+"\nprompt = \"Push\"\n")
+
+	got, err := findUnmanagedConfig(dir, &config.Config{})
+	if err != nil {
+		t.Fatalf("findUnmanagedConfig: %v", err)
+	}
+	want := []unmanagedFinding{
+		{Path: ".gemini/commands/deploy.toml", Target: "gemini"},
+		{Path: ".gemini/commands/git/commit.toml", Target: "gemini"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("findings = %+v, want %+v", got, want)
+	}
+}
+
 // A clean tree with no known config files yields no findings.
 func TestFindUnmanagedConfig_EmptyTree(t *testing.T) {
 	got, err := findUnmanagedConfig(t.TempDir(), &config.Config{})

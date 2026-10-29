@@ -114,8 +114,10 @@ func importGeminiAgents(root, dstDir string) (int, error) {
 	})
 }
 
-// importGeminiCommands reads `.gemini/commands/*.toml` and writes one
-// command spec per file into dstDir. The `prompt` field becomes the
+// importGeminiCommands reads `.gemini/commands/**/*.toml` and writes one
+// command spec per file into dstDir. A file in a subfolder, such as
+// `git/commit.toml`, imports as `git:commit`, the name Gemini gives it,
+// into `git-commit.md`. The `prompt` field becomes the
 // body; `description` is preserved in frontmatter. A missing directory
 // imports nothing.
 //
