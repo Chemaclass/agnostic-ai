@@ -117,6 +117,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### Site
 
 - The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).
+- The Antigravity guide says the Antigravity CLI does not support rule mentions, so a `manual` rule does not load there (#2783).
 
 ## v0.89.0 - 2026-10-27
 
