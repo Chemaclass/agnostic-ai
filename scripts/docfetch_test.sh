@@ -955,6 +955,38 @@ function test_fetch_one_notices_a_new_release_tag() {
   assert_not_equals "$(printf '%s' "$first" | cut -f6)" "$(printf '%s' "$second" | cut -f6)"
 }
 
+# proxy_release_page <json> prints the reader proxy's answer for a releases API
+# URL: its own header, then the API's JSON verbatim.
+function proxy_release_page() {
+  printf 'Title: \n\nURL Source: https://api.github.com/repos/openai/codex/releases?per_page=30\n\nMarkdown Content:\n%s\n' "$1"
+}
+
+function test_fetch_one_hashes_a_proxy_release_page_page_without_its_download_counts() {
+  local a b first second direct
+  a='[{"tag_name":"v1.0.0","published_at":"2026-09-01T00:00:00Z","body":"Notes.","assets":[{"download_count":11}]}]'
+  b='[{"tag_name":"v1.0.0","published_at":"2026-09-01T00:00:00Z","body":"Notes.","assets":[{"download_count":9312}]}]'
+  stub_curl "https://r.jina.ai/*|200|$(proxy_release_page "$a")" "https://api.github.com/*|403|"
+  first=$(fetch_one codex changelog https://github.com/openai/codex/releases "$FIXTURES/run" 1)
+  stub_curl "https://r.jina.ai/*|200|$(proxy_release_page "$b")" "https://api.github.com/*|403|"
+  second=$(fetch_one codex changelog https://github.com/openai/codex/releases "$FIXTURES/run" 2)
+  stub_curl "https://api.github.com/*|200|$a"
+  direct=$(fetch_one codex changelog https://github.com/openai/codex/releases "$FIXTURES/run" 3)
+  assert_equals "reader-proxy" "$(printf '%s' "$first" | cut -f5)"
+  assert_equals "$(printf '%s' "$first" | cut -f6)" "$(printf '%s' "$second" | cut -f6)"
+  assert_equals "$(printf '%s' "$direct" | cut -f6)" "$(printf '%s' "$first" | cut -f6)"
+}
+
+function test_fetch_one_notices_a_release_note_edit_through_the_proxy() {
+  local a b first second
+  a='[{"tag_name":"v1.0.0","published_at":"2026-09-01T00:00:00Z","body":"Notes.","assets":[{"download_count":11}]}]'
+  b='[{"tag_name":"v1.0.0","published_at":"2026-09-01T00:00:00Z","body":"Notes, edited.","assets":[{"download_count":11}]}]'
+  stub_curl "https://r.jina.ai/*|200|$(proxy_release_page "$a")" "https://api.github.com/*|403|"
+  first=$(fetch_one codex changelog https://github.com/openai/codex/releases "$FIXTURES/run" 1)
+  stub_curl "https://r.jina.ai/*|200|$(proxy_release_page "$b")" "https://api.github.com/*|403|"
+  second=$(fetch_one codex changelog https://github.com/openai/codex/releases "$FIXTURES/run" 2)
+  assert_not_equals "$(printf '%s' "$first" | cut -f6)" "$(printf '%s' "$second" | cut -f6)"
+}
+
 # ---- word_delta --------------------------------------------------------------
 
 function test_word_delta_marks_removed_and_added_words_with_context() {
