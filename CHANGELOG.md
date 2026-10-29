@@ -97,6 +97,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
+- `import opencode` keeps the `provider` block of `opencode.json`, such as a model's prompt cache lifetime (`settings.cache.ttl`), in `settings/opencode-provider.yaml` under `x-opencode.provider`, so sync writes it back. A block holding a literal credential stays in `opencode.json` with a warning (#2755).
 
 #### Gemini CLI
 
