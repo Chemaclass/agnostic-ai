@@ -256,6 +256,13 @@ strip_html() {
 # or an indent is part of the claim.
 reader_text() {
   awk '
+    # Output streams: appending every line to one string copied the whole
+    # page per line, which took an hour on a 19 MB release list.
+    function emit(sep, s) {
+      if (started) printf "%s", sep
+      printf "%s", s
+      started = 1
+    }
     function flush(   p) {
       p = prose
       gsub(/Loading image\.\.\./, "", p)
@@ -263,7 +270,7 @@ reader_text() {
       gsub(/[ \t\r\n]+/, " ", p)
       sub(/^ /, "", p)
       sub(/ $/, "", p)
-      if (p != "") out = out (out != "" ? " " : "") p
+      if (p != "") emit(" ", p)
       prose = ""
     }
     { all[++na] = $0 }
@@ -277,23 +284,53 @@ reader_text() {
         if (match(l, /^[ \t]*(```+|~~~+)/)) {
           run = substr(l, RSTART, RLENGTH)
           sub(/^[ \t]*/, "", run)
-          if (fence == "") { flush(); fence = run; out = out (out != "" ? "\n" : "") l; continue }
+          if (fence == "") { flush(); fence = run; emit("\n", l); continue }
           # A fence closes only on its own character, at least as long,
           # with nothing after it: "```yaml" inside a "````" block is text.
           rest = substr(l, RSTART + RLENGTH)
           if (substr(run, 1, 1) == substr(fence, 1, 1) && length(run) >= length(fence) && rest ~ /^[ \t]*$/) {
-            fence = ""; out = out "\n" l; continue
+            fence = ""; emit("\n", l); continue
           }
         }
-        if (fence != "") { out = out "\n" l; continue }
-        if (l ~ /^(    |\t)/ && l ~ /[^ \t]/) { flush(); out = out (out != "" ? "\n" : "") l; continue }
+        if (fence != "") { emit("\n", l); continue }
+        if (l ~ /^(    |\t)/ && l ~ /[^ \t]/) { flush(); emit("\n", l); continue }
         if (l ~ /^Video unavailable[ \t]*$/ || l ~ /^Page updated:/) continue
+        # Prose is held only while an image may still span the next line,
+        # and never past a blank line, so it never grows into one string
+        # for the whole page. A "![" whose first "]" is not followed by "("
+        # can never become an image, so it does not hold the paragraph.
+        if (l !~ /[^ \t]/) { flush(); continue }
         prose = prose l "\n"
+        if (index(prose, "![") == 0) { flush(); continue }
+        q = prose
+        gsub(/!\[[^]]*\]\([^)]*\)/, "", q)
+        if (q !~ /!\[[^]]*$/ && q !~ /!\[[^]]*\]\([^)]*$/) flush()
       }
       flush()
-      print out
+      printf "\n"
     }
   ' "$@"
+}
+
+# bounded_reader_text <body> <out> runs reader_text within
+# READER_TEXT_SECONDS, so a page that still scales badly fails its row
+# instead of hanging the run. Where neither timeout nor gtimeout exists, a
+# body over READER_TEXT_BYTES is refused unread instead. Both limits exit
+# 124, as timeout does; any other failure keeps its own status.
+bounded_reader_text() {
+  local limit
+  limit=${READER_TEXT_TIMEOUT-$(command -v timeout || command -v gtimeout || true)}
+  if [ -n "$limit" ]; then
+    (
+      export -f reader_text
+      # shellcheck disable=SC2016
+      "$limit" "${READER_TEXT_SECONDS:-60}" bash -c 'reader_text "$1"' _ "$1" >"$2"
+    )
+  elif [ "$(wc -c <"$1")" -le "${READER_TEXT_BYTES:-33554432}" ]; then
+    reader_text "$1" >"$2"
+  else
+    return 124
+  fi
 }
 
 # url_origin <url> prints the scheme and host. BSD sed has no \? operator, so
@@ -766,7 +803,7 @@ snapshot_store() {
     case "$target" in '#'* | '') continue ;; esac
     # An app shell or soft 404 answers 200 with no page in it: no hash, no file.
     [ "$code" = "200" ] && [ "$status" != "failed" ] && [ -n "$sha" ] && [ "$sha" != "-" ] || continue
-    case "$mode" in app-shell | soft-404 | failed) continue ;; esac
+    case "$mode" in app-shell | soft-404 | extract-limit | failed) continue ;; esac
     [ -n "$body" ] && [ -f "$dir/$body" ] || continue
     snap=$(snapshot_file "$sha")
     snapshot_valid "$snap" "$sha" && continue
@@ -1046,7 +1083,7 @@ release_entries() {
 row_status() {
   local url="$1" mode="$2" sha="$3" locked
   case "$mode" in
-    failed | app-shell | soft-404)
+    failed | app-shell | soft-404 | extract-limit)
       printf 'failed\n'
       return 0
       ;;
@@ -1223,8 +1260,17 @@ fetch_one() {
       fi
       ;;
     reader-proxy)
-      reader_text "$body" >"$stem.txt"
-      result=$(sha256_of "$stem.txt")
+      local rc=0
+      bounded_reader_text "$body" "$stem.txt" || rc=$?
+      if [ "$rc" = 0 ]; then
+        result=$(sha256_of "$stem.txt")
+      elif [ "$rc" = 124 ]; then
+        rm -f "$stem.txt"
+        mode=extract-limit
+        result="-"
+      else
+        return "$rc"
+      fi
       ;;
     app-shell | soft-404)
       result="-"
@@ -1275,8 +1321,11 @@ mirror_one() {
   code=$(docfetch_curl "$murl" "$stem.mirror.md" | cut -f1)
   if [ "$code" = "200" ] && [ "$(wc -c <"$stem.mirror.md")" -ge 200 ] &&
     ! head -c 300 "$stem.mirror.md" | grep -qi '<html\|<!doctype'; then
-    reader_text "$stem.mirror.md" >"$stem.mirror.txt"
-    sha=$(sha256_of "$stem.mirror.txt")
+    if bounded_reader_text "$stem.mirror.md" "$stem.mirror.txt"; then
+      sha=$(sha256_of "$stem.mirror.txt")
+    else
+      rm -f "$stem.mirror.txt"
+    fi
   else
     rm -f "$stem.mirror.md"
   fi
