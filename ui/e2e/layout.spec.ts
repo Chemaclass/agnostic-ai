@@ -68,6 +68,21 @@ test('shows a permission key once in the narrow Authority layout', async ({ page
   await expect(row.locator('.value-row dt').first()).toBeVisible()
 })
 
+test('keeps header buttons on the header colour in the light theme', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context')
+  const header = await page.locator('.topbar').evaluate((element) => getComputedStyle(element).backgroundColor)
+  for (const name of ['Search', 'JSON']) {
+    const button = page.locator('.topbar').getByRole('button', { name, exact: true })
+    expect(await button.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(header)
+  }
+  await page.locator('.topbar').getByRole('button', { name: 'JSON', exact: true }).click()
+  const pressed = page.locator('.topbar').getByRole('button', { name: 'JSON', exact: true })
+  await expect(pressed).toHaveAttribute('aria-pressed', 'true')
+  expect(await pressed.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(header)
+})
+
 for (const width of [320, 900]) {
   test(`keeps the current section in view in the narrow navigation at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })

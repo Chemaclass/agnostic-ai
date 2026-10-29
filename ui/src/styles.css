@@ -2597,6 +2597,11 @@ input:hover {
   color: var(--text-muted);
 }
 
+/* On the white light header the raised grey fill read as disabled. */
+[data-theme='light'] .topbar .button:not([aria-pressed='true']) {
+  background: var(--topbar);
+}
+
 /* The search dialog is modal: the page behind it holds still. */
 html:has(.search-backdrop) {
   overflow: hidden;
