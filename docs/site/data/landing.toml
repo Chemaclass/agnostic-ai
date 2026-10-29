@@ -2,8 +2,9 @@
 title = "One source."
 accent_title = "Every AI coding tool."
 body = "Write your project instructions and agents once, in your repository. `agnostic-ai sync` writes the file each tool reads, in its own format."
-primary_label = "Set up with an agent"
-secondary_label = "Explore the files"
+tools_label = "Works with {n} coding tools"
+agent_label = "Set up with an agent"
+playground_label = "Try it in the browser"
 
 [hero.fanout]
 label = "One agent spec, synced into the agent file each coding tool reads"

@@ -584,7 +584,9 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		}
 	}
 	for _, required := range []string{
-		`href="https://agnostic-ai.org/docs/agent-setup/">Set up with an agent<svg`,
+		`href="https://agnostic-ai.org/docs/agent-setup/">Set up with an agent</a>`,
+		`href="https://agnostic-ai.org/playground/">Try it in the browser</a>`,
+		fmt.Sprintf("Works with %d coding tools", len(adapters.Names())),
 		"Install agnostic-ai",
 		`data-installer-os="macos"`,
 		`data-installer-os="windows"`,
@@ -595,7 +597,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"Keep the setup current.",
 		"Read the latest briefing",
 		`href="https://agnostic-ai.org/docs/targets/"`,
-		`"installUrl": "https://agnostic-ai.org/#quickstart"`,
+		`"installUrl": "https://agnostic-ai.org/#install"`,
 		fmt.Sprintf("One spec emitted to %d AI coding targets", len(adapters.Names())),
 		fmt.Sprintf("%d targets enabled by default", len(config.DefaultTargets())),
 		"/docs/agent-setup/",

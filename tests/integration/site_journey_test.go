@@ -57,8 +57,12 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 		t.Error("first-sync proof must show its source and every output without JavaScript")
 	}
 	assertFirstSyncProof(t, proof)
-	if !strings.Contains(home[:proofStart], `class="button button-primary" href="https://agnostic-ai.org/docs/agent-setup/"`) {
-		t.Error("homepage primary action must open the agent setup page")
+	hero := home[:proofStart]
+	if !strings.Contains(hero, `data-hero-installer`) {
+		t.Error("homepage hero must offer the install command")
+	}
+	if !strings.Contains(hero, `class="button button-secondary" href="https://agnostic-ai.org/docs/agent-setup/"`) {
+		t.Error("homepage hero must link to the agent setup page")
 	}
 	for _, text := range []string{"<details", "How each tool loads it", "Save and recall a fact", `parent.open = true`, `addEventListener("hashchange"`} {
 		if !strings.Contains(memory, text) {

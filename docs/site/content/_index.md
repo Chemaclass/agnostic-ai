@@ -1,5 +1,5 @@
 +++
-title = "agnostic-ai: one place for your coding-agent instructions"
-description = "Keep Claude Code and Codex working from the same project guidance. Edit once, then generate the files each tool reads."
+title = "agnostic-ai: stop syncing CLAUDE.md, AGENTS.md, and Cursor rules by hand"
+description = "Stop keeping CLAUDE.md, AGENTS.md, and Cursor rules in sync by hand: write your instructions once, and agnostic-ai writes the file each coding tool reads."
 template = "index.html"
 +++

@@ -63,9 +63,20 @@ main > section[id] {
 }
 
 
+.hero-tools {
+  margin: 1rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.hero-tools a {
+  color: var(--accent);
+}
+
 .hero-install {
   width: min(100%, 32.5rem);
-  margin-top: 1.35rem;
+  margin-top: 1.5rem;
 }
 
 .hero-install > p {
@@ -81,6 +92,10 @@ main > section[id] {
 
 .hero-install a {
   color: var(--accent);
+}
+
+.hero-install + .button-row {
+  margin-top: 1.25rem;
 }
 
 .hero-video {
@@ -188,15 +203,6 @@ main > section[id] {
     grid-column: 2;
     grid-row: 1;
     max-width: none;
-    margin-top: 0;
-  }
-
-  /* The quickstart pairs its title with the install command rather than a
-     lead, so the command fills the right of the row. */
-  #quickstart > .wrap > .hero-install {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
     margin-top: 0;
   }
 }
