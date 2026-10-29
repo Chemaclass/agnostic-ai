@@ -140,3 +140,43 @@ func TestImportFactory_PromotesReasoningEffortIntoSettings(t *testing.T) {
 
 	assertSettingsEffort(t, dir, "factory.yaml", "max")
 }
+
+func TestImportJunie_PromotesEffortIntoSettings(t *testing.T) {
+	dir := importEffortProject(t, "junie")
+	writeFile(t, filepath.Join(dir, ".junie", "config.json"), `{"model": "opus", "effort": "high"}`)
+
+	execCLI(t, "import", "junie")
+
+	assertSettingsEffort(t, dir, "junie.yaml", "high")
+	execCLI(t, "sync")
+	if got := readFile(t, filepath.Join(dir, ".junie", "config.json")); !strings.Contains(got, `"effort": "high"`) {
+		t.Errorf("sync must write the promoted effort back:\n%s", got)
+	}
+	execCLI(t, "sync", "--check")
+}
+
+func TestImportJunie_KeepsHandWrittenHatchKeysBesideTheEffort(t *testing.T) {
+	for _, tc := range []struct {
+		name, team, want string
+	}{
+		{name: "promoted", want: "effort: high"},
+		{name: "shadowed", team: "effort: low\n", want: "x-junie:"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := importEffortProject(t, "junie")
+			if tc.team != "" {
+				writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), tc.team)
+			}
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "junie.yaml"), "x-junie:\n  brave: true\n")
+			execCLI(t, "sync")
+			writeFile(t, filepath.Join(dir, ".junie", "config.json"), `{"effort": "high", "brave": true}`)
+
+			execCLI(t, "import", "junie")
+
+			spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "junie.yaml"))
+			if !strings.Contains(spec, "brave: true") || !strings.Contains(spec, tc.want) {
+				t.Errorf("import must keep x-junie.brave and carry %q:\n%s", tc.want, spec)
+			}
+		})
+	}
+}

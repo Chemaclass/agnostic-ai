@@ -114,6 +114,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` from `.github/copilot/settings.json` under `x-copilot`, so sync writes the repository's default plugins back unchanged. Copilot CLI and Copilot in the cloud both read them (#2756).
 - `import all` and `init` detect a Copilot project from `.github/copilot/settings.json` alone (#2765).
 
+#### Junie
+
+- A settings spec's `effort` reaches `effort` in `.junie/config.json`, replacing a hand-written value there, and `import junie` reads it back (#2782).
+
 ### Site
 
 - The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).
