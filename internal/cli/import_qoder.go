@@ -12,6 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -227,8 +228,8 @@ func qoderOAuthCredential(oauth any) string {
 		if field != "" {
 			return
 		}
-		named := mcpCredentialKey(key) && !spec.OnlyEscapedEnvRefs(value) && mcpLiteralCredential(mcpDetectorText(value))
-		if named || mcpCredentialDetected(value) {
+		named := preview.CredentialKey(key) && !spec.OnlyEscapedEnvRefs(value) && preview.LiteralCredential(preview.DetectorText(value))
+		if named || preview.CredentialDetected(value) {
 			field = path
 		}
 	})

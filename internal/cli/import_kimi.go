@@ -13,6 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kimi"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -371,7 +372,7 @@ func guardKimiCredentials(path string, doc map[string]any) error {
 		if field != "" {
 			return
 		}
-		if mcpCredentialKey(key) && !mcpRefOnly(value) && mcpSecretValue(mcpDetectorText(value), false, mcpWeakCredential) || mcpCredentialDetected(value) {
+		if preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential) || preview.CredentialDetected(value) {
 			field = strings.TrimPrefix(p, ".")
 		}
 	})

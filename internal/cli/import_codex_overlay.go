@@ -207,7 +207,7 @@ func codexCredentialIn(key string, value any, names bool) bool {
 		case !literalSettingValue(key, value):
 			return false
 		case names:
-			return mcpCredentialDetected(value)
+			return preview.CredentialDetected(value)
 		case codexProseKeys[key]:
 			return preview.TokenIn(value)
 		}
@@ -228,7 +228,7 @@ func codexCredentialIn(key string, value any, names bool) bool {
 				words = append(words, word)
 			}
 		}
-		return len(words) > 0 && globalPermissionCommandCredentialDetected(adapters.ExecFormCommand(words[0], words[1:]))
+		return len(words) > 0 && preview.CommandCredentialDetected(adapters.ExecFormCommand(words[0], words[1:]))
 	}
 	return false
 }

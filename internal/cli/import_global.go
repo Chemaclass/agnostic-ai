@@ -16,6 +16,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -484,7 +485,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 // credential, since the home is meant to be committed and a reference
 // would not write the user's file back unchanged. That is every
 // credential project import finds in a URL, argument, or other field,
-// and an `env` or header value whose key mcpCredentialKey names or
+// and an `env` or header value whose key preview.CredentialKey names or
 // that holds one by its shape. A plain setting such as `NODE_ENV:
 // production`, a path, a number, and `Bearer ${TOKEN}` stay. The warning names the field, never the
 // value.
@@ -502,7 +503,7 @@ func withoutMCPCredentials(target string, servers map[string]any, skip func(targ
 		server, _ := servers[r.server].(map[string]any)
 		values, _ := server[r.field].(map[string]any)
 		value, _ := values[r.key].(string)
-		if mcpRefOnly(value) {
+		if preview.RefOnly(value) {
 			continue
 		}
 		if mcpCredentialSetting(r.key, value) {

@@ -40,10 +40,10 @@ func mcpCredentialFields(e spec.Entry) []string {
 // `env` and `headers` values count only when they read as credentials.
 func mcpBlockCredentialFields(meta map[string]any, prefix string, inBlock bool) []string {
 	var out []string
-	if u, _ := meta["url"].(string); u != "" && mcpCredentialDetected(u) {
+	if u, _ := meta["url"].(string); u != "" && preview.CredentialDetected(u) {
 		out = append(out, prefix+"url")
 	}
-	if args := mcpArgStrings(meta["args"]); len(args) > 0 && (mcpCredentialDetected(strings.Join(args, " ")) || slices.ContainsFunc(args, mcpCredentialDetected)) {
+	if args := mcpArgStrings(meta["args"]); len(args) > 0 && (preview.CredentialDetected(strings.Join(args, " ")) || slices.ContainsFunc(args, preview.CredentialDetected)) {
 		out = append(out, prefix+"args")
 	}
 	for _, field := range mcpSecretFields {
@@ -110,11 +110,11 @@ func lintMCPCredentials(mcps []spec.Entry) []lintFinding {
 // credential: by its shape, or under a credential name unless it is a
 // short placeholder such as `none` under a name that ends in `key`.
 func mcpCredentialUnder(key, value string) bool {
-	if mcpCredentialDetected(value) {
+	if preview.CredentialDetected(value) {
 		return true
 	}
-	strength := mcpNameStrength(key, true)
-	return strength != preview.NoCredential && mcpSecretValue(mcpDetectorText(value), true, strength)
+	strength := preview.NameStrength(key, true)
+	return strength != preview.NoCredential && preview.SecretValue(preview.DetectorText(value), true, strength)
 }
 
 // withoutEntries returns entries minus the ones in drop, by name. A

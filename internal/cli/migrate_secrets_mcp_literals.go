@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -92,7 +93,7 @@ func planMCPLiterals(s migrationScope) (mcpLiteralsPlan, error) {
 					// A credential name with a value of no credential
 					// shape, such as `API_KEY: sk-live-abc`, may still be
 					// one, so the user decides.
-					if mcpCredentialKey(l.key) {
+					if preview.CredentialKey(l.key) {
 						plan.skips = append(plan.skips, migrationSkip{Path: e.Path, Actionable: true,
 							Reason: l.field + " " + l.key + " has a credential name; write a ${NAME} reference, or mark it !literal by hand"})
 						continue

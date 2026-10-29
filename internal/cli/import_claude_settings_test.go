@@ -271,6 +271,30 @@ func TestImportClaudeSettingsOverlay_LeavesOutCredentialRule(t *testing.T) {
 	}
 }
 
+// A rule in another tool's spelling, such as `PowerShell(...)`, reads
+// its command as shell too (#2737).
+func TestImportClaudeSettingsOverlay_LeavesOutCredentialRuleInAnyToolSpelling(t *testing.T) {
+	root := t.TempDir()
+	settingsDir := filepath.Join(root, "settings")
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"), `{"permissions":{"allow":[
+  "PowerShell(curl -H 'X-Api-Key: abc123def456ghi' https://api.example.com)",
+  "Read(src/**)"
+]}}`)
+	log := captureImportLog(t)
+
+	if _, err := importClaudeSettingsOverlay(root, settingsDir); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	assertNoSpecHolds(t, root, "abc123def456ghi")
+	if spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml")); !strings.Contains(spec, "read(src/**)") {
+		t.Errorf("spec lost the plain rule:\n%s", spec)
+	}
+	if !strings.Contains(log.String(), "left out a permissions.allow rule") {
+		t.Errorf("no warning for the credential rule:\n%s", log.String())
+	}
+}
+
 // A header variable carries keys under names no detector knows, so any
 // literal value is left out, with a warning that says it may be one.
 func TestImportClaudeSettingsOverlay_LeavesOutLiteralHeaderEnv(t *testing.T) {

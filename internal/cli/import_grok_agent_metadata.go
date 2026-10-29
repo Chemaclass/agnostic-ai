@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 func importGrokAgentMetadata(data []byte) ([]byte, error) {
@@ -133,7 +135,7 @@ func validateGrokRetainedCredentials(entries map[string]any) error {
 		entry, _ := raw.(map[string]any)
 		args := toStringSlice(entry["args"])
 		for i, arg := range args {
-			flag, value, hasValue := mcpCredentialFlag(arg)
+			flag, value, hasValue := preview.CredentialFlag(arg)
 			if flag == "" {
 				continue
 			}
