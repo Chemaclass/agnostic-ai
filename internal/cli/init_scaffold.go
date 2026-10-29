@@ -293,8 +293,14 @@ func isGlobalSourceDir(dir string) bool {
 	return errA == nil && errB == nil && os.SameFile(a, b)
 }
 
-// resolvedDir is dir with symlinks resolved, or dir when it cannot be.
+// resolvedDir is dir made absolute with symlinks resolved, or dir when it
+// cannot be. A relative dir stays relative under EvalSymlinks, and on
+// Windows the working directory can keep a short name such as RUNNER~1
+// that only an absolute path resolves.
 func resolvedDir(dir string) string {
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
 	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
 		return resolved
 	}

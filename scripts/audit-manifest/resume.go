@@ -183,7 +183,7 @@ func copyArtifact(m, prior *manifest, entry artifact) (artifact, error) {
 	if err = atomicWrite(filepath.Join(m.Directory, path), b); err != nil {
 		return artifact{}, err
 	}
-	return artifact{Path: path, SHA256: actual.SHA256}, nil
+	return artifact{Path: filepath.ToSlash(path), SHA256: actual.SHA256}, nil
 }
 
 func copyOutcome(m, prior *manifest, out *outcome) (*outcome, error) {

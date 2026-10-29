@@ -362,11 +362,7 @@ func TestCapturePhases_ReleaseBeforeDeferredHistory(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				physical, err := filepath.EvalSymlinks(dir)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if cwd != physical {
+				if !sameProjectRoot(cwd, dir) {
 					called = true
 					heldState.Lock()
 					frame := heldState.frame

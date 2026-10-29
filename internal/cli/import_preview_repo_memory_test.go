@@ -17,7 +17,7 @@ const previewProjectConfig = "version: 1\ntargets: [claude, cursor]\nbuiltins: [
 
 func gitIn(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	full := append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"}, args...)
+	full := append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "-c", "core.autocrlf=false"}, args...)
 	if out, err := exec.Command("git", full...).CombinedOutput(); err != nil {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 	}

@@ -539,6 +539,8 @@ func TestSyncCheckAgainst_PassesWithAnIncludeGitDoesNotTrack(t *testing.T) {
 
 func TestSyncCheckAgainst_ReadsASpecLinkedOutsideTheDotPaths(t *testing.T) {
 	dir := committedProject(t, "instructions")
+	// Git for Windows checks a committed link out as a text file by default.
+	git(t, dir, "config", "core.symlinks", "true")
 	entry := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
 	data, err := os.ReadFile(entry)
 	if err != nil {
