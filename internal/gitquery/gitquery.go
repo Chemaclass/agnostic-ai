@@ -167,19 +167,35 @@ func Tracked(root, rel string) (bool, error) {
 }
 
 // TrackedAnyCase is Tracked for a disk that reads one file under any letter
-// case: when the repository sets core.ignorecase, Git matches rel in any
 // case, so .claude/Settings.Local.json counts for .claude/settings.local.json.
+// The disk decides, not core.ignorecase, which a clone can set either way.
 // On a case-sensitive disk it is Tracked.
 func TrackedAnyCase(root, rel string) (bool, error) {
-	if !ignoresCase(root) {
+	if !diskIgnoresCase(root) {
 		return Tracked(root, rel)
 	}
 	return Tracked(root, ":(literal,icase)"+rel)
 }
 
-func ignoresCase(root string) bool {
-	out, err := exec.Command("git", "-C", absKey(root), "config", "--type=bool", "--get", "core.ignorecase").Output()
-	return err == nil && strings.TrimSpace(string(out)) == "true"
+// diskIgnoresCase reports whether dir answers to its own name in another
+// letter case. A name without letters cannot tell, so it counts as yes:
+// the extra match only blocks more.
+func diskIgnoresCase(dir string) bool {
+	abs := absKey(dir)
+	base := filepath.Base(abs)
+	swapped := strings.ToUpper(base)
+	if swapped == base {
+		swapped = strings.ToLower(base)
+	}
+	if swapped == base {
+		return true
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return true
+	}
+	other, err := os.Stat(filepath.Join(filepath.Dir(abs), swapped))
+	return err == nil && os.SameFile(info, other)
 }
 
 // Ignored reports whether Git ignores path, a slash path or a folder
