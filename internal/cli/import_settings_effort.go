@@ -35,7 +35,7 @@ func planSettingsEffort(target string, value any, settingsDir, own string) (sett
 	if !ok || level == "" {
 		return effortStays, "", nil
 	}
-	others, err := otherSettingsSpecs(settingsDir, filepath.Join(settingsDir, own))
+	others, err := otherSettingsSpecsFor(target, settingsDir, filepath.Join(settingsDir, own))
 	if err != nil {
 		return effortStays, "", err
 	}
@@ -52,6 +52,22 @@ func planSettingsEffort(target string, value any, settingsDir, own string) (sett
 		return effortPromote, level, nil
 	}
 	return effortStays, level, nil
+}
+
+// otherSettingsSpecsFor reads the settings specs under dir, except own,
+// that sync sends to target.
+func otherSettingsSpecsFor(target, dir, own string) ([]spec.Entry, error) {
+	others, err := otherSettingsSpecs(dir, own)
+	if err != nil {
+		return nil, err
+	}
+	out := others[:0]
+	for _, entry := range others {
+		if entry.EmitsTo(target) {
+			out = append(out, entry)
+		}
+	}
+	return out, nil
 }
 
 // otherSettingsSpecs reads every settings spec under dir except own, in

@@ -323,7 +323,7 @@ func importCodebuddySettings(root, path string, src config.Sources) error {
 		// The leftover native keys become x-codebuddy, so a value the other
 		// specs already resolve to is dropped instead of pinned there.
 		if level != "" {
-			others, err := otherSettingsSpecs(settingsDir, filepath.Join(settingsDir, "codebuddy.yaml"))
+			others, err := otherSettingsSpecsFor("codebuddy", settingsDir, filepath.Join(settingsDir, "codebuddy.yaml"))
 			if err != nil {
 				return err
 			}
