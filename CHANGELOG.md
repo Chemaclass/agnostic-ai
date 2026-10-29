@@ -101,6 +101,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - A command named `git:commit` syncs to `.gemini/commands/git/commit.toml`, which Gemini runs as `/git:commit`, on Windows too, and `import gemini` reads that file back as `git:commit` (#2747).
 
+#### Copilot
+
+- `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` from `.github/copilot/settings.json` under `x-copilot`, so sync writes the repository's default plugins back unchanged. Copilot CLI and Copilot in the cloud both read them (#2756).
+
 ### Site
 
 - The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).
