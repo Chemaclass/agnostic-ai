@@ -912,10 +912,15 @@ func (a app) finalize(m *manifest) (string, error) {
 
 func (a app) run(args []string) (string, error) {
 	if len(args) == 0 {
-		return "", errors.New("usage: start|capture|resume|assign|complete|record|validate|finalize (see scripts/target-audit/manifest.md)")
+		return "", errors.New("usage: start|capture|resume|checkpoint|checkpoints|assign|complete|record|validate|finalize (see scripts/target-audit/manifest.md)")
 	}
-	if args[0] == "start" {
+	switch args[0] {
+	case "start":
 		return a.start(args[1:])
+	case "checkpoint":
+		return a.checkpoint(args[1:])
+	case "checkpoints":
+		return a.checkpoints(args[1:])
 	}
 	if len(args) < 2 {
 		return "", fmt.Errorf("%s requires a run directory", args[0])

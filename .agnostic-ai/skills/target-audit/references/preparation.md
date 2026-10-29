@@ -36,4 +36,10 @@ Use returned agent IDs for messages. Give each read-only batch only:
 - `builtins.txt`, baseline, affected repository paths, and `builtin-deep:` membership.
 - Read-only ownership and a validation budget.
 
-Do not paste the skill, full issue history, or unrelated vendor material into prompts. Auditors follow `.agnostic-ai/agents/target-auditor.md`.
+Do not paste the skill, full issue history, or unrelated vendor material into prompts. Auditors follow `.agnostic-ai/agents/target-auditor.md`: one checkpointed report per target, and a reply of at most 20 lines. Read findings from the reports, never from the reply, which can be truncated.
+
+## Relaunch a stopped batch
+
+When an auditor stops before its batch is finished (usage limit, crash, lost session), first confirm it has ended; an auditor that lost contact may still be writing. Then run `checkpoints` from `scripts/target-audit/manifest.md` with that batch's targets. Read each `done` report, record its assignment and page dispositions, and relaunch the batch with only its `--pending` targets. A `stale` target is redone. Record each attempt as a new wave of that batch in the metrics, closing the stopped wave as `interrupted`.
+
+For an explicit resume from a stopped run, first record its `done` targets in that prior run the same way, then start the fresh run and resume as above.

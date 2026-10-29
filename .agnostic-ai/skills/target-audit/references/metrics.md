@@ -20,6 +20,14 @@ scripts/audit-metrics.sh record "$run" stage '{"id":"review-codex","phase":"audi
 scripts/audit-metrics.sh record "$run" stage '{"id":"review-codex","phase":"audit","name":"review","start":1792141200,"end":1792141230,"status":"completed"}'
 ```
 
+Record each auditor batch attempt as its own review stage with `batch` and a `wave` number starting at 1. A relaunch after a stopped batch is the next wave of the same batch, and the stopped wave closes as `interrupted` at its observed end. Each batch and wave pair belongs to one stage. Usage records take the same optional `batch` and `wave`; several agents can share a wave, and the report sums their tokens. It shows each wave's duration, status and tokens, and how many batches restarted.
+
+```sh
+scripts/audit-metrics.sh record "$run" stage '{"id":"review-batch-1-w1","phase":"audit","name":"review","batch":"batch-1","wave":1,"start":1792141200,"end":1792144800,"status":"interrupted"}'
+scripts/audit-metrics.sh record "$run" stage '{"id":"review-batch-1-w2","phase":"audit","name":"review","batch":"batch-1","wave":2,"start":1792145000,"end":null,"status":"running"}'
+scripts/audit-metrics.sh record "$run" usage '{"id":"Frodo-2","batch":"batch-1","wave":2,"input_tokens":null,"output_tokens":null,"effort_seconds":null}'
+```
+
 Capture fetch, recovery, triage, review, confirmation, and synthesis intervals as they happen. `jev-triage.sh` also records its own interval in `triage-metrics.json`. Include it as a stage in the coordinator record when comparing all stages. Do not add it twice under different IDs.
 
 Finish the audit after synthesis and its report, before any later authorized implementation or merge work. Record those later stages with `phase: "delivery"`. Audit stages must fit within the observed run bounds; `finish` rejects an end before a recorded audit stage start or end. An unclosed stage keeps its unknown end. Delivery intervals are recorded separately without audit bounds. The report shows each interval and computes audit elapsed time from the run start to its explicit finish. It also shows the union of closed audit intervals and their overlap, never the sum of parallel durations as wall time. Unclosed intervals remain unknown and are excluded from the union.

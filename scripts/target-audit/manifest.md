@@ -22,6 +22,20 @@ The manifest fixes the requested targets and target-kind-URL source set before a
 
 `capture` requires exactly one fetched row for every expected source and rejects unknown rows. It saves the fetch-row digest, each source's normalized `comparison_sha256`, the exact saved evidence path and SHA-256, and related response and release-note artifacts. A failed HTTP fetch with no body path gets a saved failure-row artifact. JSON key sorting can give two byte-different files the same comparison hash; their evidence digests still differ. Auditors read the captured evidence paths and preserve those files.
 
+## Checkpoint finished targets
+
+An auditor checkpoints each target as soon as its report is finished, before it starts the next target:
+
+```bash
+go run ./scripts/audit-manifest checkpoint "$run" claude
+go run ./scripts/audit-manifest checkpoints "$run"
+go run ./scripts/audit-manifest checkpoints --pending "$run" claude zed
+```
+
+`checkpoint` requires a requested target and its report at `<run>/<target>.md`, and atomically writes `<run>/<target>.done` with the report's SHA-256. It does not take the coordinator's write guard, so parallel auditors can checkpoint while the coordinator records progress, and it never changes `audit.json`. A finalized run rejects it. `checkpoints` prints one `<target>\t<state>` row per requested target, or per named target when targets follow the run directory: `completed` when the manifest holds its assignment outcome, `done` when a marker matches its report, `stale` when the report changed or vanished after its marker, and `pending` otherwise. `--pending` prints only the `pending` and `stale` targets on one line. Name the stopped batch's targets so the relaunch never takes another batch's live targets.
+
+A marker is a claim by the auditor, not coverage. When a batch stops, confirm its auditor has ended, since a session that lost contact can still be writing. Then the coordinator reads each `done` report, records its assignment and page dispositions with the commands below, and relaunches the batch with only its `--pending` targets. To continue a stopped run from a fresh run instead, record the `done` targets in the prior run first; `resume` reuses only recorded coverage.
+
 ## Resume completed research
 
 Explicit resume selects one prior run directory. Start a new run with the independently requested target list and baseline, fetch every requested source fresh, and capture it before selecting reuse:

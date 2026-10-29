@@ -28,7 +28,7 @@ signal.
 
 ## Auditor output
 
-Auditors return markdown to the coordinator; the coordinator checks these records before synthesis. First report one
+Each auditor writes one markdown report per target at `<run>/<target>.md` and checkpoints it as `.agnostic-ai/agents/target-auditor.md` describes. Its reply to the coordinator is at most 20 lines of artifact paths, per-target outcomes and blockers; agent messages can be truncated, so the coordinator reads findings from the reports and checks these records before synthesis. In each report, first write one
 block per finding, most severe first. Keep the existing finding schema
 unchanged:
 

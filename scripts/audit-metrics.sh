@@ -54,6 +54,10 @@ metrics_main() {
         def nonnegative: type == "number" and . >= 0;
         def optional_number: . == null or nonnegative;
         def upsert($list; $id): .[$list] = ([.[$list][] | select(.[$id] != $v[$id])] + [$v]);
+        def wave_shape: ($v.batch == null and $v.wave == null)
+          or (($v.batch | text) and ($v.wave | type) == "number" and $v.wave >= 1 and ($v.wave | floor) == $v.wave);
+        def wave_free: $v.wave == null
+          or all(.stages[] | select(.id != $v.id); .batch != $v.batch or .wave != $v.wave);
         if .schema_version != 1 then error("unsupported metrics schema")
         elif $key == "finish" then
           .audit.start as $start
@@ -68,6 +72,7 @@ metrics_main() {
               and (.audit.end == null or ($v.start <= .audit.end and ($v.end == null or $v.end <= .audit.end)))))
             and (($v.status == "running" and $v.end == null) or
               (($v.status == "completed" or $v.status == "interrupted") and $v.end != null))
+            and wave_shape and wave_free
           then upsert("stages"; "id") else error("invalid stage") end
         elif $key == "review" then
           if ($v.target | text) and ($v.reason | text)
@@ -82,6 +87,7 @@ metrics_main() {
           then upsert("findings"; "id") | .findings |= map(.lead = (.lead // null)) else error("invalid finding") end
         elif $key == "usage" then
           if ($v.id | text) and ($v.input_tokens | optional_number) and ($v.output_tokens | optional_number) and ($v.effort_seconds | optional_number)
+            and wave_shape
           then upsert("auditor_usage"; "id") | .auditor_usage |= map(. + {input_tokens: (.input_tokens // null), output_tokens: (.output_tokens // null), effort_seconds: (.effort_seconds // null)})
           else error("invalid auditor usage") end
         elif $key == "limit" and ($v | text) then .research_limits = ((.research_limits + [$v]) | unique)
@@ -126,6 +132,8 @@ metrics_main() {
         | [.stages[] | select(.phase == "audit" and .end != null)] as $closed
         | ($closed | union) as $union
         | ($closed | map(.end - .start) | add // 0) as $sum
+        | .auditor_usage as $usage
+        | [.stages[] | select(.wave != null)] as $waves
         | "Run: \(.run.id); metrics schema: \(.schema_version).",
           "Provenance: \(.run.provenance | tojson).",
           "Audit elapsed: \((if .audit.end == null then null else .audit.end - .audit.start end) | show) seconds; recorded stage union: \($union) seconds; overlap: \($sum - $union) seconds.",
@@ -133,6 +141,13 @@ metrics_main() {
           "--- | --- | --- | --- | --- | ---",
           (.stages[] | "\(.id) | \(.phase) | \(.start) | \(.end | show) | \((if .end == null then null else .end - .start end) | show) | \(.status)"),
           "Delivery: \([.stages[] | select(.phase == "delivery")] | length) recorded stages, reported separately.",
+          (if ($waves | length) == 0 then "Waves: none recorded." else
+            "Waves: \($waves | map(.batch) | unique | length) batches, \($waves | length) waves, \($waves | group_by(.batch) | map(select(length > 1)) | length) restarted batches.",
+            "Batch | Wave | Seconds | Status | Input tokens | Output tokens",
+            "--- | --- | --- | --- | --- | ---",
+            ($waves | sort_by(.batch, .wave)[] as $w
+              | [$usage[] | select(.batch == $w.batch and .wave == $w.wave)] as $u
+              | "\($w.batch) | \($w.wave) | \((if $w.end == null then null else $w.end - $w.start end) | show) | \($w.status) | \($u | total("input_tokens") | show) | \($u | total("output_tokens") | show)") end),
           "Reviews: \(.reviews | length) planned, \([.reviews[] | select(.decision == "omitted")] | length) omitted under an approved fast path, \([.reviews[] | select(.decision == "sampled")] | length) sampled, \([.reviews[] | select(.builtin_override == true)] | length) built-in overrides.",
           "Findings: \([.findings[] | select(.outcome == "confirmed")] | length) confirmed, \([.findings[] | select(.outcome == "rejected")] | length) rejected, \([.findings[] | select(.outcome == "unresolved")] | length) unresolved; \([.findings[] | select(.lead != null)] | length) linked to a known lead.",
           "Auditor input tokens: \(.auditor_usage | total("input_tokens") | show); output tokens: \(.auditor_usage | total("output_tokens") | show); effort seconds: \(.auditor_usage | total("effort_seconds") | show).",
