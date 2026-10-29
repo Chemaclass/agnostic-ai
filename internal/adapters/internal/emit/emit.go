@@ -184,7 +184,8 @@ func (s *Session) SetProjectRoot(root string) { s.projectRoot = root }
 
 // checkProjectPath refuses a path that climbs above the project, lies in
 // its .git folder, or, with a project root set, resolves outside it, and
-// on Windows one with a colon in a file or folder name. It
+// on Windows a write to a name with a colon. Removing such a name stays
+// allowed, so an older sync's output can still be cleaned up. It
 // then follows the links along path, inside the working directory, the
 // project root, and refuses one that leads outside it or into a Git
 // folder (see config.CheckProjectLinks), with a *config.LinkRefusal.
@@ -197,8 +198,8 @@ func (s *Session) checkProjectPath(path, verb string, parentsOnly bool) error {
 	case !filepath.IsAbs(path) && config.UnsafeProjectPath(path),
 		filepath.IsAbs(path) && s.projectRoot != "" && config.UnsafeProjectPathIn(s.projectRoot, path):
 		return fmt.Errorf("refusing a path outside the project or inside .git: %s", path)
-	case config.NamesDataStream(path):
-		return fmt.Errorf("refusing to %s a name with a colon, which Windows stores as a hidden stream of the file before it: %s", verb, path)
+	case verb == "write" && config.NamesDataStream(path):
+		return fmt.Errorf("refusing to write a name with a colon, which Windows stores as a hidden stream of the file before it: %s", path)
 	}
 	return config.CheckProjectLinks(".", path, verb, parentsOnly)
 }
