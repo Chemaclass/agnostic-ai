@@ -10,7 +10,7 @@ Read this when a `docfetch.tsv` row is `failed`, or when its mode is `app-shell`
 
 `app-shell` means the page served 200 with almost no visible text and every automatic fallback failed. `soft-404` means the body announces a missing page behind a 200. `redirected` means the fetch landed somewhere other than the path requested. `failed` means no usable bytes at all. None of these are clean checks.
 
-Saved bodies are under `<run>/pages/<target>/`. Read the saved copy rather than re-fetching.
+Saved bodies are under `<run>/pages/<target>/`. Read the saved copy rather than re-fetching. In an audit run each page file is a link into `local/target-audit/snapshots/blobs/`, which stores every fetched file once by its hash; read and quote it by its `pages/` path as usual, and never edit it.
 
 ## Manual ladder
 

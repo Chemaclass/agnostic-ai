@@ -522,7 +522,8 @@ func getArtifact(dir, path string) (artifact, error) {
 		return artifact{}, fmt.Errorf("%s: %w", full, err)
 	}
 	rel, err := filepath.Rel(dir, real)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	shared := err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	if shared && !sharedPage(dir, path, real) {
 		return artifact{}, fmt.Errorf("%s: artifact escapes run directory", path)
 	}
 	info, err := os.Stat(real)
@@ -533,7 +534,20 @@ func getArtifact(dir, path string) (artifact, error) {
 		return artifact{}, fmt.Errorf("%s: artifact is not a regular file", path)
 	}
 	hash, err := fileDigest(real)
+	if err == nil && shared && hash != filepath.Base(real) {
+		return artifact{}, fmt.Errorf("%s: shared page bytes do not match their name %s", path, real)
+	}
 	return artifact{Path: path, SHA256: hash}, err
+}
+
+// sharedPage reports whether a pages/ file links into the store that
+// scripts/docfetch.sh keeps beside the run, <runs root>/snapshots/blobs.
+func sharedPage(dir, path, real string) bool {
+	if !strings.HasPrefix(filepath.ToSlash(filepath.Clean(path)), "pages/") || strings.HasSuffix(path, ".delta") {
+		return false
+	}
+	runs, err := filepath.EvalSymlinks(filepath.Dir(dir))
+	return err == nil && filepath.Dir(real) == filepath.Join(runs, "snapshots", "blobs")
 }
 
 func checkArtifact(dir string, expected artifact) error {

@@ -22,6 +22,8 @@ The manifest fixes the requested targets and target-kind-URL source set before a
 
 `capture` requires exactly one fetched row for every expected source and rejects unknown rows. It saves the fetch-row digest, each source's normalized `comparison_sha256`, the exact saved evidence path and SHA-256, and related response and release-note artifacts. A failed HTTP fetch with no body path gets a saved failure-row artifact. JSON key sorting can give two byte-different files the same comparison hash; their evidence digests still differ. Auditors read the captured evidence paths and preserve those files.
 
+In a run that has `audit.json` under `local/target-audit/`, the fetch stores each `pages/` file except deltas once in `snapshots/blobs/<sha256>` and leaves a symlink at its path, so pages that many runs fetch unchanged take space once. Artifact checks accept such a link only for a `pages/` file other than a delta, only into the `snapshots/blobs/` folder beside the run, and only when the stored file's name equals the SHA-256 of its bytes. Fetch-only runs, such as the vendor watcher, keep plain files. `--update` deletes stored pages that no run links to after 30 days.
+
 ## Checkpoint finished targets
 
 An auditor checkpoints each target as soon as its report is finished, before it starts the next target:

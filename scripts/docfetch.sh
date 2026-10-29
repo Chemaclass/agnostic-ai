@@ -59,7 +59,8 @@ Usage: scripts/docfetch.sh [--out DIR] [<target>...]
                  targets, validate the run's audit.json coverage, then update
                  the lock;
                  also removes pages/ of runs idle for 30 days that no audit
-                 table or report cites
+                 table or report cites, and stored pages no run links to
+                 after 30 days
   --update-unvalidated FILE
                  manual compatibility path, skips audit coverage validation
   --mirrors      also fetch each scraped page's .md copy into mirrors.tsv
@@ -395,6 +396,12 @@ snapshot_dir() {
 # snapshot_file <sha> prints where the text with that hash lives.
 snapshot_file() {
   printf '%s/%s.txt\n' "$(snapshot_dir)" "$1"
+}
+
+# blob_dir prints where audit runs keep each fetched page file once, named by
+# the SHA-256 of its bytes.
+blob_dir() {
+  printf '%s/blobs\n' "$(snapshot_dir)"
 }
 
 # snapshot_valid <file> <sha> succeeds when the file's text hashes to sha,
@@ -759,6 +766,58 @@ snapshot_prune() {
   done
 }
 
+# blob_prune deletes blobs that no run's pages/ links to once they are older
+# than DOCFETCH_SNAPSHOT_DAYS (30). Every fetch that stores a page refreshes
+# its blob, so a recent run's links stay valid.
+blob_prune() {
+  local bdir runs used f days="${DOCFETCH_SNAPSHOT_DAYS:-30}"
+  bdir=$(blob_dir)
+  [ -d "$bdir" ] || return 0
+  runs=$(CDPATH='' cd -- "$(run_dir)" 2>/dev/null && pwd -P) || return 0
+  used=$(mktemp)
+  find "$runs" -type l -path '*/pages/*' -exec readlink {} + 2>/dev/null | awk -F / '{ print $NF }' | sort -u >"$used"
+  # A fetch touches a blob before it links it, so a blob refreshed since
+  # the link scan fails the second age check and stays.
+  find "$bdir" -type f -mtime +"$days" | while IFS= read -r f; do
+    grep -qxF -- "$(basename "$f")" "$used" && continue
+    [ -n "$(find "$f" -mtime +"$days" 2>/dev/null)" ] && rm -f "$f"
+  done
+  rm -f "$used"
+}
+
+# pages_by_hash <run dir> moves each fetched page file of an audit run into
+# the blob store and leaves a symlink at its pages/ path, so a page that many
+# runs fetch unchanged is stored once. Deltas stay in the run because they
+# depend on the lock. Fetch-only runs (no audit.json, such as the vendor
+# watcher's uploaded artifact), runs not directly under the runs root, and a
+# store moved away from <runs root>/snapshots keep plain files. Links are
+# relative, so moving the checkout keeps them valid. Blobs are read-only: a write through a link fails
+# instead of changing another run's page.
+pages_by_hash() {
+  local run bdir runs f sha blob rel link
+  [ -f "$1/audit.json" ] && [ -d "$1/pages" ] || return 0
+  run=$(CDPATH='' cd -- "$1" && pwd -P)
+  runs=$(CDPATH='' cd -- "$(run_dir)" 2>/dev/null && pwd -P) || return 0
+  [ "$(dirname "$run")" = "$runs" ] || return 0
+  bdir=$(blob_dir)
+  mkdir -p "$bdir"
+  bdir=$(CDPATH='' cd -- "$bdir" && pwd -P)
+  [ "$bdir" = "$runs/snapshots/blobs" ] || return 0
+  find "$run/pages" -type f ! -name '*.delta' | while IFS= read -r f; do
+    sha=$(sha256_of "$f")
+    blob="$bdir/$sha"
+    if [ -f "$blob" ] && [ "$(sha256_of "$blob")" = "$sha" ]; then
+      touch "$blob"
+    elif ! { cp "$f" "$blob.tmp.$$" && chmod a-w "$blob.tmp.$$" && mv -f "$blob.tmp.$$" "$blob"; }; then
+      rm -f "$blob.tmp.$$"
+      continue
+    fi
+    rel=${f#"$run"/}
+    link="../$(printf '%s\n' "${rel%/*}" | awk -F / '{ for (i = 1; i <= NF; i++) printf "../" }')snapshots/blobs/$sha"
+    ln -s "$link" "$f.link.$$" && mv "$f.link.$$" "$f" || rm -f "$f.link.$$"
+  done
+}
+
 # run_dir prints where audit runs and their date reports live.
 run_dir() {
   printf '%s\n' "${DOCFETCH_RUNS:-$DOCFETCH_ROOT/local/target-audit}"
@@ -974,8 +1033,10 @@ fetch_one() {
   body="$stem.body"
   # A rerun into the same run directory must not leave an earlier fetch's
   # extracted text or delta behind: hashed_file trusts that .txt exists
-  # only when this fetch's mode wrote it.
-  rm -f "$stem.txt" "$stem.delta" "$stem.entries.md"
+  # only when this fetch's mode wrote it. In an audit run these paths are
+  # links into the shared page store, so writing through one would change
+  # another run's evidence.
+  rm -f "$body" "$stem.md" "$stem.llms" "$stem.json" "$stem.txt" "$stem.delta" "$stem.entries.md"
 
   local result code_line
   if [ -n "$force_proxy" ]; then
@@ -1146,6 +1207,7 @@ mirror_one() {
   murl=$(mirror_url "$url")
   stem="$dir/pages/$target/$kind-$idx-$(slugify "$url")"
   mkdir -p "$dir/pages/$target"
+  rm -f "$stem.mirror.md" "$stem.mirror.txt"
   code=$(docfetch_curl "$murl" "$stem.mirror.md" | cut -f1)
   if [ "$code" = "200" ] && [ "$(wc -c <"$stem.mirror.md")" -ge 200 ] &&
     ! head -c 300 "$stem.mirror.md" | grep -qi '<html\|<!doctype'; then
@@ -1386,6 +1448,7 @@ docfetch_main() {
       fi
       snapshot_prune
       pages_prune "$(dirname "$file")" || echo "pages: prune stopped early" >&2
+      blob_prune
       return
       ;;
   esac
@@ -1439,6 +1502,7 @@ docfetch_main() {
   else
     rm -f "$out/mirrors.tsv"
   fi
+  pages_by_hash "$out"
   awk -F '\t' '
     { n[$8]++; total++; t[$1] = 1 }
     END {
