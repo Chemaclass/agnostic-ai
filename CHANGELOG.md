@@ -97,6 +97,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
 
+#### Gemini CLI
+
+- A command named `git:commit` syncs to `.gemini/commands/git/commit.toml`, which Gemini runs as `/git:commit`, on Windows too, and `import gemini` reads that file back as `git:commit` (#2747).
+
 ### Site
 
 - The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).
