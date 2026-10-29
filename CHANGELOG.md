@@ -61,6 +61,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
+- With `blockReadsOutsideWorkingDirectories` on, sync treats untracked local settings as yours when the project path is a Windows short name, such as `RUNNER~1`, or a link, so Claude Code auto memory keeps loading the personal memory index (#2760).
 - `import claude` drops settings values and hook groups holding a credential, and stops on an old overlay with one. Use `--overwrite` (#2649, #2668, #2669).
 - A `dev-commands` entry with only a `url` writes `{name, url}` to `.claude/launch.json`, so the preview attaches to a running server (#2579).
 - Sync notes `x-claude` keys Claude Code ignores where they are set, and hooks on an event or `if` filter that never runs them (#2582, #2583).
