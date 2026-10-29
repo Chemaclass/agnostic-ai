@@ -4,8 +4,13 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"runtime"
+	"strconv"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/kimi"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/vibe"
 	"github.com/chemaclass/agnostic-ai/internal/cli"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -219,6 +224,7 @@ func compareGolden(t *testing.T, expectedDir string, output map[string]string, t
 			t.Errorf("missing output file: %s", rel)
 			continue
 		}
+		got, want = declaredHookCommands(target, got), declaredHookCommands(target, want)
 		if got != want {
 			t.Errorf("content mismatch: %s\n--- want ---\n%s\n--- got ---\n%s", rel, want, got)
 		}
@@ -262,4 +268,25 @@ func setupGoldenFixture(t *testing.T) string {
 		t.Fatalf("copy fixture: %v", err)
 	}
 	return dst
+}
+
+var tomlHookCommand = regexp.MustCompile(`(?m)^(\s*command = )("(?:[^"\\]|\\.)*")$`)
+
+// declaredHookCommands reads each hook command back to the command the
+// spec declared. On Windows, Vibe and Kimi Code write it as an encoded
+// PowerShell script instead of a shell export, so the snapshot's
+// commands compare as the commands they run.
+func declaredHookCommands(target, content string) string {
+	declared := map[string]func(string) string{"vibe": vibe.DeclaredHookCommand, "kimi": kimi.DeclaredHookCommand}[target]
+	if runtime.GOOS != "windows" || declared == nil {
+		return content
+	}
+	return tomlHookCommand.ReplaceAllStringFunc(content, func(line string) string {
+		parts := tomlHookCommand.FindStringSubmatch(line)
+		command, err := strconv.Unquote(parts[2])
+		if err != nil {
+			return line
+		}
+		return parts[1] + strconv.Quote(declared(command))
+	})
 }

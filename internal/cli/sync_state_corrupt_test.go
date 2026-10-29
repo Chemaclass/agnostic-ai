@@ -79,7 +79,17 @@ func TestStateFileWriters_ReplaceTheLedgerWhole(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			mustWriteFile(t, stateFilePath("."), "{}")
-			before, err := os.Stat(stateFilePath("."))
+			// On Windows os.Stat leaves the file id for os.SameFile to read
+			// later, from whatever file then holds the path; File.Stat reads
+			// it now. Windows also refuses to replace an open file.
+			f, err := os.Open(stateFilePath("."))
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, err := f.Stat()
+			if closeErr := f.Close(); err == nil {
+				err = closeErr
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
