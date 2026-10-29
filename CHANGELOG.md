@@ -90,6 +90,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### CodeBuddy Code
 
 - Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
+- Sync writes the `x-codebuddy.permissions` rules to `.codebuddy/settings.json`. It wrote an empty list when no portable permission set that list (#2667).
 
 #### OpenCode
 

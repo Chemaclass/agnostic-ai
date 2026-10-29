@@ -32,13 +32,36 @@ func SettingsCustomKeys(settings []spec.Entry, target string, exclude ...string)
 	for _, entry := range settings {
 		custom, keys := CustomTargetMeta(entry.Meta, target, exclude...)
 		for _, key := range keys {
-			out[key] = custom[key]
+			out[key] = copySettingsValue(custom[key])
 		}
 	}
 	if len(out) == 0 {
 		return nil
 	}
 	return out
+}
+
+// copySettingsValue copies the maps and lists of a decoded hatch value,
+// so an adapter that edits what SettingsCustomKeys returns leaves the
+// spec as it found it for the next render of the same bundle.
+func copySettingsValue(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for k, item := range v {
+			out[k] = copySettingsValue(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = copySettingsValue(item)
+		}
+		return out
+	case []string:
+		return append([]string(nil), v...)
+	}
+	return v
 }
 
 // SettingsCustomObject returns the object at `x-<target>.<key>` on one
