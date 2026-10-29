@@ -125,8 +125,9 @@ func importFromVibe(root string, src config.Sources, cfg *config.Config) error {
 		if err != nil {
 			return fmt.Errorf("render %s: %w", path, err)
 		}
-		if err := importWriteSpecMarkdown(filepath.Join(importSourcePath(root, src.Agents), name+".md"), data, 0o644, allSpecFields); err != nil {
-			return err
+		dstPath := filepath.Join(importSourcePath(root, src.Agents), name+".md")
+		if err := importWriteSpecMarkdown(dstPath, data, 0o644, allSpecFields); err != nil {
+			return fmt.Errorf("write %s: %w", dstPath, err)
 		}
 	}
 	if _, err := importSkillFoldersWith(root, filepath.Join(root, skills), importSourcePath(root, src.Skills), skillFolderImportOpts{Fields: &vibeSkillFields}); err != nil {

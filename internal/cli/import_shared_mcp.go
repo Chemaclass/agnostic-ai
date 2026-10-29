@@ -114,6 +114,11 @@ func writeMCPSpecs(servers map[string]any, dstDir string, orders ...mcpSpecOrder
 	if err := spec.ValidateMCPNames(names); err != nil {
 		return 0, err
 	}
+	for _, name := range names {
+		if err := refuseDataStreamMCP(name, filepath.Join(dstDir, spec.MCPFileName(name))); err != nil {
+			return 0, err
+		}
+	}
 	count := 0
 	for _, name := range names {
 		entry, _ := servers[name].(map[string]any)

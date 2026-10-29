@@ -430,7 +430,8 @@ func importOverwriteRemedy(args []string) string {
 // existing spec with different content (see replacesSpec). Only files
 // there before the run count, so a later source in the same run still
 // replaces what an earlier one wrote. The run's output is held back and
-// dropped on a stop, which would otherwise report imports it undid. A
+// dropped on a stop, which would otherwise report imports it undid. A run
+// that refuses a file name with a colon puts back everything it wrote. A
 // finished run records the sums of the spec files it wrote.
 func runGuardedImport(overwrite bool, remedy func(sources []string) string, run func() error) error {
 	rec := &importRecorder{}
@@ -459,6 +460,11 @@ func runGuardedImport(overwrite bool, remedy func(sources []string) string, run 
 		}
 		txn.mu.Lock()
 		defer txn.mu.Unlock()
+		if errors.Is(runErr, errImportDataStream) {
+			rollbackErr := txn.rollback()
+			txn.finished = true
+			return false, errors.Join(runErr, rollbackErr)
+		}
 		if len(overwrites) > 0 && !overwrite {
 			rollbackErr := txn.rollback()
 			txn.finished = true
