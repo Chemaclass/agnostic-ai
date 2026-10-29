@@ -193,7 +193,7 @@ Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hoo
 | `.github/skills/<name>/`, `.claude/skills/<name>/`, `.agents/skills/<name>/` | `<skills>/<name>/` |
 | `.github/hooks/*.json` | one target-scoped hook spec per handler |
 | `.vscode/mcp.json` | `<mcps>/<name>.yaml` |
-| `.github/copilot/settings.json` `model`, `effortLevel`, `enabledPlugins`, `extraKnownMarketplaces` | `<settings>/copilot.yaml`: `model`, `effort` as in [Settings](#settings), and the plugin keys under `x-copilot`, unless another settings spec sets them |
+| `.github/copilot/settings.json` `model`, `effortLevel`, `enabledPlugins`, `extraKnownMarketplaces` | `<settings>/copilot.yaml`: `model`, `effort` as in [Settings](#settings), and the plugin keys under `x-copilot`, unless another settings spec for Copilot sets them |
 
 All three skill directories are [documented](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills). On a name clash, `.github/skills` wins, then `.claude/skills`, then `.agents/skills`.
 
