@@ -83,13 +83,30 @@ func GitDirName(seg string) bool {
 }
 
 // gitDirName matches DotGitName, since case-insensitive and Windows file
-// systems drop the difference. On Windows it also matches the short name `git~1` and any segment with a colon,
-// which names an NTFS stream such as `.git::$INDEX_ALLOCATION`.
+// systems drop the difference. On Windows it also matches the short name
+// `git~1`, and reads a segment with a colon as an NTFS stream of the file
+// before the colon, so `.git::$INDEX_ALLOCATION` names the Git folder and
+// `git:commit` does not.
 func gitDirName(seg, goos string) bool {
 	if DotGitName(seg) {
 		return true
 	}
-	return goos == "windows" && (strings.EqualFold(strings.TrimRight(seg, ". "), "git~1") || strings.Contains(seg, ":"))
+	if goos != "windows" {
+		return false
+	}
+	base, _, _ := strings.Cut(seg, ":")
+	return DotGitName(base) || strings.EqualFold(strings.TrimRight(base, ". "), "git~1")
+}
+
+// NamesDataStream reports whether p holds a colon after its volume on
+// this system. Windows stores such a name as a hidden stream of the file
+// named before the colon, not as a file of its own.
+func NamesDataStream(p string) bool {
+	return namesDataStream(p, runtime.GOOS)
+}
+
+func namesDataStream(p, goos string) bool {
+	return goos == "windows" && strings.Contains(p[len(filepath.VolumeName(p)):], ":")
 }
 
 // DotGitName reports whether seg is `.git` once case and trailing dots
