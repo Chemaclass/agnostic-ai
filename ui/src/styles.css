@@ -2238,6 +2238,16 @@ input:hover {
     gap: 4px;
   }
 
+  /* Stacked, a key that only repeats the field's own key above it reads twice. */
+  .value-row.repeats-field-key dt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
   .item-heading {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;

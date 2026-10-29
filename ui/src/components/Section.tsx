@@ -223,7 +223,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
           <FieldEditControl key={audience} field={f} files={files} sources={(shown) => f.set.filter((src) => src.path !== shown).map((src) => (
             <div key={`${src.spec}:${src.path}`} className="field-source">
-              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} />}
+              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} fieldKey={f.key} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
@@ -773,12 +773,12 @@ function NativeValues({ values, file, localKeys }: { values: Value[]; file: stri
   )
 }
 
-function Values({ values, file, prefix, personal, localKeys }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[] }) {
+function Values({ values, file, prefix, personal, localKeys, fieldKey }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[]; fieldKey?: string }) {
   const audience = usePageAudience() ?? (personal ? 'personal' : 'shared')
   return (
     <dl className="values">
       {values.map((v) => (
-        <div key={v.key} className="value-row">
+        <div key={v.key} className={`value-row${v.key === fieldKey ? ' repeats-field-key' : ''}`}>
           <dt>
             <code title={prefix ? v.key : undefined}>
               {(prefix && v.key.startsWith(`${prefix}.`) ? v.key.slice(prefix.length + 1) : v.key).split('.').map((part, i) => (

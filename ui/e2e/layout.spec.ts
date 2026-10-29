@@ -56,6 +56,18 @@ for (const width of [1440, 390]) {
   })
 }
 
+test('shows a permission key once in the narrow Authority layout', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=authority')
+  const row = page.locator('.field-row', { hasText: 'Allowed without asking' })
+  await expect(row.getByText('permissions.allow', { exact: true })).toHaveCount(2)
+  const visible = await row.locator('code').evaluateAll((codes) => codes.filter((code) => code.textContent === 'permissions.allow' && (code.closest('dt') ?? code).getBoundingClientRect().width > 1).length)
+  expect(visible).toBe(1)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(row.locator('.value-row dt').first()).toBeVisible()
+})
+
 for (const width of [320, 900]) {
   test(`keeps the current section in view in the narrow navigation at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
