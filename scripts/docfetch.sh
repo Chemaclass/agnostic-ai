@@ -1028,7 +1028,7 @@ json_text() {
 
 # Version 2 includes note edits. Old indexes deliberately compare as changed.
 release_index() {
-  if command -v jq >/dev/null 2>&1 && jq -e -s 'length == 1 and (.[0] | type == "array" and all(.[]; type == "object" and (.tag_name | type) == "string" and (.published_at | type) == "string" and (.body == null or (.body | type) == "string") and (.prerelease == null or (.prerelease | type) == "boolean") and (.draft == null or (.draft | type) == "boolean")))' "$1" >/dev/null 2>&1; then
+  if release_list "$1"; then
     printf '# docfetch-release-index-v2\n'
     jq -r '.[] | select((.prerelease or .draft) | not) |
       "\"tag_name\":\(.tag_name | tojson)", "\"published_at\":\(.published_at | tojson)",
@@ -1036,6 +1036,24 @@ release_index() {
   else
     cat "$1"
   fi
+}
+
+# release_list <file> succeeds when <file> is a GitHub releases API answer.
+release_list() {
+  command -v jq >/dev/null 2>&1 && jq -e -s 'length == 1 and (.[0] | type == "array" and all(.[]; type == "object" and (.tag_name | type) == "string" and (.published_at | type) == "string" and (.body == null or (.body | type) == "string") and (.prerelease == null or (.prerelease | type) == "boolean") and (.draft == null or (.draft | type) == "boolean")))' "$1" >/dev/null 2>&1
+}
+
+# proxied_releases <body> <out> writes the releases API JSON a reader-proxy
+# body carries after its own header. The raw JSON holds download counts
+# that move on every fetch, so the row must hash the release index instead.
+# Not a release list: no file.
+proxied_releases() {
+  if grep -q '^Markdown Content:' "$1"; then
+    awk 'seen { print; next } /^Markdown Content:/ { seen = 1 }' "$1" >"$2"
+  else
+    cp "$1" "$2"
+  fi
+  release_list "$2" || { rm -f "$2"; return 1; }
 }
 
 # release_entries <body> <snapshot> prints the notes of each release the
@@ -1202,7 +1220,13 @@ fetch_one() {
     fi
   fi
 
-  case "$mode" in
+  local hashing="$mode"
+  if [ "$mode" = reader-proxy ] && [ "${rewrite##*	}" = github-api ] && proxied_releases "$body" "$stem.json"; then
+    mv "$stem.json" "$body"
+    hashing=github-api
+  fi
+
+  case "$hashing" in
     html | meta-refresh)
       strip_html "$body" >"$stem.txt"
       result=$(sha256_of "$stem.txt")
