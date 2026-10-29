@@ -391,24 +391,31 @@ func TestAutoMemoryLoadsPersonalIndex_PermissionsFollowGitUnderAnotherRootSpelli
 	}
 }
 
-func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsTrackedInAnotherLetterCase(t *testing.T) {
+func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsTrackedUnderAnotherSpelling(t *testing.T) {
 	for _, c := range []struct {
 		name       string
 		tracked    string
 		ignoreCase string
+		// alias spells the probe file's name the way the tracked name does.
+		alias func(string) string
 	}{
+		{name: "look-alike letter", tracked: ".claude/\U0000017fettings.local.json", ignoreCase: "true", alias: func(name string) string { return strings.Replace(name, "s", "\U0000017f", 1) }},
 		{name: "file name", tracked: ".claude/Settings.Local.json", ignoreCase: "true"},
 		{name: "folder name", tracked: ".CLAUDE/settings.local.json", ignoreCase: "true"},
 		{name: "Git setting off", tracked: ".claude/Settings.Local.json", ignoreCase: "false"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			user := autoMemoryProject(t)
-			probe := filepath.Join(t.TempDir(), "probe")
+			probe := filepath.Join(t.TempDir(), "settings")
 			if err := os.WriteFile(probe, nil, 0o644); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := os.Stat(strings.ToUpper(probe)); err != nil {
-				t.Skip("the disk is case-sensitive, so Claude Code never reads another letter case as settings.local.json")
+			spelled := strings.ToUpper(probe)
+			if c.alias != nil {
+				spelled = filepath.Join(filepath.Dir(probe), c.alias("settings"))
+			}
+			if _, err := os.Stat(spelled); err != nil {
+				t.Skip("the disk does not open this spelling as the name Claude Code reads, so it never reads it as settings.local.json")
 			}
 			wd, err := os.Getwd()
 			if err != nil {
@@ -431,7 +438,7 @@ func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsTrackedInAnot
 			if out, err := exec.Command("git", "add", "-f", c.tracked).CombinedOutput(); err != nil {
 				t.Fatalf("git add: %v %s", err, out)
 			}
-			if out, err := exec.Command("git", "ls-files").Output(); err != nil || !strings.Contains(string(out), c.tracked) {
+			if out, err := exec.Command("git", "ls-files", "-z").Output(); err != nil || !strings.Contains(string(out), c.tracked) {
 				t.Fatalf("the index holds %q, want %s (%v)", out, c.tracked, err)
 			}
 			dir, err := New().NativePersonalMemoryDir(&config.Config{Builtins: []string{"memory"}}, wd)

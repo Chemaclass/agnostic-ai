@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -70,6 +71,11 @@ type listResult struct {
 	err      error
 }
 
+type filesResult struct {
+	paths []string
+	err   error
+}
+
 type matchResult struct {
 	matched map[string]bool
 	err     error
@@ -78,6 +84,7 @@ type matchResult struct {
 var (
 	layouts       memo[layoutResult]
 	tracked       memo[listResult]
+	trackedFiles  memo[filesResult]
 	ignored       memo[bool]
 	ignoredBy     memo[matchResult]
 	excludesFiles memo[string]
@@ -88,6 +95,7 @@ var (
 func Reset() {
 	layouts.reset()
 	tracked.reset()
+	trackedFiles.reset()
 	ignored.reset()
 	ignoredBy.reset()
 	excludesFiles.reset()
@@ -166,10 +174,13 @@ func Tracked(root, rel string) (bool, error) {
 	return r.nonEmpty, r.err
 }
 
-// TrackedAnyCase is Tracked for a disk that reads one file under any letter
-// case, so .claude/Settings.Local.json counts for .claude/settings.local.json.
-// The disk decides, not core.ignorecase, which a clone can set either way.
-// On a case-sensitive disk it is Tracked.
+// TrackedAnyCase is Tracked for a disk that opens one file under other
+// spellings of its name: another letter case, or a look-alike letter such
+// as the long s in .claude/ſettings.local.json. The disk decides, not
+// core.ignorecase, which a clone can set either way. Git matches names only
+// as written or by ASCII letter case, so the check lists what the index
+// holds in the file's folder and asks the disk whether any entry is the
+// file. On a case-sensitive disk it is Tracked.
 func TrackedAnyCase(root, rel string) (bool, error) {
 	if !diskIgnoresCase(root) {
 		return Tracked(root, rel)
@@ -178,9 +189,36 @@ func TrackedAnyCase(root, rel string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if !layout.HasToplevel {
+		return false, errNoAnswer
+	}
 	// From the top level: Git compares the folders above the starting one
 	// letter for letter, so .CLAUDE/ in the index would not match .claude/.
-	return Tracked(root, ":(top,literal,icase)"+layout.Prefix+rel)
+	full := layout.Prefix + rel
+	if same, err := Tracked(root, ":(top,literal,icase)"+full); err != nil || same {
+		return same, err
+	}
+	target, err := os.Stat(filepath.Join(absKey(root), filepath.FromSlash(rel)))
+	if err != nil {
+		return false, nil
+	}
+	folder := ":(top)"
+	if dir := path.Dir(full); dir != "." {
+		folder = ":(top,literal,icase)" + dir + "/"
+	}
+	r := trackedFiles.get(layout.Toplevel+"\x00"+folder, func() filesResult {
+		out, err := exec.Command("git", "-C", layout.Toplevel, "ls-files", "-z", "--", folder).Output()
+		return filesResult{paths: strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00"), err: err}
+	})
+	if r.err != nil {
+		return false, r.err
+	}
+	for _, p := range r.paths {
+		if info, err := os.Stat(filepath.Join(layout.Toplevel, filepath.FromSlash(p))); err == nil && os.SameFile(target, info) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // diskIgnoresCase reports whether dir answers to its own name in another
