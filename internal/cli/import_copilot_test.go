@@ -384,3 +384,106 @@ func TestImportCopilotMCP_RoundTripsPerServerSandbox(t *testing.T) {
 		t.Errorf("top-level sandbox lost: %#v", got.Sandbox)
 	}
 }
+
+func TestImportCopilot_RoundTripsRepositoryPluginDefaults(t *testing.T) {
+	dir := importEffortProject(t, "copilot")
+	settingsPath := filepath.Join(dir, ".github", "copilot", "settings.json")
+	const native = `{"respectGitignore": true, "enabledPlugins": {"team@mkt": true, "old@mkt": false}, "extraKnownMarketplaces": {"mkt": {"source": {"source": "github", "repo": "o/r"}, "autoUpdate": true}}}`
+	writeFile(t, settingsPath, native)
+
+	execCLI(t, "import", "copilot")
+
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml"))
+	for _, want := range []string{"x-copilot:", "enabledPlugins:", "team@mkt: true", "extraKnownMarketplaces:", "repo: o/r", "autoUpdate: true"} {
+		if !strings.Contains(spec, want) {
+			t.Errorf("settings/copilot.yaml must carry %q:\n%s", want, spec)
+		}
+	}
+	if strings.Contains(spec, "respectGitignore") {
+		t.Errorf("only the plugin keys move into the spec:\n%s", spec)
+	}
+
+	execCLI(t, "sync")
+	var want, got map[string]any
+	if err := json.Unmarshal([]byte(native), &want); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(readFile(t, settingsPath)), &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"enabledPlugins", "extraKnownMarketplaces", "respectGitignore"} {
+		if !reflect.DeepEqual(got[key], want[key]) {
+			t.Errorf("%s changed across import and sync: got %#v, want %#v", key, got[key], want[key])
+		}
+	}
+	execCLI(t, "sync", "--check")
+
+	execCLI(t, "import", "copilot")
+	if again := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")); again != spec {
+		t.Errorf("a second import changed the spec:\n%s\nwant:\n%s", again, spec)
+	}
+}
+
+func TestImportCopilot_KeepsPluginDefaultsBesideAnOverriddenEffort(t *testing.T) {
+	dir := importEffortProject(t, "copilot")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "effort: low\n")
+	writeFile(t, filepath.Join(dir, ".github", "copilot", "settings.json"), `{"effortLevel": "high", "enabledPlugins": {"team@mkt": true}}`)
+
+	execCLI(t, "import", "copilot")
+
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml"))
+	if strings.Count(spec, "x-copilot:") != 1 || !strings.Contains(spec, "effortLevel: high") || !strings.Contains(spec, "team@mkt: true") {
+		t.Errorf("x-copilot must hold both the effort and the plugin defaults:\n%s", spec)
+	}
+}
+
+func TestImportCopilot_KeepsHandWrittenHatchKeysOnReimport(t *testing.T) {
+	dir := importEffortProject(t, "copilot")
+	specPath := filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")
+	writeFile(t, specPath, "x-copilot:\n  deniedUrls: [evil.example]\n  respectGitignore: true\n  effortLevel: max\n")
+	execCLI(t, "sync")
+	settingsPath := filepath.Join(dir, ".github", "copilot", "settings.json")
+	var native map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, settingsPath)), &native); err != nil {
+		t.Fatal(err)
+	}
+	native["enabledPlugins"] = map[string]any{"team@mkt": true}
+	edited, err := json.Marshal(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, settingsPath, string(edited))
+
+	execCLI(t, "import", "copilot")
+
+	spec := readFile(t, specPath)
+	for _, want := range []string{"evil.example", "respectGitignore: true", "effortLevel: max", "team@mkt: true"} {
+		if !strings.Contains(spec, want) {
+			t.Errorf("re-import must keep %q in x-copilot:\n%s", want, spec)
+		}
+	}
+}
+
+func TestImportCopilot_LeavesPluginKeysAnotherSpecSets(t *testing.T) {
+	dir := importEffortProject(t, "copilot")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "x-copilot:\n  enabledPlugins:\n    team@mkt: true\n")
+	writeFile(t, filepath.Join(dir, ".github", "copilot", "settings.json"), `{"model": "gpt-6-sol", "enabledPlugins": {"team@mkt": true}}`)
+
+	execCLI(t, "import", "copilot")
+
+	if spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")); strings.Contains(spec, "enabledPlugins") {
+		t.Errorf("a key team.yaml sets must not be copied into copilot.yaml:\n%s", spec)
+	}
+}
+
+func TestImportCopilot_ImportsPluginKeysAnotherSpecLeavesNull(t *testing.T) {
+	dir := importEffortProject(t, "copilot")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "x-copilot:\n  enabledPlugins:\n")
+	writeFile(t, filepath.Join(dir, ".github", "copilot", "settings.json"), `{"enabledPlugins": {"team@mkt": true}}`)
+
+	execCLI(t, "import", "copilot")
+
+	if spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")); !strings.Contains(spec, "team@mkt: true") {
+		t.Errorf("sync skips a null hatch value, so import must still carry the native plugins:\n%s", spec)
+	}
+}

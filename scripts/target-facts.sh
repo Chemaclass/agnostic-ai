@@ -21,6 +21,7 @@
 #   scripts/target-facts.sh --changed <run>/docfetch.tsv  # batches sized by drift
 #   scripts/target-facts.sh --changed <tsv> 5 --builtins-since <rev>  # plus built-in changes
 #   scripts/target-facts.sh --review-reasons <tsv> --builtins-since <rev>  # review work TSV
+#   scripts/target-facts.sh --builtins-baseline local/target-audit/*.md  # per-target baseline
 #   scripts/target-facts.sh --builtins   # shipped built-in evidence
 #
 # Portable: POSIX-ish bash + awk + grep only. No GNU-only flags.
@@ -55,11 +56,17 @@ Usage: scripts/target-facts.sh [--list | --batches N | --sources <target>... | <
                  "sweep:" line. A target whose shipped built-in behavior
                  may have changed since <rev> is deep too, on a
                  "builtin-deep:" line. Without a usable <rev>, every
-                 target in the run is.
+                 target in the run is. <rev> can also be a per-target
+                 "<target>=<rev>,..." list; a target it omits has no
+                 baseline and is deep.
   --review-reasons <docfetch.tsv> [--builtins-since <rev>]
                  print a TSV of vendor, built-in, shared repository and
                  source recovery work with baseline evidence and checklist
                  IDs. This does not change --changed or fast-path rules.
+  --builtins-baseline <report>...
+                 print the per-target --builtins-since list: each target
+                 with the audited commit of the newest report whose
+                 Built-ins line names it. Empty when no report qualifies.
   -h, --help     this message
 EOF
 }
@@ -366,14 +373,75 @@ review_row() {
     "$(tsv_field "$4")" "$5" "$6"
 }
 
+# builtin_baseline_valid <rev> rejects a per-target list with an empty,
+# unknown or repeated entry; a single revision is checked where it is used.
+builtin_baseline_valid() {
+  local rev="$1" registered pair target seen=""
+  case "$rev" in *=*) ;; *) return 0 ;; esac
+  registered=" $(list_targets | tr '\n' ' ') "
+  case ",$rev," in *",,"*)
+    echo "built-ins: baseline list has an empty entry" >&2
+    return 1
+    ;;
+  esac
+  for pair in ${rev//,/ }; do
+    target=${pair%%=*}
+    case "$pair" in *=?*) ;; *) target="" ;; esac
+    case "$registered" in *" $target "*) ;; *) target="" ;; esac
+    if [ -z "$target" ]; then
+      echo "built-ins: invalid baseline entry '$pair' (want <target>=<rev>)" >&2
+      return 1
+    fi
+    case " $seen " in *" $target "*)
+      echo "built-ins: baseline names $target twice" >&2
+      return 1
+      ;;
+    esac
+    seen="$seen $target"
+  done
+}
+
 # builtin_review_reasons is also the source of --changed's forced target set.
-# Selectors never narrow ownership: removed selectors and native overrides
-# require reading the baseline blob as well as the current source.
+# A <target>=<rev>,... baseline reviews each target against its own commit;
+# a requested target missing from it has no baseline.
 builtin_review_reasons() {
-  local file="$1" rev="${2:-}" detailed="${3:-1}" requested baseline="-" failure=""
-  local path rest pkg target owners reason checklist state list
+  local file="$1" rev="${2:-}" detailed="${3:-1}" requested
   requested=$(run_targets "$file" | tr '\n' ' ')
   [ -n "$requested" ] || return 0
+  case "$rev" in
+    *=*) ;;
+    *)
+      builtin_reasons_since "$rev" "$detailed" "$requested"
+      return
+      ;;
+  esac
+  local pair target revs="" r group missing=""
+  builtin_baseline_valid "$rev" || return 1
+  for pair in ${rev//,/ }; do
+    r=${pair#*=}
+    case " $revs " in *" $r "*) ;; *) revs="$revs $r" ;; esac
+  done
+  for r in $revs; do
+    group=""
+    for target in $requested; do
+      case ",$rev," in *",$target=$r,"*) group="$group $target" ;; esac
+    done
+    [ -z "$group" ] || builtin_reasons_since "$r" "$detailed" "$group" || return 1
+  done
+  for target in $requested; do
+    case ",$rev" in *",$target="*) ;; *) missing="$missing $target" ;; esac
+  done
+  [ -n "$missing" ] || return 0
+  echo "built-ins: no baseline for$missing, so they are read deep" >&2
+  builtin_reasons_since "" "$detailed" "$missing" 2>/dev/null
+}
+
+# builtin_reasons_since <rev> <detailed> <targets> compares one baseline.
+# Selectors never narrow ownership: removed selectors and native overrides
+# require reading the baseline blob as well as the current source.
+builtin_reasons_since() {
+  local rev="$1" detailed="$2" requested="$3" baseline="-" failure=""
+  local path rest pkg target owners reason checklist state list
   list=$(mktemp) || return 1
   if [ -z "$rev" ]; then
     echo "built-ins: no --builtins-since baseline, so every requested target is read deep" >&2
@@ -446,6 +514,57 @@ builtin_review_reasons() {
     fi
   done <"$list"
   rm -f "$list"
+}
+
+# builtins_baseline <report>... prints the --builtins-since list: each
+# registered target with the audited commit of the newest report section
+# whose Built-ins line names it. Reports sort newest first by file name, and
+# a same-day continuation's later sections come before its earlier ones. A
+# Built-ins line pairs only with the Audited commit line above it in the
+# same section. A line holding any word that is not a registered target is
+# prose, not coverage.
+builtins_baseline() {
+  local registered report commit names word usable target out="" table pairs
+  registered=" $(list_targets | tr '\n' ' ') "
+  table=$(mktemp) || return 1
+  pairs=$(mktemp) || { rm -f "$table"; return 1; }
+  while IFS= read -r report; do
+    if [ ! -r "$report" ]; then
+      echo "cannot read $report" >&2
+      rm -f "$table" "$pairs"
+      return 1
+    fi
+    awk '
+      /^#/ { commit = ""; next }
+      /^- Audited commit:/ {
+        commit = ""
+        if (match($0, /[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]+/)) commit = substr($0, RSTART, RLENGTH)
+        next
+      }
+      /^- Built-ins:/ && commit != "" {
+        line = $0
+        sub(/^- Built-ins:[[:space:]]*/, "", line)
+        found[++n] = commit "\t" line
+        commit = ""
+      }
+      END { for (i = n; i >= 1; i--) print found[i] }
+    ' "$report" >"$pairs"
+    while IFS=$'\t' read -r commit names; do
+      [ -n "$names" ] || continue
+      commit=$(git -C "$ROOT" rev-parse -q --verify "$commit^{commit}" 2>/dev/null) || continue
+      usable=1
+      for word in $names; do
+        case "$registered" in *" $word "*) ;; *) usable=0 ;; esac
+      done
+      [ "$usable" -eq 0 ] || printf '%s\t %s \n' "$commit" "$names" >>"$table"
+    done <"$pairs"
+  done < <(printf '%s\n' "$@" | awk -F/ '{ print $NF "\t" $0 }' | sort -r | cut -f2-)
+  for target in $(list_targets); do
+    commit=$(awk -F '\t' -v t=" $target " 'index($2, t) { print $1; exit }' "$table")
+    [ -z "$commit" ] || out="$out${out:+,}$target=$commit"
+  done
+  rm -f "$table" "$pairs"
+  printf '%s\n' "$out"
 }
 
 # builtin_deep_targets preserves run order and the existing conservative set.
@@ -576,6 +695,7 @@ review_reasons() {
     echo "cannot read $file" >&2
     return 1
   fi
+  builtin_baseline_valid "$rev" || return 1
   printf 'target\treason\tbaseline\tevidence\tstate\tchecklist\n'
   changed_classes "$file" "" 1 || return 1
   builtin_review_reasons "$file" "$rev" | awk '!seen[$0]++'
@@ -649,6 +769,15 @@ main() {
       builtin_inventory
       return 0
       ;;
+    --builtins-baseline)
+      shift
+      if [ "$#" -eq 0 ]; then
+        echo "--builtins-baseline needs at least one report" >&2
+        return 2
+      fi
+      builtins_baseline "$@"
+      return
+      ;;
     --sources)
       shift
       source_sections "$@"
@@ -693,7 +822,7 @@ main() {
         echo "cannot read $file" >&2
         return 1
       fi
-      forced=$(builtin_deep_targets "$file" "$rev")
+      forced=$(builtin_deep_targets "$file" "$rev") || return 1
       changed_batches "$file" "$n" "$forced"
       return
       ;;

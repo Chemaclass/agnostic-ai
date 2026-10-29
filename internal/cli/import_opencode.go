@@ -54,6 +54,10 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	provider, err := planOpencodeProvider(root, src)
+	if err != nil {
+		return err
+	}
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs, src.Settings); err != nil {
 		return err
 	}
@@ -86,6 +90,12 @@ func importFromOpencode(root string, src config.Sources) error {
 		return err
 	}
 	settings += permissions
+	if provider != nil {
+		if err := writeOpencodeProvider(provider, importSourcePath(root, src.Settings)); err != nil {
+			return err
+		}
+		settings++
+	}
 	if nativeMCP != nil {
 		if err := writeOpencodeV2MCP(nativeMCP, importSourcePath(root, src.Settings)); err != nil {
 			return err

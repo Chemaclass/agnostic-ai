@@ -299,13 +299,16 @@ func TestFailedSourceNeedsResearchLimitAndKeepsOldHash(t *testing.T) {
 			}
 		}
 	})
-	call(t, a, "finalize", run)
+	out := call(t, a, "finalize", run)
 	b, err := os.ReadFile(a.lock)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(b), "https://vendor.test/beta") {
 		t.Fatal("failed source advanced")
+	}
+	if !strings.Contains(out, "1 retained URLs have no lock row: https://vendor.test/beta") {
+		t.Errorf("finalize did not name the new URL left without a lock row:\n%s", out)
 	}
 }
 

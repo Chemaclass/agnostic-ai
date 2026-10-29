@@ -100,9 +100,10 @@ With `outputs.copilot.chatmodes-dir` set, each agent is also written as a VS Cod
 - the last portable `model`, as the Copilot CLI repository default.
 - a portable `effort` of `low`, `medium`, `high`, or `xhigh`, as `effortLevel`. Other values get a sync note.
 - a settings spec's `x-copilot` block, for keys agnostic-ai has no field for, such as `respectGitignore`.
+- `x-copilot.enabledPlugins` and `x-copilot.extraKnownMarketplaces`, the repository's default plugins and plugin marketplaces. Copilot CLI and Copilot in the cloud both read them. Repository values override personal ones for `enabledPlugins`; a marketplace's `autoUpdate` has no effect at this level ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)).
 - `x-copilot.deniedUrls`, Copilot's blocked URL list. No portable rule sets it. `allowedUrls` works only in your personal settings.
 - every MCP spec with `disabled: true`, sorted, in `disabledMcpServers`. It is the only file setting that stops a configured server from starting ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)).
-- `import copilot` restores the model to `settings/copilot.yaml` and `effortLevel` as `effort` (or `x-copilot.effortLevel` when another settings spec sets a different effort). Keys only Copilot uses stay in the native file.
+- `import copilot` restores the model to `settings/copilot.yaml` and `effortLevel` as `effort` (or `x-copilot.effortLevel` when another settings spec sets a different effort), and keeps `enabledPlugins` and `extraKnownMarketplaces` unchanged under `x-copilot`. Other keys only Copilot uses stay in the native file.
 
 ### MCP
 
@@ -162,7 +163,7 @@ Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hoo
 
 **Every hook runs twice when you sync `claude` and `copilot` together.** Copilot also reads `.claude/settings.json` and `.claude/settings.local.json` and runs every entry for an event. Both are default targets, so a formatter runs twice, an audit hook writes twice, and a blocking `preToolUse` returns two decisions. Unlike Cursor and Trae, Copilot has no switch to stop this. Give the hook spec a single `target:`.
 
-**Copilot reads Claude settings too.** Copilot CLI reads `companyAnnouncements`, `disableAllHooks`, `enabledPlugins`, `extraKnownMarketplaces`, and `hooks` from `.claude/settings.json` and `.claude/settings.local.json` ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)). agnostic-ai writes `hooks`, and `enabledPlugins` via `outputs.claude.settings.enabledPlugins`, so that key also sets the Copilot CLI plugin policy for the repository. Set it on purpose, or drop `claude` if the two tools need different plugins.
+**Copilot reads Claude settings too.** Copilot CLI reads `companyAnnouncements`, `disableAllHooks`, `enabledPlugins`, `extraKnownMarketplaces`, and `hooks` from `.claude/settings.json` and `.claude/settings.local.json` ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)). agnostic-ai writes `hooks`, and `enabledPlugins` via `outputs.claude.settings.enabledPlugins`, so that key also sets the Copilot CLI plugin policy for the repository. Set it on purpose, or drop `claude` if the two tools need different plugins. GitHub documents only the `.github/copilot/settings.json` keys as read by Copilot in the cloud, so for plugins both should load, use `x-copilot.enabledPlugins` (see [Settings](#settings)).
 
 </details>
 
@@ -192,7 +193,7 @@ Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hoo
 | `.github/skills/<name>/`, `.claude/skills/<name>/`, `.agents/skills/<name>/` | `<skills>/<name>/` |
 | `.github/hooks/*.json` | one target-scoped hook spec per handler |
 | `.vscode/mcp.json` | `<mcps>/<name>.yaml` |
-| `.github/copilot/settings.json` `model` | the portable Settings source |
+| `.github/copilot/settings.json` `model`, `effortLevel`, `enabledPlugins`, `extraKnownMarketplaces` | `<settings>/copilot.yaml`: `model`, `effort` as in [Settings](#settings), and the plugin keys under `x-copilot`, unless another settings spec sets them |
 
 All three skill directories are [documented](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills). On a name clash, `.github/skills` wins, then `.claude/skills`, then `.agents/skills`.
 
