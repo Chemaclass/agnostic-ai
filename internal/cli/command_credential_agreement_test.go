@@ -41,3 +41,34 @@ func TestCommandCredentialChecksAgree(t *testing.T) {
 		}
 	}
 }
+
+// A path rule that does not parse as shell holds no command, so no rule
+// check hides it, while a command rule still counts when it does not
+// parse (#2737).
+func TestRuleCredentialChecksAgreeOnPathRules(t *testing.T) {
+	for _, c := range []struct {
+		rule string
+		want bool
+	}{
+		{`Edit(app/(marketing)/components/Site-Header.tsx)`, false},
+		{`Read(./notes/O'Brien-Hall.md)`, false},
+		{`Edit(src/(group)/a=b.ts)`, false},
+		{`Read(app/(auth)/login/page.tsx)`, false},
+		{`Edit(docs/it's -H here.md)`, false},
+		{`Write(app/(shop)/[id]/page=1.tsx)`, false},
+		{`Exec(curl -H 'X-Api-Key: abc https://api.example.com)`, true},
+		{`Read(curl --header "X-Api-Key: abc" https://api.example.com)`, true},
+	} {
+		checks := map[string]bool{
+			"compare native": displayPermissionNative(c.rule, false) != c.rule,
+			"compare rule":   preview.RedactRule(c.rule) != c.rule,
+			"import rule":    preview.CredentialInRule(c.rule),
+			"import hook if": claudeHookCredentialField(claudehooks.CommandEntry{If: c.rule}) == "if",
+		}
+		for name, got := range checks {
+			if got != c.want {
+				t.Errorf("%s(%q) = %v, want %v", name, c.rule, got, c.want)
+			}
+		}
+	}
+}
