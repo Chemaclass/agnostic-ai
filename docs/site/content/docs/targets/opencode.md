@@ -109,6 +109,20 @@ One [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. T
 
 A settings spec's default `model` merges into `opencode.json`, and import restores it to `settings/opencode.yaml`. An `x-opencode` block merges in too. Its `permission` merges tool by tool with the translated rules.
 
+OpenCode 2.2.0 sets a model's prompt cache lifetime under `provider.<id>.models.<id>.settings.cache.ttl` ([config schema](https://opencode.ai/config.json)): a number followed by `ms`, `s`, `m`, `h`, or `d`. No other target has this setting, so write it under `x-opencode.provider`:
+
+```yaml
+target: opencode
+x-opencode:
+  provider:
+    anthropic:
+      models:
+        claude-sonnet-4-5:
+          settings:
+            cache:
+              ttl: 1h
+```
+
 ### Permissions
 
 [OpenCode's V2 migration guide](https://opencode.ai/v2/docs/migrate-v1#permissions-and-tools) distinguishes the defaults: V1 asks before accessing paths outside the project; V2 allows `external_directory` by default.
@@ -203,6 +217,7 @@ With `handoff` or `handoff-hook` enabled in a linked worktree, sync also allows 
 - **Skills**: `.opencode/skills/`, `.claude/skills/`, then `.agents/skills/` (first wins within a scope), with scoped paths and bundled files.
 - **MCP servers**: the `mcp` map in `opencode.json`.
 - **Settings and permissions**: the default `model` becomes `settings/opencode.yaml`; portable entries in the `permission` map become `settings/permissions-opencode.yaml`. Namespaced MCP permission keys have no portable spelling and stay in the file.
+- **Providers**: the `provider` block, such as a model's cache lifetime, becomes `settings/opencode-provider.yaml` under `x-opencode.provider`. `{env:NAME}` and `{file:path}` references import as written. A block that holds a literal credential, such as an inline `apiKey`, is left out with a warning and stays in `opencode.json`. Import fails when another settings spec sets a different `x-opencode.provider`.
 
 Plugin hooks in `.opencode/plugins/` are not imported.
 

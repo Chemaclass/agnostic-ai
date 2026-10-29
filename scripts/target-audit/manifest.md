@@ -6,7 +6,7 @@ This development helper needs Go. JSON comparison hashes also need `jq` when the
 
 ## Start and fetch
 
-Start before fetching. Initialize the run metrics before the fetch using the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md). Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md). Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable.
+Start before fetching. Initialize the run metrics before the fetch using the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md). Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md): one revision, or the per-target `<target>=<rev>,...` list from `scripts/target-facts.sh --builtins-baseline local/target-audit/*.md`. `start` resolves each revision to its full commit and rejects an unknown or repeated target. Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable. A target the list omits has no baseline and cannot take a fast path.
 
 ```bash
 run=$(go run ./scripts/audit-manifest start --builtins-since <commit> claude zed)
@@ -21,6 +21,20 @@ Omit the target arguments from both commands to audit every registered target. `
 The manifest fixes the requested targets and target-kind-URL source set before any fetch returns. It records all registered source owners, the source-list digest, audited commit and repository file digest (including working changes and built-in assets), the resolved built-in baseline, saved built-in inventory and exact source-lock baseline. `requested-targets.txt` also lets `target-facts --changed` preserve requested targets when a fetch row is missing.
 
 `capture` requires exactly one fetched row for every expected source and rejects unknown rows. It saves the fetch-row digest, each source's normalized `comparison_sha256`, the exact saved evidence path and SHA-256, and related response and release-note artifacts. A failed HTTP fetch with no body path gets a saved failure-row artifact. JSON key sorting can give two byte-different files the same comparison hash; their evidence digests still differ. Auditors read the captured evidence paths and preserve those files.
+
+## Checkpoint finished targets
+
+An auditor checkpoints each target as soon as its report is finished, before it starts the next target:
+
+```bash
+go run ./scripts/audit-manifest checkpoint "$run" claude
+go run ./scripts/audit-manifest checkpoints "$run"
+go run ./scripts/audit-manifest checkpoints --pending "$run" claude zed
+```
+
+`checkpoint` requires a requested target and its report at `<run>/<target>.md`, and atomically writes `<run>/<target>.done` with the report's SHA-256. It does not take the coordinator's write guard, so parallel auditors can checkpoint while the coordinator records progress, and it never changes `audit.json`. A finalized run rejects it. `checkpoints` prints one `<target>\t<state>` row per requested target, or per named target when targets follow the run directory: `completed` when the manifest holds its assignment outcome, `done` when a marker matches its report, `stale` when the report changed or vanished after its marker, and `pending` otherwise. `--pending` prints only the `pending` and `stale` targets on one line. Name the stopped batch's targets so the relaunch never takes another batch's live targets.
+
+A marker is a claim by the auditor, not coverage. When a batch stops, confirm its auditor has ended, since a session that lost contact can still be writing. Then the coordinator reads each `done` report, records its assignment and page dispositions with the commands below, and relaunches the batch with only its `--pending` targets. To continue a stopped run from a fresh run instead, record the `done` targets in the prior run first; `resume` reuses only recorded coverage.
 
 ## Resume completed research
 
@@ -64,7 +78,7 @@ go run ./scripts/audit-manifest validate "$run"
 scripts/docfetch.sh --update "$run/docfetch.tsv"
 ```
 
-Finalization rechecks assignments, coverage, versions, source inventory, built-in classification, repository context, exact evidence and artifact bytes, fetched rows, and the lock baseline. Structural gaps reject the whole update and leave the lock unchanged. Fully accounted research limits retain their old hashes while eligible reviewed or justified fast-path pages advance. Repeating `finalize` on a finalized manifest revalidates its inputs, evidence and exact committed lock hash, then succeeds without rewriting the lock. Other mutations are rejected.
+Before finalizing, `--update` resolves the registry for the run's requested targets and rejects the run when any resolved URL has no row in its `docfetch.tsv`, printing each missing `<target>\t<kind>\t<url>`. Finalization would reject the changed source list too; this check names the rows. A registry edit after the fetch is the usual cause; fetch a fresh run instead of editing rows. A successful finalization also prints each retained URL that has no lock row, which the committed-lock test in `scripts/docfetch_test.sh` then rejects. Finalization rechecks assignments, coverage, versions, source inventory, built-in classification, repository context, exact evidence and artifact bytes, fetched rows, and the lock baseline. Structural gaps reject the whole update and leave the lock unchanged. Fully accounted research limits retain their old hashes while eligible reviewed or justified fast-path pages advance. Repeating `finalize` on a finalized manifest revalidates its inputs, evidence and exact committed lock hash, then succeeds without rewriting the lock. Other mutations are rejected.
 
 Source identity is target, kind and URL. The lock still has one row per URL. Every registered owner of a shared URL must be present in this run and eligible before that URL advances. An owner outside the requested scope, a failed page, or a research limit retains the prior URL row for all owners. Eligible owners must agree on the comparison hash; disagreement rejects finalization. The first registry owner supplies the one lock row. Finalization preserves sorting and prunes URLs absent from the current registry. Snapshot storage and age-based pruning retain their existing behavior.
 

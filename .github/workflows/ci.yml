@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       full_windows:
-        description: Run the full Windows Go race suite (ten-minute job limit)
+        description: Run the full Windows Go race suite in ten-minute shards
         type: boolean
         default: false
       repeat_windows_startup:
@@ -155,11 +155,6 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Test
-        if: matrix.os == 'windows-latest' && inputs.full_windows == true
-        shell: bash
-        run: go test -vet=all -timeout=10m -count=1 -race ./...
-
       - name: macOS unit tests
         if: matrix.os == 'macos-latest'
         shell: bash
@@ -198,6 +193,97 @@ jobs:
         env:
           AGNOSTIC_AI_WINDOWS_STARTUP_TESTS: "1"
         run: go test -v -failfast -timeout=3m -count=10 ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$'
+
+  # The full Windows race suite took about 32 minutes in one job (#2760), so
+  # it runs in shards split by test name, each well under the ten-minute
+  # limit. Each last shard skips the earlier ones, so a new test lands in
+  # exactly one shard.
+  windows-full:
+    name: Test full (windows-latest, ${{ matrix.shard }})
+    if: github.event_name == 'workflow_dispatch' && inputs.full_windows == true
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: packages
+            packages: ''
+            run: ''
+            skip: ''
+          - shard: cli a-c
+            packages: ./internal/cli
+            run: '^Test[A-C]'
+            skip: ''
+          - shard: cli d-h
+            packages: ./internal/cli
+            run: '^Test[D-H]'
+            skip: ''
+          - shard: cli import
+            packages: ./internal/cli
+            run: '^TestImport_'
+            skip: ''
+          - shard: cli i-l
+            packages: ./internal/cli
+            run: '^Test[I-L]'
+            skip: '^TestImport_'
+          - shard: cli sync
+            packages: ./internal/cli
+            run: '^TestSync_'
+            skip: ''
+          - shard: cli m-z
+            packages: ./internal/cli
+            run: ''
+            skip: '^Test([A-L]|Sync_)'
+          - shard: integration a-b
+            packages: ./tests/integration
+            run: '^Test[A-B]'
+            skip: ''
+          - shard: integration h
+            packages: ./tests/integration
+            run: '^TestH'
+            skip: ''
+          - shard: integration i-r
+            packages: ./tests/integration
+            run: '^Test[I-R]'
+            skip: ''
+          - shard: integration c-g, s-z
+            packages: ./tests/integration
+            run: ''
+            skip: '^Test[A-BH-R]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        shell: bash
+        env:
+          PACKAGES: ${{ matrix.packages }}
+          RUN: ${{ matrix.run }}
+          SKIP: ${{ matrix.skip }}
+        run: |
+          packages=()
+          if [ -n "$PACKAGES" ]; then
+            packages=("$PACKAGES")
+          else
+            module=$(go list -m)
+            all_packages=$(go list ./...)
+            while IFS= read -r package; do
+              case "$package" in
+                "$module/tests/integration"|"$module/internal/cli") ;;
+                *) packages+=("$package") ;;
+              esac
+            done <<< "$all_packages"
+          fi
+          go test -vet=all -timeout=10m -count=1 -race -run "$RUN" -skip "$SKIP" "${packages[@]}"
 
   # Split the macOS CLI race tests by name to stay within the job timeout.
   # The last shard skips the first two, so new tests land in exactly one shard.

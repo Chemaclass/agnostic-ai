@@ -35,7 +35,7 @@ Otherwise follow `.agnostic-ai/skills/target-audit/references/triage.md` before 
 
 Read `.agnostic-ai/skills/target-audit/references/evidence-and-output.md` before research or delegation. The coordinator owns shared inputs, routing, coverage, synthesis, publication, finalization, and metrics. Auditors own per-target investigation and evidence artifacts.
 
-Numbered routing lines are deep batches, at most five. Queue `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order to fit worker capacity. Use minimal context and the batch handoff in the preparation reference. Record eligible unchanged `sweep` targets without an agent.
+Numbered routing lines are deep batches, at most five. Queue `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order to fit worker capacity. Use minimal context and the batch handoff in the preparation reference. Auditors checkpoint each finished target; read findings from those reports, not from agent replies, and relaunch a stopped batch with only its unfinished targets. Record eligible unchanged `sweep` targets without an agent.
 
 For fewer than six deep targets, or when auditor delegation is unavailable, investigate inline using `.agnostic-ai/agents/target-auditor.md`. Coordinator-authored behavior claims still need a separate checker under the behavior contract; without one, keep them unconfirmed. Reuse one current binary for isolated reproductions; no broad tests during research.
 

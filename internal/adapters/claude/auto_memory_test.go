@@ -11,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -344,6 +345,154 @@ func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockOnlyRepositorySuppliedDire
 				t.Errorf("got %v, %v; want %v", got, err, c.want)
 			}
 		})
+	}
+}
+
+// Git names the work tree by its resolved path, while the root can be
+// another spelling of it: a link such as macOS /var, or a Windows short
+// name such as RUNNER~1.
+func TestAutoMemoryLoadsPersonalIndex_PermissionsFollowGitUnderAnotherRootSpelling(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		tracked bool
+	}{
+		{name: "untracked local settings"},
+		{name: "tracked local settings", tracked: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			user := autoMemoryProject(t)
+			real, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			root := filepath.Join(t.TempDir(), "link")
+			if err := os.Symlink(real, root); err != nil {
+				t.Skipf("symlink: %v", err)
+			}
+			writeClaudeSettings(t, filepath.Join(user, "settings.json"), `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`)
+			if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+				t.Fatalf("git init: %v %s", err, out)
+			}
+			if c.tracked {
+				path := filepath.Join(".claude", "settings.local.json")
+				value, err := json.Marshal(map[string]string{"autoMemoryDirectory": filepath.ToSlash(filepath.Join(real, ".agnostic-ai", "local", "memory"))})
+				if err != nil {
+					t.Fatal(err)
+				}
+				writeClaudeSettings(t, path, string(value))
+				if out, err := exec.Command("git", "add", "-f", path).CombinedOutput(); err != nil {
+					t.Fatalf("git add: %v %s", err, out)
+				}
+			}
+			dir, err := New().NativePersonalMemoryDir(&config.Config{Builtins: []string{"memory"}}, root)
+			if err != nil || (dir != "") == c.tracked {
+				t.Errorf("got %q, %v; want the personal store only for untracked settings", dir, err)
+			}
+		})
+	}
+}
+
+func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsTrackedUnderAnotherSpelling(t *testing.T) {
+	for _, c := range []struct {
+		name       string
+		tracked    string
+		ignoreCase string
+		alias      func(string) string
+	}{
+		{name: "look-alike letter", tracked: ".claude/\U0000017fettings.local.json", ignoreCase: "true", alias: func(name string) string { return strings.Replace(name, "s", "\U0000017f", 1) }},
+		{name: "file name", tracked: ".claude/Settings.Local.json", ignoreCase: "true"},
+		{name: "folder name", tracked: ".CLAUDE/settings.local.json", ignoreCase: "true"},
+		{name: "Git setting off", tracked: ".claude/Settings.Local.json", ignoreCase: "false"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			user := autoMemoryProject(t)
+			probe := filepath.Join(t.TempDir(), "settings")
+			if err := os.WriteFile(probe, nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			spelled := strings.ToUpper(probe)
+			if c.alias != nil {
+				spelled = filepath.Join(filepath.Dir(probe), c.alias("settings"))
+			}
+			if _, err := os.Stat(spelled); err != nil {
+				t.Skip("the disk does not open this spelling as the name Claude Code reads, so it never reads it as settings.local.json")
+			}
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeClaudeSettings(t, filepath.Join(user, "settings.json"), `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`)
+			for _, args := range [][]string{{"init", "-q"}, {"config", "core.ignorecase", c.ignoreCase}} {
+				if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
+					t.Fatalf("git %v: %v %s", args, err, out)
+				}
+			}
+			if err := os.MkdirAll(".claude", 0o755); err != nil {
+				t.Fatal(err)
+			}
+			value, err := json.Marshal(map[string]string{"autoMemoryDirectory": filepath.ToSlash(filepath.Join(wd, ".agnostic-ai", "local", "memory"))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeClaudeSettings(t, filepath.FromSlash(c.tracked), string(value))
+			if dir, err := New().NativePersonalMemoryDir(&config.Config{Builtins: []string{"memory"}}, wd); err != nil || dir == "" {
+				t.Fatalf("untracked: got %q, %v; want the repository's directory trusted", dir, err)
+			}
+			gitquery.Reset()
+			if out, err := exec.Command("git", "add", "-f", c.tracked).CombinedOutput(); err != nil {
+				t.Fatalf("git add: %v %s", err, out)
+			}
+			if out, err := exec.Command("git", "ls-files", "-z").Output(); err != nil || !strings.Contains(string(out), c.tracked) {
+				t.Fatalf("the index holds %q, want %s (%v)", out, c.tracked, err)
+			}
+			dir, err := New().NativePersonalMemoryDir(&config.Config{Builtins: []string{"memory"}}, wd)
+			if err != nil || dir != "" {
+				t.Errorf("got %q, %v; want the repository's directory blocked", dir, err)
+			}
+		})
+	}
+}
+
+func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsUnderTrackedLookAlikeFolder(t *testing.T) {
+	user := autoMemoryProject(t)
+	probe := filepath.Join(t.TempDir(), "sub")
+	if err := os.Mkdir(probe, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(probe), "\U0000017fub")); err != nil {
+		t.Skip("the disk does not open \U0000017fub as sub, so a tracked \U0000017fub/ never supplies the settings of sub/")
+	}
+	top, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := filepath.Join(top, "sub")
+	writeClaudeSettings(t, filepath.Join(user, "settings.json"), `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	value, err := json.Marshal(map[string]string{"autoMemoryDirectory": filepath.ToSlash(filepath.Join(project, ".agnostic-ai", "local", "memory"))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := filepath.Join(project, ".claude", "settings.local.json")
+	writeClaudeSettings(t, local, string(value))
+	cfg := &config.Config{Builtins: []string{"memory"}}
+	if dir, err := New().NativePersonalMemoryDir(cfg, project); err != nil || dir == "" {
+		t.Fatalf("untracked local settings: got %q, %v; want the repository's directory trusted", dir, err)
+	}
+	blob, err := exec.Command("git", "hash-object", "-w", local).Output()
+	if err != nil {
+		t.Fatalf("git hash-object: %v", err)
+	}
+	gitquery.Reset()
+	entry := "100644," + strings.TrimSpace(string(blob)) + ",\U0000017fub/.claude/settings.local.json"
+	if out, err := exec.Command("git", "update-index", "--add", "--cacheinfo", entry).CombinedOutput(); err != nil {
+		t.Fatalf("git update-index: %v %s", err, out)
+	}
+	gitquery.Reset()
+	if dir, err := New().NativePersonalMemoryDir(cfg, project); err != nil || dir != "" {
+		t.Errorf("got %q, %v; want the repository's directory blocked", dir, err)
 	}
 }
 

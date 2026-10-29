@@ -667,4 +667,19 @@
 # helpers); the guarded import rollback, the stream name check and the Kimi and
 # Vibe path wrapping (+2300) are the rest. No new dependency. Budget: measured
 # size plus one typical PR (8192).
-24141984
+#
+# The OpenCode provider import (#2764) adds 9782 bytes of symbols to main
+# 0caad6fe: 24133792 to 24146080 with Go 1.27.3 and Linux amd64 release flags.
+# planOpencodeProvider (+2746), importSettingsHatch (+2366), loadOpencodeOwners
+# (+1581), yamlNumbers (+779) and opencodeSettingsOwner (+773) explain it; the
+# shared owner check removes 1344 from planOpencodeV2MCP. No new dependency.
+# Budget: measured size plus one typical PR (8192).
+#
+# The local settings look-alike check (#2772) adds 3503 bytes of symbols to main
+# 37028251, which puts the stripped binary at 24158368 with Go 1.27.3 and Linux
+# amd64 release flags. TrackedAnyCase (+1197, plus +330 for its list closure)
+# holds the index listing and the SameFile loop; the cache for the listing is a
+# new memo instantiation (+1064 across its methods and dictionary); Go func
+# metadata grows 528; build info and module strings add the remaining 384. No
+# new dependency. Budget: measured size plus one typical PR (8192).
+24166560

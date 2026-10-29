@@ -70,6 +70,11 @@ type listResult struct {
 	err      error
 }
 
+type filesResult struct {
+	paths []string
+	err   error
+}
+
 type matchResult struct {
 	matched map[string]bool
 	err     error
@@ -78,6 +83,7 @@ type matchResult struct {
 var (
 	layouts       memo[layoutResult]
 	tracked       memo[listResult]
+	trackedFiles  memo[filesResult]
 	ignored       memo[bool]
 	ignoredBy     memo[matchResult]
 	excludesFiles memo[string]
@@ -88,6 +94,7 @@ var (
 func Reset() {
 	layouts.reset()
 	tracked.reset()
+	trackedFiles.reset()
 	ignored.reset()
 	ignoredBy.reset()
 	excludesFiles.reset()
@@ -164,6 +171,78 @@ func Tracked(root, rel string) (bool, error) {
 		return listResult{nonEmpty: len(out) != 0, err: err}
 	})
 	return r.nonEmpty, r.err
+}
+
+// TrackedAnyCase is Tracked for a disk that opens one file under other
+// spellings of its name: another letter case, or a look-alike letter such
+// as the long s in .claude/ſettings.local.json. The disk decides, not
+// core.ignorecase, which a clone can set either way. Git matches names only
+// as written or by ASCII letter case, so the check lists what the index
+// holds at the file's depth and asks the disk whether any entry is the
+// file. On a case-sensitive disk it is Tracked.
+func TrackedAnyCase(root, rel string) (bool, error) {
+	if !diskIgnoresCase(root) {
+		return Tracked(root, rel)
+	}
+	layout, err := LayoutAt(root)
+	if err != nil {
+		return false, err
+	}
+	if !layout.HasToplevel {
+		return false, errNoAnswer
+	}
+	// From the top level: Git compares the folders above the starting one
+	// letter for letter, so .CLAUDE/ in the index would not match .claude/.
+	full := layout.Prefix + rel
+	if same, err := Tracked(root, ":(top,literal,icase)"+full); err != nil || same {
+		return same, err
+	}
+	target, err := os.Stat(filepath.Join(absKey(root), filepath.FromSlash(rel)))
+	if err != nil {
+		return false, nil
+	}
+	// Every folder above the file may be spelled another way in the index,
+	// and Git folds only ASCII letters, so list the entries at the file's
+	// depth (in glob mode * stops at a slash) and let the disk compare them.
+	depth := strings.Count(full, "/")
+	spec := ":(top,glob)" + strings.Repeat("*/", depth) + "*"
+	r := trackedFiles.get(layout.Toplevel+"\x00"+spec, func() filesResult {
+		out, err := exec.Command("git", "-C", layout.Toplevel, "ls-files", "-z", "--", spec).Output()
+		return filesResult{paths: strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00"), err: err}
+	})
+	if r.err != nil {
+		return false, fmt.Errorf("git ls-files %s in %s: %w", spec, layout.Toplevel, r.err)
+	}
+	for _, p := range r.paths {
+		if p == "" {
+			continue
+		}
+		if info, err := os.Stat(filepath.Join(layout.Toplevel, filepath.FromSlash(p))); err == nil && os.SameFile(target, info) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// diskIgnoresCase reports whether dir answers to its own name in another
+// letter case. A name without letters cannot tell, so it counts as yes:
+// the extra match only blocks more.
+func diskIgnoresCase(dir string) bool {
+	abs := absKey(dir)
+	base := filepath.Base(abs)
+	swapped := strings.ToUpper(base)
+	if swapped == base {
+		swapped = strings.ToLower(base)
+	}
+	if swapped == base {
+		return true
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return true
+	}
+	other, err := os.Stat(filepath.Join(filepath.Dir(abs), swapped))
+	return err == nil && os.SameFile(info, other)
 }
 
 // Ignored reports whether Git ignores path, a slash path or a folder
