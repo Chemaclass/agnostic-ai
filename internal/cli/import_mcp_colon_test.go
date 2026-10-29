@@ -67,6 +67,22 @@ func TestImport_ClaudeRefusesAColonMCPFileNameWhereItNamesAStream(t *testing.T) 
 	assertColonMCPRefused(t, dir, err, out)
 }
 
+func TestImport_TwoSourcesRollBackOnAColonMCPFileName(t *testing.T) {
+	dir := colonMCPClaudeProject(t)
+	mustWrite(t, filepath.Join(dir, ".codex", "config.toml"), "[mcp_servers.plain]\ncommand = \"x\"\n")
+	fakeWindowsDataStreams(t)
+	out, err := runCLI(t, "import", "claude", "codex")
+	if !errors.Is(err, errImportDataStream) || !strings.Contains(err.Error(), "import failed for: claude") {
+		t.Fatalf("err = %v, want the failed sources and the colon refusal\n%s", err, out)
+	}
+	if got := mcpSpecFiles(t, dir); len(got) != 0 {
+		t.Errorf("refused import left MCP files: %v", got)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "style.md")); !os.IsNotExist(statErr) {
+		t.Errorf("refused import kept the rule it wrote first: %v", statErr)
+	}
+}
+
 func TestImport_ClaudeColonMCPFileNameOnThisSystem(t *testing.T) {
 	dir := colonMCPClaudeProject(t)
 	out, err := runCLI(t, "import", "claude")
@@ -119,10 +135,13 @@ func TestImport_ContinueRefusesAColonMCPFileNameWhereItNamesAStream(t *testing.T
 	}
 }
 
+// A spec writer that takes its file name from a spec name, such as a
+// Kimi rule, names the refused file once.
 func TestImportWriteFile_RefusesAColonNameWhereItNamesAStream(t *testing.T) {
 	fakeWindowsDataStreams(t)
-	path := filepath.Join(t.TempDir(), "deploy:prod.md")
-	err := importWriteFile(path, []byte("x"), 0o644)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "deploy:prod.md")
+	err := writeKimiRule(dir, "deploy:prod", "Ship it.", "")
 	if !errors.Is(err, errImportDataStream) || strings.Count(err.Error(), path) != 1 {
 		t.Fatalf("err = %v, want the colon refusal naming %s once", err, path)
 	}

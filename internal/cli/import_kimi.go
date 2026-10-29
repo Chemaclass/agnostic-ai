@@ -82,8 +82,9 @@ func importFromKimi(root string, src config.Sources, cfg *config.Config) error {
 			continue
 		}
 		seen[semanticName] = true
-		if err := importWriteSpecMarkdown(filepath.Join(importSourcePath(root, src.Skills), name+".md"), data, 0o644, fields); err != nil {
-			return err
+		dstPath := filepath.Join(importSourcePath(root, src.Skills), name+".md")
+		if err := importWriteSpecMarkdown(dstPath, data, 0o644, fields); err != nil {
+			return fmt.Errorf("write %s: %w", dstPath, err)
 		}
 	}
 	servers, err := readJSONMapAt(filepath.Join(root, mcp), "mcpServers")
@@ -212,7 +213,11 @@ func writeKimiRule(dst, name, body, scope string) error {
 	if err != nil {
 		return fmt.Errorf("render Kimi rule %s: %w", name, err)
 	}
-	return importWriteSpecMarkdown(filepath.Join(dst, name+".md"), data, 0o644, allSpecFields)
+	path := filepath.Join(dst, name+".md")
+	if err := importWriteSpecMarkdown(path, data, 0o644, allSpecFields); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
 }
 func normalizeKimiMarkdown(kind string, data []byte, fallback string) ([]byte, error) {
 	clean := strings.ReplaceAll(header.Strip(string(data)), "\r\n", "\n")
@@ -337,7 +342,11 @@ func importKimiAgents(root, dir, dst string) error {
 			return nil
 		}
 		seen[name] = true
-		return importWriteSpecMarkdown(filepath.Join(dst, name+".md"), out, 0o644, fieldsOf("name", "description", "tools", "x-kimi"))
+		dstPath := filepath.Join(dst, name+".md")
+		if err := importWriteSpecMarkdown(dstPath, out, 0o644, fieldsOf("name", "description", "tools", "x-kimi")); err != nil {
+			return fmt.Errorf("write %s: %w", dstPath, err)
+		}
+		return nil
 	})
 }
 func normalizeKimiMCP(server map[string]any) {

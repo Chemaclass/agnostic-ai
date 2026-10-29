@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -103,6 +104,17 @@ var errImportDataStream = errors.New("refusing a file name with a colon, which W
 // the Windows refusal on any system.
 var namesDataStream = config.NamesDataStream
 
+// importFailedError reports the sources that failed, whose errors were
+// already printed. It keeps errImportDataStream reachable through
+// errors.Is, so a guarded run puts back what the other sources wrote.
+func importFailedError(sources []string, sourceErrs []error) error {
+	err := fmt.Errorf("import failed for: %s", strings.Join(sources, ", "))
+	if slices.ContainsFunc(sourceErrs, func(e error) bool { return errors.Is(e, errImportDataStream) }) {
+		return fmt.Errorf("%w (%w)", err, errImportDataStream)
+	}
+	return err
+}
+
 // refuseDataStreamMCP refuses, before anything is written, an MCP server
 // whose spec file at path Windows would store as a hidden stream.
 func refuseDataStreamMCP(name, path string) error {
@@ -118,10 +130,9 @@ func refuseDataStreamMCP(name, path string) error {
 // when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	// Refused before the dry-run record, so a preview reports what import
-	// would. Shaped like an os.WriteFile error, which callers either
-	// return as is or wrap.
+	// would. Callers add the path.
 	if namesDataStream(path) {
-		return &fs.PathError{Op: "write", Path: path, Err: errImportDataStream}
+		return errImportDataStream
 	}
 	if importTxn != nil {
 		importTxn.mu.Lock()
