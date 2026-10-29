@@ -86,8 +86,8 @@ func planSharedSkills(cfg *config.Config, renders *targetRenders, targets []stri
 	return st, nil
 }
 
-// captureRenders emits every resolvable target in capture mode and
-// returns the per-target file sets. No files touch disk.
+// captureRenders returns each resolvable target's files from the run's
+// shared renders.
 func captureRenders(cfg *config.Config, renders *targetRenders, targets []string) ([]targetCapture, error) {
 	cfg = cfg.WithAdditionalTargets(targets...)
 	var out []targetCapture
