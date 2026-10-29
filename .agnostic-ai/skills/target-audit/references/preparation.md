@@ -12,7 +12,7 @@ Fetch once and capture the fetched evidence using `scripts/target-audit/manifest
 
 For an explicit research continuation, independently start, initialize metrics, fetch and capture a new run, then run `resume <new-run> <prior-run-directory>` as the manifest reference defines. Reuse only its validated completed targets; assign the pending targets below. Read `reused` in the new manifest and preserve the findings and coverage in their copied artifacts. Remove those targets from deep batches and sweeps before dispatch or recording. Reused research is completed coverage, not an automatic Clean verdict. A same-day report alone does not authorize evidence reuse.
 
-Start saves `builtins.txt`. Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. Keep its `builtin-deep:` set for the fast-path checks below. Save the separate review-reason TSV and pass each batch its rows as described in `.agnostic-ai/skills/target-audit/references/review-reasons.md`. When it prints no numbered batch, preserve reused coverage and record each pending target as a justified fast path, with its assignment and page dispositions. Skip new research, triage, and auditors. Reused findings, signals, or uncertain publication continue through synthesis, relevant issue dedupe, and delivery under the requested mode. Only a pure no-change run can skip issue indexing and signals before its report and finalization.
+Start saves `builtins.txt`. Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>` with the same baseline, a single revision or the per-target list. Keep its `builtin-deep:` set for the fast-path checks below. Save the separate review-reason TSV and pass each batch its rows as described in `.agnostic-ai/skills/target-audit/references/review-reasons.md`. When it prints no numbered batch, preserve reused coverage and record each pending target as a justified fast path, with its assignment and page dispositions. Skip new research, triage, and auditors. Reused findings, signals, or uncertain publication continue through synthesis, relevant issue dedupe, and delivery under the requested mode. Only a pure no-change run can skip issue indexing and signals before its report and finalization.
 
 Fetch the `target-audit` issue index into the run directory with three scoped calls rather than paginating the whole collection: `--state open`, `--state all --search 'created:>=<window start>'`, and `--state closed --search 'closed:>=<window start>'`. Before treating a candidate as new, run one title-scoped search for it (`--state all --search '<target> in:title <keyword>'`). Fetch bodies and comments only for relevant matches. Refresh matching issue state before filing.
 
@@ -36,4 +36,10 @@ Use returned agent IDs for messages. Give each read-only batch only:
 - `builtins.txt`, baseline, affected repository paths, and `builtin-deep:` membership.
 - Read-only ownership and a validation budget.
 
-Do not paste the skill, full issue history, or unrelated vendor material into prompts. Auditors follow `.agnostic-ai/agents/target-auditor.md`.
+Do not paste the skill, full issue history, or unrelated vendor material into prompts. Auditors follow `.agnostic-ai/agents/target-auditor.md`: one checkpointed report per target, and a reply of at most 20 lines. Read findings from the reports, never from the reply, which can be truncated.
+
+## Relaunch a stopped batch
+
+When an auditor stops before its batch is finished (usage limit, crash, lost session), first confirm it has ended; an auditor that lost contact may still be writing. Then run `checkpoints` from `scripts/target-audit/manifest.md` with that batch's targets. Read each `done` report, record its assignment and page dispositions, and relaunch the batch with only its `--pending` targets. A `stale` target is redone. Record each attempt as a new wave of that batch in the metrics, closing the stopped wave as `interrupted`.
+
+For an explicit resume from a stopped run, first record its `done` targets in that prior run the same way, then start the fresh run and resume as above.

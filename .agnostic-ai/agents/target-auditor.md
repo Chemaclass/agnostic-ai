@@ -88,9 +88,17 @@ Read-only means no source, generated configuration, or GitHub changes. Write evi
 
 ## Handoff
 
-Save the evidence-contract report at the caller's assigned run-directory path.
-Account for every assigned target and source page, with its evidence artifact,
-review outcome, or research limit, so the coordinator can record coverage.
-Return the artifact paths and a short summary. The coordinator owns manifest
-writes; finish artifacts before handoff and do not change them after their
-hashes are recorded. Report later corrections separately.
+Finish one target before starting the next. Save its evidence-contract report
+at `<run>/<target>.md`, then mark it done with
+`go run ./scripts/audit-manifest checkpoint <run> <target>`. The marker holds
+the report's hash, so a batch stopped by a usage limit or a crash keeps every
+finished target, and a relaunch assigns only the rest. Never edit a report
+after its checkpoint; a later correction goes in a separate file you name in
+your reply.
+
+Account for every assigned target and source page in its report, with its
+evidence artifact, review outcome, or research limit, so the coordinator can
+record coverage from the file alone. Return at most 20 lines: the artifact
+paths, one line per target with its outcome and finding count, and any
+blocker. Findings and quotes stay in the reports; the coordinator reads them
+there. The coordinator owns manifest writes.

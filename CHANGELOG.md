@@ -97,10 +97,15 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
+- `import opencode` keeps the `provider` block of `opencode.json`, such as a model's prompt cache lifetime (`settings.cache.ttl`), in `settings/opencode-provider.yaml` under `x-opencode.provider`, so sync writes it back. A block holding a literal credential stays in `opencode.json` with a warning (#2755).
 
 #### Gemini CLI
 
 - A command named `git:commit` syncs to `.gemini/commands/git/commit.toml`, which Gemini runs as `/git:commit`, on Windows too, and `import gemini` reads that file back as `git:commit` (#2747).
+
+#### Copilot
+
+- `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` from `.github/copilot/settings.json` under `x-copilot`, so sync writes the repository's default plugins back unchanged. Copilot CLI and Copilot in the cloud both read them (#2756).
 
 ### Site
 

@@ -79,27 +79,15 @@ func planOpencodeV2MCP(root string, sources config.Sources) (map[string]any, err
 		return nil, err
 	}
 	path := filepath.Join(root, opencodeMCPFile)
-	ownerSources := config.Sources{
-		MCPs:     importSourcePath(root, sources.MCPs),
-		Settings: importSourcePath(root, sources.Settings),
-	}
-	layers, err := resolveLayers(root, &config.Config{Sources: ownerSources})
+	bundle, err := loadOpencodeOwners(root, sources)
 	if err != nil {
-		return nil, fmt.Errorf("import %s: resolve existing spec owners: %w", path, err)
+		return nil, err
 	}
-	bundle, err := spec.LoadLayered(layers)
-	if err != nil {
-		return nil, fmt.Errorf("import %s: inspect existing specs: %w", path, err)
-	}
-	if entries := bundle.For("opencode").MCPs; len(entries) > 0 {
+	if entries := bundle.MCPs; len(entries) > 0 {
 		return nil, fmt.Errorf("import %s: native V2 MCP settings conflict with portable MCP spec %s", path, entries[0].Path)
 	}
-	settingsPath := filepath.Join(importSourcePath(root, sources.Settings), "opencode-mcp.yaml")
-	for _, entry := range bundle.For("opencode").Settings {
-		x, _ := entry.Meta["x-opencode"].(map[string]any)
-		if _, owns := x["mcp"]; owns && filepath.Clean(entry.Path) != filepath.Clean(settingsPath) {
-			return nil, fmt.Errorf("import %s: native V2 MCP settings conflict with settings spec %s", path, entry.Path)
-		}
+	if owner, _ := opencodeSettingsOwner(bundle, root, sources, opencodeMCPKey, "opencode-mcp.yaml"); owner != "" {
+		return nil, fmt.Errorf("import %s: native V2 MCP settings conflict with settings spec %s", path, owner)
 	}
 	servers := mcp["servers"].(map[string]any)
 	normalized := map[string]any{}
@@ -156,6 +144,41 @@ func planOpencodeV2MCP(root string, sources config.Sources) (map[string]any, err
 	}
 	reportMCPLiteralRefs(refs)
 	return mcp, nil
+}
+
+// loadOpencodeOwners loads the MCP and settings specs that already apply
+// to OpenCode, so an import can refuse to write a key another spec owns.
+func loadOpencodeOwners(root string, sources config.Sources) (spec.Bundle, error) {
+	path := filepath.Join(root, opencodeMCPFile)
+	ownerSources := config.Sources{
+		MCPs:     importSourcePath(root, sources.MCPs),
+		Settings: importSourcePath(root, sources.Settings),
+	}
+	layers, err := resolveLayers(root, &config.Config{Sources: ownerSources})
+	if err != nil {
+		return spec.Bundle{}, fmt.Errorf("import %s: resolve existing spec owners: %w", path, err)
+	}
+	bundle, err := spec.LoadLayered(layers)
+	if err != nil {
+		return spec.Bundle{}, fmt.Errorf("import %s: inspect existing specs: %w", path, err)
+	}
+	return bundle.For("opencode"), nil
+}
+
+// opencodeSettingsOwner returns the path and value of the last settings
+// spec other than file that sets `x-opencode.<key>`, or "". Sync writes
+// the last spec's value for such a key, so a second owner would silently
+// replace the first.
+func opencodeSettingsOwner(bundle spec.Bundle, root string, sources config.Sources, key, file string) (string, any) {
+	own := filepath.Clean(filepath.Join(importSourcePath(root, sources.Settings), file))
+	path, value := "", any(nil)
+	for _, entry := range bundle.Settings {
+		x, _ := entry.Meta["x-opencode"].(map[string]any)
+		if v, owns := x[key]; owns && filepath.Clean(entry.Path) != own {
+			path, value = entry.Path, v
+		}
+	}
+	return path, value
 }
 
 func opencodeNativeReference(value string) string {

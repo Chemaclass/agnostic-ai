@@ -11,6 +11,11 @@ import (
 
 func fixture(t *testing.T) (app, string) {
 	t.Helper()
+	return fixtureFor(t, "alpha", "beta")
+}
+
+func fixtureFor(t *testing.T, targets ...string) (app, string) {
+	t.Helper()
 	root := t.TempDir()
 	write := func(path, body string) {
 		t.Helper()
@@ -22,7 +27,7 @@ func fixture(t *testing.T) (app, string) {
 			t.Fatal(err)
 		}
 	}
-	write("scripts/target-facts.sh", "#!/bin/sh\nif [ \"$1\" = --changed ]; then [ -z \"${AUDIT_TEST_DEEP:-}\" ] || printf 'builtin-deep: %s\\n' \"$AUDIT_TEST_DEEP\"; exit 0; fi\nprintf 'alpha\\nbeta\\n'\n")
+	write("scripts/target-facts.sh", "#!/bin/sh\nif [ \"$1\" = --changed ]; then [ -z \"${AUDIT_TEST_DEEP:-}\" ] || printf 'builtin-deep: %s\\n' \"$AUDIT_TEST_DEEP\"; exit 0; fi\nprintf '%s\\n' "+strings.Join(targets, " ")+"\n")
 	write("scripts/docfetch.sh", "#!/bin/sh\nshift\nfor t in \"$@\"; do printf '%s\\tdocs\\thttps://vendor.test/shared\\n' \"$t\"; printf '%s\\tcode\\thttps://vendor.test/%s\\n' \"$t\" \"$t\"; done\n")
 	write(".agnostic-ai/skills/target-audit/references/sources.md", "source registry\n")
 	write("internal/builtins/data/skill.md", "built-in\n")
@@ -36,7 +41,7 @@ func fixture(t *testing.T) (app, string) {
 	}
 	a := app{root: root, lock: filepath.Join(root, "scripts/target-audit/sources.lock")}
 	run := filepath.Join(t.TempDir(), "run")
-	call(t, a, "start", "--out", run, "--builtins-since", "HEAD", "alpha", "beta")
+	call(t, a, append([]string{"start", "--out", run, "--builtins-since", "HEAD"}, targets...)...)
 	return a, run
 }
 
@@ -294,13 +299,16 @@ func TestFailedSourceNeedsResearchLimitAndKeepsOldHash(t *testing.T) {
 			}
 		}
 	})
-	call(t, a, "finalize", run)
+	out := call(t, a, "finalize", run)
 	b, err := os.ReadFile(a.lock)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(b), "https://vendor.test/beta") {
 		t.Fatal("failed source advanced")
+	}
+	if !strings.Contains(out, "1 retained URLs have no lock row: https://vendor.test/beta") {
+		t.Errorf("finalize did not name the new URL left without a lock row:\n%s", out)
 	}
 }
 
