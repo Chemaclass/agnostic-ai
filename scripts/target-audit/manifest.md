@@ -6,7 +6,7 @@ This development helper needs Go. JSON comparison hashes also need `jq` when the
 
 ## Start and fetch
 
-Start before fetching. Initialize the run metrics before the fetch using the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md). Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md). Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable.
+Start before fetching. Initialize the run metrics before the fetch using the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md). Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md): one revision, or the per-target `<target>=<rev>,...` list from `scripts/target-facts.sh --builtins-baseline local/target-audit/*.md`. `start` resolves each revision to its full commit and rejects an unknown or repeated target. Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable. A target the list omits has no baseline and cannot take a fast path.
 
 ```bash
 run=$(go run ./scripts/audit-manifest start --builtins-since <commit> claude zed)
