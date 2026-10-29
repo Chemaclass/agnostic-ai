@@ -178,6 +178,10 @@ proxy_curl() {
 # script bundle does not read as a documentation change. Navigation, footers,
 # the <head>, and a "last modified" stamp are site chrome: a reordered sidebar
 # or a rebuild date would otherwise mark every page on the host as changed.
+# So is a <header> outside <main> and <article> on a page that has one: the
+# site banner, not the page's own heading. <template> content is inert and
+# never shown (Mintlify puts a JSON manifest with deployment ids there),
+# unless it is a declarative shadow root. Tags inside a script are text.
 # The separator is the class "[<]", not the string "<": macOS awk also
 # splits on newlines for a one-character string, which dropped every line
 # after the first of a multi-line text node there but not on Linux.
@@ -199,6 +203,15 @@ strip_html() {
     { all = all $0 "\n" }
     END {
       n = split(all, parts, "[<]")
+      for (i = 2; i <= n && !framed; i++) {
+        gt = tag_end(parts[i])
+        if (gt == 0) continue
+        tag = tolower(substr(parts[i], 1, gt - 1))
+        if (tag ~ /^(script|style)([ \t\r\n]|$)/) skip = 1
+        else if (tag ~ /^\/(script|style)$/) skip = 0
+        else if (!skip && tag ~ /^(main|article)([ \t\r\n]|$)/) framed = 1
+      }
+      skip = 0
       out = parts[1]
       for (i = 2; i <= n; i++) {
         p = parts[i]
@@ -208,10 +221,17 @@ strip_html() {
         text = substr(p, gt + 1)
         if (tag ~ /^(script|style)[ \t>]?/ || tag ~ /^(script|style)$/) skip = 1
         else if (tag ~ /^\/(script|style)$/) { skip = 0; continue }
-        else if (tag ~ /^(nav|footer|head|title)([ \t]|$)/) chrome++
+        else if (skip) continue
+        else if (tag ~ /^template([ \t\r\n]|$)/) { shadow = tag ~ /shadowroot/; held[++templates] = !shadow; if (!shadow) inert++ }
+        else if (tag ~ /^\/template$/) { if (templates > 0 && held[templates--] && inert > 0) inert-- }
+        else if (tag ~ /^(main|article)([ \t\r\n]|$)/) content++
+        else if (tag ~ /^\/(main|article)$/) { if (content > 0) content-- }
+        else if (tag ~ /^header([ \t\r\n]|$)/) { banner[++headers] = framed && !content; if (banner[headers]) chrome++ }
+        else if (tag ~ /^\/header$/) { if (headers > 0 && banner[headers--] && chrome > 0) chrome-- }
+        else if (tag ~ /^(nav|footer|head|title)([ \t\r\n]|$)/) chrome++
         else if (tag ~ /^\/(nav|footer|head|title)$/) { if (chrome > 0) chrome--; continue }
-        if (tag ~ /class="[^"]*last-(modified|updated)/) continue
-        if (!skip && !chrome) out = out " " text
+        if (tag ~ /class="[^"]*last-(modified|updated)/ || tag ~ /class="([^"]*[ \t])?body-footer[ \t"]/) continue
+        if (!skip && !chrome && !inert) out = out " " text
       }
       gsub(/[ \t\r\n]+/, " ", out)
       sub(/^ /, "", out)
@@ -347,6 +367,14 @@ llms_entry() {
   ' "$1"
 }
 
+# without_deployment_ids <file> prints a raw text page with each Vercel
+# deployment query value (Warp's image URLs end in ?dpl=dpl_<id>) cut to
+# "dpl=dpl_", so a redeploy that changes no text keeps the hash. Only the
+# query form with a 20-character id matches, so code naming dpl_ stays.
+without_deployment_ids() {
+  LC_ALL=C sed 's/dpl=dpl_[A-Za-z0-9]\{20,\}/dpl=dpl_/g' "$1"
+}
+
 # sha256_of <file> prints the digest, using whichever tool this host ships.
 sha256_of() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -371,12 +399,14 @@ delta_text() {
 # fetches. It hashes the raw bytes when jq is missing or the body is not JSON.
 json_sum() {
   local sorted="$1.sorted"
-  if command -v jq >/dev/null 2>&1 && jq -S -c . "$1" >"$sorted" 2>/dev/null; then
-    sha256_of "$sorted"
+  # jq on Windows ends each line with CRLF; compact JSON holds no raw CR.
+  if command -v jq >/dev/null 2>&1 && jq -S -c . "$1" >"$sorted" 2>/dev/null &&
+    tr -d '\r' <"$sorted" >"$sorted.lf"; then
+    sha256_of "$sorted.lf"
   else
     sha256_of "$1"
   fi
-  rm -f "$sorted"
+  rm -f "$sorted" "$sorted.lf"
 }
 
 # Snapshots hold fetched text by the hash docfetch took of it, so a later
@@ -1108,7 +1138,12 @@ fetch_one() {
       result="-"
       ;;
     *)
-      result=$(sha256_of "$body")
+      if without_deployment_ids "$body" >"$stem.txt" && ! cmp -s "$body" "$stem.txt"; then
+        result=$(sha256_of "$stem.txt")
+      else
+        rm -f "$stem.txt"
+        result=$(sha256_of "$body")
+      fi
       ;;
   esac
 

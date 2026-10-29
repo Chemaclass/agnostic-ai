@@ -16,6 +16,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - On Windows, a Qwen command named with a colon, such as `git:commit`, loads and syncs again, and sync refuses to write a file whose name holds a colon (#2744).
 - On Windows, import refuses an MCP server or other spec whose file name would hold a colon, such as `ns:tool`, and names the file, instead of reporting success for a spec no sync reads. `import --global` skips such a server with a warning that names the home config file (#2748).
 - On Windows, `sync --check --against` no longer reports drift for committed files that Git checks out with CRLF line endings. Plain `sync --check` labels such files `line endings only` and names `core.autocrlf` or a `.gitattributes` rule as the fix, and a link Git checks out as a plain file gets a message that names `core.symlinks` (#2773).
+- On Windows, `init --dry-run` in a project that shares the global source folder no longer lists the global `AGNOSTIC_AI.md` note as a file to create when the path uses a short name, such as `RUNNER~1`, or a link (#2760).
 - `sync` reads `.agnostic-ai/.sync-state` once per run instead of up to 25 times, so a sync of a 500-spec project runs about a quarter faster (#2667).
 - `sync --check` renders each tool once instead of twice, unless `prefer-spec` picks a winner, and `sync` with shared skills renders each tool once less. An external adapter's warnings print once in `sync --check` instead of twice, and twice in `sync` with shared skills instead of three times (#2667).
 
@@ -26,6 +27,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Import, `lint`, `migrate`, `compare`, and `sync --global` treat a name ending in `passphrase` or `pass phrase` (`pass_phrase`, `passPhrase`) as a credential name, and catch a `--passphrase <value>` argument or `DB_PASSPHRASE=x` in a rule or hook command. Claude Code import leaves out any literal `CLAUDE_CODE_CLIENT_KEY_PASSPHRASE`, even a value that looks like a file name (#2731).
 - Import, `compare`, `sync --global`, and the web interface check the command in a `PowerShell(...)`, Codex `Exec(...)`, Cursor `Shell(...)`, or Gemini `run_shell_command(...)` rule as they check `Bash(...)`. Claude Code import leaves out such a rule or hook `if` rule when it holds a credential, and previews show it as `<redacted>` (#2737).
 - With `blockReadsOutsideWorkingDirectories` on, sync keeps blocking the repository's `autoMemoryDirectory` when the repository tracks `.claude/Settings.Local.json` in another letter case on a case-insensitive disk, where Claude Code reads it as `settings.local.json` (#2769).
+- With `blockReadsOutsideWorkingDirectories` on, sync keeps blocking the repository's `autoMemoryDirectory` when the repository tracks a local settings file under a look-alike letter, such as `.claude/ſettings.local.json` with a long s, that the disk opens as `settings.local.json` (#2772).
 - Sync refuses to write or remove through a link that leads outside the project or into `.git`; links inside the project still work (#2706).
 - `compare` hides credentials in permission rules and `x-<target>` overrides behind `<redacted>`, as `sync --global` does (#2650).
 - Pack commands refuse unsafe names and sources; a refused name says how to reinstall it with `packs add --name` (#2638, #2690).
@@ -100,6 +102,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
+- `import all` and `init` detect an OpenCode project from a root `opencode.json`, not only from `.opencode/` (#2765).
 - `import opencode` keeps the `provider` block of `opencode.json`, such as a model's prompt cache lifetime (`settings.cache.ttl`), in `settings/opencode-provider.yaml` under `x-opencode.provider`, so sync writes it back. A block holding a literal credential stays in `opencode.json` with a warning (#2755).
 
 #### Gemini CLI
@@ -109,6 +112,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Copilot
 
 - `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` from `.github/copilot/settings.json` under `x-copilot`, so sync writes the repository's default plugins back unchanged. Copilot CLI and Copilot in the cloud both read them (#2756).
+- `import all` and `init` detect a Copilot project from `.github/copilot/settings.json` alone (#2765).
 
 ### Site
 

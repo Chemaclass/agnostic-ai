@@ -567,6 +567,8 @@ func comparisonValid(dir string, row []string) error {
 	}
 	c := exec.Command("jq", "-S", "-c", ".", filepath.Join(dir, path))
 	b, err := c.Output()
+	// jq on Windows ends each line with CRLF; compact JSON holds no raw CR.
+	b = bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
 	if err == nil && digest(b) == row[5] {
 		return nil
 	}
