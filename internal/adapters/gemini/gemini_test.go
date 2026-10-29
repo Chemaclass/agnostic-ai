@@ -97,8 +97,8 @@ func TestEmit_NamespacedAgentCommandSharesTheCommandPath(t *testing.T) {
 	sess := emit.NewSession()
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	// The agent's own .gemini/agents/vc:save.md is a colon file name that a
-	// Windows sync refuses, so the test drives only the two command writers,
-	// in Emit's order.
+	// Windows sync refuses, so the test drives only the two command writers.
+	// TestEmit_Agent_AndCommand_SameNameNoLongerCollide covers Emit's order.
 	agents := []spec.Entry{{Kind: spec.KindAgent, Name: "vc:save", Body: "agent body"}}
 	if err := emitAgentCommands(sess, agents, commandsDir, cfg, false); err != nil {
 		t.Fatalf("emit agent commands: %v", err)
