@@ -90,6 +90,37 @@ func TestImportFromGemini_NestedCommandImportsAsColonName(t *testing.T) {
 	}
 }
 
+func TestImportFromGemini_CommandsWhoseSlugsCollideKeepTheirOwnFiles(t *testing.T) {
+	dir := t.TempDir()
+	for rel, prompt := range map[string]string{"vc/save.toml": "nested", "vc-save-2.toml": "second", "vc-save.toml": "flat"} {
+		writeFile(t, filepath.Join(dir, geminiCommandsDir, filepath.FromSlash(rel)), "prompt = \""+prompt+"\"\n")
+	}
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "commands"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bodies []string
+	for _, e := range entries {
+		data, err := os.ReadFile(filepath.Join(dir, "commands", e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodies = append(bodies, string(data))
+	}
+	joined := strings.Join(bodies, "\n")
+	for _, want := range []string{"name: vc:save", "name: vc-save-2", "name: vc-save\n", "nested", "second", "flat"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("imported commands missing %q:\n%s", want, joined)
+		}
+	}
+	if len(entries) != 3 {
+		t.Errorf("imported %d command files, want 3", len(entries))
+	}
+}
+
 func TestGemini_NestedCommandRoundTripsThroughImportAndSync(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")

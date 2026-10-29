@@ -92,14 +92,18 @@ func TestFindUnmanagedConfig_FlagsNestedGeminiCommands(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "deploy.toml"), "prompt = \"Ship\"\n")
 	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "git", "commit.toml"), "prompt = \"Commit\"\n")
 	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "git", "push.toml"), "# "+header.Marker+"\nprompt = \"Push\"\n")
+	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "a", "b", "c.toml"), "prompt = \"Deep\"\n")
+	mustWriteFile(t, filepath.Join(dir, ".qwen", "commands", "a", "b", "c.md"), "Deep\n")
 
 	got, err := findUnmanagedConfig(dir, &config.Config{})
 	if err != nil {
 		t.Fatalf("findUnmanagedConfig: %v", err)
 	}
 	want := []unmanagedFinding{
+		{Path: ".gemini/commands/a/b/c.toml", Target: "gemini"},
 		{Path: ".gemini/commands/deploy.toml", Target: "gemini"},
 		{Path: ".gemini/commands/git/commit.toml", Target: "gemini"},
+		{Path: ".qwen/commands/a/b/c.md", Target: "qwen"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("findings = %+v, want %+v", got, want)

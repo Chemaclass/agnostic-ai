@@ -39,8 +39,6 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{"GEMINI.md", "gemini"},
 	{"QWEN.md", "qwen"},
 	{".qwen/agents/*.md", "qwen"},
-	{".qwen/commands/**/*.md", "qwen"},
-	{".qwen/commands/*.md", "qwen"},
 	{".qwen/skills/*/SKILL.md", "qwen"},
 	{"CONVENTIONS.md", "aider"},
 	{".cursor/rules/*.mdc", "cursor"},
@@ -53,8 +51,6 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{".codex/prompts/*.md", "codex"},
 	{".codex/agents/*.toml", "codex"},
 	{".agents/skills/*/SKILL.md", "codex"},
-	{".gemini/commands/**/*.toml", "gemini"},
-	{".gemini/commands/*.toml", "gemini"},
 	{".gemini/skills/*/SKILL.md", "gemini"},
 	{".opencode/commands/*.md", "opencode"},
 	{".opencode/agents/*.md", "opencode"},
@@ -67,6 +63,14 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	// (#727). Kept so a project that never migrated is told its leftover
 	// command files are worth importing rather than losing.
 	{".agents/commands/*.md", "amp"},
+}
+
+// unmanagedTrees lists config folders a tool reads at every depth, which
+// filepath.Glob cannot express: it reads `**` as one folder level.
+var unmanagedTrees = []struct{ dir, ext, target string }{
+	{qwenRulesDir, ".md", "qwen"},
+	{".qwen/commands", ".md", "qwen"},
+	{geminiCommandsDir, ".toml", "gemini"},
 }
 
 // unmanagedScopedFiles lists config files a tool reads from its
@@ -121,13 +125,14 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 			add(m, c.target)
 		}
 	}
-	// Qwen reads .qwen/rules/ at every depth, which a glob cannot express.
-	_ = filepath.WalkDir(filepath.Join(root, qwenRulesDir), func(path string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() && strings.HasSuffix(d.Name(), ".md") {
-			add(path, "qwen")
-		}
-		return nil
-	})
+	for _, tree := range unmanagedTrees {
+		_ = filepath.WalkDir(filepath.Join(root, filepath.FromSlash(tree.dir)), func(path string, d fs.DirEntry, err error) error {
+			if err == nil && !d.IsDir() && strings.HasSuffix(d.Name(), tree.ext) {
+				add(path, tree.target)
+			}
+			return nil
+		})
+	}
 	for _, f := range unmanagedScopedFiles {
 		dirs, err := findScopedSkillDirs(root, f.nativeDir)
 		if err != nil {

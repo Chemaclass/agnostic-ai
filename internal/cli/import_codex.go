@@ -377,15 +377,24 @@ func extractItalicDescription(body string) (string, string) {
 	return strings.TrimSpace(desc), rest
 }
 
-// dedupSlug returns slug, or slug-2/-3/... if it has been used before.
-// Mutates used in place.
+// dedupSlug returns slug, or the first free slug-2/-3/... if it has been
+// used before. Every slug it returns is marked used, so a later `a-2`
+// does not take the name an earlier second `a` got. Mutates used in place.
 func dedupSlug(used map[string]int, slug string) string {
-	if n, exists := used[slug]; exists {
-		used[slug] = n + 1
-		return fmt.Sprintf("%s-%d", slug, n+1)
+	n, exists := used[slug]
+	if !exists {
+		used[slug] = 1
+		return slug
 	}
-	used[slug] = 1
-	return slug
+	for {
+		n++
+		candidate := fmt.Sprintf("%s-%d", slug, n)
+		if _, taken := used[candidate]; !taken {
+			used[slug] = n
+			used[candidate] = 1
+			return candidate
+		}
+	}
 }
 
 // importCodexRulesFile parses the legacy `outputs.codex.rules-file` (when

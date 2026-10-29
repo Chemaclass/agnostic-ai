@@ -447,15 +447,17 @@ func buildMCPServer(e spec.Entry) map[string]any {
 func emitAgentCommands(sess *emit.Session, agents []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
 	asCommands := emit.EmitAgentsAsCommands(cfg, target)
 	for _, a := range agents {
-		path := filepath.Join(dir, a.Name+".toml")
-		if !asCommands {
-			if err := sess.RemoveGenerated(path, dryRun); err != nil {
+		if asCommands {
+			if err := writeCommandTOML(sess, dir, a.Name, a, dryRun); err != nil {
 				return err
 			}
 			continue
 		}
-		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(a)
-		if err := sess.WriteFile(path, body, dryRun); err != nil {
+		path, err := commandPath(dir, a.Name)
+		if err != nil {
+			continue
+		}
+		if err := sess.RemoveGenerated(path, dryRun); err != nil {
 			return err
 		}
 	}
@@ -464,20 +466,10 @@ func emitAgentCommands(sess *emit.Session, agents []spec.Entry, dir string, cfg 
 
 // emitCommands writes one TOML per command spec under
 // `.gemini/commands/`. Commands are the native slash-prompt surface, so
-// they emit with their bare name (no `skill-` prefix). Gemini names
-// `git/commit.toml` `/git:commit`, so each colon becomes a folder
-// (geminicli.com/docs/cli/custom-commands); Windows cannot store a colon
-// in a file name.
+// they emit with their bare name (no `skill-` prefix).
 func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
 	for _, c := range commands {
-		for _, segment := range strings.Split(c.Name, ":") {
-			if segment == "" || segment == "." || segment == ".." {
-				return fmt.Errorf("gemini command %s: invalid namespace segment", c.Name)
-			}
-		}
-		path := filepath.Join(dir, strings.ReplaceAll(c.Name, ":", string(filepath.Separator))+".toml")
-		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(c)
-		if err := sess.WriteFile(path, body, dryRun); err != nil {
+		if err := writeCommandTOML(sess, dir, c.Name, c, dryRun); err != nil {
 			return err
 		}
 	}
@@ -486,13 +478,37 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 
 func emitSkillCommands(sess *emit.Session, skills []spec.Entry, dir string, dryRun bool) error {
 	for _, s := range skills {
-		path := filepath.Join(dir, skillFilenamePrefix+s.Name+".toml")
-		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(s)
-		if err := sess.WriteFile(path, body, dryRun); err != nil {
+		if err := writeCommandTOML(sess, dir, skillFilenamePrefix+s.Name, s, dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// commandPath is where Gemini looks for the command name: it names
+// `git/commit.toml` `/git:commit`, so each colon becomes a folder
+// (geminicli.com/docs/cli/custom-commands). Windows cannot store a colon
+// in a file name.
+func commandPath(dir, name string) (string, error) {
+	for _, segment := range strings.Split(name, ":") {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", fmt.Errorf("gemini command %s: invalid namespace segment", name)
+		}
+	}
+	return filepath.Join(dir, strings.ReplaceAll(name, ":", string(filepath.Separator))+".toml"), nil
+}
+
+func writeCommandTOML(sess *emit.Session, dir, name string, e spec.Entry, dryRun bool) error {
+	path, err := commandPath(dir, name)
+	if err != nil {
+		return err
+	}
+	if namespace, _, nested := strings.Cut(name, ":"); nested {
+		if err := sess.ClearStaleStreamHost(filepath.Join(dir, namespace), dryRun); err != nil {
+			return err
+		}
+	}
+	return sess.WriteFile(path, emit.HeaderBlock(emit.FormatTOML)+commandTOML(e), dryRun)
 }
 
 func commandCustomMeta(e spec.Entry) (map[string]any, []string) {

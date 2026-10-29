@@ -91,6 +91,63 @@ func TestEmit_NamespacedCommandRefusesAnEmptySegment(t *testing.T) {
 	}
 }
 
+func TestEmit_NamespacedAgentCommandSharesTheCommandPath(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{"gemini": {EmitAgentsAsCommands: true}}}
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindAgent, Name: "vc:save", Body: "agent body"},
+		{Kind: spec.KindCommand, Name: "vc:save", Body: "command body"},
+	})
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if got := readFile(t, filepath.Join(dir, ".gemini", "commands", "vc", "save.toml")); !strings.Contains(got, "command body") {
+		t.Errorf("expected the command to own vc/save.toml, got %s", got)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, ".gemini", "commands", "vc:save.toml")); err == nil {
+		t.Errorf("the agent command still wrote the colon file name")
+	}
+}
+
+func TestEmit_NamespacedCommandReplacesTheEmptyHostAnOlderSyncLeft(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	host := filepath.Join(dir, ".gemini", "commands", "vc")
+	if err := os.MkdirAll(filepath.Dir(host), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(host, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess := emit.NewSession()
+	sess.BackUpEditsSince(map[string]string{".gemini/commands/vc:save.toml": "sum"})
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindCommand, Name: "vc:save", Body: "Save."}})
+	if err := New().Emit(sess, b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if got := readFile(t, filepath.Join(host, "save.toml")); !strings.Contains(got, "Save.") {
+		t.Errorf("nested command missing its prompt: %s", got)
+	}
+}
+
+func TestEmit_NamespacedCommandNamesAFileInTheFolderPath(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	host := filepath.Join(".gemini", "commands", "vc")
+	if err := os.MkdirAll(filepath.Join(dir, ".gemini", "commands"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, host), []byte("mine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindCommand, Name: "vc:save", Body: "Save."}})
+	err := New().Emit(emit.NewSession(), b, &config.Config{}, false)
+	if err == nil || !strings.Contains(err.Error(), host) || !strings.Contains(err.Error(), "delete it") {
+		t.Errorf("emit = %v, want an error naming %s", err, host)
+	}
+	if got := readFile(t, filepath.Join(dir, host)); got != "mine\n" {
+		t.Errorf("the file changed: %q", got)
+	}
+}
+
 func TestEmit_NoRootGEMINIMd_ByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
