@@ -440,7 +440,7 @@ func TestImportCopilot_KeepsPluginDefaultsBesideAnOverriddenEffort(t *testing.T)
 func TestImportCopilot_KeepsHandWrittenHatchKeysOnReimport(t *testing.T) {
 	dir := importEffortProject(t, "copilot")
 	specPath := filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")
-	writeFile(t, specPath, "x-copilot:\n  deniedUrls: [evil.example]\n  respectGitignore: true\n")
+	writeFile(t, specPath, "x-copilot:\n  deniedUrls: [evil.example]\n  respectGitignore: true\n  effortLevel: max\n")
 	execCLI(t, "sync")
 	settingsPath := filepath.Join(dir, ".github", "copilot", "settings.json")
 	var native map[string]any
@@ -457,7 +457,7 @@ func TestImportCopilot_KeepsHandWrittenHatchKeysOnReimport(t *testing.T) {
 	execCLI(t, "import", "copilot")
 
 	spec := readFile(t, specPath)
-	for _, want := range []string{"evil.example", "respectGitignore: true", "team@mkt: true"} {
+	for _, want := range []string{"evil.example", "respectGitignore: true", "effortLevel: max", "team@mkt: true"} {
 		if !strings.Contains(spec, want) {
 			t.Errorf("re-import must keep %q in x-copilot:\n%s", want, spec)
 		}
@@ -473,5 +473,17 @@ func TestImportCopilot_LeavesPluginKeysAnotherSpecSets(t *testing.T) {
 
 	if spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")); strings.Contains(spec, "enabledPlugins") {
 		t.Errorf("a key team.yaml sets must not be copied into copilot.yaml:\n%s", spec)
+	}
+}
+
+func TestImportCopilot_ImportsPluginKeysAnotherSpecLeavesNull(t *testing.T) {
+	dir := importEffortProject(t, "copilot")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "x-copilot:\n  enabledPlugins:\n")
+	writeFile(t, filepath.Join(dir, ".github", "copilot", "settings.json"), `{"enabledPlugins": {"team@mkt": true}}`)
+
+	execCLI(t, "import", "copilot")
+
+	if spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")); !strings.Contains(spec, "team@mkt: true") {
+		t.Errorf("sync skips a null hatch value, so import must still carry the native plugins:\n%s", spec)
 	}
 }

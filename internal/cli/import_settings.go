@@ -133,7 +133,10 @@ func importSettingsHatch(doc, native map[string]any, dstDir string, shape portab
 		}
 	}
 	if shape.effortKey != "" {
-		delete(hatch, shape.effortKey)
+		_, promoted := doc["effort"]
+		if _, present := native[shape.effortKey]; promoted || !present {
+			delete(hatch, shape.effortKey)
+		}
 	}
 	if imported, ok := doc[hatchName].(map[string]any); ok {
 		maps.Copy(hatch, imported)
@@ -163,7 +166,8 @@ func importSettingsHatch(doc, native map[string]any, dstDir string, shape portab
 func settingsSpecsSetHatchKey(entries []spec.Entry, hatchName, key string) bool {
 	for _, entry := range entries {
 		if hatch, ok := entry.Meta[hatchName].(map[string]any); ok {
-			if _, set := hatch[key]; set {
+			// Sync skips a null hatch value, so it does not claim the key.
+			if hatch[key] != nil {
 				return true
 			}
 		}
