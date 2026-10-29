@@ -122,3 +122,46 @@ func TestEmit_SettingsCustomModelReplacesThePortableOne(t *testing.T) {
 		t.Errorf("model = %#v, want the x-junie value to win", got["model"])
 	}
 }
+
+func TestEmit_SettingsWritesPortableEffortBesideModel(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"model":  map[string]any{"junie": "opus"},
+		"effort": "high",
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".junie/config.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["model"] != "opus" || got["effort"] != "high" {
+		t.Errorf("config = %#v, want model opus and effort high", got)
+	}
+}
+
+func TestRendersSpecFile_SettingsWithOnlyEffort(t *testing.T) {
+	e := spec.Entry{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"effort": "high"}}
+	if !New().RendersSpecFile(e, &config.Config{}, "") {
+		t.Error("an effort-only settings spec reaches .junie/config.json, so it renders")
+	}
+}
+
+func TestEmit_SettingsCustomEffortReplacesThePortableOne(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"effort":  "high",
+		"x-junie": map[string]any{"effort": "low"},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".junie/config.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["effort"] != "low" {
+		t.Errorf("effort = %#v, want the x-junie value to win", got["effort"])
+	}
+}
