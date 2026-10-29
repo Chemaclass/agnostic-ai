@@ -716,6 +716,50 @@ func TestInitCmd_AllFlagEnablesEveryTarget(t *testing.T) {
 	}
 }
 
+func TestInitCmd_NoTTYNoPipe_EnablesOpencodeDetectedByOpencodeJSON(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.WriteFile(filepath.Join(dir, "opencode.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetIn(devNullStdin(t))
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got, want := configuredTargets(t, dir), []string{"opencode"}; !slices.Equal(got, want) {
+		t.Errorf("init must offer opencode for a project with opencode.json\ngot  %v\nwant %v", got, want)
+	}
+}
+
+func TestInitCmd_NoTTYNoPipe_EnablesCopilotDetectedByCopilotSettings(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	settings := filepath.Join(dir, ".github", "copilot", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settings, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetIn(devNullStdin(t))
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got, want := configuredTargets(t, dir), []string{"copilot"}; !slices.Equal(got, want) {
+		t.Errorf("init must offer copilot for a project with .github/copilot/settings.json\ngot  %v\nwant %v", got, want)
+	}
+}
+
 func TestInitCmd_PipedListWinsOverDetectedTargets(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

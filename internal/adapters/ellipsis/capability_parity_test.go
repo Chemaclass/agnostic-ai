@@ -57,7 +57,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 	paths := testutil.WalkRel(t, dir)
 	for _, p := range []string{reviewFile, environmentFile} {
-		if !slices.Contains(paths, filepath.FromSlash(p)) {
+		if !slices.Contains(paths, p) {
 			t.Errorf("kit-sink bundle did not write %s (paths: %v)", p, paths)
 		}
 	}

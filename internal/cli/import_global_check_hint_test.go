@@ -114,8 +114,8 @@ func TestSyncGlobalCheck_MissingStateDriftsBesideAChangedFile(t *testing.T) {
 	statePath := filepath.ToSlash(filepath.Join(source, "state", "global.json"))
 
 	out, _, err := runGlobalAgentTest("--target", "claude", "--check", "--diff")
-	if err == nil || !strings.Contains(err.Error(), statePath) {
-		t.Fatalf("check error = %v, want drift naming %s", err, statePath)
+	if nativeState := filepath.Join(source, "state", "global.json"); err == nil || !strings.Contains(err.Error(), nativeState) {
+		t.Fatalf("check error = %v, want drift naming %s", err, nativeState)
 	}
 	if !strings.Contains(out, "would create ownership state "+statePath) {
 		t.Errorf("diff does not show the ownership state:\n%s", out)

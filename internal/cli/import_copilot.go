@@ -41,6 +41,12 @@ var copilotSkillsDirs = []string{
 	filepath.Join(".agents", "skills"),
 }
 
+// copilotPluginKeys are the repository plugin defaults that Copilot CLI
+// and Copilot in the cloud read from `.github/copilot/settings.json`.
+// No portable spec field models them, so import keeps them under
+// `x-copilot` and sync writes them back unchanged (#2756).
+var copilotPluginKeys = []string{"enabledPlugins", "extraKnownMarketplaces"}
+
 const (
 	copilotInstructionSuffix = ".instructions.md"
 	copilotChatmodeSuffix    = ".chatmode.md"
@@ -84,7 +90,7 @@ func importFromCopilot(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, copilotSettingsFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "copilot", effortKey: "effortLevel"})
+	settings, err := importPortableSettings(root, copilotSettingsFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "copilot", effortKey: "effortLevel", hatchKeys: copilotPluginKeys})
 	if err != nil {
 		return err
 	}

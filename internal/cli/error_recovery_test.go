@@ -167,7 +167,7 @@ func TestErrorRecovery_UILaunchUsesTheProjectAboveTheCurrentDirectory(t *testing
 	deps.launch = func(_ *cobra.Command, path, _ string) error {
 		launched = true
 		cwd, err := os.Getwd()
-		if err != nil || cwd != project || path != "/tools/claude" {
+		if err != nil || !sameProjectRoot(cwd, project) || path != "/tools/claude" {
 			t.Errorf("launch cwd = %q, %v; CLI = %q", cwd, err, path)
 		}
 		return nil

@@ -55,7 +55,9 @@ Usage: scripts/docfetch.sh [--out DIR] [<target>...]
   --out DIR      run directory (default: a unique directory under local/target-audit);
                  its name may use only letters, digits, dot, underscore, hyphen
   --urls         print "<target>\t<kind>\t<url>" without fetching
-  --update FILE  validate the run's audit.json coverage, then update the lock;
+  --update FILE  reject a run missing a URL the registry resolves for its
+                 targets, validate the run's audit.json coverage, then update
+                 the lock;
                  also removes pages/ of runs idle for 30 days that no audit
                  table or report cites
   --update-unvalidated FILE
@@ -397,12 +399,14 @@ delta_text() {
 # fetches. It hashes the raw bytes when jq is missing or the body is not JSON.
 json_sum() {
   local sorted="$1.sorted"
-  if command -v jq >/dev/null 2>&1 && jq -S -c . "$1" >"$sorted" 2>/dev/null; then
-    sha256_of "$sorted"
+  # jq on Windows ends each line with CRLF; compact JSON holds no raw CR.
+  if command -v jq >/dev/null 2>&1 && jq -S -c . "$1" >"$sorted" 2>/dev/null &&
+    tr -d '\r' <"$sorted" >"$sorted.lf"; then
+    sha256_of "$sorted.lf"
   else
     sha256_of "$1"
   fi
-  rm -f "$sorted"
+  rm -f "$sorted" "$sorted.lf"
 }
 
 # Snapshots hold fetched text by the hash docfetch took of it, so a later
@@ -1285,6 +1289,33 @@ lock_merge() {
   snapshot_store "$file"
 }
 
+# run_missing_sources <docfetch.tsv> prints "<target>\t<kind>\t<url>" for every
+# source the registry resolves for the run's targets that has no row in that
+# file. A registry edit after the fetch leaves such holes, and the lock would
+# then advance without them.
+run_missing_sources() {
+  local file="$1" requested targets t
+  requested="$(dirname "$file")/requested-targets.txt"
+  if [ -r "$requested" ]; then
+    targets=$(cat "$requested")
+  else
+    targets=$(awk -F '\t' '/^#/ || NF < 3 { next } !seen[$1]++ { print $1 }' "$file")
+  fi
+  for t in $targets; do
+    resolve_urls "$t" | awk -v t="$t" -F '\t' '{ print t "\t" $1 "\t" $2 }'
+  done | awk -F '\t' -v rows="$file" '
+    BEGIN {
+      while ((getline line < rows) > 0) {
+        if (substr(line, 1, 1) == "#") continue
+        split(line, f, "\t")
+        have[f[1] "\t" f[2] "\t" f[3]] = 1
+      }
+      close(rows)
+    }
+    !(($1 "\t" $2 "\t" $3) in have)
+  '
+}
+
 docfetch_main() {
   local out="" mode=fetch DOCFETCH_MIRRORS="${DOCFETCH_MIRRORS:-}"
   while [ "$#" -gt 0 ]; do
@@ -1371,6 +1402,13 @@ docfetch_main() {
         if [ "$(basename "$file")" != docfetch.tsv ]; then
           echo "--update needs a run's readable docfetch.tsv" >&2
           return 2
+        fi
+        local missing
+        missing=$(run_missing_sources "$file") || return 1
+        if [ -n "$missing" ]; then
+          printf 'docfetch: %d registered URLs have no row in %s; fetch them in a fresh run before --update, the lock is unchanged:\n%s\n' \
+            "$(printf '%s\n' "$missing" | grep -c .)" "$file" "$missing" >&2
+          return 1
         fi
         go -C "$DOCFETCH_ROOT" run ./scripts/audit-manifest --root "$ROOT" --lock "$LOCK" finalize "$(dirname "$file")" "$@" || return
         snapshot_store "$file"

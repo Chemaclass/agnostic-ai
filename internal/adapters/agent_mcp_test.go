@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ func agentMCPBundle(agentMeta map[string]any) spec.Bundle {
 	})
 }
 
-// emitAgentMCP emits b to target and returns each written file by path,
+// emitAgentMCP emits b to target and returns each written file by slash path,
 // plus the coverage notes.
 func emitAgentMCP(t *testing.T, target string, b spec.Bundle, targets ...string) (map[string]string, string) {
 	t.Helper()
@@ -55,7 +56,7 @@ func emitAgentMCP(t *testing.T, target string, b spec.Bundle, targets ...string)
 	}
 	files := map[string]string{}
 	for _, f := range sess.StopCapture() {
-		files[f.Path] = f.Content
+		files[filepath.ToSlash(f.Path)] = f.Content
 	}
 	FlushCoverageNotes()
 	return files, notes.String()

@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -44,7 +45,7 @@ func TestCodebuddy_GlobalFilesRestoreOriginalBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 		t.Errorf("private mode changed: %v", info.Mode())
 	}
 	if got := readGlobalTest(t, filepath.Join(home, ".codebuddy/skills/review/references/guide.txt")); got != "Use complete diff.\n" {
@@ -83,7 +84,7 @@ func TestCodebuddy_GlobalCreatesPreferredPrivateMCPAndRemovesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 		t.Errorf("created mode: %v", info.Mode())
 	}
 	if err := os.Remove(spec); err != nil {

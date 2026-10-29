@@ -84,12 +84,16 @@ function test_resolve_urls_keeps_distinct_kinds_for_the_same_url() {
 }
 
 function test_update_requires_validated_coverage_before_changing_the_lock() {
+  # shellcheck disable=SC2329
+  function source_sections() { printf '%s\n' '- docs: https://vendor.example/new'; }
   write_lock https://vendor.example/old old
   run_row claude https://vendor.example/new new 2026-10-16 >"$FIXTURES/docfetch.tsv"
-  local before status=0
+  local before err status=0
   before=$(cat "$LOCK")
-  docfetch_main --update "$FIXTURES/docfetch.tsv" >/dev/null 2>&1 || status=$?
+  err=$(docfetch_main --update "$FIXTURES/docfetch.tsv" 2>&1 >/dev/null) || status=$?
   assert_not_equals 0 "$status"
+  assert_contains 'audit.json' "$err"
+  assert_not_contains 'registered URLs have no row' "$err"
   assert_equals "$before" "$(cat "$LOCK")"
 }
 
@@ -110,6 +114,17 @@ function test_every_registered_target_resolves_docs_and_a_changelog() {
       *) missing="$missing $t" ;;
     esac
   done
+  assert_empty "$missing"
+}
+
+function test_every_registered_url_has_a_committed_lock_row() {
+  # A registry URL without a lock row is diffed against nothing on the next
+  # run. The 2026-10-29 audit merged eight Augment /cli/v0/ URLs that way.
+  local t missing
+  missing=$(for t in $(list_targets); do resolve_urls "$t" | cut -f2; done | sort -u |
+    awk -F '\t' -v lock="$SCRIPT_DIR/target-audit/sources.lock" '
+      BEGIN { while ((getline line < lock) > 0) { split(line, f, "\t"); if (substr(line, 1, 1) != "#") have[f[3]] = 1 } }
+      !($0 in have)')
   assert_empty "$missing"
 }
 
@@ -1322,6 +1337,8 @@ function test_pages_prune_reports_a_failed_removal_and_continues() {
 function test_validated_update_prunes_old_run_pages_after_finalizing() {
   old_run 2026-01-01-run
   mkdir -p "$DOCFETCH_RUNS/2026-10-28-run"
+  # shellcheck disable=SC2329
+  function source_sections() { printf '%s\n' '- docs: https://code.claude.com/docs/en/memory'; }
   run_row claude https://code.claude.com/docs/en/memory new 2026-10-16 >"$DOCFETCH_RUNS/2026-10-28-run/docfetch.tsv"
   # The coverage checker has its own Go tests; here it only has to pass.
   function go() { printf '%s\n' "$*" >"$FIXTURES/go.args"; }
@@ -1735,4 +1752,64 @@ function test_fetch_one_hashes_raw_text_without_deployment_ids_as_fetched() {
   row=$(fetch_one warp docs https://docs.warp.dev/agents/capabilities/rules.md "$FIXTURES/run" 1)
   assert_equals "$(sha256_of "$FIXTURES/run/pages/warp/docs-1-docs.warp.dev-agents-capabilities-rules.md.body")" "$(printf '%s' "$row" | cut -f6)"
   assert_file_not_exists "$FIXTURES/run/pages/warp/docs-1-docs.warp.dev-agents-capabilities-rules.md.txt"
+}
+
+# ---- lock completeness ------------------------------------------------------------
+
+# augment_2026_10_29_sources is the augment registry after PR #2757 added the
+# stable /cli/v0/ pages, while the 2026-10-29 run had fetched only the rest.
+function augment_2026_10_29_sources() {
+  local page
+  printf '%s\n' '- docs: https://docs.augmentcode.com/setup-augment/guidelines.md'
+  for page in subagents config rules skills hooks custom-commands integrations permissions; do
+    printf '%s\n' "- docs: https://docs.augmentcode.com/cli/$page.md"
+    printf '%s\n' "- docs: https://docs.augmentcode.com/cli/v0/$page.md"
+  done
+  printf '%s\n' '- changelog: https://www.augmentcode.com/changelog'
+}
+
+function test_update_rejects_a_run_missing_a_registered_url() {
+  # shellcheck disable=SC2329
+  function source_sections() { augment_2026_10_29_sources; }
+  local run="$DOCFETCH_RUNS/2026-10-29-run" page err status=0
+  mkdir -p "$run"
+  {
+    run_row augment https://docs.augmentcode.com/setup-augment/guidelines.md aaa 2026-10-29
+    for page in subagents config rules skills hooks custom-commands integrations permissions; do
+      run_row augment "https://docs.augmentcode.com/cli/$page.md" aaa 2026-10-29
+    done
+    printf 'augment\tchangelog\thttps://www.augmentcode.com/changelog\t200\thtml\taaa\t2026-10-29\tunchanged\thttps://www.augmentcode.com/changelog\tpages/x\n'
+  } >"$run/docfetch.tsv"
+  printf 'augment\n' >"$run/requested-targets.txt"
+  write_lock https://vendor.example/old old
+  local before
+  before=$(cat "$LOCK")
+  # shellcheck disable=SC2329
+  function go() { printf 'called\n' >"$FIXTURES/go.called"; }
+  err=$(docfetch_main --update "$run/docfetch.tsv" 2>&1 >/dev/null) || status=$?
+  unset -f go
+  assert_not_equals 0 "$status"
+  assert_contains '8 registered URLs have no row' "$err"
+  for page in subagents config rules skills hooks custom-commands integrations permissions; do
+    assert_contains "augment	docs	https://docs.augmentcode.com/cli/v0/$page.md" "$err"
+  done
+  assert_not_contains 'cli/config.md' "$err"
+  assert_file_not_exists "$FIXTURES/go.called"
+  assert_equals "$before" "$(cat "$LOCK")"
+}
+
+function test_update_accepts_a_run_that_covers_every_registered_url() {
+  # shellcheck disable=SC2329
+  function source_sections() { augment_2026_10_29_sources; }
+  local run="$DOCFETCH_RUNS/2026-10-29-run" kind url
+  mkdir -p "$run"
+  resolve_urls augment | while IFS=$'\t' read -r kind url; do
+    printf 'augment\t%s\t%s\t200\thtml\taaa\t2026-10-29\tchanged\t%s\tpages/x\n' "$kind" "$url" "$url"
+  done >"$run/docfetch.tsv"
+  printf 'augment\n' >"$run/requested-targets.txt"
+  # shellcheck disable=SC2329
+  function go() { printf '%s\n' "$*" >"$FIXTURES/go.args"; }
+  docfetch_main --update "$run/docfetch.tsv" >/dev/null 2>&1
+  unset -f go
+  assert_contains "finalize $run" "$(cat "$FIXTURES/go.args")"
 }

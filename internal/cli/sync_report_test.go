@@ -199,6 +199,9 @@ func gitRepo(t *testing.T) (string, func(args ...string)) {
 		}
 	}
 	git("init", "-q")
+	// Git for Windows turns core.autocrlf on system wide, and sync --against
+	// exports a commit with this repository's checkout settings.
+	git("config", "core.autocrlf", "false")
 	return dir, git
 }
 

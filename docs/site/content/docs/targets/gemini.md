@@ -71,7 +71,7 @@ Native [Agent Skills](https://geminicli.com/docs/cli/skills/) at `.gemini/skills
 
 ### Commands
 
-`.gemini/commands/<name>.toml`, the [project slash-command directory](https://geminicli.com/docs/cli/custom-commands.md). `description` becomes the TOML `description` and the body becomes `prompt`. A command and an agent can share a name. A command named `git:commit` is written as `.gemini/commands/git/commit.toml`, which Gemini runs as `/git:commit`.
+`.gemini/commands/<name>.toml`, the [project slash-command directory](https://geminicli.com/docs/cli/custom-commands.md). `description` becomes the TOML `description` and the body becomes `prompt`. A command and an agent can share a name. A command named `git:commit` is written as `.gemini/commands/git/commit.toml`, which Gemini runs as `/git:commit`. An agent keeps its name as one file, `.gemini/agents/<name>.md`, so on Windows sync refuses an agent named with a colon; see [path semantics](@/docs/configuration.md#path-semantics).
 
 ### Settings
 

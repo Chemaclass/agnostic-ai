@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -277,7 +278,7 @@ func TestOverviewNativeMCPs_KeepsEveryValueOutOfTheView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(before, after) || info.Mode().Perm() != 0o600 {
+	if !bytes.Equal(before, after) || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Errorf("~/.claude.json changed: mode %v", info.Mode().Perm())
 	}
 }
