@@ -371,12 +371,14 @@ delta_text() {
 # fetches. It hashes the raw bytes when jq is missing or the body is not JSON.
 json_sum() {
   local sorted="$1.sorted"
-  if command -v jq >/dev/null 2>&1 && jq -S -c . "$1" >"$sorted" 2>/dev/null; then
-    sha256_of "$sorted"
+  # jq on Windows ends each line with CRLF; compact JSON holds no raw CR.
+  if command -v jq >/dev/null 2>&1 && jq -S -c . "$1" >"$sorted" 2>/dev/null &&
+    tr -d '\r' <"$sorted" >"$sorted.lf"; then
+    sha256_of "$sorted.lf"
   else
     sha256_of "$1"
   fi
-  rm -f "$sorted"
+  rm -f "$sorted" "$sorted.lf"
 }
 
 # Snapshots hold fetched text by the hash docfetch took of it, so a later
