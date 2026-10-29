@@ -646,4 +646,17 @@
 # need a raise.
 # From here on the rule is the measured size plus one typical PR (8192), which replaces
 # the "no added headroom" line in the #2726 note. Each raise still needs its own note.
-24101024
+#
+# Rendering each adapter once per run (#2745) adds 23088 bytes of symbols to main
+# f97f83f8: 24092832 to 24117408 with Go 1.27.3 and Linux amd64 release flags. Go func
+# metadata grows 16304 with the new functions; the per-run render set (targetRenders,
+# captureRender, the config guard) adds 2.8 KB; detectRenderedCollisions (+6152) replaces
+# detectCollisions (-5502); copying settings hatch values so adapters cannot edit the
+# spec adds 824. No new dependency. Budget: measured size plus one typical PR (8192).
+#
+# Nested Gemini command folders (#2752) add 4520 bytes of symbols to main ff21493a:
+# 24117408 to 24125600 with Go 1.27.3 and Linux amd64 release flags. The stale host
+# file check (ClearStaleStreamHost +1670, recordedColonOutputs +677), the nested import
+# walk (importGeminiCommands +646 net), and the shared command path helper (+1150 net)
+# explain it. No new dependency. Budget: measured size plus one typical PR (8192).
+24133792

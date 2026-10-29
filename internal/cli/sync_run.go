@@ -143,6 +143,10 @@ func readStateFile(projectRoot string) syncStateFile {
 
 var readStateBytes = os.ReadFile
 
+// emitAdapter is the entry point every render and write here takes, so a
+// test can count renders per target.
+var emitAdapter = adapters.EmitWithProvenance
+
 // ledgerSnapshot is one read of the state file. The state file lists
 // every output, so a sync or check reads it once and asks this copy.
 // A file that does not parse keeps what decoded before the error.
@@ -373,7 +377,7 @@ func emitTarget(sess *adapters.Session, t string, b spec.Bundle, cfg *config.Con
 		return nil, false, err
 	}
 	sess.StartDetailedRecording()
-	err = adapters.EmitWithProvenance(sess, adapter, b, cfg, dryRun)
+	err = emitAdapter(sess, adapter, b, cfg, dryRun)
 	return sess.StopDetailedRecording(), true, err
 }
 
@@ -639,7 +643,8 @@ func resetSyncBuffers() {
 // prepareSyncTargets runs the checks and setup both `sync` and
 // `sync --json` share before emitting: it queues the personal memory seed,
 // stops on errors in the specs, and notes overlay files no target reads.
-func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *config.Config, b spec.Bundle, targets []string, dryRun, backup, keepEdits bool) ([]string, map[string]string, error) {
+func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *config.Config, renders *targetRenders, targets []string, dryRun, backup, keepEdits bool) ([]string, map[string]string, error) {
+	b := renders.b
 	if !dryRun {
 		preparePersonalMemorySync(root, cfg)
 	}
@@ -656,7 +661,7 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, backup, keepEdits); err != nil {
 		return nil, nil, err
 	}
-	winners, err := detectCollisions(cfg, b, targets)
+	winners, err := detectRenderedCollisions(renders, cfg, targets)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -693,7 +698,8 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	prev := prior.state
 	release := holdPriorState(root, prev)
 	defer release()
-	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, prior, cfg, b, targets, dryRun, backup, keepEdits)
+	renders := newTargetRenders(cfg, b)
+	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, prior, cfg, renders, targets, dryRun, backup, keepEdits)
 	if err != nil {
 		return err
 	}
@@ -730,7 +736,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 			summaryf("%s %s\n", bang(), c)
 		}
 	}
-	shared, err := planSharedSkills(cfg, b, effectiveTargets)
+	shared, err := planSharedSkills(cfg, renders, effectiveTargets)
 	if err != nil {
 		return err
 	}
@@ -880,7 +886,9 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, personal, err := personalSplitBlock(root, cfg, b, effectiveTargets, gitignoreEntries, prior.missing())
+		// Some adapters choose output paths from what is on disk, so the
+		// planners render after the emit, never from the renders before it.
+		block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), effectiveTargets, gitignoreEntries, prior.missing())
 		if err != nil {
 			return err
 		}
@@ -1338,11 +1346,12 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	prev := prior.state
 	release := holdPriorState(root, prev)
 	defer release()
-	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, prior, cfg, b, targets, false, backup, keepEdits)
+	renders := newTargetRenders(cfg, b)
+	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, prior, cfg, renders, targets, false, backup, keepEdits)
 	if err != nil {
 		return err
 	}
-	shared, err := planSharedSkills(cfg, b, effectiveTargets)
+	shared, err := planSharedSkills(cfg, renders, effectiveTargets)
 	if err != nil {
 		return err
 	}
@@ -1458,7 +1467,9 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, personal, err := personalSplitBlock(root, cfg, b, effectiveTargets, gitignoreEntries, prior.missing())
+		// Some adapters choose output paths from what is on disk, so the
+		// planners render after the emit, never from the renders before it.
+		block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), effectiveTargets, gitignoreEntries, prior.missing())
 		if err != nil {
 			return undoSweep(mainSess, nil, err)
 		}

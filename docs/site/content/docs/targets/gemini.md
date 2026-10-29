@@ -71,7 +71,7 @@ Native [Agent Skills](https://geminicli.com/docs/cli/skills/) at `.gemini/skills
 
 ### Commands
 
-`.gemini/commands/<name>.toml`, the [project slash-command directory](https://geminicli.com/docs/cli/custom-commands.md). `description` becomes the TOML `description` and the body becomes `prompt`. A command and an agent can share a name.
+`.gemini/commands/<name>.toml`, the [project slash-command directory](https://geminicli.com/docs/cli/custom-commands.md). `description` becomes the TOML `description` and the body becomes `prompt`. A command and an agent can share a name. A command named `git:commit` is written as `.gemini/commands/git/commit.toml`, which Gemini runs as `/git:commit`.
 
 ### Settings
 
@@ -140,11 +140,11 @@ When Gemini CLI's instructions file is one another target also reads, such as `A
 
 ## Import
 
-`import gemini` reads `.gemini/agents/*.md`, `.gemini/commands/*.toml`, `.gemini/skills/<name>/`, and the MCP, hooks, and default model in `.gemini/settings.json`.
+`import gemini` reads `.gemini/agents/*.md`, `.gemini/commands/**/*.toml`, `.gemini/skills/<name>/`, and the MCP, hooks, and default model in `.gemini/settings.json`.
 
 - **Instructions**: the root `GEMINI.md` goes to `.agnostic-ai/AGNOSTIC_AI.md`. Only the rules block that `sync` appends becomes rules.
 - **Nested files**: a hand-written `<dir>/GEMINI.md` becomes one rule with the whole file and `scope: <dir>`, named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api`. A directory with one rule syncs back unchanged. A nested file that `sync` wrote splits back into its rules.
-- **Commands**: `prompt` becomes the body in either documented form (triple-quoted block or single-line string). `description` stays in frontmatter. This also covers older agent-as-command files and the `emit-agents-as-commands` and `emit-skills-as-commands` copies, which sync back unchanged.
+- **Commands**: `prompt` becomes the body in either documented form (triple-quoted block or single-line string). `description` stays in frontmatter. A file in a subfolder, such as `git/commit.toml`, imports as the command `git:commit`. This also covers older agent-as-command files and the `emit-agents-as-commands` and `emit-skills-as-commands` copies, which sync back unchanged.
 - **Hooks**: nested hooks keep commands, matchers, names, descriptions, environment maps, timeouts, and sequential groups. Hooks with the same command and matcher import separately. A single handler's whole-second timeout imports in seconds. Otherwise `x-gemini.timeout` keeps the native milliseconds. Multiple handlers stay together under `x-gemini.hooks`, which replaces `command` for Gemini. Old flat hook files still import.
 
 ## Protected paths

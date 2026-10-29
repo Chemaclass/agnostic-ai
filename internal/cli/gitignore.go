@@ -352,7 +352,8 @@ func holdsCommitted(committed map[string]struct{}, entry string) bool {
 // theirs when there is no ledger, as in a fresh clone, or when the block
 // would drop a line the file lists. The ledger then lacks their outputs:
 // the sync that started it left them out, or a pull added their specs.
-func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string, noLedger bool) ([]string, error) {
+func syncManagedBlock(root string, cfg *config.Config, renders *targetRenders, targets, recorded []string, noLedger bool) ([]string, error) {
+	b := renders.b
 	blockTargets := slices.Clone(targets)
 	var leftOut []string
 	for _, target := range cfg.Targets {
@@ -369,7 +370,7 @@ func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, r
 	scopes := specScopes(b, blockTargets)
 	block := buildManagedBlockCommitting(cfg, entries, scopes, committed)
 	if len(leftOut) > 0 && (noLedger || dropsListedEntries(root, cfg, block)) {
-		entries = append(entries, withBackups(renderedOutputs(cfg, b, leftOut), committed)...)
+		entries = append(entries, withBackups(renderedOutputs(cfg, renders, leftOut), committed)...)
 		block = buildManagedBlockCommitting(cfg, entries, scopes, committed)
 	}
 	return block, nil
@@ -398,20 +399,19 @@ func withBackups(outputs []string, committed map[string]struct{}) []string {
 // renderedOutputs returns the paths targets write, rendered in memory:
 // each adapter's files and its entry point. A target that does not
 // resolve or render is skipped, so it never fails the sync.
-func renderedOutputs(cfg *config.Config, b spec.Bundle, targets []string) []string {
+func renderedOutputs(cfg *config.Config, renders *targetRenders, targets []string) []string {
 	defer adapters.SetAsideNotes()()
-	sess := adapters.NewSession()
 	var out []string
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
 		}
-		files, err := captureAdapterFiles(sess, adapter, b, cfg)
-		if err != nil {
+		render := renders.captureQuiet(adapter, cfg)
+		if render.err != nil {
 			continue
 		}
-		for _, f := range files {
+		for _, f := range render.files {
 			out = append(out, f.Path)
 		}
 		if path := adapters.EntryPointPath(cfg, t); path != "" && !cfg.IsUnmanaged(path) {
