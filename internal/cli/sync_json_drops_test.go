@@ -191,7 +191,7 @@ func TestOrphanGeneratedPaths_LeavesUnselectedTargetDropsOutOfTheBuffers(t *test
 	adapters.ResetCapabilityWarnings()
 
 	reports := []driftReport{{Target: "claude", Orphaned: []string{".claude/agents/kept.md"}}}
-	if _, _, err := orphanGeneratedPaths(cfg, b, reports); err != nil {
+	if _, _, err := orphanGeneratedPaths(cfg, newTargetRenders(b), reports); err != nil {
 		t.Fatal(err)
 	}
 

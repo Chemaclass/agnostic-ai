@@ -223,7 +223,8 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 	release := holdCaptureState(state)
 	defer release()
 	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)
-	winners, err := detectCollisions(readerCfg, b, targets)
+	renders := newTargetRenders(b)
+	winners, err := detectRenderedCollisions(renders, readerCfg, targets)
 	if err != nil {
 		return nil, err
 	}
@@ -240,10 +241,18 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 			resolvedAll = false
 			continue
 		}
-		files, err := captureAdapterFiles(sess, adapter, b, readerCfg)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", t, err)
+		render := renders.capture(adapter, readerCfg)
+		if len(winners) > 0 {
+			// A winner replaces a contested file's bytes as the adapter
+			// writes it, and an adapter can read back what it wrote, so
+			// only a render under the winners shows what sync writes.
+			render.files, render.err = captureAdapterFiles(sess, adapter, b, readerCfg)
+			render.removals = sess.CapturedRemovals()
 		}
+		if render.err != nil {
+			return nil, fmt.Errorf("%s: %w", t, render.err)
+		}
+		files := render.files
 		for _, f := range files {
 			emitted[f.Path] = true
 			outputSums[f.Path] = adapters.ContentSum(f.Content)
@@ -265,7 +274,7 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 			}
 			rep.Current = append(rep.Current, f)
 		}
-		rep.Blocking = blockingRemovals(sess.CapturedRemovals(), rep.Missing)
+		rep.Blocking = blockingRemovals(render.removals, rep.Missing)
 		reports = append(reports, rep)
 	}
 	epRep, err := collectEntryPointDriftIn(readerCfg, b, entryPointTargets, state)
@@ -284,7 +293,7 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
-	generated, unloaded, renderErr := orphanGeneratedPaths(cfg, b, reports)
+	generated, unloaded, renderErr := orphanGeneratedPaths(cfg, renders, reports)
 	for _, target := range unloaded {
 		// A requested target that failed to resolve was reported above.
 		if !slices.Contains(targets, target) {
@@ -390,7 +399,7 @@ func blockingRemovals(removals []adapters.CapturedRemoval, missing []adapters.Ca
 // identify the same native output bytes.
 func captureAdapterFiles(sess *adapters.Session, adapter adapters.Adapter, b spec.Bundle, cfg *config.Config) ([]adapters.CapturedFile, error) {
 	sess.StartCapture()
-	err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false)
+	err := emitAdapter(sess, adapter, b, cfg, false)
 	files := sess.StopCapture()
 	if err != nil {
 		return nil, err
@@ -499,7 +508,7 @@ func driftGeneratedPaths(reports []driftReport) []string {
 // A partial check cannot classify a ledger orphan until every configured producer is captured.
 // A producer that does not resolve or fails to capture is named in unloaded and skipped without a warning.
 // renderErr says why the entry points of every configured target failed to render, which leaves their paths out of generated.
-func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) (generated, unloaded []string, renderErr error) {
+func orphanGeneratedPaths(cfg *config.Config, renders *targetRenders, reports []driftReport) (generated, unloaded []string, renderErr error) {
 	generated = driftGeneratedPaths(reports)
 	if cfg.Sync.OutputManifest {
 		generated = append(generated, outputManifestPath)
@@ -523,23 +532,22 @@ func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftRepo
 	// Rendering unselected targets only finds their paths; their drops
 	// must not reach the selected targets' warnings and notes.
 	defer adapters.SetAsideNotes()()
-	sess := adapters.NewSession()
 	for _, target := range remaining {
 		adapter, err := adapters.Resolve(target)
 		if err != nil {
 			unloaded = append(unloaded, target)
 			continue
 		}
-		files, err := captureAdapterFiles(sess, adapter, b, cfg)
-		if err != nil {
+		render := renders.captureQuiet(adapter, cfg)
+		if render.err != nil {
 			unloaded = append(unloaded, target)
 			continue
 		}
-		for _, file := range files {
+		for _, file := range render.files {
 			generated = append(generated, file.Path)
 		}
 	}
-	entryPoints, err := collectEntryPointDrift(cfg, b, cfg.Targets)
+	entryPoints, err := collectEntryPointDrift(cfg, renders.b, cfg.Targets)
 	if err != nil {
 		return generated, unloaded, err
 	}

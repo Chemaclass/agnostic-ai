@@ -23,7 +23,7 @@ const (
 
 // personalSplitBlock is splitManagedBlock with the team's built-ins read
 // from the shared config when agnostic-ai.local.yaml exists.
-func personalSplitBlock(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string, noLedger bool) (block, personal []string, err error) {
+func personalSplitBlock(root string, cfg *config.Config, renders *targetRenders, targets, recorded []string, noLedger bool) (block, personal []string, err error) {
 	team := cfg.Builtins
 	if fileExists(filepath.Join(root, config.LocalOverrideFileName)) {
 		if team, err = config.TeamBuiltins(root); err != nil {
@@ -34,7 +34,7 @@ func personalSplitBlock(root string, cfg *config.Config, b spec.Bundle, targets,
 	if err != nil {
 		return nil, nil, err
 	}
-	return splitManagedBlock(root, cfg, b, team, prev, targets, recorded, noLedger)
+	return splitManagedBlock(root, cfg, renders, team, prev, targets, recorded, noLedger)
 }
 
 // previousPersonal returns the outputs the project's block in
@@ -62,13 +62,13 @@ func previousPersonal(root string) ([]string, error) {
 // A recorded path the last sync excluded as personal (prev) stays
 // personal while the team does not write it, as an edited output
 // --keep-edits leaves behind does.
-func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, prev, targets, recorded []string, noLedger bool) (block, personal []string, err error) {
+func splitManagedBlock(root string, cfg *config.Config, renders *targetRenders, team, prev, targets, recorded []string, noLedger bool) (block, personal []string, err error) {
 	same := sameBuiltins(team, cfg.Builtins)
 	if same && len(prev) == 0 {
-		block, err := syncManagedBlock(root, cfg, b, targets, recorded, noLedger)
+		block, err := syncManagedBlock(root, cfg, renders, targets, recorded, noLedger)
 		return block, nil, err
 	}
-	teamCfg, teamBundle := cfg, b
+	teamCfg, teamRenders := cfg, renders
 	if !same {
 		copied := *cfg
 		teamCfg = &copied
@@ -77,15 +77,17 @@ func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, pre
 		if err != nil {
 			return nil, nil, err
 		}
-		if teamBundle, err = spec.LoadLayered(layers); err != nil {
+		teamBundle, err := spec.LoadLayered(layers)
+		if err != nil {
 			return nil, nil, err
 		}
 		teamBundle.ApplyModelTiers(teamCfg.Models)
+		teamRenders = newTargetRenders(teamBundle)
 	}
-	mine := ignoreCandidates(cfg, b)
+	mine := ignoreCandidates(cfg, renders)
 	theirs := mine
 	if !same {
-		theirs = ignoreCandidates(teamCfg, teamBundle)
+		theirs = ignoreCandidates(teamCfg, teamRenders)
 	}
 	only := map[string]bool{}
 	for e := range mine {
@@ -109,7 +111,7 @@ func splitManagedBlock(root string, cfg *config.Config, b spec.Bundle, team, pre
 			entries = append(entries, e)
 		}
 	}
-	block, err = syncManagedBlock(root, teamCfg, teamBundle, targets, entries, noLedger)
+	block, err = syncManagedBlock(root, teamCfg, teamRenders, targets, entries, noLedger)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -143,9 +145,9 @@ func sameBuiltins(a, b []string) bool {
 
 // ignoreCandidates returns the root-anchored paths a sync of every
 // configured target writes or asks to ignore.
-func ignoreCandidates(cfg *config.Config, b spec.Bundle) map[string]bool {
+func ignoreCandidates(cfg *config.Config, renders *targetRenders) map[string]bool {
 	var paths []string
-	for _, p := range append(renderedOutputs(cfg, b, cfg.Targets), gitignoreHintsForTargets(cfg, cfg.Targets)...) {
+	for _, p := range append(renderedOutputs(cfg, renders, cfg.Targets), gitignoreHintsForTargets(cfg, cfg.Targets)...) {
 		if !filepath.IsAbs(p) && !cfg.IsUnmanaged(p) {
 			paths = append(paths, p)
 		}

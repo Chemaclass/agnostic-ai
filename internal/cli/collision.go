@@ -39,6 +39,12 @@ import (
 // overrides diverge), which would otherwise cause silent last-writer-wins
 // and perpetual drift in `sync --check`.
 func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winners map[string]string, err error) {
+	return detectRenderedCollisions(newTargetRenders(b), cfg, targets)
+}
+
+// detectRenderedCollisions is detectCollisions over the run's renders.
+func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string) (winners map[string]string, err error) {
+	b := renders.b
 	cfg = cfg.WithAdditionalTargets(targets...)
 	if err := adapters.ValidateScopedRules(cfg, b, targets); err != nil {
 		return nil, err
@@ -63,22 +69,20 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winn
 	last := map[string]string{}
 	lastOwner := map[string]string{}
 	written := map[string]map[string]string{}
-	sess := adapters.NewSession()
 	for _, t := range writers {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
 		}
-		sess.StartCapture()
-		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
-			sess.StopCapture()
+		render := renders.capture(adapter, cfg)
+		if err := render.err; err != nil {
 			// The target's own emit reports the error, after the others write.
 			if policy == "prefer-spec" {
 				continue
 			}
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}
-		for _, f := range sess.StopCapture() {
+		for _, f := range render.files {
 			owners[f.Path] = append(owners[f.Path], t)
 			if contents[f.Path] == nil {
 				contents[f.Path] = map[string]bool{}
