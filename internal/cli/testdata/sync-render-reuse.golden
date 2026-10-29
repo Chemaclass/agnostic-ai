@@ -1,0 +1,203 @@
+$ agnostic-ai sync
+--- output
+--- streams
+! acme: heads up
+  linked 6 shared skill folders
+  + .claude/agents/a1.md  .claude/skills/handoff/SKILL.md  .claude/skills/s1/SKILL.md  (+17 more)
+  ~ .gitignore  .worktreeinclude
+  ! 3 files to commit: .agents/skills/s1/SKILL.md  .gitignore  .worktreeinclude
+✓ synced 6 targets · 20 created · 2 updated · <elapsed>
+✓ claude now reads, from .agnostic-ai/:
+    instructions     CLAUDE.md
+    1 rule           .claude/rules/         r1
+    2 skills         .claude/skills/        handoff, s1
+    1 agent          .claude/agents/        a1
+✓ codex now reads, from .agnostic-ai/:
+    instructions     AGENTS.md
+    1 rule                                  r1
+    2 skills         .agents/skills/        handoff, s1
+    1 agent          .codex/agents/         a1
+✓ opencode now reads, from .agnostic-ai/:
+    instructions     AGENTS.md
+    1 rule                                  r1
+    2 skills         .opencode/skills/      handoff, s1
+    1 agent          .opencode/agents/      a1
+✓ kilo now reads, from .agnostic-ai/:
+    instructions     AGENTS.md
+    1 rule                                  r1
+    2 skills                                handoff, s1
+    1 agent                                 a1
+✓ copilot now reads, from .agnostic-ai/:
+    instructions     .github/copilot-instructions.md
+    1 rule           .github/instructions/  r1
+    2 skills         .github/skills/        handoff, s1
+    1 agent          .github/agents/        a1
+✓ acme now reads, from .agnostic-ai/:
+    1 rule                                  r1
+    2 skills                                handoff, s1
+    1 agent                                 a1
+  edit .agnostic-ai/ and run agnostic-ai sync to change what every tool reads
+--- error
+<nil>
+$ agnostic-ai sync -t claude -t codex
+--- output
+--- streams
+✓ 2 targets up to date · <elapsed>
+--- error
+<nil>
+$ agnostic-ai sync --json -t claude -t acme
+--- output
+{
+  "version": "1",
+  "command": "sync",
+  "writes": [],
+  "skipped": [
+    {
+      "target": "claude",
+      "path": ".claude/agents/a1.md",
+      "action": "skip",
+      "bytes": 180
+    },
+    {
+      "target": "claude",
+      "path": ".claude/skills/handoff/SKILL.md",
+      "action": "skip",
+      "bytes": 9567
+    },
+    {
+      "target": "claude",
+      "path": ".claude/skills/s1/SKILL.md",
+      "action": "skip",
+      "bytes": 180
+    },
+    {
+      "target": "claude",
+      "path": ".claude/rules/r1.md",
+      "action": "skip",
+      "bytes": 155
+    },
+    {
+      "target": "acme",
+      "path": "acme.md",
+      "action": "skip",
+      "bytes": 10
+    },
+    {
+      "target": "agnostic-ai",
+      "path": "CLAUDE.md",
+      "action": "skip",
+      "bytes": 149
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "notes": []
+}
+--- streams
+! acme: heads up
+--- error
+<nil>
+$ agnostic-ai sync --check
+--- output
+--- streams
+! acme: heads up
+--- error
+<nil>
+$ agnostic-ai sync --check -t copilot
+--- output
+--- streams
+--- error
+<nil>
+$ agnostic-ai sync --plan
+--- output
+[claude]       no changes
+[codex]        no changes
+[opencode]     no changes
+[kilo]         no changes
+[copilot]      no changes
+[acme]         no changes
+[agnostic-ai]  no changes
+--- streams
+! acme: heads up
+--- error
+<nil>
+--- tree
+.agents/skills/handoff/SKILL.md -rw-r--r-- 707db5d981d36486a05bc6f5564982766de1320c71f1e301608083f9122d292a
+.agents/skills/s1/SKILL.md -rw-r--r-- 3c634754146c5e3063028ee788fb66966ab5b83c243cf856f9ce85afbbd52367
+.agnostic-ai/AGNOSTIC_AI.md -rw-r--r-- 5f7adc85212fede8cddd6440554842515f3e4be7db705606cb24b908dc2fa421
+.agnostic-ai/agents/a1.md -rw-r--r-- 053f48f1cb9c5751672b8243584486de6374330de2fc7475fd2e4c8ac348af84
+.agnostic-ai/rules/r1.md -rw-r--r-- c253cd7d8de4817b814fbfd1f35c9ee59b49c97706b82e71567d99a05652785b
+.agnostic-ai/skills/s1/SKILL.md -rw-r--r-- b55a47958899d648cb34fa83e69d7271ed3a6edea4c1dc1f9ca6b54be8fd1b31
+.claude/agents/a1.md -rw-r--r-- 15d8e3881099ff28ba02694228c71ead3aad0b36b8fb38abf408a5d36471985e
+.claude/rules/r1.md -rw-r--r-- b5286e6ea2bace014059a562f85dd1488842cd0a135dca3ff2d49b39f75d9aea
+.claude/skills/handoff -> ../../.agents/skills/handoff
+.claude/skills/s1 -> ../../.agents/skills/s1
+.codex/agents/a1.toml -rw-r--r-- a540c9748c27eace81b13a1fa72e762db3f3fc9138321301f4dbe4c49c22ef1b
+.github/agents/a1.agent.md -rw-r--r-- 15d8e3881099ff28ba02694228c71ead3aad0b36b8fb38abf408a5d36471985e
+.github/copilot-instructions.md -rw-r--r-- f2954006e1eaef5eae426f5dec58adcae7f5b49ddc6e337e924f7ec462b72cd0
+.github/instructions/r1.instructions.md -rw-r--r-- 96b3b3786c92f2d6178a1aa04bdbcb4fab2a9b30d93a7154309f2da2d16ad3ed
+.github/skills/handoff -> ../../.agents/skills/handoff
+.github/skills/s1 -> ../../.agents/skills/s1
+.kilo/agents/a1.md -rw-r--r-- e25ac1a918137f28b1f7a2a217c5f11247858fb8a7117686442c05b95cce7a0e
+.opencode/agents/a1.md -rw-r--r-- e25ac1a918137f28b1f7a2a217c5f11247858fb8a7117686442c05b95cce7a0e
+.opencode/skills/handoff -> ../../.agents/skills/handoff
+.opencode/skills/s1 -> ../../.agents/skills/s1
+.vscode/settings.json -rw-r--r-- 57f0ff46390f41a66c6ffe2439e7daea8b0ab0fa68c34a5f1d27fb53d535dd89
+.worktreeinclude -rw-r--r-- 6998c735f4613a0d03ebd5ab200a02184973f414bb18342191874d2329723df8
+=== .agnostic-ai/.sync-state -rw-r--r--
+{"version":7,"synced_at": "<time>","files_changed":0,"outputs":[".agents/skills/handoff/SKILL.md",".agents/skills/s1/SKILL.md",".agnostic-ai/AGNOSTIC_AI.md",".claude/agents/a1.md",".claude/rules/r1.md",".claude/skills/handoff",".claude/skills/handoff/SKILL.md",".claude/skills/s1",".claude/skills/s1/SKILL.md",".codex/agents/a1.toml",".github/agents/a1.agent.md",".github/copilot-instructions.md",".github/instructions/r1.instructions.md",".github/skills/handoff",".github/skills/s1",".kilo/agents/a1.md",".opencode/agents/a1.md",".opencode/skills/handoff",".opencode/skills/s1",".vscode/settings.json","AGENTS.md","CLAUDE.md","acme.md"],"output_sums":{".agents/skills/handoff/SKILL.md":"707db5d981d36486a05bc6f5564982766de1320c71f1e301608083f9122d292a",".agents/skills/s1/SKILL.md":"3c634754146c5e3063028ee788fb66966ab5b83c243cf856f9ce85afbbd52367",".claude/agents/a1.md":"15d8e3881099ff28ba02694228c71ead3aad0b36b8fb38abf408a5d36471985e",".claude/rules/r1.md":"b5286e6ea2bace014059a562f85dd1488842cd0a135dca3ff2d49b39f75d9aea",".claude/skills/handoff/SKILL.md":"707db5d981d36486a05bc6f5564982766de1320c71f1e301608083f9122d292a",".claude/skills/s1/SKILL.md":"3c634754146c5e3063028ee788fb66966ab5b83c243cf856f9ce85afbbd52367",".codex/agents/a1.toml":"a540c9748c27eace81b13a1fa72e762db3f3fc9138321301f4dbe4c49c22ef1b",".github/agents/a1.agent.md":"15d8e3881099ff28ba02694228c71ead3aad0b36b8fb38abf408a5d36471985e",".github/copilot-instructions.md":"f2954006e1eaef5eae426f5dec58adcae7f5b49ddc6e337e924f7ec462b72cd0",".github/instructions/r1.instructions.md":"96b3b3786c92f2d6178a1aa04bdbcb4fab2a9b30d93a7154309f2da2d16ad3ed",".kilo/agents/a1.md":"e25ac1a918137f28b1f7a2a217c5f11247858fb8a7117686442c05b95cce7a0e",".opencode/agents/a1.md":"e25ac1a918137f28b1f7a2a217c5f11247858fb8a7117686442c05b95cce7a0e",".vscode/settings.json":"57f0ff46390f41a66c6ffe2439e7daea8b0ab0fa68c34a5f1d27fb53d535dd89","AGENTS.md":"6d478bba58a3b0bfa38848935def74c038ff23b80cfc4bdd1ca0f4a51084d642","CLAUDE.md":"f2954006e1eaef5eae426f5dec58adcae7f5b49ddc6e337e924f7ec462b72cd0","acme.md":"2e6bd7f834e95ebe1fc02b6a1b3c6843fb199f4d65501873046fa3a255eb5491"},"merged":{".vscode/settings.json":{"keys":[{"path":["chat.useAgentsMdFile"],"sum":"fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"}],"created":true}},"spec_sums":{"agent a1":"2ac9c9fcbf2d2b4b279ba1b1f810842ee708b83383e421beb8d20f4baab835d6","config":"54fa705405eff0554936b25c10f7a6c6ece31b4dc8dd7c574a40ae15cb551683","rule r1":"6927b1f9311c816c1638f27a1e0e842030189f1d801a0def70d6738414713c2c","skill handoff":"7d2c23357a80ce02c34a600eda1f0014d4aec9ed0dad408e2ef362211b527893","skill s1":"11312c99bb4cd00f9c4346b6bcf43051b7bd0d73627f34f45b5802cbae44a3c3"},"spec_targets":{"agent a1":["acme","claude","codex","copilot","kilo","opencode"],"rule r1":["acme","claude","codex","copilot","kilo","opencode"],"skill handoff":["acme","claude","codex","copilot","kilo","opencode"],"skill s1":["acme","claude","codex","copilot","kilo","opencode"]},"spec_file_sums":{".agnostic-ai/agents/a1.md":{"sum":"053f48f1cb9c5751672b8243584486de6374330de2fc7475fd2e4c8ac348af84","by":"sync","targets":["acme","claude","codex","copilot","kilo","opencode"]},".agnostic-ai/rules/r1.md":{"sum":"c253cd7d8de4817b814fbfd1f35c9ee59b49c97706b82e71567d99a05652785b","by":"sync","targets":["acme","claude","codex","copilot","kilo","opencode"]},".agnostic-ai/skills/s1/SKILL.md":{"sum":"b55a47958899d648cb34fa83e69d7271ed3a6edea4c1dc1f9ca6b54be8fd1b31","by":"sync","targets":["acme","claude","codex","copilot","kilo","opencode"]}},"listed":["claude","codex","opencode","kilo","copilot","acme"]}
+=== .git/info/exclude
+# >>> agnostic-ai (personal) <root> >>>
+# Outputs only agnostic-ai.local.yaml adds, and backups the managed block does not list. Run `agnostic-ai sync` to refresh.
+/.agents/skills/handoff/SKILL.md
+/.agents/skills/handoff/SKILL.md.bak
+/.claude/skills/handoff/SKILL.md
+/.claude/skills/handoff/SKILL.md.bak
+/.github/skills/handoff/SKILL.md
+/.github/skills/handoff/SKILL.md.bak
+/.opencode/skills/handoff/SKILL.md
+/.opencode/skills/handoff/SKILL.md.bak
+# <<< agnostic-ai (personal) <root> <<<
+
+=== .gitignore -rw-r--r--
+# >>> agnostic-ai (managed) >>>
+# Generated paths. Edit specs, not this block. Run `agnostic-ai sync` to refresh.
+# Not committed: a fresh clone or `git worktree` lacks these until `agnostic-ai sync` runs (e.g. a post-checkout hook).
+/.agnostic-ai/.command-lock
+/.agnostic-ai/.sync-state
+/.agnostic-ai/local/
+/.agnostic-ai/packs/
+/.claude/agent-memory-local/
+/.claude/agents/
+/.claude/rules/
+/.claude/scheduled_tasks.lock
+/.claude/scheduled_tasks.lock.bak
+/.claude/settings.local.json
+/.claude/settings.local.json.bak
+/.claude/skills/handoff
+/.claude/worktrees/
+/.codex/agents/
+/.github/agents/
+/.github/copilot-instructions.md
+/.github/copilot-instructions.md.bak
+/.github/instructions/
+/.github/skills/handoff
+/.kilo/agents/
+/.opencode/agents/
+/.opencode/skills/handoff
+/.vscode/settings.json
+/.vscode/settings.json.bak
+/AGENTS.md
+/AGENTS.md.bak
+/CLAUDE.md
+/CLAUDE.md.bak
+/acme.md
+/acme.md.bak
+/agnostic-ai.local.yaml
+# <<< agnostic-ai (managed) <<<
+
+AGENTS.md -rw-r--r-- 6d478bba58a3b0bfa38848935def74c038ff23b80cfc4bdd1ca0f4a51084d642
+CLAUDE.md -rw-r--r-- f2954006e1eaef5eae426f5dec58adcae7f5b49ddc6e337e924f7ec462b72cd0
+acme.md -rw-r--r-- 2e6bd7f834e95ebe1fc02b6a1b3c6843fb199f4d65501873046fa3a255eb5491
+agnostic-ai.local.yaml -rw-r--r-- a4c4e9aa761ab8cd25e7ea6a04603e5e8e8d6dd674d0c20da916513a70518173
+agnostic-ai.yaml -rw-r--r-- 87221c8b182496da33b1ab4b06c6a40e7e690a5ca4715ecbc6bb91cc36ccc58f
