@@ -69,7 +69,7 @@ func TestWindowsSmoke_PiCoverageStaysBounded(t *testing.T) {
 	if strings.Contains(step.Run, "./...") {
 		t.Error("Windows smoke runs the whole repository suite")
 	}
-	if got := workflow.Jobs["test"].Timeout; got != "${{ matrix.os == 'windows-latest' && (inputs.full_windows == true && 45 || 7) || 10 }}" {
+	if got := workflow.Jobs["test"].Timeout; got != "${{ matrix.os == 'windows-latest' && inputs.full_windows != true && 7 || 10 }}" {
 		t.Errorf("Windows default job budget changed: %s", got)
 	}
 }
