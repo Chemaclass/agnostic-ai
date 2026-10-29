@@ -435,6 +435,10 @@ func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsTrackedUnderA
 				t.Fatal(err)
 			}
 			writeClaudeSettings(t, filepath.FromSlash(c.tracked), string(value))
+			if dir, err := New().NativePersonalMemoryDir(&config.Config{Builtins: []string{"memory"}}, wd); err != nil || dir == "" {
+				t.Fatalf("untracked: got %q, %v; want the repository's directory trusted", dir, err)
+			}
+			gitquery.Reset()
 			if out, err := exec.Command("git", "add", "-f", c.tracked).CombinedOutput(); err != nil {
 				t.Fatalf("git add: %v %s", err, out)
 			}

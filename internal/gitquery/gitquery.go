@@ -202,18 +202,19 @@ func TrackedAnyCase(root, rel string) (bool, error) {
 		return false, nil
 	}
 	// Every folder above the file may be spelled another way in the index,
-	// and Git folds only ASCII letters, so list the whole index and keep
-	// the entries at the file's depth.
-	r := trackedFiles.get(layout.Toplevel, func() filesResult {
-		out, err := exec.Command("git", "-C", layout.Toplevel, "ls-files", "-z").Output()
+	// and Git folds only ASCII letters, so list the entries at the file's
+	// depth (in glob mode * stops at a slash) and let the disk compare them.
+	depth := strings.Count(full, "/")
+	spec := ":(top,glob)" + strings.Repeat("*/", depth) + "*"
+	r := trackedFiles.get(layout.Toplevel+"\x00"+spec, func() filesResult {
+		out, err := exec.Command("git", "-C", layout.Toplevel, "ls-files", "-z", "--", spec).Output()
 		return filesResult{paths: strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00"), err: err}
 	})
 	if r.err != nil {
-		return false, fmt.Errorf("git ls-files in %s: %w", layout.Toplevel, r.err)
+		return false, fmt.Errorf("git ls-files %s in %s: %w", spec, layout.Toplevel, r.err)
 	}
-	depth := strings.Count(full, "/")
 	for _, p := range r.paths {
-		if p == "" || strings.Count(p, "/") != depth {
+		if p == "" {
 			continue
 		}
 		if info, err := os.Stat(filepath.Join(layout.Toplevel, filepath.FromSlash(p))); err == nil && os.SameFile(target, info) {

@@ -680,6 +680,6 @@
 # amd64 release flags. TrackedAnyCase (+1197, plus +330 for its list closure)
 # holds the index listing and the SameFile loop; the cache for the listing is a
 # new memo instantiation (+1064 across its methods and dictionary); Go func
-# metadata grows 528. No new dependency. Budget: measured size plus one typical
-# PR (8192).
+# metadata grows 528; build info and module strings add the remaining 384. No
+# new dependency. Budget: measured size plus one typical PR (8192).
 24166560
