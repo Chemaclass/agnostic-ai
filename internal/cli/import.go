@@ -293,15 +293,17 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 	setImportRunSources(sources)
 	defer setImportRunSources(nil)
 	var failed []string
+	var failures []error
 	for _, s := range sources {
 		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
 		if err := runImport(root, s, cfg); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
 			failed = append(failed, s)
+			failures = append(failures, err)
 		}
 	}
 	if len(failed) > 0 {
-		return fmt.Errorf("import failed for: %s", strings.Join(failed, ", "))
+		return importFailedError(failed, failures)
 	}
 	return nil
 }
@@ -352,19 +354,21 @@ func importAll(root string, cfg *config.Config) error {
 	}
 	setImportRunSources(detected)
 	defer setImportRunSources(nil)
-	var errs []string
+	var failed []string
+	var failures []error
 	for _, t := range detected {
 		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)
 		if err := runImport(root, t, cfg); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", t, err)
-			errs = append(errs, t)
+			failed = append(failed, t)
+			failures = append(failures, err)
 		}
 	}
 	if _, err := foldRootAgentsMainFile(root); err != nil {
 		return err
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("import failed for: %s", strings.Join(errs, ", "))
+	if len(failed) > 0 {
+		return importFailedError(failed, failures)
 	}
 	return nil
 }

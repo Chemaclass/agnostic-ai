@@ -159,6 +159,9 @@ func stageGlobalMCPArray(path, key, target, dir string, homeRecords []map[string
 	if err := withoutMCPCredentials(target, safe, skip); err != nil {
 		return nil, err
 	}
+	if err := withoutDataStreamMCPNames(target, path, dir, safe, skip); err != nil {
+		return nil, err
+	}
 	user = slices.DeleteFunc(user, func(r map[string]any) bool {
 		name, _ := r["name"].(string)
 		_, ok := safe[name]

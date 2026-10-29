@@ -148,6 +148,14 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 		return 0, fmt.Errorf("parse %s: %w", srcDir, err)
 	}
 	refs := referenceMCPLiterals(servers)
+	for _, file := range files {
+		if _, kept := servers[file.serverName]; !kept {
+			continue
+		}
+		if err := refuseDataStreamMCP(file.serverName, filepath.Join(dstDir, file.name)); err != nil {
+			return 0, err
+		}
+	}
 	if err := importMkdirAll(dstDir, 0o755); err != nil {
 		return 0, fmt.Errorf("mkdir %s: %w", dstDir, err)
 	}

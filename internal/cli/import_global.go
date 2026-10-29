@@ -353,6 +353,9 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			if err := withoutMCPCredentials(target, docs, skip); err != nil {
 				return err
 			}
+			if err := withoutDataStreamMCPNames(target, path, dir, docs, skip); err != nil {
+				return err
+			}
 			if _, err := writeMCPSpecs(docs, dir); err != nil {
 				return err
 			}
@@ -393,6 +396,9 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			}
 			normalizeImportedMCP(target, servers)
 			if err := withoutMCPCredentials(target, servers, skip); err != nil {
+				return err
+			}
+			if err := withoutDataStreamMCPNames(target, path, dir, servers, skip); err != nil {
 				return err
 			}
 			if _, err := writeMCPSpecs(servers, dir, orders); err != nil {
@@ -513,6 +519,22 @@ func withoutMCPCredentials(target string, servers map[string]any, skip func(targ
 	for _, name := range slices.Sorted(maps.Keys(held)) {
 		delete(servers, name)
 		if err := skip(target, name, "left out; "+held[name]+" holds a credential import cannot rewrite; add it under local/mcps or write a ${NAME} reference by hand"); err != nil {
+			return fmt.Errorf("write import warning: %w", err)
+		}
+	}
+	return nil
+}
+
+// withoutDataStreamMCPNames leaves out, with a warning naming the home
+// config source, each server whose spec file in dir Windows would store
+// as a hidden stream, so one such server does not stop the import.
+func withoutDataStreamMCPNames(target, source, dir string, servers map[string]any, skip func(target, name, reason string) error) error {
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		if !namesDataStream(filepath.Join(dir, spec.MCPFileName(name))) {
+			continue
+		}
+		delete(servers, name)
+		if err := skip(target, name, "left out; "+source+" names it with a colon, which Windows cannot hold in a spec file name; rename the server"); err != nil {
 			return fmt.Errorf("write import warning: %w", err)
 		}
 	}
