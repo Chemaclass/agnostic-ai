@@ -166,6 +166,44 @@ func Tracked(root, rel string) (bool, error) {
 	return r.nonEmpty, r.err
 }
 
+// TrackedAnyCase is Tracked for a disk that reads one file under any letter
+// case, so .claude/Settings.Local.json counts for .claude/settings.local.json.
+// The disk decides, not core.ignorecase, which a clone can set either way.
+// On a case-sensitive disk it is Tracked.
+func TrackedAnyCase(root, rel string) (bool, error) {
+	if !diskIgnoresCase(root) {
+		return Tracked(root, rel)
+	}
+	layout, err := LayoutAt(root)
+	if err != nil {
+		return false, err
+	}
+	// From the top level: Git compares the folders above the starting one
+	// letter for letter, so .CLAUDE/ in the index would not match .claude/.
+	return Tracked(root, ":(top,literal,icase)"+layout.Prefix+rel)
+}
+
+// diskIgnoresCase reports whether dir answers to its own name in another
+// letter case. A name without letters cannot tell, so it counts as yes:
+// the extra match only blocks more.
+func diskIgnoresCase(dir string) bool {
+	abs := absKey(dir)
+	base := filepath.Base(abs)
+	swapped := strings.ToUpper(base)
+	if swapped == base {
+		swapped = strings.ToLower(base)
+	}
+	if swapped == base {
+		return true
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return true
+	}
+	other, err := os.Stat(filepath.Join(filepath.Dir(abs), swapped))
+	return err == nil && os.SameFile(info, other)
+}
+
 // Ignored reports whether Git ignores path, a slash path or a folder
 // with a trailing separator, in the repository at root.
 func Ignored(root, path string) bool {

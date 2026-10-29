@@ -266,7 +266,7 @@ func TestImportEllipsisEnvironment_DryRunWritesNothingAndListsTheSpecs(t *testin
 	}
 	assertProjectUnchanged(t, withoutState(before), withoutState(snapshotProject(t, dir)))
 	for _, want := range []string{"environments/ellipsis.yaml", "settings/ellipsis-environment.yaml", "mcps/internal-tools.yaml", "mcps/repo-tools.yaml"} {
-		if !strings.Contains(out, want) {
+		if !strings.Contains(out, filepath.FromSlash(want)) {
 			t.Errorf("dry run does not list %s:\n%s", want, out)
 		}
 	}

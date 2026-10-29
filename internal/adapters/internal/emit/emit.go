@@ -292,7 +292,12 @@ func (s *Session) SetCodexSkillsDir(dir string) {
 
 // SetSkillsDirWriters records which enabled targets write each skills dir.
 func (s *Session) SetSkillsDirWriters(writers map[string][]string) {
-	s.skillsDirWriters.Store(&writers)
+	byDir := make(map[string][]string, len(writers))
+	for dir, targets := range writers {
+		dir = filepath.Clean(dir)
+		byDir[dir] = append(byDir[dir], targets...)
+	}
+	s.skillsDirWriters.Store(&byDir)
 }
 
 // SkillsDirWrittenByOthers reports whether a target other than self

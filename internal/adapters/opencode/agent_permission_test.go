@@ -248,7 +248,7 @@ func TestEmit_Agent_DryRunKeepsHandWrittenProjectRules(t *testing.T) {
 		t.Fatal(emitErr)
 	}
 	preview := string(printed)
-	start := strings.Index(preview, ".opencode/agents/reviewer.md ---")
+	start := strings.Index(preview, filepath.FromSlash(".opencode/agents/reviewer.md")+" ---")
 	if start < 0 {
 		t.Fatalf("no agent preview in:\n%s", preview)
 	}

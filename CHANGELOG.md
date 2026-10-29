@@ -25,6 +25,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - **Breaking:** Claude Code and Codex import leave out a literal `env`, header, or overlay value under a credential name, such as `API_TOKEN=12345678`, unless it is a boolean, path, or file name, so the next sync removes it from the native file. Grok import now keeps a boolean, path, or file name under a credential name and a reference after a scheme word, such as `Bearer $TOKEN`, which it refused before; outside an authorization header, a reference after any other word, such as `hunter ${X}`, is left out, and Grok import refuses it (#2716).
 - Import, `lint`, `migrate`, `compare`, and `sync --global` treat a name ending in `passphrase` or `pass phrase` (`pass_phrase`, `passPhrase`) as a credential name, and catch a `--passphrase <value>` argument or `DB_PASSPHRASE=x` in a rule or hook command. Claude Code import leaves out any literal `CLAUDE_CODE_CLIENT_KEY_PASSPHRASE`, even a value that looks like a file name (#2731).
 - Import, `compare`, `sync --global`, and the web interface check the command in a `PowerShell(...)`, Codex `Exec(...)`, Cursor `Shell(...)`, or Gemini `run_shell_command(...)` rule as they check `Bash(...)`. Claude Code import leaves out such a rule or hook `if` rule when it holds a credential, and previews show it as `<redacted>` (#2737).
+- With `blockReadsOutsideWorkingDirectories` on, sync keeps blocking the repository's `autoMemoryDirectory` when the repository tracks `.claude/Settings.Local.json` in another letter case on a case-insensitive disk, where Claude Code reads it as `settings.local.json` (#2769).
 - Sync refuses to write or remove through a link that leads outside the project or into `.git`; links inside the project still work (#2706).
 - `compare` hides credentials in permission rules and `x-<target>` overrides behind `<redacted>`, as `sync --global` does (#2650).
 - Pack commands refuse unsafe names and sources; a refused name says how to reinstall it with `packs add --name` (#2638, #2690).
@@ -62,6 +63,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
+- With `blockReadsOutsideWorkingDirectories` on, sync treats untracked local settings as yours when the project path is a Windows short name, such as `RUNNER~1`, or a link, so Claude Code auto memory keeps loading the personal memory index (#2760).
 - `import claude` drops settings values and hook groups holding a credential, and stops on an old overlay with one. Use `--overwrite` (#2649, #2668, #2669).
 - A `dev-commands` entry with only a `url` writes `{name, url}` to `.claude/launch.json`, so the preview attaches to a running server (#2579).
 - Sync notes `x-claude` keys Claude Code ignores where they are set, and hooks on an event or `if` filter that never runs them (#2582, #2583).
