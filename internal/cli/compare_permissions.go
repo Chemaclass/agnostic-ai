@@ -209,45 +209,11 @@ func redactPermissionOverride(body string) string {
 	if json.Unmarshal([]byte(body), &value) != nil {
 		return body
 	}
-	changed := false
-	var walk func(any) any
-	walk = func(v any) any {
-		switch v := v.(type) {
-		case map[string]any:
-			var hidden []string
-			for key := range v {
-				if preview.CredentialInRule(key) {
-					hidden = append(hidden, key)
-				}
-			}
-			slices.Sort(hidden)
-			out := make(map[string]any, len(v))
-			for key, item := range v {
-				if i := slices.Index(hidden, key); i >= 0 {
-					changed = true
-					key = preview.Redacted
-					if len(hidden) > 1 {
-						key += "#" + strconv.Itoa(i+1)
-					}
-				}
-				out[key] = walk(item)
-			}
-			return out
-		case []any:
-			for i, item := range v {
-				v[i] = walk(item)
-			}
-			return v
-		case string:
-			if preview.CredentialInRule(v) {
-				changed = true
-				return preview.Redacted
-			}
-		}
-		return v
-	}
-	value = walk(value)
-	if !changed {
+	value, hidden := preview.RedactTree(value, preview.CredentialInRule, func(_ []any, v any) bool {
+		text, ok := v.(string)
+		return ok && preview.CredentialInRule(text)
+	})
+	if len(hidden) == 0 {
 		return body
 	}
 	var raw strings.Builder
