@@ -158,7 +158,7 @@ func withoutCodexCredentials(text string) (string, error) {
 	if _, err := toml.Decode(text, &doc); err != nil {
 		return text, fmt.Errorf("parse overlay: %w", err)
 	}
-	paths := codexCredentialPaths(doc, nil, false)
+	paths := codexCredentialPaths(doc)
 	if len(paths) == 0 {
 		return text, nil
 	}
@@ -179,27 +179,39 @@ func withoutCodexCredentials(text string) (string, error) {
 var codexProseKeys = map[string]bool{"instructions": true, "developer_instructions": true, "compact_prompt": true}
 
 // codexCredentialPaths returns the path of each value in table that holds
-// a credential. Under a key that starts with `env_`, values are variable
-// names, so only a credential by its shape counts.
-func codexCredentialPaths(table map[string]any, prefix []string, names bool) [][]string {
-	var paths [][]string
-	for _, key := range slices.Sorted(maps.Keys(table)) {
-		path := append(slices.Clone(prefix), key)
-		underNames := names || strings.HasPrefix(key, "env_")
-		switch value := table[key].(type) {
-		case map[string]any:
-			paths = append(paths, codexCredentialPaths(value, path, underNames)...)
-		default:
-			if codexCredentialIn(key, value, underNames) {
-				paths = append(paths, path)
+// a credential. A list counts as one value, since the overlay can only
+// leave it out whole. Under a key that starts with `env_`, values are
+// variable names, so only a credential by its shape counts.
+func codexCredentialPaths(table map[string]any) [][]string {
+	_, hidden := preview.RedactTree(table, nil, func(path []any, value any) bool {
+		key, names := "", false
+		for _, step := range path {
+			if name, ok := step.(string); ok {
+				key, names = name, names || strings.HasPrefix(name, "env_")
 			}
+		}
+		return codexCredentialIn(key, value, names)
+	})
+	var paths [][]string
+	for _, path := range hidden {
+		var keys []string
+		for _, step := range path {
+			name, ok := step.(string)
+			if !ok {
+				break
+			}
+			keys = append(keys, name)
+		}
+		if n := len(paths); n == 0 || !slices.Equal(paths[n-1], keys) {
+			paths = append(paths, keys)
 		}
 	}
 	return paths
 }
 
-// codexCredentialIn reports whether value, under key, holds a credential.
-// A string list is also read as one command, as `notify` is.
+// codexCredentialIn reports whether value, under key, holds a credential
+// by itself. A string list is also read as one command, as `notify` is;
+// codexCredentialPaths checks each item.
 func codexCredentialIn(key string, value any, names bool) bool {
 	switch value := value.(type) {
 	case string:
@@ -212,18 +224,9 @@ func codexCredentialIn(key string, value any, names bool) bool {
 			return preview.TokenIn(value)
 		}
 		return credentialSettingValue(key, value)
-	case []map[string]any:
-		for _, item := range value {
-			if len(codexCredentialPaths(item, nil, names)) > 0 {
-				return true
-			}
-		}
 	case []any:
 		var words []string
 		for _, item := range value {
-			if table, ok := item.(map[string]any); ok && len(codexCredentialPaths(table, nil, names)) > 0 || codexCredentialIn(key, item, names) {
-				return true
-			}
 			if word, ok := item.(string); ok {
 				words = append(words, word)
 			}

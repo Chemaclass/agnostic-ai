@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
@@ -138,6 +141,34 @@ func TestImportCodexConfigOverlay_WritesNoOverlayForOnlyCredentials(t *testing.T
 	}
 	if _, err := os.Stat(codexOverlayPath(root)); !os.IsNotExist(err) {
 		t.Errorf("overlay written for a credentials-only config: %v", err)
+	}
+}
+
+// A list leaves the overlay whole, once, when any item holds a credential,
+// and a table in a list keeps the `env_` rule of the key above it.
+func TestCodexCredentialPaths_NamesEachListOnce(t *testing.T) {
+	doc := map[string]any{}
+	if _, err := toml.Decode(`
+model = "gpt-6-luna"
+notify = ["curl", "-H", "Authorization: Bearer NOTIFYSECRET123", "https://hooks.example.com"]
+nested = [["ok"], ["sk-proj-NESTEDSECRET123456"], ["sk-proj-NESTEDSECRET654321"]]
+env_tables = [{ name = "ORG_TOKEN" }, { name = "sk-proj-ENVSECRET1234567" }]
+
+[[providers]]
+experimental_bearer_token = "sk-proj-ROWSECRET1234567"
+
+[[providers]]
+experimental_bearer_token = "sk-proj-ROWSECRET7654321"
+
+[[plain]]
+name = "ORG_TOKEN"
+`, &doc); err != nil {
+		t.Fatal(err)
+	}
+	got := codexCredentialPaths(doc)
+	want := [][]string{{"env_tables"}, {"nested"}, {"notify"}, {"providers"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("paths = %v, want %v", got, want)
 	}
 }
 
