@@ -698,7 +698,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	prev := prior.state
 	release := holdPriorState(root, prev)
 	defer release()
-	renders := newTargetRenders(b)
+	renders := newTargetRenders(cfg, b)
 	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, prior, cfg, renders, targets, dryRun, backup, keepEdits)
 	if err != nil {
 		return err
@@ -886,7 +886,9 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, personal, err := personalSplitBlock(root, cfg, renders, effectiveTargets, gitignoreEntries, prior.missing())
+		// Some adapters choose output paths from what is on disk, so the
+		// planners render after the emit, never from the renders before it.
+		block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), effectiveTargets, gitignoreEntries, prior.missing())
 		if err != nil {
 			return err
 		}
@@ -1344,7 +1346,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	prev := prior.state
 	release := holdPriorState(root, prev)
 	defer release()
-	renders := newTargetRenders(b)
+	renders := newTargetRenders(cfg, b)
 	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, prior, cfg, renders, targets, false, backup, keepEdits)
 	if err != nil {
 		return err
@@ -1465,7 +1467,9 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, personal, err := personalSplitBlock(root, cfg, renders, effectiveTargets, gitignoreEntries, prior.missing())
+		// Some adapters choose output paths from what is on disk, so the
+		// planners render after the emit, never from the renders before it.
+		block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), effectiveTargets, gitignoreEntries, prior.missing())
 		if err != nil {
 			return undoSweep(mainSess, nil, err)
 		}

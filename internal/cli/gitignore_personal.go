@@ -82,7 +82,7 @@ func splitManagedBlock(root string, cfg *config.Config, renders *targetRenders, 
 			return nil, nil, err
 		}
 		teamBundle.ApplyModelTiers(teamCfg.Models)
-		teamRenders = newTargetRenders(teamBundle)
+		teamRenders = newTargetRenders(teamCfg, teamBundle)
 	}
 	mine := ignoreCandidates(cfg, renders)
 	theirs := mine

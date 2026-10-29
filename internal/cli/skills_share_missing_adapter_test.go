@@ -48,7 +48,7 @@ func TestPlanSharedSkills_MissingExternalAdapterIsNotFullCoverage(t *testing.T) 
 	for _, enabled := range []bool{true, false} {
 		t.Setenv("PATH", t.TempDir())
 		cfg := &config.Config{Targets: []string{"codex", "cursor", "fakex"}, Sync: config.SyncConfig{SharedSkills: enabled}}
-		st, err := planSharedSkills(cfg, newTargetRenders(spec.Bundle{}), cfg.Targets)
+		st, err := planSharedSkills(cfg, newTargetRenders(cfg, spec.Bundle{}), cfg.Targets)
 		if err != nil {
 			t.Fatal(err)
 		}

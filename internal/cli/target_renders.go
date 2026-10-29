@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 
@@ -9,12 +10,13 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// targetRenders keeps each target's capture render of one bundle for one
-// run, so collision detection, shared skills, the gitignore planners, and
-// the drift check share it. Every config passed in must be the run's
-// config or a copy with more targets: a render is keyed by the target
-// and the config's target list, the only part that differs between them.
+// targetRenders keeps each target's capture render of one bundle under
+// one config for one run, so collision detection, shared skills, the
+// gitignore planners, and the drift check share it. A render is keyed by
+// the target and the config's target list. A config that differs from
+// the run's in anything but its targets renders on its own, uncached.
 type targetRenders struct {
+	base    config.Config
 	b       spec.Bundle
 	sess    *adapters.Session
 	renders map[string]targetRender
@@ -31,8 +33,10 @@ type targetRender struct {
 	quiet bool
 }
 
-func newTargetRenders(b spec.Bundle) *targetRenders {
-	return &targetRenders{b: b, sess: adapters.NewSession(), renders: map[string]targetRender{}}
+func newTargetRenders(cfg *config.Config, b spec.Bundle) *targetRenders {
+	base := *cfg
+	base.Targets = nil
+	return &targetRenders{base: base, b: b, sess: adapters.NewSession(), renders: map[string]targetRender{}}
 }
 
 // capture returns the adapter's render under cfg and leaves its notes in
@@ -48,16 +52,32 @@ func (r *targetRenders) captureQuiet(adapter adapters.Adapter, cfg *config.Confi
 }
 
 func (r *targetRenders) render(adapter adapters.Adapter, cfg *config.Config, quiet bool) targetRender {
+	if !r.runConfig(cfg) {
+		return captureRender(adapters.NewSession(), adapter, r.b, cfg, quiet)
+	}
 	key := adapter.Name() + "\x00" + strings.Join(cfg.Targets, "\x00")
 	if got, ok := r.renders[key]; ok && (quiet || !got.quiet) {
 		return got
 	}
-	r.sess.StartCapture()
-	err := emitAdapter(r.sess, adapter, r.b, cfg, false)
-	got := targetRender{files: r.sess.StopCapture(), removals: slices.Clone(r.sess.CapturedRemovals()), err: err, quiet: quiet}
+	got := captureRender(r.sess, adapter, r.b, cfg, quiet)
+	r.renders[key] = got
+	return got
+}
+
+// runConfig reports whether cfg matches the run's config apart from its
+// targets.
+func (r *targetRenders) runConfig(cfg *config.Config) bool {
+	other := *cfg
+	other.Targets = nil
+	return reflect.DeepEqual(other, r.base)
+}
+
+func captureRender(sess *adapters.Session, adapter adapters.Adapter, b spec.Bundle, cfg *config.Config, quiet bool) targetRender {
+	sess.StartCapture()
+	err := emitAdapter(sess, adapter, b, cfg, false)
+	got := targetRender{files: sess.StopCapture(), removals: slices.Clone(sess.CapturedRemovals()), err: err, quiet: quiet}
 	if err != nil {
 		got.files = nil
 	}
-	r.renders[key] = got
 	return got
 }

@@ -39,7 +39,7 @@ import (
 // overrides diverge), which would otherwise cause silent last-writer-wins
 // and perpetual drift in `sync --check`.
 func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winners map[string]string, err error) {
-	return detectRenderedCollisions(newTargetRenders(b), cfg, targets)
+	return detectRenderedCollisions(newTargetRenders(cfg, b), cfg, targets)
 }
 
 // detectRenderedCollisions is detectCollisions over the run's renders.

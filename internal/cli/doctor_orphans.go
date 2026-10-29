@@ -60,7 +60,7 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 		return 0, err
 	}
 	bundle.ApplyModelTiers(cfg.Models)
-	generated, unloaded, renderErr := orphanGeneratedPaths(cfg, newTargetRenders(bundle), reports)
+	generated, unloaded, renderErr := orphanGeneratedPaths(cfg, newTargetRenders(cfg, bundle), reports)
 	sess := adapters.NewSession()
 	sess.SetUnmanaged(cfg.Sync.Unmanaged)
 	sess.SetBackup(backup)
