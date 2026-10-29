@@ -59,7 +59,7 @@ Claude Code import leaves out such an `env` value with a warning, and the whole 
 
 ## Credential names
 
-A name is a credential name when its last word is `token`, `secret`, `password`, `passwd`, `pwd`, `pass`, `accesstoken`, `authtoken`, `credential`, `credentials`, `cookie`, `bearer`, `apikey`, `authentication`, or `authorization`. Words split at punctuation and camelCase, so `clientSecret` and `API_TOKEN` count and `token_type` does not. A one-word name ending in `password`, `passwd`, `secret`, or `token` counts too, as `PGPASSWORD` and `MYTOKEN` do.
+A name is a credential name when its last word is `token`, `secret`, `password`, `passwd`, `passphrase`, `pwd`, `pass`, `accesstoken`, `authtoken`, `credential`, `credentials`, `cookie`, `bearer`, `apikey`, `authentication`, or `authorization`. Words split at punctuation and camelCase, so `clientSecret` and `API_TOKEN` count and `token_type` does not; `pass_phrase` counts as `passphrase`. A one-word name ending in `password`, `passwd`, `passphrase`, `secret`, or `token` counts too, as `PGPASSWORD` and `MYTOKEN` do.
 
 A last word `key` counts unless the word before it is `sort`, `cache`, `public`, `partition`, `primary`, `foreign`, `idempotency`, `routing`, `object`, `row`, `hash`, `map`, `lookup`, `group`, `dedup`, `shard`, `index`, `unique`, `composite`, `natural`, `surrogate`, `ssh`, `gpg`, `pgp`, `s3`, or `id`. So `api_key`, `OPENAI_KEY`, and `--openai-key` count, and `sort_key`, `cache_key`, `--public-key`, and `--ssh-key` do not.
 
