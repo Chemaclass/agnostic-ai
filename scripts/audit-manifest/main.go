@@ -860,6 +860,7 @@ func (a app) finalize(m *manifest) (string, error) {
 		covered[s.key()] = s
 	}
 	withheld, advanced := 0, 0
+	var unlocked []string
 	for url, group := range owners {
 		var row []string
 		eligible := true
@@ -878,6 +879,9 @@ func (a app) finalize(m *manifest) (string, error) {
 		}
 		if !eligible {
 			withheld++
+			if _, ok := old[url]; !ok && slices.ContainsFunc(group, func(owner source) bool { _, ok := covered[owner.key()]; return ok }) {
+				unlocked = append(unlocked, url)
+			}
 			continue
 		}
 		old[url] = strings.Join(row[:7], "\t")
@@ -907,7 +911,12 @@ func (a app) finalize(m *manifest) (string, error) {
 	if err = save(m); err != nil {
 		return "", fmt.Errorf("%s: lock committed; manifest finalization marker failed (committed sha256 %s); preserve the run and see scripts/target-audit/manifest.md: %w", a.lock, m.Finalized, err)
 	}
-	return fmt.Sprintf("coverage validated: %d targets, %d sources; %d eligible URLs, %d retained URLs\n", len(m.Targets), len(m.Sources), advanced, withheld), nil
+	summary := fmt.Sprintf("coverage validated: %d targets, %d sources; %d eligible URLs, %d retained URLs\n", len(m.Targets), len(m.Sources), advanced, withheld)
+	if len(unlocked) > 0 {
+		sort.Strings(unlocked)
+		summary += fmt.Sprintf("%d retained URLs have no lock row: %s\n", len(unlocked), strings.Join(unlocked, " "))
+	}
+	return summary, nil
 }
 
 func (a app) run(args []string) (string, error) {

@@ -36,6 +36,14 @@ augment	docs	https://docs.augmentcode.com/cli/permissions.md	200	markdown-mirror
 augment	docs	https://docs.augmentcode.com/cli/rules.md	200	markdown-mirror	a57498c867756370da2c0ad524109c1de0a400c234469093788d7a239effe94b	2026-10-29
 augment	docs	https://docs.augmentcode.com/cli/skills.md	200	markdown-mirror	fbd646ed78c102647db604bf1558f933c4fa38a17d7482f73c6d6fa06c865598	2026-10-29
 augment	docs	https://docs.augmentcode.com/cli/subagents.md	200	markdown-mirror	f395994e52a284aa7571e27fbee3394ebf7af1810d343ede7d38436fc05905d5	2026-10-29
+augment	docs	https://docs.augmentcode.com/cli/v0/config.md	200	markdown-mirror	7774621a2fde65bcdd08b70b18d9e58e8ce00b8808c5914c5fa68591bc2df2cc	2026-10-29
+augment	docs	https://docs.augmentcode.com/cli/v0/custom-commands.md	200	markdown-mirror	5d034d46e70fd6d422d472d897f624dc414b10688298a8d129dd0cf2fbc2658d	2026-10-29
+augment	docs	https://docs.augmentcode.com/cli/v0/hooks.md	200	markdown-mirror	8199b862d5e201c55f16588e80f3869523fcf145fcc63b4f0c5293cffe1c37e1	2026-10-29
+augment	docs	https://docs.augmentcode.com/cli/v0/integrations.md	200	markdown-mirror	af4c826f56bbe5f38497bf016ef34c70ed7d310790a66476374ff6a6d65741c5	2026-10-29
+augment	docs	https://docs.augmentcode.com/cli/v0/permissions.md	200	markdown-mirror	66e572971d52fb91a2abfd8f700117a5edf53f018e7eac3849eec8e1f7671f09	2026-10-29
+augment	docs	https://docs.augmentcode.com/cli/v0/rules.md	200	markdown-mirror	b975516d6a20a89d9eb6736414bf8062021cc6949af2e323ca2b96bf0a07efd0	2026-10-29
+augment	docs	https://docs.augmentcode.com/cli/v0/skills.md	200	markdown-mirror	9ef936893ab98c76d0a73d23b326935bcc669b1ffb4f2960381c7986a64c3973	2026-10-29
+augment	docs	https://docs.augmentcode.com/cli/v0/subagents.md	200	markdown-mirror	c45027787ae51d97100dfb0d9769b1a6228733c8b110db38e7c9a1be0cdc4853	2026-10-29
 augment	docs	https://docs.augmentcode.com/setup-augment/guidelines.md	200	markdown-mirror	373a114a4823aec2675935fed0cd7ff4695b8733c0565ef6a3944e3b0622bf67	2026-10-24
 claude	changelog	https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md	200	raw-github	379eaa1f7cecbca8ac5604b92877c72a1bb59b4a860ba0458773ee660100eda9	2026-10-29
 claude	docs	https://code.claude.com/docs/en/claude-directory	200	html	bd08d097485ede1c2faae8faede1f90ef2650f7c73495b26d34751cc5f794e6b	2026-10-29
