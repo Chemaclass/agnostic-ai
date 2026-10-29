@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -11,10 +11,11 @@ import (
 // plainFileLinkFailures names each link Git tracks that the check found
 // as a plain file holding the link text, the way Git checks a link out
 // under core.symlinks=false. The check then reads that text instead of
-// the target, so regenerating does not settle the drift. dir is the
+// the target, so regenerating does not settle the drift. Only links the
+// check reads count: at, under, or above a path in read. dir is the
 // directory the links are relative to, and skip lists the links another
 // diagnosis already names.
-func plainFileLinkFailures(dir string, links []string, skip []againstSkillLinkFailure, ref string) ([]againstSkillLinkFailure, error) {
+func plainFileLinkFailures(dir string, links, read []string, skip []againstSkillLinkFailure, ref string) ([]againstSkillLinkFailure, error) {
 	named := map[string]bool{}
 	for _, f := range skip {
 		named[f.path] = true
@@ -22,7 +23,7 @@ func plainFileLinkFailures(dir string, links []string, skip []againstSkillLinkFa
 	sort.Strings(links)
 	var out []againstSkillLinkFailure
 	for _, link := range links {
-		if named[link] {
+		if named[link] || !readsLink(link, read) {
 			continue
 		}
 		info, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(link)))
@@ -30,7 +31,7 @@ func plainFileLinkFailures(dir string, links []string, skip []againstSkillLinkFa
 			if os.IsNotExist(err) {
 				continue
 			}
-			return nil, fmt.Errorf("%s: %w", link, err)
+			return nil, err
 		}
 		if !info.Mode().IsRegular() {
 			continue
@@ -44,6 +45,37 @@ func plainFileLinkFailures(dir string, links []string, skip []againstSkillLinkFa
 		out = append(out, againstSkillLinkFailure{path: link, message: message})
 	}
 	return out, nil
+}
+
+// readsLink reports whether link sits at, under, or above one of the
+// paths in read.
+func readsLink(link string, read []string) bool {
+	for _, p := range read {
+		if p == "." || link == p || strings.HasPrefix(link, p+"/") || strings.HasPrefix(p, link+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// checkedPaths lists what the check reads, relative to the project: the
+// spec inputs `explain --inputs` prints, and the outputs in reports.
+func checkedPaths(inputs []string, reports []driftReport) []string {
+	var out []string
+	for _, in := range inputs {
+		if !strings.HasPrefix(in, "builtin:") {
+			out = append(out, path.Clean(strings.TrimSuffix(in, "/**")))
+		}
+	}
+	for _, p := range driftGeneratedPaths(reports) {
+		out = append(out, filepath.ToSlash(p))
+	}
+	for _, r := range reports {
+		for _, p := range append(append([]string(nil), r.Leftover...), r.Orphaned...) {
+			out = append(out, filepath.ToSlash(p))
+		}
+	}
+	return out
 }
 
 // trackedLinks lists the links Git tracks in the index under the working

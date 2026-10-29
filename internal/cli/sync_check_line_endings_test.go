@@ -113,16 +113,25 @@ func TestSyncCheck_NamesCoreSymlinksForASpecLinkCheckedOutAsAPlainFile(t *testin
 	if err := os.Symlink(filepath.Join("..", "shared", "instructions.md"), entry); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
+	unrelated := filepath.Join(dir, "docs", "README.md")
+	if err := os.MkdirAll(filepath.Dir(unrelated), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "shared", "instructions.md"), unrelated); err != nil {
+		t.Fatal(err)
+	}
 	if err := runSyncArgs(t); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	git(t, dir, "add", "-A")
 	git(t, dir, "commit", "-q", "-m", "linked instructions")
 	git(t, dir, "config", "core.symlinks", "false")
-	if err := os.Remove(entry); err != nil {
-		t.Fatal(err)
+	for _, p := range []string{entry, unrelated} {
+		if err := os.Remove(p); err != nil {
+			t.Fatal(err)
+		}
 	}
-	git(t, dir, "checkout", "--", ".agnostic-ai/AGNOSTIC_AI.md")
+	git(t, dir, "checkout", "--", ".agnostic-ai/AGNOSTIC_AI.md", "docs/README.md")
 	if info, err := os.Lstat(entry); err != nil || !info.Mode().IsRegular() {
 		t.Fatalf("fixture checkout kept the link: %v", err)
 	}
@@ -143,6 +152,81 @@ func TestSyncCheck_NamesCoreSymlinksForASpecLinkCheckedOutAsAPlainFile(t *testin
 				if !strings.Contains(out, want) {
 					t.Errorf("report lacks %q:\n%s", want, out)
 				}
+			}
+			if strings.Contains(out, "docs/README.md") {
+				t.Errorf("a link the check does not read is not named:\n%s", out)
+			}
+		})
+	}
+}
+
+// crlfCheckout checks every tracked file out again, so each text file
+// holds CRLF line endings.
+func crlfCheckout(t *testing.T, dir string) {
+	t.Helper()
+	for _, p := range strings.Split(git(t, dir, "ls-files"), "\n") {
+		if err := os.Remove(filepath.Join(dir, filepath.FromSlash(p))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	git(t, dir, "checkout", "--", ".")
+	data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil || !strings.Contains(string(data), "\r\n") {
+		t.Fatalf("fixture checkout kept LF: %v", err)
+	}
+}
+
+func TestSync_KeepsNoBackupOfAFileGitCheckedOutWithCRLF(t *testing.T) {
+	dir := windowsCheckout(t, map[string]string{"core.autocrlf": "true"}, "")
+	crlfCheckout(t, dir)
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md.bak")); err == nil {
+		t.Error("a CRLF checkout is no hand edit, so sync keeps no backup")
+	}
+	if stdout, stderr, err := checkWorkingTree(t); err != nil {
+		t.Errorf("sync settles a CRLF checkout: %v\n%s\n%s", err, stdout, stderr)
+	}
+}
+
+func TestSyncCheck_ReadsAChangedCRLFCheckoutAsOutOfDate(t *testing.T) {
+	dir := windowsCheckout(t, map[string]string{"core.autocrlf": "true"}, "")
+	crlfCheckout(t, dir)
+	editRuleSpec(t, dir, "Changed rule.\n")
+	stdout, stderr, err := checkWorkingTree(t)
+	if err == nil {
+		t.Fatal("a changed spec is drift")
+	}
+	out := stdout + stderr
+	if !strings.Contains(out, "out of date") || strings.Contains(out, "edited") {
+		t.Errorf("a CRLF checkout of an older render is out of date, not edited:\n%s", out)
+	}
+}
+
+func TestSyncCheckAgainst_KeepsTheCommitStepForCRLFGitStores(t *testing.T) {
+	dir := windowsCheckout(t, map[string]string{"core.autocrlf": "false"}, "CLAUDE.md -text\n")
+	path := filepath.Join(dir, "CLAUDE.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, path, strings.ReplaceAll(string(data), "\n", "\r\n"))
+	git(t, dir, "commit", "-q", "-am", "crlf")
+	for _, format := range []string{"human", "github"} {
+		t.Run(format, func(t *testing.T) {
+			stdout, stderr, err := checkAgainst(t, "HEAD", "--format", format)
+			if err == nil {
+				t.Fatal("a stored CRLF file differs from what sync writes")
+			}
+			out := stdout + stderr + err.Error()
+			for _, want := range []string{"CLAUDE.md", "line endings", "Git stores them with CRLF", "commit the regenerated files"} {
+				if !strings.Contains(out, want) {
+					t.Errorf("report lacks %q:\n%s", want, out)
+				}
+			}
+			if strings.Contains(out, "core.autocrlf false") {
+				t.Errorf("the export ignores core.autocrlf, so it is not the fix:\n%s", out)
 			}
 		})
 	}

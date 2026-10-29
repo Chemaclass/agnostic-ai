@@ -272,7 +272,11 @@ func newSyncCmd() *cobra.Command {
 					if tree != nil {
 						links = tree.exportedLinks
 					}
-					plain, err := plainFileLinkFailures(".", links(), linkFailures, against)
+					inputs, err := projectInputs(cfg)
+					if err != nil {
+						return err
+					}
+					plain, err := plainFileLinkFailures(".", links(), checkedPaths(inputs, reports), linkFailures, against)
 					if err != nil {
 						return err
 					}

@@ -134,7 +134,7 @@ A failing `--check` exits non-zero in every format. Stderr names the fix, `agnos
 |-------|---------|
 | Out of date | The file still holds what the last sync wrote, so the specs changed. Without a record of the last sync, as in fresh CI, every changed file reads this way. |
 | Edited locally | The file changed since the last sync. The next sync saves it as `<path>.bak`, then writes over it. |
-| Line endings only | Git checked the file out with CRLF line endings. Run `git config core.autocrlf false`, or add a `.gitattributes` rule such as `* text eol=lf`, then run `agnostic-ai sync`. |
+| Line endings only | Git checked the file out with CRLF line endings. Run `git config core.autocrlf false`, or add a `.gitattributes` rule such as `* text eol=lf`, then run `agnostic-ai sync`. With `--against`, Git stores the file with CRLF or an `eol` rule converts it: drop the rule, then stage or commit the regenerated file. |
 
 A spec or output that Git tracks as a link and checked out as a plain file, as it does with `core.symlinks=false`, gets a message naming that setting.
 

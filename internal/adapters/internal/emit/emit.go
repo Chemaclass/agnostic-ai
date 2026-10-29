@@ -444,9 +444,8 @@ func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 	if info, err := cur.lstat(); err != nil || !info.Mode().IsRegular() {
 		return false
 	}
-	got := ContentSum(string(existing))
 	// A checkout or pull, not the user, changed a file that matches Git.
-	return got != sum && (committed == nil || got != committed(path))
+	return !MatchesSum(existing, sum) && (committed == nil || !MatchesSum(existing, committed(path)))
 }
 
 // SetCommittedSum sets the lookup KeepEditsSince falls back on for a path
@@ -491,7 +490,7 @@ func (s *Session) keepsEdit(path, content string) (string, bool) {
 	if sum == "" && committed != nil {
 		sum = committed(path)
 	}
-	if sum == "" || ContentSum(string(existing)) == sum {
+	if sum == "" || MatchesSum(existing, sum) {
 		return "", false
 	}
 	return sum, true
@@ -1568,6 +1567,16 @@ func (s *Session) removeWithBackup(path, sum string, existing []byte, handWritte
 func ContentSum(content string) string {
 	h := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(h[:])
+}
+
+// MatchesSum reports whether data holds the content whose ContentSum is
+// sum, also after folding CRLF to LF: Git writes LF output with CRLF
+// under core.autocrlf or an eol rule, which is no hand edit.
+func MatchesSum(data []byte, sum string) bool {
+	if ContentSum(string(data)) == sum {
+		return true
+	}
+	return strings.Contains(string(data), "\r\n") && ContentSum(strings.ReplaceAll(string(data), "\r\n", "\n")) == sum
 }
 
 // RemoveGeneratedTree walks dir and removes every file that carries

@@ -110,7 +110,7 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 		// A file written without the header (provenance-header: false) is
 		// managed when the sync record holds its bytes or sync writes it
 		// headerless; a fresh clone has no record.
-		if headerless[rel] || sums[rel] != "" && adapters.ContentSum(string(data)) == sums[rel] {
+		if headerless[rel] || sums[rel] != "" && adapters.MatchesSum(data, sums[rel]) {
 			return
 		}
 		out = append(out, unmanagedFinding{Path: rel, Target: target})

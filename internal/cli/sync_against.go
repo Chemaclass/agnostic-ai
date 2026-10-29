@@ -981,7 +981,7 @@ func (t *againstTree) trackedUnmanaged(cfg *config.Config) ([]unmanagedFinding, 
 // own fix, which the reconcile hint names.
 func regeneratedDrift(reports []driftReport) bool {
 	for _, r := range reports {
-		if len(r.Missing)+len(r.Stale)+len(r.Edited) > len(r.lineEndings) {
+		if len(r.Missing)+len(r.Stale)+len(r.Edited) > 0 {
 			return true
 		}
 	}

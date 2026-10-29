@@ -94,7 +94,7 @@ func (r *driftReport) addChanged(f adapters.CapturedFile, disk []byte, sums map[
 		r.Stale = append(r.Stale, f)
 		return
 	}
-	if sum := sums[f.Path]; sum != "" && adapters.ContentSum(string(disk)) != sum {
+	if sum := sums[f.Path]; sum != "" && !adapters.MatchesSum(disk, sum) {
 		r.Edited = append(r.Edited, f)
 		return
 	}
@@ -108,22 +108,31 @@ func onlyLineEndingsDiffer(disk []byte, want string) bool {
 		string(bytes.ReplaceAll(disk, []byte("\r\n"), []byte("\n"))) == want
 }
 
-// lineEndingAdvice is the fix for files that differ only by line endings:
-// running sync rewrites them, and the next checkout converts them again.
-const lineEndingAdvice = "Git checked them out with CRLF line endings; run git config core.autocrlf false, or add a .gitattributes rule such as `* text eol=lf`, then run agnostic-ai sync"
+// lineEndingAdvice is the fix for files that differ only by line endings
+// in the state ref names, "" for the working tree. There, running sync
+// alone does not hold: the next checkout converts the files again. The
+// --against export keeps the stored line endings, so there the stored
+// file or an eol rule holds the CRLF.
+func lineEndingAdvice(ref string) string {
+	if ref == "" {
+		return "Git checked them out with CRLF line endings; run git config core.autocrlf false, or add a .gitattributes rule such as `* text eol=lf`, then run agnostic-ai sync"
+	}
+	_, step := againstPlace(ref)
+	return "Git stores them with CRLF line endings, or an eol rule in .gitattributes converts them; drop any such rule, then " + step
+}
 
 // lineEndingCount counts the changed files in reports that differ only
-// by line endings.
-func lineEndingCount(reports []driftReport) int {
-	n := 0
+// by line endings, and names the state they were compared in.
+func lineEndingCount(reports []driftReport) (n int, ref string) {
 	for _, r := range reports {
 		for _, f := range r.changed() {
 			if r.lineEndings[f.Path] {
 				n++
+				ref = r.against
 			}
 		}
 	}
-	return n
+	return n, ref
 }
 
 // splitMerged separates the files that sync merges into from the ones it
@@ -400,7 +409,7 @@ func leftoverReportsIn(cfg *config.Config, emitted map[string]bool, ledger ledge
 		}
 		sum := state.OutputSums[p]
 		_, merged := state.Merged[p]
-		if merged || header.Has(string(data)) || sum != "" && adapters.ContentSum(string(data)) == sum {
+		if merged || header.Has(string(data)) || sum != "" && adapters.MatchesSum(data, sum) {
 			rep.Leftover = append(rep.Leftover, p)
 		}
 	}
