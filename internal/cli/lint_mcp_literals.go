@@ -92,7 +92,7 @@ func lintAgentFileCredentials(b spec.Bundle, targets []string) []lintFinding {
 // or header value as a credential: a value under a credential name, or
 // one that holds a credential by its shape.
 func mcpCredentialSetting(key, value string) bool {
-	return mcpCredentialKey(key) && mcpSecretValue(mcpDetectorText(value), false, mcpWeakCredential) || mcpCredentialDetected(value)
+	return preview.CredentialKey(key) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential) || preview.CredentialDetected(value)
 }
 
 // mcpMarkedLiteral is a value import writes as `!literal value`.
@@ -116,7 +116,7 @@ func markMCPLiterals(server map[string]any) map[string]any {
 		}
 		marked := maps.Clone(values)
 		for key, raw := range values {
-			if value, ok := raw.(string); ok && value != "" && !mcpCredentialKey(key) && !mcpReferenceValue(field, value) {
+			if value, ok := raw.(string); ok && value != "" && !preview.CredentialKey(key) && !mcpReferenceValue(field, value) {
 				marked[key] = mcpMarkedLiteral(value)
 			}
 		}

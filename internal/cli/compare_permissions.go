@@ -194,7 +194,7 @@ func displayPermissionNative(native string, fromCredential bool) string {
 		return preview.Redacted
 	case keyed:
 		return key + ": " + redactPermissionOverride(body)
-	case permissionRuleCredential(native):
+	case preview.CredentialInRule(native):
 		return displayPermissionNative(native, true)
 	}
 	return native
@@ -216,7 +216,7 @@ func redactPermissionOverride(body string) string {
 		case map[string]any:
 			var hidden []string
 			for key := range v {
-				if permissionRuleCredential(key) {
+				if preview.CredentialInRule(key) {
 					hidden = append(hidden, key)
 				}
 			}
@@ -239,7 +239,7 @@ func redactPermissionOverride(body string) string {
 			}
 			return v
 		case string:
-			if permissionRuleCredential(v) {
+			if preview.CredentialInRule(v) {
 				changed = true
 				return preview.Redacted
 			}
@@ -257,17 +257,6 @@ func redactPermissionOverride(body string) string {
 		return preview.Redacted
 	}
 	return strings.TrimSpace(raw.String())
-}
-
-// permissionRuleCredential reads text as a rule in any tool's spelling,
-// such as `Exec(...)` or a bare command pattern, and checks its command
-// as shell too.
-func permissionRuleCredential(text string) bool {
-	command := text
-	if _, inner, ok := strings.Cut(text, "("); ok && strings.HasSuffix(text, ")") {
-		command = strings.TrimSuffix(inner, ")")
-	}
-	return preview.CredentialInRule(text) || preview.CredentialInRule("shell("+command+")")
 }
 
 func permissionNativePaths(files []adapters.CapturedFile, list, rule string, translated adapters.CapabilityTranslation) ([]string, bool, string) {

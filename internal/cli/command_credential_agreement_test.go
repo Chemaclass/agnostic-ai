@@ -25,11 +25,13 @@ func TestCommandCredentialChecksAgree(t *testing.T) {
 		{`DB_PASSPHRASE=${DB_PASSPHRASE} make release`, false},
 		{`age --passphrase *`, true},
 	} {
+		exec := "Exec(" + c.command + ")"
 		checks := map[string]bool{
-			"compare":           permissionRuleCredential("shell(" + c.command + ")"),
+			"compare native":    displayPermissionNative(exec, false) != exec,
+			"compare rule":      preview.RedactRule(exec) != exec,
 			"import hook":       claudeHookCredentialField(claudehooks.CommandEntry{Command: c.command}) == "command",
-			"import helper":     globalPermissionCommandCredentialDetected(c.command),
-			"sync --global":     globalPermissionCredentialDetected("Bash(" + c.command + ")"),
+			"import hook if":    claudeHookCredentialField(claudehooks.CommandEntry{If: "PowerShell(" + c.command + ")"}) == "if",
+			"import helper":     preview.CommandCredentialDetected(c.command),
 			"authority preview": preview.CredentialInRule("Bash(" + c.command + ")"),
 		}
 		for name, got := range checks {

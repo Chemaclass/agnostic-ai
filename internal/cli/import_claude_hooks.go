@@ -14,6 +14,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
@@ -113,15 +114,15 @@ func claudeGroupCredentialField(g claudehooks.Group) string {
 func claudeHookCredentialField(h claudehooks.CommandEntry) string {
 	command := adapters.ExecFormCommand(adapters.StripCursorGuard(h.Command), h.Args)
 	switch {
-	case h.Command != "" && (globalPermissionCommandCredentialDetected(command) || claudeWebhookURL(command)):
+	case h.Command != "" && (preview.CommandCredentialDetected(command) || claudeWebhookURL(command)):
 		return "command"
-	case h.URL != "" && (mcpCredentialDetected(h.URL) || claudeWebhookURL(h.URL)):
+	case h.URL != "" && (preview.CredentialDetected(h.URL) || claudeWebhookURL(h.URL)):
 		return "url"
-	case h.If != "" && globalPermissionCredentialDetected(h.If):
+	case h.If != "" && preview.CredentialInRule(h.If):
 		return "if"
-	case h.StatusMessage != "" && mcpCredentialDetected(h.StatusMessage):
+	case h.StatusMessage != "" && preview.CredentialDetected(h.StatusMessage):
 		return "statusMessage"
-	case h.Prompt != "" && mcpCredentialDetected(h.Prompt):
+	case h.Prompt != "" && preview.CredentialDetected(h.Prompt):
 		return "prompt"
 	}
 	for _, key := range slices.Sorted(maps.Keys(h.Headers)) {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -123,7 +124,7 @@ func planOpencodeV2MCP(root string, sources config.Sources) (map[string]any, err
 	delete(defaults, "servers")
 	unsafe := ""
 	walkMCPStrings("mcp", "mcp", opencodeNativeCredentialView(defaults), func(field, key, value string) {
-		if unsafe == "" && (mcpCredentialDetected(value) || mcpCredentialKey(key) && !mcpRefOnly(value) && mcpSecretValue(mcpDetectorText(value), false, mcpWeakCredential)) {
+		if unsafe == "" && (preview.CredentialDetected(value) || preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential)) {
 			unsafe = field
 		}
 	})

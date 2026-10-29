@@ -182,20 +182,6 @@ func (v *mcpURLValue) set(i int, text string) {
 
 func (v *mcpURLValue) String() string { return strings.Join(v.pieces, "") }
 
-type mcpCredentialStrength = preview.CredentialStrength
-
-const (
-	mcpWeakCredential   = preview.WeakCredential
-	mcpStrongCredential = preview.StrongCredential
-)
-
-func mcpNameStrength(name string, key bool) mcpCredentialStrength {
-	return preview.NameStrength(name, key)
-}
-func mcpCredentialName(name string) bool  { return preview.CredentialName(name) }
-func mcpCredentialKey(name string) bool   { return preview.CredentialKey(name) }
-func mcpCredentialParam(name string) bool { return preview.CredentialParam(name) }
-
 func mcpCredentialValue(value string) bool {
 	return value != "" && !spec.OnlyEscapedEnvRefs(value)
 }
@@ -282,7 +268,7 @@ func settingNamesNoSecret(value string) bool {
 	if settingSwitch.MatchString(v) {
 		return true
 	}
-	return (settingPathShaped(v) || settingFileName.MatchString(v)) && !mcpTokenIn(v) && !mcpCredentialDetected(v)
+	return (settingPathShaped(v) || settingFileName.MatchString(v)) && !preview.TokenIn(v) && !preview.CredentialDetected(v)
 }
 
 // credentialSettingValue reports whether an imported setting, such as an
@@ -295,7 +281,7 @@ func credentialSettingValue(key, value string) bool {
 	if !literalSettingValue(key, value) {
 		return false
 	}
-	return mcpCredentialKey(key) && !settingNamesNoSecret(value) || mcpCredentialSetting(key, value)
+	return preview.CredentialKey(key) && !settingNamesNoSecret(value) || mcpCredentialSetting(key, value)
 }
 
 type mcpCredentialSpan struct {
@@ -315,41 +301,6 @@ func mcpSingleURL(value string) bool {
 	}
 	return mcpSchemePattern.MatchString(value) || strings.HasPrefix(value, "${")
 }
-
-const mcpRefSentinel = preview.RefSentinel
-
-func mcpLiteralCredential(value string) bool { return preview.LiteralCredential(value) }
-
-func mcpDetectorText(value string) string { return preview.DetectorText(value) }
-
-// mcpCredentialDetected reports whether value holds a literal credential
-// anywhere, reference defaults and escaped references included: a URL
-// password or credential query or fragment parameter, a token by its
-// prefix, a scheme-less `user:password@host`, a `NAME=value` or a
-// `--name value` whose name ends in a credential word, or a literal
-// `Bearer` token. It errs toward finding one, since a
-// false find only leaves a server out with a warning. A password is a
-// literal after a `:` and before an `@` in the text from `://` to the
-// next `/`, `?`, or `#`. An `@` after that counts too, unless the text
-// before it is a host with a port, as in `https://host:8443/@scope`. It
-// reads value as written and again with shell quotes and backslashes
-// removed, so `?'token=x'` counts too, and each of those again with
-// percent-encoded separators decoded once.
-func mcpCredentialDetected(value string) bool { return preview.CredentialDetected(value) }
-
-func mcpToken(value string) bool { return preview.Token(value) }
-
-func mcpSecretValue(text string, separate bool, strength mcpCredentialStrength) bool {
-	return preview.SecretValue(text, separate, strength)
-}
-
-func mcpRefOnly(value string) bool { return preview.RefOnly(value) }
-
-func mcpCredentialHeader(value string) bool { return preview.CredentialHeader(value) }
-
-func mcpTokenIn(text string) bool { return preview.TokenIn(text) }
-
-func mcpURLCredentialIn(text string) bool { return preview.URLCredentialIn(text) }
 
 // splitMCPURLCredentials finds the `user:password@` password and each
 // credential query parameter in value, one URL. It returns the value
@@ -390,7 +341,7 @@ func mcpURLCredentialSpans(word, mask string) ([]mcpCredentialSpan, bool) {
 			if colon >= 0 {
 				user = user[:colon]
 			}
-			if mcpToken(word[pos : pos+len(user)]) {
+			if preview.Token(word[pos : pos+len(user)]) {
 				spans = append(spans, mcpCredentialSpan{"token", pos, pos + len(user)})
 			}
 			if colon >= 0 {
@@ -423,7 +374,7 @@ func mcpParamSpans(word, mask string, start, end int) []mcpCredentialSpan {
 	for start <= end {
 		stop := start + indexAnyOrLen(mask[start:end], "&;")
 		if eq := strings.Index(mask[start:stop], "="); eq >= 0 {
-			if name := word[start : start+eq]; mcpCredentialParam(name) && mcpCredentialValue(word[start+eq+1:stop]) {
+			if name := word[start : start+eq]; preview.CredentialParam(name) && mcpCredentialValue(word[start+eq+1:stop]) {
 				spans = append(spans, mcpCredentialSpan{name, start + eq + 1, stop})
 			}
 		}
@@ -560,7 +511,7 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 
 // mcpURLLiterals returns the credentials in server's `url` and `args`:
 // a URL password, a URL username that is a token, each query or fragment
-// parameter mcpCredentialParam names, the value of a `--name` or
+// parameter preview.CredentialParam names, the value of a `--name` or
 // `--name=value` flag whose name ends in a credential word, and an
 // argument that is a whole token. The rest of the value stays as
 // written. A credential that is already a reference stays one but loses
@@ -586,7 +537,7 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 		for i := range creds {
 			scrubbed[i] = spec.EnvRef("X")
 		}
-		if mcpCredentialDetected(strings.Join(scrubbed, "")) {
+		if preview.CredentialDetected(strings.Join(scrubbed, "")) {
 			unreadable = field
 			return
 		}
@@ -614,20 +565,20 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 		}
 		record(value)
 		if !mcpSingleURL(value) {
-			if mcpCredentialDetected(value) {
+			if preview.CredentialDetected(value) {
 				unreadable = field
 			}
 			return
 		}
 		var stripped []mcpLiteralRef
 		for _, t := range spec.EnvRefTokens(value) {
-			if t.Known() && t.HasDefault && mcpCredentialDetected(t.Default) {
+			if t.Known() && t.HasDefault && preview.CredentialDetected(t.Default) {
 				value = strings.Replace(value, t.Text, spec.EnvRef(t.Name), 1)
 				stripped = append(stripped, mcpLiteralRef{server: name, field: field, key: "reference", value: spec.EnvRef(t.Name), variable: t.Name, defaulted: true})
 			}
 		}
 		pieces, creds, ok := splitMCPURLCredentials(value)
-		if !ok || creds == nil && mcpCredentialDetected(value) {
+		if !ok || creds == nil && preview.CredentialDetected(value) {
 			unreadable = field
 			return
 		}
@@ -651,8 +602,8 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 	}
 	// flagValue reports whether value is a credential flag's value: a
 	// reference, whose default import strips, or a literal secret.
-	flagValue := func(value string, separate bool, strength mcpCredentialStrength) bool {
-		return spec.OnlyEnvRefs(value) && (!separate || !strings.HasPrefix(value, "-")) || mcpSecretValue(mcpDetectorText(value), separate, strength)
+	flagValue := func(value string, separate bool, strength preview.CredentialStrength) bool {
+		return spec.OnlyEnvRefs(value) && (!separate || !strings.HasPrefix(value, "-")) || preview.SecretValue(preview.DetectorText(value), separate, strength)
 	}
 	if value, ok := server["url"].(string); ok {
 		add("url", value, func(s string) { server["url"] = s })
@@ -674,23 +625,23 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 		at := i
 		field := "args[" + strconv.Itoa(at) + "]"
 		write := func(s string) { setArg(at, s) }
-		if header, ok := strings.CutPrefix(args[at], "--header="); ok && mcpCredentialHeader(header) && unreadable == "" {
+		if header, ok := strings.CutPrefix(args[at], "--header="); ok && preview.CredentialHeader(header) && unreadable == "" {
 			unreadable = field
 		}
-		if (args[at] == "--header" || args[at] == "-H") && at+1 < len(args) && mcpCredentialHeader(args[at+1]) && unreadable == "" {
+		if (args[at] == "--header" || args[at] == "-H") && at+1 < len(args) && preview.CredentialHeader(args[at+1]) && unreadable == "" {
 			unreadable = "args[" + strconv.Itoa(at+1) + "]"
 		}
-		flag, value, hasValue := mcpCredentialFlag(args[at])
+		flag, value, hasValue := preview.CredentialFlag(args[at])
 		switch {
-		case flag != "" && hasValue && flagValue(value, false, mcpWeakCredential):
+		case flag != "" && hasValue && flagValue(value, false, preview.WeakCredential):
 			addCredential(field, flag, args[at][:len(args[at])-len(value)], value, write)
 		// A short flag such as `-p` may be a port or profile, so only a
 		// long flag reads the next argument as its value.
-		case flag != "" && !hasValue && at+1 < len(args) && flagValue(args[at+1], true, mcpNameStrength(flag, false)):
+		case flag != "" && !hasValue && at+1 < len(args) && flagValue(args[at+1], true, preview.NameStrength(flag, false)):
 			next := at + 1
 			i = next
 			addCredential("args["+strconv.Itoa(next)+"]", flag, "", args[next], func(s string) { setArg(next, s) })
-		case mcpToken(args[at]):
+		case preview.Token(args[at]):
 			addCredential(field, "token", "", args[at], write)
 		case args[at] != "":
 			add(field, args[at], write)
@@ -702,18 +653,14 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 				if unreadable != "" {
 					return
 				}
-				named := mcpCredentialKey(key) && !mcpRefOnly(value) && mcpSecretValue(mcpDetectorText(value), false, mcpWeakCredential)
-				if named || mcpCredentialDetected(value) {
+				named := preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential)
+				if named || preview.CredentialDetected(value) {
 					unreadable = path
 				}
 			})
 		}
 	}
 	return literals, refs, unreadable
-}
-
-func mcpCredentialFlag(arg string) (name, value string, hasValue bool) {
-	return preview.CredentialFlag(arg)
 }
 
 // walkMCPStrings calls visit with each string in value, its path such

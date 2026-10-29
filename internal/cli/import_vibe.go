@@ -10,6 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/vibe"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -276,8 +277,8 @@ func guardVibeCredentials(path string, doc map[string]any) error {
 		if field != "" {
 			return
 		}
-		named := mcpCredentialKey(key) && !mcpRefOnly(value) && mcpSecretValue(mcpDetectorText(value), false, mcpWeakCredential)
-		if named || mcpCredentialDetected(value) {
+		named := preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential)
+		if named || preview.CredentialDetected(value) {
 			field = strings.TrimPrefix(p, ".")
 		}
 	})

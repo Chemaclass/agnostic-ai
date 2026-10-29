@@ -287,21 +287,27 @@ func CredentialFlag(arg string) (name, value string, hasValue bool) {
 
 var flagNamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.\-]*$`)
 
-// CredentialInRule reports whether a permission rule holds a literal
-// credential. A command rule, in the neutral `shell(...)` or the Claude
-// `Bash(...)` spelling, is also read as shell, nested `sh -c` included.
+// CredentialInRule reports whether a permission rule, in any tool's
+// spelling, holds a literal credential. The text inside a call such as
+// `shell(...)`, Claude `Bash(...)`, or Codex `Exec(...)`, or a bare
+// pattern such as an OpenCode `git push *`, is also read as shell,
+// nested `sh -c` included.
 func CredentialInRule(rule string) bool {
-	if CredentialDetected(rule) {
-		return true
+	return CredentialDetected(rule) || commandCredentialDetected(ruleCommand(rule), 0)
+}
+
+// ruleCommand returns the text inside the call in rule, or rule as
+// written when it is not a call.
+func ruleCommand(rule string) string {
+	for _, call := range []string{"shell(", "Bash("} {
+		if command, ok := strings.CutPrefix(rule, call); ok {
+			return strings.TrimSuffix(command, ")")
+		}
 	}
-	command, shell := strings.CutPrefix(rule, "shell(")
-	if !shell {
-		command, shell = strings.CutPrefix(rule, "Bash(")
+	if _, inner, ok := strings.Cut(rule, "("); ok && strings.HasSuffix(rule, ")") {
+		return strings.TrimSuffix(inner, ")")
 	}
-	if !shell {
-		return false
-	}
-	return commandCredentialDetected(strings.TrimSuffix(command, ")"), 0)
+	return rule
 }
 
 // RedactRule returns rule as written, or, when it holds a credential,

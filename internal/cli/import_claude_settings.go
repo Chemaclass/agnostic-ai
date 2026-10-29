@@ -14,6 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -150,7 +151,7 @@ func moveClaudePermissions(root string, doc *adapters.OrderedJSON, settingsDir s
 			if rule == "" || owned[list][rule] {
 				continue
 			}
-			if globalPermissionCredentialDetected(rule) {
+			if preview.CredentialInRule(rule) {
 				keptf("warning: claude: left out a permissions.%s rule in %s: it holds a credential or cannot be checked safely; add it under local/settings by hand; the next sync removes it from that file\n", list, claudeSettingsRelPath())
 				continue
 			}
@@ -325,7 +326,7 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 	for _, key := range claudeCredentialHelpers {
 		raw, ok := doc.Get(key)
 		var command string
-		if !ok || json.Unmarshal(raw, &command) != nil || !globalPermissionCommandCredentialDetected(command) {
+		if !ok || json.Unmarshal(raw, &command) != nil || !preview.CommandCredentialDetected(command) {
 			continue
 		}
 		doc.Delete(key)
@@ -335,7 +336,7 @@ func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 		var line struct {
 			Command string `json:"command"`
 		}
-		if json.Unmarshal(raw, &line) == nil && globalPermissionCommandCredentialDetected(line.Command) {
+		if json.Unmarshal(raw, &line) == nil && preview.CommandCredentialDetected(line.Command) {
 			doc.Delete("statusLine")
 			warnClaudeLeftOut("statusLine", "holds a credential")
 		}
