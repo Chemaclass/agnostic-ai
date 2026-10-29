@@ -56,6 +56,16 @@ func TestLiteralSettingValueRuleAgrees(t *testing.T) {
 		{"CLIENT_KEY", "/opt/app2/config.yaml", false},
 		{"GOOGLE_APPLICATION_CREDENTIALS", "/var/run/secrets/gcp1/key", false},
 		{"GOOGLE_APPLICATION_CREDENTIALS", "/home/user1/credentials/gcp", false},
+		{"CLAUDE_CODE_CLIENT_KEY_PASSPHRASE", "correct horse", true},
+		{"CLAUDE_CODE_CLIENT_KEY_PASSPHRASE", "${PASSPHRASE}", false},
+		{"DB_PASSPHRASE", "hunter2", true},
+		{"DB_PASS_PHRASE", "hunter2", true},
+		{"KEYPASSPHRASE", "hunter2", true},
+		{"PHRASE", "hello", false},
+		{"GPG_PASSPHRASE_PROMPT", "hunter2", false},
+		{"passphrase_file", "hunter2", false},
+		{"passphrase-fd", "hunter2", false},
+		{"PASSPHRASE_REQUIRED", "hunter2", false},
 	} {
 		checks := map[string]bool{
 			"claude hook":         claudeHookCredentialField(claudehooks.CommandEntry{URL: "https://hooks.example.com", Headers: map[string]string{c.key: c.value}}) != "",

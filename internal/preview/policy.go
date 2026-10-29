@@ -11,7 +11,7 @@ import (
 // import treat its value as a credential, so `api_token` counts and
 // `token_id` does not.
 var strongCredentialWords = map[string]bool{
-	"token": true, "secret": true, "password": true, "passwd": true, "pwd": true, "pass": true,
+	"token": true, "secret": true, "password": true, "passwd": true, "pwd": true, "pass": true, "passphrase": true,
 	"accesstoken": true, "authtoken": true, "credential": true, "credentials": true, "cookie": true, "bearer": true,
 }
 
@@ -41,7 +41,7 @@ var mcpCredentialQueryNames = map[string]bool{
 	"auth": true, "sig": true, "signature": true, "code": true, "session": true, "jwt": true, "bearer": true,
 }
 
-var mcpGluedCredentialWord = regexp.MustCompile(`(password|passwd|secret|token)$`)
+var mcpGluedCredentialWord = regexp.MustCompile(`(password|passwd|passphrase|secret|token)$`)
 
 type CredentialStrength int
 
@@ -64,7 +64,7 @@ func NameStrength(name string, key bool) CredentialStrength {
 	case n >= 2 && words[n-2] == "on" && words[n-1] == "pass":
 		// A code review's `on_pass` says what to post when a check passes.
 		return NoCredential
-	case strongCredentialWords[words[n-1]]:
+	case strongCredentialWords[words[n-1]], n >= 2 && words[n-2] == "pass" && words[n-1] == "phrase":
 		return StrongCredential
 	case weakCredentialWords[words[n-1]], key && (words[n-1] == "cred" || words[n-1] == "auth"):
 		return WeakCredential

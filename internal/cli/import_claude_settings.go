@@ -307,10 +307,10 @@ func excludeClaudeHookTargetEnv(doc *adapters.OrderedJSON) error {
 // Claude runs for a credential.
 var claudeCredentialHelpers = []string{"apiKeyHelper", "awsAuthRefresh", "awsCredentialExport", "otelHeadersHelper"}
 
-// claudeTokenEnv names the env variables Claude Code reads a token
-// from, whose literal value is a secret whatever its shape, such as a
-// Bedrock key the detectors cannot tell apart from a setting.
-var claudeTokenEnv = regexp.MustCompile(`^(?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_OAUTH_TOKEN|AWS_BEARER_TOKEN_BEDROCK|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)$`)
+// claudeTokenEnv names the env variables Claude Code reads a token or
+// passphrase from, whose literal value is a secret whatever its shape,
+// such as a Bedrock key the detectors cannot tell apart from a setting.
+var claudeTokenEnv = regexp.MustCompile(`^(?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_OAUTH_TOKEN|AWS_BEARER_TOKEN_BEDROCK|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|CLAUDE_CODE_CLIENT_KEY_PASSPHRASE)$`)
 
 // claudeHeaderEnv names the env variables that carry request headers. A
 // header such as `x-honeycomb-team=...` holds a key under a name no

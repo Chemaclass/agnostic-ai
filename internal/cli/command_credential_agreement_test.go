@@ -21,6 +21,9 @@ func TestCommandCredentialChecksAgree(t *testing.T) {
 		{`deploy --api-key=abc`, true},
 		{`curl --header "X-Api-Key: abc" https://api.example.com`, true},
 		{`go test ./...`, false},
+		{`DB_PASSPHRASE=hunter2 make release`, true},
+		{`DB_PASSPHRASE=${DB_PASSPHRASE} make release`, false},
+		{`age --passphrase *`, true},
 	} {
 		checks := map[string]bool{
 			"compare":           permissionRuleCredential("shell(" + c.command + ")"),
