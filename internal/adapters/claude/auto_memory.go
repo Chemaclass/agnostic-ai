@@ -192,16 +192,14 @@ func repositorySuppliedLocalSettings(path string) bool {
 		}
 		parent = next
 	}
-	top, err := gitquery.Toplevel(parent)
+	// Relative to parent, not to the Git top level: Git spells that by its
+	// resolved path, which differs from path under a link or a Windows
+	// short name such as RUNNER~1. Outside a work tree Git fails to answer.
+	relative, err := filepath.Rel(parent, path)
 	if err != nil {
 		return true
 	}
-	root := strings.TrimSpace(top)
-	relative, err := filepath.Rel(root, path)
-	if err != nil {
-		return true
-	}
-	tracked, err := gitquery.Tracked(root, filepath.ToSlash(relative))
+	tracked, err := gitquery.Tracked(parent, filepath.ToSlash(relative))
 	return err != nil || tracked
 }
 
