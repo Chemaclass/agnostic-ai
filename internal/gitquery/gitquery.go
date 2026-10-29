@@ -166,6 +166,22 @@ func Tracked(root, rel string) (bool, error) {
 	return r.nonEmpty, r.err
 }
 
+// TrackedAnyCase is Tracked for a disk that reads one file under any letter
+// case: when the repository sets core.ignorecase, Git matches rel in any
+// case, so .claude/Settings.Local.json counts for .claude/settings.local.json.
+// On a case-sensitive disk it is Tracked.
+func TrackedAnyCase(root, rel string) (bool, error) {
+	if !ignoresCase(root) {
+		return Tracked(root, rel)
+	}
+	return Tracked(root, ":(literal,icase)"+rel)
+}
+
+func ignoresCase(root string) bool {
+	out, err := exec.Command("git", "-C", absKey(root), "config", "--type=bool", "--get", "core.ignorecase").Output()
+	return err == nil && strings.TrimSpace(string(out)) == "true"
+}
+
 // Ignored reports whether Git ignores path, a slash path or a folder
 // with a trailing separator, in the repository at root.
 func Ignored(root, path string) bool {
