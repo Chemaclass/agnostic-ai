@@ -6,7 +6,7 @@ Save the work behind the assignment before delegating:
 scripts/target-facts.sh --review-reasons <run>/docfetch.tsv --builtins-since <rev> > <run>/review-reasons.tsv
 ```
 
-Use the same run file and built-in baseline as `--changed`. Omit `--builtins-since` when no completed audit proves a baseline. This output explains the existing deep batches. It changes no assignment, required page coverage or fast-path eligibility, and establishes no speedup.
+Use the same run file and built-in baseline as `--changed`, including a per-target `<target>=<rev>,...` list; each row's `baseline` is that target's commit. Omit `--builtins-since` when no completed audit proves a baseline. This output explains the existing deep batches. It changes no assignment, required page coverage or fast-path eligibility, and establishes no speedup.
 
 The TSV has `target`, `reason`, `baseline`, `evidence`, `state` and `checklist` columns. A target can have several work items. Pass each batch only its targets' rows, together with `builtins.txt`. The rows identify required work; they do not track its completion or prove native support.
 
@@ -23,6 +23,6 @@ Repository ownership follows the current classifier: a registered adapter packag
 
 For repository rows, `state` is `added`, `changed` or `removed` relative to the baseline and current worktree, including staged and untracked inputs and ignored assets the binary embeds. Compare the baseline and current file for every changed spec, including removed selectors, exclusions, events, native overrides and registration entries. `previous-blob` calls out a removed path: inspect `git show <baseline>:<path>` before deciding who previously received it. Renames retain both paths. Backslashes, tabs, newlines and carriage returns in repository paths use `\\`, `\t`, `\n` and `\r` escapes so evidence stays on one TSV row.
 
-A missing or unusable baseline produces `built-in` rows with `evidence=baseline-unavailable`. Their state is `missing`, `invalid` or `compare-failed`. `baseline-recovery` means recover a qualifying baseline under the built-ins reference or complete the full built-in review for every requested target. A vendor lock update cannot establish that baseline.
+A missing or unusable baseline produces `built-in` rows with `evidence=baseline-unavailable`. Their state is `missing`, `invalid` or `compare-failed`. `baseline-recovery` means recover a qualifying baseline under the built-ins reference or complete the full built-in review for each target with that row; with a per-target list, only the targets it omits get one. A vendor lock update cannot establish that baseline.
 
 Keep vendor and repository evidence separate in the assignment and result. Unchanged vendor text clears no pending built-in or shared repository check. A target with pending built-in checks cannot be Clean or take either fast path. Any future coverage reduction needs validated completion accounting and demonstrated equivalent coverage in a separate change.

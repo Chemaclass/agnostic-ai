@@ -9,8 +9,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // importSandbox is the project copy a preview runs in. Only it and
@@ -95,11 +98,42 @@ func withImportMerge(fn func() error) error {
 	return fn()
 }
 
+var errImportDataStream = errors.New("refusing a file name with a colon, which Windows stores as a hidden stream of the file before it")
+
+// namesDataStream is config.NamesDataStream, which tests replace to run
+// the Windows refusal on any system.
+var namesDataStream = config.NamesDataStream
+
+// importFailedError reports the sources that failed, whose errors were
+// already printed. It keeps errImportDataStream reachable through
+// errors.Is, so a guarded run puts back what the other sources wrote.
+func importFailedError(sources []string, sourceErrs []error) error {
+	err := fmt.Errorf("import failed for: %s", strings.Join(sources, ", "))
+	if slices.ContainsFunc(sourceErrs, func(e error) bool { return errors.Is(e, errImportDataStream) }) {
+		return fmt.Errorf("%w (%w)", err, errImportDataStream)
+	}
+	return err
+}
+
+// refuseDataStreamMCP refuses, before anything is written, an MCP server
+// whose spec file at path Windows would store as a hidden stream.
+func refuseDataStreamMCP(name, path string) error {
+	if !namesDataStream(path) {
+		return nil
+	}
+	return fmt.Errorf("MCP server %q: %s: %w; rename the server", name, path, errImportDataStream)
+}
+
 // importWriteFile writes data to path with the given mode, recording it
 // for a dry-run report. Replaces os.WriteFile across all importers. A
 // write that stores a project local spec in the shared source is undone
 // when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
+	// Refused before the dry-run record, so a preview reports what import
+	// would. Callers add the path.
+	if namesDataStream(path) {
+		return errImportDataStream
+	}
 	if importTxn != nil {
 		importTxn.mu.Lock()
 		defer importTxn.mu.Unlock()

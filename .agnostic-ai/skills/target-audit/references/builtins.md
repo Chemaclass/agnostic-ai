@@ -14,7 +14,7 @@ The start command in `scripts/target-audit/manifest.md` saves `scripts/target-fa
 
 ## Coverage since the last audit
 
-Use the audited commit from a completed report whose `Built-ins` coverage line names every requested target as `--builtins-since <rev>`. A report without that line, including a run whose built-in inputs differed from its recorded commit and every report written before built-ins entered the audit, a date, a vendor lock update, or a partial report cannot establish that baseline. Without a usable revision, `--changed` keeps the requested targets deep.
+Each target takes its own baseline: the audited commit of the newest completed report whose `Built-ins` line names it. Build the list with `scripts/target-facts.sh --builtins-baseline local/target-audit/*.md` and pass it as `--builtins-since <target>=<rev>,...`. A report that omits a target leaves only that target without a baseline, so only that target is `builtin-deep` for missing evidence; the others keep theirs. A `Built-ins` line pairs with the `Audited commit` line above it in the same report section (each Markdown heading starts a new one), and a same-day continuation's later section wins over an earlier one. It counts only when every word on it is a registered target, so a prose note on that line names no target; a name removed from the registry since that report also voids the line, and those targets fall back to an older report. A report without that line, including a run whose built-in inputs differed from its recorded commit and every report written before built-ins entered the audit, a date, a vendor lock update, or a partial report cannot establish a baseline. A target without a usable revision stays deep under `--changed`.
 
 Record the resolved baseline when starting the manifest, before fetching. Finalization checks the repository context and built-in classification again. The helper rejects fast paths for a target whose built-ins require deep review.
 
@@ -22,7 +22,7 @@ The `builtin-deep:` line names a reason for the numbered batches, not an extra a
 
 Save and pass the review reasons described in `.agnostic-ai/skills/target-audit/references/review-reasons.md`. Pending built-in work blocks a Clean row even when vendor text is unchanged.
 
-Give each affected batch the baseline and changed paths: `git diff --no-renames --name-only <rev>` plus `git ls-files --others --exclude-standard`, so untracked assets count. Read the previous blob when a spec, selector or registration was removed. Recheck relevant unchanged vendor pages against the changed repository behavior.
+Give each affected batch each target's baseline and changed paths: `git diff --no-renames --name-only <rev>` with that target's commit from its review-reason rows, plus `git ls-files --others --exclude-standard`, so untracked assets count. Read the previous blob when a spec, selector or registration was removed. Recheck relevant unchanged vendor pages against the changed repository behavior.
 
 ## What to check per target
 

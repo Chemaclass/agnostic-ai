@@ -133,3 +133,42 @@ function test_audit_finish_cannot_precede_observed_stage_bounds() {
   assert_equals null "$(jq '.stages[1].end' "$RUN/audit-metrics.json")"
   assert_contains 'incomplete | audit | 140 | unknown | unknown | running' "$(metrics report "$RUN")"
 }
+
+function test_restarted_wave_shows_per_batch_attempts_and_their_usage() {
+  metrics init "$RUN" fixture '{}' 100
+  metrics record "$RUN" stage '{"id":"review-batch-1-w1","phase":"audit","name":"review","batch":"batch-1","wave":1,"start":100,"end":400,"status":"interrupted"}'
+  metrics record "$RUN" stage '{"id":"review-batch-2-w1","phase":"audit","name":"review","batch":"batch-2","wave":1,"start":100,"end":300,"status":"completed"}'
+  metrics record "$RUN" stage '{"id":"review-batch-1-w2","phase":"audit","name":"review","batch":"batch-1","wave":2,"start":410,"end":500,"status":"completed"}'
+  metrics record "$RUN" usage '{"id":"Frodo","batch":"batch-1","wave":1,"input_tokens":900,"output_tokens":90}'
+  metrics record "$RUN" usage '{"id":"Frodo-2","batch":"batch-1","wave":2,"input_tokens":200,"output_tokens":20}'
+  metrics record "$RUN" usage '{"id":"checker","batch":"batch-1","wave":2,"input_tokens":100,"output_tokens":10}'
+  metrics record "$RUN" usage '{"id":"Sam","batch":"batch-2","wave":1}'
+  local summary
+  summary=$(metrics report "$RUN")
+  assert_contains 'Waves: 2 batches, 3 waves, 1 restarted batches.' "$summary"
+  assert_contains 'batch-1 | 1 | 300 | interrupted | 900 | 90' "$summary"
+  assert_contains 'batch-1 | 2 | 90 | completed | 300 | 30' "$summary"
+  assert_contains 'batch-2 | 1 | 200 | completed | unknown | unknown' "$summary"
+}
+
+function test_wave_needs_a_batch_and_stays_unique_per_batch() {
+  metrics init "$RUN" fixture '{}' 100
+  local code=0
+  metrics record "$RUN" stage '{"id":"no-batch","phase":"audit","name":"review","wave":1,"start":100,"end":110,"status":"completed"}' 2>/dev/null || code=$?
+  assert_not_equals 0 "$code"
+  code=0
+  metrics record "$RUN" stage '{"id":"zero","phase":"audit","name":"review","batch":"batch-1","wave":0,"start":100,"end":110,"status":"completed"}' 2>/dev/null || code=$?
+  assert_not_equals 0 "$code"
+  metrics record "$RUN" stage '{"id":"first","phase":"audit","name":"review","batch":"batch-1","wave":1,"start":100,"end":110,"status":"completed"}'
+  code=0
+  metrics record "$RUN" stage '{"id":"again","phase":"audit","name":"review","batch":"batch-1","wave":1,"start":110,"end":120,"status":"completed"}' 2>/dev/null || code=$?
+  assert_not_equals 0 "$code"
+  metrics record "$RUN" stage '{"id":"first","phase":"audit","name":"review","batch":"batch-1","wave":1,"start":100,"end":115,"status":"completed"}'
+  assert_equals 1 "$(jq '.stages | length' "$RUN/audit-metrics.json")"
+  assert_contains 'Waves: 1 batches, 1 waves, 0 restarted batches.' "$(metrics report "$RUN")"
+}
+
+function test_report_without_waves_says_so() {
+  metrics init "$RUN" fixture '{}' 100
+  assert_contains 'Waves: none recorded.' "$(metrics report "$RUN")"
+}
