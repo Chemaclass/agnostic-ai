@@ -136,7 +136,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 ## Effort by target
 
-`effort` reaches the tools below. A value the tool does not accept, or `effort` on any other tool, raises a sync note instead. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. `import` fills `effort` from these keys when the tool accepts the value and no other settings spec sets it; otherwise the value goes under `x-<target>`. CodeBuddy import writes an accepted value as a CodeBuddy-only `effort` even when another spec sets one. Kimi import does not read effort.
+`effort` reaches the tools below. A value the tool does not accept, or `effort` on any other tool, raises a sync note instead. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. `import` fills `effort` from these keys when the tool accepts the value and no other settings spec sets it; otherwise the value goes under `x-<target>`. Kimi import does not read effort.
 
 | Target | Native key | Accepted values |
 |---|---|---|

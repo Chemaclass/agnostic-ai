@@ -98,6 +98,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
 - Sync writes the `x-codebuddy.permissions` rules to `.codebuddy/settings.json`. It wrote an empty list when no portable permission set that list (#2667).
+- `import codebuddy` keeps the native `reasoningEffort` under `x-codebuddy` when another settings spec sets `effort`, so the next sync no longer replaces it (#2789).
 
 #### OpenCode
 
