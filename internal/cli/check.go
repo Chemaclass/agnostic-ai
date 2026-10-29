@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -62,6 +63,10 @@ type driftReport struct {
 	// sharedWith maps a path to the other targets that read it, set by
 	// foldSharedDrift for printing.
 	sharedWith map[string][]string
+	// lineEndings marks the changed files that differ from what sync
+	// writes only by CRLF line endings. Sync cannot settle them while Git
+	// converts the files on checkout.
+	lineEndings map[string]bool
 }
 
 // leftoverFix names the command that removes the report's Leftover. Sync
@@ -81,11 +86,44 @@ func (r driftReport) hasDrift() bool {
 // write, as edited when they also differ from the sum the last sync
 // recorded, and as stale otherwise. No recorded sum proves no edit.
 func (r *driftReport) addChanged(f adapters.CapturedFile, disk []byte, sums map[string]string) {
+	if onlyLineEndingsDiffer(disk, f.Content) {
+		if r.lineEndings == nil {
+			r.lineEndings = map[string]bool{}
+		}
+		r.lineEndings[f.Path] = true
+		r.Stale = append(r.Stale, f)
+		return
+	}
 	if sum := sums[f.Path]; sum != "" && adapters.ContentSum(string(disk)) != sum {
 		r.Edited = append(r.Edited, f)
 		return
 	}
 	r.Stale = append(r.Stale, f)
+}
+
+// onlyLineEndingsDiffer reports whether disk is want with CRLF line
+// endings, as Git writes a file under core.autocrlf or an eol rule.
+func onlyLineEndingsDiffer(disk []byte, want string) bool {
+	return bytes.Contains(disk, []byte("\r\n")) && !strings.Contains(want, "\r") &&
+		string(bytes.ReplaceAll(disk, []byte("\r\n"), []byte("\n"))) == want
+}
+
+// lineEndingAdvice is the fix for files that differ only by line endings:
+// running sync rewrites them, and the next checkout converts them again.
+const lineEndingAdvice = "Git checked them out with CRLF line endings; run git config core.autocrlf false, or add a .gitattributes rule such as `* text eol=lf`, then run agnostic-ai sync"
+
+// lineEndingCount counts the changed files in reports that differ only
+// by line endings.
+func lineEndingCount(reports []driftReport) int {
+	n := 0
+	for _, r := range reports {
+		for _, f := range r.changed() {
+			if r.lineEndings[f.Path] {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // splitMerged separates the files that sync merges into from the ones it

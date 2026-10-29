@@ -45,7 +45,8 @@ agnostic-ai sync --only claude,cursor
 <summary>What --against compares</summary>
 
 - Only outputs Git tracks are compared. An untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
-- Shared skill links that Git checks out as plain files fail with the affected link and repair choices. See [shared skill checkout policy](@/docs/configuration.md#syncshared-skills).
+- Files are read with the line endings Git stores, so `core.autocrlf` and `core.eol` cause no drift. An `eol` rule in `.gitattributes` still applies, as it does in every clone.
+- Shared skill links that Git checks out as plain files fail with the affected link and repair choices. See [shared skill checkout policy](@/docs/configuration.md#syncshared-skills). Any other link checked out as a plain file fails with a message that names `core.symlinks`.
 - A tracked output that no spec produces fails as a leftover to delete: a file with the generated header, or one that still holds what the previous state wrote (`HEAD` for `index`, the first parent for `HEAD`). A file edited since is left alone. A run narrowed with `-t`, `--only`, or `--except` skips this comparison.
 - A hand-written skill, agent, rule, or command that Git tracks inside a folder the managed block ignores also fails, because only the tool that reads that folder sees it. The failure names the `import` that adopts it. For example, a branch from before the move to `.agnostic-ai/` adds `.cursor/skills/<name>/SKILL.md`: run `agnostic-ai import cursor`, then `git rm --cached` the file, or list it under `sync.unmanaged` to keep it.
 
@@ -133,6 +134,9 @@ A failing `--check` exits non-zero in every format. Stderr names the fix, `agnos
 |-------|---------|
 | Out of date | The file still holds what the last sync wrote, so the specs changed. Without a record of the last sync, as in fresh CI, every changed file reads this way. |
 | Edited locally | The file changed since the last sync. The next sync saves it as `<path>.bak`, then writes over it. |
+| Line endings only | Git checked the file out with CRLF line endings. Run `git config core.autocrlf false`, or add a `.gitattributes` rule such as `* text eol=lf`, then run `agnostic-ai sync`. |
+
+A spec or output that Git tracks as a link and checked out as a plain file, as it does with `core.symlinks=false`, gets a message naming that setting.
 
 A file several targets read, such as `.agents/skills/<name>/SKILL.md`, is listed once, under the first target with `(shared with <targets>)`, and counted once in `--diff`, `--format=github`, and `status`. `--json` keeps one record per target.
 

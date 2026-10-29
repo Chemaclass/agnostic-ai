@@ -1741,6 +1741,9 @@ func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, 
 	if !drift {
 		return nil
 	}
+	if n := lineEndingCount(foldSharedDrift(reports)); n > 0 {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "%d file(s) differ only in line endings: %s\n", n, lineEndingAdvice)
+	}
 	if hint := reconcileHint(reports); hint != "" {
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), hint)
 	}
@@ -1827,8 +1830,12 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 		}
 		for _, f := range r.Stale {
 			drift = true
+			reason := stale
+			if r.lineEndings[f.Path] {
+				reason = "differs only in line endings; " + lineEndingAdvice
+			}
 			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s %s%s\n",
-				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), stale, githubData(r.sharedNote(f.Path)))
+				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), githubData(reason), githubData(r.sharedNote(f.Path)))
 		}
 		for _, f := range r.Edited {
 			drift = true

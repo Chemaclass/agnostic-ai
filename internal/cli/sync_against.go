@@ -767,12 +767,15 @@ func underRoots(rel string, roots []string) bool {
 	return false
 }
 
-// checkoutPaths writes the listed index entries under dir.
+// checkoutPaths writes the listed index entries under dir with their
+// committed line endings: core.autocrlf, on by default in Git for Windows,
+// and a native core.eol would turn LF into CRLF. An eol rule in
+// .gitattributes still applies, as it does in every clone.
 func checkoutPaths(toplevel string, env []string, dir string, paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
-	return gitInput(toplevel, env, strings.Join(paths, "\x00")+"\x00", "checkout-index", "--force", "-z", "--stdin", "--prefix="+dir+string(filepath.Separator))
+	return gitInput(toplevel, env, strings.Join(paths, "\x00")+"\x00", "-c", "core.autocrlf=false", "-c", "core.eol=lf", "checkout-index", "--force", "-z", "--stdin", "--prefix="+dir+string(filepath.Separator))
 }
 
 // plannedOutputs renders the specs in the working directory for every
@@ -879,7 +882,7 @@ func (t *againstTree) trackedDrift(reports []driftReport, dropped []string) ([]d
 	}
 	var out []driftReport
 	for _, r := range reports {
-		kept := driftReport{Target: r.Target, Stale: r.Stale, Edited: r.Edited}
+		kept := driftReport{Target: r.Target, Stale: r.Stale, Edited: r.Edited, lineEndings: r.lineEndings}
 		if r.Target == unledgeredReportTarget {
 			kept.Unledgered = true
 			kept.Orphaned = mergePaths(r.Orphaned, r.Leftover, dropped)
@@ -978,7 +981,7 @@ func (t *againstTree) trackedUnmanaged(cfg *config.Config) ([]unmanagedFinding, 
 // own fix, which the reconcile hint names.
 func regeneratedDrift(reports []driftReport) bool {
 	for _, r := range reports {
-		if len(r.Missing)+len(r.Stale)+len(r.Edited) > 0 {
+		if len(r.Missing)+len(r.Stale)+len(r.Edited) > len(r.lineEndings) {
 			return true
 		}
 	}
@@ -1025,7 +1028,7 @@ func gitInput(dir string, env []string, stdin string, args ...string) error {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("git %s: %w: %s", args[0], err, strings.TrimSpace(stderr.String()))
+		return fmt.Errorf("git %s: %w: %s", gitSubcommand(args), err, strings.TrimSpace(stderr.String()))
 	}
 	return nil
 }
@@ -1042,9 +1045,17 @@ func gitOutput(dir string, env []string, args ...string) (string, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("git %s: %w: %s", args[0], err, strings.TrimSpace(stderr.String()))
+		return "", fmt.Errorf("git %s: %w: %s", gitSubcommand(args), err, strings.TrimSpace(stderr.String()))
 	}
 	return stdout.String(), nil
+}
+
+// gitSubcommand names the git command in args, past any -c settings.
+func gitSubcommand(args []string) string {
+	for len(args) > 2 && args[0] == "-c" {
+		args = args[2:]
+	}
+	return args[0]
 }
 
 // isolatedGitEnv is the process environment without the variables that

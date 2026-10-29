@@ -15,6 +15,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Config errors name the file, line, key, and expected shape; a `version` other than `1` and line breaks in `sync.unmanaged` fail (#2648, #2664, #2701).
 - On Windows, a Qwen command named with a colon, such as `git:commit`, loads and syncs again, and sync refuses to write a file whose name holds a colon (#2744).
 - On Windows, import refuses an MCP server or other spec whose file name would hold a colon, such as `ns:tool`, and names the file, instead of reporting success for a spec no sync reads. `import --global` skips such a server with a warning that names the home config file (#2748).
+- On Windows, `sync --check --against` no longer reports drift for committed files that Git checks out with CRLF line endings. Plain `sync --check` labels such files `line endings only` and names `core.autocrlf` or a `.gitattributes` rule as the fix, and a link Git checks out as a plain file gets a message that names `core.symlinks` (#2773).
 - `sync` reads `.agnostic-ai/.sync-state` once per run instead of up to 25 times, so a sync of a 500-spec project runs about a quarter faster (#2667).
 - `sync --check` renders each tool once instead of twice, unless `prefer-spec` picks a winner, and `sync` with shared skills renders each tool once less. An external adapter's warnings print once in `sync --check` instead of twice, and twice in `sync` with shared skills instead of three times (#2667).
 
