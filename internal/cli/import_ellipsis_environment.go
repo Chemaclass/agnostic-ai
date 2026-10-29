@@ -17,6 +17,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // ellipsisEnvironmentDir holds one file per environment
@@ -307,7 +308,7 @@ func ellipsisVariables(raw any, block map[string]any) string {
 			}
 		}
 		name, _ := v["name"].(string)
-		if value, _ := v["value"].(string); value != "" && (mcpCredentialKey(name) || mcpCredentialDetected(value)) {
+		if value, _ := v["value"].(string); value != "" && (preview.CredentialKey(name) || preview.CredentialDetected(value)) {
 			return fmt.Sprintf("variable %s holds a credential value, and a spec must not carry it: remove the value so Ellipsis reads the stored secret", name)
 		}
 	}
@@ -527,7 +528,7 @@ func setAsidePlainValues(servers map[string]any) map[string]map[string]map[strin
 			values, _ := server[field].(map[string]any)
 			for key, v := range values {
 				value, _ := v.(string)
-				if value == "" || strings.Contains(value, "${") || mcpCredentialKey(key) || mcpCredentialDetected(value) {
+				if value == "" || strings.Contains(value, "${") || preview.CredentialKey(key) || preview.CredentialDetected(value) {
 					continue
 				}
 				if plain[name] == nil {

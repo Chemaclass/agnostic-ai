@@ -593,21 +593,21 @@ func redactMigrationLines(lines []string) []string {
 				if value != "" && !migrationRefOnly(value) {
 					out[i] = m[1] + tag + "<redacted>"
 				}
-			case mcpCredentialKey(m[2]) && (value == "" || strings.HasPrefix(value, "|") || strings.HasPrefix(value, ">")):
+			case preview.CredentialKey(m[2]) && (value == "" || strings.HasPrefix(value, "|") || strings.HasPrefix(value, ">")):
 				blockIndent = indentWidth
 				if value != "" {
 					out[i] = m[1] + tag + "<redacted>"
 				}
 			case value == "" || migrationRefOnly(value):
-			case mcpCredentialKey(m[2]) || migrationSecretText(value) || migrationURLText(value):
+			case preview.CredentialKey(m[2]) || migrationSecretText(value) || migrationURLText(value):
 				out[i] = m[1] + tag + "<redacted>"
 			}
 			continue
 		}
 		if m := migrationListItem.FindStringSubmatch(line); m != nil {
 			item := strings.Trim(strings.TrimSpace(m[2]), `"'`)
-			_, _, flagHasValue := mcpCredentialFlag(item)
-			isFlag := strings.HasPrefix(item, "--") && mcpCredentialName(strings.SplitN(strings.TrimPrefix(item, "--"), "=", 2)[0])
+			_, _, flagHasValue := preview.CredentialFlag(item)
+			isFlag := strings.HasPrefix(item, "--") && preview.CredentialName(strings.SplitN(strings.TrimPrefix(item, "--"), "=", 2)[0])
 			switch {
 			case migrationRefOnly(item):
 			case afterFlag || migrationSecretText(item) || migrationURLText(item) || isFlag && flagHasValue:
@@ -675,7 +675,7 @@ func migrationURLText(value string) bool {
 // migrationSecretText reports a value import's detector reads as a
 // credential, reading a flow sequence item by item.
 func migrationSecretText(value string) bool {
-	if mcpCredentialDetected(value) {
+	if preview.CredentialDetected(value) {
 		return true
 	}
 	if !strings.HasPrefix(value, "[") {
@@ -684,13 +684,13 @@ func migrationSecretText(value string) bool {
 	items := strings.Split(strings.Trim(value, "[]"), ",")
 	for i, item := range items {
 		item = strings.Trim(strings.TrimSpace(item), `"'`)
-		if mcpCredentialDetected(item) {
+		if preview.CredentialDetected(item) {
 			return true
 		}
-		if _, _, hasValue := mcpCredentialFlag(item); hasValue && !envRefOnly(strings.SplitN(item, "=", 2)[1]) {
+		if _, _, hasValue := preview.CredentialFlag(item); hasValue && !envRefOnly(strings.SplitN(item, "=", 2)[1]) {
 			return true
 		}
-		if strings.HasPrefix(item, "--") && mcpCredentialName(strings.TrimPrefix(item, "--")) && i+1 < len(items) && !envRefOnly(strings.Trim(strings.TrimSpace(items[i+1]), `"'`)) {
+		if strings.HasPrefix(item, "--") && preview.CredentialName(strings.TrimPrefix(item, "--")) && i+1 < len(items) && !envRefOnly(strings.Trim(strings.TrimSpace(items[i+1]), `"'`)) {
 			return true
 		}
 	}

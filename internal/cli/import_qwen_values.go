@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -70,12 +71,12 @@ func qwenPrivateField(value any, path string, sensitive, resolveRefs bool) strin
 				}
 			}
 			if resolveRefs && key == "envKey" && (strings.HasPrefix(path, "modelProviders.") || path == "memory.mem0") {
-				if name, ok := value[key].(string); ok && qwenCredentialEnvName.MatchString(name) && !mcpCredentialDetected(name) {
+				if name, ok := value[key].(string); ok && qwenCredentialEnvName.MatchString(name) && !preview.CredentialDetected(name) {
 					continue
 				}
 				return next
 			}
-			childSensitive := sensitive || mcpCredentialKey(key)
+			childSensitive := sensitive || preview.CredentialKey(key)
 			if resolveRefs && path == "security" && key == "auth" {
 				if _, object := value[key].(map[string]any); object {
 					childSensitive = sensitive
@@ -90,8 +91,8 @@ func qwenPrivateField(value any, path string, sensitive, resolveRefs bool) strin
 			credentialArg := false
 			if i > 0 && strings.HasSuffix(path, ".args") {
 				if previous, ok := value[i-1].(string); ok {
-					name, _, hasValue := mcpCredentialFlag(previous)
-					credentialArg = !hasValue && mcpCredentialName(name)
+					name, _, hasValue := preview.CredentialFlag(previous)
+					credentialArg = !hasValue && preview.CredentialName(name)
 				}
 			}
 			if field := qwenPrivateField(item, path+"["+strconv.Itoa(i)+"]", sensitive || credentialArg, resolveRefs); field != "" {
@@ -102,14 +103,14 @@ func qwenPrivateField(value any, path string, sensitive, resolveRefs bool) strin
 		if value == "" {
 			return ""
 		}
-		if _, flagValue, hasValue := mcpCredentialFlag(value); hasValue {
+		if _, flagValue, hasValue := preview.CredentialFlag(value); hasValue {
 			return qwenPrivateField(flagValue, path, true, resolveRefs)
 		}
-		referenceOnly := resolveRefs && mcpRefOnly(value) && !strings.Contains(value, ":-") && !strings.Contains(value, "$${")
+		referenceOnly := resolveRefs && preview.RefOnly(value) && !strings.Contains(value, ":-") && !strings.Contains(value, "$${")
 		for _, token := range spec.EnvRefTokens(value) {
 			referenceOnly = referenceOnly && token.Known()
 		}
-		if sensitive && !referenceOnly || mcpCredentialDetected(value) {
+		if sensitive && !referenceOnly || preview.CredentialDetected(value) {
 			return path
 		}
 	case nil:

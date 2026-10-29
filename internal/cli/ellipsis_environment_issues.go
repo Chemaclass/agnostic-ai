@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -22,7 +23,7 @@ func ellipsisVariableIssues(settings []spec.Entry) []validationIssue {
 			v, _ := item.(map[string]any)
 			name, _ := v["name"].(string)
 			value, _ := v["value"].(string)
-			if value == "" || (!mcpCredentialKey(name) && !mcpCredentialDetected(value)) {
+			if value == "" || (!preview.CredentialKey(name) && !preview.CredentialDetected(value)) {
 				continue
 			}
 			out = append(out, validationIssue{
