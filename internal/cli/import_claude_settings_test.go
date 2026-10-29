@@ -192,6 +192,20 @@ func TestImportClaudeSettingsOverlay_LeavesOutEnvCredentials(t *testing.T) {
 	}
 }
 
+// Claude Code reads CLAUDE_CODE_CLIENT_KEY_PASSPHRASE as the passphrase
+// itself, never a path, so any literal value is a secret (#2731).
+func TestExcludeClaudeCredentials_LeavesOutAnyLiteralClientKeyPassphrase(t *testing.T) {
+	captureLogOut(t)
+	for _, value := range []string{"hunter2.txt", "./hunter2", "1", "no"} {
+		if !claudeSettingsEnvLeftOut(t, "CLAUDE_CODE_CLIENT_KEY_PASSPHRASE", value) {
+			t.Errorf("CLAUDE_CODE_CLIENT_KEY_PASSPHRASE=%q kept, want left out", value)
+		}
+	}
+	if claudeSettingsEnvLeftOut(t, "CLAUDE_CODE_CLIENT_KEY_PASSPHRASE", "${PASSPHRASE}") {
+		t.Error("CLAUDE_CODE_CLIENT_KEY_PASSPHRASE=${PASSPHRASE} left out, want kept")
+	}
+}
+
 func TestImportClaudeSettingsOverlay_LeavesOutCredentialHelper(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".claude", "settings.json"), `{

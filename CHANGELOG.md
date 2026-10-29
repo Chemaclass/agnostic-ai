@@ -19,6 +19,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - **Breaking:** `packs update` installs each Git pack at its locked commit instead of the newest; pass `--latest` to move to the newest (#2638, #2690).
 - **Breaking:** Claude Code and Codex import leave out a literal `env`, header, or overlay value under a credential name, such as `API_TOKEN=12345678`, unless it is a boolean, path, or file name, so the next sync removes it from the native file. Grok import now keeps a boolean, path, or file name under a credential name and a reference after a scheme word, such as `Bearer $TOKEN`, which it refused before; outside an authorization header, a reference after any other word, such as `hunter ${X}`, is left out, and Grok import refuses it (#2716).
+- Import, `lint`, `migrate`, `compare`, and `sync --global` treat a name ending in `passphrase` or `pass phrase` (`pass_phrase`, `passPhrase`) as a credential name, and catch a `--passphrase <value>` argument or `DB_PASSPHRASE=x` in a rule or hook command. Claude Code import leaves out any literal `CLAUDE_CODE_CLIENT_KEY_PASSPHRASE`, even a value that looks like a file name (#2731).
 - Sync refuses to write or remove through a link that leads outside the project or into `.git`; links inside the project still work (#2706).
 - `compare` hides credentials in permission rules and `x-<target>` overrides behind `<redacted>`, as `sync --global` does (#2650).
 - Pack commands refuse unsafe names and sources; a refused name says how to reinstall it with `packs add --name` (#2638, #2690).
@@ -50,6 +51,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Lifecycle stages start closed with counts and search, and the authority view loads faster (#2610, #2631, #2632).
 - The web UI no longer shows the configured tools card in the sidebar. `sync --check` and `status` report whether generated files match the source (#2733).
 - The web UI scrolls the page from the sidebar too; before, a wheel over the sidebar moved nothing (#2729).
+- The web UI draws no focus box around the page title, shows the search count under the field, and opens the JSON inspector below the header. **Tools** shows one line when no server lists its tools, **Lifecycle** with no hooks shows a plain list of stages, stacked fields on phones show each key once, and light theme header buttons no longer look disabled (#2740).
 
 ### By tool
 

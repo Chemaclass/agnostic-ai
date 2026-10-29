@@ -151,6 +151,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
+        const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
@@ -159,7 +160,12 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
             </h2>
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
             {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
-            {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
+            {unlisted !== undefined && items.length > 0 && (
+              <p className="muted tool-state tools-unlisted">
+                Tools not listed yet. Run <Code>{unlisted}</Code> to list them.
+              </p>
+            )}
+            {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} sharedUnlisted={unlisted !== undefined} />}
           </section>
         )
       })}
@@ -217,7 +223,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
           <FieldEditControl key={audience} field={f} files={files} sources={(shown) => f.set.filter((src) => src.path !== shown).map((src) => (
             <div key={`${src.spec}:${src.path}`} className="field-source">
-              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} />}
+              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} fieldKey={f.key} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
@@ -432,6 +438,34 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
   const setExpanded = (open: boolean) => {
     root.current?.querySelectorAll<HTMLDetailsElement>('details.stage').forEach((stage) => { stage.open = open })
   }
+  const stageTools = (st: Stage) => st.targets.length > 0 && (
+    <p className="stage-tools">
+      {st.targets.map((t) => (
+        <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
+      ))}
+    </p>
+  )
+  if (count === 0) {
+    return (
+      <section className="block" aria-labelledby="lifecycle-hooks">
+        <h2 id="lifecycle-hooks">Hooks <span className="muted kind-count">0</span></h2>
+        <p className="muted">None configured. A hook can run at each of these stages.</p>
+        <ol className="stages is-quiet">
+          {stages.map((st) => (
+            <li key={st.id} className="stage-step">
+              <div className="stage">
+                <h3 className="stage-summary">
+                  <span className="stage-title">{st.label}</span>
+                  <span className="muted stage-description">{st.description}</span>
+                </h3>
+                {stageTools(st)}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
   return (
     <section ref={root} className="block" aria-labelledby="lifecycle-hooks">
       <div className="section-head lifecycle-head">
@@ -460,13 +494,7 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
                   </h3>
                 </summary>
                 <div className="stage-body">
-                  {st.targets.length > 0 && (
-                    <p className="stage-tools">
-                      {st.targets.map((t) => (
-                        <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
-                      ))}
-                    </p>
-                  )}
+                  {stageTools(st)}
                   {!here.length && <p className="muted stage-empty">{filtering ? 'No matching hooks.' : 'No hook runs here.'}</p>}
                   {here.length > 0 && <ItemList items={here} />}
                 </div>
@@ -479,8 +507,16 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
   )
 }
 
-function GroupedItems({ items }: { items: SectionItem[] }) {
-  if (!items.some((it) => it.group)) return <ItemList items={items} />
+// When no server has a tool list yet, one notice under the heading replaces
+// the same line on every server.
+function sharedUnlistedCommand(items: SectionItem[]): string | undefined {
+  const listings = items.flatMap((item) => (item.tools ? [item.tools] : []))
+  const command = listings[0]?.command
+  return listings.length > 0 && listings.every((listing) => listing.state === 'not-listed' && listing.command === command) ? command : undefined
+}
+
+function GroupedItems({ items, sharedUnlisted }: { items: SectionItem[]; sharedUnlisted?: boolean }) {
+  if (!items.some((it) => it.group)) return <ItemList items={items} sharedUnlisted={sharedUnlisted} />
   const groups: { name: string; items: SectionItem[] }[] = []
   for (const it of items) {
     const name = it.group ?? ''
@@ -493,14 +529,14 @@ function GroupedItems({ items }: { items: SectionItem[] }) {
       {groups.map((g) => (
         <div key={g.name} className="item-group">
           <h3 className="item-group-title">{g.name}</h3>
-          <ItemList items={g.items} />
+          <ItemList items={g.items} sharedUnlisted={sharedUnlisted} />
         </div>
       ))}
     </div>
   )
 }
 
-function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: boolean }) {
+function ItemList({ items, hideValues, sharedUnlisted }: { items: SectionItem[]; hideValues?: boolean; sharedUnlisted?: boolean }) {
   const audience = useEditAudience()
   return (
     <ul className="item-list">
@@ -516,7 +552,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
               ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
               : heading(control)}
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
-            {item.tools && <Tools listing={item.tools} />}
+            {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
             <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
           </ItemRow>
         )
@@ -737,12 +773,12 @@ function NativeValues({ values, file, localKeys }: { values: Value[]; file: stri
   )
 }
 
-function Values({ values, file, prefix, personal, localKeys }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[] }) {
+function Values({ values, file, prefix, personal, localKeys, fieldKey }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[]; fieldKey?: string }) {
   const audience = usePageAudience() ?? (personal ? 'personal' : 'shared')
   return (
     <dl className="values">
       {values.map((v) => (
-        <div key={v.key} className="value-row">
+        <div key={v.key} className={`value-row${v.key === fieldKey ? ' repeats-field-key' : ''}`}>
           <dt>
             <code title={prefix ? v.key : undefined}>
               {(prefix && v.key.startsWith(`${prefix}.`) ? v.key.slice(prefix.length + 1) : v.key).split('.').map((part, i) => (

@@ -34,6 +34,55 @@ test('starts every section with its page header', async ({ page }) => {
   }
 })
 
+test('moves focus to the page title after keyboard navigation without drawing a ring', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context')
+  await page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: /^Tools/ }).focus()
+  await page.keyboard.press('Enter')
+  const title = page.getByRole('heading', { level: 1, name: 'Tools', exact: true })
+  await expect(title).toBeFocused()
+  expect(await title.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('none')
+})
+
+for (const width of [1440, 390]) {
+  test(`puts the search result count under the search field at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('/?view=tools')
+    const input = (await page.getByRole('searchbox', { name: 'Search tools' }).boundingBox())!
+    const status = (await page.locator('.section-search-status').boundingBox())!
+    expect(status.y).toBeGreaterThanOrEqual(input.y + input.height)
+    expect(status.x).toBeCloseTo(input.x, 0)
+  })
+}
+
+test('shows a permission key once in the narrow Authority layout', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=authority')
+  const row = page.locator('.field-row', { hasText: 'Allowed without asking' })
+  await expect(row.getByText('permissions.allow', { exact: true })).toHaveCount(2)
+  const visible = await row.locator('code').evaluateAll((codes) => codes.filter((code) => code.textContent === 'permissions.allow' && (code.closest('dt') ?? code).getBoundingClientRect().width > 1).length)
+  expect(visible).toBe(1)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(row.locator('.value-row dt').first()).toBeVisible()
+})
+
+test('keeps header buttons on the header colour in the light theme', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context')
+  const header = await page.locator('.topbar').evaluate((element) => getComputedStyle(element).backgroundColor)
+  for (const name of ['Search', 'JSON']) {
+    const button = page.locator('.topbar').getByRole('button', { name, exact: true })
+    expect(await button.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(header)
+  }
+  await page.locator('.topbar').getByRole('button', { name: 'JSON', exact: true }).click()
+  const pressed = page.locator('.topbar').getByRole('button', { name: 'JSON', exact: true })
+  await expect(pressed).toHaveAttribute('aria-pressed', 'true')
+  expect(await pressed.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(header)
+})
+
 for (const width of [320, 900]) {
   test(`keeps the current section in view in the narrow navigation at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
