@@ -23,6 +23,55 @@ func TestImportAll_NoDetectedCLIs(t *testing.T) {
 	}
 }
 
+func TestImportAll_ImportsAnOpencodeProjectWithOnlyOpencodeJSON(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.WriteFile(filepath.Join(dir, "opencode.json"),
+		[]byte(`{"mcp":{"docs":{"type":"local","command":["docs-server","--stdio"]}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"import", "all"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("import all: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "mcps", "docs.yaml"))
+	if err != nil {
+		t.Fatalf("import all must import the MCP server from opencode.json: %v", err)
+	}
+	if !strings.Contains(string(got), "docs-server") {
+		t.Errorf("imported MCP spec lost its command:\n%s", got)
+	}
+}
+
+func TestImportAll_ImportsACopilotProjectWithOnlyCopilotSettings(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	settings := filepath.Join(dir, ".github", "copilot", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settings, []byte(`{"model":"gpt-5.4"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"import", "all"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("import all: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml"))
+	if err != nil {
+		t.Fatalf("import all must import .github/copilot/settings.json: %v", err)
+	}
+	if !strings.Contains(string(got), "model: gpt-5.4") {
+		t.Errorf("imported settings lost the model:\n%s", got)
+	}
+}
+
 func TestImportAll_ImportsDetectedCLI(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
