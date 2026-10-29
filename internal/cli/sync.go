@@ -267,6 +267,22 @@ func newSyncCmd() *cobra.Command {
 						reports = append(reports, driftReport{Target: "unmanaged", Unmanaged: unmanaged})
 					}
 				}
+				if slices.ContainsFunc(reports, driftReport.hasDrift) {
+					links := trackedLinks
+					if tree != nil {
+						links = tree.exportedLinks
+					}
+					inputs, err := projectInputs(cfg)
+					if err != nil {
+						return err
+					}
+					plain, err := plainFileLinkFailures(".", links(), checkedPaths(inputs, reports), linkFailures, against)
+					if err != nil {
+						return err
+					}
+					notesErr = errors.Join(notesErr, againstSkillLinkError(plain))
+					linkFailures = append(linkFailures, plain...)
+				}
 				if jsonOut {
 					return printSyncCheckJSON(cmd, reports, drops, notesErr)
 				}

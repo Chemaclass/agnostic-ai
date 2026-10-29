@@ -21,6 +21,8 @@ agnostic-ai sync --check
 
 `--check` compares the files sync would write with the files on disk, writes nothing, and exits non-zero on a missing or changed file. To fix it, run `agnostic-ai sync` locally and commit the result. Never run `sync` right before this check in CI, because it hides the problem you are testing for.
 
+On a Windows runner, Git writes CRLF line endings on checkout, and the check reports those files as `line endings only`. Add a `.gitattributes` rule such as `* text eol=lf`, or use `--against HEAD`, which reads the line endings Git stores.
+
 <details>
 <summary>Check committed files after another step rewrites the working tree</summary>
 

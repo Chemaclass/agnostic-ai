@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -62,6 +63,10 @@ type driftReport struct {
 	// sharedWith maps a path to the other targets that read it, set by
 	// foldSharedDrift for printing.
 	sharedWith map[string][]string
+	// lineEndings marks the changed files that differ from what sync
+	// writes only by CRLF line endings. Sync cannot settle them while Git
+	// converts the files on checkout.
+	lineEndings map[string]bool
 }
 
 // leftoverFix names the command that removes the report's Leftover. Sync
@@ -81,11 +86,53 @@ func (r driftReport) hasDrift() bool {
 // write, as edited when they also differ from the sum the last sync
 // recorded, and as stale otherwise. No recorded sum proves no edit.
 func (r *driftReport) addChanged(f adapters.CapturedFile, disk []byte, sums map[string]string) {
-	if sum := sums[f.Path]; sum != "" && adapters.ContentSum(string(disk)) != sum {
+	if onlyLineEndingsDiffer(disk, f.Content) {
+		if r.lineEndings == nil {
+			r.lineEndings = map[string]bool{}
+		}
+		r.lineEndings[f.Path] = true
+		r.Stale = append(r.Stale, f)
+		return
+	}
+	if sum := sums[f.Path]; sum != "" && !adapters.MatchesSum(disk, sum) {
 		r.Edited = append(r.Edited, f)
 		return
 	}
 	r.Stale = append(r.Stale, f)
+}
+
+// onlyLineEndingsDiffer reports whether disk is want with CRLF line
+// endings, as Git writes a file under core.autocrlf or an eol rule.
+func onlyLineEndingsDiffer(disk []byte, want string) bool {
+	return bytes.Contains(disk, []byte("\r\n")) && !strings.Contains(want, "\r") &&
+		string(bytes.ReplaceAll(disk, []byte("\r\n"), []byte("\n"))) == want
+}
+
+// lineEndingAdvice is the fix for files that differ only by line endings
+// in the state ref names, "" for the working tree. There, running sync
+// alone does not hold: the next checkout converts the files again. The
+// --against export keeps the stored line endings, so there the stored
+// file or an eol rule holds the CRLF.
+func lineEndingAdvice(ref string) string {
+	if ref == "" {
+		return "Git checked them out with CRLF line endings; run git config core.autocrlf false, or add a .gitattributes rule such as `* text eol=lf`, then run agnostic-ai sync"
+	}
+	_, step := againstPlace(ref)
+	return "Git stores them with CRLF line endings, or an eol rule in .gitattributes converts them; drop any such rule, then " + step
+}
+
+// lineEndingCount counts the changed files in reports that differ only
+// by line endings, and names the state they were compared in.
+func lineEndingCount(reports []driftReport) (n int, ref string) {
+	for _, r := range reports {
+		for _, f := range r.changed() {
+			if r.lineEndings[f.Path] {
+				n++
+				ref = r.against
+			}
+		}
+	}
+	return n, ref
 }
 
 // splitMerged separates the files that sync merges into from the ones it
@@ -362,7 +409,7 @@ func leftoverReportsIn(cfg *config.Config, emitted map[string]bool, ledger ledge
 		}
 		sum := state.OutputSums[p]
 		_, merged := state.Merged[p]
-		if merged || header.Has(string(data)) || sum != "" && adapters.ContentSum(string(data)) == sum {
+		if merged || header.Has(string(data)) || sum != "" && adapters.MatchesSum(data, sum) {
 			rep.Leftover = append(rep.Leftover, p)
 		}
 	}

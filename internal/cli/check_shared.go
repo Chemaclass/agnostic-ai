@@ -86,7 +86,12 @@ func (r driftReport) sharedNote(path string) string {
 	return " (shared with " + strings.Join(others, ", ") + ")"
 }
 
-// label is path in slash form, followed by the other targets that read it.
+// label is path in slash form, followed by the other targets that read it
+// and whether only its line endings differ.
 func (r driftReport) label(path string) string {
-	return filepath.ToSlash(path) + r.sharedNote(path)
+	label := filepath.ToSlash(path) + r.sharedNote(path)
+	if r.lineEndings[path] {
+		label += " (line endings only)"
+	}
+	return label
 }

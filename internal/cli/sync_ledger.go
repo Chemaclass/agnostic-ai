@@ -280,7 +280,7 @@ func editedSince(path, sum string) bool {
 		return false
 	}
 	data, err := os.ReadFile(path)
-	return err == nil && adapters.ContentSum(string(data)) != sum
+	return err == nil && !adapters.MatchesSum(data, sum)
 }
 
 // underSymlinkedDir reports whether any directory between path and the

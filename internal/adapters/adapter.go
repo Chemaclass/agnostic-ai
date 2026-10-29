@@ -129,6 +129,10 @@ func NewSession() *Session { return emit.NewSession() }
 // records for every output.
 func ContentSum(content string) string { return emit.ContentSum(content) }
 
+// MatchesSum mirrors emit.MatchesSum: data holds the content of sum, with
+// LF or CRLF line endings.
+func MatchesSum(data []byte, sum string) bool { return emit.MatchesSum(data, sum) }
+
 // SetWarner redirects capability warnings emitted by adapters. The CLI uses
 // this to suppress warnings under --quiet.
 func SetWarner(w io.Writer) { emit.Warner = w }
