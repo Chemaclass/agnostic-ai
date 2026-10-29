@@ -411,6 +411,7 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 		return withImportTree(".", func() error {
 			return withImportViewGuard(".", func() error {
 				return withLocalImportGuard(".", cfg, func() error {
+					var failures []error
 					for _, s := range sources {
 						if len(sources) > 1 {
 							_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
@@ -418,10 +419,11 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 						if err := runImport(".", s, cfg); err != nil {
 							_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
 							*failed = append(*failed, s)
+							failures = append(failures, err)
 						}
 					}
 					if len(*failed) > 0 {
-						return fmt.Errorf("import failed for: %s", strings.Join(*failed, ", "))
+						return importFailedError(*failed, failures)
 					}
 					return nil
 				})

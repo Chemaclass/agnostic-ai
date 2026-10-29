@@ -659,4 +659,12 @@
 # file check (ClearStaleStreamHost +1670, recordedColonOutputs +677), the nested import
 # walk (importGeminiCommands +646 net), and the shared command path helper (+1150 net)
 # explain it. No new dependency. Budget: measured size plus one typical PR (8192).
-24133792
+#
+# The colon refusal on Windows import (#2751) and the shared credential walker
+# (#2754) add 6161 bytes of symbols to main 5380afab: 24125600 to 24133792 with
+# Go 1.27.3 and Linux amd64 release flags. RedactTree (+2802) replaces the two
+# walkers it unifies (-2419 net across redactPermissionOverride and the Codex
+# helpers); the guarded import rollback, the stream name check and the Kimi and
+# Vibe path wrapping (+2300) are the rest. No new dependency. Budget: measured
+# size plus one typical PR (8192).
+24141984
