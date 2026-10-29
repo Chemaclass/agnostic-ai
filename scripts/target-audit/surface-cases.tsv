@@ -87,3 +87,7 @@ opencode-model-cache-ttl	opencode	Add configurable prompt cache TTLs per provide
 copilot-repository-plugin-defaults	copilot	The plugin-related keys in the repository configuration file (`enabledPlugins` and `extraKnownMarketplaces`) are also read by Copilot in the cloud, not only Copilot CLI.	yes	2756
 antigravity-plugin-path-variables	antigravity	To keep a plugin self-contained, reference these variables in the plugin’s mcp_config.json instead of hardcoding absolute paths.	yes	signal:cap-antigravity-plugin-path-variables
 grok-subagent-persona-overlays	grok	Personas are behavioral overlays only (tone, focus, contracts); define them under [subagents.personas] or .grok/personas/*.toml / ~/.grok/personas/*.toml	yes	signal:cap-subagent-persona-overlays
+opencode-scheduled-prompts	opencode	Add opt-in scheduled prompts through `/schedule`, agent tools, and `experimental.schedules`.	yes	signal:cap-opencode-scheduled-prompts
+opencode-image-generate-tool	opencode	Enable `experimental.image_generate` to let agents create or edit images with the new `image_generate` tool.	yes	signal:cap-opencode-image-generate-tool
+opencode-skill-sources-catalogs	opencode	Add more local directories or HTTP catalogs with the skills array in any opencode.json or opencode.jsonc	yes	signal:cap-opencode-skill-sources-catalogs
+trae-enterprise-hook-failure-policy	trae	configure on_failure to block or skip failed Hook invocations. [Enterprise only]	yes	signal:cap-trae-enterprise-hook-failure-policy
