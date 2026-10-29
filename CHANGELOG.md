@@ -8,6 +8,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - The home page shows the install command for your OS, the number of supported tools, and a link to the playground at the top.
 
+### General
+
+#### Sync and configuration
+
+- `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
+
 ## v0.90.0 - 2026-10-29
 
 ### General

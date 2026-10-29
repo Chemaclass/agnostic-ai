@@ -82,6 +82,20 @@ func TestImportClaude_ShadowedEffortSurvivesUnderXClaude(t *testing.T) {
 	}
 }
 
+func TestImportFactory_PromotesEffortWhenOnlyAnotherToolsSpecSetsOne(t *testing.T) {
+	dir := importEffortProject(t, "factory, claude")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "targets: [claude]\neffort: low\n")
+	writeFile(t, filepath.Join(dir, ".factory", "settings.json"), `{"reasoningEffort": "high"}`)
+
+	execCLI(t, "import", "factory")
+
+	assertSettingsEffort(t, dir, "factory.yaml", "high")
+	execCLI(t, "sync")
+	if got := readFile(t, filepath.Join(dir, ".factory", "settings.json")); !strings.Contains(got, `"reasoningEffort": "high"`) {
+		t.Errorf("sync must write the promoted effort back:\n%s", got)
+	}
+}
+
 func TestImportAll_KeepsEachToolsOwnEffort(t *testing.T) {
 	dir := importEffortProject(t, "claude, copilot")
 	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Claude\n")
