@@ -20,7 +20,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 **A 200 is not a correct entry.** One run found four entries whose URLs were live and whose named authority was dead, and each one had hidden a real finding from earlier runs. A URL health check cannot catch that class, so read the content of an entry you rely on, not its status code.
 
-`scripts/docfetch.sh` runs the recovery ladder for client-rendered pages, moved URLs, app shells, and blocked hosts, and tags every row with the mode that produced its text. Read `.agnostic-ai/skills/target-audit/references/fetch-playbook.md` when a row comes back `failed`, `app-shell`, `soft-404`, or `redirected`. That file also holds the per-vendor routes and the fetch failures that have cost real audit time.
+`scripts/docfetch.sh` runs the recovery ladder for client-rendered pages, moved URLs, app shells, and blocked hosts, and tags every row with the mode that produced its text. Read `.agnostic-ai/skills/target-audit/references/fetch-playbook.md` when a row comes back `failed`, `app-shell`, `soft-404`, `extract-limit`, or `redirected`. That file also holds the per-vendor routes and the fetch failures that have cost real audit time.
 
 ---
 
