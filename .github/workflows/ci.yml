@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       full_windows:
-        description: Run the full Windows Go race suite (ten-minute job limit)
+        description: Run the full Windows Go race suite (45-minute job limit)
         type: boolean
         default: false
       repeat_windows_startup:
@@ -42,7 +42,9 @@ jobs:
   # Pull requests and pushes to main test on Linux: a merge reruns code its PR
   # already tested, and a full matrix on every merge tripled the runner time.
   # Nightly and manual runs add macOS and a focused Windows smoke check.
-  # The full Windows Go suite is manual only, with full_windows=true.
+  # The full Windows Go suite is manual only, with full_windows=true. With
+  # -race it took about 32 minutes (internal/cli alone 28), so its job gets
+  # 45 (#2760).
   #
   # One Linux job ran internal/cli and tests/integration side by side and
   # reached the ten-minute limit (#2610), so they run in shards split by test
@@ -137,7 +139,7 @@ jobs:
   test:
     name: Test
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    timeout-minutes: ${{ matrix.os == 'windows-latest' && inputs.full_windows != true && 7 || 10 }}
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && (inputs.full_windows == true && 45 || 7) || 10 }}
     strategy:
       fail-fast: false
       matrix:
@@ -158,7 +160,7 @@ jobs:
       - name: Test
         if: matrix.os == 'windows-latest' && inputs.full_windows == true
         shell: bash
-        run: go test -vet=all -timeout=10m -count=1 -race ./...
+        run: go test -vet=all -timeout=40m -count=1 -race ./...
 
       - name: macOS unit tests
         if: matrix.os == 'macos-latest'
