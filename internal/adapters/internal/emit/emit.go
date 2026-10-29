@@ -199,9 +199,13 @@ func (s *Session) checkProjectPath(path, verb string, parentsOnly bool) error {
 		filepath.IsAbs(path) && s.projectRoot != "" && config.UnsafeProjectPathIn(s.projectRoot, path):
 		return fmt.Errorf("refusing a path outside the project or inside .git: %s", path)
 	case verb == "write" && config.NamesDataStream(path):
-		return fmt.Errorf("refusing to write a name with a colon, which Windows stores as a hidden stream of the file before it: %s", path)
+		return dataStreamRefusal(path)
 	}
 	return config.CheckProjectLinks(".", path, verb, parentsOnly)
+}
+
+func dataStreamRefusal(path string) error {
+	return fmt.Errorf("refusing to write a name with a colon, which Windows stores as a hidden stream of the file before it: %s", path)
 }
 
 // SetUserTier marks a session that writes a tool's user-level
@@ -935,6 +939,11 @@ func writeFileAt(path, content string, mode os.FileMode, enforceMode bool) error
 func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enforceMode, dryRun bool) error {
 	if s.skipUnmanaged(path) {
 		return nil
+	}
+	// Refused before capture and dry-run so sync --check and --dry-run
+	// report what sync would.
+	if config.NamesDataStream(path) {
+		return dataStreamRefusal(path)
 	}
 	content = s.collisionWinner(path, content)
 	s.mu.Lock()

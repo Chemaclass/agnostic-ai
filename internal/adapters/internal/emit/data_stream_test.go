@@ -17,13 +17,21 @@ func TestSession_RefusesToWriteAColonNameOnWindowsButRemovesAnOwnedOne(t *testin
 		t.Fatal(err)
 	}
 
-	err := sess.WriteFile(path, "y\n", false)
-	if runtime.GOOS == "windows" {
-		if err == nil || !strings.Contains(err.Error(), "hidden stream") {
-			t.Errorf("WriteFile(%s) = %v, want the colon refusal", path, err)
+	for _, dryRun := range []bool{true, false} {
+		err := sess.WriteFile(path, "y\n", dryRun)
+		if runtime.GOOS == "windows" {
+			if err == nil || !strings.Contains(err.Error(), "hidden stream") {
+				t.Errorf("WriteFile(%s, dryRun=%v) = %v, want the colon refusal", path, dryRun, err)
+			}
+		} else if err != nil {
+			t.Errorf("WriteFile(%s, dryRun=%v) = %v, want a write", path, dryRun, err)
 		}
-	} else if err != nil {
-		t.Errorf("WriteFile(%s) = %v, want a write", path, err)
+	}
+
+	capture := NewSession()
+	capture.StartCapture()
+	if err := capture.WriteFile(path, "y\n", false); (err != nil) != (runtime.GOOS == "windows") {
+		t.Errorf("captured WriteFile(%s) = %v, want the colon refusal on Windows only", path, err)
 	}
 
 	// An older release wrote this name on Windows, where it is a stream
