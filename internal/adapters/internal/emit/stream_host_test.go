@@ -3,6 +3,7 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -59,6 +60,53 @@ func TestClearStaleStreamHost_NamesAFileItCannotProveIsAHost(t *testing.T) {
 				t.Errorf("file removed: %v", statErr)
 			}
 		})
+	}
+}
+
+func TestClearStaleStreamHost_KeepsTheHostOfAnEditedColonOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("a colon file name is a stream of the host on Windows")
+	}
+	testutil.TempCwd(t)
+	host := filepath.Join(".gemini", "commands", "vc")
+	colon := ".gemini/commands/vc:save.toml"
+	if err := os.MkdirAll(filepath.Dir(host), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(host, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(colon, []byte("edited\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess := NewSession()
+	sess.BackUpEditsSince(map[string]string{colon: ContentSum("written\n")})
+	err := sess.ClearStaleStreamHost(host, false)
+	if err == nil || !strings.Contains(err.Error(), colon) || !strings.Contains(err.Error(), "edited") {
+		t.Errorf("clear = %v, want an error naming the edited %s", err, colon)
+	}
+	if _, statErr := os.Lstat(host); statErr != nil {
+		t.Errorf("host removed: %v", statErr)
+	}
+}
+
+func TestClearStaleStreamHost_FollowsALinkToAFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("creating a link needs extra rights on Windows")
+	}
+	testutil.TempCwd(t)
+	if err := os.MkdirAll("shared", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(".gemini", "commands"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(".gemini", "commands", "vc")
+	if err := os.Symlink(filepath.Join("..", "..", "shared"), link); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewSession().ClearStaleStreamHost(link, false); err != nil {
+		t.Errorf("clear: %v", err)
 	}
 }
 
