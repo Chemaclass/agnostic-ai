@@ -83,3 +83,7 @@ antigravity-mcp-enabled-tools	antigravity	When set, all other tools on the serve
 kiro-v3-workspace-customization-trust	kiro	Kiro CLI asks you to trust a folder before it loads that folder's hooks, agents, MCP servers, steering, workflows, or language server configuration.	no	signal:cap-project-config-trust-gates
 kiro-workflow-explicit-start	kiro	turning the feature on no longer kicks off a workflow by itself, so one runs only when you ask for it.	no	signal:cap-kiro-workflow-recipes
 windsurf-hook-stop-turn-reply	windsurf	A hook can end the agent's turn from any event with `stop: "<reason>"` in its output (Claude-format hooks: `continue: false` / `stopReason`).	yes	signal:cap-hook-result-and-turn-control
+opencode-model-cache-ttl	opencode	Add configurable prompt cache TTLs per provider/model	yes	2755
+copilot-repository-plugin-defaults	copilot	The plugin-related keys in the repository configuration file (`enabledPlugins` and `extraKnownMarketplaces`) are also read by Copilot in the cloud, not only Copilot CLI.	yes	2756
+antigravity-plugin-path-variables	antigravity	To keep a plugin self-contained, reference these variables in the plugin’s mcp_config.json instead of hardcoding absolute paths.	yes	signal:cap-antigravity-plugin-path-variables
+grok-subagent-persona-overlays	grok	Personas are behavioral overlays only (tone, focus, contracts); define them under [subagents.personas] or .grok/personas/*.toml / ~/.grok/personas/*.toml	yes	signal:cap-subagent-persona-overlays
