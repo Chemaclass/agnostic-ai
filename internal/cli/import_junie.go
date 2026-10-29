@@ -95,7 +95,7 @@ func importFromJunie(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, junieConfigFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "junie"})
+	settings, err := importPortableSettings(root, junieConfigFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "junie", effortKey: "effort"})
 	if err != nil {
 		return err
 	}

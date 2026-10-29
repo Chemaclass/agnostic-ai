@@ -136,14 +136,18 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 ## Effort by target
 
-`effort` reaches four tools. A value the tool does not accept, or `effort` on any other tool, raises a sync note instead. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. `import` fills `effort` from these keys when the tool accepts the value and no other settings spec sets it; otherwise the value goes under `x-<target>`.
+`effort` reaches the tools below. A value the tool does not accept, or `effort` on any other tool, raises a sync note instead. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. `import` fills `effort` from these keys when the tool accepts the value and no other settings spec sets it; otherwise the value goes under `x-<target>`. CodeBuddy import writes an accepted value as a CodeBuddy-only `effort` even when another spec sets one. Kimi import does not read effort.
 
 | Target | Native key | Accepted values |
 |---|---|---|
 | Claude Code | `effortLevel` in `.claude/settings.json` | `low`, `medium`, `high`, `xhigh` |
 | Copilot | `effortLevel` in `.github/copilot/settings.json` | `low`, `medium`, `high`, `xhigh` |
 | Codex | `model_reasoning_effort` in `.codex/config.toml` | any string; `outputs.codex.config.model-reasoning-effort` and the captured overlay win |
+| CodeBuddy | `reasoningEffort` in `.codebuddy/settings.json` | `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
 | Factory | `reasoningEffort` in `.factory/settings.json` | `none`, `dynamic`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; each model accepts a subset |
+| Junie | `effort` in `.junie/config.json` | any string |
+| Kimi | `[thinking].effort` in the `config.toml` that `outputs.kimi.conf-file` names | any value |
+| Pi | `defaultThinkingLevel` in `.pi/settings.json` | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
 
 ## Support by target
 

@@ -112,7 +112,7 @@
 // coverage note rather than written (target-audit 2026-09-18, #858),
 // the same choice warp.go makes for its own two closed tables.
 //
-// Settings specs merge their last non-empty `model` into
+// Settings specs merge their last non-empty `model` and `effort` into
 // `.junie/config.json`, preserving unrelated native project settings.
 //
 // Ignore specs emit as `.aiignore` (override via
@@ -176,9 +176,10 @@ const (
 const EntryFile = defaultEntryFile
 
 var caps = emit.Capabilities{
-	Target:      target,
-	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
-	AgentFields: []string{"effort", "mcpServers", "maxTurns"},
+	Target:         target,
+	Supports:       []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	AgentFields:    []string{"effort", "mcpServers", "maxTurns"},
+	SettingsFields: []string{"effort"},
 }
 
 // agentNameRule is the regex the subagent frontmatter table states for
@@ -201,9 +202,14 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+// SettingsEffortLevels accepts any string: Junie's config page lists no
+// effort values and points to model selection instead.
+func (Adapter) SettingsEffortLevels() []string { return nil }
+
 func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 	settings := []spec.Entry{e}
-	return e.Kind != spec.KindSettings || emit.SettingsModel(settings, target) != "" || len(emit.SettingsCustomKeys(settings, target)) > 0
+	effort, _ := emit.SettingsEffort(settings, target).(string)
+	return e.Kind != spec.KindSettings || emit.SettingsModel(settings, target) != "" || effort != "" || len(emit.SettingsCustomKeys(settings, target)) > 0
 }
 
 // mcpDisabledNoOpReason and mcpDescriptionNoOpReason explain, in the
@@ -388,7 +394,7 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 	return nil
 }
 
-// emitProjectConfig merges the portable default model into
+// emitProjectConfig merges the portable default model and effort into
 // `.junie/config.json`, alongside any key an author wrote under
 // `x-junie`. Routes through MergeJSONFile so every other key in that
 // file survives the sync.
@@ -396,14 +402,17 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 // The `x-junie` block is the settings-kind escape hatch: Junie's
 // project config carries fields this project does not model, and
 // without the hatch they reach nothing and say nothing (#949). It
-// merges with the managed keys rather than replacing them; `model` is
-// the only one this adapter writes, and a scalar has no parts to keep,
-// so `x-junie.model` still wins outright (#966).
+// merges with the managed keys rather than replacing them; `model` and
+// `effort` are scalars with no parts to keep, so `x-junie.model` and
+// `x-junie.effort` still win outright (#966).
 // No file is written when neither source contributes.
 func emitProjectConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error {
 	keys := map[string]any{}
 	if model := emit.SettingsModel(settings, target); model != "" {
 		keys["model"] = model
+	}
+	if effort := emit.SettingsEffortLevel(settings, target, (Adapter{}).SettingsEffortLevels()); effort != "" {
+		keys["effort"] = effort
 	}
 	emit.MergeSettingsCustomKeys(keys, settings, target)
 	if len(keys) == 0 {

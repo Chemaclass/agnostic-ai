@@ -1883,11 +1883,14 @@ function page_kind() {
   if [ -L "$1" ]; then echo link; elif [ -f "$1" ]; then echo file; else echo missing; fi
 }
 
+# audit_run_pages <run> <text> writes an audit run's fetched HTML page, its
+# extracted text and its delta, the files a fetch leaves for one row.
 function audit_run_pages() {
   local run="$DOCFETCH_RUNS/$1"
   mkdir -p "$run/pages/claude"
   printf '{}' >"$run/audit.json"
-  printf '%s' "$2" >"$run/pages/claude/docs-1-hooks.body"
+  printf '<main>%s</main>' "$2" >"$run/pages/claude/docs-1-hooks.body"
+  printf '%s\n' "$2" >"$run/pages/claude/docs-1-hooks.txt"
   printf 'delta\n' >"$run/pages/claude/docs-1-hooks.delta"
   printf '%s\n' "$run"
 }
@@ -1900,19 +1903,32 @@ function test_pages_by_hash_stores_an_audit_run_page_once() {
   pages_by_hash "$first"
   pages_by_hash "$second"
   assert_equals link "$(page_kind "$second/pages/claude/docs-1-hooks.body")"
-  assert_equals 'Hooks run before tools.' "$(cat "$second/pages/claude/docs-1-hooks.body")"
+  assert_equals '<main>Hooks run before tools.</main>' "$(cat "$second/pages/claude/docs-1-hooks.body")"
   assert_equals 1 "$(find "$DOCFETCH_SNAPSHOTS/blobs" -type f | grep -c .)"
   assert_equals "$(readlink "$first/pages/claude/docs-1-hooks.body")" "$(readlink "$second/pages/claude/docs-1-hooks.body")"
   assert_equals "$(sha256_of "$second/pages/claude/docs-1-hooks.body")" \
     "$(basename "$(readlink "$second/pages/claude/docs-1-hooks.body")")"
 }
 
-function test_pages_by_hash_keeps_deltas_in_the_run() {
+function test_pages_by_hash_keeps_searchable_text_as_plain_files() {
   local run
   use_run_store
   run=$(audit_run_pages run-a 'Hooks run before tools.')
+  printf '## 1.2\nAdded hooks.\n' >"$run/pages/claude/docs-1-hooks.entries.md"
   pages_by_hash "$run"
+  assert_equals file "$(page_kind "$run/pages/claude/docs-1-hooks.txt")"
   assert_equals file "$(page_kind "$run/pages/claude/docs-1-hooks.delta")"
+  assert_equals file "$(page_kind "$run/pages/claude/docs-1-hooks.entries.md")"
+  assert_contains 'docs-1-hooks.txt' "$(grep -rl 'Hooks run' "$run/pages/claude")"
+}
+
+function test_pages_by_hash_keeps_a_page_hashed_as_fetched_plain() {
+  local run
+  use_run_store
+  run=$(audit_run_pages run-a 'Hooks run before tools.')
+  rm "$run/pages/claude/docs-1-hooks.txt"
+  pages_by_hash "$run"
+  assert_equals file "$(page_kind "$run/pages/claude/docs-1-hooks.body")"
 }
 
 function test_pages_by_hash_leaves_a_fetch_only_run_as_files() {
@@ -1931,6 +1947,14 @@ function test_pages_by_hash_leaves_a_run_outside_the_runs_root_as_files() {
   mkdir -p "$run/pages/claude" "$DOCFETCH_RUNS"
   printf '{}' >"$run/audit.json"
   printf 'x' >"$run/pages/claude/docs-1-hooks.body"
+  printf 'x\n' >"$run/pages/claude/docs-1-hooks.txt"
+  pages_by_hash "$run"
+  assert_equals file "$(page_kind "$run/pages/claude/docs-1-hooks.body")"
+}
+
+function test_pages_by_hash_leaves_files_when_the_store_is_elsewhere() {
+  local run
+  run=$(audit_run_pages run-a 'Hooks run before tools.')
   pages_by_hash "$run"
   assert_equals file "$(page_kind "$run/pages/claude/docs-1-hooks.body")"
 }
@@ -1943,7 +1967,57 @@ function test_pages_by_hash_replaces_a_damaged_blob() {
   blob="$DOCFETCH_SNAPSHOTS/blobs/$(sha256_of "$run/pages/claude/docs-1-hooks.body")"
   printf 'damaged' >"$blob"
   pages_by_hash "$run"
-  assert_equals 'Hooks run before tools.' "$(cat "$run/pages/claude/docs-1-hooks.body")"
+  assert_equals '<main>Hooks run before tools.</main>' "$(cat "$run/pages/claude/docs-1-hooks.body")"
+}
+
+function test_pages_by_hash_restores_a_blob_pruned_during_its_check() {
+  local run page
+  use_run_store
+  run=$(audit_run_pages run-a 'Hooks run before tools.')
+  page="$run/pages/claude/docs-1-hooks.body"
+  mkdir -p "$DOCFETCH_SNAPSHOTS/blobs"
+  cp "$page" "$DOCFETCH_SNAPSHOTS/blobs/$(sha256_of "$page")"
+  # shellcheck disable=SC2329
+  function sha256_of() {
+    local sum
+    sum=$(shasum -a 256 "$1" | cut -d' ' -f1)
+    case "$1" in */blobs/*) rm -f "$1" ;; esac
+    printf '%s\n' "$sum"
+  }
+  pages_by_hash "$run"
+  assert_equals '<main>Hooks run before tools.</main>' "$(cat "$page")"
+}
+
+function test_pages_by_hash_links_relative_to_the_runs_root() {
+  local run
+  use_run_store
+  run=$(audit_run_pages run-a 'Hooks run before tools.')
+  pages_by_hash "$run"
+  assert_equals "../../../snapshots/blobs/$(sha256_of "$run/pages/claude/docs-1-hooks.body")" \
+    "$(readlink "$run/pages/claude/docs-1-hooks.body")"
+  mv "$FIXTURES/runs" "$FIXTURES/moved"
+  assert_equals '<main>Hooks run before tools.</main>' "$(cat "$FIXTURES/moved/run-a/pages/claude/docs-1-hooks.body")"
+}
+
+function test_a_refetch_into_an_audit_run_leaves_the_shared_page_alone() {
+  local first second stem="pages/claude/docs-1-x.example-a"
+  use_run_store
+  stub_curl "https://x.example/a|200|<main>$(printf 'first words %.0s' $(seq 1 60))</main>"
+  first="$DOCFETCH_RUNS/run-a"
+  second="$DOCFETCH_RUNS/run-b"
+  mkdir -p "$first" "$second"
+  printf '{}' >"$first/audit.json"
+  printf '{}' >"$second/audit.json"
+  fetch_one claude docs https://x.example/a "$first" 1 >/dev/null
+  fetch_one claude docs https://x.example/a "$second" 1 >/dev/null
+  pages_by_hash "$first"
+  pages_by_hash "$second"
+  assert_equals link "$(page_kind "$second/$stem.body")"
+  stub_curl "https://x.example/a|200|<main>$(printf 'second words %.0s' $(seq 1 60))</main>"
+  fetch_one claude docs https://x.example/a "$first" 1 >/dev/null
+  assert_contains 'first words' "$(cat "$second/$stem.body")"
+  assert_contains 'second words' "$(cat "$first/$stem.body")"
+  assert_equals "$(basename "$(readlink "$second/$stem.body")")" "$(sha256_of "$second/$stem.body")"
 }
 
 function test_blob_prune_removes_only_old_unlinked_blobs() {
@@ -1961,37 +2035,6 @@ function test_blob_prune_removes_only_old_unlinked_blobs() {
   assert_file_not_exists "$DOCFETCH_SNAPSHOTS/blobs/old"
 }
 
-function test_a_refetch_into_an_audit_run_leaves_the_shared_page_alone() {
-  local first second stem="pages/claude/docs-1-x.example-a.md"
-  use_run_store
-  stub_curl "https://x.example/a.md|200|$(printf 'first markdown %.0s' $(seq 1 40))"
-  first="$DOCFETCH_RUNS/run-a"
-  second="$DOCFETCH_RUNS/run-b"
-  mkdir -p "$first" "$second"
-  printf '{}' >"$first/audit.json"
-  printf '{}' >"$second/audit.json"
-  fetch_one claude docs https://x.example/a.md "$first" 1 >/dev/null
-  fetch_one claude docs https://x.example/a.md "$second" 1 >/dev/null
-  pages_by_hash "$first"
-  pages_by_hash "$second"
-  stub_curl "https://x.example/a.md|200|$(printf 'second markdown %.0s' $(seq 1 40))"
-  fetch_one claude docs https://x.example/a.md "$first" 1 >/dev/null
-  assert_contains 'first markdown' "$(cat "$second/$stem.body")"
-  assert_contains 'second markdown' "$(cat "$first/$stem.body")"
-  assert_equals "$(basename "$(readlink "$second/$stem.body")")" "$(sha256_of "$second/$stem.body")"
-}
-
-function test_pages_by_hash_links_relative_to_the_runs_root() {
-  local run
-  use_run_store
-  run=$(audit_run_pages run-a 'Hooks run before tools.')
-  pages_by_hash "$run"
-  assert_equals "../../../snapshots/blobs/$(sha256_of "$run/pages/claude/docs-1-hooks.body")" \
-    "$(readlink "$run/pages/claude/docs-1-hooks.body")"
-  mv "$FIXTURES/runs" "$FIXTURES/moved"
-  assert_equals 'Hooks run before tools.' "$(cat "$FIXTURES/moved/run-a/pages/claude/docs-1-hooks.body")"
-}
-
 function test_blob_prune_keeps_linked_blobs_under_a_symlinked_runs_root() {
   local run linked
   use_run_store
@@ -2004,9 +2047,14 @@ function test_blob_prune_keeps_linked_blobs_under_a_symlinked_runs_root() {
   assert_file_exists "$linked"
 }
 
-function test_pages_by_hash_leaves_files_when_the_store_is_elsewhere() {
-  local run
+function test_blob_prune_leaves_the_store_alone_for_another_runs_root() {
+  local run linked
+  use_run_store
   run=$(audit_run_pages run-a 'Hooks run before tools.')
   pages_by_hash "$run"
-  assert_equals file "$(page_kind "$run/pages/claude/docs-1-hooks.body")"
+  linked="$DOCFETCH_SNAPSHOTS/blobs/$(basename "$(readlink "$run/pages/claude/docs-1-hooks.body")")"
+  touch -t 202001010000 "$linked"
+  mkdir -p "$FIXTURES/other-runs"
+  DOCFETCH_RUNS="$FIXTURES/other-runs" blob_prune
+  assert_file_exists "$linked"
 }

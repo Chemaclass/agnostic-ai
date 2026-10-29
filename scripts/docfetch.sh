@@ -836,9 +836,11 @@ snapshot_prune() {
 # its blob, so a recent run's links stay valid.
 blob_prune() {
   local bdir runs used f days="${DOCFETCH_SNAPSHOT_DAYS:-30}"
-  bdir=$(blob_dir)
-  [ -d "$bdir" ] || return 0
+  bdir=$(CDPATH='' cd -- "$(blob_dir)" 2>/dev/null && pwd -P) || return 0
   runs=$(CDPATH='' cd -- "$(run_dir)" 2>/dev/null && pwd -P) || return 0
+  # Only runs under this root link into the store beside it, so the link
+  # scan below says nothing about a store kept anywhere else.
+  [ "$bdir" = "$runs/snapshots/blobs" ] || return 0
   used=$(mktemp)
   find "$runs" -type l -path '*/pages/*' -exec readlink {} + 2>/dev/null | awk -F / '{ print $NF }' | sort -u >"$used"
   # A fetch touches a blob before it links it, so a blob refreshed since
@@ -850,10 +852,12 @@ blob_prune() {
   rm -f "$used"
 }
 
-# pages_by_hash <run dir> moves each fetched page file of an audit run into
-# the blob store and leaves a symlink at its pages/ path, so a page that many
-# runs fetch unchanged is stored once. Deltas stay in the run because they
-# depend on the lock. Fetch-only runs (no audit.json, such as the vendor
+# pages_by_hash <run dir> moves each raw response of an audit run (.body and
+# .mirror.md) that has its text extracted to a plain .txt beside it into the
+# blob store, and leaves a symlink at its pages/ path, so a page that many
+# runs fetch unchanged is stored once. Every searchable file stays plain
+# (.txt, .entries.md, .delta, and a raw page hashed as fetched): a recursive
+# grep or ripgrep skips links, and auditors search those. Fetch-only runs (no audit.json, such as the vendor
 # watcher's uploaded artifact), runs not directly under the runs root, and a
 # store moved away from <runs root>/snapshots keep plain files. Links are
 # relative, so moving the checkout keeps them valid. Blobs are read-only: a write through a link fails
@@ -868,12 +872,15 @@ pages_by_hash() {
   mkdir -p "$bdir"
   bdir=$(CDPATH='' cd -- "$bdir" && pwd -P)
   [ "$bdir" = "$runs/snapshots/blobs" ] || return 0
-  find "$run/pages" -type f ! -name '*.delta' | while IFS= read -r f; do
+  find "$run/pages" -type f \( -name '*.body' -o -name '*.mirror.md' \) | while IFS= read -r f; do
+    [ -f "${f%.*}.txt" ] || continue
     sha=$(sha256_of "$f")
     blob="$bdir/$sha"
-    if [ -f "$blob" ] && [ "$(sha256_of "$blob")" = "$sha" ]; then
-      touch "$blob"
-    elif ! { cp "$f" "$blob.tmp.$$" && chmod a-w "$blob.tmp.$$" && mv -f "$blob.tmp.$$" "$blob"; }; then
+    # Refresh first: a prune that runs after this sees a recent file and
+    # keeps it. One that ran before leaves no file, and the copy restores it.
+    touch -c "$blob" 2>/dev/null
+    if ! { [ -f "$blob" ] && [ "$(sha256_of "$blob")" = "$sha" ] && [ -f "$blob" ]; } &&
+      ! { cp "$f" "$blob.tmp.$$" && chmod a-w "$blob.tmp.$$" && mv -f "$blob.tmp.$$" "$blob"; }; then
       rm -f "$blob.tmp.$$"
       continue
     fi
