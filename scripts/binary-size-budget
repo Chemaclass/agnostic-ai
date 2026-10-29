@@ -682,4 +682,12 @@
 # new memo instantiation (+1064 across its methods and dictionary); Go func
 # metadata grows 528; build info and module strings add the remaining 384. No
 # new dependency. Budget: measured size plus one typical PR (8192).
-24166560
+#
+# Line-ending aware drift checks (#2780) add 7522 bytes of symbols to main
+# 9f99944c: 24158368 to 24170656 with Go 1.27.3 and Linux amd64 release flags.
+# checkedPaths (+2673), plainFileLinkFailures (+1847), exportedLinks (+1225),
+# the sync command wiring (+1280), reportCheckDrift (+1110) and trackedLinks
+# (+645) carry the new link and CRLF diagnosis; printDrift shrinks by 1152 as
+# its work moves. No new dependency. Budget: measured size plus one typical
+# PR (8192).
+24178848
