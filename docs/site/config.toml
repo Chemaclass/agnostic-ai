@@ -1,6 +1,6 @@
 base_url = "https://agnostic-ai.org"
 title = "agnostic-ai"
-description = "One source for AI coding agents, skills, rules, hooks, commands, and MCP servers."
+description = "Stop keeping CLAUDE.md, AGENTS.md, and Cursor rules in sync by hand: write your instructions once, and agnostic-ai writes the file each coding tool reads."
 default_language = "en"
 author = "Chemaclass"
 compile_sass = false

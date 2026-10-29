@@ -1,9 +1,13 @@
 # agnostic-ai
 
-> Keep one editable set of instructions and settings in `.agnostic-ai/`.
-> Run `agnostic-ai sync` to write each coding tool's configuration files.
-> Supported tools use different paths and formats, including `CLAUDE.md`,
-> `AGENTS.md`, `GEMINI.md`, and `.cursor/rules/*.mdc`.
+> Stop keeping `CLAUDE.md`, `AGENTS.md`, and Cursor rules in sync by hand:
+> write your instructions once, and agnostic-ai writes the file each coding
+> tool reads.
+
+Keep one editable set of instructions and settings in `.agnostic-ai/`. Run
+`agnostic-ai sync` to write each coding tool's configuration files. Supported
+tools use different paths and formats, including `CLAUDE.md`, `AGENTS.md`,
+`GEMINI.md`, and `.cursor/rules/*.mdc`.
 
 A spec is a source file for an instruction, task, or setting. A target is a
 coding tool selected in `agnostic-ai.yaml`. Edit sources, preview changes,
