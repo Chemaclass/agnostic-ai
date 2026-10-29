@@ -597,4 +597,53 @@
 # adds the path, file name, and base64 shape checks that keep harmless values
 # (settingPathShaped +703, withoutReferenceSettings +572, literalSettingValue +390,
 # settingNamesNoSecret +302, settingBase64Like +203). No new dependency.
-24096928
+#
+# Size review of the review batch (#2721): each first-parent merge from cd1549bf
+# (#2613) to ec3bdb27 (#2715), built with the size-check flags on Go 1.27.3. Sizes move
+# in pages of 4096 bytes. Merges over 8 KB, with the symbols that grew in unstripped
+# builds:
+# ee59348b #2701 +24576: validateProjectPaths 3.2 KB and Output.outputPaths 2.5 KB in
+#   the new internal/config/project_paths.go, dropEscapingEntries 2.6 KB in the ledger.
+# 8318b77f #2672 +20480: Session.removeOwned 5.8 KB and removeWithBackup 3.6 KB in emit,
+#   plus revertOne and withLeftoverBackups.
+# 90860689 #2691 +16384: refusal hooks in five adapters, adapters.RefuseSpecs 1.5 KB,
+#   lintTargetRefusals 1.3 KB.
+# 231072ff #2693 +12288: the new internal/config/types.go walks config types with
+#   reflect (walkTypes 1.7 KB).
+# bdd515e6 #2686 +12288: release provenance, installVerifiedRelease 3.8 KB and
+#   checkReleaseProvenance 2.6 KB.
+# 1f677329 #2683 +12288: hookRunnable 1.3 KB and the hook lint messages.
+# 62422d85 #2689 +12288: gitFetchCommit 2.5 KB for packs pinned in the lockfile.
+# 7b0175de #2711 +12288: Codex overlay credential filtering, codexCredentialIn,
+#   codexCredentialPaths, and withoutCodexCredentials, about 3.9 KB.
+# Batch summary: 23818400 to 24002720, +184320 bytes over 48 merges. 19 grew, 27 stayed
+# the same, 2 shrank. go.mod and go.sum did not change. Of the code growth, about 71 KB
+# is internal/cli, 18 KB func metadata, 12.5 KB internal/config, 9 KB emit. No single
+# merge explains the raises: the eight above add 122880 bytes, the rest a page or two
+# each. Two duplications can win some back: the credential checks that still repeat
+# across compare, global import, and the overlay filters (#2737), and the kept-file
+# block that removeOwned repeats three times (#2738). Each saves under one page.
+#
+# The merges from ec3bdb27 to 5ce97e81 (#2725), measured the same way, add 49152 bytes
+# (24002720 to 24051872) with no new dependency:
+# bb5d6eff #2712 +28672: listing MCP servers found only in a tool's own config, the new
+#   internal/cli/overview_native_mcp.go (293 lines) and overview types.
+# 50a12102 #2692 +12288: one git call per run for Grok rule visibility, a batch query
+#   in internal/gitquery.
+# 1f38f738 #2706 +20480: refusing project writes through links that leave the project,
+#   the new internal/config/project_links.go (331 lines).
+# 5ce97e81 #2725 -12288: one shared shell command credential detector replaces the
+#   copies in global_permissions.go and import_shared_mcp.go.
+# #2722, #2688, and three docs merges left the size unchanged.
+#
+# Main 349a0b8a after #2732 measured 24092832 on Go 1.27.3 with Linux amd64 release
+# flags, 4096 under the 24096928 the #2732 note measured: #2733 dropped a sidebar card
+# from the embedded UI (-8192, 24092832 to 24084640) and merged before #2732 (+8192).
+# Set to the measured size plus 8192, two pages: one typical PR, since 15 of the 19
+# merges that grew the review batch grew it by 8192 or more. It covers whichever lands
+# first of the #2731 fix (Go) and the UI polish branch (the embedded UI is compiled into
+# the binary, so UI changes move the size too). The next growing PR after that one will
+# need a raise.
+# From here on the rule is the measured size plus one typical PR (8192), which replaces
+# the "no added headroom" line in the #2726 note. Each raise still needs its own note.
+24101024
