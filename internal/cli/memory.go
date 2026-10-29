@@ -421,12 +421,12 @@ func (c memoryContents) lint() []lintFinding {
 // The name checks import also runs on MCP values read prose such as
 // `KEY=value` as a secret.
 func memorySecretIn(line string) bool {
-	text := mcpDetectorText(line)
-	if mcpTokenIn(text) || memoryBearerIn(text) {
+	text := preview.DetectorText(line)
+	if preview.TokenIn(text) || memoryBearerIn(text) {
 		return true
 	}
 	for _, word := range strings.Fields(text) {
-		if strings.Contains(word, "://") && mcpURLCredentialIn(word) {
+		if strings.Contains(word, "://") && preview.URLCredentialIn(word) {
 			return true
 		}
 	}
@@ -438,7 +438,7 @@ func memorySecretIn(line string) bool {
 func memoryBearerIn(text string) bool {
 	for _, token := range preview.BearerTokens(text) {
 		token = strings.TrimRight(token, ".,;:!?)`")
-		if len(token) >= 16 && strings.ContainsAny(token, "0123456789") && !strings.Contains(token, mcpRefSentinel) {
+		if len(token) >= 16 && strings.ContainsAny(token, "0123456789") && !strings.Contains(token, preview.RefSentinel) {
 			return true
 		}
 	}

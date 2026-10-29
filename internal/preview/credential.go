@@ -287,21 +287,41 @@ func CredentialFlag(arg string) (name, value string, hasValue bool) {
 
 var flagNamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.\-]*$`)
 
-// CredentialInRule reports whether a permission rule holds a literal
-// credential. A command rule, in the neutral `shell(...)` or the Claude
-// `Bash(...)` spelling, is also read as shell, nested `sh -c` included.
+// CredentialInRule reports whether a permission rule, in any tool's
+// spelling, holds a literal credential. The text inside a call such as
+// `shell(...)`, Claude `Bash(...)`, or Codex `Exec(...)`, or a bare
+// pattern such as an OpenCode `git push *`, is also read as shell,
+// nested `sh -c` included. Any other call, such as `Edit(...)`, is read
+// as shell only when it parses as shell, since a path such as
+// `app/(marketing)/page.tsx` does not.
 func CredentialInRule(rule string) bool {
 	if CredentialDetected(rule) {
 		return true
 	}
-	command, shell := strings.CutPrefix(rule, "shell(")
+	command, shell := ruleCommand(rule)
 	if !shell {
-		command, shell = strings.CutPrefix(rule, "Bash(")
+		if _, err := syntax.NewParser().Parse(strings.NewReader(command), ""); err != nil {
+			return false
+		}
 	}
-	if !shell {
-		return false
+	return commandCredentialDetected(command, 0)
+}
+
+// commandRuleCalls are the rule spellings whose text is a command.
+var commandRuleCalls = []string{"shell(", "Bash(", "Exec(", "PowerShell(", "Shell(", "run_shell_command(", "prefix_rule("}
+
+// ruleCommand returns the text inside the call in rule, or rule as
+// written when it is not a call, and whether that text is a command.
+func ruleCommand(rule string) (string, bool) {
+	for _, call := range commandRuleCalls {
+		if command, ok := strings.CutPrefix(rule, call); ok {
+			return strings.TrimSuffix(command, ")"), true
+		}
 	}
-	return commandCredentialDetected(strings.TrimSuffix(command, ")"), 0)
+	if _, inner, ok := strings.Cut(rule, "("); ok && strings.HasSuffix(rule, ")") {
+		return strings.TrimSuffix(inner, ")"), false
+	}
+	return rule, true
 }
 
 // RedactRule returns rule as written, or, when it holds a credential,

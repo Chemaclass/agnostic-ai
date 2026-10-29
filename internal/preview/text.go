@@ -36,13 +36,17 @@ func RedactText(text string, values ...string) string {
 	})
 	text = textURL.ReplaceAllStringFunc(text, RedactURL)
 	detector := strings.ReplaceAll(text, Redacted, "${REDACTED}")
-	if CredentialInRule(detector) {
+	// Text reads as shell only as a `shell(...)` or `Bash(...)` rule or
+	// when it looks like a command: prose that fails to parse as shell
+	// would be hidden whole.
+	rule := strings.HasPrefix(detector, "shell(") || strings.HasPrefix(detector, "Bash(")
+	if CredentialDetected(detector) || rule && CredentialInRule(detector) {
 		return Redacted
 	}
 	if wholeURL(detector) {
 		return text
 	}
-	if commandSensitiveSyntax(detector) && !strings.ContainsAny(detector, "\r\n") && !strings.HasPrefix(detector, "shell(") && !strings.HasPrefix(detector, "Bash(") && CredentialInRule("shell("+detector+")") {
+	if commandSensitiveSyntax(detector) && !strings.ContainsAny(detector, "\r\n") && !rule && CredentialInRule("shell("+detector+")") {
 		return Redacted
 	}
 	return text

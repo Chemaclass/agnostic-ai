@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -21,7 +22,7 @@ func codebuddyPrivateField(value any, path string, sensitive, inlineMCP bool) st
 					return found
 				}
 			}
-			if found := codebuddyPrivateField(value[key], next, sensitive || mcpCredentialKey(key), inlineMCP); found != "" {
+			if found := codebuddyPrivateField(value[key], next, sensitive || preview.CredentialKey(key), inlineMCP); found != "" {
 				return found
 			}
 		}
@@ -42,8 +43,8 @@ func codebuddyPrivateField(value any, path string, sensitive, inlineMCP bool) st
 			known = known && token.Known()
 		}
 		resolvable := inlineMCP && (strings.HasPrefix(path, "mcpServers.") || strings.HasPrefix(path, "mcpServers[") || strings.Contains(path, ".mcpServers.") || strings.Contains(path, ".mcpServers[")) && (strings.Contains(path, ".env.") || strings.Contains(path, ".headers.") || strings.HasSuffix(path, ".url") || strings.Contains(path, ".args["))
-		referenceOnly := resolvable && refs && mcpRefOnly(value) && !strings.Contains(value, ":-") && !strings.Contains(value, "$${")
-		if sensitive && !referenceOnly || mcpCredentialDetected(value) || refs && (!resolvable || !known) {
+		referenceOnly := resolvable && refs && preview.RefOnly(value) && !strings.Contains(value, ":-") && !strings.Contains(value, "$${")
+		if sensitive && !referenceOnly || preview.CredentialDetected(value) || refs && (!resolvable || !known) {
 			return path
 		}
 	case nil:

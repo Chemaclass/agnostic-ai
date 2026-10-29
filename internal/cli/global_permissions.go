@@ -236,16 +236,10 @@ func mergeGlobalStringLists(path string, data []byte, want, previous map[string]
 }
 
 func globalPermissionPreview(key, rule string) string {
-	if globalPermissionCredentialDetected(rule) {
+	if preview.CredentialInRule(rule) {
 		return "\"<redacted>\""
 	}
 	return settingsValueText(key, rule)
-}
-
-func globalPermissionCredentialDetected(rule string) bool { return preview.CredentialInRule(rule) }
-
-func globalPermissionCommandCredentialDetected(command string) bool {
-	return preview.CommandCredentialDetected(command)
 }
 
 // stageGlobalPermissions writes the permission rules of the Claude Code
@@ -294,7 +288,7 @@ func stageGlobalPermissions(home, stage string, targets []string, have []spec.En
 			if rule == "" || slices.Contains(provided[list], rule) || slices.Contains(recorded[list], rule) {
 				continue
 			}
-			if globalPermissionCredentialDetected(rule) {
+			if preview.CredentialInRule(rule) {
 				if _, err := fmt.Fprintf(warn, "warning: %s: left out a permissions.%s rule in %s: it holds a credential or cannot be checked safely; add it under local/settings by hand\n", target, list, path); err != nil {
 					return fmt.Errorf("write import warning: %w", err)
 				}

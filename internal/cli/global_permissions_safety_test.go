@@ -189,6 +189,25 @@ func TestImportGlobal_PermissionRulesDetectCredentialAssignmentsAndNestedShells(
 	}
 }
 
+// A rule in another tool's spelling, such as `PowerShell(...)`, reads
+// its command as shell too (#2737).
+func TestImportGlobal_PermissionRulesDetectCredentialInAnyToolSpelling(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	rule := `PowerShell(curl -H "X-Api-Key: test-api-key" https://example.test)`
+	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Read(src/**)",`+jsonString(rule)+"]}}\n")
+	out, warnings, err := runImportGlobalTest("claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+	if strings.Contains(got+out+warnings, "test-api-key") {
+		t.Error("credential rule was imported or displayed")
+	}
+	if !strings.Contains(warnings, "holds a credential") || !strings.Contains(got, "read(src/**)") {
+		t.Errorf("credential rule was not skipped with a warning:\n%s\n%s", got, warnings)
+	}
+}
+
 func TestImportGlobal_PermissionRulesKeepAssignmentAndNestedReferences(t *testing.T) {
 	for name, command := range map[string]string{
 		"assignment":         `API_KEY=${TOKEN} curl https://example.test`,

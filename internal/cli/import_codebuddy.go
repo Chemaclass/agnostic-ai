@@ -14,6 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -295,7 +296,7 @@ func importCodebuddySettings(root, path string, src config.Sources) error {
 		return fmt.Errorf("parse %s: %w", path, err)
 	}
 	for _, key := range codebuddyMapKeys(native) {
-		if key == "env" || key == "apiKeyHelper" || key == "awsAuthRefresh" || key == "awsCredentialExport" || mcpCredentialKey(key) {
+		if key == "env" || key == "apiKeyHelper" || key == "awsAuthRefresh" || key == "awsCredentialExport" || preview.CredentialKey(key) {
 			delete(native, key)
 			summaryf("  ! %s: %s stays in the native file; environment and credential settings are not imported\n", path, key)
 		}
