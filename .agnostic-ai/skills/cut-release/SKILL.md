@@ -85,7 +85,7 @@ Use this workflow when the user asks to publish a new version. A request to prep
    and wait for that run on the exact release commit. Confirm Linux,
    macOS, the Windows smoke check, and every other job that ran passed.
    The full Windows Go race suite is optional and manual only: add
-   `-f full_windows=true` when needed. Its job stops after ten minutes.
+   `-f full_windows=true` when needed. It takes about 32 minutes and stops after 45.
 9. Record the release SHA and confirm the remote tag does not already exist.
    Tag that exact green commit with `git tag -s vX.Y.Z <release-SHA> -m "vX.Y.Z"`,
    then push the tag with `git push origin vX.Y.Z`. Never infer the tagged commit
