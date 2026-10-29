@@ -60,6 +60,37 @@ func TestEmit_WritesCommandFile(t *testing.T) {
 	}
 }
 
+func TestEmit_NamespacedCommandWritesNestedFolders(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindCommand, Name: "git:commit", Path: "commands/git-commit.md", Meta: map[string]any{"description": "Commit"}, Body: "Commit the staged changes."},
+	})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".gemini", "commands", "git", "commit.toml"))
+	if err != nil {
+		t.Fatalf("read nested command: %v", err)
+	}
+	if !strings.Contains(string(data), "Commit the staged changes.") {
+		t.Errorf("nested command lost its prompt:\n%s", data)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, ".gemini", "commands", "git:commit.toml")); err == nil {
+		t.Errorf("emit still wrote the colon file name")
+	}
+}
+
+func TestEmit_NamespacedCommandRefusesAnEmptySegment(t *testing.T) {
+	testutil.TempCwd(t)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindCommand, Name: "git::commit", Path: "commands/git-commit.md", Body: "Commit."},
+	})
+	err := New().Emit(emit.NewSession(), b, &config.Config{}, false)
+	if err == nil || !strings.Contains(err.Error(), "invalid namespace segment") {
+		t.Errorf("emit = %v, want the namespace segment refusal", err)
+	}
+}
+
 func TestEmit_NoRootGEMINIMd_ByDefault(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

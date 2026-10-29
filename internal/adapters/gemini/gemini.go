@@ -464,10 +464,18 @@ func emitAgentCommands(sess *emit.Session, agents []spec.Entry, dir string, cfg 
 
 // emitCommands writes one TOML per command spec under
 // `.gemini/commands/`. Commands are the native slash-prompt surface, so
-// they emit with their bare name (no `skill-` prefix).
+// they emit with their bare name (no `skill-` prefix). Gemini names
+// `git/commit.toml` `/git:commit`, so each colon becomes a folder
+// (geminicli.com/docs/cli/custom-commands); Windows cannot store a colon
+// in a file name.
 func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
 	for _, c := range commands {
-		path := filepath.Join(dir, c.Name+".toml")
+		for _, segment := range strings.Split(c.Name, ":") {
+			if segment == "" || segment == "." || segment == ".." {
+				return fmt.Errorf("gemini command %s: invalid namespace segment", c.Name)
+			}
+		}
+		path := filepath.Join(dir, strings.ReplaceAll(c.Name, ":", string(filepath.Separator))+".toml")
 		body := emit.HeaderBlock(emit.FormatTOML) + commandTOML(c)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err

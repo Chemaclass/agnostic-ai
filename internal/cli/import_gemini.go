@@ -131,32 +131,36 @@ func importGeminiAgents(root, dstDir string) (int, error) {
 // reads back as, and a re-sync writes it to the same path either way.
 func importGeminiCommands(root, dstDir string) (int, error) {
 	src := filepath.Join(root, geminiCommandsDir)
-	entries, err := os.ReadDir(src)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", src, err)
-	}
 	count := 0
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".toml") {
-			continue
+	used := map[string]int{}
+	err := filepath.WalkDir(src, func(full string, entry fs.DirEntry, walkErr error) error {
+		if errors.Is(walkErr, fs.ErrNotExist) && full == src {
+			return nil
 		}
-		full := filepath.Join(src, e.Name())
+		if walkErr != nil {
+			return fmt.Errorf("read %s: %w", full, walkErr)
+		}
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".toml") {
+			return nil
+		}
 		data, err := os.ReadFile(full)
 		if err != nil {
-			return count, fmt.Errorf("read %s: %w", full, err)
+			return fmt.Errorf("read %s: %w", full, err)
+		}
+		rel, err := filepath.Rel(src, full)
+		if err != nil {
+			return fmt.Errorf("resolve command %s: %w", full, err)
 		}
 		desc, extra, body := parseGeminiCommandTOML(string(data))
-		name := strings.TrimSuffix(e.Name(), ".toml")
-		out := filepath.Join(dstDir, name+".md")
+		name := strings.ReplaceAll(strings.TrimSuffix(filepath.ToSlash(rel), ".toml"), "/", ":")
+		out := filepath.Join(dstDir, dedupSlug(used, strings.ReplaceAll(name, ":", "-"))+".md")
 		if err := writeGeminiCommandMD(out, name, desc, extra, body); err != nil {
-			return count, err
+			return err
 		}
 		count++
-	}
-	return count, nil
+		return nil
+	})
+	return count, err
 }
 
 // parseGeminiCommandTOML reads a Gemini command file as TOML, so an
