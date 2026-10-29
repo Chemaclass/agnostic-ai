@@ -14,6 +14,36 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+func TestQwen_ColonCommandNameSyncsAsFoldersAndWindowsRefusesItAsAFileName(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/commands/git-commit.md"), "---\nname: git:commit\ndescription: Commit\n---\nCommit.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("qwen sync: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".qwen", "commands", "git", "commit.md")); err != nil {
+		t.Errorf("qwen command: %v", err)
+	}
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen, claude]\n")
+	out, err := runCLI(t, "sync")
+	if runtime.GOOS == "windows" {
+		if err == nil || !strings.Contains(out+err.Error(), "hidden stream") {
+			t.Errorf("claude sync on Windows = %v, want the colon refusal\n%s", err, out)
+		}
+		if _, statErr := os.Lstat(filepath.Join(dir, ".claude", "commands", "git")); statErr == nil {
+			t.Errorf("claude sync on Windows left a file named git")
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("claude sync: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude", "commands", "git:commit.md")); err != nil {
+		t.Errorf("claude command: %v", err)
+	}
+}
+
 func TestQwen_ImportSyncNativeProject(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
