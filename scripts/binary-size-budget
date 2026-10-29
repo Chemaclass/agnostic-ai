@@ -653,4 +653,10 @@
 # captureRender, the config guard) adds 2.8 KB; detectRenderedCollisions (+6152) replaces
 # detectCollisions (-5502); copying settings hatch values so adapters cannot edit the
 # spec adds 824. No new dependency. Budget: measured size plus one typical PR (8192).
-24125600
+#
+# Nested Gemini command folders (#2752) add 4520 bytes of symbols to main ff21493a:
+# 24117408 to 24125600 with Go 1.27.3 and Linux amd64 release flags. The stale host
+# file check (ClearStaleStreamHost +1670, recordedColonOutputs +677), the nested import
+# walk (importGeminiCommands +646 net), and the shared command path helper (+1150 net)
+# explain it. No new dependency. Budget: measured size plus one typical PR (8192).
+24133792
