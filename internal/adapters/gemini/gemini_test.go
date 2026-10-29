@@ -94,12 +94,18 @@ func TestEmit_NamespacedCommandRefusesAnEmptySegment(t *testing.T) {
 func TestEmit_NamespacedAgentCommandSharesTheCommandPath(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{Outputs: map[string]config.Output{"gemini": {EmitAgentsAsCommands: true}}}
-	b := spec.NewBundle([]spec.Entry{
-		{Kind: spec.KindAgent, Name: "vc:save", Body: "agent body"},
-		{Kind: spec.KindCommand, Name: "vc:save", Body: "command body"},
-	})
-	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
-		t.Fatalf("emit: %v", err)
+	sess := emit.NewSession()
+	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
+	// The agent's own .gemini/agents/vc:save.md is a colon file name that a
+	// Windows sync refuses, so the test drives only the two command writers,
+	// in Emit's order.
+	agents := []spec.Entry{{Kind: spec.KindAgent, Name: "vc:save", Body: "agent body"}}
+	if err := emitAgentCommands(sess, agents, commandsDir, cfg, false); err != nil {
+		t.Fatalf("emit agent commands: %v", err)
+	}
+	commands := []spec.Entry{{Kind: spec.KindCommand, Name: "vc:save", Body: "command body"}}
+	if err := emitCommands(sess, commands, commandsDir, false); err != nil {
+		t.Fatalf("emit commands: %v", err)
 	}
 	if got := readFile(t, filepath.Join(dir, ".gemini", "commands", "vc", "save.toml")); !strings.Contains(got, "command body") {
 		t.Errorf("expected the command to own vc/save.toml, got %s", got)
