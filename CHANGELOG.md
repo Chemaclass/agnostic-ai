@@ -8,121 +8,118 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Sync and configuration
 
-- **Breaking:** Sync refuses a spec named `.git` and `outputs` or `gitignore.path` values outside the project or in `.git/`, except `.git/info/exclude` (#2701).
-- `sync` keeps the files and shared skill links of a target whose external adapter is not on PATH, instead of deleting them (#2657, #2702).
-- Sync backs up an edited output it removes, keeps `.bak` files private and out of Git, and keeps outputs after case-only renames (#2639, #2640, #2654, #2704).
-- `sync` writes `.agnostic-ai/.sync-state` whole, skips entries outside the project, and rebuilds it with a warning when it does not parse (#2665, #2701).
-- Config errors name the file, line, key, and expected shape; a `version` other than `1` and line breaks in `sync.unmanaged` fail (#2648, #2664, #2701).
-- On Windows, a Qwen command named with a colon, such as `git:commit`, loads and syncs again, and sync refuses to write a file whose name holds a colon (#2744).
-- On Windows, import refuses an MCP server or other spec whose file name would hold a colon, such as `ns:tool`, and names the file, instead of reporting success for a spec no sync reads. `import --global` skips such a server with a warning that names the home config file (#2748).
-- On Windows, `sync --check --against` no longer reports drift for committed files that Git checks out with CRLF line endings. Plain `sync --check` labels such files `line endings only` and names `core.autocrlf` or a `.gitattributes` rule as the fix, and a link Git checks out as a plain file gets a message that names `core.symlinks` (#2773).
-- On Windows, `init --dry-run` in a project that shares the global source folder no longer lists the global `AGNOSTIC_AI.md` note as a file to create when the path uses a short name, such as `RUNNER~1`, or a link (#2760).
-- `sync` reads `.agnostic-ai/.sync-state` once per run instead of up to 25 times, so a sync of a 500-spec project runs about a quarter faster (#2667).
-- `sync --check` renders each tool once instead of twice, unless `prefer-spec` picks a winner, and `sync` with shared skills renders each tool once less. An external adapter's warnings print once in `sync --check` instead of twice, and twice in `sync` with shared skills instead of three times (#2667).
+- **Breaking:** Sync rejects `.git` specs and output paths outside the project or inside `.git`, except `.git/info/exclude` (#2701).
+- `sync` keeps files and shared skill links when a target's external adapter is missing from PATH (#2657, #2702).
+- Sync backs up edited files before removal, keeps backups private and out of Git, and preserves case-only renames (#2639, #2640, #2654, #2704).
+- Sync recovers invalid state with a warning, skips unsafe entries, and writes state without partial files (#2665, #2701).
+- Config errors show the file, line, key, and expected format; unsupported versions and line breaks in `sync.unmanaged` fail (#2648, #2664, #2701).
 
 #### Security
 
-- **Breaking:** `packs update` installs each Git pack at its locked commit instead of the newest; pass `--latest` to move to the newest (#2638, #2690).
-- **Breaking:** Claude Code and Codex import leave out a literal `env`, header, or overlay value under a credential name, such as `API_TOKEN=12345678`, unless it is a boolean, path, or file name, so the next sync removes it from the native file. Grok import now keeps a boolean, path, or file name under a credential name and a reference after a scheme word, such as `Bearer $TOKEN`, which it refused before; outside an authorization header, a reference after any other word, such as `hunter ${X}`, is left out, and Grok import refuses it (#2716).
-- Import, `lint`, `migrate`, `compare`, and `sync --global` treat a name ending in `passphrase` or `pass phrase` (`pass_phrase`, `passPhrase`) as a credential name, and catch a `--passphrase <value>` argument or `DB_PASSPHRASE=x` in a rule or hook command. Claude Code import leaves out any literal `CLAUDE_CODE_CLIENT_KEY_PASSPHRASE`, even a value that looks like a file name (#2731).
-- Import, `compare`, `sync --global`, and the web interface check the command in a `PowerShell(...)`, Codex `Exec(...)`, Cursor `Shell(...)`, or Gemini `run_shell_command(...)` rule as they check `Bash(...)`. Claude Code import leaves out such a rule or hook `if` rule when it holds a credential, and previews show it as `<redacted>` (#2737).
-- With `blockReadsOutsideWorkingDirectories` on, sync keeps blocking the repository's `autoMemoryDirectory` when the repository tracks `.claude/Settings.Local.json` in another letter case on a case-insensitive disk, where Claude Code reads it as `settings.local.json` (#2769).
-- With `blockReadsOutsideWorkingDirectories` on, sync keeps blocking the repository's `autoMemoryDirectory` when the repository tracks a local settings file under a look-alike letter, such as `.claude/ſettings.local.json` with a long s, that the disk opens as `settings.local.json` (#2772).
-- Sync refuses to write or remove through a link that leads outside the project or into `.git`; links inside the project still work (#2706).
-- `compare` hides credentials in permission rules and `x-<target>` overrides behind `<redacted>`, as `sync --global` does (#2650).
-- Pack commands refuse unsafe names and sources; a refused name says how to reinstall it with `packs add --name` (#2638, #2690).
-- `install.sh`, `install.ps1`, and `upgrade` check build provenance when `gh` is logged in, and the installers refuse a version that is not a release (#2655).
+- **Breaking:** `packs update` uses locked commits and pack commands reject unsafe names and sources. Use `--latest` to update (#2638, #2690).
+- **Breaking:** Claude Code and Codex imports omit literal credentials; Grok import accepts safe paths, booleans, and token references (#2716).
+- Credential checks catch passphrases and commands inside permission rules and hook filters (#2731, #2737).
+- Sync blocks writes and removals through links outside the project or into `.git`; `compare` hides credentials (#2706, #2650).
+- Installers and `upgrade` verify build provenance when `gh` is logged in; installers reject versions that are not releases (#2655).
+
+#### Windows
+
+- Import rejects spec names containing colons; global import skips them with a warning naming the source file (#2748).
+- `sync --check --against` ignores checkout line endings; plain checks explain line-ending drift and links checked out as files (#2773).
+- `init --dry-run` avoids listing an existing global note as new when the project path uses a short name or link (#2760).
+
+#### Performance
+
+- Sync runs about 25% faster on a 500-spec project, with fewer repeated renders and external adapter warnings (#2667).
 
 #### Global sync and settings
 
-- `sync --global` leaves your text in global instructions files such as `~/.claude/CLAUDE.md` byte for byte, adding and removing only its block (#2658).
-- `sync --global` keeps comments in a JSON settings file that also holds hooks, such as `~/.gemini/settings.json` (#2644).
-- `sync --global --check` passes when only the ownership record is missing or stale, so the check `import --global claude` prints passes (#2647).
-- A personal per-tool `model` or `effort` map keeps the shared value for the tools it leaves out (#2602).
+- `sync --global` preserves your text outside its instructions block and comments in JSON settings with hooks (#2658, #2644).
+- `sync --global --check` passes when only ownership records are missing or stale (#2647).
+- Personal per-tool `model` and `effort` maps keep shared defaults for tools they leave out (#2602).
 
 #### Commands
 
-- Version mismatch errors offer a fix, a prompt to copy, or a project Claude Code or Codex session; `upgrade` names a remaining project pin (#2726).
-- `doctor` fails on an unknown `-t` target, on findings `--json` skipped, and on `--json --fix`; `doctor config` checks as `sync` does (#2659, #2660).
-- `lint` and the editor report a spec a selected tool refuses at sync (LINT053) and a hook spec with nothing to run (LINT052) (#2642, #2645).
-- Commands that take no arguments fail on one, so `upgrade v0.56.1` no longer installs the latest; `new --dry-run` fails on an existing spec (#2661, #2662).
-- `import --dry-run` shows what the real import writes when rules and agents reach one folder by a relative and an absolute path (#2675).
-- `sync --json` prepares and seeds personal memory like `sync`, and its `notes` list every project note (#2663).
-- `why` skips errors from tools outside `targets`, so an unselected Grok no longer blocks `CLAUDE.md` provenance (#2641).
+- Version mismatch errors offer fixes or a tool session; `upgrade` explains any remaining project version pin (#2726).
+- `doctor` reports unknown targets and JSON findings, rejects `--json --fix`, and checks config like sync (#2659, #2660).
+- `lint` and editors flag specs a selected tool cannot sync and hooks with nothing to run (#2642, #2645).
+- Commands reject unexpected arguments; `new --dry-run` rejects existing specs; import previews handle aliased folders (#2661, #2662, #2675).
+- `sync --json` seeds personal memory and lists all project notes; `why` ignores errors from unselected tools (#2663, #2641).
 
 #### Web interface
 
-- **Deprecated:** Edit requests take `audience` (`shared` or `personal`), as **Settings** now says; `scope` works until the next minor release (#2602, #2615).
-- **Tools** lists MCP servers kept only in a tool's own config with the `import` command for each, and shows no secret values (#2633).
-- Set `model` and `effort` for one tool under **What each tool gets**, which shows what sync writes (#2602, #2614, #2619, #2620, #2622, #2624, #2636).
-- A project page opens global settings in a new tab on its own server, which links back, and `serve` stops at once on Ctrl-C (#2602, #2607, #2616, #2627).
-- Lifecycle stages start closed with counts and search, and the authority view loads faster (#2610, #2631, #2632).
-- The web UI no longer shows the configured tools card in the sidebar. `sync --check` and `status` report whether generated files match the source (#2733).
-- The web UI scrolls the page from the sidebar too; before, a wheel over the sidebar moved nothing (#2729).
-- The web UI draws no focus box around the page title, shows the search count under the field, and opens the JSON inspector below the header. **Tools** shows one line when no server lists its tools, **Lifecycle** with no hooks shows a plain list of stages, stacked fields on phones show each key once, and light theme header buttons no longer look disabled (#2740).
+- **Deprecated:** Edit requests use `audience: shared` or `personal`; `scope` works until the next minor release (#2602, #2615).
+- Set per-tool `model` and `effort` and preview sync; **Tools** lists native-only MCP servers to import (#2614, #2619, #2620, #2622, #2624, #2636, #2633).
+- Global settings open in their own tab with a link back to the project; `serve` stops promptly on Ctrl-C (#2607, #2616, #2627).
+- Lifecycle stages start collapsed with counts and search; the authority view loads faster (#2610, #2631, #2632).
+- The sidebar drops the configured tools card and supports page scrolling; search, focus, mobile fields, and empty states improve (#2733, #2729, #2740).
 
 ### By tool
 
 #### Claude Code
 
-- With `blockReadsOutsideWorkingDirectories` on, sync treats untracked local settings as yours when the project path is a Windows short name, such as `RUNNER~1`, or a link, so Claude Code auto memory keeps loading the personal memory index (#2760).
-- `import claude` drops settings values and hook groups holding a credential, and stops on an old overlay with one. Use `--overwrite` (#2649, #2668, #2669).
-- A `dev-commands` entry with only a `url` writes `{name, url}` to `.claude/launch.json`, so the preview attaches to a running server (#2579).
-- Sync notes `x-claude` keys Claude Code ignores where they are set, and hooks on an event or `if` filter that never runs them (#2582, #2583).
-- `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
-
-#### Mistral Vibe
-
-- Sync stops on an agent named `main` in any case, which Vibe 3.0.3 reserves and does not load, and import notes it (#2575).
-- `post_agent` hooks accept `match` and `matcher`, so a hook runs only after one agent, as Vibe 3.0.3 allows (#2577).
-- The unsupported hook field error and the docs cite Vibe 3.0.3, which a subagent's `active_model` needs (#2585).
-
-#### Grok Build
-
-- Sync checks whether Git ignores the generated rules with one Git call per run, so `sync --check` no longer slows down with each rule (#2646).
-- `init` with Grok and the managed `.gitignore` writes `gitignore.commit: [grok:instructions]` (#2642).
-
-#### OpenHands
-
-- **Breaking:** `sync --global` stops writing `~/.openhands/mcp.json` and removes its servers. Add them in Agent Canvas, **Customize > MCP Servers** (#2576).
-
-#### Codex
-
-- `import codex` leaves credentials in `config.toml` out of the committed overlay, and stops on an old overlay with one. Use `--overwrite` (#2669).
-
-#### Cursor
-
-- `import cursor` writes `alwaysApply: false` for a rule with neither key, so sync keeps it off. Set `alwaysApply: false` in a rule imported before (#2643).
-
-#### CodeBuddy Code
-
-- Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
-- Sync writes the `x-codebuddy.permissions` rules to `.codebuddy/settings.json`. It wrote an empty list when no portable permission set that list (#2667).
-- `import codebuddy` keeps the native `reasoningEffort` under `x-codebuddy` when another settings spec sets `effort`, so the next sync no longer replaces it (#2789).
+- `import claude` omits credentials in settings and hooks and rejects old overlays containing them. Use `--overwrite` to replace them (#2649, #2668, #2669).
+- With `blockReadsOutsideWorkingDirectories` on, tracked case or look-alike settings cannot enable repository auto memory (#2769, #2772).
+- With `blockReadsOutsideWorkingDirectories` on, personal auto memory keeps loading on short or linked project paths (#2760).
+- URL-only `dev-commands` attach previews to running servers through `.claude/launch.json` (#2579).
+- Sync warns about ignored `x-claude` keys, hooks that cannot run, and models unaffected by global `effort` (#2582, #2583, #2581).
 
 #### OpenCode
 
-- Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
-- `import all` and `init` detect an OpenCode project from a root `opencode.json`, not only from `.opencode/` (#2765).
-- `import opencode` keeps the `provider` block of `opencode.json`, such as a model's prompt cache lifetime (`settings.cache.ttl`), in `settings/opencode-provider.yaml` under `x-opencode.provider`, so sync writes it back. A block holding a literal credential stays in `opencode.json` with a warning (#2755).
+- `import opencode` preserves provider settings through sync and warns instead of importing a provider with literal credentials (#2755).
+- Agents with V2 fields keep their `temperature` as `request.body.temperature` (#2584).
+- `import all` and `init` recognize projects with only a root `opencode.json` (#2765).
 
-#### Gemini CLI
+#### CodeBuddy Code
 
-- A command named `git:commit` syncs to `.gemini/commands/git/commit.toml`, which Gemini runs as `/git:commit`, on Windows too, and `import gemini` reads that file back as `git:commit` (#2747).
+- Sync and import support prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` (#2578).
+- Sync preserves `x-codebuddy.permissions` rules when no portable permission sets the same list (#2667).
+- `import codebuddy` keeps native `reasoningEffort` when another settings spec sets `effort` (#2789).
+
+#### Mistral Vibe
+
+- Sync rejects the reserved agent name `main` in any letter case; import warns about it (#2575).
+- `post_agent` hooks accept `match` and `matcher` to run after a specific agent (#2577).
+- Hook errors and docs name Vibe 3.0.3 as the required version for subagent `active_model` (#2585).
 
 #### Copilot
 
-- `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` from `.github/copilot/settings.json` under `x-copilot`, so sync writes the repository's default plugins back unchanged. Copilot CLI and Copilot in the cloud both read them (#2756).
-- `import all` and `init` detect a Copilot project from `.github/copilot/settings.json` alone (#2765).
+- Import preserves `enabledPlugins` and `extraKnownMarketplaces` through sync for Copilot CLI and cloud (#2756).
+- `import all` and `init` recognize projects with only `.github/copilot/settings.json` (#2765).
+
+#### Grok Build
+
+- `sync --check` checks Git ignore rules once, so adding rules no longer slows it down (#2646).
+- `init` with a managed `.gitignore` sets `gitignore.commit: [grok:instructions]` (#2642).
+
+#### OpenHands
+
+- **Breaking:** Global sync removes servers from `~/.openhands/mcp.json`. Add them in Agent Canvas, **Customize > MCP Servers** (#2576).
+
+#### Codex
+
+- `import codex` omits credentials from committed overlays and rejects old overlays containing them. Use `--overwrite` to replace them (#2669).
+
+#### Cursor
+
+- Import keeps rules without activation keys off. Set `alwaysApply: false` in previously imported rules without those keys (#2643).
+
+#### Qwen Code
+
+- Commands such as `git:commit` load and sync on Windows; sync rejects output filenames containing colons (#2744).
+
+#### Gemini CLI
+
+- Commands such as `git:commit` sync as nested TOML files and import with their original names, including on Windows (#2747).
 
 #### Junie
 
-- A settings spec's `effort` reaches `effort` in `.junie/config.json`, replacing a hand-written value there, and `import junie` reads it back (#2782).
+- Sync writes `effort` to `.junie/config.json`, replacing any hand-written value; import reads it back (#2782).
 
 ### Site
 
-- The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).
-- The Antigravity guide says the Antigravity CLI does not support rule mentions, so a `manual` rule does not load there (#2783).
+- The Warp guide explains how to copy global MCP servers from the app to the Warp Agent CLI (#2580).
+- The Antigravity guide explains that the CLI cannot load `manual` rules through mentions (#2783).
 
 ## v0.89.0 - 2026-10-27
 
