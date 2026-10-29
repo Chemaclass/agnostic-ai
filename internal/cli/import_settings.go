@@ -87,7 +87,7 @@ func importPortableSettings(root, nativePath, dstDir string, shape portableSetti
 		}
 		maps.Copy(doc, settingsEffortSpec(plan, shape.target, shape.effortKey, level))
 	}
-	if len(shape.hatchKeys) > 0 {
+	if len(shape.hatchKeys) > 0 || shape.effortKey != "" {
 		if err := importSettingsHatch(doc, native, dstDir, shape); err != nil {
 			return 0, err
 		}

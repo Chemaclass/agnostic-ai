@@ -42,7 +42,7 @@ AGENTS.md                        # root pointer body (shared path; fallback)
 .junie/skills/<name>/SKILL.md    # one folder per skill, plus any bundled assets
 .junie/commands/<name>.md        # one file per slash command
 .junie/mcp/mcp.json              # when MCP entries exist
-.junie/config.json               # when a settings spec selects a default model
+.junie/config.json               # when a settings spec selects a default model or effort
 .aiignore                        # when ignore entries exist
 ```
 
@@ -92,7 +92,7 @@ Bundled files are copied as they are, and a flat file never loads as a skill. Ju
 
 ### Settings
 
-A settings spec's default `model` merges into `.junie/config.json`, keeping other keys. `x-junie` adds project-config keys that have no portable field.
+A settings spec's default `model` and `effort` merge into `.junie/config.json`, keeping other keys. Junie loads this file only in a trusted project. `effort` passes through as written, and `x-junie.effort` overrides it ([effort by target](@/docs/spec-format/settings.md#effort-by-target)). `x-junie` adds project-config keys that have no portable field.
 
 ### Ignore
 
@@ -141,7 +141,7 @@ Older versions wrote rules and agents to `.junie/rules/`, which `.junie/AGENTS.m
 - Agents from `.junie/agents/<name>.md` (or `.agents/<name>.md`).
 - Commands from `.junie/commands/<name>.md`.
 - Skills, with bundled files, from `.junie/skills/<name>/SKILL.md`, then `.agents/skills/` for names not already found.
-- The default `model` in `.junie/config.json`, restored to `settings/junie.yaml`.
+- The default `model` and `effort` in `.junie/config.json`, restored to `settings/junie.yaml`.
 - MCP servers from `.junie/mcp/mcp.json`, including request timeouts.
 
 Older layouts still import:

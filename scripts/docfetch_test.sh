@@ -783,6 +783,67 @@ function test_reader_text_keeps_whitespace_inside_a_tilde_fence() {
     "$(printf 'Markdown Content:\n~~~yaml\na:\nallow: x\n~~~\n' | reader_text)"
 }
 
+# The fixture is the head of the GitHub releases API for openai/codex as the
+# reader proxy served it. Thirty copies of its body took the quadratic
+# extractor 18 seconds on macOS awk, so the limit below caught it.
+function test_reader_text_finishes_a_long_release_list_within_the_limit() {
+  local fixture="$SCRIPT_DIR/testdata/docfetch/codex-releases.reader.md" i
+  {
+    cat "$fixture"
+    for i in $(seq 29); do sed '1,/^Markdown Content:/d' "$fixture"; done
+  } >"$FIXTURES/releases.body"
+  READER_TEXT_SECONDS=5 bounded_reader_text "$FIXTURES/releases.body" "$FIXTURES/releases.txt"
+  assert_successful_code
+  assert_equals 30 "$(grep -c '"tag_name": "rust-v0.166.0-alpha.6"' "$FIXTURES/releases.txt")"
+}
+
+# Forty thousand prose lines with no blank line took the quadratic
+# extractor 6 seconds on macOS awk.
+function test_reader_text_finishes_one_long_paragraph_within_the_limit() {
+  awk 'BEGIN { print "Markdown Content:"; for (i = 0; i < 40000; i++) print "word " i " of one paragraph" }' \
+    >"$FIXTURES/para.body"
+  READER_TEXT_SECONDS=3 bounded_reader_text "$FIXTURES/para.body" "$FIXTURES/para.txt"
+  assert_successful_code
+  assert_equals 1 "$(wc -l <"$FIXTURES/para.txt" | tr -d ' ')"
+}
+
+function test_reader_text_drops_an_image_split_across_lines() {
+  assert_equals "See hooks." \
+    "$(printf 'Markdown Content:\nSee ![Image 1: K\nalt](https://x/k.png) hooks.\n' | reader_text)"
+}
+
+function test_reader_text_is_not_held_by_a_bracket_that_cannot_be_an_image() {
+  awk 'BEGIN { print "Markdown Content:"; print "Press ![x] now"; for (i = 0; i < 40000; i++) print "line " i }' \
+    >"$FIXTURES/held.body"
+  READER_TEXT_SECONDS=3 bounded_reader_text "$FIXTURES/held.body" "$FIXTURES/held.txt"
+  assert_successful_code
+  assert_equals "Press ![x] now line 0" "$(cut -c1-21 "$FIXTURES/held.txt")"
+}
+
+function test_fetch_one_records_an_extraction_past_the_limit() {
+  if ! command -v timeout >/dev/null && ! command -v gtimeout >/dev/null; then
+    if declare -F bashunit::skip >/dev/null; then bashunit::skip; else skip; fi
+    return
+  fi
+  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nKiro steering reference %.0s' 1 2 3 4 5 6 7 8 9 10)"
+  function reader_text() { sleep 5; }
+  local row
+  row=$(READER_TEXT_SECONDS=1 fetch_one kiro docs https://kiro.dev/docs/steering/ "$FIXTURES/run" 1 proxy)
+  assert_equals "extract-limit	-" "$(printf '%s' "$row" | cut -f5-6)"
+  assert_equals "failed" "$(printf '%s' "$row" | cut -f8)"
+  function reader_text() { return 3; }
+  row=$(fetch_one kiro docs https://kiro.dev/docs/steering/ "$FIXTURES/run" 1 proxy)
+  assert_exit_code 3
+}
+
+function test_bounded_reader_text_refuses_a_large_body_without_timeout() {
+  printf 'Markdown Content:\nplenty of text\n' >"$FIXTURES/big.body"
+  READER_TEXT_TIMEOUT="" READER_TEXT_BYTES=10 bounded_reader_text "$FIXTURES/big.body" "$FIXTURES/big.txt"
+  assert_exit_code 124
+  READER_TEXT_TIMEOUT="" bounded_reader_text "$FIXTURES/big.body" "$FIXTURES/big.txt"
+  assert_equals "plenty of text" "$(cat "$FIXTURES/big.txt")"
+}
+
 function test_reader_text_keeps_indented_code_verbatim() {
   assert_not_equals \
     "$(printf 'Markdown Content:\nConfig:\n\n    a:\n      allow: x\n' | reader_text)" \
