@@ -11,6 +11,8 @@ import (
 	"slices"
 	"sync"
 	"syscall"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // importSandbox is the project copy a preview runs in. Only it and
@@ -95,11 +97,18 @@ func withImportMerge(fn func() error) error {
 	return fn()
 }
 
+var errImportDataStream = errors.New("refusing a file name with a colon, which Windows stores as a hidden stream of the file before it")
+
 // importWriteFile writes data to path with the given mode, recording it
 // for a dry-run report. Replaces os.WriteFile across all importers. A
 // write that stores a project local spec in the shared source is undone
 // when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
+	// Refused before the dry-run record, so a preview reports what import
+	// would.
+	if config.NamesDataStream(path) {
+		return errImportDataStream
+	}
 	if importTxn != nil {
 		importTxn.mu.Lock()
 		defer importTxn.mu.Unlock()

@@ -148,6 +148,18 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 		return 0, fmt.Errorf("parse %s: %w", srcDir, err)
 	}
 	refs := referenceMCPLiterals(servers)
+	fileNames := make(map[string]string, len(files))
+	var kept []string
+	for _, file := range files {
+		if _, ok := servers[file.serverName]; ok {
+			fileNames[file.serverName] = file.name
+			kept = append(kept, file.serverName)
+		}
+	}
+	paths, err := importMCPSpecPaths(dstDir, kept, func(name string) string { return fileNames[name] })
+	if err != nil {
+		return 0, err
+	}
 	if err := importMkdirAll(dstDir, 0o755); err != nil {
 		return 0, fmt.Errorf("mkdir %s: %w", dstDir, err)
 	}
@@ -161,7 +173,7 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("marshal MCP %s: %w", file.name, err)
 		}
-		dst := filepath.Join(dstDir, file.name)
+		dst := paths[file.serverName]
 		if err := importWriteFile(dst, raw, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}

@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"maps"
 	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -114,6 +113,10 @@ func writeMCPSpecs(servers map[string]any, dstDir string, orders ...mcpSpecOrder
 	if err := spec.ValidateMCPNames(names); err != nil {
 		return 0, err
 	}
+	paths, err := importMCPSpecPaths(dstDir, names, spec.MCPFileName)
+	if err != nil {
+		return 0, err
+	}
 	count := 0
 	for _, name := range names {
 		entry, _ := servers[name].(map[string]any)
@@ -131,7 +134,7 @@ func writeMCPSpecs(servers map[string]any, dstDir string, orders ...mcpSpecOrder
 		if err != nil {
 			return count, fmt.Errorf("marshal mcp %s: %w", name, err)
 		}
-		path := filepath.Join(dstDir, spec.MCPFileName(name))
+		path := paths[name]
 		if err := importWriteFile(path, raw, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", path, err)
 		}
