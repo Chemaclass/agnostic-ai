@@ -297,13 +297,14 @@ reader_text() {
         if (l ~ /^Video unavailable[ \t]*$/ || l ~ /^Page updated:/) continue
         # Prose is held only while an image may still span the next line,
         # and never past a blank line, so it never grows into one string
-        # for the whole page.
+        # for the whole page. A "![" whose first "]" is not followed by "("
+        # can never become an image, so it does not hold the paragraph.
         if (l !~ /[^ \t]/) { flush(); continue }
         prose = prose l "\n"
         if (index(prose, "![") == 0) { flush(); continue }
         q = prose
         gsub(/!\[[^]]*\]\([^)]*\)/, "", q)
-        if (index(q, "![") == 0) flush()
+        if (q !~ /!\[[^]]*$/ && q !~ /!\[[^]]*\]\([^)]*$/) flush()
       }
       flush()
       printf "\n"
@@ -314,7 +315,8 @@ reader_text() {
 # bounded_reader_text <body> <out> runs reader_text within
 # READER_TEXT_SECONDS, so a page that still scales badly fails its row
 # instead of hanging the run. Where neither timeout nor gtimeout exists, a
-# body over READER_TEXT_BYTES is refused unread instead.
+# body over READER_TEXT_BYTES is refused unread instead. Both limits exit
+# 124, as timeout does; any other failure keeps its own status.
 bounded_reader_text() {
   local limit
   limit=${READER_TEXT_TIMEOUT-$(command -v timeout || command -v gtimeout || true)}
@@ -327,7 +329,7 @@ bounded_reader_text() {
   elif [ "$(wc -c <"$1")" -le "${READER_TEXT_BYTES:-33554432}" ]; then
     reader_text "$1" >"$2"
   else
-    return 1
+    return 124
   fi
 }
 
@@ -1227,12 +1229,16 @@ fetch_one() {
       fi
       ;;
     reader-proxy)
-      if bounded_reader_text "$body" "$stem.txt"; then
+      local rc=0
+      bounded_reader_text "$body" "$stem.txt" || rc=$?
+      if [ "$rc" = 0 ]; then
         result=$(sha256_of "$stem.txt")
-      else
+      elif [ "$rc" = 124 ]; then
         rm -f "$stem.txt"
         mode=extract-limit
         result="-"
+      else
+        return "$rc"
       fi
       ;;
     app-shell | soft-404)
