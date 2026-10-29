@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -179,7 +178,7 @@ func Tracked(root, rel string) (bool, error) {
 // as the long s in .claude/ſettings.local.json. The disk decides, not
 // core.ignorecase, which a clone can set either way. Git matches names only
 // as written or by ASCII letter case, so the check lists what the index
-// holds in the file's folder and asks the disk whether any entry is the
+// holds at the file's depth and asks the disk whether any entry is the
 // file. On a case-sensitive disk it is Tracked.
 func TrackedAnyCase(root, rel string) (bool, error) {
 	if !diskIgnoresCase(root) {
@@ -202,18 +201,21 @@ func TrackedAnyCase(root, rel string) (bool, error) {
 	if err != nil {
 		return false, nil
 	}
-	folder := ":(top)"
-	if dir := path.Dir(full); dir != "." {
-		folder = ":(top,literal,icase)" + dir + "/"
-	}
-	r := trackedFiles.get(layout.Toplevel+"\x00"+folder, func() filesResult {
-		out, err := exec.Command("git", "-C", layout.Toplevel, "ls-files", "-z", "--", folder).Output()
+	// Every folder above the file may be spelled another way in the index,
+	// and Git folds only ASCII letters, so list the whole index and keep
+	// the entries at the file's depth.
+	r := trackedFiles.get(layout.Toplevel, func() filesResult {
+		out, err := exec.Command("git", "-C", layout.Toplevel, "ls-files", "-z").Output()
 		return filesResult{paths: strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00"), err: err}
 	})
 	if r.err != nil {
-		return false, r.err
+		return false, fmt.Errorf("git ls-files in %s: %w", layout.Toplevel, r.err)
 	}
+	depth := strings.Count(full, "/")
 	for _, p := range r.paths {
+		if p == "" || strings.Count(p, "/") != depth {
+			continue
+		}
 		if info, err := os.Stat(filepath.Join(layout.Toplevel, filepath.FromSlash(p))); err == nil && os.SameFile(target, info) {
 			return true, nil
 		}

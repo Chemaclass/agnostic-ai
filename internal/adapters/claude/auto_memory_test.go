@@ -396,8 +396,7 @@ func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsTrackedUnderA
 		name       string
 		tracked    string
 		ignoreCase string
-		// alias spells the probe file's name the way the tracked name does.
-		alias func(string) string
+		alias      func(string) string
 	}{
 		{name: "look-alike letter", tracked: ".claude/\U0000017fettings.local.json", ignoreCase: "true", alias: func(name string) string { return strings.Replace(name, "s", "\U0000017f", 1) }},
 		{name: "file name", tracked: ".claude/Settings.Local.json", ignoreCase: "true"},
