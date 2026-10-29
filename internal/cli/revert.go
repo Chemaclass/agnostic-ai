@@ -86,7 +86,7 @@ func newRevertCmd() *cobra.Command {
 				// Pass dryRun=true so any adapter that writes outside
 				// WriteFile (e.g. a future os.Mkdir for an empty
 				// output dir) does not side-effect during revert.
-				if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, true); err != nil {
+				if err := emitAdapter(sess, adapter, b, cfg, true); err != nil {
 					sess.StopCapture()
 					return fmt.Errorf("%s: %w", t, err)
 				}
@@ -278,7 +278,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 			continue
 		}
 		sess.StartCapture()
-		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, true); err != nil {
+		if err := emitAdapter(sess, adapter, b, cfg, true); err != nil {
 			sess.StopCapture()
 			out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 			continue

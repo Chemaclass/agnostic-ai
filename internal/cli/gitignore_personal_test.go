@@ -68,7 +68,7 @@ func splitWithLocal(t *testing.T, team, local string, recorded []string) (block,
 	if err != nil {
 		t.Fatal(err)
 	}
-	block, personal, err = personalSplitBlock(".", cfg, b, cfg.Targets, recorded, ledgerMissing("."))
+	block, personal, err = personalSplitBlock(".", cfg, newTargetRenders(cfg, b), cfg.Targets, recorded, ledgerMissing("."))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestPersonalSplitBlock_FailsWhenThePreviousSetCannotBeRead(t *testing.T) {
 	shortenExcludeLockWait(t)
 	held := holdExcludeLock(t, filepath.Join(root, ".git", "info", "exclude"))
 	defer func() { _ = held.Close() }()
-	if _, _, err := personalSplitBlock(".", cfg, b, cfg.Targets, nil, ledgerMissing(".")); err == nil {
+	if _, _, err := personalSplitBlock(".", cfg, newTargetRenders(cfg, b), cfg.Targets, nil, ledgerMissing(".")); err == nil {
 		t.Fatal("split succeeded without reading the previous personal set")
 	}
 }

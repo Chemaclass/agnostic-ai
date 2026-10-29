@@ -221,7 +221,7 @@ func singleEntryBundle(e spec.Entry) spec.Bundle {
 func captureEmit(a adapters.Adapter, b spec.Bundle, cfg *config.Config) ([]adapters.CapturedFile, error) {
 	sess := adapters.NewSession()
 	sess.StartWritesOnlyCapture()
-	err := adapters.EmitWithProvenance(sess, a, b, cfg, false)
+	err := emitAdapter(sess, a, b, cfg, false)
 	captured := sess.StopCapture()
 	if err != nil {
 		return nil, err

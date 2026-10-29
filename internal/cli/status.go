@@ -137,7 +137,7 @@ func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (dri
 			continue
 		}
 		sess.StartCapture()
-		if emitErr := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); emitErr != nil {
+		if emitErr := emitAdapter(sess, adapter, b, cfg, false); emitErr != nil {
 			sess.StopCapture()
 			return 0, nil, fmt.Errorf("%s: %w", t, emitErr)
 		}

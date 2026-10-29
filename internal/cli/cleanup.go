@@ -122,7 +122,7 @@ func syncBackupPaths(cfg *config.Config, b spec.Bundle) ([]string, error) {
 		}
 		sess.StartCapture()
 		// dryRun=true: capture the paths without writing anything.
-		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, true); err != nil {
+		if err := emitAdapter(sess, adapter, b, cfg, true); err != nil {
 			sess.StopCapture()
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}

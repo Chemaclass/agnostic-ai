@@ -12,7 +12,6 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
-	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // skillLink describes one planned symlink: path becomes a relative
@@ -53,7 +52,7 @@ type sharedSkillsState struct {
 // planned on full runs (every configured target emitted): a partial run
 // cannot see all participants, so it must not pick a canonical copy.
 // A target whose adapter does not load counts as not emitted.
-func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sharedSkillsState, error) {
+func planSharedSkills(cfg *config.Config, renders *targetRenders, targets []string) (*sharedSkillsState, error) {
 	loaded := make([]string, 0, len(targets))
 	for _, t := range targets {
 		if _, err := adapters.Resolve(t); err == nil {
@@ -68,7 +67,7 @@ func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sha
 	if !st.enabled {
 		return st, nil
 	}
-	captures, err := captureRenders(cfg, b, loaded)
+	captures, err := captureRenders(cfg, renders, loaded)
 	if err != nil {
 		return nil, err
 	}
@@ -87,23 +86,21 @@ func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sha
 	return st, nil
 }
 
-// captureRenders emits every resolvable target in capture mode and
-// returns the per-target file sets. No files touch disk.
-func captureRenders(cfg *config.Config, b spec.Bundle, targets []string) ([]targetCapture, error) {
+// captureRenders returns each resolvable target's files from the run's
+// shared renders.
+func captureRenders(cfg *config.Config, renders *targetRenders, targets []string) ([]targetCapture, error) {
 	cfg = cfg.WithAdditionalTargets(targets...)
 	var out []targetCapture
-	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
 		}
-		sess.StartCapture()
-		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
-			sess.StopCapture()
-			return nil, fmt.Errorf("%s: %w", t, err)
+		render := renders.capture(adapter, cfg)
+		if render.err != nil {
+			return nil, fmt.Errorf("%s: %w", t, render.err)
 		}
-		out = append(out, targetCapture{target: t, files: sess.StopCapture()})
+		out = append(out, targetCapture{target: t, files: render.files})
 	}
 	return out, nil
 }

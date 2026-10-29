@@ -118,7 +118,7 @@ func codexScopedDocuments(cfg *config.Config, b spec.Bundle, reviews map[string]
 	}
 	sess := adapters.NewSession()
 	sess.StartCapture()
-	err = adapters.EmitWithProvenance(sess, adapter, b, cfg, false)
+	err = emitAdapter(sess, adapter, b, cfg, false)
 	files := sess.StopCapture()
 	if err != nil {
 		return nil, err
