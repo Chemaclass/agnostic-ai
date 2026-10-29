@@ -1652,6 +1652,108 @@ function test_fetch_one_notices_release_note_edits_without_a_new_tag() {
   assert_contains 'Edited notes.' "$(cat "$FIXTURES/run/pages/crush/changelog-2-github.com-charmbracelet-crush-releases.body")"
 }
 
+# ---- churn-proof comparison ------------------------------------------------------
+
+# The fixtures below are trimmed from the 2026-10-27 and 2026-10-29 audit
+# runs: page bytes that moved while the documentation did not.
+
+function openhands_page() {
+  printf '<html><body><div id="content"><h1>Skills</h1><p>%s</p></div>' "$1"
+  printf '<p>Was this page helpful?</p>'
+  printf '<template data-mint="manifest">{"docsConfig":{"theme":"mint","name":"OpenHands Docs"},"tags":[{"tag":"Reference","count":%s}],"deployment":{"id":"%s"}}</template>' "$2" "$3"
+  printf '</body></html>'
+}
+
+function test_strip_html_ignores_openhands_template_payload_churn() {
+  openhands_page 'Skills load from .openhands/skills.' 95 dpl_old >"$FIXTURES/a.html"
+  openhands_page 'Skills load from .openhands/skills.' 70 dpl_new >"$FIXTURES/b.html"
+  openhands_page 'Skills load from .agents/skills.' 70 dpl_new >"$FIXTURES/c.html"
+  assert_equals "$(strip_html "$FIXTURES/a.html")" "$(strip_html "$FIXTURES/b.html")"
+  assert_not_contains 'docsConfig' "$(strip_html "$FIXTURES/a.html")"
+  assert_not_equals "$(strip_html "$FIXTURES/b.html")" "$(strip_html "$FIXTURES/c.html")"
+}
+
+function vscode_page() {
+  printf '<html><body><div id="main">'
+  [ -z "$1" ] || printf '<header class="hf-site-header"><a class="v2-skip-link" href="#main-content">Skip to content</a><nav aria-label="Primary">Docs</nav><p class="v2-download-notice">By using VS Code, you agree to its license and privacy statement.</p></header>'
+  printf '<main id="main-content"><article><header><h1>MCP configuration reference</h1></header><p>%s</p></article>' "$2"
+  printf '<div class="body-footer">%s</div></main></div></body></html>' "$3"
+}
+
+function test_strip_html_ignores_the_vscode_site_header_and_footer_date() {
+  vscode_page '' 'Servers live in .vscode/mcp.json.' 10/21/2026 >"$FIXTURES/a.html"
+  vscode_page header 'Servers live in .vscode/mcp.json.' 10/28/2026 >"$FIXTURES/b.html"
+  vscode_page header 'Servers live in .vscode/mcp.jsonc.' 10/28/2026 >"$FIXTURES/c.html"
+  assert_equals "$(strip_html "$FIXTURES/a.html")" "$(strip_html "$FIXTURES/b.html")"
+  assert_contains 'MCP configuration reference' "$(strip_html "$FIXTURES/b.html")"
+  assert_not_equals "$(strip_html "$FIXTURES/b.html")" "$(strip_html "$FIXTURES/c.html")"
+}
+
+function test_strip_html_keeps_a_header_inside_the_page_content() {
+  printf '<article><header><h1>Hooks</h1></header>Hooks run before tools.<p>Exit 2 blocks.</p></article>' >"$FIXTURES/a.html"
+  assert_equals 'Hooks Hooks run before tools. Exit 2 blocks.' "$(strip_html "$FIXTURES/a.html")"
+}
+
+function test_strip_html_keeps_text_after_a_banner_and_a_template() {
+  printf '<header>Search</header>Intro<main><template>{"n":1}</template>Body</main>' >"$FIXTURES/a.html"
+  assert_equals 'Intro Body' "$(strip_html "$FIXTURES/a.html")"
+}
+
+function test_strip_html_keeps_a_header_on_a_page_without_main() {
+  printf '<body><header><h1>Install</h1><p>Run npm i foo</p></header><div>Then start it.</div></body>' >"$FIXTURES/a.html"
+  assert_equals 'Install Run npm i foo Then start it.' "$(strip_html "$FIXTURES/a.html")"
+}
+
+function test_strip_html_reads_a_tag_name_followed_by_a_newline() {
+  printf '<header>Search</header><main\n  id="c"><header\n><h1>Title</h1></header><p>Body</p></main>' >"$FIXTURES/a.html"
+  assert_equals 'Title Body' "$(strip_html "$FIXTURES/a.html")"
+}
+
+function test_strip_html_ignores_a_main_tag_written_in_a_script() {
+  printf '<body><header><h1>Install</h1></header><div><p>Body</p></div><script>x="<main>"</script></body>' >"$FIXTURES/a.html"
+  assert_equals 'Install Body' "$(strip_html "$FIXTURES/a.html")"
+}
+
+function test_strip_html_reads_tags_inside_a_script_as_script_text() {
+  printf '<main><script>var t = "<template><header><nav>";</script><p>Body after script</p></main>' >"$FIXTURES/a.html"
+  assert_equals 'Body after script' "$(strip_html "$FIXTURES/a.html")"
+}
+
+function test_strip_html_keeps_a_declarative_shadow_root() {
+  printf '<main><div><template shadowrootmode="open">Shadow text</template></div><template>hidden</template>End</main>' >"$FIXTURES/a.html"
+  assert_equals 'Shadow text End' "$(strip_html "$FIXTURES/a.html")"
+}
+
+function test_strip_html_skips_only_the_body_footer_class() {
+  printf '<main><div class="card-body-footer">Use .agents/skills</div><div class="x body-footer">Updated 10/29</div></main>' >"$FIXTURES/a.html"
+  assert_equals 'Use .agents/skills' "$(strip_html "$FIXTURES/a.html")"
+}
+
+function warp_page() {
+  printf '# MCP Servers\n\nWarp reads %s on next launch.\n\n![MCP servers page](https://docs.warp.dev/_astro/mcp-servers-list.C9p6MT-__ZcHsrA.webp?dpl=%s)\n' "$1" "$2"
+}
+
+function test_fetch_one_ignores_warp_deployment_ids_in_markdown() {
+  local first second third
+  stub_curl "https://docs.warp.dev/*|200|$(warp_page .warp/mcp.json dpl_3UYmRJ5sFATkWCXNWe4b5qriTMGB)"
+  first=$(fetch_one warp docs https://docs.warp.dev/agents/capabilities/mcp.md "$FIXTURES/run" 1 | cut -f6)
+  stub_curl "https://docs.warp.dev/*|200|$(warp_page .warp/mcp.json dpl_EXqqRnv2bL1vHYaSh3QVnP7yZjw4)"
+  second=$(fetch_one warp docs https://docs.warp.dev/agents/capabilities/mcp.md "$FIXTURES/run" 1 | cut -f6)
+  stub_curl "https://docs.warp.dev/*|200|$(warp_page .warp/mcp.jsonc dpl_EXqqRnv2bL1vHYaSh3QVnP7yZjw4)"
+  third=$(fetch_one warp docs https://docs.warp.dev/agents/capabilities/mcp.md "$FIXTURES/run" 1 | cut -f6)
+  assert_equals "$first" "$second"
+  assert_not_equals "$second" "$third"
+  assert_contains 'dpl=dpl_EXqqRnv2bL1vHYaSh3QVnP7yZjw4' "$(cat "$FIXTURES/run/pages/warp/docs-1-docs.warp.dev-agents-capabilities-mcp.md.body")"
+}
+
+function test_fetch_one_hashes_raw_text_without_deployment_ids_as_fetched() {
+  local row
+  stub_curl "https://docs.warp.dev/*|200|$(printf '# Rules\n\nPlain page.\n')"
+  row=$(fetch_one warp docs https://docs.warp.dev/agents/capabilities/rules.md "$FIXTURES/run" 1)
+  assert_equals "$(sha256_of "$FIXTURES/run/pages/warp/docs-1-docs.warp.dev-agents-capabilities-rules.md.body")" "$(printf '%s' "$row" | cut -f6)"
+  assert_file_not_exists "$FIXTURES/run/pages/warp/docs-1-docs.warp.dev-agents-capabilities-rules.md.txt"
+}
+
 # ---- lock completeness ------------------------------------------------------------
 
 # augment_2026_10_29_sources is the augment registry after PR #2757 added the
