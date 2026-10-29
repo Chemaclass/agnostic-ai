@@ -1359,6 +1359,30 @@ input:hover {
   border-bottom: 0;
 }
 
+.stages.is-quiet .stage-step {
+  padding-bottom: 20px;
+}
+
+.stages.is-quiet .stage-step::before {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+}
+
+.stages.is-quiet .stage-step:not(:last-child)::after {
+  left: 11px;
+  top: 30px;
+}
+
+.stages.is-quiet .stage-summary {
+  width: 100%;
+  min-height: 24px;
+}
+
+.stages.is-quiet .stage-title {
+  font-weight: 600;
+}
+
 .stage-step.has-hooks::before {
   border-color: var(--accent);
   color: var(--accent);

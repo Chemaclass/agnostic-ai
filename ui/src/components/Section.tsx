@@ -438,6 +438,34 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
   const setExpanded = (open: boolean) => {
     root.current?.querySelectorAll<HTMLDetailsElement>('details.stage').forEach((stage) => { stage.open = open })
   }
+  const stageTools = (st: Stage) => st.targets.length > 0 && (
+    <p className="stage-tools">
+      {st.targets.map((t) => (
+        <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
+      ))}
+    </p>
+  )
+  if (count === 0) {
+    return (
+      <section className="block" aria-labelledby="lifecycle-hooks">
+        <h2 id="lifecycle-hooks">Hooks <span className="muted kind-count">0</span></h2>
+        <p className="muted">None configured. A hook can run at each of these stages.</p>
+        <ol className="stages is-quiet">
+          {stages.map((st) => (
+            <li key={st.id} className="stage-step">
+              <div className="stage">
+                <h3 className="stage-summary">
+                  <span className="stage-title">{st.label}</span>
+                  <span className="muted stage-description">{st.description}</span>
+                </h3>
+                {stageTools(st)}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
   return (
     <section ref={root} className="block" aria-labelledby="lifecycle-hooks">
       <div className="section-head lifecycle-head">
@@ -466,13 +494,7 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
                   </h3>
                 </summary>
                 <div className="stage-body">
-                  {st.targets.length > 0 && (
-                    <p className="stage-tools">
-                      {st.targets.map((t) => (
-                        <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
-                      ))}
-                    </p>
-                  )}
+                  {stageTools(st)}
                   {!here.length && <p className="muted stage-empty">{filtering ? 'No matching hooks.' : 'No hook runs here.'}</p>}
                   {here.length > 0 && <ItemList items={here} />}
                 </div>

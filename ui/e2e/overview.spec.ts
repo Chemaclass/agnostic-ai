@@ -166,7 +166,6 @@ test.describe('overview', () => {
     data.sections.find((section: { id: string }) => section.id === 'lifecycle').stages[0].targets = targets
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=lifecycle')
-    await page.locator('.stage').first().locator('summary').click()
     const avatars = page.locator('.stage').first().locator('.tool-avatar')
     await expect(avatars).toHaveCount(targets.length)
     for (const target of targets) {
@@ -352,12 +351,33 @@ test.describe('overview', () => {
     const stages = page.locator('.stage-title')
     await expect(stages.nth(0)).toHaveText('Session start')
     await expect(stages.nth(6)).toHaveText('Session end')
-    if (MOCK) {
-      await expect(page.locator('.stage-empty')).toHaveCount(7)
-      await expect(page.locator('.stage-count')).toHaveText(Array(7).fill('No hooks'))
-    }
+    await expect(page.locator('.stages > li.stage-step')).toHaveCount(7)
     await expect(page.locator('.stage-description')).toHaveCount(7)
     await expect(page.locator('.stage-description').first()).toBeVisible()
+    if (MOCK) {
+      await expect(page.getByRole('region', { name: /^Hooks/ })).toContainText('None configured.')
+      await expect(page.locator('details.stage')).toHaveCount(0)
+      await expect(page.locator('.stage-count')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Expand all', exact: true })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Collapse all', exact: true })).toHaveCount(0)
+      const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
+      await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
+      await expect(avatar.locator('img')).toBeVisible()
+      await saveScreenshot(page, '02-lifecycle-empty.png')
+    }
+  })
+
+  test('opens lifecycle stages one at a time or all at once when a hook exists', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
+    const hook: SectionItem = { kind: 'hook', name: 'prepare', label: 'Prepare session', description: '', path: '.agnostic-ai/hooks/prepare.yaml', layer: 'project', group: 'session-start', values: [], findings: [] }
+    lifecycle.items = [hook]
+    lifecycle.kinds[0].count = 1
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=lifecycle')
+    await expect(page.getByRole('heading', { level: 1, name: 'Lifecycle' })).toBeVisible()
+    await expect(page.locator('.stage-empty')).toHaveCount(6)
+    await expect(page.locator('.stage-count')).toHaveText(['1 hook', ...Array(6).fill('No hooks')])
     await expect(page.locator('details.stage')).toHaveCount(7)
     await expect(page.locator('.stage[open]')).toHaveCount(0)
     await expect(page.locator('.stages > li > details.stage')).toHaveCount(7)
