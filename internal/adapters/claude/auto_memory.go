@@ -199,7 +199,7 @@ func repositorySuppliedLocalSettings(path string) bool {
 	if err != nil {
 		return true
 	}
-	tracked, err := gitquery.Tracked(parent, filepath.ToSlash(relative))
+	tracked, err := gitquery.TrackedAnyCase(parent, filepath.ToSlash(relative))
 	return err != nil || tracked
 }
 

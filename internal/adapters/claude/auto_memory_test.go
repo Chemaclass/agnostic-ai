@@ -391,6 +391,57 @@ func TestAutoMemoryLoadsPersonalIndex_PermissionsFollowGitUnderAnotherRootSpelli
 	}
 }
 
+func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsTrackedInAnotherLetterCase(t *testing.T) {
+	for _, c := range []struct {
+		name       string
+		tracked    string
+		ignoreCase string
+	}{
+		{name: "file name", tracked: ".claude/Settings.Local.json", ignoreCase: "true"},
+		{name: "folder name", tracked: ".CLAUDE/settings.local.json", ignoreCase: "true"},
+		{name: "Git setting off", tracked: ".claude/Settings.Local.json", ignoreCase: "false"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			user := autoMemoryProject(t)
+			probe := filepath.Join(t.TempDir(), "probe")
+			if err := os.WriteFile(probe, nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(strings.ToUpper(probe)); err != nil {
+				t.Skip("the disk is case-sensitive, so Claude Code never reads another letter case as settings.local.json")
+			}
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeClaudeSettings(t, filepath.Join(user, "settings.json"), `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`)
+			for _, args := range [][]string{{"init", "-q"}, {"config", "core.ignorecase", c.ignoreCase}} {
+				if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
+					t.Fatalf("git %v: %v %s", args, err, out)
+				}
+			}
+			if err := os.MkdirAll(".claude", 0o755); err != nil {
+				t.Fatal(err)
+			}
+			value, err := json.Marshal(map[string]string{"autoMemoryDirectory": filepath.ToSlash(filepath.Join(wd, ".agnostic-ai", "local", "memory"))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeClaudeSettings(t, filepath.FromSlash(c.tracked), string(value))
+			if out, err := exec.Command("git", "add", "-f", c.tracked).CombinedOutput(); err != nil {
+				t.Fatalf("git add: %v %s", err, out)
+			}
+			if out, err := exec.Command("git", "ls-files").Output(); err != nil || !strings.Contains(string(out), c.tracked) {
+				t.Fatalf("the index holds %q, want %s (%v)", out, c.tracked, err)
+			}
+			dir, err := New().NativePersonalMemoryDir(&config.Config{Builtins: []string{"memory"}}, wd)
+			if err != nil || dir != "" {
+				t.Errorf("got %q, %v; want the repository's directory blocked", dir, err)
+			}
+		})
+	}
+}
+
 func TestAutoMemoryLoadsPersonalIndex_WorktreeBlockFollowsTheDirectorySource(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Claude Code reads the local settings of the starting folder on Windows")
