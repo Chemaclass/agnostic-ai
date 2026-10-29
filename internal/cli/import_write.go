@@ -99,15 +99,29 @@ func withImportMerge(fn func() error) error {
 
 var errImportDataStream = errors.New("refusing a file name with a colon, which Windows stores as a hidden stream of the file before it")
 
+// namesDataStream is config.NamesDataStream, which tests replace to run
+// the Windows refusal on any system.
+var namesDataStream = config.NamesDataStream
+
+// refuseDataStreamMCP refuses, before anything is written, an MCP server
+// whose spec file at path Windows would store as a hidden stream.
+func refuseDataStreamMCP(name, path string) error {
+	if !namesDataStream(path) {
+		return nil
+	}
+	return fmt.Errorf("MCP server %q: %s: %w; rename the server", name, path, errImportDataStream)
+}
+
 // importWriteFile writes data to path with the given mode, recording it
 // for a dry-run report. Replaces os.WriteFile across all importers. A
 // write that stores a project local spec in the shared source is undone
 // when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	// Refused before the dry-run record, so a preview reports what import
-	// would.
-	if config.NamesDataStream(path) {
-		return errImportDataStream
+	// would. Shaped like an os.WriteFile error, which callers either
+	// return as is or wrap.
+	if namesDataStream(path) {
+		return &fs.PathError{Op: "write", Path: path, Err: errImportDataStream}
 	}
 	if importTxn != nil {
 		importTxn.mu.Lock()
