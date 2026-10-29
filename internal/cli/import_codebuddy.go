@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -309,9 +310,27 @@ func importCodebuddySettings(root, path string, src config.Sources) error {
 		doc["model"] = map[string]any{"codebuddy": model}
 		delete(native, "model")
 	}
-	if effort, ok := native["reasoningEffort"]; ok && adapters.AcceptsSettingsEffort("codebuddy", effort) {
-		doc["effort"] = map[string]any{"codebuddy": effort}
+	settingsDir := importSourcePath(root, src.Settings)
+	plan, level, err := planSettingsEffort("codebuddy", native["reasoningEffort"], settingsDir, "codebuddy.yaml")
+	if err != nil {
+		return err
+	}
+	switch plan {
+	case effortPromote:
+		maps.Copy(doc, settingsEffortSpec(plan, "codebuddy", "reasoningEffort", level))
 		delete(native, "reasoningEffort")
+	case effortStays:
+		// The leftover native keys become x-codebuddy, so a value the other
+		// specs already resolve to is dropped instead of pinned there.
+		if level != "" {
+			others, err := otherSettingsSpecs(settingsDir, filepath.Join(settingsDir, "codebuddy.yaml"))
+			if err != nil {
+				return err
+			}
+			if adapters.SettingsEffort(others, "codebuddy") == level {
+				delete(native, "reasoningEffort")
+			}
+		}
 	}
 	// Native permission patterns stay scoped to CodeBuddy.
 	if hooks, ok := native["hooks"].(map[string]any); ok {
@@ -381,7 +400,7 @@ func importCodebuddySettings(root, path string, src config.Sources) error {
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", path, err)
 	}
-	dst := filepath.Join(importSourcePath(root, src.Settings), "codebuddy.yaml")
+	dst := filepath.Join(settingsDir, "codebuddy.yaml")
 	if err := importWriteFile(dst, raw, 0644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}

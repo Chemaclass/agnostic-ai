@@ -312,3 +312,44 @@ func TestCodebuddy_ImportLeavesEnvironmentSettingsNative(t *testing.T) {
 		t.Fatal("native controls lost")
 	}
 }
+
+func TestCodebuddy_ImportEffortPlansAgainstOtherSettingsSpecs(t *testing.T) {
+	cases := []struct {
+		name, other, wantSpec, missing string
+	}{
+		{"another spec sets a different effort", "effort: high\n", "x-codebuddy:\n    nativeControl: true\n    reasoningEffort: low\n", "effort:"},
+		{"no other spec sets effort", "model: lite\n", "effort: low\n", "reasoningEffort"},
+		{"another spec already resolves to the same effort", "effort: low\n", "x-codebuddy:\n    nativeControl: true\n", "ffort"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [codebuddy]\n")
+			writeFile(t, filepath.Join(root, ".agnostic-ai/settings/default.yaml"), tc.other)
+			writeFile(t, filepath.Join(root, ".codebuddy/settings.json"), `{"reasoningEffort":"low","nativeControl":true}`)
+			if out, err := runRoot(t, "import", "codebuddy"); err != nil {
+				t.Fatalf("import: %v\n%s", err, out)
+			}
+			imported, err := os.ReadFile(filepath.Join(root, ".agnostic-ai/settings/codebuddy.yaml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(imported), tc.wantSpec) || strings.Contains(string(imported), tc.missing) {
+				t.Errorf("settings/codebuddy.yaml wants %q without %q:\n%s", tc.wantSpec, tc.missing, imported)
+			}
+			mustSync(t)
+			var settings map[string]any
+			data, _ := os.ReadFile(filepath.Join(root, ".codebuddy/settings.json"))
+			if err := json.Unmarshal(data, &settings); err != nil {
+				t.Fatal(err)
+			}
+			if settings["reasoningEffort"] != "low" {
+				t.Errorf("reasoningEffort = %v, want low: %s", settings["reasoningEffort"], data)
+			}
+			if out, err := runRoot(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check: %v\n%s", err, out)
+			}
+		})
+	}
+}
