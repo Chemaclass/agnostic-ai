@@ -11,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -445,6 +446,49 @@ func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsTrackedUnderA
 				t.Errorf("got %q, %v; want the repository's directory blocked", dir, err)
 			}
 		})
+	}
+}
+
+func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockLocalSettingsUnderTrackedLookAlikeFolder(t *testing.T) {
+	user := autoMemoryProject(t)
+	probe := filepath.Join(t.TempDir(), "sub")
+	if err := os.Mkdir(probe, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(probe), "\U0000017fub")); err != nil {
+		t.Skip("the disk does not open \U0000017fub as sub, so a tracked \U0000017fub/ never supplies the settings of sub/")
+	}
+	top, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := filepath.Join(top, "sub")
+	writeClaudeSettings(t, filepath.Join(user, "settings.json"), `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	value, err := json.Marshal(map[string]string{"autoMemoryDirectory": filepath.ToSlash(filepath.Join(project, ".agnostic-ai", "local", "memory"))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := filepath.Join(project, ".claude", "settings.local.json")
+	writeClaudeSettings(t, local, string(value))
+	cfg := &config.Config{Builtins: []string{"memory"}}
+	if dir, err := New().NativePersonalMemoryDir(cfg, project); err != nil || dir == "" {
+		t.Fatalf("untracked local settings: got %q, %v; want the repository's directory trusted", dir, err)
+	}
+	blob, err := exec.Command("git", "hash-object", "-w", local).Output()
+	if err != nil {
+		t.Fatalf("git hash-object: %v", err)
+	}
+	gitquery.Reset()
+	entry := "100644," + strings.TrimSpace(string(blob)) + ",\U0000017fub/.claude/settings.local.json"
+	if out, err := exec.Command("git", "update-index", "--add", "--cacheinfo", entry).CombinedOutput(); err != nil {
+		t.Fatalf("git update-index: %v %s", err, out)
+	}
+	gitquery.Reset()
+	if dir, err := New().NativePersonalMemoryDir(cfg, project); err != nil || dir != "" {
+		t.Errorf("got %q, %v; want the repository's directory blocked", dir, err)
 	}
 }
 

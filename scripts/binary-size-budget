@@ -674,4 +674,12 @@
 # (+1581), yamlNumbers (+779) and opencodeSettingsOwner (+773) explain it; the
 # shared owner check removes 1344 from planOpencodeV2MCP. No new dependency.
 # Budget: measured size plus one typical PR (8192).
-24154272
+#
+# The local settings look-alike check (#2772) adds 3503 bytes of symbols to main
+# 37028251, which puts the stripped binary at 24158368 with Go 1.27.3 and Linux
+# amd64 release flags. TrackedAnyCase (+1197, plus +330 for its list closure)
+# holds the index listing and the SameFile loop; the cache for the listing is a
+# new memo instantiation (+1064 across its methods and dictionary); Go func
+# metadata grows 528. No new dependency. Budget: measured size plus one typical
+# PR (8192).
+24166560
