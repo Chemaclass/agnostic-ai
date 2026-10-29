@@ -18,7 +18,7 @@ Each page has a search field for names, paths, descriptions, and values. Matchin
 
 **Search** in the header, or `Cmd+K` / `Ctrl+K`, searches every section of the loaded overview, findings included, without asking the server. Arrow keys move through the results, `Enter` opens one, and `Esc` closes the search and returns focus. Opening a result puts a link to that item, setting, or finding in the address bar; the link works after a reload and in browser history. A link to an entry the configuration no longer has says so and selects nothing else. Links name entries within the configuration the server or snapshot shows, so they only work for someone who can open that same address.
 
-The interface shares the website’s warm neutral palette and rust accent in light and dark themes. Source paths sit below descriptions, edit controls stay alongside their rows, and lifecycle stages form a numbered timeline. The sidebar shows the configured tools and becomes a horizontal navigation row on narrow screens.
+The interface shares the website’s warm neutral palette and rust accent in light and dark themes. Source paths sit below descriptions, edit controls stay alongside their rows, and lifecycle stages form a numbered timeline. The sidebar lists the sections with short descriptions and becomes a horizontal navigation row on narrow screens.
 
 Source lists use aligned rows. Unconfigured fields stay in a disclosure. Lifecycle stages start closed, with names, counts, and descriptions visible. Search opens matching stages; a linked hook or finding opens its stage and receives focus. Clearing search closes the stages, and open states are not saved. Support groups stack on mobile. The findings summary jumps to the full list; errors remain above the controls.
 
