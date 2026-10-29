@@ -89,10 +89,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `import codex` leaves credentials in `config.toml` out of the committed overlay, and stops on an old overlay with one. Use `--overwrite` (#2669).
 
-#### Copilot
-
-- `import all` and `init` detect a Copilot project from `.github/copilot/settings.json` alone (#2765).
-
 #### Cursor
 
 - `import cursor` writes `alwaysApply: false` for a rule with neither key, so sync keeps it off. Set `alwaysApply: false` in a rule imported before (#2643).
@@ -105,11 +101,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
-<<<<<<< HEAD
 - `import all` and `init` detect an OpenCode project from a root `opencode.json`, not only from `.opencode/` (#2765).
-=======
 - `import opencode` keeps the `provider` block of `opencode.json`, such as a model's prompt cache lifetime (`settings.cache.ttl`), in `settings/opencode-provider.yaml` under `x-opencode.provider`, so sync writes it back. A block holding a literal credential stays in `opencode.json` with a warning (#2755).
->>>>>>> origin/main
 
 #### Gemini CLI
 
@@ -118,6 +111,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Copilot
 
 - `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` from `.github/copilot/settings.json` under `x-copilot`, so sync writes the repository's default plugins back unchanged. Copilot CLI and Copilot in the cloud both read them (#2756).
+- `import all` and `init` detect a Copilot project from `.github/copilot/settings.json` alone (#2765).
 
 ### Site
 
