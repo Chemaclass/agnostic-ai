@@ -648,7 +648,7 @@ changed_classes() {
     {
       target = $1; kind = $2; url = $3; mode = $5; sha = $6; status = $8
       if (status == "") {
-        if (mode == "failed" || mode == "app-shell" || mode == "soft-404") status = "failed"
+        if (mode == "failed" || mode == "app-shell" || mode == "soft-404" || mode == "extract-limit") status = "failed"
         else if (!(url in locked)) status = "new"
         else if (locked[url] == sha) status = "unchanged"
         else status = "changed"

@@ -1,6 +1,6 @@
 # Fetch playbook
 
-Read this when a `docfetch.tsv` row is `failed`, or when its mode is `app-shell`, `soft-404`, or `redirected`. Every other row already carries usable text and needs nothing from this file.
+Read this when a `docfetch.tsv` row is `failed`, or when its mode is `app-shell`, `soft-404`, `extract-limit`, or `redirected`. Every other row already carries usable text and needs nothing from this file.
 
 `scripts/docfetch.sh` runs the mechanical part of this ladder on every URL. What stays here is the judgement, the vendor-specific routes the script cannot guess, and the failures that have cost real audit time.
 
@@ -8,7 +8,7 @@ Read this when a `docfetch.tsv` row is `failed`, or when its mode is `app-shell`
 
 `html` is a normal page; the hash covers its visible text only, so a nonce or a rebuilt script bundle does not read as a documentation change. Visible text leaves out `<template>` content (Mintlify's JSON manifest with page counts and deployment ids) and a `<header>` outside `<main>` and `<article>` (the site banner). `markdown-mirror`, `llms-txt`, `raw-github`, and `text` are raw sources, hashed as fetched unless they carry a Vercel `?dpl=dpl_<id>` deployment value; then the hash and the saved `.txt` drop the id. `json` is hashed with its object keys sorted, so an API that reorders a map between fetches does not read as a change. `github-api` hashes release tags, dates, and note bodies in the versioned release index; download counts do not register as changes. `meta-refresh` and `reader-proxy` are successful recoveries, and the row's `final_url` says where the content actually came from.
 
-`app-shell` means the page served 200 with almost no visible text and every automatic fallback failed. `soft-404` means the body announces a missing page behind a 200. `redirected` means the fetch landed somewhere other than the path requested. `failed` means no usable bytes at all. None of these are clean checks.
+`app-shell` means the page served 200 with almost no visible text and every automatic fallback failed. `soft-404` means the body announces a missing page behind a 200. `extract-limit` means a reader-proxy body was fetched but turning it into text ran past the time limit (`READER_TEXT_SECONDS`, default 60), or, where `timeout` is missing, the body was over `READER_TEXT_BYTES`; read the saved `.body` directly. `redirected` means the fetch landed somewhere other than the path requested. `failed` means no usable bytes at all. None of these are clean checks.
 
 Saved bodies are under `<run>/pages/<target>/`. Read the saved copy rather than re-fetching. In an audit run each page file is a link into `local/target-audit/snapshots/blobs/`, which stores every fetched file once by its hash; read and quote it by its `pages/` path as usual, and never edit it.
 
