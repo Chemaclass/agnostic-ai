@@ -320,12 +320,13 @@ func TestCodebuddy_ImportEffortPlansAgainstOtherSettingsSpecs(t *testing.T) {
 		{"another spec sets a different effort", "effort: high\n", "x-codebuddy:\n    nativeControl: true\n    reasoningEffort: low\n", "effort:"},
 		{"no other spec sets effort", "model: lite\n", "effort: low\n", "reasoningEffort"},
 		{"another spec already resolves to the same effort", "effort: low\n", "x-codebuddy:\n    nativeControl: true\n", "ffort"},
+		{"a spec for another tool sets the same effort", "targets: [claude]\neffort: low\n", "effort: low\n", "reasoningEffort"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			root := testutil.TempCwd(t)
 			silence(t)
-			writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [codebuddy]\n")
+			writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [codebuddy, claude]\n")
 			writeFile(t, filepath.Join(root, ".agnostic-ai/settings/default.yaml"), tc.other)
 			writeFile(t, filepath.Join(root, ".codebuddy/settings.json"), `{"reasoningEffort":"low","nativeControl":true}`)
 			if out, err := runRoot(t, "import", "codebuddy"); err != nil {
