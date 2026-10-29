@@ -18,8 +18,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
-// renderReuseGolden holds what the commands below printed and wrote
-// before sync shared one render per target across its readers.
+// renderReuseGolden holds what the commands below printed and wrote on
+// main 673b86da, before sync shared one render per target across its
+// readers. It also pins unrelated bytes, such as the handoff built-in and
+// the ledger version. When those change, capture it again by running this
+// test with UPDATE_GOLDEN=1 on a checkout of main, not on a branch.
 const renderReuseGolden = "testdata/sync-render-reuse.golden"
 
 // warningAdapterOnPath installs an external adapter that writes one file
@@ -209,6 +212,6 @@ func TestSync_OutputMatchesBeforeRenderReuse(t *testing.T) {
 		t.Fatalf("read %s: %v (run with UPDATE_GOLDEN=1 to create it)", golden, err)
 	}
 	if text != string(want) {
-		t.Errorf("output differs from %s:\n%s", renderReuseGolden, unifiedDiff(renderReuseGolden, string(want), text, 80))
+		t.Errorf("output differs from %s:\n%s", renderReuseGolden, labeledDiff(renderReuseGolden, "got", splitLines(string(want)), splitLines(text), 80))
 	}
 }

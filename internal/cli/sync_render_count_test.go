@@ -113,21 +113,25 @@ func gitignoreFixture(t *testing.T) {
 }
 
 func TestSync_RendersEachTargetOnceWithGitignorePlanners(t *testing.T) {
-	gitignoreFixture(t)
-	counts := countRenders(t)
+	for _, args := range [][]string{{"sync", "-t", "claude", "-t", "codex"}, {"sync", "--json", "-t", "claude", "-t", "codex"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			gitignoreFixture(t)
+			counts := countRenders(t)
 
-	if out, err := runCLI(t, "sync", "-t", "claude", "-t", "codex"); err != nil {
-		t.Fatalf("sync: %v\n%s", err, out)
-	}
+			if out, err := runCLI(t, args...); err != nil {
+				t.Fatalf("%v: %v\n%s", args, err, out)
+			}
 
-	// A selected target renders once before the emit for collisions and
-	// shared skills. After the emit every target renders once for the
-	// ignore lists, twice for gitignore.commit (no specs, then skills
-	// only), and once with the team's built-ins.
-	wantCaptures := map[string]int{"claude": 5, "codex": 5, "opencode": 4}
-	wantWrites := map[string]int{"claude": 1, "codex": 1}
-	if !maps.Equal(counts.captures, wantCaptures) || !maps.Equal(counts.writes, wantWrites) {
-		t.Errorf("captures %v and writes %v, want %v and %v", counts.captures, counts.writes, wantCaptures, wantWrites)
+			// A selected target renders once before the emit for collisions
+			// and shared skills. After the emit every target renders once for
+			// the ignore lists, twice for gitignore.commit (no specs, then
+			// skills only), and once with the team's built-ins.
+			wantCaptures := map[string]int{"claude": 5, "codex": 5, "opencode": 4}
+			wantWrites := map[string]int{"claude": 1, "codex": 1}
+			if !maps.Equal(counts.captures, wantCaptures) || !maps.Equal(counts.writes, wantWrites) {
+				t.Errorf("captures %v and writes %v, want %v and %v", counts.captures, counts.writes, wantCaptures, wantWrites)
+			}
+		})
 	}
 }
 
