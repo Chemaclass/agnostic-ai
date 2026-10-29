@@ -51,6 +51,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Lifecycle stages start closed with counts and search, and the authority view loads faster (#2610, #2631, #2632).
 - The web UI no longer shows the configured tools card in the sidebar. `sync --check` and `status` report whether generated files match the source (#2733).
 - The web UI scrolls the page from the sidebar too; before, a wheel over the sidebar moved nothing (#2729).
+- The web UI draws no focus box around the page title, shows the search count under the field, and opens the JSON inspector below the header. **Tools** shows one line when no server lists its tools, **Lifecycle** with no hooks shows a plain list of stages, stacked fields on phones show each key once, and light theme header buttons no longer look disabled (#2740).
 
 ### By tool
 

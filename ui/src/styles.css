@@ -414,12 +414,11 @@ input:hover {
   letter-spacing: -0.02em;
 }
 
-.page-header h1:focus {
-  outline: none;
-}
-
+/* The title takes focus only from script after a navigation, so screen
+   readers announce the new page; Tab never reaches it, so it shows no ring. */
+.page-header h1:focus,
 .page-header h1:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: none;
 }
 
 .page-subtitle {
@@ -1360,6 +1359,30 @@ input:hover {
   border-bottom: 0;
 }
 
+.stages.is-quiet .stage-step {
+  padding-bottom: 20px;
+}
+
+.stages.is-quiet .stage-step::before {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+}
+
+.stages.is-quiet .stage-step:not(:last-child)::after {
+  left: 11px;
+  top: 30px;
+}
+
+.stages.is-quiet .stage-summary {
+  width: 100%;
+  min-height: 24px;
+}
+
+.stages.is-quiet .stage-title {
+  font-weight: 600;
+}
+
 .stage-step.has-hooks::before {
   border-color: var(--accent);
   color: var(--accent);
@@ -1902,9 +1925,10 @@ input:hover {
 
 /* JSON inspector ----------------------------------------------------------- */
 
+/* The drawer opens below the header, so the pressed JSON toggle stays in view. */
 .inspector {
   position: fixed;
-  top: 0;
+  top: var(--topbar-offset, var(--topbar-height));
   right: 0;
   bottom: 0;
   z-index: 50;
@@ -2024,14 +2048,13 @@ input:hover {
 
 .section-search {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--line);
 }
 
 .section-search > label {
-  grid-column: 1 / -1;
   font-size: 13px;
   font-weight: 600;
 }
@@ -2055,7 +2078,6 @@ input:hover {
 }
 
 .section-search-status {
-  align-self: center;
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -2110,8 +2132,6 @@ input:hover {
 
 @media (max-width: 760px) {
   .section-search {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
     padding-bottom: 16px;
   }
 
@@ -2216,6 +2236,16 @@ input:hover {
   .value-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
+  }
+
+  /* Stacked, a key that only repeats the field's own key above it reads twice. */
+  .value-row.repeats-field-key dt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .item-heading {
@@ -2565,6 +2595,11 @@ input:hover {
 .button-search {
   margin-left: auto;
   color: var(--text-muted);
+}
+
+/* On the white light header the raised grey fill read as disabled. */
+[data-theme='light'] .topbar .button:not([aria-pressed='true']) {
+  background: var(--topbar);
 }
 
 /* The search dialog is modal: the page behind it holds still. */
