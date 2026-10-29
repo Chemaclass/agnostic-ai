@@ -174,7 +174,13 @@ func TrackedAnyCase(root, rel string) (bool, error) {
 	if !diskIgnoresCase(root) {
 		return Tracked(root, rel)
 	}
-	return Tracked(root, ":(literal,icase)"+rel)
+	layout, err := LayoutAt(root)
+	if err != nil {
+		return false, err
+	}
+	// From the top level: Git compares the folders above the starting one
+	// letter for letter, so .CLAUDE/ in the index would not match .claude/.
+	return Tracked(root, ":(top,literal,icase)"+layout.Prefix+rel)
 }
 
 // diskIgnoresCase reports whether dir answers to its own name in another
