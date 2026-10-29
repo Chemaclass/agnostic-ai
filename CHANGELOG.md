@@ -13,6 +13,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Sync backs up an edited output it removes, keeps `.bak` files private and out of Git, and keeps outputs after case-only renames (#2639, #2640, #2654, #2704).
 - `sync` writes `.agnostic-ai/.sync-state` whole, skips entries outside the project, and rebuilds it with a warning when it does not parse (#2665, #2701).
 - Config errors name the file, line, key, and expected shape; a `version` other than `1` and line breaks in `sync.unmanaged` fail (#2648, #2664, #2701).
+- On Windows, a Qwen command named with a colon, such as `git:commit`, loads and syncs again, and sync refuses to write a file whose name holds a colon (#2744).
 - `sync` reads `.agnostic-ai/.sync-state` once per run instead of up to 25 times, so a sync of a 500-spec project runs about a quarter faster (#2667).
 - `sync --check` renders each tool once instead of twice, unless `prefer-spec` picks a winner, and `sync` with shared skills renders each tool once less. An external adapter's warnings print once in `sync --check` instead of twice, and twice in `sync` with shared skills instead of three times (#2667).
 
