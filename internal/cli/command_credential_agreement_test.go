@@ -60,6 +60,7 @@ func TestRuleCredentialChecksAgreeOnPathRules(t *testing.T) {
 		{`Read(curl --header "X-Api-Key: abc" https://api.example.com)`, true},
 		{`Shell(curl -H 'X-Api-Key: abc https://api.example.com)`, true},
 		{`run_shell_command(curl -H 'X-Api-Key: abc https://api.example.com)`, true},
+		{`prefix_rule(curl -H 'X-Api-Key: abc https://api.example.com)`, true},
 	} {
 		checks := map[string]bool{
 			"compare native": displayPermissionNative(c.rule, false) != c.rule,

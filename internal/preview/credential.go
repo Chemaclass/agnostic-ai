@@ -308,7 +308,7 @@ func CredentialInRule(rule string) bool {
 }
 
 // commandRuleCalls are the rule spellings whose text is a command.
-var commandRuleCalls = []string{"shell(", "Bash(", "Exec(", "PowerShell(", "Shell(", "run_shell_command("}
+var commandRuleCalls = []string{"shell(", "Bash(", "Exec(", "PowerShell(", "Shell(", "run_shell_command(", "prefix_rule("}
 
 // ruleCommand returns the text inside the call in rule, or rule as
 // written when it is not a call, and whether that text is a command.
