@@ -291,9 +291,9 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## augment
 
-- docs: https://docs.augmentcode.com/setup-augment/guidelines.md · https://docs.augmentcode.com/cli/subagents.md · /cli/config.md · /cli/rules.md · /cli/skills.md · /cli/hooks.md · /cli/custom-commands.md · /cli/integrations.md · https://docs.augmentcode.com/cli/permissions.md (repository `toolPermissions` in `.augment/settings.json`; append `.md` to any path for a markdown mirror)
+- docs: https://docs.augmentcode.com/setup-augment/guidelines.md · https://docs.augmentcode.com/cli/subagents.md · /cli/config.md · /cli/rules.md · /cli/skills.md · /cli/hooks.md · /cli/custom-commands.md · /cli/integrations.md · https://docs.augmentcode.com/cli/permissions.md (repository `toolPermissions` in `.augment/settings.json`; append `.md` to any path for a markdown mirror) · https://docs.augmentcode.com/cli/v0/hooks.md · /cli/v0/config.md · /cli/v0/permissions.md · /cli/v0/subagents.md · /cli/v0/rules.md · /cli/v0/skills.md · /cli/v0/custom-commands.md · /cli/v0/integrations.md (stable Auggie 0.x; since 2026-10-29 the unversioned `/cli/` pages describe the 1.x prerelease)
 - changelog: https://www.augmentcode.com/changelog
-- watch: `.augment-guidelines` vs AGENTS.md; whether `.augment/rules/` exists; a fifth permission type or a path matcher on `read`/`write`, either of which retires a coverage note.
+- watch: Auggie 1.x on npm `latest` (changes SessionStart context, permission names, model keys, hook rules); `.augment-guidelines` vs AGENTS.md; whether `.augment/rules/` exists; a fifth permission type or a path matcher on `read`/`write`, either of which retires a coverage note.
 - quirk: append `.md` to any docs path for a markdown mirror.
 - decision: project MCP and hooks merge into `<workspace>/.augment/settings.json` in one `MergeJSONFile` call (#633, #629). `/cli/config` calls it the home for "shared MCP servers". That file is CLI-only; the IDE extensions use their own Settings Panel.
 - decision: commands emit to `.augment/commands/<name>.md`, nested directories as namespaces, with `description`, `argument-hint` and `model` (#630).
