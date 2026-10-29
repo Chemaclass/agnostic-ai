@@ -146,7 +146,8 @@ func projectTree(t *testing.T, root string) string {
 			if start < 0 {
 				start = len(data)
 			}
-			lines = append(lines, "=== "+rel+" "+info.Mode().String()+"\n"+string(data[start:])+"\n")
+			// Git's template sets this file's mode, which differs by host.
+			lines = append(lines, "=== "+rel+"\n"+string(data[start:])+"\n")
 			return nil
 		}
 		if rel == ".gitignore" || rel == filepath.ToSlash(stateFilePath(".")) {
