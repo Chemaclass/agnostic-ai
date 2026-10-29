@@ -824,3 +824,96 @@ function test_review_reasons_reports_missing_requested_source() {
   assert_equals $'target\treason\tbaseline\tevidence\tstate\tchecklist\nclaude\tsource-recovery\t-\trequested-targets.txt\tmissing-source\trecover-source' "$reasons"
   assert_equals "$before" "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }
+
+# ---- per-target built-in baseline --------------------------------------------
+
+function write_report() {
+  # shellcheck disable=SC2016
+  printf '# Target audit\n\n- Audited commit: `%s` (clean `main`)\n- Built-ins: %s\n' "$2" "$3" >"$CHANGED_DIR/$1.md"
+}
+
+function test_report_omitting_a_target_makes_only_that_target_builtin_deep() {
+  builtin_regression_fixture
+  write_report 2026-10-27 "$BUILTIN_BASE" "claude factory"
+  local baseline out
+  baseline=$(main --builtins-baseline "$CHANGED_DIR/2026-10-27.md")
+  assert_equals "claude=$BUILTIN_BASE,factory=$BUILTIN_BASE" "$baseline"
+  out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$baseline")
+  assert_contains 'builtin-deep: continue' "$out"
+  assert_not_contains 'builtin-deep: factory' "$out"
+  assert_contains 'sweep: factory claude' "$out"
+}
+
+function test_builtins_baseline_takes_each_target_from_the_newest_report_naming_it() {
+  builtin_regression_fixture
+  local older
+  older=$(git -C "$ROOT" rev-parse HEAD)
+  printf 'later\n' >"$ROOT/docs/site/content/docs/releases.md"
+  git -C "$ROOT" add .
+  git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm later
+  BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
+  write_report 2026-10-20 "$older" "claude factory continue"
+  write_report 2026-10-27 "${BUILTIN_BASE:0:8}" "claude factory"
+  assert_equals "claude=$BUILTIN_BASE,factory=$BUILTIN_BASE,continue=$older" \
+    "$(main --builtins-baseline "$CHANGED_DIR/2026-10-20.md" "$CHANGED_DIR/2026-10-27.md")"
+}
+
+function test_builtins_baseline_pairs_each_continuation_section_with_its_own_commit() {
+  builtin_regression_fixture
+  local first
+  first=$(git -C "$ROOT" rev-parse HEAD)
+  printf 'later\n' >"$ROOT/docs/site/content/docs/releases.md"
+  git -C "$ROOT" add .
+  git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm later
+  BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
+  # shellcheck disable=SC2016
+  printf -- '- Audited commit: `%s`\n- Built-ins: none recorded.\n\n## Continuation\n\n- Audited commit: `%s`\n- Built-ins: claude\n\n## Late\n\n- Audited commit: `%s`\n- Built-ins: factory\n' \
+    "$first" "$BUILTIN_BASE" "$first" >"$CHANGED_DIR/2026-10-27.md"
+  assert_equals "claude=$BUILTIN_BASE,factory=$first" "$(main --builtins-baseline "$CHANGED_DIR/2026-10-27.md")"
+}
+
+function test_builtins_baseline_needs_a_commit_in_the_same_section() {
+  builtin_regression_fixture
+  # shellcheck disable=SC2016
+  printf -- '# Audit\n\n- Audited commit: `%s`\n\n## Continuation\n\n- Built-ins: claude factory\n' \
+    "$BUILTIN_BASE" >"$CHANGED_DIR/2026-10-27.md"
+  assert_empty "$(main --builtins-baseline "$CHANGED_DIR/2026-10-27.md")"
+}
+
+function test_review_reasons_rejects_an_invalid_list_before_writing_rows() {
+  builtin_regression_fixture
+  local out status=0
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "claude=$BUILTIN_BASE,,factory=$BUILTIN_BASE" 2>/dev/null) || status=$?
+  assert_not_equals 0 "$status"
+  assert_empty "$out"
+}
+
+function test_builtins_baseline_ignores_a_prose_built_ins_line() {
+  builtin_regression_fixture
+  write_report 2026-10-29 "$BUILTIN_BASE" "none recorded. The 2026-10-27 line does not name claude or factory."
+  assert_empty "$(main --builtins-baseline "$CHANGED_DIR/2026-10-29.md")"
+}
+
+function test_builtins_since_map_reviews_targets_against_their_own_baseline() {
+  builtin_regression_fixture
+  local older
+  older=$(git -C "$ROOT" rev-parse HEAD)
+  printf 'package factory\n// changed\n' >"$ROOT/internal/adapters/factory/factory.go"
+  git -C "$ROOT" add .
+  git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm factory
+  BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
+  local out
+  out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "claude=$BUILTIN_BASE,factory=$older,continue=$BUILTIN_BASE")
+  assert_contains 'builtin-deep: factory' "$out"
+  assert_contains 'sweep: claude continue' "$out"
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "claude=$BUILTIN_BASE,factory=$older")
+  assert_contains "factory	shared-repository	$older	internal/adapters/factory/factory.go	changed" "$out"
+  assert_contains "continue	built-in	-	baseline-unavailable	missing" "$out"
+}
+
+function test_builtins_since_map_rejects_an_unknown_target() {
+  builtin_regression_fixture
+  local status=0
+  main --changed "$CHANGED_RUN" 2 --builtins-since "claud=$BUILTIN_BASE" >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
+}

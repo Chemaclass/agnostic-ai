@@ -350,11 +350,8 @@ func (a app) start(args []string) (string, error) {
 		}
 		seen[target] = true
 	}
-	if *baseline != "" {
-		*baseline, err = a.command("git", "rev-parse", "--verify", *baseline+"^{commit}")
-		if err != nil {
-			return "", err
-		}
+	if *baseline, err = a.builtinBaseline(*baseline, registered); err != nil {
+		return "", err
 	}
 	commit, context, err := a.context()
 	if err != nil {
