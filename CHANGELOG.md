@@ -4,6 +4,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+## v0.90.0 - 2026-10-29
+
 ### General
 
 #### Sync and configuration
