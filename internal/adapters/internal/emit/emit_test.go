@@ -704,14 +704,24 @@ func TestSession_RefusesTheGitFolderAndAbsolutePathsOutsideTheProject(t *testing
 	testutilChdir(t, root)
 	sess := NewSession()
 	sess.SetProjectRoot(".")
+	trailingSpace := filepath.Join(".claude", "skills", ".GIT ", "HEAD")
 	paths := []string{
 		filepath.Join(".git", "hooks", "post-checkout"),
-		filepath.Join(".claude", "skills", ".GIT ", "HEAD"),
+		trailingSpace,
 		outside,
 		filepath.Join(root, ".git", "config"),
 	}
 
 	for _, path := range paths {
+		// Windows cannot create a folder whose name ends in a space, so
+		// there only the name check is asserted, by its message, since
+		// the failed create would also return an error.
+		if path == trailingSpace && runtime.GOOS == "windows" {
+			if err := sess.WriteFile(path, "y\n", false); err == nil || !strings.Contains(err.Error(), "inside .git") {
+				t.Errorf("WriteFile(%s) = %v, want the .git refusal", path, err)
+			}
+			continue
+		}
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
