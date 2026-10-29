@@ -211,7 +211,9 @@ func stdinIsTerminal(in io.Reader) bool {
 // are not available: `.agents/agents/` is already codex's here, and
 // `.agents/skills/` is shared across most of the registry. So a goose
 // project carrying rules and nothing else stays undetected, and needs
-// an explicit `import goose`.
+// an explicit `import goose`. OpenCode leaves out `opencode.jsonc`:
+// neither import nor sync reads it, so detecting it would report a
+// project whose config the import then drops.
 var targetMarkers = map[string][]string{
 	"codebuddy":   {".codebuddy", "CODEBUDDY.md"},
 	"claude":      {".claude", "CLAUDE.md"},
@@ -219,7 +221,7 @@ var targetMarkers = map[string][]string{
 	"gemini":      {".gemini", "GEMINI.md"},
 	"qwen":        {".qwen", "QWEN.md"},
 	"cursor":      {".cursor"},
-	"copilot":     {".github/copilot-instructions.md", ".github/instructions"},
+	"copilot":     {".github/copilot-instructions.md", ".github/instructions", ".github/copilot/settings.json"},
 	"aider":       {".aider.conf.yml", ".aider.conf.yaml"},
 	"cline":       {".cline", ".clinerules"},
 	"windsurf":    {".devin", ".windsurf"},
@@ -227,7 +229,7 @@ var targetMarkers = map[string][]string{
 	"amp":         {".amp"},
 	"zed":         {".zed"},
 	"warp":        {".warp"},
-	"opencode":    {".opencode"},
+	"opencode":    {".opencode", "opencode.json"},
 	"antigravity": {".agent", ".agents/rules"},
 	"junie":       {".junie"},
 	"kiro":        {".kiro"},
