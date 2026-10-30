@@ -127,11 +127,11 @@ note = "Node 18 or newer, on any OS."
 [explorer]
 title = "Share more when you need it."
 muted_title = "Explore the source files."
-body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your tools. Pick an entry to see its source and what `sync` writes for each tool."
-tree_label = "Entries in .agnostic-ai"
+body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your tools and model tiers. Pick an entry to see its source and what `sync` writes for each tool."
+tree_label = "Source files"
 root = ".agnostic-ai/"
 outputs_label = "sync"
-more = "Also `reviews/`, `environments/`, and `ignore/`. See [every spec kind](@/docs/spec-format/_index.md)."
+more = "`.agnostic-ai/` also holds `reviews/`, `environments/`, and `ignore/`. See [every spec kind](@/docs/spec-format/_index.md)."
 
 [[explorer.entries]]
 id = "instructions"
@@ -154,7 +154,7 @@ name = "agents/"
 hint = "delegate work"
 file = "agents/test-writer.md"
 selected = true
-summary = "Subagents with a role, what they may do, and a model per tool. Write the Codex alias once; sync writes the pinned id."
+summary = "Subagents with a role, what they may do, and a model. `model: fast` names a tier from `agnostic-ai.yaml`, and sync writes each tool's model and effort."
 outputs = [
   { tool = "Claude Code", path = ".claude/agents/test-writer.md" },
   { tool = "Codex", path = ".codex/agents/test-writer.toml", selected = true },
@@ -293,6 +293,23 @@ reach = "Gemini CLI has no setting that keeps a skill for when you ask, so sync 
 href = "@/docs/spec-format/skills.md"
 anchor = "disable-model-invocation-support-by-target"
 docs_label = "Skills"
+
+[[explorer.entries]]
+id = "config"
+name = "agnostic-ai.yaml"
+hint = "tools, tiers"
+file = "agnostic-ai.yaml"
+project_root = true
+summary = "Project settings, beside `.agnostic-ai/`. `targets` picks the tools sync writes for. A tier names a model role once: an agent with `model: fast` gets the model the tier names for each tool, and a Codex alias becomes the pinned id."
+outputs = [
+  { tool = "Claude Code", path = ".claude/agents/test-writer.md", part = "frontmatter:model,effort" },
+  { tool = "Codex", path = ".codex/agents/test-writer.toml", part = "toml:model,model_reasoning_effort" },
+  { tool = "Gemini CLI", path = ".gemini/agents/test-writer.md", part = "frontmatter:model" },
+]
+reach = "Gemini CLI agents have no effort setting, so sync leaves out the tier's effort there and prints a note."
+href = "@/docs/configuration.md"
+anchor = "models"
+docs_label = "Model tiers"
 
 [updates]
 title = "Keep the setup current."
