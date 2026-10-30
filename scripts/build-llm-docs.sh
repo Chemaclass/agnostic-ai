@@ -45,6 +45,7 @@ render_doc() {
     }
     !in_frontmatter && $0 ~ /^<\/?details>$/ { next }
     !in_frontmatter && $0 ~ /^<span id="[a-z0-9-]+" hidden><\/span>$/ { next }
+    !in_frontmatter && $0 ~ /^<!-- more -->$/ { next }
     !in_frontmatter && $0 ~ /^## .* \{#[a-z0-9-]+ \.legacy-anchor\}$/ { next }
     !in_frontmatter { print }
   ' "$1" | sed -E \

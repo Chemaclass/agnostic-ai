@@ -34,9 +34,11 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 	if !strings.Contains(landing, `<h3 id="choose-your-first-task">Start here</h3>`) {
 		t.Error("documentation entry must keep the old first-task anchor on its Start here list")
 	}
+	startList := landing[strings.Index(landing, `id="choose-your-first-task"`):]
+	startList = startList[:strings.Index(startList, "<h3")]
 	for _, start := range []string{"why-agnostic-ai", "installation", "getting-started", "agent-setup", "migration"} {
 		href := `href="https://agnostic-ai.org/docs/` + start + `/"`
-		if count := strings.Count(landing, href); count != 1 {
+		if count := strings.Count(startList, href); count != 1 {
 			t.Errorf("documentation entry links %s %d times, want once in the Start here list", start, count)
 		}
 	}
