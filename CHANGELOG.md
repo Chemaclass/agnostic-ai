@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- The Jules, Codex, Antigravity, Qoder and Zed pages have current retirement dates, history values, plugin MCP file names, and skill folder guidance (#2810, #2811, #2812, #2814, #2818).
 - The home page shows the install command for your OS, the number of supported tools, and a link to the playground at the top.
 - The home page shows the setup steps before the source explorer, and the explorer samples use model aliases and capability names, with docs links that open the matching page.
 - The docs landing page lists the first guides once, in its Start here list, instead of repeating them in buttons and numbered steps.
@@ -33,9 +34,9 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Scope notes explain automatic continuation's project fallback and no longer call `bashEditDiffEnabled: false` ignored (#2815).
 
-#### Documentation
+#### OpenHands
 
-- Correct Jules retirement dates, Codex history values, and Antigravity, OpenHands, Qoder and Zed setup guidance (#2810, #2811, #2812, #2813, #2814, #2818).
+- The note for an agent's MCP server no longer says OpenHands has no per-server timeout. It says sync does not map a timeout into the agent's `mcp_servers`, and that Agent Canvas offers a timeout for HTTP servers (#2813).
 
 ## v0.90.0 - 2026-10-29
 

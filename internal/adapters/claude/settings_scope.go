@@ -42,7 +42,7 @@ type projectIgnoredKey struct {
 	ignored any
 }
 
-// Scope column of the code.claude.com/docs/en/settings-reference index, fetched 2026-10-27.
+// Scope column of the code.claude.com/docs/en/settings-reference index, fetched 2026-10-30.
 var projectIgnoredKeys = []projectIgnoredKey{
 	{path: "allowAllClaudeAiMcps", scope: managedOnly},
 	{path: "allowClaudeInChromeWithManagedMcp", scope: managedOnly},
