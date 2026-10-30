@@ -399,10 +399,14 @@ func antigravityMCPFileFromCfg(cfg *config.Config) string {
 // `mcpServers.<name>` entry into dstDir. No-op when the file is absent
 // (#589).
 func importAntigravityMCP(root, mcpFile, dstDir string) (int, error) {
-	if config.UnsafeProjectPathIn(root, mcpFile) {
+	mcpPath := mcpFile
+	if filepath.IsAbs(mcpPath) {
+		mcpPath = importPreviewSourcePath(resolveImportSourceExisting(mcpPath))
+	}
+	if config.UnsafeProjectPathIn(root, mcpPath) {
 		return 0, fmt.Errorf("refusing to import MCP file outside the project or inside .git: %s", mcpFile)
 	}
-	servers, err := readJSONMapAt(config.ResolveSourcePath(root, mcpFile), antigravityMCPKey)
+	servers, err := readJSONMapAt(config.ResolveSourcePath(root, mcpPath), antigravityMCPKey)
 	if err != nil || len(servers) == 0 {
 		return 0, err
 	}
