@@ -21,7 +21,7 @@ import (
 )
 
 // globalImportSettingsSpec is where import --global puts the default
-// model and effort it reads.
+// model, effort, and voice settings it reads.
 const globalImportSettingsSpec = "settings/imported.yaml"
 
 // runImportGlobal reads the user settings and MCP files sync --global
@@ -73,7 +73,7 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 		return err
 	}
 	warn := cmd.ErrOrStderr()
-	if err := stageGlobalSettings(home, stage, targets, bundle.Settings); err != nil {
+	if err := stageGlobalSettings(home, stage, targets, bundle.Settings, warn); err != nil {
 		return err
 	}
 	state, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
@@ -223,11 +223,12 @@ func globalImportTargets(args []string) ([]string, error) {
 	return out, nil
 }
 
-// stageGlobalSettings writes one settings spec with each target's
-// default model and effort as a per-target map, so sync writes each
-// value back to the key it came from.
-func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry) error {
+// Voice applies to each target of its spec, so model and effort imports
+// outside that scope need their own spec.
+func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry, warn io.Writer) error {
 	model, effort := map[string]any{}, map[string]any{}
+	voice, voiceSources := map[string]any{}, map[string]string{}
+	var voiceTargets []string
 	for _, target := range targets {
 		g := globalTargets[target]
 		f := g.settings
@@ -247,6 +248,15 @@ func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry
 			return err
 		}
 		eligible := slices.DeleteFunc(slices.Clone(have), func(entry spec.Entry) bool { return !entry.EmitsTo(target) })
+		if !homeSetsVoice(have, target) {
+			incoming := importedGlobalVoice(target, f, values)
+			if len(incoming) > 0 {
+				voiceTargets = append(voiceTargets, target)
+			}
+			if err := mergeImportedVoice(voice, voiceSources, target, incoming, warn); err != nil {
+				return err
+			}
+		}
 		if f.model != "" && adapters.SettingsModel(eligible, target) == "" {
 			if v, ok := settingsLookup(values, f.model, f.format); ok {
 				if s, _ := v.(string); s != "" {
@@ -260,21 +270,45 @@ func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry
 			}
 		}
 	}
-	doc := map[string]any{}
-	if len(model) > 0 {
-		doc["model"] = model
+	doc, other := map[string]any{}, map[string]any{}
+	if len(voice) > 0 {
+		doc[voiceField] = voice
+		doc["targets"] = voiceTargets
 	}
-	if len(effort) > 0 {
-		doc["effort"] = effort
+	for _, field := range []struct {
+		name   string
+		values map[string]any
+	}{{"model", model}, {"effort", effort}} {
+		included, excluded := map[string]any{}, map[string]any{}
+		for target, value := range field.values {
+			if len(voice) == 0 || slices.Contains(voiceTargets, target) {
+				included[target] = value
+			} else {
+				excluded[target] = value
+			}
+		}
+		if len(included) > 0 {
+			doc[field.name] = included
+		}
+		if len(excluded) > 0 {
+			other[field.name] = excluded
+		}
 	}
+	if err := stageGlobalSettingsDoc(stage, globalImportSettingsSpec, doc); err != nil {
+		return err
+	}
+	return stageGlobalSettingsDoc(stage, "settings/imported-models.yaml", other)
+}
+
+func stageGlobalSettingsDoc(stage, name string, doc map[string]any) error {
 	if len(doc) == 0 {
 		return nil
 	}
 	raw, err := yaml.Marshal(doc)
 	if err != nil {
-		return fmt.Errorf("marshal %s: %w", globalImportSettingsSpec, err)
+		return fmt.Errorf("marshal %s: %w", name, err)
 	}
-	dst := filepath.Join(stage, filepath.FromSlash(globalImportSettingsSpec))
+	dst := filepath.Join(stage, filepath.FromSlash(name))
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("create directory for %s: %w", dst, err)
 	}

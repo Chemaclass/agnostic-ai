@@ -66,6 +66,8 @@ Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanu
 
 For a home kept in Git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`. See [import](@/docs/cli-reference/start.md#import).
 
+`import --global` reads [voice dictation](@/docs/spec-format/settings.md#voice-dictation) keys into `settings/imported.yaml`, scoped to the tools read. It skips tools a home `voice` spec already covers. Model and effort values for other tools go into `settings/imported-models.yaml` when their scope differs.
+
 ### Shared names {#global-shared-names}
 
 A project skill or agent can share its `name` with one in the home. Sync writes both, and each tool decides which one it loads. `sync` and `doctor` print one warning per shared name, with each target where one copy hides the other, which copy wins, and the fix:
