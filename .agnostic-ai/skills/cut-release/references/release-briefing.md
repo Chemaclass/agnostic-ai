@@ -87,10 +87,11 @@ Use these three sections, with feature or target subsections when useful:
 1. `## Upgrading from vX.Y.Z {#actions}` names the immediately previous
    release. Explain installation, required migrations, and regeneration.
    Separate required migrations from optional adoption. Include any
-   `requires` or schema pin update, and put required rule/config migrations
-   and watcher shutdown before package install hooks can run sync. Preserve a
-   deliberate range or minimum requirement; do not tell every project to use
-   an exact pin.
+   `requires` or schema update, and put required rule/config migrations
+   and watcher shutdown before package install hooks can run sync. Say that
+   `upgrade --requires` raises `requires` and keeps its form: a minimum
+   stays a minimum, an exact release stays exact, and a range becomes a
+   minimum. Do not tell every project to use an exact pin.
 2. `## What agnostic-ai changed` makes the main shipped value easy to scan.
    Use brief feature groups and a few adoption examples. End with a link to
    the GitHub release notes. Do not copy the changelog or group changes by

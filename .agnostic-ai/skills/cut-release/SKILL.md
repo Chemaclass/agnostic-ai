@@ -45,8 +45,9 @@ Use this workflow when the user asks to publish a new version. A request to prep
    A line that only mentions the issue, without delivering support, does not
    ship the signal, so clear only the date newly set for that row.
 4. Bump `version` in `cmd/agnostic-ai/main.go`, `extra.version` in
-   `docs/site/config.toml`, and both pins in the root `agnostic-ai.yaml`:
-   exact `requires: "X.Y.Z"` and the `$schema` URL's `vX.Y.Z` tag. Keep
+   `docs/site/config.toml`, and both release values in the root
+   `agnostic-ai.yaml`: the minimum `requires: ">=X.Y.Z"` and the `$schema`
+   URL's `vX.Y.Z` tag. Keep
    them in the release commit. `make site-test` fails when these values
    disagree with the latest dated changelog section.
 5. After finalizing the changelog, create exactly one
