@@ -114,9 +114,10 @@ for (const width of [1440, 390]) {
       // The sticky offsets are measured after the first paint, so wait for
       // the layout to settle before taking the reference positions.
       await expect.poll(async () => {
+        await page.evaluate(() => window.scrollTo({ top: 0 }))
         const before = await headingTop()
         await page.waitForTimeout(100)
-        return before === (await headingTop())
+        return before === (await headingTop()) && await page.evaluate(() => window.scrollY === 0)
       }).toBe(true)
       const navTop = await sidenav.evaluate((element) => element.getBoundingClientRect().top)
       const start = await headingTop()
