@@ -75,6 +75,40 @@ session-retention-days: 3650
 
 agnostic-ai changes settings only; it never reads, copies, or archives transcripts. Claude Code also applies this cutoff to some other session data and orphaned worktrees, and Desktop and Cowork transcripts have a separate setting. See [Claude cleanup](https://code.claude.com/docs/en/claude-directory), [Gemini configuration](https://geminicli.com/docs/reference/configuration/), and [Qoder settings](https://docs.qoder.com/cli/settings-reference).
 
+## Voice dictation
+
+Keep this personal setting under `~/.agnostic-ai/settings/`, outside team project specs:
+
+```yaml
+# ~/.agnostic-ai/settings/voice.yaml
+voice:
+  enabled: true
+  mode: tap
+  language: es
+```
+
+`sync --global` writes each member the tool has a key for; an unset member leaves the tool's value alone. `mode` is `hold` (hold a key while you talk) or `tap` (tap to start and stop). `language` is passed as written. Other values fail validation (LINT054). Project sync only prints a note.
+
+| Tool | User settings file | Native keys |
+|------|--------------------|-------------|
+| Claude Code | `~/.claude/settings.json` | `voice.enabled`, `voice.mode` |
+| Qwen Code | `~/.qwen/settings.json` | `general.voice.enabled`, `general.voice.mode`, `general.voice.language` |
+| Gemini CLI | `~/.gemini/settings.json` | `experimental.voiceMode`, `experimental.voice.activationMode` (`hold` becomes `push-to-talk`, `tap` becomes `toggle`) |
+| Grok Build | `~/.grok/config.toml` | `ui.voice_capture_mode` (`tap` becomes `toggle`), `ui.voice_stt_language` |
+| Mistral Vibe | `~/.vibe/config.toml` | `voice_mode_enabled` |
+
+- Claude Code takes its dictation language from its response language, so sync does not write `voice.language` there and prints a note. Set `x-claude.language` to change both.
+- Qwen keeps dictation off until a voice model is chosen. Run `/model --voice` or set `x-qwen.voiceModel`; sync prints a note when no model is configured.
+- Gemini's voice keys and Vibe's voice mode are experimental. Gemini has no language key; Vibe has no mode or language key. Sync prints a note for each member without a native key.
+- Grok has no dictation on/off key: `/voice` always works. Set `x-grok.ui.voice_keybind_enabled` to control its shortcut separately. `GROK_HOME` moves its user configuration directory.
+- Other targets print a note naming their limit. Warp and Kiro CLI mappings are tracked in [#2836](https://github.com/Chemaclass/agnostic-ai/issues/2836) and [#2837](https://github.com/Chemaclass/agnostic-ai/issues/2837).
+- An `x-<target>` key wins over the portable member it overlaps, including a parent map. Set keys such as `x-claude.voice.autoSubmit` there.
+- Pass `--backup` to replace a native value set outside agnostic-ai.
+- Removing the field restores each key's original bytes, removes an empty `voice` object that sync created, and removes an empty file that sync created. A value changed by hand stays yours.
+- `explain --global settings/voice.yaml` lists the mapped keys.
+
+See [Claude voice dictation](https://code.claude.com/docs/en/voice-dictation), [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/), [Gemini's voice schema](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/config/settingsSchema.ts), [Grok settings](https://docs.x.ai/build/settings/reference), and [Vibe voice mode](https://github.com/mistralai/mistral-vibe#voice-mode).
+
 ## Protected paths
 
 A `protected` block states "do not edit these files without asking" once, for CI workflows, lock files, generated code, or migrations. Sync writes the strongest guard each tool has.

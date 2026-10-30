@@ -77,6 +77,8 @@ Native [Agent Skills](https://geminicli.com/docs/cli/skills/) at `.gemini/skills
 
 The portable `model` maps to `model.name`. Other model options and settings stay. `x-gemini` keys merge in. Portable permission rules raise a sync note.
 
+At user scope, portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write the experimental `experimental.voiceMode` and `experimental.voice.activationMode` keys; Gemini has no dictation language key.
+
 ### MCP
 
 The `mcpServers` map. Streamable-HTTP servers (`type: http`) use `httpUrl`. SSE servers (`type: sse`) use `url`. Stdio servers also accept `cwd`. `timeout` (milliseconds), `trust` (skip tool-call confirmations), `description`, `includeTools`, and `excludeTools` are copied as written ([configuration reference](https://geminicli.com/docs/reference/configuration.md)). Import reads `httpUrl` back as `type: http` and a bare `url` as `type: sse`.
