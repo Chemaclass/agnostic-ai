@@ -316,11 +316,39 @@ main > section[id] {
   font-weight: 700;
 }
 
-.source-tree-list[inert] .source-tree-entry {
+/* A project root file, a sibling of the folder: no branch, and its icon
+   lines up with the folder icon above. */
+.source-tree-file {
+  align-items: center;
+  width: calc(100% + 0.5rem);
+  margin: 0.4rem 0 0 -0.5rem;
+  padding-left: 0.5rem;
+  border-radius: 8px;
+}
+
+.source-tree-file::before,
+.source-tree-file::after {
+  display: none;
+}
+
+.source-tree-file .source-tree-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.source-tree-file svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  color: var(--accent);
+}
+
+.source-tree-tabs[inert] .source-tree-entry {
   cursor: default;
 }
 
-.source-tree-list[inert] .source-tree-entry:not([aria-selected="true"]):hover {
+.source-tree-tabs[inert] .source-tree-entry:not([aria-selected="true"]):hover {
   background: transparent;
   color: var(--ink-soft);
 }
@@ -557,6 +585,12 @@ main > section[id] {
 
   .source-tree-entry::before {
     display: none;
+  }
+
+  .source-tree-file {
+    width: 100%;
+    margin-left: 0;
+    padding-left: 0.5rem;
   }
 }
 

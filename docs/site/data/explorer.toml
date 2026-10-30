@@ -2,8 +2,8 @@
 # Regenerate with: UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestSiteDocs_LandingExplorer
 
 [[files]]
-  path = ".agents/skills/release/SKILL.md"
-  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
+  path = ".agents/skills/release/agents/openai.yaml"
+  body = "policy:\n    allow_implicit_invocation: false\n"
 
 [[files]]
   path = ".agents/skills/review/SKILL.md"
@@ -15,7 +15,7 @@
 
 [[files]]
   path = ".agnostic-ai/agents/test-writer.md"
-  body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\ncan: [read, edit]\nmodel: {claude: sonnet, codex: terra}\neffort: medium\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
+  body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\ncan: [read, edit]\nmodel: fast\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
 
 [[files]]
   path = ".agnostic-ai/commands/review.md"
@@ -59,11 +59,16 @@
 
 [[files]]
   path = ".agnostic-ai/skills/release/SKILL.md"
-  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
+  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\ndisable-model-invocation: true\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
 
 [[files]]
   path = ".claude/agents/test-writer.md"
-  body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\ntools:\n  - Read\n  - Edit\nmodel: sonnet\neffort: medium\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
+  body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\ntools:\n  - Read\n  - Edit\nmodel: haiku\neffort: low\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
+
+[[files]]
+  path = ".claude/agents/test-writer.md"
+  part = "frontmatter:model,effort"
+  body = "model: haiku\neffort: low\n"
 
 [[files]]
   path = ".claude/commands/review.md"
@@ -98,11 +103,16 @@
 
 [[files]]
   path = ".claude/skills/release/SKILL.md"
-  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
+  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\ndisable-model-invocation: true\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
 
 [[files]]
   path = ".codex/agents/test-writer.toml"
-  body = "name = \"test-writer\"\ndescription = \"Writes a failing test that reproduces a bug. Use before fixing it.\"\nmodel = \"gpt-6.1-terra\"\nmodel_reasoning_effort = \"medium\"\ndeveloper_instructions = \"\"\"\nReproduce the bug in a failing test. Do not touch production code.\n\"\"\"\n"
+  body = "name = \"test-writer\"\ndescription = \"Writes a failing test that reproduces a bug. Use before fixing it.\"\nmodel = \"gpt-6-luna\"\nmodel_reasoning_effort = \"low\"\ndeveloper_instructions = \"\"\"\nReproduce the bug in a failing test. Do not touch production code.\n\"\"\"\n"
+
+[[files]]
+  path = ".codex/agents/test-writer.toml"
+  part = "toml:model,model_reasoning_effort"
+  body = "model = \"gpt-6-luna\"\nmodel_reasoning_effort = \"low\"\n"
 
 [[files]]
   path = ".codex/config.toml"
@@ -129,7 +139,12 @@
 
 [[files]]
   path = ".gemini/agents/test-writer.md"
-  body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\ntools:\n  - read_file\n  - replace\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
+  body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\nmodel: gemini-3.5-flash\ntools:\n  - read_file\n  - replace\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
+
+[[files]]
+  path = ".gemini/agents/test-writer.md"
+  part = "frontmatter:model"
+  body = "model: gemini-3.5-flash\n"
 
 [[files]]
   path = ".gemini/commands/review.toml"
@@ -196,3 +211,7 @@
   path = "GEMINI.md"
   part = "rule:testing"
   body = "### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n"
+
+[[files]]
+  path = "agnostic-ai.yaml"
+  body = "version: 1\ntargets:\n  - claude\n  - codex\n  - gemini\nmodels:\n  fast:\n    claude: haiku\n    codex: luna\n    gemini: gemini-3.5-flash\n    effort: low\n"

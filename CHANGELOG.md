@@ -10,6 +10,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - The home page shows the install command for your OS, the number of supported tools, and a link to the playground at the top.
 - The home page shows the setup steps before the source explorer, and the explorer samples use model aliases and capability names, with docs links that open the matching page.
 - The docs landing page lists the first guides once, in its Start here list, instead of repeating them in buttons and numbered steps.
+- The explorer's `skills/` sample is a skill that runs only when you ask. It shows the Codex `agents/openai.yaml` that sync writes for it, and notes that sync drops the setting for Gemini CLI.
+- The explorer shows `agnostic-ai.yaml` beside `.agnostic-ai/`, with the `fast` tier its agent sample uses and the model each tool gets from it.
 
 ### General
 
