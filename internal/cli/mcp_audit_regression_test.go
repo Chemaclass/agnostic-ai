@@ -266,3 +266,40 @@ func TestSyncGlobal_VibeSamplingDefaultControlsOwnership(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncGlobal_VibeSamplingUpgradeProtectsOwnedTrue(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	root := filepath.Join(home, "vibe")
+	t.Setenv("VIBE_HOME", root)
+	path := filepath.Join(root, "config.toml")
+	original := "# User configuration\n\n[[mcp_servers]]\nname = 'audit'\ntransport = 'stdio'\ncommand = 'example-mcp'\nsampling_enabled = true\n"
+	mustWriteGlobalTest(t, path, original)
+	specPath := filepath.Join(source, "mcps/audit.yaml")
+	base := "name: audit\ncommand: example-mcp\n"
+	mustWriteGlobalTest(t, specPath, base+"x-vibe:\n  sampling_enabled: true\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+		t.Fatalf("adopt: %v %s", err, warnings)
+	}
+	mustWriteGlobalTest(t, specPath, base)
+	statePath := filepath.Join(source, "state/global.json")
+	stateBefore := readGlobalTest(t, statePath)
+	for _, args := range [][]string{{"--only", "vibe", "--dry-run"}, {"--only", "vibe", "--check"}, {"--only", "vibe"}} {
+		_, _, err := runGlobalAgentTest(args...)
+		if err == nil || !strings.Contains(err.Error(), "sampling_enabled") || !strings.Contains(err.Error(), path) {
+			t.Errorf("upgrade must diagnose owned sampling true: %v", err)
+		}
+		if got := readGlobalTest(t, path); got != original {
+			t.Error("upgrade deleted user sampling setting")
+		}
+		if got := readGlobalTest(t, statePath); got != stateBefore {
+			t.Error("upgrade changed ownership state")
+		}
+	}
+	mustWriteGlobalTest(t, specPath, base+"x-vibe:\n  sampling_enabled: false\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+		t.Fatalf("explicit change: %v %s", err, warnings)
+	}
+	if got := readGlobalTest(t, path); !strings.Contains(got, "sampling_enabled = false") {
+		t.Errorf("explicit sampling choice was not applied: %s", got)
+	}
+}

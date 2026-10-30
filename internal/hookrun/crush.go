@@ -686,8 +686,10 @@ func CrushHandlers(body []byte) ([]Handler, error) {
 		return nil, err
 	}
 	var out []Handler
-	for _, e := range doc.Hooks[crushEvent] {
-		out = append(out, Handler{Command: e.Command, Timeout: time.Duration(e.Timeout * float64(time.Second))})
+	for _, entries := range doc.Hooks {
+		for _, e := range entries {
+			out = append(out, Handler{Command: e.Command, Timeout: time.Duration(e.Timeout * float64(time.Second))})
+		}
 	}
 	return out, nil
 }

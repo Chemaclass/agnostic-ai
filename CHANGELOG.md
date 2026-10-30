@@ -32,6 +32,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Crush
 
 - Sync and import preserve all 13 native hook events and reject matchers on events without tools (#2807).
+- Import keeps personal lifecycle commands out of shared specs and preserves handlers with distinct native names or timeouts (#2807).
 
 #### Gemini CLI
 
@@ -40,6 +41,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Vibe
 
 - Global MCP sync compares sampling with its native false default, preserving different user server settings (#2817).
+- Global MCP sync stops when an owned sampling value of `true` loses its explicit setting; set `x-vibe.sampling_enabled` before syncing (#2817).
 
 #### Copilot
 

@@ -63,19 +63,42 @@ func importCrushHooks(root, dstDir string) (int, error) {
 			if h.Command == "" {
 				continue
 			}
-			name := strings.TrimSpace(h.Name)
+			h.Name = strings.TrimSpace(h.Name)
+			name := h.Name
 			fileName := hookSpecName(event, h.Matcher, []string{h.Command})
 			safeName := spec.ValidateName(spec.KindHook, name) == nil
-			if !matchingCrushHook(filepath.Join(dstDir, fileName+".yaml"), event, h) && safeName &&
-				(names[name] == 1 || matchingCrushHook(filepath.Join(dstDir, name+".yaml"), event, h)) {
-				fileName = name
+			if !matchingCrushHook(filepath.Join(dstDir, fileName+".yaml"), event, h) {
+				nameAvailable := false
+				if safeName {
+					_, err := os.Stat(filepath.Join(dstDir, name+".yaml"))
+					nameAvailable = errors.Is(err, fs.ErrNotExist)
+				}
+				if safeName && (names[name] == 1 && nameAvailable || matchingCrushHook(filepath.Join(dstDir, name+".yaml"), event, h)) {
+					fileName = name
+				} else if _, err := os.Stat(filepath.Join(dstDir, fileName+".yaml")); err == nil {
+					identity, err := json.Marshal(h)
+					if err != nil {
+						return count, fmt.Errorf("encode crush hook identity: %w", err)
+					}
+					fileName = hookSpecName(event, h.Matcher, []string{string(identity)})
+				}
+			}
+			path := filepath.Join(dstDir, fileName+".yaml")
+			if _, err := os.Stat(path); err == nil {
+				if !matchingCrushHook(path, event, h) {
+					return count, fmt.Errorf("%s: native hook identity conflicts with an existing spec; rename the native hook", path)
+				}
+			} else if !errors.Is(err, fs.ErrNotExist) {
+				return count, fmt.Errorf("%s: %w", path, err)
 			}
 			docMap := map[string]any{
 				"event":   event,
 				"command": h.Command,
 				"target":  "crush",
 			}
-			if name != "" {
+			if name == "" {
+				docMap["x-crush"] = map[string]any{"name": ""}
+			} else {
 				docMap["name"] = name
 				if fileName != name && (safeName || names[name] > 1) {
 					docMap["name"] = fileName
@@ -122,7 +145,8 @@ func matchingCrushHook(path, event string, hook crushHookEntry) bool {
 		return false
 	}
 	for _, prior := range doc.Hooks[event] {
-		if prior.Matcher == hook.Matcher && adapters.StripHookTargetExport(prior.Command, "crush") == hook.Command {
+		if prior.Name == strings.TrimSpace(hook.Name) && prior.Timeout == hook.Timeout &&
+			prior.Matcher == hook.Matcher && adapters.StripHookTargetExport(prior.Command, "crush") == hook.Command {
 			return true
 		}
 	}

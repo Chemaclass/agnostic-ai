@@ -62,6 +62,12 @@ func reconcileVibeMCPNames(path string, want map[string]map[string]any, current 
 	reconciled := make(map[string]map[string]any, len(want))
 	for id, name := range desiredIDs {
 		desired := want[name]
+		if priorName, ok := previousIDs[id]; ok {
+			prior, _ := previous[priorName].(map[string]any)
+			if _, explicit := desired["sampling_enabled"]; !explicit && prior["sampling_enabled"] == true {
+				return nil, fmt.Errorf("%s: owned MCP %q has sampling_enabled = true; set x-vibe.sampling_enabled to true to keep it or false to disable it", path, priorName)
+			}
+		}
 		actual, exists := currentIDs[id]
 		if !exists || actual == name {
 			reconciled[name] = desired

@@ -132,9 +132,11 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 | `AGENTS.md` embedded `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
 | `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
 | `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
-| `crush.json` `hooks.<event>` | hook specs for each supported event; a unique safe name becomes the filename. Repeated native labels use distinct spec names and `x-crush.name`, so the labels and events survive a round trip |
+| `crush.json` `hooks.<event>` | hook specs for each supported event; a unique safe name becomes the filename. Handlers with distinct labels or timeouts use separate spec names and `x-crush.name`, so native identities survive a round trip |
 | `.crushignore` | an ignore spec |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+Import leaves commands emitted by personal hook specs in the personal layer for every supported lifecycle event.
 
 Crush has no documented directory scope. Sync skips scoped rules, and import cannot recover scope from the merged instructions. See [scoped context](@/docs/scoped-context.md).
 
