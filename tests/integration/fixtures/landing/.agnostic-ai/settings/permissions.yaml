@@ -1,4 +1,4 @@
 permissions:
-  allow: [Bash(pnpm test:*)]
-  ask: [Bash(git push:*)]
-  deny: [Read(.env)]
+  allow: [shell(pnpm test:*)]
+  ask: [shell(git push:*)]
+  deny: [read(.env)]

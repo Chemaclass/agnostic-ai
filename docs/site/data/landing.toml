@@ -31,7 +31,7 @@ drift = 'model = "gpt-5.4-mini"'
 [[hero.fanout.outputs]]
 path = ".gemini/agents/reviewer.md"
 tools = "Gemini CLI"
-line = "model: gemini-3-flash-preview"
+line = "model: gemini-3.5-flash"
 drift = "No agent yet."
 
 [hero.video]
@@ -75,7 +75,7 @@ migration_label = "Bring an existing setup"
 [[workflow.steps]]
 title = "Choose your tools"
 command = "agnostic-ai init"
-body = "Run this in your project. Select Claude Code and Codex for this example, or the tools you use. Accept the import offer to keep existing instructions."
+body = "Run this in your project. Pick Claude Code and Codex, or the tools you use. Accept the import offer to keep existing instructions."
 [[workflow.steps]]
 title = "Write one project note"
 file = ".agnostic-ai/AGNOSTIC_AI.md"
@@ -83,11 +83,11 @@ body = "Add a short instruction, such as the test command for your project. This
 [[workflow.steps]]
 title = "Generate and read the files"
 command = "agnostic-ai sync"
-body = "Preview with `agnostic-ai sync --plan`, then sync. In this example, find your note in `AGENTS.md` and the `@AGENTS.md` reference in `CLAUDE.md`. For other tools, follow their generated files and references."
+body = "Preview with `agnostic-ai sync --plan`, then sync. With Claude Code and Codex, your note is in `AGENTS.md`, and `CLAUDE.md` points at it."
 [[workflow.steps]]
 title = "Make your next edit"
 command = "agnostic-ai sync"
-body = "Change the note in `.agnostic-ai/AGNOSTIC_AI.md`, then sync again. In this example, check the updated note in `AGENTS.md`. Claude Code keeps reading it through the same reference."
+body = "Change the note and sync again. Every tool you picked reads the new text."
 
 [[workflow.installers]]
 id = "brew"
@@ -127,7 +127,7 @@ note = "Node 18 or newer, on any OS."
 [explorer]
 title = "Share more when you need it."
 muted_title = "Explore the source files."
-body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your targets. Pick an entry to see its source and what `sync` writes for each tool. Excerpts show the relevant part of a shared file."
+body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your tools. Pick an entry to see its source and what `sync` writes for each tool."
 tree_label = "Entries in .agnostic-ai"
 root = ".agnostic-ai/"
 outputs_label = "sync"
@@ -154,14 +154,13 @@ name = "agents/"
 hint = "delegate work"
 file = "agents/test-writer.md"
 selected = true
-summary = "Subagents with a role, their tools, and a model per tool."
+summary = "Subagents with a role, what they may do, and a model per tool. Write the Codex alias once; sync writes the pinned id."
 outputs = [
   { tool = "Claude Code", path = ".claude/agents/test-writer.md" },
   { tool = "Codex", path = ".codex/agents/test-writer.toml", selected = true },
   { tool = "Gemini CLI", path = ".gemini/agents/test-writer.md" },
 ]
-href = "@/docs/spec-format/_index.md"
-anchor = "agents"
+href = "@/docs/spec-format/agents.md"
 docs_label = "Agents"
 
 [[explorer.entries]]
@@ -191,7 +190,6 @@ outputs = [
   { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:hooks" },
 ]
 href = "@/docs/spec-format/hooks.md"
-anchor = "hooks"
 docs_label = "Hooks"
 
 [[explorer.entries]]
@@ -220,7 +218,6 @@ outputs = [
   { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:mcpServers" },
 ]
 href = "@/docs/spec-format/mcps.md"
-anchor = "mcp-servers"
 docs_label = "MCP servers"
 
 [[explorer.entries]]
@@ -234,9 +231,8 @@ outputs = [
   { tool = "Codex", path = ".codex/config.toml", part = "toml:tui" },
   { tool = "Gemini CLI", note = "Gemini CLI has no overlay file. Put its native keys under `x-gemini` in a `settings/` spec, and sync merges them into `.gemini/settings.json`." },
 ]
-href = "@/docs/targets/claude.md"
-anchor = "claude-settings"
-docs_label = "Claude settings"
+href = "@/docs/spec-format/overlays.md"
+docs_label = "Overlays"
 
 [[explorer.entries]]
 id = "rules"
@@ -249,8 +245,7 @@ outputs = [
   { tool = "Codex", path = "AGENTS.md", part = "rule:testing" },
   { tool = "Gemini CLI", path = "GEMINI.md", part = "rule:testing" },
 ]
-href = "@/docs/spec-format/skills.md"
-anchor = "rules"
+href = "@/docs/spec-format/rules.md"
 docs_label = "Rules"
 
 [[explorer.entries]]
@@ -264,9 +259,9 @@ outputs = [
   { tool = "Codex", path = ".codex/hooks/format.sh" },
   { tool = "Gemini CLI", path = ".gemini/hooks/format.sh" },
 ]
-href = "@/docs/spec-format/hooks.md"
-anchor = "hooks"
-docs_label = "Hooks"
+href = "@/docs/spec-format/hook-recipes.md"
+anchor = "shared-hook-scripts"
+docs_label = "Shared hook scripts"
 
 [[explorer.entries]]
 id = "settings"
@@ -281,7 +276,6 @@ outputs = [
 ]
 reach = "Codex and Gemini CLI have no portable permission list, so sync prints a note instead of guessing. Sync writes no effort for Gemini CLI; set its thinking level under `x-gemini`."
 href = "@/docs/spec-format/settings.md"
-anchor = "settings"
 docs_label = "Settings"
 
 [[explorer.entries]]
@@ -296,7 +290,6 @@ outputs = [
   { tool = "Gemini CLI", path = ".gemini/skills/release/SKILL.md" },
 ]
 href = "@/docs/spec-format/skills.md"
-anchor = "skills"
 docs_label = "Skills"
 
 [updates]
