@@ -2,6 +2,8 @@ package emit
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -16,7 +18,7 @@ const ProjectPluginsDir = ".agents/plugins"
 
 // PluginRootOf returns the plugin root path belongs to, or "" when it
 // lands outside one. The segment under `<root>/<name>/` must be exactly
-// a component the vendor loads: a nested path such as
+// a recognized component: a nested path such as
 // `<name>/skills/extra` is inside a component, not a component, and an
 // unrelated file below a plugin directory is neither.
 func PluginRootOf(path string, components map[string]bool) string {
@@ -43,6 +45,15 @@ func PluginRootOf(path string, components map[string]bool) string {
 // which of its outputs count as components of a plugin.
 func WritePluginManifests(sess *Session, roots []string, dryRun bool) error {
 	for _, root := range sortedPluginRoots(roots) {
+		path := filepath.Join(root, "plugin.json")
+		if PriorOutputSum == nil || PriorOutputSum(path) == "" {
+			if _, err := os.Lstat(path); err == nil {
+				NoteProject(fmt.Sprintf("%s: kept existing plugin manifest because sync did not write it", filepath.ToSlash(path)))
+				continue
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("%s: %w", path, err)
+			}
+		}
 		body, err := json.MarshalIndent(map[string]string{
 			"name":        filepath.Base(root),
 			"version":     "1.0.0",
@@ -51,7 +62,7 @@ func WritePluginManifests(sess *Session, roots []string, dryRun bool) error {
 		if err != nil {
 			return err
 		}
-		if err := sess.WriteFile(filepath.Join(root, "plugin.json"), string(body)+"\n", dryRun); err != nil {
+		if err := sess.WriteFile(path, string(body)+"\n", dryRun); err != nil {
 			return err
 		}
 	}

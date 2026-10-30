@@ -17,6 +17,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Sync and configuration
 
+- Sync keeps existing Antigravity and Goose plugin manifests it did not write and prints a note.
 - `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
 
 #### Web interface
@@ -39,7 +40,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Antigravity
 
-- Plugin MCP output in `.agents/plugins/<name>/mcp.json` gets a `plugin.json`, and `mcp_config.json` no longer does. Set `mcp-file` to `mcp.json` (#2826).
+- Plugin MCP output in `.agents/plugins/<name>/mcp.json` gets a `plugin.json`. Set `outputs.antigravity.mcp-file` to `.agents/plugins/<name>/mcp.json`. A plugin-root `mcp_config.json` still gets its manifest with a note to move (#2826).
 
 #### Gemini CLI
 
