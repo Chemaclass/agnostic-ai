@@ -33,7 +33,7 @@ type nativeMCPFile struct {
 // read here.
 var projectNativeMCP = map[string]nativeMCPFile{
 	"amp":         {path: ".amp/settings.json", format: "json", key: "amp.mcpServers"},
-	"antigravity": {path: antigravityMCPFile, format: "json", key: antigravityMCPKey},
+	"antigravity": {path: antigravityMCPFile, format: "json", key: antigravityMCPKey, followsOutputs: true},
 	"augment":     {path: ".augment/settings.json", format: "json", key: "mcpServers", noImport: true},
 	"claude":      {path: claudeMCPFile, format: "json", key: claudeMCPKey},
 	"codebuddy":   {path: ".mcp.json", format: "json", key: "mcpServers", followsOutputs: true},

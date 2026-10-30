@@ -325,3 +325,15 @@ func nativeRows(v overview.View) []overview.NativeServer {
 	}
 	return nil
 }
+
+func TestNativeMCPServers_KeepsTheImportHintForAntigravityPluginMCP(t *testing.T) {
+	home := nativeMCPHome(t)
+	dir := testutil.TempCwd(t)
+	path := ".agents/plugins/team/mcp.json"
+	mustWrite(t, filepath.Join(dir, filepath.FromSlash(path)), `{"mcpServers": {"fs": {"command": "fs-server"}}}`)
+	cfg := &config.Config{Targets: []string{"antigravity"}, Outputs: map[string]config.Output{"antigravity": {MCPFile: path}}}
+	got := nativeMCPServers(home, ".", "", cfg, false)
+	if len(got) != 1 || got[0].Path != path || got[0].Import != "agnostic-ai import antigravity" {
+		t.Errorf("servers = %+v, want fs from %s with the import hint", got, path)
+	}
+}
