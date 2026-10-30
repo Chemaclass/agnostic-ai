@@ -31,7 +31,7 @@ drift = 'model = "gpt-5.4-mini"'
 [[hero.fanout.outputs]]
 path = ".gemini/agents/reviewer.md"
 tools = "Gemini CLI"
-line = "model: gemini-3.8-flash"
+line = "model: gemini-3.5-flash"
 drift = "No agent yet."
 
 [hero.video]
@@ -83,11 +83,11 @@ body = "Add a short instruction, such as the test command for your project. This
 [[workflow.steps]]
 title = "Generate and read the files"
 command = "agnostic-ai sync"
-body = "Preview with `agnostic-ai sync --plan`, then sync. Your note is now in `AGENTS.md`, and `CLAUDE.md` points at it."
+body = "Preview with `agnostic-ai sync --plan`, then sync. With Claude Code and Codex, your note is in `AGENTS.md`, and `CLAUDE.md` points at it."
 [[workflow.steps]]
 title = "Make your next edit"
 command = "agnostic-ai sync"
-body = "Change the note, sync again. Both tools pick up the new text."
+body = "Change the note and sync again. Every tool you picked reads the new text."
 
 [[workflow.installers]]
 id = "brew"
