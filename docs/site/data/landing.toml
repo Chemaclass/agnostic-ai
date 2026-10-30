@@ -291,6 +291,7 @@ outputs = [
 ]
 reach = "Gemini CLI has no setting that keeps a skill for when you ask, so sync drops `disable-model-invocation` there and prints a note."
 href = "@/docs/spec-format/skills.md"
+anchor = "disable-model-invocation-support-by-target"
 docs_label = "Skills"
 
 [updates]
