@@ -2,8 +2,8 @@
 # Regenerate with: UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestSiteDocs_LandingExplorer
 
 [[files]]
-  path = ".agents/skills/release/SKILL.md"
-  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
+  path = ".agents/skills/release/agents/openai.yaml"
+  body = "policy:\n    allow_implicit_invocation: false\n"
 
 [[files]]
   path = ".agents/skills/review/SKILL.md"
@@ -59,7 +59,7 @@
 
 [[files]]
   path = ".agnostic-ai/skills/release/SKILL.md"
-  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
+  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\ndisable-model-invocation: true\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
 
 [[files]]
   path = ".claude/agents/test-writer.md"
@@ -103,7 +103,7 @@
 
 [[files]]
   path = ".claude/skills/release/SKILL.md"
-  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
+  body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\ndisable-model-invocation: true\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
 
 [[files]]
   path = ".codex/agents/test-writer.toml"

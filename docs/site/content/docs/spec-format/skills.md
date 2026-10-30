@@ -112,7 +112,7 @@ Without the field, every tool lets the model use the skill on its own. Each targ
 | [Windsurf](@/docs/targets/windsurf.md) | `triggers: [user]` in `SKILL.md` |
 | [Crush](@/docs/targets/crush.md) | Written to `SKILL.md` with `user-invocable: true` |
 | [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
-| Cline, Amp, Warp, Antigravity, Continue, Goose, OpenHands | Dropped with a note: no documented field keeps a skill user-only |
+| Cline, Amp, Warp, Antigravity, Continue, Gemini CLI, Goose, OpenHands | Dropped with a note: no documented field keeps a skill user-only |
 
 Copilot, Zed, Windsurf, and Crush write it only while no other target writes the same skills folder, since every writer of a shared `SKILL.md` must agree on its bytes. Otherwise the field is dropped with a note; point the tool's `skills-dir` at a folder of its own to keep it.
 
