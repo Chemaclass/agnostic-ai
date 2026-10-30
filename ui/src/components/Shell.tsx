@@ -119,43 +119,33 @@ export function Header({
           )}
         </div>
       )}
-      <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
-        <Icon name="search" />
-        <span className="button-search-label">Search</span>
-        <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
-      </button>
-      <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
-        JSON
-      </button>
-      <EditorChoice />
-      <button
-        type="button"
-        className="button button-quiet button-icon"
-        aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        onClick={onToggleTheme}
-      >
-        <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-      </button>
+      <div className="topbar-actions">
+        <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
+          <Icon name="search" />
+          <span className="button-search-label">Search</span>
+          <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
+        </button>
+        <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
+          JSON
+        </button>
+        <button
+          type="button"
+          className="button button-quiet button-icon"
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          onClick={onToggleTheme}
+        >
+          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+        </button>
+      </div>
     </header>
   )
 }
 
 export function Nav({ overview }: { overview: Remote<OverviewView> }) {
   const app = useApp()
-  const navRef = useRef<HTMLElement>(null)
   const asideRef = useRef<HTMLElement>(null)
   useHeightVariable(asideRef, '--nav-offset')
-  // On narrow screens the navigation is one scrolling row; keep the
-  // current page in view.
-  useEffect(() => {
-    const current = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]')
-    const nav = navRef.current
-    if (current && nav && nav.scrollWidth > nav.clientWidth) {
-      const bounds = current.getBoundingClientRect()
-      nav.scrollLeft += bounds.left - nav.getBoundingClientRect().left - nav.clientWidth / 2 + bounds.width / 2
-    }
-  }, [app.state.view, overview.loaded])
   const sections = overview.loaded?.data.sections
   const ordered = sections?.length
     ? [...sections].sort((a, b) => a.order - b.order).map((s) => ({ id: s.id as ViewId, label: s.label }))
@@ -174,9 +164,10 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
 
   return (
     <aside className="sidenav" ref={asideRef}>
-      <nav className="section-nav" aria-label="Configuration sections" ref={navRef}>
+      <nav className="section-nav" aria-label="Configuration sections">
         <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
       </nav>
+      <div className="sidenav-footer"><EditorChoice /></div>
     </aside>
   )
 }

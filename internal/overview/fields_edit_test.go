@@ -1,7 +1,9 @@
 package overview
 
 import (
+	"encoding/json"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -28,6 +30,93 @@ func TestSettingsFields_ExposeEditContract(t *testing.T) {
 		if f.Key == "session-retention-days" && (f.Editable == nil || f.Editable.Path != "settings/defaults.yaml" || f.Editable.DisabledReason != "") {
 			t.Fatalf("global retention = %+v", f.Editable)
 		}
+	}
+}
+
+func TestAuthorityFields_OnlyPermissionListsExposeListEditing(t *testing.T) {
+	cfg := &config.Config{Sources: config.Sources{Settings: "config/policies"}}
+	fields := buildFields(SectionAuthority, nil, nil, cfg, "", false)
+	for _, field := range fields {
+		if !PermissionListField(field.Key) {
+			if field.Editable != nil {
+				t.Errorf("%s unexpectedly editable: %+v", field.Key, field.Editable)
+			}
+			continue
+		}
+		if edit := field.Editable; edit == nil || edit.Kind != "permission-list" || edit.Path != "config/policies/permissions.yaml" || edit.LocalPath != ".agnostic-ai/local/settings/permissions.yaml" || edit.SyncCommand != "agnostic-ai sync" {
+			t.Errorf("%s metadata = %+v", field.Key, edit)
+		} else if len(edit.Sources) != 1 || edit.Sources[0] != (FieldEditSource{Path: edit.Path, Spec: "permissions", LocalPath: edit.LocalPath}) {
+			t.Errorf("%s scaffold source = %+v", field.Key, edit.Sources)
+		}
+	}
+}
+
+func TestPermissionFieldEdit_RequiresAChoiceForSeveralSourcesAndRefusesPacks(t *testing.T) {
+	a := entry(spec.KindSettings, "a", ".agnostic-ai/settings/a.yaml", map[string]any{"name": "a"})
+	b := entry(spec.KindSettings, "b", ".agnostic-ai/settings/b.yaml", map[string]any{"name": "b"})
+	pack := entry(spec.KindSettings, "pack", ".agnostic-ai/packs/team/settings/pack.yaml", map[string]any{"name": "pack"})
+	pack.Layer = "pack:team"
+	inactive := entry(spec.KindSettings, "inactive", ".agnostic-ai/settings/inactive.yaml", map[string]any{"name": "inactive", "targets": []any{"codex"}})
+	for _, tc := range []struct {
+		name        string
+		entries     []spec.Entry
+		path, local string
+		paths       int
+		disabled    bool
+	}{
+		{"one source", []spec.Entry{a}, a.Path, ".agnostic-ai/local/settings/a.yaml", 1, false},
+		{"several sources", []spec.Entry{a, b}, "", "", 2, false},
+		{"pack source", []spec.Entry{pack}, "", "", 0, true},
+		{"inactive source", []spec.Entry{inactive}, "", "", 0, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			edit := PermissionFieldEdit(tc.entries, &config.Config{Targets: []string{"claude"}}, "", false)
+			if edit.Path != tc.path || edit.LocalPath != tc.local || len(edit.Paths) != tc.paths || (edit.DisabledReason != "") != tc.disabled {
+				t.Errorf("metadata = %+v", edit)
+			}
+		})
+	}
+}
+
+func TestAuthorityFields_PermissionChoicesNameTheirSpecsAndPersonalFiles(t *testing.T) {
+	shared := entry(spec.KindSettings, "team-policy", ".agnostic-ai/settings/a.yaml", map[string]any{"name": "team-policy", "effort": "high"})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/mine.yaml", map[string]any{
+		"name": "team-policy", "permissions": map[string]any{"ask": []any{"shell"}},
+	})
+	other := entry(spec.KindSettings, "other-policy", ".agnostic-ai/settings/b.yaml", map[string]any{"name": "other-policy", "effort": "low"})
+	entries := []spec.Entry{overlay, other}
+	fields := buildFields(SectionAuthority, []SectionItem{sectionItem("", overlay), sectionItem("", other)}, entries, &config.Config{Targets: []string{"claude"}}, "", false)
+	at := slices.IndexFunc(fields, func(field SettingField) bool { return field.Key == "permissions.ask" })
+	if at < 0 {
+		t.Fatal("permissions.ask field is missing")
+	}
+	field := fields[at]
+	if len(field.Set) != 1 || !field.Set[0].Local || field.Set[0].Spec != shared.Name {
+		t.Fatalf("ask sources = %+v, want only the personal value", field.Set)
+	}
+	data, err := json.Marshal(field.Editable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var edit struct {
+		Path    string `json:"path"`
+		Sources []struct {
+			Path      string `json:"path"`
+			Spec      string `json:"spec"`
+			LocalPath string `json:"localPath"`
+		} `json:"sources"`
+	}
+	if err := json.Unmarshal(data, &edit); err != nil {
+		t.Fatal(err)
+	}
+	if edit.Path != "" || len(edit.Sources) != 2 {
+		t.Fatalf("permission metadata = %s, want two explicit source choices", data)
+	}
+	if got := edit.Sources[0]; got.Path != shared.Path || got.Spec != shared.Name || got.LocalPath != overlay.Path {
+		t.Errorf("first edit choice = %+v", got)
+	}
+	if got := edit.Sources[1]; got.Path != other.Path || got.Spec != other.Name || got.LocalPath != ".agnostic-ai/local/settings/other-policy.yaml" {
+		t.Errorf("second edit choice = %+v", got)
 	}
 }
 
@@ -172,6 +261,57 @@ func TestSettingsFields_LocalOverlayShowsItsValueBesideTheTeamValue(t *testing.T
 	effort := byKey["effort"]
 	if len(effort.Set) != 1 || effort.Set[0].Local || effort.Set[0].Path != ".agnostic-ai/settings/defaults.yaml" {
 		t.Errorf("inherited effort set = %+v, want the team file", effort.Set)
+	}
+}
+
+func TestSettingsFields_NativeValuesKeepTheirSharedAndPersonalSources(t *testing.T) {
+	shared := entry(spec.KindSettings, "native", ".agnostic-ai/settings/native.yaml", map[string]any{
+		"name": "native", "x-claude": map[string]any{"verbose": false, "theme": "dark"},
+	})
+	personalPath := ".agnostic-ai/local/settings/native.yaml"
+	overlay := localOverlay(shared, personalPath, map[string]any{
+		"name": "native", "x-claude": map[string]any{"verbose": true},
+	})
+	overlay.Meta["x-claude"] = map[string]any{"verbose": true, "theme": "dark"}
+	cleared := localOverlay(shared, personalPath, map[string]any{
+		"name": "native", "x-claude": map[string]any{"verbose": nil},
+	})
+	cleared.Meta["x-claude"] = map[string]any{"verbose": nil, "theme": "dark"}
+	inherited := localOverlay(shared, personalPath, map[string]any{"name": "native", "effort": "high"})
+	mine := entry(spec.KindSettings, "native", personalPath, map[string]any{
+		"name": "native", "x-claude": map[string]any{"verbose": true},
+	})
+	mine.Layer = "project-user"
+	sharedSource := FieldSource{Spec: "native", Path: shared.Path, Values: []Value{
+		{Key: "x-claude.theme", Type: ValueText, Value: "dark"},
+		{Key: "x-claude.verbose", Type: ValueBool, Value: "false"},
+	}}
+	personalSource := FieldSource{Spec: "native", Path: personalPath, Local: true, Values: []Value{
+		{Key: "x-claude.verbose", Type: ValueBool, Value: "true"},
+	}}
+	clearedSource := FieldSource{Spec: "native", Path: personalPath, Local: true, Values: []Value{
+		{Key: "x-claude.verbose", Type: ValueText, Value: "null"},
+	}}
+	for _, tc := range []struct {
+		name string
+		spec spec.Entry
+		want []FieldSource
+	}{
+		{"overridden native key", overlay, []FieldSource{personalSource, sharedSource}},
+		{"cleared native key", cleared, []FieldSource{clearedSource, sharedSource}},
+		{"inherited native keys", inherited, []FieldSource{sharedSource}},
+		{"personal-only spec", mine, []FieldSource{personalSource}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fields := buildFields(SectionSettings, []SectionItem{sectionItem("", tc.spec)}, []spec.Entry{tc.spec}, nil, "", false)
+			at := slices.IndexFunc(fields, func(field SettingField) bool { return field.Key == "x-" })
+			if at < 0 {
+				t.Fatal("native field is missing")
+			}
+			if got := fields[at].Set; !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("native sources = %+v, want %+v", got, tc.want)
+			}
+		})
 	}
 }
 

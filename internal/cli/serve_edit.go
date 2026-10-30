@@ -24,9 +24,10 @@ import (
 
 // Source-only edit endpoints.
 const (
-	editBuiltinPath = "/api/edit/builtin"
-	editValuePath   = "/api/edit/value"
-	editFieldPath   = "/api/edit/field"
+	editBuiltinPath     = "/api/edit/builtin"
+	editValuePath       = "/api/edit/value"
+	editFieldPath       = "/api/edit/field"
+	editPermissionsPath = "/api/edit/permissions"
 )
 
 // editHandler switches a built-in in the config file, or a boolean field
@@ -82,6 +83,9 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var sourceGuard func() error
 	var audience editAudience
 	switch r.URL.Path {
+	case editPermissionsPath:
+		h.servePermissions(w, body)
+		return
 	case editMCPPath:
 		h.serveMCP(w, body)
 		return

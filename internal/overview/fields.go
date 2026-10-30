@@ -1,7 +1,6 @@
 package overview
 
 import (
-	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -59,6 +58,15 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				continue
 			}
 			e := byName[it.Name]
+			if d.prefix && e.Base != nil {
+				if own := d.values(specValues(e.LocalMeta)); len(own) > 0 {
+					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: own, Local: true})
+				}
+				if shared := d.values(settingsValues(*e.Base)); len(shared) > 0 {
+					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: SpecPath(root, *e.Base), Values: shared})
+				}
+				continue
+			}
 			values := d.values(it.Values)
 			if len(values) == 0 && e.Base != nil && !d.prefix && LocalSets(e, d.key) {
 				// A personal null clears the team value; show it so it can be reset.
@@ -67,9 +75,8 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			if len(values) == 0 {
 				continue
 			}
-			if e.Base == nil || d.prefix {
-				local := LocalLayer(e) && (e.Base == nil || slices.ContainsFunc(slices.Collect(maps.Keys(e.LocalMeta)), d.matches))
-				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: local})
+			if e.Base == nil {
+				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: LocalLayer(e)})
 				continue
 			}
 			team := SpecPath(root, *e.Base)
@@ -81,6 +88,9 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			if shared := d.values(settingsValues(*e.Base)); len(shared) > 0 {
 				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: team, Values: shared})
 			}
+		}
+		if section == SectionAuthority && PermissionListField(d.key) {
+			f.Editable = PermissionFieldEdit(entries, cfg, root, global)
 		}
 		if section == SectionSettings && !d.prefix && cfg != nil {
 			edit := &FieldEdit{Kind: "text", SyncCommand: "agnostic-ai sync"}
@@ -172,6 +182,62 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+func PermissionListField(key string) bool {
+	list, ok := strings.CutPrefix(key, "permissions.")
+	return ok && slices.Contains(spec.PermissionLists, list)
+}
+
+func PermissionEditCandidate(e spec.Entry) bool {
+	if e.Layer == builtinLayer || strings.HasPrefix(e.Layer, "pack:") {
+		return false
+	}
+	return e.Base == nil || e.Base.Layer != builtinLayer && !strings.HasPrefix(e.Base.Layer, "pack:")
+}
+
+func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
+	edit := &FieldEdit{Kind: "permission-list", SyncCommand: "agnostic-ai sync"}
+	if global {
+		edit.SyncCommand += " --global"
+	}
+	var candidates []spec.Entry
+	for _, e := range entries {
+		if PermissionEditCandidate(e) && (cfg == nil || len(cfg.Targets) == 0 || slices.ContainsFunc(cfg.Targets, e.EmitsTo)) {
+			candidates = append(candidates, e)
+			path := SettingsTeamPath(root, e)
+			localPath := SettingsOverlayPath(global, e.Name)
+			if LocalLayer(e) {
+				localPath = SpecPath(root, e)
+			}
+			edit.Paths = append(edit.Paths, path)
+			edit.Sources = append(edit.Sources, FieldEditSource{Path: path, Spec: e.Name, LocalPath: localPath})
+		}
+	}
+	if len(candidates) == 1 {
+		edit.Path = edit.Paths[0]
+		edit.LocalPath = edit.Sources[0].LocalPath
+		return edit
+	}
+	if len(candidates) > 1 {
+		return edit
+	}
+	if len(entries) > 0 {
+		edit.DisabledReason = "These settings are read-only or do not apply to the configured tools; add an editable settings spec."
+		return edit
+	}
+	file := filepath.Join(root, "settings", "permissions.yaml")
+	if !global {
+		source := config.SourceBaseDir + "/settings"
+		if cfg != nil && cfg.Sources.Settings != "" {
+			source = cfg.Sources.Settings
+		}
+		file = filepath.Join(config.ResolveSourcePath(root, source), "permissions.yaml")
+	}
+	edit.Path = displayPath(root, file)
+	edit.LocalPath = SettingsOverlayPath(global, "permissions")
+	edit.Sources = []FieldEditSource{{Path: edit.Path, Spec: "permissions", LocalPath: edit.LocalPath}}
+	return edit
 }
 
 // editableValue reports whether the page can edit v in place: the

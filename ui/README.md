@@ -5,7 +5,7 @@ Inspect project or user configuration in a local browser. Installed binaries inc
 | Section | Shows |
 | --- | --- |
 | Context | The instructions file, rules, agents, and skills |
-| Authority | The permission files, each rule as a chip |
+| Authority | Permission rules, with shared or personal list editing and file previews |
 | Tools | MCP servers, each with the tools `agnostic-ai mcp tools` last listed |
 | Lifecycle | Every session stage and its hook counts; expand a stage for its tools and hooks, or use Expand all and Collapse all. With no hooks, a plain list of stages and their tools |
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
@@ -18,14 +18,20 @@ Each page has a search field for names, paths, descriptions, and values. Matchin
 
 **Search** in the header, or `Cmd+K` / `Ctrl+K`, searches every section of the loaded overview, findings included, without asking the server. Arrow keys move through the results, `Enter` opens one, and `Esc` closes the search and returns focus. Opening a result puts a link to that item, setting, or finding in the address bar; the link works after a reload and in browser history. A link to an entry the configuration no longer has says so and selects nothing else. Links name entries within the configuration the server or snapshot shows, so they only work for someone who can open that same address.
 
-The interface shares the website’s warm neutral palette and rust accent in light and dark themes. Source paths sit below descriptions, edit controls stay alongside their rows, and lifecycle stages form a numbered timeline. The sidebar lists the sections with short descriptions and becomes a horizontal navigation row on narrow screens.
+The interface shares the website's warm neutral palette and rust accent in light and dark themes. Source paths sit below descriptions, edit controls stay alongside their rows, and lifecycle stages form a numbered timeline. All five page links remain visible on narrow screens. **Jump to** links move to a source group and focus its heading while keeping the current search.
+
+In Settings, **View and edit** changes both the displayed values and the save destination. Shared shows the shared defaults; Personal shows your overrides and labels inherited shared settings. Personal values take priority for you. Rows with different values show both, such as **Shared: Off · Personal: On**. Built-in counts follow that view. A personal override disables the corresponding shared control and offers **View personal settings**. Reset actions appear in Personal. The config snapshot and **What each tool gets** show the combined configuration used for sync.
+
+Authority uses the same scope selector. **Add rules** or **Edit rules** changes Allow, Ask first, or Always blocked, one rule per line. **Preview changes** shows the destination and exact file diff; **Save rules** saves that source file. Run the displayed sync command to apply it. A personal list replaces the same list in its shared spec, with a comparison when they differ and **Reset to shared rules** to inherit again. Multiple editable settings files require an explicit choice. Default permission mode and protected paths remain read-only. See [permission editing](../docs/site/content/docs/cli-reference/inspect.md#permission-editing) for details.
 
 Source lists use aligned rows. Unconfigured fields stay in a disclosure. Lifecycle stages start closed, with names, counts, and descriptions visible. Search opens matching stages; a linked hook or finding opens its stage and receives focus. Clearing search closes the stages, and open states are not saved. Support groups stack on mobile. The findings summary jumps to the full list; errors remain above the controls.
+
+Change previews keep Apply and Cancel at the top. Affected tools, changed files, and review notes start collapsed. Notes group by tool, scroll within a bounded area, and have a **Copy notes** action for their full text. Pending source changes remain visible above those details.
 
 Values render by type: a list as chips, a boolean as a switch, anything
 else as text. Project built-in switches preview and apply changes across the configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
 runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens
-it in the editor picked in the header, Cursor or VS Code (`cursor://file/<absolute path>` or `vscode://file/<absolute path>`); the browser remembers the choice and Cursor is the default. Narrow screens hide the choice, since a phone cannot open a desktop editor. Each item carries the lint and doctor findings that name
+it in the editor picked below the navigation, Cursor or VS Code (`cursor://file/<absolute path>` or `vscode://file/<absolute path>`); the browser remembers the choice and Cursor is the default. Narrow screens hide the choice, since a phone cannot open a desktop editor. Each item carries the lint and doctor findings that name
 its file. A finding whose file is on the server's disk opens at its line when it has one, from the `openPath` the server sends. Every open link has Copy path beside it, since a browser cannot tell whether the editor opened. Mock and static data name no local files, so they show paths without open links. The JSON overview also reports whether generated files match
 what `sync` would write.
 

@@ -3,7 +3,7 @@ import { builtinChange, BuiltinChangeError, type BuiltinChange as Change, type B
 import { useApp } from './app-context'
 import { useEditAudience, type EditAudience } from './EditAudience'
 import { addressKey } from '../model/field-address'
-import { Code, Switch, Toggle, ToolAvatar } from './ui'
+import { Code, CopyButton, Switch, Toggle, ToolAvatar } from './ui'
 
 type Pending = 'loading' | 'preparing' | 'applying' | 'undoing' | 'cancelling'
 /** A model or effort edit, sent as /api/edit/field takes it. */
@@ -221,23 +221,55 @@ export function SettingChangePreview({ change, label }: { change: Change; label:
 
 function Preview({ change, title, heading }: { change: Change; title: string; heading: string }) {
   const { pending, request, cancel } = useBuiltinChanges()
-  return <section className="builtin-change builtin-change-preview" aria-label={`${title} preview`} aria-busy={!!pending}>
-    <h3>{heading}</h3>
-    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : 'for everyone'} and sync <span className="tool-list">{change.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</p>
+  const preview = useRef<HTMLElement>(null)
+  useEffect(() => { preview.current?.scrollIntoView({ block: 'start' }) }, [change.id])
+  const findings = change.findings.filter((finding) => finding !== pendingSourceFinding)
+  return <section ref={preview} className="builtin-change builtin-change-preview" aria-label={`${title} preview`} aria-busy={!!pending}>
+    <div className="builtin-change-preview-head">
+      <h3>{heading}</h3>
+      <div className="builtin-change-actions">
+        <button className="button button-primary" type="button" disabled={!!pending} onClick={() => { void request('apply') }}>Apply change</button>
+        <button className="button" type="button" disabled={!!pending} onClick={() => { void cancel() }}>Cancel</button>
+      </div>
+    </div>
+    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : 'for everyone'}.</p>
     {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> Applying writes source changes that were not synced yet, too. Every affected file is listed below.</p>}
     <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
-    <div className="builtin-change-files">
-      {change.changes.map((file) => <details key={file.path}>
-        <summary><span className="builtin-change-action">{file.action}</span> <Code>{file.path}</Code></summary>
-        <pre tabIndex={0} aria-label={`Diff for ${file.path}`}>{file.diff || 'File permissions will change.'}</pre>
+    {change.targets.length > 0 && <details className="preview-disclosure">
+      <summary>Applies to {change.targets.length} coding tool{change.targets.length === 1 ? '' : 's'}</summary>
+      <ul className="preview-targets">{change.targets.map((target) => <li key={target}><ToolAvatar target={target} /><code>{target}</code></li>)}</ul>
+    </details>}
+    {change.changes.length > 0 && <details className="preview-disclosure">
+      <summary>Changed files ({change.changes.length})</summary>
+      <div className="builtin-change-files" role="region" aria-label="Changed files" tabIndex={0}>
+        {change.changes.map((file) => <details key={file.path}>
+          <summary><span className="builtin-change-action">{file.action}</span> <Code>{file.path}</Code></summary>
+          <pre tabIndex={0} aria-label={`Diff for ${file.path}`}>{file.diff || 'File permissions will change.'}</pre>
+        </details>)}
+      </div>
+    </details>}
+    {findings.length > 0 && <PreviewNotes findings={findings} targets={change.targets} />}
+  </section>
+}
+
+function PreviewNotes({ findings, targets }: { findings: string[]; targets: string[] }) {
+  const groups = new Map<string, string[]>()
+  for (const finding of findings) {
+    const target = targets.find((name) => finding.startsWith(`${name}:`)) ?? ''
+    const notes = groups.get(target) ?? []
+    notes.push(finding)
+    groups.set(target, notes)
+  }
+  return <details className="preview-disclosure">
+    <summary>Review notes ({findings.length})</summary>
+    <div className="preview-notes-toolbar"><span className="muted">Grouped by coding tool.</span><CopyButton text={findings.join('\n')} label="Copy notes" copiedLabel="Notes copied" /></div>
+    <div className="preview-notes-body" role="region" aria-label="Review notes" tabIndex={0}>
+      {[...groups].map(([target, notes]) => <details className="preview-note-group" key={target}>
+        <summary><span className="preview-note-heading">{target ? <><ToolAvatar target={target} /><code>{target}</code></> : <span>Other notes</span>}<span className="muted">{notes.length} note{notes.length === 1 ? '' : 's'}</span></span></summary>
+        <ul className="builtin-change-findings">{notes.map((finding, index) => <li key={index}>{finding}</li>)}</ul>
       </details>)}
     </div>
-    {change.findings.some((finding) => finding !== pendingSourceFinding) && <ul className="builtin-change-findings">{change.findings.filter((finding) => finding !== pendingSourceFinding).map((finding, index) => <li key={index}>{finding}</li>)}</ul>}
-    <div className="builtin-change-actions">
-      <button className="button button-primary" type="button" disabled={!!pending} onClick={() => { void request('apply') }}>Apply change</button>
-      <button className="button" type="button" disabled={!!pending} onClick={() => { void cancel() }}>Cancel</button>
-    </div>
-  </section>
+  </details>
 }
 
 export function BuiltinChange({ name, label, on, local, fallback, renderHeading }: {

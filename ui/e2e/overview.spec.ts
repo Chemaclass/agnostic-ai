@@ -803,7 +803,10 @@ test.describe('overview', () => {
     const posted: unknown[] = []
     for (const path of ['**/api/edit/field', '**/api/edit/builtin']) {
       await page.route(path, (route) => {
-        posted.push(route.request().postDataJSON())
+        const body = route.request().postDataJSON()
+        posted.push(body)
+        if (body.key === 'model' && body.value === null) field('model').set = field('model').set.filter((source: { local?: boolean }) => !source.local)
+        if (body.name === 'caveman') Object.assign(settings.items.find((item: { name: string }) => item.name === 'caveman'), { enabled: body.enabled, local: false })
         return route.fulfill({ json: { ok: true } })
       })
     }
@@ -813,8 +816,11 @@ test.describe('overview', () => {
     await expect(shared).toHaveAttribute('aria-pressed', 'true')
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
-    await expect(model.locator('.badge', { hasText: 'personal' })).toBeVisible()
+    await expect(model.locator('.badge', { hasText: 'personal' })).toHaveCount(0)
     await expect(model).toContainText('Your personal value overrides the shared value.')
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('sonnet')
+    await personal.click()
+    await expect(model.locator('.badge', { hasText: 'personal' })).toBeVisible()
     await model.getByRole('button', { name: 'Reset to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'model', value: null, expected: 'opus' })
 
@@ -831,7 +837,7 @@ test.describe('overview', () => {
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
     await effort.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'effort', value: 'low', expected: null })
-    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('sonnet')
     await page.getByRole('switch', { name: 'memory built-in' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', name: 'memory', enabled: true, expected: false })
 
@@ -973,14 +979,18 @@ test.describe('overview', () => {
     await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
 
     const native = page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to shared value' })).toHaveCount(1)
     await native.getByRole('button', { name: 'Reset x-claude.verbose to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: nativeLocal, key: 'x-claude.verbose', value: null, expected: true })
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
     await expect(model.getByRole('button', { name: 'Reset to shared value' })).toHaveCount(0)
     await model.getByRole('combobox').selectOption(b)
     await expect(model).toContainText('Your personal value overrides the shared value.')
+    await model.getByRole('button', { name: 'View personal settings' }).click()
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
     await model.getByRole('button', { name: 'Reset to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: b, key: 'model', value: null, expected: 'opus' })
   })
@@ -1005,9 +1015,10 @@ test.describe('overview', () => {
     await expect(model).toContainText(`Saves to ${team}`)
 
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await page.getByText('Unconfigured fields', { exact: false }).click()
     await expect(effort).toContainText('Your personal value overrides the shared value.')
-    await expect(effort.locator('.field-source')).toContainText('low')
-    await expect(effort.locator('.field-source')).toContainText(`from ${local}`)
+    await expect(effort.locator('.field-source')).toHaveCount(0)
+    await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('')
 
     const retention = page.locator('.field-row').filter({ has: page.getByText('Session retention', { exact: true }) })
     await expect(retention.getByRole('spinbutton', { name: 'Session retention value' })).toHaveValue('30')

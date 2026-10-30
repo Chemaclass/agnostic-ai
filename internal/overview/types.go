@@ -143,12 +143,13 @@ type FieldNote struct {
 	Target, Field, Reason string
 }
 
-// FieldEdit describes the source-only edit available for a scalar field.
+// FieldEdit describes a source edit the interface supports.
 type FieldEdit struct {
-	Path    string   `json:"path,omitempty"`
-	Paths   []string `json:"paths,omitempty"`
-	Kind    string   `json:"kind"`
-	Allowed []string `json:"allowed,omitempty"`
+	Path    string            `json:"path,omitempty"`
+	Paths   []string          `json:"paths,omitempty"`
+	Sources []FieldEditSource `json:"sources,omitempty"`
+	Kind    string            `json:"kind"`
+	Allowed []string          `json:"allowed,omitempty"`
 	// ToolAllowed lists, for each tool that takes the field, the values
 	// it accepts; an empty list accepts any value.
 	ToolAllowed    map[string][]string `json:"toolAllowed,omitempty"`
@@ -157,6 +158,12 @@ type FieldEdit struct {
 	// LocalPath is the personal, git-ignored file a personal edit of
 	// Path writes.
 	LocalPath string `json:"localPath,omitempty"`
+}
+
+type FieldEditSource struct {
+	Path      string `json:"path"`
+	Spec      string `json:"spec"`
+	LocalPath string `json:"localPath"`
 }
 
 // FieldSource is one spec's values for a field.

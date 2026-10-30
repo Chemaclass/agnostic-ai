@@ -44,23 +44,40 @@ export function useEditAudience(): EditAudience {
   return usePageAudience() ?? 'shared'
 }
 
+export function useViewAudience(): EditAudience | undefined {
+  const app = useApp()
+  const audience = usePageAudience()
+  return app.source.kind === 'api' && (app.state.view === 'settings' || app.state.view === 'authority') ? audience : undefined
+}
+
+export function ViewPersonalButton() {
+  const state = useContext(Audience)
+  if (!state) return null
+  return <button type="button" className="button button-quiet" onClick={() => state.setAudience('personal')}>View personal settings</button>
+}
+
 export function EditAudienceSwitch() {
   const app = useApp()
   const state = useContext(Audience)
   const labelId = useId()
   if (!state || app.source.kind !== 'api') return null
+  const viewing = app.state.view === 'settings' || app.state.view === 'authority'
   const option = (value: EditAudience, label: string) => (
-    <button type="button" aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>{label}</button>
+    <button type="button" aria-label={label} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>
+      {value === 'shared' ? 'Shared' : 'Personal'}<span className="edit-scope-detail">{value === 'shared' ? ' (committed)' : ' (not committed)'}</span>
+    </button>
   )
   return (
     <div className="edit-scope">
-      <span id={labelId} className="edit-scope-label">Save changes for</span>
+      <span id={labelId} className="edit-scope-label">{viewing ? 'View and edit' : 'Save changes for'}</span>
       <div className="segmented" role="group" aria-labelledby={labelId}>
         {option('shared', 'Shared (committed)')}
         {option('personal', 'Personal (not committed)')}
       </div>
       <p className="muted edit-scope-hint" role="status">
-        {state.audience === 'shared' ? 'Changes go to shared files that Git tracks.' : 'Changes go to personal files that Git ignores. Nobody else gets them.'}
+        {state.audience === 'shared'
+          ? `${viewing ? 'Showing shared values. Personal overrides take priority for you. ' : ''}Changes are saved in files that Git tracks.`
+          : `${viewing ? 'Your personal overrides take priority over Shared. Inherited values are labeled. ' : ''}Changes are saved in personal files that Git ignores.`}
       </p>
     </div>
   )

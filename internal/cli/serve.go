@@ -187,6 +187,7 @@ func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions,
 	mux.Handle(editBuiltinPath, edits)
 	mux.Handle(editValuePath, edits)
 	mux.Handle(editFieldPath, edits)
+	mux.Handle(editPermissionsPath, edits)
 	mux.Handle(editMCPPath, edits)
 	changes := newBuiltinChangeHandler(opts.Root, opts.Global)
 	mux.Handle(builtinStatusPath, changes)

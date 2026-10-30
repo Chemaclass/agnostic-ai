@@ -5,14 +5,16 @@ import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import { ContextUsage } from './ContextUsage'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
-import { EditAudienceProvider, EditAudienceSwitch, useEditAudience, usePageAudience, type EditAudience } from './EditAudience'
+import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAudience, usePageAudience, useViewAudience, type EditAudience } from './EditAudience'
 import { OpenInEditor } from './EditorLink'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
+import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice } from './PermissionEditor'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, perToolEdit, valueAt } from '../model/field-address'
+import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
 import type { Remote } from './Shell'
@@ -20,6 +22,7 @@ import { Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from 
 
 const ConfigurationRoot = createContext<string | undefined>(undefined)
 const ConfiguredTools = createContext<TargetSupport[]>([])
+const PersonalBuiltins = createContext(false)
 
 export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
   const data = overview.loaded?.data
@@ -48,7 +51,7 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
           <ConfiguredTools.Provider value={data.targets}>
-            <EditAudienceProvider key={`${data.snapshot.project.root}:${section.id}`} enabled={section.id === 'settings' || section.id === 'tools'}>
+            <EditAudienceProvider key={`${data.snapshot.project.root}:${section.id}`} enabled={section.id === 'settings' || section.id === 'tools' || section.id === 'authority'}>
               <SectionContents section={section} />
             </EditAudienceProvider>
           </ConfiguredTools.Provider>
@@ -66,11 +69,14 @@ function hasChanges(section: Section) {
 
 export function SectionContents({ section }: { section: Section }) {
   const changes = hasChanges(section)
-  return <BuiltinChangeProvider active={changes}><SectionContentsBody section={section} changes={changes} /></BuiltinChangeProvider>
+  const personalBuiltins = section.kinds.some((kind) => kind.kind === 'builtin' && kind.local) || section.items.some((item) => item.kind === 'builtin' && item.local)
+  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
 }
 
 function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
   const app = useApp()
+  const audience = useViewAudience()
+  const personalBuiltins = useContext(PersonalBuiltins)
   const root = useContext(ConfigurationRoot)
   const noticeKey = `agnostic-ai.mcp-spec-saved:${root ?? ''}`
   const [mcpSaved, setMCPSaved] = useState<MCPSpecSaved | undefined>(() => {
@@ -129,7 +135,6 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   return (
     <RecheckSection.Provider value={section.id}>
       <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
-      <EditAudienceSwitch />
       {entryMissing && (
         <div className="entry-missing" role="status">
           <p>The linked {entry.startsWith('finding:') ? 'finding' : entry.startsWith('field:') ? 'setting' : 'item'} is not in this {section.label.toLowerCase()} section. It may have been removed, renamed, or fixed, or the link may come from another configuration.</p>
@@ -139,7 +144,10 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
         <div className="section-search-controls">
-          <input ref={searchInput} id={searchId} type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, path, description, or value" aria-describedby={`${searchId}-status`} />
+          <div className="section-search-input">
+            <Icon name="search" />
+            <input ref={searchInput} id={searchId} type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, path, description, or value" aria-describedby={`${searchId}-status`} />
+          </div>
           {search && <button type="button" className="button button-quiet" onClick={() => {
             setSearch('')
             searchInput.current?.focus()
@@ -150,6 +158,25 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
       </div>
+      {section.kinds.length > 1 && (
+        <nav className="section-jumps" aria-label="On this page">
+          <span className="muted">Jump to</span>
+          <ul>
+            {section.kinds.map((kind) => {
+              const id = kind.kind === 'settings' ? fieldsHeadingId(kind.label) : `${section.id}-${kind.kind}`
+              return <li key={kind.kind}><a href={`#${id}`} onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                event.preventDefault()
+                const heading = document.getElementById(id)
+                heading?.scrollIntoView({ block: 'start' })
+                heading?.focus({ preventScroll: true })
+              }}>{kind.label}<span>{kind.kind === 'builtin' ? `${section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, audience)).length} on` : kind.count}</span></a></li>
+            })}
+          </ul>
+        </nav>
+      )}
+      <EditAudienceSwitch />
+      {section.id === 'authority' && <PermissionSaveNotice />}
       {section.findings.length > 0 && (
         <div className={`section-findings-summary${errors ? ' has-errors' : ''}`} role={errors ? 'alert' : undefined}>
           <Icon name="warning" />
@@ -170,14 +197,19 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
+        const sharedBlocked = k.kind === 'builtin' && audience === 'shared' && personalBuiltins
+        const count = k.kind === 'builtin' ? section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, audience)).length : k.count
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
-            <h2 id={titleId}>
-              {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
-              {k.local && <Badge tone="accent" title="Your personal config replaces the shared list">personal</Badge>}
+            <h2 id={titleId} tabIndex={-1}>
+              {k.label} <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
+              {k.local && audience !== 'shared' && <Badge tone="accent" title="Your personal config replaces the shared list">personal</Badge>}
             </h2>
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
-            {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
+            {sharedBlocked && <div className="audience-notice"><p>These are the shared defaults. Your personal built-in list replaces them for you. Reset that list before changing shared built-ins.</p><ViewPersonalButton /></div>}
+            {k.kind === 'builtin' && audience === 'personal' && !personalBuiltins && <p className="muted">Inherited from shared. Changing a built-in creates your personal list.</p>}
+            {k.kind === 'builtin' && !sharedBlocked && <BuiltinChangeControls local={audience === 'personal' && personalBuiltins} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
+            {k.kind === 'config' && audience && <p className="muted">Combined configuration used for sync, including personal overrides.</p>}
             {unlisted !== undefined && items.length > 0 && (
               <p className="muted tool-state tools-unlisted">
                 Tools not listed yet. Run <Code>{unlisted}</Code> to list them.
@@ -201,20 +233,29 @@ function useEntry(id: string): { 'data-entry': string; tabIndex?: number; linked
   return { 'data-entry': id, tabIndex: linked ? -1 : undefined, linked }
 }
 
+function fieldsHeadingId(title: string) {
+  return `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
+}
+
 function SettingsFields({ title, fields, files, filtering, status }: { title: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
   const entry = useApp().state.entry
-  const id = `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
-  const configured = fields.filter((field) => field.set.length > 0)
-  const unconfigured = fields.filter((field) => field.set.length === 0)
+  const audience = useViewAudience()
+  const id = fieldsHeadingId(title)
+  const configured = fields.filter((field) => sourcesForAudience(field.set, audience).length > 0)
+  const unconfigured = fields.filter((field) => sourcesForAudience(field.set, audience).length === 0)
+  const editablePermissions = unconfigured.filter((field) => field.editable?.kind === 'permission-list')
+  const remaining = unconfigured.filter((field) => !editablePermissions.includes(field))
+  const visibleFields = fields.filter((field) => configured.includes(field) || editablePermissions.includes(field))
   return (
     <section className="block" aria-labelledby={id}>
-      <h2 id={id}>{title}</h2>
+      <h2 id={id} tabIndex={-1}>{title}</h2>
       {status}
-      {configured.length ? <FieldList fields={configured} files={files} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
-      {unconfigured.length > 0 && (
-        <details className="unconfigured-fields" open={filtering || unconfigured.some((field) => fieldEntryId(field) === entry) || undefined}>
-          <summary>Unconfigured fields ({unconfigured.length})</summary>
-          <FieldList fields={unconfigured} files={files} />
+      {configured.length === 0 && <p className="muted">{filtering ? 'No matching configured settings.' : editablePermissions.length ? 'No permission rules configured. Add rules below.' : 'No settings configured.'}</p>}
+      {visibleFields.length > 0 && <FieldList fields={visibleFields} files={files} />}
+      {remaining.length > 0 && (
+        <details className="unconfigured-fields" open={filtering || remaining.some((field) => fieldEntryId(field) === entry) || undefined}>
+          <summary>Unconfigured fields ({remaining.length})</summary>
+          <FieldList fields={remaining} files={files} />
         </details>
       )}
       {files.length > 0 && (
@@ -228,7 +269,7 @@ function SettingsFields({ title, fields, files, filtering, status }: { title: st
 }
 
 function FieldList({ fields, files }: { fields: SettingField[]; files: SectionItem[] }) {
-  const audience = useEditAudience()
+  const viewAudience = useViewAudience()
   return (
     <ul className="fields">
       {fields.map((f) => (
@@ -236,13 +277,20 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
           <div className="field-head">
             <strong>{f.label}</strong>
             {f.key !== 'x-' && <code className="muted">{f.key}</code>}
-            {f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
+            {viewAudience === 'personal' && f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
+            {viewAudience === 'personal' && f.set.length > 0 && !f.set.some((src) => src.local) && <span className="item-layer">Inherited from shared</span>}
             <p className="muted">{f.description}</p>
           </div>
-          {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
-          <FieldEditControl key={audience} field={f} files={files} sources={(shown) => f.set.filter((src) => src.path !== shown).map((src) => (
+          {sourcesForAudience(f.set, viewAudience).length === 0 && <p className="muted field-unset">Not set</p>}
+          <FieldEditor field={f} files={files} sources={(shown) => sourcesForAudience(f.set, viewAudience).filter((src) => src.path !== shown).map((src) => (
             <div key={`${src.spec}:${src.path}`} className="field-source">
-              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} fieldKey={f.key} />}
+              {f.key === 'x-' ? <NativeValues
+                values={src.values}
+                file={src.path}
+                localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined}
+                overrides={viewAudience === 'shared' ? f.set.filter((other) => other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
+                baseline={viewAudience === 'personal' && src.local ? f.set.filter((other) => !other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
+              /> : <Values values={src.values} file={src.path} fieldKey={f.key} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
@@ -257,7 +305,6 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
 
 function FieldResolution({ field, files, resolved }: { field: SettingField; files: SectionItem[]; resolved: TargetValue[] }) {
   const app = useApp()
-  const audience = useEditAudience()
   const label = field.label
   const tools = useContext(ConfiguredTools)
   const [selected, setSelected] = useState(resolved[0].target)
@@ -290,7 +337,7 @@ function FieldResolution({ field, files, resolved }: { field: SettingField; file
         {typeof toolEdit === 'string' && <p className="muted field-tool-edit">{toolEdit}</p>}
         {toolEdit === true && <div className="field-tool-edit">
           <p className="muted">Set a value for {current.label} only. It is saved as <Code>{addressKey(field.key, current.target)}</Code> and wins over the value for every tool.</p>
-          <FieldEditControl key={`${audience}:${current.target}`} field={field} files={files} target={current.target} toolLabel={current.label} sources={() => null} />
+          <FieldEditControl key={current.target} field={field} files={files} target={current.target} toolLabel={current.label} sources={() => null} />
         </div>}
       </div>
     </details>
@@ -298,19 +345,37 @@ function FieldResolution({ field, files, resolved }: { field: SettingField; file
 }
 
 function FieldRow({ field, children }: { field: SettingField; children: ReactNode }) {
+  const audience = useViewAudience()
   const { linked, ...entry } = useEntry(fieldEntryId(field))
-  return <li {...entry} className={`field-row${field.set.length ? ' is-set' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
+  return <li {...entry} className={`field-row${sourcesForAudience(field.set, audience).length ? ' is-set' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
 }
 
-function FieldEditControl({ field, files, sources, target, toolLabel }: { field: SettingField; files: SectionItem[]; sources: (shown?: string) => ReactNode; target?: string; toolLabel?: string }) {
+interface FieldEditControlProps {
+  field: SettingField
+  files: SectionItem[]
+  sources: (shown?: string) => ReactNode
+  target?: string
+  toolLabel?: string
+}
+
+function FieldEditor(props: FieldEditControlProps) {
+  return props.field.editable?.kind === 'permission-list' ? <PermissionEditor {...props} /> : <FieldEditControl {...props} />
+}
+
+function FieldEditControl(props: FieldEditControlProps) {
+  const audience = useEditAudience()
+  const [path, setPath] = useState(props.field.editable?.path ?? props.field.editable?.paths?.[0] ?? '')
+  return <FieldEditForm key={`${audience}:${path}`} {...props} path={path} setPath={setPath} />
+}
+
+function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath }: FieldEditControlProps & { path: string; setPath: (path: string) => void }) {
   const app = useApp()
   const audience = useEditAudience()
   const transaction = useSettingChange(field.key, target)
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
-  const [path, setPath] = useState(edit?.path ?? paths[0] ?? '')
   const valueOf = (source?: SettingField['set'][number]) => source && valueAt(source.values, field.key, target)
-  const specPath = audience === 'personal' ? edit?.path ?? path : path
+  const specPath = path
   const specName = field.set.find((source) => source.path === specPath)?.spec
   const localSource = field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath))
   const localKeys = localSource && files.find((item) => item.name === localSource.spec && item.path === localSource.path)?.localKeys
@@ -347,15 +412,6 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   if (!edit) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p></>
   if (app.source.kind !== 'api') return sources()
-  const setSelectedPath = (next: string) => {
-    const team = valueOf(field.set.find((source) => source.path === next && !source.local))
-    setPath(next)
-    setValue(team ?? '')
-    basis.current = { current: team ?? '', local: localCurrent, team }
-    setError(undefined)
-    setReloaded(false)
-    conflict.current = false
-  }
   const specFile = specPath
   const post = async (body: Record<string, unknown>, expected: string | undefined) => {
     setPending(true)
@@ -394,7 +450,7 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
   // A shown preview keeps its draft, so the applied value becomes the new basis.
   const locked = pending || !!transaction.proposal
-  const resetButton = !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>{resetLabel}</button>
+  const resetButton = audience === 'personal' && !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>{resetLabel}</button>
   const previewing = pending || !transaction.ready
   const preview = async (next: string | null, where: EditAudience) => {
     setError(undefined)
@@ -412,10 +468,12 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   }
   const shown = overridden ? undefined : audience === 'personal' ? (localCurrent !== undefined ? localSource?.path : undefined) : teamCurrent !== undefined ? teamSource?.path : undefined
   return <>{sources(shown)}<div className="field-edit">
+    {(localCurrent !== undefined || wholePersonal) && <OverrideComparison shared={teamCurrent ?? (target ? valueAt(teamSource?.values ?? [], field.key) : undefined)} personal={localCurrent ?? valueAt(localSource?.values ?? [], field.key)} />}
     {overridden
       ? <div className="field-edit-row">
-        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the shared per-tool values. Reset it to change the shared value.' : 'Your personal value overrides the shared value. Reset it to change the shared value.'}</p>
-        {resetButton}
+        <input aria-label={valueLabel} value={teamCurrent ?? ''} placeholder="Not set" disabled />
+        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the shared per-tool values.' : 'Your personal value overrides the shared value.'} Reset it in Personal to change this shared value.</p>
+        <ViewPersonalButton />
       </div>
       : <div className="field-edit-row">
         {allowed && allowed.length > 0
@@ -428,21 +486,22 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
         {!transaction.supported && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>{target ? resetLabel : 'Clear'}</button>}
         {resetButton}
       </div>}
-    {audience === 'shared' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
+    {paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
     {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
       {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => app.reload()}>Reload saved values</button></>}</span>}
     {transaction.supported && <div className="field-edit-row field-edit-apply">
       <span className="muted">Apply to your tools now:</span>
       {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, audience) }}>Preview and apply</button>}
       {!overridden && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'shared') }}>{target ? 'Preview using the value for every tool' : 'Preview removal'}</button>}
-      {localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'personal') }}>Preview personal reset</button>}
+      {audience === 'personal' && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'personal') }}>Preview personal reset</button>}
       {transaction.preparing && <span className="muted">Preparing preview…</span>}
     </div>}
     {transaction.error && <ChangeError reloadLabel="Reload saved values" />}
     {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={toolLabel ? `${field.label} for ${toolLabel}` : field.label} />}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
-      {audience === 'personal' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
+      {audience === 'personal' && (localSource?.path || path === edit.path && edit.localPath) && <>Saves to <Code>{localSource?.path ?? edit.localPath}</Code> · </>}
+      {audience === 'personal' && !localSource?.path && path !== edit.path && <>Saves to your personal overlay for <Code>{path}</Code> · </>}
       {audience === 'shared' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
       {audience === 'shared' && !configured && field.set.length > 0 && paths.length <= 1 && path && <>Saves to <Code>{path}</Code> · </>}
       {!transaction.supported && <>Run <Code>{syncCommand}</Code> to apply.</>}
@@ -557,18 +616,24 @@ function GroupedItems({ items, sharedUnlisted }: { items: SectionItem[]; sharedU
 
 function ItemList({ items, hideValues, sharedUnlisted }: { items: SectionItem[]; hideValues?: boolean; sharedUnlisted?: boolean }) {
   const audience = useEditAudience()
+  const viewAudience = useViewAudience()
+  const personalBuiltins = useContext(PersonalBuiltins)
+  const sharedBlocked = viewAudience === 'shared' && personalBuiltins
   return (
     <ul className="item-list">
       {items.map((item) => {
+        const on = builtinEnabled(item, viewAudience)
         const control = item.enabled !== undefined && <>
-          <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { audience, name: item.name, enabled: on, expected: item.enabled })} />
-          {item.local && <ResetAction label={`Reset ${item.name} to shared value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !item.enabled, expected: item.enabled })} />}
+          {sharedBlocked
+            ? <Toggle on={on} label={`${item.name} built-in`} disabled onToggle={() => {}} />
+            : <EditSwitch key={audience} on={on} label={`${item.name} built-in`} save={(enabled) => postEdit(API.editBuiltin, { audience, name: item.name, enabled, expected: on })} />}
+          {viewAudience === 'personal' && item.local && <ResetAction label={`Reset ${item.name} to shared value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !on, expected: on })} />}
         </>
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
           <ItemRow key={itemEntryId(item)} item={item}>
-            {item.kind === 'builtin' && item.enabled !== undefined
-              ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
+            {item.kind === 'builtin' && item.enabled !== undefined && !sharedBlocked
+              ? <BuiltinChange name={item.name} label={item.label} on={on} local={viewAudience === 'personal' && (item.local ?? false)} fallback={control} renderHeading={heading} />
               : heading(control)}
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
@@ -587,16 +652,18 @@ function ItemRow({ item, children }: { item: SectionItem; children: ReactNode })
 
 function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
   const root = useContext(ConfigurationRoot)
+  const audience = useViewAudience()
   const refinable = item.kind === 'instructions' && item.layer === 'global'
   return (
     <div className="item-heading">
       <div className="item-main">
         <strong>{item.label}</strong>
         {item.description && <span className="muted item-description">{item.description}</span>}
+        {item.kind === 'builtin' && item.local && audience && <OverrideComparison shared={builtinEnabled(item, 'shared') ? 'On' : 'Off'} personal={item.enabled ? 'On' : 'Off'} />}
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
       </div>
       <div className="item-meta">
-        {item.local && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
+        {item.local && audience !== 'shared' && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
@@ -773,7 +840,25 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<voi
   )
 }
 
-function NativeValues({ values, file, localKeys }: { values: Value[]; file: string; localKeys?: string[] }) {
+function OverrideComparison({ shared, personal }: { shared?: string; personal?: string }) {
+  if (shared === personal) return null
+  const label = (value?: string) => value === 'null' ? 'Cleared' : value ?? 'Not set'
+  return <span className="override-comparison" role="note" aria-label="Personal overrides shared">
+    <span>Shared: <strong>{label(shared)}</strong></span>
+    <span aria-hidden="true">·</span>
+    <span>Personal: <strong>{label(personal)}</strong></span>
+  </span>
+}
+
+function NativeComparison({ value, overrides, baseline }: { value: Value; overrides?: Value[]; baseline?: Value[] }) {
+  const key = value.key
+  const own = comparisonValue([value], key)
+  if (baseline) return <OverrideComparison shared={comparisonValue(baseline, key)} personal={own} />
+  if (overrides?.some((override) => override.key === key || key.startsWith(`${override.key}.`))) return <OverrideComparison shared={own} personal={comparisonValue(overrides, key)} />
+  return null
+}
+
+function NativeValues({ values, file, localKeys, overrides, baseline }: { values: Value[]; file: string; localKeys?: string[]; overrides?: Value[]; baseline?: Value[] }) {
   const groups = new Map<string, Value[]>()
   for (const value of values) {
     const prefix = value.key.split('.')[0]
@@ -786,14 +871,14 @@ function NativeValues({ values, file, localKeys }: { values: Value[]; file: stri
       {[...groups].map(([prefix, entries]) => (
         <div key={prefix} className="native-group">
           <h4 className="native-group-title"><ToolAvatar target={prefix.slice(2)} /><code>{prefix}</code></h4>
-          <Values values={entries} file={file} prefix={prefix} localKeys={localKeys} />
+          <Values values={entries} file={file} prefix={prefix} localKeys={localKeys} overrides={overrides} baseline={baseline} />
         </div>
       ))}
     </div>
   )
 }
 
-function Values({ values, file, prefix, personal, localKeys, fieldKey }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[]; fieldKey?: string }) {
+function Values({ values, file, prefix, personal, localKeys, fieldKey, overrides, baseline }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[]; fieldKey?: string; overrides?: Value[]; baseline?: Value[] }) {
   const audience = usePageAudience() ?? (personal ? 'personal' : 'shared')
   return (
     <dl className="values">
@@ -816,8 +901,10 @@ function Values({ values, file, prefix, personal, localKeys, fieldKey }: { value
             ) : v.type === 'bool' ? (
               file ? (
                 <>
-                  <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { audience, path: file, key: v.key, value: on, expected: v.value === 'true' })} />
-                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to shared value`} reset={() => postEdit(API.editValue, { audience: 'personal', path: file, key: v.key, value: null, expected: v.value === 'true' })} />}
+                  {overrides?.some((override) => override.key === v.key || v.key.startsWith(`${override.key}.`))
+                    ? <span className="value-override"><Toggle on={v.value === 'true'} label={v.key} disabled onToggle={() => {}} /><span className="muted">Overridden in Personal</span><ViewPersonalButton /></span>
+                    : <EditSwitch key={audience} on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { audience, path: file, key: v.key, value: on, expected: v.value === 'true' })} />}
+                  {audience === 'personal' && localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to shared value`} reset={() => postEdit(API.editValue, { audience: 'personal', path: file, key: v.key, value: null, expected: v.value === 'true' })} />}
                 </>
               ) : (
                 <Switch on={v.value === 'true'} />
@@ -825,6 +912,7 @@ function Values({ values, file, prefix, personal, localKeys, fieldKey }: { value
             ) : (
               <span className="value-text">{v.value}</span>
             )}
+            <NativeComparison value={v} overrides={overrides} baseline={baseline} />
           </dd>
         </div>
       ))}

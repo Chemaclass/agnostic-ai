@@ -694,4 +694,7 @@
 # #2634 adds single-server MCP previews, source-only saves, and their web UI.
 # Go 1.27.3 release flags: main cf183582 measured 24174752; this change
 # measures 24211616 (+36864). Keep the existing 8192-byte allowance.
-24219808
+# Shared/personal views and responsive navigation measure 24228000 on Go 1.27.3; keep the 8192-byte build allowance.
+# Permission-list source previews, guarded saves, and their UI measure
+# 24281248 on Go 1.27.3, up 53248. Keep the 8192-byte build allowance.
+24289440

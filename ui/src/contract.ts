@@ -568,6 +568,30 @@ export interface MCPSpecPreview {
   expected: string
 }
 
+export type PermissionKey = 'permissions.allow' | 'permissions.ask' | 'permissions.deny'
+
+export interface PermissionEditRequest {
+  action: 'preview' | 'apply'
+  audience: 'shared' | 'personal'
+  path?: string
+  key: PermissionKey
+  rules: string[] | null
+  before: string[] | null
+  expected?: string
+}
+
+export interface PermissionEditPreview {
+  schemaVersion: 'permission-edit/v1'
+  file: string
+  key: PermissionKey
+  audience: 'shared' | 'personal'
+  before: string[] | null
+  rules: string[] | null
+  diff: string
+  expected: string
+  syncCommand: string
+}
+
 /** One field a settings spec can set, with what each spec sets it to. */
 export interface SettingField {
   key: string
@@ -576,7 +600,7 @@ export interface SettingField {
   /** Each spec that sets the field; `local` marks a personal file Git ignores. */
   set: { spec: string; path: string; values: Value[]; local?: boolean }[]
   /** `localPath` is the personal file a personal edit of `path` writes. `toolAllowed` lists the values one tool accepts, for tools with a fixed list. */
-  editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; toolAllowed?: Record<string, string[]>; disabledReason?: string; syncCommand?: string; localPath?: string }
+  editable?: { path?: string; paths?: string[]; sources?: { path: string; spec: string; localPath: string }[]; kind: 'text' | 'number' | 'permission-list'; allowed?: string[]; toolAllowed?: Record<string, string[]>; disabledReason?: string; syncCommand?: string; localPath?: string }
   /** For model and effort: the value sync writes for each configured tool, and why. */
   resolved?: TargetValue[]
 }
@@ -714,6 +738,7 @@ export const API = {
   editBuiltin: '/api/edit/builtin',
   editValue: '/api/edit/value',
   editField: '/api/edit/field',
+  editPermissions: '/api/edit/permissions',
   editMCP: '/api/edit/mcp',
   health: '/api/health',
   switch: '/api/switch',
