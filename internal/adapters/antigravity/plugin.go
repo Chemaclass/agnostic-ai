@@ -4,11 +4,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 )
 
-// pluginComponents are the component names an Antigravity plugin
-// directory may carry beside its manifest: "mcp_config.json",
-// "hooks.json", "skills/", "agents/", and "rules/"
-// (antigravity.google/docs/plugins). Anything else under a plugin root
-// is not a component the tool reads, so it must not imply a plugin.
+// Manifest inference retains the legacy MCP basename; native plugin MCP uses mcp.json.
 var pluginComponents = map[string]bool{
 	"skills": true, "agents": true, "rules": true,
 	"mcp_config.json": true, "hooks.json": true,

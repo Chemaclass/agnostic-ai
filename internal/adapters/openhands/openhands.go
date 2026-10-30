@@ -215,8 +215,7 @@ func noteMCPSettingsOnly(mcps []spec.Entry) {
 // A remote `api_key` becomes an `Authorization: Bearer` header, which is
 // what OpenHands sends for one (docs.openhands.dev/openhands/usage/settings/mcp-settings,
 // "Bearer token: Enter the token in API Key. OpenHands sends
-// Authorization: Bearer <token>"). Neither page documents a per-server
-// timeout, so a `timeout` is named as lost (#1306).
+// Authorization: Bearer <token>").
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of the OpenHands MCP config, whose disabled key is undocumented")
 	timeouts, shadowedKeys := 0, 0
@@ -272,7 +271,7 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 		}
 		out[e.Name] = server
 	}
-	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", timeouts, "the OpenHands MCP config documents no per-server timeout")
+	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", timeouts, "sync does not map timeout into agent mcp_servers; Agent Canvas offers an SHTTP timeout in seconds")
 	emit.NoteFieldNoOp(target, spec.KindMCP, "api_key", shadowedKeys, "the server's own Authorization header wins")
 	return out
 }
