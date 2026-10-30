@@ -94,7 +94,7 @@
     "src/model/refine-prompt.ts": "9fee97167168b1461532a3285a43746df95553f86ea52998b4449c4a2848503f",
     "src/model/search.test.ts": "dd4318861c67ddd58141a058d8077b2742e717a4b04b19f30e08a049d143c100",
     "src/model/search.ts": "93a4cd9149b14f1c82928c1af9be7c7f1bcb931ef5501e06a0ff4d9b68b5f227",
-    "src/model/section-tabs.test.ts": "0d4e3696cb34ccaa9b3f149456f43ad638cddfc92a877bda78e1ad779937055c",
+    "src/model/section-tabs.test.ts": "d7a2ba1c1f0f6effe870090d378c107b894f98e28551f0c6fed78bffa6e888da",
     "src/model/section-tabs.ts": "1ba7b1a3583def8be51ebbe4e6a70f0d66ef31c20860d485885472d7f4917019",
     "src/model/testing.ts": "f90c0eaab647a088e35ce7bdf3be3fc64b63170bee97193675fbe49ea49bcee6",
     "src/model/url.test.ts": "571c38f062a935cf87c42c5052a11548e146a2c916bd252d1d463b124a952ae5",

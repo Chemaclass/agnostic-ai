@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { Section } from '../contract'
+import type { Section, SectionItem } from '../contract'
 import { fieldEntryId, findingEntryIds, itemEntryId } from './identity'
 import { entryTab, sectionTabs } from './section-tabs'
 
-const section = (over: Partial<Section>): Section => ({ id: 'context', label: 'Context', question: '', kinds: [], items: [], findings: [], support: [], ...over })
+const section = (over: Partial<Section>): Section => ({ id: 'context', label: 'Context', question: '', order: 0, kinds: [], items: [], findings: [], support: [], ...over })
 
 describe('section tabs', () => {
   it('groups guidance without losing review and ignore sources', () => {
@@ -20,7 +20,7 @@ describe('section tabs', () => {
   })
 
   it('finds the tab for a linked item, finding, or field', () => {
-    const item = { kind: 'agent', name: 'reviewer', label: 'reviewer', path: 'agents/reviewer.md', description: '', values: [], findings: [{ source: 'lint', severity: 'warning' as const, code: 'LINT', message: 'Check the source.' }] }
+    const item: SectionItem = { kind: 'agent', name: 'reviewer', label: 'reviewer', path: 'agents/reviewer.md', layer: 'project', description: '', values: [], findings: [{ source: 'lint', severity: 'warning', code: 'LINT', message: 'Check the source.' }] }
     const context = section({ kinds: [{ kind: 'agent', label: 'Agents', count: 1 }], items: [item] })
     const tabs = sectionTabs(context)
     expect(entryTab(context, tabs, itemEntryId(item))).toBe('agents')
