@@ -19,7 +19,7 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 		{"grok", ".grok/config.toml", grokTOMLFormat, "# My preferences\n[ui]\nvoice_capture_mode = 'hold' # Keep this comment\nvoice_stt_language = 'en'\n", map[string]any{"ui.voice_capture_mode": "toggle", "ui.voice_stt_language": "es"}},
 		{"vibe", ".vibe/config.toml", "toml", "# My preferences\nvoice_mode_enabled = false # Keep this comment\nnarrator_enabled = true\n", map[string]any{"voice_mode_enabled": true}},
 	} {
-		for _, before := range []string{"absent", "unrelated", "existing values"} {
+		for _, before := range []string{"absent", "empty", "unrelated", "existing values"} {
 			t.Run(tc.target+"/"+before, func(t *testing.T) {
 				home, source := globalAgentTestHome(t)
 				path := filepath.Join(home, filepath.FromSlash(tc.file))
@@ -27,6 +27,11 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 				switch before {
 				case "absent":
 					original = ""
+				case "empty":
+					original = ""
+					if tc.format == "json" {
+						original = "{}"
+					}
 				case "unrelated":
 					original = "# My preferences\nnarrator_enabled = true\n"
 					if tc.format == "json" {
@@ -35,7 +40,7 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 						original = "# My preferences\n[ui]\ntheme = 'dark'\n"
 					}
 				}
-				if original != "" {
+				if before != "absent" {
 					mustWriteGlobalTest(t, path, original)
 				}
 				specPath := filepath.Join(source, "settings", "voice.yaml")
@@ -70,7 +75,7 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 				if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 					t.Fatalf("remove voice: %v\n%s", err, warnings)
 				}
-				if original == "" {
+				if before == "absent" {
 					if _, err := os.Stat(path); !os.IsNotExist(err) {
 						t.Errorf("created file remains: %v", err)
 					}

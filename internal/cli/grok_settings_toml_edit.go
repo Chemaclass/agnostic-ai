@@ -85,6 +85,26 @@ func grokOwnsTable(owned map[string]any) bool {
 }
 
 func editGrokTable(path string, data []byte, table string, order []string, set map[string]any, remove []string, replace, drop bool, containers map[string]string) ([]byte, error) {
+	if replace || drop {
+		sections, err := grokTableSections(data, table)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+		if len(sections) > 0 && (replace || len(sections) > 1) {
+			for i := len(sections) - 1; i >= 0; i-- {
+				section := sections[i]
+				replacement := ""
+				if replace && i == 0 {
+					replacement = "[" + table + "]\n"
+				}
+				data = append(append(append([]byte(nil), data[:section.start]...), replacement...), data[section.end:]...)
+			}
+			if drop {
+				delete(containers, table)
+			}
+			return data, nil
+		}
+	}
 	lines := strings.SplitAfter(string(data), "\n")
 	scan := make([]string, len(lines))
 	for i, line := range lines {
@@ -181,4 +201,59 @@ func editGrokTable(path string, data []byte, table string, order []string, set m
 	}
 	containers[table] = sep
 	return []byte(string(data) + sep + "[" + table + "]\n" + string(body)), nil
+}
+
+type grokTableSection struct {
+	start, end int
+	before     []string
+	array      bool
+	occurrence int
+}
+
+func grokTableSections(data []byte, table string) ([]grokTableSection, error) {
+	lines := strings.SplitAfter(string(data), "\n")
+	scan := make([]string, len(lines))
+	offsets := make([]int, len(lines)+1)
+	for i, line := range lines {
+		scan[i] = strings.TrimSuffix(line, "\n")
+		offsets[i+1] = offsets[i] + len(line)
+	}
+	scan[0] = strings.TrimPrefix(scan[0], "\xef\xbb\xbf")
+	headers, err := scanTOMLHeaders(scan)
+	if err != nil {
+		return nil, err
+	}
+	counts := map[string]int{}
+	occurrences := make([]int, len(headers))
+	for i, header := range headers {
+		identity := fmt.Sprintf("%t:%s", header.array, strings.Join(header.key, "\x00"))
+		counts[identity]++
+		occurrences[i] = counts[identity]
+	}
+	var sections []grokTableSection
+	for i := 0; i < len(headers); {
+		header := headers[i]
+		if len(header.key) == 0 || header.key[0] != table {
+			i++
+			continue
+		}
+		section := grokTableSection{start: offsets[header.line], end: len(data)}
+		if header.line == 0 && strings.HasPrefix(string(data), "\xef\xbb\xbf") {
+			section.start += len("\xef\xbb\xbf")
+		}
+		j := i + 1
+		for j < len(headers) && len(headers[j].key) > 0 && headers[j].key[0] == table {
+			j++
+		}
+		if j < len(headers) {
+			next := headers[j]
+			section.end = offsets[next.line]
+			section.before = slices.Clone(next.key)
+			section.array = next.array
+			section.occurrence = occurrences[j]
+		}
+		sections = append(sections, section)
+		i = j
+	}
+	return sections, nil
 }
