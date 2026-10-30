@@ -19,24 +19,12 @@
   font-size: clamp(1.1rem, 2vw, 1.3rem);
 }
 
-.docs-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.8rem 1.25rem;
-}
-
-.docs-hero-actions > a:not(.button) {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.docs-start {
+.docs-more {
   padding-block: 3rem;
-  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
 }
 
-.docs-start .docs-content {
+.docs-more .docs-content {
   max-width: var(--reading);
   margin-inline: auto;
 }

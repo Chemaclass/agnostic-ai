@@ -16,17 +16,8 @@
       <h1>Documentation.</h1>
       <div>
         <p>{{ section.description }}</p>
-        <div class="docs-hero-actions">
-          <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">Set up your project</a>
-          <a class="button button-secondary" href="{{ get_url(path='@/docs/why-agnostic-ai.md') }}">Why agnostic-ai?</a>
-        </div>
+        <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">Set up your project</a>
       </div>
-    </div>
-  </section>
-
-  <section class="docs-start" aria-labelledby="choose-your-first-task">
-    <div class="wrap">
-      <div class="docs-content">{{ section.content | safe }}</div>
     </div>
   </section>
 
@@ -34,12 +25,13 @@
     <div class="wrap">
       <div class="docs-directory-head">
         <h2 id="docs-directory-title">Find the guide for the job.</h2>
-        <p>Use a guide for your next task, or look up an exact command or field.</p>
+        {% set content_parts = section.content | split(pat='<span id="continue-reading"></span>') %}
+        {{ content_parts | first | safe }}
       </div>
       {% set groups = ["Start", "Workflows", "Reference"] %}
       {% for group in groups %}
       <div class="docs-index-group">
-        <h3>{% if group == "Start" %}Start here{% elif group == "Workflows" %}Guides{% else %}Reference{% endif %}</h3>
+        <h3{% if group == "Start" %} id="choose-your-first-task"{% endif %}>{% if group == "Start" %}Start here{% elif group == "Workflows" %}Guides{% else %}Reference{% endif %}</h3>
         <div class="docs-index-list">
           {% for path in section.subsections %}{% set hub = get_section(path=path) %}
             {% if hub.extra.group == group and hub.extra.hub %}
@@ -60,6 +52,12 @@
         </div>
       </div>
       {% endfor %}
+    </div>
+  </section>
+
+  <section class="docs-more" aria-labelledby="find-something-else">
+    <div class="wrap">
+      <div class="docs-content">{{ content_parts | last | safe }}</div>
     </div>
   </section>
 </main>

@@ -8,6 +8,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - The home page shows the install command for your OS, the number of supported tools, and a link to the playground at the top.
 - The home page shows the setup steps before the source explorer, and the explorer samples use model aliases and capability names, with docs links that open the matching page.
+- The docs landing page lists the first guides once, in its Start here list, instead of repeating them in buttons and numbered steps.
 
 ### General
 
