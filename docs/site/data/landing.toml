@@ -283,13 +283,15 @@ id = "skills"
 name = "skills/"
 hint = "repeat a workflow"
 file = "skills/release/SKILL.md"
-summary = "Reusable workflows. Files beside `SKILL.md`, such as `check.sh`, copy with it."
+summary = "Reusable workflows. Files beside `SKILL.md`, such as `check.sh`, copy with it. `disable-model-invocation: true` runs it only when you ask; Codex reads that from `agents/openai.yaml`."
 outputs = [
   { tool = "Claude Code", path = ".claude/skills/release/SKILL.md" },
-  { tool = "Codex", path = ".agents/skills/release/SKILL.md" },
+  { tool = "Codex", path = ".agents/skills/release/agents/openai.yaml" },
   { tool = "Gemini CLI", path = ".gemini/skills/release/SKILL.md" },
 ]
+reach = "Gemini CLI has no setting that keeps a skill for when you ask, so sync drops `disable-model-invocation` there and prints a note."
 href = "@/docs/spec-format/skills.md"
+anchor = "disable-model-invocation-support-by-target"
 docs_label = "Skills"
 
 [updates]
