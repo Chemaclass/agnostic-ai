@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 const targetVoiceSpec = "voice:\n  enabled: true\n  mode: tap\n  language: es\n"
@@ -118,20 +120,22 @@ func TestVoiceTargets_TranslateHoldMode(t *testing.T) {
 func TestVoiceTargets_QwenNoteDependsOnVoiceModel(t *testing.T) {
 	const note = "Qwen keeps dictation off until a voice model is chosen; run /model --voice or set x-qwen.voiceModel"
 	for _, tc := range []struct {
-		name, native string
-		wantNote     bool
+		name, native, extra string
+		wantNote            bool
 	}{
-		{"absent", "", true},
-		{"empty", "{\"voiceModel\":\"\"}\n", true},
-		{"configured", "{\"voiceModel\":\"whisper\"}\n", false},
+		{"absent", "", "", true},
+		{"empty", "{\"voiceModel\":\"\"}\n", "", true},
+		{"configured", "{\"voiceModel\":\"whisper\"}\n", "", false},
+		{"same run", "", "x-qwen:\n  voiceModel: whisper\n", false},
+		{"same run empty", "{\"voiceModel\":\"whisper\"}\n", "x-qwen:\n  voiceModel: ''\n", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			if tc.native != "" {
 				mustWriteGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"), tc.native)
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
-			_, warnings, err := runGlobalAgentTest("--only", "qwen")
+			mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec+tc.extra)
+			_, warnings, err := runGlobalAgentTest("--only", "qwen", "--backup")
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -240,6 +244,64 @@ func TestVoiceTargets_ExplainUnsupportedMembersAndDeferredMappings(t *testing.T)
 				if got := strings.Count(warnings, note); got != 1 {
 					t.Errorf("note %q count = %d, want once:\n%s", note, got, warnings)
 				}
+			}
+		})
+	}
+}
+
+func TestVoiceTargets_EveryUnmappedTargetHasASpecificNote(t *testing.T) {
+	for _, target := range adapters.Names() {
+		if globalTargets[target].settings.voice != nil {
+			continue
+		}
+		if reason := voiceTargetNoOpReason(target); reason == "" || reason == "no voice dictation setting sync --global can write" {
+			t.Errorf("%s has no specific voice note", target)
+		}
+	}
+}
+
+func TestVoiceTargets_RemovalKeepsUserEdits(t *testing.T) {
+	for _, tc := range []struct{ target, file, edited string }{
+		{"qwen", ".qwen/settings.json", "{\"general\":{\"voice\":{\"enabled\":false,\"mode\":\"tap\",\"language\":\"es\"}}}\n"},
+		{"gemini", ".gemini/settings.json", "{\"experimental\":{\"voiceMode\":false,\"voice\":{\"activationMode\":\"toggle\"}}}\n"},
+		{"grok", ".grok/config.toml", "[ui]\nvoice_capture_mode='hold' # user choice\nvoice_stt_language='es'\n"},
+		{"vibe", ".vibe/config.toml", "voice_mode_enabled = false # user choice\n"},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			settings := filepath.Join(source, "settings", "voice.yaml")
+			mustWriteGlobalTest(t, settings, targetVoiceSpec)
+			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+			path := filepath.Join(home, filepath.FromSlash(tc.file))
+			mustWriteGlobalTest(t, path, tc.edited)
+			if err := os.Remove(settings); err != nil {
+				t.Fatal(err)
+			}
+			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+				t.Fatalf("remove: %v\n%s", err, warnings)
+			}
+			data := readGlobalTest(t, path)
+			key, format := "general.voice.enabled", "json"
+			switch tc.target {
+			case "gemini":
+				key = "experimental.voiceMode"
+			case "grok":
+				key, format = "ui.voice_capture_mode", grokTOMLFormat
+			case "vibe":
+				key, format = "voice_mode_enabled", "toml"
+			}
+			values, err := settingsValues(path, format, []byte(data))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := any(false)
+			if tc.target == "grok" {
+				want = "hold"
+			}
+			if got, found := settingsLookup(values, key, format); !found || !sameSetting(got, want) {
+				t.Errorf("user value = %v, want %v", got, want)
 			}
 		})
 	}

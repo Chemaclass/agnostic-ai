@@ -11,6 +11,10 @@ func TestVoiceTargets_RestoreTOMLAssignmentsExactly(t *testing.T) {
 		{"grok", ".grok/config.toml", "# preferences\n[ui]\n  voice_capture_mode   =   'hold' # mode\nvoice_stt_language=  'en' # language\n[plugins]\nenabled = true\n"},
 		{"vibe", ".vibe/config.toml", "# preferences\n  voice_mode_enabled=false # voice\nnarrator_enabled = true\n"},
 		{"vibe", ".vibe/config.toml", "voice_mode_enabled=false"},
+		{"vibe", ".vibe/config.toml", "# keep\r\n  voice_mode_enabled=false # voice\r\nnarrator_enabled=true\r\n"},
+		{"grok", ".grok/config.toml", "# keep\r\n[ui]\r\nvoice_capture_mode = 'hold' # mode\r\nvoice_stt_language='en'\r\n[plugins]\r\nx=1\r\n"},
+		{"grok", ".grok/config.toml", " \t\r\n\r\n"},
+		{"vibe", ".vibe/config.toml", " \t\r\n\r\n"},
 	} {
 		t.Run(tc.target+"/"+tc.original, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)

@@ -108,3 +108,15 @@ func TestGrokTOML_EmptyUIOverrideWinsOverExistingValues(t *testing.T) {
 		t.Errorf("unrelated content changed: %s", result.data)
 	}
 }
+
+func TestGrokTOML_RemovesLegacyModelContainer(t *testing.T) {
+	previous := map[string]any{"models.default": "grok-code", grokModelsContainer: "\n"}
+	base := []byte("# keep\n\n[models]\ndefault = 'grok-code'\n")
+	removed, err := mergeGlobalSettings("config.toml", grokTOMLFormat, base, nil, previous)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(removed.data); got != "# keep\n" {
+		t.Errorf("restored %q", got)
+	}
+}
