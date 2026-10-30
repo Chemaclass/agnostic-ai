@@ -192,6 +192,14 @@ func importZedContextServers(root, dstDir string) (int, error) {
 	if !ok || len(servers) == 0 {
 		return 0, nil
 	}
+	flat := zedMCPDocs(servers)
+	if len(flat) == 0 {
+		return 0, nil
+	}
+	return writeMCPYAMLs("zed", flat, dstDir)
+}
+
+func zedMCPDocs(servers map[string]any) map[string]any {
 	flat := map[string]any{}
 	for name, raw := range servers {
 		entry, ok := raw.(map[string]any)
@@ -236,8 +244,5 @@ func importZedContextServers(root, dstDir string) (int, error) {
 		}
 		flat[name] = out
 	}
-	if len(flat) == 0 {
-		return 0, nil
-	}
-	return writeMCPYAMLs("zed", flat, dstDir)
+	return flat
 }

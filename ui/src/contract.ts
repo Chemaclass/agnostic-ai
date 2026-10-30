@@ -559,6 +559,15 @@ export interface NativeHolder {
   transport?: 'stdio' | 'http' | 'sse' | 'streamable-http' | 'remote'
 }
 
+export interface MCPSpecPreview {
+  file: string
+  spec: string
+  variables: string[]
+  targets: string[]
+  syncCommand: string
+  expected: string
+}
+
 /** One field a settings spec can set, with what each spec sets it to. */
 export interface SettingField {
   key: string
@@ -705,6 +714,7 @@ export const API = {
   editBuiltin: '/api/edit/builtin',
   editValue: '/api/edit/value',
   editField: '/api/edit/field',
+  editMCP: '/api/edit/mcp',
   health: '/api/health',
   switch: '/api/switch',
 } as const

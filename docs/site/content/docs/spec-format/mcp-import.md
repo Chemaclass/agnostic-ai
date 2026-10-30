@@ -10,6 +10,8 @@ group = "Reference"
 
 # MCP import credentials
 
+The [Tools page's **Make it a spec** action](@/docs/cli-reference/inspect.md#serve) uses these rewrite and refusal rules for one server, including on the global page.
+
 ## What import writes
 
 `import` replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting and a spec is meant to be committed. So `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set; mark it [`!literal`](@/docs/spec-format/mcps.md#plain-settings) by hand to put it back. Import prints each replacement and the variable to set.

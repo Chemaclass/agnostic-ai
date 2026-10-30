@@ -122,19 +122,9 @@ func writeMCPSpecs(servers map[string]any, dstDir string, orders ...mcpSpecOrder
 	count := 0
 	for _, name := range names {
 		entry, _ := servers[name].(map[string]any)
-		doc := map[string]any{"name": name}
-		entry = markMCPLiterals(entry)
-		for k, v := range entry {
-			doc[k] = v
-		}
-		if _, hasType := doc["type"]; !hasType {
-			if _, hasURL := doc["url"]; hasURL {
-				doc["type"] = "http"
-			}
-		}
-		raw, err := marshalMCPSpec(doc, name, orders)
+		raw, err := encodeMCPSpec(name, entry, orders)
 		if err != nil {
-			return count, fmt.Errorf("marshal mcp %s: %w", name, err)
+			return count, err
 		}
 		path := filepath.Join(dstDir, spec.MCPFileName(name))
 		if err := importWriteFile(path, raw, 0o644); err != nil {
@@ -143,6 +133,23 @@ func writeMCPSpecs(servers map[string]any, dstDir string, orders ...mcpSpecOrder
 		count++
 	}
 	return count, nil
+}
+
+func encodeMCPSpec(name string, entry map[string]any, orders []mcpSpecOrderHints) ([]byte, error) {
+	doc := map[string]any{"name": name}
+	for key, value := range markMCPLiterals(entry) {
+		doc[key] = value
+	}
+	if _, hasType := doc["type"]; !hasType {
+		if _, hasURL := doc["url"]; hasURL {
+			doc["type"] = "http"
+		}
+	}
+	raw, err := marshalMCPSpec(doc, name, orders)
+	if err != nil {
+		return nil, fmt.Errorf("marshal mcp %s: %w", name, err)
+	}
+	return raw, nil
 }
 
 // mcpLiteralRef is one value import rewrote so the spec holds no

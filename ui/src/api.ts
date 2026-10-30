@@ -7,7 +7,7 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type OverviewView } from './contract'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type MCPSpecPreview, type NativeHolder, type OverviewView } from './contract'
 import { normalizeContextView, normalizeOverviewView } from './model/normalize'
 import { staticOverviewUrl, type DataSource } from './model/url'
 
@@ -145,4 +145,19 @@ export async function postEdit(path: string, body: unknown): Promise<void> {
     // Not JSON; fall back to the status.
   }
   throw new EditError(reply.error ?? `The server answered ${res.status}.`, reply.problems ?? [], res.status)
+}
+
+export async function importMCPSpec(action: 'preview' | 'apply', audience: 'shared' | 'personal', name: string, holder: NativeHolder, expected?: string): Promise<MCPSpecPreview> {
+  let res: Response
+  try {
+    res = await fetch(API.editMCP, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action, audience, name, target: holder.target, path: holder.path, scope: holder.scope, expected }),
+    })
+  } catch {
+    throw new EditError('Could not reach the server. Try again when it is running.')
+  }
+  if (!res.ok) throw new EditError(await readError(res), [], res.status)
+  return await res.json() as MCPSpecPreview
 }

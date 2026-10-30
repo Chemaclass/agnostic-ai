@@ -82,6 +82,9 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var sourceGuard func() error
 	var audience editAudience
 	switch r.URL.Path {
+	case editMCPPath:
+		h.serveMCP(w, body)
+		return
 	case editBuiltinPath:
 		var req struct {
 			audienceFields
