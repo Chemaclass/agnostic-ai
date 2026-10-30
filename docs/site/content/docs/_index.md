@@ -6,15 +6,6 @@ template = "docs/section.html"
 page_template = "docs/page.html"
 +++
 
-New to agnostic-ai? Follow these two steps in order.
-
-## Your first steps {#choose-your-first-task}
-
-1. [Why agnostic-ai?](@/docs/why-agnostic-ai.md): what it does, and when you do not need it.
-2. [Set up your project](@/docs/getting-started.md): install, write one note, sync it to Claude Code and Codex, and learn the daily loop.
-
-[Installation](@/docs/installation.md) has every install method and how to upgrade. To let your coding agent do step 2, [paste the setup prompt](@/docs/agent-setup.md). If the project already has `CLAUDE.md`, `AGENTS.md`, or other tool files, read [Import an existing setup](@/docs/migration.md) before the first sync.
-
 ## Find something else
 
 | You want to | Go to |
