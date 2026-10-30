@@ -29,6 +29,16 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` when only a settings spec for another tool sets them (#2799).
 
+#### Claude Code
+
+- Scope notes explain automatic continuation's project fallback and no longer call `bashEditDiffEnabled: false` ignored (#2815).
+
+### Site
+
+- The home page shows the install command for your OS, the number of supported tools, and a link to the playground at the top.
+
+- Correct Jules retirement dates, Codex history values, and Antigravity, OpenHands, Qoder and Zed setup guidance (#2810, #2811, #2812, #2813, #2814, #2818).
+
 ## v0.90.0 - 2026-10-29
 
 ### General

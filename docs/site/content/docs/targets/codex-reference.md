@@ -107,7 +107,7 @@ outputs:
       approval-policy: on-request
       model-reasoning-effort: high
       model-reasoning-summary: auto
-      history-persistence: project
+      history-persistence: save-all
 ```
 
 | Field | Type | Notes |
@@ -117,7 +117,7 @@ outputs:
 | `approval-policy` | string | `on-request` for interactive approvals or `never` to reject approval prompts. `on-failure` is deprecated; `untrusted` is unsupported ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference)). |
 | `model-reasoning-effort` | string | Passed through unchanged. Use an effort the selected model and client advertise, such as `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. |
 | `model-reasoning-summary` | string | Reasoning summary verbosity: `auto`, `concise`, `detailed`. |
-| `history-persistence` | string | Conversation history scope: `project`, `global`, or `none`. |
+| `history-persistence` | string | Session transcript persistence: `save-all` or `none` ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference)). |
 | `notify` | string array | Not written. Codex ignores `notify` in a project config; set it in `~/.codex/config.toml`. |
 | `profiles` | map | Not written. Codex 0.134.0 and later read no `[profiles.*]` table from any `config.toml`. Put each profile in `~/.codex/<name>.config.toml` and select it with `--profile <name>`. |
 | `model-providers` | map | Not written. Codex ignores `[model_providers.*]` in a project config; set them in `~/.codex/config.toml`. |

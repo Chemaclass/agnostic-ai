@@ -108,3 +108,9 @@ qoder-persistent-scheduled-prompts-20261030	qoder	Persistent scheduled tasks are
 vibe-request-output-budgets-20261030	vibe	agent_max_output_tokens and compaction_max_output_tokens cap the output of every agent and compaction request on any provider	yes	signal:cap-vibe-request-output-budgets
 vibe-project-plugins-20261030	vibe	native Vibe plugin's `ai.mistral.vibe/hooks.toml` now run	yes	signal:cap-vibe-project-plugins
 worktree-setup-hook-20261030	windsurf	`post_setup_worktree` hooks now run for worktrees created from a Devin Local session	yes	signal:cap-worktree-setup-hook
+copilot-repository-memory-ga-20261030	copilot	GitHub Copilot Memory is now generally available on paid Copilot plans.	no	signal:cap-repository-scoped-learned-memory
+copilot-review-approval-paths-20261030	copilot	repository admins can choose which file paths Copilot is allowed to approve.	no	signal:cap-repository-code-review-approval-policy
+codebuddy-runtime-artifacts-20261030	codebuddy	CodeBuddy Code prepares a separate empty file for that command and places its path in the $CODEBUDDY_ARTIFACTS environment variable.	no	signal:cap-agent-file-artifact-delivery
+codebuddy-auto-review-local-scope-20261030	codebuddy	project-local settings .codebuddy/settings.local.json Local supplement for a project on a machine	no	signal:cap-codebuddy-auto-review-policy
+goose-recipe-explicit-path-20261030	goose	goose run --recipe ./recipes/my-recipe.yaml	yes	signal:cap-project-parameterized-recipes
+zed-fixed-skill-roots-20261030	zed	Skills are loaded from ~/.agents/skills/ and <worktree>/.agents/skills/ only. Use a symlink if you need to point at another location.	yes	2818

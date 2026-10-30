@@ -85,7 +85,7 @@ No file. OpenHands keeps MCP servers in its [settings store](https://docs.openha
 
 - A project or home MCP spec gets one sync note that points at **Customize > MCP Servers**.
 - An agent's `mcpServers` still reach its `mcp_servers`, as [Agents](#agents) describes. There a remote `api_key` becomes an `Authorization: Bearer <key>` header, as [OpenHands sends](https://docs.openhands.dev/openhands/usage/settings/mcp-settings) it. An `Authorization` entry in `headers` wins.
-- `timeout` gets a sync note, because the OpenHands MCP config has no per-server timeout.
+- `timeout` gets a sync note: sync does not map it into an agent's `mcp_servers`. Agent Canvas separately offers an optional SHTTP timeout in seconds in its [server editor](https://docs.openhands.dev/openhands/usage/settings/mcp-settings#server-fields).
 
 ### Environments
 

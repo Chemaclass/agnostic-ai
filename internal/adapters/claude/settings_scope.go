@@ -53,11 +53,10 @@ var projectIgnoredKeys = []projectIgnoredKey{
 	{path: "allowManagedPermissionRulesOnly", scope: managedOnly},
 	{path: "appendPlugins"},
 	{path: "askUserQuestionTimeout"},
-	{path: "autoContinueAtUsageLimit"},
 	{path: "autoMode"},
 	{path: "availableModelsMatch", scope: managedOnly},
 	{path: "axScreenReader"},
-	{path: "bashEditDiffEnabled"},
+	{path: "bashEditDiffEnabled", ignored: true},
 	{path: "blockedMarketplaces", scope: managedOnly},
 	{path: "browserExternalPageTools", scope: managedOnly},
 	{path: "channelsEnabled", scope: managedOnly},
@@ -149,10 +148,12 @@ func projectIgnoredSettings(entries []spec.Entry, custom map[string]any) []proje
 	return out
 }
 
-// noteProjectIgnoredSettings keeps each key in the file and names it in a note.
-func noteProjectIgnoredSettings(entries []spec.Entry, custom map[string]any) {
+func noteProjectSettingsScope(entries []spec.Entry, custom map[string]any) {
 	for _, s := range projectIgnoredSettings(entries, custom) {
 		emit.NoteFieldNoOp(target, spec.KindSettings, s.field, s.count, s.reason)
+	}
+	if _, ok := custom["autoContinueAtUsageLimit"]; ok {
+		emit.NoteProject("claude: x-claude.autoContinueAtUsageLimit in project settings turns automatic continuation off if user settings, --settings, and managed settings leave it unset, even when the project value is true; to enable it, set it in a home settings spec and run `sync --global`")
 	}
 }
 

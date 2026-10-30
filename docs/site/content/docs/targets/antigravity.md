@@ -69,7 +69,9 @@ Rules, skills, and MCP go to the plural `.agents/` form Antigravity prefers ([ru
 
 ### Plugins
 
-Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, covering the five components (`skills/`, `agents/`, `rules/`, `mcp_config.json`, `hooks.json`). A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
+Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes `plugin.json` at recognized component roots, such as `skills/`, `agents/`, `rules/`, and `hooks.json`. A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
+
+The native [plugin layout](https://antigravity.google/docs/build-plugins#supported-components) uses `mcp.json` for MCP servers. Standalone MCP configuration uses `mcp_config.json`. For a plugin with only MCP output, check its `plugin.json` explicitly: sync's manifest inference still recognizes the legacy `mcp_config.json` basename.
 
 ### Rules
 
