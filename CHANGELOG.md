@@ -19,8 +19,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Sync keeps existing Antigravity and Goose plugin manifests it did not write and prints a note.
 - `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
-- `init` writes `requires: ">=X.Y.Z"` for the running release, so newer releases keep working until you choose an exact pin.
-- `upgrade --requires` keeps the form of `requires`: a minimum stays a minimum, an exact release stays exact, and a range becomes a minimum.
+- `init` writes `requires: ">=X.Y.Z"` for the running release, so newer releases keep working until you choose an exact pin (#2841).
+- `upgrade --requires` keeps the form of `requires`: a minimum stays a minimum, an exact release stays exact, and a range becomes a minimum (#2841).
 
 #### Web interface
 
