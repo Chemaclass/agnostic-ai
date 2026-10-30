@@ -83,6 +83,8 @@ Skills preserve their supporting files and map `disable-model-invocation` to `di
 
 MCP supports `stdio`, `http`, and `sse`. A disabled server emits `enabled: false`, retaining its override of a same-name user server. Native `enabledTools: []` exposes no tools. Keep native timeouts in milliseconds, tool filters, OAuth configuration, and `deferred` under `x-kimi`; deferral also depends on native runtime and model support.
 
+Stdio servers preserve `x-kimi.executor: local` and `x-kimi.runtime_id`. Kimi Code removed the `kaos` executor in 2.2.0, so sync and import reject it. Remove that option or choose `local` when the server should run locally. Sync cannot choose that execution location for you.
+
 Kimi inherits the process environment and copies configured strings literally. It does not expand general `${NAME}` references in connection fields. A portable `Authorization: Bearer ${TOKEN}` maps exactly to native `bearerTokenEnvVar: TOKEN`. Other unresolved references omit the whole server, so a missing credential never produces an unauthenticated connection. Write `$${NAME}` to request literal text. Sync never reads the named secret or starts a server.
 
 Kimi merges the user MCP file, repository-root `.mcp.json`, then working-directory `.kimi-code/mcp.json`; later same-name entries replace earlier entries. The adapter writes only its branded project file by default.

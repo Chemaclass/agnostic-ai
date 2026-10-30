@@ -81,6 +81,8 @@ The portable `model` maps to `model.name`. Other model options and settings stay
 
 The `mcpServers` map. Streamable-HTTP servers (`type: http`) use `httpUrl`. SSE servers (`type: sse`) use `url`. Stdio servers also accept `cwd`. `timeout` (milliseconds), `trust` (skip tool-call confirmations), `description`, `includeTools`, and `excludeTools` are copied as written ([configuration reference](https://geminicli.com/docs/reference/configuration.md)). Import reads `httpUrl` back as `type: http` and a bare `url` as `type: sse`.
 
+Native OAuth options pass through `x-gemini.oauth`, including `enabled`, `allowPrivateNetwork`, and `authorizationResponseIssParameterSupported`. Import keeps this object Gemini-specific and leaves out servers with literal OAuth credentials; existing credential references remain references.
+
 ### Hooks
 
 The `hooks` map, keyed by event. Gemini documents 11 events: `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`. Each hook has a `matcher` and a nested `hooks` array of `{type: "command", command}` handlers ([hook reference](https://geminicli.com/docs/hooks/reference/)). With `builtins: [memory]`, a `SessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.

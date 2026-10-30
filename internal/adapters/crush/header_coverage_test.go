@@ -116,6 +116,14 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "audit-edit",
 			Meta: map[string]any{"event": "pre_tool_use", "matcher": "^edit$", "command": "./hooks/audit-edit.sh"},
 		},
+		{
+			Kind: spec.KindHook, Name: "notify-start",
+			Meta: map[string]any{"event": "session_start", "command": "echo started"},
+		},
+		{
+			Kind: spec.KindHook, Name: "audit-result",
+			Meta: map[string]any{"event": "PostToolUse", "matcher": "^bash$", "command": "echo completed"},
+		},
 	}
 	return spec.NewBundle(entries)
 }

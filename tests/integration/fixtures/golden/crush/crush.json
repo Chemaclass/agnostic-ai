@@ -1,9 +1,22 @@
 {
   "hooks": {
+    "PostToolUse": [
+      {
+        "command": "export AGNOSTIC_AI_TARGET=crush; echo edited",
+        "matcher": "Edit",
+        "name": "sample-hook"
+      }
+    ],
     "PreToolUse": [
       {
         "command": "export AGNOSTIC_AI_TARGET=crush; ./.crush/hooks/shared-guard.sh",
         "name": "neutral-hook"
+      }
+    ],
+    "SessionStart": [
+      {
+        "command": "export AGNOSTIC_AI_TARGET=crush; echo started",
+        "name": "crush-session-start"
       }
     ]
   },

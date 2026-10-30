@@ -15,6 +15,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -287,9 +288,14 @@ func importGeminiSettings(root, mcpDst, hooksDst string) (int, int, error) {
 	mcps := 0
 	if servers, ok := doc["mcpServers"].(map[string]any); ok {
 		clean := map[string]any{}
+		var skipped []mcpLiteralRef
 		for k, v := range servers {
 			if sub, ok := v.(map[string]any); ok {
-				normalizeGeminiTransport(sub)
+				if field := geminiOAuthCredential(sub["oauth"]); field != "" {
+					skipped = append(skipped, mcpLiteralRef{server: k, field: field, leftOut: true})
+					continue
+				}
+				normalizeGeminiMCP(sub)
 				clean[k] = sub
 			}
 		}
@@ -297,6 +303,7 @@ func importGeminiSettings(root, mcpDst, hooksDst string) (int, int, error) {
 		if err != nil {
 			return n, 0, err
 		}
+		reportMCPLiteralRefs(skipped)
 		mcps = n
 	}
 	hooks := 0
@@ -308,6 +315,44 @@ func importGeminiSettings(root, mcpDst, hooksDst string) (int, int, error) {
 		hooks = n
 	}
 	return mcps, hooks, nil
+}
+
+func geminiOAuthCredential(oauth any) string {
+	var normalize func(any) any
+	normalize = func(value any) any {
+		switch value := value.(type) {
+		case string:
+			return spec.EnvRefDollar.Read(value, spec.EnvRefReading{Unbraced: true})
+		case map[string]any:
+			out := make(map[string]any, len(value))
+			for key, item := range value {
+				out[key] = normalize(item)
+			}
+			return out
+		case []any:
+			out := make([]any, len(value))
+			for i, item := range value {
+				out[i] = normalize(item)
+			}
+			return out
+		default:
+			return value
+		}
+	}
+	return mcpOAuthCredential(normalize(oauth))
+}
+
+func normalizeGeminiMCP(server map[string]any) {
+	normalizeGeminiTransport(server)
+	if oauth, ok := server["oauth"]; ok {
+		native, _ := server["x-gemini"].(map[string]any)
+		if native == nil {
+			native = map[string]any{}
+		}
+		native["oauth"] = oauth
+		server["x-gemini"] = native
+		delete(server, "oauth")
+	}
 }
 
 // writeGeminiHooks writes one yaml per `hooks.<event>[i]` entry into

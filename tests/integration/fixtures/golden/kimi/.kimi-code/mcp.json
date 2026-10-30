@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "kimi-local": {
+      "command": "example-mcp",
+      "executor": "local",
+      "runtime_id": "workspace",
+      "transport": "stdio"
+    }
+  }
+}

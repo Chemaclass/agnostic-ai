@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -229,8 +230,18 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 		}
 		event, _ := hook.Meta["event"].(string)
 		matcher, _ := hook.Meta["matcher"].(string)
+		if target == "crush" {
+			if canonical := crush.CanonicalHookEvent(event); canonical != "" {
+				event = canonical
+			}
+		}
 		if _, ok := hookEventsByTarget[target][event]; !ok {
 			run.Reason = fmt.Sprintf("%s has no %s event", target, event)
+			add(run)
+			continue
+		}
+		if target == "crush" && event != "PreToolUse" {
+			run.Reason = "hook run builds only Crush's PreToolUse payload"
 			add(run)
 			continue
 		}

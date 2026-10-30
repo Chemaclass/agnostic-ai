@@ -148,7 +148,7 @@ func (Adapter) CanonicalUserArrayRecord(parent string, record map[string]any) an
 	if doc["disabled"] == false {
 		delete(doc, "disabled")
 	}
-	if doc["sampling_enabled"] == true {
+	if doc["sampling_enabled"] == false {
 		delete(doc, "sampling_enabled")
 	}
 	for _, key := range []string{"args", "disabled_tools"} {

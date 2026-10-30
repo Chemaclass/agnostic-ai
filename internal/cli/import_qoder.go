@@ -12,8 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
-	"github.com/chemaclass/agnostic-ai/internal/preview"
-	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -207,7 +205,7 @@ func importQoderMCP(root, dstDir string) (int, error) {
 	var skipped []mcpLiteralRef
 	for name, raw := range servers {
 		if server, ok := raw.(map[string]any); ok {
-			if field := qoderOAuthCredential(server["oauth"]); field != "" {
+			if field := mcpOAuthCredential(server["oauth"]); field != "" {
 				skipped = append(skipped, mcpLiteralRef{server: name, field: field, leftOut: true})
 				continue
 			}
@@ -220,18 +218,4 @@ func importQoderMCP(root, dstDir string) (int, error) {
 	}
 	reportMCPLiteralRefs(skipped)
 	return count, nil
-}
-
-func qoderOAuthCredential(oauth any) string {
-	field := ""
-	walkMCPStrings("oauth", "oauth", oauth, func(path, key, value string) {
-		if field != "" {
-			return
-		}
-		named := preview.CredentialKey(key) && !spec.OnlyEscapedEnvRefs(value) && preview.LiteralCredential(preview.DetectorText(value))
-		if named || preview.CredentialDetected(value) {
-			field = path
-		}
-	})
-	return field
 }

@@ -89,6 +89,9 @@ func ValidateHookRecord(record map[string]any) error {
 	return nil
 }
 func validateMCP(meta map[string]any) error {
+	if err := ValidateMCPExecutor(meta); err != nil {
+		return err
+	}
 	for _, key := range []string{"enabled", "deferred"} {
 		if value, ok := meta[key]; ok {
 			if _, valid := value.(bool); !valid {
@@ -136,6 +139,13 @@ func validateMCP(meta map[string]any) error {
 		if err != nil || u.Scheme == "" || u.Host == "" {
 			return fmt.Errorf("url must be absolute")
 		}
+	}
+	return nil
+}
+
+func ValidateMCPExecutor(meta map[string]any) error {
+	if meta["executor"] == "kaos" {
+		return fmt.Errorf("executor kaos was removed in Kimi Code 2.2.0; remove it or set executor: local for a local server")
 	}
 	return nil
 }

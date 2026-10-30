@@ -697,6 +697,20 @@ func walkMCPStrings(path, key string, value any, visit func(path, key, value str
 	}
 }
 
+func mcpOAuthCredential(oauth any) string {
+	field := ""
+	walkMCPStrings("oauth", "oauth", oauth, func(path, key, value string) {
+		if field != "" {
+			return
+		}
+		named := preview.CredentialKey(key) && !spec.OnlyEscapedEnvRefs(value) && preview.LiteralCredential(preview.DetectorText(value))
+		if named || preview.CredentialDetected(value) {
+			field = path
+		}
+	})
+	return field
+}
+
 // mcpLiteralNames picks one variable per literal. An `env` value reads
 // the variable its key names, and a header reads `<SERVER>_<HEADER>` in
 // upper case. A name that two different values would share, or that the

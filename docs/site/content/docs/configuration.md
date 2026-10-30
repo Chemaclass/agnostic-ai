@@ -454,7 +454,7 @@ Setting the named key clears the note. `sync -vv` shows every note.
 | `zed` | hooks | `outputs.zed.tasks-file` |
 | `kilo` | agents with `tools` | None. Use `x-kilo: {permission: {...}}`. |
 | `gemini` | agents with `tools` beyond Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch | None. Use `x-gemini: {tools: [...]}` or drop `tools`. |
-| `crush` | hooks not on `PreToolUse` | None. Crush runs `PreToolUse` only. |
+| `crush` | unknown hook events | Use one of the [13 native lifecycle events](@/docs/targets/crush.md#hooks). Matchers require a tool event. |
 
 ## `coverage`
 

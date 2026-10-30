@@ -19,7 +19,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "check", Body: "Run checks.", Meta: map[string]any{"description": "Run tests", "disable-model-invocation": true}},
 		{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "existing-model", "effort": "high", "x-kimi": map[string]any{"telemetry": false}}},
 		{Kind: spec.KindMCP, Name: "docs", Meta: map[string]any{"type": "sse", "url": "https://example.com/mcp", "disabled": true, "x-kimi": map[string]any{"enabledTools": []any{}, "bearerTokenEnvVar": "DOCS_TOKEN"}}},
-		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "node", "args": []any{"server.js"}}},
+		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "node", "args": []any{"server.js"}, "x-kimi": map[string]any{"executor": "local", "runtime_id": "workspace"}}},
 		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "check", "timeout": 10}},
 	})
 }

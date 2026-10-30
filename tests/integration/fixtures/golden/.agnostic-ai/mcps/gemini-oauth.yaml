@@ -1,0 +1,9 @@
+name: gemini-oauth
+targets: [gemini]
+type: http
+url: https://docs.example/mcp
+x-gemini:
+  oauth:
+    enabled: true
+    allowPrivateNetwork: true
+    authorizationResponseIssParameterSupported: false

@@ -40,23 +40,9 @@
 // automatic reply routes (Crush v0.97.0). Only these channel fields also accept
 // x-crush overrides; their values are validated against the native schema.
 //
-// Hooks merge into that same crush.json under a `hooks` map keyed by
-// event name: `{"PreToolUse": [{"name": ..., "matcher": ..., "command":
-// ..., "timeout": ...}, ...]}`. docs/hooks/README.md states "Crush
-// currently supports just one hook, PreToolUse, with plans to support
-// the full gamut" (re-verified 2026-09-10 against both that doc and
-// the vendor's published schema.json, whose `$defs.HookConfig` still
-// lists no other event; #629). A hook spec targeting any other event
-// parses fine and would sit in the file unread, so it earns a coverage
-// note instead. See hooks.go for the field mapping. mcp and hooks
-// merge into crush.json in one MergeJSONFile call, not two:
-// MergeJSONFile reads the on-disk file fresh on every call, and
-// during sync's collision-detection capture pass writes never reach
-// disk, so a second call would read the same pre-write file and
-// produce a second, divergent snapshot for the same path from the
-// same target (one carrying only `mcp`, the other only `hooks`),
-// tripping the collision check as though two different targets
-// disagreed on crush.json's content.
+// Hooks merge into crush.json alongside MCPs in one write because capture
+// checks compare every write to that path. Each event holds flat handlers;
+// only tool events accept matchers.
 //
 // crush.json is Crush's legacy format. The vendor's own docs call it
 // deprecated and freeze it: "new configuration options will only be
@@ -119,7 +105,7 @@ func (Adapter) Name() string { return target }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes one native skill folder per skill under .agents/skills/
-// and a merged crush.json for MCP servers and PreToolUse hooks. The
+// and a merged crush.json for MCP servers and lifecycle hooks. The
 // project-root AGENTS.md (with rule bodies inlined) is written by
 // `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -154,7 +140,11 @@ func emitCrushJSON(sess *emit.Session, mcps, hooks []spec.Entry, path string, dr
 	if len(servers) > 0 {
 		keys["mcp"] = servers
 	}
-	if hooksBlock := buildHooksBlock(hooks); hooksBlock != nil {
+	hooksBlock, err := buildHooksBlock(hooks)
+	if err != nil {
+		return err
+	}
+	if hooksBlock != nil {
 		keys["hooks"] = hooksBlock
 	}
 	if len(keys) == 0 {

@@ -14,7 +14,10 @@ func HooksFilePath(cfg *config.Config) string {
 // HookDoc renders the crush.json hooks sync writes for h alone, or nil
 // when h produces no handler.
 func HookDoc(h spec.Entry) ([]byte, error) {
-	block := buildHooksBlock([]spec.Entry{h})
+	block, err := buildHooksBlock([]spec.Entry{h})
+	if err != nil {
+		return nil, err
+	}
 	if block == nil {
 		return nil, nil
 	}

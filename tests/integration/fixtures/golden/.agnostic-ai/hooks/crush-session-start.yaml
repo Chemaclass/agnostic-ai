@@ -1,0 +1,4 @@
+name: crush-session-start
+targets: [crush]
+event: SessionStart
+command: echo started
