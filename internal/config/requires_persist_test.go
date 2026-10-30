@@ -23,6 +23,14 @@ func writeRequiresConfig(t *testing.T, root, name, content string) string {
 	return path
 }
 
+func changedPaths(changes []RequiresChange) []string {
+	paths := make([]string, 0, len(changes))
+	for _, c := range changes {
+		paths = append(paths, c.Path)
+	}
+	return paths
+}
+
 func readRequiresConfig(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -44,8 +52,8 @@ func TestPersistRequires_PreservesCommentsAndUnrelatedConfig(t *testing.T) {
 	if got := readRequiresConfig(t, path); got != want {
 		t.Errorf("unrelated bytes changed:\n got %q\nwant %q", got, want)
 	}
-	if !reflect.DeepEqual(changed, []string{path}) {
-		t.Errorf("changed = %v, want %v", changed, []string{path})
+	if want := []RequiresChange{{Path: path, From: "0.76.0", To: "0.77.0"}}; !reflect.DeepEqual(changed, want) {
+		t.Errorf("changed = %v, want %v", changed, want)
 	}
 	changed, err = PersistRequires(root, "0.77.0", requiresTestSchema)
 	if err != nil || len(changed) != 0 {
@@ -53,7 +61,7 @@ func TestPersistRequires_PreservesCommentsAndUnrelatedConfig(t *testing.T) {
 	}
 }
 
-func TestPersistRequires_AddsMissingPinsToLegacyConfig(t *testing.T) {
+func TestPersistRequires_AddsMissingMinimumToLegacyConfig(t *testing.T) {
 	root := testutil.TempCwd(t)
 	before := "# Project note\nversion: 1\ntargets: [claude]\n"
 	path := writeRequiresConfig(t, root, LegacyConfigFileName, before)
@@ -62,13 +70,13 @@ func TestPersistRequires_AddsMissingPinsToLegacyConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readRequiresConfig(t, path)
-	if !strings.HasPrefix(got, "# yaml-language-server: $schema="+requiresTestSchema+"\n") || !strings.Contains(got, "requires: \"0.77.0\"\n") {
-		t.Errorf("missing release pins:\n%s", got)
+	if !strings.HasPrefix(got, "# yaml-language-server: $schema="+requiresTestSchema+"\n") || !strings.Contains(got, "requires: \">=0.77.0\"\n") {
+		t.Errorf("missing release minimum:\n%s", got)
 	}
-	if strings.Replace(strings.TrimPrefix(got, "# yaml-language-server: $schema="+requiresTestSchema+"\n"), "requires: \"0.77.0\"\n", "", 1) != before {
+	if strings.Replace(strings.TrimPrefix(got, "# yaml-language-server: $schema="+requiresTestSchema+"\n"), "requires: \">=0.77.0\"\n", "", 1) != before {
 		t.Errorf("unrelated legacy configuration changed:\n%s", got)
 	}
-	if !reflect.DeepEqual(changed, []string{path}) {
+	if !reflect.DeepEqual(changedPaths(changed), []string{path}) {
 		t.Errorf("changed = %v, want legacy path", changed)
 	}
 	if _, err := os.Stat(filepath.Join(root, ConfigFileName)); !os.IsNotExist(err) {
@@ -77,7 +85,7 @@ func TestPersistRequires_AddsMissingPinsToLegacyConfig(t *testing.T) {
 }
 
 func TestPersistRequires_UpdatesExistingLocalOverrides(t *testing.T) {
-	for _, scalar := range []string{"'0.75.0'", "null", ""} {
+	for scalar, want := range map[string]string{"'0.75.0'": "0.77.0", "null": ">=0.77.0", "": ">=0.77.0"} {
 		t.Run("scalar="+scalar, func(t *testing.T) {
 			root := testutil.TempCwd(t)
 			writeRequiresConfig(t, root, ConfigFileName, "version: 1\nrequires: \"0.76.0\"\ntargets: [claude]\n")
@@ -91,14 +99,14 @@ func TestPersistRequires_UpdatesExistingLocalOverrides(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if cfg.Requires != "0.77.0" {
-				t.Errorf("effective requires = %q", cfg.Requires)
+			if cfg.Requires != want {
+				t.Errorf("effective requires = %q, want %q", cfg.Requires, want)
 			}
 			got := readRequiresConfig(t, local)
 			if !strings.Contains(got, "$schema="+requiresTestSchema) || !strings.Contains(got, " # Local note\nsources:\n  rules: personal/rules\n") {
 				t.Errorf("local schema or unrelated bytes lost:\n%s", got)
 			}
-			if len(changed) != 2 || changed[1] != local {
+			if len(changed) != 2 || changed[1].Path != local {
 				t.Errorf("changed = %v, want base and local", changed)
 			}
 		})
@@ -214,7 +222,7 @@ func TestPersistRequires_WritesThroughConfigSymlink(t *testing.T) {
 	if got := readRequiresConfig(t, target); !strings.Contains(got, "requires: '0.77.0'") {
 		t.Errorf("symlink target was not reconciled:\n%s", got)
 	}
-	if !reflect.DeepEqual(changed, []string{alias}) {
+	if !reflect.DeepEqual(changedPaths(changed), []string{alias}) {
 		t.Errorf("changed = %v, want lexical config path", changed)
 	}
 }
@@ -239,5 +247,36 @@ func TestPersistRequires_RestoresBaseWhenLocalWriteFails(t *testing.T) {
 	}
 	if got := readRequiresConfig(t, local); got != localText {
 		t.Errorf("local changed after failure:\n%s", got)
+	}
+}
+
+func TestPersistRequires_KeepsTheFormOfEachValue(t *testing.T) {
+	cases := []struct {
+		line, want string
+		collapsed  bool
+	}{
+		{"requires: \">=0.76.0\" # Floor", "requires: \">=0.77.0\" # Floor", false},
+		{"requires: '=0.76.0'", "requires: '=0.77.0'", false},
+		{"requires: 0.76.0", "requires: 0.77.0", false},
+		{"requires: \">=0.76.0 <0.77.0\"", "requires: \">=0.77.0\"", true},
+		{"requires: '<=0.76.0' # Cap", "requires: '>=0.77.0' # Cap", true},
+		{"requires: 0.76.0 <0.77.0", "requires: \">=0.77.0\"", true},
+	}
+	for _, c := range cases {
+		t.Run(c.line, func(t *testing.T) {
+			root := testutil.TempCwd(t)
+			path := writeRequiresConfig(t, root, ConfigFileName, "# Team note\nversion: 1\n"+c.line+"\ntargets: [claude]\n")
+			changed, err := PersistRequires(root, "0.77.0", requiresTestSchema)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "# yaml-language-server: $schema=" + requiresTestSchema + "\n# Team note\nversion: 1\n" + c.want + "\ntargets: [claude]\n"
+			if got := readRequiresConfig(t, path); got != want {
+				t.Errorf("config = %q, want %q", got, want)
+			}
+			if len(changed) != 1 || changed[0].Collapsed() != c.collapsed {
+				t.Errorf("changed = %+v, want one change with Collapsed() = %v", changed, c.collapsed)
+			}
+		})
 	}
 }

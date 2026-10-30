@@ -66,7 +66,7 @@ The installed binary is outside the releases the config's [`requires`](@/docs/co
        This updates requires and the schema URL, then runs sync.
 ```
 
-**Fix:** to adopt a newer installed release, run `agnostic-ai upgrade --requires` from the project root (through your package manager for a project install, such as `pnpm exec agnostic-ai upgrade --requires`). It sets `requires` and the schema tag to the installed release, then syncs.
+**Fix:** to adopt a newer installed release, run `agnostic-ai upgrade --requires` from the project root (through your package manager for a project install, such as `pnpm exec agnostic-ai upgrade --requires`). It raises `requires` to the installed release and keeps its form, so a minimum stays a minimum and an exact release stays exact. A range becomes a minimum. It also updates the schema tag, then syncs.
 
 Running `upgrade` or `update` alone updates the installed tool. Pass `--requires` to adopt an already-installed release in this project. Run `agnostic-ai explain AAI-005` for the full list of fixes.
 

@@ -64,7 +64,7 @@ A JavaScript project can add the CLI as a dev dependency. Then every clone and C
 pnpm add -D agnostic-ai@X.Y.Z    # or npm install -D, yarn add -D, bun add -D
 ```
 
-Then run `pnpm exec agnostic-ai upgrade --requires` (or your manager's equivalent) to pin the project to that release. Commit the config and dependency changes together. After a pull bumps both, run your package manager's install. See [`upgrade --requires`](@/docs/cli-reference/upgrades.md#upgrade-options) and [Node monorepos](@/docs/git-hooks.md#node-monorepos) for syncing on install.
+Then run `pnpm exec agnostic-ai upgrade --requires` (or your manager's equivalent). It raises `requires` to that release and keeps its form. Commit the config and dependency changes together. After a pull bumps both, run your package manager's install. See [`upgrade --requires`](@/docs/cli-reference/upgrades.md#upgrade-options) and [Node monorepos](@/docs/git-hooks.md#node-monorepos) for syncing on install.
 
 </details>
 

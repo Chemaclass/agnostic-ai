@@ -45,7 +45,7 @@ func defaultSource(kind string) string {
 type Config struct {
 	Version int `yaml:"version"                  json:"version" jsonschema:"enum=1"`
 	// The pattern mirrors ParseRequirement so editors flag a bad value.
-	Requires string            `yaml:"requires,omitempty"       json:"requires,omitempty" jsonschema:"pattern=^\\s*$|^\\s*(>=|<=|<|=)?\\s*v?\\d+\\.\\d+\\.\\d+(\\s+(>=|<=|<|=)?\\s*v?\\d+\\.\\d+\\.\\d+)*\\s*$" jsonschema_description:"agnostic-ai releases the specs work with: a minimum (>=0.71.0), one release (0.73.0), or a range (>=0.73.0 <0.74.0)."`
+	Requires string            `yaml:"requires,omitempty"       json:"requires,omitempty" jsonschema:"pattern=^\\s*$|^\\s*(>=|<=|<|=)?\\s*v?\\d+\\.\\d+\\.\\d+(\\s+(>=|<=|<|=)?\\s*v?\\d+\\.\\d+\\.\\d+)*\\s*$" jsonschema_description:"agnostic-ai releases the specs work with: a minimum (>=0.71.0), the default init writes; one exact release (0.73.0), for projects that commit generated files; or a range (>=0.73.0 <0.74.0)."`
 	Sources  Sources           `yaml:"sources,omitempty"        json:"sources,omitempty"`
 	Targets  []string          `yaml:"targets,omitempty"        json:"targets,omitempty"`
 	Builtins []string          `yaml:"builtins,omitempty"       json:"builtins,omitempty" jsonschema_description:"Built-in specs to enable. User specs override them."`

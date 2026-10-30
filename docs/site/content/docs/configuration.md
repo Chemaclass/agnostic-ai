@@ -123,9 +123,11 @@ requires: "0.73.0"             # exact: only 0.73.0; "=0.73.0" means the same
 requires: ">=0.73.0 <0.74.0"   # range: 0.73.0 and its patch releases
 ```
 
-- **Minimum**: the specs use a feature from that release, and generated files stay out of Git.
-- **Exact**: you commit generated files. Another release can write different content, so `sync --check` would fail in CI. When npm installs the tool, pin the same release in `package.json`.
+- **Minimum**: the default that `init` writes, naming the release that created the project. Newer releases keep working.
+- **Exact**: choose it when you commit generated files and run `sync --check` in CI, since a newer release can write different output. When npm installs the tool, pin the same release in `package.json`.
 - **Range**: accept patch releases but not the next minor one.
+
+[`upgrade --requires`](@/docs/cli-reference/upgrades.md#upgrade-options) raises the value to the installed release and keeps its form: `>=0.71.0` becomes `>=0.74.0`, and `0.73.0` becomes `0.74.0`. A range becomes a minimum, and the command prints the value it replaced.
 
 A binary outside the value stops every command that reads your specs, before any write, with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). That page lists the fixes. `sync --watch` stops when a pulled config puts the binary outside `requires`.
 

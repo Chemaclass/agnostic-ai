@@ -8,12 +8,21 @@ import (
 )
 
 func stableRelease(version string) bool {
+	_, ok := stableReleaseVersion(version)
+	return ok
+}
+
+// stableReleaseVersion is version as X.Y.Z when it names a stable
+// release, not a dev, snapshot, or pre-release build.
+func stableReleaseVersion(version string) (string, bool) {
 	r, err := config.ParseRequirement(version)
 	if err != nil {
-		return false
+		return "", false
 	}
-	allowed, stable := r.Allows(version)
-	return allowed && stable
+	if allowed, stable := r.Allows(version); allowed && stable {
+		return r.String(), true
+	}
+	return "", false
 }
 
 func newerStableRelease(latest, current string) bool {
