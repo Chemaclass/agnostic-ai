@@ -28,6 +28,24 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Kimi Code CLI
+
+- Sync and import reject MCP executors other than `local`, including removed `kaos`; `runtime_id` remains supported (#2808).
+
+#### Crush
+
+- Sync and import preserve all 13 native hook events and reject matchers on events without tools (#2807).
+- Import keeps personal lifecycle commands out of shared specs and preserves handlers with distinct native names or timeouts (#2807, #2827).
+
+#### Gemini CLI
+
+- Import and sync preserve MCP OAuth options, including private-network opt-in, while keeping literal credentials out of specs (#2809).
+
+#### Vibe
+
+- Global MCP sync compares sampling with its native false default, preserving different user server settings (#2817).
+- Global MCP sync stops when an owned sampling value of `true` loses its explicit setting; set `x-vibe.sampling_enabled` before syncing (#2817).
+
 #### Copilot
 
 - `import copilot` keeps `enabledPlugins` and `extraKnownMarketplaces` when only a settings spec for another tool sets them (#2799).

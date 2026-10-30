@@ -23,9 +23,6 @@ func swapNoteWarner(t *testing.T) *strings.Builder {
 	return buf
 }
 
-// A PreToolUse hook is Crush's one supported event: it merges into
-// crush.json's `hooks.PreToolUse` array with `matcher`, `command`, and
-// `timeout` (docs/hooks/README.md, schema.json $defs.HookConfig).
 func TestEmit_Hook_PreToolUseWritesCrushJSON(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -101,29 +98,25 @@ func TestEmit_Hook_CommandListFansOutToMultipleEntries(t *testing.T) {
 	}
 }
 
-// Crush "currently supports just one hook, PreToolUse" (docs/hooks/
-// README.md, re-verified 2026-09-10). Any other event has no crush
-// surface: the entry does not reach crush.json, and a coverage note
-// fires instead of a silent drop.
-func TestEmit_Hook_NonPreToolUseEventDropsWithCoverageNote(t *testing.T) {
+func TestEmit_Hook_UnknownEventDropsWithCoverageNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 
 	entries := []spec.Entry{
 		{
 			Kind: spec.KindHook, Name: "fmt-go",
-			Meta: map[string]any{"event": "PostToolUse", "command": "gofmt -w"},
+			Meta: map[string]any{"event": "UnknownEvent", "command": "gofmt -w"},
 		},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "crush.json")); !os.IsNotExist(err) {
-		t.Errorf("expected no crush.json for a PostToolUse-only hook, err=%v", err)
+		t.Errorf("expected no crush.json for an unknown hook event, err=%v", err)
 	}
 	emit.FlushCoverageNotes()
-	if !strings.Contains(buf.String(), "PreToolUse hook event") {
-		t.Errorf("expected a coverage note naming the PreToolUse restriction, got: %s", buf.String())
+	if !strings.Contains(buf.String(), "does not support this hook event") {
+		t.Errorf("expected an unsupported-event coverage note, got: %s", buf.String())
 	}
 }
 
@@ -199,7 +192,7 @@ func TestEmit_Hook_AcceptsEveryDocumentedEventSpelling(t *testing.T) {
 				}
 			}
 			emit.FlushCoverageNotes()
-			if strings.Contains(buf.String(), "PreToolUse hook event") {
+			if strings.Contains(buf.String(), "does not support this hook event") {
 				t.Errorf("%q is a documented spelling and must not earn a coverage note, got: %s", event, buf.String())
 			}
 		})

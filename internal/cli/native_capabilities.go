@@ -5,6 +5,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kilo"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kimi"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
@@ -151,21 +152,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PreToolUse", "PostToolUse",
 		"Stop", "Notification",
 	),
-	// "Crush currently supports just one hook, PreToolUse, with plans
-	// to support the full gamut" (docs/hooks/README.md, re-verified
-	// 2026-09-10 against both that doc and the vendor's schema.json,
-	// whose $defs.HookConfig carries no per-event variant; #629). The
-	// same page lists five legal spellings of that one event: "Event
-	// names are case insensitive and snake-caseable, so PreToolUse,
-	// pretooluse, PRETOOLUSE, pre_tool_use, and PRE_TOOL_USE all
-	// work" (verified 2026-09-11; #731). The emitter applies the rule
-	// itself rather than this list, so a sixth spelling such as
-	// preToolUse still reaches crush.json, only without a validate
-	// entry to vouch for it.
-	"crush": setOf(
-		"PreToolUse", "pretooluse", "PRETOOLUSE",
-		"pre_tool_use", "PRE_TOOL_USE",
-	),
+	"crush": setOf(crush.HookEvents()...),
 	// The nine events docs.factory.com/harness/hooks' own Event
 	// reference table lists for Droid CLI's `.factory/hooks.json`
 	// (verified 2026-09-11; #629).
@@ -350,4 +337,16 @@ func projectKindSupport(cfg *config.Config) kindSupport {
 		}
 	}
 	return out
+}
+
+func knownHookEvent(targets []string, event string) bool {
+	for _, target := range targets {
+		if target == "crush" && crush.CanonicalHookEvent(event) != "" {
+			return true
+		}
+		if _, ok := hookEventsByTarget[target][event]; ok {
+			return true
+		}
+	}
+	return false
 }

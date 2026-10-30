@@ -388,6 +388,16 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 					delete(servers, name)
 					continue
 				}
+				if target == "gemini" {
+					record, _ := server.(map[string]any)
+					if field := geminiOAuthCredential(record["oauth"]); field != "" {
+						delete(servers, name)
+						if err := skip(target, name, "left out; "+field+" holds a literal credential; keep it in user configuration or write a reference"); err != nil {
+							return fmt.Errorf("write import warning: %w", err)
+						}
+						continue
+					}
+				}
 				if target == "pi" {
 					native[name] = piNative[name]
 				} else {
@@ -572,7 +582,10 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		}
 		// Gemini's httpUrl becomes url first, so the literal escaping
 		// below sees it.
-		if target == "gemini" || target == "qwen" {
+		switch target {
+		case "gemini":
+			normalizeGeminiMCP(server)
+		case "qwen":
 			normalizeGeminiTransport(server)
 		}
 		adapters.EscapeMCPLiterals(target, server)

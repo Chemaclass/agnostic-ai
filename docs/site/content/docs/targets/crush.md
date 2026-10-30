@@ -23,7 +23,7 @@ Set `outputs.crush.agents: skill` to write agents as on-demand skills; see [agen
 
 Select `crush` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-Crush has no native custom-agent profiles. Hooks support only `PreToolUse`.
+Crush has no native custom-agent profiles.
 
 For existing files, check [what `import crush` reads](#import) before syncing.
 
@@ -38,7 +38,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 ```
 AGENTS.md                          # entry-point pointer body + inlined rules (shared path)
 .agents/skills/<name>/SKILL.md     # one folder per skill (shared tree)
-crush.json                         # when MCP or PreToolUse hook entries exist (merged with existing user config)
+crush.json                         # when MCP or hook entries exist (merged with existing user config)
 .crushignore                       # project-root ignore patterns
 ```
 
@@ -103,12 +103,14 @@ x-crush:
 
 Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 
-- Crush supports only `PreToolUse` ([Crush hooks](https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md)). Other events get a sync note.
-- Sync accepts any case or snake_case spelling (`PreToolUse`, `pretooluse`, `pre_tool_use`, `PRE_TOOL_USE`, ...) and writes `PreToolUse`.
+- Crush v0.99.0 supports `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionResult`, `SessionStart`, `SessionEnd`, `TurnStart`, `TurnEnd`, `StopFailure`, `Interrupt`, `PreCompact`, and `PostCompact` ([Crush hooks](https://github.com/charmbracelet/crush/blob/v0.99.0/docs/hooks/README.md)). Unknown events get a sync note.
+- Sync accepts any case or snake_case spelling and writes the canonical event name, such as `session_start` to `SessionStart`.
 - Each hook is one flat array item (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` group. `command` is required. `timeout` is in seconds, default 30.
 - Crush runs a command as a script only when it starts with `./`, `../`, or `/`. A hook command that starts with a `.agnostic-ai/scripts/<name>` script, which sync copies, becomes `./.crush/hooks/<name>`. Other commands, such as `bin/guard` or `.crush/hooks/guard`, stay as written. Import keeps every command as written.
+- Matchers are accepted only for `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, and `PermissionResult`. Sync rejects a matcher on another event because Crush treats it as a configuration error.
+- `SessionStart` and permission events are observe-only. `SessionEnd` shares a two second budget across its hooks. Native event names do not imply the same control behavior as another tool.
 - Tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, for example `^bash$`). A Claude-style matcher (`Bash`, `Edit`) matches nothing, so `sync` prints a note that the field has no effect.
-- [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using Crush's embedded shell, event data, and timeout.
+- [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests `PreToolUse` before a session, using Crush's embedded shell, event data, and timeout. Other Crush events are not supported by that diagnostic.
 
 </details>
 
@@ -130,9 +132,11 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 | `AGENTS.md` embedded `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
 | `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
 | `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
-| `crush.json` `hooks.PreToolUse` | hook specs; a named entry's `name` becomes the spec's `name:` field and its filename, so a re-import gives the same path |
+| `crush.json` `hooks.<event>` | hook specs for each supported event; a unique safe name becomes the filename. Handlers with distinct labels or timeouts use separate spec names and `x-crush.name`, so native identities survive a round trip |
 | `.crushignore` | an ignore spec |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+Import leaves commands emitted by personal hook specs in the personal layer for every supported lifecycle event.
 
 Crush has no documented directory scope. Sync skips scoped rules, and import cannot recover scope from the merged instructions. See [scoped context](@/docs/scoped-context.md).
 

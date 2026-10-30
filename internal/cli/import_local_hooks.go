@@ -15,8 +15,7 @@ import (
 )
 
 // hookOwners indexes one layer's hook specs by what a target renders
-// from them. Native hook settings keep no spec name, so an imported
-// hook is matched on its event, matcher, and handler instead.
+// from them.
 type hookOwners struct {
 	entries []spec.Entry
 	cfg     *config.Config
@@ -61,6 +60,9 @@ func (l *hookOwners) owner(target, event, matcher, key string) string {
 				keys = syncedHookKeys(l.cfg, target, native)
 			} else {
 				keys = append(writtenHookKeys(native.Meta), writtenHookKeys(adapters.ResolveMeta(native.Meta, target))...)
+			}
+			if target == "crush" {
+				keys = crushHookOwnershipKeys(native, keys)
 			}
 			for _, k := range keys {
 				id := hookIdentity(hookEventKey(meta), k)
@@ -283,6 +285,9 @@ func (g *localImportGuard) ownsHookDoc(data []byte) bool {
 		views = append(views, syncedHookKeys(g.cfg, target, native))
 	}
 	for _, keys := range views {
+		if target == "crush" {
+			keys = crushHookOwnershipKeys(native, keys)
+		}
 		if len(keys) == 0 || slices.ContainsFunc(keys, func(k string) bool {
 			return g.hooks.owner(target, event, matcher, k) == "" && g.sharedHooks.owner(target, event, matcher, k) == ""
 		}) {

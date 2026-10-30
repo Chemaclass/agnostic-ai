@@ -358,9 +358,6 @@ func claimMemoryDirectories(sess *emit.Session, keys map[string]any, path string
 	context["includeDirectories"] = emit.ClaimedJSONItems(merged["includeDirectories"], claims["includeDirectories"])
 }
 
-// buildMCPServers renders Gemini-shaped MCP servers. Stdio specs emit
-// {command, args, env}; HTTP / SSE specs emit {httpUrl, headers} -
-// Gemini uses `httpUrl`, not the standard `url`.
 func buildMCPServers(mcps []spec.Entry) map[string]any {
 	out := map[string]any{}
 	for _, e := range mcps {
@@ -432,6 +429,10 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	}
 	if exclude := emit.StringSlice(e.Meta["excludeTools"]); len(exclude) > 0 {
 		out["excludeTools"] = exclude
+	}
+	native, _ := e.Meta["x-gemini"].(map[string]any)
+	if oauth, ok := native["oauth"].(map[string]any); ok {
+		out["oauth"] = oauth
 	}
 	return out
 }

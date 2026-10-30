@@ -236,7 +236,7 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 		if len(allowed) == 0 {
 			continue // no hook-aware target enabled; the orphan-kind lint covers this
 		}
-		if _, ok := allowed[event]; ok {
+		if knownHookEvent(targets, event) {
 			continue
 		}
 		if target, canonical, ok := hookEventAlias(targets, event); ok {

@@ -41,6 +41,16 @@
       }
     ]
   },
+  "mcpServers": {
+    "gemini-oauth": {
+      "httpUrl": "https://docs.example/mcp",
+      "oauth": {
+        "allowPrivateNetwork": true,
+        "authorizationResponseIssParameterSupported": false,
+        "enabled": true
+      }
+    }
+  },
   "model": {
     "name": "example-model"
   }

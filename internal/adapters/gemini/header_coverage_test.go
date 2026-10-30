@@ -117,6 +117,7 @@ func kitSinkBundle() spec.Bundle {
 				"type": "http", "url": "https://example.test/mcp",
 				"description":  "Remote MCP over HTTP",
 				"includeTools": []any{"read_file"}, "excludeTools": []any{"delete_file"},
+				"x-gemini": map[string]any{"oauth": map[string]any{"enabled": true, "allowPrivateNetwork": true, "authorizationResponseIssParameterSupported": false}},
 			},
 		},
 		{

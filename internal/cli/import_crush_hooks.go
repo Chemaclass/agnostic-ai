@@ -7,25 +7,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// crushPreToolUseEvent is the only hook event Crush's own runtime
-// consumes today (docs/hooks/README.md: "Crush currently supports
-// just one hook, PreToolUse"; re-verified 2026-09-10). Any other key
-// under crush.json's `hooks` map is a future-vendor reservation this
-// importer does not reach.
-const crushPreToolUseEvent = "PreToolUse"
-
-// crushHookEntry mirrors one flat object in crush.json's
-// `hooks.PreToolUse` array: `{"name": ..., "matcher": ..., "command":
-// ..., "timeout": ...}` (schema.json `$defs.HookConfig`; `command` is
-// the only required field). No Claude-style `{"matcher": ...,
-// "hooks": [...]}` grouping to unwrap, unlike windsurf's own hook
-// importer.
 type crushHookEntry struct {
 	Name    string `json:"name"`
 	Matcher string `json:"matcher"`
@@ -33,15 +22,6 @@ type crushHookEntry struct {
 	Timeout int    `json:"timeout"`
 }
 
-// importCrushHooks reads crush.json's `hooks.PreToolUse` array and
-// writes one yaml spec per entry into dstDir. No-op when the file, the
-// `hooks` key, or the `PreToolUse` key is absent.
-//
-// Crush's own `name` (the friendly TUI label) becomes both the spec's
-// `name:` field and, when present, the spec filename: a hook the user
-// named survives a re-import at the same path instead of drifting to a
-// new hash-derived one. An unnamed entry falls back to the same
-// deterministic `hookSpecName` every other hook importer uses.
 func importCrushHooks(root, dstDir string) (int, error) {
 	src := filepath.Join(root, crushMCPFile)
 	data, err := os.ReadFile(src)
@@ -58,44 +38,140 @@ func importCrushHooks(root, dstDir string) (int, error) {
 		return 0, fmt.Errorf("parse %s: %w", src, err)
 	}
 
-	count := 0
-	for _, h := range doc.Hooks[crushPreToolUseEvent] {
-		h.Command = adapters.StripHookTargetExport(h.Command, "crush")
-		if h.Command == "" {
+	names := map[string]int{}
+	for rawEvent, hooks := range doc.Hooks {
+		event := crush.CanonicalHookEvent(rawEvent)
+		if event == "" {
 			continue
 		}
-		name := strings.TrimSpace(h.Name)
-		fileName := crushHookFileName(name, h.Matcher, h.Command)
-		docMap := map[string]any{
-			"event":   crushPreToolUseEvent,
-			"command": h.Command,
-			"target":  "crush",
+		for _, h := range hooks {
+			if h.Matcher != "" && !crush.HookAcceptsMatcher(event) {
+				return 0, fmt.Errorf("parse %s: %s does not accept a matcher; remove matcher or use a tool event", src, event)
+			}
+			if name := strings.TrimSpace(h.Name); name != "" && h.Command != "" {
+				names[name]++
+			}
 		}
-		if name != "" {
-			docMap["name"] = name
+	}
+	count := 0
+	for _, rawEvent := range sortedHookEvents(doc.Hooks) {
+		event := crush.CanonicalHookEvent(rawEvent)
+		if event == "" {
+			continue
 		}
-		if h.Matcher != "" {
-			docMap["matcher"] = h.Matcher
+		for _, h := range doc.Hooks[rawEvent] {
+			h.Command = adapters.StripHookTargetExport(h.Command, "crush")
+			if h.Command == "" {
+				continue
+			}
+			h.Name = strings.TrimSpace(h.Name)
+			name := h.Name
+			fileName := hookSpecName(event, h.Matcher, []string{h.Command})
+			safeName := spec.ValidateName(spec.KindHook, name) == nil
+			if !matchingCrushHook(filepath.Join(dstDir, fileName+".yaml"), event, h) {
+				nameAvailable := false
+				personalName := importLocal != nil && importLocal.names[spec.KindHook][name]
+				if safeName && !personalName {
+					_, err := os.Stat(filepath.Join(dstDir, name+".yaml"))
+					nameAvailable = errors.Is(err, fs.ErrNotExist)
+				}
+				if safeName && !personalName && (names[name] == 1 && nameAvailable || matchingCrushHook(filepath.Join(dstDir, name+".yaml"), event, h)) {
+					fileName = name
+				} else if _, err := os.Stat(filepath.Join(dstDir, fileName+".yaml")); err == nil {
+					identity, err := json.Marshal(h)
+					if err != nil {
+						return count, fmt.Errorf("encode crush hook identity: %w", err)
+					}
+					fileName = hookSpecName(event, h.Matcher, []string{string(identity)})
+				}
+			}
+			path := filepath.Join(dstDir, fileName+".yaml")
+			if _, err := os.Stat(path); err == nil {
+				if !matchingCrushHook(path, event, h) {
+					return count, fmt.Errorf("%s: native hook identity conflicts with an existing spec; rename the native hook", path)
+				}
+			} else if !errors.Is(err, fs.ErrNotExist) {
+				return count, fmt.Errorf("%s: %w", path, err)
+			}
+			docMap := map[string]any{
+				"event":   event,
+				"command": h.Command,
+				"target":  "crush",
+			}
+			if name == "" {
+				docMap["x-crush"] = map[string]any{"name": ""}
+			} else {
+				docMap["name"] = name
+				if fileName != name && (safeName || names[name] > 1) {
+					docMap["name"] = fileName
+					docMap["x-crush"] = map[string]any{"name": name}
+				}
+			}
+			if h.Matcher != "" {
+				docMap["matcher"] = h.Matcher
+			}
+			if h.Timeout != 0 {
+				docMap["timeout"] = h.Timeout
+			}
+			if err := writeHookSpecFile(dstDir, fileName, docMap); err != nil {
+				return count, err
+			}
+			count++
 		}
-		if h.Timeout != 0 {
-			docMap["timeout"] = h.Timeout
-		}
-		if err := writeHookSpecFile(dstDir, fileName, docMap); err != nil {
-			return count, err
-		}
-		count++
 	}
 	return count, nil
 }
 
-// crushHookFileName returns the spec filename for one imported hook. A
-// Crush name is a free-form TUI label, not an identifier, so a label
-// that is not a single safe path segment (`../escape`) cannot be the
-// filename; those entries fall back to the deterministic name while the
-// label still reaches the spec's `name:` field.
-func crushHookFileName(name, matcher, command string) string {
-	if spec.ValidateName(spec.KindHook, name) == nil {
-		return name
+func matchingCrushHook(path, event string, hook crushHookEntry) bool {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return false
 	}
-	return hookSpecName(crushPreToolUseEvent, matcher, []string{command})
+	entry, err := spec.ParseYAMLBytes(spec.KindHook, raw)
+	if err != nil || !entry.EmitsTo("crush") {
+		return false
+	}
+	native, reason := entry.NativeHook("crush")
+	if reason != "" {
+		return false
+	}
+	declared := writtenHookKeys(adapters.TargetHook("crush", native).Meta)
+	for _, prior := range renderedCrushHooks(native)[event] {
+		if prior.Name == strings.TrimSpace(hook.Name) && prior.Timeout == hook.Timeout &&
+			prior.Matcher == hook.Matcher && (adapters.StripHookTargetExport(prior.Command, "crush") == hook.Command ||
+			slices.Contains(declared, hookCommandKey(hook.Command))) {
+			return true
+		}
+	}
+	return false
+}
+
+func crushHookOwnershipKeys(native spec.Entry, keys []string) []string {
+	for _, hooks := range renderedCrushHooks(native) {
+		if len(hooks) == 0 {
+			continue
+		}
+		identity := fmt.Sprintf("crush\x00%q\x00%d\x00", hooks[0].Name, hooks[0].Timeout)
+		owned := make([]string, len(keys))
+		for i, key := range keys {
+			owned[i] = identity + key
+		}
+		return owned
+	}
+	return nil
+}
+
+func renderedCrushHooks(native spec.Entry) map[string][]crushHookEntry {
+	defer adapters.SetAsideNotes()()
+	body, err := crush.HookDoc(adapters.TargetHook("crush", native))
+	if err != nil {
+		return nil
+	}
+	var doc struct {
+		Hooks map[string][]crushHookEntry `json:"hooks"`
+	}
+	if json.Unmarshal(body, &doc) != nil {
+		return nil
+	}
+	return doc.Hooks
 }

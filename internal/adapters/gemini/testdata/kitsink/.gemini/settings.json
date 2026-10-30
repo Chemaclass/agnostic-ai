@@ -54,7 +54,12 @@
       "httpUrl": "https://example.test/mcp",
       "includeTools": [
         "read_file"
-      ]
+      ],
+      "oauth": {
+        "allowPrivateNetwork": true,
+        "authorizationResponseIssParameterSupported": false,
+        "enabled": true
+      }
     },
     "stdio-server": {
       "args": [

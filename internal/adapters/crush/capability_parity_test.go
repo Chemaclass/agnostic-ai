@@ -78,14 +78,6 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 	}
 }
 
-// TestEmit_UnsupportedKindsWarn asserts ReportUnsupported fires for
-// every kind crush does not declare in caps.Supports (Agent, Command,
-// Settings). Hook is no longer in this list: it is declared in
-// caps.Supports as of #629, and its own coverage gap (a non-PreToolUse
-// event) is exercised separately in crush_test.go, not through this
-// capability-warning path. A future caps.Supports expansion needs to
-// delete the matching row here and demonstrate the emit path that
-// backs the new claim.
 func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCapabilityWarnings()

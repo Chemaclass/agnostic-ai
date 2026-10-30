@@ -1,0 +1,6 @@
+name: kimi-local
+targets: [kimi]
+command: example-mcp
+x-kimi:
+  executor: local
+  runtime_id: workspace

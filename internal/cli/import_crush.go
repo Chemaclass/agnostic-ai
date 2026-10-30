@@ -27,8 +27,8 @@ const (
 //     `type: http`, and `type: sse` entries all pass through verbatim
 //     via the shared JSON-map importer; user-managed keys (models,
 //     providers, lsp, options) are ignored.
-//   - `crush.json` (`hooks.PreToolUse` array) reconstructs hook specs,
-//     the only event Crush's own runtime consumes. See
+//   - `crush.json` (`hooks` lifecycle event arrays) reconstructs hook specs,
+//     preserving supported native lifecycle events. See
 //     import_crush_hooks.go.
 //
 // Lossy field: rules reach Crush only through the inlined block, which

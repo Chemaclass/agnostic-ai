@@ -283,7 +283,7 @@ A tool that lacks the input a flag needs is not run, and the other tools still r
 
 ### Crush sample events
 
-Only `PreToolUse` runs, and Crush has no prompt event. `--bash` calls `bash`; `--edit` calls `edit` or `write`. The matcher applies to the lowercase tool name; one that does not compile makes Crush skip the hook, and `hook run` reports it.
+`hook run` builds only `PreToolUse` and reports other Crush events as not run, so `--prompt` does not apply. `--bash` calls `bash`; `--edit` calls `edit` or `write`. The matcher applies to the lowercase tool name; one that does not compile makes Crush skip the hook, and `hook run` reports it.
 
 ### Factory sample events
 

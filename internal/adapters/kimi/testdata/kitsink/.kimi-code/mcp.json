@@ -12,6 +12,8 @@
         "server.js"
       ],
       "command": "node",
+      "executor": "local",
+      "runtime_id": "workspace",
       "transport": "stdio"
     }
   }

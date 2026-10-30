@@ -107,6 +107,9 @@ func importFromKimi(root string, src config.Sources, cfg *config.Config) error {
 	}
 	for name, raw := range servers {
 		server, _ := raw.(map[string]any)
+		if err := kimi.ValidateMCPExecutor(server); err != nil {
+			return fmt.Errorf("import Kimi MCP %s: %w", name, err)
+		}
 		if err := guardKimiCredentials("Kimi MCP "+name, server); err != nil {
 			return err
 		}

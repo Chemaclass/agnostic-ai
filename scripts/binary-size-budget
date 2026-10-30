@@ -697,4 +697,7 @@
 # #2805 adds responsive views, section tabs, and guarded permission saves.
 # Go 1.27.3 Linux amd64 release flags: 24285344, up 73728 from main
 # 53e9dc18 (24211616). Keep the existing 8192-byte build allowance.
-24293536
+# Target audit fixes for Crush lifecycle hooks, Kimi executor checks, Gemini
+# MCP OAuth, and the Vibe sampling default: 24301728 on Go 1.27.3 Linux
+# amd64 release flags, up 16384 from main c44ed244. Keep the 8192-byte allowance.
+24309920

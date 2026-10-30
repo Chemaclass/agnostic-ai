@@ -89,3 +89,24 @@ func TestHookRun_CrushHookThatCallsJqIsAssumed(t *testing.T) {
 		t.Errorf("a hook that runs jq from PATH is assumed and not counted: %+v", got)
 	}
 }
+
+func TestHookRun_CrushKeepsPreToolUseAliases(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	for _, event := range []string{"PreToolUse", "pretooluse", "PRETOOLUSE", "pre_tool_use", "PRE_TOOL_USE", "pRe_tOoL_uSe"} {
+		t.Run(event, func(t *testing.T) {
+			crushProject(t, "name: guard\nevent: "+event+"\nmatcher: ^bash$\ncommand: .agnostic-ai/scripts/guard.sh\n", crushGuardScript)
+			out, err := runHookRun(t, "guard", "--bash", "rm -rf /", "--expect", "block")
+			if err != nil || !strings.Contains(out, "crush: block (exit 2") {
+				t.Errorf("native alias %s did not reach the diagnostic: %v\n%s", event, err, out)
+			}
+		})
+	}
+}
+
+func TestHookRun_CrushLifecycleEventsRemainUnsupported(t *testing.T) {
+	crushProject(t, "name: guard\nevent: SessionStart\ncommand: echo should-not-run\n", "exit 0\n")
+	out, err := runHookRun(t, "guard", "--bash", "echo audit")
+	if err == nil || !strings.Contains(out, "hook run builds only Crush's PreToolUse payload") || strings.Contains(out, "stdout: should-not-run") {
+		t.Errorf("lifecycle event should remain outside the diagnostic: %v\n%s", err, out)
+	}
+}

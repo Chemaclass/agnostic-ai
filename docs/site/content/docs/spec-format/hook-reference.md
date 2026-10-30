@@ -226,7 +226,7 @@ Their docs do not show an edit's event data, so the command fails:
 
 - Windsurf, Trae, Copilot, Goose, Antigravity, OpenHands, Cline.
 - Kiro: a `PostFileSave` command can use its `filePath` template variable.
-- Crush: only `PreToolUse` runs, and it sets `CRUSH_TOOL_INPUT_FILE_PATH`.
+- Crush: tool events set `CRUSH_TOOL_INPUT_FILE_PATH`. See [native lifecycle events and matcher limits](@/docs/targets/crush.md#hooks).
 - OpenCode V1 and Kilo: plugins get tool arguments as JavaScript objects, not as event data on stdin. OpenCode V2 sends native event JSON, which this command does not read.
 - Zed: no hook fires on an edit.
 
