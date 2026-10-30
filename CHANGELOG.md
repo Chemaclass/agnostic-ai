@@ -14,6 +14,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
 
+#### Web interface
+
+- **Tools** previews and saves one native-only MCP server as a shared or personal spec, ready for the next sync (#2634).
+
 ### By tool
 
 #### Copilot

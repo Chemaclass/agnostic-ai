@@ -7,6 +7,7 @@ import { ContextUsage } from './ContextUsage'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { EditAudienceProvider, EditAudienceSwitch, useEditAudience, usePageAudience, type EditAudience } from './EditAudience'
 import { OpenInEditor } from './EditorLink'
+import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
@@ -47,7 +48,7 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
           <ConfiguredTools.Provider value={data.targets}>
-            <EditAudienceProvider key={section.id} enabled={section.id === 'settings'}>
+            <EditAudienceProvider key={`${data.snapshot.project.root}:${section.id}`} enabled={section.id === 'settings' || section.id === 'tools'}>
               <SectionContents section={section} />
             </EditAudienceProvider>
           </ConfiguredTools.Provider>
@@ -70,6 +71,23 @@ export function SectionContents({ section }: { section: Section }) {
 
 function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
   const app = useApp()
+  const root = useContext(ConfigurationRoot)
+  const noticeKey = `agnostic-ai.mcp-spec-saved:${root ?? ''}`
+  const [mcpSaved, setMCPSaved] = useState<MCPSpecSaved | undefined>(() => {
+    try {
+      const value: unknown = JSON.parse(sessionStorage.getItem(noticeKey) ?? 'null')
+      if (value && typeof value === 'object' && 'file' in value && typeof value.file === 'string' && 'syncCommand' in value && typeof value.syncCommand === 'string') return { file: value.file, syncCommand: value.syncCommand }
+    } catch { /* A saved notice is optional. */ }
+    return undefined
+  })
+  const saveMCPNotice = (saved?: MCPSpecSaved) => {
+    setMCPSaved(saved)
+    try {
+      if (saved) sessionStorage.setItem(noticeKey, JSON.stringify(saved))
+      else sessionStorage.removeItem(noticeKey)
+    } catch { /* Keep the notice until this page reloads. */ }
+    if (saved) app.reload(true)
+  }
   const search = app.state.q ?? ''
   const setSearch = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
   const entry = app.state.entry
@@ -169,7 +187,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           </section>
         )
       })}
-      {section.native && section.native.length > 0 && <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} />}
+      {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
+      {section.native && section.native.length > 0 && <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />}
       {section.id === 'context' && <ContextUsage />}
       {errors === 0 && otherFindings}
       </RecheckSectionEntries.Provider>
@@ -589,7 +608,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
 }
 
 /** MCP servers a tool holds in its own config file that no spec covers. */
-function NativeServers({ servers, matches, filtering }: { servers: NativeServer[]; matches: (parts: (string | undefined)[]) => boolean; filtering: boolean }) {
+function NativeServers({ servers, matches, filtering, onSaved }: { servers: NativeServer[]; matches: (parts: (string | undefined)[]) => boolean; filtering: boolean; onSaved: (saved: MCPSpecSaved) => void }) {
   const visible = servers.filter((s) => matches([s.name, ...s.holders.flatMap((h) => [h.label, h.path, h.transport])]))
   return (
     <section className="block" aria-labelledby="tools-native">
@@ -621,6 +640,7 @@ function NativeServers({ servers, matches, filtering }: { servers: NativeServer[
                     Run <Code>{s.import}</Code> to make it a spec.
                   </p>
                 )}
+                <MCPSpecAction server={s} onSaved={onSaved} />
               </li>
             )
           })}

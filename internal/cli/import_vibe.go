@@ -195,11 +195,27 @@ func importVibeMCPRecords(records []map[string]any, dst string) error {
 	if err := importMkdirAll(dst, 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", dst, err)
 	}
+	servers, err := vibeMCPDocs(records)
+	if err != nil {
+		return err
+	}
+	normalized, _ := jsonRoundTrip(servers).(map[string]any)
+	for name, raw := range normalized {
+		server, _ := raw.(map[string]any)
+		if err := guardVibeCredentials("vibe MCP "+name, server); err != nil {
+			return err
+		}
+		adapters.EscapeMCPLiterals("vibe", server)
+	}
+	_, err = writeMCPSpecs(normalized, dst)
+	return err
+}
+func vibeMCPDocs(records []map[string]any) (map[string]any, error) {
 	servers := map[string]any{}
 	for _, r := range records {
 		name, _ := r["name"].(string)
 		if name == "" {
-			return fmt.Errorf("vibe MCP import: missing server name")
+			return nil, fmt.Errorf("vibe MCP import: missing server name")
 		}
 		rest := maps.Clone(r)
 		delete(rest, "name")
@@ -210,7 +226,7 @@ func importVibeMCPRecords(records []map[string]any, dst string) error {
 		case nil, "stdio":
 			meta["type"] = "stdio"
 		default:
-			return fmt.Errorf("vibe MCP %s: unsupported transport %v", name, rest["transport"])
+			return nil, fmt.Errorf("vibe MCP %s: unsupported transport %v", name, rest["transport"])
 		}
 		delete(rest, "transport")
 		for _, key := range []string{"args", "env", "cwd", "url", "disabled"} {
@@ -240,17 +256,9 @@ func importVibeMCPRecords(records []map[string]any, dst string) error {
 		}
 		servers[name] = meta
 	}
-	normalized, _ := jsonRoundTrip(servers).(map[string]any)
-	for name, raw := range normalized {
-		server, _ := raw.(map[string]any)
-		if err := guardVibeCredentials("vibe MCP "+name, server); err != nil {
-			return err
-		}
-		adapters.EscapeMCPLiterals("vibe", server)
-	}
-	_, err := writeMCPSpecs(normalized, dst)
-	return err
+	return servers, nil
 }
+
 func nativeTOMLRecords(path, key string, value any) ([]map[string]any, error) {
 	if value == nil {
 		return nil, nil

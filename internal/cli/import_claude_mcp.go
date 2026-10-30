@@ -28,17 +28,24 @@ func importClaudeMCPWithSettings(root, dstDir, settingsDir string) (int, error) 
 	if err != nil || len(servers) == 0 {
 		return 0, err
 	}
+	if err := applyClaudeMCPDisabled(root, settingsDir, servers); err != nil {
+		return 0, err
+	}
+	return writeMCPYAMLs("claude", servers, dstDir)
+}
+
+func applyClaudeMCPDisabled(root, settingsDir string, servers map[string]any) error {
 	path := filepath.Join(root, settingsDir, "settings.json")
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return 0, fmt.Errorf("read %s: %w", path, err)
+		return fmt.Errorf("read %s: %w", path, err)
 	}
 	if err == nil {
 		var settings struct {
 			Disabled []string `json:"disabledMcpjsonServers"`
 		}
 		if err := json.Unmarshal(data, &settings); err != nil {
-			return 0, fmt.Errorf("parse %s: %w", path, err)
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		for _, name := range settings.Disabled {
 			if server, ok := servers[name].(map[string]any); ok {
@@ -46,5 +53,5 @@ func importClaudeMCPWithSettings(root, dstDir, settingsDir string) (int, error) 
 			}
 		}
 	}
-	return writeMCPYAMLs("claude", servers, dstDir)
+	return nil
 }

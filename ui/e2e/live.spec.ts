@@ -420,6 +420,90 @@ test('live global Tools lists a server held only in ~/.claude.json and none of i
   }
 })
 
+test('live global Tools makes one native server a spec and refuses credentials it cannot rewrite', async ({ page }) => {
+  const f = await fixture(true)
+  const token = 'ghp_live_spec_token_123456789'
+  const claudeJSON = join(f.userHome, '.claude.json')
+  const bytes = JSON.stringify({ mcpServers: {
+    notion: { type: 'http', url: 'https://mcp.notion.com/mcp' },
+    github: { command: 'github-mcp', env: { GITHUB_TOKEN: token } },
+    private: { command: 'sh', args: ['-c', `exec npx mcp-remote https://x.example/mcp?token='${token}'`] },
+  } })
+  try {
+    await writeFile(claudeJSON, bytes, { mode: 0o600 })
+    await page.goto(`${f.url}?view=tools`)
+    const block = page.getByRole('region', { name: /Found in a tool's own config/ })
+    const notion = block.locator('.item-row', { hasText: 'notion' })
+    await notion.getByRole('button', { name: 'Make it a spec' }).click()
+    const preview = notion.getByRole('region', { name: 'notion spec preview' })
+    await expect(preview).toContainText('mcps/notion.yaml')
+    await expect(preview).toContainText('url: https://mcp.notion.com/mcp')
+    await expect(preview).toContainText('After sync, this server reaches')
+    await expect(readFile(join(f.root, 'mcps', 'notion.yaml'))).rejects.toThrow()
+    await preview.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(notion).toHaveCount(0)
+    await expect(page.getByRole('region', { name: /^MCP servers/ }).locator('.item-row', { hasText: 'notion' })).toBeVisible()
+    const saved = await readFile(join(f.root, 'mcps', 'notion.yaml'), 'utf8')
+    expect(saved).toContain('url: https://mcp.notion.com/mcp')
+    expect(saved).toContain('type: http')
+    expect(saved).not.toContain('command:')
+    await page.reload()
+    await expect(page.getByRole('status').filter({ hasText: 'Saved mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync --global')
+
+    const github = block.locator('.item-row', { hasText: 'github' })
+    await github.getByRole('button', { name: 'Make it a spec' }).click()
+    const githubPreview = github.getByRole('region', { name: 'github spec preview' })
+    await expect(githubPreview).toContainText('GITHUB_TOKEN: ${GITHUB_TOKEN}')
+    await expect(githubPreview).toContainText('Set these environment variables before syncing: GITHUB_TOKEN')
+    expect(await githubPreview.innerText()).not.toContain(token)
+    await githubPreview.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(github).toHaveCount(0)
+    const githubSpec = await readFile(join(f.root, 'mcps', 'github.yaml'), 'utf8')
+    expect(githubSpec).toContain('${GITHUB_TOKEN}')
+    expect(githubSpec).not.toContain(token)
+
+    const privateRow = block.locator('.item-row', { hasText: 'private' })
+    await privateRow.getByRole('button', { name: 'Make it a spec' }).click()
+    await expect(privateRow.getByRole('alert')).toContainText('credential import cannot rewrite')
+    await expect(privateRow.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0)
+    await expect(readFile(join(f.root, 'mcps', 'private.yaml'))).rejects.toThrow()
+    expect(await page.locator('body').innerText()).not.toContain(token)
+    expect(await readFile(claudeJSON, 'utf8')).toBe(bytes)
+    expect((await stat(claudeJSON)).mode & 0o777).toBe(0o600)
+    const dryRun = await run(binary, ['sync', '--global', '--dry-run'], { cwd: f.root, env: f.env })
+    expect(dryRun.stdout).toContain('notion')
+    expect(await readFile(claudeJSON, 'utf8')).toBe(bytes)
+  } finally {
+    await f.close()
+  }
+})
+
+test('live project Tools writes a personal MCP spec and preserves native files', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  const native = join(f.root, '.mcp.json')
+  try {
+    const before = await readFile(native, 'utf8')
+    const contents = JSON.parse(before)
+    contents.mcpServers.notion = { type: 'http', url: 'https://mcp.notion.com/mcp' }
+    const bytes = JSON.stringify(contents)
+    await writeFile(native, bytes)
+    await page.goto(`${f.url}?view=tools`)
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    const row = page.getByRole('region', { name: /Found in a tool's own config/ }).locator('.item-row', { hasText: 'notion' })
+    await row.getByRole('button', { name: 'Make it a spec' }).click()
+    const preview = row.getByRole('region', { name: 'notion spec preview' })
+    await expect(preview).toContainText('.agnostic-ai/local/mcps/notion.yaml')
+    await expect(preview).toContainText('for you only')
+    await preview.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(row).toHaveCount(0)
+    expect(await readFile(join(f.root, '.agnostic-ai', 'local', 'mcps', 'notion.yaml'), 'utf8')).toContain('type: http')
+    expect(await readFile(native, 'utf8')).toBe(bytes)
+    await run('git', ['check-ignore', '-q', '.agnostic-ai/local/mcps/notion.yaml'], { cwd: f.root, env: f.env })
+  } finally {
+    await f.close()
+  }
+})
+
 test('the development proxy preserves real API edits with an explicitly allowed origin', async ({ page, request }) => {
   const port = await availablePort()
   const origin = `http://127.0.0.1:${port}`

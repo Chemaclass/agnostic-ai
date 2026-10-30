@@ -327,10 +327,14 @@ func importWindsurfMCP(root, dstDir string) (int, error) {
 		if !ok {
 			continue
 		}
-		if transport, ok := entry["transport"]; ok {
-			entry["type"] = transport
-			delete(entry, "transport")
-		}
+		normalizeWindsurfMCPEntry(entry)
 	}
 	return writeMCPYAMLs("windsurf", servers, dstDir)
+}
+
+func normalizeWindsurfMCPEntry(entry map[string]any) {
+	if transport, ok := entry["transport"]; ok {
+		entry["type"] = transport
+		delete(entry, "transport")
+	}
 }

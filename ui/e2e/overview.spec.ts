@@ -609,11 +609,68 @@ test.describe('overview', () => {
     await expect(row).toContainText('~/.claude.json')
     await expect(row).toContainText('http')
     await expect(row.locator('.tool-state')).toContainText('Run agnostic-ai import --global claude to make it a spec.')
+    await expect(row.getByRole('button', { name: 'Make it a spec' })).toHaveCount(0)
     await page.getByRole('searchbox').fill('notion')
     await expect(block.locator('.kind-count')).toHaveText('1 of 1 match')
     await page.getByRole('searchbox').fill('github')
     await expect(block.locator('.kind-count')).toHaveText('0 of 1 match')
     await expect(block).toContainText('No matches.')
+  })
+
+  test('previews one native server and saves the reviewed spec', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const tools = data.sections.find((section: { id: string }) => section.id === 'tools')!
+    const native = tools.native![0]
+    const calls: Record<string, unknown>[] = []
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.route('**/api/edit/mcp', async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>
+      calls.push(body)
+      if (body.action === 'apply') tools.native = []
+      await route.fulfill({ json: { file: '.agnostic-ai/mcps/notion.yaml', spec: 'name: notion\ntype: http\nurl: https://mcp.notion.com/mcp\n', variables: [], targets: ['claude', 'codex'], syncCommand: 'agnostic-ai sync', expected: 'reviewed-server' } })
+    })
+    await page.goto('./?view=tools')
+    const row = page.getByRole('region', { name: /Found in a tool's own config/ }).locator('.item-row', { hasText: native.name })
+    await row.getByRole('button', { name: 'Make it a spec' }).click()
+    const preview = row.getByRole('region', { name: `${native.name} spec preview` })
+    await expect(preview).toContainText('.agnostic-ai/mcps/notion.yaml')
+    await expect(preview).toContainText('After sync, this server reaches')
+    await preview.scrollIntoViewIfNeeded()
+    await saveScreenshot(page, 'mcp-spec-preview-desktop.png')
+    await page.setViewportSize({ width: 390, height: 844 })
+    await preview.scrollIntoViewIfNeeded()
+    await expect(preview.getByRole('button', { name: 'Apply', exact: true })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await saveScreenshot(page, 'mcp-spec-preview-mobile.png')
+    await preview.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync')
+    await expect(row).toHaveCount(0)
+    expect(calls).toEqual([
+      { action: 'preview', audience: 'shared', name: native.name, target: native.holders[0].target, path: native.holders[0].path, scope: native.holders[0].scope },
+      { action: 'apply', audience: 'shared', name: native.name, target: native.holders[0].target, path: native.holders[0].path, scope: native.holders[0].scope, expected: 'reviewed-server' },
+    ])
+    await page.reload()
+    await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync')
+  })
+
+  test('drops a native server preview when its audience changes and shows import refusals', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.route('**/api/edit/mcp', async (route) => {
+      if (route.request().postDataJSON().audience === 'personal') {
+        await route.fulfill({ status: 422, json: { error: 'args holds a credential import cannot rewrite; write a ${NAME} reference by hand' } })
+        return
+      }
+      await route.fulfill({ json: { file: '.agnostic-ai/mcps/notion.yaml', spec: 'name: notion\n', variables: [], targets: ['claude'], syncCommand: 'agnostic-ai sync', expected: 'reviewed-server' } })
+    })
+    await page.goto('./?view=tools')
+    const row = page.getByRole('region', { name: /Found in a tool's own config/ }).locator('.item-row', { hasText: 'notion' })
+    await row.getByRole('button', { name: 'Make it a spec' }).click()
+    await expect(row.getByRole('region', { name: 'notion spec preview' })).toBeVisible()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    await expect(row.getByRole('region', { name: 'notion spec preview' })).toHaveCount(0)
+    await row.getByRole('button', { name: 'Make it a spec' }).click()
+    await expect(row.getByRole('alert')).toContainText('args holds a credential import cannot rewrite')
+    await expect(row.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0)
   })
 
   test('keeps the header and navigation in place while the content scrolls', async ({ page }) => {

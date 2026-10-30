@@ -64,7 +64,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [What you can share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when): rules, skills, agents, hooks, MCP servers, settings, and memory.
 - [Supported tools](https://agnostic-ai.org/docs/targets/): what each tool receives, and where.
 - [Inspect lifecycle hooks](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): scan stage counts, then expand a stage or all stages to see hooks.
-- [Find MCP servers only one tool has](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): **Tools** lists servers a tool keeps in its own config, with the `import` command that makes each a spec.
+- [Share an MCP server only one tool has](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): **Tools** previews and saves one server as a spec, ready for your next sync.
 - [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` finds its source even when an unselected tool rejects your setup.
 - [Inspect settings in the browser](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): **What each tool gets** follows project sync or `sync --global`, according to the page's scope. The sidebar shows generated-file status under **Configured tools**.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails.
