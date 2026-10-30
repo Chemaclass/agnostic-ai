@@ -88,6 +88,38 @@ func TestEmit_SkillsOutsidePluginTree_WritesNoManifest(t *testing.T) {
 	}
 }
 
+func TestEmit_SkillsInPluginTree_KeepsUnownedManifest(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	prev := emit.Warner
+	var notes strings.Builder
+	emit.Warner = &notes
+	t.Cleanup(func() { emit.Warner = prev; emit.ResetCoverageNotes() })
+	path := filepath.Join(dir, ".agents/plugins/agnostic-ai/plugin.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	want := "{\n  \"name\": \"custom\", \"version\": \"2.0.0\"\n}\n"
+	if err := os.WriteFile(path, []byte(want), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries := []spec.Entry{{Kind: spec.KindSkill, Name: "review", Body: "Review the diff."}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), pluginSkillsConfig(), false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Errorf("unowned manifest changed: %s", got)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(notes.String(), ".agents/plugins/agnostic-ai/plugin.json") || !strings.Contains(notes.String(), "kept") {
+		t.Errorf("missing preservation note: %s", &notes)
+	}
+}
+
 // Goose loads a plugin's skills from its `skills/` component directory.
 // A skills dir under the plugin root but outside that component is not
 // a plugin component, so no manifest claims it as one.

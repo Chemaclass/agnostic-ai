@@ -1,6 +1,7 @@
 package antigravity
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // A plugin directory is only a plugin once it carries a manifest:
@@ -49,13 +51,12 @@ func TestEmit_NoManifestOutsideThePluginsRoot(t *testing.T) {
 	}
 }
 
-// A path inside a component is not itself a component, and a name the
-// vendor does not document is not one either.
-func TestPluginRoots_OnlyExactDocumentedComponents(t *testing.T) {
+func TestPluginRoots_OnlyExactSupportedComponents(t *testing.T) {
 	cases := map[string]string{
 		".agents/plugins/team/skills":          ".agents/plugins/team",
-		".agents/plugins/team/mcp_config.json": ".agents/plugins/team",
+		".agents/plugins/team/mcp.json":        ".agents/plugins/team",
 		".agents/plugins/team/hooks.json":      ".agents/plugins/team",
+		".agents/plugins/team/mcp_config.json": ".agents/plugins/team",
 		".agents/plugins/team/skills/extra":    "",
 		".agents/plugins/team/notes":           "",
 		".agents/plugins/team":                 "",
@@ -65,6 +66,61 @@ func TestPluginRoots_OnlyExactDocumentedComponents(t *testing.T) {
 		if got := pluginRoots(in)[0]; got != want {
 			t.Errorf("pluginRoots(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestEmit_LegacyPluginMCPKeepsManifestAndNotesMove(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	notes := swapNoteWarner(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{target: {
+		MCPFile: ".agents/plugins/team/mcp_config.json",
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(mcpGoldenEntries()), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(dir, ".agents/plugins/team/plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"name": "team"`) {
+		t.Errorf("unexpected manifest: %s", body)
+	}
+	emit.FlushCoverageNotes()
+	for _, want := range []string{"Antigravity documents plugin MCP in mcp.json", "outputs.antigravity.mcp-file", ".agents/plugins/team/mcp.json"} {
+		if !strings.Contains(notes.String(), want) {
+			t.Errorf("missing %q in notes: %s", want, notes)
+		}
+	}
+}
+
+func TestEmit_PluginMCPKeepsUnownedManifest(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	notes := swapNoteWarner(t)
+	path := filepath.Join(dir, ".agents/plugins/team/plugin.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{\n  \"name\": \"custom\", \"version\": \"2.0.0\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Outputs: map[string]config.Output{target: {MCPFile: ".agents/plugins/team/mcp.json"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(mcpGoldenEntries()), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("unowned manifest changed: %s", got)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(notes.String(), ".agents/plugins/team/plugin.json") || !strings.Contains(notes.String(), "kept") {
+		t.Errorf("missing preservation note: %s", notes)
 	}
 }
 

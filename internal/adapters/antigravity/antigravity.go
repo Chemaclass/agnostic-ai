@@ -272,9 +272,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		}
 	}
 
-	if err := emitMCP(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun); err != nil {
+	mcpFile := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	if err := emitMCP(sess, b.MCPs, mcpFile, dryRun); err != nil {
 		return err
 	}
+	noteLegacyPluginMCP(mcpFile)
 
 	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
@@ -282,7 +284,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 	if err := emit.WritePluginManifests(sess, pluginRoots(
 		rulesDir, agentsDir, skillsDir,
-		emit.OutputMCPFile(cfg, target, defaultMCPFile),
+		mcpFile,
 		emit.OutputHooksFile(cfg, target, defaultHooksFile),
 	), dryRun); err != nil {
 		return err

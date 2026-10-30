@@ -68,6 +68,8 @@ A skills directory inside a plugin folder but outside its `skills/` folder is no
 
 </details>
 
+Sync keeps an existing `plugin.json` it did not write and prints a note. Manifests recorded by an earlier sync remain managed.
+
 </details>
 
 ## Config keys
