@@ -142,7 +142,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 		original, recorded := originals[key]
 		if slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key }) {
 			if !recorded && slices.Contains(personal, key) {
-				original, recorded = captureSettingOriginal(data, values, key, format), true
+				original, recorded = captureSettingOriginal(data, values, key, format, parents.created), true
 			}
 			if recorded {
 				next[key] = original
@@ -194,12 +194,12 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 
 // captureSettingOriginal records what key holds in data: its exact bytes
 // in a JSON file, its value as JSON otherwise, and every empty object
-// above it.
-func captureSettingOriginal(data []byte, values map[string]any, key, format string) globalSettingOriginal {
+// above it that sync did not create.
+func captureSettingOriginal(data []byte, values map[string]any, key, format string, createdParents []string) globalSettingOriginal {
 	original := globalSettingOriginal{EmptyParents: map[string]string{}}
 	if format == "json" {
 		for _, parent := range jsonParentKeys(key) {
-			if open, closing, count, present := jsonContainerSpan(string(data), parent); present && count == 0 && data[open] == '{' {
+			if open, closing, count, present := jsonContainerSpan(string(data), parent); present && count == 0 && data[open] == '{' && !slices.Contains(createdParents, parent) {
 				original.EmptyParents[parent] = string(data[open : closing+1])
 			}
 		}
