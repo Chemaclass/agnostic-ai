@@ -60,7 +60,7 @@ func TestUpgradeRequires_UsesInstalledVersionAndPreservesConfig(t *testing.T) {
 }
 
 func TestUpgradeRequires_ReconcilesLocalOverrides(t *testing.T) {
-	for _, value := range []string{"\"0.76.0\"", "null", "\"\""} {
+	for value, want := range map[string]string{"\"0.76.0\"": "0.77.0", "null": ">=0.77.0", "\"\"": ">=0.77.0"} {
 		t.Run(value, func(t *testing.T) {
 			requiresProject(t, "0.75.0")
 			local := "# Personal budget.\n# yaml-language-server: $schema=" + schemaURL("0.76.0") + "\nrequires: " + value + " # Local override.\nlint:\n  instructions-words: 1234\n"
@@ -73,8 +73,8 @@ func TestUpgradeRequires_ReconcilesLocalOverrides(t *testing.T) {
 			if err != nil {
 				t.Fatalf("load reconciled config: %v", err)
 			}
-			if cfg.Requires != "0.77.0" {
-				t.Errorf("effective requires = %q, want 0.77.0", cfg.Requires)
+			if cfg.Requires != want {
+				t.Errorf("effective requires = %q, want %q", cfg.Requires, want)
 			}
 			got := string(readUpgradeRequiresFile(t, config.LocalOverrideFileName))
 			for _, keep := range []string{"# Personal budget.", "# Local override.", "instructions-words: 1234", schemaURL("0.77.0")} {
@@ -86,6 +86,61 @@ func TestUpgradeRequires_ReconcilesLocalOverrides(t *testing.T) {
 				t.Errorf("local override prevented sync: %s", got)
 			}
 		})
+	}
+}
+
+func TestUpgradeRequires_KeepsAMinimum(t *testing.T) {
+	requiresProject(t, "0.76.0")
+	initial := "# yaml-language-server: $schema=" + schemaURL("0.76.0") + "\nversion: 1\ntargets: [claude]\nrequires: \">=0.76.0\" # Any later release.\n"
+	mustWriteFile(t, config.ConfigFileName, initial)
+	if err := executeUpgradeRequiresForTest(t, "v0.77.0"); err != nil {
+		t.Fatalf("upgrade --requires: %v", err)
+	}
+	if got, want := string(readUpgradeRequiresFile(t, config.ConfigFileName)), strings.ReplaceAll(initial, "0.76.0", "0.77.0"); got != want {
+		t.Errorf("config changed beyond the minimum and schema:\n got %s\nwant %s", got, want)
+	}
+	if got := string(readUpgradeRequiresFile(t, filepath.Join(".claude", "rules", "safe.md"))); !strings.Contains(got, "Be safe.") {
+		t.Errorf("project was not synced: %s", got)
+	}
+}
+
+func TestUpgradeRequires_AddsAMinimumWhenRequiresIsMissing(t *testing.T) {
+	requiresProject(t, "0.76.0")
+	mustWriteFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	if err := executeUpgradeRequiresForTest(t, "v0.77.0"); err != nil {
+		t.Fatalf("upgrade --requires: %v", err)
+	}
+	cfg, err := config.Load(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Requires != ">=0.77.0" {
+		t.Errorf("requires = %q, want >=0.77.0", cfg.Requires)
+	}
+}
+
+func TestUpgradeRequires_NamesARangeItTurnsIntoAMinimum(t *testing.T) {
+	requiresProject(t, "0.76.0")
+	mustWriteFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\nrequires: \">=0.76.0 <0.77.0\"\n")
+	setRunningVersion(t, "v0.77.0")
+	log := captureLogOut(t)
+	root := NewRootCmd("9.9.9")
+	root.SetArgs([]string{"upgrade", "--requires"})
+	root.SetIn(strings.NewReader(""))
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Requires != ">=0.77.0" {
+		t.Errorf("requires = %q, want >=0.77.0", cfg.Requires)
+	}
+	if want := `requires ">=0.76.0 <0.77.0" became ">=0.77.0"`; !strings.Contains(log.String(), want) {
+		t.Errorf("upgrade --requires must name the dropped range %q:\n%s", want, log)
 	}
 }
 

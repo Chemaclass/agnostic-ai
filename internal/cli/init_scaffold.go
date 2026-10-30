@@ -17,11 +17,15 @@ import (
 // with paths nested under it; base="." writes paths at the project
 // root. gitignoreEnabled adds `gitignore: { enabled: true }` so `sync`
 // writes the managed block listing every adapter-emitted path. version
-// pins the schema comment to that release.
+// pins the schema comment to that release and, for a stable release,
+// requires that release or a later one.
 func renderConfig(base string, targets []string, gitignoreEnabled bool, version string, memoryEnabled bool) string {
 	var sb strings.Builder
 	sb.WriteString("# yaml-language-server: $schema=" + schemaURL(version) + "\n")
 	sb.WriteString("version: 1\n")
+	if release, ok := stableReleaseVersion(version); ok {
+		sb.WriteString("requires: \"" + config.AdoptRequirement("", release) + "\"\n")
+	}
 	if memoryEnabled {
 		sb.WriteString("builtins: [handoff, memory]\n")
 	} else {

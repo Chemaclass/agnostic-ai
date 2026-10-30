@@ -15,16 +15,31 @@ import (
 )
 
 type requiresEdit struct {
-	path, target  string
+	change        RequiresChange
+	target        string
 	before, after []byte
 	mode          fs.FileMode
 }
 
-func PersistRequires(root, version, schema string) ([]string, error) {
+// RequiresChange is a config file PersistRequires rewrote, with its
+// requires value before and after. Both are empty when the file sets no
+// requires and only its schema URL changed.
+type RequiresChange struct {
+	Path, From, To string
+}
+
+// Collapsed reports whether adopting the release replaced a range with
+// a minimum, dropping a bound the user wrote.
+func (c RequiresChange) Collapsed() bool {
+	req, err := ParseRequirement(c.From)
+	return err == nil && !req.keepsForm()
+}
+
+func PersistRequires(root, version, schema string) ([]RequiresChange, error) {
 	return persistRequiresWith(root, version, schema, writeRequiresFile)
 }
 
-func persistRequiresWith(root, version, schema string, write func(string, []byte, fs.FileMode) error) ([]string, error) {
+func persistRequiresWith(root, version, schema string, write func(string, []byte, fs.FileMode) error) ([]RequiresChange, error) {
 	base, _, err := ResolveConfigPath(root)
 	if err != nil {
 		return nil, err
@@ -60,29 +75,39 @@ func persistRequiresWith(root, version, schema string, write func(string, []byte
 		for _, prior := range edits {
 			priorInfo, err := os.Stat(prior.target)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", prior.path, err)
+				return nil, fmt.Errorf("%s: %w", prior.change.Path, err)
 			}
 			if os.SameFile(priorInfo, info) {
-				return nil, fmt.Errorf("%s: shares a config target with %s", path, prior.path)
+				return nil, fmt.Errorf("%s: shares a config target with %s", path, prior.change.Path)
 			}
 		}
-		edits = append(edits, requiresEdit{path: path, target: target, before: data, after: out, mode: info.Mode().Perm()})
+		edits = append(edits, requiresEdit{change: RequiresChange{Path: path, From: requiresValue(data), To: requiresValue(out)}, target: target, before: data, after: out, mode: info.Mode().Perm()})
 	}
-	var changed []string
+	var changed []RequiresChange
 	for i, edit := range edits {
 		if err := write(edit.target, edit.after, edit.mode); err != nil {
-			failure := fmt.Errorf("persist %s: %w", edit.path, err)
+			failure := fmt.Errorf("persist %s: %w", edit.change.Path, err)
 			for j := i - 1; j >= 0; j-- {
 				prior := edits[j]
 				if err := write(prior.target, prior.before, prior.mode); err != nil {
-					failure = errors.Join(failure, fmt.Errorf("restore %s: %w", prior.path, err))
+					failure = errors.Join(failure, fmt.Errorf("restore %s: %w", prior.change.Path, err))
 				}
 			}
 			return nil, failure
 		}
-		changed = append(changed, edit.path)
+		changed = append(changed, edit.change)
 	}
 	return changed, nil
+}
+
+// requiresValue is the requires value a config rewriteRequires accepted
+// sets, or empty when it sets none.
+func requiresValue(data []byte) string {
+	var cfg struct {
+		Requires string `yaml:"requires"`
+	}
+	_ = yaml.Unmarshal(data, &cfg)
+	return cfg.Requires
 }
 
 var requiresLine = regexp.MustCompile(`^([ \t]*(?:requires|"requires"|'requires')[ \t]*:[ \t]*)(.*)$`)
@@ -138,6 +163,7 @@ func rewriteRequires(data []byte, version, schema string, base bool) ([]byte, er
 		newline = "\r\n"
 	}
 	lines := strings.Split(string(data), "\n")
+	adopted := AdoptRequirement("", version)
 	if key != nil {
 		if value.Kind != yaml.ScalarNode || value.Anchor != "" || key.Anchor != "" || value.Style&(yaml.LiteralStyle|yaml.FoldedStyle) != 0 {
 			return nil, errors.New("cannot safely update an anchored or non-scalar requires value")
@@ -161,10 +187,16 @@ func rewriteRequires(data []byte, version, schema string, base bool) ([]byte, er
 		}
 		if value.Tag == "!!null" {
 			quote = '"'
+		} else {
+			adopted = AdoptRequirement(value.Value, version)
 		}
-		replacement := version
+		if quote == 0 && strings.HasPrefix(adopted, ">") {
+			// A plain scalar starting with > is a folded block in YAML.
+			quote = '"'
+		}
+		replacement := adopted
 		if quote != 0 {
-			replacement = string(quote) + version + string(quote)
+			replacement = string(quote) + adopted + string(quote)
 		}
 		if start > 0 && line[start-1] == ':' {
 			replacement = " " + replacement
@@ -178,7 +210,7 @@ func rewriteRequires(data []byte, version, schema string, base bool) ([]byte, er
 		if index < 0 || index >= len(lines) {
 			return nil, errors.New("cannot safely update this config newline style")
 		}
-		addition := "requires: \"" + version + "\"" + strings.TrimSuffix(newline, "\n")
+		addition := "requires: \"" + adopted + "\"" + strings.TrimSuffix(newline, "\n")
 		lines = append(lines[:index], append([]string{addition}, lines[index:]...)...)
 	}
 	out := rewriteRequiresSchema([]byte(strings.Join(lines, "\n")), schema, base)
@@ -188,8 +220,8 @@ func rewriteRequires(data []byte, version, schema string, base bool) ([]byte, er
 	if err := yaml.Unmarshal(out, &checked); err != nil {
 		return nil, fmt.Errorf("parse rewritten config: %w", err)
 	}
-	if checked.Requires != version {
-		return nil, errors.New("rewritten config does not contain the installed requires version")
+	if checked.Requires != adopted {
+		return nil, errors.New("rewritten config does not contain the adopted requires value")
 	}
 	return out, nil
 }

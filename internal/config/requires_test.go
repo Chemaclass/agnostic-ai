@@ -130,6 +130,29 @@ func TestRequirement_DevBuildsAreNotReleases(t *testing.T) {
 	}
 }
 
+func TestAdoptRequirement_KeepsTheFormAndDropsUpperBounds(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"":                  ">=0.91.0",
+		">=0.90.0":          ">=0.91.0",
+		" >= v0.89.0 ":      ">=0.91.0",
+		"0.90.0":            "0.91.0",
+		"v0.90.0":           "0.91.0",
+		"=0.90.0":           "=0.91.0",
+		" = 0.90.0":         "=0.91.0",
+		">=0.90.0 <0.91.0":  ">=0.91.0",
+		"<=0.90.0":          ">=0.91.0",
+		"<0.91.0":           ">=0.91.0",
+		">=0.89.0 >=0.90.0": ">=0.91.0",
+		"=0.90.0 <1.0.0":    ">=0.91.0",
+	}
+	for current, want := range cases {
+		if got := AdoptRequirement(current, "0.91.0"); got != want {
+			t.Errorf("AdoptRequirement(%q, 0.91.0) = %q, want %q", current, got, want)
+		}
+	}
+}
+
 func TestLoad_InvalidRequiresNamesFileAndKey(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ConfigFileName)
