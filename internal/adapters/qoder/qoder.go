@@ -1,5 +1,5 @@
 // Package qoder emits .qoder/rules/*.md and .qoder/agents/*.md for
-// Alibaba's Qoder IDE.
+// Qoder.
 //
 // Qoder reads project rules from `.qoder/rules/*.md`: one file per
 // rule, each carrying a name and description, and Qoder's own docs
@@ -38,16 +38,7 @@
 // a translation; qoder is the one target where passthrough is confirmed
 // safe.
 //
-// Skills emit into their own native folder tree at
-// `.qoder/skills/<name>/SKILL.md` (override via
-// outputs.qoder.skills-dir): docs.qoder.com/extensions/skills documents
-// exactly this path for project scope, plus a user-level
-// `~/.qoder/skills/{skill-name}/SKILL.md` this adapter has no reach
-// into, states "Each Skill contains a `SKILL.md` file", and gives plain
-// `name` + `description` frontmatter (target-audit 2026-08-08, #558).
-// That doc does not list `.agents/skills/` as a compatible path, unlike
-// kilo, augment, and openhands, so this is Qoder's own tree, not a
-// dedupe target for the shared one.
+// The native skills tree stays separate even though Qoder CLI 1.1.11 also reads .agents/skills.
 //
 // MCP servers merge into `.qoder/settings.json` (override via
 // outputs.qoder.mcp-file) under a root `mcpServers` map. See mcp.go for

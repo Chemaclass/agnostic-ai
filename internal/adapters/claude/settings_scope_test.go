@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -18,6 +19,7 @@ func TestEmit_NotesSettingsKeysProjectScopeIgnores(t *testing.T) {
 
 	entries := []spec.Entry{settingsEntry(map[string]any{"x-claude": map[string]any{
 		"autoMode":              map[string]any{"soft_deny": []any{"x"}},
+		"bashEditDiffEnabled":   true,
 		"useAutoModeDuringPlan": false,
 		"deniedModels":          []any{"opus"},
 		"sandbox":               map[string]any{"allowNestedUserNamespaces": true, "enabled": true},
@@ -31,6 +33,7 @@ func TestEmit_NotesSettingsKeysProjectScopeIgnores(t *testing.T) {
 
 	for _, want := range []string{
 		"`x-claude.autoMode` on 1 settings has no effect on claude (" + userOrManagedReason + ")",
+		"`x-claude.bashEditDiffEnabled: true` on 1 settings has no effect on claude (" + userOrManagedReason + ")",
 		"`x-claude.useAutoModeDuringPlan: false` on 1 settings has no effect on claude (" + userOrManagedReason + ")",
 		"`x-claude.sandbox.allowNestedUserNamespaces: true` on 1 settings has no effect on claude (" + userOrManagedReason + ")",
 		"`x-claude.deniedModels` on 1 settings has no effect on claude (" + managedOnlyReason + ")",
@@ -63,6 +66,7 @@ func TestEmit_NoNoteForValuesProjectScopeHonors(t *testing.T) {
 
 	entries := []spec.Entry{settingsEntry(map[string]any{"x-claude": map[string]any{
 		"useAutoModeDuringPlan": true,
+		"bashEditDiffEnabled":   false,
 		"sandbox":               map[string]any{"allowNestedUserNamespaces": false},
 	}})}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
@@ -109,5 +113,54 @@ func TestProjectIgnoredSettings_WorktreeLocationIsUserOnly(t *testing.T) {
 	got := projectIgnoredSettings(entries, emit.SettingsCustomKeys(entries, target))
 	if len(got) != 1 || got[0].field != "x-claude.worktree.location" || got[0].reason != userOnlyReason {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestEmit_AutoContinueProjectSettingExplainsFallback(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		custom   map[string]any
+		wantNote bool
+	}{
+		{name: "unset", custom: map[string]any{}},
+		{name: "true", custom: map[string]any{"autoContinueAtUsageLimit": true}, wantNote: true},
+		{name: "false", custom: map[string]any{"autoContinueAtUsageLimit": false}, wantNote: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			buf := swapNoteWarner(t)
+			entries := []spec.Entry{settingsEntry(map[string]any{"x-claude": tc.custom})}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			emit.FlushCoverageNotes()
+			note := buf.String()
+			if !tc.wantNote {
+				if strings.Contains(note, "autoContinueAtUsageLimit") {
+					t.Errorf("unexpected note: %s", note)
+				}
+				return
+			}
+			for _, want := range []string{"autoContinueAtUsageLimit", "turns automatic continuation off", "user settings, --settings, and managed settings leave it unset"} {
+				if !strings.Contains(note, want) {
+					t.Errorf("note lacks %q: %s", want, note)
+				}
+			}
+			if strings.Contains(note, "has no effect") || strings.Contains(note, "ignores it") {
+				t.Errorf("a restrictive project setting is not inert: %s", note)
+			}
+			raw, err := os.ReadFile(".claude/settings.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var settings map[string]any
+			if err := json.Unmarshal(raw, &settings); err != nil {
+				t.Fatal(err)
+			}
+			if got := settings["autoContinueAtUsageLimit"]; got != tc.custom["autoContinueAtUsageLimit"] {
+				t.Errorf("emitted value = %v, want %v", got, tc.custom["autoContinueAtUsageLimit"])
+			}
+		})
 	}
 }

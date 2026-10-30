@@ -66,7 +66,9 @@ Qoder reads `.qoder/rules/` and the root `AGENTS.md`. Per-rule files win a confl
 
 ### Skills
 
-Qoder's own `.qoder/skills/<name>/SKILL.md` ([Qoder Skills](https://docs.qoder.com/extensions/skills)), with plain `name` and `description` frontmatter. Bundled files (scripts, references, templates) are copied unchanged next to `SKILL.md`. Qoder does not list `.agents/skills/` as compatible, so skills are not shared with that folder. Sync does not write your personal `~/.qoder/skills/`.
+Qoder's own `.qoder/skills/<name>/SKILL.md` ([Qoder Skills](https://docs.qoder.com/extensions/skills)), with plain `name` and `description` frontmatter. Bundled files (scripts, references, templates) are copied unchanged next to `SKILL.md`. Project sync writes this native folder; `sync --global` writes personal skills under `~/.qoder/skills/`.
+
+[Qoder CLI 1.1.11](https://docs.qoder.com/release-notes/qoder-cli#1111-2026-08-01) (August 1, 2026) enabled `.agents/skills/` compatibility by default. The IDE skills guide documents the native `.qoder/skills/` path. Sync keeps that native default and does not combine it with the shared skills folder.
 
 ### Commands
 

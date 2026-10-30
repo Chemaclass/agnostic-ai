@@ -116,3 +116,4 @@ codex-history-persistence-enum	codex	Codex history persistence accepts project, 
 openhands-ui-timeout	openhands	OpenHands offers no per-server timeout configuration, including the UI.	Timeout (seconds) (optional)	contradicts	2813
 qoder-shared-skill-source	qoder	Qoder CLI does not enable a compatible shared skill root.	compatibility source is now enabled by default	contradicts	2814
 claude-project-bash-diff-false	claude	Every project bashEditDiffEnabled value is ignored.	A false in either repository file	contradicts	2815
+vibe-mcp-sampling-native-default	vibe	Vibe treats omitted MCP sampling_enabled as true, so global sync may adopt an otherwise equal explicit true record.	sampling_enabled: bool = Field( default=False,	contradicts	2817

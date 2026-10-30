@@ -98,7 +98,7 @@ continue	docs	https://docs.continue.dev/customize/deep-dives/rules	200	html	d9c4
 continue	docs	https://docs.continue.dev/reference	200	html	a0067dd0c4619606119427464ddfc3c7708814a2d4973e6d8416dacf147cc3a4	2026-09-22
 copilot	changelog	https://github.blog/changelog/label/copilot/	200	html	fd71c852f42ba26f13e38230a8b98bd90991a7c2d29738804bf4bded8e8545a8	2026-10-30
 copilot	docs	https://code.visualstudio.com/docs/agent-customization/mcp-servers	200	html	bcd7ebf61f788bf454f5fb79fac5ab5efcac8d0394d87fee0ec9fe61cdaccf46	2026-10-30
-copilot	docs	https://code.visualstudio.com/docs/agents/reference/mcp-configuration	200	html	ec0b016dc09196efd5d6a27ff16dccc1af1403568dab390a799c0fce561a6c01	2026-10-30
+copilot	docs	https://code.visualstudio.com/docs/agents/reference/mcp-configuration	200	html	c1fc07c9f3e7871f35708c02344daad70bb1c0b2f94092f24bbf871be1ba6408	2026-10-30
 copilot	docs	https://docs.github.com/en/copilot/concepts/customizations/hooks.md	200	markdown-mirror	23370e092d2e2e81587b84038d0be116d99243a83c810b8e8cd41cf8734a10f4	2026-10-21
 copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers.md	200	markdown-mirror	16bddecbc129db32f7fa6cc10e90fd43d6f2627fce973091e5cd436b629c542b	2026-10-29
 copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills.md	200	markdown-mirror	18c361b5b6536f50947545be92f667864f7c83f7c532c553a70a0c1dc40815b7	2026-10-21
@@ -172,7 +172,7 @@ grok	docs	https://docs.x.ai/build/settings	200	html	76c2ce1e6ba4eacf48c210aab442
 jules	changelog	https://jules.google/docs/changelog/	200	html	497c0ee01a8ac78790a70d50511bde1fa9fc3a707576594d7ef4bb84561d6321	2026-10-30
 jules	docs	https://jules.google/docs	200	html	3f8acbe2960312c2732e1487b7763fa134498ce31df3bca281e6225d5dcc8067	2026-10-30
 junie	changelog	https://junie.jetbrains.com/blog/	200	html	1a4d227776ea14daf89acc88cdcede4c78a4b721a4cd624574b0d36a645e7b1f	2026-10-29
-junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	6bcc3e900e41e72beedbb95dbb8438239a2a967c761e30c52a0c1241949b46a0	2026-10-29
+junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	30b92c3f58d9323baea819bf43f5c36d1edd35ffd5e8b95b35f4d58a2aafd9fe	2026-10-30
 junie	docs	https://junie.jetbrains.com/docs/action-allowlist-junie-cli.html	200	html	217595614a236656e52be2593b867920f7ad575da71c618f0c8abc89a18af748	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/agent-skills.html	200	html	9b7af260ea22f9a37dd9a08248ad487ae50b239bc7701b9b06461665aa7131b2	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/automated-code-reviews.html	200	html	77840d1fdf89c4fd516af364381a68604b6093a06e06d3e85ae3527367fc8000	2026-10-19
@@ -210,7 +210,7 @@ kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/agents	200	htm
 kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/hooks	200	html	eb83eb02634b5d77c6a99f59c2f414223c07211173108bf3985b1953b03754a1	2026-10-30
 kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/mcp	200	html	2e0fba05c2a1159fa56257598c3f18fea70beaca7ab5add299c5d0e6372d470d	2026-10-30
 kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/skills	200	html	df4843fe9f160ff28ac7f24e4ea50c22c793c032ae47821b028d45a3b49cfd4f	2026-10-30
-kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	fc49154b14d0febe0e121f647ebf7c9f5795312b495c805d067107698ac9da63	2026-10-30
+kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	6eea2ee9d87fcdebd9e2a683a759b59915689ae44ae8688fb8de51fb1b45e852	2026-10-30
 kiro	docs	https://kiro.dev/docs/cli/chat/manage-prompts.md	200	markdown-mirror	c1709a715b4d13a98012d3ed57a23d5bcdeca460502ce93d48f2ae9973e9de0e	2026-10-04
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	d4f5b2ff9c5a81212b43324dbbc5596e5406decb2125b058e5bd5f029ebae59c	2026-10-10
 kiro	docs	https://kiro.dev/docs/custom-agents.md	200	markdown-mirror	93ca734f6c2f9e79d0bba8a4b730da075dad7aca1303023985408819e9aa76b5	2026-10-21

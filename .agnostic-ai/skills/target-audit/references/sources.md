@@ -373,9 +373,9 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 ## codebuddy
 
 - docs: https://www.codebuddy.ai/docs/cli/memory · /docs/cli/sub-agents · /docs/cli/skills · /docs/cli/slash-commands · /docs/cli/settings · /docs/cli/hooks · /docs/cli/mcp
-- changelog: https://www.codebuddy.ai/docs/cli/release-notes/README
+- changelog: https://www.codebuddy.ai/docs/cli/release-notes/README (index only; follow and read the linked current stable release-note bodies)
 - watch: CLI project and global discovery, first-existing MCP filenames, explicit transport types, conditional rule activation, native tools, project auto-mode limits, hooks and frontmatter approval.
-- fact: npm package `@tencent-ai/codebuddy-code` 2.173.0 is the released CLI. IDE configuration is a separate product surface.
+- fact: npm package `@tencent-ai/codebuddy-code` is the released CLI. IDE configuration is a separate product surface.
 
 ## grok
 
