@@ -7,6 +7,8 @@ export type ViewId = (typeof SECTION_VIEWS)[number]
 
 export interface UrlState {
   view: ViewId
+  /** The selected group within a section. */
+  tab?: string
   /** The section search. */
   q?: string
   /** The linked item, field, or finding (see identity.ts). */
@@ -28,8 +30,10 @@ export function parseUrlState(search: string): UrlState {
   const source = params.get('source')?.trim()
   const q = params.get('q') ?? ''
   const entry = params.get('entry') ?? ''
+  const tab = params.get('tab') ?? ''
   return {
     view: isView(view) ? view : DEFAULT_STATE.view,
+    tab: /^[a-z][a-z0-9-]{0,47}$/.test(tab) ? tab : undefined,
     q: q && q.length <= 512 ? q : undefined,
     entry: entry && entry.length <= 2048 ? entry : undefined,
     mock: params.get('mock') === '1' || params.get('mock') === 'true',
@@ -41,6 +45,7 @@ export function parseUrlState(search: string): UrlState {
 export function serializeUrlState(state: UrlState): string {
   const params = new URLSearchParams()
   if (state.view !== DEFAULT_STATE.view) params.set('view', state.view)
+  if (state.tab) params.set('tab', state.tab)
   if (state.q) params.set('q', state.q)
   if (state.entry) params.set('entry', state.entry)
   if (state.source) params.set('source', state.source)
@@ -51,7 +56,7 @@ export function serializeUrlState(state: UrlState): string {
 
 /** Applies a patch; the data source carries over, and a new section starts without the old search or link. */
 export function nextState(state: UrlState, patch: Partial<UrlState>): UrlState {
-  const base = patch.view && patch.view !== state.view ? { ...state, q: undefined, entry: undefined } : state
+  const base = patch.view && patch.view !== state.view ? { ...state, tab: undefined, q: undefined, entry: undefined } : state
   return { ...base, ...patch }
 }
 

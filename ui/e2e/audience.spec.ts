@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { normalizeOverviewView } from '../src/model/normalize'
+import { selectTab } from './helpers'
 
 for (const width of [320, 390, 1440]) {
   test(`changes the visible built-in, model, and native values with the selected audience at ${width}px`, async ({ page }) => {
@@ -45,14 +46,15 @@ for (const width of [320, 390, 1440]) {
     await expect(caveman).toHaveAttribute('aria-checked', 'false')
     await expect(memory).toHaveAttribute('aria-checked', 'true')
     await expect(caveman).toBeDisabled()
+    await expect(cavemanRow.locator('.override-comparison')).toContainText('Shared: Off')
+    await expect(cavemanRow.locator('.override-comparison')).toContainText('Personal: On')
+    await expect(builtins.getByRole('button', { name: /^Reset/ })).toHaveCount(0)
+    await selectTab(page, 'Preferences')
     await expect(verbose).toHaveAttribute('aria-checked', 'false')
     await expect(verbose).toBeDisabled()
     await expect(model).toHaveValue('sonnet')
     await expect(model).toBeDisabled()
-    await expect(cavemanRow.locator('.override-comparison')).toContainText('Shared: Off')
-    await expect(cavemanRow.locator('.override-comparison')).toContainText('Personal: On')
-    await expect(builtins.getByRole('button', { name: /^Reset/ })).toHaveCount(0)
-
+    await selectTab(page, 'Built-ins')
     await builtins.getByRole('button', { name: 'View personal settings' }).click()
     await expect(caveman).toHaveAttribute('aria-checked', 'true')
     await expect(memory).toHaveAttribute('aria-checked', 'false')
@@ -63,6 +65,7 @@ for (const width of [320, 390, 1440]) {
       range.selectNodeContents(element)
       return range.getClientRects().length
     })).toBe(1)
+    await selectTab(page, 'Preferences')
     await expect(verbose).toHaveAttribute('aria-checked', 'true')
     await expect(verbose).toBeEnabled()
     await expect(model).toHaveValue('opus')
@@ -76,12 +79,16 @@ for (const width of [320, 390, 1440]) {
     await expect(verboseRow.locator('.override-comparison')).toContainText('Shared: Off')
     await expect(verboseRow.locator('.override-comparison')).toContainText('Personal: On')
     await expect(page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })).toContainText('light')
+    await selectTab(page, 'Built-ins')
     await expect(builtins.getByRole('heading', { level: 2 })).toContainText('personal')
+    await selectTab(page, 'Preferences')
     expect(edits).toEqual([])
 
     await page.reload()
     await expect(page.getByRole('button', { name: 'Personal (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await selectTab(page, 'Built-ins')
     await expect(caveman).toHaveAttribute('aria-checked', 'true')
+    await selectTab(page, 'Preferences')
     await verbose.click()
     expect(edits).toEqual([{ audience: 'personal', path: personal, key: 'x-claude.verbose', value: false, expected: true }])
   })

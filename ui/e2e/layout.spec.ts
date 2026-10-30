@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { selectTab } from './helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -51,14 +52,15 @@ test('fits long project names and configuration switches on a phone', async ({ p
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
-test('jumps to a source group without losing search or keyboard focus', async ({ page }) => {
+test('switches a source tab without losing search or keyboard focus', async ({ page }) => {
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.goto('/?view=context&q=reviewer')
-  const jump = page.getByRole('navigation', { name: 'On this page' }).getByRole('link', { name: /^Agents/ })
-  await jump.focus()
+  const tab = page.getByRole('tab', { name: /^Agents/ })
+  await tab.focus()
   await page.keyboard.press('Enter')
   const heading = page.getByRole('heading', { level: 2, name: /^Agents/ })
-  await expect(heading).toBeFocused()
+  await expect(tab).toBeFocused()
+  await expect(tab).toHaveAttribute('aria-selected', 'true')
   await expect(heading).toBeInViewport()
   expect(await heading.evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(await page.locator('.topbar').evaluate((element) => element.getBoundingClientRect().bottom))
   await expect(page).toHaveURL(/q=reviewer/)
@@ -145,6 +147,7 @@ for (const width of [1440, 390]) {
     const views = ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']
     for (const [index, name] of views.entries()) {
       await page.goto(`/?view=${name.toLowerCase()}`)
+      if (name === 'Context') await selectTab(page, 'Agents')
       const heading = page.getByRole('heading', { level: 1, name, exact: true })
       await expect(heading).toBeInViewport()
       const headingTop = () => heading.evaluate((element) => element.getBoundingClientRect().top)

@@ -426,7 +426,7 @@ test('previews an effort change with pending source changes and shows a stale va
       findings: ['This preview also applies pending source changes.'],
     } })
   })
-  await page.goto('/?view=settings')
+  await page.goto('/?view=settings&tab=preferences')
   const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
   await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
   await effort.getByRole('button', { name: 'Preview and apply' }).click()

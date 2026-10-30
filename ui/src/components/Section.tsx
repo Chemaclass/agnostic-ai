@@ -9,6 +9,7 @@ import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAu
 import { OpenInEditor } from './EditorLink'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
 import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice } from './PermissionEditor'
+import { SectionTabs } from './SectionTabs'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
@@ -17,6 +18,7 @@ import { addressKey, configOverride, originLabel, personalSetsWhole, personalVal
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
+import { entryTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
 import type { Remote } from './Shell'
 import { Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
@@ -95,7 +97,6 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     if (saved) app.reload(true)
   }
   const search = app.state.q ?? ''
-  const setSearch = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
   const entry = app.state.entry
   const { rechecked, pendingPlace } = useRechecks()
   const sectionPlace = `section:${section.id}`
@@ -109,6 +110,34 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const fieldMatches = section.fields?.filter((field) => matches(fieldSearchText(field)))
   const matchingFields = section.fields?.filter((field) => fieldMatches?.includes(field) || fieldEntryId(field) === entry)
   const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === pendingPlace || itemEntryId(item) === rechecked?.place)
+  const tabs = sectionTabs(section)
+  const nativeMatches = section.native?.filter((server) => matches(nativeSearchText(server))) ?? []
+  const hasMatches = (tab: typeof tabs[number]) => tab.kinds.some((kind) => section.items.some((item) => item.kind === kind && matchingItems.has(item)) || kind === 'settings' && (fieldMatches?.length ?? 0) > 0) || tab.extra === 'native' && nativeMatches.length > 0
+  const firstPopulated = tabs.find((tab) => tab.extra === 'native' ? (section.native?.length ?? 0) > 0 : section.items.some((item) => tab.kinds.includes(item.kind)) || tab.kinds.includes('settings') && (section.fields?.some((field) => field.set.length > 0) ?? false))
+  const active = entryTab(section, tabs, entry)
+    ?? tabs.find((tab) => tab.id === app.state.tab)?.id
+    ?? (query ? tabs.find(hasMatches)?.id : undefined)
+    ?? firstPopulated?.id
+    ?? tabs[0]?.id
+  const setSearch = (value: string) => app.navigate({ q: value || undefined, tab: value.trim() ? undefined : active }, { replace: true })
+  const selectTab = (tab: string) => app.navigate({ tab, entry: undefined })
+  const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]
+  const showAudience = section.id === 'settings' ? active !== 'configuration' : section.id !== 'tools' || active === 'native'
+  const tabLabels = tabs.map((tab) => {
+    const items = section.items.filter((item) => tab.kinds.includes(item.kind))
+    const fields = tab.kinds.includes('settings') ? section.fields ?? [] : []
+    let count: string | number | undefined
+    if (tab.extra === 'usage') count = undefined
+    else if (query) {
+      const matched = tab.extra === 'native' ? nativeMatches.length : items.filter((item) => matchingItems.has(item)).length + fields.filter((field) => fieldMatches?.includes(field)).length
+      count = `${matched} match${matched === 1 ? '' : 'es'}`
+    }
+    else if (tab.extra === 'native') count = section.native?.length ?? 0
+    else if (tab.kinds.includes('builtin')) count = `${items.filter((item) => builtinEnabled(item, audience)).length} on`
+    else if (tab.kinds.includes('settings')) count = `${fields.filter((field) => sourcesForAudience(field.set, audience).length > 0).length} set`
+    else count = items.length
+    return { id: tab.id, label: tab.label, count, findings: items.reduce((sum, item) => sum + item.findings.length, 0) }
+  })
   const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
   useEffect(() => {
     if (!entry) return
@@ -119,8 +148,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     target.scrollIntoView({ block: 'center' })
     target.focus({ preventScroll: true })
   }, [entry, section.id])
-  const matchCount = matchingItems.size + (fieldMatches?.length ?? 0)
-  const totalCount = section.items.length + (section.fields?.length ?? 0)
+  const matchCount = matchingItems.size + (fieldMatches?.length ?? 0) + nativeMatches.length
+  const totalCount = section.items.length + (section.fields?.length ?? 0) + (section.native?.length ?? 0)
   const retainedFindings = section.items.some((item) => item.findings.length > 0 && !matchingItems.has(item))
   const errors = section.findings.filter((finding) => finding.severity === 'error').length
   const warnings = section.findings.length - errors
@@ -158,24 +187,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
       </div>
-      {section.kinds.length > 1 && (
-        <nav className="section-jumps" aria-label="On this page">
-          <span className="muted">Jump to</span>
-          <ul>
-            {section.kinds.map((kind) => {
-              const id = kind.kind === 'settings' ? fieldsHeadingId(kind.label) : `${section.id}-${kind.kind}`
-              return <li key={kind.kind}><a href={`#${id}`} onClick={(event) => {
-                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-                event.preventDefault()
-                const heading = document.getElementById(id)
-                heading?.scrollIntoView({ block: 'start' })
-                heading?.focus({ preventScroll: true })
-              }}>{kind.label}<span>{kind.kind === 'builtin' ? `${section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, audience)).length} on` : kind.count}</span></a></li>
-            })}
-          </ul>
-        </nav>
-      )}
-      <EditAudienceSwitch />
+      {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
+      {showAudience && <EditAudienceSwitch />}
       {section.id === 'authority' && <PermissionSaveNotice />}
       {section.findings.length > 0 && (
         <div className={`section-findings-summary${errors ? ' has-errors' : ''}`} role={errors ? 'alert' : undefined}>
@@ -191,7 +204,16 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         </div>
       )}
       {errors > 0 && otherFindings}
-      {section.kinds.map((k) => {
+      {panels.map((panel) => <div
+        key={panel.id}
+        className="section-panel"
+        id={`panel-${section.id}-${panel.id}`}
+        role={tabs.length > 1 ? 'tabpanel' : undefined}
+        aria-labelledby={tabs.length > 1 ? `tab-${section.id}-${panel.id}` : undefined}
+        tabIndex={tabs.length > 1 ? 0 : undefined}
+        hidden={tabs.length > 1 && panel.id !== active}
+      >
+      {section.kinds.filter((kind) => panel.kinds.includes(kind.kind)).map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
@@ -219,9 +241,12 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           </section>
         )
       })}
+      {panel.extra === 'native' && (section.native?.length
+        ? <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />
+        : <section className="block"><h2>Found in tools</h2><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
+      {panel.extra === 'usage' && <ContextUsage />}
+      </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
-      {section.native && section.native.length > 0 && <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />}
-      {section.id === 'context' && <ContextUsage />}
       {errors === 0 && otherFindings}
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>
@@ -675,9 +700,8 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
   )
 }
 
-/** MCP servers a tool holds in its own config file that no spec covers. */
 function NativeServers({ servers, matches, filtering, onSaved }: { servers: NativeServer[]; matches: (parts: (string | undefined)[]) => boolean; filtering: boolean; onSaved: (saved: MCPSpecSaved) => void }) {
-  const visible = servers.filter((s) => matches([s.name, ...s.holders.flatMap((h) => [h.label, h.path, h.transport])]))
+  const visible = servers.filter((server) => matches(nativeSearchText(server)))
   return (
     <section className="block" aria-labelledby="tools-native">
       <h2 id="tools-native">

@@ -25,6 +25,10 @@ export async function openApp(page: Page, query = ''): Promise<void> {
   await page.goto(appUrl(query))
 }
 
+export async function selectTab(page: Page, name: string): Promise<void> {
+  await page.getByRole('tab', { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s|$)`) }).click()
+}
+
 export async function saveScreenshot(page: Page, name: string, options: { fullPage?: boolean } = {}): Promise<void> {
   mkdirSync(SCREENSHOT_DIR, { recursive: true })
   // Park the pointer in a corner so no hover state shows in the picture.

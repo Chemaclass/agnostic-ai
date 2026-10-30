@@ -153,7 +153,7 @@ test.describe('search across sections', () => {
   test('opens a server from Ctrl+K, keeps its link across reload, and restores history', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('./?view=context')
-    await expect(page.locator('.item-row').first()).toBeVisible()
+    await expect(page.getByRole('tab', { name: /^Guidance/ })).toBeVisible()
     await page.keyboard.press(modK)
     const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
     const input = dialog.getByRole('combobox', { name: 'Search all configuration' })
@@ -186,7 +186,7 @@ test.describe('search across sections', () => {
   test('links findings and unconfigured settings, and opens results with the mouse', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('./?view=tools')
-    await expect(page.locator('.item-row').first()).toBeVisible()
+    await expect(page.getByRole('tab', { name: /^Configured servers/ })).toBeVisible()
     await page.getByRole('button', { name: 'Search', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
     await dialog.getByRole('combobox').fill('lint038')
@@ -225,7 +225,7 @@ test.describe('search across sections', () => {
 
   test('keeps mock mode in result links', async ({ page }) => {
     await page.goto('./?mock=1')
-    await expect(page.locator('.item-row').first()).toBeVisible()
+    await expect(page.getByRole('tab', { name: /^Guidance/ })).toBeVisible()
     await page.keyboard.press(modK)
     await page.getByRole('combobox', { name: 'Search all configuration' }).fill('github')
     await page.keyboard.press('Enter')

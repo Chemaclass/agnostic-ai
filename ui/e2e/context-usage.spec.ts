@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { selectTab } from './helpers'
 
 const overview = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const contextView = JSON.parse(readFileSync(new URL('../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
@@ -7,6 +8,7 @@ const contextView = JSON.parse(readFileSync(new URL('../src/fixtures/context.moc
 test.describe('context size', () => {
   test('shows the mock duplicate with its sources, review prompt, and refresh', async ({ page, context }) => {
     await page.goto('/?mock=1')
+    await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel.getByRole('heading', { name: 'Context size' })).toBeVisible()
     await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
@@ -39,6 +41,7 @@ test.describe('context size', () => {
       route.fulfill({ json: requests.length === 1 ? contextView : after })
     })
     await page.goto('/?view=context')
+    await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
     await panel.getByRole('button', { name: 'Refresh' }).click()
@@ -62,6 +65,7 @@ test.describe('context size', () => {
       route.fulfill({ json: search.includes('file=') ? scoped : contextView })
     })
     await page.goto('/?view=context')
+    await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel).toContainText('Scoped rules count as on demand until you name a file.')
     await expect(panel.locator('.context-usage-totals')).not.toContainText('File-scoped')
@@ -84,6 +88,7 @@ test.describe('context size', () => {
       return route.fulfill({ json: two })
     })
     await page.goto('/?view=context')
+    await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
     await panel.getByLabel('Coding tool').selectOption('gemini')
@@ -104,6 +109,7 @@ test.describe('context size', () => {
       return route.fulfill({ json: { ...two, target: url.searchParams.get('target') ?? 'claude' } })
     })
     await page.goto('/?view=context')
+    await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
     await panel.getByLabel('Working on file').fill('src/main.go')
@@ -118,6 +124,7 @@ test.describe('context size', () => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: { schemaVersion: '1', supported: false, reason: 'Context size is reported for a project. Open a project to see it.', targets: [], target: '' } }))
     await page.goto('/?view=context')
+    await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel).toContainText('Open a project to see it.')
     await expect(panel.getByLabel('Coding tool')).toHaveCount(0)

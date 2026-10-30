@@ -2139,46 +2139,63 @@ input:hover {
   color: var(--text-muted);
 }
 
-.section-jumps {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: baseline;
-  gap: 6px 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-}
-
-.section-jumps ul {
+.section-tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  align-items: stretch;
+  gap: 4px;
+  padding-inline: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-bottom: 1px solid var(--line);
 }
 
-.section-jumps a {
+.section-tabs [role="tab"] {
   display: inline-flex;
-  align-items: baseline;
+  flex: 0 0 auto;
+  align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.section-jumps a:hover {
-  background: var(--accent-wash-strong);
-  color: var(--accent-strong);
-}
-
-.section-jumps a span {
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.section-tabs [role="tab"]:hover {
+  background: var(--panel-raised);
+  color: var(--text);
+}
+
+.section-tabs [role="tab"][aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: 650;
+}
+
+.section-tab-count {
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+
+.section-tab-findings {
+  color: var(--approval);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.section-panel { min-width: 0; }
+.section-panel:not([hidden]) { display: flex; flex-direction: column; gap: 28px; }
 
 .kind-count {
   display: inline-block;
@@ -2239,15 +2256,7 @@ input:hover {
     min-height: 44px;
   }
 
-  .section-jumps {
-    gap: 4px 8px;
-    padding-bottom: 12px;
-  }
-
-  .section-jumps a {
-    min-height: 44px;
-    align-items: center;
-  }
+  .section-tabs [role="tab"] { padding-inline: 11px; }
 
   .field-row.is-set,
   .field-row.is-set .field-source {

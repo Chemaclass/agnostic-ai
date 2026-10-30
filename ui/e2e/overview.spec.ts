@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { MOCK, openApp, saveScreenshot } from './helpers'
+import { MOCK, openApp, saveScreenshot, selectTab } from './helpers'
 import { findingEntryIds, itemEntryId } from '../src/model/identity'
 import type { SectionItem } from '../src/contract'
 
@@ -75,16 +75,6 @@ test.describe('overview', () => {
     expect(prompt).toContain('Then wait for my explicit approval.')
   })
 
-  test('spaces each kind block apart from the one before it', async ({ page }) => {
-    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
-    await page.goto('/?view=context')
-    const blocks = page.locator('.stale-guard > .block')
-    await expect(blocks.nth(1)).toBeVisible()
-    const first = await blocks.nth(0).boundingBox()
-    const second = await blocks.nth(1).boundingBox()
-    expect(second!.y - (first!.y + first!.height)).toBeGreaterThanOrEqual(24)
-  })
-
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
     const data = structuredClone(fixture)
     data.snapshot.project.name = 'agnostic-ai'
@@ -119,7 +109,7 @@ test.describe('overview', () => {
       failRefresh = true
       return route.fulfill({ status: 409, json: { error: 'The value changed. Git protection was kept.' } })
     })
-    await page.goto('/?view=settings')
+    await page.goto('/?view=settings&tab=preferences')
     const toggle = page.getByRole('switch', { name: 'x-claude.verbose' })
     await toggle.click()
     await expect(page.getByRole('alert')).toContainText('The value changed. Git protection was kept.')
@@ -188,6 +178,7 @@ test.describe('overview', () => {
         await expect(avatar.locator('img')).toBeVisible()
       }
     }
+    await selectTab(page, 'Config files')
     const targets = page.locator('.value-row', { hasText: 'targets' }).locator('.tool-avatar')
     await expect(targets).toHaveCount(fixture.targets.length)
     await expect(targets.first()).toHaveAttribute('title', 'Claude Code')
@@ -212,7 +203,7 @@ test.describe('overview', () => {
       edit = route.request().postDataJSON()
       return route.fulfill({ json: { ok: true } })
     })
-    await page.goto('/?view=settings')
+    await page.goto('/?view=settings&tab=preferences')
     const native = page.locator('.native-group', { hasText: 'x-ellipsis' })
     await expect(native.locator('.native-group-title')).toHaveText('x-ellipsis')
     await expect(native.locator('dt').first()).toHaveText('environment.repository.name')
@@ -329,7 +320,11 @@ test.describe('overview', () => {
     await openApp(page)
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
     await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
-    for (const kind of ['Instructions', 'Rules', 'Agents', 'Skills']) await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${kind}`) })).toBeVisible()
+    for (const [tab, kind] of [['Guidance', 'Instructions'], ['Rules', 'Rules'], ['Agents', 'Agents'], ['Skills', 'Skills']] as const) {
+      await selectTab(page, tab)
+      await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${kind}`) })).toBeVisible()
+    }
+    await selectTab(page, 'Agents')
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
     await expect(nav.getByRole('link')).toHaveCount(5)
     for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
@@ -500,6 +495,7 @@ test.describe('overview', () => {
     const builtins = page.locator('.item-row', { has: page.locator('.switch') })
     await expect(builtins).toHaveCount(5)
     await expect(builtins.filter({ hasText: 'memory' }).locator('.switch-text')).toHaveText(/On|Off/)
+    await selectTab(page, 'Config files')
     const config = page.locator('.item-row', { hasText: 'agnostic-ai.yaml' })
     const open = config.getByRole('link', { name: /^Open .+ in Cursor$/ })
     if (MOCK) await expect(open).toHaveCount(0)
@@ -602,7 +598,7 @@ test.describe('overview', () => {
 
   test("lists MCP servers found only in a tool's own config, with the import hint", async ({ page }) => {
     test.skip(!MOCK, 'the mock fixture holds a native server')
-    await openApp(page, '?view=tools')
+    await openApp(page, '?view=tools&tab=native')
     const block = page.getByRole('region', { name: /Found in a tool's own config/ })
     const row = block.locator('.item-row', { hasText: 'notion' })
     await expect(row).toContainText('Claude Code only')
@@ -613,6 +609,7 @@ test.describe('overview', () => {
     await page.getByRole('searchbox').fill('notion')
     await expect(block.locator('.kind-count')).toHaveText('1 of 1 match')
     await page.getByRole('searchbox').fill('github')
+    await selectTab(page, 'Found in tools')
     await expect(block.locator('.kind-count')).toHaveText('0 of 1 match')
     await expect(block).toContainText('No matches.')
   })
@@ -629,7 +626,7 @@ test.describe('overview', () => {
       if (body.action === 'apply') tools.native = []
       await route.fulfill({ json: { file: '.agnostic-ai/mcps/notion.yaml', spec: 'name: notion\ntype: http\nurl: https://mcp.notion.com/mcp\n', variables: [], targets: ['claude', 'codex'], syncCommand: 'agnostic-ai sync', expected: 'reviewed-server' } })
     })
-    await page.goto('./?view=tools')
+    await page.goto('./?view=tools&tab=native')
     const row = page.getByRole('region', { name: /Found in a tool's own config/ }).locator('.item-row', { hasText: native.name })
     await row.getByRole('button', { name: 'Make it a spec' }).click()
     const preview = row.getByRole('region', { name: `${native.name} spec preview` })
@@ -662,7 +659,7 @@ test.describe('overview', () => {
       }
       await route.fulfill({ json: { file: '.agnostic-ai/mcps/notion.yaml', spec: 'name: notion\n', variables: [], targets: ['claude'], syncCommand: 'agnostic-ai sync', expected: 'reviewed-server' } })
     })
-    await page.goto('./?view=tools')
+    await page.goto('./?view=tools&tab=native')
     const row = page.getByRole('region', { name: /Found in a tool's own config/ }).locator('.item-row', { hasText: 'notion' })
     await row.getByRole('button', { name: 'Make it a spec' }).click()
     await expect(row.getByRole('region', { name: 'notion spec preview' })).toBeVisible()
@@ -810,7 +807,7 @@ test.describe('overview', () => {
         return route.fulfill({ json: { ok: true } })
       })
     }
-    await page.goto('/?view=settings')
+    await page.goto('/?view=settings&tab=preferences')
     const shared = page.getByRole('button', { name: 'Shared (committed)', exact: true })
     const personal = page.getByRole('button', { name: 'Personal (not committed)', exact: true })
     await expect(shared).toHaveAttribute('aria-pressed', 'true')
@@ -824,6 +821,7 @@ test.describe('overview', () => {
     await model.getByRole('button', { name: 'Reset to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'model', value: null, expected: 'opus' })
 
+    await selectTab(page, 'Built-ins')
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
     await expect(caveman.locator('.badge', { hasText: 'personal' })).toBeVisible()
     await caveman.getByRole('button', { name: 'Reset caveman to shared value' }).click()
@@ -831,6 +829,7 @@ test.describe('overview', () => {
 
     await personal.click()
     await expect(personal).toHaveAttribute('aria-pressed', 'true')
+    await selectTab(page, 'Preferences')
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort.locator('.badge', { hasText: 'personal' })).toHaveCount(0)
     await expect(effort).toContainText(`Saves to ${local}`)
@@ -838,6 +837,7 @@ test.describe('overview', () => {
     await effort.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'effort', value: 'low', expected: null })
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('sonnet')
+    await selectTab(page, 'Built-ins')
     await page.getByRole('switch', { name: 'memory built-in' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', name: 'memory', enabled: true, expected: false })
 
@@ -873,7 +873,7 @@ test.describe('overview', () => {
         saved = route.request().postDataJSON().value
         return route.fulfill({ json: { ok: true } })
       })
-      await page.goto('/?view=settings')
+      await page.goto('/?view=settings&tab=preferences')
       const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
       const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
       await model.getByRole('textbox', { name: 'Default model value' }).fill('draft-model')
@@ -920,7 +920,7 @@ test.describe('overview', () => {
       return route.fulfill({ json: view })
     })
     await page.route('**/api/edit/field', (route) => route.fulfill({ json: { ok: true } }))
-    await page.goto('/?view=settings')
+    await page.goto('/?view=settings&tab=preferences')
     const modelRow = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     const effortRow = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await modelRow.getByRole('textbox', { name: 'Default model value' }).fill('my-draft')
@@ -975,7 +975,7 @@ test.describe('overview', () => {
         return route.fulfill({ json: { ok: true } })
       })
     }
-    await page.goto('/?view=settings')
+    await page.goto('/?view=settings&tab=preferences')
     await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
 
     const native = page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })
@@ -1005,7 +1005,7 @@ test.describe('overview', () => {
     Object.assign(field('effort'), { set: [{ spec: 'defaults', path: local, local: true, values: [{ key: 'effort', type: 'text', value: 'low' }] }], editable })
     Object.assign(field('session-retention-days'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'session-retention-days', type: 'text', value: '30' }] }], editable: { ...editable, kind: 'number' } })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-    await page.goto('/?view=settings')
+    await page.goto('/?view=settings&tab=preferences')
     await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
@@ -1077,7 +1077,7 @@ test.describe('overview', () => {
       edit = route.request().postDataJSON()
       return route.fulfill({ json: { ok: true } })
     })
-    await page.goto('/?view=settings')
+    await page.goto('/?view=settings&tab=preferences')
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.getByRole('combobox')).toHaveValue(paths[1])
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
