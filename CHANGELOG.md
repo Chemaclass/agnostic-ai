@@ -19,6 +19,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `voice` also writes Qwen Code, Gemini CLI, Grok Build, and Mistral Vibe; other tools get a note naming why (#2833).
 - Sync keeps existing Antigravity and Goose plugin manifests it did not write and prints a note.
+- Home `voice` settings turn Claude Code dictation on and pick hold or tap; `sync --global` restores previous values on removal.
 - `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
 
 #### Web interface

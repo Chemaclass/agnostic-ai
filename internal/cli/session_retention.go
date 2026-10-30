@@ -3,25 +3,13 @@ package cli
 import (
 	"fmt"
 	"io"
-	"maps"
-	"math"
-	"os"
-	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const sessionRetentionField = "session-retention-days"
-
-type globalRetentionOriginal struct {
-	Key          string            `json:"key"`
-	Raw          string            `json:"raw,omitempty"`
-	Present      bool              `json:"present"`
-	EmptyParents map[string]string `json:"emptyParents,omitempty"`
-}
 
 func sessionRetentionIssues(settings []spec.Entry) []validationIssue {
 	var issues []validationIssue
@@ -66,108 +54,6 @@ func globalRetentionSetting(target string, f globalSettingsFile, settings []spec
 	return out
 }
 
-func hasSessionRetention(settings []spec.Entry, target string) bool {
-	return slices.ContainsFunc(settings, func(entry spec.Entry) bool {
-		_, present := entry.Meta[sessionRetentionField]
-		return present && entry.EmitsTo(target)
-	})
-}
-
-func mergeGlobalRetention(path, format string, base []byte, want []globalSetting, previous map[string]any, original *globalRetentionOriginal, parents jsonParents, key, target string, portable bool, warn io.Writer) (globalSettingsMerge, *globalRetentionOriginal, error) {
-	if key == "" && original == nil {
-		m, err := mergeGlobalSettingsWithLists(path, format, base, want, previous, &parents, globalTargets[target].settings.itemLists)
-		return m, nil, err
-	}
-	data := base
-	if data == nil {
-		var err error
-		data, err = os.ReadFile(path)
-		if err != nil && !os.IsNotExist(err) {
-			return globalSettingsMerge{}, nil, fmt.Errorf("read %s: %w", path, err)
-		}
-	}
-	values, err := settingsValues(path, format, data)
-	if err != nil {
-		return globalSettingsMerge{}, nil, err
-	}
-	if (target == "claude" || target == "codebuddy") && portable && slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key && setting.field == sessionRetentionField }) {
-		if have, present := settingsLookup(values, key, format); present {
-			days, number := have.(float64)
-			if !number || days < 1 || math.Trunc(days) != days {
-				want = slices.DeleteFunc(slices.Clone(want), func(setting globalSetting) bool { return setting.field == sessionRetentionField })
-				previous = maps.Clone(previous)
-				delete(previous, key)
-				original = nil
-				adapters.NoteSettingsFieldNoOp(target, sessionRetentionField, 1, "native cleanupPeriodDays is invalid and can pause cleanup; manual correction is required before applying portable retention")
-			}
-		}
-	}
-	if enabled, present := settingsLookup(values, "general.sessionRetention.enabled", format); target != "claude" && target != "codebuddy" && present && enabled == false {
-		want = slices.DeleteFunc(slices.Clone(want), func(setting globalSetting) bool { return setting.field == sessionRetentionField })
-		if portable {
-			if have, present := settingsLookup(values, key, format); present && sameSetting(have, previous[key]) && !slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key }) {
-				want = append(want, globalSetting{target: target, key: key, field: sessionRetentionField, value: have})
-			}
-			adapters.NoteSettingsFieldNoOp(target, sessionRetentionField, 1, "automatic session cleanup is disabled; its age limit stays unchanged")
-		}
-	}
-	active := slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key })
-	if original == nil && portable && active {
-		original = &globalRetentionOriginal{Key: key, EmptyParents: map[string]string{}}
-		parts := strings.Split(key, ".")
-		for i := 1; i < len(parts); i++ {
-			parent := strings.Join(parts[:i], ".")
-			if open, closing, count, present := jsonContainerSpan(string(data), parent); present && count == 0 && data[open] == '{' {
-				original.EmptyParents[parent] = string(data[open : closing+1])
-			}
-		}
-		if start, end, ok := retentionValueSpan(string(data), key); ok {
-			original.Present, original.Raw = true, string(data[start:end])
-		}
-	}
-	managedRetention := portable || original != nil
-	modifiedWant := slices.Clone(want)
-	restore := false
-	if original != nil && !active {
-		if have, present := settingsLookup(values, original.Key, format); present && sameSetting(have, previous[original.Key]) && original.Present {
-			var value any
-			decoded, err := settingsValues(path, "json", []byte(`{"value":`+original.Raw+`}`))
-			if err != nil {
-				return globalSettingsMerge{}, nil, fmt.Errorf("restore %s: %w", path, err)
-			}
-			value = decoded["value"]
-			modifiedWant = append(modifiedWant, globalSetting{key: original.Key, value: value})
-			restore = true
-		}
-	}
-	if original != nil && !active {
-		parents.keep = original.EmptyParents
-	}
-	m, err := mergeGlobalSettingsWithLists(path, format, base, modifiedWant, previous, &parents, globalTargets[target].settings.itemLists)
-	if err != nil {
-		return m, nil, err
-	}
-	if restore {
-		after := m.data
-		if after == nil {
-			after = data
-		}
-		if start, end, ok := retentionValueSpan(string(after), original.Key); ok {
-			m.data = append(append(append([]byte(nil), after[:start]...), original.Raw...), after[end:]...)
-		}
-		delete(m.owned, original.Key)
-	}
-	if managedRetention && m.data != nil {
-		if err := warnShorterRetention(path, format, key, values, m.data, warn); err != nil {
-			return m, nil, err
-		}
-	}
-	if !active {
-		original = nil
-	}
-	return m, original, nil
-}
-
 func warnShorterRetention(path, format, key string, before map[string]any, after []byte, warn io.Writer) error {
 	if enabled, present := settingsLookup(before, "general.sessionRetention.enabled", format); present && enabled == false {
 		return nil
@@ -193,19 +79,6 @@ func warnShorterRetention(path, format, key string, before map[string]any, after
 		}
 	}
 	return nil
-}
-
-func retentionValueSpan(text, key string) (int, int, bool) {
-	open, err := jsonRootOpen(text)
-	if err != nil {
-		return 0, 0, false
-	}
-	start, err := findJSONPath(text, open, strings.Split(key, "."))
-	if err != nil || start < 0 {
-		return 0, 0, false
-	}
-	end, err := jsonValueEnd(text, start)
-	return start, end, err == nil
 }
 
 func nativeRetentionDays(value any) (float64, bool) {
