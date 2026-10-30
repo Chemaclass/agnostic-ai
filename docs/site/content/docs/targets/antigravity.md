@@ -160,7 +160,7 @@ The public-preview docs do not confirm them, so they are skipped with a warning.
 - **Triggers**: `trigger` becomes `alwaysApply` (`always_on` to `true`, `glob`/`model_decision`/`manual` to `false`). It is also kept under `x-antigravity.trigger`, which `sync` reads first, so a `manual` rule with a `description` stays `manual`. An unknown `trigger` gets no `alwaysApply` and a warning, and `sync` writes it as `manual`, never `always_on`.
 - **Globs**: `globs` is kept, and the singular `glob:` is merged into it.
 - **Agents and MCP**: nested profiles win over flat files. `serverUrl` becomes `url`, and other fields are kept under `x-antigravity`.
-- **MCP file**: import reads `outputs.antigravity.mcp-file` when set, such as a plugin's `.agents/plugins/<name>/mcp.json`, instead of `.agents/mcp_config.json`. It imports no other plugin component.
+- **Plugin files**: import reads the configured `outputs.antigravity.mcp-file`, `agents-dir`, and `rules-dir`. These paths can point into `.agents/plugins/<name>/`. Import does not use `skills-dir`. Skills come from `.agents/skills/`, with `.agent/skills/` as a fallback. Import skips everything else under `.agents/plugins/`.
 
 ## Protected paths
 
