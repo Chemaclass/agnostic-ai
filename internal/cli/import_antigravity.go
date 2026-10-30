@@ -235,8 +235,8 @@ func normalizeAntigravityRuleMeta(meta map[string]any) {
 //     Antigravity agents.
 //   - When `outputs.antigravity.rules-file` is set in agnostic-ai.yaml,
 //     the legacy concatenated file is sliced by H2 sections.
-//   - `.agents/mcp_config.json`'s `mcpServers` map walks via
-//     importAntigravityMCP.
+//   - The `mcpServers` map in `outputs.antigravity.mcp-file`, or
+//     `.agents/mcp_config.json` when unset, walks via importAntigravityMCP.
 //   - `.agents/AGENTS.md` (or the legacy `.agent/AGENTS.md`) mirrors into
 //     `.agnostic-ai/AGNOSTIC_AI.md` when present so a hand-edit propagates
 //     back into the source body.
@@ -313,7 +313,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		rulesFileCount = n
 	}
 
-	mcps, err := importAntigravityMCP(root, importSourcePath(root, src.MCPs))
+	mcps, err := importAntigravityMCP(root, antigravityMCPFileFromCfg(cfg), importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
@@ -385,11 +385,21 @@ func antigravityRulesFileFromCfg(cfg *config.Config) string {
 	return ""
 }
 
-// importAntigravityMCP reads `.agents/mcp_config.json` and writes one
-// yaml per `mcpServers.<name>` entry into dstDir. No-op when the file
-// is absent (#589).
-func importAntigravityMCP(root, dstDir string) (int, error) {
-	servers, err := readJSONMapAt(filepath.Join(root, antigravityMCPFile), antigravityMCPKey)
+// antigravityMCPFileFromCfg returns `outputs.antigravity.mcp-file` when
+// configured, such as a plugin's `.agents/plugins/<name>/mcp.json`,
+// otherwise the standalone default.
+func antigravityMCPFileFromCfg(cfg *config.Config) string {
+	if cfg != nil && cfg.Outputs["antigravity"].MCPFile != "" {
+		return cfg.Outputs["antigravity"].MCPFile
+	}
+	return antigravityMCPFile
+}
+
+// importAntigravityMCP reads mcpFile and writes one yaml per
+// `mcpServers.<name>` entry into dstDir. No-op when the file is absent
+// (#589).
+func importAntigravityMCP(root, mcpFile, dstDir string) (int, error) {
+	servers, err := readJSONMapAt(filepath.Join(root, mcpFile), antigravityMCPKey)
 	if err != nil || len(servers) == 0 {
 		return 0, err
 	}

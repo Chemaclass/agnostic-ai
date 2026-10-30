@@ -700,4 +700,7 @@
 # Target audit fixes for Crush lifecycle hooks, Kimi executor checks, Gemini
 # MCP OAuth, and the Vibe sampling default: 24301728 on Go 1.27.3 Linux
 # amd64 release flags, up 16384 from main c44ed244. Keep the 8192-byte allowance.
-24309920
+# #2829 imports Antigravity MCP from outputs.antigravity.mcp-file: 24314016 on
+# Go 1.27.3 Linux amd64 release flags, up 4096 from main e3824f18 (24309920).
+# Keep the 8192-byte allowance.
+24322208
