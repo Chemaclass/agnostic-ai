@@ -12,39 +12,43 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestImportKimi_RejectsRemovedKaosExecutor(t *testing.T) {
-	for _, global := range []bool{false, true} {
-		name := "project"
-		if global {
-			name = "global"
-		}
-		t.Run(name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
-			native := `{"mcpServers":{"obsolete":{"transport":"stdio","command":"example-mcp","executor":"kaos"}}}` + "\n"
-			var err error
-			var path, specPath string
-			if global {
-				path = filepath.Join(home, ".kimi-code/mcp.json")
-				specPath = filepath.Join(source, "mcps/obsolete.yaml")
-				mustWriteGlobalTest(t, path, native)
-				_, _, err = runImportGlobalTest("kimi")
-			} else {
-				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kimi]\nbuiltins: []\n")
-				path = ".kimi-code/mcp.json"
-				specPath = ".agnostic-ai/mcps/obsolete.yaml"
-				writeFile(t, path, native)
-				_, err = runCLI(t, "import", "kimi")
-			}
-			if err == nil {
-				t.Error("removed kaos executor was imported")
-			} else if !strings.Contains(err.Error(), "kaos") || !strings.Contains(err.Error(), "local") {
-				t.Errorf("error must explain the removed executor and supported option: %v", err)
-			}
-			if _, err := os.Stat(specPath); !os.IsNotExist(err) {
-				t.Errorf("invalid executor published an MCP spec: %v", err)
-			}
-			if got := readGlobalTest(t, path); got != native {
-				t.Error("import changed native configuration")
+func TestImportKimi_RejectsInvalidExecutor(t *testing.T) {
+	for _, executor := range []string{"kaos", "KAOS", "remote"} {
+		t.Run(executor, func(t *testing.T) {
+			for _, global := range []bool{false, true} {
+				name := "project"
+				if global {
+					name = "global"
+				}
+				t.Run(name, func(t *testing.T) {
+					home, source := globalAgentTestHome(t)
+					native := `{"mcpServers":{"obsolete":{"transport":"stdio","command":"example-mcp","executor":"` + executor + `"}}}` + "\n"
+					var err error
+					var path, specPath string
+					if global {
+						path = filepath.Join(home, ".kimi-code/mcp.json")
+						specPath = filepath.Join(source, "mcps/obsolete.yaml")
+						mustWriteGlobalTest(t, path, native)
+						_, _, err = runImportGlobalTest("kimi")
+					} else {
+						writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kimi]\nbuiltins: []\n")
+						path = ".kimi-code/mcp.json"
+						specPath = ".agnostic-ai/mcps/obsolete.yaml"
+						writeFile(t, path, native)
+						_, err = runCLI(t, "import", "kimi")
+					}
+					if err == nil {
+						t.Error("invalid executor was imported")
+					} else if !strings.Contains(err.Error(), executor) || !strings.Contains(err.Error(), "remove it or set executor: local") {
+						t.Errorf("error must explain the invalid executor and supported option: %v", err)
+					}
+					if _, err := os.Stat(specPath); !os.IsNotExist(err) {
+						t.Errorf("invalid executor published an MCP spec: %v", err)
+					}
+					if got := readGlobalTest(t, path); got != native {
+						t.Error("import changed native configuration")
+					}
+				})
 			}
 		})
 	}

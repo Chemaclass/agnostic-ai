@@ -144,8 +144,8 @@ func validateMCP(meta map[string]any) error {
 }
 
 func ValidateMCPExecutor(meta map[string]any) error {
-	if meta["executor"] == "kaos" {
-		return fmt.Errorf("executor kaos was removed in Kimi Code 2.2.0; remove it or set executor: local for a local server")
+	if executor, ok := meta["executor"]; ok && executor != "local" {
+		return fmt.Errorf("unsupported executor %v; remove it or set executor: local for a local server", executor)
 	}
 	return nil
 }

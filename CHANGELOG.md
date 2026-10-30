@@ -27,7 +27,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Kimi Code CLI
 
-- Sync and import reject the removed `kaos` MCP executor with corrective guidance; `local` and `runtime_id` remain supported (#2808).
+- Sync and import reject MCP executors other than `local`, including removed `kaos`; `runtime_id` remains supported (#2808).
 
 #### Crush
 

@@ -430,7 +430,8 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	if exclude := emit.StringSlice(e.Meta["excludeTools"]); len(exclude) > 0 {
 		out["excludeTools"] = exclude
 	}
-	if oauth, ok := emit.ResolveMeta(e.Meta, target)["oauth"].(map[string]any); ok {
+	native, _ := e.Meta["x-gemini"].(map[string]any)
+	if oauth, ok := native["oauth"].(map[string]any); ok {
 		out["oauth"] = oauth
 	}
 	return out
