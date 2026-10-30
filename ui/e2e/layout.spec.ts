@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { selectTab } from './helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
-for (const width of [320, 390, 900, 1440]) {
+for (const width of [320, 390, 768, 900, 1024, 1440]) {
   test(`keeps all five pages usable at ${width}px in both themes`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
@@ -14,6 +15,11 @@ for (const width of [320, 390, 900, 1440]) {
         const link = page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: new RegExp(`^${name}`) })
         await link.click()
         await expect(link).toHaveAttribute('aria-current', 'page')
+        if (width <= 900) {
+          for (const sectionLink of await page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link').all()) {
+            await expect(sectionLink).toBeInViewport({ ratio: 1 })
+          }
+        }
         await expect(page.getByRole('heading', { level: 1, name, exact: true })).toBeInViewport()
         const search = page.getByRole('searchbox', { name: `Search ${name.toLowerCase()}` })
         await expect(search).toBeInViewport()
@@ -26,6 +32,39 @@ for (const width of [320, 390, 900, 1440]) {
     }
   })
 }
+
+test('fits long project names and configuration switches on a phone', async ({ page }) => {
+  const data = structuredClone(fixture)
+  data.snapshot.project.name = 'a-project-with-a-long-unbroken-name-that-needs-to-wrap'
+  data.snapshot.project.root = '/work/projects/a-project-with-a-long-unbroken-name-that-needs-to-wrap'
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: {
+    ok: true, root: data.snapshot.project.root, global: true,
+    projectRoot: data.snapshot.project.root,
+  } }))
+  await page.goto('/?view=context')
+  const switchButton = page.getByRole('button', { name: /^Open project / })
+  await expect(switchButton).toBeInViewport({ ratio: 1 })
+  for (const name of ['Search', 'JSON', 'Switch to']) {
+    await expect(page.locator('.topbar').getByRole('button', { name: new RegExp(`^${name}`) })).toBeInViewport({ ratio: 1 })
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('switches a source tab without losing search or keyboard focus', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context&q=reviewer')
+  const tab = page.getByRole('tab', { name: /^Agents/ })
+  await tab.focus()
+  await page.keyboard.press('Enter')
+  const heading = page.getByRole('heading', { level: 2, name: /^Agents/ })
+  await expect(tab).toBeFocused()
+  await expect(tab).toHaveAttribute('aria-selected', 'true')
+  await expect(heading).toBeInViewport()
+  expect(await heading.evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(await page.locator('.topbar').evaluate((element) => element.getBoundingClientRect().bottom))
+  await expect(page).toHaveURL(/q=reviewer/)
+})
 
 test('starts every section with its page header', async ({ page }) => {
   for (const view of ['context', 'authority', 'tools', 'lifecycle', 'settings']) {
@@ -108,6 +147,7 @@ for (const width of [1440, 390]) {
     const views = ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']
     for (const [index, name] of views.entries()) {
       await page.goto(`/?view=${name.toLowerCase()}`)
+      if (name === 'Context') await selectTab(page, 'Agents')
       const heading = page.getByRole('heading', { level: 1, name, exact: true })
       await expect(heading).toBeInViewport()
       const headingTop = () => heading.evaluate((element) => element.getBoundingClientRect().top)

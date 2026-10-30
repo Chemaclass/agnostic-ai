@@ -694,4 +694,7 @@
 # #2634 adds single-server MCP previews, source-only saves, and their web UI.
 # Go 1.27.3 release flags: main cf183582 measured 24174752; this change
 # measures 24211616 (+36864). Keep the existing 8192-byte allowance.
-24219808
+# #2805 adds responsive views, section tabs, and guarded permission saves.
+# Go 1.27.3 Linux amd64 release flags: 24285344, up 73728 from main
+# 53e9dc18 (24211616). Keep the existing 8192-byte build allowance.
+24293536

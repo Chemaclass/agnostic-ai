@@ -5,8 +5,8 @@ import type { BuiltinChange } from '../src/builtin-change'
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 type State = BuiltinChange & { schemaVersion: string }
 
-async function session(page: Page) {
-  let state: State = { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] }
+async function session(page: Page, details: Partial<Pick<BuiltinChange, 'targets' | 'findings' | 'changes'>> = {}) {
+  let state: State = { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [], ...details }
   let enabled: Record<string, boolean> = {}
   let before: Record<string, boolean> = {}
   let appliedName = ''
@@ -75,6 +75,38 @@ async function session(page: Page) {
       state = { ...state, status: 'applied', undoAvailable: true, undoId: state.id, undoName: appliedName }
     },
   }
+}
+
+for (const width of [390, 1440]) {
+  test(`keeps a preview with every target compact and its full notes available at ${width}px`, async ({ page, context }) => {
+    await page.setViewportSize({ width, height: 900 })
+    const targets = readFileSync(new URL('../../docs/site/data/capabilities.toml', import.meta.url), 'utf8').split('[[targets]]').slice(1).map((block) => block.match(/id = "([^"]+)"/)![1])
+    const notes = targets.flatMap((target) => Array.from({ length: 8 }, (_, index) => `${target}: review note ${index + 1} for this tool`))
+    notes.push('A note without a tool prefix.')
+    const findings = ['This preview also applies pending source changes.', ...notes]
+    const changes = Array.from({ length: 100 }, (_, index) => ({ path: `generated/file-${index}.md`, action: 'update' as const, diff: '- Before\n+ After\n' }))
+    await session(page, { targets, findings, changes })
+    await toggle(page, 'caveman').click()
+    const preview = page.getByRole('region', { name: 'Caveman change preview' })
+    const apply = preview.getByRole('button', { name: 'Apply change', exact: true })
+    await expect(apply).toBeInViewport()
+    await expect(preview.getByRole('button', { name: 'Cancel', exact: true })).toBeInViewport()
+    expect((await preview.boundingBox())!.height).toBeLessThan(500)
+    await expect(preview.getByRole('note')).toContainText('also applies pending source changes')
+    await expect(preview.getByText(notes.at(-1)!, { exact: true })).not.toBeVisible()
+    await preview.getByText(`Review notes (${notes.length})`, { exact: true }).click()
+    const body = preview.getByRole('region', { name: 'Review notes' })
+    expect((await body.boundingBox())!.height).toBeLessThanOrEqual(320)
+    const last = preview.locator('.preview-note-group').filter({ has: page.locator('summary code', { hasText: targets.at(-1)! }) })
+    await last.locator('summary').click()
+    await expect(last.getByText(`${targets.at(-1)}: review note 8 for this tool`, { exact: true })).toBeVisible()
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await preview.getByRole('button', { name: 'Copy notes', exact: true }).click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(notes.join('\n'))
+    await expect(apply).toBeInViewport()
+    await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(preview).toHaveCount(0)
+  })
 }
 
 function toggle(page: Page, name: string) {
@@ -278,6 +310,7 @@ test('resets a personal built-in list that matches the shared list', async ({ pa
     return route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'reset-1', enabled: false, reset: true, audience: 'personal', supported: true, undoAvailable: false, config: 'agnostic-ai.local.yaml', targets: ['claude'], changes: [], findings: [] } })
   })
   await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
   const block = page.locator('section.block').filter({ has: page.getByRole('heading', { name: /Built-ins/ }) })
   await expect(block.locator('.badge', { hasText: 'personal' })).toBeVisible()
   await block.getByRole('button', { name: 'Reset built-ins to the shared list' }).click()
@@ -393,7 +426,7 @@ test('previews an effort change with pending source changes and shows a stale va
       findings: ['This preview also applies pending source changes.'],
     } })
   })
-  await page.goto('/?view=settings')
+  await page.goto('/?view=settings&tab=preferences')
   const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
   await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
   await effort.getByRole('button', { name: 'Preview and apply' }).click()

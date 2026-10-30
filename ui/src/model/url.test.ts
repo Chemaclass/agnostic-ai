@@ -32,6 +32,15 @@ describe('URL state parsing', () => {
   it('keeps the data source across navigation', () => {
     expect(nextState(parseUrlState('?view=tools&mock=1'), { view: 'settings' })).toEqual({ view: 'settings', mock: true, source: undefined })
   })
+
+  it('keeps a selected tab on refresh and clears it when the page changes', () => {
+    const state = parseUrlState('?view=tools&tab=native&q=github&mock=1')
+    expect(state.tab).toBe('native')
+    expect(serializeUrlState(state)).toBe('?view=tools&tab=native&q=github&mock=1')
+    expect(nextState(state, { view: 'settings' }).tab).toBeUndefined()
+    expect(nextState(state, { tab: 'servers' })).toMatchObject({ q: 'github', mock: true, tab: 'servers' })
+    expect(parseUrlState('?tab=../invalid').tab).toBeUndefined()
+  })
 })
 
 describe('data source', () => {
