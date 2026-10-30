@@ -154,7 +154,7 @@ name = "agents/"
 hint = "delegate work"
 file = "agents/test-writer.md"
 selected = true
-summary = "Subagents with a role, what they may do, and a model. `model: fast` names a tier from `agnostic-ai.yaml`, and sync writes each tool's model."
+summary = "Subagents with a role, what they may do, and a model. `model: fast` names a tier from `agnostic-ai.yaml`, and sync writes each tool's model and effort."
 outputs = [
   { tool = "Claude Code", path = ".claude/agents/test-writer.md" },
   { tool = "Codex", path = ".codex/agents/test-writer.toml", selected = true },
@@ -298,7 +298,7 @@ name = "agnostic-ai.yaml"
 hint = "tools, tiers"
 file = "agnostic-ai.yaml"
 project_root = true
-summary = "Project settings, beside `.agnostic-ai/`. `targets` picks the tools sync writes for. A tier names a model role once: an agent with `model: fast` gets the alias, and Codex gets the pinned id."
+summary = "Project settings, beside `.agnostic-ai/`. `targets` picks the tools sync writes for. A tier names a model role once: an agent with `model: fast` gets the model the tier names for each tool, and a Codex alias becomes the pinned id."
 outputs = [
   { tool = "Claude Code", path = ".claude/agents/test-writer.md", part = "frontmatter:model,effort" },
   { tool = "Codex", path = ".codex/agents/test-writer.toml", part = "toml:model,model_reasoning_effort" },

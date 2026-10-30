@@ -326,7 +326,8 @@ main > section[id] {
   border-radius: 8px;
 }
 
-.source-tree-file::before {
+.source-tree-file::before,
+.source-tree-file::after {
   display: none;
 }
 
@@ -587,6 +588,8 @@ main > section[id] {
   }
 
   .source-tree-file {
+    width: 100%;
+    margin-left: 0;
     padding-left: 0.5rem;
   }
 }
