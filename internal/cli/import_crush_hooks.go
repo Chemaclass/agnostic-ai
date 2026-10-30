@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -69,11 +70,12 @@ func importCrushHooks(root, dstDir string) (int, error) {
 			safeName := spec.ValidateName(spec.KindHook, name) == nil
 			if !matchingCrushHook(filepath.Join(dstDir, fileName+".yaml"), event, h) {
 				nameAvailable := false
-				if safeName {
+				personalName := importLocal != nil && importLocal.names[spec.KindHook][name]
+				if safeName && !personalName {
 					_, err := os.Stat(filepath.Join(dstDir, name+".yaml"))
 					nameAvailable = errors.Is(err, fs.ErrNotExist)
 				}
-				if safeName && (names[name] == 1 && nameAvailable || matchingCrushHook(filepath.Join(dstDir, name+".yaml"), event, h)) {
+				if safeName && !personalName && (names[name] == 1 && nameAvailable || matchingCrushHook(filepath.Join(dstDir, name+".yaml"), event, h)) {
 					fileName = name
 				} else if _, err := os.Stat(filepath.Join(dstDir, fileName+".yaml")); err == nil {
 					identity, err := json.Marshal(h)
@@ -133,9 +135,11 @@ func matchingCrushHook(path, event string, hook crushHookEntry) bool {
 	if reason != "" {
 		return false
 	}
+	declared := writtenHookKeys(adapters.TargetHook("crush", native).Meta)
 	for _, prior := range renderedCrushHooks(native)[event] {
 		if prior.Name == strings.TrimSpace(hook.Name) && prior.Timeout == hook.Timeout &&
-			prior.Matcher == hook.Matcher && adapters.StripHookTargetExport(prior.Command, "crush") == hook.Command {
+			prior.Matcher == hook.Matcher && (adapters.StripHookTargetExport(prior.Command, "crush") == hook.Command ||
+			slices.Contains(declared, hookCommandKey(hook.Command))) {
 			return true
 		}
 	}

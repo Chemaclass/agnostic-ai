@@ -271,6 +271,10 @@ func (g *localImportGuard) track(path string, data []byte, isDir bool) error {
 		return g.save(abs, g.skillFiles, &g.skillDirs)
 	case mergedKinds[kind] != "" && len(g.names[kind]) > 0:
 		g.kept[kind] = true
+	case kind == spec.KindHook && g.source == "crush":
+		if isDir || !g.ownsHookDoc(data) {
+			return nil
+		}
 	default:
 		if label, ok := g.localName(kind, rel, data, isDir); ok {
 			g.skipped[label] = true

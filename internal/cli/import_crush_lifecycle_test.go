@@ -378,3 +378,94 @@ func TestImportCrush_FilenameCollisionKeepsExistingHook(t *testing.T) {
 		t.Errorf("filename collision overwrote another native identity: %s", readFile(t, path))
 	}
 }
+
+func TestImportCrush_PersonalNameCollisionKeepsDistinctTimeout(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [crush]\nbuiltins: []\n")
+	personal := "name: audit\non: before-tool\nmatch: shell\ncommand: echo audit\ntimeout: 1\n"
+	personalPath := filepath.Join(defaultProjectUser, "hooks", "audit.yaml")
+	writeFile(t, personalPath, personal)
+	hook := crushHookEntry{Name: "audit", Matcher: "^bash$", Command: "echo audit", Timeout: 2}
+	body, err := json.Marshal(map[string]any{"hooks": map[string]any{"PreToolUse": []crushHookEntry{hook}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "crush.json", string(body))
+	execCLI(t, "import", "crush")
+	files := sharedHookFiles(t)
+	if len(files) != 1 {
+		t.Fatalf("distinct native timeout was discarded: %v", files)
+	}
+	for name := range files {
+		if name == "audit.yaml" {
+			t.Error("import reused the personal spec name")
+		}
+		if !matchingCrushHook(filepath.Join(".agnostic-ai", "hooks", name), "PreToolUse", hook) {
+			t.Errorf("imported spec %s lost native identity %+v", name, hook)
+		}
+	}
+	execCLI(t, "import", "crush")
+	if got := sharedHookFiles(t); !reflect.DeepEqual(got, files) {
+		t.Errorf("unchanged re-import changed shared specs: got %v, want %v", got, files)
+	}
+	if got := readFile(t, personalPath); got != personal {
+		t.Errorf("import changed personal spec:\n%s", got)
+	}
+	execCLI(t, "sync")
+	execCLI(t, "sync", "--check")
+	var got struct {
+		Hooks map[string][]crushHookEntry `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, "crush.json")), &got); err != nil {
+		t.Fatal(err)
+	}
+	counts := map[int]int{}
+	for _, entry := range got.Hooks["PreToolUse"] {
+		if entry.Name != "audit" || entry.Matcher != hook.Matcher || adapters.StripHookTargetExport(entry.Command, "crush") != hook.Command {
+			t.Errorf("sync changed native identity: %+v", entry)
+		}
+		counts[entry.Timeout]++
+	}
+	if !reflect.DeepEqual(counts, map[int]int{1: 1, 2: 1}) {
+		t.Errorf("each timeout should run once: %v", counts)
+	}
+}
+
+func TestImportCrush_UnchangedCommandPathKeepsNativeIdentities(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [crush]\nbuiltins: []\n")
+	writeFile(t, "crush.json", `{"hooks":{"PreToolUse":[{"name":"audit","matcher":"^bash$","command":"cat .claude/hooks/policy.json","timeout":1},{"name":"audit","matcher":"^bash$","command":"cat .claude/hooks/policy.json","timeout":2}]}}`)
+	execCLI(t, "import", "crush")
+	files := sharedHookFiles(t)
+	if len(files) != 2 {
+		t.Fatalf("distinct native timeouts overwrote a spec: %v", files)
+	}
+	counts := map[int]int{}
+	for name, raw := range files {
+		entry, err := spec.ParseYAMLBytes(spec.KindHook, []byte(raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if entry.Meta["command"] != "cat .claude/hooks/policy.json" {
+			t.Errorf("%s lost the declared command: %v", name, entry.Meta["command"])
+		}
+		native, ok := entry.Meta["x-crush"].(map[string]any)
+		if !ok || native["name"] != "audit" {
+			t.Errorf("%s lost native name: %v", name, native)
+		}
+		timeout, ok := entry.Meta["timeout"].(int)
+		if !ok {
+			t.Errorf("%s lost timeout: %v", name, entry.Meta["timeout"])
+		}
+		counts[timeout]++
+	}
+	if !reflect.DeepEqual(counts, map[int]int{1: 1, 2: 1}) {
+		t.Errorf("each timeout should import once: %v", counts)
+	}
+	execCLI(t, "import", "crush")
+	if got := sharedHookFiles(t); !reflect.DeepEqual(got, files) {
+		t.Errorf("unchanged re-import changed shared specs: got %v, want %v", got, files)
+	}
+}
