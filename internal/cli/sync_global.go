@@ -34,8 +34,9 @@ const (
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	// Version 6 records the hooks file containers sync created; version
 	// 8 records the permission rules sync wrote; version 9 records the
-	// settings parents sync created.
-	globalStateVersion = 9
+	// settings parents sync created; version 10 records the original of
+	// each key a personal field writes, per target and key.
+	globalStateVersion = 10
 )
 
 type globalSyncOptions struct {
@@ -70,8 +71,13 @@ type globalState struct {
 	// PermissionRules records, per target and permission list, the rules
 	// sync wrote into its user settings file, so a later sync removes
 	// only its own and import leaves them out.
-	PermissionRules  map[string]map[string][]string     `json:"permissionRules,omitempty"`
-	SessionRetention map[string]globalRetentionOriginal `json:"sessionRetention,omitempty"`
+	PermissionRules map[string]map[string][]string `json:"permissionRules,omitempty"`
+	// SettingsOriginals records, per target and native key, what a key a
+	// personal portable field writes held before, so removal restores it.
+	SettingsOriginals map[string]map[string]globalSettingOriginal `json:"settingsOriginals,omitempty"`
+	// SessionRetention is the version 9 layout of SettingsOriginals, read
+	// for migration only.
+	SessionRetention map[string]legacyRetentionOriginal `json:"sessionRetention,omitempty"`
 	// SettingsParents records, per target, the JSON objects sync created
 	// as settings or above the settings keys it owns. Removal takes away only these
 	// once empty, so an object the user wrote stays.
@@ -249,6 +255,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	issues = append(issues, agentLimitIssues(own.Agents)...)
 	issues = append(issues, skillCapabilityIssues(bundle.Skills)...)
 	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
+	issues = append(issues, voiceIssues(bundle.Settings)...)
 	issues = append(issues, agentOnlyIssues(bundle.MCPs)...)
 	// A permission rule the target cannot read would be written as it
 	// stands, so a deny rule could stop guarding anything.
@@ -783,6 +790,12 @@ func hasGlobalRuleCondition(meta map[string]any) bool {
 }
 
 func loadGlobalState(path string) (globalState, error) {
+	return loadGlobalStateUpTo(path, globalStateVersion)
+}
+
+// loadGlobalStateUpTo reads a state file no newer than version, the way
+// the release that wrote version reads one.
+func loadGlobalStateUpTo(path string, version int) (globalState, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return globalState{Version: globalStateVersion}, nil
@@ -791,7 +804,7 @@ func loadGlobalState(path string) (globalState, error) {
 		return globalState{}, fmt.Errorf("read %s: %w", path, err)
 	}
 	var state globalState
-	if err := json.Unmarshal(data, &state); err != nil || state.Version < 1 || state.Version > globalStateVersion {
+	if err := json.Unmarshal(data, &state); err != nil || state.Version < 1 || state.Version > version {
 		return globalState{}, fmt.Errorf("parse %s: corrupt global ownership state", path)
 	}
 	if len(state.MCP["pi"]) > 0 {
@@ -810,6 +823,16 @@ func loadGlobalState(path string) (globalState, error) {
 		}
 	}
 	state.ClaudeHooks, state.CursorHooks = nil, nil
+	for target, original := range state.SessionRetention {
+		if state.SettingsOriginals == nil {
+			state.SettingsOriginals = map[string]map[string]globalSettingOriginal{}
+		}
+		if state.SettingsOriginals[target] == nil {
+			state.SettingsOriginals[target] = map[string]globalSettingOriginal{}
+		}
+		state.SettingsOriginals[target][original.Key] = original.globalSettingOriginal
+	}
+	state.SessionRetention = nil
 	state.legacyHookContainers = state.Version < 6
 	state.Version = globalStateVersion
 	return state, nil
@@ -845,7 +868,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 		}
 	}
-	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, SettingsParents: map[string][]string{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SettingsOriginals: map[string]map[string]globalSettingOriginal{}, SettingsParents: map[string][]string{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	if next.TOMLArrays == nil {
 		next.TOMLArrays = map[string]map[string]tomlArrayLayout{}
 	}
@@ -887,9 +910,9 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			next.PermissionRules[target] = rules
 		}
 	}
-	for target, original := range old.SessionRetention {
+	for target, originals := range old.SettingsOriginals {
 		if !slices.Contains(targets, target) {
-			next.SessionRetention[target] = original
+			next.SettingsOriginals[target] = originals
 		}
 	}
 	for target, servers := range old.MCP {
@@ -1333,15 +1356,12 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			path := g.path(home, g.settings.path)
 			previous := old.Settings[target]
 			previousRules := old.PermissionRules[target]
-			var original *globalRetentionOriginal
-			if saved, present := old.SessionRetention[target]; present {
-				original = &saved
-			}
+			originals := old.SettingsOriginals[target]
 			parents := jsonParents{created: old.SettingsParents[target]}
 			// Keys recorded in a file the root no longer resolves to go
 			// from that file, and the new one starts unowned.
 			if moved := old.SettingsPaths[target]; moved != "" && moved != path {
-				m, _, err := mergeGlobalRetention(moved, g.settings.format, baseFor(moved), nil, previous, original, parents, g.settings.retention, target, false, warn)
+				m, _, err := mergeGlobalPersonal(moved, g.settings.format, baseFor(moved), nil, previous, originals, parents, nil, target, warn)
 				if err != nil {
 					return nil, next, err
 				}
@@ -1353,15 +1373,15 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				}
 				previous = nil
 				previousRules = nil
-				original = nil
+				originals = nil
 				parents = jsonParents{}
 			}
-			m, retention, err := mergeGlobalRetention(path, g.settings.format, baseFor(path), want, previous, original, parents, g.settings.retention, target, hasSessionRetention(b.Settings, target), warn)
+			m, originals, err := mergeGlobalPersonal(path, g.settings.format, baseFor(path), want, previous, originals, parents, personalNativeKeys(target, g.settings, b.Settings), target, warn)
 			if err != nil {
 				return nil, next, err
 			}
-			if retention != nil {
-				next.SessionRetention[target] = *retention
+			if originals != nil {
+				next.SettingsOriginals[target] = originals
 			}
 			var rules map[string][]string
 			if g.settings.permissionLists {

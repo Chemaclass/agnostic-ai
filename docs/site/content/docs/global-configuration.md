@@ -160,6 +160,8 @@ CodeBuddy Code also merges user permission lists and starting modes; see its [na
 
 `session-retention-days` in a home settings spec sets how many days your transcripts are kept, for Claude Code, CodeBuddy Code, Gemini CLI, and Qoder CLI. See [session retention](@/docs/spec-format/settings.md#session-retention).
 
+`voice` in a home settings spec turns voice dictation on and picks hold or tap for Claude Code. See [voice dictation](@/docs/spec-format/settings.md#voice-dictation).
+
 Each item wins over the one before it:
 
 1. `settings/*.yaml` in the home.

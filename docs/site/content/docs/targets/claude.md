@@ -66,7 +66,7 @@ An empty kind creates no corresponding files. For output overrides and field map
 - An [agent-only MCP server](@/docs/spec-format/mcps.md#agent-only) is written into the agent file, not `.mcp.json`. Claude Code loads it only after you trust the project folder in an interactive session. A parent folder's trust does not count, and neither does the trust a `claude -p` or SDK session gets. Until then the agent runs without the server ([Claude Code docs](https://code.claude.com/docs/en/sub-agents#inline-server-trust)).
 - A read-only agent blocks Claude's edit tools but still allows Bash. Hooks and permissions also differ across tools; check the native mapping before treating shared text as an enforced restriction.
 
-With `builtins: [memory]`, shared memory adds to [Claude Code's own memory](@/docs/memory.md#claude-code-s-own-memory). For home instructions and user settings, see [global configuration](@/docs/global-configuration.md).
+With `builtins: [memory]`, shared memory adds to [Claude Code's own memory](@/docs/memory.md#claude-code-s-own-memory). For home instructions and user settings, see [global configuration](@/docs/global-configuration.md). A home `voice` setting writes `voice.enabled` and `voice.mode` to `~/.claude/settings.json`; `voice.language` is not written, because Claude takes its dictation language from its response language. See [voice dictation](@/docs/spec-format/settings.md#voice-dictation).
 
 ## Protected paths
 

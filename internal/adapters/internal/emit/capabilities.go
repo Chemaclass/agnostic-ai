@@ -79,6 +79,9 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 		if _, present := entry.Meta["session-retention-days"]; present && entry.EmitsTo(c.Target) {
 			NoteFieldNoOp(c.Target, spec.KindSettings, "session-retention-days", 1, "session retention is personal; only sync --global writes it")
 		}
+		if _, present := entry.Meta["voice"]; present && entry.EmitsTo(c.Target) {
+			NoteFieldNoOp(c.Target, spec.KindSettings, "voice", 1, "voice is personal; only sync --global writes it")
+		}
 	}
 	if mode == "" {
 		mode = OnUnsupportedWarn
