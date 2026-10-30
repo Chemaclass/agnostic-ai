@@ -43,6 +43,9 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 		}
 	}
 	if chosen.Path != "" {
+		if reason := overview.PermissionEditDisabledReason(chosen, h.root); reason != "" {
+			return "", "", nil, fmt.Errorf("%s", reason)
+		}
 		file, scaffold, err := h.scopedSettingsFile(chosen, key, where)
 		if err != nil {
 			return "", "", nil, err

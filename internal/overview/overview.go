@@ -158,10 +158,9 @@ var sectionDefs = []sectionDef{
 	},
 }
 
-// grantsAuthority keeps the settings specs that set permission rules or
-// protected paths.
+// grantsAuthority keeps authority specs, including a personal permissions clear.
 func grantsAuthority(e spec.Entry) bool {
-	return hasField(e, "permissions") || hasField(e, "protected")
+	return hasField(e, "permissions") || hasField(e, "protected") || personalPermissionsCleared(e)
 }
 
 // shapesExecution keeps every settings spec that sets no permission

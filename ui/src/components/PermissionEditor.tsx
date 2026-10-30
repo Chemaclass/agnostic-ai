@@ -32,8 +32,11 @@ interface PermissionEditorProps {
 export function PermissionEditor(props: PermissionEditorProps) {
   const audience = useEditAudience()
   const edit = props.field.editable
-  const [selected, select] = useState(edit?.path ?? '')
-  return <PermissionForm key={`${audience}:${selected}`} {...props} path={selected} select={select} />
+  const [selected, select] = useState(() => ({ path: edit?.path ?? '', spec: edit?.sources?.find((source) => source.path === edit.path)?.spec }))
+  const source = edit?.sources?.find((source) => source.path === selected.path) ?? edit?.sources?.find((source) => source.spec === selected.spec)
+  const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
+  const path = source?.path ?? (paths.includes(selected.path) ? selected.path : '')
+  return <PermissionForm key={`${audience}:${path}`} {...props} path={path} select={(next) => select({ path: next, spec: edit?.sources?.find((source) => source.path === next)?.spec })} />
 }
 
 function PermissionForm({ field, files, sources, path, select }: PermissionEditorProps & { path: string; select: (path: string) => void }) {
@@ -77,6 +80,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   if (app.source.kind !== 'api' || !edit || !isPermissionKey(field.key)) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}</p></>
   const key = field.key
+  const disabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
   const overridden = audience === 'shared' && current.personalSet
   const differs = JSON.stringify(current.shared ?? []) !== JSON.stringify(current.personal ?? [])
   const rules = rulesFromText(text)
@@ -112,9 +116,9 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       if (active.current) setPending(undefined)
     }
   }
-  const locked = !!pending || !!preview
+  const locked = !!pending || !!preview || !!disabledReason
   return <>{sources()}<div className="permission-editor">
-    {paths.length > 1 && <label className="field-edit-target">Settings file
+    {(paths.length > 1 || !path && paths.length > 0) && <label className="field-edit-target">Settings file
       <select aria-label={`Settings file for ${field.label}`} value={path} disabled={!!pending} onChange={(event) => select(event.target.value)}>
         <option value="" disabled>Choose a settings file</option>
         {paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}
@@ -126,14 +130,15 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
         <RuleComparison label="Shared" rules={current.shared} />
         <RuleComparison label="Personal" rules={current.personal} cleared={current.personal === null} />
       </details>}
-      {overridden && <><p className="muted">Reset this list in Personal to edit Shared.</p><ViewPersonalButton /></>}
+      {overridden && <>{!disabledReason && <p className="muted">Reset this list in Personal to edit Shared.</p>}<ViewPersonalButton /></>}
     </div>}
-    {!overridden && !preview && !editing && <div className="field-edit-row">
+    {disabledReason && <p className="muted">{disabledReason}</p>}
+    {!disabledReason && !overridden && !preview && !editing && <div className="field-edit-row">
       <button type="button" className="button" disabled={!path || !!pending} onClick={begin}>{own === null && !effective?.length ? 'Add rules' : 'Edit rules'}</button>
       {audience === 'personal' && current.personalSet && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to shared rules</button>}
       {!path && <span className="muted">Choose the file whose rules you want to change.</span>}
     </div>}
-    {editing && !preview && <form className="permission-form" onSubmit={(event) => { event.preventDefault(); void request('preview') }}>
+    {!disabledReason && editing && !preview && <form className="permission-form" onSubmit={(event) => { event.preventDefault(); void request('preview') }}>
       <label htmlFor={id}>{field.label} rules</label>
       <p id={`${id}-hint`} className="muted">One rule per line, for example <Code>shell(git status)</Code> or <Code>read(src/**)</Code>. Blank lines are ignored.</p>
       {inherited && <p className="muted">Starts with shared rules. Saving replaces this list for you; other settings keep inheriting.</p>}
@@ -149,7 +154,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       <div className="permission-preview-head">
         <h3>{preview.rules === null ? audience === 'personal' ? 'Use shared rules' : 'Remove shared list' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
         <div className="field-edit-row">
-          <button type="button" className="button button-primary" disabled={!!pending} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Saving…' : 'Save rules'}</button>
+          <button type="button" className="button button-primary" disabled={!!pending || !!disabledReason} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Saving…' : 'Save rules'}</button>
           <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { setPreview(undefined); setError(undefined) }}>{editing ? 'Back to editing' : 'Cancel'}</button>
         </div>
       </div>

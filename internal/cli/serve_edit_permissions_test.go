@@ -247,3 +247,34 @@ func TestPermissionEdit_ResetsAPersonalNullWithoutChangingOtherKeys(t *testing.T
 		t.Errorf("reset changed unrelated keys: %q", got)
 	}
 }
+
+func TestPermissionEdit_RefusesWholePersonalPermissionsClearForBothAudiences(t *testing.T) {
+	for _, global := range []bool{false, true} {
+		t.Run(map[bool]string{false: "project", true: "global"}[global], func(t *testing.T) {
+			original := "name: defaults\npermissions:\n  allow: [read]\n"
+			personal := "# Keep my clear.\nname: defaults\npermissions: null\n"
+			var h *editHandler
+			shared, local := ".agnostic-ai/settings/defaults.yaml", ".agnostic-ai/local/settings/defaults.yaml"
+			if global {
+				root := editHome(t)
+				h = &editHandler{root: root, global: true}
+				shared, local = "settings/native.yaml", "local/settings/defaults.yaml"
+			} else {
+				h = targetProject(t, original)
+			}
+			sharedFile, localFile := filepath.Join(h.root, filepath.FromSlash(shared)), filepath.Join(h.root, filepath.FromSlash(local))
+			mustWrite(t, sharedFile, original)
+			mustWrite(t, localFile, personal)
+			for _, audience := range []string{"shared", "personal"} {
+				body := map[string]any{"action": "preview", "audience": audience, "path": shared, "key": "permissions.allow", "rules": []string{"edit"}}
+				rec := permissionRequest(t, h, body)
+				if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Remove permissions: null") || !strings.Contains(rec.Body.String(), local) {
+					t.Errorf("%s whole clear = %d %s", audience, rec.Code, rec.Body)
+				}
+			}
+			if readProjectFile(t, sharedFile) != original || readProjectFile(t, localFile) != personal {
+				t.Error("refused permission edit changed source files")
+			}
+		})
+	}
+}

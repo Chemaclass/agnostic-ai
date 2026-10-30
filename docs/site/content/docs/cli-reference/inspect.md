@@ -367,6 +367,8 @@ In **Authority**, select Shared or Personal, then **Add rules** or **Edit rules*
 
 A personal edit starts with the shared rules and replaces only the selected list for that spec; other settings keep inheriting. A changed personal list offers **Compare shared and personal**. **Reset to shared rules** previews removing the override. An empty list is an explicit override with no rules; resetting removes it and inherits Shared again. Shared editing stays blocked while a personal list replaces it.
 
+If a personal spec clears the whole group with `permissions: null`, individual lists stay read-only in both views. Shared still shows its baseline; Personal shows the clear and names the file to edit. Remove that whole-group clear in the personal file before editing one list.
+
 When several settings files are editable, choose one explicitly; lists from other specs still contribute their rules. With no settings spec, the editor creates `settings/permissions.yaml` under the configured source root, or `local/settings/permissions.yaml` for Personal. Pack-only sources remain read-only. Invalid rules, unsafe file paths, and credentials are refused. A changed file stops saving and offers **Reload saved values**, which keeps your draft for a fresh preview. Permission saves have no browser undo.
 
 ### API

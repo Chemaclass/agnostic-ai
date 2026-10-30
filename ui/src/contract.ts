@@ -600,7 +600,7 @@ export interface SettingField {
   /** Each spec that sets the field; `local` marks a personal file Git ignores. */
   set: { spec: string; path: string; values: Value[]; local?: boolean }[]
   /** `localPath` is the personal file a personal edit of `path` writes. `toolAllowed` lists the values one tool accepts, for tools with a fixed list. */
-  editable?: { path?: string; paths?: string[]; sources?: { path: string; spec: string; localPath: string }[]; kind: 'text' | 'number' | 'permission-list'; allowed?: string[]; toolAllowed?: Record<string, string[]>; disabledReason?: string; syncCommand?: string; localPath?: string }
+  editable?: { path?: string; paths?: string[]; sources?: { path: string; spec: string; localPath: string; disabledReason?: string }[]; kind: 'text' | 'number' | 'permission-list'; allowed?: string[]; toolAllowed?: Record<string, string[]>; disabledReason?: string; syncCommand?: string; localPath?: string }
   /** For model and effort: the value sync writes for each configured tool, and why. */
   resolved?: TargetValue[]
 }

@@ -397,6 +397,89 @@ func TestAuthorityFields_LocalOverlayMarksANestedPermissionAsPersonal(t *testing
 	}
 }
 
+func TestAuthorityFields_WholePersonalPermissionsClearKeepsSharedValues(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}}
+	shared := entry(spec.KindSettings, "policy", ".agnostic-ai/settings/policy.yaml", map[string]any{
+		"permissions": map[string]any{"allow": []any{"read"}, "ask": []any{"shell"}, "deny": []any{"edit"}, "default-mode": "plan"},
+	})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/policy.yaml", map[string]any{"permissions": nil})
+	delete(overlay.Meta, "permissions")
+	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}}), SectionAuthority)
+	if len(section.Items) != 1 || section.Items[0].Path != overlay.Path || counts(section)["Permissions"] != 1 {
+		t.Errorf("Authority items = %+v, counts = %v, want the personal clear in Permissions", section.Items, counts(section))
+	}
+	for _, field := range section.Fields {
+		if !strings.HasPrefix(field.Key, "permissions.") {
+			continue
+		}
+		if len(field.Set) != 2 {
+			t.Errorf("%s sources = %+v, want personal clear and shared baseline", field.Key, field.Set)
+			continue
+		}
+		if own := field.Set[0]; !own.Local || own.Path != overlay.Path || len(own.Values) != 1 || own.Values[0].Key != "permissions" || own.Values[0].Value != "null" {
+			t.Errorf("%s personal clear = %+v", field.Key, own)
+		}
+		if team := field.Set[1]; team.Local || team.Path != shared.Path || len(team.Values) != 1 || team.Values[0].Key != field.Key {
+			t.Errorf("%s shared baseline = %+v", field.Key, team)
+		}
+	}
+	other := entry(spec.KindSettings, "other", ".agnostic-ai/settings/other.yaml", map[string]any{"model": "sonnet"})
+	edit := PermissionFieldEdit([]spec.Entry{overlay, other}, cfg, "", false)
+	data, err := json.Marshal(edit.Sources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"disabledReason":`) || !strings.Contains(string(data), "Remove permissions: null") || !strings.Contains(string(data), overlay.Path) {
+		t.Errorf("permission choices = %s, want source-specific clear instructions", data)
+	}
+}
+
+func TestSettingsFields_PersonalMapKeepsNestedNullAndSharedBaseline(t *testing.T) {
+	shared := entry(spec.KindSettings, "defaults", ".agnostic-ai/settings/defaults.yaml", map[string]any{
+		"model": map[string]any{"default": "sonnet", "codex": "gpt-5"},
+	})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/defaults.yaml", map[string]any{"model": map[string]any{"codex": nil}})
+	overlay.Meta["model"] = map[string]any{"default": "sonnet"}
+	fields := buildFields(SectionSettings, []SectionItem{sectionItem("", overlay)}, []spec.Entry{overlay}, &config.Config{Targets: []string{"claude", "codex"}}, "", false)
+	at := slices.IndexFunc(fields, func(field SettingField) bool { return field.Key == "model" })
+	if at < 0 {
+		t.Fatal("model field is missing")
+	}
+	want := []FieldSource{
+		{Spec: shared.Name, Path: overlay.Path, Local: true, Values: []Value{{Key: "model.codex", Type: ValueText, Value: "null"}}},
+		{Spec: shared.Name, Path: shared.Path, Values: []Value{{Key: "model.codex", Type: ValueText, Value: "gpt-5"}, {Key: "model.default", Type: ValueText, Value: "sonnet"}}},
+	}
+	if got := fields[at].Set; !reflect.DeepEqual(got, want) {
+		t.Errorf("model sources = %+v, want %+v", got, want)
+	}
+}
+
+func TestSettingsFields_PersonalTierKeepsDerivedEffortAndItsEditGuard(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Models: map[string]config.ModelTier{
+		"fast": {Models: map[string]string{"claude": "haiku"}, Effort: "low"},
+	}}
+	shared := entry(spec.KindSettings, "defaults", ".agnostic-ai/settings/defaults.yaml", map[string]any{"model": "sonnet"})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/defaults.yaml", map[string]any{"model": "fast"})
+	bundle := spec.Bundle{Settings: []spec.Entry{overlay}}
+	bundle.ApplyModelTiers(cfg.Models)
+	fields := buildFields(SectionSettings, []SectionItem{sectionItem("", bundle.Settings[0])}, bundle.Settings, cfg, "", false)
+	byKey := map[string]SettingField{}
+	for _, field := range fields {
+		byKey[field.Key] = field
+	}
+	model := byKey["model"]
+	if len(model.Set) != 2 || len(model.Set[0].Values) != 1 || model.Set[0].Values[0].Key != "model" || model.Set[0].Values[0].Value != "fast" {
+		t.Errorf("model sources = %+v, want the personal tier name and shared baseline", model.Set)
+	}
+	if model.Editable == nil || !strings.Contains(model.Editable.DisabledReason, "tier") {
+		t.Errorf("model edit = %+v, want the tier edit guard", model.Editable)
+	}
+	effort := byKey["effort"]
+	if len(effort.Set) != 1 || len(effort.Set[0].Values) != 1 || effort.Set[0].Values[0].Value != "low" {
+		t.Errorf("effort sources = %+v, want the derived tier effort", effort.Set)
+	}
+}
+
 func TestBuiltinKind_MarksAPersonalListEvenWhenItMatchesTheTeamList(t *testing.T) {
 	in := Inputs{Cfg: &config.Config{Builtins: []string{"memory"}}, BuiltinsTeam: []string{"memory"}, BuiltinsLocal: true}
 	for _, local := range []bool{true, false} {

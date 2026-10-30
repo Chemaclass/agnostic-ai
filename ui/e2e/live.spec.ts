@@ -262,6 +262,114 @@ test('live Authority selects a personal-only list by declared spec across multip
   } finally { await f.close() }
 })
 
+test('live Authority keeps editing the first personal-only spec through save and reset', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    await page.goto(`${f.url}?view=authority`)
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+    await row.getByRole('button', { name: 'Add rules', exact: true }).click()
+    await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('shell(git push origin main)')
+    await row.getByRole('button', { name: 'Preview changes' }).click()
+    await row.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await row.getByRole('button', { name: 'Edit rules', exact: true }).click()
+    await expect(row.getByRole('textbox', { name: 'Ask first rules', exact: true })).toHaveValue('shell(git push origin main)')
+    await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('shell(git push origin release)')
+    await row.getByRole('button', { name: 'Preview changes' }).click()
+    await row.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await row.getByRole('button', { name: 'Reset to shared rules', exact: true }).click()
+    await row.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await row.getByRole('button', { name: 'Add rules', exact: true }).click()
+    await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('read(private/**)')
+    await row.getByRole('button', { name: 'Preview changes' }).click()
+    await row.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await expect(row.getByRole('button', { name: 'Edit rules', exact: true })).toBeVisible()
+    const source = join(f.root, '.agnostic-ai', 'local', 'settings', 'permissions.yaml')
+    expect(await readFile(source, 'utf8')).toContain('read(private/**)')
+  } finally { await f.close() }
+})
+
+test('live Authority explains whole-group personal clears and refuses masked shared edits', async ({ page, request }) => {
+  const f = await fixture()
+  try {
+    const shared = 'name: native\npermissions:\n  allow: [read]\n'
+    const local = 'name: native\npermissions: null\n'
+    await put(f.settings, shared)
+    await put(f.localSettings, local)
+    await page.goto(`${f.url}?view=authority`)
+    const row = page.locator('.field-row').filter({ has: page.getByText('Allowed without asking', { exact: true }) })
+    await expect(row.locator('.field-source')).toContainText('read')
+    await expect(row).toContainText('clears every permission list')
+    await expect(row.getByRole('button', { name: /^(Add rules|Edit rules|Reset to shared rules)$/ })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    await expect(row).toContainText('clears every permission list')
+    await expect(row.getByRole('button', { name: /^(Add rules|Edit rules|Reset to shared rules)$/ })).toHaveCount(0)
+    const response = await request.post(`${f.url}api/edit/permissions`, { data: { action: 'preview', audience: 'shared', path: '.agnostic-ai/settings/native.yaml', key: 'permissions.allow', before: ['read'], rules: ['read(src/**)'] } })
+    expect(response.status()).toBeGreaterThanOrEqual(400)
+    expect(await response.text()).toContain('clears every permission list')
+    expect(await readFile(f.settings, 'utf8')).toBe(shared)
+    expect(await readFile(f.localSettings, 'utf8')).toBe(local)
+  } finally { await f.close() }
+})
+
+test('live Authority asks for a valid source after deleting a personal-only spec beside another source', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    await page.goto(`${f.url}?view=authority`)
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+    await row.getByRole('button', { name: 'Add rules', exact: true }).click()
+    await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('shell(git push origin main)')
+    await row.getByRole('button', { name: 'Preview changes' }).click()
+    await row.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await expect(row.getByRole('button', { name: 'Edit rules', exact: true })).toBeVisible()
+    await put(join(f.root, '.agnostic-ai', 'settings', 'other.yaml'), 'name: other\neffort: high\n')
+    await page.reload()
+    const source = row.getByLabel('Settings file for Ask first')
+    await source.selectOption('.agnostic-ai/local/settings/permissions.yaml')
+    await row.getByRole('button', { name: 'Reset to shared rules', exact: true }).click()
+    await row.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await expect(source).toBeVisible()
+    await expect(source).toHaveValue('')
+    await expect(row.getByRole('button', { name: 'Add rules', exact: true })).toBeDisabled()
+    await source.selectOption('.agnostic-ai/settings/other.yaml')
+    await row.getByRole('button', { name: 'Add rules', exact: true }).click()
+    await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('read(private/**)')
+    await row.getByRole('button', { name: 'Preview changes' }).click()
+    await row.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await expect(page.locator('.permission-saved')).toContainText('.agnostic-ai/local/settings/other.yaml')
+    expect(await readFile(join(f.root, '.agnostic-ai', 'local', 'settings', 'other.yaml'), 'utf8')).toContain('read(private/**)')
+  } finally { await f.close() }
+})
+
+test('live Settings keeps a cleared personal tool value distinct from shared inheritance', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.config, f.configBytes.replace('    - claude # team tool\n', '    - claude # team tool\n    - codex\n'))
+    await put(f.settings, 'name: native\nmodel:\n  default: sonnet\n  codex: gpt-5\n')
+    await put(f.localSettings, 'name: native\nmodel:\n  codex: null\n')
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    const row = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(row.locator('.field-source').filter({ hasText: 'gpt-5' })).toHaveCount(0)
+    await row.getByText('What each tool gets').click()
+    await row.getByRole('combobox', { name: 'Tool', exact: true }).selectOption('codex')
+    const input = row.getByRole('textbox', { name: 'Default model for Codex value', exact: true })
+    await expect(input).toHaveValue('')
+    await expect(input).toHaveAttribute('placeholder', 'Cleared for you')
+    await row.getByRole('button', { name: 'Preview personal reset', exact: true }).click()
+    const preview = row.getByRole('region', { name: 'Default model for Codex change preview' })
+    await expect(preview).toBeVisible()
+    await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect.poll(() => readFile(f.localSettings, 'utf8')).not.toContain('null')
+    await expect(input).toHaveValue('gpt-5')
+  } finally { await f.close() }
+})
+
 test('live Settings shows the selected audience and edits only personal values', async ({ page }) => {
   const f = await fixture()
   try {

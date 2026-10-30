@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -58,33 +59,31 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				continue
 			}
 			e := byName[it.Name]
-			if d.prefix && e.Base != nil {
-				if own := d.values(specValues(e.LocalMeta)); len(own) > 0 {
-					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: own, Local: true})
-				}
-				if shared := d.values(settingsValues(*e.Base)); len(shared) > 0 {
-					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: SpecPath(root, *e.Base), Values: shared})
-				}
-				continue
-			}
 			values := d.values(it.Values)
-			if len(values) == 0 && e.Base != nil && !d.prefix && LocalSets(e, d.key) {
-				// A personal null clears the team value; show it so it can be reset.
-				values = []Value{{Key: d.key, Type: ValueText, Value: "null"}}
-			}
-			if len(values) == 0 {
-				continue
-			}
+			cleared := strings.HasPrefix(d.key, "permissions.") && personalPermissionsCleared(e)
 			if e.Base == nil {
-				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: LocalLayer(e)})
+				if cleared {
+					values = []Value{{Key: "permissions", Type: ValueText, Value: "null"}}
+				}
+				if len(values) > 0 {
+					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: LocalLayer(e)})
+				}
 				continue
+			}
+			own := d.values(specValues(e.LocalMeta))
+			if cleared {
+				own = []Value{{Key: "permissions", Type: ValueText, Value: "null"}}
 			}
 			team := SpecPath(root, *e.Base)
-			if !LocalSets(e, d.key) {
-				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: team, Values: values})
+			if !d.prefix && len(own) == 0 {
+				if len(values) > 0 {
+					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: team, Values: values})
+				}
 				continue
 			}
-			f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: true})
+			if len(own) > 0 {
+				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: own, Local: true})
+			}
 			if shared := d.values(settingsValues(*e.Base)); len(shared) > 0 {
 				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: team, Values: shared})
 			}
@@ -196,6 +195,25 @@ func PermissionEditCandidate(e spec.Entry) bool {
 	return e.Base == nil || e.Base.Layer != builtinLayer && !strings.HasPrefix(e.Base.Layer, "pack:")
 }
 
+func personalPermissionsCleared(e spec.Entry) bool {
+	if !LocalLayer(e) {
+		return false
+	}
+	meta := e.LocalMeta
+	if e.Base == nil {
+		meta = e.Meta
+	}
+	value, set := meta["permissions"]
+	return set && value == nil
+}
+
+func PermissionEditDisabledReason(e spec.Entry, root string) string {
+	if !personalPermissionsCleared(e) {
+		return ""
+	}
+	return fmt.Sprintf("%s sets permissions: null, which clears every permission list. Remove permissions: null from that personal file before editing an individual list.", SpecPath(root, e))
+}
+
 func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
 	edit := &FieldEdit{Kind: "permission-list", SyncCommand: "agnostic-ai sync"}
 	if global {
@@ -211,7 +229,7 @@ func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, 
 				localPath = SpecPath(root, e)
 			}
 			edit.Paths = append(edit.Paths, path)
-			edit.Sources = append(edit.Sources, FieldEditSource{Path: path, Spec: e.Name, LocalPath: localPath})
+			edit.Sources = append(edit.Sources, FieldEditSource{Path: path, Spec: e.Name, LocalPath: localPath, DisabledReason: PermissionEditDisabledReason(e, root)})
 		}
 	}
 	if len(candidates) == 1 {

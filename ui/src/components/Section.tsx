@@ -383,7 +383,8 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const localCurrent = localSource && personalValueAt(localSource.values, localKeys, field.key, target)
   const wholePersonal = target !== undefined && localSource !== undefined && personalSetsWhole(localKeys, field.key)
   const teamCurrent = valueOf(teamSource)
-  const current = (audience === 'personal' ? localCurrent ?? teamCurrent : teamCurrent) ?? ''
+  const selectedCurrent = audience === 'personal' ? localCurrent ?? teamCurrent : teamCurrent
+  const current = selectedCurrent === 'null' ? '' : selectedCurrent ?? ''
   const [value, setValue] = useState(current)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError>()
@@ -481,7 +482,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
             {!allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
             {allowed.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-          : <input aria-label={valueLabel} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
+          : <input aria-label={valueLabel} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={selectedCurrent === 'null' ? 'Cleared for you' : field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
         {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>}
         {!transaction.supported && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>{target ? resetLabel : 'Clear'}</button>}
         {resetButton}

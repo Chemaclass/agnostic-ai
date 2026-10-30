@@ -161,9 +161,10 @@ type FieldEdit struct {
 }
 
 type FieldEditSource struct {
-	Path      string `json:"path"`
-	Spec      string `json:"spec"`
-	LocalPath string `json:"localPath"`
+	Path           string `json:"path"`
+	Spec           string `json:"spec"`
+	LocalPath      string `json:"localPath"`
+	DisabledReason string `json:"disabledReason,omitempty"`
 }
 
 // FieldSource is one spec's values for a field.
