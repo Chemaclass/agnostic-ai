@@ -34,6 +34,7 @@ type globalSettingsFile struct {
 	permissionLists bool
 	itemLists       []string
 	retention       string
+	voice           *globalVoiceKeys
 	effortLevel     func() []string
 	// effortGap names the models a written effort key does not reach.
 	effortGap globalSurfaceGap
@@ -103,7 +104,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 	}
 	adapters.NoteSettingsFieldNoOp(target, "protected", protected, "protected paths are relative to a project, so sync --global does not write them")
 	permissions := globalPermissionSettings(target, f, settings)
-	retention := globalRetentionSetting(target, f, settings)
+	personal := append(globalRetentionSetting(target, f, settings), globalVoiceSetting(target, f, settings)...)
 	if f.path == "" {
 		const reason = "sync --global does not write this target's user settings yet"
 		adapters.NoteSettingsFieldNoOp(target, "model", models, reason)
@@ -111,7 +112,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		adapters.NoteSettingsFieldNoOp(target, "x-"+target, custom, reason)
 		return nil
 	}
-	out := append(permissions, retention...)
+	out := append(permissions, personal...)
 	if model := adapters.SettingsModel(settings, target); model != "" {
 		if f.model == "" {
 			adapters.NoteSettingsFieldNoOp(target, "model", models, "its user settings file has no default model key")
@@ -134,9 +135,12 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 	}
 	passthrough := customGlobalSettings(target, f, settings)
 	noteIgnoredGlobalSettings(target, f, passthrough)
-	// An x-<target> key wins over the portable field it shares a key with.
+	// An x-<target> key wins over the portable field it shares a key
+	// with, or sits above or below.
 	out = slices.DeleteFunc(out, func(s globalSetting) bool {
-		return slices.ContainsFunc(passthrough, func(c globalSetting) bool { return c.key == s.key })
+		return slices.ContainsFunc(passthrough, func(c globalSetting) bool {
+			return settingsKeysOverlap(c.key, s.key)
+		})
 	})
 	return append(out, passthrough...)
 }
@@ -214,6 +218,10 @@ func globalPermissionSettings(target string, f globalSettingsFile, settings []sp
 // keys, later specs winning key by key and a null removing a key an
 // earlier spec set. A JSON object merges field by field, as project
 // sync merges x-<target> blocks; TOML takes scalars and arrays only.
+func settingsKeysOverlap(a, b string) bool {
+	return a == b || strings.HasPrefix(a, b+".") || strings.HasPrefix(b, a+".")
+}
+
 func customGlobalSettings(target string, f globalSettingsFile, settings []spec.Entry) []globalSetting {
 	byKey := map[string]globalSetting{}
 	for _, entry := range settings {
@@ -573,6 +581,9 @@ func sameSetting(a, b any) bool {
 func settingsKeepHint(s globalSetting, have any) string {
 	if strings.HasPrefix(s.field, "x-") || s.field == "permissions.default-mode" {
 		return fmt.Sprintf("set %s to %s", s.field, settingsValueText(s.key, have))
+	}
+	if strings.HasPrefix(s.field, voiceField+".") {
+		return fmt.Sprintf("set x-%s.%s to %s", s.target, s.key, settingsValueText(s.key, have))
 	}
 	return fmt.Sprintf("put %s: %s under %s", s.target, settingsValueText(s.key, have), s.field)
 }

@@ -202,6 +202,10 @@ var globalTargets = map[string]globalTarget{
 			permissionMode:  "permissions.defaultMode",
 			permissionLists: true,
 			retention:       "cleanupPeriodDays",
+			voice: &globalVoiceKeys{
+				enabled: "voice.enabled", mode: "voice.mode",
+				notes: map[string]string{"language": "Claude reads the dictation language from its response language; set x-claude.language to change both"},
+			},
 			reserved: map[string]string{
 				"hooks":       "sync --global writes hooks from hook specs",
 				"permissions": "use permissions.default-mode for the user default mode; sync --global writes only the allow, ask, and deny rule lists under permissions",

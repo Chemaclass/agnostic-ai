@@ -88,6 +88,7 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	issues = append(issues, agentLimitIssues(own.Agents)...)
 	issues = append(issues, skillCapabilityIssues(b.Skills)...)
 	issues = append(issues, sessionRetentionIssues(b.Settings)...)
+	issues = append(issues, voiceIssues(b.Settings)...)
 	issues = append(issues, mcpLiteralIssues(own.MCPs)...)
 	inlined := agentFileMCPs(b, targets)
 	issues = append(issues, mcpLiteralIssues(packSpecs(inlined))...)
