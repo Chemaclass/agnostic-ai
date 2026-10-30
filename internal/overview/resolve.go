@@ -155,6 +155,12 @@ func withoutSharedModel(e spec.Entry) spec.Entry {
 }
 
 func settingsValueFor(e spec.Entry, key, target string) string {
+	if strings.HasPrefix(key, "voice.") {
+		if value, present := SettingsFieldValue(e.Meta, key); present {
+			return Scalar(value)
+		}
+		return ""
+	}
 	if key == "model" {
 		return adapters.SettingsModel([]spec.Entry{e}, target)
 	}

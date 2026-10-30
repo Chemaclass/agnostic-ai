@@ -466,7 +466,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
       setError(failure)
     } finally { setPending(false) }
   }
-  const save = (clear: boolean) => post({ audience, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, audience === 'personal' ? basis.current.local : basis.current.team)
+  const save = (clear: boolean) => post({ audience, value: clear ? null : edit.kind === 'number' ? Number(value) : edit.kind === 'boolean' ? value === 'true' : value }, audience === 'personal' ? basis.current.local : basis.current.team)
   const reset = () => post({ audience: 'personal', value: null }, basis.current.local)
   const overridden = audience === 'shared' && (localCurrent !== undefined || wholePersonal)
   const resetLabel = target ? 'Use the value for every tool' : 'Reset to shared value'
@@ -502,7 +502,9 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
         <ViewPersonalButton />
       </div>
       : <div className="field-edit-row">
-        {allowed && allowed.length > 0
+        {edit.kind === 'boolean'
+          ? <Toggle on={value === 'true'} label={valueLabel} disabled={locked} onToggle={() => setValue(value === 'true' ? 'false' : 'true')} />
+          : allowed && allowed.length > 0
           ? <select aria-label={valueLabel} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}>
             {!allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
             {allowed.map((option) => <option key={option} value={option}>{option}</option>)}

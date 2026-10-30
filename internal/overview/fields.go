@@ -33,6 +33,9 @@ var settingsFields = map[string][]fieldDef{
 		{key: "model", label: "Default model", description: "The model each tool starts with: one value, a map per tool, or a model tier name."},
 		{key: "effort", label: "Reasoning effort", description: "The default reasoning effort: one value, or a map per tool."},
 		{key: "session-retention-days", label: "Session retention", description: "Days to keep session transcripts, at least 1. Only sync --global writes it."},
+		{key: "voice.enabled", label: "Voice dictation", description: "Turn voice dictation on or off. Only sync --global writes it."},
+		{key: "voice.mode", label: "Voice mode", description: "Hold to record, or tap to start and stop recording."},
+		{key: "voice.language", label: "Voice language", description: "The spoken language passed to each tool that supports it."},
 		{key: "x-", label: "Native keys", description: "Keys written as they are into one tool's own settings file, under x-claude, x-codex, and so on.", prefix: true},
 	},
 }
@@ -100,6 +103,17 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				edit.Kind = "number"
 				if !global {
 					edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global."
+				}
+			}
+			if strings.HasPrefix(d.key, "voice.") {
+				if d.key == "voice.enabled" {
+					edit.Kind = "boolean"
+				}
+				if d.key == "voice.mode" {
+					edit.Allowed = []string{"hold", "tap"}
+				}
+				if !global {
+					edit.DisabledReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
 				}
 			}
 			if d.key == "effort" {
@@ -261,7 +275,7 @@ func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, 
 // editableValue reports whether the page can edit v in place: the
 // field's own scalar, or one tool's scalar in its per-tool map.
 func (d fieldDef) editableValue(v Value) bool {
-	if d.key == "session-retention-days" {
+	if d.key == "session-retention-days" || strings.HasPrefix(d.key, "voice.") {
 		return v.Key == d.key
 	}
 	entry, nested := strings.CutPrefix(v.Key, d.key+".")
@@ -435,4 +449,20 @@ func appliesTo(settings []spec.Entry, i int, targets []string) []string {
 
 func coversTargets(e spec.Entry, targets []string) bool {
 	return len(targets) == 0 || !slices.ContainsFunc(targets, func(t string) bool { return !e.EmitsTo(t) })
+}
+
+// SettingsFieldValue reads a portable field, including its nested members.
+func SettingsFieldValue(meta map[string]any, key string) (any, bool) {
+	var value any = meta
+	for _, part := range strings.Split(key, ".") {
+		mapping, ok := value.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		value, ok = mapping[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return value, true
 }

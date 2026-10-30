@@ -171,7 +171,7 @@ func shapesExecution(e spec.Entry) bool {
 }
 
 func hasField(e spec.Entry, key string) bool {
-	_, ok := e.Meta[key]
+	_, ok := SettingsFieldValue(e.Meta, key)
 	return ok
 }
 
