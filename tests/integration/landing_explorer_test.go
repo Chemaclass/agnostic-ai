@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/cli"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -41,10 +42,11 @@ func TestSiteDocs_LandingExplorerMatchesSync(t *testing.T) {
 	var landing struct {
 		Explorer struct {
 			Entries []struct {
-				ID      string   `toml:"id"`
-				File    string   `toml:"file"`
-				Files   []string `toml:"files"`
-				Outputs []struct {
+				ID          string   `toml:"id"`
+				File        string   `toml:"file"`
+				Files       []string `toml:"files"`
+				ProjectRoot bool     `toml:"project_root"`
+				Outputs     []struct {
 					Tool string `toml:"tool"`
 					Path string `toml:"path"`
 					Part string `toml:"part"`
@@ -75,24 +77,28 @@ func TestSiteDocs_LandingExplorerMatchesSync(t *testing.T) {
 	}
 
 	files := map[landingExplorerKey]string{}
+	readSource := func(entry, rel string) {
+		data, err := os.ReadFile(filepath.Join(packageDir, fixture, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Errorf("explorer entry %q shows %s, which fixtures/landing does not have", entry, rel)
+			return
+		}
+		files[landingExplorerKey{path: rel}] = string(data)
+	}
 	read := func(entry, rel, part string) {
 		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
 		if err != nil {
 			t.Errorf("explorer entry %q shows %s, which a sync of fixtures/landing does not write", entry, rel)
 			return
 		}
-		body := string(data)
-		if strings.HasPrefix(rel, ".agnostic-ai/") {
-			files[landingExplorerKey{path: rel, part: part}] = body
-			return
-		}
-		body, err = forLandingDisplay(body, part)
+		body, err := forLandingDisplay(string(data), part)
 		if err != nil {
 			t.Errorf("explorer entry %q shows %s: %v", entry, rel, err)
 			return
 		}
 		files[landingExplorerKey{path: rel, part: part}] = body
 	}
+	seenProjectRoot := false
 	for _, entry := range landing.Explorer.Entries {
 		sources := entry.Files
 		if entry.File != "" {
@@ -101,8 +107,17 @@ func TestSiteDocs_LandingExplorerMatchesSync(t *testing.T) {
 		if len(sources) == 0 {
 			t.Errorf("explorer entry %q names no source file", entry.ID)
 		}
+		// The template lists project root files after the .agnostic-ai/
+		// entries, and the panels pair with tabs by position.
+		if seenProjectRoot && !entry.ProjectRoot {
+			t.Errorf("explorer entry %q follows a project root entry; list project root entries last", entry.ID)
+		}
+		seenProjectRoot = seenProjectRoot || entry.ProjectRoot
 		for _, source := range sources {
-			read(entry.ID, ".agnostic-ai/"+source, "")
+			if !entry.ProjectRoot {
+				source = ".agnostic-ai/" + source
+			}
+			readSource(entry.ID, source)
 		}
 		tools := make([]string, 0, len(entry.Outputs))
 		for _, output := range entry.Outputs {
@@ -206,6 +221,15 @@ func forLandingDisplay(body, part string) (string, error) {
 func landingConfigExcerpt(body, format string, fields []string) (string, error) {
 	var config map[string]any
 	switch format {
+	case "frontmatter":
+		rest, found := strings.CutPrefix(body, "---\n")
+		frontmatter, _, closed := strings.Cut(rest, "\n---\n")
+		if !found || !closed {
+			return "", fmt.Errorf("no YAML frontmatter to excerpt")
+		}
+		if err := yaml.Unmarshal([]byte(frontmatter), &config); err != nil {
+			return "", fmt.Errorf("parse frontmatter excerpt: %w", err)
+		}
 	case "json":
 		if err := json.Unmarshal([]byte(body), &config); err != nil {
 			return "", fmt.Errorf("parse JSON excerpt: %w", err)
@@ -224,6 +248,17 @@ func landingConfigExcerpt(body, format string, fields []string) (string, error) 
 			return "", fmt.Errorf("excerpt field %q is missing from generated output", field)
 		}
 		selected[field] = value
+	}
+	if format == "frontmatter" {
+		var output strings.Builder
+		for _, field := range fields {
+			data, err := yaml.Marshal(map[string]any{field: selected[field]})
+			if err != nil {
+				return "", fmt.Errorf("encode frontmatter excerpt: %w", err)
+			}
+			output.Write(data)
+		}
+		return output.String(), nil
 	}
 	if format == "json" {
 		data, err := json.MarshalIndent(selected, "", "  ")
@@ -327,6 +362,13 @@ func TestSiteDocs_LandingExplorerFocusesOnSelectedSource(t *testing.T) {
 			part:      "json:hooks",
 			want:      "{\n  \"hooks\": {\n    \"PostToolUse\": []\n  }\n}\n",
 			unrelated: "model",
+		},
+		{
+			name:      "agent model",
+			body:      "---\nname: test-writer\nmodel: haiku\neffort: low\n---\n\nReproduce the bug.\n",
+			part:      "frontmatter:model,effort",
+			want:      "model: haiku\neffort: low\n",
+			unrelated: "test-writer",
 		},
 		{
 			name:      "notification overlay",
