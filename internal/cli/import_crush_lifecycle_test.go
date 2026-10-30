@@ -299,6 +299,58 @@ func TestImportCrush_SameCommandKeepsNativeIdentities(t *testing.T) {
 	}
 }
 
+func TestImportCrush_CLIKeepsDistinctNativeHookIdentities(t *testing.T) {
+	for _, layer := range []string{".agnostic-ai", defaultProjectUser} {
+		for _, tc := range []struct {
+			name string
+			hook crushHookEntry
+		}{
+			{"different name", crushHookEntry{Name: "other", Timeout: 1}},
+			{"different timeout", crushHookEntry{Name: "audit", Timeout: 2}},
+			{"unnamed", crushHookEntry{Timeout: 1}},
+			{"default timeout", crushHookEntry{Name: "audit"}},
+		} {
+			t.Run(layer+"/"+tc.name, func(t *testing.T) {
+				testutil.TempCwd(t)
+				silence(t)
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [crush]\nbuiltins: []\n")
+				existing := "name: existing\non: before-tool\nmatch: shell\ncommand: echo audit\ntimeout: 1\nx-crush:\n  name: audit\n"
+				path := filepath.Join(layer, "hooks", "existing.yaml")
+				writeFile(t, path, existing)
+				hook := tc.hook
+				hook.Matcher, hook.Command = "^bash$", "echo audit"
+				body, err := json.Marshal(map[string]any{"hooks": map[string]any{"PreToolUse": []crushHookEntry{hook}}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				writeFile(t, "crush.json", string(body))
+
+				execCLI(t, "import", "crush")
+				files := sharedHookFiles(t)
+				want := 1
+				if layer == ".agnostic-ai" {
+					want++
+				}
+				if len(files) != want {
+					t.Fatalf("distinct native handler was discarded: got %v, want %d shared specs", files, want)
+				}
+				for name := range files {
+					if name != "existing.yaml" && !matchingCrushHook(filepath.Join(".agnostic-ai", "hooks", name), "PreToolUse", hook) {
+						t.Errorf("imported spec %s lost native identity %+v", name, hook)
+					}
+				}
+				if got := readFile(t, path); got != existing {
+					t.Errorf("import changed existing spec:\n%s", got)
+				}
+				execCLI(t, "import", "crush")
+				if got := sharedHookFiles(t); !reflect.DeepEqual(got, files) {
+					t.Errorf("unchanged re-import changed shared specs: got %v, want %v", got, files)
+				}
+			})
+		}
+	}
+}
+
 func TestImportCrush_FilenameCollisionKeepsExistingHook(t *testing.T) {
 	dir := t.TempDir()
 	last := crushHookEntry{Name: "audit", Command: "echo start", Timeout: 2}

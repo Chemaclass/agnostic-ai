@@ -34,7 +34,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Crush
 
 - Sync and import preserve all 13 native hook events and reject matchers on events without tools (#2807).
-- Import keeps personal lifecycle commands out of shared specs and preserves handlers with distinct native names or timeouts (#2807).
+- Import keeps personal lifecycle commands out of shared specs and preserves handlers with distinct native names or timeouts (#2807, #2827).
 
 #### Gemini CLI
 

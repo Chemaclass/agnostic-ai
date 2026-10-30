@@ -133,22 +133,41 @@ func matchingCrushHook(path, event string, hook crushHookEntry) bool {
 	if reason != "" {
 		return false
 	}
-	defer adapters.SetAsideNotes()()
-	body, err := crush.HookDoc(adapters.TargetHook("crush", native))
-	if err != nil {
-		return false
-	}
-	var doc struct {
-		Hooks map[string][]crushHookEntry `json:"hooks"`
-	}
-	if json.Unmarshal(body, &doc) != nil {
-		return false
-	}
-	for _, prior := range doc.Hooks[event] {
+	for _, prior := range renderedCrushHooks(native)[event] {
 		if prior.Name == strings.TrimSpace(hook.Name) && prior.Timeout == hook.Timeout &&
 			prior.Matcher == hook.Matcher && adapters.StripHookTargetExport(prior.Command, "crush") == hook.Command {
 			return true
 		}
 	}
 	return false
+}
+
+func crushHookOwnershipKeys(native spec.Entry, keys []string) []string {
+	for _, hooks := range renderedCrushHooks(native) {
+		if len(hooks) == 0 {
+			continue
+		}
+		identity := fmt.Sprintf("crush\x00%q\x00%d\x00", hooks[0].Name, hooks[0].Timeout)
+		owned := make([]string, len(keys))
+		for i, key := range keys {
+			owned[i] = identity + key
+		}
+		return owned
+	}
+	return nil
+}
+
+func renderedCrushHooks(native spec.Entry) map[string][]crushHookEntry {
+	defer adapters.SetAsideNotes()()
+	body, err := crush.HookDoc(adapters.TargetHook("crush", native))
+	if err != nil {
+		return nil
+	}
+	var doc struct {
+		Hooks map[string][]crushHookEntry `json:"hooks"`
+	}
+	if json.Unmarshal(body, &doc) != nil {
+		return nil
+	}
+	return doc.Hooks
 }
