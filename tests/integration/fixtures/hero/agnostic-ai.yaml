@@ -4,4 +4,4 @@ models:
   fast:
     claude: haiku
     codex: luna
-    gemini: gemini-3-flash-preview
+    gemini: gemini-3.8-flash

@@ -655,8 +655,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	explorerIndex := strings.Index(home, `id="source-explorer"`)
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
-	if missionIndex < 0 || explorerIndex < 0 || quickstartIndex < 0 || updatesIndex < 0 || missionIndex >= explorerIndex || explorerIndex >= quickstartIndex || quickstartIndex >= updatesIndex {
-		t.Errorf("home sections are not ordered mission, explorer, quickstart, updates: %d, %d, %d, %d", missionIndex, explorerIndex, quickstartIndex, updatesIndex)
+	if missionIndex < 0 || explorerIndex < 0 || quickstartIndex < 0 || updatesIndex < 0 || missionIndex >= quickstartIndex || quickstartIndex >= explorerIndex || explorerIndex >= updatesIndex {
+		t.Errorf("home sections are not ordered mission, quickstart, explorer, updates: %d, %d, %d, %d", missionIndex, quickstartIndex, explorerIndex, updatesIndex)
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",

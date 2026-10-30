@@ -1,10 +1,8 @@
 ---
 name: test-writer
-description: Writes a failing test for a bug.
-tools: [Read, Grep, Edit]
-model:
-  claude: claude-sonnet-5
-  codex: gpt-6-sol
+description: Writes a failing test that reproduces a bug. Use before fixing it.
+can: [read, edit]
+model: {claude: sonnet, codex: terra}
 effort: medium
 ---
 
