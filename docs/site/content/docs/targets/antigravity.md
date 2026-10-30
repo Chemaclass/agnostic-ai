@@ -51,7 +51,7 @@ Antigravity expands includes before checking its 24,000-byte rule limit. All alw
 .agents/skills/<name>/SKILL.md # one folder per skill (Antigravity's native path)
 .agents/mcp_config.json        # when MCP entries exist
 .agents/hooks.json             # when hook entries exist
-.agents/plugins/<name>/plugin.json  # only when a per-kind dir points into a plugin
+.agents/plugins/<name>/plugin.json  # only when an output key points into a plugin
 ```
 
 ## Native mappings
@@ -69,9 +69,9 @@ Rules, skills, and MCP go to the plural `.agents/` form Antigravity prefers ([ru
 
 ### Plugins
 
-Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, when an output key points at a component it recognizes: `skills/`, `agents/`, `rules/`, `hooks.json`, or `mcp_config.json`. A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
+Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, when an output key points at a component of the [plugin layout](https://antigravity.google/docs/build-plugins#supported-components): `skills/`, `agents/`, `rules/`, `hooks.json`, or `mcp.json`. A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
 
-The native [plugin layout](https://antigravity.google/docs/build-plugins#supported-components) names a plugin's MCP file `mcp.json`. `mcp_config.json` is the standalone MCP file. Sync does not write plugin MCP to `mcp.json` yet: an MCP output pointed at `mcp.json` gets no `plugin.json`. Keep MCP servers in the standalone `mcp_config.json` until it does.
+To bundle MCP servers in a plugin, set `outputs.antigravity.mcp-file` to `.agents/plugins/<name>/mcp.json`. A plugin reads its servers from `mcp.json`. `mcp_config.json` is only the standalone file, so an MCP output at `.agents/plugins/<name>/mcp_config.json` gets no `plugin.json` ([MCP docs](https://antigravity.google/docs/mcp?tab=ide)).
 
 ### Rules
 

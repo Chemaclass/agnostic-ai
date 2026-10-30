@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "docs": {
+      "headers": {
+        "Authorization": "Bearer ${DOCS_TOKEN}"
+      },
+      "serverUrl": "https://example.com/mcp"
+    },
+    "fs": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ],
+      "command": "npx"
+    }
+  }
+}

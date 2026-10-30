@@ -50,12 +50,14 @@ func TestEmit_NoManifestOutsideThePluginsRoot(t *testing.T) {
 }
 
 // A path inside a component is not itself a component, and a name the
-// vendor does not document is not one either.
+// plugin layout does not list, such as the standalone mcp_config.json, is
+// not one either.
 func TestPluginRoots_OnlyExactDocumentedComponents(t *testing.T) {
 	cases := map[string]string{
 		".agents/plugins/team/skills":          ".agents/plugins/team",
-		".agents/plugins/team/mcp_config.json": ".agents/plugins/team",
+		".agents/plugins/team/mcp.json":        ".agents/plugins/team",
 		".agents/plugins/team/hooks.json":      ".agents/plugins/team",
+		".agents/plugins/team/mcp_config.json": "",
 		".agents/plugins/team/skills/extra":    "",
 		".agents/plugins/team/notes":           "",
 		".agents/plugins/team":                 "",

@@ -4,10 +4,12 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 )
 
-// Manifest inference retains the legacy MCP basename; native plugin MCP uses mcp.json.
+// Plugins bundle MCP servers in mcp.json; mcp_config.json is the
+// standalone file, which the plugin layout does not list
+// (antigravity.google/docs/build-plugins#supported-components).
 var pluginComponents = map[string]bool{
 	"skills": true, "agents": true, "rules": true,
-	"mcp_config.json": true, "hooks.json": true,
+	"mcp.json": true, "hooks.json": true,
 }
 
 // pluginRoots maps each configured output path to the plugin root it

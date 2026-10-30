@@ -37,6 +37,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Sync and import preserve all 13 native hook events and reject matchers on events without tools (#2807).
 - Import keeps personal lifecycle commands out of shared specs and preserves handlers with distinct native names or timeouts (#2807, #2827).
 
+#### Antigravity
+
+- Plugin MCP output in `.agents/plugins/<name>/mcp.json` gets a `plugin.json`, and `mcp_config.json` no longer does. Set `mcp-file` to `mcp.json` (#2826).
+
 #### Gemini CLI
 
 - Import and sync preserve MCP OAuth options, including private-network opt-in, while keeping literal credentials out of specs (#2809).
