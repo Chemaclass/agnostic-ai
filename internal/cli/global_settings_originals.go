@@ -149,7 +149,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 		original, recorded := originals[key]
 		if slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key }) {
 			if !recorded && slices.Contains(personal, key) {
-				original, recorded = captureSettingOriginal(data, values, key, format), true
+				original, recorded = captureSettingOriginal(data, values, key, format, parents.created), true
 			}
 			if recorded {
 				next[key] = original
@@ -241,7 +241,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 }
 
 // TOML keeps the whole assignment because its spacing and comments belong to the original key.
-func captureSettingOriginal(data []byte, values map[string]any, key, format string) globalSettingOriginal {
+func captureSettingOriginal(data []byte, values map[string]any, key, format string, createdParents []string) globalSettingOriginal {
 	original := globalSettingOriginal{EmptyParents: map[string]string{}}
 	if (format == "toml" || format == grokTOMLFormat) && strings.TrimSpace(string(data)) == "" {
 		empty := string(data)
@@ -249,7 +249,7 @@ func captureSettingOriginal(data []byte, values map[string]any, key, format stri
 	}
 	if format == "json" {
 		for _, parent := range jsonParentKeys(key) {
-			if open, closing, count, present := jsonContainerSpan(string(data), parent); present && count == 0 && data[open] == '{' {
+			if open, closing, count, present := jsonContainerSpan(string(data), parent); present && count == 0 && data[open] == '{' && !slices.Contains(createdParents, parent) {
 				original.EmptyParents[parent] = string(data[open : closing+1])
 			}
 		}
