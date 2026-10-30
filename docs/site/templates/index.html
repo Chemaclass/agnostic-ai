@@ -168,10 +168,17 @@
       <div class="source-tree reveal-group" data-source-tree>
         <div class="source-tree-nav">
           <p class="source-tree-root"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2h8.8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>{{ landing.explorer.root }}</p>
-          <div class="source-tree-list" role="tablist" aria-orientation="vertical" aria-label="{{ landing.explorer.tree_label }}" data-source-tablist inert>
-            {% for entry in landing.explorer.entries %}
+          {# Project root files sit after the folder, as in a listing. The data
+             lists them last, so tabs and panels keep the same order. #}
+          <div class="source-tree-tabs" role="tablist" aria-orientation="vertical" aria-label="{{ landing.explorer.tree_label }}" data-source-tablist inert>
+            <div class="source-tree-list">
+            {% for entry in landing.explorer.entries %}{% if not entry.project_root %}
             <button type="button" class="source-tree-entry" role="tab" id="source-tab-{{ entry.id }}" aria-controls="source-panel-{{ entry.id }}" aria-selected="{% if loop.index0 == explorer_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == explorer_selected %}0{% else %}-1{% endif %}" data-source-tab><span class="source-tree-name">{{ entry.name }}</span><span class="source-tree-hint">{{ entry.hint }}</span></button>
-            {% endfor %}
+            {% endif %}{% endfor %}
+            </div>
+            {% for entry in landing.explorer.entries %}{% if entry.project_root %}
+            <button type="button" class="source-tree-entry source-tree-file" role="tab" id="source-tab-{{ entry.id }}" aria-controls="source-panel-{{ entry.id }}" aria-selected="{% if loop.index0 == explorer_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == explorer_selected %}0{% else %}-1{% endif %}" data-source-tab><span class="source-tree-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3h7.5l4.5 4.5v12a1.5 1.5 0 0 1-1.5 1.5h-10.5a1.5 1.5 0 0 1-1.5-1.5v-15a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M13.5 3v5h5"/></svg>{{ entry.name }}</span><span class="source-tree-hint">{{ entry.hint }}</span></button>
+            {% endif %}{% endfor %}
           </div>
           <p class="source-tree-more">{{ landing.explorer.more | markdown(inline=true) | safe }}</p>
         </div>
@@ -181,7 +188,7 @@
             <p class="source-tree-summary">{{ entry.summary | markdown(inline=true) | safe }}</p>
             <div class="explorer-flow">
             <div class="spec-card">
-              {% for source in sources %}{% set source_path = landing.explorer.root ~ source %}
+              {% for source in sources %}{% if entry.project_root %}{% set source_path = source %}{% else %}{% set source_path = landing.explorer.root ~ source %}{% endif %}
               <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ source_path }}</div>
               <pre><code>{% for file in explorer_files.files %}{% if file.path == source_path %}{{ file.body | trim }}{% endif %}{% endfor %}</code></pre>
               {% endfor %}
