@@ -107,3 +107,12 @@ warp-cli-global-mcp	warp	The Warp Agent CLI reads the global MCP servers agnosti
 openhands-global-mcp-json	openhands	Current OpenHands releases read global MCP servers from `~/.openhands/mcp.json`.	Agent Canvas saves MCP servers in its settings store (by default ~/.openhands/settings.json)	contradicts	https://docs.openhands.dev/openhands/usage/settings/mcp-settings as of 2026-10-27
 junie-settings-effort	junie	Junie's project config has no effort key, so a portable settings `effort` has no effect on Junie and sync drops it with a note.	Default reasoning effort for the configured model. Requires model, which can come from another configuration file.	contradicts	2782
 antigravity-cli-manual-rules	antigravity	A rule with `trigger: manual` loads whenever the user @-mentions it, in every Antigravity client.	The Antigravity CLI doesn’t support rule mentions.	contradicts	2783
+crush-lifecycle-released	crush	Crush supports only PreToolUse hook configuration.	Crush supports 13 hook events.	contradicts	2807
+kimi-kaos-executor-removed	kimi	Kimi accepts executor = kaos for a stdio MCP server.	Remove the never-implemented `executor = "kaos"` option	contradicts	2808
+gemini-mcp-oauth-private-network	gemini	Gemini MCP server configuration has no private-network OAuth opt-in.	Allow OAuth endpoints on private enterprise networks	contradicts	2809
+jules-announced-retirement	jules	Jules has no announced transition to read-only service.	turning Jules to read-only	contradicts	2810
+antigravity-plugin-mcp-basename	antigravity	An Antigravity plugin uses mcp_config.json as its MCP component.	<plugin-root>/mcp.json	contradicts	2811
+codex-history-persistence-enum	codex	Codex history persistence accepts project, global, or none.	save-all | none	contradicts	2812
+openhands-ui-timeout	openhands	OpenHands offers no per-server timeout configuration, including the UI.	Timeout (seconds) (optional)	contradicts	2813
+qoder-shared-skill-source	qoder	Qoder CLI does not enable a compatible shared skill root.	compatibility source is now enabled by default	contradicts	2814
+claude-project-bash-diff-false	claude	Every project bashEditDiffEnabled value is ignored.	A false in either repository file	contradicts	2815

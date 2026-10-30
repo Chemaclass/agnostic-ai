@@ -91,3 +91,20 @@ opencode-scheduled-prompts	opencode	Add opt-in scheduled prompts through `/sched
 opencode-image-generate-tool	opencode	Enable `experimental.image_generate` to let agents create or edit images with the new `image_generate` tool.	yes	signal:cap-opencode-image-generate-tool
 opencode-skill-sources-catalogs	opencode	Add more local directories or HTTP catalogs with the skills array in any opencode.json or opencode.jsonc	yes	signal:cap-opencode-skill-sources-catalogs
 trae-enterprise-hook-failure-policy	trae	configure on_failure to block or skip failed Hook invocations. [Enterprise only]	yes	signal:cap-trae-enterprise-hook-failure-policy
+amp-plugin-bundled-skills-20261030	amp	Single-file plugins can register skills only this way. Amp rejects absolute paths outside the plugin’s cache directory.	no	signal:cap-amp-plugin-bundled-skills
+antigravity-plugin-user-invocation-20261030	antigravity	prevents automatic model invocation	yes	signal:cap-antigravity-plugin-user-invocation
+file-tool-working-directory-write-boundary-20261030	claude	Write, Edit and NotebookEdit refuse paths outside the working directories in every permission mode	yes	signal:cap-file-tool-working-directory-write-boundary
+mcp-cached-catalog-startup-20261030	codex	Allow a valid cached tool catalog while the live connection starts. Tool execution still requires the current connection.	yes	signal:cap-mcp-cached-catalog-startup
+repository-owned-shared-automations-20261030	copilot	Shared automations belong to the repository, so they keep running if the person who created them leaves the team.	no	signal:cap-repository-owned-shared-automations
+markdown-agentic-actions-workflows-20261030	copilot	Define your automation in natural language Markdown files, and GitHub Agentic Workflows compiles them into standard Actions YAML.	yes	signal:cap-markdown-agentic-actions-workflows
+crush-lifecycle-hook-events-20261030	crush	Hooks are no longer just about tools. They can now follow the whole run: sessions, turns, permissions and more!	yes	signal:cap-crush-lifecycle-hook-events
+mcp-private-network-oauth-20261030	gemini	Allow OAuth discovery, registration, authorization, and token endpoints that resolve to private enterprise network addresses	yes	signal:cap-mcp-private-network-oauth
+project-mcp-automatic-reconnection-20261030	kimi	Its tools come back automatically once the server is reachable again.	no	signal:cap-project-mcp-automatic-reconnection
+kiro-workflow-recipes-20261030	kiro	A workflow recipe is a JSON or YAML file that declares inputs and a tree of nodes.	yes	signal:cap-kiro-workflow-recipes
+project-provider-policy-20261030	opencode	`mcp.use`, `skill.use`, and `plugin.use`	yes	signal:cap-project-provider-policy
+opencode-image-generate-tool-20261030	opencode	`experimental_image_generate` by default	yes	signal:cap-opencode-image-generate-tool
+qoder-code-mode-orchestration-20261030	qoder	on-demand invocation of MCP tools	no	signal:cap-qoder-code-mode-orchestration
+qoder-persistent-scheduled-prompts-20261030	qoder	Persistent scheduled tasks are saved in the `.qoder/scheduled_tasks.json` under the project.	yes	signal:cap-qoder-persistent-scheduled-prompts
+vibe-request-output-budgets-20261030	vibe	agent_max_output_tokens and compaction_max_output_tokens cap the output of every agent and compaction request on any provider	yes	signal:cap-vibe-request-output-budgets
+vibe-project-plugins-20261030	vibe	native Vibe plugin's `ai.mistral.vibe/hooks.toml` now run	yes	signal:cap-vibe-project-plugins
+worktree-setup-hook-20261030	windsurf	`post_setup_worktree` hooks now run for worktrees created from a Devin Local session	yes	signal:cap-worktree-setup-hook
