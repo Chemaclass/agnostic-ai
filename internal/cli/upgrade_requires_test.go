@@ -265,6 +265,25 @@ func TestUpgradeRequires_KeepsNewPinsWhenSyncFails(t *testing.T) {
 	}
 }
 
+func TestUpgradeRequires_NamesADroppedRangeWhenSyncFails(t *testing.T) {
+	requiresProject(t, "0.76.0")
+	mustWriteFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\nrequires: \">=0.76.0 <0.77.0\"\n")
+	mustWriteFile(t, "CLAUDE.md", "Keep this hand-written instruction.\n")
+	setRunningVersion(t, "v0.77.0")
+	log := captureLogOut(t)
+	root := NewRootCmd("9.9.9")
+	root.SetArgs([]string{"upgrade", "--requires"})
+	root.SetIn(strings.NewReader(""))
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "CLAUDE.md") {
+		t.Fatalf("sync conflict: got %v, want the protected instruction path", err)
+	}
+	if want := `requires ">=0.76.0 <0.77.0" became ">=0.77.0"`; !strings.Contains(log.String(), want) {
+		t.Errorf("a failed sync must still name the dropped range %q:\n%s", want, log)
+	}
+}
+
 func TestUpgradeRequires_RefusesGlobalHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("AGNOSTIC_AI_HOME", home)

@@ -48,6 +48,7 @@ func runUpgradeRequires() error {
 	if err != nil {
 		return fmt.Errorf("reconcile requires: %w", err)
 	}
+	noteCollapsedRequires(changed)
 	if err := runSyncOnce(".", nil, false, false, "", 0); err != nil {
 		return fmt.Errorf("sync after reconciling requires to %s: %w", version, err)
 	}
@@ -60,7 +61,6 @@ func runUpgradeRequires() error {
 		}
 		summaryf("%s adopted agnostic-ai %s in %s\n", tick(), version, strings.Join(paths, ", "))
 	}
-	noteCollapsedRequires(changed)
 	if hint := pendingMigrationHint(projectMigrationScope(".")); hint != "" {
 		summaryf("%s %s\n", bang(), hint)
 	}
