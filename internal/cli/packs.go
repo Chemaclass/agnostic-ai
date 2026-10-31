@@ -160,6 +160,9 @@ func runPacksAdd(root, source, nameOverride string, out io.Writer) error {
 			return fmt.Errorf("packs add: %w", err)
 		}
 	}
+	if err := checkPacksDirInsideProject(root); err != nil {
+		return fmt.Errorf("packs add %q: %w", name, err)
+	}
 
 	lock, err := readPacksLock(root)
 	if err != nil {
@@ -360,7 +363,7 @@ func checkPacksDirInsideProject(root string) error {
 		real, err := realAbs(path)
 		if errors.Is(err, fs.ErrNotExist) {
 			if _, lerr := os.Lstat(path); lerr == nil {
-				return fmt.Errorf("%s is a broken link; remove it and run `agnostic-ai packs update` again", dir)
+				return fmt.Errorf("%s is a broken link; remove it and try again", dir)
 			}
 			continue
 		}
@@ -368,7 +371,7 @@ func checkPacksDirInsideProject(root string) error {
 			return err
 		}
 		if !pathInside(realRoot, real) {
-			return fmt.Errorf("%s links outside the project; remove the link and run `agnostic-ai packs update` again", dir)
+			return fmt.Errorf("%s links outside the project; remove the link and try again", dir)
 		}
 		return nil
 	}

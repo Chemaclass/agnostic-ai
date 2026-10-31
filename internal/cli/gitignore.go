@@ -437,14 +437,16 @@ func dropsListedEntries(root string, cfg *config.Config, block []string) bool {
 }
 
 // managedBlockLines returns the entries the managed block in content
-// lists, without its comments and blank lines. A block with no end
-// marker runs to the end of content, as replaceRenderedBlock reads it.
+// lists, without its comments and blank lines.
 func managedBlockLines(content string) []string {
 	_, body, found := strings.Cut(content, gitignoreBlockStart)
 	if !found {
 		return nil
 	}
-	body, _, _ = strings.Cut(body, gitignoreBlockEnd)
+	body, _, found = strings.Cut(body, gitignoreBlockEnd)
+	if !found {
+		return nil
+	}
 	var out []string
 	for _, line := range strings.Split(body, "\n") {
 		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
@@ -663,6 +665,9 @@ func ensureManagedGitignore(root string) error {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read runtime ignores: %w", err)
 	}
+	if err := validateManagedBlock(path, string(data)); err != nil {
+		return err
+	}
 	content := withRuntimeIgnores(string(data))
 	if content == string(data) {
 		return nil
@@ -680,6 +685,9 @@ func ensureManagedGitignore(root string) error {
 // runtime entries, such as the project lock, listed in the managed block.
 func withRuntimeIgnores(content string) string {
 	start := strings.Index(content, gitignoreBlockStart)
+	if start >= 0 && !strings.Contains(content[start:], gitignoreBlockEnd) {
+		return content
+	}
 	if start < 0 {
 		return replaceManagedBlock(stripLooseFixedDuplicates(content), buildManagedBlock(&config.Config{}, nil, nil))
 	}
@@ -731,6 +739,9 @@ func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return rel, false, err
 	}
+	if err := validateManagedBlock(path, string(existing)); err != nil {
+		return rel, false, err
+	}
 	updated := replaceManagedBlock(stripLooseFixedDuplicates(string(existing)), entries)
 	if updated == string(existing) {
 		return rel, false, nil
@@ -764,6 +775,9 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 	path := filepath.Join(root, worktreeIncludeFile)
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return false, err
+	}
+	if err := validateManagedBlock(path, string(existing)); err != nil {
 		return false, err
 	}
 	updated := renderWorktreeInclude(string(existing), cfg, block)
@@ -853,6 +867,9 @@ func widenIgnores(files []priorFile, path string, block []string) []priorFile {
 		if f.path != path {
 			continue
 		}
+		if validateManagedBlock(path, string(f.content)) != nil {
+			continue
+		}
 		var ignores, allows []string
 		for _, e := range managedBlockLines(string(f.content)) {
 			if !strings.HasPrefix(e, "!") {
@@ -909,6 +926,14 @@ func replaceManagedBlock(content string, entries []string) string {
 	return replaceRenderedBlock(content, renderBlock(entries))
 }
 
+func validateManagedBlock(path, content string) error {
+	start := strings.Index(content, gitignoreBlockStart)
+	if start >= 0 && !strings.Contains(content[start:], gitignoreBlockEnd) {
+		return fmt.Errorf("%s: restore missing managed block end marker %q", path, gitignoreBlockEnd)
+	}
+	return nil
+}
+
 // replaceRenderedBlock is replaceManagedBlock for a block already
 // rendered, "" to remove it.
 func replaceRenderedBlock(content, newBlock string) string {
@@ -916,9 +941,7 @@ func replaceRenderedBlock(content, newBlock string) string {
 	if startIdx >= 0 {
 		endIdx := strings.Index(content[startIdx:], gitignoreBlockEnd)
 		if endIdx < 0 {
-			// Truncated block; treat the rest of the file as the block to
-			// avoid duplicating markers on the next run.
-			endIdx = len(content) - startIdx
+			return content
 		} else {
 			endIdx += len(gitignoreBlockEnd)
 		}
