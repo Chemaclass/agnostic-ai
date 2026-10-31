@@ -31,7 +31,9 @@ agnostic-ai explain builtin:handoff --json
 | `--context` | Rank startup context. See [below](#rank-context-contributions). |
 | `--inputs` | List generator inputs. See [below](#list-generator-inputs). |
 
-Contributions are grouped by configured target, each tagged `(full file)` or `(section "<name>")`, plus a "would emit if enabled" list for other tools. With `--global`, an agent or skill is a whole file, a rule a section of the instructions file, a hook its event in the hooks file, an MCP server its key in the user MCP file, and a settings spec each key it sets, tagged `(key "<key>")`.
+Contributions are grouped by configured target, each tagged `(full file)` or `(section "<name>")`, plus a "would emit if enabled" list for other tools. With `--global`, an agent or skill is a whole file, a rule a section of the instructions file, a hook its event in a shared hooks file or its standalone hook files, an MCP server its key in the user MCP file, and a settings spec each key it sets, tagged `(key "<key>")`.
+
+Directory-based global hooks (Cline, Grok, and Kiro) also list copied command scripts, using the same paths and target root settings as `sync --global`.
 
 A spec that sets `model` or `effort` also lists its [tier](@/docs/spec-format/agents.md#model-tiers) and the model and effort it resolves to per target; `tool default` means the target writes no model. A target with no key for it, such as Codex skills, drops it and `sync` prints a coverage note.
 
