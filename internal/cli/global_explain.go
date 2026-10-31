@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -41,7 +42,7 @@ func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
 	defer adapters.ResetCoverageNotes()
 	contributions := []contribution{}
 	for _, target := range slices.Sorted(slices.Values(scope.targets)) {
-		found, err := globalContributions(home, target, entry, scope.bundle)
+		found, err := globalContributions(home, scope.source, target, entry, scope.bundle)
 		if err != nil {
 			return err
 		}
@@ -74,7 +75,7 @@ func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
 
 // globalContributions is where one spec lands for target under sync
 // --global, following the same surfaces buildGlobalWrites writes.
-func globalContributions(home, target string, entry spec.Entry, b spec.Bundle) ([]contribution, error) {
+func globalContributions(home, source, target string, entry spec.Entry, b spec.Bundle) ([]contribution, error) {
 	g := globalTargets[target]
 	var out []contribution
 	switch entry.Kind {
@@ -102,6 +103,18 @@ func globalContributions(home, target string, entry spec.Entry, b spec.Bundle) (
 			out = append(out, contribution{Target: target, Path: filepath.Join(g.path(home, g.rules), entry.Name+".md"), Mode: "full"})
 		}
 	case spec.KindHook:
+		if g.hooksDir != "" {
+			hooks := adapters.TargetHooks(target, (spec.Bundle{Hooks: []spec.Entry{entry}}).HooksFor(target))
+			seen := map[string]bool{}
+			err := addGlobalHookFiles(home, source, target, g, hooks, "silent", func(path string, _ []byte, _ fs.FileMode) error {
+				if !seen[path] {
+					out = append(out, contribution{Target: target, Path: path, Mode: "full"})
+					seen[path] = true
+				}
+				return nil
+			})
+			return out, err
+		}
 		hook, _ := entry.NativeHook(target)
 		event, _ := hook.Meta["event"].(string)
 		if g.hooks != "" && entry.EmitsTo(target) && event != "" && hookRunnable(entry) {
