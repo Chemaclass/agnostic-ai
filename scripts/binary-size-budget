@@ -735,5 +735,6 @@
 # 9b6b98d9a (+4096). No new dependency. Keep the 8192-byte allowance.
 # Main through #2905 measured 24527008 bytes; Git query isolation adds 4096.
 # Sync state error handling also grows the combined build.
-# #2885 measured 24543392: project-only hook path rewrite adds 4096.
-24543392
+# #2884 measured 24543392 on Go 1.27.3: ignore files are replaced whole
+# through a shared atomic write helper. Keeps the 8192-byte allowance.
+24551584
