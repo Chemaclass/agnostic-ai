@@ -15,8 +15,7 @@ import (
 	"sync"
 )
 
-func gitCommand(args ...string) *exec.Cmd {
-	cmd := exec.Command("git", args...)
+func isolateGitCommand(cmd *exec.Cmd) *exec.Cmd {
 	for _, value := range os.Environ() {
 		key, _, _ := strings.Cut(value, "=")
 		switch strings.ToUpper(key) {
@@ -138,11 +137,11 @@ func LayoutAt(dir string) (Layout, error) {
 func LayoutAtFresh(dir string) (Layout, error) {
 	key := absKey(dir)
 	const base = "--path-format=absolute"
-	out, err := gitCommand("-C", key, "rev-parse", base, "--show-toplevel", "--git-dir", "--git-common-dir", "--show-prefix").Output()
+	out, err := isolateGitCommand(exec.Command("git", "-C", key, "rev-parse", base, "--show-toplevel", "--git-dir", "--git-common-dir", "--show-prefix")).Output()
 	hasTop := err == nil
 	if err != nil {
 		// A bare repository has no top level, so the query without it still answers.
-		out, err = gitCommand("-C", key, "rev-parse", base, "--git-dir", "--git-common-dir", "--show-prefix").Output()
+		out, err = isolateGitCommand(exec.Command("git", "-C", key, "rev-parse", base, "--git-dir", "--git-common-dir", "--show-prefix")).Output()
 	}
 	if err != nil {
 		return Layout{}, err
@@ -180,7 +179,7 @@ func Toplevel(dir string) (string, error) {
 func Tracked(root, rel string) (bool, error) {
 	key := absKey(root) + "\x00" + rel
 	r := tracked.get(key, func() listResult {
-		out, err := gitCommand("-C", absKey(root), "ls-files", "--", rel).Output()
+		out, err := isolateGitCommand(exec.Command("git", "-C", absKey(root), "ls-files", "--", rel)).Output()
 		return listResult{nonEmpty: len(out) != 0, err: err}
 	})
 	return r.nonEmpty, r.err
@@ -220,7 +219,7 @@ func TrackedAnyCase(root, rel string) (bool, error) {
 	depth := strings.Count(full, "/")
 	spec := ":(top,glob)" + strings.Repeat("*/", depth) + "*"
 	r := trackedFiles.get(layout.Toplevel+"\x00"+spec, func() filesResult {
-		out, err := gitCommand("-C", layout.Toplevel, "ls-files", "-z", "--", spec).Output()
+		out, err := isolateGitCommand(exec.Command("git", "-C", layout.Toplevel, "ls-files", "-z", "--", spec)).Output()
 		return filesResult{paths: strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00"), err: err}
 	})
 	if r.err != nil {
@@ -262,7 +261,7 @@ func diskIgnoresCase(dir string) bool {
 // with a trailing separator, in the repository at root.
 func Ignored(root, path string) bool {
 	return ignored.get(absKey(root)+"\x00"+path, func() bool {
-		return gitCommand("-C", absKey(root), "check-ignore", "-q", "--", path).Run() == nil
+		return isolateGitCommand(exec.Command("git", "-C", absKey(root), "check-ignore", "-q", "--", path)).Run() == nil
 	})
 }
 
@@ -289,7 +288,7 @@ func ignoredByFresh(patterns []byte, paths []string) (map[string]bool, error) {
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(scratch) }()
-	if out, err := gitCommand("-c", "init.templateDir=", "init", "--quiet", scratch).CombinedOutput(); err != nil {
+	if out, err := isolateGitCommand(exec.Command("git", "-c", "init.templateDir=", "init", "--quiet", scratch)).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("%w (%s)", err, bytes.TrimSpace(out))
 	}
 	if err := os.WriteFile(filepath.Join(scratch, ".gitignore"), patterns, 0600); err != nil {
@@ -300,7 +299,7 @@ func ignoredByFresh(patterns []byte, paths []string) (map[string]bool, error) {
 		stdin.WriteString(p)
 		stdin.WriteByte(0)
 	}
-	cmd := gitCommand("-C", scratch, "-c", "core.excludesFile=", "check-ignore", "--no-index", "-z", "--stdin")
+	cmd := isolateGitCommand(exec.Command("git", "-C", scratch, "-c", "core.excludesFile=", "check-ignore", "--no-index", "-z", "--stdin"))
 	cmd.Stdin = &stdin
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -330,7 +329,7 @@ func ExcludesFile() string {
 	}
 	return excludesFiles.get(key.String(), func() string {
 		for _, scope := range []string{"--global", "--system"} {
-			if out, err := gitCommand("config", scope, "--path", "--get", "core.excludesFile").Output(); err == nil && strings.TrimSpace(string(out)) != "" {
+			if out, err := isolateGitCommand(exec.Command("git", "config", scope, "--path", "--get", "core.excludesFile")).Output(); err == nil && strings.TrimSpace(string(out)) != "" {
 				return strings.TrimSpace(string(out))
 			}
 		}

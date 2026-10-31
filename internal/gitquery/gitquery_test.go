@@ -147,3 +147,20 @@ func TestQueriesIgnoreHookRepositoryEnvironment(t *testing.T) {
 		t.Errorf("matched = %v", matched)
 	}
 }
+
+func TestTrackedAndIgnored_HandlePathsStartingWithDash(t *testing.T) {
+	Reset()
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	name := "--tracked.txt"
+	must(t, os.WriteFile(filepath.Join(dir, name), []byte("tracked"), 0o644))
+	git(t, dir, "add", "--", name)
+	tracked, err := Tracked(dir, name)
+	if err != nil || !tracked {
+		t.Errorf("tracked = %v, %v", tracked, err)
+	}
+	must(t, os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("--ignored.txt\n"), 0o644))
+	if !Ignored(dir, "--ignored.txt") {
+		t.Error("ignored path starting with dash was not matched")
+	}
+}
