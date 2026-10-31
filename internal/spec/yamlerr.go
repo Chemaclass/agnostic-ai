@@ -48,7 +48,7 @@ func yamlErrorMessages(err error) []string {
 
 var (
 	reLineCol = regexp.MustCompile(`^yaml: line (\d+): column (\d+): (.+)$`)
-	reLine    = regexp.MustCompile(`^yaml: line (\d+): (.+)$`)
+	reLine    = regexp.MustCompile(`^(?:yaml: )?line (\d+): (.+)$`)
 )
 
 // extractPosition pulls (line, col, message) out of a yaml.v3 error
