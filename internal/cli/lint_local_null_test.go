@@ -60,6 +60,7 @@ func TestLint_LocalNullMessageFollowsSharedValueKind(t *testing.T) {
 		{"null in base too", "gitignore:\n  commit:\n", "gitignore:\n  commit:\n", "", "LINT055"},
 		{"targets over the defaults", "", "targets:\n", "replaces the default targets", "ignored"},
 		{"key inside a local model tier", "models:\n  fast: {codex: gpt-5, effort: high}\n", "models:\n  fast: {codex: gpt-5, effort: }\n", "", "LINT055"},
+		{"model tier with a dot in its name", "models:\n  \"a.b\": {codex: gpt-5, effort: high}\n", "models:\n  \"a.b\": {codex: gpt-5, effort: }\n", "", "LINT055"},
 		{"empty shared group", "outputs: {}\n", "outputs:\n", "", "LINT055"},
 		{"requires clears the check", "requires: \">=99.0.0\"\n", "requires:\n", "", "LINT055"},
 	}

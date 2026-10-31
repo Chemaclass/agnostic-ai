@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"slices"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -47,7 +46,7 @@ func lintLocalNulls() ([]lintFinding, error) {
 				name = prefix + "." + key
 			}
 			baseValue, inBase := base[key]
-			isTier := strings.HasPrefix(name, "models.") && strings.Count(name, ".") == 1
+			isTier := prefix == "models"
 			if value == nil {
 				switch {
 				case name == "targets" && !inBase:
