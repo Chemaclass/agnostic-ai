@@ -64,6 +64,7 @@ The installed binary is outside the releases the config's [`requires`](@/docs/co
   The installed release is newer than this project allows.
   fix: run `agnostic-ai upgrade --requires` to adopt installed agnostic-ai 0.89.0
        This updates requires and the schema URL, then runs sync.
+  To accept newer releases when generated files are git-ignored, set `requires: ">=0.88.0"` in the file that pins it.
 ```
 
 **Fix:** to adopt a newer installed release, run `agnostic-ai upgrade --requires` from the project root (through your package manager for a project install, such as `pnpm exec agnostic-ai upgrade --requires`). It raises `requires` to the installed release and keeps its form, so a minimum stays a minimum and an exact release stays exact. A range becomes a minimum. It also updates the schema tag, then syncs.

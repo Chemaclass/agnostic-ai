@@ -91,7 +91,7 @@ Use these three sections, with feature or target subsections when useful:
    and watcher shutdown before package install hooks can run sync. Say that
    `upgrade --requires` raises `requires` and keeps its form: a minimum
    stays a minimum, an exact release stays exact, and a range becomes a
-   minimum. Do not tell every project to use an exact pin. In the first release after v0.90.0 only, tell projects with an exact pin and git-ignored outputs to switch to `>=X.Y.Z`. An exact pin stays right for projects that commit outputs and run `sync --check` in CI.
+   minimum. Do not tell every project to use an exact pin.
 2. `## What agnostic-ai changed` makes the main shipped value easy to scan.
    Use brief feature groups and a few adoption examples. End with a link to
    the GitHub release notes. Do not copy the changelog or group changes by

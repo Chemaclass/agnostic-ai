@@ -295,9 +295,6 @@ func startProject(cmd *cobra.Command, tools []string) (err error) {
 		return err
 	}
 	summaryf("→ created %s with targets: %s\n", config.ConfigFileName, strings.Join(targets, ", "))
-	if release, stable := stableReleaseVersion(cmd.Root().Version); stable && !gitignoreOn && verbosity >= levelDefault {
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), requiresExactPinNote(release))
-	}
 	if !stdinIsTerminal(cmd.InOrStdin()) {
 		summaryf("  generated files are git-ignored, so each clone needs agnostic-ai sync (set gitignore.enabled: false in %s to commit them)\n", config.ConfigFileName)
 	}
@@ -309,6 +306,9 @@ func startProject(cmd *cobra.Command, tools []string) (err error) {
 	// before the project exists.
 	if err := refuseUnmanagedImport(cfg, targets, true); err != nil {
 		return errors.Join(err, os.Remove(config.ConfigFileName), setPendingImports(nil))
+	}
+	if release, stable := stableReleaseVersion(cmd.Root().Version); stable && !gitignoreOn && verbosity >= levelDefault {
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), requiresExactPinNote(release))
 	}
 	var sources []string
 	for _, t := range targets {

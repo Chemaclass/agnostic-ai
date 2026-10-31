@@ -153,7 +153,7 @@ func minimumHint(req config.Requirement, above bool) string {
 		return ""
 	}
 	version, _ := req.InstallTarget()
-	return "\n  To accept newer releases when generated files are git-ignored, set `requires: \">=" + version + "\"`."
+	return "\n  To accept newer releases when generated files are git-ignored, set `requires: \">=" + version + "\"` in the file that pins it."
 }
 
 func requiresFix(req config.Requirement, source string) string {
