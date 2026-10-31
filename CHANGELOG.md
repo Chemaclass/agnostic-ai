@@ -49,6 +49,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Kiro
 
+- Global sync and import use `~/.kiro` when `KIRO_HOME` is relative, a filesystem root, the home directory, or a home ancestor (#2860).
 - Global sync writes voice transcription language to `settings/cli.json`, keeps other settings, and restores the previous language on removal (#2837).
 
 #### Kimi Code CLI
