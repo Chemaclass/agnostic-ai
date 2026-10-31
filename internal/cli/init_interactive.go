@@ -201,19 +201,8 @@ func stdinIsTerminal(in io.Reader) bool {
 // over-tick. A root CLAUDE.md or GEMINI.md qualifies: each is written by
 // one target only, and it is the most common trace of an existing setup.
 //
-// Exclusivity is why goose's markers look thin. `.goosehints` is
-// written only under the `outputs.goose.rules-file` opt-in, so a
-// default goose project carried no marker at all and `import all`
-// skipped it (#906). `.agents/REVIEW.md` is goose-only, and goose
-// writes `.agents/plugins/` by default while Antigravity reaches it
-// only through an explicit output key, where its own `.agent` and
-// `.agents/rules` markers fire regardless. The obvious wider choices
-// are not available: `.agents/agents/` is already codex's here, and
-// `.agents/skills/` is shared across most of the registry. So a goose
-// project carrying rules and nothing else stays undetected, and needs
-// an explicit `import goose`. OpenCode leaves out `opencode.jsonc`:
-// neither import nor sync reads it, so detecting it would report a
-// project whose config the import then drops.
+// Goose shares `.agents/plugins/` with Antigravity; only its nested hook file counts.
+// OpenCode leaves out `opencode.jsonc`: neither import nor sync reads it.
 var targetMarkers = map[string][]string{
 	"codebuddy":   {".codebuddy", "CODEBUDDY.md"},
 	"claude":      {".claude", "CLAUDE.md"},
@@ -243,9 +232,23 @@ var targetMarkers = map[string][]string{
 	"factory":     {".factory"},
 	"grok":        {".grok"},
 	"kilo":        {".kilo", "kilo.jsonc", ".kilocode", ".kilocodeignore"},
-	"goose":       {".goosehints", ".agents/plugins", ".agents/REVIEW.md"},
+	"goose":       {".goosehints", ".agents/REVIEW.md"},
 	"augment":     {".augment", ".augment-guidelines", ".augmentignore"},
 	"ellipsis":    {".ellipsis"},
+}
+
+func goosePluginPresent(root string) bool {
+	dir := filepath.Join(root, goosePluginsDir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if regularFileInside(root, filepath.Join(dir, entry.Name(), "hooks", "hooks.json")) {
+			return true
+		}
+	}
+	return false
 }
 
 // detectExistingTargets returns the canonical-ordered subset of
@@ -255,6 +258,10 @@ var targetMarkers = map[string][]string{
 func detectExistingTargets(root string) []string {
 	picked := map[string]bool{}
 	for _, t := range allTargets {
+		if t.Name == "goose" && goosePluginPresent(root) {
+			picked[t.Name] = true
+			continue
+		}
 		for _, marker := range targetMarkers[t.Name] {
 			if markerPresent(root, marker) {
 				picked[t.Name] = true

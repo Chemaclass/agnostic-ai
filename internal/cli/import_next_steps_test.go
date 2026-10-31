@@ -78,3 +78,15 @@ func TestPrintImportNextSteps_NoDetectedTargetsOmitsHints(t *testing.T) {
 		t.Errorf("should not show hints when nothing else is detected:\n%s", out)
 	}
 }
+
+func TestPrintImportNextSteps_AntigravityPluginProjectHintsNoGoose(t *testing.T) {
+	dir := t.TempDir()
+	plugin := filepath.Join(dir, ".agents", "plugins", "team")
+	mustWriteFile(t, filepath.Join(plugin, "plugin.json"), "{}\n")
+	mustWriteFile(t, filepath.Join(plugin, "mcp.json"), "{}\n")
+	buf := captureSummary(t)
+	printImportNextSteps(dir, "antigravity")
+	if out := buf.String(); strings.Contains(out, "goose") {
+		t.Errorf("antigravity plugin project got a goose hint:\n%s", out)
+	}
+}

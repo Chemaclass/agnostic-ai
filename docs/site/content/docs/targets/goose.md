@@ -101,7 +101,7 @@ Sync keeps an existing `plugin.json` it did not write and prints a note. Manifes
 
 Import reads every plugin, including hand-installed ones.
 
-`agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/plugins/`, or `.agents/REVIEW.md`, because OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`. For a Goose project with only rules, run `agnostic-ai import goose` directly.
+`agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/REVIEW.md`, or a plugin with `hooks/hooks.json` under `.agents/plugins/`. Antigravity plugins share `.agents/plugins/`, and OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`, so those alone do not count. For a Goose project with only rules or plugin skills, run `agnostic-ai import goose` directly.
 
 Import loses the following, but the next sync still writes the same Goose files:
 

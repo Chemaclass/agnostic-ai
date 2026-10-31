@@ -56,6 +56,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Plugin MCP output in `.agents/plugins/<name>/mcp.json` gets a `plugin.json`. Set `outputs.antigravity.mcp-file` to `.agents/plugins/<name>/mcp.json`. A plugin-root `mcp_config.json` still gets its manifest with a note to move (#2826).
 - `import antigravity` reads the configured `mcp-file`, including absolute paths inside the project, so plugin MCP servers round-trip (#2829).
 
+#### Goose
+
+- Detection no longer treats Antigravity plugins in `.agents/plugins/` as a Goose project (#2830).
+
 #### Gemini CLI
 
 - Import and sync preserve MCP OAuth options, including private-network opt-in, while keeping literal credentials out of specs (#2809).
