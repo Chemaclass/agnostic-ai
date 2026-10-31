@@ -91,24 +91,70 @@ func TestReplaceManagedBlock_EmptyFileEmptyEntriesNoop(t *testing.T) {
 	}
 }
 
-func TestReplaceManagedBlock_TruncatedBlockReplaced(t *testing.T) {
-	// Start marker present, end marker absent: simulate a corrupted
-	// .gitignore. The replacement should rewrite a fresh block; trailing
-	// junk after the start marker is treated as part of the truncated
-	// block and consumed.
-	corrupt := "node_modules/\n" + gitignoreBlockStart + "\nold-entry.md\n"
-	got := replaceManagedBlock(corrupt, []string{"CLAUDE.md"})
-	if !strings.Contains(got, "node_modules/") {
-		t.Errorf("preserved lines lost: %q", got)
+func TestUpdateGitignore_RejectsTruncatedBlock(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, ".gitignore")
+	original := "node_modules/\n" + gitignoreBlockStart + "\n.env\nsecrets/\n"
+	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(got, "old-entry.md") {
-		t.Errorf("truncated content leaked: %q", got)
+	err := updateGitignore(root, &config.Config{}, []string{"/CLAUDE.md"})
+	if err == nil || !strings.Contains(err.Error(), gitignoreBlockEnd) {
+		t.Errorf("expected missing marker error, got %v", err)
 	}
-	if !strings.Contains(got, gitignoreBlockEnd) {
-		t.Errorf("expected end marker rewritten: %q", got)
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Count(got, gitignoreBlockStart) != 1 {
-		t.Errorf("expected exactly one block, got %q", got)
+	if string(got) != original {
+		t.Errorf("file changed: %q", got)
+	}
+}
+
+func TestEnsureManagedGitignore_RejectsTruncatedBlock(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, ".gitignore")
+	original := gitignoreBlockStart + "\n.env\n"
+	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureManagedGitignore(root); err == nil || !strings.Contains(err.Error(), gitignoreBlockEnd) {
+		t.Errorf("expected missing marker error, got %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != original {
+		t.Errorf("file changed: %q", got)
+	}
+}
+
+func TestWriteWorktreeInclude_RejectsTruncatedBlock(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, worktreeIncludeFile)
+	original := gitignoreBlockStart + "\n.env\n"
+	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := writeWorktreeInclude(root, &config.Config{}, nil)
+	if err == nil || !strings.Contains(err.Error(), gitignoreBlockEnd) {
+		t.Errorf("expected missing marker error, got %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != original {
+		t.Errorf("file changed: %q", got)
+	}
+}
+
+func TestWidenIgnores_PreservesTruncatedBlock(t *testing.T) {
+	original := "node_modules/\n" + gitignoreBlockStart + "\n.env\nsecrets/\n"
+	got := widenIgnores([]priorFile{{path: ".gitignore", content: []byte(original)}}, ".gitignore", []string{"/CLAUDE.md"})
+	if string(got[0].content) != original {
+		t.Errorf("file changed: %q", got[0].content)
 	}
 }
 
