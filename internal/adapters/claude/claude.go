@@ -410,7 +410,18 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		}
 	}
 	for _, k := range orderedConfigKeys(configSettings) {
-		if err := doc.Set(k, configSettings[k]); err != nil {
+		value := configSettings[k]
+		if object, ok := value.(map[string]any); ok {
+			if overlay == nil {
+				value, err = sess.MergeJSONEntriesInto(path, doc, k, object)
+				if err != nil {
+					return err
+				}
+			} else {
+				value = mergeCustomKey(doc, k, value)
+			}
+		}
+		if err := doc.Set(k, value); err != nil {
 			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
 		}
 	}
@@ -499,8 +510,6 @@ func releasedHookKeys(doc *emit.OrderedJSON, hooks []spec.Entry) [][]string {
 	}
 	if !hasCommandHook(hooks) && !docHasEnv(doc, emit.HookTargetEnv) {
 		released = append(released, []string{"env", emit.HookTargetEnv})
-		// A config `env` block is claimed whole; deleting the hook env
-		// can empty it, and then the object is gone too.
 		if _, kept := doc.Get("env"); !kept {
 			released = append(released, []string{"env"})
 		}
@@ -547,8 +556,15 @@ func claimedSettingsKeys(hooks []spec.Entry, custom map[string]any, layers ...ma
 		claimed = append(claimed, emit.MergedKey{Path: []string{"env", emit.HookTargetEnv}})
 	}
 	for _, layer := range layers {
-		for k := range layer {
-			if k != "permissions" {
+		for k, value := range layer {
+			if k == "permissions" {
+				continue
+			}
+			if object, ok := value.(map[string]any); ok {
+				for child := range object {
+					claimed = append(claimed, emit.MergedKey{Path: []string{k, child}})
+				}
+			} else {
 				claimed = append(claimed, emit.MergedKey{Path: []string{k}})
 			}
 		}

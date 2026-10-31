@@ -16,45 +16,65 @@ import (
 // its info/exclude update, as a worktree and its main checkout may.
 var LockWait = 10 * time.Second
 
-// heldExcludeLocks counts this process's holds on each info/exclude
-// lock, so a web change that holds one can revalidate through code that
-// takes it again. A second descriptor would block on its own process.
-var heldExcludeLocks = struct {
+var pathLocks = struct {
 	sync.Mutex
-	files  map[string]*os.File
-	counts map[string]int
-}{files: map[string]*os.File{}, counts: map[string]int{}}
+	entries map[string]*pathLock
+}{entries: make(map[string]*pathLock)}
 
-// Lock takes the lock beside the info/exclude at path, waiting
-// for another process up to LockWait, so concurrent syncs and web
-// changes never lose each other's blocks. Call release when done.
-func Lock(path string) (release func(), err error) {
+type pathLock struct {
+	available chan struct{}
+	refs      int
+}
+
+type Guard struct {
+	path        string
+	file        *os.File
+	releasePath func()
+}
+
+// Acquire holds the process and file locks for path until Release.
+func Acquire(path string) (*Guard, error) {
 	dir := filepath.Dir(path)
-	lockPath := filepath.Join(dir, "agnostic-ai-exclude.lock")
-	held := &heldExcludeLocks
-	held.Lock()
-	defer held.Unlock()
-	unlock := func() {
-		held.Lock()
-		defer held.Unlock()
-		if held.counts[lockPath]--; held.counts[lockPath] == 0 {
-			_ = held.files[lockPath].Close()
-			delete(held.files, lockPath)
-			delete(held.counts, lockPath)
+	lockPath, err := filepath.Abs(filepath.Join(dir, "agnostic-ai-exclude.lock"))
+	if err != nil {
+		return nil, fmt.Errorf("lock path %s: %w", path, err)
+	}
+	pathLocks.Lock()
+	entry := pathLocks.entries[lockPath]
+	if entry == nil {
+		entry = &pathLock{available: make(chan struct{}, 1)}
+		entry.available <- struct{}{}
+		pathLocks.entries[lockPath] = entry
+	}
+	entry.refs++
+	pathLocks.Unlock()
+	dropRef := func() {
+		pathLocks.Lock()
+		entry.refs--
+		if entry.refs == 0 {
+			delete(pathLocks.entries, lockPath)
 		}
+		pathLocks.Unlock()
 	}
-	if held.counts[lockPath] > 0 {
-		held.counts[lockPath]++
-		return unlock, nil
+	deadline := time.Now().Add(LockWait)
+	timer := time.NewTimer(LockWait)
+	defer timer.Stop()
+	select {
+	case <-entry.available:
+	case <-timer.C:
+		dropRef()
+		return nil, fmt.Errorf("lock %s: timed out waiting for another update", lockPath)
 	}
+	releasePath := func() { entry.available <- struct{}{}; dropRef() }
 	if err := os.MkdirAll(dir, 0o755); err != nil {
+		releasePath()
 		return nil, fmt.Errorf("create %s: %w", dir, err)
 	}
 	lock, err := os.OpenFile(lockPath, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
+		releasePath()
 		return nil, fmt.Errorf("%s: %w", lockPath, err)
 	}
-	deadline := time.Now().Add(LockWait)
 	for {
 		err := tryLock(lock)
 		if err == nil {
@@ -62,12 +82,44 @@ func Lock(path string) (release func(), err error) {
 		}
 		if !contended(err) || time.Now().After(deadline) {
 			_ = lock.Close()
+			releasePath()
 			return nil, fmt.Errorf("lock %s: %w", lockPath, err)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	held.files[lockPath], held.counts[lockPath] = lock, 1
-	return unlock, nil
+	return &Guard{path: lockPath, file: lock, releasePath: releasePath}, nil
+}
+
+func (g *Guard) Release() { _ = g.file.Close(); g.releasePath() }
+
+// Lock holds the lock beside path until its returned function is called.
+func Lock(path string) (func(), error) {
+	guard, err := Acquire(path)
+	if err != nil {
+		return nil, err
+	}
+	return guard.Release, nil
+}
+
+// Covers reports whether this guard holds the lock for path.
+func (g *Guard) Covers(path string) bool {
+	if g == nil {
+		return false
+	}
+	lockPath, err := filepath.Abs(filepath.Join(filepath.Dir(path), "agnostic-ai-exclude.lock"))
+	return err == nil && lockPath == g.path
+}
+
+// Update updates path while this guard holds its lock.
+func (g *Guard) Update(path string, edit func(string) string) error {
+	lockPath, err := filepath.Abs(filepath.Join(filepath.Dir(path), "agnostic-ai-exclude.lock"))
+	if err != nil {
+		return fmt.Errorf("lock path %s: %w", path, err)
+	}
+	if lockPath != g.path {
+		return fmt.Errorf("%s: lock does not cover this file", path)
+	}
+	return update(path, edit)
 }
 
 // Update reads and rewrites the file at path with edit under
@@ -78,6 +130,10 @@ func Update(path string, edit func(string) string) error {
 		return err
 	}
 	defer release()
+	return update(path, edit)
+}
+
+func update(path string, edit func(string) string) error {
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", path, err)
