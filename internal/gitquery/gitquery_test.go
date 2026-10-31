@@ -101,3 +101,49 @@ func TestIgnoredBy_MatchesOnlyThePatternsGiven(t *testing.T) {
 		t.Errorf("no patterns: %v, %v", got, err)
 	}
 }
+
+func TestQueriesIgnoreHookRepositoryEnvironment(t *testing.T) {
+	Reset()
+	repo := t.TempDir()
+	foreign := t.TempDir()
+	git(t, repo, "init", "-q")
+	git(t, foreign, "init", "-q")
+	must(t, os.Mkdir(filepath.Join(repo, "sub"), 0o755))
+	must(t, os.WriteFile(filepath.Join(repo, "sub", "tracked.txt"), []byte("x"), 0o644))
+	git(t, repo, "add", "sub/tracked.txt")
+	must(t, os.WriteFile(filepath.Join(repo, ".gitignore"), []byte("ignored.local\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(foreign, ".git", "info", "exclude"), []byte("*.md\n"), 0o644))
+	t.Setenv("GIT_DIR", filepath.Join(foreign, ".git"))
+	t.Setenv("GIT_WORK_TREE", foreign)
+	t.Setenv("GIT_COMMON_DIR", filepath.Join(foreign, ".git"))
+	t.Setenv("GIT_INDEX_FILE", filepath.Join(foreign, ".git", "index"))
+	layout, err := LayoutAtFresh(filepath.Join(repo, "sub"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	actualDir, err := os.Stat(layout.GitDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedDir, err := os.Stat(filepath.Join(repo, ".git"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if layout.Prefix != "sub/" || !os.SameFile(actualDir, expectedDir) {
+		t.Errorf("layout = %+v", layout)
+	}
+	tracked, err := Tracked(repo, "sub/tracked.txt")
+	if err != nil || !tracked {
+		t.Errorf("tracked = %v, %v", tracked, err)
+	}
+	if !Ignored(repo, "ignored.local") {
+		t.Error("repository ignore not applied")
+	}
+	matched, err := IgnoredBy([]byte("foo\n"), []string{"foo", "a.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !matched["foo"] || matched["a.md"] {
+		t.Errorf("matched = %v", matched)
+	}
+}
