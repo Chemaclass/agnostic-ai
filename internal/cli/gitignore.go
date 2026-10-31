@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -675,7 +676,7 @@ func ensureManagedGitignore(root string) error {
 	if err := config.CheckProjectLinks(root, path, "write", false); err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := atomicfile.Write(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("write runtime ignores: %w", err)
 	}
 	return nil
@@ -749,7 +750,7 @@ func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel
 	if err := config.CheckProjectLinks(root, path, "write", false); err != nil {
 		return rel, false, err
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+	if err := atomicfile.Write(path, []byte(updated), 0o644); err != nil {
 		return rel, false, err
 	}
 	return rel, true, nil
@@ -790,7 +791,7 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 	if strings.TrimSpace(updated) == "" {
 		return true, os.Remove(path)
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+	if err := atomicfile.Write(path, []byte(updated), 0o644); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -911,7 +912,7 @@ func restoreFiles(files []priorFile) error {
 		if data, err := os.ReadFile(f.path); err == nil && bytes.Equal(data, f.content) {
 			continue
 		}
-		if err := os.WriteFile(f.path, f.content, 0o644); err != nil {
+		if err := atomicfile.Write(f.path, f.content, 0o644); err != nil {
 			errs = append(errs, err)
 		}
 	}
