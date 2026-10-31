@@ -73,7 +73,7 @@ func TestVoiceKiro_ExplainLanguage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, filepath.Join(root, "settings", "cli.json")) || !strings.Contains(out, `key "voice.language"`) {
+	if !strings.Contains(out, filepath.ToSlash(filepath.Join(root, "settings", "cli.json"))) || !strings.Contains(out, `key "voice.language"`) {
 		t.Errorf("missing Kiro language mapping: %s", out)
 	}
 }
