@@ -14,7 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Global instruction updates keep private modes and stop if the file changes during sync (#2857).
 - `explain --global` lists native hook files and copied scripts for Cline, Grok and Kiro, including custom tool roots (#2863).
 - Import keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
-- `init` sets minimums; upgrades keep minimum/exact pins or turn ranges into minimums; `init`, `use` and AAI-005 explain exact pins (#2841, #2849).
+- `init` sets minimums; `upgrade --requires` keeps minimum/exact pins or makes ranges minimums; `init`, `use` and AAI-005 explain exact pins (#2841, #2849).
 
 #### Security
 
