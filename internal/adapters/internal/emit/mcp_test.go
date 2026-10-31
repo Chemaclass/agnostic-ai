@@ -101,6 +101,40 @@ func TestMCPDocument_HTTPTransport(t *testing.T) {
 	}
 }
 
+func TestMCPDocument_TransportAliases(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		transport string
+		meta      map[string]any
+		want      []string
+		wantType  string
+	}{
+		{"streamable-http", map[string]any{"url": "https://example.com/mcp"}, []string{`"url": "https://example.com/mcp"`}, `"type": "http"`},
+		{"remote", map[string]any{"url": "https://example.com/mcp"}, []string{`"url": "https://example.com/mcp"`}, `"type": "http"`},
+		{"local", map[string]any{"command": "npx", "args": []any{"-y", "pkg"}}, []string{`"command": "npx"`, `"-y"`}, ""},
+	} {
+		meta := map[string]any{"type": tc.transport}
+		for k, v := range tc.meta {
+			meta[k] = v
+		}
+		got, err := MCPDocument([]spec.Entry{{Kind: spec.KindMCP, Name: "srv", Meta: meta}}, MCPSchemaServersMap)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range tc.want {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s: missing %s in %s", tc.transport, want, got)
+			}
+		}
+		if tc.wantType != "" && !strings.Contains(got, tc.wantType) {
+			t.Errorf("%s: missing %s in %s", tc.transport, tc.wantType, got)
+		}
+		if strings.Contains(got, tc.transport) && tc.transport != "local" {
+			t.Errorf("%s: alias leaked into output: %s", tc.transport, got)
+		}
+	}
+}
+
 func TestMCPDocument_ServersMapNoTypeOmitsTransportDiscriminant(t *testing.T) {
 	t.Parallel()
 	// Warp's remote-server table documents only `url` and `headers`, and a

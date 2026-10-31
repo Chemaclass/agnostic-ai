@@ -235,16 +235,30 @@ func TestLintMCPMissingRequiredField_FlagsEveryTransport(t *testing.T) {
 	}
 }
 
+func TestLintMCPMissingRequiredField_AcceptsTransportAliases(t *testing.T) {
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "a", Path: "mcps/a.yaml", Meta: map[string]any{"type": "streamable-http", "url": "https://example.com/mcp"}},
+		{Kind: spec.KindMCP, Name: "b", Path: "mcps/b.yaml", Meta: map[string]any{"type": "remote", "url": "https://example.com/mcp"}},
+		{Kind: spec.KindMCP, Name: "c", Path: "mcps/c.yaml", Meta: map[string]any{"type": "local", "command": "npx"}},
+	}
+	if got := lintMCPMissingRequiredField(mcps); len(got) != 0 {
+		t.Errorf("expected 0 findings, got %d: %+v", len(got), got)
+	}
+	missing := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "d", Path: "mcps/d.yaml", Meta: map[string]any{"type": "streamable-http"}},
+		{Kind: spec.KindMCP, Name: "e", Path: "mcps/e.yaml", Meta: map[string]any{"type": "local"}},
+	}
+	if got := lintMCPMissingRequiredField(missing); len(got) != 2 {
+		t.Errorf("expected 2 findings for aliases without url or command, got %d: %+v", len(got), got)
+	}
+}
+
 func TestLintMCPMissingRequiredField_NoFindingsOnCompleteEntries(t *testing.T) {
 	mcps := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "stdio", Path: "mcps/stdio.yaml",
 			Meta: map[string]any{"command": "npx"}},
 		{Kind: spec.KindMCP, Name: "remote", Path: "mcps/remote.yaml",
 			Meta: map[string]any{"type": "sse", "url": "https://example.com/sse"}},
-		// An unmapped transport carries no required field this rule can
-		// name, so it stays clean here rather than guess at one.
-		{Kind: spec.KindMCP, Name: "odd", Path: "mcps/odd.yaml",
-			Meta: map[string]any{"type": "carrier-pigeon"}},
 		// Every MCP builder drops a nameless entry before it reads the
 		// transport, so there is no missing field to name.
 		{Kind: spec.KindMCP, Name: "", Path: "mcps/nameless.yaml",
@@ -252,6 +266,26 @@ func TestLintMCPMissingRequiredField_NoFindingsOnCompleteEntries(t *testing.T) {
 	}
 	if got := lintMCPMissingRequiredField(mcps); len(got) != 0 {
 		t.Errorf("expected 0 findings, got %d: %+v", len(got), got)
+	}
+}
+
+func TestLintMCPMissingRequiredField_FlagsUnknownTransport(t *testing.T) {
+	for _, transport := range []string{"carrier-pigeon", "HTTP"} {
+		mcps := []spec.Entry{{Kind: spec.KindMCP, Name: "odd", Path: "mcps/odd.yaml",
+			Meta: map[string]any{"type": transport, "url": "https://example.com/mcp", "command": "npx"}}}
+		findings := lintMCPMissingRequiredField(mcps)
+		if len(findings) != 1 {
+			t.Fatalf("%s: expected 1 finding, got %d: %+v", transport, len(findings), findings)
+		}
+		f := findings[0]
+		if f.Code != "LINT008" || f.Severity != lintError {
+			t.Errorf("%s: expected LINT008 error, got %s %s", transport, f.Code, f.Severity)
+		}
+		for _, want := range []string{transport, "stdio, http, sse, or ws"} {
+			if !strings.Contains(f.Message, want) {
+				t.Errorf("%s: message should mention %q, got %q", transport, want, f.Message)
+			}
+		}
 	}
 }
 
