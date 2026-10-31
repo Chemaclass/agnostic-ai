@@ -735,6 +735,6 @@
 # 9b6b98d9a (+4096). No new dependency. Keep the 8192-byte allowance.
 # Main through #2905 measured 24527008 bytes; Git query isolation adds 4096.
 # Sync state error handling also grows the combined build.
-# #2913 measured 24543392 bytes (+4096 over main): the
-# local null lint warning and the null-keeps-shared merge rule.
-24543392
+# #2884 measured 24543392 on Go 1.27.3: ignore files are replaced whole
+# through a shared atomic write helper. Keeps the 8192-byte allowance.
+24551584
