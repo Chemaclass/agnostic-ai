@@ -76,10 +76,34 @@ func TestRewriteHookPath_TranslatesSiblingPrefix(t *testing.T) {
 			want:   `"$(git rev-parse --show-toplevel)/.claude/hooks/protect-files.sh"`,
 		},
 		{
-			name:   "absolute path with embedded sibling prefix rewrites",
-			cmd:    "/usr/local/bin/runner /tmp/.gemini/hooks/run.sh",
+			name:   "home, variable and absolute sibling paths stay",
+			cmd:    "~/.claude/hooks/notify.sh && bash $HOME/.claude/hooks/x.sh && /opt/team/.gemini/hooks/lint.sh",
+			target: "codex",
+			want:   "~/.claude/hooks/notify.sh && bash $HOME/.claude/hooks/x.sh && /opt/team/.gemini/hooks/lint.sh",
+		},
+		{
+			name:   "every project copy of a prefix rewrites",
+			cmd:    ".claude/hooks/a.sh && .claude/hooks/b.sh ~/.claude/hooks/c.sh",
+			target: "codex",
+			want:   ".codex/hooks/a.sh && .codex/hooks/b.sh ~/.claude/hooks/c.sh",
+		},
+		{
+			name:   "quoted root before the path rewrites",
+			cmd:    `"$CLAUDE_PROJECT_DIR"/.claude/hooks/f.sh`,
+			target: "gemini",
+			want:   `"${GEMINI_PROJECT_DIR}"/.gemini/hooks/f.sh`,
+		},
+		{
+			name:   "working directory root rewrites",
+			cmd:    `"$(pwd)/.codex/hooks/x.sh" $PWD/.codex/hooks/y.sh`,
 			target: "claude",
-			want:   "/usr/local/bin/runner /tmp/.claude/hooks/run.sh",
+			want:   `"$(pwd)/.claude/hooks/x.sh" $PWD/.claude/hooks/y.sh`,
+		},
+		{
+			name:   "project root variable sibling path rewrites",
+			cmd:    `"$CLAUDE_PROJECT_DIR/.gemini/hooks/run.sh" ~/.gemini/hooks/keep.sh`,
+			target: "claude",
+			want:   `"$CLAUDE_PROJECT_DIR/.claude/hooks/run.sh" ~/.gemini/hooks/keep.sh`,
 		},
 		{
 			name:   "multiple sibling prefixes in one command all rewrite",

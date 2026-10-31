@@ -31,9 +31,60 @@ func RewriteHookDirectories(cmd, target string, literal ...bool) string {
 		if prefix == replacement {
 			continue
 		}
-		cmd = strings.ReplaceAll(cmd, prefix, replacement)
+		cmd = rewriteSiblingPrefix(cmd, prefix, replacement)
 	}
 	return RewriteNeutralHookPath(cmd, HookScriptsDir(target), literal...)
+}
+
+func rewriteSiblingPrefix(cmd, prefix, replacement string) string {
+	var out strings.Builder
+	from := 0
+	for search := 0; search < len(cmd); {
+		i := strings.Index(cmd[search:], prefix)
+		if i < 0 {
+			break
+		}
+		at := search + i
+		search = at + len(prefix)
+		if !projectRelativeHookPrefix(cmd, at) {
+			continue
+		}
+		out.WriteString(cmd[from:at])
+		out.WriteString(replacement)
+		from = search
+	}
+	out.WriteString(cmd[from:])
+	return out.String()
+}
+
+const hookWordBoundary = " \t\r\n\"';|&()"
+
+// projectRelativeHookPrefix reports whether the hook directory at index at
+// belongs to the project: at a word start, or under a project root.
+func projectRelativeHookPrefix(cmd string, at int) bool {
+	if at == 0 || strings.ContainsRune(hookWordBoundary, rune(cmd[at-1])) {
+		return true
+	}
+	if cmd[at-1] != '/' {
+		return false
+	}
+	roots := []string{".", gitHookRoot, "$PWD", "${PWD}", "$(pwd)"}
+	for _, variable := range nativeHookRoots {
+		roots = append(roots, "$"+variable, "${"+variable+"}")
+	}
+	for _, root := range roots {
+		for _, closer := range []string{"/", `"/`} {
+			before := cmd[:at]
+			if !strings.HasSuffix(before, root+closer) {
+				continue
+			}
+			rootStart := len(before) - len(root+closer)
+			if rootStart == 0 || strings.ContainsRune(hookWordBoundary, rune(cmd[rootStart-1])) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func HookScriptsDir(target string) string {
