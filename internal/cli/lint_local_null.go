@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"slices"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -47,11 +46,15 @@ func lintLocalNulls() ([]lintFinding, error) {
 				name = prefix + "." + key
 			}
 			baseValue, inBase := base[key]
+			isTier := prefix == "models"
 			if value == nil {
 				switch {
+				case name == "targets" && !inBase:
+					messages[name] = name + " is empty (null) and replaces the default targets; remove the key to inherit them"
 				case !inBase, baseValue == nil, name == "requires":
-				case isYAMLMap(baseValue) && strings.HasPrefix(name, "models."):
-					messages[name] = name + " is empty (null) and is ignored, so the shared tier stays; remove the key"
+				case isYAMLMap(baseValue) && len(baseValue.(map[string]any)) == 0:
+				case isYAMLMap(baseValue) && isTier:
+					messages[name] = name + " is empty (null) and is ignored, so the shared tier stays; remove the key. A tier written as {} fails to load"
 				case isYAMLMap(baseValue):
 					messages[name] = name + " is empty (null) and is ignored, so the shared value stays; remove the key, or write {} to clear it"
 				default:
@@ -61,6 +64,9 @@ func lintLocalNulls() ([]lintFinding, error) {
 			}
 			if nested, ok := value.(map[string]any); ok {
 				baseNested, _ := baseValue.(map[string]any)
+				if isTier {
+					baseNested = nil
+				}
 				walk(nested, baseNested, name)
 			}
 		}
