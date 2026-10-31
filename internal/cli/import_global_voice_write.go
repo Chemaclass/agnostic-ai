@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 
 	"gopkg.in/yaml.v3"
 )
@@ -32,7 +35,7 @@ func snapshotImportedGlobalSettings(source string) (*editFileSnapshot, error) {
 	return &before, nil
 }
 
-func stageImportedGlobalVoice(source, stage string, doc map[string]any, before *editFileSnapshot) (*importedVoiceUpdate, error) {
+func stageImportedGlobalVoice(source, stage string, doc map[string]any, before *editFileSnapshot, settings []spec.Entry) (*importedVoiceUpdate, error) {
 	if _, present := doc[voiceField]; !present {
 		return nil, nil
 	}
@@ -41,15 +44,18 @@ func stageImportedGlobalVoice(source, stage string, doc map[string]any, before *
 		if err := before.check(path); err != nil {
 			return nil, err
 		}
-		if before.info == nil {
+		compatible := importedVoiceLayerCompatible(settings, "imported", doc)
+		if before.info == nil && compatible {
 			return nil, nil
 		}
-		merged, added, err := appendImportedGlobalVoice(path, before.data, doc)
-		if err != nil {
-			return nil, err
-		}
-		if added {
-			return &importedVoiceUpdate{before: *before, data: merged}, nil
+		if before.info != nil && compatible {
+			merged, added, err := appendImportedGlobalVoice(path, before.data, doc)
+			if err != nil {
+				return nil, err
+			}
+			if added {
+				return &importedVoiceUpdate{before: *before, data: merged}, nil
+			}
 		}
 	}
 	voice := map[string]any{voiceField: doc[voiceField]}
@@ -60,7 +66,72 @@ func stageImportedGlobalVoice(source, stage string, doc map[string]any, before *
 			delete(doc, key)
 		}
 	}
-	return nil, stageGlobalSettingsDoc(stage, "settings/imported-voice.yaml", voice)
+	name, err := unusedImportedVoicePath(source, settings)
+	if err != nil {
+		return nil, err
+	}
+	return nil, stageGlobalSettingsDoc(stage, name, voice)
+}
+
+func importedVoiceLayerCompatible(settings []spec.Entry, name string, doc map[string]any) bool {
+	for _, entry := range settings {
+		if entry.Name != name || entry.Layer != "global-local" {
+			continue
+		}
+		local := entry.LocalMeta
+		if entry.Base == nil {
+			local = entry.Meta
+		}
+		if _, present := local[voiceField]; present {
+			return false
+		}
+		merged := make(map[string]any, len(doc))
+		for key, value := range doc {
+			merged[key] = value
+		}
+		for _, key := range []string{"target", "targets", "target-exclude", "targets-exclude"} {
+			if value, present := local[key]; present {
+				if value == nil {
+					delete(merged, key)
+				} else {
+					merged[key] = value
+				}
+			}
+		}
+		want, effective := spec.Entry{Meta: doc}, spec.Entry{Meta: merged}
+		for _, target := range globalTargetNames() {
+			if want.EmitsTo(target) != effective.EmitsTo(target) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func unusedImportedVoicePath(source string, settings []spec.Entry) (string, error) {
+	for i := 1; ; i++ {
+		name := "imported-voice"
+		if i > 1 {
+			name = fmt.Sprintf("%s-%d", name, i)
+		}
+		if slices.ContainsFunc(settings, func(entry spec.Entry) bool { return entry.Name == name }) {
+			continue
+		}
+		occupied := false
+		for _, root := range []string{source, filepath.Join(source, "local")} {
+			for _, ext := range []string{".yaml", ".yml"} {
+				path := filepath.Join(root, "settings", name+ext)
+				if _, err := os.Lstat(path); err == nil {
+					occupied = true
+				} else if !os.IsNotExist(err) {
+					return "", fmt.Errorf("%s: %w", path, err)
+				}
+			}
+		}
+		if !occupied {
+			return filepath.ToSlash(filepath.Join("settings", name+".yaml")), nil
+		}
+	}
 }
 
 func appendImportedGlobalVoice(path string, existing []byte, staged map[string]any) ([]byte, bool, error) {

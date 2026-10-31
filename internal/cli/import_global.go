@@ -312,7 +312,7 @@ func stageGlobalSettings(home, source, stage string, targets []string, have []sp
 			other[field.name] = excluded
 		}
 	}
-	voiceUpdate, err := stageImportedGlobalVoice(source, stage, doc, priorSettings)
+	voiceUpdate, err := stageImportedGlobalVoice(source, stage, doc, priorSettings, have)
 	if err != nil {
 		return nil, err
 	}
