@@ -24,7 +24,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -1073,8 +1072,11 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			legacy := g.legacyInstructionsPath(home, platform)
 			legacyOwned := legacy != "" && slices.Contains(old.Files, legacy)
 			aliased := legacyOwned && aliasedGlobalInstructions(legacy, path)
+			var legacyBefore *diskSnapshot
 			if legacyOwned && !aliased {
-				if _, err := addInstructions(legacy, globalStart+"\n\n"+globalEnd); err != nil {
+				var err error
+				legacyBefore, err = addInstructions(legacy, globalStart+"\n\n"+globalEnd)
+				if err != nil {
 					return nil, next, err
 				}
 			}
@@ -1082,14 +1084,19 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			if err != nil {
 				return nil, next, err
 			}
-			if aliased {
+			// A missing legacy file may appear through an alias when the active file is created.
+			if aliased || legacyBefore != nil && legacyBefore.absent {
 				if i, written := seen[path]; written {
 					writes[i].keepAliases = append(writes[i].keepAliases, legacy)
-				} else if !before.absent {
+				} else {
 					if next.removalGuards == nil {
 						next.removalGuards = map[string]*diskSnapshot{}
 					}
-					next.removalGuards[legacy] = before
+					if legacyBefore != nil {
+						next.removalGuards[legacy] = legacyBefore
+					} else {
+						next.removalGuards[legacy] = before
+					}
 				}
 			}
 		}
@@ -1877,9 +1884,7 @@ func mergeGlobalBlockData(path, managed string, data []byte) (string, error) {
 }
 
 func aliasedGlobalInstructions(a, b string) bool {
-	physicalA, errA := config.ResolveSourceAlias(a)
-	physicalB, errB := config.ResolveSourceAlias(b)
-	return errA == nil && errB == nil && physicalA == physicalB
+	return resolveImportSourceExisting(a) == resolveImportSourceExisting(b)
 }
 
 func insertGlobalBlock(body, managed string, removing bool) string {
@@ -3030,7 +3035,7 @@ func removedGlobalFiles(old, next []string, writes ...globalWrite) []string {
 }
 
 func removalChangedSincePlan(guards map[string]*diskSnapshot, path string, data []byte) error {
-	if guard, ok := guards[path]; ok && !bytes.Equal(guard.data, data) {
+	if guard, ok := guards[path]; ok && (guard.absent || !bytes.Equal(guard.data, data)) {
 		return fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", path)
 	}
 	return nil

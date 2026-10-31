@@ -272,3 +272,121 @@ func TestZedGlobalInstructions_LegacyAliasKeepsTheActiveFile(t *testing.T) {
 		t.Errorf("obsolete path remains owned: %v", next.Files)
 	}
 }
+
+func TestZedGlobalInstructions_AbsentLegacyAliasKeepsRecreatedFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	g := globalTargets["zed"]
+	legacy := globalPath(home, g.instructions)
+	native := filepath.Join(os.Getenv("APPDATA"), "Zed", "AGENTS.md")
+	if err := os.MkdirAll(filepath.Dir(native), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(filepath.Dir(legacy)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.DirectoryAlias(t, filepath.Dir(native), filepath.Dir(legacy))
+	old := globalState{Version: globalStateVersion, Files: []string{legacy}}
+	writes, next, err := buildGlobalWritesForPlatform(home, source, []string{"zed"}, []byte("Portable marker"), spec.Bundle{}, old, nil, io.Discard, "warn", "windows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removals := removedGlobalFiles(old.Files, next.Files, writes...)
+	if slices.Contains(removals, legacy) {
+		t.Errorf("active destination was scheduled for removal: %v", removals)
+	}
+	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err != nil {
+		t.Fatal(err)
+	}
+	if got := readGlobalTestFile(t, native); !strings.Contains(got, "Portable marker") {
+		t.Errorf("native instructions = %q", got)
+	}
+	if slices.Contains(next.Files, legacy) || !slices.Contains(next.Files, native) {
+		t.Errorf("ownership = %v", next.Files)
+	}
+}
+
+func TestZedGlobalInstructions_AbsentAliasStopsWhenNativeAppears(t *testing.T) {
+	for _, missingDir := range []bool{false, true} {
+		t.Run(map[bool]string{false: "existing directory", true: "dangling directory"}[missingDir], func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			g := globalTargets["zed"]
+			legacy := globalPath(home, g.instructions)
+			native := filepath.Join(os.Getenv("APPDATA"), "Zed", "AGENTS.md")
+			dir := filepath.Dir(native)
+			if missingDir {
+				dir = filepath.Dir(dir)
+			}
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(filepath.Dir(legacy)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			testutil.DirectoryAlias(t, filepath.Dir(native), filepath.Dir(legacy))
+			old := globalState{Version: globalStateVersion, Files: []string{legacy}}
+			writes, next, err := buildGlobalWritesForPlatform(home, source, []string{"zed"}, []byte("Portable marker"), spec.Bundle{}, old, nil, io.Discard, "warn", "windows")
+			if err != nil {
+				t.Fatal(err)
+			}
+			const personal = "User wrote this while sync ran.\n"
+			mustWriteGlobalTest(t, native, personal)
+			if _, err := applyGlobalChanges(writes, removedGlobalFiles(old.Files, next.Files, writes...), false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+				t.Errorf("expected stale write refusal, got %v", err)
+			}
+			if got := readGlobalTestFile(t, native); got != personal {
+				t.Errorf("user file changed: %q", got)
+			}
+		})
+	}
+}
+
+func TestZedGlobalInstructions_DanglingLegacyAliasKeepsRecreatedFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	g := globalTargets["zed"]
+	legacy := globalPath(home, g.instructions)
+	native := filepath.Join(os.Getenv("APPDATA"), "Zed", "AGENTS.md")
+	if err := os.MkdirAll(filepath.Dir(filepath.Dir(native)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(filepath.Dir(legacy)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.DirectoryAlias(t, filepath.Dir(native), filepath.Dir(legacy))
+	old := globalState{Version: globalStateVersion, Files: []string{legacy}}
+	writes, next, err := buildGlobalWritesForPlatform(home, source, []string{"zed"}, []byte("Portable marker"), spec.Bundle{}, old, nil, io.Discard, "warn", "windows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removals := removedGlobalFiles(old.Files, next.Files, writes...)
+	if slices.Contains(removals, legacy) {
+		t.Errorf("active destination was scheduled for removal: %v", removals)
+	}
+	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err != nil {
+		t.Fatal(err)
+	}
+	if got := readGlobalTestFile(t, native); !strings.Contains(got, "Portable marker") {
+		t.Errorf("native instructions = %q", got)
+	}
+}
+
+func TestZedGlobalInstructions_AbsentLegacyRemovalKeepsNewUserFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	g := globalTargets["zed"]
+	legacy := globalPath(home, g.instructions)
+	old := globalState{Version: globalStateVersion, Files: []string{legacy}}
+	writes, next, err := buildGlobalWritesForPlatform(home, source, []string{"zed"}, nil, spec.Bundle{}, old, nil, io.Discard, "warn", "windows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removals := removedGlobalFiles(old.Files, next.Files, writes...)
+	if !slices.Contains(removals, legacy) {
+		t.Fatalf("expected guarded stale removal, got %v", removals)
+	}
+	mustWriteGlobalTest(t, legacy, "")
+	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+		t.Errorf("expected stale removal refusal, got %v", err)
+	}
+	if data, err := os.ReadFile(legacy); err != nil || len(data) != 0 {
+		t.Errorf("new user file = %q, %v", data, err)
+	}
+}
