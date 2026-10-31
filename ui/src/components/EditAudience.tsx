@@ -64,20 +64,20 @@ export function EditAudienceSwitch() {
   const viewing = app.state.view === 'settings' || app.state.view === 'authority'
   const option = (value: EditAudience, label: string) => (
     <button type="button" aria-label={label} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>
-      {value === 'shared' ? 'Shared' : 'Personal'}<span className="edit-scope-detail">{value === 'shared' ? ' (committed)' : ' (not committed)'}</span>
+      {value === 'shared' ? 'Shared' : 'Personal'}
     </button>
   )
   return (
     <div className="edit-scope">
-      <span id={labelId} className="edit-scope-label">{viewing ? 'View and edit' : 'Save changes for'}</span>
+      <span id={labelId} className="edit-scope-label">{viewing ? 'View and edit' : 'Save new specs for'}</span>
       <div className="segmented" role="group" aria-labelledby={labelId}>
         {option('shared', 'Shared (committed)')}
         {option('personal', 'Personal (not committed)')}
       </div>
       <p className="muted edit-scope-hint" role="status">
         {state.audience === 'shared'
-          ? `${viewing ? 'Showing shared values. Personal overrides take priority for you. ' : ''}Changes are saved in files that Git tracks.`
-          : `${viewing ? 'Your personal overrides take priority over Shared. Inherited values are labeled. ' : ''}Changes are saved in personal files that Git ignores.`}
+          ? `Shared files, tracked by Git.${viewing ? ' Personal overrides take priority for you.' : ''}`
+          : `${viewing ? 'Your personal overrides take priority over Shared. ' : ''}Personal files, ignored by Git.`}
       </p>
     </div>
   )

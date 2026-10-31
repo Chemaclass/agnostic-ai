@@ -193,6 +193,7 @@ test('keeps support and section findings available outside panels and leaves Aut
   await page.goto('/?view=tools')
   for (const tab of ['Configured servers', 'Found in tools', 'Environments']) {
     await selectTab(page, tab)
+    await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
     const finding = page.getByText('Tools configuration warning.', { exact: true })
     await expect(finding).toBeVisible()
     expect(await finding.evaluate((element) => element.closest('[role="tabpanel"]') === null)).toBe(true)

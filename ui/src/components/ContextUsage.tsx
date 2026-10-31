@@ -4,12 +4,13 @@
 
 import { useEffect, useId, useState } from 'react'
 import { loadContext } from '../api'
-import type { ContextContribution, ContextLoad, ContextOpportunity, ContextReport, ContextView } from '../contract'
+import type { ContextContribution, ContextLoad, ContextOpportunity, ContextReport, ContextSize, ContextView } from '../contract'
 import { contextReviewPrompt, LOAD_CONDITIONS, LOAD_LABELS, sizeText } from '../model/context-prompt'
 import { formatTime, plural } from '../model/format'
 import { useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import { OpenInEditor } from './EditorLink'
+import { SectionHeading } from './SectionHeading'
 import { Badge, Code, CopyButton } from './ui'
 
 const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
@@ -53,7 +54,7 @@ export function ContextUsage() {
     return () => controller.abort()
   }, [reachable, app.source, target, file, nonce])
 
-  const heading = <h2 id={titleId}>Context size</h2>
+  const heading = <SectionHeading topic="usage" id={titleId}>Context size</SectionHeading>
   if (!reachable) {
     return (
       <section className="block context-usage" aria-labelledby={titleId}>
@@ -85,8 +86,11 @@ export function ContextUsage() {
     <section className="block context-usage" aria-labelledby={titleId} aria-busy={loading || undefined}>
       <div className="context-usage-head">
         {heading}
-        {view?.supported !== false && (
-          <form className="context-usage-controls" onSubmit={(event) => { event.preventDefault(); refresh() }}>
+        <p className="muted">Instruction text for one coding tool, measured in words and bytes.</p>
+      </div>
+      {view?.supported !== false && (
+        <form className="context-usage-controls" onSubmit={(event) => { event.preventDefault(); refresh() }}>
+          <div className="context-usage-field">
             <label htmlFor={selectId}>Coding tool</label>
             <select
               id={selectId}
@@ -100,12 +104,15 @@ export function ContextUsage() {
             >
               {targets.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
+          </div>
+          <div className="context-usage-field">
             <label htmlFor={fileId}>Working on file</label>
-            <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} title={takesFile ? undefined : `${selected || 'This tool'} has no file-scoped rules to check.`} onChange={(event) => setFileDraft(event.target.value)} />
-            <button type="submit" className="button" disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
-          </form>
-        )}
-      </div>
+            <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} aria-describedby={`${fileId}-hint`} onChange={(event) => setFileDraft(event.target.value)} />
+          </div>
+          <button type="submit" className="button" disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Optional: name a file to include the scoped rules that match it.' : `${selected || 'This tool'} has no file-scoped rules to check.`}</p>
+        </form>
+      )}
       <p className="muted context-usage-status" role="status">
         {loading ? 'Checking context size…' : shown ? `Checked ${formatTime(shown.at)}${shown.file ? ` for ${shown.file}` : ''}.` : ''}
       </p>
@@ -114,7 +121,7 @@ export function ContextUsage() {
       {report && shown && (
         <>
           <Totals report={report} file={shown.file} />
-          {report.note && <p className="muted context-usage-note">{report.note}</p>}
+          {report.note && <details className="context-usage-method"><summary>How this is counted</summary><p className="muted context-usage-note">{report.note}</p></details>}
           {comparable && <Comparison before={before.view.report!} now={report} />}
           <Opportunities report={report} root={shown.view.root} />
           <Contributions contributions={report.contributions} />
@@ -129,23 +136,28 @@ function Totals({ report, file }: { report: ContextReport; file: string }) {
   return (
     <>
       <dl className="facts context-usage-totals">
-        <div>
-          <dt>Startup</dt>
-          <dd>{sizeText(report.startup)}</dd>
-        </div>
+        <Total title="Startup" description="At the start of every session" size={report.startup} />
         {fileScope && (
-          <div>
-            <dt>File-scoped, additional</dt>
-            <dd>{sizeText(report.file_scope)}</dd>
-          </div>
+          <Total title="File-scoped, additional" description="Rules that match the named file" size={report.file_scope} />
         )}
-        <div>
-          <dt>On demand</dt>
-          <dd>{sizeText(report.on_demand)}</dd>
-        </div>
+        <Total title="On demand" description="Available when the tool loads it" size={report.on_demand} />
       </dl>
       {!file && <p className="muted context-usage-note">Scoped rules count as on demand until you name a file.</p>}
     </>
+  )
+}
+
+function Total({ title, description, size }: { title: string; description: string; size: ContextSize }) {
+  return (
+    <div>
+      <dt>{title}</dt>
+      <dd>
+        <span className="context-total-words">{size.words.toLocaleString()} <span>{size.words === 1 ? 'word' : 'words'}</span></span>
+        <span className="sr-only">, </span>
+        <span className="muted context-total-bytes">{size.bytes.toLocaleString()} {size.bytes === 1 ? 'byte' : 'bytes'}</span>
+        <span className="muted context-total-description">{description}</span>
+      </dd>
+    </div>
   )
 }
 
@@ -240,8 +252,8 @@ function Contributions({ contributions }: { contributions: ContextContribution[]
                   <tr key={`${c.load}-${index}-${c.source}-${c.category}`}>
                     <th scope="row"><Code>{c.source}</Code></th>
                     <td>{c.category}</td>
-                    <td className="context-number">{c.words}</td>
-                    <td className="context-number">{c.bytes}</td>
+                    <td className="context-number">{c.words.toLocaleString()}</td>
+                    <td className="context-number">{c.bytes.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

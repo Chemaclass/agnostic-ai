@@ -37,7 +37,7 @@ export function SectionTabs({ section, label, tabs, active, select }: { section:
     const tab = document.getElementById(`tab-${section}-${tabs[next].id}`)
     tab?.focus({ preventScroll: true })
   }
-  return <div ref={list} className="section-tabs" role="tablist" aria-label={`${label} views`}>
+  return <div ref={list} className="section-tabs" data-section={section} role="tablist" aria-label={`${label} views`}>
     {tabs.map((tab, index) => <button
       key={tab.id}
       type="button"

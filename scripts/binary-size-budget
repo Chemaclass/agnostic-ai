@@ -730,4 +730,4 @@
 # 6c3f4808e (+12288). No new dependency. Keep the 8192-byte build allowance.
 # With the global hook explain change, the combined build is 24481952 bytes.
 # Keep the existing 8192-byte allowance.
-24490144
+24502432

@@ -47,6 +47,7 @@ test.describe('overview', () => {
     authority.findings.push(item.findings.pop())
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=authority')
+    await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
     const finding = page.locator('.finding', { hasText: 'LINT038' })
     await expect(finding).toBeVisible()
     settings.items.push({ ...item, findings: [authority.findings.pop()] })
@@ -76,6 +77,7 @@ test.describe('overview', () => {
   })
 
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
+    await page.route('**/api/health', (route) => route.fulfill({ json: {} }))
     const data = structuredClone(fixture)
     data.snapshot.project.name = 'agnostic-ai'
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
@@ -209,6 +211,7 @@ test.describe('overview', () => {
     await expect(native.locator('dt').first()).toHaveText('environment.repository.name')
     await native.getByRole('switch', { name: 'x-ellipsis.pull_requests.draft' }).click()
     expect(edit).toEqual({ audience: 'shared', path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true, expected: false })
+    await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
     const finding = page.locator('.finding', { hasText: 'LINT038' })
     await expect(finding.getByText('This rule grants all file reads.', { exact: true })).not.toBeVisible()
     await finding.getByText('Details', { exact: true }).click()
@@ -236,6 +239,7 @@ test.describe('overview', () => {
     }]
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=settings')
+    await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
     const finding = page.locator('.finding', { hasText: 'The selected tool is unavailable.' })
     await finding.getByText('Details', { exact: true }).click()
     await expect(finding.getByRole('textbox', { name: 'Fix prompt', exact: true })).toHaveValue(/The selected tool is unavailable[.]/)
@@ -500,7 +504,7 @@ test.describe('overview', () => {
     const open = config.getByRole('link', { name: /^Open .+ in Cursor$/ })
     if (MOCK) await expect(open).toHaveCount(0)
     else await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.yaml$/)
-    await expect(config.locator('.value-row', { hasText: 'targets' }).locator('.tool-avatar').first()).toBeVisible()
+    await expect(page.locator('.effective-config .value-row', { hasText: 'targets' }).locator('.tool-avatar').first()).toBeVisible()
     await saveScreenshot(page, '03-settings.png')
   })
 
@@ -542,6 +546,7 @@ test.describe('overview', () => {
 
     const choice = page.getByRole('group', { name: 'Open files in' })
     await expect(choice.getByRole('button', { name: 'Cursor' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.topbar').getByRole('group', { name: 'Open files in' })).toBeInViewport()
     await choice.getByRole('button', { name: 'VS Code' }).focus()
     await page.keyboard.press('Space')
     await expect(choice.getByRole('button', { name: 'VS Code' })).toHaveAttribute('aria-pressed', 'true')
@@ -554,9 +559,12 @@ test.describe('overview', () => {
     }, true))
     await vscode.focus()
     await page.keyboard.press('Enter')
-    await expect(finding.locator('.editor-hint')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
+    await expect(finding.locator('.editor-hint')).toHaveText('Allow your browser to open VS Code. If nothing opens, choose an installed editor above or copy the path.')
+    const linkBox = await vscode.boundingBox()
+    const hintBox = await finding.locator('.editor-hint').boundingBox()
+    expect(hintBox!.y).toBeGreaterThanOrEqual(linkBox!.y + linkBox!.height)
     await choice.getByRole('button', { name: 'Cursor' }).click()
-    await expect(finding.locator('.editor-hint')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
+    await expect(finding.locator('.editor-hint')).toHaveText('Allow your browser to open Cursor. If nothing opens, choose an installed editor above or copy the path.')
     await choice.getByRole('button', { name: 'VS Code' }).click()
     await finding.getByRole('button', { name: `Copy path of ${path}` }).click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('C:\\Users\\Some One\\project #1\\.agnostic-ai\\settings\\permissions.yaml')
@@ -571,6 +579,11 @@ test.describe('overview', () => {
     await page.reload()
     await expect(page.getByRole('group', { name: 'Open files in' }).getByRole('button', { name: 'VS Code' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('.finding', { hasText: 'LINT038' }).getByRole('link', { name: `Open ${path} in VS Code at line 7` })).toBeVisible()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await expect(page.locator('.topbar').getByRole('group', { name: 'Open files in' })).toBeInViewport()
+    await choice.getByRole('combobox', { name: 'Editor', exact: true }).selectOption('cursor')
+    await expect(finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` })).toHaveAttribute('href', 'cursor://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
   })
 
   test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
@@ -628,6 +641,13 @@ test.describe('overview', () => {
     })
     await page.goto('./?view=tools&tab=native')
     const row = page.getByRole('region', { name: /Found in a tool's own config/ }).locator('.item-row', { hasText: native.name })
+    const scope = page.getByRole('region', { name: /Found in a tool's own config/ }).locator('.edit-scope')
+    await expect(scope.getByRole('group', { name: 'Save new specs for' })).toBeVisible()
+    await expect(scope).toContainText('Shared files, tracked by Git.')
+    await expect(scope.getByRole('button', { name: 'Shared (committed)', exact: true })).toHaveText('Shared')
+    const scopeBox = await scope.boundingBox()
+    const listBox = await row.locator('..').boundingBox()
+    expect(scopeBox!.y + scopeBox!.height).toBeLessThanOrEqual(listBox!.y)
     await row.getByRole('button', { name: 'Make it a spec' }).click()
     const preview = row.getByRole('region', { name: `${native.name} spec preview` })
     await expect(preview).toContainText('.agnostic-ai/mcps/notion.yaml')
@@ -642,6 +662,7 @@ test.describe('overview', () => {
     await preview.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync')
     await expect(row).toHaveCount(0)
+    await expect(page.getByRole('group', { name: 'Save new specs for' })).toHaveCount(0)
     expect(calls).toEqual([
       { action: 'preview', audience: 'shared', name: native.name, target: native.holders[0].target, path: native.holders[0].path, scope: native.holders[0].scope },
       { action: 'apply', audience: 'shared', name: native.name, target: native.holders[0].target, path: native.holders[0].path, scope: native.holders[0].scope, expected: 'reviewed-server' },

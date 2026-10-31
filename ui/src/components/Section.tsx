@@ -10,9 +10,11 @@ import { OpenInEditor } from './EditorLink'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
 import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice } from './PermissionEditor'
 import { SectionTabs } from './SectionTabs'
+import { SectionHeading } from './SectionHeading'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
+import { documentationUrl } from '../model/documentation'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, perToolEdit, valueAt } from '../model/field-address'
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
@@ -78,6 +80,7 @@ export function SectionContents({ section }: { section: Section }) {
 function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
   const app = useApp()
   const audience = useViewAudience()
+  const [warningsExpanded, setWarningsExpanded] = useState(false)
   const personalBuiltins = useContext(PersonalBuiltins)
   const root = useContext(ConfigurationRoot)
   const noticeKey = `agnostic-ai.mcp-spec-saved:${root ?? ''}`
@@ -122,7 +125,6 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const setSearch = (value: string) => app.navigate({ q: value || undefined, tab: value.trim() ? undefined : active }, { replace: true })
   const selectTab = (tab: string) => app.navigate({ tab, entry: undefined })
   const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]
-  const showAudience = section.id === 'settings' ? active !== 'configuration' : section.id !== 'tools' || active === 'native'
   const tabLabels = tabs.map((tab) => {
     const items = section.items.filter((item) => tab.kinds.includes(item.kind))
     const fields = tab.kinds.includes('settings') ? section.fields ?? [] : []
@@ -157,9 +159,15 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const findingCounts = [errors ? `${errors} error${errors === 1 ? '' : 's'}` : '', warnings ? `${warnings} warning${warnings === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')
   const otherFindings = (section.findings.length > 0 || rechecked?.place === sectionPlace || orphan !== undefined) && (
     <section className="block" aria-labelledby={findingsId}>
-      <h2 id={findingsId} tabIndex={-1}>Other findings</h2>
+      <SectionHeading topic="findings" id={findingsId} focusable>Other findings</SectionHeading>
       <Findings findings={section.findings} place={sectionPlace} orphanPlace={orphan} />
     </section>
+  )
+  const warningDetails = otherFindings && (
+    <details className="section-warnings" open={warningsExpanded || rechecked?.place === sectionPlace || orphan !== undefined || undefined} onToggle={(event) => setWarningsExpanded(event.currentTarget.open)}>
+      <summary>{warnings ? `${warnings} warning${warnings === 1 ? '' : 's'}` : 'Check results'}</summary>
+      {otherFindings}
+    </details>
   )
   return (
     <RecheckSection.Provider value={section.id}>
@@ -188,7 +196,6 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         </p>
       </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
-      {showAudience && <EditAudienceSwitch />}
       {section.id === 'authority' && <PermissionSaveNotice />}
       {section.findings.length > 0 && (
         <div className={`section-findings-summary${errors ? ' has-errors' : ''}`} role={errors ? 'alert' : undefined}>
@@ -197,6 +204,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           <button type="button" className="button button-quiet" onClick={() => {
             const heading = document.getElementById(findingsId)
             if (heading) {
+              const disclosure = heading.closest('details')
+              if (disclosure) disclosure.open = true
               heading.scrollIntoView({ block: 'start' })
               heading.focus({ preventScroll: true })
             }
@@ -215,39 +224,40 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       >
       {section.kinds.filter((kind) => panel.kinds.includes(kind.kind)).map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
+        const audienceControl = (section.id === 'settings' || section.id === 'authority') && (k.kind === 'settings' || k.kind === 'builtin') && (tabs.length < 2 || panel.id === active) ? <EditAudienceSwitch /> : undefined
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} topic={section.id === 'authority' ? 'permissions' : 'settings'} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
         const sharedBlocked = k.kind === 'builtin' && audience === 'shared' && personalBuiltins
         const count = k.kind === 'builtin' ? section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, audience)).length : k.count
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
-            <h2 id={titleId} tabIndex={-1}>
+            <SectionHeading topic={k.kind} id={titleId} focusable>
               {k.label} <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
               {k.local && audience !== 'shared' && <Badge tone="accent" title="Your personal config replaces the shared list">personal</Badge>}
-            </h2>
+            </SectionHeading>
+            {audienceControl}
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
             {sharedBlocked && <div className="audience-notice"><p>These are the shared defaults. Your personal built-in list replaces them for you. Reset that list before changing shared built-ins.</p><ViewPersonalButton /></div>}
             {k.kind === 'builtin' && audience === 'personal' && !personalBuiltins && <p className="muted">Inherited from shared. Changing a built-in creates your personal list.</p>}
             {k.kind === 'builtin' && !sharedBlocked && <BuiltinChangeControls local={audience === 'personal' && personalBuiltins} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
-            {k.kind === 'config' && audience && <p className="muted">Combined configuration used for sync, including personal overrides.</p>}
             {unlisted !== undefined && items.length > 0 && (
               <p className="muted tool-state tools-unlisted">
                 Tools not listed yet. Run <Code>{unlisted}</Code> to list them.
               </p>
             )}
-            {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} sharedUnlisted={unlisted !== undefined} />}
+            {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : k.kind === 'config' ? <ConfigurationFiles items={items} /> : <GroupedItems items={items} sharedUnlisted={unlisted !== undefined} />}
           </section>
         )
       })}
       {panel.extra === 'native' && (section.native?.length
         ? <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />
-        : <section className="block"><h2>Found in tools</h2><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
+        : <section className="block"><SectionHeading topic="native">Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
       {panel.extra === 'usage' && <ContextUsage />}
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
-      {errors === 0 && otherFindings}
+      {errors === 0 && warningDetails}
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>
   )
@@ -262,7 +272,7 @@ function fieldsHeadingId(title: string) {
   return `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
 }
 
-function SettingsFields({ title, fields, files, filtering, status }: { title: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
+function SettingsFields({ title, topic, audienceControl, fields, files, filtering, status }: { title: string; topic: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
   const entry = useApp().state.entry
   const audience = useViewAudience()
   const id = fieldsHeadingId(title)
@@ -273,7 +283,8 @@ function SettingsFields({ title, fields, files, filtering, status }: { title: st
   const visibleFields = fields.filter((field) => configured.includes(field) || editablePermissions.includes(field))
   return (
     <section className="block" aria-labelledby={id}>
-      <h2 id={id} tabIndex={-1}>{title}</h2>
+      <SectionHeading topic={topic} id={id} focusable>{title}</SectionHeading>
+      {audienceControl}
       {status}
       {configured.length === 0 && <p className="muted">{filtering ? 'No matching configured settings.' : editablePermissions.length ? 'No permission rules configured. Add rules below.' : 'No settings configured.'}</p>}
       {visibleFields.length > 0 && <FieldList fields={visibleFields} files={files} />}
@@ -436,7 +447,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     if (clean) setValue(current)
   }, [current, localCurrent, teamCurrent])
   if (!edit) return sources()
-  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p></>
+  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p></>
   const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
   if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}</>
   if (app.source.kind !== 'api') return sources()
@@ -556,7 +567,7 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
   if (count === 0) {
     return (
       <section className="block" aria-labelledby="lifecycle-hooks">
-        <h2 id="lifecycle-hooks">Hooks <span className="muted kind-count">0</span></h2>
+        <SectionHeading topic="hook" id="lifecycle-hooks">Hooks <span className="muted kind-count">0</span></SectionHeading>
         <p className="muted">None configured. A hook can run at each of these stages.</p>
         <ol className="stages is-quiet">
           {stages.map((st) => (
@@ -577,7 +588,7 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
   return (
     <section ref={root} className="block" aria-labelledby="lifecycle-hooks">
       <div className="section-head lifecycle-head">
-        <h2 id="lifecycle-hooks">Hooks <span className="muted kind-count">{count}</span></h2>
+        <SectionHeading topic="hook" id="lifecycle-hooks">Hooks <span className="muted kind-count">{count}</span></SectionHeading>
         <div className="lifecycle-actions">
           <button type="button" className="button button-quiet" onClick={() => setExpanded(true)}>Expand all</button>
           <button type="button" className="button button-quiet" onClick={() => setExpanded(false)}>Collapse all</button>
@@ -621,6 +632,19 @@ function sharedUnlistedCommand(items: SectionItem[]): string | undefined {
   const listings = items.flatMap((item) => (item.tools ? [item.tools] : []))
   const command = listings[0]?.command
   return listings.length > 0 && listings.every((listing) => listing.state === 'not-listed' && listing.command === command) ? command : undefined
+}
+
+function ConfigurationFiles({ items }: { items: SectionItem[] }) {
+  return (
+    <>
+      <ItemList items={items} hideValues />
+      <div className="effective-config">
+        <h3>Effective configuration</h3>
+        <p className="muted">Combined configuration used for sync, including personal overrides.</p>
+        <Values values={items[0].values} />
+      </div>
+    </>
+  )
 }
 
 function GroupedItems({ items, sharedUnlisted }: { items: SectionItem[]; sharedUnlisted?: boolean }) {
@@ -708,10 +732,11 @@ function NativeServers({ servers, matches, filtering, onSaved }: { servers: Nati
   const visible = servers.filter((server) => matches(nativeSearchText(server)))
   return (
     <section className="block" aria-labelledby="tools-native">
-      <h2 id="tools-native">
+      <SectionHeading topic="native" id="tools-native">
         Found in a tool's own config <span className="muted kind-count">{filtering ? `${visible.length} of ${servers.length} match` : servers.length}</span>
-      </h2>
+      </SectionHeading>
       <p className="muted">These servers work only in the tool that holds them. No spec covers them, so sync does not share them with your other tools.</p>
+      {visible.some((server) => server.holders.length > 0) && <EditAudienceSwitch />}
       {visible.length === 0 && filtering ? <p className="muted">No matches.</p> : (
         <ul className="item-list">
           {visible.map((s) => {
@@ -1030,7 +1055,7 @@ function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (ta
   if (!section.support.length) return null
   return (
     <section className="block" aria-labelledby="support-title">
-      <h2 id="support-title">Coding tool support</h2>
+      <SectionHeading topic="support" id="support-title">Coding tool support</SectionHeading>
       <div className="table-wrap">
         <table className="table support-table" role="table" aria-labelledby="support-title">
           <thead role="rowgroup">
