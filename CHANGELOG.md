@@ -20,6 +20,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Security
 
+- Concurrent updates keep all private Git exclusion entries (#2876).
 - Import rejects writes outside the project and configured source directories; invalid Codex and Warp agent names use their file names (#2873).
 
 - `packs add` refuses packs folders that link outside the project (#2874).
