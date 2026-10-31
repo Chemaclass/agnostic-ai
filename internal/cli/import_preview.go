@@ -171,7 +171,7 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 	if err != nil {
 		return rec, err
 	}
-	importSourceCopies = append(copies, importSourceCopy{original: project, shadow: shadow, physical: resolveImportSourceExisting(project)})
+	importSourceCopies = append(copies, importSourceCopy{original: project, shadow: shadow, physical: resolveImportSourceExisting(project), project: true})
 	defer func() { importSourceCopies = nil }()
 	// The copy has no .git to ask, so the walks there leave out what
 	// they would leave out in the project.

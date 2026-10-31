@@ -23,6 +23,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Home `voice` settings turn Claude Code dictation on and pick hold or tap; `sync --global` restores previous values on removal.
 - `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
 - `init` writes `requires: ">=X.Y.Z"` for the running release, so newer releases keep working until you choose an exact pin (#2841).
+- AAI-005 tells a project or home config with an exact pin how to accept newer releases; `init` and `use` say when an exact pin fits (#2849).
 - `upgrade --requires` keeps the form of `requires`: a minimum stays a minimum, an exact release stays exact, and a range becomes a minimum (#2841).
 
 #### Security
@@ -50,6 +51,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Antigravity
 
+- Import previews handle project links and Windows short paths, and reject absolute MCP files outside the project even through a source alias (#2831).
 - Plugin MCP output in `.agents/plugins/<name>/mcp.json` gets a `plugin.json`. Set `outputs.antigravity.mcp-file` to `.agents/plugins/<name>/mcp.json`. A plugin-root `mcp_config.json` still gets its manifest with a note to move (#2826).
 - `import antigravity` reads the configured `mcp-file`, including absolute paths inside the project, so plugin MCP servers round-trip (#2829).
 

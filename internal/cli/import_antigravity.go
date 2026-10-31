@@ -401,7 +401,11 @@ func antigravityMCPFileFromCfg(cfg *config.Config) string {
 func importAntigravityMCP(root, mcpFile, dstDir string) (int, error) {
 	mcpPath := mcpFile
 	if filepath.IsAbs(mcpPath) {
-		mcpPath = importPreviewSourcePath(resolveImportSourceExisting(mcpPath))
+		var inside bool
+		mcpPath, inside = importProjectSourcePath(root, mcpPath)
+		if !inside {
+			return 0, fmt.Errorf("refusing to import MCP file outside the project or inside .git: %s", mcpFile)
+		}
 	}
 	if config.UnsafeProjectPathIn(root, mcpPath) {
 		return 0, fmt.Errorf("refusing to import MCP file outside the project or inside .git: %s", mcpFile)

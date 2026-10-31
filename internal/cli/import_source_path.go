@@ -16,6 +16,7 @@ type importSourceCopy struct {
 	original string
 	shadow   string
 	physical string
+	project  bool
 }
 
 var importSourceCopies []importSourceCopy
@@ -31,6 +32,26 @@ func importPreviewSourcePath(path string) string {
 		}
 	}
 	return path
+}
+
+func importProjectSourcePath(root, path string) (string, bool) {
+	base, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	physical := resolveImportSourceExisting(base)
+	shadow := physical
+	for _, copy := range importSourceCopies {
+		if copy.project {
+			physical, shadow = copy.physical, copy.shadow
+			break
+		}
+	}
+	rel, inside := pathBelow(physical, resolveImportSourceExisting(path))
+	if !inside || config.UnsafeProjectPath(rel) {
+		return "", false
+	}
+	return filepath.Join(shadow, rel), true
 }
 
 func importOriginalSourcePath(path string) string {
