@@ -519,6 +519,31 @@ func TestPacksUpdate_ChecksEveryEntryBeforeChangingAny(t *testing.T) {
 	}
 }
 
+func TestPacksAdd_RefusesSymlinkedPacksDir(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "project")
+	outside := filepath.Join(parent, "outside")
+	mustWrite(t, filepath.Join(outside, "p", "keep.txt"), "keep")
+	mustWrite(t, filepath.Join(root, "payload", "rules", "x.md"), "b")
+	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, packsDir)); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	testutil.Chdir(t, root)
+
+	var out bytes.Buffer
+	err := runPacksAdd(root, "./payload", "p", &out)
+	if err == nil || !strings.Contains(err.Error(), "links outside the project") {
+		t.Errorf("err=%v, want refusal of packs folder linking outside the project", err)
+	}
+	got, err := os.ReadFile(filepath.Join(outside, "p", "keep.txt"))
+	if err != nil || string(got) != "keep" {
+		t.Errorf("outside file changed: content=%q, err=%v", got, err)
+	}
+}
+
 func TestPacksUpdate_RefusesSymlinkedPacksDir(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "project")
