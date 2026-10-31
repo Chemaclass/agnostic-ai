@@ -23,9 +23,7 @@
     "@opencode-ai/plugin": {
       "zod": "4.6.6"
     },
-    "@opencode/plugin": {
-      "glob": "14.0.3",
-      "minimatch": "11.0.3"
-    }
+    "glob": "14.0.3",
+    "minimatch": "11.0.3"
   }
 }

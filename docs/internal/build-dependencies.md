@@ -26,12 +26,12 @@ npm audit --prefix editors/vscode --package-lock-only --ignore-scripts --include
 
 Use the affected package directory in `--prefix` for a raw report. Run `node scripts/npm-audit.mjs` for every tracked lockfile with the scoped policy below. The workflow first runs `node --test scripts/npm-audit.test.mjs`. Update compatible dependencies first, then run package tests and packaging checks before committing the manifest and lockfile together.
 
-Scoped overrides replace vulnerable upstream selections:
+Overrides replace vulnerable upstream selections:
 
 - VS Code packaging: `@azure/identity` uses `@azure/msal-node` 7.1.1 for [GHSA-xcx6-jx8p-x3h5](https://github.com/advisories/GHSA-xcx6-jx8p-x3h5). Remove the override when its parent selects a patched version. Verify extension tests and VSIX packaging after changing it.
 - OpenCode compatibility tests: `@opencode-ai/plugin` uses `zod` 4.6.6 for [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5). Remove the override when the plugin updates its exact Zod dependency. Run `make opencode-hooks-test` after changing it.
 - VS Code packaging: `@vscode/vsce` uses `minimatch` 11.0.3 for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Remove the override when its parent selects a patched version. Verify the matching API tests, extension tests, and VSIX packaging.
-- OpenCode V2 compatibility tests: descendants of `@opencode/plugin` use `glob` 14.0.3 and `minimatch` 11.0.3 for [glob cancellation](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) and [pattern amplification](https://github.com/advisories/GHSA-g3hv-75wg-m249). This covers both the util and Google authentication/rimraf branches. Remove the overrides when every affected descendant selects patched versions. Run `make opencode-hooks-test`, which checks the public scan/matching APIs and rimraf's resolved glob API.
+- OpenCode compatibility tests: the vendor fixture overrides `glob` to 14.0.3 and `minimatch` to 11.0.3 for [glob cancellation](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) and [pattern amplification](https://github.com/advisories/GHSA-g3hv-75wg-m249). This covers both the util and Google authentication/rimraf branches and keeps clean installs compatible with npm 10 and 11. Remove the overrides when every affected descendant selects patched versions. Run `make opencode-hooks-test`, which checks the public scan/matching APIs and rimraf's resolved glob API.
 
 ### Temporary language-client audit exception
 
