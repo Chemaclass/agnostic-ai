@@ -138,6 +138,9 @@
   "overrides": {
     "@azure/identity": {
       "@azure/msal-node": "7.1.1"
+    },
+    "@vscode/vsce": {
+      "minimatch": "11.0.3"
     }
   }
 }

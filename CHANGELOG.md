@@ -25,6 +25,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `init` writes `requires: ">=X.Y.Z"` for the running release, so newer releases keep working until you choose an exact pin (#2841).
 - `upgrade --requires` keeps the form of `requires`: a minimum stays a minimum, an exact release stays exact, and a range becomes a minimum (#2841).
 
+#### Security
+
+- Matching dependencies are patched for editor packaging and vendor checks; a scoped audit exception expires on November 14 (#2844).
+
 #### Web interface
 
 - **Authority** previews and saves shared or personal permission rules, with personal overrides compared to Shared; run sync to apply.

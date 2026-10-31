@@ -5,6 +5,7 @@ import { tmpdir } from "node:os"
 import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import ts from "typescript"
+import { assertGlobDependencies } from "./glob-compatibility.mjs"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixtures = process.env.AGNOSTIC_AI_OPENCODE_FIXTURE_DIR
@@ -14,6 +15,7 @@ const names = readdirSync(fixtures).filter(name => name.endsWith(".ts"))
 assert.equal(names.length, 9, "all native fixtures must be present")
 const output = mkdtempSync(join(tmpdir(), "agnostic-opencode-typed-"))
 try {
+  await assertGlobDependencies(output)
   writeFileSync(join(output, "package.json"), '{"type":"module"}\n')
   const files = [join(here, "runtime.ts"), ...names.map(name => join(fixtures, name))]
   const program = ts.createProgram(files, {
