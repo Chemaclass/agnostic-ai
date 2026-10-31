@@ -10,10 +10,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
+- Failed pack fetches keep installed content, and partial updates record each successful commit (#2880).
 - Hook runs report Windows timeouts correctly, so Copilot lets the action proceed (#2878).
 - Claude settings keep user entries in configured objects and warn before replacing an entry (#2877).
 - Sync preserves `.gitignore` entries and asks for the closing marker when a managed block is truncated (#2875).
-
 - Global voice settings round-trip native keys; Qwen, Gemini, Grok and Vibe join support, with notes for unsupported fields (#2833, #2834).
 - Global instruction updates keep private modes and stop if the file changes during sync (#2857).
 - `explain --global` lists native hook files and copied scripts for Cline, Grok and Kiro, including custom tool roots (#2863).
