@@ -105,6 +105,9 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 		second.adopted = append(first.adopted, second.adopted...)
 		return second, next, err
 	}
+	if target == "claude" {
+		want = reuseClaudeLegacyVoice(values, want)
+	}
 	originals = maps.Clone(originals)
 	retention := globalTargets[target].settings.retention
 	portable := retention != "" && slices.Contains(personal, retention)

@@ -101,6 +101,8 @@ voice:
 - Removing the field restores each key's original bytes, removes an empty `voice` object that sync created, and removes an empty file that sync created. A value changed by hand stays yours.
 - `explain --global settings/voice.yaml` lists the mapped keys.
 
+`import --global` reads these keys back, skipping tools a home spec already covers. Values from the first tool named win when tools disagree; import prints the values it skipped. Claude's older `voiceEnabled` key is read when the `voice` object is absent; sync reuses a matching legacy value without adding a nested key.
+
 See [Claude voice dictation](https://code.claude.com/docs/en/voice-dictation).
 
 ## Protected paths
