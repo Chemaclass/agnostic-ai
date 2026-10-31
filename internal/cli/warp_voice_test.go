@@ -114,7 +114,7 @@ func TestWarpVoice_ExplainUsesNativeSettingsPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{path, "agents.voice.voice_input_enabled", "agents.voice.voice_input_language"} {
+	for _, want := range []string{filepath.ToSlash(path), "agents.voice.voice_input_enabled", "agents.voice.voice_input_language"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("explain misses %q: %s", want, out)
 		}
