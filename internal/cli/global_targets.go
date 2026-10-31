@@ -639,14 +639,10 @@ func (g globalTarget) rootError(target string) error {
 	return nil
 }
 
-// files returns the target's single-file surfaces, resolved, including
+// filesForOS returns the target's single-file surfaces, resolved, including
 // the bridge script when it has one. Ownership of these is by exact
 // path, since each sits in a directory the tool also uses for its own
 // unmanaged configuration.
-func (g globalTarget) files(home string) []string {
-	return g.filesForOS(home, runtime.GOOS)
-}
-
 func (g globalTarget) filesForOS(home, goos string) []string {
 	var out []string
 	for _, p := range []string{g.instructions, g.hooks} {
