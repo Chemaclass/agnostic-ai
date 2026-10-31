@@ -664,8 +664,10 @@ func readYAMLMap(path string) (map[string]any, error) {
 func replaceLocalTiers(base, local map[string]any) {
 	localTiers, _ := local["models"].(map[string]any)
 	baseTiers, _ := base["models"].(map[string]any)
-	for name := range localTiers {
-		delete(baseTiers, name)
+	for name, tier := range localTiers {
+		if tier != nil {
+			delete(baseTiers, name)
+		}
 	}
 }
 

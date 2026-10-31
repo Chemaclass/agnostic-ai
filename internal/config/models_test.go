@@ -84,3 +84,18 @@ func TestModelTier_MarshalsFlat(t *testing.T) {
 		t.Errorf("json = %s", got)
 	}
 }
+
+func TestLoad_LocalNullTierKeepsSharedTier(t *testing.T) {
+	dir := t.TempDir()
+	writeConfig(t, dir, "version: 1\ntargets: [claude]\nmodels:\n  fast: {claude: haiku}\n")
+	if err := os.WriteFile(filepath.Join(dir, config.LocalOverrideFileName), []byte("models:\n  fast:\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Models["fast"].Models["claude"] != "haiku" {
+		t.Errorf("shared tier lost: %+v", cfg.Models)
+	}
+}
