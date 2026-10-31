@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -85,8 +86,21 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 				t.Fatalf("check: %v\n%s", err, notes)
 			}
 			explained, err := runRoot(t, "explain", "--global", "rules/personal.md")
-			if err != nil || !strings.Contains(explained, path) {
+			if err != nil || !strings.Contains(explained, filepath.ToSlash(path)) {
 				t.Errorf("explain native path: %v\n%s", err, explained)
+			}
+			raw, err := runRoot(t, "explain", "--global", "rules/personal.md", "--json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var view explainOutput
+			if err := json.Unmarshal([]byte(raw), &view); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.ContainsFunc(view.Contributions, func(c contribution) bool {
+				return c.Target == "zed" && c.Path == filepath.ToSlash(path) && c.Mode == "section"
+			}) {
+				t.Errorf("JSON contribution misses canonical native path: %s", raw)
 			}
 			if _, err := runRoot(t, "import", "--global", "zed"); err == nil || !strings.Contains(err.Error(), "has no user settings, MCP file, or hook directory") {
 				t.Errorf("global instruction import contract changed: %v", err)
