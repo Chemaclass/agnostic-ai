@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
+- Sync stops with an error when a JSON settings file it merges into exists but cannot be read, instead of overwriting it (#2887).
 - MCP tool listing stops at its timeout when a detached child keeps stderr open (#2888).
 - A repeated key inside a nested map, such as `permissions.deny` or an MCP `env` entry, is a parse error with its line instead of silently dropping the field (#2890).
 - An empty key in `agnostic-ai.local.yaml` no longer wipes the shared group of settings; `{}` clears it, and lint warns about the empty key (#2891).
