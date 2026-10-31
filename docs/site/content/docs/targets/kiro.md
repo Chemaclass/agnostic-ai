@@ -120,7 +120,7 @@ agnostic-ai sync --global --only kiro
 agnostic-ai sync --global --only kiro --check
 ```
 
-Sync writes `~/.kiro/hooks/<name>.json` and copies shared scripts to `~/.kiro/scripts/`. Set `KIRO_HOME` to change where agnostic-ai writes these folders and Kiro's other global files. Global hooks and workspace hooks both run.
+Sync writes `~/.kiro/hooks/<name>.json` and copies shared scripts to `~/.kiro/scripts/`. Set `KIRO_HOME` to a valid absolute profile directory to change where agnostic-ai writes these folders and Kiro's other global files. Like [Kiro CLI](https://kiro.dev/docs/reference/settings/#environment-variables), sync uses `~/.kiro` when the value is relative, a filesystem root, your home directory, or one of its ancestors. Global hooks and workspace hooks both run.
 
 Sync removes only recorded files after their specs are removed. A conflicting or edited file stops sync.
 

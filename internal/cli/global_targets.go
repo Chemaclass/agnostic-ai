@@ -542,10 +542,8 @@ func globalRoots(home string) []string {
 		}
 	}
 	for _, name := range globalTargetNames() {
-		if env := globalTargets[name].rootEnv; env != "" {
-			if root := os.Getenv(env); root != "" {
-				roots = append(roots, filepath.Clean(root))
-			}
+		if root := globalTargets[name].overrideRoot(home); root != "" {
+			roots = append(roots, filepath.Clean(root))
 		}
 	}
 	return roots
@@ -589,7 +587,7 @@ func (g globalTarget) path(home, p string) string {
 		p = g.settings.platformPath(runtime.GOOS)
 	}
 	if g.rootEnv != "" {
-		if root := os.Getenv(g.rootEnv); root != "" {
+		if root := g.overrideRoot(home); root != "" {
 			if rest, ok := strings.CutPrefix(p, g.root); ok && (rest == "" || rest[0] == '/') {
 				return filepath.Join(root, filepath.FromSlash(g.rootSubdir), filepath.FromSlash(rest))
 			}
@@ -603,7 +601,7 @@ func (g globalTarget) rootError(target string) error {
 	if err := g.settings.platformRootError(runtime.GOOS); err != nil {
 		return fmt.Errorf("%s: %w", target, err)
 	}
-	if g.rootEnv == "" {
+	if g.rootEnv == "" || g.rootEnv == "KIRO_HOME" {
 		return nil
 	}
 	if root := os.Getenv(g.rootEnv); root != "" && !filepath.IsAbs(root) {
