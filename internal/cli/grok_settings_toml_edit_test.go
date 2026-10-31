@@ -36,7 +36,7 @@ func TestGrokTOML_DistinguishesLiteralDottedKey(t *testing.T) {
 }
 
 func TestGrokTOML_VoiceAddRemoveRestoresBytes(t *testing.T) {
-	for _, base := range []string{"", "[ui]", "[ui]\n", "# keep\n[plugins]\nenabled = true\n", "# keep\n[ui]\n# keep voice notes\ntheme = 'dark'\n[plugins]\nx = 1\n", "# no trailing newline\n[plugins]\nx = 1"} {
+	for _, base := range []string{"", "[ui]", "[ui]\n", "\xef\xbb\xbf[ui]\ntheme='dark'\n", "\xef\xbb\xbf[plugins]\nenabled=true\n", "# keep\n[plugins]\nenabled = true\n", "# keep\n[ui]\n# keep voice notes\ntheme = 'dark'\n[plugins]\nx = 1\n", "# no trailing newline\n[plugins]\nx = 1"} {
 		t.Run(base, func(t *testing.T) {
 			want := []globalSetting{
 				{target: "grok", key: "ui.voice_capture_mode", value: "toggle", field: "voice.mode"},

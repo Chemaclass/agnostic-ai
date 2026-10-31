@@ -110,6 +110,7 @@ func editGrokTable(path string, data []byte, table string, order []string, set m
 	for i, line := range lines {
 		scan[i] = strings.TrimSuffix(line, "\n")
 	}
+	scan[0] = strings.TrimPrefix(scan[0], "\xef\xbb\xbf")
 	headers, err := scanTOMLHeaders(scan)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)

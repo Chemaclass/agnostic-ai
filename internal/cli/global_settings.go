@@ -242,19 +242,19 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, reason)
 				continue
 			}
-			if f.allowed[key] == "string" {
+			if value != nil && f.allowed[key] == "string" {
 				if text, ok := value.(string); !ok || strings.TrimSpace(text) == "" {
 					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "native field requires a nonempty string")
 					continue
 				}
 			}
-			if f.allowed[key] == "bool" {
+			if value != nil && f.allowed[key] == "bool" {
 				if _, ok := value.(bool); !ok {
 					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "native field requires a boolean")
 					continue
 				}
 			}
-			if f.voice != nil && key == f.voice.language && f.voice.languageValid != nil {
+			if value != nil && f.voice != nil && key == f.voice.language && f.voice.languageValid != nil {
 				language, ok := value.(string)
 				if !ok || !f.voice.languageValid(language) {
 					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, f.voice.notes["language"])
