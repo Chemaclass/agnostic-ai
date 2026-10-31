@@ -111,6 +111,30 @@ func (s *Session) mergeJSONEntries(path string, doc *OrderedJSON, key string, en
 	return merged, claimed, nil
 }
 
+// MergeJSONEntriesInto merges object entries into an ordered document.
+func (s *Session) MergeJSONEntriesInto(path string, doc *OrderedJSON, key string, entries map[string]any) (*OrderedJSON, error) {
+	if raw, found := doc.Get(key); found {
+		var object map[string]json.RawMessage
+		if json.Unmarshal(raw, &object) != nil || object == nil {
+			if !s.IsCapturing() {
+				_, _ = fmt.Fprintf(Warner, "%s: %s from config replaces the value already there\n", path, key)
+			}
+		} else if !s.IsCapturing() {
+			prior := priorMergedKeys(path)
+			_, wholeClaim := priorClaim(prior, []string{key})
+			for name, value := range entries {
+				entryRaw, found := object[name]
+				_, childClaim := priorClaim(prior, []string{key, name})
+				if found && (wholeClaim || childClaim) && !unchangedSince(prior, []string{key}, raw) && !unchangedSince(prior, []string{key, name}, entryRaw) && !sameJSONValue(entryRaw, value) {
+					_, _ = fmt.Fprintf(Warner, "%s: the %q entry under %s replaces a user edit\n", path, name, key)
+				}
+			}
+		}
+	}
+	merged, _, err := s.mergeJSONEntries(path, doc, key, entries)
+	return merged, err
+}
+
 type orderSensitiveJSON struct{ value any }
 
 func OrderSensitiveJSON(value any) any { return orderSensitiveJSON{value: value} }

@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
+- Claude settings keep user entries in configured objects and warn before replacing an entry (#2877).
 - Sync preserves `.gitignore` entries and asks for the closing marker when a managed block is truncated (#2875).
 
 - Global voice settings round-trip native keys; Qwen, Gemini, Grok and Vibe join support, with notes for unsupported fields (#2833, #2834).
