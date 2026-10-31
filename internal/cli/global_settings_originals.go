@@ -51,6 +51,29 @@ func personalNativeKeys(target string, f globalSettingsFile, settings []spec.Ent
 // no longer written gets that value back when sync's own value is still
 // there.
 func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting, previous map[string]any, originals map[string]globalSettingOriginal, parents jsonParents, personal []string, target string, warn io.Writer) (globalSettingsMerge, map[string]globalSettingOriginal, error) {
+	m, next, err := mergeGlobalPersonalInner(path, format, base, want, previous, originals, parents, personal, target, warn)
+	if err != nil || target != "qwen" {
+		return m, next, err
+	}
+	data := m.data
+	if data == nil {
+		data = base
+		if data == nil {
+			data, err = os.ReadFile(path)
+			if err != nil && !os.IsNotExist(err) {
+				return m, next, fmt.Errorf("read %s: %w", path, err)
+			}
+		}
+	}
+	values, err := settingsValues(path, format, data)
+	if err != nil {
+		return m, next, err
+	}
+	noteQwenVoiceModel(values, want)
+	return m, next, nil
+}
+
+func mergeGlobalPersonalInner(path, format string, base []byte, want []globalSetting, previous map[string]any, originals map[string]globalSettingOriginal, parents jsonParents, personal []string, target string, warn io.Writer) (globalSettingsMerge, map[string]globalSettingOriginal, error) {
 	if len(personal) == 0 && len(originals) == 0 {
 		m, err := mergeGlobalSettingsWithLists(path, format, base, want, previous, &parents, globalTargets[target].settings.itemLists)
 		return m, nil, err
@@ -66,9 +89,6 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 	values, err := settingsValues(path, format, data)
 	if err != nil {
 		return globalSettingsMerge{}, nil, err
-	}
-	if target == "qwen" {
-		noteQwenVoiceModel(values, want)
 	}
 	portableKeys := slices.Clone(personal)
 	for _, setting := range want {
@@ -94,7 +114,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 		stayingPersonal := slices.DeleteFunc(slices.Clone(personal), func(key string) bool {
 			return slices.Contains(replacements, key)
 		})
-		first, remaining, err := mergeGlobalPersonal(path, format, data, staying, previous, originals, parents, stayingPersonal, target, warn)
+		first, remaining, err := mergeGlobalPersonalInner(path, format, data, staying, previous, originals, parents, stayingPersonal, target, warn)
 		if err != nil {
 			return first, nil, err
 		}
@@ -102,7 +122,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 		if released == nil {
 			released = data
 		}
-		second, next, err := mergeGlobalPersonal(path, format, released, want, first.owned, remaining, jsonParents{created: first.parents}, slices.Concat(personal, replacements), target, warn)
+		second, next, err := mergeGlobalPersonalInner(path, format, released, want, first.owned, remaining, jsonParents{created: first.parents}, slices.Concat(personal, replacements), target, warn)
 		if second.data == nil {
 			second.data = first.data
 		}
@@ -167,9 +187,11 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 		}
 		if have, present := settingsLookup(values, key, format); present && sameSetting(have, previous[key]) && original.Present {
 			if len(original.TOMLTables) > 0 {
-				data, err = restoreTOMLTables(data, key, original.TOMLTables)
-				if err != nil {
-					return globalSettingsMerge{}, nil, fmt.Errorf("restore %s: %w", path, err)
+				if original.Raw != "{}" {
+					data, err = restoreTOMLTables(data, key, original.TOMLTables)
+					if err != nil {
+						return globalSettingsMerge{}, nil, fmt.Errorf("restore %s: %w", path, err)
+					}
 				}
 				previous = maps.Clone(previous)
 				delete(previous, key)
@@ -178,7 +200,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 			}
 			if original.Native != "" {
 				if start, end, ok := tomlPersonalSpan(data, key, format); ok {
-					text := original.Native
+					text := restoreTOMLAssignment(original.Native, string(data[start:end]), key, previous[key])
 					if end < len(data) && !strings.HasSuffix(text, "\n") {
 						text += "\n"
 					}

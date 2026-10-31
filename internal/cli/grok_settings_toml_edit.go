@@ -213,10 +213,12 @@ type grokTableSection struct {
 func grokTableSections(data []byte, table string) ([]grokTableSection, error) {
 	lines := strings.SplitAfter(string(data), "\n")
 	scan := make([]string, len(lines))
-	offsets := make([]int, len(lines)+1)
+	offsets := make([]int, len(lines))
+	offset := 0
 	for i, line := range lines {
 		scan[i] = strings.TrimSuffix(line, "\n")
-		offsets[i+1] = offsets[i] + len(line)
+		offsets[i] = offset
+		offset += len(line)
 	}
 	scan[0] = strings.TrimPrefix(scan[0], "\xef\xbb\xbf")
 	headers, err := scanTOMLHeaders(scan)

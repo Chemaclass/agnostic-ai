@@ -306,3 +306,171 @@ func TestVoiceTargets_RemovalKeepsUserEdits(t *testing.T) {
 		})
 	}
 }
+
+func TestVoiceTargets_RestoreTOMLValuePreservesUserFormatting(t *testing.T) {
+	for _, tc := range []struct{ name, target, path, spec, original, edited, want string }{
+		{"vibe changed comment", "vibe", ".vibe/config.toml", "voice:\n  enabled: true\n", "voice_mode_enabled = false # old\n", "voice_mode_enabled = true # new\n", "voice_mode_enabled = false # new\n"},
+		{"vibe added comment", "vibe", ".vibe/config.toml", "voice:\n  enabled: true\n", "voice_mode_enabled = false\n", "voice_mode_enabled = true # new\n", "voice_mode_enabled = false # new\n"},
+		{"vibe deleted comment", "vibe", ".vibe/config.toml", "voice:\n  enabled: true\n", "voice_mode_enabled = false # old\n", "voice_mode_enabled = true\n", "voice_mode_enabled = false\n"},
+		{"grok changed comment", "grok", ".grok/config.toml", "voice:\n  mode: tap\n", "[ui]\nvoice_capture_mode = 'hold' # old\n", "[ui]\nvoice_capture_mode = \"toggle\" # new\n", "[ui]\nvoice_capture_mode = 'hold' # new\n"},
+		{"grok spacing", "grok", ".grok/config.toml", "voice:\n  mode: tap\n", "[ui]\nvoice_capture_mode = 'hold'\n", "[ui]\n  voice_capture_mode  =   \"toggle\"  \n", "[ui]\n  voice_capture_mode  =   'hold'  \n"},
+		{"grok multiline literal", "grok", ".grok/config.toml", "voice:\n  mode: tap\n", "[ui]\r\nvoice_capture_mode = '''hold''' # old\r\n", "[ui]\r\nvoice_capture_mode = \"toggle\" # new\r\n", "[ui]\r\nvoice_capture_mode = '''hold''' # new\r\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			path := filepath.Join(home, filepath.FromSlash(tc.path))
+			settings := filepath.Join(source, "settings", "voice.yaml")
+			mustWriteGlobalTest(t, path, tc.original)
+			mustWriteGlobalTest(t, settings, tc.spec)
+			if _, warnings, err := runGlobalAgentTest("--only", tc.target, "--backup"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+			mustWriteGlobalTest(t, path, tc.edited)
+			if err := os.Remove(settings); err != nil {
+				t.Fatal(err)
+			}
+			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+				t.Fatalf("remove: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, path); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestVoiceTargets_QwenNotesRemovedModel(t *testing.T) {
+	const note = "Qwen keeps dictation off until a voice model is chosen"
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(source, "settings", "voice.yaml")
+	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\nx-qwen:\n  voiceModel: whisper\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("initial sync: %v\n%s", err, warnings)
+	}
+	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\n")
+	_, warnings, err := runGlobalAgentTest("--only", "qwen")
+	if err != nil {
+		t.Fatalf("second sync: %v\n%s", err, warnings)
+	}
+	if count := strings.Count(warnings, note); count != 1 {
+		t.Errorf("note count = %d, want 1: %s", count, warnings)
+	}
+	data := readGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"))
+	if strings.Contains(data, "voiceModel") {
+		t.Errorf("model remains: %s", data)
+	}
+}
+
+func TestVoiceTargets_QwenKeepsUserChangedModelWithoutNote(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(source, "settings", "voice.yaml")
+	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\nx-qwen:\n  voiceModel: whisper\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("initial sync: %v\n%s", err, warnings)
+	}
+	path := filepath.Join(home, ".qwen", "settings.json")
+	data := readGlobalTest(t, path)
+	mustWriteGlobalTest(t, path, strings.Replace(data, "whisper", "custom", 1))
+	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\n")
+	_, warnings, err := runGlobalAgentTest("--only", "qwen")
+	if err != nil {
+		t.Fatalf("second sync: %v\n%s", err, warnings)
+	}
+	if strings.Contains(warnings, "Qwen keeps dictation off") {
+		t.Errorf("unexpected note: %s", warnings)
+	}
+	if got := readGlobalTest(t, path); !strings.Contains(got, "custom") {
+		t.Errorf("user model removed: %s", got)
+	}
+}
+
+func TestGrokTOML_TableSectionsPreserveOffsets(t *testing.T) {
+	for _, tc := range []struct {
+		name, input string
+		want        []string
+	}{
+		{"empty", "", nil},
+		{"BOM and CRLF", "\xef\xbb\xbf[ui]\r\nvoice_capture_mode = 'hold'\r\n[other]\r\nx = 1\r\n[ui.extra]\r\nx = 2", []string{"[ui]\r\nvoice_capture_mode = 'hold'\r\n", "[ui.extra]\r\nx = 2"}},
+		{"final newline", "[other]\nx = 1\n[ui]\nx = 2\n", []string{"[ui]\nx = 2\n"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sections, err := grokTableSections([]byte(tc.input), "ui")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(sections) != len(tc.want) {
+				t.Fatalf("got %d sections, want %d", len(sections), len(tc.want))
+			}
+			for i, section := range sections {
+				if got := tc.input[section.start:section.end]; got != tc.want[i] {
+					t.Errorf("section %d = %q, want %q", i, got, tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestVoiceTargets_GrokParentRestorePreservesUserComments(t *testing.T) {
+	for _, tc := range []struct{ name, original, edited, want string }{
+		{"body", "[ui]\nvoice_capture_mode='hold'\n", "[ui]\n# new user note\n", "[ui]\n# new user note\nvoice_capture_mode='hold'\n"},
+		{"header and separated sections", "[ui] # old\nvoice_capture_mode='hold'\n[plugins]\nx=1\n[ui.extra]\ny=2\n", "[plugins]\nx=1\n[ui] # new\n# note\n", "[ui] # new\n# note\nvoice_capture_mode='hold'\n[plugins]\nx=1\n[ui.extra]\ny=2\n"},
+		{"adopted empty table", "[ui] # old\n# old body\n", "[ui] # new\n# new body\n", "[ui] # new\n# new body\n"},
+		{"child first", "[ui.status_line]\nenabled=true\n[plugins]\nx=1\n[ui]\nvoice_capture_mode='hold'\n", "[ui]\n# note\n[plugins]\nx=1\n", "[ui.status_line]\nenabled=true\n[plugins]\nx=1\n[ui]\n# note\nvoice_capture_mode='hold'\n"},
+		{"header without newline", "[ui]\nvoice_capture_mode='hold'\n", "[ui] # new", "[ui] # new\nvoice_capture_mode='hold'\n"},
+		{"header without newline, CRLF original", "[ui]\r\nvoice_capture_mode='hold'\r\n", "[ui] # new", "[ui] # new\r\nvoice_capture_mode='hold'\r\n"},
+		{"child and parent together", "[ui.status_line]\nenabled=true\n[ui]\nvoice_capture_mode='hold'\n", "[ui]\n# note\n", "[ui.status_line]\nenabled=true\n[ui]\n# note\nvoice_capture_mode='hold'\n"},
+		{"child only", "[ui.status_line]\nenabled=true\n", "[ui]\n# note\n", "[ui]\n# note\n[ui.status_line]\nenabled=true\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			path := filepath.Join(home, ".grok", "config.toml")
+			settings := filepath.Join(source, "settings", "voice.yaml")
+			mustWriteGlobalTest(t, path, tc.original)
+			mustWriteGlobalTest(t, settings, "voice:\n  mode: tap\nx-grok:\n  ui: {}\n")
+			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+			mustWriteGlobalTest(t, path, tc.edited)
+			if err := os.Remove(settings); err != nil {
+				t.Fatal(err)
+			}
+			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
+				t.Fatalf("remove: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, path); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestVoiceTargets_GrokRestoresMultilineQuoteEndings(t *testing.T) {
+	for _, tc := range []struct{ name, yaml, native string }{
+		{"four basic quotes", `'es"'`, `"""es""""`},
+		{"five basic quotes", `'es""'`, `"""es"""""`},
+		{"four literal quotes", `"es'"`, `'''es''''`},
+		{"five literal quotes", `"es''"`, `'''es'''''`},
+		{"hash and escape", `'es#"de'`, `"""es#\"de"""`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			path := filepath.Join(home, ".grok", "config.toml")
+			settings := filepath.Join(source, "settings", "voice.yaml")
+			mustWriteGlobalTest(t, path, "[ui]\r\nvoice_stt_language = 'en'\r\n")
+			mustWriteGlobalTest(t, settings, "voice:\n  language: "+tc.yaml+"\n")
+			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+			mustWriteGlobalTest(t, path, "[ui]\r\nvoice_stt_language = "+tc.native+" # new\r\n")
+			if err := os.Remove(settings); err != nil {
+				t.Fatal(err)
+			}
+			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
+				t.Fatalf("remove: %v\n%s", err, warnings)
+			}
+			if got, want := readGlobalTest(t, path), "[ui]\r\nvoice_stt_language = 'en' # new\r\n"; got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
+	}
+}

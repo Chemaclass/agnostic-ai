@@ -67,11 +67,6 @@ func noteQwenVoiceModel(values map[string]any, want []globalSetting) {
 		return
 	}
 	model, _ := values["voiceModel"].(string)
-	for _, setting := range want {
-		if setting.key == "voiceModel" {
-			model, _ = setting.value.(string)
-		}
-	}
 	if model == "" {
 		adapters.NoteSettingsFieldNoOp("qwen", "voice", 1, "Qwen keeps dictation off until a voice model is chosen; run /model --voice or set x-qwen.voiceModel")
 	}
