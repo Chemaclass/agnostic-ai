@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"syscall"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -114,6 +115,9 @@ func (s *Session) ExistingNestedStrings(path, key, child string, dryRun bool) []
 }
 
 func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[string]bool, order []string, dryRun bool) error {
+	if s.skipUnmanaged(path) {
+		return nil
+	}
 	doc, err := s.readExistingJSON(path, dryRun)
 	if err != nil {
 		return err
@@ -426,9 +430,9 @@ func mergeJSONObject(doc *OrderedJSON, key string, value any) any {
 // still reads so drift detection and `doctor --fix` see the user's
 // sibling keys (#465).
 //
-// An unreadable or empty file returns an empty document so callers can
-// layer their managed keys unconditionally. Anything else that fails to
-// parse returns an error: the caller's next move is to write the file,
+// A missing or empty file returns an empty document so callers can
+// layer their managed keys unconditionally. A file that exists but
+// cannot be read, or fails to parse, returns an error: the caller's next move is to write the file,
 // and returning empty there means writing the managed keys over the
 // top of content nobody could read. That silent replacement is what
 // deleted user keys from every JSONC config (#725).
@@ -437,7 +441,13 @@ func (s *Session) readExistingJSON(path string, dryRun bool) (*OrderedJSON, erro
 		return NewOrderedJSON(), nil
 	}
 	data, err := os.ReadFile(path)
-	if err != nil || len(bytes.TrimSpace(data)) == 0 {
+	if IsAbsent(err) || errors.Is(err, syscall.ENOTDIR) {
+		return NewOrderedJSON(), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w (agnostic-ai will not overwrite a file it cannot read; fix its permissions or move it aside)", err)
+	}
+	if len(bytes.TrimSpace(data)) == 0 {
 		return NewOrderedJSON(), nil
 	}
 	stripped, hadComments := StripJSONC(data)

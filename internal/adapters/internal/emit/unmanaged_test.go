@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
@@ -240,5 +241,23 @@ func TestUnmanagedSkips_EmptyWhenNothingIsOwned(t *testing.T) {
 	assertUnmanagedSkips(t, sess)
 	if got := readFileString(t, "AGENTS.md"); got != "x\n" {
 		t.Errorf("managed file not written: %q", got)
+	}
+}
+
+func TestMergeJSONFile_SkipsUnreadableUnmanaged(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes do not block reads on Windows")
+	}
+	testutil.TempCwd(t)
+	const path = "opencode.json"
+	mustWrite(t, path, "{\"mine\": true}\n")
+	if err := os.Chmod(path, 0o200); err != nil {
+		t.Fatal(err)
+	}
+	sess := NewSession()
+	sess.SetUnmanaged([]string{path})
+
+	if err := sess.MergeJSONFile(path, map[string]any{"mcp": map[string]any{}}, false); err != nil {
+		t.Fatalf("a user-owned file must be skipped before it is read: %v", err)
 	}
 }
