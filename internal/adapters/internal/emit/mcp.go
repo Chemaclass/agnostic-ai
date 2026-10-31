@@ -224,6 +224,12 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 	if transport == "" {
 		transport = "stdio"
 	}
+	switch transport {
+	case "local":
+		transport = "stdio"
+	case "streamable-http", "remote":
+		transport = "http"
+	}
 	out := map[string]any{}
 	vscodeMeta := e.Meta
 	if o.vscodeExtras {

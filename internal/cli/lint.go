@@ -542,11 +542,26 @@ func lintMCPMissingRequiredField(mcps []spec.Entry, targets ...string) []lintFin
 		if transport == "" {
 			transport = "stdio"
 		}
+		switch transport {
+		case "local":
+			transport = "stdio"
+		case "streamable-http", "remote":
+			transport = "http"
+		}
 		field, verb := "url", "connect to"
 		if transport == "stdio" {
 			field, verb = "command", "start"
 		} else if !remoteMCPTransports[transport] {
-			continue // no known required field to name for this transport
+			out = append(out, lintFinding{
+				Code:     "LINT008",
+				Severity: lintError,
+				Path:     e.Path,
+				Message: fmt.Sprintf(
+					"MCP server %q has unknown `type: %s`, so targets write no working server for it; use stdio, http, sse, or ws",
+					e.Name, transport,
+				),
+			})
+			continue
 		}
 		if value, _ := e.Meta[field].(string); value != "" {
 			continue
@@ -579,8 +594,8 @@ func onlyPiMCP(entry spec.Entry, targets []string) bool {
 }
 
 // remoteMCPTransports is the set of transports the spec format documents
-// as carrying `url`. A transport outside it (and outside stdio) has no
-// documented required field, so LINT008 stays quiet rather than guess.
+// as carrying `url`. A transport outside it (and outside stdio) is
+// unknown, and LINT008 reports it.
 var remoteMCPTransports = map[string]bool{"http": true, "sse": true, "ws": true}
 
 // midWildcardMessages are the LINT009 messages per list. In `allow`, a
