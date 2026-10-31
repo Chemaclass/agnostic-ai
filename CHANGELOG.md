@@ -15,6 +15,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - MCP tool listing stops at its timeout when a detached child keeps stderr open (#2888).
 - A repeated key inside a nested map, such as `permissions.deny` or an MCP `env` entry, is a parse error with its line instead of silently dropping the field (#2890).
 - The language server answers malformed JSON with a parse error and keeps running, and rejects message sizes above 64 MiB instead of crashing (#2889, #2908).
+- Hook commands keep home, variable and absolute paths such as `~/.claude/hooks/x.sh`; only project hook paths move to the target tool's folder (#2885).
 - MCP `type: local`, `streamable-http` and `remote` now write a working server instead of an empty one, and `lint` reports any other unknown `type` (#2886).
 - Git queries use the requested repository when sync runs from a Git hook (#2882).
 - Sync fails when it cannot record written files in its state file (#2883).
