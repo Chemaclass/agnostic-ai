@@ -5,6 +5,7 @@ weight = 50
 
 [extra]
 group = "Reference"
+scripts = ["assets/scripts/hook-flow.js"]
 
 [extra.moved]
 per-target-body-fences = "@/docs/spec-format/_index.md#per-target-body-fences"
@@ -61,6 +62,32 @@ sources = "@/docs/cli-reference/hook-diagnostics.md#sources"
 
 
 `hooks/` holds commands the AI tool runs at fixed points: when a session starts, before a tool call, after a file edit, when the agent stops. Hooks must be enabled and trusted in that tool.
+
+## A typical session
+
+A session contains prompts, and a prompt can lead to several tool calls. The coding tool runs a hook when it reaches a supported event. A hook can report state, check an action, or run a command such as a formatter.
+
+{{ <hook_flow /> }}
+
+`after-edit` is the file-edit case of the after-tool event. It shares that point with `after-tool`. Do not rely on an order between separate hooks there. `stop` means the agent is about to finish a response. Another prompt can follow in the same session; `session-end` is separate.
+
+Each tool supports a different set of events. Check the [portable event mappings](@/docs/spec-format/hook-reference.md#portable-events) before relying on a hook. A blocked `before-tool` call does not reach the successful tool result shown in this example.
+
+## Common shared hooks
+
+Start with one small hook for a repeated task. Use portable `on` names so sync can translate it for the tools that support the event.
+
+| Use | Portable event | A small first step |
+|---|---|---|
+| Show the current work | `session-start` | Run `git status --short` when a session opens. |
+| Check a prompt | `prompt-submit` | Check required input before the agent starts work. |
+| Guard a command | `before-tool`, `match: shell` | Use the [force-push guard](@/docs/spec-format/hook-recipes.md#shared-hook-scripts). |
+| Record tool results | `after-tool` | Append a short local log after a matching tool call. |
+| Format edited files | `after-edit` | Read the [edited paths](@/docs/spec-format/hook-reference.md#edited-paths), then format only those files. |
+| Check before a reply ends | `stop` | Check a small completion condition; exit 2 can keep the agent working. |
+| Clean up session files | `session-end` | Remove temporary files that the session created. |
+
+Keep a shared script under `.agnostic-ai/scripts/` and reference it from `command`; see [shared hook scripts](@/docs/spec-format/hook-recipes.md#shared-hook-scripts) for paths and platform details. Test guards with both allowed and blocked inputs, and give a `stop` check a clear way to succeed so it does not keep the agent working without an end.
 
 ## Write one
 

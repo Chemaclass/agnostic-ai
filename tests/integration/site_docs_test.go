@@ -488,6 +488,16 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Fatalf("build documentation site: %v\n%s", err, output)
 	}
 
+	hooks := readBuiltFile(t, filepath.Join(outputDir, "docs", "spec-format", "hooks", "index.html"))
+	if got := strings.Count(hooks, "<li data-hook-stage="); got != 6 {
+		t.Errorf("rendered hook flow has %d stages, want 6", got)
+	}
+	for _, required := range []string{"assets/scripts/hook-flow.js", "data-hook-controls hidden", "Common shared hooks", "Their order depends on the coding tool."} {
+		if !strings.Contains(hooks, required) {
+			t.Errorf("rendered hooks guide missing %q", required)
+		}
+	}
+
 	index := readBuiltFile(t, filepath.Join(outputDir, "docs", "index.html"))
 	guide := readBuiltFile(t, filepath.Join(outputDir, "docs", "getting-started", "index.html"))
 	agentSetupGuide := readBuiltFile(t, filepath.Join(outputDir, "docs", "agent-setup", "index.html"))

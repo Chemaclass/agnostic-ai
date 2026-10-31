@@ -205,7 +205,7 @@ site-build: site-generate
 site-test:
 	go run ./cmd/sitegen -check
 	go test -count=1 ./cmd/sitegen
-	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js $(SITE_DIR)/static/assets/scripts/capability-matrix.test.js $(SITE_DIR)/static/assets/scripts/compare-targets.test.js $(SITE_DIR)/static/assets/scripts/landing.test.js $(SITE_DIR)/static/assets/scripts/search.test.js $(SITE_DIR)/static/assets/scripts/video.test.js
+	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js $(SITE_DIR)/static/assets/scripts/capability-matrix.test.js $(SITE_DIR)/static/assets/scripts/compare-targets.test.js $(SITE_DIR)/static/assets/scripts/landing.test.js $(SITE_DIR)/static/assets/scripts/search.test.js $(SITE_DIR)/static/assets/scripts/video.test.js $(SITE_DIR)/static/assets/scripts/hook-flow.test.js
 	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestSiteDocs_|TestZolaPin_)'
 
 site-serve: site-generate
