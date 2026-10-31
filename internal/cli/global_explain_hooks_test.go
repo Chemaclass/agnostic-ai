@@ -35,7 +35,7 @@ func TestExplainGlobal_DirectoryHookFilesMatchSync(t *testing.T) {
 				if err := json.Unmarshal([]byte(out), &got); err != nil {
 					t.Fatalf("parse explain: %v\n%s", err, out)
 				}
-				if len(got.Contributions) != 1 || got.Contributions[0] != (contribution{Target: target, Path: path, Mode: "full"}) {
+				if len(got.Contributions) != 1 || got.Contributions[0] != (contribution{Target: target, Path: filepath.ToSlash(path), Mode: "full"}) {
 					t.Errorf("explain contributions = %+v, want %s", got.Contributions, path)
 				}
 				if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -153,7 +153,7 @@ func TestExplainGlobal_DirectoryHookScriptsMatchSync(t *testing.T) {
 			script := filepath.Join(globalTargets[target].path(home, globalTargets[target].hookScriptsDir), "guard.ps1")
 			found := false
 			for _, c := range got.Contributions {
-				if c.Path == script {
+				if c.Path == filepath.ToSlash(script) && c.Target == target && c.Mode == "full" {
 					found = true
 				}
 				if _, err := os.Stat(c.Path); !os.IsNotExist(err) {

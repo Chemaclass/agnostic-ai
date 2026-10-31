@@ -65,7 +65,7 @@ func TestGlobalHookExplain_MatchesNativeSyncFiles(t *testing.T) {
 				t.Fatalf("explain contributions = %+v, want %s", got.Contributions, path)
 			}
 			c := got.Contributions[0]
-			if c.Target != tc.target || c.Path != path || c.Mode != "full" {
+			if c.Target != tc.target || c.Path != filepath.ToSlash(path) || c.Mode != "full" {
 				t.Errorf("explain contribution = %+v, want [%s] %s (full)", c, tc.target, path)
 			}
 			if _, err := os.Stat(path); !os.IsNotExist(err) {
