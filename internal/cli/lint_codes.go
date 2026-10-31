@@ -61,9 +61,9 @@ var lintCodes = map[string]lintCode{
 	},
 	"LINT008": {
 		Severity: lintError,
-		Title:    "MCP server without command or url",
-		Cause:    "A stdio MCP server lacks `command:`, or an `http`, `sse`, or `ws` one lacks `url:`. `x-<target>` cannot set either reserved field.",
-		Fix:      "Set `command:` for stdio servers or `url:` for remote ones at the top level of the MCP spec.",
+		Title:    "MCP server without command or url, or with an unknown type",
+		Cause:    "A stdio MCP server lacks `command:`, an `http`, `sse`, or `ws` one lacks `url:`, or `type:` is not `stdio`, `http`, `sse`, `ws`, or one of the aliases `local` (stdio), `streamable-http` and `remote` (http). `x-<target>` cannot set either reserved field.",
+		Fix:      "Set `command:` for stdio servers or `url:` for remote ones at the top level of the MCP spec. Use one of the listed types.",
 	},
 	"LINT009": {
 		Severity: lintWarn,
