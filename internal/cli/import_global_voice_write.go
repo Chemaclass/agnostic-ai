@@ -55,7 +55,7 @@ func stageImportedGlobalVoice(source, stage string, doc map[string]any, before *
 			}
 		}
 		compatible := importedVoiceLayerCompatible(settings, name, doc)
-		if before.info != nil && !importedVoiceDestinationLoaded(settings, name, path) {
+		if !importedVoiceDestinationAvailable(settings, name, path, before.info != nil) {
 			compatible = false
 		}
 		if before.info == nil && compatible {
@@ -86,18 +86,22 @@ func stageImportedGlobalVoice(source, stage string, doc map[string]any, before *
 	return nil, stageGlobalSettingsDoc(stage, name, voice)
 }
 
-func importedVoiceDestinationLoaded(settings []spec.Entry, name, path string) bool {
+func importedVoiceDestinationAvailable(settings []spec.Entry, name, path string, exists bool) bool {
 	for _, entry := range settings {
 		if entry.Name != name {
 			continue
 		}
 		for current := &entry; current != nil; current = current.Base {
-			if filepath.Clean(current.Path) == filepath.Clean(path) {
-				return true
+			if exists {
+				if filepath.Clean(current.Path) == filepath.Clean(path) {
+					return true
+				}
+			} else if current.Layer != "global-local" {
+				return false
 			}
 		}
 	}
-	return false
+	return !exists
 }
 
 func importedVoiceLayerCompatible(settings []spec.Entry, name string, doc map[string]any) bool {

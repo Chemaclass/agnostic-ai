@@ -748,3 +748,61 @@ func TestImportGlobal_ShadowedDestinationDoesNotLoseVoice(t *testing.T) {
 		t.Errorf("Qwen voice missing: %v", err)
 	}
 }
+
+func TestImportGlobal_NewDestinationDoesNotShadowNamedSettings(t *testing.T) {
+	for _, filename := range []string{"a.yaml", "z.yaml"} {
+		t.Run(filename, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			path := filepath.Join(source, "settings", filename)
+			original := "name: imported\ntarget: codex\nmodel: {codex: gpt-test}\n"
+			mustWriteGlobalTest(t, path, original)
+			native := filepath.Join(home, ".claude", "settings.json")
+			mustWriteGlobalTest(t, native, `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
+				t.Fatalf("import: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, path); got != original {
+				t.Errorf("existing settings changed: %q", got)
+			}
+			if _, err := os.Stat(filepath.Join(source, "settings", "imported.yaml")); !os.IsNotExist(err) {
+				t.Errorf("created colliding settings: %v", err)
+			}
+			bundle, err := loadGlobalBundle(source, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := adapters.SettingsModel(bundle.Settings, "codex"); got != "gpt-test" {
+				t.Errorf("existing model = %q", got)
+			}
+			if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+			qwen := readGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"))
+			if !strings.Contains(qwen, `"tap"`) {
+				t.Errorf("Qwen voice missing: %s", qwen)
+			}
+		})
+	}
+}
+
+func TestImportGlobal_NewDestinationExtendsCompatibleLocalOnlySettings(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	local := filepath.Join(source, "local", "settings", "imported.yaml")
+	mustWriteGlobalTest(t, local, "targets: []\n")
+	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true}}`+"\n")
+	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, filepath.Join(source, "settings", "imported.yaml")); !strings.Contains(got, "voice:") {
+		t.Errorf("voice not imported: %s", got)
+	}
+	if got := readGlobalTest(t, local); got != "targets: []\n" {
+		t.Errorf("local settings changed: %q", got)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".qwen", "settings.json")); err != nil {
+		t.Errorf("Qwen voice missing: %v", err)
+	}
+}
