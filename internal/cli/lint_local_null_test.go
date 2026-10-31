@@ -47,3 +47,54 @@ func TestLint_WarnsWhenLocalNullClearsSharedSettings(t *testing.T) {
 		}
 	}
 }
+
+func TestLint_LocalNullMessageFollowsSharedValueKind(t *testing.T) {
+	cases := []struct {
+		name, base, local string
+		want, wantNot     string
+	}{
+		{"group", "outputs:\n  codex:\n    config:\n      sandbox: read-only\n", "outputs:\n", "ignored", "replaces"},
+		{"list", "gitignore:\n  commit: [claude:instructions]\n", "gitignore:\n  commit:\n", "replaces the shared value", "ignored"},
+		{"single value", "gitignore:\n  enabled: true\n", "gitignore:\n  enabled:\n", "replaces the shared value", "ignored"},
+		{"model tier", "models:\n  fast: {codex: gpt-5}\n", "models:\n  fast:\n", "remove the key", "{}"},
+		{"null in base too", "gitignore:\n  commit:\n", "gitignore:\n  commit:\n", "", "LINT055"},
+		{"requires clears the check", "requires: \">=99.0.0\"\n", "requires:\n", "", "LINT055"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n"+tc.base)
+			mustWriteFile(t, "agnostic-ai.local.yaml", tc.local)
+			var messages []string
+			report, _, _ := runLintJSON(t)
+			for _, finding := range report.Findings {
+				if finding.Code == "LINT055" {
+					messages = append(messages, finding.Message)
+				}
+			}
+			joined := strings.Join(messages, "\n")
+			if tc.want == "" && len(messages) > 0 {
+				t.Fatalf("unexpected warning: %s", joined)
+			}
+			if tc.want != "" && !strings.Contains(joined, tc.want) {
+				t.Errorf("want %q in %q", tc.want, joined)
+			}
+			if tc.wantNot != "" && strings.Contains(joined, tc.wantNot) {
+				t.Errorf("did not want %q in %q", tc.wantNot, joined)
+			}
+		})
+	}
+}
+
+func TestLint_LocalNullReadsLegacyBaseConfig(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic.config.yaml", "version: 1\ntargets: [codex]\ngitignore:\n  commit: [codex:instructions]\n")
+	mustWriteFile(t, "agnostic-ai.local.yaml", "gitignore:\n  commit:\n")
+	report, _, _ := runLintJSON(t)
+	for _, finding := range report.Findings {
+		if finding.Code == "LINT055" {
+			return
+		}
+	}
+	t.Errorf("no LINT055 for legacy base: %+v", report.Findings)
+}

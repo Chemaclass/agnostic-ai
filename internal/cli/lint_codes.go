@@ -26,8 +26,8 @@ var lintCodes = map[string]lintCode{
 	"LINT055": {
 		Severity: lintWarn,
 		Title:    "Null value in local configuration",
-		Cause:    "An empty (null) key in agnostic-ai.local.yaml is ignored when the shared value is a group of settings, so the shared value stays. A key whose children are all commented out is empty.",
-		Fix:      "Remove the key, or write `{}` to clear the shared group.",
+		Cause:    "An empty (null) key in agnostic-ai.local.yaml is ignored when the shared value is a group of settings, so the shared value stays. Over a list or a single value, null replaces the shared value. A key whose children are all commented out is empty. An empty `requires:` is not reported, since it turns the version check off.",
+		Fix:      "Remove the key. Write `{}` to clear a shared group.",
 	},
 	"LINT056": {
 		Severity: lintWarn,
