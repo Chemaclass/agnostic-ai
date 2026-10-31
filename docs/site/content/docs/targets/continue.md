@@ -15,7 +15,7 @@ set-up-this-tool = "@/docs/targets/continue.md#first-rule"
 
 ## Set up this tool {#set-up-this-tool .legacy-anchor}
 
-agnostic-ai writes Continue rules, skills, and MCP servers under `.continue/`, plus optional assistant files.
+Continue is [no longer actively maintained](https://github.com/continuedev/continue#what-is-continue). agnostic-ai still writes its rules, skills, and MCP servers under `.continue/`, plus optional assistant files.
 
 ## First rule
 

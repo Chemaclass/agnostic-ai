@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- The Continue page states that the client is no longer maintained and lists the files agnostic-ai still writes (#2858).
 - The Jules, Codex, Antigravity, Qoder and Zed pages have current retirement dates, history values, plugin MCP file names, and skill folder guidance (#2810, #2811, #2812, #2814, #2818).
 - The home page shows the install command for your OS, the number of supported tools, and a link to the playground at the top.
 - The home page shows the setup steps before the source explorer, and the explorer samples use model aliases and capability names, with docs links that open the matching page.
