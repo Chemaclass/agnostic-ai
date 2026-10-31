@@ -2647,7 +2647,8 @@ input:hover {
   }
 
   .brand-name {
-    font-size: 16px;
+    font-size: 15px;
+    white-space: nowrap;
   }
 
   .topbar-actions {
@@ -2736,8 +2737,9 @@ input:hover {
   .config-switch .button {
     max-width: 100%;
     min-height: 44px;
-    padding-inline: 8px;
+    padding: 5px 8px;
     font-size: 12px;
+    line-height: 15px;
     white-space: normal;
     text-align: left;
   }

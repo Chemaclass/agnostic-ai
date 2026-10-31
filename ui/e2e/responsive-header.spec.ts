@@ -29,6 +29,11 @@ test('keeps configuration and editor controls on the second phone header row', a
     const configurationBox = await configuration.boundingBox()
     const editorBox = await editor.boundingBox()
     expect(headerBox!.height).toBeLessThanOrEqual(144)
+    expect(await header.locator('.brand-name').evaluate((element) => {
+      const range = document.createRange()
+      range.selectNodeContents(element)
+      return range.getClientRects().length
+    })).toBe(1)
     expect(configurationBox!.height).toBeGreaterThanOrEqual(44)
     expect(editorBox!.height).toBeGreaterThanOrEqual(44)
     expect(configurationBox!.y).toBeLessThan(editorBox!.y + editorBox!.height)
