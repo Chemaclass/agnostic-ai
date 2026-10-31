@@ -142,6 +142,115 @@ func TestPacksUpdate_LocalSource(t *testing.T) {
 	}
 }
 
+func TestPacksAdd_FailedFetchPreservesInstalledPack(t *testing.T) {
+	root := testutil.TempCwd(t)
+	src := filepath.Join(root, "source")
+	mustWrite(t, filepath.Join(src, "rules", "x.md"), "original")
+	var out bytes.Buffer
+	if err := runPacksAdd(root, src, "p", &out); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(filepath.Join(root, packsLockfile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runPacksAdd(root, filepath.Join(root, "missing"), "p", &out); err == nil {
+		t.Fatal("expected fetch failure")
+	}
+	got, err := os.ReadFile(filepath.Join(root, packsDir, "p", "rules", "x.md"))
+	if err != nil || string(got) != "original" {
+		t.Errorf("installed pack = %q, %v", got, err)
+	}
+	after, err := os.ReadFile(filepath.Join(root, packsLockfile))
+	if err != nil || !bytes.Equal(before, after) {
+		t.Errorf("lockfile changed: %q, %v", after, err)
+	}
+}
+
+func TestPacksUpdate_FailedFetchKeepsPackAndRecordsEarlierUpdate(t *testing.T) {
+	remote := newGitPackRemote(t)
+	pinned := remote.commit("old")
+	remote.git("tag", "--no-sign", "first")
+	latest := remote.commit("new")
+	remote.git("tag", "--no-sign", "-f", "first")
+	root := testutil.TempCwd(t)
+	writeLock(t, root, packEntry{Name: "a", Source: gitPackSource, Ref: "first", Sha: pinned}, packEntry{Name: "b", Source: gitPackSource, Ref: "missing", Sha: pinned})
+	mustWrite(t, filepath.Join(root, packsDir, "a", "rules", "x.md"), "old")
+	mustWrite(t, filepath.Join(root, packsDir, "b", "rules", "x.md"), "keep")
+	var out bytes.Buffer
+	if err := runPacksUpdate(root, "", true, &out); err == nil {
+		t.Fatal("expected missing ref to fail")
+	}
+	got, err := os.ReadFile(filepath.Join(root, packsDir, "b", "rules", "x.md"))
+	if err != nil || string(got) != "keep" {
+		t.Errorf("failed pack = %q, %v", got, err)
+	}
+	lock, err := readPacksLock(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lock.Packs) != 2 || lock.Packs[0].Sha != latest || lock.Packs[1].Sha != pinned {
+		t.Errorf("lockfile = %+v", lock.Packs)
+	}
+	got, err = os.ReadFile(filepath.Join(root, packsDir, "a", "rules", "x.md"))
+	if err != nil || string(got) != "new" {
+		t.Errorf("updated pack = %q, %v", got, err)
+	}
+}
+
+func TestInstallPack_RestoresPreviousPackWhenRecordingFails(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "p")
+	mustWrite(t, filepath.Join(dest, "rule.md"), "old")
+	err := installPack(dest, func(staged string) (string, error) {
+		mustWrite(t, filepath.Join(staged, "rule.md"), "new")
+		return "new", nil
+	}, func(string) error { return fmt.Errorf("cannot write lock") })
+	if err == nil || !strings.Contains(err.Error(), "cannot write lock") {
+		t.Errorf("error = %v, want lock error", err)
+	}
+	got, err := os.ReadFile(filepath.Join(dest, "rule.md"))
+	if err != nil || string(got) != "old" {
+		t.Errorf("pack = %q, %v, want old", got, err)
+	}
+}
+
+func TestPacksUpdate_LeavesPackAndLinkedLockUntouched(t *testing.T) {
+	root := testutil.TempCwd(t)
+	src := filepath.Join(root, "source")
+	mustWrite(t, filepath.Join(src, "rules", "x.md"), "old")
+	var out bytes.Buffer
+	if err := runPacksAdd(root, src, "p", &out); err != nil {
+		t.Fatal(err)
+	}
+	lockPath := filepath.Join(root, packsLockfile)
+	lock, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "original.lock")
+	if err := os.WriteFile(target, lock, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(lockPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, lockPath); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	mustWrite(t, filepath.Join(src, "rules", "x.md"), "new")
+	if err := runPacksUpdate(root, "p", false, &out); err == nil {
+		t.Fatal("expected linked lockfile to be refused")
+	}
+	got, err := os.ReadFile(filepath.Join(root, packsDir, "p", "rules", "x.md"))
+	if err != nil || string(got) != "old" {
+		t.Errorf("pack = %q, %v, want old", got, err)
+	}
+	got, err = os.ReadFile(target)
+	if err != nil || !bytes.Equal(got, lock) {
+		t.Errorf("lockfile changed = %q, %v", got, err)
+	}
+}
+
 func TestResolveLayers_PacksLayerInsertedBeforeProject(t *testing.T) {
 	root := t.TempDir()
 	src := filepath.Join(t.TempDir(), "p1")
