@@ -381,3 +381,93 @@ func TestServer_IgnoresUnsavedBufferChanges(t *testing.T) {
 		t.Errorf("lint calls = %d, want open and save only", calls)
 	}
 }
+
+func frame(body string) string {
+	return fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(body), body)
+}
+
+func TestServer_MalformedJSONRepliesParseErrorAndKeepsServing(t *testing.T) {
+	t.Parallel()
+	in := frame("{not json") + frame(`{"jsonrpc":"2.0","id":2,"method":"shutdown"}`)
+	var out bytes.Buffer
+
+	if err := New(strings.NewReader(in), &out, nil).Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	r := NewReader(&out)
+	parseErr, err := r.Read()
+	if err != nil {
+		t.Fatalf("read parse error reply: %v", err)
+	}
+	if parseErr.Error == nil || parseErr.Error.Code != errCodeParseError {
+		t.Fatalf("first reply = %+v, want error code %d", parseErr, errCodeParseError)
+	}
+	if string(parseErr.ID) != "null" {
+		t.Errorf("parse error id = %s, want null", parseErr.ID)
+	}
+	shutdown, err := r.Read()
+	if err != nil {
+		t.Fatalf("read shutdown reply: %v", err)
+	}
+	if string(shutdown.ID) != "2" || shutdown.Error != nil {
+		t.Errorf("shutdown reply = %+v, want result for id 2", shutdown)
+	}
+}
+
+func TestReader_RejectsOversizedContentLength(t *testing.T) {
+	t.Parallel()
+	for _, length := range []string{"9223372036854775807", "8589934592", fmt.Sprint(maxContentLength + 1)} {
+		in := "Content-Length: " + length + "\r\n\r\n{}"
+		_, err := NewReader(strings.NewReader(in)).Read()
+		if err == nil || !strings.Contains(err.Error(), "exceeds") {
+			t.Errorf("Content-Length %s: err = %v, want limit error", length, err)
+		}
+	}
+}
+
+func TestReader_ContentLengthAtLimitIsNotRejected(t *testing.T) {
+	t.Parallel()
+	in := fmt.Sprintf("Content-Length: %d\r\n\r\n{}", maxContentLength)
+	_, err := NewReader(strings.NewReader(in)).Read()
+	if err == nil || strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("err = %v, want body read error", err)
+	}
+}
+
+func TestReader_RejectsNegativeContentLength(t *testing.T) {
+	t.Parallel()
+	_, err := NewReader(strings.NewReader("Content-Length: -5\r\n\r\n")).Read()
+	if err == nil || !strings.Contains(err.Error(), "bad Content-Length") {
+		t.Fatalf("err = %v, want bad Content-Length", err)
+	}
+}
+
+func TestServer_WrongShapeRequestRepliesInvalidRequestWithID(t *testing.T) {
+	t.Parallel()
+	in := frame(`{"jsonrpc":"2.0","id":7,"method":123}`) + frame(`{"jsonrpc":"2.0","id":8,"method":"shutdown"}`)
+	var out bytes.Buffer
+	if err := New(strings.NewReader(in), &out, nil).Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	r := NewReader(&out)
+	bad, err := r.Read()
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if bad.Error == nil || bad.Error.Code != errCodeInvalidRequest || string(bad.ID) != "7" {
+		t.Errorf("reply = %+v, want -32600 for id 7", bad)
+	}
+	if next, err := r.Read(); err != nil || string(next.ID) != "8" {
+		t.Errorf("server did not keep serving: %+v %v", next, err)
+	}
+}
+
+func TestServer_OversizedContentLengthEndsWithError(t *testing.T) {
+	t.Parallel()
+	in := "Content-Length: 9223372036854775807\r\n\r\n"
+	err := New(strings.NewReader(in), io.Discard, nil).Run()
+	if err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("Run error = %v, want limit error", err)
+	}
+}
