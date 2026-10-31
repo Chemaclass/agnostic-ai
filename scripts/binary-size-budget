@@ -733,6 +733,6 @@
 # #2898 refuses incomplete managed ignore blocks to preserve user exclusions.
 # Go 1.27.3 Linux amd64 release flags: 24506528, versus 24502432 on main
 # 9b6b98d9a (+4096). No new dependency. Keep the 8192-byte allowance.
-# Main through #2905 is 24527008 bytes; Git query isolation adds 4096.
-# The 24531104-byte Linux amd64 build keeps the 8192-byte allowance.
+# Main through #2905 measured 24527008 bytes; Git query isolation adds 4096.
+# Sync state error handling also grows the combined build.
 24539296

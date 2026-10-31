@@ -11,6 +11,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Sync and configuration
 
 - Git queries use the requested repository when sync runs from a Git hook (#2882).
+- Sync fails when it cannot record written files in its state file (#2883).
 - Memory indexing keeps nested and external links and avoids duplicate entries for filenames with spaces (#2881).
 - Failed pack fetches keep installed content, and partial updates record each successful commit (#2880).
 - Hook runs report Windows timeouts correctly, so Copilot lets the action proceed (#2878).
@@ -27,7 +28,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Global sync ignores relative platform roots and excludes relative paths from ownership roots (#2879).
 - Concurrent updates keep all private Git exclusion entries (#2876).
 - Import rejects writes outside the project and configured source directories; invalid Codex and Warp agent names use their file names (#2873).
-
 - `packs add` refuses packs folders that link outside the project (#2874).
 - Editor and vendor dependencies receive security patches; the scoped audit exception expires on November 14 (#2844).
 
