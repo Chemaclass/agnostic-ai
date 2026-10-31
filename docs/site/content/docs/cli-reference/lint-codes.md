@@ -19,7 +19,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT005 | Warning. A hook sets `matcher` on an event that does not read one. Drop it or use a tool-call event such as `PreToolUse`. |
 | LINT006 | Error. Frontmatter opens with `---` and never closes. |
 | LINT007 | Warning, also printed by `sync`. A frontmatter key one edit away from a key agnostic-ai reads (`glob:` for `globs:`), so the setting is lost. Put tool-native keys under `x-<target>:`. A key some tools read at the top level (Qoder's `glob:`, OpenCode's and Kilo's `mode:`) is flagged only when none of them is in `targets`. Settings and environment specs are not checked. |
-| LINT008 | Error. A stdio MCP server lacks `command:`, an `http`/`sse`/`ws` one lacks `url:`, or `type:` is not one of those four. `x-<target>` cannot set either field. |
+| LINT008 | Error. A stdio MCP server lacks `command:`, an `http`/`sse`/`ws` one lacks `url:`, or `type:` is not `stdio`, `http`, `sse`, `ws`, `local`, `streamable-http`, or `remote`. `x-<target>` cannot set either field. |
 | LINT009 | Warning. A permission that approves more than it says: `allow: Bash(git * main)` also matches a force push to main. Write the exact value, or keep `*` at the end (`Bash(go test:*)`). A `deny` rule of that shape blocks nothing in Claude Code, so it is flagged too. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions. |
 | LINT011 | Warning. Startup instructions exceed a word or byte budget. See [context budgets](#context-budgets). |

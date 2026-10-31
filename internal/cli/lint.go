@@ -537,6 +537,12 @@ func lintMCPMissingRequiredField(mcps []spec.Entry, targets ...string) []lintFin
 		if transport == "" {
 			transport = "stdio"
 		}
+		switch transport {
+		case "local":
+			transport = "stdio"
+		case "streamable-http", "remote":
+			transport = "http"
+		}
 		field, verb := "url", "connect to"
 		if transport == "stdio" {
 			field, verb = "command", "start"

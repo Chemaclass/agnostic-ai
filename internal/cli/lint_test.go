@@ -235,6 +235,24 @@ func TestLintMCPMissingRequiredField_FlagsEveryTransport(t *testing.T) {
 	}
 }
 
+func TestLintMCPMissingRequiredField_AcceptsTransportAliases(t *testing.T) {
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "a", Path: "mcps/a.yaml", Meta: map[string]any{"type": "streamable-http", "url": "https://example.com/mcp"}},
+		{Kind: spec.KindMCP, Name: "b", Path: "mcps/b.yaml", Meta: map[string]any{"type": "remote", "url": "https://example.com/mcp"}},
+		{Kind: spec.KindMCP, Name: "c", Path: "mcps/c.yaml", Meta: map[string]any{"type": "local", "command": "npx"}},
+	}
+	if got := lintMCPMissingRequiredField(mcps); len(got) != 0 {
+		t.Errorf("expected 0 findings, got %d: %+v", len(got), got)
+	}
+	missing := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "d", Path: "mcps/d.yaml", Meta: map[string]any{"type": "streamable-http"}},
+		{Kind: spec.KindMCP, Name: "e", Path: "mcps/e.yaml", Meta: map[string]any{"type": "local"}},
+	}
+	if got := lintMCPMissingRequiredField(missing); len(got) != 2 {
+		t.Errorf("expected 2 findings for aliases without url or command, got %d: %+v", len(got), got)
+	}
+}
+
 func TestLintMCPMissingRequiredField_NoFindingsOnCompleteEntries(t *testing.T) {
 	mcps := []spec.Entry{
 		{Kind: spec.KindMCP, Name: "stdio", Path: "mcps/stdio.yaml",
@@ -252,7 +270,7 @@ func TestLintMCPMissingRequiredField_NoFindingsOnCompleteEntries(t *testing.T) {
 }
 
 func TestLintMCPMissingRequiredField_FlagsUnknownTransport(t *testing.T) {
-	for _, transport := range []string{"streamable-http", "local", "carrier-pigeon"} {
+	for _, transport := range []string{"carrier-pigeon", "HTTP"} {
 		mcps := []spec.Entry{{Kind: spec.KindMCP, Name: "odd", Path: "mcps/odd.yaml",
 			Meta: map[string]any{"type": transport, "url": "https://example.com/mcp", "command": "npx"}}}
 		findings := lintMCPMissingRequiredField(mcps)
