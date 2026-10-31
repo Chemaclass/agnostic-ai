@@ -100,6 +100,8 @@ Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so 
 
 ## Global configuration
 
+Portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `general.voice.enabled`, `general.voice.mode`, and `general.voice.language`; choose a native `voiceModel` before using dictation.
+
 `agnostic-ai sync --global -t qwen` writes instructions, agents, skills, MCP, hooks, and settings under `~/.qwen/`. Set `QWEN_HOME` to replace that whole directory. `QWEN_RUNTIME_DIR` moves runtime state, not configuration. `agnostic-ai import --global qwen` reads the user model, permission lists, and MCP servers. See [global configuration](@/docs/global-configuration.md).
 
 ## Config keys

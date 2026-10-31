@@ -170,6 +170,26 @@ func (r Requirement) String() string {
 	return strings.Join(parts, " ")
 }
 
+// AdoptRequirement is the requires value that accepts release version
+// in place of current. A minimum or an exact release keeps its form;
+// a missing value or a range becomes a minimum, since a new upper bound
+// could exclude a later release.
+func AdoptRequirement(current, version string) string {
+	req, err := ParseRequirement(current)
+	if err != nil || !req.keepsForm() || req.terms[0].op == atLeast {
+		return string(atLeast) + version
+	}
+	if strings.HasPrefix(strings.TrimSpace(current), string(exactly)) {
+		return string(exactly) + version
+	}
+	return version
+}
+
+// keepsForm reports whether the requirement is one minimum or one exact release.
+func (r Requirement) keepsForm() bool {
+	return len(r.terms) == 1 && (r.terms[0].op == atLeast || r.terms[0].op == exactly)
+}
+
 func compareReleases(a, b release) int {
 	for i := range a {
 		if a[i] != b[i] {

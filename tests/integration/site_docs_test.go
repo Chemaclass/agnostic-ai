@@ -1098,8 +1098,8 @@ func TestSiteDocs_FooterPublishesTheReleasedVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if allowed, _ := releasedMinimum.Allows(pins.Requires); !allowed {
-		t.Errorf("project requires = %q, want an exact pin at least %s", pins.Requires, published)
+	if allowed, _ := releasedMinimum.Allows(strings.TrimPrefix(pins.Requires, ">=")); !allowed {
+		t.Errorf("project requires = %q, want a minimum of at least %s", pins.Requires, published)
 	}
 	schema := regexp.MustCompile(`(?m)^# yaml-language-server: \$schema=(\S+)`).FindStringSubmatch(project)
 	wantSchema := "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/" + published + "/docs/schemas/config.schema.json"

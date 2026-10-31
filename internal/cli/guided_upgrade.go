@@ -123,10 +123,11 @@ func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 			if err := validateGuidedProjectConfigs(root); err != nil {
 				return err
 			}
-			_, err = config.PersistRequires(root, version, schemaURL(version))
+			changed, err := config.PersistRequires(root, version, schemaURL(version))
 			if err != nil {
 				return fmt.Errorf("reconcile requires and schema: %w", err)
 			}
+			noteCollapsedRequires(changed)
 			return nil
 		},
 	}

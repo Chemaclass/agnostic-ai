@@ -254,7 +254,7 @@
         "requires": {
           "type": "string",
           "pattern": "^\\s*$|^\\s*(\u003e=|\u003c=|\u003c|=)?\\s*v?\\d+\\.\\d+\\.\\d+(\\s+(\u003e=|\u003c=|\u003c|=)?\\s*v?\\d+\\.\\d+\\.\\d+)*\\s*$",
-          "description": "agnostic-ai releases the specs work with: a minimum (\u003e=0.71.0), one release (0.73.0), or a range (\u003e=0.73.0 \u003c0.74.0)."
+          "description": "agnostic-ai releases the specs work with: a minimum (\u003e=0.71.0), the default init writes; one exact release (0.73.0), for projects that commit generated files; or a range (\u003e=0.73.0 \u003c0.74.0)."
         },
         "sources": {
           "$ref": "#/$defs/Sources"

@@ -76,7 +76,7 @@ func globalVoiceSetting(target string, f globalSettingsFile, settings []spec.Ent
 		return nil
 	}
 	if f.voice == nil {
-		adapters.NoteSettingsFieldNoOp(target, voiceField, 1, "no voice dictation setting sync --global can write")
+		adapters.NoteSettingsFieldNoOp(target, voiceField, 1, voiceTargetNoOpReason(target))
 		return nil
 	}
 	var out []globalSetting

@@ -34,7 +34,7 @@ Update now? [Y/n]
 Enter or `y` accepts. `n` runs your original command and silences the offer for the day. In a project, accepting:
 
 1. Installs the new release and checks the new executable's version.
-2. Pins `requires` and the editor schema link to that release, as [`--requires`](#upgrade-options) does.
+2. Raises `requires` to that release, keeping its form, and updates the editor schema link, as [`--requires`](#upgrade-options) does.
 3. Previews and applies the [migrations](#migrate) to old spec files.
 4. Runs `sync`, then `sync --check`.
 
@@ -51,12 +51,22 @@ Outside a project, it updates only the tool. Then rerun your command; the releas
 |------|-------------|
 | `--check` | Show install details without changing anything. With `--version`, also show `Requested:`. |
 | `--version <tag>` | Install a specific release, including an older one. The leading `v` is optional. For package-manager installs, choose the version through that manager instead. |
-| `--requires` | Set this project's required version and editor schema link to the installed release, then sync. See below. |
+| `--requires` | Raise this project's `requires` to the installed release, keeping its form, update the editor schema link, then sync. See below. |
 | `--run` | Accepted for compatibility; upgrading is already the default. |
 
 After updating through a package manager, run its installed CLI from the project root, as in `pnpm exec agnostic-ai upgrade --requires`.
 
-`--requires` replaces a minimum, range, or older version with the exact installed release, in the base config and any existing local `requires` (including `null`), keeping comments and other settings. If sync fails, the version changes stay: fix the problem and run `sync` again. It needs a stable release build, also reads `agnostic.config.yaml`, and does not combine with `--check`, `--version`, or `--run`. The global config and package-manager files are left to their own commands. The config needs one root setting per line and a single-line `requires`; rewrite a root `{...}`, YAML `<<` merges, or a `requires` shared through `&`/`*` or split across lines first.
+`--requires` changes the base config and any existing local `requires`, keeping comments and other settings. With 0.91.0 installed:
+
+| Current value | New value |
+|---------------|-----------|
+| missing, empty, or `null` | `">=0.91.0"` |
+| `">=0.90.0"` | `">=0.91.0"` |
+| `"0.90.0"` | `"0.91.0"` |
+| `"=0.90.0"` | `"=0.91.0"` |
+| a range or upper bound, such as `">=0.90.0 <0.91.0"` or `"<0.91.0"` | `">=0.91.0"` |
+
+A missing key is added only to the base config. When a range becomes a minimum, the command prints the value it replaced. If sync fails, the version changes stay: fix the problem and run `sync` again. It needs a stable release build, also reads `agnostic.config.yaml`, and does not combine with `--check`, `--version`, or `--run`. The global config and package-manager files are left to their own commands. The config needs one root setting per line and a single-line `requires`; rewrite a root `{...}`, YAML `<<` merges, or a `requires` shared through `&`/`*` or split across lines first.
 
 | Binary location | Upgrade |
 |-----------------|---------|

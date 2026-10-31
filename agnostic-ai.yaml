@@ -7,7 +7,7 @@
 # Generated outputs (CLAUDE.md, AGENTS.md, .cursor/, etc.) stay in .gitignore.
 
 version: 1
-requires: "0.90.0"
+requires: ">=0.90.0"
 builtins: [handoff, memory]
 
 # Use default source directories under .agnostic-ai/.

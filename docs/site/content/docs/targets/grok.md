@@ -68,6 +68,8 @@ MCP servers become `[mcp_servers.<name>]`. Stdio keeps `command`, `args`, `env`,
 
 Project settings write only `permissions.allow`, `permissions.ask`, and `permissions.deny` to `[permission]`; `x-grok.permission` and `x-grok.plugins` carry native project configuration. Existing MCP servers and unrelated configuration keys are retained. Project model, effort, permission default mode, and session retention are unsupported. Ignore, review, and environment specs have no native output.
 
+At user scope, portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `ui.voice_capture_mode` and `ui.voice_stt_language`; Grok has no dictation on/off key.
+
 Hooks use native PascalCase `event` and optional `matcher`, command text, safely quoted `args`, timeout in seconds, and per-handler `env`. Sync adds `AGNOSTIC_AI_TARGET=grok` to generated handlers. Grok provides `CLAUDE_PROJECT_DIR` and `GROK_WORKSPACE_ROOT`. A matcher on `Stop` or `UserPromptSubmit` has no effect and produces a note. Hook errors fail open; native explicit denies block according to the event. Portable `on`/`match` hooks are not translated in this adapter. Use Grok-native events and its documented reply protocol. Project hook execution also requires Grok's hook trust approval.
 
 On Windows, shared script paths that need shell-specific quoting, such as paths with spaces, require an explicit native wrapper command. Sync refuses an automatic rewrite it cannot preserve. Existing native invocation commands keep their quoting.

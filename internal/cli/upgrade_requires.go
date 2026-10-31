@@ -48,13 +48,18 @@ func runUpgradeRequires() error {
 	if err != nil {
 		return fmt.Errorf("reconcile requires: %w", err)
 	}
+	noteCollapsedRequires(changed)
 	if err := runSyncOnce(".", nil, false, false, "", 0); err != nil {
 		return fmt.Errorf("sync after reconciling requires to %s: %w", version, err)
 	}
 	if len(changed) == 0 {
 		summaryf("%s project requires and schema already use agnostic-ai %s\n", tick(), version)
 	} else {
-		summaryf("%s adopted agnostic-ai %s in %s\n", tick(), version, strings.Join(changed, ", "))
+		paths := make([]string, 0, len(changed))
+		for _, c := range changed {
+			paths = append(paths, c.Path)
+		}
+		summaryf("%s adopted agnostic-ai %s in %s\n", tick(), version, strings.Join(paths, ", "))
 	}
 	if hint := pendingMigrationHint(projectMigrationScope(".")); hint != "" {
 		summaryf("%s %s\n", bang(), hint)
@@ -62,12 +67,19 @@ func runUpgradeRequires() error {
 	return nil
 }
 
-func installedReleaseVersion() (string, error) {
-	req, err := config.ParseRequirement(runningVersion)
-	if err == nil {
-		if allowed, release := req.Allows(runningVersion); allowed && release {
-			return req.String(), nil
+// noteCollapsedRequires names each range that adopting a release turned
+// into a minimum, since the user wrote its upper bound on purpose.
+func noteCollapsedRequires(changed []config.RequiresChange) {
+	for _, c := range changed {
+		if c.Collapsed() {
+			summaryf("%s %s: requires %q became %q, a minimum without an upper bound\n", bang(), c.Path, c.From, c.To)
 		}
+	}
+}
+
+func installedReleaseVersion() (string, error) {
+	if release, ok := stableReleaseVersion(runningVersion); ok {
+		return release, nil
 	}
 	return "", fmt.Errorf("upgrade --requires needs a stable installed release; this build is %q", runningVersion)
 }

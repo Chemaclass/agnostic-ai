@@ -188,7 +188,7 @@ pnpm add -D -E -w agnostic-ai   # pnpm workspace
 npm install -D -E agnostic-ai   # npm; or yarn add -D -E, bun add -D -E
 ```
 
-The lockfile covers every OS and CPU, so one pin works on macOS, Linux, and Windows. Also set `requires: "X.Y.Z"` in `agnostic-ai.yaml`, so an incompatible installed version stops with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires) before rewriting files. [Requires](@/docs/configuration.md#requires) also accepts ranges.
+The lockfile covers every OS and CPU, so one pin works on macOS, Linux, and Windows. Also set `requires: ">=X.Y.Z"` in `agnostic-ai.yaml`, so an older installed version stops with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires) before rewriting files. If you commit generated files, use an exact `requires: "X.Y.Z"` instead, since a newer release can write different output. [Requires](@/docs/configuration.md#requires) also accepts ranges.
 
 ### Sync on install
 

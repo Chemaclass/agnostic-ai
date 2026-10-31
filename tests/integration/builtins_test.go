@@ -172,8 +172,8 @@ func TestBuiltinHandoff(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if allowed, _ := minimum.Allows(cfg.Requires); !allowed {
-			t.Errorf("project requires = %q, want an exact pin at least 0.80.0", cfg.Requires)
+		if allowed, _ := minimum.Allows(strings.TrimPrefix(cfg.Requires, ">=")); !allowed {
+			t.Errorf("project requires = %q, want a minimum of at least 0.80.0", cfg.Requires)
 		}
 	})
 
