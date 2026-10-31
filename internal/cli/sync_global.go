@@ -120,7 +120,10 @@ type globalWrite struct {
 	data []byte
 	mode fs.FileMode
 	// owned marks a file sync writes whole, or a managed block in it.
-	owned bool
+	owned    bool
+	keepMode bool
+	// keepAliases retires old ownership without removing the same active file.
+	keepAliases []string
 	// dropsComments marks a JSONC rewrite that loses the file's comments.
 	dropsComments bool
 	// changes, adopted, and conflicts describe a key-level edit of a
@@ -128,7 +131,7 @@ type globalWrite struct {
 	changes, adopted, conflicts []string
 	// targets names the targets whose surfaces this write carries.
 	targets []string
-	// planned is the file as a key-level edit read it, for a file
+	// planned is the file as a merged edit read it, for a file
 	// another program also writes, such as ~/.claude.json. The write
 	// stops if the file changed since.
 	planned *diskSnapshot
@@ -348,7 +351,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	removals := removedGlobalFiles(old.Files, next.Files)
+	removals := removedGlobalFiles(old.Files, next.Files, writes...)
 	if o.check && o.jsonOut {
 		records := globalFileRecords(writes, existingPaths(removals), statePath, next, true)
 		jsonWritten = true
@@ -954,7 +957,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 			next.Files = removePathPrefix(next.Files, tree+string(filepath.Separator))
 		}
-		next.Files = removePaths(next.Files, g.files(home))
+		next.Files = removePaths(next.Files, g.filesForOS(home, platform))
 	}
 	var writes []globalWrite
 	seen := map[string]int{}
@@ -982,6 +985,34 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			next.Files = append(next.Files, path)
 		}
 		return err
+	}
+	addInstructions := func(path, managed string) (*diskSnapshot, error) {
+		before, err := snapshotFile(path)
+		if err != nil {
+			return nil, err
+		}
+		merged, err := mergeGlobalBlockData(path, managed, before.data)
+		if err != nil {
+			return nil, err
+		}
+		if merged == "" {
+			if !before.absent && slices.Contains(old.Files, path) {
+				if next.removalGuards == nil {
+					next.removalGuards = map[string]*diskSnapshot{}
+				}
+				next.removalGuards[path] = before
+			}
+			return before, nil
+		}
+		if err := add(path, []byte(merged), 0o644); err != nil {
+			return nil, err
+		}
+		w := &writes[seen[path]]
+		w.keepMode = true
+		if w.planned == nil {
+			w.planned = before
+		}
+		return before, nil
 	}
 	body := strings.TrimSpace(string(intro))
 	managed := globalStart + "\n" + body + "\n" + globalEnd
@@ -1037,18 +1068,35 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 		}
 		if g.instructions != "" {
-			path := g.path(home, g.instructions)
-			merged, err := mergeGlobalBlock(path, managed)
+			path := g.pathForOS(home, g.instructions, platform)
+			legacy := g.legacyInstructionsPath(home, platform)
+			legacyOwned := legacy != "" && slices.Contains(old.Files, legacy)
+			aliased := legacyOwned && aliasedGlobalInstructions(legacy, path)
+			var legacyBefore *diskSnapshot
+			if legacyOwned && !aliased {
+				var err error
+				legacyBefore, err = addInstructions(legacy, globalStart+"\n\n"+globalEnd)
+				if err != nil {
+					return nil, next, err
+				}
+			}
+			before, err := addInstructions(path, managed)
 			if err != nil {
 				return nil, next, err
 			}
-			// An empty merge means no global instructions, no global
-			// rules, and no user text left around the managed block.
-			// Emit nothing so the file is never seeded, and so one
-			// already recorded is swept instead of left empty.
-			if merged != "" {
-				if err := add(path, []byte(merged), 0o644); err != nil {
-					return nil, next, err
+			// A missing legacy file may appear through an alias when the active file is created.
+			if aliased || legacyBefore != nil && legacyBefore.absent {
+				if i, written := seen[path]; written {
+					writes[i].keepAliases = append(writes[i].keepAliases, legacy)
+				} else {
+					if next.removalGuards == nil {
+						next.removalGuards = map[string]*diskSnapshot{}
+					}
+					if legacyBefore != nil {
+						next.removalGuards[legacy] = legacyBefore
+					} else {
+						next.removalGuards[legacy] = before
+					}
 				}
 			}
 		}
@@ -1801,6 +1849,10 @@ func mergeGlobalBlock(path, managed string) (string, error) {
 	if err != nil && !os.IsNotExist(err) {
 		return "", fmt.Errorf("read %s: %w", path, err)
 	}
+	return mergeGlobalBlockData(path, managed, data)
+}
+
+func mergeGlobalBlockData(path, managed string, data []byte) (string, error) {
 	body := string(data)
 	start, end := strings.Index(body, globalStart), strings.Index(body, globalEnd)
 	if (start >= 0) != (end >= 0) || (start >= 0 && end < start) {
@@ -1829,6 +1881,10 @@ func mergeGlobalBlock(path, managed string) (string, error) {
 		before = before[:len(before)-1]
 	}
 	return before + after, nil
+}
+
+func aliasedGlobalInstructions(a, b string) bool {
+	return resolveImportSourceExisting(a) == resolveImportSourceExisting(b)
 }
 
 func insertGlobalBlock(body, managed string, removing bool) string {
@@ -2959,10 +3015,15 @@ func removePathPrefix(paths []string, prefix string) []string {
 	return out
 }
 
-func removedGlobalFiles(old, next []string) []string {
+func removedGlobalFiles(old, next []string, writes ...globalWrite) []string {
 	keep := map[string]bool{}
 	for _, p := range next {
 		keep[p] = true
+	}
+	for _, write := range writes {
+		for _, path := range write.keepAliases {
+			keep[path] = true
+		}
 	}
 	var out []string
 	for _, p := range old {
@@ -2974,7 +3035,7 @@ func removedGlobalFiles(old, next []string) []string {
 }
 
 func removalChangedSincePlan(guards map[string]*diskSnapshot, path string, data []byte) error {
-	if guard, ok := guards[path]; ok && !bytes.Equal(guard.data, data) {
+	if guard, ok := guards[path]; ok && (guard.absent || !bytes.Equal(guard.data, data)) {
 		return fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", path)
 	}
 	return nil
@@ -3080,7 +3141,7 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 		// A user's own file, such as an MCP config holding API keys at
 		// 0600, keeps its permission bits.
 		perm := w.mode
-		if !w.owned && !absent {
+		if (!w.owned || w.keepMode) && !absent {
 			perm = mode.Perm()
 		}
 		writeErr := func() error {

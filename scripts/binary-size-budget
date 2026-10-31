@@ -724,4 +724,10 @@
 # #2836 writes Warp voice settings with native table restoration and platform paths.
 # Go 1.27.3 Linux amd64 release flags: 24461472, versus 24445088 on main
 # 15b3b6190 (+16384). No new dependency. Keep the 8192-byte build allowance.
-24469664
+# #2857 routes Zed Windows instructions and safely retires old managed blocks.
+# Shared instruction edits preserve private modes and guard concurrent changes.
+# Go 1.27.3 Linux amd64 release flags: 24477856, versus 24465568 on main
+# 6c3f4808e (+12288). No new dependency. Keep the 8192-byte build allowance.
+# With the global hook explain change, the combined build is 24481952 bytes.
+# Keep the existing 8192-byte allowance.
+24490144
