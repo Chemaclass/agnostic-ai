@@ -498,7 +498,7 @@ func TestInitCmd_GitignoreOffHintsAtExactPin(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if got := strings.Contains(stderr.String(), requiresExactPinNote); got != tc.want {
+			if got := strings.Contains(stderr.String(), requiresExactPinNote("0.91.0")); got != tc.want {
 				t.Errorf("hint printed = %v, want %v:\n%s", got, tc.want, stderr.String())
 			}
 			if tc.want {

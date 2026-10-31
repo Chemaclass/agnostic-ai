@@ -22,7 +22,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Home `voice` settings turn Claude Code dictation on and pick hold or tap; `sync --global` restores previous values on removal.
 - `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
 - `init` writes `requires: ">=X.Y.Z"` for the running release, so newer releases keep working until you choose an exact pin (#2841).
-- `init --gitignore=off` and AAI-005 tell exact-pin projects with git-ignored files to use `requires: ">=X.Y.Z"` to accept newer releases.
+- AAI-005 tells a project with an exact pin how to accept newer releases, and `init --gitignore=off` says when an exact pin fits.
 - `upgrade --requires` keeps the form of `requires`: a minimum stays a minimum, an exact release stays exact, and a range becomes a minimum (#2841).
 
 #### Security
