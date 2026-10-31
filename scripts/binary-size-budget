@@ -739,4 +739,6 @@
 # through a shared atomic write helper. Keeps the 8192-byte allowance.
 # #2913 measured 24555680: empty local keys keep shared settings, and lint warns
 # about them. Adds 4096 over main.
-24555680
+# Follow-up to #2913 measured 24559776: LINT055 reads the base config to word
+# its message by the shared value kind. Adds 4096.
+24559776
