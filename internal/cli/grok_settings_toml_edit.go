@@ -117,16 +117,14 @@ func editGrokTable(path string, data []byte, table string, order []string, set m
 	start, end := -1, len(lines)
 	nextTable := ""
 	for i, h := range headers {
-		if len(h.key) == 1 && h.key[0] == table {
+		if slices.Equal(h.key, strings.Split(table, ".")) {
 			start = h.line
 			for _, next := range headers[i+1:] {
 				if (replace || drop) && len(next.key) > 0 && next.key[0] == table {
 					continue
 				}
 				end = next.line
-				if len(next.key) == 1 {
-					nextTable = next.key[0]
-				}
+				nextTable = strings.Join(next.key, ".")
 				break
 			}
 			break
@@ -182,7 +180,7 @@ func editGrokTable(path string, data []byte, table string, order []string, set m
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := values[table]; ok {
+	if _, ok := settingsLookup(values, table, "json"); ok {
 		return nil, fmt.Errorf("%s: %s uses a dotted or inline table; rewrite it as [%s] before syncing its settings", path, table, table)
 	}
 	body, err := editTOMLRoot(path, []byte{}, order, set, nil)

@@ -230,7 +230,7 @@ func TestVoiceTargets_ExplainUnsupportedMembersAndDeferredMappings(t *testing.T)
 	}{
 		{"gemini", []string{"Gemini has no dictation language setting"}},
 		{"vibe", []string{"Vibe has no voice capture mode setting", "Vibe has no dictation language setting"}},
-		{"warp", []string{"#2836"}},
+		{"warp", []string{"Warp has no voice capture mode setting"}},
 		{"kiro", []string{"#2837"}},
 	} {
 		t.Run(tc.target, func(t *testing.T) {

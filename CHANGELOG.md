@@ -77,6 +77,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - The note for an agent's MCP server no longer says OpenHands has no per-server timeout. It says sync does not map a timeout into the agent's `mcp_servers`, and that Agent Canvas offers a timeout for HTTP servers (#2813).
 
+#### Warp
+
+- Global sync writes voice enabled and language choices to the platform settings file while preserving the activation shortcut (#2836).
+
 ## v0.90.0 - 2026-10-29
 
 ### General

@@ -112,7 +112,7 @@ func restoreTOMLTables(data []byte, table string, originals []tomlPersonalTable)
 }
 
 func tomlPersonalSpan(data []byte, key, format string) (int, int, bool) {
-	if format != "toml" && format != grokTOMLFormat {
+	if format != "toml" && !nestedTOMLFormat(format) {
 		return 0, 0, false
 	}
 	text, bom := strings.CutPrefix(string(data), "\xef\xbb\xbf")
@@ -122,18 +122,19 @@ func tomlPersonalSpan(data []byte, key, format string) (int, int, bool) {
 		scan[i] = strings.TrimSuffix(line, "\n")
 	}
 	start, end := 0, len(lines)
-	if format == grokTOMLFormat {
-		table, member, nested := strings.Cut(key, ".")
-		if !nested {
+	if nestedTOMLFormat(format) {
+		at := strings.LastIndexByte(key, '.')
+		if at < 0 {
 			return 0, 0, false
 		}
+		table, member := key[:at], key[at+1:]
 		headers, err := scanTOMLHeaders(scan)
 		if err != nil {
 			return 0, 0, false
 		}
 		found := false
 		for i, header := range headers {
-			if len(header.key) != 1 || header.key[0] != table {
+			if !slices.Equal(header.key, strings.Split(table, ".")) {
 				continue
 			}
 			start, found = header.line+1, true
@@ -165,9 +166,8 @@ func tomlPersonalSpan(data []byte, key, format string) (int, int, bool) {
 }
 
 func restoreTOMLAssignment(original, current, key string, previous any) string {
-	_, member, nested := strings.Cut(key, ".")
-	if nested {
-		key = member
+	if at := strings.LastIndexByte(key, '.'); at >= 0 {
+		key = key[at+1:]
 	}
 	expected, err := editTOMLRoot("", []byte(original), []string{key}, map[string]any{key: previous}, nil)
 	if current == original || err == nil && current == string(expected) {

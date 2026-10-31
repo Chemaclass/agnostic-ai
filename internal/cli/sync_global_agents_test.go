@@ -24,6 +24,7 @@ func globalAgentTestHome(t *testing.T) (string, string) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	source := filepath.Join(home, "source")
 	t.Setenv("AGNOSTIC_AI_HOME", source)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
