@@ -2655,8 +2655,11 @@ input:hover {
   }
 
   .topbar-actions .button {
+    width: 44px;
     min-height: 44px;
     min-width: 44px;
+    padding: 0;
+    justify-content: center;
   }
 
   .topbar-actions .button-icon {
@@ -2733,6 +2736,8 @@ input:hover {
   .config-switch .button {
     max-width: 100%;
     min-height: 44px;
+    padding-inline: 8px;
+    font-size: 12px;
     white-space: normal;
     text-align: left;
   }

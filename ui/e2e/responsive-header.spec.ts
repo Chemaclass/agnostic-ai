@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+// Reserve the width of a classic scrollbar on the narrowest viewport.
+const narrowContent = '@media (max-width: 320px) { .app { max-width: 305px; } }'
 
 test('keeps configuration and editor controls on the second phone header row', async ({ page }) => {
   const overview = structuredClone(fixture)
@@ -10,6 +12,7 @@ test('keeps configuration and editor controls on the second phone header row', a
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true } }))
   await page.setViewportSize({ width: 320, height: 844 })
   await page.goto('/?view=context&tab=rules')
+  await page.addStyleTag({ content: narrowContent })
   const header = page.locator('.topbar')
   const choice = header.getByRole('group', { name: 'Open files in' })
   const editor = choice.getByRole('combobox', { name: 'Editor' })
@@ -51,6 +54,7 @@ test('keeps global configuration context and the project switch compact on phone
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root, global: true, ui: true, projectRoot: '/Users/chema/Code/Chemaclass/agnostic-ai' } }))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/?view=settings&tab=preferences')
+  await page.addStyleTag({ content: narrowContent })
   const header = page.locator('.topbar')
   const project = header.getByRole('button', { name: 'Open project agnostic-ai' })
   const editor = header.getByRole('combobox', { name: 'Editor' })
