@@ -365,18 +365,18 @@ func (h *editHandler) preparePersonalOutOfGit(file string) (func(bool) error, er
 		}
 		return func(bool) error { personalGitMu.Unlock(); return nil }, nil
 	}
-	release, err := gitexclude.Lock(ex.path)
+	guard, err := gitexclude.Acquire(ex.path)
 	if err != nil {
 		personalGitMu.Unlock()
 		return nil, err
 	}
-	unlock := func() { release(); personalGitMu.Unlock() }
+	unlock := func() { guard.Release(); personalGitMu.Unlock() }
 	before, err := snapshotEditFile(ex.path)
 	if err != nil {
 		unlock()
 		return nil, err
 	}
-	keepErr := h.keepPersonalOutOfGit(file)
+	keepErr := h.keepPersonalOutOfGitLocked(file, guard)
 	after, err := snapshotEditFile(ex.path)
 	if err != nil {
 		unlock()
@@ -399,6 +399,10 @@ func (h *editHandler) preparePersonalOutOfGit(file string) (func(bool) error, er
 }
 
 func (h *editHandler) keepPersonalOutOfGit(file string) error {
+	return h.keepPersonalOutOfGitLocked(file, nil)
+}
+
+func (h *editHandler) keepPersonalOutOfGitLocked(file string, guard *gitexclude.Guard) error {
 	target := resolvedAbs(file)
 	dir := existingAncestor(filepath.Dir(target))
 	layout, err := gitquery.LayoutAtFresh(dir)
@@ -423,10 +427,17 @@ func (h *editHandler) keepPersonalOutOfGit(file string) error {
 	if folder {
 		pattern += "/"
 	}
-	if err := gitexclude.Update(ex.path, func(content string) string {
+	edit := func(content string) string {
 		out, _ := adapters.WithGitExclusion([]byte(content), pattern)
 		return string(out)
-	}); err != nil {
+	}
+	var updateErr error
+	if guard != nil {
+		updateErr = guard.Update(ex.path, edit)
+	} else {
+		updateErr = gitexclude.Update(ex.path, edit)
+	}
+	if err := updateErr; err != nil {
 		return fmt.Errorf("%s: could not keep this personal file out of Git: %w", display, err)
 	}
 	if !gitIgnores(dir, target) {

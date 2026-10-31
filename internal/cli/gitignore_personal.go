@@ -41,15 +41,25 @@ func personalSplitBlock(root string, cfg *config.Config, renders *targetRenders,
 // info/exclude lists. A file it cannot read fails the sync, which would
 // otherwise move those outputs into the committed block.
 func previousPersonal(root string) ([]string, error) {
+	return previousPersonalLocked(root, nil)
+}
+
+func previousPersonalLocked(root string, guard *gitexclude.Guard) ([]string, error) {
 	ex, ok := personalExcludeFile(root)
 	if !ok {
 		return nil, nil
 	}
 	var prev []string
-	err := gitexclude.Update(ex.state, func(content string) string {
+	edit := func(content string) string {
 		prev = personalPatternsOf(content, personalExcludeKey(root), ex.prefix)
 		return content
-	})
+	}
+	var err error
+	if guard.Covers(ex.state) {
+		err = guard.Update(ex.state, edit)
+	} else {
+		err = gitexclude.Update(ex.state, edit)
+	}
 	// Backups are listed again from the ledger; only outputs carry over.
 	prev = slices.DeleteFunc(prev, func(p string) bool { return strings.HasSuffix(p, backupSuffix) })
 	return prev, err
@@ -369,12 +379,12 @@ func projectGone(dir string) bool {
 
 // lockProjectGitExclude takes the info/exclude lock of the repository
 // holding root; outside a work tree there is none to take.
-func lockProjectGitExclude(root string) (release func(), err error) {
+func lockProjectGitExclude(root string) (*gitexclude.Guard, error) {
 	ex, ok := personalExcludeFile(root)
 	if !ok {
-		return func() {}, nil
+		return nil, nil
 	}
-	return gitexclude.Lock(ex.path)
+	return gitexclude.Acquire(ex.path)
 }
 
 // writePersonalExcludes updates the project's block in info/exclude.
