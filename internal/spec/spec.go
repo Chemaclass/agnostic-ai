@@ -1319,9 +1319,13 @@ func nodeToOrderedMap(n *yaml.Node) (decodedMapping, error) {
 		keys: make([]string, 0, len(n.Content)/2),
 	}
 	seen := make(map[string]bool, len(n.Content)/2)
-	for i := 0; i+1 < len(n.Content); i += 2 {
-		keyNode := n.Content[i]
-		valNode := n.Content[i+1]
+	content, err := expandMergeKeys(n.Content, 0)
+	if err != nil {
+		return decodedMapping{}, err
+	}
+	for i := 0; i+1 < len(content); i += 2 {
+		keyNode := content[i]
+		valNode := content[i+1]
 		if seen[keyNode.Value] && !slices.Contains(out.duplicates, keyNode.Value) {
 			out.duplicates = append(out.duplicates, keyNode.Value)
 		}
@@ -1346,6 +1350,79 @@ func nodeToOrderedMap(n *yaml.Node) (decodedMapping, error) {
 		}
 	}
 	return out, nil
+}
+
+const maxMergeDepth = 32
+
+// expandMergeKeys returns key and value nodes with each `<<` merge key
+// replaced by the pairs it merges in. As in yaml.v3, an explicit key beats
+// a merged one, and an earlier merge source beats a later one.
+func expandMergeKeys(content []*yaml.Node, depth int) ([]*yaml.Node, error) {
+	if depth > maxMergeDepth {
+		return nil, errors.New("yaml: map merge nests too deeply")
+	}
+	explicit := make(map[string]bool, len(content)/2)
+	hasMerge := false
+	for i := 0; i+1 < len(content); i += 2 {
+		if content[i].Tag == "!!merge" {
+			hasMerge = true
+			continue
+		}
+		explicit[content[i].Value] = true
+	}
+	if !hasMerge {
+		return content, nil
+	}
+	out := make([]*yaml.Node, 0, len(content))
+	for i := 0; i+1 < len(content); i += 2 {
+		if content[i].Tag != "!!merge" {
+			out = append(out, content[i], content[i+1])
+			continue
+		}
+		sources, err := mergeSources(content[i+1])
+		if err != nil {
+			return nil, err
+		}
+		for _, src := range sources {
+			pairs, err := expandMergeKeys(src.Content, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			for j := 0; j+1 < len(pairs); j += 2 {
+				if explicit[pairs[j].Value] {
+					continue
+				}
+				explicit[pairs[j].Value] = true
+				out = append(out, pairs[j], pairs[j+1])
+			}
+		}
+	}
+	return out, nil
+}
+
+// mergeSources resolves a merge value to the mappings it names: a mapping,
+// an alias to one, or a sequence of those.
+func mergeSources(v *yaml.Node) ([]*yaml.Node, error) {
+	for v.Kind == yaml.AliasNode && v.Alias != nil {
+		v = v.Alias
+	}
+	switch v.Kind {
+	case yaml.MappingNode:
+		return []*yaml.Node{v}, nil
+	case yaml.SequenceNode:
+		var out []*yaml.Node
+		for _, item := range v.Content {
+			for item.Kind == yaml.AliasNode && item.Alias != nil {
+				item = item.Alias
+			}
+			if item.Kind != yaml.MappingNode {
+				return nil, fmt.Errorf("yaml: line %d: map merge requires map or sequence of maps as the value", v.Line)
+			}
+			out = append(out, item)
+		}
+		return out, nil
+	}
+	return nil, fmt.Errorf("yaml: line %d: map merge requires map or sequence of maps as the value", v.Line)
 }
 
 // normalizeLineEndings converts CRLF to LF so the frontmatter splitter
