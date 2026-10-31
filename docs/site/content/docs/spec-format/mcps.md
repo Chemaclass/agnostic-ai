@@ -44,7 +44,7 @@ targets: [claude, codex]
 
 ## Fields
 
-A server needs `command` (stdio) or `url` (remote). Only [`agnostic-ai lint`](@/docs/cli-reference/check.md#lint) reports a missing one (LINT008), so run it before `sync`.
+A server needs `command` (stdio) or `url` (remote). Only [`agnostic-ai lint`](@/docs/cli-reference/check.md#lint) reports a missing one, or a `type` other than `stdio`, `http`, `sse`, or `ws` (LINT008), so run it before `sync`.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|

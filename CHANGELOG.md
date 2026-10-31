@@ -11,6 +11,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Sync and configuration
 
 - The language server answers malformed JSON with a parse error and keeps running, and rejects message sizes above 64 MiB instead of crashing (#2889, #2908).
+- `lint` reports an MCP server whose `type` is not `stdio`, `http`, `sse` or `ws`, such as `streamable-http` or `local` (#2886).
 - Git queries use the requested repository when sync runs from a Git hook (#2882).
 - Sync fails when it cannot record written files in its state file (#2883).
 - Memory indexing keeps nested and external links and avoids duplicate entries for filenames with spaces (#2881).
