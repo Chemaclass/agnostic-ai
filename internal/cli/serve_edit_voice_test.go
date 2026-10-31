@@ -96,6 +96,48 @@ func TestEditField_GlobalVoiceRemovesEmptiedServerScaffold(t *testing.T) {
 	}
 }
 
+func TestEditField_GlobalVoiceRemovesPreviousServerScaffold(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	if err := os.Remove(filepath.Join(source, "settings", "native.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(source, "settings", "defaults.yaml")
+	previous := fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
+	mustWriteGlobalTest(t, file, previous+"model: sonnet\n")
+	h := newEditHandler(source, true)
+	for _, body := range []string{
+		`{"audience":"shared","key":"voice.enabled","value":true}`,
+		`{"audience":"shared","key":"model","value":null}`,
+		`{"audience":"shared","key":"voice.enabled","value":null}`,
+	} {
+		if rec := postEdit(t, h, editFieldPath, body, nil); rec.Code != http.StatusOK {
+			t.Fatalf("%s = %d %s", body, rec.Code, rec.Body)
+		}
+	}
+	if data, err := os.ReadFile(file); !os.IsNotExist(err) {
+		t.Errorf("empty previous server scaffold remains: %q, %v", data, err)
+	}
+}
+
+func TestEditField_GlobalVoiceKeepsUserEditedServerScaffold(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	file := filepath.Join(source, "settings", "native.yaml")
+	original := fieldCreatedMarker + "name: defaults\ndescription: My defaults.\n"
+	mustWriteGlobalTest(t, file, original)
+	h := newEditHandler(source, true)
+	for _, value := range []string{"true", "null"} {
+		body := fmt.Sprintf(`{"audience":"shared","key":"voice.enabled","value":%s}`, value)
+		if rec := postEdit(t, h, editFieldPath, body, nil); rec.Code != http.StatusOK {
+			t.Fatalf("%s = %d %s", body, rec.Code, rec.Body)
+		}
+	}
+	if got := readGlobalTest(t, file); got != original {
+		t.Errorf("changed user-edited scaffold: %q, want %q", got, original)
+	}
+}
+
 func TestEditField_GlobalVoiceRejectsInvalidValuesWithoutWriting(t *testing.T) {
 	silence(t)
 	source := editHome(t)
@@ -197,13 +239,37 @@ func TestEditField_ProjectVoiceCannotUseTheBooleanEndpoint(t *testing.T) {
 	testutil.Chdir(t, project)
 	mustWriteGlobalTest(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	file := filepath.Join(project, ".agnostic-ai", "settings", "voice.yaml")
-	original := "voice:\n  enabled: true\n"
+	original := "voice:\n  enabled: true\n  mode: hold\n  language: es\n"
 	mustWriteGlobalTest(t, file, original)
-	body := `{"audience":"shared","path":".agnostic-ai/settings/voice.yaml","key":"voice.enabled","value":false,"expected":true}`
-	if rec := postEdit(t, newEditHandler(project, false), editValuePath, body, nil); rec.Code != http.StatusBadRequest {
-		t.Errorf("project boolean voice edit = %d %s", rec.Code, rec.Body)
+	for _, key := range []string{"voice.enabled", "voice.mode", "voice.language"} {
+		for _, value := range []string{"false", "null"} {
+			body := fmt.Sprintf(`{"audience":"shared","path":".agnostic-ai/settings/voice.yaml","key":%q,"value":%s}`, key, value)
+			if rec := postEdit(t, newEditHandler(project, false), editValuePath, body, nil); rec.Code != http.StatusBadRequest {
+				t.Errorf("project boolean %s = %d %s", body, rec.Code, rec.Body)
+			}
+		}
 	}
 	if got := readGlobalTest(t, file); got != original {
 		t.Errorf("project boolean edit changed voice: %s", got)
+	}
+}
+
+func TestEditField_GlobalVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	file := filepath.Join(source, "settings", "native.yaml")
+	original := "voice:\n  enabled: true\n  mode: hold\n  language: es\n"
+	mustWriteGlobalTest(t, file, original)
+	h := newEditHandler(source, true)
+	for _, key := range []string{"voice.enabled", "voice.mode", "voice.language"} {
+		for _, value := range []string{"false", "null"} {
+			body := fmt.Sprintf(`{"audience":"shared","path":"settings/native.yaml","key":%q,"target":"claude","value":%s}`, key, value)
+			if rec := postEdit(t, h, editValuePath, body, nil); rec.Code != http.StatusBadRequest {
+				t.Errorf("global boolean %s = %d %s", body, rec.Code, rec.Body)
+			}
+		}
+	}
+	if got := readGlobalTest(t, file); got != original {
+		t.Errorf("per-tool boolean edit changed voice: %s", got)
 	}
 }

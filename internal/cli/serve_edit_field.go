@@ -28,6 +28,12 @@ const fieldCreatedMarker = "# Created by agnostic-ai serve.\n"
 var errFieldNotInFile = errors.New("the field is not in this file")
 
 const fieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, session, and voice settings.\n"
+const previousFieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
+
+func isFieldCreatedSpec(data []byte) bool {
+	text := string(data)
+	return text == fieldCreatedSpec || text == previousFieldCreatedSpec
+}
 
 // fieldEdit resolves an editable source spec, never an arbitrary client path,
 // and stores the loaded spec it edits in picked.
@@ -435,7 +441,7 @@ func scalarFieldEdit(chosen spec.Entry, addr fieldAddress, value, base any, scaf
 			}
 			return nil, fmt.Errorf("this file does not set %s", addr.label())
 		}
-		if err == nil && value == nil && (string(out) == scaffold || string(out) == fieldCreatedSpec) {
+		if err == nil && value == nil && (string(out) == scaffold || isFieldCreatedSpec(out)) {
 			return nil, nil
 		}
 		if err == nil && len(bytes.TrimSpace(out)) == 0 && !bytes.HasPrefix(data, []byte(fieldCreatedMarker)) {
@@ -553,7 +559,7 @@ func setScalarField(data []byte, key string, value any) ([]byte, error) {
 	if !reflect.DeepEqual(expected, actual) {
 		return nil, errors.New("the edit changes other values")
 	}
-	if value == nil && string(out) == fieldCreatedSpec {
+	if value == nil && isFieldCreatedSpec(out) {
 		return nil, nil
 	}
 	return out, nil

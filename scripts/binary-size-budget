@@ -710,4 +710,7 @@
 # table fragments while preserving user comments. Go 1.27.3 Linux amd64 release
 # flags: 24387744, versus 24346784 on main f7e02dcc2 (+40960). No new dependency.
 # Keep the existing 8192-byte build allowance.
-24395936
+# #2835 adds global voice controls, nested field edits, and their embedded UI.
+# Go 1.27.3 Linux amd64 release flags: 24404128, versus 24395936 on main
+# 08e85bebf9 (+8192). No new dependency. Keep the 8192-byte build allowance.
+24412320
