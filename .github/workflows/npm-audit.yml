@@ -28,15 +28,8 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Test the audit policy
+        run: node --test scripts/npm-audit.test.mjs
+
       - name: Audit every tracked npm lockfile
-        shell: bash
-        run: |
-          result=0
-          while IFS= read -r -d '' lock; do
-            directory=$(dirname "$lock")
-            echo "::group::$directory"
-            npm audit --prefix "$directory" --package-lock-only --ignore-scripts \
-              --include=dev --include=optional --audit-level=low || result=1
-            echo '::endgroup::'
-          done < <(git ls-files -z -- '**/package-lock.json' 'package-lock.json')
-          exit "$result"
+        run: node scripts/npm-audit.mjs
