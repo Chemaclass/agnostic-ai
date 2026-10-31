@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -87,7 +88,8 @@ type memoryContents struct {
 	topics  []memoryTopic
 }
 
-var memoryIndexEntry = regexp.MustCompile(`^\s*[-*+]\s+\[([^\]]*)\]\(([^)\s]+)\)`)
+var memoryIndexEntry = regexp.MustCompile(`^\s*[-*+]\s+\[([^\]]*)\]\(`)
+var memoryLinkTitle = regexp.MustCompile(`\s+("(\\.|[^"\\])*"|'(\\.|[^'\\])*'|\([^()]*\))\s*$`)
 
 // loadMemoryStore reads s, or reports false when its folder is missing,
 // as the personal store is in CI.
@@ -129,15 +131,62 @@ func loadMemoryStore(s memoryStore) (memoryContents, bool, error) {
 func memoryIndexEntries(index []string) []memoryEntry {
 	var out []memoryEntry
 	for i, line := range index {
-		m := memoryIndexEntry.FindStringSubmatch(line)
+		m := memoryIndexEntry.FindStringSubmatchIndex(line)
 		if m == nil {
 			continue
 		}
-		if target, ok := memoryLinkTarget(m[2]); ok {
-			out = append(out, memoryEntry{line: i + 1, text: strings.TrimRight(line, " \t"), title: m[1], target: target})
+		link, ok := memoryLinkDestination(line[m[1]:])
+		if !ok {
+			continue
+		}
+		if target, ok := memoryLinkTarget(link); ok {
+			out = append(out, memoryEntry{line: i + 1, text: strings.TrimRight(line, " \t"), title: line[m[2]:m[3]], target: target})
 		}
 	}
 	return out
+}
+
+func memoryLinkDestination(text string) (string, bool) {
+	depth := 0
+	var quote byte
+	angle := false
+	for i := 0; i < len(text); i++ {
+		ch := text[i]
+		if ch == '\\' && i+1 < len(text) {
+			i++
+			continue
+		}
+		if quote != 0 {
+			if ch == quote {
+				quote = 0
+			}
+			continue
+		}
+		if angle {
+			if ch == '>' {
+				angle = false
+			}
+			continue
+		}
+		switch ch {
+		case '<':
+			angle = true
+		case '"', '\'':
+			if i > 0 && (text[i-1] == ' ' || text[i-1] == '\t') {
+				quote = ch
+			}
+		case '(':
+			depth++
+		case ')':
+			if depth == 0 {
+				return text[:i], true
+			}
+			depth--
+		case '\n', '\r':
+			return "", false
+		}
+	}
+	return "", false
 }
 
 func readMemoryFile(path string) (string, error) {
@@ -166,10 +215,17 @@ func parseMemoryTopic(file, text string) memoryTopic {
 // memoryLinkTarget returns the store-relative file a link names, or
 // false for a URL or an anchor in the index itself.
 func memoryLinkTarget(link string) (string, bool) {
+	link = strings.TrimSpace(memoryLinkTitle.ReplaceAllString(link, ""))
+	if strings.HasPrefix(link, "<") && strings.HasSuffix(link, ">") {
+		link = link[1 : len(link)-1]
+	}
 	if strings.Contains(link, "://") || strings.HasPrefix(link, "#") || strings.HasPrefix(link, "mailto:") {
 		return "", false
 	}
 	link, _, _ = strings.Cut(link, "#")
+	if decoded, err := url.PathUnescape(link); err == nil {
+		link = decoded
+	}
 	return filepath.Clean(filepath.FromSlash(link)), true
 }
 
@@ -470,10 +526,6 @@ func lintMemorySecrets(path string) []lintFinding {
 // or repeated links, then a line for each fact no line links, by file
 // name. Every other line stays: personal memory has no Git copy.
 func (c memoryContents) rebuildIndex() string {
-	present := map[string]bool{}
-	for _, t := range c.topics {
-		present[t.file] = true
-	}
 	entryAt := map[int]memoryEntry{}
 	for _, e := range c.entries {
 		entryAt[e.line] = e
@@ -482,7 +534,13 @@ func (c memoryContents) rebuildIndex() string {
 	seen := map[string]bool{}
 	for i, line := range c.index {
 		if e, ok := entryAt[i+1]; ok {
-			if present[e.target] && !seen[e.target] {
+			outside := filepath.IsAbs(e.target) || e.target == ".." || strings.HasPrefix(e.target, ".."+string(filepath.Separator))
+			if outside {
+				lines = append(lines, e.text)
+				continue
+			}
+			_, err := os.Stat(filepath.Join(c.dir, e.target))
+			if !errors.Is(err, fs.ErrNotExist) && !seen[e.target] {
 				seen[e.target] = true
 				lines = append(lines, e.text)
 			}
@@ -523,7 +581,7 @@ func (t memoryTopic) title() string {
 // indexLine is the index line a fact gets from its frontmatter:
 // `- [name](file.md): description`.
 func (t memoryTopic) indexLine() string {
-	line := "- [" + t.title() + "](" + t.file + ")"
+	line := "- [" + t.title() + "](" + url.PathEscape(t.file) + ")"
 	if d := strings.TrimSpace(t.description); d != "" {
 		line += ": " + d
 	}
