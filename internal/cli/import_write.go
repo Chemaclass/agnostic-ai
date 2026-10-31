@@ -124,11 +124,53 @@ func refuseDataStreamMCP(name, path string) error {
 	return fmt.Errorf("MCP server %q: %s: %w; rename the server", name, path, errImportDataStream)
 }
 
+var importWriteRoots []string
+
+func restrictImportWrites(root string, sources config.Sources) (func(), error) {
+	paths := []string{root}
+	for _, source := range sourceDirsByKind(sources) {
+		if source != "" {
+			paths = append(paths, importSourcePath(root, source))
+		}
+	}
+	var roots []string
+	for _, path := range paths {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return nil, fmt.Errorf("resolve %s: %w", path, err)
+		}
+		roots = append(roots, resolveImportSourceExisting(abs))
+	}
+	prior := importWriteRoots
+	importWriteRoots = roots
+	return func() { importWriteRoots = prior }, nil
+}
+
+func checkImportWritePath(path string) error {
+	if importWriteRoots == nil {
+		return nil
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", path, err)
+	}
+	resolved := resolveImportSourceExisting(abs)
+	for _, root := range importWriteRoots {
+		if _, ok := pathBelow(root, resolved); ok {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s: import destination is outside the project and source directories", path)
+}
+
 // importWriteFile writes data to path with the given mode, recording it
 // for a dry-run report. Replaces os.WriteFile across all importers. A
 // write that stores a project local spec in the shared source is undone
 // when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
+	if err := checkImportWritePath(path); err != nil {
+		return err
+	}
 	// Refused before the dry-run record, so a preview reports what import
 	// would. Callers add the path.
 	if namesDataStream(path) {

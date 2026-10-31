@@ -730,4 +730,7 @@
 # 6c3f4808e (+12288). No new dependency. Keep the 8192-byte build allowance.
 # With the global hook explain change, the combined build is 24481952 bytes.
 # Keep the existing 8192-byte allowance.
-24502432
+# #2898 refuses incomplete managed ignore blocks to preserve user exclusions.
+# Go 1.27.3 Linux amd64 release flags: 24506528, versus 24502432 on main
+# 9b6b98d9a (+4096). No new dependency. Keep the 8192-byte allowance.
+24514720
