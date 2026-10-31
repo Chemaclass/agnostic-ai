@@ -737,5 +737,9 @@
 # Sync state error handling also grows the combined build.
 # #2884 measured 24543392 on Go 1.27.3: ignore files are replaced whole
 # through a shared atomic write helper. Keeps the 8192-byte allowance.
-# #2892 follow-up measured 24555680: header and frontmatter handling for a kept opening block.
-24555680
+# #2913 measured 24555680: empty local keys keep shared settings, and lint warns
+# about them. Adds 4096 over main.
+# #2893 splices YAML merge keys into specs: 24563872 bytes on Linux amd64
+# release flags, 8192 over main. Rounded up to a multiple of 4096.
+# #2892 follow-up measured 24567968: header and frontmatter handling for a kept opening block.
+24571904

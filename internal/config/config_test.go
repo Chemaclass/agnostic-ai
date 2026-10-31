@@ -378,3 +378,43 @@ func TestTeamBuiltins_IgnoresLocalOverride(t *testing.T) {
 		t.Errorf("TeamBuiltins = %v, want [handoff]", got)
 	}
 }
+
+func TestLoad_LocalNullKeepsSharedMaps(t *testing.T) {
+	dir := t.TempDir()
+	base := "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    config:\n      sandbox: read-only\ngitignore:\n  enabled: true\n"
+	local := "outputs:\n  # claude:\n  #   model: x\ngitignore:\n"
+	if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(base), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, LocalOverrideFileName), []byte(local), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Outputs == nil || cfg.Outputs["codex"].Config == nil || cfg.Outputs["codex"].Config.Sandbox != "read-only" {
+		t.Errorf("shared outputs lost: %+v", cfg.Outputs)
+	}
+	if !cfg.Gitignore.Enabled {
+		t.Error("shared gitignore.enabled lost")
+	}
+}
+
+func TestLoad_LocalEmptyMapClearsSharedMap(t *testing.T) {
+	dir := t.TempDir()
+	base := "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    config:\n      sandbox: read-only\n"
+	if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(base), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, LocalOverrideFileName), []byte("outputs: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Outputs) != 0 {
+		t.Errorf("explicit {} should clear outputs, got %+v", cfg.Outputs)
+	}
+}

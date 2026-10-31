@@ -259,6 +259,11 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
 	accepted := 0
 	if !scope.global {
+		nulls, err := lintLocalNulls()
+		if err != nil {
+			return nil, 0, err
+		}
+		findings = append(findings, nulls...)
 		permissions, err := lintCodexPermissions(scope.targets, scope.cfg, scope.bundle)
 		if err != nil {
 			return nil, 0, err
