@@ -49,21 +49,23 @@ func nestedKeyOrders(n *yaml.Node, meta map[string]any) map[string][]string {
 		active[node] = true
 		defer delete(active, node)
 		var keys []string
-		for i := 0; i+1 < len(node.Content); i += 2 {
-			key := node.Content[i].Value
+		content := mergedContent(node)
+		for i := 0; i+1 < len(content); i += 2 {
+			key := content[i].Value
 			if !slices.Contains(keys, key) {
 				keys = append(keys, key)
 			}
-			walk(node.Content[i+1], append(slices.Clone(path), key))
+			walk(content[i+1], append(slices.Clone(path), key))
 		}
 		if len(keys) > 0 {
 			out[strings.Join(path, keyPathSep)] = keys
 		}
 	}
-	for i := 0; i+1 < len(n.Content); i += 2 {
-		key := n.Content[i].Value
+	content := mergedContent(n)
+	for i := 0; i+1 < len(content); i += 2 {
+		key := content[i].Value
 		if _, decoded := meta[key]; decoded {
-			walk(n.Content[i+1], []string{key})
+			walk(content[i+1], []string{key})
 		}
 	}
 	if len(out) == 0 {
