@@ -28,7 +28,7 @@ After you change the config, run `agnostic-ai sync --dry-run` to see the planned
 
 ## Local overrides
 
-`agnostic-ai.local.yaml` holds changes for one machine. A single value or a list replaces the base value. A group of settings merges key by key. An empty (null) local value, such as a key whose children are all commented out, replaces the shared value, and `lint` warns about it. Remove the local key to inherit the shared value. `init` adds the file to `.gitignore`. Personal specs go in [`.agnostic-ai/local/`](@/docs/local-overrides.md).
+`agnostic-ai.local.yaml` holds changes for one machine. A single value or a list replaces the base value. A group of settings merges key by key. An empty local key, such as one whose children are all commented out, is ignored and the shared group stays; `lint` warns about it. Write `{}` to clear a shared group. `init` adds the file to `.gitignore`. Personal specs go in [`.agnostic-ai/local/`](@/docs/local-overrides.md).
 
 ```yaml
 # agnostic-ai.local.yaml (never committed)

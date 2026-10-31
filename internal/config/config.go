@@ -678,7 +678,10 @@ func deepMerge(dst, src map[string]any) {
 		if dv, ok := dst[k]; ok {
 			dstMap, dstIsMap := dv.(map[string]any)
 			srcMap, srcIsMap := sv.(map[string]any)
-			if dstIsMap && srcIsMap {
+			if dstIsMap && sv == nil {
+				continue
+			}
+			if dstIsMap && srcIsMap && len(srcMap) > 0 {
 				deepMerge(dstMap, srcMap)
 				continue
 			}
