@@ -474,6 +474,46 @@ func TestInitCmd_NoGitignoreNoteWhenInitFails(t *testing.T) {
 	}
 }
 
+func TestInitCmd_GitignoreOffHintsAtExactPin(t *testing.T) {
+	cases := map[string]struct {
+		version string
+		args    []string
+		want    bool
+	}{
+		"gitignore off":      {"0.91.0", []string{"init", "--all", "--gitignore=off"}, true},
+		"gitignore default":  {"0.91.0", []string{"init", "--all"}, false},
+		"gitignore off, dev": {"test", []string{"init", "--all", "--gitignore=off"}, false},
+		"gitignore off, dry": {"0.91.0", []string{"init", "--all", "--gitignore=off", "--dry-run"}, false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+
+			var stderr strings.Builder
+			root := NewRootCmd(tc.version)
+			root.SetErr(&stderr)
+			root.SetArgs(tc.args)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if got := strings.Contains(stderr.String(), requiresExactPinNote("0.91.0")); got != tc.want {
+				t.Errorf("hint printed = %v, want %v:\n%s", got, tc.want, stderr.String())
+			}
+			if tc.want {
+				cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(string(cfg), "requires: \">=0.91.0\"\n") {
+					t.Errorf("init must still write a minimum:\n%s", cfg)
+				}
+			}
+		})
+	}
+}
+
 func TestInitCmd_ExplicitGitignoreSaysNothing(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)

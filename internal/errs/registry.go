@@ -41,7 +41,7 @@ var registry = map[Code]Entry{
 		Code:  CodeRequiresUnmet,
 		Title: "Installed version outside requires",
 		Cause: "The config's `requires` key names the agnostic-ai releases its specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs, such as `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`, stops before it reads specs or writes files.",
-		Fix:   "To adopt a newer installed release, run `agnostic-ai upgrade --requires` from the project root. It raises requires to that release and keeps its form, so a minimum stays a minimum and an exact release stays exact; a range becomes a minimum. It also updates the schema URL, then runs sync. For an older binary, run `agnostic-ai upgrade`, `upgrade --version vX.Y.Z`, or the project's package-manager install. To adopt a newer release in global home config, edit requires in the named file. `agnostic-ai upgrade --check` shows the running binary and PATH shadows.",
+		Fix:   "To adopt a newer installed release, run `agnostic-ai upgrade --requires` from the project root. It raises requires to that release and keeps its form, so a minimum stays a minimum and an exact release stays exact; a range becomes a minimum. It also updates the schema URL, then runs sync. For an older binary, run `agnostic-ai upgrade`, `upgrade --version vX.Y.Z`, or the project's package-manager install. When generated files are git-ignored, set `requires: \">=X.Y.Z\"` instead of an exact release, so later releases keep working. To adopt a newer release in global home config, edit requires in the named file. `agnostic-ai upgrade --check` shows the running binary and PATH shadows.",
 	},
 	CodeOutputCollision: {
 		Code:  CodeOutputCollision,

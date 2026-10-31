@@ -307,6 +307,9 @@ func startProject(cmd *cobra.Command, tools []string) (err error) {
 	if err := refuseUnmanagedImport(cfg, targets, true); err != nil {
 		return errors.Join(err, os.Remove(config.ConfigFileName), setPendingImports(nil))
 	}
+	if release, stable := stableReleaseVersion(cmd.Root().Version); stable && !gitignoreOn && verbosity >= levelDefault {
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), requiresExactPinNote(release))
+	}
 	var sources []string
 	for _, t := range targets {
 		if hasOwnConfig(cfg, t) {

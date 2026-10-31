@@ -160,7 +160,7 @@ func (r Requirement) InstallTarget() (version string, latest bool) {
 // String writes the requirement in its canonical form: a lone exact
 // release bare, every other term with its operator.
 func (r Requirement) String() string {
-	if len(r.terms) == 1 && r.terms[0].op == exactly {
+	if r.Exact() {
 		return formatRelease(r.terms[0].at)
 	}
 	parts := make([]string, 0, len(r.terms))
@@ -183,6 +183,11 @@ func AdoptRequirement(current, version string) string {
 		return string(exactly) + version
 	}
 	return version
+}
+
+// Exact reports whether the requirement names one release.
+func (r Requirement) Exact() bool {
+	return len(r.terms) == 1 && r.terms[0].op == exactly
 }
 
 // keepsForm reports whether the requirement is one minimum or one exact release.

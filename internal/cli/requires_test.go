@@ -573,3 +573,39 @@ func TestPlannedOutputs_IgnoresRequires(t *testing.T) {
 		t.Error("requiresSkipped left on")
 	}
 }
+
+const wantMinimumHint = "set `requires: \">=0.88.0\"`"
+
+func TestProjectCommands_ExactPinHintsAtMinimum(t *testing.T) {
+	requiresProject(t, "0.88.0")
+
+	_, _, err := runAsVersion(t, "v0.89.0", "sync")
+	assertUnmetRequires(t, err, "agnostic-ai.yaml", "0.88.0", "0.89.0")
+	if !strings.Contains(err.Error(), "when generated files are git-ignored, "+wantMinimumHint) {
+		t.Errorf("an exact pin must hint at a minimum: %v", err)
+	}
+}
+
+func TestProjectCommands_RangeGetsNoMinimumHint(t *testing.T) {
+	requiresProject(t, ">=0.88.0 <0.89.0")
+
+	_, _, err := runAsVersion(t, "v0.89.0", "sync")
+	assertUnmetRequires(t, err, "agnostic-ai.yaml", ">=0.88.0 <0.89.0", "0.89.0")
+	if strings.Contains(err.Error(), "git-ignored") {
+		t.Errorf("a range must not get the minimum hint: %v", err)
+	}
+}
+
+func TestGlobalCommands_ExactPinHintsAtMinimum(t *testing.T) {
+	_, source := globalConfigTestHome(t)
+	config := filepath.Join(source, "agnostic-ai.yaml")
+	mustWriteGlobalTest(t, config, "requires: \"0.88.0\"\ntargets: [claude]\n")
+
+	_, _, err := runAsVersion(t, "v0.89.0", "sync", "--global")
+	if errs.CodeOf(err) != errs.CodeRequiresUnmet {
+		t.Fatalf("want %s, got %v", errs.CodeRequiresUnmet, err)
+	}
+	if !strings.Contains(err.Error(), config+" requires agnostic-ai 0.88.0") || !strings.Contains(err.Error(), wantMinimumHint) {
+		t.Errorf("a global exact pin must hint at a minimum: %v", err)
+	}
+}
