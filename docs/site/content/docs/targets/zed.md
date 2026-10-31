@@ -85,6 +85,12 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 | `outputs.zed.tasks-file` | empty | opt-in |
 | `outputs.zed.rules-file` | unset | writes the legacy single document and skips the write of instructions that point to source specs, so pointing it at `.rules` replaces the pointer file instead of clashing with it |
 
+## Global instructions
+
+`agnostic-ai sync --global --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). See the [global output table](@/docs/global-configuration.md#global-output) for each platform's path. Skills still use `~/.agents/skills/`.
+
+On Windows, the first sync after this fix clears the managed block from the old XDG file only when the ledger records it. Personal text and private permissions remain. A link to the active file is retained. An old file not recorded by sync stays untouched. `explain --global rules/<name>.md` shows the current native file. Global instruction import is not supported; project `import zed` keeps its existing paths below.
+
 ## Import
 
 `agnostic-ai import zed` reads `.rules`, `.zed/tasks.json` (as hook specs), and MCP servers from `.zed/settings.json`. It copies `.agents/skills/<name>/SKILL.md` with all bundled files.
