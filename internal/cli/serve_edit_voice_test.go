@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -271,5 +272,73 @@ func TestEditField_GlobalVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
 	}
 	if got := readGlobalTest(t, file); got != original {
 		t.Errorf("per-tool boolean edit changed voice: %s", got)
+	}
+}
+
+func TestEditField_GlobalVoiceWritesEmptyDocuments(t *testing.T) {
+	for _, original := range []string{" \n", "# My settings\n"} {
+		t.Run(original, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("voice edit panicked: %v", r)
+				}
+			}()
+			source := editHome(t)
+			file := filepath.Join(source, "settings", "native.yaml")
+			mustWriteGlobalTest(t, file, original)
+			if err := os.Chmod(file, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			h := newEditHandler(source, true)
+			for _, body := range []string{
+				`{"audience":"shared","path":"settings/native.yaml","key":"voice.enabled","value":true,"expected":null}`,
+				`{"audience":"shared","path":"settings/native.yaml","key":"voice.mode","value":"hold","expected":null}`,
+			} {
+				if rec := postEdit(t, h, editFieldPath, body, nil); rec.Code != http.StatusOK {
+					t.Fatalf("%s: %d %s", body, rec.Code, rec.Body)
+				}
+			}
+			if got := readGlobalTest(t, file); !strings.Contains(got, original) {
+				t.Errorf("original bytes lost: %q", got)
+			}
+			if info, err := os.Stat(file); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+				t.Errorf("private mode changed: %v, %v", info, err)
+			}
+		})
+	}
+}
+
+func TestEditField_GlobalVoiceRejectsWholePersonalClear(t *testing.T) {
+	source := editHome(t)
+	shared := filepath.Join(source, "settings", "native.yaml")
+	local := filepath.Join(source, "local", "settings", "native.yaml")
+	original := "name: native\nvoice:\n  enabled: true\n  mode: hold\n  language: es\n"
+	personal := "# Personal clear\nname: native\nvoice: null\n"
+	mustWriteGlobalTest(t, shared, original)
+	mustWriteGlobalTest(t, local, personal)
+	h := newEditHandler(source, true)
+	for _, tc := range []struct{ key, value, expected string }{{"enabled", "false", `"true"`}, {"mode", `"tap"`, `"hold"`}, {"language", `"fr"`, `"es"`}} {
+		for _, audience := range []string{"shared", "personal"} {
+			for _, value := range []string{tc.value, "null"} {
+				body := fmt.Sprintf(`{"audience":%q,"path":"settings/native.yaml","key":"voice.%s","value":%s,"expected":%s}`, audience, tc.key, value, tc.expected)
+				rec := postEdit(t, h, editFieldPath, body, nil)
+				if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Remove voice: null") || !strings.Contains(rec.Body.String(), "local/settings/native.yaml") {
+					t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
+				}
+			}
+		}
+	}
+	for _, audience := range []string{"shared", "personal"} {
+		body := fmt.Sprintf(`{"audience":%q,"path":"settings/native.yaml","key":"voice.enabled","value":false}`, audience)
+		if rec := postEdit(t, h, editValuePath, body, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Remove voice: null") {
+			t.Errorf("boolean endpoint %s: %d %s", audience, rec.Code, rec.Body)
+		}
+		body = fmt.Sprintf(`{"audience":%q,"path":"settings/native.yaml","key":"voice.mode","value":null,"expected":null}`, audience)
+		if rec := postEdit(t, h, editFieldPath, body, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Remove voice: null") {
+			t.Errorf("stale clear %s: %d %s", audience, rec.Code, rec.Body)
+		}
+	}
+	if readGlobalTest(t, shared) != original || readGlobalTest(t, local) != personal {
+		t.Error("refused edits changed files")
 	}
 }

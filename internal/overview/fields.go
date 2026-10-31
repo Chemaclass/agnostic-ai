@@ -63,10 +63,15 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			}
 			e := byName[it.Name]
 			values := d.values(it.Values)
-			cleared := strings.HasPrefix(d.key, "permissions.") && personalPermissionsCleared(e)
+			cleared := ""
+			if strings.HasPrefix(d.key, "permissions.") && personalPermissionsCleared(e) {
+				cleared = "permissions"
+			} else if strings.HasPrefix(d.key, "voice.") && personalFieldCleared(e, "voice") {
+				cleared = "voice"
+			}
 			if e.Base == nil {
-				if cleared {
-					values = []Value{{Key: "permissions", Type: ValueText, Value: "null"}}
+				if cleared != "" {
+					values = []Value{{Key: cleared, Type: ValueText, Value: "null"}}
 				}
 				if len(values) > 0 {
 					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: LocalLayer(e)})
@@ -74,8 +79,8 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				continue
 			}
 			own := d.values(specValues(e.LocalMeta))
-			if cleared {
-				own = []Value{{Key: "permissions", Type: ValueText, Value: "null"}}
+			if cleared != "" {
+				own = []Value{{Key: cleared, Type: ValueText, Value: "null"}}
 			}
 			team := SpecPath(root, *e.Base)
 			if !d.prefix && len(own) == 0 {
@@ -190,6 +195,18 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			}) {
 				edit.DisabledReason = "This model names a tier from models: in the config; edit the spec directly."
 			}
+			if strings.HasPrefix(d.key, "voice.") {
+				if !global {
+					edit.DisabledReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
+				} else {
+					for _, e := range entries {
+						if reason := VoiceEditDisabledReason(e, root); reason != "" && (edit.Path == "" || SettingsTeamPath(root, e) == edit.Path) {
+							edit.DisabledReason = reason
+							break
+						}
+					}
+				}
+			}
 			f.Editable = edit
 		}
 		fields = append(fields, f)
@@ -210,6 +227,10 @@ func PermissionEditCandidate(e spec.Entry) bool {
 }
 
 func personalPermissionsCleared(e spec.Entry) bool {
+	return personalFieldCleared(e, "permissions")
+}
+
+func personalFieldCleared(e spec.Entry, key string) bool {
 	if !LocalLayer(e) {
 		return false
 	}
@@ -217,8 +238,15 @@ func personalPermissionsCleared(e spec.Entry) bool {
 	if e.Base == nil {
 		meta = e.Meta
 	}
-	value, set := meta["permissions"]
+	value, set := meta[key]
 	return set && value == nil
+}
+
+func VoiceEditDisabledReason(e spec.Entry, root string) string {
+	if !personalFieldCleared(e, "voice") {
+		return ""
+	}
+	return fmt.Sprintf("%s sets voice: null, which clears every voice setting. Remove voice: null from that personal file before editing an individual setting.", SpecPath(root, e))
 }
 
 func PermissionEditDisabledReason(e spec.Entry, root string) string {

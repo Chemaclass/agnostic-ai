@@ -310,6 +310,11 @@ func (h *editHandler) settingsEdit(where editAudience, shown, key string, value 
 		if !h.matchesShownSpec(e, shown) || e.Layer == "builtin" {
 			continue
 		}
+		if voiceEditField(key) {
+			if reason := overview.VoiceEditDisabledReason(e, h.root); reason != "" {
+				return "", nil, errors.New(reason)
+			}
+		}
 		var current any = e.Meta
 		for _, part := range strings.Split(key, ".") {
 			m, ok := current.(map[string]any)

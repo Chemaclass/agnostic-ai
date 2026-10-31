@@ -2,6 +2,7 @@ package overview
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -104,5 +105,31 @@ func TestSettingsValuePath_VoiceNamesOnlyTheOverriddenMember(t *testing.T) {
 	}
 	if got := SettingsValuePath("", personal, "voice.mode", []string{"claude"}, nil); got != shared.Path {
 		t.Errorf("mode source = %q, want %q", got, shared.Path)
+	}
+}
+
+func TestSettingsFields_WholePersonalVoiceClearShowsSourcesAndBlocksEdits(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}}
+	shared := entry(spec.KindSettings, "voice", "settings/voice.yaml", map[string]any{"voice": map[string]any{"enabled": true, "mode": "hold", "language": "es"}})
+	overlay := localOverlay(shared, "local/settings/voice.yaml", map[string]any{"voice": nil})
+	overlay.Layer = "global-local"
+	delete(overlay.Meta, "voice")
+	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}, Global: true}), SectionSettings)
+	for _, field := range section.Fields {
+		if !strings.HasPrefix(field.Key, "voice.") {
+			continue
+		}
+		if len(field.Set) != 2 || !field.Set[0].Local || field.Set[0].Values[0].Key != "voice" || field.Set[1].Path != shared.Path || field.Set[1].Values[0].Key != field.Key {
+			t.Errorf("%s sources = %+v", field.Key, field.Set)
+		}
+		if field.Editable == nil || !strings.Contains(field.Editable.DisabledReason, "Remove voice: null") || !strings.Contains(field.Editable.DisabledReason, overlay.Path) {
+			t.Errorf("%s edit = %+v", field.Key, field.Editable)
+		}
+	}
+	project := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}}), SectionSettings)
+	for _, field := range project.Fields {
+		if strings.HasPrefix(field.Key, "voice.") && (field.Editable == nil || field.Editable.DisabledReason != "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global.") {
+			t.Errorf("%s project reason = %+v", field.Key, field.Editable)
+		}
 	}
 }

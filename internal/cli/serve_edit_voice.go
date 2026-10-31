@@ -44,6 +44,9 @@ func setVoiceFieldAt(data []byte, root *yaml.Node, key string, value any) ([]byt
 	if err := yaml.Unmarshal(data, &before); err != nil {
 		return nil, err
 	}
+	if before == nil {
+		before = map[string]any{}
+	}
 	member := strings.TrimPrefix(key, "voice.")
 	_, parent := yamlMapValue(root, "voice")
 	_, present := overview.SettingsFieldValue(before, key)

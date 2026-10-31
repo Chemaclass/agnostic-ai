@@ -1415,3 +1415,42 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     await expect(other.locator('.finding-rechecked')).toBeFocused()
   } finally { await f.close() }
 })
+
+test('live global voice explains a whole personal clear and refuses member edits', async ({ page, request }) => {
+  const f = await fixture(true)
+  try {
+    const shared = 'name: native\nvoice:\n  enabled: true\n  mode: hold\n  language: es\n'
+    const local = 'name: native\nvoice: null\n'
+    await put(f.settings, shared)
+    await put(f.localSettings, local)
+    await page.goto(`${f.url}?view=settings&tab=preferences`)
+    for (const label of ['Voice dictation', 'Voice mode', 'Voice language']) {
+      const row = page.locator('.field-row').filter({ has: page.getByText(label, { exact: true }) })
+      await expect(row).toContainText('Remove voice: null')
+      await expect(row).toContainText('local/settings/native.yaml')
+      await expect(row.getByRole('button', { name: /^(Save|Update|Clear|Reset to shared value)$/ })).toHaveCount(0)
+    }
+    for (const audience of ['shared', 'personal']) {
+      const response = await request.post(`${f.url}api/edit/field`, { data: { audience, path: 'settings/native.yaml', key: 'voice.mode', value: 'tap', expected: 'hold' } })
+      expect(response.status()).toBe(400)
+      expect(await response.text()).toContain('Remove voice: null')
+    }
+    expect(await readFile(f.settings, 'utf8')).toBe(shared)
+    expect(await readFile(f.localSettings, 'utf8')).toBe(local)
+  } finally { await f.close() }
+})
+
+test('live global voice edits comment-only and whitespace-only settings without losing bytes', async ({ request }) => {
+  const f = await fixture(true)
+  try {
+    await rm(f.localSettings)
+    for (const original of [' \n', '# My settings\n']) {
+      await put(f.settings, original)
+      for (const [key, value] of [['voice.enabled', true], ['voice.mode', 'hold']] as const) {
+        const response = await request.post(`${f.url}api/edit/field`, { data: { audience: 'shared', path: 'settings/native.yaml', key, value, expected: null } })
+        expect(response.status()).toBe(200)
+      }
+      expect(await readFile(f.settings, 'utf8')).toContain(original)
+    }
+  } finally { await f.close() }
+})

@@ -161,6 +161,11 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 	} else {
 		return "", nil, errors.New("several editable settings specs exist; choose a path")
 	}
+	if voiceEditField(key) {
+		if reason := overview.VoiceEditDisabledReason(chosen, h.root); reason != "" {
+			return "", nil, errors.New(reason)
+		}
+	}
 	*picked = chosen
 	if key == "effort" && addr.target != "" && value != nil {
 		fromTier, err := tierGivesEffort(chosen, scope.models)
