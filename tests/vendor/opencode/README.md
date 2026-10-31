@@ -6,7 +6,7 @@ The check renders actual hook specs, compiles their modules against released Typ
 
 Pins: OpenCode V2 plugin 2.0.26, OpenCode V1 plugin 1.3.10, Bun 1.3.10. Bun is installed through its official optional platform packages with install scripts disabled. This is a test dependency only.
 
-The V1 plugin's Zod dependency is overridden to 4.6.6 for a security fix. See [build dependency checks](../../../docs/internal/build-dependencies.md#check-npm-dependencies) for the advisory and removal condition.
+The V1 plugin's Zod dependency is overridden to 4.6.6. V2 descendants use glob 14.0.3 and minimatch 11.0.3, including the Google authentication/rimraf branch. The suite exercises the public util matching APIs and rimraf's resolved CommonJS glob API. See [build dependency checks](../../../docs/internal/build-dependencies.md#check-npm-dependencies) for the advisory and removal condition.
 
 On macOS and Linux, the suite proves real command execution, blocking, process-tree cleanup, and unload. On Windows, the released loader registers V2 callbacks, setup warns, matching callbacks refuse before session lookup or command execution, and unmatched events do not block. The actual V1 control runs on every OS. No Windows V2 launcher or startup measurement is included.
 

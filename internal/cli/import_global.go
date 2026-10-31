@@ -21,15 +21,15 @@ import (
 )
 
 // globalImportSettingsSpec is where import --global puts the default
-// model and effort it reads.
+// model, effort, and voice settings it reads.
 const globalImportSettingsSpec = "settings/imported.yaml"
 
 // runImportGlobal reads the user settings and MCP files sync --global
 // writes and turns them into specs in the home, so a following sync
 // adopts them and changes nothing. A spec file that already exists is
 // never replaced: an equal one is left as it is, and a different one is
-// reported and skipped. The permissions spec is the exception: it is
-// the import's own, so the rules it lacks are appended to it.
+// reported and skipped. Missing permission rules and a compatible
+// voice field can be appended to their existing import specs.
 func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	home, err := globalUserHome()
 	if err != nil {
@@ -60,6 +60,10 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	// Anything a home spec already provides, shared or local, is left
 	// out: importing it again would copy a local secret into the
 	// shared home, or add a second spec for one key.
+	priorSettings, err := snapshotImportedGlobalSettings(source)
+	if err != nil {
+		return err
+	}
 	names, err := loadGlobalBuiltins(source, nil)
 	if err != nil {
 		return err
@@ -73,7 +77,8 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 		return err
 	}
 	warn := cmd.ErrOrStderr()
-	if err := stageGlobalSettings(home, stage, targets, bundle.Settings); err != nil {
+	voiceUpdate, err := stageGlobalSettings(home, source, stage, targets, bundle.Settings, warn, priorSettings)
+	if err != nil {
 		return err
 	}
 	state, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
@@ -110,6 +115,20 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 		dst := filepath.Join(source, rel)
 		existing, readErr := os.ReadFile(dst)
 		switch {
+		case filepath.ToSlash(rel) == globalImportSettingsSpec && voiceUpdate != nil:
+			if err := voiceUpdate.before.check(dst); err != nil {
+				return err
+			}
+			updated++
+			if dryRun {
+				_, err := fmt.Fprintf(out, "dry-run: update %s: add voice\n", dst)
+				return err
+			}
+			if _, err := voiceUpdate.before.replace(dst, voiceUpdate.data); err != nil {
+				return err
+			}
+			_, err := fmt.Fprintf(out, "updated %s: added voice\n", dst)
+			return err
 		case readErr == nil && bytes.Equal(existing, data):
 			kept++
 			return nil
@@ -223,11 +242,9 @@ func globalImportTargets(args []string) ([]string, error) {
 	return out, nil
 }
 
-// stageGlobalSettings writes one settings spec with each target's
-// default model and effort as a per-target map, so sync writes each
-// value back to the key it came from.
-func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry) error {
+func stageGlobalSettings(home, source, stage string, targets []string, have []spec.Entry, warn io.Writer, priorSettings *editFileSnapshot) (*importedVoiceUpdate, error) {
 	model, effort := map[string]any{}, map[string]any{}
+	voice, voiceSources := map[string]any{}, map[string]string{}
 	for _, target := range targets {
 		g := globalTargets[target]
 		f := g.settings
@@ -240,13 +257,19 @@ func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("read %s: %w", path, err)
+			return nil, fmt.Errorf("read %s: %w", path, err)
 		}
 		values, err := settingsValues(path, f.format, data)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		eligible := slices.DeleteFunc(slices.Clone(have), func(entry spec.Entry) bool { return !entry.EmitsTo(target) })
+		if !homeSetsVoice(have, target) {
+			incoming := importedGlobalVoice(target, f, values)
+			if err := mergeImportedVoice(voice, voiceSources, target, incoming, warn); err != nil {
+				return nil, err
+			}
+		}
 		if f.model != "" && adapters.SettingsModel(eligible, target) == "" {
 			if v, ok := settingsLookup(values, f.model, f.format); ok {
 				if s, _ := v.(string); s != "" {
@@ -260,21 +283,54 @@ func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry
 			}
 		}
 	}
-	doc := map[string]any{}
-	if len(model) > 0 {
-		doc["model"] = model
+	doc, other := map[string]any{}, map[string]any{}
+	coveredVoiceTargets := slices.DeleteFunc(globalTargetNames(), func(target string) bool {
+		return !homeSetsVoice(have, target)
+	})
+	if len(voice) > 0 {
+		doc[voiceField] = voice
+		if len(coveredVoiceTargets) > 0 {
+			doc["targets-exclude"] = coveredVoiceTargets
+		}
 	}
-	if len(effort) > 0 {
-		doc["effort"] = effort
+	for _, field := range []struct {
+		name   string
+		values map[string]any
+	}{{"model", model}, {"effort", effort}} {
+		included, excluded := map[string]any{}, map[string]any{}
+		for target, value := range field.values {
+			if len(voice) == 0 || !slices.Contains(coveredVoiceTargets, target) {
+				included[target] = value
+			} else {
+				excluded[target] = value
+			}
+		}
+		if len(included) > 0 {
+			doc[field.name] = included
+		}
+		if len(excluded) > 0 {
+			other[field.name] = excluded
+		}
 	}
+	voiceUpdate, err := stageImportedGlobalVoice(source, stage, doc, priorSettings, have)
+	if err != nil {
+		return nil, err
+	}
+	if err := stageGlobalSettingsDoc(stage, globalImportSettingsSpec, doc); err != nil {
+		return nil, err
+	}
+	return voiceUpdate, stageGlobalSettingsDoc(stage, "settings/imported-models.yaml", other)
+}
+
+func stageGlobalSettingsDoc(stage, name string, doc map[string]any) error {
 	if len(doc) == 0 {
 		return nil
 	}
 	raw, err := yaml.Marshal(doc)
 	if err != nil {
-		return fmt.Errorf("marshal %s: %w", globalImportSettingsSpec, err)
+		return fmt.Errorf("marshal %s: %w", name, err)
 	}
-	dst := filepath.Join(stage, filepath.FromSlash(globalImportSettingsSpec))
+	dst := filepath.Join(stage, filepath.FromSlash(name))
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("create directory for %s: %w", dst, err)
 	}

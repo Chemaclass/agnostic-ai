@@ -108,6 +108,12 @@ voice:
 - Removing the field restores each key's original bytes, removes an empty `voice` object that sync created, and removes an empty file that sync created. A value changed by hand stays yours.
 - `explain --global settings/voice.yaml` lists the mapped keys.
 
+`import --global` reads these keys into one shared `voice` map. Tool arguments select the native files to read, so importing Claude alone can supply voice settings to Qwen on a later sync. A tool whose home spec already sets `voice` is skipped. Import excludes those tools with `targets-exclude` to keep their existing values; model and effort values for excluded tools go into `settings/imported-models.yaml`.
+
+An earlier model import can receive a missing `voice` field without changing its existing values or comments. Import uses `settings/imported-voice.yaml` when scope, formatting, or other incoming settings require a separate file. If that name is already in use by either layer, it selects a numbered name.
+
+Values from the first tool named win when tools disagree; import prints the values it skipped. Claude's response language stays out of `voice.language`. Its older `voiceEnabled` key is read when the `voice` object is absent; sync reuses a matching legacy value without adding a nested key.
+
 See [Claude voice dictation](https://code.claude.com/docs/en/voice-dictation), [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/), [Gemini's voice schema](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/config/settingsSchema.ts), [Grok settings](https://docs.x.ai/build/settings/reference), and [Vibe voice mode](https://github.com/mistralai/mistral-vibe#voice-mode).
 
 ## Protected paths
