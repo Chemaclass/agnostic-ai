@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const maxLinkHops = 40
@@ -55,10 +56,15 @@ func createTemp(dir, prefix string, mode fs.FileMode) (*os.File, error) {
 }
 
 // resolve returns the file to replace, the mode its replacement gets, and
-// whether that file exists.
+// whether that file exists. Folders resolve before a ".." in a link is
+// applied, as the kernel does.
 func resolve(path string, defaultMode fs.FileMode) (string, fs.FileMode, bool, error) {
 	target := path
 	for hops := 0; ; hops++ {
+		var err error
+		if target, err = resolveFolder(target); err != nil {
+			return "", 0, false, err
+		}
 		info, err := os.Lstat(target)
 		if errors.Is(err, fs.ErrNotExist) {
 			return target, defaultMode, false, nil
@@ -72,6 +78,12 @@ func resolve(path string, defaultMode fs.FileMode) (string, fs.FileMode, bool, e
 			}
 			return target, info.Mode().Perm(), true, nil
 		}
+		if resolved, err := filepath.EvalSymlinks(target); err == nil {
+			target = resolved
+			continue
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return "", 0, false, err
+		}
 		if hops == maxLinkHops {
 			return "", 0, false, errors.New("too many symbolic links")
 		}
@@ -80,8 +92,25 @@ func resolve(path string, defaultMode fs.FileMode) (string, fs.FileMode, bool, e
 			return "", 0, false, err
 		}
 		if !filepath.IsAbs(link) {
-			link = filepath.Join(filepath.Dir(target), link)
+			link = target[:strings.LastIndexByte(target, filepath.Separator)+1] + link
 		}
 		target = link
 	}
+}
+
+// resolveFolder resolves the folder part of path, leaving its last element.
+func resolveFolder(path string) (string, error) {
+	i := strings.LastIndexByte(path, filepath.Separator)
+	dir, base := path[:i+1], path[i+1:]
+	if dir == "" {
+		return path, nil
+	}
+	if base == "" || base == "." || base == ".." {
+		return filepath.EvalSymlinks(path)
+	}
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(resolved, base), nil
 }

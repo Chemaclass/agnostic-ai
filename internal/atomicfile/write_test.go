@@ -143,3 +143,56 @@ func TestWrite_RefusesReadOnlyFile(t *testing.T) {
 		t.Errorf("file = %q", got)
 	}
 }
+
+func linkedFolders(t *testing.T) (root, outside string) {
+	t.Helper()
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	root = filepath.Join(base, "project")
+	if err := os.MkdirAll(filepath.Join(root, "a", "b", "c"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.FromSlash("a/b/c"), filepath.Join(root, "sub")); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	return root, base
+}
+
+func TestWrite_DotDotInLinkAppliesAfterLinkedFolder(t *testing.T) {
+	root, outside := linkedFolders(t)
+	// sub is a/b/c, so sub/../../real is a/real.
+	inside := filepath.Join(root, "a", "real")
+	if err := os.WriteFile(inside, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.FromSlash("sub/../../real"), filepath.Join(root, "ignore")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(filepath.Join(root, "ignore"), []byte("new"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(inside); string(got) != "new" {
+		t.Errorf("target = %q", got)
+	}
+	if _, err := os.Lstat(filepath.Join(outside, "real")); err == nil {
+		t.Error("wrote outside the project")
+	}
+}
+
+func TestWrite_DotDotInDanglingLinkAppliesAfterLinkedFolder(t *testing.T) {
+	root, outside := linkedFolders(t)
+	if err := os.Symlink(filepath.FromSlash("sub/../../../real"), filepath.Join(root, "ignore")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(filepath.Join(root, "ignore"), []byte("new"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(root, "real")); string(got) != "new" {
+		t.Errorf("target = %q", got)
+	}
+	if _, err := os.Lstat(filepath.Join(outside, "real")); err == nil {
+		t.Error("wrote outside the project")
+	}
+}
