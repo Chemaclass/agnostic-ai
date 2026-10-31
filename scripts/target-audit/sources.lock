@@ -210,7 +210,7 @@ kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/agents	200	htm
 kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/hooks	200	html	eb83eb02634b5d77c6a99f59c2f414223c07211173108bf3985b1953b03754a1	2026-10-30
 kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/mcp	200	html	2e0fba05c2a1159fa56257598c3f18fea70beaca7ab5add299c5d0e6372d470d	2026-10-30
 kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/skills	200	html	df4843fe9f160ff28ac7f24e4ea50c22c793c032ae47821b028d45a3b49cfd4f	2026-10-30
-kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	d9fd0c756232ba0b010f929c7767332eedde9263a50ae8df2ea3770d790d3b5a	2026-10-31
+kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	c7b8d73606a5a17ba4e30d55d2dcbea8d23b447450d2dbb996c60466f9652319	2026-10-31
 kiro	docs	https://kiro.dev/docs/cli/chat/manage-prompts.md	200	markdown-mirror	c1709a715b4d13a98012d3ed57a23d5bcdeca460502ce93d48f2ae9973e9de0e	2026-10-04
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	d4f5b2ff9c5a81212b43324dbbc5596e5406decb2125b058e5bd5f029ebae59c	2026-10-10
 kiro	docs	https://kiro.dev/docs/custom-agents.md	200	markdown-mirror	93ca734f6c2f9e79d0bba8a4b730da075dad7aca1303023985408819e9aa76b5	2026-10-21
