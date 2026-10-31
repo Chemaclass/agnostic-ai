@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
+- Memory indexing keeps nested and external links and avoids duplicate entries for filenames with spaces (#2881).
 - Failed pack fetches keep installed content, and partial updates record each successful commit (#2880).
 - Hook runs report Windows timeouts correctly, so Copilot lets the action proceed (#2878).
 - Claude settings keep user entries in configured objects and warn before replacing an entry (#2877).
