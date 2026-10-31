@@ -710,4 +710,8 @@
 # table fragments while preserving user comments. Go 1.27.3 Linux amd64 release
 # flags: 24387744, versus 24346784 on main f7e02dcc2 (+40960). No new dependency.
 # Keep the existing 8192-byte build allowance.
-24395936
+# #2834 imports native voice settings through the shared write mappings and
+# safely extends earlier model imports without narrowing the layered voice scope.
+# Go 1.27.3 Linux amd64 release flags: 24420512, versus 24395936 on main
+# 08e85bebf (+24576). No new dependency. Keep the 8192-byte build allowance.
+24428704
