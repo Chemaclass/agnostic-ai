@@ -162,6 +162,8 @@ The public-preview docs do not confirm them, so they are skipped with a warning.
 - **Agents and MCP**: nested profiles win over flat files. `serverUrl` becomes `url`, and other fields are kept under `x-antigravity`.
 - **Plugin files**: import reads the configured `outputs.antigravity.mcp-file`, `agents-dir`, and `rules-dir`. These paths can point into `.agents/plugins/<name>/`. Import does not use `skills-dir`. Skills come from `.agents/skills/`, with `.agent/skills/` as a fallback. Import skips everything else under `.agents/plugins/`.
 
+Absolute MCP file paths must resolve inside the project and outside `.git`. Import previews use the same boundary through project links and Windows short paths; a source folder alias does not grant access to an outside MCP file.
+
 ## Protected paths
 
 Not enforced. Antigravity takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
