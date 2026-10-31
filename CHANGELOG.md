@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
+- Hook runs report Windows timeouts correctly, so Copilot lets the action proceed (#2878).
 - Claude settings keep user entries in configured objects and warn before replacing an entry (#2877).
 - Sync preserves `.gitignore` entries and asks for the closing marker when a managed block is truncated (#2875).
 
