@@ -15,7 +15,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Sync stops with an error when a JSON settings file it merges into exists but cannot be read, instead of overwriting it (#2887).
 - MCP tool listing stops at its timeout when a detached child keeps stderr open (#2888).
 - A repeated key inside a nested map, such as `permissions.deny` or an MCP `env` entry, is a parse error with its line instead of silently dropping the field (#2890).
-- An empty key in `agnostic-ai.local.yaml` no longer wipes the shared group of settings; `{}` clears it, and lint warns about the empty key, saying whether the shared value stays or is replaced. An empty local model tier keeps the shared tier (#2891).
+- An empty key in `agnostic-ai.local.yaml` no longer wipes the shared group of settings; `{}` clears it, and lint warns about the empty key, saying whether the shared value stays or is replaced. An empty local model tier keeps the shared tier, and the warning also covers an empty `targets:` that replaces the default targets (#2891).
 - The language server answers malformed JSON with a parse error and keeps running, and rejects message sizes above 64 MiB instead of crashing (#2889, #2908).
 - Hook commands keep home, variable and absolute paths such as `~/.claude/hooks/x.sh`; only project hook paths move to the target tool's folder (#2885).
 - MCP `type: local`, `streamable-http` and `remote` now write a working server instead of an empty one, and `lint` reports any other unknown `type` (#2886).
