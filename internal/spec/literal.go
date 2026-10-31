@@ -25,16 +25,18 @@ func literalTags(n *yaml.Node) map[string]map[string]bool {
 		return nil
 	}
 	var out map[string]map[string]bool
-	for i := 0; i+1 < len(n.Content); i += 2 {
-		field, values := n.Content[i].Value, resolveAlias(n.Content[i+1])
+	content := mergedContent(n)
+	for i := 0; i+1 < len(content); i += 2 {
+		field, values := content[i].Value, resolveAlias(content[i+1])
 		delete(out, field)
 		if values.Kind != yaml.MappingNode {
 			continue
 		}
 		marked := map[string]bool{}
-		for j := 0; j+1 < len(values.Content); j += 2 {
-			key := values.Content[j].Value
-			if resolveAlias(values.Content[j+1]).Tag == LiteralTag {
+		valueContent := mergedContent(values)
+		for j := 0; j+1 < len(valueContent); j += 2 {
+			key := valueContent[j].Value
+			if resolveAlias(valueContent[j+1]).Tag == LiteralTag {
 				marked[key] = true
 			} else {
 				delete(marked, key)
