@@ -14,8 +14,9 @@ type globalVoiceKeys struct {
 	enabled, mode, language string
 	// modes translates a portable mode to the native value; a missing
 	// mode is written as it is.
-	modes map[string]string
-	notes map[string]string
+	modes         map[string]string
+	notes         map[string]string
+	languageValid func(string) bool
 }
 
 func voiceIssues(settings []spec.Entry) []validationIssue {
@@ -82,6 +83,13 @@ func globalVoiceSetting(target string, f globalSettingsFile, settings []spec.Ent
 	var out []globalSetting
 	for _, member := range order {
 		s := byMember[member]
+		if member == "language" && f.voice.languageValid != nil {
+			language, ok := s.value.(string)
+			if !ok || !f.voice.languageValid(language) {
+				adapters.NoteSettingsFieldNoOp(target, s.field, 1, f.voice.notes[member])
+				continue
+			}
+		}
 		if s.key == "" {
 			reason := f.voice.notes[member]
 			if reason == "" {

@@ -98,13 +98,14 @@ voice:
 | Grok Build | `~/.grok/config.toml` | `ui.voice_capture_mode` (`tap` becomes `toggle`), `ui.voice_stt_language` |
 | Mistral Vibe | `~/.vibe/config.toml` | `voice_mode_enabled` |
 | Kiro CLI | `~/.kiro/settings/cli.json` | Literal root key `voice.language` |
+| Warp | [Platform settings file](@/docs/targets/warp.md#voice-dictation) | `agents.voice.voice_input_enabled`, `agents.voice.voice_input_language` |
 
 - Claude Code takes its dictation language from its response language, so sync does not write `voice.language` there and prints a note. Set `x-claude.language` to change both.
 - Qwen keeps dictation off until a voice model is chosen. Run `/model --voice` or set `x-qwen.voiceModel`; sync prints a note when no model is configured.
 - Gemini's voice keys and Vibe's voice mode are experimental. Gemini has no language key; Vibe has no mode or language key. Sync prints a note for each member without a native key.
 - Grok has no dictation on/off key: `/voice` always works. Set `x-grok.ui.voice_keybind_enabled` to control its shortcut separately. `GROK_HOME` moves its user configuration directory.
 - Kiro CLI maps language only; `auto` detects it. Its on/off and capture mode members print a note. `KIRO_HOME` moves the global directory. Native `x-kiro` keys use literal dotted names, such as `voice.language`.
-- Other targets print a note naming their limit. The Warp mapping is tracked in [#2836](https://github.com/Chemaclass/agnostic-ai/issues/2836).
+- Other targets print a note naming their limit.
 - An `x-<target>` key wins over the portable member it overlaps, including a parent map. Set keys such as `x-claude.voice.autoSubmit` there.
 - Pass `--backup` to replace a native value set outside agnostic-ai.
 - Removing the field restores each key's original bytes, removes an empty `voice` object that sync created, and removes an empty file that sync created. A value changed by hand stays yours.

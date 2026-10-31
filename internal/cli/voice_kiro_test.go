@@ -133,3 +133,27 @@ func TestVoiceKiro_ImportReadsOnlyLanguage(t *testing.T) {
 		t.Fatalf("check: %v\n%s", err, warnings)
 	}
 }
+
+func TestVoiceKiro_RemovesLiteralParentWhileLanguageStays(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".kiro", "settings", "cli.json")
+	settings := filepath.Join(source, "settings", "voice.yaml")
+	mustWriteGlobalTest(t, settings, "voice:\n  language: es\nx-kiro:\n  voice: {}\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	mustWriteGlobalTest(t, settings, "voice:\n  language: es\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
+		t.Fatalf("drop literal voice object: %v\n%s", err, warnings)
+	}
+	var values map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &values); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := values["voice"]; present {
+		t.Error("unwanted literal voice object remains")
+	}
+	if values["voice.language"] != "es" {
+		t.Errorf("language = %v", values["voice.language"])
+	}
+}

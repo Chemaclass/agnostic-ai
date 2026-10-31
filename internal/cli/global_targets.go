@@ -26,8 +26,9 @@ import (
 // reads instructions from ~/.config/kilo/ but skills from ~/.kilo/, and
 // Goose reads hints from ~/.config/goose/ but skills from ~/.agents/.
 const (
-	globalPathHome = "home:"
-	globalPathXDG  = "xdg:"
+	globalPathHome         = "home:"
+	globalPathXDG          = "xdg:"
+	globalPathLocalAppData = "localappdata:"
 )
 
 const (
@@ -354,6 +355,20 @@ var globalTargets = map[string]globalTarget{
 		mcp:          globalMCPFile{path: globalPathHome + ".warp/.mcp.json", format: "json", key: "mcpServers"},
 		instructions: globalPathHome + ".agents/AGENTS.md",
 		skills:       globalPathHome + ".agents/skills",
+		settings: globalSettingsFile{
+			path:        globalPathHome + ".warp/settings.toml",
+			linuxPath:   globalPathXDG + "warp-terminal/settings.toml",
+			windowsPath: globalPathLocalAppData + "warp/Warp/config/settings.toml",
+			format:      tableTOMLFormat, private: true,
+			voice: &globalVoiceKeys{
+				enabled: "agents.voice.voice_input_enabled", language: "agents.voice.voice_input_language",
+				notes:         map[string]string{"mode": "Warp has no voice capture mode setting", "language": "Warp takes a lowercase two-letter language code or an empty string for auto-detect; other voice languages are not written"},
+				languageValid: warpVoiceLanguage,
+			},
+			allowed:       map[string]string{"agents.voice.voice_input_enabled": "bool", "agents.voice.voice_input_language": "voice-language"},
+			allowedReason: "sync --global writes only Warp's voice enabled and language keys; keep other settings in Warp",
+			reserved:      map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permissions": "sync --global does not write Warp user permission rules"},
+		},
 	},
 	"opencode": {
 		agents:       globalPathXDG + "opencode/agents",
@@ -511,6 +526,13 @@ func globalHookTargets(targets []string) []string {
 
 // globalPath resolves one table path against the user home.
 func globalPath(home, p string) string {
+	if rest, ok := strings.CutPrefix(p, globalPathLocalAppData); ok {
+		root := os.Getenv("LOCALAPPDATA")
+		if root == "" {
+			root = filepath.Join(home, "AppData", "Local")
+		}
+		return filepath.Join(root, filepath.FromSlash(rest))
+	}
 	if rest, ok := strings.CutPrefix(p, globalPathXDG); ok {
 		root := os.Getenv("XDG_CONFIG_HOME")
 		if root == "" {
@@ -525,7 +547,7 @@ func globalPath(home, p string) string {
 // the home, and each configuration root variable that is set.
 func globalRoots(home string) []string {
 	roots := []string{filepath.Clean(home)}
-	for _, env := range []string{"XDG_CONFIG_HOME", "APPDATA"} {
+	for _, env := range []string{"XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA"} {
 		if root := os.Getenv(env); root != "" {
 			roots = append(roots, filepath.Clean(root))
 		}
@@ -574,6 +596,9 @@ func (g globalTarget) agentsPath(home string) string {
 
 // path resolves one of the target's table paths, honoring rootEnv.
 func (g globalTarget) path(home, p string) string {
+	if p != "" && p == g.settings.path {
+		p = g.settings.platformPath(runtime.GOOS)
+	}
 	if g.rootEnv != "" {
 		if root := os.Getenv(g.rootEnv); root != "" {
 			if rest, ok := strings.CutPrefix(p, g.root); ok && (rest == "" || rest[0] == '/') {
@@ -584,9 +609,11 @@ func (g globalTarget) path(home, p string) string {
 	return globalPath(home, p)
 }
 
-// rootError reports a relative rootEnv value, which would make ownership
-// depend on the working directory.
+// rootError rejects roots whose ownership would depend on the working directory.
 func (g globalTarget) rootError(target string) error {
+	if err := g.settings.platformRootError(runtime.GOOS); err != nil {
+		return fmt.Errorf("%s: %w", target, err)
+	}
 	if g.rootEnv == "" {
 		return nil
 	}

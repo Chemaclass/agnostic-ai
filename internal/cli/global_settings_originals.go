@@ -268,7 +268,7 @@ func mergeGlobalPersonalInner(path, format string, base []byte, want []globalSet
 // TOML keeps the whole assignment because its spacing and comments belong to the original key.
 func captureSettingOriginal(data []byte, values map[string]any, key, format string, createdParents []string) globalSettingOriginal {
 	original := globalSettingOriginal{EmptyParents: map[string]string{}}
-	if (format == "toml" || format == grokTOMLFormat) && strings.TrimSpace(string(data)) == "" {
+	if (format == "toml" || nestedTOMLFormat(format)) && strings.TrimSpace(string(data)) == "" {
 		empty := string(data)
 		original.EmptyFile = &empty
 	}

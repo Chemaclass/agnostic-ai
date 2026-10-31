@@ -60,6 +60,8 @@ The next full sync removes obsolete generated rule files, even edited ones that 
 
 ### Shared settings files
 
+Warp global voice settings use the same per-key ownership in its platform settings file; see [Warp voice dictation](@/docs/targets/warp.md#voice-dictation).
+
 In mergeable files such as `.claude/settings.json`, `.gemini/settings.json`, `.cursor/cli.json`, and `opencode.json`, sync records the keys it owns and keeps the rest. A generated key you left unchanged goes away when no spec produces it. A value you edited stays as an orphan; `doctor --fix` asks before removing it.
 
 Sync tracks MCP servers in mergeable maps by name. A spec with the same name can replace your server and print a note. Name tracking does not apply to files sync rebuilds whole, such as Claude's `.mcp.json` or Cursor's `.cursor/mcp.json`. Check the target's import and overwrite behavior before the first sync.

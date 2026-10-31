@@ -90,6 +90,18 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 
 `agnostic-ai import --global warp` reads this file and maps `working_directory` back to `cwd`. See [global MCP ownership and name conflicts](@/docs/global-configuration.md#global-mcp-servers).
 
+### Voice dictation
+
+Add [portable voice settings](@/docs/spec-format/settings.md#voice-dictation) to your home specs, then run `agnostic-ai sync --global --only warp`. Sync writes enabled and language choices into Warp's [settings file](https://docs.warp.dev/terminal/settings/):
+
+- macOS: `~/.warp/settings.toml`.
+- Linux: `$XDG_CONFIG_HOME/warp-terminal/settings.toml`, or `~/.config/warp-terminal/settings.toml` when unset.
+- Windows: `%LOCALAPPDATA%\warp\Warp\config\settings.toml`.
+
+Warp takes a lowercase two-letter language code such as `es`, or `""` for auto-detect. Sync skips broader values such as `en-US` and `auto` with a note. Warp has no capture-mode setting, so `voice.mode` also prints a note. The activation shortcut and other preferences stay in Warp.
+
+Sync preserves comments and unrelated keys in `[agents.voice]`, and removing portable voice restores the original values. Existing inline or dotted definitions of this table are left unchanged with an error asking for an explicit `[agents.voice]` table. `explain --global settings/voice.yaml` shows the file and keys for your platform.
+
 ## Warp app and Agent CLI {#app-and-cli}
 
 The Warp app and the Warp Agent CLI keep separate MCP settings ([CLI configuration](https://docs.warp.dev/agents/cli/configuration)):
