@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -163,26 +164,19 @@ func runPacksAdd(root, source, nameOverride string, out io.Writer) error {
 		return fmt.Errorf("packs add %q: %w", name, err)
 	}
 
-	dest := filepath.Join(root, packsDir, name)
-	if err := os.RemoveAll(dest); err != nil {
-		return fmt.Errorf("packs add: clean dest: %w", err)
-	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return fmt.Errorf("packs add: mkdir: %w", err)
-	}
-
-	sha, err := fetchPack(src, ref, dest)
-	if err != nil {
-		return fmt.Errorf("packs add: %w", err)
-	}
-
 	lock, err := readPacksLock(root)
 	if err != nil {
 		return err
 	}
-	lock.upsert(packEntry{Name: name, Source: src, Ref: ref, Sha: sha})
-	if err := writePacksLock(root, lock); err != nil {
-		return err
+	dest := filepath.Join(root, packsDir, name)
+	err = installPack(dest, func(staged string) (string, error) {
+		return fetchPack(src, ref, staged)
+	}, func(sha string) error {
+		lock.upsert(packEntry{Name: name, Source: src, Ref: ref, Sha: sha})
+		return writePacksLock(root, lock)
+	})
+	if err != nil {
+		return fmt.Errorf("packs add: %w", err)
 	}
 	if err := ensureManagedGitignore(root); err != nil {
 		return fmt.Errorf("packs add: gitignore: %w", err)
@@ -265,26 +259,79 @@ func runPacksUpdate(root, only string, latest bool, out io.Writer) error {
 		}
 	}
 	updated := 0
-	for i, p := range lock.Packs {
+	for _, p := range slices.Clone(lock.Packs) {
 		if (only != "" && p.Name != only) || skipped[p.Name] {
 			continue
 		}
 		dest := filepath.Join(root, packsDir, p.Name)
-		if err := os.RemoveAll(dest); err != nil {
-			return fmt.Errorf("packs update %s: %w", p.Name, err)
-		}
-		sha, err := fetchLockedPack(p, latest, dest)
+		var sha string
+		err := installPack(dest, func(staged string) (string, error) {
+			return fetchLockedPack(p, latest, staged)
+		}, func(fetched string) error {
+			sha = fetched
+			updated := p
+			updated.Sha = fetched
+			lock.upsert(updated)
+			return writePacksLock(root, lock)
+		})
 		if err != nil {
 			return fmt.Errorf("packs update %s: %w", p.Name, err)
 		}
-		lock.Packs[i].Sha = sha
 		reportPackUpdate(out, p, sha)
 		updated++
 	}
 	if only != "" && updated == 0 {
 		return fmt.Errorf("packs update: %q not installed", only)
 	}
-	return writePacksLock(root, lock)
+	return nil
+}
+
+func installPack(dest string, fetch func(string) (string, error), record func(string) error) error {
+	parent := filepath.Dir(dest)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", parent, err)
+	}
+	tmp, err := os.MkdirTemp(parent, ".pack-*")
+	if err != nil {
+		return fmt.Errorf("stage %s: %w", dest, err)
+	}
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.RemoveAll(tmp)
+		}
+	}()
+	staged, backup := filepath.Join(tmp, "new"), filepath.Join(tmp, "previous")
+	sha, err := fetch(staged)
+	if err != nil {
+		return err
+	}
+	hadPrevious := false
+	if err := os.Rename(dest, backup); err == nil {
+		hadPrevious = true
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("save %s: %w", dest, err)
+	}
+	restore := func() error {
+		if err := os.RemoveAll(dest); err != nil {
+			cleanup = false
+			return fmt.Errorf("remove %s: %w; previous pack saved at %s", dest, err, backup)
+		}
+		if hadPrevious {
+			if err := os.Rename(backup, dest); err != nil {
+				cleanup = false
+				return fmt.Errorf("restore %s from %s: %w", dest, backup, err)
+			}
+		}
+		return nil
+	}
+	if err := os.Rename(staged, dest); err != nil {
+		return errors.Join(fmt.Errorf("install %s: %w", dest, err), restore())
+	}
+	if err := record(sha); err != nil {
+		return errors.Join(err, restore())
+	}
+	return nil
 }
 
 // checkLockedEntry refuses a lockfile entry that update does not trust,
@@ -710,7 +757,16 @@ func writePacksLock(root string, lock *packsLock) error {
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", packsLockfile, err)
 	}
-	return os.WriteFile(path, data, 0o644)
+	snapshot, err := snapshotEditFile(path)
+	if err != nil {
+		return err
+	}
+	if snapshot.info == nil {
+		_, err = snapshot.replace(path, data, 0o644)
+	} else {
+		_, err = snapshot.replace(path, data)
+	}
+	return err
 }
 
 func (l *packsLock) has(name string) bool {

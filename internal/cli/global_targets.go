@@ -533,21 +533,21 @@ func globalHookTargets(targets []string) []string {
 func globalPath(home, p string) string {
 	if rest, ok := strings.CutPrefix(p, globalPathAppData); ok {
 		root := os.Getenv("APPDATA")
-		if root == "" {
+		if !filepath.IsAbs(root) {
 			root = filepath.Join(home, "AppData", "Roaming")
 		}
 		return filepath.Join(root, filepath.FromSlash(rest))
 	}
 	if rest, ok := strings.CutPrefix(p, globalPathLocalAppData); ok {
 		root := os.Getenv("LOCALAPPDATA")
-		if root == "" {
+		if !filepath.IsAbs(root) {
 			root = filepath.Join(home, "AppData", "Local")
 		}
 		return filepath.Join(root, filepath.FromSlash(rest))
 	}
 	if rest, ok := strings.CutPrefix(p, globalPathXDG); ok {
 		root := os.Getenv("XDG_CONFIG_HOME")
-		if root == "" {
+		if !filepath.IsAbs(root) {
 			root = filepath.Join(home, ".config")
 		}
 		return filepath.Join(root, filepath.FromSlash(rest))
@@ -564,17 +564,17 @@ func globalRoots(home string) []string {
 func globalRootsForOS(home, goos string) []string {
 	roots := []string{filepath.Clean(home)}
 	for _, env := range []string{"XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA"} {
-		if root := os.Getenv(env); root != "" {
+		if root := os.Getenv(env); filepath.IsAbs(root) {
 			roots = append(roots, filepath.Clean(root))
 		}
 	}
 	for _, name := range globalTargetNames() {
 		if resolve := globalTargets[name].instructionsRoot; resolve != nil {
-			if root, err := resolve(home, goos); err == nil && root != "" {
+			if root, err := resolve(home, goos); err == nil && filepath.IsAbs(root) {
 				roots = append(roots, root)
 			}
 		}
-		if root := globalTargets[name].overrideRoot(home); root != "" {
+		if root := globalTargets[name].overrideRoot(home); filepath.IsAbs(root) {
 			roots = append(roots, filepath.Clean(root))
 		}
 	}

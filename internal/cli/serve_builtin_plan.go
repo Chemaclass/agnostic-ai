@@ -15,6 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitexclude"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -53,6 +54,10 @@ func planBuiltinChange(root string, req builtinRequest, where editAudience) (*bu
 }
 
 func planProjectChange(root string, change projectChange, where editAudience) (*builtinChangePlan, error) {
+	return planProjectChangeLocked(root, change, where, nil)
+}
+
+func planProjectChangeLocked(root string, change projectChange, where editAudience, guard *gitexclude.Guard) (*builtinChangePlan, error) {
 	req := change.builtin
 	defer adapters.SetAsideNotes()()
 	initial, err := snapshotBuiltinProject(root, []string{config.ConfigFileName, config.LegacyConfigFileName, config.LocalOverrideFileName, stateFilePath(".")})
@@ -312,7 +317,7 @@ func planProjectChange(root string, change projectChange, where editAudience) (*
 				return nil, err
 			}
 		}
-		prev, err := previousPersonal(root)
+		prev, err := previousPersonalLocked(root, guard)
 		if err != nil {
 			return nil, err
 		}
