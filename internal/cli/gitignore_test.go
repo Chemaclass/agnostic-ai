@@ -856,3 +856,45 @@ func TestBuildManagedBlock_SingleSegmentPerKindDirStaysExpanded(t *testing.T) {
 		t.Errorf("single-segment per-kind dir collapsed, hiding hand-written siblings: %v", block)
 	}
 }
+
+func TestIgnoreFileWrites_ReplaceTheFileWhole(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Gitignore: config.Gitignore{Enabled: true}}
+	cases := map[string]struct {
+		file  string
+		write func(root string) error
+	}{
+		"updateGitignore": {".gitignore", func(root string) error {
+			return updateGitignore(root, cfg, []string{"CLAUDE.md"})
+		}},
+		"ensureManagedGitignore": {".gitignore", ensureManagedGitignore},
+		"writeWorktreeInclude": {worktreeIncludeFile, func(root string) error {
+			_, err := writeWorktreeInclude(root, cfg, []string{".env"})
+			return err
+		}},
+		"restoreFiles": {".gitignore", func(root string) error {
+			return restoreFiles([]priorFile{{path: filepath.Join(root, ".gitignore"), content: []byte("restored\n")}})
+		}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, tc.file)
+			if err := os.WriteFile(path, []byte("node_modules/\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			held := filepath.Join(root, "held")
+			if err := os.Link(path, held); err != nil {
+				t.Skipf("hard links unavailable: %v", err)
+			}
+			if err := tc.write(root); err != nil {
+				t.Fatal(err)
+			}
+			if got, _ := os.ReadFile(path); string(got) == "node_modules/\n" {
+				t.Fatal("file was not changed")
+			}
+			if got, _ := os.ReadFile(held); string(got) != "node_modules/\n" {
+				t.Errorf("file was rewritten in place: %q", got)
+			}
+		})
+	}
+}
