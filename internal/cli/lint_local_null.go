@@ -25,28 +25,55 @@ func lintLocalNulls() ([]lintFinding, error) {
 	if err := yaml.Unmarshal(data, &values); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	var keys []string
-	var walk func(map[string]any, string)
-	walk = func(m map[string]any, prefix string) {
-		for key, value := range m {
+	var shared map[string]any
+	baseData, err := os.ReadFile(config.ConfigFileName)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("read %s: %w", config.ConfigFileName, err)
+	}
+	if err == nil {
+		if err := yaml.Unmarshal(baseData, &shared); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", config.ConfigFileName, err)
+		}
+	}
+	messages := map[string]string{}
+	var walk func(local, base map[string]any, prefix string)
+	walk = func(local, base map[string]any, prefix string) {
+		for key, value := range local {
 			name := key
 			if prefix != "" {
 				name = prefix + "." + key
 			}
+			baseValue, inBase := base[key]
 			if value == nil {
-				keys = append(keys, name)
+				switch {
+				case !inBase, name == "requires":
+				case isYAMLMap(baseValue):
+					messages[name] = name + " is empty (null) and is ignored, so the shared value stays; remove the key, or write {} to clear it"
+				default:
+					messages[name] = name + " is empty (null) and replaces the shared value; remove the key to inherit it"
+				}
 				continue
 			}
 			if nested, ok := value.(map[string]any); ok {
-				walk(nested, name)
+				baseNested, _ := baseValue.(map[string]any)
+				walk(nested, baseNested, name)
 			}
 		}
 	}
-	walk(values, "")
+	walk(values, shared, "")
+	keys := make([]string, 0, len(messages))
+	for key := range messages {
+		keys = append(keys, key)
+	}
 	slices.Sort(keys)
 	var findings []lintFinding
 	for _, key := range keys {
-		findings = append(findings, lintFinding{Code: "LINT055", Severity: lintWarn, Path: path, Message: fmt.Sprintf("%s is empty (null) and is ignored, so the shared value stays; remove the key, or write {} to clear it", key)})
+		findings = append(findings, lintFinding{Code: "LINT055", Severity: lintWarn, Path: path, Message: messages[key]})
 	}
 	return findings, nil
+}
+
+func isYAMLMap(value any) bool {
+	_, ok := value.(map[string]any)
+	return ok
 }
