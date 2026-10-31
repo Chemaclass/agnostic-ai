@@ -3,7 +3,7 @@ import { importMCPSpec } from '../api'
 import type { MCPSpecPreview, NativeServer } from '../contract'
 import { useApp } from './app-context'
 import { useEditAudience } from './EditAudience'
-import { Code, ToolAvatar } from './ui'
+import { Select, Code, ToolAvatar } from './ui'
 
 export type MCPSpecSaved = Pick<MCPSpecPreview, 'file' | 'syncCommand'>
 
@@ -51,9 +51,9 @@ export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSav
 
   return <div className="builtin-change">
     <div className="builtin-change-controls">
-      {server.holders.length > 1 && <label className="field-edit-target">Copy from <select aria-label={`Source for ${server.name}`} value={selected} disabled={!!pending} onChange={(event) => setSelected(Number(event.target.value))}>
+      {server.holders.length > 1 && <label className="field-edit-target">Copy from <Select aria-label={`Source for ${server.name}`} value={selected} disabled={!!pending} onChange={(event) => setSelected(Number(event.target.value))}>
         {server.holders.map((source, index) => <option key={`${source.target}:${source.path}:${source.scope}`} value={index}>{source.label}: {source.path} ({source.scope})</option>)}
-      </select></label>}
+      </Select></label>}
       {!preview && <button className="button" type="button" disabled={!!pending} onClick={() => { void request('preview') }}>Make it a spec</button>}
       <span role="status" aria-live="polite">{pending === 'preview' ? 'Preparing preview…' : pending === 'apply' ? 'Saving spec…' : ''}</span>
     </div>

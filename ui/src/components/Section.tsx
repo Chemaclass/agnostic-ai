@@ -22,7 +22,7 @@ import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../
 import { fieldSearchText, itemSearchText } from '../model/search'
 import { entryTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
 import type { Remote } from './Shell'
-import { Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
+import { Select, Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
 const ConfigurationRoot = createContext<string | undefined>(undefined)
 const ConfiguredTools = createContext<TargetSupport[]>([])
@@ -355,9 +355,9 @@ function FieldResolution({ field, files, resolved }: { field: SettingField; file
       <ul className="field-resolution-groups" aria-label={`${label} by tool`}>
         {groups.map((g) => <li key={g.unchecked ? 'unchecked' : g.value ?? ''}>{g.labels.join(', ')}: {g.unchecked ? <span className="muted">not checked</span> : g.value ? <Code>{g.value}</Code> : <span className="muted">no value written</span>}</li>)}
       </ul>
-      {resolved.length > 1 && <label className="field-resolution-tool">Tool <select value={current.target} onChange={(event) => setSelected(event.target.value)}>
+      {resolved.length > 1 && <label className="field-resolution-tool">Tool <Select value={current.target} onChange={(event) => setSelected(event.target.value)}>
         {resolved.map((r) => <option key={r.target} value={r.target}>{r.label}</option>)}
-      </select></label>}
+      </Select></label>}
       <div className="field-resolution-detail" aria-live="polite">
         <p>{generatedAnswer(current)}</p>
         {current.from && <p className="muted">From <Code>{current.from.path}</Code>{origin ? <>, {origin}</> : ' in the config'}</p>}
@@ -449,7 +449,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   if (!edit) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p></>
   const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
-  if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}</>
+  if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
   if (app.source.kind !== 'api') return sources()
   const specFile = specPath
   const post = async (body: Record<string, unknown>, expected: string | undefined) => {
@@ -518,16 +518,16 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
         {edit.kind === 'boolean'
           ? <Toggle on={value === 'true'} label={valueLabel} disabled={locked} onToggle={() => setValue(value === 'true' ? 'false' : 'true')} />
           : allowed && allowed.length > 0
-          ? <select aria-label={valueLabel} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}>
+          ? <Select aria-label={valueLabel} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}>
             {!allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
             {allowed.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
+          </Select>
           : <input aria-label={valueLabel} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={selectedCurrent === 'null' ? 'Cleared for you' : field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
         {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>}
         {!transaction.supported && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>{target ? resetLabel : 'Clear'}</button>}
         {resetButton}
       </div>}
-    {paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
+    {paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}
     {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
       {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => app.reload()}>Reload saved values</button></>}</span>}
     {transaction.supported && <div className="field-edit-row field-edit-apply">

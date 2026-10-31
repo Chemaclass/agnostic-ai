@@ -4,7 +4,7 @@ import type { PermissionEditPreview, SectionItem, SettingField } from '../contra
 import { isPermissionKey, permissionSelection, rulesFromText } from '../model/permission-edit'
 import { useApp } from './app-context'
 import { useEditAudience, ViewPersonalButton } from './EditAudience'
-import { Code } from './ui'
+import { Select, Code } from './ui'
 
 type Saved = Pick<PermissionEditPreview, 'file' | 'syncCommand'>
 const SavedRules = createContext<{ saved?: Saved; update: (saved?: Saved) => void }>({ update: () => {} })
@@ -119,10 +119,10 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   const locked = !!pending || !!preview || !!disabledReason
   return <>{sources()}<div className="permission-editor">
     {(paths.length > 1 || !path && paths.length > 0) && <label className="field-edit-target">Settings file
-      <select aria-label={`Settings file for ${field.label}`} value={path} disabled={!!pending} onChange={(event) => select(event.target.value)}>
+      <Select aria-label={`Settings file for ${field.label}`} value={path} disabled={!!pending} onChange={(event) => select(event.target.value)}>
         <option value="" disabled>Choose a settings file</option>
         {paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}
-      </select>
+      </Select>
     </label>}
     {current.personalSet && <div className="permission-override">
       <p>{differs ? 'Personal overrides this file’s shared rules.' : 'Personal matches Shared and replaces this file’s list.'}</p>

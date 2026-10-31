@@ -1956,6 +1956,46 @@ input:hover {
   font-size: 12px;
 }
 
+.context-usage-results {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.context-usage-placeholder {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 24px;
+  max-width: 860px;
+  padding-block: 8px;
+}
+
+.context-usage-placeholder > div {
+  display: grid;
+  gap: 10px;
+}
+
+.context-usage-placeholder span {
+  display: block;
+  background: var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.context-placeholder-label {
+  width: 72px;
+  height: 13px;
+}
+
+.context-placeholder-value {
+  width: 150px;
+  height: 36px;
+}
+
+.context-placeholder-line {
+  width: 110px;
+  height: 12px;
+}
+
 .context-usage-status {
   font-size: 12px;
 }
@@ -2128,6 +2168,10 @@ input:hover {
 }
 
 @media (max-width: 760px) {
+  .context-usage-file-hint {
+    min-height: 3em;
+  }
+
   .context-usage-controls {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2693,7 +2737,7 @@ input:hover {
 
   .topbar-context {
     order: 3;
-    flex: 1 1 calc(100% - 112px);
+    flex: 1 1 calc(100% - 132px);
     width: auto;
     justify-content: space-between;
     gap: 8px 12px;
@@ -2985,7 +3029,7 @@ input:hover {
 }
 
 .field-edit-row > input,
-.field-edit-row > select {
+.field-edit-row > .select-control {
   flex: 1 1 200px;
   max-width: 320px;
 }
@@ -3172,7 +3216,7 @@ input:hover {
 @media (max-width: 760px) {
   .topbar > .editor-choice {
     order: 4;
-    flex: 0 0 100px;
+    flex: 0 0 120px;
   }
 
   .editor-choice-label,
@@ -3353,4 +3397,46 @@ html:has(.search-backdrop) {
 
 .entry-missing p {
   margin: 0;
+}
+
+.select-control {
+  display: inline-grid;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.select-control > select {
+  width: 100%;
+  min-width: 0;
+  appearance: none;
+  padding-inline-end: 36px;
+  text-overflow: ellipsis;
+}
+
+.select-control > .select-chevron {
+  position: absolute;
+  inset-inline-end: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.select-control:has(select:disabled) > .select-chevron {
+  opacity: 0.5;
+}
+
+@media (forced-colors: active) {
+  .select-control > select {
+    appearance: auto;
+    padding-inline-end: 10px;
+  }
+
+  .select-control > .select-chevron {
+    display: none;
+  }
 }

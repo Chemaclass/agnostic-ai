@@ -2,7 +2,7 @@
 // passages that could go. It fetches its own endpoint; a static snapshot
 // has none, so it only says what it needs.
 
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { loadContext } from '../api'
 import type { ContextContribution, ContextLoad, ContextOpportunity, ContextReport, ContextSize, ContextView } from '../contract'
 import { contextReviewPrompt, LOAD_CONDITIONS, LOAD_LABELS, sizeText } from '../model/context-prompt'
@@ -11,7 +11,7 @@ import { useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import { OpenInEditor } from './EditorLink'
 import { SectionHeading } from './SectionHeading'
-import { Badge, Code, CopyButton } from './ui'
+import { Select, Badge, Code, CopyButton } from './ui'
 
 const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
 const LONG_PASSAGE = 280
@@ -36,6 +36,10 @@ export function ContextUsage() {
   const [before, setBefore] = useState<Snapshot>()
   const [error, setError] = useState<Error>()
   const [loading, setLoading] = useState(false)
+  const status = useRef<HTMLParagraphElement>(null)
+  const [statusHeight, setStatusHeight] = useState<number>()
+  const results = useRef<HTMLDivElement>(null)
+  const [resultsHeight, setResultsHeight] = useState<number>()
   const reachable = app.source.kind === 'api' || app.source.kind === 'mock'
 
   useEffect(() => {
@@ -69,7 +73,12 @@ export function ContextUsage() {
   const targets = view?.targets.length ? view.targets : selected ? [selected] : []
   const takesFile = !!view?.fileTargets.includes(selected)
   const matches = (snapshot: Snapshot | undefined): snapshot is Snapshot => !!snapshot && snapshot.view.target === selected && snapshot.file === file
+  const reserveResults = () => {
+    setStatusHeight(status.current?.getBoundingClientRect().height)
+    setResultsHeight(results.current?.getBoundingClientRect().height)
+  }
   const refresh = () => {
+    reserveResults()
     const nextFile = takesFile ? fileDraft.trim() : ''
 
     setBefore(matches(current) && current.file === nextFile ? current : undefined)
@@ -80,10 +89,11 @@ export function ContextUsage() {
   // A report for another target or file, or one a failed request left behind, is never shown as current.
   const shown = !error && matches(current) ? current : undefined
   const report = shown?.view.supported ? shown.view.report : undefined
+  const pending = !error && (loading || !!current && !matches(current))
   const comparable = report && matches(before) && before.at !== shown?.at && before.view.report
 
   return (
-    <section className="block context-usage" aria-labelledby={titleId} aria-busy={loading || undefined}>
+    <section className="block context-usage" aria-labelledby={titleId} aria-busy={pending || undefined}>
       <div className="context-usage-head">
         {heading}
         <p className="muted">Instruction text for one coding tool, measured in words and bytes.</p>
@@ -92,42 +102,59 @@ export function ContextUsage() {
         <form className="context-usage-controls" onSubmit={(event) => { event.preventDefault(); refresh() }}>
           <div className="context-usage-field">
             <label htmlFor={selectId}>Coding tool</label>
-            <select
+            <Select
               id={selectId}
               value={selected}
               disabled={targets.length === 0}
               onChange={(event) => {
+                reserveResults()
+                setError(undefined)
                 setBefore(undefined)
                 setTarget(event.target.value)
                 if (!view?.fileTargets.includes(event.target.value)) setFile('')
               }}
             >
               {targets.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            </Select>
           </div>
           <div className="context-usage-field">
             <label htmlFor={fileId}>Working on file</label>
             <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} aria-describedby={`${fileId}-hint`} onChange={(event) => setFileDraft(event.target.value)} />
           </div>
-          <button type="submit" className="button" disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+          <button type="submit" className="button" disabled={pending}>{pending ? 'Refreshing…' : 'Refresh'}</button>
           <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Optional: name a file to include the scoped rules that match it.' : `${selected || 'This tool'} has no file-scoped rules to check.`}</p>
         </form>
       )}
-      <p className="muted context-usage-status" role="status">
-        {loading ? 'Checking context size…' : shown ? `Checked ${formatTime(shown.at)}${shown.file ? ` for ${shown.file}` : ''}.` : ''}
+      <p ref={status} className="muted context-usage-status" role="status" style={{ minHeight: pending ? statusHeight : undefined }}>
+        {pending ? `Checking context size${selected ? ` for ${selected}` : ''}…` : shown ? `Checked ${formatTime(shown.at)}${shown.file ? ` for ${shown.file}` : ''}.` : ''}
       </p>
-      {error && <ErrorPanel error={error} />}
-      {shown && !shown.view.supported && <p>{shown.view.reason || 'Context size is not available for this configuration.'}</p>}
-      {report && shown && (
-        <>
-          <Totals report={report} file={shown.file} />
-          {report.note && <details className="context-usage-method"><summary>How this is counted</summary><p className="muted context-usage-note">{report.note}</p></details>}
-          {comparable && <Comparison before={before.view.report!} now={report} />}
-          <Opportunities report={report} root={shown.view.root} />
-          <Contributions contributions={report.contributions} />
-        </>
-      )}
+      <div ref={results} className="context-usage-results" style={{ minHeight: pending && !report ? resultsHeight : undefined }}>
+        {pending && !report && <ReportPlaceholder />}
+        {error && <ErrorPanel error={error} />}
+        {shown && !shown.view.supported && <p>{shown.view.reason || 'Context size is not available for this configuration.'}</p>}
+        {report && shown && (
+          <>
+            <Totals report={report} file={shown.file} />
+            {report.note && <details className="context-usage-method"><summary>How this is counted</summary><p className="muted context-usage-note">{report.note}</p></details>}
+            {comparable && <Comparison before={before.view.report!} now={report} />}
+            <Opportunities report={report} root={shown.view.root} />
+            <Contributions contributions={report.contributions} />
+          </>
+        )}
+      </div>
     </section>
+  )
+}
+
+function ReportPlaceholder() {
+  return (
+    <div className="context-usage-placeholder" aria-hidden="true">
+      {[0, 1].map((column) => <div key={column}>
+        <span className="context-placeholder-label" />
+        <span className="context-placeholder-value" />
+        <span className="context-placeholder-line" />
+      </div>)}
+    </div>
   )
 }
 

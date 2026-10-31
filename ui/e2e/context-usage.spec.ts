@@ -150,3 +150,37 @@ test.describe('context size', () => {
     await expect(panel.getByLabel('Coding tool')).toHaveCount(0)
   })
 })
+
+for (const width of [390, 1280]) {
+  test(`keeps the report space stable while changing coding tools at ${width}px`, async ({ page }) => {
+    const two = { ...structuredClone(contextView), targets: ['claude', 'gemini'], fileTargets: ['claude'] }
+    let finish: (() => void) | undefined
+    const pending = new Promise<void>((resolve) => { finish = resolve })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', async (route) => {
+      const target = new URL(route.request().url()).searchParams.get('target') ?? 'claude'
+      if (target === 'gemini') await pending
+      return route.fulfill({ json: { ...two, target, report: target === 'gemini' ? { ...two.report, startup: { words: 97, bytes: 700 } } : two.report } })
+    })
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('/?view=context&tab=usage')
+    const panel = page.locator('section.context-usage')
+    await expect(panel.locator('.context-usage-totals')).toBeVisible()
+    await panel.getByLabel('Working on file').fill('src/features/context/components/a-long-directory-name/a-long-component-name.tsx')
+    await panel.getByRole('button', { name: 'Refresh' }).click()
+    await expect(panel.locator('.context-usage-status')).toContainText('a-long-component-name.tsx')
+    const support = page.getByRole('heading', { name: 'Coding tool support', exact: true })
+    const position = async () => (await support.boundingBox())!.y + await page.evaluate(() => window.scrollY)
+    const before = await position()
+    await panel.getByLabel('Coding tool').selectOption('gemini')
+    await expect(panel).toHaveAttribute('aria-busy', 'true')
+    await expect(panel.locator('.context-usage-totals')).toHaveCount(0)
+    expect(Math.abs(await position() - before)).toBeLessThanOrEqual(1)
+    await expect(panel.locator('.context-usage-status')).toContainText('Checking context size for gemini')
+    finish!()
+    await expect(panel).not.toHaveAttribute('aria-busy', 'true')
+    await expect(panel.locator('.context-usage-totals')).toBeVisible()
+    await expect(panel.getByLabel('Coding tool')).toHaveValue('gemini')
+    await expect(panel.locator('.context-total-words').first()).toHaveText('97 words')
+  })
+}

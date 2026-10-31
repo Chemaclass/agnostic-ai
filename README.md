@@ -68,7 +68,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [Find a global hook's files](https://agnostic-ai.org/docs/cli-reference/inspect/#explain): `agnostic-ai explain --global hooks/guard.yaml` lists where sync places the hook; directory-based hooks also list copied scripts.
 - [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` finds its source even when an unselected tool rejects your setup.
 - [Voice dictation](https://agnostic-ai.org/docs/spec-format/settings/#voice-dictation): keep personal voice settings in your home specs, import existing values, and apply them with `sync --global`, including Warp dictation.
-- [Inspect context size](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): compare startup and on-demand text, filter by file, and open sources in your chosen editor.
+- [Inspect context size](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): compare startup and on-demand text, filter by file, and open sources in your chosen editor. The report stays in place while a new tool loads.
 - [Edit settings in the browser](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): browse source groups in tabs, compare Shared and Personal, preview permission rules, and edit global voice dictation settings. Section headings link to the relevant reference docs.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails.
 
