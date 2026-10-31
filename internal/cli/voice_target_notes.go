@@ -17,8 +17,6 @@ func voiceTargetNoOpReason(target string) string {
 		return "no documented voice key; QODER_ASR_URL selects a speech recognition service"
 	case "copilot":
 		return "Copilot CLI voice settings keys are not published"
-	case "kiro":
-		return "Kiro CLI voice settings need a separate mapping; see #2837; no IDE voice setting was found"
 	case "goose":
 		return "Goose dictation selects a provider and model; no portable on/off mapping"
 	case "kilo":

@@ -397,6 +397,17 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".junie/skills",
 	},
 	"kiro": {
+		settings: globalSettingsFile{
+			path: globalPathHome + ".kiro/settings/cli.json", format: flatJSONFormat,
+			voice: &globalVoiceKeys{language: "voice.language", notes: map[string]string{
+				"enabled": "Kiro CLI has no dictation on/off setting; start voice input with /voice or hold Space",
+				"mode":    "Kiro CLI has no voice capture mode setting",
+			}},
+			reserved: map[string]string{
+				"hooks":      "sync --global writes hooks from hook specs",
+				"mcpServers": "sync --global writes MCP servers from MCP specs",
+			},
+		},
 		rootEnv:        "KIRO_HOME",
 		root:           globalPathHome + ".kiro",
 		agents:         globalPathHome + ".kiro/agents",

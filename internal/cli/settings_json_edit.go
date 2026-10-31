@@ -26,7 +26,7 @@ func editJSONRootIndent(path string, data []byte, fallback string, order []strin
 	return editJSONRootKeeping(path, data, fallback, order, set, remove, nil)
 }
 
-func editJSONRootKeeping(path string, data []byte, fallback string, order []string, set map[string]any, remove []string, keep map[string]string) ([]byte, error) {
+func editJSONRootKeeping(path string, data []byte, fallback string, order []string, set map[string]any, remove []string, keep map[string]string, flat ...bool) ([]byte, error) {
 	text := strings.TrimRight(string(data), " \t\r\n")
 	trailing := string(data)[len(text):]
 	if text == "" {
@@ -39,7 +39,7 @@ func editJSONRootKeeping(path string, data []byte, fallback string, order []stri
 	for _, key := range remove {
 		open, err := jsonRootOpen(text)
 		if err == nil {
-			text, err = removeJSONPathKeeping(text, open, strings.Split(key, "."), "", keep)
+			text, err = removeJSONPathKeeping(text, open, settingsJSONPath(key, flat...), "", keep)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
@@ -48,7 +48,7 @@ func editJSONRootKeeping(path string, data []byte, fallback string, order []stri
 	for _, key := range order {
 		open, err := jsonRootOpen(text)
 		if err == nil {
-			text, err = setJSONPath(text, open, strings.Split(key, "."), set[key], unit)
+			text, err = setJSONPath(text, open, settingsJSONPath(key, flat...), set[key], unit)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("%s: %s: %w", path, key, err)
@@ -590,4 +590,11 @@ func scanJSONObject(text string, open int) ([]jsonMember, int, error) {
 		}
 	}
 	return nil, 0, fmt.Errorf("expected a JSON object")
+}
+
+func settingsJSONPath(key string, flat ...bool) []string {
+	if len(flat) > 0 && flat[0] {
+		return []string{key}
+	}
+	return strings.Split(key, ".")
 }
