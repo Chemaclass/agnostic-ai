@@ -174,6 +174,11 @@ func importArgs(args []string) error {
 // runImport imports source, then the rules source reads from a shared
 // entry point instead of its own rule files.
 func runImport(root, source string, cfg *config.Config) error {
+	release, err := restrictImportWrites(root, cfg.Sources)
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := runImportSource(root, source, cfg); err != nil {
 		return err
 	}
