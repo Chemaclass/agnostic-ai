@@ -11,10 +11,12 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitexclude"
 	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
@@ -1433,4 +1435,20 @@ func TestBuiltinChanges_CancelDiscardsASettingPreview(t *testing.T) {
 	if err := before.check(root); err != nil {
 		t.Errorf("cancel changed project files: %v", err)
 	}
+}
+
+func TestBuiltinChanges_GitignoreEnabledApplyAndUndo(t *testing.T) {
+	silence(t)
+	root := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	git(t, root, "init", "--quiet")
+	memoryGitProject(t, root, "version: 1\ntargets: [codex]\nbuiltins: []\ngitignore:\n  enabled: true\n")
+	previous := gitexclude.LockWait
+	gitexclude.LockWait = 100 * time.Millisecond
+	t.Cleanup(func() { gitexclude.LockWait = previous })
+	h := newBuiltinChangeHandler(".", false)
+	proposal := builtinProposal(t, h, true)
+	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
+	builtinAction(t, h, builtinUndoPath, applied.ID)
 }
