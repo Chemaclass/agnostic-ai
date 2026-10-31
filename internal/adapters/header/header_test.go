@@ -175,3 +175,11 @@ func TestLeads_RejectsTheMarkerAnywhereElse(t *testing.T) {
 		})
 	}
 }
+
+func TestWith_EmptyFrontmatterInsertsBelowIt(t *testing.T) {
+	in := "---\n---\n---\nprose\n---\nbody\n"
+	got := With(in, FormatMarkdown)
+	if !strings.HasPrefix(got, "---\n---\n\n<!-- "+Marker) || !strings.HasSuffix(got, "-->\n\n---\nprose\n---\nbody\n") {
+		t.Errorf("header must follow the empty block:\n%s", got)
+	}
+}

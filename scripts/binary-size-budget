@@ -737,4 +737,5 @@
 # Sync state error handling also grows the combined build.
 # #2884 measured 24543392 on Go 1.27.3: ignore files are replaced whole
 # through a shared atomic write helper. Keeps the 8192-byte allowance.
-24551584
+# #2892 follow-up measured 24555680: header and frontmatter handling for a kept opening block.
+24555680

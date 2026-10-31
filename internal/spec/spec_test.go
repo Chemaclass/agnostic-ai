@@ -83,6 +83,23 @@ func TestParseMarkdownBytes_KeepsLeadingNonMappingBlocks(t *testing.T) {
 	}
 }
 
+func TestParseMarkdownBytes_HeadingBlocksStayBodyAndCommentsStayFrontmatter(t *testing.T) {
+	for _, block := range []string{"## Setup", "# Setup\n\ntext", "###### Deep"} {
+		input := "---\n" + block + "\n---\nbody\n"
+		e, err := ParseMarkdownBytes(KindRule, []byte(input))
+		if err != nil || e.Body != input || !e.OpeningBlockKept {
+			t.Errorf("%q: body = %q, kept=%v, err=%v", block, e.Body, e.OpeningBlockKept, err)
+		}
+	}
+	for _, block := range []string{"#", "#note", "# \n#x"} {
+		input := "---\n" + block + "\n---\nbody\n"
+		e, err := ParseMarkdownBytes(KindRule, []byte(input))
+		if err != nil || e.Body != "body\n" || e.OpeningBlockKept {
+			t.Errorf("%q: body = %q, kept=%v, err=%v", block, e.Body, e.OpeningBlockKept, err)
+		}
+	}
+}
+
 func TestFilter(t *testing.T) {
 	t.Parallel()
 	entries := []Entry{

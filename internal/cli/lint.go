@@ -479,14 +479,14 @@ func lintHookMatcherMisuse(hooks []spec.Entry) []lintFinding {
 func lintUnterminatedFrontmatter(entries []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range entries {
-		if len(e.Meta) > 0 || !strings.HasPrefix(e.Body, "---") {
-			continue
-		}
-		if strings.Contains(e.Body[3:], "\n---") {
+		if e.OpeningBlockKept {
 			out = append(out, lintFinding{
 				Code: "LINT056", Severity: lintWarn, Path: e.Path,
 				Message: "opening `---` block is not a YAML mapping; sync keeps it as Markdown body text",
 			})
+			continue
+		}
+		if len(e.Meta) > 0 || !strings.HasPrefix(e.Body, "---") {
 			continue
 		}
 		out = append(out, lintFinding{

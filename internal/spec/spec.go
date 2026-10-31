@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -83,6 +84,9 @@ type Entry struct {
 	// preserved key order); emit falls back to alphabetical order in
 	// that case.
 	MetaKeys []string
+	// OpeningBlockKept is set when a closed leading `---` block was not
+	// frontmatter and stays in Body.
+	OpeningBlockKept bool
 	// DuplicateKeys lists the top-level keys the source writes more than
 	// once, which Meta holds once with the last value. Other YAML parsers
 	// reject such a file, so lint reports it. A local layer that extends
@@ -1163,14 +1167,15 @@ func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
 	}
 	name, _ := front.meta["name"].(string)
 	return Entry{
-		Kind:          kind,
-		Name:          name,
-		Meta:          front.meta,
-		MetaKeys:      front.keys,
-		NestedKeys:    front.nestedKeys,
-		MetaStyles:    front.styles,
-		DuplicateKeys: front.duplicates,
-		Body:          body,
+		Kind:             kind,
+		Name:             name,
+		Meta:             front.meta,
+		MetaKeys:         front.keys,
+		NestedKeys:       front.nestedKeys,
+		MetaStyles:       front.styles,
+		DuplicateKeys:    front.duplicates,
+		Body:             body,
+		OpeningBlockKept: front.bodyOnly,
 	}, nil
 }
 
@@ -1204,15 +1209,16 @@ func parseMarkdown(path string) (Entry, error) {
 	}
 	name, _ := front.meta["name"].(string)
 	return Entry{
-		Path:          path,
-		Name:          name,
-		Meta:          front.meta,
-		MetaKeys:      front.keys,
-		NestedKeys:    front.nestedKeys,
-		MetaStyles:    front.styles,
-		DuplicateKeys: front.duplicates,
-		Body:          body,
-		BodyLine:      bytes.Count(normalized[:len(normalized)-len(body)], []byte("\n")) + 1,
+		Path:             path,
+		Name:             name,
+		Meta:             front.meta,
+		MetaKeys:         front.keys,
+		NestedKeys:       front.nestedKeys,
+		MetaStyles:       front.styles,
+		DuplicateKeys:    front.duplicates,
+		Body:             body,
+		OpeningBlockKept: front.bodyOnly,
+		BodyLine:         bytes.Count(normalized[:len(normalized)-len(body)], []byte("\n")) + 1,
 	}, nil
 }
 
@@ -1364,6 +1370,11 @@ func normalizeLineEndings(b []byte) []byte {
 	return bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
 }
 
+// markdownHeadingRe matches a line such as `## Setup` or `# Setup`. A block
+// holding one is Markdown text, not a YAML comment, so it stays in the body.
+// A `#` comment without a space after it, or a bare `#`, stays a comment.
+var markdownHeadingRe = regexp.MustCompile(`(?m)^#{1,6}[ \t]+\S`)
+
 // splitFrontmatter parses a leading `---` block as YAML and returns the
 // ordered map of frontmatter keys along with the remaining body. A file
 // that does not start with `---`, or whose closing `---` is missing,
@@ -1389,7 +1400,11 @@ func splitFrontmatter(data []byte) (decodedMapping, string, error) {
 	if err != nil {
 		return decodedMapping{}, "", err
 	}
+	if len(front.meta) == 0 && markdownHeadingRe.Match(yamlPart) {
+		front.bodyOnly = true
+	}
 	if front.bodyOnly {
+		empty.bodyOnly = true
 		return empty, string(data), nil
 	}
 	return front, string(body), nil

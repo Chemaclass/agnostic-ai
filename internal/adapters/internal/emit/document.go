@@ -1,6 +1,10 @@
 package emit
 
-import "gopkg.in/yaml.v3"
+import (
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
 
 // Document renders a markdown document with optional YAML frontmatter
 // followed by body. When meta resolves to an empty frontmatter block,
@@ -31,6 +35,9 @@ func DocumentStyled(meta map[string]any, keys []string, styles map[string]yaml.S
 	rmeta, rkeys := ResolveMetaOrdered(meta, keys, target)
 	fm := FrontmatterStyled(rmeta, rkeys, styles)
 	if fm == "" {
+		if strings.HasPrefix(body, "---\n") || body == "---" {
+			return "---\n---\n" + body
+		}
 		return body
 	}
 	return fm + "\n" + body
