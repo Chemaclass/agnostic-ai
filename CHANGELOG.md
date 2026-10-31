@@ -20,6 +20,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Security
 
+- `packs add` refuses packs folders that link outside the project (#2874).
 - Editor and vendor dependencies receive security patches; the scoped audit exception expires on November 14 (#2844).
 
 #### Web interface
