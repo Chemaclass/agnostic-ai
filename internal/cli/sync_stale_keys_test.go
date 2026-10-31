@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -109,19 +110,37 @@ func TestSync_ClaudeDropsStaleKeysAndReleasesDeletedHooks(t *testing.T) {
 func TestSync_ClaudeRetiredEnvParentDropsOnlyUneditedValues(t *testing.T) {
 	const settings = ".claude/settings.json"
 	for _, tc := range []struct {
-		name string
-		edit map[string]any
-		want map[string]any
+		name   string
+		legacy bool
+		edit   map[string]any
+		want   map[string]any
 	}{
-		{"unchanged parent", nil, map[string]any{"FOO": "current"}},
-		{"edited sibling", map[string]any{"BAR": "mine"}, map[string]any{"FOO": "current", "BAR": "mine"}},
-		{"added sibling", map[string]any{"BAZ": "mine"}, map[string]any{"FOO": "current", "BAR": "stale", "BAZ": "mine"}},
+		{"unchanged parent", true, nil, map[string]any{"FOO": "current"}},
+		{"edited sibling", true, map[string]any{"BAR": "mine"}, map[string]any{"FOO": "current", "BAR": "mine"}},
+		{"added sibling", true, map[string]any{"BAZ": "mine"}, map[string]any{"FOO": "current", "BAR": "stale", "BAZ": "mine"}},
+		{"per-key claims with added sibling", false, map[string]any{"BAZ": "mine"}, map[string]any{"FOO": "current", "BAZ": "mine"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    settings:\n      env:\n        FOO: first\n        BAR: stale\n")
 			mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
 			runSyncOK(t)
+			if tc.legacy {
+				env, err := json.Marshal(readJSONMap(t, settings)["env"])
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := updateStateFile(".", func(state *syncStateFile) {
+					record := state.Merged[filepath.FromSlash(settings)]
+					record.Keys = slices.DeleteFunc(record.Keys, func(k adapters.MergedKey) bool {
+						return len(k.Path) > 0 && k.Path[0] == "env"
+					})
+					record.Keys = append(record.Keys, adapters.MergedKey{Path: []string{"env"}, Sum: adapters.ContentSum(string(env))})
+					state.Merged[filepath.FromSlash(settings)] = record
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if tc.edit != nil {
 				doc := readJSONMap(t, settings)
 				env, ok := doc["env"].(map[string]any)
