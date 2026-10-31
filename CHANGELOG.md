@@ -19,6 +19,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Sync and configuration
 
 - `explain --global` lists native hook files and copied scripts for Cline, Grok, and Kiro, matching sync and custom tool roots (#2863).
+- Global instruction updates keep private file modes and stop if the file changes during sync (#2857).
 - `import --global` reads native voice dictation keys back into the portable `voice` field (#2834).
 - `voice` also writes Qwen Code, Gemini CLI, Grok Build, and Mistral Vibe; other tools get a note naming why (#2833).
 - Sync keeps existing Antigravity and Goose plugin manifests it did not write and prints a note.
@@ -90,6 +91,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Warp
 
 - Global sync writes voice enabled and language choices to the platform settings file while preserving the activation shortcut (#2836).
+
+#### Zed
+
+- Windows global instructions use `%APPDATA%\Zed\AGENTS.md`, preserving personal text while retiring recorded old output (#2857).
 
 ## v0.90.0 - 2026-10-29
 

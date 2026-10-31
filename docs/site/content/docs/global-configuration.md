@@ -238,7 +238,7 @@ A dash means global sync writes nothing for that kind.
 | **cline** | `~/.agents/AGENTS.md` | inlined | `~/.cline/hooks/<event>` | `~/.cline/skills/<name>/` | `~/.cline/agents/<name>.yml` | - |
 | **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | `~/.config/devin/agents/<name>.md` | - |
 | **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
-| **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
+| **zed** | `~/.config/zed/AGENTS.md`; Windows: `%APPDATA%\Zed\AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
 | **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
 | **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` | `~/.config/opencode/agents/<name>.md` | - |
 | **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/config/skills/<name>/` | `~/.gemini/config/agents/<name>/agent.md` | - |
@@ -256,6 +256,7 @@ A dash means global sync writes nothing for that kind.
 
 - [MCP servers](#global-mcp-servers) and [settings](#global-default-model-and-effort) have their own tables above. Agents use the same formats as project agents; see [the agent example](#global-agents).
 - **Rules** are inlined into the instructions file, in the same `## Rules` block as the shared body. Augment has no user-level instructions file for the CLI, so its `~/.augment/rules/` entries are always on.
+- Existing instruction files keep their personal text and file permissions. Sync stops if a file changes while it is preparing the update.
 
 Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.
 
