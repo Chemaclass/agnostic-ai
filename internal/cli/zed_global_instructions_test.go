@@ -53,7 +53,13 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [zed]\nbuiltins: []\n")
 			g := globalTargets["zed"]
-			path := g.path(home, g.instructions)
+			path := filepath.Join(home, ".config", "zed", "AGENTS.md")
+			if runtime.GOOS == "windows" {
+				path = filepath.Join(os.Getenv("APPDATA"), "Zed", "AGENTS.md")
+			}
+			if got := g.path(home, g.instructions); got != path {
+				t.Fatalf("native path %q, want %q", got, path)
+			}
 			original := "# Personal notes\r\nKeep this private"
 			if before != "absent" {
 				mustWriteGlobalTest(t, path, original)
@@ -123,6 +129,9 @@ func TestZedGlobalInstructions_WindowsMigratesOnlyRecordedLegacyBlock(t *testing
 				original = globalStart + "\nOld portable text\n" + globalEnd + "\n"
 			}
 			mustWriteGlobalTest(t, legacy, original)
+			if err := os.Chmod(legacy, 0o600); err != nil {
+				t.Fatal(err)
+			}
 			old := globalState{Version: globalStateVersion}
 			if before != "unowned" {
 				old.Files = []string{legacy}
@@ -155,6 +164,25 @@ func TestZedGlobalInstructions_WindowsMigratesOnlyRecordedLegacyBlock(t *testing
 			}
 			if got := readGlobalTestFile(t, legacy); got != original {
 				t.Errorf("planning changed native file: %q", got)
+			}
+			if _, err := applyGlobalChanges(writes, removedGlobalFiles(old.Files, next.Files, writes...), false, next.removalGuards); err != nil {
+				t.Fatal(err)
+			}
+			if before == "sync created" {
+				if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+					t.Errorf("created legacy file remains: %v", err)
+				}
+			} else {
+				want := original
+				if before != "unowned" {
+					want = personal
+				}
+				if got := readGlobalTestFile(t, legacy); got != want {
+					t.Errorf("migration changed legacy user bytes: %q, want %q", got, want)
+				}
+				if info, err := os.Stat(legacy); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+					t.Errorf("migration widened legacy mode: %v, %v", info, err)
+				}
 			}
 		})
 	}

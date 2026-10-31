@@ -89,7 +89,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 `agnostic-ai sync --global --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). See the [global output table](@/docs/global-configuration.md#global-output) for each platform's path. Skills still use `~/.agents/skills/`.
 
-On Windows, the first sync after this fix clears the managed block from the old XDG file only when the ledger records it. Personal text and private permissions remain. An old file not recorded by sync stays untouched. `explain --global rules/<name>.md` shows the current native file. Global instruction import is not supported; project `import zed` keeps its existing paths below.
+On Windows, the first sync after this fix clears the managed block from the old XDG file only when the ledger records it. Personal text and private permissions remain. A link to the active file is retained. An old file not recorded by sync stays untouched. `explain --global rules/<name>.md` shows the current native file. Global instruction import is not supported; project `import zed` keeps its existing paths below.
 
 ## Import
 
