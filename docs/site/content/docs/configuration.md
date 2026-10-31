@@ -131,7 +131,7 @@ requires: ">=0.73.0 <0.74.0"   # range: 0.73.0 and its patch releases
 
 A binary outside the value stops every command that reads your specs, before any write, with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). That page lists the fixes. `sync --watch` stops when a pulled config puts the binary outside `requires`.
 
-A value is one or more terms separated by spaces, and the binary must match every term. A term is `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`; anything else fails as AAI-004, naming the file. A build from source (`go run`, or a commit after a tag) is not a release, so it warns once instead.
+A value is one or more terms separated by spaces, and the binary must match every term. A term is `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`; anything else fails as AAI-004, naming the file. That includes `^`, `~`, commas, and `||`. Before 1.0, `^0.90.0` would allow only 0.90 patch releases, so write `>=0.90.0` to accept newer releases. A build from source (`go run`, or a commit after a tag) is not a release, so it warns once instead.
 
 `agnostic-ai.local.yaml` can replace the value. An empty `requires:` there turns the check off. The [global home config](#global-configuration) accepts the key too.
 
