@@ -15,14 +15,19 @@ import (
 )
 
 func TestZedGlobalInstructions_PlatformPaths(t *testing.T) {
+	t.Setenv("FLATPAK_XDG_CONFIG_HOME", "")
+	if err := os.Unsetenv("FLATPAK_XDG_CONFIG_HOME"); err != nil {
+		t.Fatal(err)
+	}
 	home, appdata, xdg := t.TempDir(), t.TempDir(), t.TempDir()
 	t.Setenv("APPDATA", appdata)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 	g := globalTargets["zed"]
 	for _, tc := range []struct{ goos, want string }{
 		{"windows", filepath.Join(appdata, "Zed", "AGENTS.md")},
-		{"darwin", filepath.Join(xdg, "zed", "AGENTS.md")},
+		{"darwin", filepath.Join(home, ".config", "zed", "AGENTS.md")},
 		{"linux", filepath.Join(xdg, "zed", "AGENTS.md")},
+		{"freebsd", filepath.Join(xdg, "zed", "AGENTS.md")},
 	} {
 		if got := g.pathForOS(home, g.instructions, tc.goos); got != tc.want {
 			t.Errorf("%s instructions path = %q, want %q", tc.goos, got, tc.want)

@@ -43,6 +43,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Zed
+
+- Zed global instructions use the native macOS and Flatpak roots and move recorded blocks without changing personal text (#2866).
+
 #### Kiro
 
 - Global sync and import use `~/.kiro` when `KIRO_HOME` is relative, a filesystem root, the home directory, or a home ancestor (#2860).

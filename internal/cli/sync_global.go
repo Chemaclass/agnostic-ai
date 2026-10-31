@@ -865,6 +865,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 }
 func buildGlobalWritesForPlatform(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported, platform string) ([]globalWrite, globalState, error) {
 	for _, target := range targets {
+		if err := globalTargets[target].instructionsRootError(platform); err != nil {
+			return nil, globalState{}, fmt.Errorf("%s: %w", target, err)
+		}
 		if validate := globalTargets[target].mcp.validate; validate != nil {
 			if err := validate(b.For(target).MCPs); err != nil {
 				return nil, globalState{}, err

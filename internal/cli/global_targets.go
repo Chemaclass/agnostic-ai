@@ -49,6 +49,7 @@ type globalTarget struct {
 	// wiring. Global rules inline into it.
 	instructions        string
 	instructionsWindows string
+	instructionsRoot    func(home, goos string) (string, error)
 	// rules is a per-rule directory, used only for a target whose
 	// vendor documents no user-level instructions file at all.
 	rules string
@@ -350,6 +351,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".agents/skills",
 	},
 	"zed": {
+		instructionsRoot:    zedInstructionsRoot,
 		instructions:        globalPathXDG + "zed/AGENTS.md",
 		instructionsWindows: "Zed/AGENTS.md",
 		skills:              globalPathHome + ".agents/skills",
@@ -556,6 +558,10 @@ func globalPath(home, p string) string {
 // globalRoots returns every directory a global path can resolve under:
 // the home, and each configuration root variable that is set.
 func globalRoots(home string) []string {
+	return globalRootsForOS(home, runtime.GOOS)
+}
+
+func globalRootsForOS(home, goos string) []string {
 	roots := []string{filepath.Clean(home)}
 	for _, env := range []string{"XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA"} {
 		if root := os.Getenv(env); root != "" {
@@ -563,6 +569,11 @@ func globalRoots(home string) []string {
 		}
 	}
 	for _, name := range globalTargetNames() {
+		if resolve := globalTargets[name].instructionsRoot; resolve != nil {
+			if root, err := resolve(home, goos); err == nil && root != "" {
+				roots = append(roots, root)
+			}
+		}
 		if root := globalTargets[name].overrideRoot(home); root != "" {
 			roots = append(roots, filepath.Clean(root))
 		}
@@ -604,6 +615,11 @@ func (g globalTarget) path(home, p string) string {
 }
 
 func (g globalTarget) pathForOS(home, p, goos string) string {
+	if p != "" && p == g.instructions && g.instructionsRoot != nil {
+		if root, err := g.instructionsRoot(home, goos); err == nil && root != "" {
+			return filepath.Join(root, filepath.Base(filepath.FromSlash(p)))
+		}
+	}
 	if goos == "windows" && p != "" && p == g.instructions && g.instructionsWindows != "" {
 		p = globalPathAppData + g.instructionsWindows
 	}
@@ -658,6 +674,12 @@ func (g globalTarget) filesForOS(home, goos string) []string {
 }
 
 func (g globalTarget) legacyInstructionsPath(home, goos string) string {
+	if g.instructionsRoot != nil {
+		legacy := globalPath(home, g.instructions)
+		if filepath.IsAbs(legacy) && legacy != g.pathForOS(home, g.instructions, goos) {
+			return legacy
+		}
+	}
 	if goos == "windows" && g.instructionsWindows != "" {
 		return globalPath(home, g.instructions)
 	}
@@ -665,6 +687,11 @@ func (g globalTarget) legacyInstructionsPath(home, goos string) string {
 }
 
 func (g globalTarget) instructionsRootError(goos string) error {
+	if g.instructionsRoot != nil {
+		if _, err := g.instructionsRoot("", goos); err != nil {
+			return err
+		}
+	}
 	if goos == "windows" && g.instructionsWindows != "" {
 		if root := os.Getenv("APPDATA"); root != "" && !filepath.IsAbs(root) {
 			return fmt.Errorf("APPDATA=%q must be an absolute path", root)
