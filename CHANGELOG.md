@@ -11,6 +11,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Sync and configuration
 
 - Hook runs report Windows timeouts correctly, so Copilot lets the action proceed (#2878).
+- Sync preserves `.gitignore` entries and asks for the closing marker when a managed block is truncated (#2875).
+
 - Global voice settings round-trip native keys; Qwen, Gemini, Grok and Vibe join support, with notes for unsupported fields (#2833, #2834).
 - Global instruction updates keep private modes and stop if the file changes during sync (#2857).
 - `explain --global` lists native hook files and copied scripts for Cline, Grok and Kiro, including custom tool roots (#2863).
@@ -19,6 +21,9 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Security
 
+- Import rejects writes outside the project and configured source directories; invalid Codex and Warp agent names use their file names (#2873).
+
+- `packs add` refuses packs folders that link outside the project (#2874).
 - Editor and vendor dependencies receive security patches; the scoped audit exception expires on November 14 (#2844).
 
 #### Web interface
