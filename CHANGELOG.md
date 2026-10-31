@@ -18,6 +18,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Security
 
+- Import rejects writes outside the project and configured source directories; invalid Codex and Warp agent names use their file names (#2873).
+
 - Editor and vendor dependencies receive security patches; the scoped audit exception expires on November 14 (#2844).
 
 #### Web interface
