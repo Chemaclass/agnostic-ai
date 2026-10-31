@@ -679,6 +679,41 @@ func TestImportGlobal_LayeredDestinationDoesNotNarrowOrDeleteVoice(t *testing.T)
 	}
 }
 
+func TestImportGlobal_NamedDestinationUsesEffectiveLocalOverlay(t *testing.T) {
+	for _, overlay := range []string{"target: codex\n", "voice: null\n"} {
+		t.Run(overlay, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			path := filepath.Join(source, "settings", "imported.yaml")
+			original := "name: personal\nmodel: {codex: gpt-test}\n"
+			mustWriteGlobalTest(t, path, original)
+			local := filepath.Join(source, "local", "settings", "personal.yaml")
+			mustWriteGlobalTest(t, local, overlay)
+			collision := filepath.Join(source, "local", "settings", "different.yaml")
+			mustWriteGlobalTest(t, collision, "name: imported-voice\ntarget: codex\n")
+			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
+				t.Fatalf("import: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, path); got != original {
+				t.Errorf("shared settings changed: %q", got)
+			}
+			if got := readGlobalTest(t, local); got != overlay {
+				t.Errorf("local settings changed: %q", got)
+			}
+			if _, err := os.Stat(filepath.Join(source, "settings", "imported-voice-2.yaml")); err != nil {
+				t.Errorf("named fallback collision was not avoided: %v", err)
+			}
+			if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+			qwen := readGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"))
+			if !strings.Contains(qwen, `"tap"`) {
+				t.Errorf("shared voice missing from Qwen: %s", qwen)
+			}
+		})
+	}
+}
+
 func TestImportGlobal_CompatibleLocalSettingsStillAllowVoiceAppend(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	shared := filepath.Join(source, "settings", "imported.yaml")
@@ -690,5 +725,26 @@ func TestImportGlobal_CompatibleLocalSettingsStillAllowVoiceAppend(t *testing.T)
 	}
 	if got := readGlobalTest(t, shared); !strings.Contains(got, "voice:") {
 		t.Errorf("compatible settings did not receive voice: %s", got)
+	}
+}
+
+func TestImportGlobal_ShadowedDestinationDoesNotLoseVoice(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(source, "settings", "imported.yaml")
+	original := "name: personal\nmodel: {codex: gpt-test}\n"
+	mustWriteGlobalTest(t, path, original)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "later.yaml"), "name: personal\ntarget: codex\n")
+	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true}}`+"\n")
+	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("shadowed settings changed: %q", got)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".qwen", "settings.json")); err != nil {
+		t.Errorf("Qwen voice missing: %v", err)
 	}
 }

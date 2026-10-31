@@ -44,7 +44,20 @@ func stageImportedGlobalVoice(source, stage string, doc map[string]any, before *
 		if err := before.check(path); err != nil {
 			return nil, err
 		}
-		compatible := importedVoiceLayerCompatible(settings, "imported", doc)
+		name := "imported"
+		if before.info != nil {
+			entry, err := spec.ParseYAMLBytes(spec.KindSettings, before.data)
+			if err != nil {
+				return nil, fmt.Errorf("parse %s: %w", path, err)
+			}
+			if entry.Name != "" {
+				name = entry.Name
+			}
+		}
+		compatible := importedVoiceLayerCompatible(settings, name, doc)
+		if before.info != nil && !importedVoiceDestinationLoaded(settings, name, path) {
+			compatible = false
+		}
 		if before.info == nil && compatible {
 			return nil, nil
 		}
@@ -71,6 +84,20 @@ func stageImportedGlobalVoice(source, stage string, doc map[string]any, before *
 		return nil, err
 	}
 	return nil, stageGlobalSettingsDoc(stage, name, voice)
+}
+
+func importedVoiceDestinationLoaded(settings []spec.Entry, name, path string) bool {
+	for _, entry := range settings {
+		if entry.Name != name {
+			continue
+		}
+		for current := &entry; current != nil; current = current.Base {
+			if filepath.Clean(current.Path) == filepath.Clean(path) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func importedVoiceLayerCompatible(settings []spec.Entry, name string, doc map[string]any) bool {
