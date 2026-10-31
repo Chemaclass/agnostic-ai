@@ -6,6 +6,7 @@ package lsp
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -37,6 +38,26 @@ const (
 	errCodeInternalError  = -32603
 )
 
+// maxContentLength caps one message body so a bad header cannot force a huge allocation.
+const maxContentLength = 64 << 20
+
+// parseError reports a fully read frame whose body is not valid JSON. The
+// stream stays in sync, so the caller can reply and keep reading.
+type parseError struct{ err error }
+
+func (e *parseError) Error() string { return fmt.Sprintf("lsp: parse: %v", e.err) }
+func (e *parseError) Unwrap() error { return e.err }
+
+// invalidRequestError reports valid JSON that is not a request object. id is
+// the request id when one could be read.
+type invalidRequestError struct {
+	id  json.RawMessage
+	err error
+}
+
+func (e *invalidRequestError) Error() string { return fmt.Sprintf("lsp: invalid request: %v", e.err) }
+func (e *invalidRequestError) Unwrap() error { return e.err }
+
 // Reader reads Content-Length-framed JSON-RPC messages from r.
 type Reader struct {
 	r *bufio.Reader
@@ -63,6 +84,12 @@ func (rr *Reader) Read() (*Message, error) {
 			if err != nil {
 				return nil, fmt.Errorf("lsp: bad Content-Length %q", v)
 			}
+			if n < 0 {
+				return nil, fmt.Errorf("lsp: bad Content-Length %q", v)
+			}
+			if n > maxContentLength {
+				return nil, fmt.Errorf("lsp: Content-Length %d exceeds limit of %d bytes", n, maxContentLength)
+			}
 			length = n
 		}
 	}
@@ -73,9 +100,16 @@ func (rr *Reader) Read() (*Message, error) {
 	if _, err := io.ReadFull(rr.r, body); err != nil {
 		return nil, fmt.Errorf("lsp: read body: %w", err)
 	}
+	if !json.Valid(body) {
+		return nil, &parseError{err: errors.New("invalid JSON")}
+	}
 	var msg Message
 	if err := json.Unmarshal(body, &msg); err != nil {
-		return nil, fmt.Errorf("lsp: parse: %w", err)
+		var withID struct {
+			ID json.RawMessage `json:"id"`
+		}
+		_ = json.Unmarshal(body, &withID)
+		return nil, &invalidRequestError{id: withID.ID, err: err}
 	}
 	return &msg, nil
 }
