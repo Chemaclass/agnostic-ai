@@ -735,4 +735,6 @@
 # 9b6b98d9a (+4096). No new dependency. Keep the 8192-byte allowance.
 # Main through #2905 measured 24527008 bytes; Git query isolation adds 4096.
 # Sync state error handling also grows the combined build.
-24539296
+# #2893 splices YAML merge keys into specs: 24551584 bytes on Linux amd64
+# release flags. Keeps the 8192-byte allowance.
+24559776
