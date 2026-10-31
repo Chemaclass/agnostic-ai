@@ -1,9 +1,11 @@
 package claude
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -15,6 +17,83 @@ import (
 func intPtr(v int) *int          { return &v }
 func boolPtr(v bool) *bool       { return &v }
 func stringPtr(v string) *string { return &v }
+
+func TestEmit_FirstClassObjectsPreserveUserEntriesAndReleaseOwnEntries(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	path := filepath.Join(dir, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initial := `{"env":{"USER":"keep","FOO":"old"},"enabledPlugins":{"user":true},"attribution":{"user":"keep"},"statusLine":{"user":"keep"}}`
+	if err := os.WriteFile(path, []byte(initial), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var warnings bytes.Buffer
+	oldWarner := emit.Warner
+	emit.Warner = &warnings
+	t.Cleanup(func() { emit.Warner = oldWarner; emit.PriorMergedKeys = nil })
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Settings: &config.ClaudeSettings{
+		Model: "model", Env: map[string]string{"FOO": "new"}, EnabledPlugins: map[string]bool{"ours": true},
+		Attribution: &config.ClaudeAttribution{Commit: stringPtr("ours")}, StatusLine: &config.ClaudeStatusLine{Command: "ours"},
+	}}}}
+	sess := emit.NewSession()
+	sess.StartDetailedRecording()
+	if err := writeSettings(sess, nil, nil, nil, ".claude", cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	writes := sess.StopDetailedRecording()
+	var prior []emit.MergedKey
+	for _, w := range writes {
+		if w.Path == filepath.Join(".claude", "settings.json") {
+			prior = w.Keys
+		}
+	}
+	if len(prior) == 0 {
+		t.Fatal("settings claims not recorded")
+	}
+	check := func(wantOwn bool) {
+		t.Helper()
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got map[string]map[string]any
+		var objects map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &objects); err != nil {
+			t.Fatal(err)
+		}
+		got = make(map[string]map[string]any)
+		for _, key := range []string{"env", "enabledPlugins", "attribution", "statusLine"} {
+			var gotValue map[string]any
+			if err := json.Unmarshal(objects[key], &gotValue); err != nil {
+				t.Fatal(err)
+			}
+			got[key] = gotValue
+		}
+		for _, pair := range [][2]string{{"env", "USER"}, {"enabledPlugins", "user"}, {"attribution", "user"}, {"statusLine", "user"}} {
+			if _, ok := got[pair[0]][pair[1]]; !ok {
+				t.Errorf("lost %s.%s: %s", pair[0], pair[1], raw)
+			}
+		}
+		for _, pair := range [][2]string{{"env", "FOO"}, {"enabledPlugins", "ours"}, {"attribution", "commit"}, {"statusLine", "command"}} {
+			_, ok := got[pair[0]][pair[1]]
+			if ok != wantOwn {
+				t.Errorf("%s.%s present=%t, want %t: %s", pair[0], pair[1], ok, wantOwn, raw)
+			}
+		}
+	}
+	check(true)
+	if !strings.Contains(warnings.String(), "FOO") {
+		t.Errorf("missing warning for overwritten user value: %s", warnings.String())
+	}
+	emit.PriorMergedKeys = func(string) []emit.MergedKey { return prior }
+	cfg.Outputs["claude"] = config.Output{Settings: &config.ClaudeSettings{Model: "model"}}
+	if err := writeSettings(emit.NewSession(), nil, nil, nil, ".claude", cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	check(false)
+}
 
 func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 	dir := t.TempDir()

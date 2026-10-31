@@ -2,6 +2,7 @@ package cli
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -61,6 +62,60 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 		}
 		if g.hooks == "" || g.bridgeEvent == "" || g.bridgeKey == "" {
 			t.Errorf("%s: bridge needs a hooks file, a session-start event, and a context key", name)
+		}
+	}
+}
+
+func TestGlobalPaths_IgnoreRelativePlatformRoots(t *testing.T) {
+	home := t.TempDir()
+	for _, tc := range []struct{ env, prefix, fallback string }{
+		{"XDG_CONFIG_HOME", globalPathXDG, ".config"},
+		{"APPDATA", globalPathAppData, "AppData/Roaming"},
+		{"LOCALAPPDATA", globalPathLocalAppData, "AppData/Local"},
+	} {
+		t.Run(tc.env, func(t *testing.T) {
+			t.Setenv(tc.env, "relative")
+			if got, want := globalPath(home, tc.prefix+"tool/file"), filepath.Join(home, tc.fallback, "tool", "file"); got != want {
+				t.Errorf("path = %q, want %q", got, want)
+			}
+			if slices.Contains(globalRoots(home), "relative") {
+				t.Error("relative root allows state paths in the working directory")
+			}
+		})
+	}
+}
+
+func TestGlobalPaths_RelativeXDGFallsBackForTargets(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "relative")
+	for _, name := range []string{"opencode", "crush", "amp", "kilo", "goose", "devin"} {
+		g := globalTargets[name]
+		for _, p := range []string{g.instructions, g.skills, g.agents, g.rules, g.hooks, g.hooksDir, g.hookScriptsDir} {
+			if strings.HasPrefix(p, globalPathXDG) {
+				if got := g.path(home, p); !strings.HasPrefix(got, filepath.Join(home, ".config")+string(filepath.Separator)) {
+					t.Errorf("%s path %q resolved to %q", name, p, got)
+				}
+			}
+		}
+	}
+}
+
+func TestForeignGlobalPath_RejectsRelativeRecordedPaths(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", ".")
+	t.Setenv("GROK_HOME", ".")
+	if slices.Contains(globalRoots(home), ".") {
+		t.Error("relative target override entered ownership roots")
+	}
+	path := filepath.Join("relative", "owned.md")
+	for name, state := range map[string]globalState{
+		"file":     {Files: []string{path}},
+		"created":  {Files: []string{path}, Created: []string{path}},
+		"hook":     {HookFiles: map[string][]string{"target": {path}}},
+		"settings": {SettingsPaths: map[string]string{"target": path}},
+	} {
+		if got := foreignGlobalPath(state, home); got != path {
+			t.Errorf("%s foreign path = %q, want %q", name, got, path)
 		}
 	}
 }

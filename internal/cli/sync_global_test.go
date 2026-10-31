@@ -69,6 +69,36 @@ func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 	}
 }
 
+func TestSyncGlobal_RelativeXDGFallsBackAndPreservesUserInstructions(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	t.Setenv("XDG_CONFIG_HOME", "relative")
+	intro := filepath.Join(source, "AGNOSTIC_AI.md")
+	path := filepath.Join(home, ".config", "opencode", "AGENTS.md")
+	const original = "My instructions.\n"
+	mustWriteGlobalTest(t, intro, "Shared instructions.\n")
+	mustWriteGlobalTest(t, path, original)
+	if _, _, err := runGlobalAgentTest("--only", "opencode"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || !strings.Contains(string(data), "Shared instructions.") || !strings.Contains(string(data), original) {
+		t.Fatalf("instructions = %q, err=%v", data, err)
+	}
+	if _, err := os.Stat(filepath.Join("relative", "opencode")); !os.IsNotExist(err) {
+		t.Errorf("sync wrote under the current directory: %v", err)
+	}
+	if err := os.Remove(intro); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "opencode"); err != nil {
+		t.Fatal(err)
+	}
+	data, err = os.ReadFile(path)
+	if err != nil || string(data) != original {
+		t.Errorf("instructions after removal = %q, err=%v, want %q", data, err, original)
+	}
+}
+
 func TestSyncGlobal_PreflightRejectsUnmanagedSkillBeforeWrites(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
