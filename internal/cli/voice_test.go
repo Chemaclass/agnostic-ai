@@ -355,3 +355,39 @@ func TestVoice_InitialParentOverrideRestoresOriginal(t *testing.T) {
 		t.Errorf("removal = %q, want %q", got, original)
 	}
 }
+
+func TestVoice_EmptyOverrideThenPortableRestoresOriginal(t *testing.T) {
+	for _, tc := range []struct{ name, original string }{
+		{"absent", ""},
+		{"other settings", "{\n  \"theme\": \"dark\"\n}\n"},
+		{"existing empty voice", "{\"voice\": { }, \"theme\": \"dark\"}"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			path := filepath.Join(home, ".claude", "settings.json")
+			if tc.original != "" {
+				mustWriteGlobalTest(t, path, tc.original)
+			}
+			settings := filepath.Join(source, "settings", "voice.yaml")
+			for _, contents := range []string{"x-claude:\n  voice: {}\n", voiceHomeSpec} {
+				mustWriteGlobalTest(t, settings, contents)
+				if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+					t.Fatalf("sync: %v\n%s", err, warnings)
+				}
+			}
+			if err := os.Remove(settings); err != nil {
+				t.Fatal(err)
+			}
+			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+				t.Fatalf("removal: %v\n%s", err, warnings)
+			}
+			if tc.original == "" {
+				if got, err := os.ReadFile(path); !os.IsNotExist(err) {
+					t.Errorf("created settings file remains: %q, %v", got, err)
+				}
+			} else if got := readGlobalTest(t, path); got != tc.original {
+				t.Errorf("removal = %q, want %q", got, tc.original)
+			}
+		})
+	}
+}

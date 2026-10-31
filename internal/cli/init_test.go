@@ -164,6 +164,9 @@ func TestInitCmd_PinsSchemaToTheRunningRelease(t *testing.T) {
 	if !strings.Contains(string(cfg), "/agnostic-ai/v0.71.0/docs/schemas/config.schema.json") {
 		t.Errorf("schema URL should name v0.71.0:\n%s", cfg)
 	}
+	if !strings.Contains(string(cfg), "\nrequires: \">=0.71.0\"\n") {
+		t.Errorf("config should require agnostic-ai 0.71.0 or later:\n%s", cfg)
+	}
 }
 
 func TestScaffold_GitignoreContainsLocalOverrideAndSyncState(t *testing.T) {
@@ -336,6 +339,20 @@ func TestRenderConfig_PinsSchemaToTheRelease(t *testing.T) {
 		want := "# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/" + ref + "/docs/schemas/config.schema.json\n"
 		if !strings.HasPrefix(got, want) {
 			t.Errorf("version %q: renderConfig should start with %q, got:\n%s", version, want, got)
+		}
+	}
+}
+
+func TestRenderConfig_RequiresTheReleaseAsAMinimum(t *testing.T) {
+	cases := map[string]string{"0.71.0": "version: 1\nrequires: \">=0.71.0\"\nbuiltins:", "v0.71.0": "version: 1\nrequires: \">=0.71.0\"\nbuiltins:"}
+	for version, want := range cases {
+		if got := renderConfig("", []string{"claude"}, false, version, false); !strings.Contains(got, want) {
+			t.Errorf("version %q: renderConfig should contain %q, got:\n%s", version, want, got)
+		}
+	}
+	for _, version := range []string{"test", "0.72.0-SNAPSHOT-abc123", "0.72.0-rc1", ""} {
+		if got := renderConfig("", []string{"claude"}, false, version, false); strings.Contains(got, "requires:") {
+			t.Errorf("version %q is not a release; renderConfig wrote requires:\n%s", version, got)
 		}
 	}
 }

@@ -150,9 +150,11 @@ which is how a project pinned to an older version gets there in one
 command. Downgrades are allowed, and standalone binary installs only: a
 package-manager install pins through its own package manager.
 
-Pass --requires to pin this project's requires and schema to the installed
-stable release, then sync. Existing local requires overrides are updated
-too. This mode does not install a binary or change package dependencies.
+Pass --requires to raise this project's requires to the installed stable
+release, keeping its form, update the schema URL, then sync. A minimum
+stays a minimum and an exact release stays exact; a range becomes a
+minimum. Existing local requires overrides are updated too. This mode
+does not install a binary or change package dependencies.
 
 Pass --check to show install details without changing anything. --run
 is still accepted for compatibility.`,
@@ -162,7 +164,7 @@ is still accepted for compatibility.`,
   # Install the release this project pins, even an older one
   agnostic-ai upgrade --version v0.56.1
 
-  # Reconcile project pins and generated files after a package upgrade
+  # Adopt the installed release in this project after a package upgrade
   agnostic-ai upgrade --requires
 
   # Diagnose install location + PATH shadowing
@@ -190,7 +192,7 @@ is still accepted for compatibility.`,
 	cmd.Flags().Bool("run", false, "Run upgrade (now the default)")
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Print detection details and exit without running")
 	cmd.Flags().StringVar(&targetVersion, "version", "", "Install this release instead of the latest (e.g. v0.56.1)")
-	cmd.Flags().BoolVar(&reconcile, "requires", false, "Pin project requires and schema to the installed stable release, then sync")
+	cmd.Flags().BoolVar(&reconcile, "requires", false, "Raise project requires to the installed stable release, keeping its form, update the schema URL, then sync")
 	return cmd
 }
 

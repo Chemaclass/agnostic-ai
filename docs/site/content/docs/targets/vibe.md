@@ -72,6 +72,8 @@ MCP servers support stdio and streamable HTTP. HTTP headers use native static au
 
 `model` maps to `active_model`. Other native project settings pass through `x-vibe`. Portable reasoning effort and permission settings raise coverage notes; Vibe's reasoning setting belongs to each model.
 
+At user scope, portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `voice_mode_enabled`; Vibe's experimental dictation has no mode or language key.
+
 Hooks accept native `event: pre_tool`, `post_tool`, or `post_agent`. `matcher` maps to native `match`; `timeout` is in seconds. Use `x-vibe.strict: true` on tool hooks to deny or clear output when a hook fails. On `post_agent`, `match` runs the hook only after the named agent ends its turn, and `match: main` selects the main agent (Vibe 3.0.3 and later). `post_agent` rejects `strict: true`. A shell guard should match both `bash` and `process_start`.
 
 Hooks receive JSON on standard input and respond with Vibe JSON. Exit zero with `{"decision":"deny","reason":"..."}` denies according to the event: `pre_tool` blocks a call, `post_tool` rewrites its output, and `post_agent` requests a retry. A nonzero exit is a hook failure. Claude-style exit 2 and portable lifecycle events are not translated. Commands receive `AGNOSTIC_AI_TARGET=vibe`; arguments fold into the command because Vibe has no separate argument field. On Windows, arguments PowerShell cannot preserve cause an error; write the complete native command in that case.

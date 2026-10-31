@@ -17,10 +17,13 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Sync and configuration
 
-- `import --global` reads native voice dictation keys back into the portable `voice` field.
+- `import --global` reads native voice dictation keys back into the portable `voice` field (#2834).
+- `voice` also writes Qwen Code, Gemini CLI, Grok Build, and Mistral Vibe; other tools get a note naming why (#2833).
 - Sync keeps existing Antigravity and Goose plugin manifests it did not write and prints a note.
 - Home `voice` settings turn Claude Code dictation on and pick hold or tap; `sync --global` restores previous values on removal.
 - `import` keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
+- `init` writes `requires: ">=X.Y.Z"` for the running release, so newer releases keep working until you choose an exact pin (#2841).
+- `upgrade --requires` keeps the form of `requires`: a minimum stays a minimum, an exact release stays exact, and a range becomes a minimum (#2841).
 
 #### Web interface
 

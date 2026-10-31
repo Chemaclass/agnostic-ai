@@ -440,7 +440,7 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		}
 	}
 	if format == grokTOMLFormat {
-		if _, ownsModel := m.owned["models.default"]; !ownsModel {
+		if !grokOwnsTable(m.owned) {
 			delete(m.owned, grokModelsContainer)
 		}
 	}
@@ -462,7 +462,7 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		var container any
 		m.data, container, err = editGrokTOML(path, data, order, set, remove, previous)
 		if container != nil {
-			if _, ownsModel := m.owned["models.default"]; ownsModel {
+			if grokOwnsTable(m.owned) {
 				m.owned[grokModelsContainer] = container
 			}
 		}
