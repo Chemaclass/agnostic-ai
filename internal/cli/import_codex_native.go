@@ -68,7 +68,7 @@ func importCodexAgents(root, dstDir string) (int, error) {
 				return count, err
 			}
 			tomlName := strings.TrimSuffix(e.Name(), ".toml")
-			if n, _ := doc["name"].(string); n != "" {
+			if n, _ := doc["name"].(string); n != "" && spec.ValidateName(spec.KindAgent, n) == nil {
 				tomlName = n
 			}
 			// Canonicalise filename to dash-case so claude-imported
