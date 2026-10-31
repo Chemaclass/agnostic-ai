@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
+- MCP tool listing stops at its timeout when a detached child keeps stderr open (#2888).
 - Git queries use the requested repository when sync runs from a Git hook (#2882).
 - Sync fails when it cannot record written files in its state file (#2883).
 - Memory indexing keeps nested and external links and avoids duplicate entries for filenames with spaces (#2881).

@@ -209,7 +209,6 @@ func listStdio(ctx context.Context, s Server, client string) (tools []Tool, err 
 	for k, v := range s.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
-	cmd.Stderr = io.Discard
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("open MCP input pipe: %w", err)
