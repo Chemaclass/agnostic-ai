@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
+- Markdown specs keep an opening `---` block of prose or a list as body text, and `lint` reports it as LINT056 (#2892).
 - Sync replaces `.gitignore`, `.git/info/exclude` and `.worktreeinclude` whole, so an interrupt or a full disk cannot leave them short or empty (#2884).
 - Sync stops with an error when a JSON settings file it merges into exists but cannot be read, instead of overwriting it (#2887).
 - MCP tool listing stops at its timeout when a detached child keeps stderr open (#2888).

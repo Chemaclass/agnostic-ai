@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestLintEmptySpecs_FlagsEmptyBodyAndNoDescription(t *testing.T) {
@@ -59,6 +62,25 @@ func TestLintUnterminatedFrontmatter_FlagsMissingClosingDelimiter(t *testing.T) 
 	}
 	if f.Path != "agents/broken.md" {
 		t.Errorf("expected path agents/broken.md, got %s", f.Path)
+	}
+}
+
+func TestLint_ReportsOpeningProseAndSyncKeepsIt(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	text := "---\nNever push to main without review.\n---\nKeep functions small.\n"
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), text)
+	out, err := runRoot(t, "lint", "--strict")
+	if err == nil || !strings.Contains(out, "LINT056") || strings.Contains(out, "never closed") {
+		t.Errorf("lint = %q, err=%v, want warning for preserved opening prose", out, err)
+	}
+	if out, err := runRoot(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".claude", "rules", "style.md"))
+	if err != nil || !strings.Contains(string(got), "Never push to main without review.") || !strings.Contains(string(got), "Keep functions small.") {
+		t.Errorf("rule = %q, err=%v", got, err)
 	}
 }
 

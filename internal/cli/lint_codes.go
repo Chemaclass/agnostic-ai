@@ -23,6 +23,12 @@ var lintCodeRe = regexp.MustCompile(`^LINT\d{3}$`)
 func isLintCode(s string) bool { return lintCodeRe.MatchString(s) }
 
 var lintCodes = map[string]lintCode{
+	"LINT056": {
+		Severity: lintWarn,
+		Title:    "Opening Markdown block is not frontmatter",
+		Cause:    "A Markdown spec starts with a delimited block that is not a YAML mapping. Sync keeps the block as body text.",
+		Fix:      "Keep the block for Markdown text, or write a YAML mapping if it should be frontmatter.",
+	},
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",
