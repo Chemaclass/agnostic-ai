@@ -28,12 +28,16 @@ func importedGlobalVoice(target string, f globalSettingsFile, values map[string]
 		if !present {
 			continue
 		}
-		if mode, ok := value.(string); member.name == "mode" && ok {
+		if mode, ok := value.(string); member.name == "mode" && ok && len(f.voice.modes) > 0 {
+			found := false
 			for portable, native := range f.voice.modes {
 				if mode == native {
-					value = portable
+					value, found = portable, true
 					break
 				}
+			}
+			if !found {
+				continue
 			}
 		}
 		if _, problems := spec.ParseVoice(map[string]any{member.name: value}); len(problems) == 0 {
@@ -52,7 +56,7 @@ func mergeImportedVoice(voice map[string]any, sources map[string]string, target 
 		if current, set := voice[key]; set {
 			if !sameSetting(current, value) {
 				if _, err := fmt.Fprintf(warn, "warning: %s: skipped voice.%s = %v; %s already set it to %v\n", target, key, value, sources[key], current); err != nil {
-					return err
+					return fmt.Errorf("write import warning: %w", err)
 				}
 			}
 			continue
