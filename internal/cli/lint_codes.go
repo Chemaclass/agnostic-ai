@@ -23,6 +23,12 @@ var lintCodeRe = regexp.MustCompile(`^LINT\d{3}$`)
 func isLintCode(s string) bool { return lintCodeRe.MatchString(s) }
 
 var lintCodes = map[string]lintCode{
+	"LINT055": {
+		Severity: lintWarn,
+		Title:    "Null value in local configuration",
+		Cause:    "A null key in agnostic-ai.local.yaml can replace a shared value, including a whole settings group. A future release will inherit the shared value instead.",
+		Fix:      "Remove the key to inherit the shared value, or set an explicit replacement.",
+	},
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",
