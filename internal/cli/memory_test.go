@@ -258,6 +258,74 @@ func TestMemoryIndex_RepairsConflictedIndexKeepingOrder(t *testing.T) {
 	}
 }
 
+func TestMemoryIndex_PreservesExistingLinksAndIsIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	store := filepath.Join(dir, ".agnostic-ai", "memory")
+	index := "- [A b](a%20b.md): hand-written hook\n" +
+		"- [Deep](sub/deep.md): nested fact\n" +
+		"- [Guide](../../docs/guide.md): guide\n" +
+		"- [Missing](gone.md): stale\n"
+	writeMemory(t, dir, ".agnostic-ai/memory", map[string]string{
+		"MEMORY.md":    index,
+		"a b.md":       memoryFact("a b", "project", "generated"),
+		"new space.md": memoryFact("new space", "project", "new"),
+		"sub/deep.md":  "nested\n",
+	})
+	want := strings.Replace(index, "- [Missing](gone.md): stale\n", "", 1) + "- [new space](new%20space.md): new\n"
+	for i := 0; i < 3; i++ {
+		if out, err := runRoot(t, "memory", "index"); err != nil {
+			t.Fatalf("memory index: %v\n%s", err, out)
+		}
+		data, err := os.ReadFile(filepath.Join(store, "MEMORY.md"))
+		if err != nil || string(data) != want {
+			t.Errorf("run %d: index = %q, err=%v, want %q", i+1, data, err, want)
+		}
+	}
+}
+
+func TestMemoryIndex_RecognizesLegacyAndAngleSpaceLinksDuringImport(t *testing.T) {
+	store := t.TempDir()
+	path := filepath.Join(store, "MEMORY.md")
+	initial := "- [Legacy](legacy file.md): keep\n- [Angle](<angle file.md>): keep\n"
+	if err := os.WriteFile(path, []byte(initial), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	facts := []memoryCopy{{file: "legacy file.md", line: "- [Legacy](legacy%20file.md)"}, {file: "angle file.md", line: "- [Angle](angle%20file.md)"}}
+	if err := appendMemoryIndexLines(store, facts); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != initial {
+		t.Errorf("index = %q, err=%v, want %q", got, err, initial)
+	}
+}
+
+func TestMemoryIndex_PreservesMarkdownLinkTitles(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	index := "- [Fact](fact.md \"My title\"): original\n" +
+		"- [Space](<space file.md> 'Another title'): original\n" +
+		"- [Other](other.md (Third title)): original\n" +
+		"- [Release](release.md \"release)\"): custom hook\n" +
+		"- [Quoted](quoted.md \"A \\\"quoted\\\" title\"): custom hook\n"
+	writeMemory(t, dir, ".agnostic-ai/memory", map[string]string{
+		"MEMORY.md":     index,
+		"fact.md":       memoryFact("fact", "project", "generated"),
+		"space file.md": memoryFact("space", "project", "generated"),
+		"other.md":      memoryFact("other", "project", "generated"),
+		"release.md":    memoryFact("release", "project", "generated"),
+		"quoted.md":     memoryFact("quoted", "project", "generated"),
+	})
+	if out, err := runRoot(t, "memory", "index"); err != nil {
+		t.Fatalf("memory index: %v\n%s", err, out)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md"))
+	if err != nil || string(got) != index {
+		t.Errorf("index = %q, err=%v, want %q", got, err, index)
+	}
+}
+
 func TestMemoryIndex_SkipsMissingStore(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

@@ -846,6 +846,25 @@ func loadGlobalStateUpTo(path string, version int) (globalState, error) {
 // by absolute path, so syncing on would sweep that home's files.
 func foreignGlobalPath(old globalState, home string) string {
 	roots := globalRoots(home)
+	for _, path := range append(slices.Clone(old.Files), old.Created...) {
+		if !filepath.IsAbs(path) {
+			return path
+		}
+	}
+	for _, paths := range []map[string]string{old.HookPaths, old.SettingsPaths, old.MCPPaths} {
+		for _, target := range slices.Sorted(maps.Keys(paths)) {
+			if path := paths[target]; path != "" && !filepath.IsAbs(path) {
+				return path
+			}
+		}
+	}
+	for _, target := range slices.Sorted(maps.Keys(old.HookFiles)) {
+		for _, path := range old.HookFiles[target] {
+			if !filepath.IsAbs(path) {
+				return path
+			}
+		}
+	}
 	paths := slices.DeleteFunc(slices.Clone(old.Files), func(p string) bool { return slices.Contains(old.Created, p) })
 	for _, owned := range []map[string][]string{old.Agents, old.Skills} {
 		for _, target := range slices.Sorted(maps.Keys(owned)) {
