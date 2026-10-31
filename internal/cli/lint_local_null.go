@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -26,14 +27,16 @@ func lintLocalNulls() ([]lintFinding, error) {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	var shared map[string]any
-	baseData, err := os.ReadFile(config.ConfigFileName)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("read %s: %w", config.ConfigFileName, err)
+	basePath, _, err := config.ResolveConfigPath(".")
+	if err != nil {
+		return nil, err
 	}
-	if err == nil {
-		if err := yaml.Unmarshal(baseData, &shared); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", config.ConfigFileName, err)
-		}
+	baseData, err := os.ReadFile(basePath)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", basePath, err)
+	}
+	if err := yaml.Unmarshal(baseData, &shared); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", basePath, err)
 	}
 	messages := map[string]string{}
 	var walk func(local, base map[string]any, prefix string)
@@ -46,7 +49,9 @@ func lintLocalNulls() ([]lintFinding, error) {
 			baseValue, inBase := base[key]
 			if value == nil {
 				switch {
-				case !inBase, name == "requires":
+				case !inBase, baseValue == nil, name == "requires":
+				case isYAMLMap(baseValue) && strings.HasPrefix(name, "models."):
+					messages[name] = name + " is empty (null) and is ignored, so the shared tier stays; remove the key"
 				case isYAMLMap(baseValue):
 					messages[name] = name + " is empty (null) and is ignored, so the shared value stays; remove the key, or write {} to clear it"
 				default:
