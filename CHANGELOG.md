@@ -21,6 +21,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Security
 
+- Global sync ignores relative platform roots and excludes relative paths from ownership roots (#2879).
 - Concurrent updates keep all private Git exclusion entries (#2876).
 - Import rejects writes outside the project and configured source directories; invalid Codex and Warp agent names use their file names (#2873).
 
