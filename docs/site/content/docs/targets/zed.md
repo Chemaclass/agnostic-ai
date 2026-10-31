@@ -89,7 +89,9 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 `agnostic-ai sync --global --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). See the [global output table](@/docs/global-configuration.md#global-output) for each platform's path. Skills still use `~/.agents/skills/`.
 
-On Windows, the first sync after this fix clears the managed block from the old XDG file only when the ledger records it. Personal text and private permissions remain. A link to the active file is retained. An old file not recorded by sync stays untouched. `explain --global rules/<name>.md` shows the current native file. Global instruction import is not supported; project `import zed` keeps its existing paths below.
+Zed uses `~/.config/zed/AGENTS.md` on macOS, ignoring `XDG_CONFIG_HOME`. On Linux and FreeBSD, it uses `$FLATPAK_XDG_CONFIG_HOME/zed/AGENTS.md` when that variable is present, then `$XDG_CONFIG_HOME/zed/AGENTS.md` or `~/.config/zed/AGENTS.md`. Windows uses `%APPDATA%\Zed\AGENTS.md`. These roots follow [Zed's native path selection](https://github.com/zed-industries/zed/blob/ba63a022c9a22ca66d68ef2a8f0bb9b5b0a9984d/crates/paths/src/paths.rs). An empty or relative Flatpak root is rejected to avoid writing under the working directory.
+
+The first sync after a path correction clears the managed block from the old XDG file only when the ledger records it. Personal text and private permissions remain. A link to the active file is retained. An old file not recorded by sync stays untouched. `explain --global rules/<name>.md` shows the current native file. Global instruction import is not supported; project `import zed` keeps its existing paths below.
 
 ## Import
 
