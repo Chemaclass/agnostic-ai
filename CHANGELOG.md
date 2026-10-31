@@ -92,6 +92,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
+- Hooks docs explain the session flow and common shared hooks, with an optional step-through example.
 - Tool docs update retirement dates, Codex history values, Antigravity plugin MCP names, and Qoder and Zed skill paths (#2810, #2811, #2812, #2814, #2818).
 - Tool docs explain Continue's unmaintained client and output, Claude scope and settings, and OpenHands MCP timeouts (#2858, #2815, #2813).
 - The home page leads with your OS install command, tool count and playground link, then setup steps before the source explorer.

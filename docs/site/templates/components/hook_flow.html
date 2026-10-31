@@ -1,0 +1,30 @@
+{% component hook_flow() %}
+<figure class="hook-flow" data-hook-flow aria-label="Example hook session flow">
+  <figcaption>One prompt, a read, an edit, then a reply.</figcaption>
+  <div class="hook-flow-controls" data-hook-controls hidden>
+    <button type="button" class="button" data-hook-play aria-pressed="false">Play example</button>
+    <button type="button" class="button" data-hook-next>Next step</button>
+    <button type="button" class="button" data-hook-reset disabled>Reset</button>
+    <p class="hook-flow-status" data-hook-status role="status" aria-live="polite" aria-atomic="true">Ready to start the example.</p>
+  </div>
+  <ol class="hook-flow-track" role="list">
+    <li data-hook-stage="session-start"><span class="hook-flow-number" aria-hidden="true">1</span><div><strong>Session opens</strong><p><code>session-start</code></p><p>Show project state or prepare session files.</p></div></li>
+    <li data-hook-stage="prompt-submit"><span class="hook-flow-number" aria-hidden="true">2</span><div><strong>A prompt arrives</strong><p><code>prompt-submit</code></p><p>Check the prompt before the agent works on it.</p></div></li>
+    <li data-hook-stage="before-tool"><span class="hook-flow-number" aria-hidden="true">3</span><div><strong>Before each tool call</strong><p><code>before-tool</code></p><p>Check the action before the tool runs it.</p></div></li>
+    <li data-hook-stage="after-tool"><span class="hook-flow-number" aria-hidden="true">4</span><div><strong>The tool returns</strong><p class="hook-flow-events"><code>after-tool</code><span data-hook-after-edit><code>after-edit</code> if a file changed</span></p><p>Record the result or format edited files. Repeat from step 3 for another tool call.</p></div></li>
+    <li data-hook-stage="stop"><span class="hook-flow-number" aria-hidden="true">5</span><div><strong>The response finishes</strong><p><code>stop</code></p><p>Check completion. Another prompt returns to step 2.</p></div></li>
+    <li data-hook-stage="session-end"><span class="hook-flow-number" aria-hidden="true">6</span><div><strong>Session closes</strong><p><code>session-end</code></p><p>Clean up files or record final session state.</p></div></li>
+  </ol>
+  <div data-hook-example hidden>
+    <p data-hook-phase="session-start">Session opens. The session-start hook reports the working changes.</p>
+    <p data-hook-phase="prompt-submit">A prompt arrives. The prompt-submit hook checks it before work begins.</p>
+    <p data-hook-phase="before-tool">The agent wants to read a file. The before-tool hook checks this call.</p>
+    <p data-hook-phase="after-tool">The read returns. The after-tool hook can record its result; no file was edited.</p>
+    <p data-hook-phase="before-tool">The same prompt needs an edit. The before-tool hook checks this next call.</p>
+    <p data-hook-phase="after-tool" data-hook-edit>The edit returns. The after-tool and after-edit hooks apply at the same point. Their order depends on the coding tool.</p>
+    <p data-hook-phase="stop">The response is ready. The stop hook checks completion; the session can still receive another prompt.</p>
+    <p data-hook-phase="session-end">The session closes. The session-end hook cleans up its temporary files.</p>
+  </div>
+  <p class="hook-flow-motion" data-hook-reduced hidden>Reduced motion is on. Use Next step to follow the example at your own pace.</p>
+</figure>
+{% endcomponent hook_flow %}
