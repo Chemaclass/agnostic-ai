@@ -1,6 +1,6 @@
 // Small presentational pieces shared by every screen.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type SelectHTMLAttributes } from 'react'
 import claudeIcon from '../assets/tools/claude.svg'
 import codexIcon from '../assets/tools/codex.svg'
 import cursorIcon from '../assets/tools/cursor.svg'
@@ -184,6 +184,15 @@ export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, clas
   )
 }
 
+export function Select({ children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className="select-control">
+      <select {...props}>{children}</select>
+      <Icon name="chevron" className="select-chevron" />
+    </span>
+  )
+}
+
 const ICON_PATHS: Record<string, ReactNode> = {
   context: <path d="M12 3 21 12 12 21 3 12Z M12 8 16 12 12 16 8 12Z" />,
   authority: <path d="M12 3 21 12 12 21 3 12Z" />,
@@ -194,6 +203,7 @@ const ICON_PATHS: Record<string, ReactNode> = {
   sun: <path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z M12 2v2 M12 20v2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M2 12h2 M20 12h2 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4" />,
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />,
   edit: <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z M13.5 6.5l4 4" />,
+  chevron: <path d="m6 9 6 6 6-6" />,
   arrow: <path d="M7 17 17 7 M9 7h8v8" />,
   search: <path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Z M15.3 15.3 20 20" />,
 }

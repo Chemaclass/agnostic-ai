@@ -22,6 +22,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Web interface
 
+- Select controls use a shared, theme-aware chevron with room for labels and keyboard navigation.
+- Context size keeps the report area in place while a different coding tool loads, with placeholders instead of stale totals.
 - Phone headers keep configuration and editor controls together, and Settings tabs fit their labels and counts.
 - Section warnings fold behind Review while errors stay visible; Config files shows merged values once below source links.
 - Authority, Settings, and native server imports keep a compact Shared or Personal choice with the content it controls.

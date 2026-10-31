@@ -1,7 +1,7 @@
 import { useId, useState, useSyncExternalStore } from 'react'
 import { copyablePath, DEFAULT_EDITOR, EDITORS, editorLabel, editorUrl, parseEditor, type EditorId } from '../model/editor'
 import { useApp } from './app-context'
-import { CopyButton, Icon } from './ui'
+import { Select, CopyButton, Icon } from './ui'
 
 const STORAGE_KEY = 'agnostic-ai.editor'
 const listeners = new Set<() => void>()
@@ -59,9 +59,9 @@ export function EditorChoice() {
       </div>
       <div className="editor-choice-mobile">
         <label htmlFor={`${labelId}-select`}>Editor</label>
-        <select id={`${labelId}-select`} value={editor} onChange={(event) => chooseEditor(parseEditor(event.target.value))}>
+        <Select id={`${labelId}-select`} value={editor} onChange={(event) => chooseEditor(parseEditor(event.target.value))}>
           {EDITORS.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
-        </select>
+        </Select>
       </div>
     </div>
   )
