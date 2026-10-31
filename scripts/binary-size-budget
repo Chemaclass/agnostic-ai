@@ -706,4 +706,8 @@
 # #2832 adds portable voice validation and per-key personal settings restoration.
 # Go 1.27.3 Linux amd64 release flags: 24346784, versus 24314016 on main
 # 8456ab7c9 (+32768). Keep the existing 8192-byte build allowance.
-24354976
+# #2833 maps four more voice targets and restores TOML values and separated UI
+# table fragments while preserving user comments. Go 1.27.3 Linux amd64 release
+# flags: 24387744, versus 24346784 on main f7e02dcc2 (+40960). No new dependency.
+# Keep the existing 8192-byte build allowance.
+24395936

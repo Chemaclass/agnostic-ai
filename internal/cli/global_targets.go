@@ -134,8 +134,14 @@ var globalTargets = map[string]globalTarget{
 		rootEnv: "GROK_HOME", root: globalPathHome + ".grok",
 		instructions: globalPathHome + ".grok/AGENTS.md", skills: globalPathHome + ".grok/skills", agents: globalPathHome + ".grok/agents",
 		hooksDir: globalPathHome + ".grok/hooks", hookScriptsDir: globalPathHome + ".grok/hook-scripts",
-		mcp:      globalMCPFile{path: globalPathHome + ".grok/config.toml", format: "toml", key: "mcp_servers", private: true, validate: grok.ValidateMCPs},
-		settings: globalSettingsFile{path: globalPathHome + ".grok/config.toml", format: grokTOMLFormat, private: true, model: "models.default", reserved: map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permission": "sync --global does not write Grok user permission rules", "hooks": "sync --global writes hook definitions from hook specs", "compat": "set compatibility policy by hand", "trust": "set trust by hand", "models": "use the portable model field"}},
+		mcp: globalMCPFile{path: globalPathHome + ".grok/config.toml", format: "toml", key: "mcp_servers", private: true, validate: grok.ValidateMCPs},
+		settings: globalSettingsFile{path: globalPathHome + ".grok/config.toml", format: grokTOMLFormat, private: true, model: "models.default",
+			voice: &globalVoiceKeys{
+				mode: "ui.voice_capture_mode", language: "ui.voice_stt_language",
+				modes: map[string]string{"hold": "hold", "tap": "toggle"},
+				notes: map[string]string{"enabled": "Grok has no dictation on/off key; /voice always works. Set x-grok.ui.voice_keybind_enabled to turn the shortcut off"},
+			},
+			reserved: map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permission": "sync --global does not write Grok user permission rules", "hooks": "sync --global writes hook definitions from hook specs", "compat": "set compatibility policy by hand", "trust": "set trust by hand", "models": "use the portable model field"}},
 	},
 	"kimi": {
 		rootEnv: "KIMI_CODE_HOME", root: globalPathHome + ".kimi-code",
@@ -162,6 +168,9 @@ var globalTargets = map[string]globalTarget{
 		mcp:          globalMCPFile{path: globalPathHome + ".vibe/config.toml", format: "toml-array", key: "mcp_servers", private: true},
 		settings: globalSettingsFile{
 			path: globalPathHome + ".vibe/config.toml", format: "toml", model: "active_model", private: true,
+			voice: &globalVoiceKeys{enabled: "voice_mode_enabled", notes: map[string]string{
+				"mode": "Vibe has no voice capture mode setting", "language": "Vibe has no dictation language setting",
+			}},
 			reserved: map[string]string{
 				"mcp_servers":     "sync --global writes MCP entries from specs",
 				"trusted_folders": "trust remains with the user",
@@ -245,8 +254,10 @@ var globalTargets = map[string]globalTarget{
 		rootEnv: "QWEN_HOME", root: globalPathHome + ".qwen",
 		instructions: globalPathHome + ".qwen/QWEN.md", agents: globalPathHome + ".qwen/agents", skills: globalPathHome + ".qwen/skills",
 		hooks: globalPathHome + ".qwen/settings.json", hooksFormat: "claude", hookTarget: hookTargetHandlerEnv, hookFoldArgs: true, hookTimeout: qwen.HookTimeout,
-		mcp:      globalMCPFile{path: globalPathHome + ".qwen/settings.json", format: "json", key: "mcpServers"},
-		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", permissionLists: true, itemLists: []string{"mcp.excluded"}, reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "mcpServers": "sync --global writes MCP servers from MCP specs"}},
+		mcp: globalMCPFile{path: globalPathHome + ".qwen/settings.json", format: "json", key: "mcpServers"},
+		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", permissionLists: true, itemLists: []string{"mcp.excluded"},
+			voice:    &globalVoiceKeys{enabled: "general.voice.enabled", mode: "general.voice.mode", language: "general.voice.language"},
+			reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "mcpServers": "sync --global writes MCP servers from MCP specs"}},
 	},
 	"gemini": {
 		rootEnv:      "GEMINI_CLI_HOME",
@@ -264,6 +275,11 @@ var globalTargets = map[string]globalTarget{
 		settings: globalSettingsFile{
 			path: globalPathHome + ".gemini/settings.json", format: "json",
 			retention: "general.sessionRetention.maxAge",
+			voice: &globalVoiceKeys{
+				enabled: "experimental.voiceMode", mode: "experimental.voice.activationMode",
+				modes: map[string]string{"hold": "push-to-talk", "tap": "toggle"},
+				notes: map[string]string{"language": "Gemini has no dictation language setting"},
+			},
 			// Gemini sets thinking per model under modelConfigs, with no
 			// default effort key, so a portable effort raises a note.
 			model: "model.name",

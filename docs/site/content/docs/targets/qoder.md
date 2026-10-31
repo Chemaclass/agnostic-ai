@@ -84,7 +84,7 @@ Qoder's own `.qoder/skills/<name>/SKILL.md` ([Qoder Skills](https://docs.qoder.c
 
 ### Settings
 
-The shared default model becomes `model.name`. `permissions.allow`, `permissions.deny`, and `permissions.ask` are copied directly. An `x-qoder` settings block is merged in too.
+The shared default model becomes `model.name`. `permissions.allow`, `permissions.deny`, and `permissions.ask` are copied directly. An `x-qoder` settings block is merged in too. Voice has no documented native key.
 
 - With `memory.personal: repo`, sync adds the personal store to `permissions.additionalDirectories`, so Qoder approves saves there. Your own entries stay. See [repo mode](@/docs/memory.md#one-store-per-repository).
 

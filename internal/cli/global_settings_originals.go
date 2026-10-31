@@ -17,9 +17,12 @@ import (
 // globalSettingOriginal is what a native key held before a personal
 // portable field first wrote it, so removal puts the same bytes back.
 type globalSettingOriginal struct {
-	Raw          string            `json:"raw,omitempty"`
-	Present      bool              `json:"present"`
-	EmptyParents map[string]string `json:"emptyParents,omitempty"`
+	Raw          string              `json:"raw,omitempty"`
+	Native       string              `json:"native,omitempty"`
+	TOMLTables   []tomlPersonalTable `json:"tomlTables,omitempty"`
+	EmptyFile    *string             `json:"emptyFile,omitempty"`
+	Present      bool                `json:"present"`
+	EmptyParents map[string]string   `json:"emptyParents,omitempty"`
 }
 
 // legacyRetentionOriginal is the version 9 layout: one retention key per
@@ -48,6 +51,29 @@ func personalNativeKeys(target string, f globalSettingsFile, settings []spec.Ent
 // no longer written gets that value back when sync's own value is still
 // there.
 func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting, previous map[string]any, originals map[string]globalSettingOriginal, parents jsonParents, personal []string, target string, warn io.Writer) (globalSettingsMerge, map[string]globalSettingOriginal, error) {
+	m, next, err := mergeGlobalPersonalInner(path, format, base, want, previous, originals, parents, personal, target, warn)
+	if err != nil || target != "qwen" {
+		return m, next, err
+	}
+	data := m.data
+	if data == nil {
+		data = base
+		if data == nil {
+			data, err = os.ReadFile(path)
+			if err != nil && !os.IsNotExist(err) {
+				return m, next, fmt.Errorf("read %s: %w", path, err)
+			}
+		}
+	}
+	values, err := settingsValues(path, format, data)
+	if err != nil {
+		return m, next, err
+	}
+	noteQwenVoiceModel(values, want)
+	return m, next, nil
+}
+
+func mergeGlobalPersonalInner(path, format string, base []byte, want []globalSetting, previous map[string]any, originals map[string]globalSettingOriginal, parents jsonParents, personal []string, target string, warn io.Writer) (globalSettingsMerge, map[string]globalSettingOriginal, error) {
 	if len(personal) == 0 && len(originals) == 0 {
 		m, err := mergeGlobalSettingsWithLists(path, format, base, want, previous, &parents, globalTargets[target].settings.itemLists)
 		return m, nil, err
@@ -88,7 +114,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 		stayingPersonal := slices.DeleteFunc(slices.Clone(personal), func(key string) bool {
 			return slices.Contains(replacements, key)
 		})
-		first, remaining, err := mergeGlobalPersonal(path, format, data, staying, previous, originals, parents, stayingPersonal, target, warn)
+		first, remaining, err := mergeGlobalPersonalInner(path, format, data, staying, previous, originals, parents, stayingPersonal, target, warn)
 		if err != nil {
 			return first, nil, err
 		}
@@ -96,7 +122,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 		if released == nil {
 			released = data
 		}
-		second, next, err := mergeGlobalPersonal(path, format, released, want, first.owned, remaining, jsonParents{created: first.parents}, slices.Concat(personal, replacements), target, warn)
+		second, next, err := mergeGlobalPersonalInner(path, format, released, want, first.owned, remaining, jsonParents{created: first.parents}, slices.Concat(personal, replacements), target, warn)
 		if second.data == nil {
 			second.data = first.data
 		}
@@ -136,6 +162,7 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 	next := map[string]globalSettingOriginal{}
 	modifiedWant := slices.Clone(want)
 	var restored []string
+	var nativeRestored []string
 	keys := slices.Concat(personal, slices.Collect(maps.Keys(originals)))
 	slices.Sort(keys)
 	for _, key := range slices.Compact(keys) {
@@ -159,6 +186,31 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 			maps.Copy(parents.keep, original.EmptyParents)
 		}
 		if have, present := settingsLookup(values, key, format); present && sameSetting(have, previous[key]) && original.Present {
+			if len(original.TOMLTables) > 0 {
+				if original.Raw != "{}" {
+					data, err = restoreTOMLTables(data, key, original.TOMLTables)
+					if err != nil {
+						return globalSettingsMerge{}, nil, fmt.Errorf("restore %s: %w", path, err)
+					}
+				}
+				previous = maps.Clone(previous)
+				delete(previous, key)
+				nativeRestored = append(nativeRestored, key)
+				continue
+			}
+			if original.Native != "" {
+				if start, end, ok := tomlPersonalSpan(data, key, format); ok {
+					text := restoreTOMLAssignment(original.Native, string(data[start:end]), key, previous[key])
+					if end < len(data) && !strings.HasSuffix(text, "\n") {
+						text += "\n"
+					}
+					data = append(append(append([]byte(nil), data[:start]...), text...), data[end:]...)
+					previous = maps.Clone(previous)
+					delete(previous, key)
+					nativeRestored = append(nativeRestored, key)
+					continue
+				}
+			}
 			decoded, err := settingsValues(path, "json", []byte(`{"value":`+original.Raw+`}`))
 			if err != nil {
 				return globalSettingsMerge{}, nil, fmt.Errorf("restore %s: %w", path, err)
@@ -167,9 +219,27 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 			restored = append(restored, key)
 		}
 	}
-	m, err := mergeGlobalSettingsWithLists(path, format, base, modifiedWant, previous, &parents, globalTargets[target].settings.itemLists)
+	mergeBase := base
+	if len(nativeRestored) > 0 {
+		mergeBase = data
+	}
+	m, err := mergeGlobalSettingsWithLists(path, format, mergeBase, modifiedWant, previous, &parents, globalTargets[target].settings.itemLists)
 	if err != nil {
 		return m, nil, err
+	}
+	if len(nativeRestored) > 0 && m.data == nil {
+		m.data = data
+	}
+	for _, key := range nativeRestored {
+		m.changes = append(m.changes, "restore "+key)
+	}
+	if m.data != nil && strings.TrimSpace(string(m.data)) == "" {
+		for _, original := range originals {
+			if original.EmptyFile != nil {
+				m.data = []byte(*original.EmptyFile)
+				break
+			}
+		}
 	}
 	for _, key := range restored {
 		after := m.data
@@ -192,11 +262,13 @@ func mergeGlobalPersonal(path, format string, base []byte, want []globalSetting,
 	return m, next, nil
 }
 
-// captureSettingOriginal records what key holds in data: its exact bytes
-// in a JSON file, its value as JSON otherwise, and every empty object
-// above it that sync did not create.
+// TOML keeps the whole assignment because its spacing and comments belong to the original key.
 func captureSettingOriginal(data []byte, values map[string]any, key, format string, createdParents []string) globalSettingOriginal {
 	original := globalSettingOriginal{EmptyParents: map[string]string{}}
+	if (format == "toml" || format == grokTOMLFormat) && strings.TrimSpace(string(data)) == "" {
+		empty := string(data)
+		original.EmptyFile = &empty
+	}
 	if format == "json" {
 		for _, parent := range jsonParentKeys(key) {
 			if open, closing, count, present := jsonContainerSpan(string(data), parent); present && count == 0 && data[open] == '{' && !slices.Contains(createdParents, parent) {
@@ -211,6 +283,15 @@ func captureSettingOriginal(data []byte, values map[string]any, key, format stri
 	if have, present := settingsLookup(values, key, format); present {
 		if raw, err := json.Marshal(have); err == nil {
 			original.Present, original.Raw = true, string(raw)
+			if format == grokTOMLFormat && !strings.Contains(key, ".") {
+				if sections, err := grokTableSections(data, key); err == nil {
+					for _, section := range sections {
+						original.TOMLTables = append(original.TOMLTables, tomlPersonalTable{Text: string(data[section.start:section.end]), Before: section.before, Array: section.array, Occurrence: section.occurrence})
+					}
+				}
+			} else if start, end, ok := tomlPersonalSpan(data, key, format); ok {
+				original.Native = string(data[start:end])
+			}
 		}
 	}
 	return original
