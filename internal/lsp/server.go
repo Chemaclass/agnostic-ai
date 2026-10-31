@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -87,6 +88,16 @@ func (s *Server) Run() error {
 		if err != nil {
 			if err == io.EOF {
 				return nil
+			}
+			var perr *parseError
+			if errors.As(err, &perr) {
+				s.replyError(nil, errCodeParseError, perr.Error())
+				continue
+			}
+			var ierr *invalidRequestError
+			if errors.As(err, &ierr) {
+				s.replyError(ierr.id, errCodeInvalidRequest, ierr.Error())
+				continue
 			}
 			return fmt.Errorf("lsp read: %w", err)
 		}
