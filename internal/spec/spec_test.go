@@ -83,6 +83,23 @@ func TestParseMarkdownBytes_KeepsLeadingNonMappingBlocks(t *testing.T) {
 	}
 }
 
+func TestParseMarkdownBytes_HeadingBlocksStayBodyAndCommentsStayFrontmatter(t *testing.T) {
+	for _, block := range []string{"## Setup", "# Setup\n\ntext", "###### Deep"} {
+		input := "---\n" + block + "\n---\nbody\n"
+		e, err := ParseMarkdownBytes(KindRule, []byte(input))
+		if err != nil || e.Body != input || !e.OpeningBlockKept {
+			t.Errorf("%q: body = %q, kept=%v, err=%v", block, e.Body, e.OpeningBlockKept, err)
+		}
+	}
+	for _, block := range []string{"#", "#note", "# \n#x"} {
+		input := "---\n" + block + "\n---\nbody\n"
+		e, err := ParseMarkdownBytes(KindRule, []byte(input))
+		if err != nil || e.Body != "body\n" || e.OpeningBlockKept {
+			t.Errorf("%q: body = %q, kept=%v, err=%v", block, e.Body, e.OpeningBlockKept, err)
+		}
+	}
+}
+
 func TestFilter(t *testing.T) {
 	t.Parallel()
 	entries := []Entry{
@@ -822,5 +839,24 @@ func TestValidateName_RefusesTheGitFolder(t *testing.T) {
 		if err := ValidateName(KindSkill, good); err != nil {
 			t.Errorf("skill name %q rejected: %v", good, err)
 		}
+	}
+}
+
+func TestParseMarkdownBytes_CommentedKeysStayEmptyFrontmatter(t *testing.T) {
+	for _, block := range []string{"# description: TODO", "# paths: src/**\n# globs: x", "#name: x\n# model : y"} {
+		for _, kind := range []Kind{KindRule, KindAgent} {
+			e, err := ParseMarkdownBytes(kind, []byte("---\n"+block+"\n---\nbody\n"))
+			if err != nil || e.Body != "body\n" || e.OpeningBlockKept {
+				t.Errorf("%s %q: body = %q, kept=%v, err=%v", kind, block, e.Body, e.OpeningBlockKept, err)
+			}
+		}
+	}
+}
+
+func TestExtendEntry_CarriesKeptOpeningBlockFromSharedBody(t *testing.T) {
+	base := Entry{Kind: KindRule, Body: "---\nprose\n---\ntext\n", OpeningBlockKept: true}
+	got := extendEntry(base, Entry{Kind: KindRule, Meta: map[string]any{"description": "d"}})
+	if !got.OpeningBlockKept {
+		t.Error("local layer over a shared body lost OpeningBlockKept")
 	}
 }

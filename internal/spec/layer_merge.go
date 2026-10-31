@@ -37,6 +37,7 @@ func extendEntry(base, over Entry) Entry {
 	case strings.TrimSpace(over.Body) == "":
 		out.Body = base.Body
 		out.bodyLayer = base.BodySourceLayer()
+		out.OpeningBlockKept = base.OpeningBlockKept
 	default:
 		out.Body = expandParent(over.Body, base.Body)
 	}

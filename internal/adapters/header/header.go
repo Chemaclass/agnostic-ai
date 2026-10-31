@@ -113,6 +113,16 @@ func WithCopiedRanges(content string, format Format) (string, []CopiedRange) {
 // have already verified that content starts with "---\n".
 func findFrontmatterEnd(content string) int {
 	const close = "\n---"
+	if strings.HasPrefix(content, "---\n---") {
+		end := len("---\n---")
+		if end >= len(content) {
+			return end
+		}
+		if content[end] != '\n' {
+			return -1
+		}
+		return end + 1
+	}
 	idx := strings.Index(content[len("---\n"):], close)
 	if idx < 0 {
 		return -1
