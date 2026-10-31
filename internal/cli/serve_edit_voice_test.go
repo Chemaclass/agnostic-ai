@@ -190,3 +190,20 @@ func TestEditField_VoicePersonalMembersAndStaleValuesStaySeparate(t *testing.T) 
 		t.Errorf("reset left the server-created personal scaffold: %v", err)
 	}
 }
+
+func TestEditField_ProjectVoiceCannotUseTheBooleanEndpoint(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	testutil.Chdir(t, project)
+	mustWriteGlobalTest(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	file := filepath.Join(project, ".agnostic-ai", "settings", "voice.yaml")
+	original := "voice:\n  enabled: true\n"
+	mustWriteGlobalTest(t, file, original)
+	body := `{"audience":"shared","path":".agnostic-ai/settings/voice.yaml","key":"voice.enabled","value":false,"expected":true}`
+	if rec := postEdit(t, newEditHandler(project, false), editValuePath, body, nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("project boolean voice edit = %d %s", rec.Code, rec.Body)
+	}
+	if got := readGlobalTest(t, file); got != original {
+		t.Errorf("project boolean edit changed voice: %s", got)
+	}
+}

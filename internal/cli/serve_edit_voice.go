@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/overview"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func voiceEditField(key string) bool {
@@ -18,22 +19,19 @@ func voiceEditField(key string) bool {
 }
 
 func decodeVoiceEdit(key string, raw json.RawMessage) (any, error) {
-	if key == "voice.enabled" {
-		var value bool
-		if json.Unmarshal(raw, &value) != nil {
-			return nil, errors.New("voice.enabled must be true or false")
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", key, err)
+	}
+	_, problems := spec.ParseVoice(map[string]any{strings.TrimPrefix(key, "voice."): value})
+	if len(problems) > 0 {
+		return nil, errors.New(problems[0])
+	}
+	if key == "voice.language" {
+		language, ok := value.(string)
+		if !ok || strings.TrimSpace(language) == "" {
+			return nil, errors.New("voice.language must be a non-empty string")
 		}
-		return value, nil
-	}
-	var value string
-	if json.Unmarshal(raw, &value) != nil {
-		return nil, fmt.Errorf("%s must be a string", key)
-	}
-	if key == "voice.mode" && value != "hold" && value != "tap" {
-		return nil, errors.New("voice.mode must be hold or tap")
-	}
-	if key == "voice.language" && strings.TrimSpace(value) == "" {
-		return nil, errors.New("voice.language must be a non-empty string")
 	}
 	return value, nil
 }

@@ -110,7 +110,7 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 					edit.Kind = "boolean"
 				}
 				if d.key == "voice.mode" {
-					edit.Allowed = []string{"hold", "tap"}
+					edit.Allowed = slices.Clone(spec.VoiceModes)
 				}
 				if !global {
 					edit.DisabledReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."

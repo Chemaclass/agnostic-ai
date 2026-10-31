@@ -24,7 +24,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Web interface
 
 - Global **Settings** edits voice dictation, mode, and language; project values stay read-only (#2835).
-
 - **Authority** previews and saves shared or personal permission rules, with personal overrides compared to Shared; run sync to apply.
 - Built-in previews group notes by tool, keep long lists in expandable panels, and keep Apply and Cancel at the top.
 - All five pages fit narrow screens, source groups use tabs, and Settings shows the selected shared or personal values.

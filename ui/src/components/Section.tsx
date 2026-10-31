@@ -315,7 +315,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
                 localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined}
                 overrides={viewAudience === 'shared' ? f.set.filter((other) => other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
                 baseline={viewAudience === 'personal' && src.local ? f.set.filter((other) => !other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
-              /> : <Values values={src.values} file={src.path} fieldKey={f.key} />}
+              /> : <Values values={src.values} file={f.key.startsWith('voice.') ? undefined : src.path} fieldKey={f.key} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
