@@ -71,6 +71,18 @@ func TestSplitFrontmatter_MalformedYAML(t *testing.T) {
 	}
 }
 
+func TestParseMarkdownBytes_KeepsLeadingNonMappingBlocks(t *testing.T) {
+	for _, block := range []string{"Never push to main without review.", "- one\n- two", "null"} {
+		t.Run(block, func(t *testing.T) {
+			input := "---\n" + block + "\n---\nKeep functions small.\n"
+			e, err := ParseMarkdownBytes(KindRule, []byte(input))
+			if err != nil || e.Body != input {
+				t.Errorf("body = %q, err=%v, want %q", e.Body, err, input)
+			}
+		})
+	}
+}
+
 func TestFilter(t *testing.T) {
 	t.Parallel()
 	entries := []Entry{

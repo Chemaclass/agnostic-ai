@@ -474,24 +474,19 @@ func lintHookMatcherMisuse(hooks []spec.Entry) []lintFinding {
 	return out
 }
 
-// lintUnterminatedFrontmatter flags specs that open a `---` block and never
-// close it (LINT006, error).
-//
-// splitFrontmatter treats such a file as body-only, so the raw YAML survives
-// as body text and every adapter writes it through verbatim. Nothing else
-// catches this: the spec loads, validate passes, and sync exits 0 while
-// emitting files whose frontmatter is structurally broken. Targets that write
-// no frontmatter of their own end up with a single unterminated delimiter;
-// targets that write their own block end up with a stray third one that opens
-// a second block. Either way the agent silently never loads.
-//
-// A parsed block leaves Meta populated and strips the delimiters, so a body
-// that still starts with `---` alongside empty Meta is the signature of the
-// unterminated case.
+// lintUnterminatedFrontmatter reports an unclosed block or a preserved
+// opening block that is not a YAML mapping.
 func lintUnterminatedFrontmatter(entries []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range entries {
 		if len(e.Meta) > 0 || !strings.HasPrefix(e.Body, "---") {
+			continue
+		}
+		if strings.Contains(e.Body[3:], "\n---") {
+			out = append(out, lintFinding{
+				Code: "LINT056", Severity: lintWarn, Path: e.Path,
+				Message: "opening `---` block is not a YAML mapping; sync keeps it as Markdown body text",
+			})
 			continue
 		}
 		out = append(out, lintFinding{
