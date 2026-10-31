@@ -40,6 +40,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Kiro
+
+- Global sync writes voice transcription language to `settings/cli.json`, keeps other settings, and restores the previous language on removal (#2837).
+
 #### Kimi Code CLI
 
 - Sync and import reject MCP executors other than `local`, including removed `kaos`; `runtime_id` remains supported (#2808).

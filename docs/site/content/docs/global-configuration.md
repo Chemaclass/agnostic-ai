@@ -131,7 +131,7 @@ effort:
 | kimi | `~/.kimi-code/config.toml` | `default_model`, `default_plan_mode`, `telemetry` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
 
-Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini and Kimi Code. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`. A dotted key is a nested JSON object: for `model.name`, sync sets `name` inside `model` and leaves the other keys alone.
+Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini and Kimi Code. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`. Except for Kiro CLI's literal dotted keys, a dotted key is a nested JSON object: for `model.name`, sync sets `name` inside `model` and leaves the other keys alone.
 
 Accepted `effort` values: Claude and Copilot take `low`, `medium`, `high`, `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max`; Codex takes any string; for CodeBuddy Code see [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits). `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
 

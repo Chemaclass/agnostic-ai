@@ -182,6 +182,10 @@ The imported spec loses some data, but the Kiro files sync writes stay the same:
 - Two hook files with the same `name` keep both hooks. The second gets a generated name, because spec names are unique file names.
 - <code>{&#123;filePath}}</code> stays as written. Kiro documents it as new in 3.0, and it means nothing elsewhere.
 
+## Global voice language
+
+`agnostic-ai sync --global --only kiro` writes home `voice.language` to the literal `"voice.language"` key in `~/.kiro/settings/cli.json`, or `settings/cli.json` under `KIRO_HOME`. Use `auto` to detect the transcription language. Kiro CLI has no on/off or capture mode key, so sync prints a note for `voice.enabled` and `voice.mode`. Other voice settings, including `voice.autoSubmit`, stay as written. Removing the portable language restores its previous value; a value you changed by hand stays yours. See [voice dictation](@/docs/spec-format/settings.md#voice-dictation).
+
 ## Protected paths
 
 Not enforced. Kiro takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

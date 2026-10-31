@@ -19,8 +19,6 @@ func voiceTargetNoOpReason(target string) string {
 		return "Copilot CLI voice settings keys are not published"
 	case "warp":
 		return "Warp voice settings need a separate mapping; see #2836"
-	case "kiro":
-		return "Kiro CLI voice settings need a separate mapping; see #2837; no IDE voice setting was found"
 	case "goose":
 		return "Goose dictation selects a provider and model; no portable on/off mapping"
 	case "kilo":

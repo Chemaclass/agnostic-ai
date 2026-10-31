@@ -231,7 +231,7 @@ func TestVoiceTargets_ExplainUnsupportedMembersAndDeferredMappings(t *testing.T)
 		{"gemini", []string{"Gemini has no dictation language setting"}},
 		{"vibe", []string{"Vibe has no voice capture mode setting", "Vibe has no dictation language setting"}},
 		{"warp", []string{"#2836"}},
-		{"kiro", []string{"#2837"}},
+		{"kiro", []string{"Kiro CLI has no dictation on/off setting", "Kiro CLI has no voice capture mode setting"}},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			_, source := globalAgentTestHome(t)
