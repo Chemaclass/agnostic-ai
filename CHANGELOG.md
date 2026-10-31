@@ -18,6 +18,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Sync and configuration
 
+- `explain --global` lists native hook files and copied scripts for Cline, Grok, and Kiro, matching sync and custom tool roots (#2863).
 - Global instruction updates keep private file modes and stop if the file changes during sync (#2857).
 - `import --global` reads native voice dictation keys back into the portable `voice` field (#2834).
 - `voice` also writes Qwen Code, Gemini CLI, Grok Build, and Mistral Vibe; other tools get a note naming why (#2833).
