@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -90,7 +91,7 @@ func importWarpWorkflows(root, dstDir string) (int, error) {
 			return count, fmt.Errorf("parse %s: %w", full, err)
 		}
 		agentName, _ := doc["name"].(string)
-		if agentName == "" {
+		if spec.ValidateName(spec.KindAgent, agentName) != nil {
 			agentName = strings.TrimSuffix(strings.TrimSuffix(name, ".yml"), ".yaml")
 		}
 		body, _ := doc["command"].(string)
