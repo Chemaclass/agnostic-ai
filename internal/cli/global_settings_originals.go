@@ -92,14 +92,14 @@ func mergeGlobalPersonalInner(path, format string, base []byte, want []globalSet
 	}
 	portableKeys := slices.Clone(personal)
 	for _, setting := range want {
-		if slices.ContainsFunc(portableKeys, func(key string) bool { return settingsKeysOverlap(key, setting.key) }) {
+		if slices.ContainsFunc(portableKeys, func(key string) bool { return settingsKeysOverlap(key, setting.key, format) }) {
 			personal = append(personal, setting.key)
 		}
 	}
 	var replacements []string
 	for _, setting := range want {
 		for key := range originals {
-			if key != setting.key && settingsKeysOverlap(key, setting.key) {
+			if key != setting.key && settingsKeysOverlap(key, setting.key, format) {
 				replacements = append(replacements, setting.key)
 				break
 			}
@@ -249,7 +249,7 @@ func mergeGlobalPersonalInner(path, format string, base []byte, want []globalSet
 		if after == nil {
 			after = data
 		}
-		if start, end, ok := jsonKeyValueSpan(string(after), key); ok && format == "json" {
+		if start, end, ok := jsonKeyValueSpan(string(after), key, format == flatJSONFormat); ok && (format == "json" || format == flatJSONFormat) {
 			m.data = append(append(append([]byte(nil), after[:start]...), originals[key].Raw...), after[end:]...)
 		}
 		delete(m.owned, key)
@@ -272,13 +272,17 @@ func captureSettingOriginal(data []byte, values map[string]any, key, format stri
 		empty := string(data)
 		original.EmptyFile = &empty
 	}
-	if format == "json" {
-		for _, parent := range jsonParentKeys(key) {
+	if format == "json" || format == flatJSONFormat {
+		parentKeys := jsonParentKeys(key)
+		if format == flatJSONFormat {
+			parentKeys = nil
+		}
+		for _, parent := range parentKeys {
 			if open, closing, count, present := jsonContainerSpan(string(data), parent); present && count == 0 && data[open] == '{' && !slices.Contains(createdParents, parent) {
 				original.EmptyParents[parent] = string(data[open : closing+1])
 			}
 		}
-		if start, end, ok := jsonKeyValueSpan(string(data), key); ok {
+		if start, end, ok := jsonKeyValueSpan(string(data), key, format == flatJSONFormat); ok {
 			original.Present, original.Raw = true, string(data[start:end])
 		}
 		return original
@@ -300,12 +304,12 @@ func captureSettingOriginal(data []byte, values map[string]any, key, format stri
 	return original
 }
 
-func jsonKeyValueSpan(text, key string) (int, int, bool) {
+func jsonKeyValueSpan(text, key string, flat ...bool) (int, int, bool) {
 	open, err := jsonRootOpen(text)
 	if err != nil {
 		return 0, 0, false
 	}
-	start, err := findJSONPath(text, open, strings.Split(key, "."))
+	start, err := findJSONPath(text, open, settingsJSONPath(key, flat...))
 	if err != nil || start < 0 {
 		return 0, 0, false
 	}

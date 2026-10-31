@@ -17,15 +17,15 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// globalSettingsFile maps the portable settings fields onto the native
-// keys of one target's user settings file. JSON and table TOML use
-// dotted paths into nested objects.
+const flatJSONFormat = "json-flat"
+
+// globalSettingsFile maps portable fields onto native user settings keys.
 type globalSettingsFile struct {
 	// path is the user settings file, in the globalTargets path form.
 	path                   string
 	linuxPath, windowsPath string
 	private                bool
-	// format selects JSON, root TOML, or a native table editor.
+	// json-flat treats dotted names as literal root keys.
 	format string
 	// Empty native keys have no mapping.
 	model, effort  string
@@ -141,7 +141,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 	// with, or sits above or below.
 	out = slices.DeleteFunc(out, func(s globalSetting) bool {
 		return slices.ContainsFunc(passthrough, func(c globalSetting) bool {
-			return settingsKeysOverlap(c.key, s.key)
+			return settingsKeysOverlap(c.key, s.key, f.format)
 		})
 	})
 	return append(out, passthrough...)
@@ -220,7 +220,10 @@ func globalPermissionSettings(target string, f globalSettingsFile, settings []sp
 // keys, later specs winning key by key and a null removing a key an
 // earlier spec set. A JSON object merges field by field, as project
 // sync merges x-<target> blocks; TOML takes scalars and arrays only.
-func settingsKeysOverlap(a, b string) bool {
+func settingsKeysOverlap(a, b, format string) bool {
+	if format == flatJSONFormat {
+		return a == b
+	}
 	return a == b || strings.HasPrefix(a, b+".") || strings.HasPrefix(b, a+".")
 }
 
@@ -265,14 +268,18 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 				// The rule lists merge rule by rule with the portable ones.
 				continue
 			}
-			if reason, ok := f.reserved[strings.SplitN(key, ".", 2)[0]]; ok {
+			reservedKey := key
+			if f.format != flatJSONFormat {
+				reservedKey = strings.SplitN(key, ".", 2)[0]
+			}
+			if reason, ok := f.reserved[reservedKey]; ok {
 				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, reason)
 				continue
 			}
 			// A later key replaces what an earlier one set at, under, or
 			// above it, so a null or a new shape wins whole.
 			for other := range byKey {
-				if other == key || strings.HasPrefix(other, key+".") || strings.HasPrefix(key, other+".") {
+				if settingsKeysOverlap(other, key, f.format) {
 					delete(byKey, other)
 				}
 			}
@@ -306,7 +313,7 @@ func flattenSettings(block map[string]any, format string) (map[string]any, []str
 	walk = func(prefix string, m map[string]any) {
 		for key, value := range m {
 			path := prefix + key
-			if strings.Contains(key, ".") {
+			if strings.Contains(key, ".") && format != flatJSONFormat {
 				dotted = append(dotted, path)
 				continue
 			}
@@ -442,7 +449,7 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		if wanted[key] {
 			continue
 		}
-		if object, ok := previous[key].(map[string]any); ok && len(object) == 0 {
+		if object, ok := previous[key].(map[string]any); ok && len(object) == 0 && format != flatJSONFormat {
 			if slices.ContainsFunc(want, func(setting globalSetting) bool { return strings.HasPrefix(setting.key, key+".") }) {
 				continue
 			}
@@ -503,7 +510,7 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		}
 		return m, nil
 	}
-	m.data, err = editJSONRootKeeping(path, data, "", order, set, remove, keep)
+	m.data, err = editJSONRootKeeping(path, data, "", order, set, remove, keep, format == flatJSONFormat)
 	return m, err
 }
 
@@ -572,7 +579,7 @@ func jsonParentKeys(key string) []string {
 // settingsLookup reads key from decoded settings: a dotted path into
 // nested objects for JSON, the key itself for TOML.
 func settingsLookup(values map[string]any, key, format string) (any, bool) {
-	if format == "toml" {
+	if format == "toml" || format == flatJSONFormat {
 		v, ok := values[key]
 		return v, ok
 	}
