@@ -28,6 +28,7 @@ import (
 const (
 	globalPathHome         = "home:"
 	globalPathXDG          = "xdg:"
+	globalPathAppData      = "appdata:"
 	globalPathLocalAppData = "localappdata:"
 )
 
@@ -46,7 +47,8 @@ const (
 type globalTarget struct {
 	// instructions is the always-on context file the tool loads with no
 	// wiring. Global rules inline into it.
-	instructions string
+	instructions        string
+	instructionsWindows string
 	// rules is a per-rule directory, used only for a target whose
 	// vendor documents no user-level instructions file at all.
 	rules string
@@ -348,8 +350,9 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".agents/skills",
 	},
 	"zed": {
-		instructions: globalPathXDG + "zed/AGENTS.md",
-		skills:       globalPathHome + ".agents/skills",
+		instructions:        globalPathXDG + "zed/AGENTS.md",
+		instructionsWindows: "Zed/AGENTS.md",
+		skills:              globalPathHome + ".agents/skills",
 	},
 	"warp": {
 		mcp:          globalMCPFile{path: globalPathHome + ".warp/.mcp.json", format: "json", key: "mcpServers"},
@@ -515,6 +518,13 @@ func globalHookTargets(targets []string) []string {
 
 // globalPath resolves one table path against the user home.
 func globalPath(home, p string) string {
+	if rest, ok := strings.CutPrefix(p, globalPathAppData); ok {
+		root := os.Getenv("APPDATA")
+		if root == "" {
+			root = filepath.Join(home, "AppData", "Roaming")
+		}
+		return filepath.Join(root, filepath.FromSlash(rest))
+	}
 	if rest, ok := strings.CutPrefix(p, globalPathLocalAppData); ok {
 		root := os.Getenv("LOCALAPPDATA")
 		if root == "" {
@@ -574,19 +584,22 @@ func (g globalTarget) agentsPath(home string) string {
 		return ""
 	}
 	if runtime.GOOS == "windows" && g.agentsWindows != "" {
-		root := os.Getenv("APPDATA")
-		if root == "" {
-			root = filepath.Join(home, "AppData", "Roaming")
-		}
-		return filepath.Join(root, filepath.FromSlash(g.agentsWindows))
+		return globalPath(home, globalPathAppData+g.agentsWindows)
 	}
 	return g.path(home, g.agents)
 }
 
 // path resolves one of the target's table paths, honoring rootEnv.
 func (g globalTarget) path(home, p string) string {
+	return g.pathForOS(home, p, runtime.GOOS)
+}
+
+func (g globalTarget) pathForOS(home, p, goos string) string {
+	if goos == "windows" && p != "" && p == g.instructions && g.instructionsWindows != "" {
+		p = globalPathAppData + g.instructionsWindows
+	}
 	if p != "" && p == g.settings.path {
-		p = g.settings.platformPath(runtime.GOOS)
+		p = g.settings.platformPath(goos)
 	}
 	if g.rootEnv != "" {
 		if root := os.Getenv(g.rootEnv); root != "" {
@@ -600,6 +613,9 @@ func (g globalTarget) path(home, p string) string {
 
 // rootError rejects roots whose ownership would depend on the working directory.
 func (g globalTarget) rootError(target string) error {
+	if err := g.instructionsRootError(runtime.GOOS); err != nil {
+		return fmt.Errorf("%s: %w", target, err)
+	}
 	if err := g.settings.platformRootError(runtime.GOOS); err != nil {
 		return fmt.Errorf("%s: %w", target, err)
 	}
@@ -617,14 +633,37 @@ func (g globalTarget) rootError(target string) error {
 // path, since each sits in a directory the tool also uses for its own
 // unmanaged configuration.
 func (g globalTarget) files(home string) []string {
+	return g.filesForOS(home, runtime.GOOS)
+}
+
+func (g globalTarget) filesForOS(home, goos string) []string {
 	var out []string
 	for _, p := range []string{g.instructions, g.hooks} {
 		if p != "" {
-			out = append(out, g.path(home, p))
+			out = append(out, g.pathForOS(home, p, goos))
 		}
+	}
+	if legacy := g.legacyInstructionsPath(home, goos); legacy != "" {
+		out = append(out, legacy)
 	}
 	if g.bridge {
 		out = append(out, globalBridgePath(filepath.Dir(g.path(home, g.hooks))))
 	}
 	return out
+}
+
+func (g globalTarget) legacyInstructionsPath(home, goos string) string {
+	if goos == "windows" && g.instructionsWindows != "" {
+		return globalPath(home, g.instructions)
+	}
+	return ""
+}
+
+func (g globalTarget) instructionsRootError(goos string) error {
+	if goos == "windows" && g.instructionsWindows != "" {
+		if root := os.Getenv("APPDATA"); root != "" && !filepath.IsAbs(root) {
+			return fmt.Errorf("APPDATA=%q must be an absolute path", root)
+		}
+	}
+	return nil
 }
