@@ -18,13 +18,14 @@ import (
 )
 
 // globalSettingsFile maps the portable settings fields onto the native
-// keys of one target's user settings file. A JSON key is a dotted path
-// into nested objects.
+// keys of one target's user settings file. JSON and table TOML use
+// dotted paths into nested objects.
 type globalSettingsFile struct {
 	// path is the user settings file, in the globalTargets path form.
-	path    string
-	private bool
-	// format is "json" or "toml".
+	path                   string
+	linuxPath, windowsPath string
+	private                bool
+	// format selects JSON, root TOML, or a native table editor.
 	format string
 	// Empty native keys have no mapping.
 	model, effort  string
@@ -40,8 +41,9 @@ type globalSettingsFile struct {
 	effortGap globalSurfaceGap
 	// reserved are keys an x-<target> block may not set: surfaces sync
 	// owns another way, or ones that need their own design.
-	reserved map[string]string
-	allowed  map[string]string
+	reserved      map[string]string
+	allowed       map[string]string
+	allowedReason string
 	// ignored names the key a written dotted key sits at or under when
 	// the target ignores it in user settings, with the reason.
 	ignored func(key string) (field, reason string, ok bool)
@@ -233,18 +235,29 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 		for _, key := range slices.Sorted(maps.Keys(flat)) {
 			value := flat[key]
 			if f.allowed != nil && f.allowed[key] == "" {
-				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "sync --global owns only default_model, default_plan_mode and telemetry; use an explicit profile for native tables")
+				reason := f.allowedReason
+				if reason == "" {
+					reason = "sync --global owns only default_model, default_plan_mode and telemetry; use an explicit profile for native tables"
+				}
+				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, reason)
 				continue
 			}
-			if f.allowed[key] == "string" {
+			if value != nil && f.allowed[key] == "string" {
 				if text, ok := value.(string); !ok || strings.TrimSpace(text) == "" {
 					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "native field requires a nonempty string")
 					continue
 				}
 			}
-			if f.allowed[key] == "bool" {
+			if value != nil && f.allowed[key] == "bool" {
 				if _, ok := value.(bool); !ok {
 					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "native field requires a boolean")
+					continue
+				}
+			}
+			if value != nil && f.voice != nil && key == f.voice.language && f.voice.languageValid != nil {
+				language, ok := value.(string)
+				if !ok || !f.voice.languageValid(language) {
+					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, f.voice.notes["language"])
 					continue
 				}
 			}
@@ -297,7 +310,7 @@ func flattenSettings(block map[string]any, format string) (map[string]any, []str
 				dotted = append(dotted, path)
 				continue
 			}
-			if nested, ok := value.(map[string]any); ok && (format == "json" || format == grokTOMLFormat) && len(nested) > 0 {
+			if nested, ok := value.(map[string]any); ok && (format == "json" || nestedTOMLFormat(format)) && len(nested) > 0 {
 				walk(path+".", nested)
 				continue
 			}
@@ -390,9 +403,10 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		}
 	}
 	m := globalSettingsMerge{owned: map[string]any{}}
-	if format == grokTOMLFormat {
-		if value, ok := previous[grokModelsContainer]; ok {
-			m.owned[grokModelsContainer] = value
+	containerKey := settingsTableContainer(format)
+	if containerKey != "" {
+		if value, ok := previous[containerKey]; ok {
+			m.owned[containerKey] = value
 		}
 	}
 	set := map[string]any{}
@@ -422,7 +436,7 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		m.owned[s.key] = s.value
 	}
 	for _, key := range slices.Sorted(maps.Keys(previous)) {
-		if key == grokModelsContainer {
+		if key == grokModelsContainer || key == tomlTablesContainer {
 			continue
 		}
 		if wanted[key] {
@@ -439,9 +453,9 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 			remove = append(remove, key)
 		}
 	}
-	if format == grokTOMLFormat {
-		if !grokOwnsTable(m.owned) {
-			delete(m.owned, grokModelsContainer)
+	if containerKey != "" {
+		if !settingsOwnsTable(m.owned, format) {
+			delete(m.owned, containerKey)
 		}
 	}
 	var keep map[string]string
@@ -458,19 +472,23 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 			order = append(order, s.key)
 		}
 	}
-	if format == grokTOMLFormat {
+	if nestedTOMLFormat(format) {
 		var container any
-		m.data, container, err = editGrokTOML(path, data, order, set, remove, previous)
+		edit := editGrokTOML
+		if format == tableTOMLFormat {
+			edit = editSettingsTOMLTables
+		}
+		m.data, container, err = edit(path, data, order, set, remove, previous)
 		if container != nil {
-			if grokOwnsTable(m.owned) {
-				m.owned[grokModelsContainer] = container
+			if settingsOwnsTable(m.owned, format) {
+				m.owned[containerKey] = container
 			}
 		}
 		if err != nil {
 			return m, err
 		}
 		if _, err := toml.Decode(string(m.data), new(map[string]any)); err != nil {
-			return m, fmt.Errorf("parse %s after Grok settings edit: %w", path, err)
+			return m, fmt.Errorf("parse %s after settings table edit: %w", path, err)
 		}
 		return m, nil
 	}
@@ -629,7 +647,7 @@ func settingsValues(path, format string, data []byte) (map[string]any, error) {
 	if len(strings.TrimSpace(string(data))) == 0 {
 		return out, nil
 	}
-	if format == "toml" || format == grokTOMLFormat {
+	if format == "toml" || nestedTOMLFormat(format) {
 		if _, err := toml.Decode(string(data), &out); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}

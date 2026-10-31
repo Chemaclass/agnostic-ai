@@ -66,7 +66,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [Inspect lifecycle hooks](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): scan stage counts, then expand a stage or all stages to see hooks.
 - [Share an MCP server only one tool has](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): **Tools** previews and saves one server as a spec, ready for your next sync.
 - [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` finds its source even when an unselected tool rejects your setup.
-- [Voice dictation](https://agnostic-ai.org/docs/spec-format/settings/#voice-dictation): keep personal voice settings in your home specs, import existing values, and apply them with `sync --global`.
+- [Voice dictation](https://agnostic-ai.org/docs/spec-format/settings/#voice-dictation): keep personal voice settings in your home specs, import existing values, and apply them with `sync --global`, including Warp dictation.
 - [Edit settings in the browser](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): browse source groups in tabs, compare Shared and Personal, preview permission rules, and edit global voice dictation settings.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails.
 
