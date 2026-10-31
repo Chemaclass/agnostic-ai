@@ -258,7 +258,7 @@ A dash means global sync writes nothing for that kind.
 - **Rules** are inlined into the instructions file, in the same `## Rules` block as the shared body. Augment has no user-level instructions file for the CLI, so its `~/.augment/rules/` entries are always on.
 - Existing instruction files keep their personal text and file permissions. Sync stops if a file changes while it is preparing the update.
 
-Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.
+Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set, except Zed on macOS. Zed on Linux and FreeBSD prefers `FLATPAK_XDG_CONFIG_HOME`; see [its native instruction roots](@/docs/targets/zed.md#global-instructions). Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.
 
 ### Native discovery and shared paths
 

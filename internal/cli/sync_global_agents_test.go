@@ -28,6 +28,10 @@ func globalAgentTestHome(t *testing.T) (string, string) {
 	source := filepath.Join(home, "source")
 	t.Setenv("AGNOSTIC_AI_HOME", source)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("FLATPAK_XDG_CONFIG_HOME", "")
+	if err := os.Unsetenv("FLATPAK_XDG_CONFIG_HOME"); err != nil {
+		t.Fatal(err)
+	}
 	testutil.Chdir(t, t.TempDir())
 	return home, source
 }

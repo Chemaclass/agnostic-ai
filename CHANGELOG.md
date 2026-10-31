@@ -43,6 +43,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Zed
+
+- Zed global instructions use the native macOS and Flatpak roots and move recorded blocks without changing personal text (#2866).
+
 #### Kiro
 
 - Global sync writes voice transcription language to `settings/cli.json`, keeps other settings, and restores the previous language on removal (#2837).

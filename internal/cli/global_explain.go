@@ -77,6 +77,9 @@ func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
 // --global, following the same surfaces buildGlobalWrites writes.
 func globalContributions(home, source, target string, entry spec.Entry, b spec.Bundle) ([]contribution, error) {
 	g := globalTargets[target]
+	if err := g.rootError(target); err != nil {
+		return nil, err
+	}
 	var out []contribution
 	switch entry.Kind {
 	case spec.KindAgent:
