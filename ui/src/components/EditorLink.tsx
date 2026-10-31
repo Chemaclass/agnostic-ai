@@ -44,33 +44,33 @@ export function useEditor(): EditorId {
   return useSyncExternalStore(subscribe, readEditor, () => DEFAULT_EDITOR)
 }
 
-/** Picks the editor every file link opens; only a local server has files to open. */
 export function EditorChoice() {
   const app = useApp()
   const editor = useEditor()
   const labelId = useId()
   if (app.source.kind !== 'api') return null
   return (
-    <div className="editor-choice">
+    <div className="editor-choice" role="group" aria-labelledby={labelId}>
       <span id={labelId} className="editor-choice-label">Open files in</span>
-      <div className="segmented" role="group" aria-labelledby={labelId}>
+      <div className="segmented">
         {EDITORS.map((e) => (
           <button key={e.id} type="button" aria-pressed={editor === e.id} onClick={() => chooseEditor(e.id)}>{e.label}</button>
         ))}
+      </div>
+      <div className="editor-choice-mobile">
+        <label htmlFor={`${labelId}-select`}>Editor</label>
+        <select id={`${labelId}-select`} value={editor} onChange={(event) => chooseEditor(parseEditor(event.target.value))}>
+          {EDITORS.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
+        </select>
       </div>
     </div>
   )
 }
 
-/**
- * Opens a local file in the chosen editor, at its line when known, with
- * Copy path beside it for when no editor answers the link. A browser
- * cannot tell whether the editor opened, so the link never claims it.
- */
 export function OpenInEditor({ path, line, label, compact, shownPath }: { path?: string; line?: number; label: string; compact?: boolean; shownPath?: string }) {
   const app = useApp()
   const editor = useEditor()
-  const [sentTo, setSentTo] = useState<string>()
+  const [attempted, setAttempted] = useState(false)
   const copy = (text: string) => <CopyButton text={copyablePath(text)} label="Copy path" ariaLabel={`Copy path of ${label}`} className="editor-copy" />
   if (app.source.kind !== 'api' || !path) {
     if (!shownPath) return null
@@ -90,18 +90,18 @@ export function OpenInEditor({ path, line, label, compact, shownPath }: { path?:
   return (
     <span className="editor-actions">
       <a
-        className={compact ? 'edit-link' : 'button button-quiet editor-open'}
+        className="button button-quiet editor-open"
         href={editorUrl(editor, path, line)}
         aria-label={`Open ${label} in ${name}${where}`}
         title={`Open in ${name}${where}`}
-        onClick={() => setSentTo(name)}
+        onClick={() => setAttempted(true)}
       >
-        <Icon name="edit" />
-        {!compact && <span>Open in {name}</span>}
+        <Icon name="arrow" />
+        <span>{compact ? 'Open' : `Open in ${name}`}</span>
       </a>
       {copy(path)}
       <span className="muted editor-hint" role="status">
-        {sentTo && `Sent to ${sentTo}. If it did not open, copy the path.`}
+        {attempted && `Allow your browser to open ${name}. If nothing opens, choose an installed editor above or copy the path.`}
       </span>
     </span>
   )

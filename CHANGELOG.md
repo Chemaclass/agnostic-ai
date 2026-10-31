@@ -22,6 +22,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Web interface
 
+- Phone headers keep configuration and editor controls together, and Settings tabs fit their labels and counts.
+- Section warnings fold behind Review while errors stay visible; Config files shows merged values once below source links.
+- Authority, Settings, and native server imports keep a compact Shared or Personal choice with the content it controls.
+- Section headings link to the relevant spec or reference docs in a new tab, including when nothing is configured.
+- File links show Open, keep the editor choice visible in the header, and explain how to recover when no editor opens.
+- Context size groups tool and file controls, highlights load totals, and makes estimates and ranked sources easier to scan.
 - Global Settings edits shared or personal voice values; project settings stay read-only (#2835).
 - Authority previews and saves shared or personal permission rules, compares personal overrides with Shared, and leaves applying them to sync.
 - Built-in previews group notes by tool, fold long lists, and keep Apply and Cancel at the top.

@@ -119,6 +119,7 @@ export function Header({
           )}
         </div>
       )}
+      <EditorChoice />
       <div className="topbar-actions">
         <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
           <Icon name="search" />
@@ -167,7 +168,6 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
       <nav className="section-nav" aria-label="Configuration sections">
         <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
       </nav>
-      <div className="sidenav-footer"><EditorChoice /></div>
     </aside>
   )
 }

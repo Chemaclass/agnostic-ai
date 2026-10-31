@@ -93,3 +93,28 @@ for (const width of [320, 390, 1440]) {
     expect(edits).toEqual([{ audience: 'personal', path: personal, key: 'x-claude.verbose', value: false, expected: true }])
   })
 }
+
+test('keeps the compact audience control inside the section it edits', async ({ page }) => {
+  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const [view, tab, title] of [['authority', '', 'Permissions'], ['settings', 'builtins', 'Built-ins'], ['settings', 'preferences', 'Other settings']]) {
+      await page.goto(`/?view=${view}${tab ? `&tab=${tab}` : ''}`)
+      const section = page.getByRole('region', { name: new RegExp(`^${title}`) })
+      const scope = section.locator('.edit-scope')
+      await expect(scope.getByRole('group', { name: 'View and edit' })).toBeVisible()
+      await expect(page.locator('.edit-scope')).toHaveCount(1)
+      await expect(scope.getByRole('button', { name: 'Shared (committed)', exact: true })).toHaveText('Shared')
+      await expect(scope.getByRole('button', { name: 'Personal (not committed)', exact: true })).toHaveText('Personal')
+      const heading = await section.getByRole('heading', { level: 2 }).boundingBox()
+      const control = await scope.boundingBox()
+      expect(control!.y).toBeGreaterThanOrEqual(heading!.y + heading!.height)
+      expect(control!.x).toBeGreaterThanOrEqual(0)
+      expect(control!.x + control!.width).toBeLessThanOrEqual(width)
+    }
+    await page.goto('/?view=settings&tab=configuration')
+    await expect(page.locator('.edit-scope')).toHaveCount(0)
+  }
+})

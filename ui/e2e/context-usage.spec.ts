@@ -12,7 +12,7 @@ test.describe('context size', () => {
     const panel = page.locator('section.context-usage')
     await expect(panel.getByRole('heading', { name: 'Context size' })).toBeVisible()
     await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
-    await expect(panel.locator('.context-usage-totals')).toContainText('184 words, 1212 bytes')
+    await expect(panel.locator('.context-usage-totals')).toContainText('184 words, 1,212 bytes')
     const duplicate = panel.locator('.context-opportunity')
     await expect(duplicate).toHaveCount(1)
     await expect(duplicate).toContainText('Run the full test suite before you push.')
@@ -28,6 +28,26 @@ test.describe('context size', () => {
     await expect(panel.locator('.context-usage-compare')).toContainText('Before refresh')
     await expect(panel.locator('.context-usage-compare')).toContainText('Now')
     await expect(panel).not.toContainText(/tokens? saved|faster/i)
+  })
+
+  test('keeps the controls readable on a phone and explains the estimate on request', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/?mock=1&tab=usage')
+    const panel = page.locator('section.context-usage')
+    await expect(panel.getByLabel('Coding tool')).toBeVisible()
+    await expect(panel.getByLabel('Working on file')).toHaveAccessibleDescription('Optional: name a file to include the scoped rules that match it.')
+    await expect(panel.locator('.context-total-words').first()).toHaveText('184 words')
+    const method = panel.locator('.context-usage-method')
+    await expect(method.locator('p')).toBeHidden()
+    await method.getByText('How this is counted').click()
+    await expect(method.locator('p')).toContainText('not model tokens or live context')
+    for (const control of await panel.locator('form input, form select, form button').all()) {
+      const box = await control.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   })
 
   test('refreshes the same target and shows the updated findings', async ({ page }) => {
