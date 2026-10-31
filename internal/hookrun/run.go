@@ -8,8 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -135,6 +137,15 @@ func Run(argv []string, dir string, env []string, stdin []byte, timeout time.Dur
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	killTree(cmd)
+	cancelProcess := cmd.Cancel
+	var killed atomic.Bool
+	cmd.Cancel = func() error {
+		err := cancelProcess()
+		if err == nil {
+			killed.Store(true)
+		}
+		return err
+	}
 	// A grandchild that outlives the kill still holds the output pipes.
 	cmd.WaitDelay = time.Second
 	start := time.Now()
@@ -146,12 +157,16 @@ func Run(argv []string, dir string, env []string, stdin []byte, timeout time.Dur
 		r.StartErr = err
 	// A hook that exited on its own before the deadline is no timeout,
 	// even when a child it left in the background held the pipes past it.
-	case !cmd.ProcessState.Exited() && errors.Is(ctx.Err(), context.DeadlineExceeded):
+	case hookTimedOut(ctx.Err(), cmd.ProcessState.Exited(), killed.Load(), runtime.GOOS):
 		r.TimedOut = true
 	default:
 		r.Exit = cmd.ProcessState.ExitCode()
 	}
 	return r
+}
+
+func hookTimedOut(ctxErr error, exited, killed bool, goos string) bool {
+	return errors.Is(ctxErr, context.DeadlineExceeded) && (!exited || goos == "windows" && killed)
 }
 
 // Decision is what the target does with a hook's result.

@@ -1,6 +1,7 @@
 package hookrun
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -237,6 +238,39 @@ func TestRun_KillsAHookAtItsTimeout(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 3*time.Second {
 		t.Errorf("Run took %s, want it to stop at the timeout", elapsed)
+	}
+}
+
+func TestRun_WindowsTimeoutFailsOpenForCopilot(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("requires Windows PowerShell")
+	}
+	r := Run([]string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "Start-Sleep -Seconds 10; Write-Output late"}, t.TempDir(), os.Environ(), nil, time.Second)
+	if !r.TimedOut || strings.Contains(r.Stdout, "late") {
+		t.Fatalf("result = %+v, want timeout before output", r)
+	}
+	if got := decideCopilot("preToolUse", r); got != Timeout {
+		t.Errorf("Copilot decision = %s, want timeout", got)
+	}
+}
+
+func TestHookTimedOut_UsesExitStatusOnUnixAndCancellationOnWindows(t *testing.T) {
+	for _, tc := range []struct {
+		name, goos           string
+		ctxErr               error
+		exited, killed, want bool
+	}{
+		{"Unix killed even if group cleanup failed", "darwin", context.DeadlineExceeded, false, false, true},
+		{"Unix exit before deadline", "darwin", context.DeadlineExceeded, true, true, false},
+		{"Windows terminated by timeout", "windows", context.DeadlineExceeded, true, true, true},
+		{"Windows exit before deadline", "windows", context.DeadlineExceeded, true, false, false},
+		{"no deadline", "windows", nil, true, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hookTimedOut(tc.ctxErr, tc.exited, tc.killed, tc.goos); got != tc.want {
+				t.Errorf("timed out = %t, want %t", got, tc.want)
+			}
+		})
 	}
 }
 
