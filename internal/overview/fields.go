@@ -33,6 +33,9 @@ var settingsFields = map[string][]fieldDef{
 		{key: "model", label: "Default model", description: "The model each tool starts with: one value, a map per tool, or a model tier name."},
 		{key: "effort", label: "Reasoning effort", description: "The default reasoning effort: one value, or a map per tool."},
 		{key: "session-retention-days", label: "Session retention", description: "Days to keep session transcripts, at least 1. Only sync --global writes it."},
+		{key: "voice.enabled", label: "Voice dictation", description: "Turn voice dictation on or off. Only sync --global writes it."},
+		{key: "voice.mode", label: "Voice mode", description: "Hold to record, or tap to start and stop recording."},
+		{key: "voice.language", label: "Voice language", description: "The spoken language passed to each tool that supports it."},
 		{key: "x-", label: "Native keys", description: "Keys written as they are into one tool's own settings file, under x-claude, x-codex, and so on.", prefix: true},
 	},
 }
@@ -60,10 +63,15 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			}
 			e := byName[it.Name]
 			values := d.values(it.Values)
-			cleared := strings.HasPrefix(d.key, "permissions.") && personalPermissionsCleared(e)
+			cleared := ""
+			if strings.HasPrefix(d.key, "permissions.") && personalPermissionsCleared(e) {
+				cleared = "permissions"
+			} else if strings.HasPrefix(d.key, "voice.") && personalFieldCleared(e, "voice") {
+				cleared = "voice"
+			}
 			if e.Base == nil {
-				if cleared {
-					values = []Value{{Key: "permissions", Type: ValueText, Value: "null"}}
+				if cleared != "" {
+					values = []Value{{Key: cleared, Type: ValueText, Value: "null"}}
 				}
 				if len(values) > 0 {
 					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: LocalLayer(e)})
@@ -71,8 +79,8 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				continue
 			}
 			own := d.values(specValues(e.LocalMeta))
-			if cleared {
-				own = []Value{{Key: "permissions", Type: ValueText, Value: "null"}}
+			if cleared != "" {
+				own = []Value{{Key: cleared, Type: ValueText, Value: "null"}}
 			}
 			team := SpecPath(root, *e.Base)
 			if !d.prefix && len(own) == 0 {
@@ -100,6 +108,17 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				edit.Kind = "number"
 				if !global {
 					edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global."
+				}
+			}
+			if strings.HasPrefix(d.key, "voice.") {
+				if d.key == "voice.enabled" {
+					edit.Kind = "boolean"
+				}
+				if d.key == "voice.mode" {
+					edit.Allowed = slices.Clone(spec.VoiceModes)
+				}
+				if !global {
+					edit.DisabledReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
 				}
 			}
 			if d.key == "effort" {
@@ -132,6 +151,13 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				if e, ok := byName[it.Name]; ok && it.Kind == string(spec.KindSettings) && SettingsEditCandidate(e, d.key) {
 					paths[it.Name] = SettingsTeamPath(root, e)
 					edit.Paths = append(edit.Paths, paths[it.Name])
+					if strings.HasPrefix(d.key, "voice.") {
+						localPath := SettingsOverlayPath(global, e.Name)
+						if LocalLayer(e) {
+							localPath = SpecPath(root, e)
+						}
+						edit.Sources = append(edit.Sources, FieldEditSource{Path: paths[it.Name], Spec: e.Name, LocalPath: localPath, DisabledReason: VoiceEditDisabledReason(e, root)})
+					}
 				}
 			}
 			defaultPath := "settings/defaults.yaml"
@@ -166,6 +192,9 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			}
 			for _, source := range f.Set {
 				for _, value := range source.Values {
+					if strings.HasPrefix(d.key, "voice.") && source.Local && value.Key == "voice" && personalFieldCleared(byName[source.Spec], "voice") {
+						continue
+					}
 					if !d.editableValue(value) {
 						edit.DisabledReason = "This field has a non-scalar value; edit the spec directly."
 					}
@@ -175,6 +204,18 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				return e.ModelTier != "" && slices.ContainsFunc(f.Set, func(s FieldSource) bool { return s.Spec == e.Name })
 			}) {
 				edit.DisabledReason = "This model names a tier from models: in the config; edit the spec directly."
+			}
+			if strings.HasPrefix(d.key, "voice.") {
+				if !global {
+					edit.DisabledReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
+				} else if len(edit.Paths) <= 1 {
+					for _, e := range entries {
+						if reason := VoiceEditDisabledReason(e, root); reason != "" && (edit.Path == "" || SettingsTeamPath(root, e) == edit.Path) {
+							edit.DisabledReason = reason
+							break
+						}
+					}
+				}
 			}
 			f.Editable = edit
 		}
@@ -196,6 +237,10 @@ func PermissionEditCandidate(e spec.Entry) bool {
 }
 
 func personalPermissionsCleared(e spec.Entry) bool {
+	return personalFieldCleared(e, "permissions")
+}
+
+func personalFieldCleared(e spec.Entry, key string) bool {
 	if !LocalLayer(e) {
 		return false
 	}
@@ -203,8 +248,15 @@ func personalPermissionsCleared(e spec.Entry) bool {
 	if e.Base == nil {
 		meta = e.Meta
 	}
-	value, set := meta["permissions"]
+	value, set := meta[key]
 	return set && value == nil
+}
+
+func VoiceEditDisabledReason(e spec.Entry, root string) string {
+	if !personalFieldCleared(e, "voice") {
+		return ""
+	}
+	return fmt.Sprintf("%s sets voice: null, which clears every voice setting. Remove voice: null from that personal file before editing an individual setting.", SpecPath(root, e))
 }
 
 func PermissionEditDisabledReason(e spec.Entry, root string) string {
@@ -261,7 +313,7 @@ func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, 
 // editableValue reports whether the page can edit v in place: the
 // field's own scalar, or one tool's scalar in its per-tool map.
 func (d fieldDef) editableValue(v Value) bool {
-	if d.key == "session-retention-days" {
+	if d.key == "session-retention-days" || strings.HasPrefix(d.key, "voice.") {
 		return v.Key == d.key
 	}
 	entry, nested := strings.CutPrefix(v.Key, d.key+".")
@@ -435,4 +487,20 @@ func appliesTo(settings []spec.Entry, i int, targets []string) []string {
 
 func coversTargets(e spec.Entry, targets []string) bool {
 	return len(targets) == 0 || !slices.ContainsFunc(targets, func(t string) bool { return !e.EmitsTo(t) })
+}
+
+// SettingsFieldValue reads a portable field, including its nested members.
+func SettingsFieldValue(meta map[string]any, key string) (any, bool) {
+	var value any = meta
+	for _, part := range strings.Split(key, ".") {
+		mapping, ok := value.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		value, ok = mapping[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return value, true
 }

@@ -299,6 +299,9 @@ func editRequestGuard(r *http.Request) (int, string) {
 // A nil value resets the personal override, and removes a personal file
 // that then only names its spec.
 func (h *editHandler) settingsEdit(where editAudience, shown, key string, value *bool) (string, func([]byte) ([]byte, error), error) {
+	if voiceEditField(key) && !h.global {
+		return "", nil, errors.New("voice is editable in the global view only")
+	}
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
 		return "", nil, err
@@ -306,6 +309,11 @@ func (h *editHandler) settingsEdit(where editAudience, shown, key string, value 
 	for _, e := range scope.bundle.Settings {
 		if !h.matchesShownSpec(e, shown) || e.Layer == "builtin" {
 			continue
+		}
+		if voiceEditField(key) {
+			if reason := overview.VoiceEditDisabledReason(e, h.root); reason != "" {
+				return "", nil, errors.New(reason)
+			}
 		}
 		var current any = e.Meta
 		for _, part := range strings.Split(key, ".") {

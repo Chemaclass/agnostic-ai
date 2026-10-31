@@ -1051,6 +1051,67 @@ test.describe('overview', () => {
     await expect(button).toBeFocused()
   })
 
+  test('edits global voice with a switch, mode menu, and language box', async ({ page }) => {
+    await sourceOnly(page)
+    const data = structuredClone(fixture)
+    const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
+    const path = 'settings/defaults.yaml'
+    for (const [key, kind, allowed] of [['voice.enabled', 'boolean', undefined], ['voice.mode', 'text', ['hold', 'tap']], ['voice.language', 'text', undefined]] as const) {
+      Object.assign(fields.find((field: { key: string }) => field.key === key), { key, label: key === 'voice.enabled' ? 'Voice dictation' : key === 'voice.mode' ? 'Voice mode' : 'Voice language', description: '', set: [], editable: { kind, path, allowed, syncCommand: 'agnostic-ai sync --global' } })
+    }
+    const posted: Record<string, unknown>[] = []
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.route('**/api/edit/field', (route) => {
+      const body = route.request().postDataJSON()
+      posted.push(body)
+      const field = fields.find((field: { key: string }) => field.key === body.key)
+      field.set = body.value === null ? [] : [{ spec: 'defaults', path, values: [{ key: body.key, type: typeof body.value === 'boolean' ? 'bool' : 'text', value: String(body.value) }] }]
+      return route.fulfill({ json: { ok: true } })
+    })
+    await page.goto('/?view=settings&tab=preferences')
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
+    await page.getByText('Unconfigured fields', { exact: false }).click()
+    const voice = page.locator('.field-row').filter({ has: page.getByText('Voice dictation', { exact: true }) })
+    await voice.getByRole('switch', { name: 'Voice dictation value' }).click()
+    await voice.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'shared', path, key: 'voice.enabled', value: true, expected: null })
+    await expect(voice.getByRole('switch')).toBeChecked()
+    await voice.getByRole('switch').click()
+    await voice.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'shared', path, key: 'voice.enabled', value: false, expected: 'true' })
+    const mode = page.locator('.field-row').filter({ has: page.getByText('Voice mode', { exact: true }) })
+    await mode.getByRole('combobox', { name: 'Voice mode value' }).selectOption('tap')
+    await mode.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect.poll(() => posted.at(-1)).toMatchObject({ key: 'voice.mode', value: 'tap' })
+    const language = page.locator('.field-row').filter({ has: page.getByText('Voice language', { exact: true }) })
+    await language.getByRole('textbox', { name: 'Voice language value' }).fill('es')
+    await language.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect.poll(() => posted.at(-1)).toMatchObject({ key: 'voice.language', value: 'es' })
+    for (const field of [voice, mode, language]) {
+      await expect(field).toContainText('Run agnostic-ai sync --global to apply.')
+      await field.getByRole('button', { name: 'Clear', exact: true }).click()
+      await expect.poll(() => posted.at(-1)?.value).toBeNull()
+    }
+  })
+
+  test('shows configured project voice values read-only', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
+    const reason = 'Voice is written only by sync --global. Open Settings in agnostic-ai ui --global.'
+    for (const [key, label, value] of [['voice.enabled', 'Voice dictation', 'false'], ['voice.mode', 'Voice mode', 'tap'], ['voice.language', 'Voice language', 'es']]) {
+      Object.assign(fields.find((field: { key: string }) => field.key === key), { key, label, description: '', set: [{ spec: 'voice', path: '.agnostic-ai/settings/voice.yaml', values: [{ key, type: key === 'voice.enabled' ? 'bool' : 'text', value }] }], editable: { kind: key === 'voice.enabled' ? 'boolean' : 'text', disabledReason: reason } })
+    }
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=settings&tab=preferences')
+    for (const label of ['Voice dictation', 'Voice mode', 'Voice language']) {
+      const field = page.locator('.field-row').filter({ has: page.getByText(label, { exact: true }) })
+      await expect(field).toContainText(reason)
+      await expect(field.getByRole('switch')).toHaveCount(0)
+      await expect(field.getByRole('textbox')).toHaveCount(0)
+      await expect(field.getByRole('combobox')).toHaveCount(0)
+    }
+  })
+
   test('starts a field edit on the spec in effect and links global instructions only for retention', async ({ page }) => {
     await sourceOnly(page)
     const data = structuredClone(fixture)

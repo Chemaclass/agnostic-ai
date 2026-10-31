@@ -50,3 +50,5 @@ agnostic-ai sync --check
 Review the plan before syncing. `sync --check` should exit 0 once the generated files match the source. Then reload the browser page to see the updated findings. The view and search stay in the address bar; unsaved input is lost.
 
 For per-agent permission decisions, browser switches, and undo, see [`serve`](@/docs/cli-reference/inspect.md#serve).
+
+Open **Settings**, then **Preferences**, in `agnostic-ai ui --global` to turn voice dictation on, choose hold or tap, and set the spoken language. Run `agnostic-ai sync --global` to apply the saved values.

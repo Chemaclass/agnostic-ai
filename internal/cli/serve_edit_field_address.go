@@ -135,6 +135,9 @@ func setFieldAt(data []byte, addr fieldAddress, value, base any) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
+	if voiceEditField(addr.key) {
+		return setVoiceFieldAt(data, mapping, addr.key, value)
+	}
 	var old map[string]any
 	if err := yaml.Unmarshal(data, &old); err != nil {
 		return nil, err

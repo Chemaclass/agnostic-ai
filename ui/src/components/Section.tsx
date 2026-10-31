@@ -315,7 +315,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
                 localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined}
                 overrides={viewAudience === 'shared' ? f.set.filter((other) => other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
                 baseline={viewAudience === 'personal' && src.local ? f.set.filter((other) => !other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
-              /> : <Values values={src.values} file={src.path} fieldKey={f.key} />}
+              /> : <Values values={src.values} file={f.key.startsWith('voice.') ? undefined : src.path} fieldKey={f.key} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
@@ -437,6 +437,8 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   }, [current, localCurrent, teamCurrent])
   if (!edit) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p></>
+  const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
+  if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}</>
   if (app.source.kind !== 'api') return sources()
   const specFile = specPath
   const post = async (body: Record<string, unknown>, expected: string | undefined) => {
@@ -466,7 +468,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
       setError(failure)
     } finally { setPending(false) }
   }
-  const save = (clear: boolean) => post({ audience, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, audience === 'personal' ? basis.current.local : basis.current.team)
+  const save = (clear: boolean) => post({ audience, value: clear ? null : edit.kind === 'number' ? Number(value) : edit.kind === 'boolean' ? value === 'true' : value }, audience === 'personal' ? basis.current.local : basis.current.team)
   const reset = () => post({ audience: 'personal', value: null }, basis.current.local)
   const overridden = audience === 'shared' && (localCurrent !== undefined || wholePersonal)
   const resetLabel = target ? 'Use the value for every tool' : 'Reset to shared value'
@@ -502,7 +504,9 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
         <ViewPersonalButton />
       </div>
       : <div className="field-edit-row">
-        {allowed && allowed.length > 0
+        {edit.kind === 'boolean'
+          ? <Toggle on={value === 'true'} label={valueLabel} disabled={locked} onToggle={() => setValue(value === 'true' ? 'false' : 'true')} />
+          : allowed && allowed.length > 0
           ? <select aria-label={valueLabel} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}>
             {!allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
             {allowed.map((option) => <option key={option} value={option}>{option}</option>)}

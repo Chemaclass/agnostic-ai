@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import type { ChildProcess } from 'node:child_process'
 import { execFile, spawn } from 'node:child_process'
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
@@ -139,6 +139,104 @@ createInterface({input:process.stdin}).on('line',line=>{
     throw error
   }
 }
+
+async function voiceScreenshot(page: Page, path: string) {
+  await page.mouse.move(1, 1)
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    window.scrollTo(0, 0)
+  })
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+  await page.screenshot({ path, fullPage: true, animations: 'disabled' })
+}
+
+test('live global voice saves false, mode and language, then removes its empty scaffold', async ({ page }, testInfo) => {
+  const f = await fixture(true)
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    const spec = join(f.root, 'settings', 'defaults.yaml')
+    const native = join(f.userHome, '.claude', 'settings.json')
+    const original = '{"voice":{"enabled":false},"theme":"dark"}\n'
+    await mkdir(dirname(native), { recursive: true })
+    await writeFile(native, original, { mode: 0o600 })
+    await page.goto(`${f.url}?view=settings&tab=preferences`)
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
+    await page.getByText('Unconfigured fields', { exact: false }).click()
+    const voice = page.locator('.field-row').filter({ has: page.getByText('Voice dictation', { exact: true }) })
+    const mode = page.locator('.field-row').filter({ has: page.getByText('Voice mode', { exact: true }) })
+    const language = page.locator('.field-row').filter({ has: page.getByText('Voice language', { exact: true }) })
+    await voice.getByRole('switch', { name: 'Voice dictation value' }).click()
+    await voice.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(voice.getByRole('button', { name: 'Clear', exact: true })).toBeVisible()
+    await expect.poll(() => readFile(spec, 'utf8')).toContain('enabled: true')
+    expect(await readFile(spec, 'utf8')).toMatch(/^# Created by agnostic-ai serve\./)
+    await voice.getByRole('switch').click()
+    await voice.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect.poll(() => readFile(spec, 'utf8')).toContain('enabled: false')
+    await expect(voice.getByRole('switch')).not.toBeChecked()
+    await mode.getByRole('combobox', { name: 'Voice mode value' }).selectOption('tap')
+    await mode.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect.poll(() => readFile(spec, 'utf8')).toContain('mode: tap')
+    await language.getByRole('textbox', { name: 'Voice language value' }).fill('es')
+    await language.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect.poll(() => readFile(spec, 'utf8')).toContain('language: es')
+    for (const field of [voice, mode, language]) await expect(field).toContainText('Run agnostic-ai sync --global to apply.')
+    await voiceScreenshot(page, testInfo.outputPath('voice-global-desktop.png'))
+    await page.setViewportSize({ width: 390, height: 844 })
+    await voiceScreenshot(page, testInfo.outputPath('voice-global-mobile.png'))
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+    for (const [field, member] of [[voice, 'enabled'], [mode, 'mode']] as const) {
+      await field.getByRole('button', { name: 'Clear', exact: true }).click()
+      await expect.poll(() => readFile(spec, 'utf8')).not.toContain(`${member}:`)
+    }
+    await language.getByRole('button', { name: 'Clear', exact: true }).click()
+    await expect(language.getByText('Not set', { exact: true })).toBeVisible()
+    await expect(readFile(spec, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(await readFile(native, 'utf8')).toBe(original)
+    expect((await stat(native)).mode & 0o777).toBe(0o600)
+  } finally {
+    await f.close()
+  }
+})
+
+test('live project voice stays read-only when empty or configured and rejects both edit endpoints', async ({ page, request }, testInfo) => {
+  const f = await fixture()
+  try {
+    const reason = 'Voice is written only by sync --global. Open Settings in agnostic-ai ui --global.'
+    for (const configured of [false, true]) {
+      if (configured) await put(f.settings, f.sharedBytes + 'voice:\n  enabled: false\n  mode: hold\n  language: es\n')
+      await page.goto(`${f.url}?view=settings&tab=preferences`)
+      await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
+      if (!configured) await page.getByText('Unconfigured fields', { exact: false }).click()
+      for (const label of ['Voice dictation', 'Voice mode', 'Voice language']) {
+        const field = page.locator('.field-row').filter({ has: page.getByText(label, { exact: true }) })
+        await expect(field).toContainText(reason)
+        await expect(field.getByRole('switch')).toHaveCount(0)
+        await expect(field.getByRole('textbox')).toHaveCount(0)
+        await expect(field.getByRole('combobox')).toHaveCount(0)
+      }
+    }
+    const before = await readFile(f.settings, 'utf8')
+    for (const [key, value] of [['voice.enabled', false], ['voice.mode', 'tap'], ['voice.language', 'fr']] as const) {
+      for (const next of [value, null]) {
+        const response = await request.post(new URL('/api/edit/field', f.url).href, { data: { audience: 'shared', key, target: 'all', value: next } })
+        expect(response.status()).toBe(400)
+      }
+      for (const next of [false, null]) {
+        const response = await request.post(new URL('/api/edit/value', f.url).href, { data: { audience: 'shared', path: '.agnostic-ai/settings/native.yaml', key, value: next } })
+        expect(response.status()).toBe(400)
+      }
+    }
+    expect(await readFile(f.settings, 'utf8')).toBe(before)
+    await voiceScreenshot(page, testInfo.outputPath('voice-project-desktop.png'))
+    await page.setViewportSize({ width: 390, height: 844 })
+    await voiceScreenshot(page, testInfo.outputPath('voice-project-mobile.png'))
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  } finally {
+    await f.close()
+  }
+})
 
 test('live Authority previews source changes, saves rules, and applies them on the next sync', async ({ page }, testInfo) => {
   const f = await fixture(false, [], true)
@@ -1315,5 +1413,73 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     const other = page.locator('section.block', { has: page.getByRole('heading', { name: 'Other findings' }) })
     await expect(other.locator('.finding-rechecked .finding-recheck-result')).toHaveText('This lint finding no longer appears.')
     await expect(other.locator('.finding-rechecked')).toBeFocused()
+  } finally { await f.close() }
+})
+
+test('live global voice explains a whole personal clear and refuses member edits', async ({ page, request }) => {
+  const f = await fixture(true)
+  try {
+    const shared = 'name: native\nvoice:\n  enabled: true\n  mode: hold\n  language: es\n'
+    const local = 'name: native\nvoice: null\n'
+    await put(f.settings, shared)
+    await put(f.localSettings, local)
+    await page.goto(`${f.url}?view=settings&tab=preferences`)
+    for (const label of ['Voice dictation', 'Voice mode', 'Voice language']) {
+      const row = page.locator('.field-row').filter({ has: page.getByText(label, { exact: true }) })
+      await expect(row).toContainText('Remove voice: null')
+      await expect(row).toContainText('local/settings/native.yaml')
+      await expect(row.getByRole('button', { name: /^(Save|Update|Clear|Reset to shared value)$/ })).toHaveCount(0)
+    }
+    for (const audience of ['shared', 'personal']) {
+      const response = await request.post(`${f.url}api/edit/field`, { data: { audience, path: 'settings/native.yaml', key: 'voice.mode', value: 'tap', expected: 'hold' } })
+      expect(response.status()).toBe(400)
+      expect(await response.text()).toContain('Remove voice: null')
+    }
+    expect(await readFile(f.settings, 'utf8')).toBe(shared)
+    expect(await readFile(f.localSettings, 'utf8')).toBe(local)
+  } finally { await f.close() }
+})
+
+test('live global voice edits comment-only and whitespace-only settings without losing bytes', async ({ request }) => {
+  const f = await fixture(true)
+  try {
+    await rm(f.localSettings)
+    for (const original of [' \n', '# My settings\n']) {
+      await put(f.settings, original)
+      for (const [key, value] of [['voice.enabled', true], ['voice.mode', 'hold']] as const) {
+        const response = await request.post(`${f.url}api/edit/field`, { data: { audience: 'shared', path: 'settings/native.yaml', key, value, expected: null } })
+        expect(response.status()).toBe(200)
+      }
+      expect(await readFile(f.settings, 'utf8')).toContain(original)
+    }
+  } finally { await f.close() }
+})
+
+test('live global voice edits an independent spec beside a personal clear', async ({ page }) => {
+  const f = await fixture(true)
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    const a = join(f.root, 'settings', 'a.yaml')
+    const local = join(f.root, 'local', 'settings', 'a.yaml')
+    const z = join(f.root, 'settings', 'z.yaml')
+    const sharedA = 'name: a\nvoice:\n  enabled: true\n  mode: hold\n'
+    const clear = 'name: a\nvoice: null\n'
+    await put(a, sharedA)
+    await put(local, clear)
+    await put(z, 'name: z\nvoice:\n  enabled: false\n  mode: tap\n  language: es\n')
+    await page.goto(`${f.url}?view=settings&tab=preferences`)
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
+    const row = page.locator('.field-row').filter({ has: page.getByText('Voice mode', { exact: true }) })
+    await expect(row).not.toContainText('non-scalar')
+    await row.getByRole('combobox', { name: 'Voice mode value' }).selectOption('hold')
+    await row.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect.poll(() => readFile(z, 'utf8')).toContain('mode: hold')
+    await row.getByLabel('Save to').selectOption('settings/a.yaml')
+    await expect(row).toContainText('Remove voice: null')
+    await row.getByLabel('Save to').selectOption('settings/z.yaml')
+    await expect(row.getByRole('combobox', { name: 'Voice mode value' })).toHaveValue('hold')
+    expect(await readFile(a, 'utf8')).toBe(sharedA)
+    expect(await readFile(local, 'utf8')).toBe(clear)
   } finally { await f.close() }
 })

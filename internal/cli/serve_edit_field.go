@@ -27,13 +27,19 @@ const fieldCreatedMarker = "# Created by agnostic-ai serve.\n"
 
 var errFieldNotInFile = errors.New("the field is not in this file")
 
-const fieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
+const fieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, session, and voice settings.\n"
+const previousFieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
+
+func isFieldCreatedSpec(data []byte) bool {
+	text := string(data)
+	return text == fieldCreatedSpec || text == previousFieldCreatedSpec
+}
 
 // fieldEdit resolves an editable source spec, never an arbitrary client path,
 // and stores the loaded spec it edits in picked.
 func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddress, raw json.RawMessage, picked *spec.Entry) (string, func([]byte) ([]byte, error), error) {
 	key := addr.key
-	if key != "model" && key != "effort" && key != "session-retention-days" {
+	if key != "model" && key != "effort" && key != "session-retention-days" && !voiceEditField(key) {
 		return "", nil, fmt.Errorf("%s is not an editable field", key)
 	}
 	if key == "session-retention-days" && addr.target != "" {
@@ -41,6 +47,12 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 	}
 	if key == "session-retention-days" && !h.global {
 		return "", nil, errors.New("session retention is editable in the global view only")
+	}
+	if voiceEditField(key) && addr.target != "" {
+		return "", nil, errors.New("voice has no per-tool value; send target all")
+	}
+	if voiceEditField(key) && !h.global {
+		return "", nil, errors.New("voice is editable in the global view only")
 	}
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
@@ -52,6 +64,11 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 	var value any
 	if !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		switch key {
+		case "voice.enabled", "voice.mode", "voice.language":
+			value, err = decodeVoiceEdit(key, raw)
+			if err != nil {
+				return "", nil, err
+			}
 		case "session-retention-days":
 			var n json.Number
 			dec := json.NewDecoder(bytes.NewReader(raw))
@@ -144,6 +161,11 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 	} else {
 		return "", nil, errors.New("several editable settings specs exist; choose a path")
 	}
+	if voiceEditField(key) {
+		if reason := overview.VoiceEditDisabledReason(chosen, h.root); reason != "" {
+			return "", nil, errors.New(reason)
+		}
+	}
 	*picked = chosen
 	if key == "effort" && addr.target != "" && value != nil {
 		fromTier, err := tierGivesEffort(chosen, scope.models)
@@ -193,7 +215,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 func (h *editHandler) localFieldEdit(chosen spec.Entry, addr fieldAddress, value any) (string, func([]byte) ([]byte, error), error) {
 	key := addr.key
 	if value == nil && !overview.LocalSets(chosen, addr.String()) {
-		if _, inherited := chosen.Meta[key]; inherited && addr.target == "" {
+		if _, inherited := overview.SettingsFieldValue(chosen.Meta, key); inherited && addr.target == "" {
 			return "", nil, noPersonalValueError{fmt.Errorf("this file inherits %s from the shared spec named %q; switch to Shared to clear it", key, chosen.Name)}
 		}
 		return "", nil, noPersonalValueError{fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), addr.label())}
@@ -228,7 +250,8 @@ func (h *editHandler) localFieldEdit(chosen spec.Entry, addr fieldAddress, value
 func teamFieldValue(chosen spec.Entry, key string) (any, error) {
 	switch {
 	case chosen.Base != nil:
-		return chosen.Base.Meta[key], nil
+		value, _ := overview.SettingsFieldValue(chosen.Base.Meta, key)
+		return value, nil
 	case overview.LocalLayer(chosen):
 		return nil, nil
 	}
@@ -240,7 +263,8 @@ func teamFieldValue(chosen spec.Entry, key string) (any, error) {
 	if err := yaml.Unmarshal(data, &values); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", chosen.Path, err)
 	}
-	return values[key], nil
+	value, _ := overview.SettingsFieldValue(values, key)
+	return value, nil
 }
 
 // newTeamFieldSpec starts the shared spec under a personal one that has
@@ -382,11 +406,11 @@ func inheritedFieldText(where editAudience, chosen spec.Entry, file string, addr
 		if err := yaml.Unmarshal(data, &values); err != nil {
 			return nil
 		}
-		if _, own := values[addr.key]; own {
+		if _, own := overview.SettingsFieldValue(values, addr.key); own {
 			return nil
 		}
 	}
-	v, ok := chosen.Meta[addr.key]
+	v, ok := overview.SettingsFieldValue(chosen.Meta, addr.key)
 	if v, ok = addr.in(v, ok); !ok {
 		return nil
 	}
@@ -400,7 +424,7 @@ func fieldValueText(data []byte, addr fieldAddress) (*fieldText, error) {
 	if err := yaml.Unmarshal(data, &values); err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
 	}
-	v, ok := values[addr.key]
+	v, ok := overview.SettingsFieldValue(values, addr.key)
 	if v, ok = addr.in(v, ok); !ok {
 		return nil, nil
 	}
@@ -417,12 +441,12 @@ func scalarFieldEdit(chosen spec.Entry, addr fieldAddress, value, base any, scaf
 		}
 		out, err := setFieldAt(data, addr, value, base)
 		if errors.Is(err, errFieldNotInFile) {
-			if _, inherited := chosen.Meta[addr.key]; inherited && addr.target == "" {
+			if _, inherited := overview.SettingsFieldValue(chosen.Meta, addr.key); inherited && addr.target == "" {
 				return nil, fmt.Errorf("this file inherits %s from the base spec named %q; clear it there", addr.key, chosen.Name)
 			}
 			return nil, fmt.Errorf("this file does not set %s", addr.label())
 		}
-		if err == nil && value == nil && (string(out) == scaffold || string(out) == fieldCreatedSpec) {
+		if err == nil && value == nil && (string(out) == scaffold || isFieldCreatedSpec(out)) {
 			return nil, nil
 		}
 		if err == nil && len(bytes.TrimSpace(out)) == 0 && !bytes.HasPrefix(data, []byte(fieldCreatedMarker)) {
@@ -540,7 +564,7 @@ func setScalarField(data []byte, key string, value any) ([]byte, error) {
 	if !reflect.DeepEqual(expected, actual) {
 		return nil, errors.New("the edit changes other values")
 	}
-	if value == nil && string(out) == fieldCreatedSpec {
+	if value == nil && isFieldCreatedSpec(out) {
 		return nil, nil
 	}
 	return out, nil

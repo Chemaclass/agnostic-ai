@@ -874,6 +874,24 @@
           "set": []
         },
         {
+          "key": "voice.enabled",
+          "label": "Voice dictation",
+          "description": "Turn voice dictation on or off. Only sync --global writes it.",
+          "set": []
+        },
+        {
+          "key": "voice.mode",
+          "label": "Voice mode",
+          "description": "Hold to record, or tap to start and stop recording.",
+          "set": []
+        },
+        {
+          "key": "voice.language",
+          "label": "Voice language",
+          "description": "The spoken language passed to each tool that supports it.",
+          "set": []
+        },
+        {
           "key": "x-",
           "label": "Native keys",
           "description": "Keys written as they are into one tool's own settings file, under x-claude, x-codex, and so on.",

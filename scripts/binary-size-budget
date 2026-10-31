@@ -718,4 +718,7 @@
 # MCP paths into a preview. Go 1.27.3 Linux amd64 release flags: 24424608,
 # versus 24420512 on main fe909c147 (+4096). No new dependency.
 # Keep the existing 8192-byte build allowance.
-24432800
+# #2835 adds global voice controls, safe nested edits, and their embedded UI.
+# Go 1.27.3 Linux amd64 release flags: 24445088, versus 24424608 on main
+# a66f3d802 (+20480). No new dependency. Keep the 8192-byte build allowance.
+24453280
