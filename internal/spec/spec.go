@@ -1264,6 +1264,7 @@ func decodeYAMLEntry(data []byte) (Entry, error) {
 // written more than once.
 type decodedMapping struct {
 	meta       map[string]any
+	bodyOnly   bool
 	keys       []string
 	nestedKeys map[string][]string
 	styles     map[string]yaml.Style
@@ -1281,6 +1282,12 @@ func decodeYAMLOrdered(data []byte) (decodedMapping, error) {
 	var node yaml.Node
 	if err := yaml.Unmarshal(data, &node); err != nil {
 		return decodedMapping{}, err
+	}
+	if len(node.Content) > 0 {
+		value := node.Content[0]
+		if value.Kind != yaml.MappingNode && (value.Tag != "!!null" || value.Value != "") {
+			return decodedMapping{bodyOnly: true}, nil
+		}
 	}
 	front, err := nodeToOrderedMap(&node)
 	if err != nil {
@@ -1499,6 +1506,9 @@ func splitFrontmatter(data []byte) (decodedMapping, string, error) {
 	front, err := decodeYAMLOrdered(yamlPart)
 	if err != nil {
 		return decodedMapping{}, "", err
+	}
+	if front.bodyOnly {
+		return empty, string(data), nil
 	}
 	return front, string(body), nil
 }

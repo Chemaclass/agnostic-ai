@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 )
 
 // LockWait bounds how long a writer waits for another process to finish
@@ -142,7 +144,7 @@ func update(path string, edit func(string) string) error {
 	if updated == string(existing) {
 		return nil
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+	if err := atomicfile.Write(path, []byte(updated), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

@@ -55,3 +55,21 @@ func TestGuardUpdatesUnderHeldLock(t *testing.T) {
 		t.Error("expected an error for a different lock path")
 	}
 }
+
+func TestUpdateReplacesTheFileWhole(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "exclude")
+	if err := os.WriteFile(path, []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	held := filepath.Join(dir, "held")
+	if err := os.Link(path, held); err != nil {
+		t.Skipf("hard links unavailable: %v", err)
+	}
+	if err := Update(path, func(c string) string { return c + "new\n" }); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(held); string(got) != "old\n" {
+		t.Errorf("file was rewritten in place: %q", got)
+	}
+}
