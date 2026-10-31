@@ -201,3 +201,22 @@ func TestRequiresSchemaPatternMatchesTheParser(t *testing.T) {
 		}
 	}
 }
+
+func TestRequirement_Exact(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]bool{
+		"0.1.0":        true,
+		"=0.1.0":       true,
+		"v0.1.0":       true,
+		">=0.1.0":      false,
+		"0.1.0 <0.2.0": false,
+	} {
+		req, err := ParseRequirement(in)
+		if err != nil {
+			t.Fatalf("%q: %v", in, err)
+		}
+		if got := req.Exact(); got != want {
+			t.Errorf("%q: Exact() = %v, want %v", in, got, want)
+		}
+	}
+}

@@ -163,6 +163,9 @@ func newInitCmd() *cobra.Command {
 			if gitignoreDefaulted && !dryRun && verbosity >= levelDefault {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), gitignoreDefaultNote)
 			}
+			if _, stable := stableReleaseVersion(opts.Version); stable && !gitignoreEnabled && !dryRun && verbosity >= levelDefault {
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), requiresExactPinNote)
+			}
 			if fromCLI == "" {
 				return nil
 			}
@@ -301,5 +304,7 @@ func resolveGitignoreChoice(cmd *cobra.Command, all, flagValue bool) (enabled, d
 	enabled, err = promptGitignoreEnable(cmd.InOrStdin())
 	return enabled, false, err
 }
+
+const requiresExactPinNote = "requires is \">=X.Y.Z\"; an exact pin (requires: \"X.Y.Z\") suits CI that runs sync --check with the latest release"
 
 const gitignoreDefaultNote = "generated files are git-ignored, so each clone needs agnostic-ai sync (pass --gitignore=off to commit them, so a clone works without the tool)"

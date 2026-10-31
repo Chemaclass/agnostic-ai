@@ -133,18 +133,27 @@ func requireVersionInScope(source, requires string, global bool) error {
 		return nil
 	}
 	if !allowed {
-		if !global && req.Above(runningVersion) {
-			return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed.\n  The installed release is newer than this project allows.\n  fix: %s\n       This updates requires and the schema URL, then runs sync.", source, req, running, requiresFix(req, source))
+		above := req.Above(runningVersion)
+		if !global && above {
+			return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed.\n  The installed release is newer than this project allows.\n  fix: %s\n       This updates requires and the schema URL, then runs sync.%s", source, req, running, requiresFix(req, source), minimumHint(req, above))
 		}
 		var fix string
-		if global && req.Above(runningVersion) {
+		if global && above {
 			fix = "update `requires` and the schema in " + source + " to adopt installed agnostic-ai " + running
 		} else {
 			fix = requiresFix(req, source)
 		}
-		return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed; %s", source, req, running, fix)
+		return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed; %s%s", source, req, running, fix, minimumHint(req, above))
 	}
 	return nil
+}
+
+func minimumHint(req config.Requirement, above bool) string {
+	if !above || !req.Exact() {
+		return ""
+	}
+	version, _ := req.InstallTarget()
+	return "\n  To accept newer releases when generated files are git-ignored, set `requires: \">=" + version + "\"`."
 }
 
 func requiresFix(req config.Requirement, source string) string {
