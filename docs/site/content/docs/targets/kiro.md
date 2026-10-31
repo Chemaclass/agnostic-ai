@@ -188,4 +188,4 @@ The imported spec loses some data, but the Kiro files sync writes stay the same:
 
 ## Protected paths
 
-Not enforced. Project sync does not emit Kiro settings specs, so it reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. Kiro takes no settings specs in project sync, so it reports a spec with a `protected` block as unsupported. Global voice language uses the separate home settings mapping above. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
