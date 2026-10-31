@@ -34,10 +34,10 @@ func importPreviewSourcePath(path string) string {
 	return path
 }
 
-func importProjectSourcePath(root, path string) (string, bool) {
+func importProjectSourcePath(root, path string) (string, string, bool) {
 	base, err := filepath.Abs(root)
 	if err != nil {
-		return "", false
+		return "", "", false
 	}
 	physical := resolveImportSourceExisting(base)
 	shadow := physical
@@ -49,9 +49,10 @@ func importProjectSourcePath(root, path string) (string, bool) {
 	}
 	rel, inside := pathBelow(physical, resolveImportSourceExisting(path))
 	if !inside || config.UnsafeProjectPath(rel) {
-		return "", false
+		return "", "", false
 	}
-	return filepath.Join(shadow, rel), true
+	shadow = resolveImportSourceExisting(shadow)
+	return filepath.Join(shadow, rel), shadow, true
 }
 
 func importOriginalSourcePath(path string) string {

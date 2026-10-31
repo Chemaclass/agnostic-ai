@@ -400,14 +400,15 @@ func antigravityMCPFileFromCfg(cfg *config.Config) string {
 // (#589).
 func importAntigravityMCP(root, mcpFile, dstDir string) (int, error) {
 	mcpPath := mcpFile
+	checkRoot := root
 	if filepath.IsAbs(mcpPath) {
 		var inside bool
-		mcpPath, inside = importProjectSourcePath(root, mcpPath)
+		mcpPath, checkRoot, inside = importProjectSourcePath(root, mcpPath)
 		if !inside {
 			return 0, fmt.Errorf("refusing to import MCP file outside the project or inside .git: %s", mcpFile)
 		}
 	}
-	if config.UnsafeProjectPathIn(root, mcpPath) {
+	if config.UnsafeProjectPathIn(checkRoot, mcpPath) {
 		return 0, fmt.Errorf("refusing to import MCP file outside the project or inside .git: %s", mcpFile)
 	}
 	servers, err := readJSONMapAt(config.ResolveSourcePath(root, mcpPath), antigravityMCPKey)

@@ -174,6 +174,21 @@ func TestImportAntigravity_PreviewMatchesImportThroughProjectAlias(t *testing.T)
 	}
 }
 
+func TestImportAntigravity_ProjectPathUsesPhysicalRoot(t *testing.T) {
+	root := resolveImportSourceExisting(t.TempDir())
+	alias := filepath.Join(t.TempDir(), "project-alias")
+	testutil.DirectoryAlias(t, root, alias)
+	path := filepath.Join(root, ".agents", "plugins", "team", "mcp.json")
+	mustWriteFile(t, path, `{"mcpServers":{}}`)
+	got, checkRoot, ok := importProjectSourcePath(alias, path)
+	if !ok {
+		t.Fatal("project file rejected through directory alias")
+	}
+	if checkRoot != root || got != path {
+		t.Errorf("mapped file and root = %q, %q, want %q, %q", got, checkRoot, path, root)
+	}
+}
+
 func TestImportAntigravity_PreviewRejectsOutsideMCPThroughSourceAlias(t *testing.T) {
 	root := resolveImportSourceExisting(t.TempDir())
 	testutil.Chdir(t, root)
