@@ -714,4 +714,8 @@
 # safely extends earlier model imports without narrowing the layered voice scope.
 # Go 1.27.3 Linux amd64 release flags: 24420512, versus 24395936 on main
 # 08e85bebf (+24576). No new dependency. Keep the 8192-byte build allowance.
-24428704
+# #2831 checks the original project boundary before mapping absolute Antigravity
+# MCP paths into a preview. Go 1.27.3 Linux amd64 release flags: 24424608,
+# versus 24420512 on main fe909c147 (+4096). No new dependency.
+# Keep the existing 8192-byte build allowance.
+24432800

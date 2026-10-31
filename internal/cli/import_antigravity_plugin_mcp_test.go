@@ -139,3 +139,117 @@ func TestImportAntigravity_RejectsRelativeMCPFileOutsideProject(t *testing.T) {
 		t.Errorf("import error = %v, want rejection naming outputs.antigravity.mcp-file\n%s", err, out)
 	}
 }
+
+func TestImportAntigravity_PreviewMatchesImportThroughProjectAlias(t *testing.T) {
+	root := resolveImportSourceExisting(t.TempDir())
+	alias := filepath.Join(t.TempDir(), "project-alias")
+	testutil.DirectoryAlias(t, root, alias)
+	testutil.Chdir(t, alias)
+	t.Setenv("PWD", alias)
+	silence(t)
+	mcpPath := filepath.Join(root, ".agents", "plugins", "team", "mcp.json")
+	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
+	const mcp = `{"mcpServers":{"docs":{"serverUrl":"https://example.com/mcp"}}}`
+	mustWriteFile(t, mcpPath, mcp)
+	before := snapshotProject(t, root)
+	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
+		output := captureStdout(t, func() {
+			if out, err := runRoot(t, append([]string{"import", "antigravity"}, flags...)...); err != nil {
+				t.Errorf("flags %v: preview: %v\n%s", flags, err, out)
+			}
+		})
+		if !strings.Contains(filepath.ToSlash(output), ".agnostic-ai/mcps/docs.yaml") || !strings.Contains(output, "dry-run: 1 file(s)") {
+			t.Errorf("flags %v: preview missing imported server:\n%s", flags, output)
+		}
+		assertProjectUnchanged(t, before, snapshotProject(t, root))
+	}
+	if out, err := runRoot(t, "import", "antigravity"); err != nil {
+		t.Fatalf("real import: %v\n%s", err, out)
+	}
+	if data := readFile(t, filepath.Join(root, ".agnostic-ai", "mcps", "docs.yaml")); !strings.Contains(data, "url: https://example.com/mcp") {
+		t.Errorf("real import lost server: %s", data)
+	}
+	if got := readFile(t, mcpPath); got != mcp {
+		t.Errorf("import changed native MCP: %s", got)
+	}
+}
+
+func TestImportAntigravity_PreviewRejectsOutsideMCPThroughSourceAlias(t *testing.T) {
+	root := resolveImportSourceExisting(t.TempDir())
+	testutil.Chdir(t, root)
+	silence(t)
+	external := resolveImportSourceExisting(t.TempDir())
+	mcpPath := filepath.Join(external, "mcp.json")
+	mustWriteFile(t, mcpPath, `{"mcpServers":{"outside":{"command":"outside-server"}}}`)
+	if err := os.MkdirAll(".agents", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.DirectoryAlias(t, external, filepath.Join(root, ".agents", "shared"))
+	configuration := fmt.Sprintf("version: 1\ntargets: [antigravity]\nsources:\n  rules: %q\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(external), filepath.ToSlash(mcpPath))
+	mustWriteFile(t, "agnostic-ai.yaml", configuration)
+	outsideBefore := snapshotProject(t, external)
+	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}, nil} {
+		output := captureStdout(t, func() {
+			if out, err := runRoot(t, append([]string{"import", "antigravity"}, flags...)...); err == nil || !strings.Contains(err.Error(), "outside the project") {
+				t.Errorf("flags %v: error = %v, want outside-project refusal\n%s", flags, err, out)
+			}
+		})
+		if strings.Contains(filepath.ToSlash(output), ".agnostic-ai/mcps/outside.yaml") {
+			t.Errorf("flags %v: preview proposed outside server:\n%s", flags, output)
+		}
+		if got := readFile(t, "agnostic-ai.yaml"); got != configuration {
+			t.Errorf("flags %v: changed config: %s", flags, got)
+		}
+		if len(flags) > 0 && exists(".agnostic-ai") || exists(filepath.Join(".agnostic-ai", "mcps", "outside.yaml")) {
+			t.Errorf("flags %v: created portable specs", flags)
+		}
+		if got := resolveImportSourceExisting(filepath.Join(root, ".agents", "shared")); got != external {
+			t.Errorf("flags %v: source alias changed to %s", flags, got)
+		}
+		assertProjectUnchanged(t, outsideBefore, snapshotProject(t, external))
+	}
+}
+
+func TestImportAntigravity_PreviewKeepsMissingMCPThroughProjectAliasAbsent(t *testing.T) {
+	root := resolveImportSourceExisting(t.TempDir())
+	alias := filepath.Join(t.TempDir(), "project-alias")
+	testutil.DirectoryAlias(t, root, alias)
+	testutil.Chdir(t, alias)
+	t.Setenv("PWD", alias)
+	silence(t)
+	mcpPath := filepath.Join(root, ".agents", "plugins", "missing", "mcp.json")
+	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
+	before := snapshotProject(t, root)
+	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
+		output := captureStdout(t, func() {
+			if out, err := runRoot(t, append([]string{"import", "antigravity"}, flags...)...); err != nil {
+				t.Errorf("flags %v: preview: %v\n%s", flags, err, out)
+			}
+		})
+		if !strings.Contains(output, "dry-run: 0 file(s)") {
+			t.Errorf("flags %v: preview proposed a missing file:\n%s", flags, output)
+		}
+		assertProjectUnchanged(t, before, snapshotProject(t, root))
+	}
+}
+
+func TestImportAntigravity_PreviewRejectsMCPAliasIntoGit(t *testing.T) {
+	root := resolveImportSourceExisting(t.TempDir())
+	testutil.Chdir(t, root)
+	silence(t)
+	git := filepath.Join(root, ".git", "private")
+	mustWriteFile(t, filepath.Join(git, "mcp.json"), `{"mcpServers":{"private":{"command":"private-server"}}}`)
+	alias := filepath.Join(root, "plugin-alias")
+	testutil.DirectoryAlias(t, git, alias)
+	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(filepath.Join(alias, "mcp.json"))))
+	gitBefore := snapshotProject(t, git)
+	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}, nil} {
+		if out, err := runRoot(t, append([]string{"import", "antigravity"}, flags...)...); err == nil || !strings.Contains(err.Error(), "inside .git") {
+			t.Errorf("flags %v: error = %v, want .git refusal\n%s", flags, err, out)
+		}
+		assertProjectUnchanged(t, gitBefore, snapshotProject(t, git))
+		if len(flags) > 0 && exists(".agnostic-ai") || exists(filepath.Join(".agnostic-ai", "mcps", "private.yaml")) {
+			t.Errorf("flags %v: imported a Git-private MCP", flags)
+		}
+	}
+}
