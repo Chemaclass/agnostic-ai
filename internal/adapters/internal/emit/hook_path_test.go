@@ -100,6 +100,18 @@ func TestRewriteHookPath_TranslatesSiblingPrefix(t *testing.T) {
 			want:   `"$(pwd)/.claude/hooks/x.sh" $PWD/.claude/hooks/y.sh`,
 		},
 		{
+			name:   "project root with a default rewrites",
+			cmd:    `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/a.sh "${CLAUDE_PROJECT_DIR-.}"/.claude/hooks/b.sh "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/c.sh" ${HOME:-.}/.claude/hooks/d.sh`,
+			target: "claude",
+			want:   `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/a.sh "${CLAUDE_PROJECT_DIR-.}"/.claude/hooks/b.sh "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/c.sh" ${HOME:-.}/.claude/hooks/d.sh`,
+		},
+		{
+			name:   "project root with a default moves to another tool",
+			cmd:    `${CLAUDE_PROJECT_DIR:-.}/.codex/hooks/a.sh ${HOME:-.}/.codex/hooks/d.sh`,
+			target: "claude",
+			want:   `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/a.sh ${HOME:-.}/.codex/hooks/d.sh`,
+		},
+		{
 			name:   "project root variable sibling path rewrites",
 			cmd:    `"$CLAUDE_PROJECT_DIR/.gemini/hooks/run.sh" ~/.gemini/hooks/keep.sh`,
 			target: "claude",

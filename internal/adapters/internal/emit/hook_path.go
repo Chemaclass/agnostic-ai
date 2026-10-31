@@ -84,6 +84,25 @@ func projectRelativeHookPrefix(cmd string, at int) bool {
 			}
 		}
 	}
+	return defaultedProjectRoot(cmd[:at-1])
+}
+
+// defaultedProjectRoot reports whether before ends in a project root variable
+// with a default, such as ${CLAUDE_PROJECT_DIR:-.}, at a word start.
+func defaultedProjectRoot(before string) bool {
+	before = strings.TrimSuffix(before, `"`)
+	if !strings.HasSuffix(before, "}") {
+		return false
+	}
+	start := strings.LastIndex(before, "${")
+	if start < 0 || (start > 0 && !strings.ContainsRune(hookWordBoundary, rune(before[start-1]))) {
+		return false
+	}
+	for _, variable := range nativeHookRoots {
+		if strings.HasPrefix(before[start+2:], variable+"-") || strings.HasPrefix(before[start+2:], variable+":-") {
+			return true
+		}
+	}
 	return false
 }
 
