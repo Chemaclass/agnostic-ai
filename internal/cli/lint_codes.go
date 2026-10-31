@@ -26,7 +26,7 @@ var lintCodes = map[string]lintCode{
 	"LINT055": {
 		Severity: lintWarn,
 		Title:    "Null value in local configuration",
-		Cause:    "A null key in agnostic-ai.local.yaml can replace a shared value, including a whole settings group. A future release will inherit the shared value instead.",
+		Cause:    "An empty (null) key in agnostic-ai.local.yaml replaces the shared value, including a whole settings group. A key whose children are all commented out is empty.",
 		Fix:      "Remove the key to inherit the shared value, or set an explicit replacement.",
 	},
 	"LINT001": {

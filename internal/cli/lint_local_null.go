@@ -46,7 +46,7 @@ func lintLocalNulls() ([]lintFinding, error) {
 	slices.Sort(keys)
 	var findings []lintFinding
 	for _, key := range keys {
-		findings = append(findings, lintFinding{Code: "LINT055", Severity: lintWarn, Path: path, Message: fmt.Sprintf("%s is null and can replace the shared value; remove the key to inherit it. A future release will inherit on null", key)})
+		findings = append(findings, lintFinding{Code: "LINT055", Severity: lintWarn, Path: path, Message: fmt.Sprintf("%s is empty (null) and replaces the shared value; remove the key to inherit it", key)})
 	}
 	return findings, nil
 }
