@@ -65,6 +65,17 @@ func TestLintUnterminatedFrontmatter_FlagsMissingClosingDelimiter(t *testing.T) 
 	}
 }
 
+func TestLintUnterminatedFrontmatter_IgnoresClosedBlocksInBody(t *testing.T) {
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "generated", Path: "rules/generated.md", Body: "---\nprose\n---\nbody"},
+		{Kind: spec.KindRule, Name: "kept", Path: "rules/kept.md", Body: "---\nprose\n---\nbody", OpeningBlockKept: true},
+	}
+	findings := lintUnterminatedFrontmatter(entries)
+	if len(findings) != 1 || findings[0].Code != "LINT056" || findings[0].Path != "rules/kept.md" {
+		t.Errorf("findings = %+v, want only LINT056 for rules/kept.md", findings)
+	}
+}
+
 func TestLint_ReportsOpeningProseAndSyncKeepsIt(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

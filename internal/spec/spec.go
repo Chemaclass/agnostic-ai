@@ -1490,8 +1490,19 @@ func normalizeLineEndings(b []byte) []byte {
 
 // markdownHeadingRe matches a line such as `## Setup` or `# Setup`. A block
 // holding one is Markdown text, not a YAML comment, so it stays in the body.
-// A `#` comment without a space after it, or a bare `#`, stays a comment.
-var markdownHeadingRe = regexp.MustCompile(`(?m)^#{1,6}[ \t]+\S`)
+// A bare `#` or `#note` stays a comment, and so does a commented-out key such
+// as `# paths: src/**`, which is frontmatter someone turned off.
+var markdownHeadingRe = regexp.MustCompile(`^#{1,6}[ \t]+\S`)
+var commentedKeyRe = regexp.MustCompile(`^#\s*[\w-]+\s*:`)
+
+func hasMarkdownHeading(block []byte) bool {
+	for _, line := range strings.Split(string(block), "\n") {
+		if markdownHeadingRe.MatchString(line) && !commentedKeyRe.MatchString(line) {
+			return true
+		}
+	}
+	return false
+}
 
 // splitFrontmatter parses a leading `---` block as YAML and returns the
 // ordered map of frontmatter keys along with the remaining body. A file
@@ -1518,7 +1529,7 @@ func splitFrontmatter(data []byte) (decodedMapping, string, error) {
 	if err != nil {
 		return decodedMapping{}, "", err
 	}
-	if len(front.meta) == 0 && markdownHeadingRe.Match(yamlPart) {
+	if len(front.meta) == 0 && hasMarkdownHeading(yamlPart) {
 		front.bodyOnly = true
 	}
 	if front.bodyOnly {

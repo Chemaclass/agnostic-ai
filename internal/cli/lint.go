@@ -491,7 +491,7 @@ func lintUnterminatedFrontmatter(entries []spec.Entry) []lintFinding {
 			})
 			continue
 		}
-		if len(e.Meta) > 0 || !strings.HasPrefix(e.Body, "---") {
+		if len(e.Meta) > 0 || !strings.HasPrefix(e.Body, "---") || strings.Contains(e.Body[3:], "\n---") {
 			continue
 		}
 		out = append(out, lintFinding{

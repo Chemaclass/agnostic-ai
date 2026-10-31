@@ -841,3 +841,22 @@ func TestValidateName_RefusesTheGitFolder(t *testing.T) {
 		}
 	}
 }
+
+func TestParseMarkdownBytes_CommentedKeysStayEmptyFrontmatter(t *testing.T) {
+	for _, block := range []string{"# description: TODO", "# paths: src/**\n# globs: x", "#name: x\n# model : y"} {
+		for _, kind := range []Kind{KindRule, KindAgent} {
+			e, err := ParseMarkdownBytes(kind, []byte("---\n"+block+"\n---\nbody\n"))
+			if err != nil || e.Body != "body\n" || e.OpeningBlockKept {
+				t.Errorf("%s %q: body = %q, kept=%v, err=%v", kind, block, e.Body, e.OpeningBlockKept, err)
+			}
+		}
+	}
+}
+
+func TestExtendEntry_CarriesKeptOpeningBlockFromSharedBody(t *testing.T) {
+	base := Entry{Kind: KindRule, Body: "---\nprose\n---\ntext\n", OpeningBlockKept: true}
+	got := extendEntry(base, Entry{Kind: KindRule, Meta: map[string]any{"description": "d"}})
+	if !got.OpeningBlockKept {
+		t.Error("local layer over a shared body lost OpeningBlockKept")
+	}
+}
