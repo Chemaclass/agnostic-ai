@@ -1081,8 +1081,9 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 		ledger.listed = append(slices.Clone(ledger.listed), toList...)
 	}
 	release()
-	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
-		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
+	stateErr := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger)
+	if stateErr != nil {
+		stateErr = fmt.Errorf("sync wrote files but could not record them: %w", stateErr)
 	}
 	if verbosity >= levelDefault {
 		if verbosity == levelVerbose {
@@ -1106,7 +1107,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 		_, _ = fmt.Fprint(logOut, deferredMessages.String())
 		flushDrops()
 	}
-	return untrackErr
+	return errors.Join(untrackErr, stateErr)
 }
 
 // unlistedTargets returns the targets whose first sync has not shown
@@ -1546,12 +1547,14 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	ledger.warningRecords, ledger.noteRecords = prev.WarningRecords, prev.NoteRecords
 	ledger.listed = carriedListed(prev)
 	release()
-	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
-		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
+	stateErr := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger)
+	if stateErr != nil {
+		stateErr = fmt.Errorf("sync wrote files but could not record them: %w", stateErr)
+		out.addError(stateErr)
 	}
 	drops.syncDrops = pendingSyncDrops()
 	drops.jsonOutput = out.forOutput()
-	return writeIndentedJSON(cmd, drops)
+	return errors.Join(writeIndentedJSON(cmd, drops), stateErr)
 }
 
 func dropFingerprints(records []adapters.DropRecord) []string {
