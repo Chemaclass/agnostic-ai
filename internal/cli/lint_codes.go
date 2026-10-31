@@ -29,6 +29,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "An empty (null) key in agnostic-ai.local.yaml is ignored when the shared value is a group of settings, so the shared value stays. A key whose children are all commented out is empty.",
 		Fix:      "Remove the key, or write `{}` to clear the shared group.",
 	},
+	"LINT056": {
+		Severity: lintWarn,
+		Title:    "Opening Markdown block is not frontmatter",
+		Cause:    "A Markdown spec starts with a delimited block that is not a YAML mapping. Sync keeps the block as body text.",
+		Fix:      "Keep the block for Markdown text, or write a YAML mapping if it should be frontmatter.",
+	},
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",

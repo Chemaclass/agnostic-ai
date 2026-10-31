@@ -99,6 +99,7 @@ A hook imported from a tool gets `target: <tool>` (`codex`, `claude`, or `gemini
 - Empty frontmatter (`---\n---\n`) means no metadata.
 - A file without frontmatter still loads; its name defaults to the filename.
 - Malformed YAML inside a closed frontmatter block fails loading. An unclosed block becomes body text, and `lint` reports LINT006.
+- A closed opening block that is not a YAML mapping stays in the body; `lint` reports LINT056.
 - Fields not listed on a kind's page are written as given.
 
 ## Per-target body fences

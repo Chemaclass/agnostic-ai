@@ -31,9 +31,79 @@ func RewriteHookDirectories(cmd, target string, literal ...bool) string {
 		if prefix == replacement {
 			continue
 		}
-		cmd = strings.ReplaceAll(cmd, prefix, replacement)
+		cmd = rewriteSiblingPrefix(cmd, prefix, replacement)
 	}
 	return RewriteNeutralHookPath(cmd, HookScriptsDir(target), literal...)
+}
+
+func rewriteSiblingPrefix(cmd, prefix, replacement string) string {
+	var out strings.Builder
+	from := 0
+	for search := 0; search < len(cmd); {
+		i := strings.Index(cmd[search:], prefix)
+		if i < 0 {
+			break
+		}
+		at := search + i
+		search = at + len(prefix)
+		if !projectRelativeHookPrefix(cmd, at) {
+			continue
+		}
+		out.WriteString(cmd[from:at])
+		out.WriteString(replacement)
+		from = search
+	}
+	out.WriteString(cmd[from:])
+	return out.String()
+}
+
+const hookWordBoundary = " \t\r\n\"';|&()"
+
+// projectRelativeHookPrefix reports whether the hook directory at index at
+// belongs to the project: at a word start, or under a project root.
+func projectRelativeHookPrefix(cmd string, at int) bool {
+	if at == 0 || strings.ContainsRune(hookWordBoundary, rune(cmd[at-1])) {
+		return true
+	}
+	if cmd[at-1] != '/' {
+		return false
+	}
+	roots := []string{".", gitHookRoot, "$PWD", "${PWD}", "$(pwd)"}
+	for _, variable := range nativeHookRoots {
+		roots = append(roots, "$"+variable, "${"+variable+"}")
+	}
+	for _, root := range roots {
+		for _, closer := range []string{"/", `"/`} {
+			before := cmd[:at]
+			if !strings.HasSuffix(before, root+closer) {
+				continue
+			}
+			rootStart := len(before) - len(root+closer)
+			if rootStart == 0 || strings.ContainsRune(hookWordBoundary, rune(cmd[rootStart-1])) {
+				return true
+			}
+		}
+	}
+	return defaultedProjectRoot(cmd[:at-1])
+}
+
+// defaultedProjectRoot reports whether before ends in a project root variable
+// with a default, such as ${CLAUDE_PROJECT_DIR:-.}, at a word start.
+func defaultedProjectRoot(before string) bool {
+	before = strings.TrimSuffix(before, `"`)
+	if !strings.HasSuffix(before, "}") {
+		return false
+	}
+	start := strings.LastIndex(before, "${")
+	if start < 0 || (start > 0 && !strings.ContainsRune(hookWordBoundary, rune(before[start-1]))) {
+		return false
+	}
+	for _, variable := range nativeHookRoots {
+		if strings.HasPrefix(before[start+2:], variable+"-") || strings.HasPrefix(before[start+2:], variable+":-") {
+			return true
+		}
+	}
+	return false
 }
 
 func HookScriptsDir(target string) string {
