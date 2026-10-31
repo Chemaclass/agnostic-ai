@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -472,6 +473,51 @@ func TestMergeJSONFile_FailsLoudlyOnUnparseableFile(t *testing.T) {
 	}
 	if got := readFileString(t, path); got != existing {
 		t.Errorf("unparseable file must stay untouched, got:\n%s", got)
+	}
+}
+
+// A file the process cannot read is not an empty file. Merging into it
+// would write the managed keys over content nobody could read (#2887).
+func TestMergeJSONFile_FailsLoudlyOnUnreadableFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes do not block reads on Windows")
+	}
+	sess := NewSession()
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "settings.json")
+	const existing = `{"user":1}`
+	if err := os.WriteFile(path, []byte(existing), 0o200); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.ReadFile(path); err == nil {
+		t.Skip("the process can read a write-only file (running as root)")
+	}
+
+	err := sess.MergeJSONFile(path, map[string]any{"b": 2}, false)
+	if err == nil {
+		t.Fatal("expected an error on an unreadable existing file")
+	}
+	if !strings.Contains(err.Error(), "settings.json") {
+		t.Errorf("error should name the file: %v", err)
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFileString(t, path); got != existing {
+		t.Errorf("unreadable file must stay untouched, got:\n%s", got)
+	}
+}
+
+// A parent that is a regular file means the target is missing, the same
+// answer sync --check gives for any other absent output.
+func TestReadExistingJSON_ParentThatIsAFileIsAbsent(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	if err := os.WriteFile(filepath.Join(dir, ".zed"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := NewSession().readExistingJSON(filepath.Join(dir, ".zed", "settings.json"), false)
+	if err != nil || doc == nil {
+		t.Fatalf("want an empty document, got %v, %v", doc, err)
 	}
 }
 
