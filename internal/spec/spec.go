@@ -1193,8 +1193,14 @@ func parseMarkdown(path string) (Entry, error) {
 	normalized := normalizeLineEndings(data)
 	front, body, err := splitFrontmatter(normalized)
 	if err != nil {
-		// Frontmatter starts at line 2 (line 1 is the opening `---`).
-		return Entry{}, formatYAMLError(path, err, 1)
+		// Frontmatter starts at line 2 (line 1 is the opening `---`). Decode
+		// errors come from the parsed nodes, whose lines already match the file.
+		offset := 1
+		var typeErr *yaml.TypeError
+		if errors.As(err, &typeErr) {
+			offset = 0
+		}
+		return Entry{}, formatYAMLError(path, err, offset)
 	}
 	name, _ := front.meta["name"].(string)
 	return Entry{
@@ -1234,7 +1240,10 @@ func decodeYAMLEntry(data []byte) (Entry, error) {
 	if err := yaml.Unmarshal(data, &node); err != nil {
 		return Entry{}, err
 	}
-	front := nodeToOrderedMap(&node)
+	front, err := nodeToOrderedMap(&node)
+	if err != nil {
+		return Entry{}, err
+	}
 	if front.meta == nil {
 		front.meta = map[string]any{}
 	}
@@ -1273,7 +1282,10 @@ func decodeYAMLOrdered(data []byte) (decodedMapping, error) {
 	if err := yaml.Unmarshal(data, &node); err != nil {
 		return decodedMapping{}, err
 	}
-	front := nodeToOrderedMap(&node)
+	front, err := nodeToOrderedMap(&node)
+	if err != nil {
+		return decodedMapping{}, err
+	}
 	if front.meta == nil {
 		front.meta = map[string]any{}
 	}
@@ -1284,23 +1296,23 @@ func decodeYAMLOrdered(data []byte) (decodedMapping, error) {
 // nodeToOrderedMap converts a YAML mapping node to its values, ordered
 // keys, per-key value styles, and repeated keys. Non-mapping inputs
 // return the zero value; the DocumentNode wrapper is peeled when
-// present. Errors decoding individual values cause the affected key to
-// be dropped silently -- yaml.Unmarshal would have already surfaced the
-// syntactic failure at parse time. The styles map only carries entries
+// present. A value that fails to decode, such as a nested repeated key,
+// returns its error; only the capability restrictions are kept as nodes
+// for validation to report. The styles map only carries entries
 // for scalar values whose Style was non-default; missing keys mean "let
 // the encoder choose" at re-emit time.
-func nodeToOrderedMap(n *yaml.Node) decodedMapping {
+func nodeToOrderedMap(n *yaml.Node) (decodedMapping, error) {
 	if n == nil {
-		return decodedMapping{}
+		return decodedMapping{}, nil
 	}
 	if n.Kind == yaml.DocumentNode {
 		if len(n.Content) == 0 {
-			return decodedMapping{}
+			return decodedMapping{}, nil
 		}
 		return nodeToOrderedMap(n.Content[0])
 	}
 	if n.Kind != yaml.MappingNode {
-		return decodedMapping{}
+		return decodedMapping{}, nil
 	}
 	out := decodedMapping{
 		meta: make(map[string]any, len(n.Content)/2),
@@ -1318,7 +1330,7 @@ func nodeToOrderedMap(n *yaml.Node) decodedMapping {
 		if err := valNode.Decode(&v); err != nil {
 			// Keep malformed restrictions for capability validation.
 			if keyNode.Value != capabilityKey && keyNode.Value != "allowed-tools" {
-				continue
+				return decodedMapping{}, err
 			}
 			v = valNode
 		}
@@ -1333,7 +1345,7 @@ func nodeToOrderedMap(n *yaml.Node) decodedMapping {
 			out.styles[keyNode.Value] = valNode.Style
 		}
 	}
-	return out
+	return out, nil
 }
 
 // normalizeLineEndings converts CRLF to LF so the frontmatter splitter
