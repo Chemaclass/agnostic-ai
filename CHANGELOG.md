@@ -17,6 +17,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Sync and configuration
 
+- `import --global` reads native voice dictation keys back into the portable `voice` field (#2834).
 - `voice` also writes Qwen Code, Gemini CLI, Grok Build, and Mistral Vibe; other tools get a note naming why (#2833).
 - Sync keeps existing Antigravity and Goose plugin manifests it did not write and prints a note.
 - Home `voice` settings turn Claude Code dictation on and pick hold or tap; `sync --global` restores previous values on removal.

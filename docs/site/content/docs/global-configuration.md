@@ -66,6 +66,8 @@ Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanu
 
 For a home kept in Git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`. See [import](@/docs/cli-reference/start.md#import).
 
+`import --global` reads [voice dictation](@/docs/spec-format/settings.md#voice-dictation) keys into shared `settings/imported.yaml`. Tool arguments select which native files to read. Existing home voice specs keep their scope; see [voice import](@/docs/spec-format/settings.md#voice-dictation) for exclusions and skipped values.
+
 ### Shared names {#global-shared-names}
 
 A project skill or agent can share its `name` with one in the home. Sync writes both, and each tool decides which one it loads. `sync` and `doctor` print one warning per shared name, with each target where one copy hides the other, which copy wins, and the fix:
@@ -158,7 +160,7 @@ CodeBuddy Code also merges user permission lists and starting modes; see its [na
 
 `session-retention-days` in a home settings spec sets how many days your transcripts are kept, for Claude Code, CodeBuddy Code, Gemini CLI, and Qoder CLI. See [session retention](@/docs/spec-format/settings.md#session-retention).
 
-`voice` in a home settings spec turns voice dictation on and picks hold or tap for Claude Code. See [voice dictation](@/docs/spec-format/settings.md#voice-dictation).
+`voice` in a home settings spec configures voice dictation for tools with a native setting. See [voice dictation](@/docs/spec-format/settings.md#voice-dictation).
 
 Each item wins over the one before it:
 
