@@ -342,3 +342,60 @@ func TestEditField_GlobalVoiceRejectsWholePersonalClear(t *testing.T) {
 		t.Error("refused edits changed files")
 	}
 }
+
+func TestEditField_GlobalVoiceRestoresCommentOnlyDocument(t *testing.T) {
+	source := editHome(t)
+	file := filepath.Join(source, "settings", "native.yaml")
+	original := "# My settings\n"
+	mustWriteGlobalTest(t, file, original)
+	if err := os.Chmod(file, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newEditHandler(source, true)
+	for _, body := range []string{
+		`{"audience":"shared","path":"settings/native.yaml","key":"voice.enabled","value":true,"expected":null}`,
+		`{"audience":"shared","path":"settings/native.yaml","key":"voice.enabled","value":null,"expected":"true"}`,
+	} {
+		if rec := postEdit(t, h, editFieldPath, body, nil); rec.Code != http.StatusOK {
+			t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
+		}
+	}
+	if got := readGlobalTest(t, file); got != original {
+		t.Errorf("got %q, want %q", got, original)
+	}
+	if info, err := os.Stat(file); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("private mode changed: %v, %v", info, err)
+	}
+}
+
+func TestEditField_GlobalVoiceClearBlocksOnlyItsOwnSpec(t *testing.T) {
+	source := editHome(t)
+	if err := os.Remove(filepath.Join(source, "settings", "native.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	a := filepath.Join(source, "settings", "a.yaml")
+	local := filepath.Join(source, "local", "settings", "a.yaml")
+	z := filepath.Join(source, "settings", "z.yaml")
+	originalA := "name: a\nvoice:\n  enabled: true\n  mode: hold\n"
+	originalLocal := "name: a\nvoice: null\n"
+	mustWriteGlobalTest(t, a, originalA)
+	mustWriteGlobalTest(t, local, originalLocal)
+	mustWriteGlobalTest(t, z, "name: z\nvoice:\n  enabled: false\n  mode: tap\n  language: es\n")
+	h := newEditHandler(source, true)
+	for _, tc := range []struct {
+		path, value, expected string
+		status                int
+	}{
+		{"settings/z.yaml", `"hold"`, `"tap"`, http.StatusOK},
+		{"settings/z.yaml", `"tap"`, `"hold"`, http.StatusOK},
+		{"settings/a.yaml", `"tap"`, `"hold"`, http.StatusBadRequest},
+	} {
+		body := fmt.Sprintf(`{"audience":"shared","path":%q,"key":"voice.mode","value":%s,"expected":%s}`, tc.path, tc.value, tc.expected)
+		if rec := postEdit(t, h, editFieldPath, body, nil); rec.Code != tc.status {
+			t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
+		}
+	}
+	if readGlobalTest(t, a) != originalA || readGlobalTest(t, local) != originalLocal {
+		t.Error("editing changed cleared source")
+	}
+}

@@ -133,3 +133,32 @@ func TestSettingsFields_WholePersonalVoiceClearShowsSourcesAndBlocksEdits(t *tes
 		}
 	}
 }
+
+func TestSettingsFields_IndependentVoiceSourceRemainsEditable(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}}
+	shared := entry(spec.KindSettings, "a", "settings/a.yaml", map[string]any{"voice": map[string]any{"enabled": true, "mode": "hold"}})
+	cleared := localOverlay(shared, "local/settings/a.yaml", map[string]any{"voice": nil})
+	cleared.Layer = "global-local"
+	delete(cleared.Meta, "voice")
+	active := entry(spec.KindSettings, "z", "settings/z.yaml", map[string]any{"voice": map[string]any{"enabled": false, "mode": "tap", "language": "es"}})
+	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{cleared, active}}, Global: true}), SectionSettings)
+	for _, field := range section.Fields {
+		if !strings.HasPrefix(field.Key, "voice.") {
+			continue
+		}
+		if field.Editable == nil || field.Editable.Path != active.Path || field.Editable.DisabledReason != "" {
+			t.Errorf("%s edit = %+v", field.Key, field.Editable)
+		}
+	}
+}
+
+func TestSettingsFields_InvalidVoiceMemberShapeStaysReadOnly(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}}
+	e := entry(spec.KindSettings, "voice", "settings/voice.yaml", map[string]any{"voice": map[string]any{"mode": map[string]any{"unexpected": "hold"}}})
+	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{e}}, Global: true}), SectionSettings)
+	for _, field := range section.Fields {
+		if field.Key == "voice.mode" && (field.Editable == nil || !strings.Contains(field.Editable.DisabledReason, "non-scalar")) {
+			t.Errorf("invalid mode edit = %+v", field.Editable)
+		}
+	}
+}

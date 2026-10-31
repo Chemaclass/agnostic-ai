@@ -110,6 +110,9 @@ func setVoiceFieldAt(data []byte, root *yaml.Node, key string, value any) ([]byt
 	if err := yaml.Unmarshal(out, &actual); err != nil {
 		return nil, fmt.Errorf("the edit does not parse: %w", err)
 	}
+	if actual == nil {
+		actual = map[string]any{}
+	}
 	if !reflect.DeepEqual(expected, actual) {
 		return nil, errors.New("the edit changes other values")
 	}

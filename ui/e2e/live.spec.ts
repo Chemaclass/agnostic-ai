@@ -1454,3 +1454,32 @@ test('live global voice edits comment-only and whitespace-only settings without 
     }
   } finally { await f.close() }
 })
+
+test('live global voice edits an independent spec beside a personal clear', async ({ page }) => {
+  const f = await fixture(true)
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    const a = join(f.root, 'settings', 'a.yaml')
+    const local = join(f.root, 'local', 'settings', 'a.yaml')
+    const z = join(f.root, 'settings', 'z.yaml')
+    const sharedA = 'name: a\nvoice:\n  enabled: true\n  mode: hold\n'
+    const clear = 'name: a\nvoice: null\n'
+    await put(a, sharedA)
+    await put(local, clear)
+    await put(z, 'name: z\nvoice:\n  enabled: false\n  mode: tap\n  language: es\n')
+    await page.goto(`${f.url}?view=settings&tab=preferences`)
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
+    const row = page.locator('.field-row').filter({ has: page.getByText('Voice mode', { exact: true }) })
+    await expect(row).not.toContainText('non-scalar')
+    await row.getByRole('combobox', { name: 'Voice mode value' }).selectOption('hold')
+    await row.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect.poll(() => readFile(z, 'utf8')).toContain('mode: hold')
+    await row.getByLabel('Save to').selectOption('settings/a.yaml')
+    await expect(row).toContainText('Remove voice: null')
+    await row.getByLabel('Save to').selectOption('settings/z.yaml')
+    await expect(row.getByRole('combobox', { name: 'Voice mode value' })).toHaveValue('hold')
+    expect(await readFile(a, 'utf8')).toBe(sharedA)
+    expect(await readFile(local, 'utf8')).toBe(clear)
+  } finally { await f.close() }
+})

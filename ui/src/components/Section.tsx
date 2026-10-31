@@ -437,6 +437,8 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   }, [current, localCurrent, teamCurrent])
   if (!edit) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p></>
+  const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
+  if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}</>
   if (app.source.kind !== 'api') return sources()
   const specFile = specPath
   const post = async (body: Record<string, unknown>, expected: string | undefined) => {

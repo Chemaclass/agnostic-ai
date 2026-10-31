@@ -151,6 +151,13 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				if e, ok := byName[it.Name]; ok && it.Kind == string(spec.KindSettings) && SettingsEditCandidate(e, d.key) {
 					paths[it.Name] = SettingsTeamPath(root, e)
 					edit.Paths = append(edit.Paths, paths[it.Name])
+					if strings.HasPrefix(d.key, "voice.") {
+						localPath := SettingsOverlayPath(global, e.Name)
+						if LocalLayer(e) {
+							localPath = SpecPath(root, e)
+						}
+						edit.Sources = append(edit.Sources, FieldEditSource{Path: paths[it.Name], Spec: e.Name, LocalPath: localPath, DisabledReason: VoiceEditDisabledReason(e, root)})
+					}
 				}
 			}
 			defaultPath := "settings/defaults.yaml"
@@ -185,6 +192,9 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			}
 			for _, source := range f.Set {
 				for _, value := range source.Values {
+					if strings.HasPrefix(d.key, "voice.") && source.Local && value.Key == "voice" && personalFieldCleared(byName[source.Spec], "voice") {
+						continue
+					}
 					if !d.editableValue(value) {
 						edit.DisabledReason = "This field has a non-scalar value; edit the spec directly."
 					}
@@ -198,7 +208,7 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			if strings.HasPrefix(d.key, "voice.") {
 				if !global {
 					edit.DisabledReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
-				} else {
+				} else if len(edit.Paths) <= 1 {
 					for _, e := range entries {
 						if reason := VoiceEditDisabledReason(e, root); reason != "" && (edit.Path == "" || SettingsTeamPath(root, e) == edit.Path) {
 							edit.DisabledReason = reason
