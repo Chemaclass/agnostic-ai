@@ -27,5 +27,5 @@ export function saveHint(catalog: ToolCatalog, audience: EditAudience, global: b
   const personal = audience === 'personal'
   const file = global ? (personal ? 'local/agnostic-ai.yaml' : 'agnostic-ai.yaml') : personal ? 'agnostic-ai.local.yaml' : 'agnostic-ai.yaml'
   const start = catalog.source === 'default' && !personal ? `No config file lists coding tools yet, so the default list applies. The first change writes the whole list to ${file}.` : `Changes save to ${file}.`
-  return `${start} Run ${command} to apply them to your tools.${global ? '' : ' A running sync --watch keeps its old tool list until you restart it.'}`
+  return `${start} Run ${command} to apply them to your tools.${global ? '' : ' A running sync --watch applies them on its own, unless it was started with --target, --only or --except.'}`
 }
