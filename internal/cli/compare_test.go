@@ -620,8 +620,17 @@ func TestCompare_LeavesOutSpecsNeitherTargetReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(text, "builtins/") {
+	if strings.Contains(text, "builtins/") || strings.Contains(text, "agnostic-ai-builtin-") {
 		t.Errorf("the report must not show a built-in cache path:\n%s", text)
+	}
+	for _, s := range out.Specs {
+		for _, f := range s.Fields {
+			for _, r := range f.Results {
+				if strings.Contains(r.Next, "agnostic-ai-builtin-") {
+					t.Errorf("%s next step shows a cache path: %q", s.Name, r.Next)
+				}
+			}
+		}
 	}
 }
 
@@ -651,14 +660,16 @@ func TestCompare_PointsBuiltinExclusionAtBuiltinsSetting(t *testing.T) {
 	if claude == nil || claude.Status != statusExcluded {
 		t.Fatalf("claude result = %+v, want excluded", claude)
 	}
-	if !strings.Contains(claude.Next, "builtins") || !strings.Contains(claude.Next, "agnostic-ai.yaml") || strings.Contains(claude.Next, "builtins/") {
+	if !strings.Contains(claude.Next, "builtins") || !strings.Contains(claude.Next, "agnostic-ai.yaml") ||
+		strings.Contains(claude.Next, "builtins/") || strings.Contains(claude.Next, "agnostic-ai-builtin-") ||
+		strings.Index(claude.Next, "add a project") > strings.Index(claude.Next, "builtins") {
 		t.Errorf("next step must point at the builtins setting: %q", claude.Next)
 	}
 	text, err := runCompare(t, "claude", "gemini")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(text, "builtin:memory") || strings.Contains(text, "/builtins/") {
+	if !strings.Contains(text, "builtin:memory") || strings.Contains(text, "/builtins/") || strings.Contains(text, "agnostic-ai-builtin-") {
 		t.Errorf("header must name the built-in, not the cache path:\n%s", text)
 	}
 }

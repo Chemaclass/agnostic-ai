@@ -188,7 +188,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
-Each field gets one result per target, with the output paths or the reason, and a `next:` step when known, such as a required `outputs.zed.tasks-file`. `(differs)` marks a field whose results differ. A spec that neither tool reads is left out. A built-in spec shows as `builtin:<name>`, and its next step is the `builtins` setting or a project spec with the same name.
+Each field gets one result per target, with the output paths or the reason, and a `next:` step when known, such as a required `outputs.zed.tasks-file`. `(differs)` marks a field whose results differ. A spec whose target filter skips both tools is left out, except settings. A built-in spec shows as `builtin:<name>`, and its next step is the `builtins` setting or a project spec with the same name.
 
 | Result | Meaning |
 |---|---|

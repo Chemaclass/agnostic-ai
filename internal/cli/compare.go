@@ -310,7 +310,7 @@ func classifyEntry(cfg *config.Config, e spec.Entry, fields []string, target str
 	if !e.EmitsTo(target) {
 		next := "edit target, targets, target-exclude, or targets-exclude in " + src
 		if b := builtinForEntry(e); b != nil {
-			next = "remove " + b.Name + " from builtins in agnostic-ai.yaml, or add a project " + string(e.Kind) + " named " + e.Name + " to replace it"
+			next = "add a project " + string(e.Kind) + " named " + e.Name + " to change this, or remove " + b.Name + " from builtins in agnostic-ai.yaml"
 		}
 		fill(compareResult{
 			Status: statusExcluded,
