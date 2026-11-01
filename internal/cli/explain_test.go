@@ -377,3 +377,38 @@ func TestExplain_SameContributionsWhenOneTargetTurnsTheHeaderOff(t *testing.T) {
 		t.Error("explain left the provenance header toggle off")
 	}
 }
+
+func writeExplainTargetsProject(t *testing.T, targets string) string {
+	t.Helper()
+	dir, _ := gitRepo(t)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n\nUse tabs.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "pr", "SKILL.md"), "---\nname: pr\ndescription: Open a pull request when asked.\n---\n\nBody.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text.\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: "+targets+"\ngitignore:\n  enabled: true\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	return dir
+}
+
+func TestExplain_SkipsUnconfiguredAdapterErrors(t *testing.T) {
+	writeExplainTargetsProject(t, "[claude, codex, cursor]")
+	out, err := runCLI(t, "explain", ".agnostic-ai/skills/pr/SKILL.md", "--json")
+	if err != nil {
+		t.Fatalf("an adapter outside targets must not fail explain: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, `"target": "claude"`) && !strings.Contains(out, `"target":"claude"`) {
+		t.Errorf("want a claude contribution, got:\n%s", out)
+	}
+}
+
+func TestExplain_ConfiguredAdapterErrorHasOneTargetPrefix(t *testing.T) {
+	writeExplainTargetsProject(t, "[claude, grok]")
+	_, err := runCLI(t, "explain", ".agnostic-ai/skills/pr/SKILL.md")
+	if err == nil {
+		t.Fatal("expected configured grok emission to fail")
+	}
+	const want = "grok: project rules cannot be Git-ignored; set gitignore.commit: [grok:instructions] or explicitly disable gitignore management"
+	if err.Error() != want {
+		t.Errorf("want %q, got %q", want, err)
+	}
+}
