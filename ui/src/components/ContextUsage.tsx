@@ -43,16 +43,31 @@ export function ContextUsage() {
   const results = useRef<HTMLDivElement>(null)
   const [resultsHeight, setResultsHeight] = useState<number>()
   const reachable = app.source.kind === 'api' || app.source.kind === 'mock'
+  const hasView = useRef(false)
+  const droppedStale = useRef(false)
 
   useEffect(() => {
     if (!reachable) return
     const controller = new AbortController()
     setLoading(true)
     setError(undefined)
+    // A target or file left in the address (a removed tool, a stale link) can answer 400 or another tool. Load the default once.
+    const dropStale = () => {
+      if (hasView.current || droppedStale.current || (!target && !file)) return false
+      droppedStale.current = true
+      app.navigate({ target: undefined, file: undefined }, { replace: true })
+      return true
+    }
     loadContext(app.source, target, file, controller.signal)
-      .then((loaded) => setCurrent({ view: loaded.data, file, at: new Date().toISOString() }))
+      .then((loaded) => {
+        if (controller.signal.aborted) return
+        if (loaded.data.supported && target && loaded.data.target && loaded.data.target !== target && dropStale()) return
+        hasView.current = true
+        setCurrent({ view: loaded.data, file, at: new Date().toISOString() })
+      })
       .catch((err: unknown) => {
-        if ((err as Error).name !== 'AbortError') setError(err instanceof Error ? err : new Error('Could not load context size.'))
+        if ((err as Error).name === 'AbortError' || controller.signal.aborted) return
+        if (!dropStale()) setError(err instanceof Error ? err : new Error('Could not load context size.'))
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
@@ -70,7 +85,7 @@ export function ContextUsage() {
   }
   const go = (nextTarget: string, nextFile: string) => app.navigate({ target: nextTarget || undefined, file: nextFile || undefined }, { replace: true })
 
-  useEffect(() => { setFileDraft(file) }, [file])
+  useEffect(() => { setFileDraft((draft) => (draft.trim() === file ? draft : file)) }, [file])
   useEffect(() => {
     if (!takesFile || draftFile === file) return
     const timer = setTimeout(() => {
@@ -136,7 +151,7 @@ export function ContextUsage() {
             <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} aria-describedby={`${fileId}-hint`} onChange={(event) => setFileDraft(event.target.value)} />
           </div>
           <button type="submit" className="button" disabled={pending} title="Read the specs again">{pending ? 'Rereading…' : 'Reread specs'}</button>
-          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Name a file to add the scoped rules that match it. Results update as you type.' : `${selected || 'This tool'} has no file-scoped rules, so there is no file to check.`}</p>
+          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Name a file to add the scoped rules that match it. Results update as you type.' : `${selected || 'This tool'} cannot check a single file.`}</p>
         </form>
       )}
       <p ref={status} className="muted context-usage-status" role="status" style={{ minHeight: pending ? statusHeight : undefined }}>
@@ -152,7 +167,7 @@ export function ContextUsage() {
             {report.note && <details className="context-usage-method"><summary>How this is counted</summary><p className="muted context-usage-note">{report.note}</p></details>}
             {comparable && <Comparison before={before.view.report!} now={report} />}
             <Opportunities report={report} root={shown.view.root} />
-            <ContextSources report={report} root={shown.view.root} openByDefault={report.opportunities.length === 0} />
+            <ContextSources report={report} root={shown.view.root} takesFile={takesFile} openByDefault={report.opportunities.length === 0} />
           </>
         )}
       </div>
@@ -211,7 +226,7 @@ function Comparison({ before, now }: { before: ContextReport; now: ContextReport
   ]
   return (
     <dl className="context-usage-compare">
-      <div><dt>Before refresh</dt><dd>{line(before)}</dd></div>
+      <div><dt>Before reread</dt><dd>{line(before)}</dd></div>
       <div><dt>Now</dt><dd>{line(now)}</dd></div>
       <div><dt>Change</dt><dd>{changes.map(([label, was, is]) => `${label} ${signed(is.words - was.words)}${is.words === was.words ? '' : ' words'}`).join(', ')}.</dd></div>
     </dl>

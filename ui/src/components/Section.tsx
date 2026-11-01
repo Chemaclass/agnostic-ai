@@ -148,7 +148,13 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     ?? firstPopulated?.id
     ?? tabs[0]?.id
   const setSearch = (value: string) => app.navigate({ q: value || undefined, tab: value.trim() ? undefined : active }, { replace: true })
-  const selectTab = (tab: string) => app.navigate({ tab, entry: undefined })
+  const selectTab = (tab: string) => app.navigate({ tab, entry: undefined, q: tab === 'usage' ? undefined : app.state.q })
+  const hasUsageTab = tabs.some((tab) => tab.extra === 'usage')
+  const staleSearch = hasUsageTab && active === 'usage' && !!app.state.q
+  // The Context size tab has no search box, so a query left in the address would filter other tabs with no way to clear it.
+  useEffect(() => {
+    if (staleSearch) app.navigate({ q: undefined }, { replace: true })
+  }, [staleSearch])
   const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]
   const tabLabels = tabs.map((tab) => {
     const items = section.items.filter((item) => tab.kinds.includes(item.kind))

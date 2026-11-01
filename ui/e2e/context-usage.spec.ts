@@ -5,6 +5,8 @@ import { selectTab } from './helpers'
 const overview = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const contextView = JSON.parse(readFileSync(new URL('../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
 
+const FILE_PAUSE = 800
+
 test.describe('context size', () => {
   test('shows the mock duplicate with its sources, review prompt, and refresh', async ({ page, context }) => {
     await page.goto('/?mock=1')
@@ -27,7 +29,7 @@ test.describe('context size', () => {
     expect(prompt).toContain('Target: claude')
     expect(prompt).toContain('Do not apply any change until I agree.')
     await panel.getByRole('button', { name: 'Reread specs' }).click()
-    await expect(panel.locator('.context-usage-compare')).toContainText('Before refresh')
+    await expect(panel.locator('.context-usage-compare')).toContainText('Before reread')
     await expect(panel.locator('.context-usage-compare')).toContainText('Now')
     await expect(panel).not.toContainText(/tokens? saved|faster/i)
   })
@@ -72,7 +74,7 @@ test.describe('context size', () => {
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
     await panel.getByRole('button', { name: 'Reread specs' }).click()
     await expect(panel).toContainText('No duplicated passages found for claude.')
-    await expect(panel.locator('.context-usage-compare')).toContainText('Before refresh184 words, 1,212 bytes at startup, 1 duplicated passage.')
+    await expect(panel.locator('.context-usage-compare')).toContainText('Before reread184 words, 1,212 bytes at startup, 1 duplicated passage.')
     await expect(panel.locator('.context-usage-compare')).toContainText('Now166 words, 1,118 bytes at startup, 0 duplicated passages.')
     await expect(panel.locator('.context-usage-compare')).toContainText('ChangeStartup -18 words, File-scoped no change, On demand no change.')
     expect(requests).toEqual(['', '?target=claude'])
@@ -145,6 +147,7 @@ test.describe('context size', () => {
     await panel.getByLabel('Coding tool').selectOption('copilot')
     await expect.poll(() => requests.at(-1)).toBe('?target=copilot')
     await expect(panel.getByLabel('Check against a file')).toBeDisabled()
+    await expect(panel.locator('.context-usage-file-hint')).toHaveText('copilot cannot check a single file.')
   })
 
   test('shows the reason for user configuration', async ({ page }) => {
@@ -167,12 +170,44 @@ test.describe('context size', () => {
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-usage-totals')).toBeVisible()
-    await panel.getByLabel('Check against a file').fill('src/main.go')
-    await expect.poll(() => requests.at(-1)).toBe('?target=claude&file=src%2Fmain.go')
+    const before = requests.length
+    await panel.getByLabel('Check against a file').pressSequentially('src/main.go', { delay: 40 })
+    await expect.poll(() => requests.slice(before).filter((search) => search.includes('file=')).length).toBe(1)
+    await page.waitForTimeout(FILE_PAUSE)
+    expect(requests.slice(before)).toEqual(['?target=claude&file=src%2Fmain.go'])
     await expect(page).toHaveURL(/tab=usage&target=claude&file=src%2Fmain\.go/)
     await page.reload()
     await expect(panel.getByLabel('Check against a file')).toHaveValue('src/main.go')
     await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
+  })
+
+  test('loads the default tool when the address names one that is gone', async ({ page }) => {
+    const requests: string[] = []
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => {
+      const url = new URL(route.request().url())
+      requests.push(url.search)
+      if (url.searchParams.get('target') === 'gemini') return route.fulfill({ status: 400, json: { error: 'explain --context: gemini is not a configured target' } })
+      return route.fulfill({ json: contextView })
+    })
+    await page.goto('/?view=context&tab=usage&target=gemini&file=src%2Fmain.go')
+    const panel = page.locator('section.context-usage')
+    await expect(panel.locator('.context-opportunity')).toHaveCount(1)
+    await expect(panel.getByRole('alert')).toHaveCount(0)
+    await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
+    await expect(page).not.toHaveURL(/target=|file=/)
+    expect(requests).toEqual(['?target=gemini&file=src%2Fmain.go', ''])
+  })
+
+  test('clears a search when the Context size tab opens', async ({ page }) => {
+    await page.goto('/?mock=1&q=testing')
+    await expect(page).toHaveURL(/q=testing/)
+    await selectTab(page, 'Context size')
+    await expect(page.locator('section.context-usage')).toBeVisible()
+    await expect(page).not.toHaveURL(/q=/)
+    await page.goto('/?mock=1&tab=usage&q=testing')
+    await expect(page.locator('section.context-usage')).toBeVisible()
+    await expect(page).not.toHaveURL(/q=/)
   })
 
   test('opens advice for a source and copies a prompt that names it', async ({ page, context }) => {
@@ -192,7 +227,7 @@ test.describe('context size', () => {
     const advice = panel.locator('.context-advice')
     await expect(advice).toContainText('What it is')
     await expect(advice).toContainText('loads at the start of every session')
-    await expect(advice).toContainText('Add globs to .agnostic-ai/rules/testing.md')
+    await expect(advice).toContainText('Narrow the globs in .agnostic-ai/rules/testing.md')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await advice.getByRole('button', { name: 'Copy advice prompt for .agnostic-ai/rules/testing.md' }).click()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
