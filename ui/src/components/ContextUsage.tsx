@@ -103,7 +103,6 @@ export function ContextUsage() {
     return () => clearTimeout(timer)
   }, [draftFile, file, takesFile, selected])
 
-  const toolLabel = app.overview?.targets.find((t) => t.target === selected)?.label ?? (selected || 'a coding tool')
   const targets = view?.targets.length ? view.targets : selected ? [selected] : []
   const matches = (snapshot: Snapshot | undefined): snapshot is Snapshot => !!snapshot && snapshot.view.target === selected && snapshot.file === file
   // A report for another target or file, or one a failed request left behind, is never shown as current.
@@ -133,7 +132,7 @@ export function ContextUsage() {
     <section className="block context-usage" aria-labelledby={titleId} aria-busy={pending || undefined}>
       <div className="context-usage-head">
         {heading}
-        <p className="muted">How much text {toolLabel} reads from your specs, at startup and later, in words and bytes.</p>
+        <p className="muted">How much text a coding tool reads from your specs, at startup and later, in words and bytes.</p>
       </div>
       {view?.supported !== false && (
         <form className="context-usage-controls" onSubmit={(event) => { event.preventDefault(); refresh() }}>
