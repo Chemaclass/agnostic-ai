@@ -214,11 +214,20 @@ func mirrorClaudeMainFile(root string) (result mirrorResult, srcName string, pro
 		if err != nil {
 			return mirrorAbsent, claudeMainFile, false, err
 		}
-		if companionMatchesSync(root) {
-			return mirrorUnchanged, claudeAgentsMainFile + " and " + claudeMainFile, false, nil
+		pair := claudeAgentsMainFile + " and " + claudeMainFile
+		changed, fenced := companionChanged(root)
+		if fenced && len(changed) == 0 {
+			return mirrorUnchanged, pair, false, nil
 		}
-		result, err := mirrorBody(root, claudeMainFile, body, claudeAgentsMainFile)
-		return result, claudeAgentsMainFile + " and " + claudeMainFile, false, err
+		label := pair
+		if fenced && len(changed) == 1 {
+			label = changed[0]
+		}
+		result, err := mirrorBodyAs(root, claudeMainFile, label, body, claudeAgentsMainFile)
+		if result == mirrorUnchanged {
+			return result, pair, false, err
+		}
+		return result, label, false, err
 	}
 	claimed := rootAgentsMainFileClaimedByPeer()
 	for _, rung := range claudeMainFileChain {
@@ -325,36 +334,45 @@ func claudeCompanionBody(root string) (body string, ok bool, err error) {
 	return body, true, nil
 }
 
-// companionMatchesSync reports whether AGENTS.md and the @AGENTS.md
-// companion CLAUDE.md are exactly what sync renders from a fenced
-// AGNOSTIC_AI.md. The rebuilt companion body is never equal to either
-// rendered file, so each file is compared with its own view.
-func companionMatchesSync(root string) bool {
+// companionChanged lists, of AGENTS.md and CLAUDE.md in that order, the
+// files that differ from what sync renders from a fenced AGNOSTIC_AI.md.
+// The rebuilt companion body is never equal to either rendered file, so
+// each file is compared with its own view. fenced is false when
+// AGNOSTIC_AI.md is missing or has no ::target fence, and then changed is
+// nil. A file that cannot be read counts as changed.
+func companionChanged(root string) (changed []string, fenced bool) {
 	raw, err := os.ReadFile(filepath.Join(root, agnosticMainFile))
 	if err != nil {
-		return false
+		return nil, false
 	}
 	source := header.Strip(string(raw))
 	if !hasTargetFences(source) {
-		return false
+		return nil, false
 	}
-	for _, name := range []string{claudeMainFile, claudeAgentsMainFile} {
+	for _, name := range []string{claudeAgentsMainFile, claudeMainFile} {
 		data, err := readEntryFile(root, filepath.Join(root, name))
 		if err != nil {
-			return false
+			changed = append(changed, name)
+			continue
 		}
 		body := header.Strip(adapters.StripGeneratedAppendices(string(data)))
 		if !matchesRenderedView(root, name, source, body) {
-			return false
+			changed = append(changed, name)
 		}
 	}
-	return true
+	return changed, true
 }
 
 // mirrorBody writes body, captured from srcName, to AGNOSTIC_AI.md.
 // alsoCaptured names other entry points whose text body holds, so the
 // uncaptured-content warning skips them.
 func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResult, error) {
+	return mirrorBodyAs(root, srcName, srcName, body, alsoCaptured...)
+}
+
+// mirrorBodyAs is mirrorBody with label naming the source in the summary
+// lines, while srcName stays the path that is read and compared.
+func mirrorBodyAs(root, srcName, label, body string, alsoCaptured ...string) (mirrorResult, error) {
 	dst := filepath.Join(root, agnosticMainFile)
 	current := ""
 	if existing, readErr := os.ReadFile(dst); readErr == nil {
@@ -373,7 +391,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 		// A fenced source renders a view per tool, so an edit to one view
 		// cannot be placed without knowing which block it belongs to.
 		if hasTargetFences(current) {
-			summaryf("  ! %s differs from what sync renders from the fenced %s; %s is unchanged, so merge the edit into it by hand\n", srcName, agnosticMainFile, agnosticMainFile)
+			summaryf("  ! %s differs from what sync renders from the fenced %s; %s is unchanged, so merge the edit into it by hand\n", label, agnosticMainFile, agnosticMainFile)
 			return mirrorKept, nil
 		}
 		merged, titles, twice := foldText(current, current, body)
@@ -385,7 +403,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 		if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
 			return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
 		}
-		reportMerged(titles, twice, srcName)
+		reportMerged(titles, twice, label)
 		return mirrorMerged, nil
 	}
 
@@ -395,7 +413,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 	if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
 		return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
 	}
-	summaryf("  → %s seeded from %s\n", agnosticMainFile, srcName)
+	summaryf("  → %s seeded from %s\n", agnosticMainFile, label)
 	warnUncapturedEntryPoints(root, body, append([]string{srcName}, alsoCaptured...)...)
 	return mirrorWritten, nil
 }
