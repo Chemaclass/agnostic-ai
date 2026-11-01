@@ -761,6 +761,12 @@ func resyncForChanges(root string, configured, changed []string, dryRun, backup 
 	if len(effective) == 0 {
 		effective = cfg.Targets
 	}
+	// An empty list is often an autosave in the middle of an edit, and a
+	// pass over it would remove every generated file.
+	if len(effective) == 0 {
+		summaryf("  %s targets lists no tool; keeping files until it does\n", bang())
+		return nil
+	}
 	plan := planWatchResync(root, cfg, b, changed, effective)
 	if plan.full {
 		summaryf("  ↳ %s · full re-sync\n", plan.reason)
