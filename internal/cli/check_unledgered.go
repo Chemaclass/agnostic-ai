@@ -101,6 +101,9 @@ func strandedOutput(cfg *config.Config, emitted map[string]bool, state syncState
 	for _, p := range entryPointPaths(cfg, cfg.Targets) {
 		skip[p] = true
 	}
+	if claudeOwnsAgentsCompanion(cfg) {
+		skip["AGENTS.md"] = true
+	}
 	for _, p := range state.Orphans {
 		skip[p] = true
 	}
