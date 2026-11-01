@@ -426,7 +426,7 @@ func claudeImportsAgentsOnDisk() bool {
 // claudeOwnsAgentsCompanion reports whether sync writes the root
 // AGENTS.md for Claude Code alone (see claudeWritesAgents).
 func claudeOwnsAgentsCompanion(cfg *config.Config) bool {
-	if !slices.Contains(cfg.Targets, "claude") || cfg.Sync.TargetOverview || cfg.IsUnmanaged("AGENTS.md") {
+	if !slices.Contains(cfg.Targets, "claude") || cfg.Sync.TargetOverview {
 		return false
 	}
 	if adapters.EntryPointPath(cfg, "claude") != "CLAUDE.md" {

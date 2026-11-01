@@ -118,3 +118,28 @@ func TestCheck_AgentsMDIsLeftoverOnceCLAUDEmdStopsImportingIt(t *testing.T) {
 		t.Errorf("AGENTS.md should be a leftover once CLAUDE.md stops importing it: %+v", reports)
 	}
 }
+
+func TestSync_UnmanagedAgentsMDKeepsCLAUDEmdAsTheImport(t *testing.T) {
+	for _, targets := range []string{"[claude]", "[claude, codex]"} {
+		t.Run(targets, func(t *testing.T) {
+			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			captureLogOut(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: "+targets+"\nsync:\n  unmanaged: [AGENTS.md]\n")
+			writeFile(t, "AGENTS.md", "Hand written rules.\n")
+			writeFile(t, "CLAUDE.md", "@AGENTS.md\n")
+			for _, args := range [][]string{{"import", "claude"}, {"sync"}, {"sync", "--check"}} {
+				root := NewRootCmd("test")
+				root.SetArgs(args)
+				if err := root.Execute(); err != nil {
+					t.Fatalf("%v: %v", args, err)
+				}
+			}
+			got := readFile(t, "CLAUDE.md")
+			if !strings.Contains(got, "@AGENTS.md") {
+				t.Errorf("CLAUDE.md should stay the import, got:\n%s", got)
+			}
+		})
+	}
+}
