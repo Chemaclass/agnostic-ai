@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -75,33 +76,34 @@ func TestSync_KiroSettingsModelAddThenRemoveRestoresCLIJSON(t *testing.T) {
 		}
 	})
 
-	t.Run("file with a hand-set key", func(t *testing.T) {
-		dir := setupKiroSettingsProject(t, "claude-sonnet-4.6")
-		const original = "{\n  \"chat.defaultAgent\": \"mine\"\n}\n"
-		mustWrite(t, filepath.Join(dir, kiroCLIJSON), original)
-		if err := runSync(t); err != nil {
-			t.Fatal(err)
-		}
-		got := readKiroCLIJSON(t, dir)
-		if got["chat.defaultAgent"] != "mine" || got["chat.defaultModel"] != "claude-sonnet-4.6" {
-			t.Fatalf("cli.json = %#v", got)
-		}
-		if err := runSync(t, "--check"); err != nil {
-			t.Errorf("sync --check after sync: %v", err)
-		}
+	for name, original := range map[string]string{
+		"two-space file":  "{\n  \"chat.defaultAgent\": \"mine\"\n}\n",
+		"four-space file": "{\n    \"chat.defaultAgent\": \"mine\"\n}\n",
+		"compact file":    "{\"chat.defaultAgent\":\"mine\"}\n",
+	} {
+		t.Run(name+" with a hand-set key", func(t *testing.T) {
+			dir := setupKiroSettingsProject(t, "claude-sonnet-4.6")
+			mustWrite(t, filepath.Join(dir, kiroCLIJSON), original)
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			got := readKiroCLIJSON(t, dir)
+			if got["chat.defaultAgent"] != "mine" || got["chat.defaultModel"] != "claude-sonnet-4.6" {
+				t.Fatalf("cli.json = %#v", got)
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check after sync: %v", err)
+			}
 
-		writeKiroSettingsSpec(t, dir, "")
-		if err := runSync(t); err != nil {
-			t.Fatal(err)
-		}
-		raw, err := os.ReadFile(filepath.Join(dir, kiroCLIJSON))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(raw) != original {
-			t.Errorf("cli.json after dropping the model:\n%s\nwant:\n%s", raw, original)
-		}
-	})
+			writeKiroSettingsSpec(t, dir, "")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if got := readKiroCLIJSON(t, dir); len(got) != 1 || got["chat.defaultAgent"] != "mine" {
+				t.Errorf("cli.json after dropping the model = %#v, want only the hand-set key", got)
+			}
+		})
+	}
 }
 
 func TestSync_KiroOverwritesHandSetDefaultModel(t *testing.T) {
@@ -112,5 +114,13 @@ func TestSync_KiroOverwritesHandSetDefaultModel(t *testing.T) {
 	}
 	if got := readKiroCLIJSON(t, dir)["chat.defaultModel"]; got != "claude-sonnet-4.6" {
 		t.Errorf("chat.defaultModel = %v, want the spec value", got)
+	}
+
+	writeKiroSettingsSpec(t, dir, "")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	if raw, err := os.ReadFile(filepath.Join(dir, kiroCLIJSON)); err == nil && strings.Contains(string(raw), "chat.defaultModel") {
+		t.Errorf("a replaced hand value is not restored; got %s", raw)
 	}
 }

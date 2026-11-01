@@ -103,13 +103,25 @@ func TestBuild_RuleFormsResolveAsTranslatedOnlyWhereTheirMatchingIsDocumented(t 
 
 func TestBuild_SettingsRuleOnAToolWithoutSettingsIsNotExpressed(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"agnostic-ai.yaml":                       "version: 1\ntargets: [kiro]\n",
+		"agnostic-ai.yaml":                       "version: 1\ntargets: [aider]\n",
 		".agnostic-ai/mcps/railway.yaml":         railwayMCP,
 		".agnostic-ai/settings/permissions.yaml": "permissions:\n  allow: [mcp:railway/deploy]\n",
 	})
 	op := findOp(t, buildView(t, root, Options{}), "mcp-railway-scope:deploy")
-	if op.Resolution != ResolutionNotExpressed || !strings.Contains(enforcementOn(t, op, "kiro").Note, "takes no settings specs") {
-		t.Errorf("kiro = %s %q, want not expressed: Kiro takes no settings specs", op.Resolution, enforcementOn(t, op, "kiro").Note)
+	if op.Resolution != ResolutionNotExpressed || !strings.Contains(enforcementOn(t, op, "aider").Note, "takes no settings specs") {
+		t.Errorf("aider = %s %q, want not expressed: Aider takes no settings specs", op.Resolution, enforcementOn(t, op, "aider").Note)
+	}
+}
+
+func TestBuild_KiroSettingsPermissionsAreNotExpressed(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":                       "version: 1\ntargets: [kiro]\n",
+		".agnostic-ai/mcps/railway.yaml":         railwayMCP,
+		".agnostic-ai/settings/permissions.yaml": "permissions:\n  deny: [mcp:railway/deploy]\n",
+	})
+	op := findOp(t, buildView(t, root, Options{}), "mcp-railway-scope:deploy")
+	if e := enforcementOn(t, op, "kiro"); op.Resolution != ResolutionNotExpressed || e.Status != "not-expressed" || len(e.Native) != 0 {
+		t.Errorf("kiro = %s %+v, want not expressed with no native rule", op.Resolution, e)
 	}
 }
 

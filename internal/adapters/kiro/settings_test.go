@@ -127,6 +127,40 @@ func TestEmit_SettingsPermissionsRaiseANote(t *testing.T) {
 	}
 }
 
+func TestEmit_SettingsXKiroRaisesANote(t *testing.T) {
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	testutil.TempCwd(t)
+	notes := swapNoteWarner(t)
+	b := settingsBundle(map[string]any{
+		"model":  "claude-sonnet-4.6",
+		"x-kiro": map[string]any{"chat.defaultAgent": "mine"},
+	})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if doc := readCLIJSON(t); len(doc) != 1 || doc["chat.defaultModel"] != "claude-sonnet-4.6" {
+		t.Errorf("x-kiro must not reach cli.json yet, got %#v", doc)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(notes.String(), "x-kiro") {
+		t.Errorf("missing x-kiro note: %s", notes.String())
+	}
+}
+
+func TestEmit_SettingsWithoutXKiroRaisesNoXKiroNote(t *testing.T) {
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	testutil.TempCwd(t)
+	notes := swapNoteWarner(t)
+	b := settingsBundle(map[string]any{"model": "claude-sonnet-4.6"})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(notes.String(), "x-kiro") {
+		t.Errorf("unexpected x-kiro note: %s", notes.String())
+	}
+}
+
 func TestEmit_NoSettingsModelLeavesCLIJSONUntouched(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	testutil.TempCwd(t)

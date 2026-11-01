@@ -10,6 +10,18 @@ import (
 // or ask list; tool trust lives in each agent file.
 const permissionsNoOpReason = "Kiro's .kiro/settings/cli.json has no allow, deny, or ask list; set tool trust per agent"
 
+const xKiroSettingsNoOpReason = "settings x-kiro is not written yet, because cli.json takes flat dotted keys; set those keys in .kiro/settings/cli.json yourself"
+
+func specsWithXKiro(settings []spec.Entry) int {
+	n := 0
+	for _, e := range settings {
+		if custom, _ := e.Meta[emit.XPrefix+target].(map[string]any); len(custom) > 0 {
+			n++
+		}
+	}
+	return n
+}
+
 // RendersSpecFile reports whether a spec produces output for Kiro. A
 // settings spec does only when it gives Kiro a model it can load.
 func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
@@ -23,6 +35,7 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 // emitSettings merges the settings model into chat.defaultModel in
 // .kiro/settings/cli.json, a flat dotted-key file. Every other key stays.
 func emitSettings(sess *emit.Session, settings []spec.Entry, dryRun bool) error {
+	emit.NoteFieldNoOp(target, spec.KindSettings, emit.XPrefix+target, specsWithXKiro(settings), xKiroSettingsNoOpReason)
 	model := emit.SettingsModel(settings, target)
 	if model == "" {
 		return nil
