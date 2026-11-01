@@ -279,7 +279,7 @@ var targetsSupportingKind = kindSupport{
 	spec.KindHook:        setOf("codebuddy", "kimi", "grok", "qwen", "vibe", "claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose", "opencode", "cline", "kilo"),
 	spec.KindMCP:         setOf("codebuddy", "kimi", "grok", "qwen", "pi", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment", "ellipsis"),
 	spec.KindCommand:     setOf("codebuddy", "grok", "qwen", "pi", "claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kiro", "kilo", "qoder", "augment", "factory"),
-	spec.KindSettings:    setOf("codebuddy", "kimi", "grok", "qwen", "pi", "vibe", "claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp", "cursor", "ellipsis"),
+	spec.KindSettings:    setOf("codebuddy", "kimi", "grok", "qwen", "pi", "vibe", "claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp", "cursor", "kiro", "ellipsis"),
 	spec.KindReview:      setOf("cursor", "goose", "codex", "ellipsis"),
 	spec.KindEnvironment: setOf("cursor", "openhands", "amp", "claude", "codex", "ellipsis"),
 	spec.KindIgnore:      setOf("qwen", "cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),

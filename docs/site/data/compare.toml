@@ -675,7 +675,7 @@
 
   [[targets.kinds]]
     id = "settings"
-    paths = []
+    paths = [".kiro/settings/cli.json"]
 
   [[targets.kinds]]
     id = "review"
