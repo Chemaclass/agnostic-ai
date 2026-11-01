@@ -44,7 +44,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Web interface
 
-- Context opens on Context size when a project is served, with a startup check against lint.instructions-words, the tool's default model, and next steps.
+- Context opens on Context size for a project with a coding tool, with a startup check against lint.instructions-words, its default model, and next steps.
 - The context view carries startupWordBudget, the lint.instructions-words value, so the page can say whether startup text is within budget.
 - Context size is the first Context tab, explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address.
 - The header editor switch is a Cursor and VS Code pill with a filled selected editor, arrow keys, and no shift when the choice changes; screen readers name it Open files in.

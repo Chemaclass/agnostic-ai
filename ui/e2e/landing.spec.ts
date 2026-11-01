@@ -111,9 +111,10 @@ test.describe('landing', () => {
 
   test('opens the first tab with content when the project has no coding tool', async ({ page }) => {
     await serve(page, contextView, { ...structuredClone(overview), targets: [] })
+    await page.route('**/api/views/context**', (route) => route.fulfill({ status: 400, json: { error: 'explain --context:  is not a configured target' } }))
     await page.goto('/')
     await expect(page.getByRole('tab', { name: /^Rules/ })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByText('is not a configured target')).toHaveCount(0)
+    await expect(page.getByText('is not a configured target')).toBeHidden()
   })
 
   test('reaches the first action by keyboard from the tab row', async ({ page }) => {

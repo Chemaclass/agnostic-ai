@@ -19,6 +19,10 @@ function lowerFirst(s: string): string {
 /** What the specs and sync say for one key, or nothing when no spec sets it. */
 function describe(r: TargetValue | undefined, key: string): string | undefined {
   if (!r) return undefined
+  if (r.value && r.native?.length) {
+    const native = r.native[0].value
+    return `a spec sets ${r.value}, and x-${r.target}.${key}${native ? ` is also set to ${native}` : ' is also set'}. Sync writes that native key as is and it wins, so check the generated file for the value ${r.label} reads.`
+  }
   if (r.value || r.dropped) return lowerFirst(generatedAnswer(r))
   if (r.native?.length) return `a spec sets x-${r.target}.${key}, which sync writes as is.`
   return undefined
