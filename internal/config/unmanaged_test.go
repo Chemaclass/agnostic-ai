@@ -66,6 +66,9 @@ func TestMatchUnmanaged_DirectoryEntries(t *testing.T) {
 		{"star segment needs a parent folder", "*/.cursor/", ".cursor/x.mdc", false},
 		{"leading dot slash is ignored", "./.claude/skills/legacy-?/", ".claude/skills/legacy-a/SKILL.md", true},
 		{"backslash path input", ".claude/skills/legacy-*/", `.claude\skills\legacy-a\SKILL.md`, true},
+		{"bracket folder name stays literal", ".claude/skills/wip[1]/", ".claude/skills/wip[1]/SKILL.md", true},
+		{"bracket folder name literal itself", ".claude/skills/wip[1]/", ".claude/skills/wip[1]", true},
+		{"bracket entry still works as a class", ".claude/skills/wip[12]/", ".claude/skills/wip1/SKILL.md", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

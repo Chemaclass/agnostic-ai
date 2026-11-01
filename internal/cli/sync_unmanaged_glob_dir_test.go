@@ -45,3 +45,24 @@ func TestSync_SkipsFoldersAGlobDirectoryEntryOwns(t *testing.T) {
 		t.Errorf("sync --check after sync: %v", err)
 	}
 }
+
+func TestSync_KeepsAHandWrittenFolderWhoseNameHoldsBrackets(t *testing.T) {
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets: [claude]\nsync:\n  unmanaged:\n    - .claude/skills/wip[1]/\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "wip[1]", "SKILL.md"),
+		"---\nname: wip[1]\ndescription: Skill wip.\n---\n\nSpec body.\n")
+	handWritten := filepath.Join(dir, ".claude", "skills", "wip[1]", "SKILL.md")
+	mustWriteFile(t, handWritten, "hand written\n")
+	silence(t)
+	buf := captureLog(t)
+
+	if err := runSyncOnce(".", nil, false, false, "on", 1); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, err := os.ReadFile(handWritten); err != nil || string(got) != "hand written\n" {
+		t.Errorf("hand-written file changed: %q (err=%v)\n%s", got, err, buf.String())
+	}
+}

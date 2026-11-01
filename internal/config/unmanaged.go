@@ -29,7 +29,8 @@ func MatchUnmanaged(patterns []string, p string) bool {
 		pattern = normalizeUnmanaged(pattern)
 		if isDir {
 			patSegs := strings.Split(pattern, "/")
-			if len(relSegs) >= len(patSegs) && segmentsMatch(patSegs, relSegs[:len(patSegs)]) {
+			if rel == pattern || strings.HasPrefix(rel, pattern+"/") ||
+				(len(relSegs) >= len(patSegs) && segmentsMatch(patSegs, relSegs[:len(patSegs)])) {
 				return true
 			}
 			continue
