@@ -198,6 +198,36 @@ func TestImportFromClaude_NoWarnRightAfterSyncWithFencedClaudeBlock(t *testing.T
 	}
 }
 
+// A rule codex inlines into AGENTS.md, or a code review section, makes sync
+// write CLAUDE.md as a full copy instead of the @AGENTS.md companion.
+func TestImportFromClaude_NoWarnRightAfterSyncWhenAgentsMDCarriesARule(t *testing.T) {
+	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := captureSummary(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	mustWrite(t, filepath.Join(dir, agnosticMainFile), source)
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\ndescription: Style rule\n---\n\nUse tabs.\n")
+	if err := runSync(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if strings.Contains(mustRead(t, filepath.Join(dir, "CLAUDE.md")), "@AGENTS.md") {
+		t.Fatal("CLAUDE.md is the companion; the test needs the full copy")
+	}
+	buf.Reset()
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	if out := buf.String(); strings.Contains(out, companionSyncWarning) {
+		t.Errorf("clean sync must not warn, got:\n%s", out)
+	}
+	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
+	}
+}
+
 func TestImportFromClaude_WarnsWhenCompanionClaudeTextEdited(t *testing.T) {
 	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
 	dir, buf := syncFencedClaudeBlock(t, source)

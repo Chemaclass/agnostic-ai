@@ -416,7 +416,24 @@ func matchesRenderedView(root, srcName, source, body string) bool {
 	if err != nil {
 		return false
 	}
-	files, err := renderEntryPointFiles(cfg, spec.Bundle{}, cfg.Targets, source)
+	if renderedViewIs(cfg, spec.Bundle{}, srcName, source, body) {
+		return true
+	}
+	if !hasTargetFences(source) {
+		return false
+	}
+	// Inlined rules and code review sections decide whether CLAUDE.md
+	// imports AGENTS.md or repeats its text, so retry with the specs.
+	_, bundle, err := loadProject(root)
+	if err != nil {
+		return false
+	}
+	defer adapters.SetAsideNotes()()
+	return renderedViewIs(cfg, bundle, srcName, source, body)
+}
+
+func renderedViewIs(cfg *config.Config, bundle spec.Bundle, srcName, source, body string) bool {
+	files, err := renderEntryPointFiles(cfg, bundle, cfg.Targets, source)
 	if err != nil {
 		return false
 	}
