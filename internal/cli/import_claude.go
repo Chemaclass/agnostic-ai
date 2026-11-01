@@ -214,6 +214,9 @@ func mirrorClaudeMainFile(root string) (result mirrorResult, srcName string, pro
 		if err != nil {
 			return mirrorAbsent, claudeMainFile, false, err
 		}
+		if companionMatchesSync(root) {
+			return mirrorUnchanged, claudeAgentsMainFile + " and " + claudeMainFile, false, nil
+		}
 		result, err := mirrorBody(root, claudeMainFile, body, claudeAgentsMainFile)
 		return result, claudeAgentsMainFile + " and " + claudeMainFile, false, err
 	}
@@ -322,6 +325,32 @@ func claudeCompanionBody(root string) (body string, ok bool, err error) {
 	return body, true, nil
 }
 
+// companionMatchesSync reports whether AGENTS.md and the @AGENTS.md
+// companion CLAUDE.md are exactly what sync renders from a fenced
+// AGNOSTIC_AI.md. The rebuilt companion body is never equal to either
+// rendered file, so each file is compared with its own view.
+func companionMatchesSync(root string) bool {
+	raw, err := os.ReadFile(filepath.Join(root, agnosticMainFile))
+	if err != nil {
+		return false
+	}
+	source := header.Strip(string(raw))
+	if !hasTargetFences(source) {
+		return false
+	}
+	for _, name := range []string{claudeMainFile, claudeAgentsMainFile} {
+		data, err := readEntryFile(root, filepath.Join(root, name))
+		if err != nil {
+			return false
+		}
+		body := header.Strip(adapters.StripGeneratedAppendices(string(data)))
+		if !matchesRenderedView(root, name, source, body) {
+			return false
+		}
+	}
+	return true
+}
+
 // mirrorBody writes body, captured from srcName, to AGNOSTIC_AI.md.
 // alsoCaptured names other entry points whose text body holds, so the
 // uncaptured-content warning skips them.
@@ -387,7 +416,24 @@ func matchesRenderedView(root, srcName, source, body string) bool {
 	if err != nil {
 		return false
 	}
-	files, err := renderEntryPointFiles(cfg, spec.Bundle{}, cfg.Targets, source)
+	if renderedViewIs(cfg, spec.Bundle{}, srcName, source, body) {
+		return true
+	}
+	if !hasTargetFences(source) {
+		return false
+	}
+	// Inlined rules and code review sections decide whether CLAUDE.md
+	// imports AGENTS.md or repeats its text, so retry with the specs.
+	_, bundle, err := loadProject(root)
+	if err != nil {
+		return false
+	}
+	defer adapters.SetAsideNotes()()
+	return renderedViewIs(cfg, bundle, srcName, source, body)
+}
+
+func renderedViewIs(cfg *config.Config, bundle spec.Bundle, srcName, source, body string) bool {
+	files, err := renderEntryPointFiles(cfg, bundle, cfg.Targets, source)
 	if err != nil {
 		return false
 	}
