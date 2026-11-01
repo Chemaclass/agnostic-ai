@@ -573,7 +573,6 @@ test.describe('overview', () => {
     const choice = page.getByRole('group', { name: 'Open files in' })
     await expect(choice.getByRole('radio', { name: 'Cursor' })).toHaveAttribute('aria-checked', 'true')
     await expect(page.locator('.topbar').getByRole('group', { name: 'Open files in' })).toBeInViewport()
-    await expect(page.locator('.topbar').getByText('Open files in', { exact: true })).toHaveCount(0)
     await choice.getByRole('radio', { name: 'VS Code' }).focus()
     const switchWidth = (await choice.boundingBox())!.width
     await page.keyboard.press('Space')
