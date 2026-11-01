@@ -116,6 +116,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Import and sync keep MCP OAuth options, including private-network opt-in, without putting literal credentials in specs (#2809).
 
+#### Qwen Code
+
+- Import reads skills from `.agents/skills/` as well as `.qwen/skills/`; `.qwen/skills/` wins a same-name clash.
+
 #### Warp
 
 - Global sync writes voice enabled and language choices to the platform settings file, preserving the activation shortcut (#2836).

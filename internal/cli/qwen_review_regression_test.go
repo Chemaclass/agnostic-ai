@@ -331,3 +331,21 @@ func TestQwen_ProjectDisabledMCPIsRemovedWithoutDroppingEnabledPeer(t *testing.T
 		t.Errorf("enabled peer lost: %#v", servers)
 	}
 }
+
+func TestImportFromQwen_ReadsAgentsSkillsAfterQwenSkills(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".qwen/skills/shared/SKILL.md"), "---\nname: shared\ndescription: Shared\n---\nfrom qwen\n")
+	writeFile(t, filepath.Join(dir, ".agents/skills/shared/SKILL.md"), "---\nname: shared\ndescription: Shared\n---\nfrom agents\n")
+	writeFile(t, filepath.Join(dir, ".agents/skills/tree/SKILL.md"), "---\nname: tree\ndescription: Tree\n---\nagents only\n")
+
+	if err := importFromQwen(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := readFile(t, filepath.Join(dir, "skills", "shared", "SKILL.md")); !strings.Contains(got, "from qwen") {
+		t.Errorf(".qwen/skills should win a same-name collision:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(dir, "skills", "tree", "SKILL.md")); !strings.Contains(got, "agents only") {
+		t.Errorf(".agents/skills skill not imported:\n%s", got)
+	}
+}
