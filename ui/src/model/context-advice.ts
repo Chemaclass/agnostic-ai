@@ -1,5 +1,6 @@
 import type { ContextContribution, ContextLoad, ContextReport, ContextSize } from '../contract'
 import { isBuiltin, sharePercent } from './context-breakdown'
+import { startupVerdict } from './context-verdict'
 import { LOAD_CONDITIONS, LOAD_LABELS, sizeText } from './context-prompt'
 
 export interface ContextAdvice {
@@ -290,4 +291,26 @@ export function startHere(contributions: ContextContribution[], limit = 3): Cont
     .filter((c) => c.load === 'startup' && c.category !== 'generated framing')
     .sort((a, b) => b.words - a.words || a.source.localeCompare(b.source))
     .slice(0, limit)
+}
+
+/** A prompt that asks a coding agent to review every startup source for one tool. */
+export function contextStartupPrompt(report: ContextReport, root?: string, budget?: number): string {
+  const startup = report.contributions.filter((c) => c.load === 'startup')
+  const lines = [
+    `Review everything ${report.target} loads at the start of every session, as ranked by agnostic-ai explain --context:`,
+    '',
+    `Target: ${report.target}`,
+    startupVerdict(report.startup, budget).text,
+    `Startup size: ${sizeText(report.startup)}`,
+  ]
+  if (root) lines.push(`Configuration root: ${root}`)
+  lines.push('Startup sources, largest first:', ...startup.map((c) => `- ${c.source} (${c.category}): ${sizeText(c)}, ${sharePercent(c.words, report.startup.words)}% of startup`))
+  if (report.opportunities.length > 0) lines.push(`Duplicated passages: ${report.opportunities.length} (see explain --context for the text).`)
+  lines.push(
+    '',
+    'Read each source. For every one, say whether it must load in every session, could load only for matching files (a rule with globs), only when a task needs it (a skill), or could go. Propose the smallest safe set of changes, largest saving first, with the tradeoff of each: a tool that would stop loading a rule, a built-in that would be turned off, or an instruction the team relies on. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.',
+    '',
+    `After the change, run agnostic-ai sync, then ${explainCommand(report.target, report.file)} to check the new counts. Words and bytes measure text size, not tokens; do not claim lower latency or cost.`,
+  )
+  return lines.join('\n')
 }

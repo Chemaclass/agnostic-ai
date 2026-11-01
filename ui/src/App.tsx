@@ -132,6 +132,7 @@ export default function App() {
       href: (patch) => serializeUrlState(nextState(state, patch)) || window.location.pathname,
       reload,
       overviewRevision: overview.loaded,
+      overview: overview.loaded?.data,
     }),
     [state, source, navigate, reload, overview.loaded],
   )

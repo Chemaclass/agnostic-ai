@@ -1,0 +1,23 @@
+import { describe, expect, it } from 'vitest'
+import type { OverviewView, TargetValue } from '../contract'
+import { modelLine } from './model-line'
+
+const resolved = (over: Partial<TargetValue>): TargetValue => ({ target: 'claude', label: 'Claude Code', checked: true, others: [], ...over })
+const overview = (model: TargetValue[], effort: TargetValue[]): OverviewView => ({
+  schemaVersion: '1', snapshot: {} as OverviewView['snapshot'], targets: [],
+  sections: [{ id: 'settings', label: 'Settings', question: '', order: 5, kinds: [], items: [], findings: [], support: [], fields: [
+    { key: 'model', label: 'Default model', description: '', set: [], resolved: model },
+    { key: 'effort', label: 'Reasoning effort', description: '', set: [], resolved: effort },
+  ] }],
+})
+
+describe('model line', () => {
+  it('says what sync writes for the tool, or that nothing is set', () => {
+    expect(modelLine(overview([resolved({})], [resolved({})]), 'claude')).toMatchObject({ unset: true, text: 'No default model or reasoning effort is set for Claude Code, so it uses its own defaults.' })
+    expect(modelLine(overview([resolved({ value: 'sonnet', alias: 'claude-sonnet-4-5' })], [resolved({ value: 'high' })]), 'claude')?.text).toBe('Model for Claude Code: sync writes sonnet (resolved from claude-sonnet-4-5). Reasoning effort: sync writes high.')
+    expect(modelLine(overview([resolved({ value: 'opus', tier: 'strong' })], [resolved({})]), 'claude')?.text).toBe('Model for Claude Code: sync writes opus (from model tier strong).')
+    expect(modelLine(overview([resolved({ dropped: 'no place for it' })], [resolved({ value: 'high' })]), 'claude')?.text).toBe('No default model is set for Claude Code. Reasoning effort: sync writes high.')
+    expect(modelLine(overview([resolved({})], [resolved({})]), 'codex')).toBeUndefined()
+    expect(modelLine(undefined, 'claude')).toBeUndefined()
+  })
+})

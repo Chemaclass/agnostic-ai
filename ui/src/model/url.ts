@@ -96,6 +96,11 @@ export function resolveDataSource(state: Pick<UrlState, 'mock' | 'source'>, defa
   return { kind: 'api' }
 }
 
+/** Context size can load its report: a running server or the bundled fixture, never a static snapshot. */
+export function contextUsageAvailable(source: DataSource): boolean {
+  return source.kind === 'api' || source.kind === 'mock'
+}
+
 export function staticOverviewUrl(base: string): string {
   return `${base}overview.json`
 }

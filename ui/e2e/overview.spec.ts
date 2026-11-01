@@ -64,7 +64,7 @@ test.describe('overview', () => {
       { ...instructions, path: 'local/AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/local/AGNOSTIC_AI.md', layer: 'global-local' },
     )
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-    await page.goto('/?view=context')
+    await page.goto('/?view=context&tab=guidance')
     const refine = page.getByRole('button', { name: /^Copy refine prompt/ })
     await expect(refine).toHaveCount(1)
     await expect(page.locator('.item-row', { hasText: 'local/AGNOSTIC_AI.md' }).getByRole('button', { name: /^Copy refine prompt/ })).toHaveCount(0)

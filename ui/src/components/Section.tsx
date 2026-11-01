@@ -20,7 +20,8 @@ import { addressKey, configOverride, originLabel, personalSetsWhole, personalVal
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
-import { entryTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
+import { entryTab, landingTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
+import { contextUsageAvailable } from '../model/url'
 import type { Remote } from './Shell'
 import { Select, Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
@@ -141,20 +142,12 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const tabs = sectionTabs(section)
   const nativeMatches = section.native?.filter((server) => matches(nativeSearchText(server))) ?? []
   const hasMatches = (tab: typeof tabs[number]) => tab.kinds.some((kind) => section.items.some((item) => item.kind === kind && matchingItems.has(item)) || kind === 'settings' && (fieldMatches?.length ?? 0) > 0) || tab.extra === 'native' && nativeMatches.length > 0
-  const firstPopulated = tabs.find((tab) => tab.extra === 'native' ? (section.native?.length ?? 0) > 0 : section.items.some((item) => tab.kinds.includes(item.kind)) || tab.kinds.includes('settings') && (section.fields?.some((field) => field.set.length > 0) ?? false))
   const active = entryTab(section, tabs, entry)
     ?? tabs.find((tab) => tab.id === app.state.tab)?.id
     ?? (query ? tabs.find(hasMatches)?.id : undefined)
-    ?? firstPopulated?.id
-    ?? tabs[0]?.id
+    ?? landingTab(section, tabs, contextUsageAvailable(app.source))
   const setSearch = (value: string) => app.navigate({ q: value || undefined, tab: value.trim() ? undefined : active }, { replace: true })
-  const selectTab = (tab: string) => app.navigate({ tab, entry: undefined, q: tab === 'usage' ? undefined : app.state.q })
-  const hasUsageTab = tabs.some((tab) => tab.extra === 'usage')
-  const staleSearch = hasUsageTab && active === 'usage' && !!app.state.q
-  // The Context size tab has no search box, so a query left in the address would filter other tabs with no way to clear it.
-  useEffect(() => {
-    if (staleSearch) app.navigate({ q: undefined }, { replace: true })
-  }, [staleSearch])
+  const selectTab = (tab: string) => app.navigate({ tab, entry: undefined, q: app.state.q })
   const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]
   const tabLabels = tabs.map((tab) => {
     const items = section.items.filter((item) => tab.kinds.includes(item.kind))
@@ -209,7 +202,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           <button type="button" className="button button-quiet" onClick={() => app.navigate({ entry: undefined }, { replace: true })}>Dismiss</button>
         </div>
       )}
-      {active !== 'usage' && <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
+      <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
         <div className="section-search-controls">
           <div className="section-search-input">
@@ -225,7 +218,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query ? `${matchCount} of ${totalCount} items${section.fields ? ' and fields' : ''} match.` : `${totalCount} items${section.fields ? ' and fields' : ''}`}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
-      </div>}
+      </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
       {errors > 0 && (
