@@ -188,7 +188,7 @@ outputs:
 - Fields a skill cannot carry, such as `tools` and `model`, are dropped with a note.
 - An [agent reference](@/docs/spec-format/_index.md#agent-and-skill-references) in skills, agents, and commands becomes that tool's skill phrase. A rule in a shared entry-point file such as `AGENTS.md` keeps the neutral phrase.
 - An agent and a skill with the same name would share a folder, so `validate` fails on them.
-- These four tools write `.agents/skills/`, which Codex, Copilot, Gemini, Cline, Cursor, OpenCode, and Junie read too, and several other tools with subagents write there. When one of those is enabled, sync keeps the agents out of that directory and names the tool. Set `outputs.<target>.skills-dir` to a separate directory to use this option beside them.
+- These four tools write `.agents/skills/`, which Codex, Copilot, Gemini, Cline, Cursor, OpenCode, Junie, and Qwen read too, and several other tools with subagents write there. When one of those is enabled, sync keeps the agents out of that directory and names the tool. Set `outputs.<target>.skills-dir` to a separate directory to use this option beside them.
 - The key cannot be combined with `rules-file` or, on Warp, `workflows-dir`. Other targets reject the key.
 
 ## `can` and `tools` support by target {#tools-support-by-target}

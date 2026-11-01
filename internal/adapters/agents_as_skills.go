@@ -34,9 +34,9 @@ func AgentsAsSkillsTarget(target string) bool { return subagentlessTargets[targe
 // wherever they write their own skills, and have subagents: codex,
 // copilot (copilot.go otherSkillsDirs), gemini (gemini.go), cline
 // (cline.go), cursor, which loads `.agents/skills` natively, and
-// opencode and junie (their target pages).
+// opencode and junie (their target pages), and qwen (its skills page).
 var agentsSkillsReaders = map[string]bool{
-	"cline": true, "codex": true, "copilot": true, "cursor": true, "gemini": true, "junie": true, "opencode": true,
+	"cline": true, "codex": true, "copilot": true, "cursor": true, "gemini": true, "junie": true, "opencode": true, "qwen": true,
 }
 
 // agentsInSkillsDir reports whether an agent sync writes as a skill lands

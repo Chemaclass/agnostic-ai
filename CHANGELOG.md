@@ -137,6 +137,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Import and sync keep MCP OAuth options, including private-network opt-in, without putting literal credentials in specs (#2809).
 
+#### Qwen Code
+
+- Import reads `.agents/skills/` as well as `.qwen/skills/`, and sync keeps agents-as-skills off that shared folder (#2931).
+- Agents written as skills by Amp, Crush, Warp or Zed stop when Qwen is on; set `outputs.<tool>.skills-dir` to a separate folder to keep them (#2931).
+
 #### Warp
 
 - Global sync writes voice enabled and language choices to the platform settings file, preserving the activation shortcut (#2836).

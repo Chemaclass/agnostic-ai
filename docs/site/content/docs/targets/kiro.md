@@ -29,7 +29,7 @@ For existing files, check [what `import kiro` reads](#import) before syncing.
 
 ## Verify
 
-Run `agnostic-ai sync --check` and find the commit-prefix rule in `.kiro/steering/conventional-commits.md` or the shared `AGENTS.md`. Open the project in Kiro. Confirm the steering rule or shared instructions are loaded, then ask for a commit subject for a small fix; it should use `fix:`.
+Run `agnostic-ai sync --check` and find the commit-prefix rule in `.kiro/steering/conventional-commits.md` or the shared `AGENTS.md`. Open the project in Kiro and trust the workspace if it asks (CLI 2.33 shows a trust screen before it loads workspace configuration). Confirm the steering rule or shared instructions are loaded, then ask for a commit subject for a small fix; it should use `fix:`.
 
 Next, [add a skill](@/docs/spec-format/skills.md).
 
