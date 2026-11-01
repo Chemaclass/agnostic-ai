@@ -1663,7 +1663,7 @@ input:hover {
   color: var(--text);
 }
 
-.editor-switch-option[aria-pressed='true'] {
+.editor-switch-option[aria-checked='true'] {
   background: var(--accent);
   color: var(--on-accent);
 }
@@ -1681,9 +1681,21 @@ input:hover {
   flex: none;
 }
 
-.editor-switch-option[aria-pressed='true'] .editor-switch-mark {
+.editor-switch-option[aria-checked='true'] .editor-switch-mark {
   background: currentColor;
   box-shadow: inset 0 0 0 2.5px var(--accent);
+}
+
+@media (forced-colors: active) {
+  .editor-switch-option[aria-checked='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .editor-switch-option[aria-checked='true'] .editor-switch-mark {
+    background: Highlight;
+    forced-color-adjust: none;
+  }
 }
 
 .editor-actions {

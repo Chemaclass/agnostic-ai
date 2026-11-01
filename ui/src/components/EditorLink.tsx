@@ -52,7 +52,7 @@ export function EditorChoice() {
   return (
     <div className="editor-choice" role="group" aria-labelledby={labelId}>
       <span id={labelId} className="editor-choice-label">Open files in</span>
-      <div className="editor-switch" onKeyDown={(event) => {
+      <div className="editor-switch" role="radiogroup" aria-labelledby={labelId} onKeyDown={(event) => {
         const index = EDITORS.findIndex((e) => e.id === editor)
         const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
         if (step === 0) return
@@ -62,7 +62,7 @@ export function EditorChoice() {
         ;(event.currentTarget.children[EDITORS.indexOf(next)] as HTMLButtonElement | undefined)?.focus()
       }}>
         {EDITORS.map((e) => (
-          <button key={e.id} type="button" className="editor-switch-option" aria-pressed={editor === e.id} tabIndex={editor === e.id ? 0 : -1} onClick={() => chooseEditor(e.id)}>
+          <button key={e.id} type="button" role="radio" className="editor-switch-option" aria-checked={editor === e.id} tabIndex={editor === e.id ? 0 : -1} onClick={() => chooseEditor(e.id)}>
             <span className="editor-switch-mark" aria-hidden="true" />
             <span>{e.label}</span>
           </button>

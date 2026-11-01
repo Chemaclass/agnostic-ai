@@ -45,8 +45,8 @@ test('keeps configuration and editor controls on the second phone header row', a
   await expect(editor).toHaveValue('vscode')
   await page.setViewportSize({ width: 1280, height: 900 })
   await expect(editor).toBeHidden()
-  await expect(choice.getByRole('button', { name: 'VS Code' })).toHaveAttribute('aria-pressed', 'true')
-  await choice.getByRole('button', { name: 'Cursor' }).click()
+  await expect(choice.getByRole('radio', { name: 'VS Code' })).toHaveAttribute('aria-checked', 'true')
+  await choice.getByRole('radio', { name: 'Cursor' }).click()
   await expect(page.getByRole('link', { name: 'Open testing in Cursor' })).toHaveAttribute('href', /^cursor:\/\/file\//)
 })
 
