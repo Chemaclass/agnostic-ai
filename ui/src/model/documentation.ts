@@ -27,6 +27,12 @@ export const DOC_TOPICS: Record<string, DocTopic> = {
   budget: { path: '/docs/configuration/#lint', label: 'context budgets' },
   support: { path: '/docs/target-behavior/', label: 'coding tool support' },
   findings: { path: '/docs/cli-reference/check/', label: 'configuration checks' },
+  targets: { path: '/docs/configuration/#targets', label: 'selecting coding tools' },
 }
 
 export const DOC_FALLBACK: DocTopic = { path: '/docs/spec-format/', label: 'specs' }
+
+/** The site page of one coding tool; the test checks every target id in the fixture. */
+export function targetDocPath(target: string): string {
+  return `/docs/targets/${target}/`
+}

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { DOC_FALLBACK, DOC_TOPICS, documentationUrl } from './documentation'
+import { DOC_FALLBACK, DOC_TOPICS, documentationUrl, targetDocPath } from './documentation'
 
 const content = fileURLToPath(new URL('../../../docs/site/content', import.meta.url))
 const EXTRA_PATHS = ['/docs/cli-reference/inspect/#serve']
@@ -45,5 +45,17 @@ describe('documentation links', () => {
       expect(doc.label).not.toMatch(/[–—]/)
     }
     expect(documentationUrl('/docs/spec-format/rules/')).toBe('https://agnostic-ai.org/docs/spec-format/rules/')
+  })
+
+  it('has a page for every coding tool the fixture lists', () => {
+    const fixture = JSON.parse(readFileSync(new URL('../fixtures/overview.mock.json', import.meta.url), 'utf8')) as { tools?: { items: { target: string }[] } }
+    const ids = fixture.tools?.items.map((tool) => tool.target) ?? []
+    expect(ids.length).toBeGreaterThan(20)
+    for (const id of ids) {
+      const path = targetDocPath(id)
+      expect(path).toMatch(/^\/docs\/targets\/[a-z]+\/$/)
+      expect(existsSync(pageFile(path)), `${path} has no page under docs/site/content`).toBe(true)
+    }
+    expect(documentationUrl(targetDocPath('claude'))).toBe('https://agnostic-ai.org/docs/targets/claude/')
   })
 })

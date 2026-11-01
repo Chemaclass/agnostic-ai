@@ -224,6 +224,8 @@ A likely typo of a built-in target, such as `cursr`, fails before any write. Any
 
 `init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
 
+The web interface lists every tool with a switch under **Settings**, **Coding tools**; see [serve](@/docs/cli-reference/inspect.md#serve).
+
 ## `sync`
 
 Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key. See [`sync`](@/docs/cli-reference/sync.md#sync) and [reading a failing `--check`](@/docs/cli-reference/sync.md#reading-a-failing---check).

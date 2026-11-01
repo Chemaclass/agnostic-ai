@@ -3,6 +3,7 @@ import { API, type ItemFinding, type NativeServer, type OverviewView, type Secti
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
+import { CodingTools } from './CodingTools'
 import { ContextUsage } from './ContextUsage'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAudience, usePageAudience, useViewAudience, type EditAudience } from './EditAudience'
@@ -20,6 +21,7 @@ import { addressKey, configOverride, originLabel, personalSetsWhole, personalVal
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
+import { toolCount } from '../model/coding-tools'
 import { entryTab, landingTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
@@ -154,6 +156,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     const fields = tab.kinds.includes('settings') ? section.fields ?? [] : []
     let count: string | number | undefined
     if (tab.extra === 'usage') count = undefined
+    else if (tab.extra === 'targets') { const c = toolCount(app.overview?.tools.items ?? [], audience ?? 'shared'); count = `${c.on} of ${c.total} on` }
     else if (query) {
       const matched = tab.extra === 'native' ? nativeMatches.length : items.filter((item) => matchingItems.has(item)).length + fields.filter((field) => fieldMatches?.includes(field)).length
       count = `${matched} match${matched === 1 ? '' : 'es'}`
@@ -271,6 +274,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         ? <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />
         : <section className="block"><SectionHeading topic="native">Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
       {panel.extra === 'usage' && <ContextUsage />}
+      {panel.extra === 'targets' && <CodingTools audienceControl={tabs.length < 2 || panel.id === active ? <EditAudienceSwitch /> : undefined} />}
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
@@ -826,7 +830,7 @@ function Tools({ listing }: { listing: ToolListing }) {
  * shows under the switch. Snapshots and the mock have no server, so the
  * switch only shows the value there.
  */
-function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on: boolean) => Promise<void> }) {
+function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on: boolean) => Promise<unknown> }) {
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
@@ -877,7 +881,7 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
 }
 
 /** Removes a personal override; the server refuses it when nothing is overridden. */
-function ResetAction({ label, reset }: { label: string; reset: () => Promise<void> }) {
+function ResetAction({ label, reset }: { label: string; reset: () => Promise<unknown> }) {
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()

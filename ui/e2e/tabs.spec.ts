@@ -159,7 +159,7 @@ test('retains a personal model draft and audience while changing Settings tabs',
   await selectTab(page, 'Preferences')
   await expect(personal).toHaveAttribute('aria-pressed', 'true')
   await expect(model).toHaveValue('opus')
-  await expect(page.getByRole('tabpanel', { includeHidden: true })).toHaveCount(3)
+  await expect(page.getByRole('tabpanel', { includeHidden: true })).toHaveCount(4)
   expect(edits).toEqual([])
 })
 
@@ -215,7 +215,7 @@ test('keeps every selected panel within a phone viewport', async ({ page }) => {
   for (const [view, tabs] of [
     ['context', ['Context size', 'Guidance', 'Rules', 'Agents', 'Skills']],
     ['tools', ['Configured servers', 'Found in tools', 'Environments']],
-    ['settings', ['Built-ins', 'Preferences', 'Config files']],
+    ['settings', ['Built-ins', 'Coding tools', 'Preferences', 'Config files']],
   ] as const) {
     await page.goto(`/?view=${view}`)
     for (const tab of tabs) {

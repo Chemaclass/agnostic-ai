@@ -42,4 +42,9 @@ describe('section tabs', () => {
     const tools = section({ id: 'tools', kinds: [{ kind: 'mcp', label: 'MCP servers', count: 0 }], native: [{ name: 'notion', holders: [] }] })
     expect(landingTab(tools, sectionTabs(tools), true)).toBe('native')
   })
+
+  it('keeps the coding tools tab in Settings even without items of its own', () => {
+    const settings = section({ id: 'settings', kinds: [{ kind: 'builtin', label: 'Built-ins', count: 1 }, { kind: 'config', label: 'Config files', count: 1 }] })
+    expect(sectionTabs(settings).map((tab) => tab.id)).toEqual(['builtins', 'targets', 'configuration'])
+  })
 })
