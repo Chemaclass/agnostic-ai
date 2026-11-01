@@ -3728,4 +3728,8 @@ html:has(.search-backdrop) {
   .select-control > .select-chevron {
     display: none;
   }
+
+  .context-advice-row > td {
+    border-inline-start: 3px solid CanvasText;
+  }
 }
