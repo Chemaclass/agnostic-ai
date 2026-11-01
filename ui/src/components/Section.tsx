@@ -51,7 +51,9 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
 
   return (
     <>
-      <PageHeader title={section.label} subtitle={section.question} />
+      <PageHeader title={section.label} subtitle={section.question}>
+        <SectionWarningsLine section={section} />
+      </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
           <ConfiguredTools.Provider value={data.targets}>
@@ -63,6 +65,29 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
         <SupportTable section={section} toolLabel={toolLabel} />
       </fieldset>
     </>
+  )
+}
+
+/** Opens the folded findings list that holds this heading, then moves focus to it. */
+export function revealFindings(findingsId: string) {
+  const heading = document.getElementById(findingsId)
+  if (!heading) return
+  const disclosure = heading.closest('details')
+  if (disclosure) disclosure.open = true
+  heading.scrollIntoView({ block: 'start' })
+  heading.focus({ preventScroll: true })
+}
+
+function SectionWarningsLine({ section }: { section: Section }) {
+  const errors = section.findings.filter((finding) => finding.severity === 'error').length
+  const warnings = section.findings.length - errors
+  if (errors > 0 || warnings === 0) return null
+  return (
+    <p className="section-warnings-line">
+      <Icon name="warning" />
+      <span>{warnings} warning{warnings === 1 ? '' : 's'}</span>
+      <button type="button" className="button button-quiet" onClick={() => revealFindings(`${section.id}-findings`)}>Review {warnings} finding{warnings === 1 ? '' : 's'}</button>
+    </p>
   )
 }
 
@@ -197,19 +222,11 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       </div>}
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
-      {section.findings.length > 0 && (
-        <div className={`section-findings-summary${errors ? ' has-errors' : ''}`} role={errors ? 'alert' : undefined}>
+      {errors > 0 && (
+        <div className="section-findings-summary has-errors" role="alert">
           <Icon name="warning" />
           <strong>{findingCounts}</strong>
-          <button type="button" className="button button-quiet" onClick={() => {
-            const heading = document.getElementById(findingsId)
-            if (heading) {
-              const disclosure = heading.closest('details')
-              if (disclosure) disclosure.open = true
-              heading.scrollIntoView({ block: 'start' })
-              heading.focus({ preventScroll: true })
-            }
-          }}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>
+          <button type="button" className="button button-quiet" onClick={() => revealFindings(findingsId)}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>
         </div>
       )}
       {errors > 0 && otherFindings}

@@ -18,6 +18,8 @@ test('folds section warnings while Review and finding links reveal them', async 
   const finding = warnings.locator('.finding')
   await expect(warnings).not.toHaveAttribute('open', '')
   await expect(finding).toBeHidden()
+  await expect(page.locator('.section-findings-summary')).toHaveCount(0)
+  await expect(page.locator('.page-header .section-warnings-line')).toContainText('1 warning')
   await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
   await expect(finding).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
@@ -33,6 +35,8 @@ test('keeps section errors visible without opening a disclosure', async ({ page 
   await page.goto('/?view=settings&tab=preferences')
   await expect(page.getByText('The session context exceeds its budget.', { exact: true })).toBeVisible()
   await expect(page.locator('.section-warnings')).toHaveCount(0)
+  await expect(page.getByRole('alert')).toContainText('1 error')
+  await expect(page.locator('.page-header .section-warnings-line')).toHaveCount(0)
 })
 
 test('shows the effective configuration once beside its source file links', async ({ page }) => {

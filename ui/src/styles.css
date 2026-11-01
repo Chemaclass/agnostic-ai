@@ -439,6 +439,26 @@ input:hover {
   outline: none;
 }
 
+.section-warnings-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+  color: var(--approval);
+  font-size: 13px;
+}
+
+.section-warnings-line .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.section-warnings-line .button {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
 .page-subtitle {
   font-size: 15px;
   color: var(--text-muted);

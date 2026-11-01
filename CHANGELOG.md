@@ -45,6 +45,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Context size is the first Context tab, explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address.
 - The Open files in control in the header is a pill switch with a filled selected editor, arrow keys, and no shift when the choice changes.
+- Section warnings show once, as a count under the page title with Review, instead of a banner on every tab; errors stay above the tabs.
 - Select controls use a shared, theme-aware chevron with room for labels and keyboard navigation.
 - Context size keeps the report area in place while a different coding tool loads, with placeholders instead of stale totals.
 - Phone headers keep configuration and editor controls together, and Settings tabs fit their labels and counts.
