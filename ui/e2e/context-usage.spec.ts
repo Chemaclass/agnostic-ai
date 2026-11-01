@@ -5,8 +5,6 @@ import { selectTab } from './helpers'
 const overview = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const contextView = JSON.parse(readFileSync(new URL('../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
 
-const FILE_PAUSE = 800
-
 test.describe('context size', () => {
   test('shows the mock duplicate with its sources, review prompt, and refresh', async ({ page, context }) => {
     await page.goto('/?mock=1')
@@ -147,7 +145,7 @@ test.describe('context size', () => {
     await panel.getByLabel('Coding tool').selectOption('copilot')
     await expect.poll(() => requests.at(-1)).toBe('?target=copilot')
     await expect(panel.getByLabel('Check against a file')).toBeDisabled()
-    await expect(panel.locator('.context-usage-file-hint')).toHaveText('copilot cannot check a single file.')
+    await expect(panel.locator('.context-usage-file-hint')).toHaveText('This page cannot check a single file for copilot.')
   })
 
   test('shows the reason for user configuration', async ({ page }) => {
@@ -171,10 +169,14 @@ test.describe('context size', () => {
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-usage-totals')).toBeVisible()
     const before = requests.length
-    await panel.getByLabel('Check against a file').pressSequentially('src/main.go', { delay: 40 })
-    await expect.poll(() => requests.slice(before).filter((search) => search.includes('file=')).length).toBe(1)
-    await page.waitForTimeout(FILE_PAUSE)
-    expect(requests.slice(before)).toEqual(['?target=claude&file=src%2Fmain.go'])
+    await page.clock.install()
+    await page.clock.pauseAt(Date.now() + 60_000)
+    const input = panel.getByLabel('Check against a file')
+    await input.pressSequentially('src/main.go', { delay: 40 })
+    await page.clock.runFor(499)
+    expect(requests.slice(before)).toEqual([])
+    await page.clock.runFor(1)
+    await expect.poll(() => requests.slice(before)).toEqual(['?target=claude&file=src%2Fmain.go'])
     await expect(page).toHaveURL(/tab=usage&target=claude&file=src%2Fmain\.go/)
     await page.reload()
     await expect(panel.getByLabel('Check against a file')).toHaveValue('src/main.go')
@@ -197,6 +199,38 @@ test.describe('context size', () => {
     await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
     await expect(page).not.toHaveURL(/target=|file=/)
     expect(requests).toEqual(['?target=gemini&file=src%2Fmain.go', ''])
+  })
+
+  test('keeps the address when the first load fails for another reason', async ({ page }) => {
+    const requests: string[] = []
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => {
+      requests.push(new URL(route.request().url()).search)
+      return route.fulfill({ status: 500, json: { error: 'a spec is half edited' } })
+    })
+    await page.goto('/?view=context&tab=usage&target=claude&file=src%2Fmain.go')
+    const panel = page.locator('section.context-usage')
+    await expect(panel.getByRole('alert')).toContainText('a spec is half edited')
+    await expect(page).toHaveURL(/target=claude&file=src%2Fmain\.go/)
+    expect(requests).toEqual(['?target=claude&file=src%2Fmain.go'])
+  })
+
+  test('keeps a trailing space in the file box after the request lands', async ({ page }) => {
+    const requests: string[] = []
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => {
+      requests.push(new URL(route.request().url()).search)
+      route.fulfill({ json: contextView })
+    })
+    await page.goto('/?view=context&tab=usage')
+    const panel = page.locator('section.context-usage')
+    await expect(panel.locator('.context-usage-totals')).toBeVisible()
+    const input = panel.getByLabel('Check against a file')
+    await input.pressSequentially('src/main.go ')
+    await expect.poll(() => requests.at(-1)).toBe('?target=claude&file=src%2Fmain.go')
+    await expect(page).toHaveURL(/file=src%2Fmain\.go(&|$)/)
+    await expect(panel.getByText(/^Checked .* for src\/main\.go\.$/)).toBeVisible()
+    await expect(input).toHaveValue('src/main.go ')
   })
 
   test('clears a search when the Context size tab opens', async ({ page }) => {

@@ -3,7 +3,7 @@
 // has none, so it only says what it needs.
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { loadContext } from '../api'
+import { loadContext, LoadError } from '../api'
 import { signed } from '../model/context-breakdown'
 import type { ContextOpportunity, ContextReport, ContextSize, ContextView } from '../contract'
 import { contextReviewPrompt, LOAD_CONDITIONS, LOAD_LABELS, sizeText } from '../model/context-prompt'
@@ -67,7 +67,8 @@ export function ContextUsage() {
       })
       .catch((err: unknown) => {
         if ((err as Error).name === 'AbortError' || controller.signal.aborted) return
-        if (!dropStale()) setError(err instanceof Error ? err : new Error('Could not load context size.'))
+        const refused = err instanceof LoadError && err.status === 400
+        if (!(refused && dropStale())) setError(err instanceof Error ? err : new Error('Could not load context size.'))
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
@@ -151,7 +152,7 @@ export function ContextUsage() {
             <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} aria-describedby={`${fileId}-hint`} onChange={(event) => setFileDraft(event.target.value)} />
           </div>
           <button type="submit" className="button" disabled={pending} title="Read the specs again">{pending ? 'Rereading…' : 'Reread specs'}</button>
-          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Name a file to add the scoped rules that match it. Results update as you type.' : `${selected || 'This tool'} cannot check a single file.`}</p>
+          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Name a file to add the scoped rules that match it. Results update as you type.' : `This page cannot check a single file for ${selected || 'this tool'}.`}</p>
         </form>
       )}
       <p ref={status} className="muted context-usage-status" role="status" style={{ minHeight: pending ? statusHeight : undefined }}>
