@@ -5,19 +5,21 @@ const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.j
 const total: number = fixture.tools.items.length
 const on: number = fixture.tools.items.filter((tool: { enabled: boolean }) => tool.enabled).length
 
-async function settings(page: Page, options: { source?: 'default' | 'shared' | 'personal'; status?: number; file?: string } = {}) {
+async function settings(page: Page, options: { source?: 'default' | 'shared' | 'personal'; status?: number; file?: string; delay?: number; detected?: string[]; query?: string } = {}) {
   const data = structuredClone(fixture)
   if (options.source) data.tools.source = options.source
+  for (const tool of data.tools.items) if (options.detected?.includes(tool.target)) tool.detected = true
   const sent: unknown[] = []
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
-  await page.route('**/api/edit/targets', (route) => {
+  await page.route('**/api/edit/targets', async (route) => {
     sent.push(route.request().postDataJSON())
+    if (options.delay) await new Promise((resolve) => setTimeout(resolve, options.delay))
     if (options.status && options.status >= 400) return route.fulfill({ status: options.status, json: { error: 'The list changed.' } })
     return route.fulfill({ json: { ok: true, file: options.file ?? 'agnostic-ai.yaml' } })
   })
   await page.addInitScript(() => window.localStorage.setItem('agnostic-ai.edit-scope', 'shared'))
-  await page.goto('/?view=settings&tab=targets')
+  await page.goto(options.query ?? '/?view=settings&tab=targets')
   return sent
 }
 
@@ -63,11 +65,18 @@ test.describe('coding tools', () => {
     await expect(page.getByRole('button', { name: 'Turn off', exact: true })).toBeFocused()
     await page.getByRole('button', { name: 'Keep on' }).click()
     await expect(confirm).toHaveCount(0)
+    await expect(page.locator('.coding-tool[data-target="cursor"]').getByRole('switch')).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(confirm).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(confirm).toHaveCount(0)
+    await expect(page.locator('.coding-tool[data-target="cursor"]').getByRole('switch')).toBeFocused()
     expect(sent.length).toBe(1)
     await page.locator('.coding-tool[data-target="cursor"]').getByRole('switch').click()
     await page.getByRole('button', { name: 'Turn off', exact: true }).click()
     await expect.poll(() => sent.length).toBe(2)
     expect(sent[1]).toEqual({ audience: 'shared', name: 'cursor', enabled: false, expected: true })
+    await expect(page.locator('.coding-tool[data-target="cursor"]').getByRole('switch')).toBeFocused()
   })
 
   test('offers reload when the save is stale', async ({ page }) => {
@@ -103,6 +112,39 @@ test.describe('coding tools', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.locator('.coding-tool[data-target="cursor"]').getByRole('switch').click()
     await expect(page.getByRole('group', { name: 'Turn off Cursor' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+
+  test('shows found in project only on tools that are off', async ({ page }) => {
+    await settings(page, { detected: ['claude', 'amp'] })
+    await expect(page.locator('.coding-tool[data-target="amp"]')).toContainText('found in project')
+    await expect(page.locator('.coding-tool[data-target="claude"]')).not.toContainText('found in project')
+  })
+
+  test('opens from page search and keeps the shown count after a save', async ({ page }) => {
+    await settings(page, { query: '/?view=settings&q=windsurf' })
+    await expect(page.getByRole('tab', { name: /^Coding tools/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.locator('.coding-tool')).toHaveCount(1)
+    await page.locator('.coding-tool[data-target="windsurf"]').getByRole('switch').click()
+    await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
+    await page.getByLabel('Filter tools').fill('c')
+    await expect(page.getByRole('status').filter({ hasText: 'tools shown' })).toContainText(`of ${total} tools shown`)
+  })
+
+  test('keeps the list in place while a switch saves', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await settings(page, { delay: 400 })
+    const place = (selector: string) => page.locator(selector).evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      return { x: box.x, y: box.y + window.scrollY, width: box.width, height: box.height }
+    })
+    const before = { list: await place('.coding-tools-list'), last: await place('.coding-tool:last-child') }
+    await page.locator('.coding-tool[data-target="amp"]').getByRole('switch').click()
+    await expect(page.locator('.coding-tool[data-target="amp"]').getByRole('switch')).toHaveAttribute('aria-busy', 'true')
+    expect(await place('.coding-tools-list')).toEqual(before.list)
+    await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
+    expect(await place('.coding-tools-list')).toEqual(before.list)
+    expect(await place('.coding-tool:last-child')).toEqual(before.last)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 })

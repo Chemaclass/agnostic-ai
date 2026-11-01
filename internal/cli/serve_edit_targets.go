@@ -54,9 +54,9 @@ func (h *editHandler) teamTargets() (list []string, listed bool, err error) {
 	return *set, true, nil
 }
 
-// setTarget switches one name in the targets list and refuses to leave
-// it empty.
-func setTarget(data []byte, name string, enabled bool) ([]byte, error) {
+// setTarget switches one name in the targets list and refuses to leave it
+// without a tool sync can write; names outside supported do not count.
+func setTarget(data []byte, name string, enabled bool, supported []string) ([]byte, error) {
 	out, err := setListMember(data, "targets", name, enabled)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func setTarget(data []byte, name string, enabled bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if list != nil && len(*list) == 0 {
+	if list != nil && !slices.ContainsFunc(*list, func(listed string) bool { return slices.Contains(supported, listed) }) {
 		return nil, errLastTarget
 	}
 	return out, nil
@@ -119,7 +119,7 @@ func (h *editHandler) targetsEdit(where editAudience, req targetsRequest) (strin
 					return nil, err
 				}
 			}
-			return setTarget(data, req.name, req.enabled)
+			return setTarget(data, req.name, req.enabled, h.supportedTargetNames())
 		}, nil
 	}
 	if err := h.checkPersonalTarget(local); err != nil {
@@ -158,7 +158,7 @@ func (h *editHandler) targetsEdit(where editAudience, req targetsRequest) (strin
 					return nil, err
 				}
 			}
-			if out, err = setTarget(data, req.name, req.enabled); err != nil {
+			if out, err = setTarget(data, req.name, req.enabled, h.supportedTargetNames()); err != nil {
 				return nil, err
 			}
 			if personal, err = configList(out, "targets"); err != nil {
@@ -194,6 +194,10 @@ func (h *editHandler) checkTargetsExpected(name string, reset bool, raw json.Raw
 		if personal != nil {
 			list = *personal
 		}
+	}
+	if reset {
+		supported := h.supportedTargetNames()
+		list = slices.DeleteFunc(slices.Clone(list), func(listed string) bool { return !slices.Contains(supported, listed) })
 	}
 	return checkListExpected(list, "coding tools", name, reset, raw)
 }

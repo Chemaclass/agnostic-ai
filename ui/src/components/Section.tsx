@@ -21,7 +21,7 @@ import { addressKey, configOverride, originLabel, personalSetsWhole, personalVal
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
-import { toolCount } from '../model/coding-tools'
+import { filterTools, toolCount } from '../model/coding-tools'
 import { entryTab, landingTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
@@ -143,7 +143,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === pendingPlace || itemEntryId(item) === rechecked?.place)
   const tabs = sectionTabs(section)
   const nativeMatches = section.native?.filter((server) => matches(nativeSearchText(server))) ?? []
-  const hasMatches = (tab: typeof tabs[number]) => tab.kinds.some((kind) => section.items.some((item) => item.kind === kind && matchingItems.has(item)) || kind === 'settings' && (fieldMatches?.length ?? 0) > 0) || tab.extra === 'native' && nativeMatches.length > 0
+  const toolMatches = query ? filterTools(app.overview?.tools.items ?? [], query, false, audience ?? 'shared').length : 0
+  const hasMatches = (tab: typeof tabs[number]) => tab.kinds.some((kind) => section.items.some((item) => item.kind === kind && matchingItems.has(item)) || kind === 'settings' && (fieldMatches?.length ?? 0) > 0) || tab.extra === 'native' && nativeMatches.length > 0 || tab.extra === 'targets' && toolMatches > 0
   const active = entryTab(section, tabs, entry)
     ?? tabs.find((tab) => tab.id === app.state.tab)?.id
     ?? (query ? tabs.find(hasMatches)?.id : undefined)
@@ -156,11 +157,11 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     const fields = tab.kinds.includes('settings') ? section.fields ?? [] : []
     let count: string | number | undefined
     if (tab.extra === 'usage') count = undefined
-    else if (tab.extra === 'targets') { const c = toolCount(app.overview?.tools.items ?? [], audience ?? 'shared'); count = `${c.on} of ${c.total} on` }
     else if (query) {
-      const matched = tab.extra === 'native' ? nativeMatches.length : items.filter((item) => matchingItems.has(item)).length + fields.filter((field) => fieldMatches?.includes(field)).length
+      const matched = tab.extra === 'native' ? nativeMatches.length : tab.extra === 'targets' ? toolMatches : items.filter((item) => matchingItems.has(item)).length + fields.filter((field) => fieldMatches?.includes(field)).length
       count = `${matched} match${matched === 1 ? '' : 'es'}`
     }
+    else if (tab.extra === 'targets') { const c = toolCount(app.overview?.tools.items ?? [], audience ?? 'shared'); count = `${c.on} of ${c.total} on` }
     else if (tab.extra === 'native') count = section.native?.length ?? 0
     else if (tab.kinds.includes('builtin')) count = `${items.filter((item) => builtinEnabled(item, audience)).length} on`
     else if (tab.kinds.includes('settings')) count = `${fields.filter((field) => sourcesForAudience(field.set, audience).length > 0).length} set`

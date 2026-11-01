@@ -3,6 +3,7 @@ package cli
 import (
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,12 +26,12 @@ func TestEditTargets_SwitchesTheSharedListAndKeepsComments(t *testing.T) {
 		status                   int
 	}{
 		{"turn off keeps the comment", "# Keep me.\nversion: 1\ntargets:\n  - claude # main\n  - codex\n", `{"audience":"shared","name":"codex","enabled":false,"expected":true}`, "# Keep me.\nversion: 1\ntargets:\n  - claude # main\n", http.StatusOK},
-		{"turn on appends a block item", "version: 1\ntargets:\n  - claude\n", `{"audience":"shared","name":"cursor","enabled":true,"expected":false}`, "targets:\n  - claude\n  - cursor\n", http.StatusOK},
-		{"flow list", "version: 1\ntargets: [claude, codex]\n", `{"audience":"shared","name":"cursor","enabled":true,"expected":false}`, "targets: [claude, codex, cursor]\n", http.StatusOK},
-		{"last tool stays on", "version: 1\ntargets: [claude]\n", `{"audience":"shared","name":"claude","enabled":false,"expected":true}`, "targets: [claude]\n", http.StatusBadRequest},
-		{"unknown name", "version: 1\ntargets: [claude]\n", `{"audience":"shared","name":"cursr","enabled":true,"expected":false}`, "targets: [claude]\n", http.StatusBadRequest},
-		{"stale state", "version: 1\ntargets: [claude]\n", `{"audience":"shared","name":"claude","enabled":true,"expected":false}`, "targets: [claude]\n", http.StatusConflict},
-		{"external name is kept", "version: 1\ntargets: [claude, mytool]\n", `{"audience":"shared","name":"codex","enabled":true,"expected":false}`, "targets: [claude, mytool, codex]\n", http.StatusOK},
+		{"turn on appends a block item", "version: 1\ntargets:\n  - claude\n", `{"audience":"shared","name":"cursor","enabled":true,"expected":false}`, "version: 1\ntargets:\n  - claude\n  - cursor\n", http.StatusOK},
+		{"flow list", "version: 1\ntargets: [claude, codex]\n", `{"audience":"shared","name":"cursor","enabled":true,"expected":false}`, "version: 1\ntargets: [claude, codex, cursor]\n", http.StatusOK},
+		{"last tool stays on", "version: 1\ntargets: [claude]\n", `{"audience":"shared","name":"claude","enabled":false,"expected":true}`, "version: 1\ntargets: [claude]\n", http.StatusBadRequest},
+		{"unknown name", "version: 1\ntargets: [claude]\n", `{"audience":"shared","name":"cursr","enabled":true,"expected":false}`, "version: 1\ntargets: [claude]\n", http.StatusBadRequest},
+		{"stale state", "version: 1\ntargets: [claude]\n", `{"audience":"shared","name":"claude","enabled":true,"expected":false}`, "version: 1\ntargets: [claude]\n", http.StatusConflict},
+		{"external name is kept", "version: 1\ntargets: [claude, mytool]\n", `{"audience":"shared","name":"codex","enabled":true,"expected":false}`, "version: 1\ntargets: [claude, mytool, codex]\n", http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, h := targetsProject(t, tc.config)
@@ -38,8 +39,8 @@ func TestEditTargets_SwitchesTheSharedListAndKeepsComments(t *testing.T) {
 			if rec.Code != tc.status {
 				t.Fatalf("status = %d, want %d: %s", rec.Code, tc.status, rec.Body)
 			}
-			if got := readOptional(t, "agnostic-ai.yaml"); !strings.Contains(got, tc.want) {
-				t.Errorf("config:\n%s\nwant it to contain %q", got, tc.want)
+			if got := readOptional(t, "agnostic-ai.yaml"); got != tc.want {
+				t.Errorf("config:\n%s\nwant:\n%s", got, tc.want)
 			}
 		})
 	}
@@ -141,5 +142,53 @@ func TestEditTargets_GlobalWritesTheHomeConfigAndRefusesProjectOnlyTools(t *test
 	}
 	if rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"ellipsis","enabled":true,"expected":false}`, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "sync --global cannot write") {
 		t.Errorf("project-only tool = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEditTargets_LastSupportedToolStaysOn(t *testing.T) {
+	_, h := targetsProject(t, "version: 1\ntargets: [claude, mytool]\n")
+	rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"claude","enabled":false,"expected":true}`, nil)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "keep at least one coding tool on") {
+		t.Errorf("project = %d, want 400 naming the rule: %s", rec.Code, rec.Body)
+	}
+	if got := readOptional(t, "agnostic-ai.yaml"); got != "version: 1\ntargets: [claude, mytool]\n" {
+		t.Errorf("config changed:\n%s", got)
+	}
+
+	silence(t)
+	source := editHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, aider]\n")
+	rec = postEdit(t, newEditHandler(source, true), editTargetsPath, `{"audience":"shared","name":"claude","enabled":false,"expected":true}`, nil)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "keep at least one coding tool on") {
+		t.Errorf("global = %d, want 400 naming the rule: %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEditTargets_ResetIgnoresNamesThePanelDoesNotShow(t *testing.T) {
+	_, h := targetsProject(t, "version: 1\ntargets: [claude, codex]\n")
+	mustWrite(t, "agnostic-ai.local.yaml", "targets: [claude, mytool]\n")
+	rec := postEdit(t, h, editTargetsPath, `{"audience":"personal","reset":true,"expected":["claude"]}`, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reset = %d %s", rec.Code, rec.Body)
+	}
+	if strings.Contains(readOptional(t, "agnostic-ai.local.yaml"), "targets") {
+		t.Errorf("personal list kept:\n%s", readOptional(t, "agnostic-ai.local.yaml"))
+	}
+}
+
+func TestEditTargets_OffThenOnRestoresAConfigWithNoTargetsKey(t *testing.T) {
+	const original = "# Head.\nversion: 1\n"
+	_, h := targetsProject(t, original)
+	if rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"cursor","enabled":false,"expected":true}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("off = %d %s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(readOptional(t, "agnostic-ai.yaml"), "targets:") {
+		t.Fatalf("turning a default tool off wrote no list:\n%s", readOptional(t, "agnostic-ai.yaml"))
+	}
+	if rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"cursor","enabled":true,"expected":false}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("on = %d %s", rec.Code, rec.Body)
+	}
+	if got := readOptional(t, "agnostic-ai.yaml"); got != original {
+		t.Errorf("config after off and on:\n%s\nwant the original:\n%s", got, original)
 	}
 }

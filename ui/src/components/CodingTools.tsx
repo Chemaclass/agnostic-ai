@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { EditError, postEdit } from '../api'
 import { API, type ToolCatalog, type ToolChoice } from '../contract'
 import { filterTools, offConsequence, saveHint, toolCount, toolOn } from '../model/coding-tools'
@@ -17,7 +17,9 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
   const catalog = app.overview?.tools ?? emptyCatalog
   const global = app.overview?.global === true
   const audience = useViewAudience() ?? 'shared'
-  const [query, setQuery] = useState('')
+  const pageQuery = app.state.q ?? ''
+  const [query, setQuery] = useState(pageQuery)
+  useEffect(() => setQuery(pageQuery), [pageQuery])
   const [onlyOn, setOnlyOn] = useState(false)
   const [saved, setSaved] = useState<Saved | undefined>()
   const filterId = useId()
@@ -41,11 +43,11 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
       {!live && <p className="muted">Switches need a running <Code>agnostic-ai serve</Code>; this view only shows the list.</p>}
       <div className="coding-tools-filter" role="search" aria-label="Filter coding tools">
         <label htmlFor={filterId}>Filter tools</label>
-        <input id={filterId} type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name or vendor" />
-        <label className="coding-tools-only-on"><input type="checkbox" checked={onlyOn} onChange={(event) => setOnlyOn(event.target.checked)} /> On only</label>
+        <input id={filterId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSaved(undefined) }} placeholder="Name or vendor" />
+        <label className="coding-tools-only-on"><input type="checkbox" checked={onlyOn} onChange={(event) => { setOnlyOn(event.target.checked); setSaved(undefined) }} /> On only</label>
       </div>
       <p className="muted coding-tools-status" role="status" aria-live="polite">
-        {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}. Run <Code>{command}</Code> to apply the change.</> : `${visible.length} of ${count.total} tools shown.`}
+        {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}. Run <Code>{command}</Code> to apply the change.{global ? '' : ' A running sync --watch applies it on its own.'}</> : `${visible.length} of ${count.total} tools shown.`}
       </p>
       {catalog.items.length === 0 ? <p className="muted">No coding tools listed.</p> : visible.length === 0 ? <p className="muted">No tool matches.</p> : (
         <ul className="coding-tools-list">
@@ -65,7 +67,7 @@ function ToolRow({ tool, on, audience, global, live, onSaved }: { tool: ToolChoi
         <span className="coding-tool-name">{tool.label} <code className="muted">{tool.target}</code></span>
         <span className="muted coding-tool-description">
           {tool.description}
-          {tool.detected && <Badge tone="info" muted title="The project already holds this tool's own files">found in project</Badge>}
+          {tool.detected && !on && <Badge tone="info" muted title="The project already holds this tool's own files">found in project</Badge>}
           {tool.local && audience === 'personal' && <Badge tone="accent" muted title="Your personal list decides this tool">personal</Badge>}
         </span>
       </div>
@@ -85,6 +87,8 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
   const reloadBasis = useRef<object | undefined>(undefined)
   const waitingForReload = useRef(false)
   const confirmButton = useRef<HTMLButtonElement>(null)
+  const toggleButton = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
   useEffect(() => {
     if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
       waitingForReload.current = false
@@ -94,8 +98,17 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
   }, [app.overviewRevision])
   useEffect(() => {
     if (confirming) confirmButton.current?.focus()
-  }, [confirming])
+    else if (refocus.current && !pending) {
+      refocus.current = false
+      toggleButton.current?.focus()
+    }
+  }, [confirming, pending])
+  const cancel = () => {
+    refocus.current = true
+    setConfirming(false)
+  }
   const save = async (enabled: boolean) => {
+    refocus.current = true
     setPending(true)
     setError(undefined)
     setConfirming(false)
@@ -117,12 +130,12 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
   }
   return (
     <span className="edit-switch coding-tool-switch">
-      <Toggle on={choice ?? on} label={`${tool.label} coding tool`} pending={pending} disabled={choice !== undefined || confirming} onToggle={toggle} />
+      <Toggle ref={toggleButton} on={choice ?? on} label={`${tool.label} coding tool`} pending={pending} disabled={choice !== undefined || confirming} onToggle={toggle} />
       {confirming && (
-        <span className="coding-tool-confirm" role="group" aria-label={`Turn off ${tool.label}`}>
+        <span className="coding-tool-confirm" role="group" aria-label={`Turn off ${tool.label}`} onKeyDown={(event: KeyboardEvent) => { if (event.key === 'Escape') cancel() }}>
           <span>{offConsequence(tool.label, global)}</span>
           <button ref={confirmButton} type="button" className="button button-quiet" onClick={() => { void save(false) }}>Turn off</button>
-          <button type="button" className="button button-quiet" onClick={() => setConfirming(false)}>Keep on</button>
+          <button type="button" className="button button-quiet" onClick={cancel}>Keep on</button>
         </span>
       )}
       {error && (

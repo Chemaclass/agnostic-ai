@@ -50,6 +50,7 @@ func TestEditScope_FirstPersonalSaveStaysOutOfGit(t *testing.T) {
 		{"scalar field", editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, ".agnostic-ai/local/settings/defaults.yaml"},
 		{"boolean value", editValuePath, `{"audience":"personal","path":".agnostic-ai/settings/native.yaml","key":"x-claude.verbose","value":true}`, ".agnostic-ai/local/settings/native.yaml"},
 		{"built-in", editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true}`, "agnostic-ai.local.yaml"},
+		{"coding tool", editTargetsPath, `{"audience":"personal","name":"codex","enabled":true,"expected":false}`, "agnostic-ai.local.yaml"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			project := gitScopeProject(t)
