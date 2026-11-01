@@ -300,3 +300,53 @@ func TestUpgradeRequires_EmptyTargetsWarnsOnStderrAndSkipsSync(t *testing.T) {
 	}
 	assertAbsent(t, filepath.Join(".claude", "rules", "safe.md"))
 }
+
+func TestSyncCheck_EmptyTargetsWithoutLedgerCannotPass(t *testing.T) {
+	dir := syncedEmptyTargetsProject(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	git(t, dir, "add", "-f", ".claude/rules/style.md")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
+	if err := os.Remove(emptyTargetsStatePath); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err == nil {
+		t.Errorf("check passed without a ledger:\n%s", out)
+	}
+}
+
+func TestSyncCheck_EmptyTargetsReportsCorruptLedger(t *testing.T) {
+	syncedEmptyTargetsProject(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
+	writeFile(t, emptyTargetsStatePath, "{")
+	if out, err := runCLI(t, "sync", "--check"); err == nil || !strings.Contains(err.Error(), "does not parse") {
+		t.Errorf("check did not report corrupt ledger: %v\n%s", err, out)
+	}
+}
+
+func TestSyncCheckAgainst_EmptyTargetsCannotPassWithoutLedger(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: []\n")
+	git(t, dir, "add", "agnostic-ai.yaml")
+	for _, ref := range []string{"index", "HEAD"} {
+		if ref == "HEAD" {
+			git(t, dir, "commit", "-q", "-m", "empty targets")
+		}
+		if out, _, err := checkAgainst(t, ref); err == nil {
+			t.Errorf("--against %s passed with tracked outputs:\n%s", ref, out)
+		}
+	}
+}
+
+func TestSyncCheckAgainst_EmptyTargetsWithoutOutputsPasses(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: []\n")
+	if out, err := runCLI(t, "sync", "--allow-empty-targets"); err != nil {
+		t.Fatalf("remove outputs: %v\n%s", err, out)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "remove outputs")
+	if out, stderr, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Errorf("check with no outputs: %v\n%s\n%s", err, out, stderr)
+	}
+}

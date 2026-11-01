@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/term"
@@ -34,14 +35,22 @@ func warnEmptyTargetsIgnoring(w io.Writer) {
 // generatedFilesKept reports whether the last sync recorded a file that is
 // still on disk, apart from the project's own .agnostic-ai folder. With an empty targets list sync keeps these files, so
 // --check cannot say they are current.
-func generatedFilesKept() bool {
-	for _, p := range readLedger(".").state.Outputs {
+func generatedFilesKept(cfg *config.Config, ledger ledgerSnapshot) bool {
+	for _, p := range ledger.state.Outputs {
 		if p == ".agnostic-ai" || strings.HasPrefix(p, ".agnostic-ai/") {
 			continue
 		}
 		if _, err := os.Lstat(p); err == nil {
 			return true
 		}
+	}
+	if ledger.missing() {
+		all := cfg.WithAdditionalTargets(adapters.Names()...)
+		rep := unledgeredReport(all, nil, ledger.state, true, func(p string) bool {
+			fi, err := os.Lstat(p)
+			return err == nil && fi.Mode().IsRegular() && !cfg.IsUnmanaged(p)
+		})
+		return rep.hasDrift()
 	}
 	return false
 }
@@ -51,9 +60,13 @@ func errEmptyTargetsCheck() error {
 }
 
 // writeEmptyTargetsJSON answers `sync --json` for an empty targets list.
-func writeEmptyTargetsJSON(cmd *cobra.Command, command string) error {
+func writeEmptyTargetsJSON(cmd *cobra.Command, command string, failed bool) error {
+	out := jsonOutput{Version: "1", Command: command}
+	if failed {
+		out.addError(errEmptyTargetsCheck())
+	}
 	return writeIndentedJSON(cmd, syncJSONOutput{
-		jsonOutput{Version: "1", Command: command}.forOutput(),
+		out.forOutput(),
 		syncDrops{
 			Warnings: []dropRecord{{Target: "agnostic-ai", Message: emptyTargetsWarning, Suggestion: "agnostic-ai sync --allow-empty-targets"}},
 			Notes:    []dropRecord{},

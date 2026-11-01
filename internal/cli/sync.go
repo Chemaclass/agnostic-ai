@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"slices"
+	"strings"
 	"syscall"
 	"time"
 
@@ -140,6 +141,31 @@ func newSyncCmd() *cobra.Command {
 				return err
 			}
 			if noTargetsKept(cfg) && !allowEmptyTargets && !watch {
+				kept := false
+				if check {
+					ledger := readLedger(".")
+					if tree == nil {
+						if err := ledger.checkError(); err != nil {
+							return err
+						}
+					}
+					kept = generatedFilesKept(cfg, ledger)
+					if tree == nil && ledger.missing() {
+						kept = true
+					}
+					if tree != nil {
+						dropped, _, err := tree.droppedOutputs(false, nil)
+						if err != nil {
+							return err
+						}
+						for _, p := range dropped {
+							if p != ".agnostic-ai" && !strings.HasPrefix(p, ".agnostic-ai/") {
+								kept = true
+							}
+						}
+
+					}
+				}
 				if jsonOut {
 					command := "sync"
 					switch {
@@ -150,15 +176,15 @@ func newSyncCmd() *cobra.Command {
 					case dryRun:
 						command = "sync --dry-run"
 					}
-					if err := writeEmptyTargetsJSON(cmd, command); err != nil {
+					if err := writeEmptyTargetsJSON(cmd, command, check && kept); err != nil {
 						return err
 					}
-					if check && generatedFilesKept() {
+					if check && kept {
 						return errEmptyTargetsCheck()
 					}
 					return nil
 				}
-				if check && generatedFilesKept() {
+				if check && kept {
 					if format == checkFormatGitHub {
 						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "::error::%s\n", githubData(errEmptyTargetsCheck().Error()))
 					}
