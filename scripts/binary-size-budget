@@ -743,5 +743,7 @@
 # release flags, 8192 over main. Rounded up to a multiple of 4096.
 # Follow-up to #2913: LINT055 reads the base config to word its message by
 # the shared value kind. Measured 24567968 after #2893; adds 4096 over main.
-# #(this PR) measured 24588448 on Go 1.27.3: context size advice and the editor switch grow the embedded UI. Adds 16544 over the previous budget.
+# The Context size PR measured 24588448 on Go 1.27.3: context size advice and
+# the editor switch grow the embedded UI. The budget rises by 28672
+# (24600576 minus 24571904).
 24600576
