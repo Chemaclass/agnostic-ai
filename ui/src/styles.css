@@ -1698,18 +1698,13 @@ input:hover {
 
 .editor-settings-input {
   width: 100%;
-  min-height: 36px;
-  padding: 6px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  color: var(--text);
-  font: 13px/1.5 var(--font-mono);
+  font-family: var(--font-mono);
+  font-size: 13px;
 }
 
-.editor-settings-error {
-  color: var(--blocked);
-  font-weight: 600;
+.editor-settings .editor-settings-error {
+  max-width: none;
+  text-align: left;
 }
 
 .editor-settings-example code {
@@ -2997,7 +2992,7 @@ tr.is-advised > td {
 
   .topbar-context {
     order: 3;
-    flex: 1 1 calc(100% - 132px);
+    flex: 1 1 100%;
     width: auto;
     justify-content: space-between;
     gap: 8px 12px;

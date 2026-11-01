@@ -16,7 +16,7 @@ export const DEFAULT_EDITOR: EditorId = 'cursor'
 export const TEMPLATE_MAX = 512
 
 /** Schemes that run code or read local content instead of opening an editor. */
-export const BLOCKED_SCHEMES = ['javascript', 'data', 'vbscript', 'file', 'blob', 'about']
+export const BLOCKED_SCHEMES = ['javascript', 'data', 'vbscript', 'file', 'blob', 'about', 'filesystem', 'view-source', 'intent', 'ms-msdt', 'search-ms']
 
 export function parseEditor(value: unknown): EditorId {
   return EDITORS.some((e) => e.id === value) ? (value as EditorId) : DEFAULT_EDITOR
@@ -30,8 +30,8 @@ export function editorLabel(editor: EditorId): string {
 export function validateTemplate(template: string): string | undefined {
   const value = template.trim()
   if (value.length < 1) return 'Enter a link template.'
-  if (value.length > TEMPLATE_MAX) return `Keep the template under ${TEMPLATE_MAX} characters.`
-  if (/[\s\u0000-\u001f\u007f]/.test(value)) return 'The template cannot contain spaces.'
+  if (value.length > TEMPLATE_MAX) return `Keep the template to ${TEMPLATE_MAX} characters or fewer.`
+  if (/[\s\u0000-\u001f\u007f]/.test(value)) return 'The template cannot contain spaces or control characters.'
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value)?.[1]
   if (!scheme) return 'Start with a scheme, such as windsurf://file{path}.'
   if (BLOCKED_SCHEMES.includes(scheme.toLowerCase())) return 'That scheme cannot open an editor.'
@@ -53,8 +53,11 @@ function lineNumber(line?: number): number | undefined {
 /** Fills a valid template. Without a line, {line} and one ":" before it are removed. */
 export function templateUrl(template: string, path: string, line?: number): string {
   const known = lineNumber(line)
-  const filled = template.trim().replace(/\{path\}/g, () => encodedFilePath(path))
-  return known === undefined ? filled.replace(/:?\{line\}/g, '') : filled.replace(/\{line\}/g, String(known))
+  const queryPath = encodedFilePath(path).replace(/[&=+;]/g, encodeURIComponent)
+  const filled = template.trim().replace(/\{path\}/g, () => queryPath)
+  if (known !== undefined) return filled.replace(/\{line\}/g, String(known))
+  const scheme = /^[a-z][a-z0-9+.-]*:/i.exec(filled)?.[0] ?? ''
+  return scheme + filled.slice(scheme.length).replace(/:?\{line\}/g, '')
 }
 
 /** The editor Open links use: a custom choice with a broken template falls back to the default. */

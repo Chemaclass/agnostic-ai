@@ -22,6 +22,8 @@ test('keeps the configuration control on the second phone header row', async ({ 
     await expect(configuration).toBeInViewport()
     const headerBox = await header.boundingBox()
     const configurationBox = await configuration.boundingBox()
+    const brandBox = await header.locator('.brand').boundingBox()
+    expect(configurationBox!.y).toBeGreaterThanOrEqual(brandBox!.y + brandBox!.height)
     expect(headerBox!.height).toBeLessThanOrEqual(160)
     expect(await header.locator('.brand-name').evaluate((element) => {
       const range = document.createRange()
@@ -31,7 +33,6 @@ test('keeps the configuration control on the second phone header row', async ({ 
     expect(configurationBox!.height).toBeGreaterThanOrEqual(44)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
   }
-
 })
 
 test('keeps global configuration context and the project switch compact on phones', async ({ page }) => {

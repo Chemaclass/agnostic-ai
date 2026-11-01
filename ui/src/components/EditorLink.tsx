@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from 'react'
-import { copyablePath, DEFAULT_EDITOR, editorLabel, editorUrl, effectiveEditor, parseEditor, type EditorId } from '../model/editor'
+import { copyablePath, CUSTOM_EDITOR, DEFAULT_EDITOR, editorLabel, editorUrl, effectiveEditor, parseEditor, type EditorId } from '../model/editor'
 import { AppLink, useApp } from './app-context'
 import { CopyButton, Icon } from './ui'
 
@@ -28,7 +28,7 @@ function readChoice(): Choice {
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
   const onStorage = (event: StorageEvent) => {
-    if (event.key !== STORAGE_KEY && event.key !== TEMPLATE_KEY) return
+    if (event.key !== null && event.key !== STORAGE_KEY && event.key !== TEMPLATE_KEY) return
     snapshot = undefined
     listener()
   }
@@ -63,11 +63,6 @@ export function useEditorChoice(): Choice {
   return useSyncExternalStore(subscribe, readChoice, () => serverChoice)
 }
 
-export function useEditor(): EditorId {
-  const { editor, template } = useEditorChoice()
-  return effectiveEditor(editor, template)
-}
-
 export function OpenInEditor({ path, line, label, compact, shownPath }: { path?: string; line?: number; label: string; compact?: boolean; shownPath?: string }) {
   const app = useApp()
   const { editor: chosen, template } = useEditorChoice()
@@ -87,13 +82,17 @@ export function OpenInEditor({ path, line, label, compact, shownPath }: { path?:
       </span>
     )
   }
-  const name = editorLabel(editor)
+  const name = editor === CUSTOM_EDITOR ? 'your editor' : editorLabel(editor)
+  const href = editorUrl(editor, path, line, template)
+  const newTab = /^https?:/i.test(href)
   const where = line ? ` at line ${line}` : ''
   return (
     <span className="editor-actions">
       <a
         className="button button-quiet editor-open"
-        href={editorUrl(editor, path, line, template)}
+        href={href}
+        target={newTab ? '_blank' : undefined}
+        rel={newTab ? 'noopener noreferrer' : undefined}
         aria-label={`Open ${label} in ${name}${where}`}
         title={`Open in ${name}${where}`}
         onClick={() => setAttempted(true)}

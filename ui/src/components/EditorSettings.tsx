@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { CUSTOM_EDITOR, EDITORS, parseEditor, templateUrl, validateTemplate } from '../model/editor'
 import { useApp } from './app-context'
 import { chooseEditor, chooseTemplate, useEditorChoice } from './EditorLink'
@@ -12,9 +12,12 @@ export function EditorSettings() {
   const app = useApp()
   const { editor, template, saveFailed } = useEditorChoice()
   const id = useId()
+  const [touched, setTouched] = useState(false)
+  const [announced, setAnnounced] = useState('')
   if (app.source.kind !== 'api') return null
   const custom = editor === CUSTOM_EDITOR
-  const error = custom ? validateTemplate(template) : undefined
+  const problem = custom ? validateTemplate(template) : undefined
+  const error = touched ? problem : undefined
   const helpId = `${id}-help`
   const errorId = `${id}-error`
   return (
@@ -37,14 +40,22 @@ export function EditorSettings() {
             autoComplete="off"
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? `${helpId} ${errorId}` : helpId}
-            onChange={(event) => chooseTemplate(event.target.value)}
+            onChange={(event) => {
+              const next = event.target.value
+              const nextProblem = validateTemplate(next)
+              setTouched(true)
+              if ((nextProblem === undefined) !== (problem === undefined)) setAnnounced(nextProblem ?? '')
+              chooseTemplate(next)
+            }}
+            onBlur={() => { setTouched(true); setAnnounced(problem ?? '') }}
           />
           <p id={helpId} className="muted">Use {'{path}'} for the file and {'{line}'} for the line. Example: windsurf://file{'{path}'}:{'{line}'}</p>
           {error
-            ? <p id={errorId} className="editor-settings-error" role="alert">{error}</p>
-            : <p className="muted editor-settings-example">Opens <code>{templateUrl(template, EXAMPLE_PATH, EXAMPLE_LINE)}</code></p>}
+            ? <p id={errorId} className="edit-error editor-settings-error">{error}</p>
+            : problem ? null : <p className="muted editor-settings-example">Opens <code>{templateUrl(template, EXAMPLE_PATH, EXAMPLE_LINE)}</code></p>}
         </>
       )}
+      <p className="sr-only" role="alert">{announced}</p>
       <p className="muted" role="status">{saveFailed ? 'Could not save in this browser. The choice lasts until you reload.' : ''}</p>
     </section>
   )
