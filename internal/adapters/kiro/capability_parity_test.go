@@ -33,6 +33,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindMCP, []string{".kiro/settings/mcp.json"}},
 		{spec.KindHook, []string{".kiro/hooks/fmt-go.json", ".kiro/hooks/lint-pre.json", ".kiro/hooks/session-start.json", ".kiro/hooks/review-stop.json"}},
 		{spec.KindIgnore, []string{".kiroignore"}},
+		{spec.KindSettings, []string{".kiro/settings/cli.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -76,13 +77,13 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	t.Cleanup(emit.ResetCapabilityWarnings)
 
 	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml"},
+		{Kind: spec.KindReview, Name: "defaults", Path: "reviews/defaults.yaml"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (settings), got %d", got)
+		t.Errorf("expected 1 capability warning (review), got %d", got)
 	}
 }
 

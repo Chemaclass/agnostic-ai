@@ -118,6 +118,7 @@ func kitSinkBundle() spec.Bundle {
 				},
 			},
 		},
+		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "claude-sonnet-4.6"}},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{

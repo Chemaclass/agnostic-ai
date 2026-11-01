@@ -203,11 +203,11 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 | Windsurf | yes | no |
 | Augment | `allow` and `deny` only, for whole `read`, `edit`, and `write` tools | no |
 | Cursor | `allow` and `deny` in `.cursor/cli.json`, for the Cursor CLI ([details](@/docs/targets/cursor.md#permissions)) | no |
-| Copilot, Junie, Gemini | no; Copilot and Junie report the whole policy in a note | yes |
+| Copilot, Junie, Gemini, Kiro | no; Copilot, Junie, and Kiro report the whole policy in a note | yes |
 
 Every other target takes neither. A field a tool cannot hold raises a sync note, and the other tools still get their files. A rule the vendor cannot scope, such as a path rule on Factory's shell lists, raises a note instead of widening.
 
-A shared Claude model name raises the same note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory; Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex-reference.md#codex-config) sets the model. Review an imported `model` before you enable more tools, because model names differ between vendors.
+A shared Claude model name raises the same note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, Factory, and Kiro; Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex-reference.md#codex-config) sets the model. Review an imported `model` before you enable more tools, because model names differ between vendors.
 
 ## Target-specific keys
 
