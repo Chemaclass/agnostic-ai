@@ -6,6 +6,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.91.0 - 2026-11-01
+
 ### General
 
 #### Sync and configuration
@@ -24,8 +26,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - A `sync.unmanaged` glob that ends in `/`, such as `.claude/skills/legacy-*/`, now keeps sync out of every folder it matches (#2957).
 
 #### Specs, import and editors
-
-- Import preserves Cline agent settings and OpenHands agent skills through sync.
 
 - The unknown capability error no longer shows a stray colon after the list name, as in `for permissions.allow` and `for can` (#2922).
 - Markdown specs keep an opening `---` block of prose or a list as body text, and `lint` reports it as LINT056 (#2892).
@@ -54,7 +54,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Global voice settings round-trip native keys; Qwen, Gemini, Grok and Vibe join support, with notes for unsupported fields (#2833, #2834).
 - Global instruction updates keep private modes and stop if the file changes during sync (#2857).
 - `explain --global` lists native hook files and copied scripts for Cline, Grok and Kiro, including custom tool roots (#2863).
-- **Open global settings** in the web interface offers to create the global folder when none exists, with a short explanation and an optional `git init` (#2953).
+- **Open global settings** offers to create the global folder, with a short explanation and an optional `git init` (#2953).
 
 #### Security
 
@@ -105,9 +105,17 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - MCP import accepts Windows project links that already work in previews (#2850).
 - Import previews follow project links and Windows short paths, rejecting outside MCP files even through source aliases (#2831).
-- Plugin MCP files `mcp.json` and legacy `mcp_config.json` get manifests; legacy output notes the move to `mcp.json` (#2826).
+- Plugin MCP files get manifests; `mcp.json` gets a note naming the documented `mcp_config.json` path (#2826, #2967).
 - Import reads the configured MCP file, including absolute in-project paths, so plugin servers round-trip (#2829).
 - Sync keeps existing plugin manifests it did not write and prints a note.
+
+#### Claude Code
+
+- Home voice settings enable dictation, select hold or tap, and restore previous values when removed.
+- `import claude` no longer warns that `CLAUDE.md` differs right after a clean sync when `AGNOSTIC_AI.md` has a `::target claude` block (#2935).
+- `sync --check` and `status` stop reporting a Claude-only project's imported `AGENTS.md` as a leftover, and `doctor --fix` no longer deletes it (#2959).
+- `import claude` names the edited file (`AGENTS.md`, `CLAUDE.md` or both) in its warning and says "seeded from AGENTS.md and CLAUDE.md" for a pair (#2958).
+- `revert` restores and `cleanup` removes `AGENTS.md.bak` in a Claude-only project whose `CLAUDE.md` imports `AGENTS.md` (#2965).
 
 #### Kiro
 
@@ -130,6 +138,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Detection no longer treats Antigravity plugins in `.agents/plugins/` as a Goose project (#2830).
 - Sync keeps existing plugin manifests it did not write and prints a note.
 
+#### Qwen Code
+
+- Import reads `.agents/skills/` as well as `.qwen/skills/`, and sync keeps agents-as-skills off that shared folder (#2931).
+- Agents written as skills by Amp, Crush, Warp or Zed stop when Qwen is on; set `outputs.<tool>.skills-dir` to a separate folder to keep them (#2931).
+
 #### Kimi Code CLI
 
 - Sync and import reject MCP executors other than `local`, including removed `kaos`; `runtime_id` remains supported (#2808).
@@ -146,22 +159,17 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Import and sync keep MCP OAuth options, including private-network opt-in, without putting literal credentials in specs (#2809).
 
-#### Qwen Code
-
-- Import reads `.agents/skills/` as well as `.qwen/skills/`, and sync keeps agents-as-skills off that shared folder (#2931).
-- Agents written as skills by Amp, Crush, Warp or Zed stop when Qwen is on; set `outputs.<tool>.skills-dir` to a separate folder to keep them (#2931).
-
 #### Warp
 
 - Global sync writes voice enabled and language choices to the platform settings file, preserving the activation shortcut (#2836).
 
-#### Claude Code
+#### Cline
 
-- Home voice settings enable dictation, select hold or tap, and restore previous values when removed.
-- `import claude` no longer warns that `CLAUDE.md` differs right after a clean sync when `AGNOSTIC_AI.md` has a `::target claude` block (#2935).
-- `sync --check` and `status` stop reporting a Claude-only project's imported `AGENTS.md` as a leftover, and `doctor --fix` no longer deletes it (#2959).
-- `import claude` names the edited file (`AGENTS.md`, `CLAUDE.md` or both) in its warning and says "seeded from AGENTS.md and CLAUDE.md" for a pair (#2958).
-- `revert` restores and `cleanup` removes `AGENTS.md.bak` in a Claude-only project whose `CLAUDE.md` imports `AGENTS.md` (#2965).
+- Import keeps native agent settings through sync (#2967).
+
+#### OpenHands
+
+- Import keeps native agent skills through sync (#2967).
 
 #### Cursor
 
@@ -169,9 +177,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
-- Hooks docs explain the session flow and common shared hooks, with an optional step-through example.
 - Tool docs update retirement dates, Codex history values, Antigravity plugin MCP names, and Qoder and Zed skill paths (#2810, #2811, #2812, #2814, #2818).
-- Tool docs explain Continue's unmaintained client and output, Claude scope and settings, and OpenHands MCP timeouts (#2858, #2815, #2813).
+- Docs cover hook session flow and target guidance for Continue, Claude, and OpenHands (#2858, #2815, #2813, #2967).
 - The home page leads with your OS install command, tool count and playground link, then setup steps before the source explorer.
 - The docs landing page lists guides once in Start here; explorer model aliases and capability names link to their matching docs.
 - Explorer shows config beside specs, fast-tier tool models, and a user-only skill with Codex metadata and Gemini's dropped flag.
