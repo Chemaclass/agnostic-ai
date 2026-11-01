@@ -180,33 +180,46 @@ func (h *editHandler) builtinsEdit(where editAudience, req builtinRequest) (stri
 	}, nil
 }
 
-// personalBuiltins is the builtins list a config sets, merges included,
-// or nil when it sets none. A null list counts as set and empty.
-func personalBuiltins(data []byte) (*[]string, error) {
+// configList is the list a config sets under key, merges included, or
+// nil when it sets none. A null list counts as set and empty.
+func configList(data []byte, key string) (*[]string, error) {
 	var doc map[string]any
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, err
 	}
-	if _, set := doc["builtins"]; !set {
+	raw, set := doc[key]
+	if !set {
 		return nil, nil
 	}
-	var parsed struct {
-		Builtins []string `yaml:"builtins"`
-	}
-	if err := yaml.Unmarshal(data, &parsed); err != nil {
-		return nil, err
-	}
-	list := parsed.Builtins
-	if list == nil {
-		list = []string{}
+	list := []string{}
+	if raw != nil {
+		items, ok := raw.([]any)
+		if !ok {
+			return nil, fmt.Errorf("%s is not a list", key)
+		}
+		for _, item := range items {
+			name, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("%s contains a non-string", key)
+			}
+			list = append(list, name)
+		}
 	}
 	return &list, nil
 }
+
+// personalBuiltins is the builtins list a config sets, or nil when it
+// sets none.
+func personalBuiltins(data []byte) (*[]string, error) { return configList(data, "builtins") }
 
 // seedPersonalBuiltins starts a personal list from the team list. A new
 // personal config in a linked worktree also keeps the memory.personal it
 // inherited from the main checkout, which any local config would end.
 func seedPersonalBuiltins(data []byte, teamList []string, inherited string) ([]byte, error) {
+	return seedPersonalList(data, "builtins", teamList, inherited)
+}
+
+func seedPersonalList(data []byte, key string, teamList []string, inherited string) ([]byte, error) {
 	if len(bytes.TrimSpace(data)) == 0 && inherited != "" {
 		data = []byte("memory:\n  personal: " + inherited + "\n")
 	}
@@ -214,7 +227,7 @@ func seedPersonalBuiltins(data []byte, teamList []string, inherited string) ([]b
 	if err != nil {
 		return nil, err
 	}
-	return editYAMLPair(data, mapping, "builtins", slices.Clone(teamList))
+	return editYAMLPair(data, mapping, key, slices.Clone(teamList))
 }
 
 // personalConfigRest is the personal config once its builtins list is

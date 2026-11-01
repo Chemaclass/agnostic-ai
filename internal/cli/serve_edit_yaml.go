@@ -334,35 +334,39 @@ func checkBoolEdit(before, after []byte, key string, value bool, allowNew bool) 
 }
 
 func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
+	return setListMember(data, "builtins", name, enabled)
+}
+
+func setListMember(data []byte, key, name string, enabled bool) ([]byte, error) {
 	_, mapping, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}
-	_, list := yamlMapValue(mapping, "builtins")
+	_, list := yamlMapValue(mapping, key)
 	if list == nil {
 		var values map[string]any
 		if err := yaml.Unmarshal(data, &values); err != nil {
 			return nil, err
 		}
-		if _, inherited := values["builtins"]; inherited {
-			return nil, errors.New("builtins is inherited from a YAML merge; write an explicit list before editing it")
+		if _, inherited := values[key]; inherited {
+			return nil, fmt.Errorf("%s is inherited from a YAML merge; write an explicit list before editing it", key)
 		}
 		if !enabled {
 			return data, nil
 		}
-		out, err := editYAMLPair(data, mapping, "builtins", []string{name})
+		out, err := editYAMLPair(data, mapping, key, []string{name})
 		if err != nil {
 			return nil, err
 		}
-		return checkBuiltinEdit(data, out, []string{name})
+		return checkListEdit(data, out, key, []string{name})
 	}
 	if list.Kind != yaml.SequenceNode || list.Anchor != "" || list.Tag != "!!seq" {
-		return nil, errors.New("builtins is not a plain list")
+		return nil, fmt.Errorf("%s is not a plain list", key)
 	}
 	var names []string
 	for _, item := range list.Content {
 		if item.Kind != yaml.ScalarNode || item.Tag != "!!str" {
-			return nil, errors.New("builtins contains a non-string")
+			return nil, fmt.Errorf("%s contains a non-string", key)
 		}
 		names = append(names, item.Value)
 	}
@@ -386,7 +390,7 @@ func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
 				return nil, err
 			}
 			out := spliceEditYAML(data, at, at, text)
-			return checkBuiltinEdit(data, out, append(names, name))
+			return checkListEdit(data, out, key, append(names, name))
 		}
 		start, finish, err := yamlScalarSpan(data, list.Content[index])
 		if err != nil {
@@ -407,7 +411,7 @@ func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
 			comma = left + found
 		}
 		if len(list.Content) > 1 && comma < 0 {
-			return nil, errors.New("builtins: missing item separator")
+			return nil, fmt.Errorf("%s: missing item separator", key)
 		}
 		if comma >= 0 && !bytes.ContainsAny(data[left:right], "#\r\n") {
 			if index > 0 {
@@ -427,10 +431,10 @@ func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
 				out = spliceEditYAML(out, comma, comma+1, "")
 			}
 		}
-		return checkBuiltinEdit(data, out, slices.Delete(names, index, index+1))
+		return checkListEdit(data, out, key, slices.Delete(names, index, index+1))
 	}
 	if len(list.Content) == 0 {
-		return nil, errors.New("builtins: an empty block list is not editable")
+		return nil, fmt.Errorf("%s: an empty block list is not editable", key)
 	}
 	if enabled {
 		last := list.Content[len(list.Content)-1]
@@ -451,13 +455,13 @@ func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
 		lineStart := bytes.LastIndexByte(data[:start], '\n') + 1
 		prefix := string(data[lineStart:start])
 		if strings.TrimSpace(prefix) != "-" {
-			return nil, errors.New("builtins: item is not on its own line")
+			return nil, fmt.Errorf("%s: item is not on its own line", key)
 		}
 		text := prefix + name + newline
 		if at > 0 && data[at-1] != '\n' {
 			text = newline + text
 		}
-		return checkBuiltinEdit(data, spliceEditYAML(data, at, at, text), append(names, name))
+		return checkListEdit(data, spliceEditYAML(data, at, at, text), key, append(names, name))
 	}
 	item := list.Content[index]
 	start, end, err := yamlScalarSpan(data, item)
@@ -466,7 +470,7 @@ func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
 	}
 	lineStart := bytes.LastIndexByte(data[:start], '\n') + 1
 	if strings.TrimSpace(string(data[lineStart:start])) != "-" {
-		return nil, errors.New("builtins: item is not on its own line")
+		return nil, fmt.Errorf("%s: item is not on its own line", key)
 	}
 	lineEnd := end
 	for lineEnd < len(data) && data[lineEnd] != '\n' {
@@ -487,22 +491,22 @@ func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
 	}
 	out := spliceEditYAML(data, lineStart, lineEnd, replacement)
 	if len(list.Content) == 1 {
-		key, _ := topLevelPair(mapping, "builtins")
-		at, err := yamlNodeOffset(out, key)
+		keyNode, _ := topLevelPair(mapping, key)
+		at, err := yamlNodeOffset(out, keyNode)
 		if err != nil {
 			return nil, err
 		}
 		colon := bytes.IndexByte(out[at:], ':')
 		if colon < 0 {
-			return nil, errors.New("builtins: missing colon")
+			return nil, fmt.Errorf("%s: missing colon", key)
 		}
 		at += colon + 1
 		out = spliceEditYAML(out, at, at, " []")
 	}
-	return checkBuiltinEdit(data, out, slices.Delete(names, index, index+1))
+	return checkListEdit(data, out, key, slices.Delete(names, index, index+1))
 }
 
-func checkBuiltinEdit(before, after []byte, names []string) ([]byte, error) {
+func checkListEdit(before, after []byte, key string, names []string) ([]byte, error) {
 	var old, next map[string]any
 	if err := yaml.Unmarshal(before, &old); err != nil {
 		return nil, err
@@ -517,7 +521,7 @@ func checkBuiltinEdit(before, after []byte, names []string) ([]byte, error) {
 	for i, name := range names {
 		list[i] = name
 	}
-	old["builtins"] = list
+	old[key] = list
 	if !reflect.DeepEqual(old, next) {
 		return nil, errors.New("the edit changes other values")
 	}

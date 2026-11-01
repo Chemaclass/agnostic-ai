@@ -88,13 +88,19 @@ func (h *editHandler) checkBuiltinExpected(name string, reset bool, raw json.Raw
 			list = *personal
 		}
 	}
+	return checkListExpected(list, "built-ins", name, reset, raw)
+}
+
+// checkListExpected compares the state the page showed with list: the
+// whole list for a reset, else whether name is in it.
+func checkListExpected(list []string, label, name string, reset bool, raw json.RawMessage) error {
 	if reset {
 		var expected []string
 		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) || json.Unmarshal(raw, &expected) != nil {
-			return errors.New("expected must be the built-in list the page showed")
+			return fmt.Errorf("expected must be the %s list the page showed", label)
 		}
 		if !sameBuiltins(list, expected) {
-			return staleToggleError{"built-ins"}
+			return staleToggleError{label}
 		}
 		return nil
 	}
