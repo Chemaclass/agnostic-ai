@@ -188,7 +188,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
-Each field gets one result per target, with the output paths or the reason, and a `next:` step when known, such as a required `outputs.zed.tasks-file`. `(differs)` marks a field whose results differ.
+Each field gets one result per target, with the output paths or the reason, and a `next:` step when known, such as a required `outputs.zed.tasks-file`. `(differs)` marks a field whose results differ. A spec whose target filter skips both tools is left out, except settings. A built-in spec shows as `builtin:<name>`, and its next step is the `builtins` setting or a project spec with the same name.
 
 | Result | Meaning |
 |---|---|
@@ -215,6 +215,8 @@ Permission rows use the source index, such as `permissions.deny[0]`, name the ru
    "results": [{"target": "cursor", "status": "unsupported", "reason": "...", "next": "..."}]}]}],
  "fields": 6, "differences": 3}
 ```
+
+A built-in spec has an empty `path` and a `"builtin": {"name", "version"}` object instead.
 
 </details>
 
@@ -392,7 +394,7 @@ In the browser:
 - Turning on `memory` in a Git checkout also adds a `.git/info/exclude` line so Git ignores Claude Code's private `settings.local.json`.
 - In a project, a default model or reasoning effort uses **Preview and apply**, **Preview removal**, and **Preview personal reset**. The preview names the settings file, the targets, and every source and generated file that changes.
 - **Apply change** writes those files and checks the generated ones. That does not mean a running tool has reloaded them. Built-ins and settings share one **Undo last change**, which names the change.
-- **Coding tools** in **Settings** lists every tool sync can write for, with a switch, a **found in project** badge on a tool that is off but has its own files, and a **Docs** link to its target page. A switch saves the `targets` list in `agnostic-ai.yaml` (Shared) or `agnostic-ai.local.yaml` (Personal, which replaces the shared list whole, as built-ins do). With `--global` it saves `agnostic-ai.yaml` or `local/agnostic-ai.yaml` in the home folder and lists only tools `sync --global` can write. When no file lists `targets`, the first shared change writes the default list with the switch applied. Switching that tool back on removes the list again only in the same `serve` session and with no other edit to the file in between; otherwise the file keeps the full list. Turning a tool off asks first and says what the next sync does: in a project the next sync removes the files it wrote for that tool, keeps hand edits as `.bak` copies, and keeps other keys in shared settings files; with `--global` the files stay until you remove them. The last tool sync can write cannot be turned off; names of external adapters in the list do not count. The page never runs sync: after a save it names the file and asks you to run `agnostic-ai sync` (or `sync --global`). A running `sync --watch` keeps the tool list it started with, so restart it to pick up the change. A stale switch stops with **Reload saved values**. Snapshots and the mock show the list without switches.
+- **Coding tools** in **Settings** lists every tool sync can write for, with a switch, a **found in project** badge on a tool that is off but has its own files, and a **Docs** link to its target page. A switch saves the `targets` list in `agnostic-ai.yaml` (Shared) or `agnostic-ai.local.yaml` (Personal, which replaces the shared list whole, as built-ins do). With `--global` it saves `agnostic-ai.yaml` or `local/agnostic-ai.yaml` in the home folder and lists only tools `sync --global` can write. When no file lists `targets`, the first shared change writes the default list with the switch applied. Switching that tool back on removes the list again only in the same `serve` session and with no other edit to the file in between; otherwise the file keeps the full list. Turning a tool off asks first and says what the next sync does: in a project the next sync removes the files it wrote for that tool, keeps hand edits as `.bak` copies, and keeps other keys in shared settings files; with `--global` the files stay until you remove them. The last tool sync can write cannot be turned off; names of external adapters in the list do not count. The page never runs sync: after a save it names the file and asks you to run `agnostic-ai sync` (or `sync --global`). A running `sync --watch` applies the change on its own, unless it was started with `--target`, `--only`, or `--except`. A stale switch stops with **Reload saved values**. Snapshots and the mock show the list without switches.
 - Global built-ins and settings edits save source files without syncing. Run `agnostic-ai sync` (or `sync --global`) to apply them.
 - In the global view, if a boolean or built-in changed since the page loaded, the save stops and offers **Reload saved values**.
 

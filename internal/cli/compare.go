@@ -75,11 +75,12 @@ type compareNote struct {
 }
 
 type compareSpec struct {
-	Kind   string         `json:"kind"`
-	Name   string         `json:"name"`
-	Path   string         `json:"path"`
-	Fields []compareField `json:"fields"`
-	Notes  []compareNote  `json:"notes,omitempty"`
+	Kind    string         `json:"kind"`
+	Name    string         `json:"name"`
+	Path    string         `json:"path"`
+	Builtin *builtinRef    `json:"builtin,omitempty"`
+	Fields  []compareField `json:"fields"`
+	Notes   []compareNote  `json:"notes,omitempty"`
 }
 
 // compareOutput is the JSON envelope for `compare --json`.
@@ -188,11 +189,15 @@ func compareEntriesAcross(cfg *config.Config, b spec.Bundle, targets []string) (
 	}
 	permissionBaselines := map[string]permissionCapture{}
 	for _, e := range compareEntries(b) {
+		if e.Kind != spec.KindSettings && !slices.ContainsFunc(targets, e.EmitsTo) {
+			continue
+		}
 		fields := comparedFields(e, targets)
 		if len(fields) == 0 {
 			continue
 		}
-		s := compareSpec{Kind: string(e.Kind), Name: e.Name, Path: filepath.ToSlash(e.Path)}
+		ref := entrySourceRef(e)
+		s := compareSpec{Kind: string(e.Kind), Name: e.Name, Path: ref.Path, Builtin: ref.Builtin}
 		perTarget := make([]map[string]compareResult, len(targets))
 		for i, t := range targets {
 			var results map[string]compareResult
@@ -303,10 +308,14 @@ func classifyEntry(cfg *config.Config, e spec.Entry, fields []string, target str
 	}
 	src := filepath.ToSlash(e.Path)
 	if !e.EmitsTo(target) {
+		next := "edit target, targets, target-exclude, or targets-exclude in " + src
+		if b := builtinForEntry(e); b != nil {
+			next = "add a project " + string(e.Kind) + " named " + e.Name + " to change this, or remove " + b.Name + " from builtins in agnostic-ai.yaml"
+		}
 		fill(compareResult{
 			Status: statusExcluded,
 			Reason: "the spec's target filter skips " + target,
-			Next:   "edit target, targets, target-exclude, or targets-exclude in " + src,
+			Next:   next,
 		})
 		return results, nil, nil
 	}
@@ -583,7 +592,11 @@ func writeCompareReport(w io.Writer, out compareOutput) {
 	}
 	width := max(len(a), len(b))
 	for _, s := range out.Specs {
-		_, _ = fmt.Fprintf(w, "\n%s %s  %s\n", s.Kind, s.Name, s.Path)
+		source := s.Path
+		if s.Builtin != nil {
+			source = s.Builtin.String()
+		}
+		_, _ = fmt.Fprintf(w, "\n%s %s  %s\n", s.Kind, s.Name, source)
 		for _, f := range s.Fields {
 			label := f.Field
 			if f.Differs {
