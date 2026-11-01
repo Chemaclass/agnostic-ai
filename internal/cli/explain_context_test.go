@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -278,5 +279,67 @@ func TestExplainContext_PreservesCompanionLocalProvenance(t *testing.T) {
 				t.Errorf("local instructions attributed %d words, want 6: %+v", localWords, report.Contributions)
 			}
 		})
+	}
+}
+
+func cursorAgentsProject(t *testing.T) string {
+	t.Helper()
+	dir := budgetProject(t, "targets: [claude, codex, cursor]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "s1", "SKILL.md"), "---\nname: s1\ndescription: Use when handling case one.\n---\n\nBody.\n")
+	return dir
+}
+
+func contextReport(t *testing.T, target string) explainContextOutput {
+	t.Helper()
+	out, err := runCLI(t, "explain", "--context", "--target", target, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report explainContextOutput
+	if err := json.Unmarshal([]byte(out), &report); err != nil {
+		t.Fatal(err)
+	}
+	return report
+}
+
+func TestExplainContext_CursorCountsRootAgentsMdAnotherToolWrites(t *testing.T) {
+	cursorAgentsProject(t)
+	cursor := contextReport(t, "cursor")
+	if cursor.Startup.Words < 402 {
+		t.Errorf("cursor startup %d words, want at least 402", cursor.Startup.Words)
+	}
+	found := false
+	for _, c := range cursor.Contributions {
+		if c.Source == ".agnostic-ai/AGNOSTIC_AI.md" && c.Category == "entry-point layer" && c.Load == "startup" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("want an entry-point layer contribution, got %+v", cursor.Contributions)
+	}
+}
+
+func TestExplainContext_CursorWithAlwaysOnRuleMatchesWhatSyncWrites(t *testing.T) {
+	dir := cursorAgentsProject(t)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\nalwaysApply: true\n---\n\n"+words(50)+"\n")
+	if _, err := runCLI(t, "sync"); err != nil {
+		t.Fatal(err)
+	}
+	agents, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mdc, err := os.ReadFile(filepath.Join(dir, ".cursor", "rules", "style.mdc"))
+	if err != nil {
+		t.Fatalf("sync must write the Cursor rule file: %v", err)
+	}
+	_, mdcBody, _ := strings.Cut(strings.TrimPrefix(string(mdc), "---\n"), "\n---\n")
+	_, mdcBody, _ = strings.Cut(mdcBody, "-->")
+	// Sync writes the rule into AGENTS.md and again as a Cursor .mdc file,
+	// so the always-on body counts twice. The skill description is 5 words.
+	want := wordsIn(string(agents)) + wordsIn(mdcBody) + 5
+	if got := contextReport(t, "cursor").Startup.Words; got != want {
+		t.Errorf("cursor startup %d words, want AGENTS.md + rule body + skill description = %d", got, want)
 	}
 }

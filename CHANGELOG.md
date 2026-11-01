@@ -14,6 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - An empty key in `agnostic-ai.local.yaml` keeps a shared group, and `{}` clears it; lint says whether the shared value stays or is replaced (#2891).
 - An empty local model tier keeps the shared tier, and lint also warns about an empty `targets:` that replaces the default targets (#2891).
 - `init` sets minimums; `upgrade --requires` keeps minimum/exact pins or makes ranges minimums; `init`, `use` and AAI-005 explain exact pins (#2841, #2849).
+- `explain <spec>` and `graph` skip tools outside `targets` that cannot render the project, so an unselected Grok no longer fails them (#2934).
 - Lint, doctor and sync warn (LINT057) when a `sync.unmanaged` entry uses `**`, which acts like `*` and stays inside one folder name (#2937).
 
 #### Specs, import and editors
@@ -141,6 +142,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Claude Code
 
 - Home voice settings enable dictation, select hold or tap, and restore previous values when removed.
+
+#### Cursor
+
+- `explain --context`, the Context size view and LINT011 count the root `AGENTS.md` that Cursor reads when another tool writes it (#2936).
 
 ### Site
 
