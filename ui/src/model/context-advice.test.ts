@@ -45,8 +45,10 @@ describe('context advice', () => {
     expect(advice.prompt).toContain('Loads: at the start of every session (startup)')
     expect(advice.prompt).toContain('cuts its startup size')
     expect(advice.prompt).not.toContain('Configuration root')
-    expect(advice.actions[0]).toContain('Narrow the globs in .agnostic-ai/rules/testing.md to the files it is for (not **/*) and remove alwaysApply: true')
-    expect(advice.actions[0]).toContain('if claude supports path rules')
+    expect(advice.actions[0]).toBe('Narrow the globs in .agnostic-ai/rules/testing.md to the files it is for (not **/*) and remove alwaysApply: true.')
+    expect(advice.what).toContain('outputs.claude.rules-mode: import or outputs.claude.rules-file')
+    expect(advice.actions[1]).toContain('remove outputs.claude.rules-mode: import or outputs.claude.rules-file from agnostic-ai.yaml')
+    expect(advice.actions.join(' ')).not.toContain('supports path rules')
   })
 
   it('keeps the file in the check step', () => {
@@ -85,6 +87,17 @@ describe('context advice', () => {
     expect(startHere([])).toEqual([])
   })
 
+  it('names the rules-file cause for other tools and none for copilot', () => {
+    const rule = row('.agnostic-ai/rules/testing.md', 'always-on rule', 'startup')
+    const codex = contextAdvice(rule, { ...report, target: 'codex' })
+    expect(codex.what).toContain('outputs.codex.rules-file')
+    expect(codex.what).not.toContain('rules-mode')
+    expect(codex.actions[1]).toContain('remove outputs.codex.rules-file from agnostic-ai.yaml')
+    const copilot = contextAdvice(rule, { ...report, target: 'copilot' })
+    expect(copilot.what).not.toContain('rules-file')
+    expect(copilot.actions.join(' ')).not.toContain('rules-file')
+  })
+
   it('makes no cost, speed or token claim in the advice text', () => {
     for (const [source, category, load] of CATEGORIES) {
       for (const withFile of [true, false]) {
@@ -108,7 +121,7 @@ describe('context advice', () => {
   it('drops the file steps for a tool that cannot check a single file', () => {
     const rule = row('.agnostic-ai/rules/go.md', 'conditional rule body', 'on-demand')
     const without = contextAdvice(rule, { ...report, takesFile: false, file: 'src/main.go' })
-    expect(without.why).toContain('claude cannot check a single file')
+    expect(without.why).toContain('This page cannot check a single file for claude')
     expect(without.why).not.toContain('Name a file above')
     expect([...without.actions, without.prompt].join('\n')).not.toContain('--file')
     const withFile = contextAdvice(rule, report)

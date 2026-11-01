@@ -168,18 +168,22 @@ function describe(c: ContextContribution, report: AdviceReport, name: string): T
           check,
         ],
       }
-    case 'always-on rule':
+    case 'always-on rule': {
+      const settings = t === 'claude' ? 'outputs.claude.rules-mode: import or outputs.claude.rules-file' : `outputs.${t}.rules-file`
+      const wholeCause = t === 'copilot' ? '' : ` ${t} also loads every rule whole when ${settings} is set, whatever the globs say.`
       return {
-        what: `A rule that ${t} loads at the start of every session, because it has alwaysApply: true, no globs, or a catch-all glob such as **/*.`,
+        what: `A rule that ${t} loads at the start of every session. It has alwaysApply: true, no globs, or a catch-all glob such as **/*.${wholeCause}`,
         why: 'An always-on rule applies to every file, so the tool reads it before any work starts.',
         actions: [
-          `Narrow the globs in ${c.source} to the files it is for (not **/*) and remove alwaysApply: true, if ${t} supports path rules. The rules page and the ${t} target page in the docs say.`,
+          `Narrow the globs in ${c.source} to the files it is for (not **/*) and remove alwaysApply: true.`,
+          ...(t === 'copilot' ? [] : [`If it still loads at startup, remove ${settings} from agnostic-ai.yaml. Those settings load every rule whole, so globs change nothing.`]),
           'Shorten it: keep the rule, drop the explanation.',
           'Merge it into a related rule when both are short.',
           'Limit the rule with targets to the tools that need it.',
           check,
         ],
       }
+    }
     case 'scoped rule':
       return {
         what: `A rule with globs that matches ${report.file || 'the file you named'}. ${t} loads it only while it works on a matching file.`,
@@ -195,7 +199,7 @@ function describe(c: ContextContribution, report: AdviceReport, name: string): T
       const checks = report.takesFile !== false
       return {
         what: `A rule with globs. ${t} loads it only while it works on a matching file.`,
-        why: checks ? 'It adds no startup text. Name a file above to see whether it matches.' : `It adds no startup text. ${t} cannot check a single file, so this page cannot show which files match.`,
+        why: checks ? 'It adds no startup text. Name a file above to see whether it matches.' : `It adds no startup text. This page cannot check a single file for ${t}, so it cannot show which files match.`,
         actions: [
           'Keep it. It loads only with matching files.',
           `Narrow the globs in ${c.source} or shorten the body if it matches often.`,
