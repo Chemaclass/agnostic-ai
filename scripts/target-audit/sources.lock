@@ -7,7 +7,7 @@ amp	changelog	https://ampcode.com/news.rss	200	html	1cbf3fee546b00c5405f2d590b87
 amp	docs	https://ampcode.com/docs/cli/settings	200	html	6c74856b487fbbbf6bc407cfc0ab55f21821bd43320d23b740dffd30af9a6ae4	2026-10-29
 amp	docs	https://ampcode.com/docs/customize/agents-md	200	html	aea449b59d683453699da252957bfae3df2701305b5c6b40b4cf0bc4c51e1e71	2026-10-29
 amp	docs	https://ampcode.com/docs/customize/global-plugins-and-skills	200	html	131a24369117c5ef2a91c17d850998bfd5d905466c2882fe73fcb263386ef0ea	2026-10-29
-amp	docs	https://ampcode.com/docs/customize/mcp	200	html	fdca3706c5723ca6551552b57cc76aac890f6a8af44b5e588ed867664827e5c6	2026-10-31
+amp	docs	https://ampcode.com/docs/customize/mcp	200	html	3ce939e3df4425c72ff42ae558fc924efc5bdc757265c3a589156bcc90d3abf5	2026-11-01
 amp	docs	https://ampcode.com/docs/customize/plugins	200	html	d5b09288776bda1b3d9ff81a090e7e25028bb11c4a7df622ad9cc22e3c6e5150	2026-10-30
 amp	docs	https://ampcode.com/docs/customize/skills	200	html	252f03c5ab16f964efcb64bdd8fc889f92f75c8567cfa996eeca1fb1768b2a38	2026-10-29
 amp	docs	https://ampcode.com/docs/integrations	200	html	4d75b185b972f5fcf4b268d0524fc63925b494dc4f8363bdb02d57a5154e5c75	2026-10-30
@@ -77,7 +77,7 @@ codebuddy	docs	https://www.codebuddy.ai/docs/cli/settings	200	html	d531274af68ad
 codebuddy	docs	https://www.codebuddy.ai/docs/cli/skills	200	html	c23cbde3bd76e515ef0752db4d1fec2a5215ca10dc9b26710519e04fc0881510	2026-10-29
 codebuddy	docs	https://www.codebuddy.ai/docs/cli/slash-commands	200	html	76e1229f6e581f300f68af098fdca423f7d48e972df59eab27a872cf493a3083	2026-10-29
 codebuddy	docs	https://www.codebuddy.ai/docs/cli/sub-agents	200	html	78a2c1d4b9b9786435d62b2158d105645b045ef8100a32037ebe65c565f72f70	2026-10-29
-codex	changelog	https://github.com/openai/codex/releases	200	github-api	905cbb2ce7e46ab79611ab50a3328b125da8f87aa9e7598af2835c20a759e92b	2026-10-30
+codex	changelog	https://github.com/openai/codex/releases	200	github-api	7b9559ae489ce72f2f1195854d4e810953889d2e87d29009c2d12ed7e89b0ea3	2026-11-01
 codex	changelog	https://learn.chatgpt.com/docs/changelog	200	html	1d4160cadc2088ceecccbc48933148695e19da0bccc614762bfb9610fb500157	2026-10-31
 codex	code	https://github.com/openai/codex/blob/main/codex-rs/core/src/agents_md.rs	200	raw-github	a8b5595ece62750ba9e8885a6f27c63b305a83a4fd732d523ec0c19380c0233f	2026-10-31
 codex	code	https://github.com/openai/codex/blob/main/codex-rs/hooks/src/events/mod.rs	200	raw-github	e702ed892dc0f59c59dc0ebfeac0bdabeb42a8bf459bc588956bb469ae4f3e92	2026-10-19
@@ -172,7 +172,7 @@ grok	docs	https://docs.x.ai/build/settings	200	html	76c2ce1e6ba4eacf48c210aab442
 jules	changelog	https://jules.google/docs/changelog/	200	html	497c0ee01a8ac78790a70d50511bde1fa9fc3a707576594d7ef4bb84561d6321	2026-10-30
 jules	docs	https://jules.google/docs	200	html	3f8acbe2960312c2732e1487b7763fa134498ce31df3bca281e6225d5dcc8067	2026-10-30
 junie	changelog	https://junie.jetbrains.com/blog/	200	html	1a4d227776ea14daf89acc88cdcede4c78a4b721a4cd624574b0d36a645e7b1f	2026-10-29
-junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	acad2e414a5a82a8d521273d797f054baa87fdc4be09524cd35741b774f3c9cd	2026-10-31
+junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	5c1f9de8a9cf0b8f6a30991fadad8bd0badb2bde581840ac335d086e403ff799	2026-11-01
 junie	docs	https://junie.jetbrains.com/docs/action-allowlist-junie-cli.html	200	html	217595614a236656e52be2593b867920f7ad575da71c618f0c8abc89a18af748	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/agent-skills.html	200	html	9b7af260ea22f9a37dd9a08248ad487ae50b239bc7701b9b06461665aa7131b2	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/automated-code-reviews.html	200	html	77840d1fdf89c4fd516af364381a68604b6093a06e06d3e85ae3527367fc8000	2026-10-19
