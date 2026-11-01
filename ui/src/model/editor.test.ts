@@ -96,6 +96,10 @@ describe('custom link templates', () => {
     expect(validateTemplate(`windsurf://file{path}${'a'.repeat(512 - 'windsurf://file{path}'.length)}`)).toBeUndefined()
   })
 
+  it('refuses a template of 513 characters', () => {
+    expect(validateTemplate(`windsurf://file{path}${'a'.repeat(513 - 'windsurf://file{path}'.length)}`)).toBe('Keep the template to 512 characters or fewer.')
+  })
+
   it('encodes characters that would end a query value', () => {
     const template = 'http://localhost:8091/?file={path}&line={line}'
     expect(templateUrl(template, '/r/a&line=1.md', 7)).toBe('http://localhost:8091/?file=/r/a%26line%3D1.md&line=7')

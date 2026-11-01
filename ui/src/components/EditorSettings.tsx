@@ -12,7 +12,7 @@ export function EditorSettings() {
   const app = useApp()
   const { editor, template, saveFailed } = useEditorChoice()
   const id = useId()
-  const [touched, setTouched] = useState(false)
+  const [touched, setTouched] = useState(() => template.trim() !== '')
   const [announced, setAnnounced] = useState('')
   if (app.source.kind !== 'api') return null
   const custom = editor === CUSTOM_EDITOR
@@ -25,7 +25,7 @@ export function EditorSettings() {
       <SectionHeading topic="editor" id="settings-editor" focusable>Editor</SectionHeading>
       <p className="muted">Open links use this editor. Saved in this browser only, not in your config files.</p>
       <label htmlFor={`${id}-select`}>Open files in</label>
-      <Select id={`${id}-select`} value={editor} onChange={(event) => chooseEditor(parseEditor(event.target.value))}>
+      <Select id={`${id}-select`} value={editor} onChange={(event) => { setAnnounced(''); chooseEditor(parseEditor(event.target.value)) }}>
         {EDITORS.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
       </Select>
       {custom && (

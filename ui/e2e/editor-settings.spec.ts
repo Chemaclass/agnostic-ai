@@ -53,15 +53,49 @@ test.describe('editor settings', () => {
     await expect(openLink(page, 'your editor')).toHaveAttribute('href', /^windsurf:\/\/file\//)
   })
 
-  test('opens an http template in a new tab so this page keeps its state', async ({ page }) => {
+  test('opens an http template in a new tab and leaves this page where it is', async ({ page }) => {
     await serve(page)
+    await page.context().route('http://localhost:8091/**', (route) => route.fulfill({ contentType: 'text/html', body: 'helper' }))
     await page.addInitScript(() => {
       window.localStorage.setItem('agnostic-ai.editor', 'custom')
       window.localStorage.setItem('agnostic-ai.editor-template', 'http://localhost:8091/?file={path}&line={line}')
     })
     await page.goto('/?view=context&tab=rules')
-    await expect(openLink(page, 'your editor')).toHaveAttribute('target', '_blank')
-    await expect(openLink(page, 'your editor')).toHaveAttribute('rel', 'noopener noreferrer')
+    const link = openLink(page, 'your editor')
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    const before = page.url()
+    const [popup] = await Promise.all([page.waitForEvent('popup'), link.click()])
+    await popup.waitForLoadState()
+    expect(popup.url()).toMatch(/^http:\/\/localhost:8091\/\?file=\//)
+    expect(page.url()).toBe(before)
+  })
+
+  test('opens a custom scheme link in this tab, without a target', async ({ page }) => {
+    await serve(page)
+    await page.addInitScript(() => {
+      window.localStorage.setItem('agnostic-ai.editor', 'custom')
+      window.localStorage.setItem('agnostic-ai.editor-template', 'windsurf://file{path}:{line}')
+    })
+    await page.goto('/?view=context&tab=rules')
+    const link = openLink(page, 'your editor')
+    await expect(link).toHaveAttribute('href', /^windsurf:\/\/file\//)
+    await expect(link).not.toHaveAttribute('target', /.+/)
+  })
+
+  test('shows the error for a saved invalid template and clears the announcement when the editor changes', async ({ page }) => {
+    await serve(page)
+    await page.addInitScript(() => {
+      window.localStorage.setItem('agnostic-ai.editor', 'custom')
+      window.localStorage.setItem('agnostic-ai.editor-template', 'javascript:{path}')
+    })
+    await page.goto('/?view=settings&tab=editor')
+    await expect(page.locator('.editor-settings-error')).toHaveText('That scheme cannot open an editor.')
+    await page.getByRole('textbox', { name: 'Link template' }).focus()
+    await page.getByRole('textbox', { name: 'Link template' }).blur()
+    await expect(page.getByRole('alert')).toHaveText('That scheme cannot open an editor.')
+    await page.getByRole('combobox', { name: 'Open files in' }).selectOption('zed')
+    await expect(page.getByRole('alert')).toHaveText('')
   })
 
   test('says so when the browser cannot save the choice, and still applies it', async ({ page }) => {
