@@ -43,6 +43,7 @@ AGENTS.md                          # entry-point pointer body, plus the rules bl
 .kiro/prompts/<name>.md            # one per command (slash commands in CLI V3)
 .kiro/hooks/<name>.json            # one per hook
 .kiro/settings/mcp.json            # when MCP entries exist
+.kiro/settings/cli.json            # chat.defaultModel, when a settings spec sets model
 .kiroignore                        # when ignore entries exist
 ```
 
@@ -57,6 +58,7 @@ AGENTS.md                          # entry-point pointer body, plus the rules bl
 - **Memory**: with `builtins: [memory]`, `.kiro/steering/kiro-memory-index.md` includes `.agnostic-ai/memory/MEMORY.md` and `.agnostic-ai/local/memory/MEMORY.md` with `#[[file:...]]`, so Kiro loads both [shared memory](@/docs/memory.md) lists every session. No other tool gets the file, and `sync --global` leaves it out. Kiro resolves each path from the workspace root and shows a marker for a list that does not exist yet. It applies its file read permissions and ignore rules to a reference, so a list they block does not load. With `memory.personal: repo`, the file includes only the project list. The shared policy tells Kiro to find personal memory with `agnostic-ai memory path`.
 - **Skills**: [native](https://kiro.dev/docs/skills/) at `.kiro/skills/<name>/SKILL.md`, read by the skill picker. The file (`name` and `description` frontmatter) is identical to the shared `.agents/skills/` one. Bundled `scripts/`, `references/`, and `assets/` are copied with it.
 - **Agents**: [native custom agents](https://kiro.dev/docs/custom-agents/) in YAML-frontmatter Markdown, read by the agent picker. `description` (default: the agent name) and `model` are copied as written. The spec name stays the file name. `x-kiro.name` sets Kiro's optional display name and survives import.
+- **Settings**: the settings `model` goes to `chat.defaultModel` in `.kiro/settings/cli.json`, as written, and every other key in the file stays. Kiro uses a workspace value over the global one in `~/.kiro/settings/cli.json`. Kiro ids use dots (`claude-sonnet-4.6`), so set `model: {default: ..., kiro: claude-sonnet-4.6}` when the shared value is a Claude Code id. A Claude alias such as `sonnet` raises a note and writes nothing. `permissions` raise a note, because the file has no allow, deny, or ask list. Sync replaces a `chat.defaultModel` you set by hand while a settings spec sets `model`; set `model: {claude: ...}` to keep Kiro out. Comments in the file are not kept.
 - **Agent MCP servers**: each server an agent names in `mcpServers` is written in full under the agent's `mcpServers`, the only form Kiro takes. An [agent-only server](@/docs/spec-format/mcps.md#agent-only) stays out of `.kiro/settings/mcp.json`. `x-kiro.mcpServers` replaces the list.
 
 ## Commands
@@ -188,4 +190,4 @@ The imported spec loses some data, but the Kiro files sync writes stay the same:
 
 ## Protected paths
 
-Not enforced. Kiro takes no settings specs in project sync, so it reports a spec with a `protected` block as unsupported. Global voice language uses the separate home settings mapping above. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. Sync prints a note for a `protected` block; Kiro has no edit guard it writes. Global voice language uses the separate home settings mapping above. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
