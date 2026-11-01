@@ -743,4 +743,6 @@
 # release flags, 8192 over main. Rounded up to a multiple of 4096.
 # Follow-up to #2913: LINT055 reads the base config to word its message by
 # the shared value kind. Measured 24567968 after #2893; adds 4096 over main.
-24571904
+# Permission editor: per-rule Edit and Remove, a readable rejection message, and a
+# smaller rules box grow the embedded UI. Measured 24572064 bytes, 4096 over main.
+24576000
