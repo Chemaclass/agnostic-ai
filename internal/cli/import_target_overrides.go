@@ -74,6 +74,11 @@ func importScopedTargetKeysKeeping(data []byte, dst, target string, keep []strin
 	changed := false
 	for i := 0; i+1 < len(scoped.Content); i += 2 {
 		k, was := scoped.Content[i].Value, scoped.Content[i+1]
+		// An empty block marks keys already deleted by an earlier import pass.
+		if native != nil && len(native.Content) > 0 && mappingValue(native, k) == nil && (slices.Contains(keep, k) || isNullNode(was) || (mappingValue(mapping, k) == nil && unwritten(k))) {
+			changed = true
+			continue
+		}
 		if slices.Contains(keep, k) || isNullNode(was) || mappingValue(native, k) != nil {
 			continue
 		}
@@ -367,4 +372,57 @@ func flushKeptNote(path string, data []byte) {
 // holds only the keys in carryable.
 func importCarrying(carryable []string) func(string) bool {
 	return func(key string) bool { return !slices.Contains(carryable, key) }
+}
+
+func importNativeAgentFields(data []byte, target string, fields ...string) ([]byte, error) {
+	mapping, rest, ok := frontmatterNode(data)
+	if !ok {
+		return data, nil
+	}
+	if err := expandYAMLAliases(mapping); err != nil {
+		return nil, err
+	}
+	key := "x-" + target
+	block := mappingValue(mapping, key)
+	if block == nil {
+		block = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	}
+	if block.Kind != yaml.MappingNode {
+		return data, nil
+	}
+	changed := false
+	for _, field := range fields {
+		if value := mappingValue(mapping, field); value != nil {
+			setMappingNode(block, field, value)
+			removeOrShare(mapping, field, nil)
+			changed = true
+		}
+	}
+	if !changed {
+		return data, nil
+	}
+	setMappingNode(mapping, key, block)
+	return encodeFrontmatter(mapping, rest, target)
+}
+
+func expandYAMLAliases(node *yaml.Node) error {
+	if node.Kind == yaml.AliasNode {
+		var value any
+		if err := node.Decode(&value); err != nil {
+			return err
+		}
+		var expanded yaml.Node
+		if err := expanded.Encode(value); err != nil {
+			return err
+		}
+		expanded.HeadComment, expanded.LineComment, expanded.FootComment = node.HeadComment, node.LineComment, node.FootComment
+		*node = expanded
+		return nil
+	}
+	for _, child := range node.Content {
+		if err := expandYAMLAliases(child); err != nil {
+			return err
+		}
+	}
+	return nil
 }

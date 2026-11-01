@@ -92,7 +92,7 @@ The check covers these targets:
 Sync and doctor do not check other tools, though some document what happens:
 
 - [Kiro](https://kiro.dev/docs/skills/#skill-scope) prefers workspace skills over global skills.
-- [Qoder](https://docs.qoder.com/extensions/skills) prefers project skills over user skills.
+- [Qoder IDE](https://docs.qoder.com/extensions/skills) documents project skills taking priority over user skills. [Qoder CLI](https://docs.qoder.com/cli/Skills.md) documents user skills taking priority over project skills.
 - [Warp](https://docs.warp.dev/agents/capabilities/skills#skill-name-conflicts) prefers home skills, then higher directories, when it resolves names in the background. Its slash-command menu shows all matches, and a plain-language request gives the agent every match in scope with its path.
 
 <details>

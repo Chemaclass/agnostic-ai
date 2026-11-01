@@ -33,9 +33,12 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 // reports the ones it cannot hold, which the scoped write-back keeps.
 func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode, fields specFields, unwritten func(string) bool) error {
 	overwrite := fields.all && len(fields.omitted) == 0 && fields.preserve == nil
-	data, err := importScopedSpecKeys(data, path, unwritten, overwrite)
-	if err != nil {
-		return err
+	var err error
+	if !fields.scopedReconciled {
+		data, err = importScopedSpecKeys(data, path, unwritten, overwrite)
+		if err != nil {
+			return err
+		}
 	}
 	existing, err := os.ReadFile(path)
 	switch {

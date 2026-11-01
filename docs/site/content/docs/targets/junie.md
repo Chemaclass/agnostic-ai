@@ -107,7 +107,7 @@ With `sync.target-overview` off and another tool that reads `AGENTS.md` enabled,
 <details>
 <summary>IDE plugin Custom path</summary>
 
-The IDE plugin reads an optional **Custom path** (Settings | Tools | Junie | Project Settings) before `.junie/AGENTS.md`. The CLI does not, and the setting is rarely committed, so it seldom changes which file wins.
+The IDE plugin reads an optional **Custom path** (Settings | Tools | Junie | Project Settings) before `.junie/AGENTS.md`. The CLI documents `--guidelines-filename` and `JUNIE_GUIDELINES_FILENAME` for a custom guidelines file in `.junie/` at the project root ([environment variables](https://junie.jetbrains.com/docs/environment-variables.html)).
 
 </details>
 

@@ -11,7 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// Plugins bundle MCP servers in `<plugin-root>/mcp.json`, while
+// This configured plugin MCP path retains its emitted bytes, while
 // standalone configs keep `mcp_config.json`
 // (antigravity.google/docs/mcp?tab=ide, "Standalone configs vs. plugin
 // bundles").

@@ -9,11 +9,12 @@ import "gopkg.in/yaml.v3"
 // it, which the spec must lose. A target that round-trips everything
 // declares allSpecFields and gets a plain overwrite.
 type specFields struct {
-	keys         map[string]bool
-	scopedNative map[string]bool
-	all          bool
-	omitted      map[string]bool
-	preserve     func(existing, imported *yaml.Node)
+	keys             map[string]bool
+	scopedNative     map[string]bool
+	scopedReconciled bool // importer already reconciles target metadata before writing
+	all              bool
+	omitted          map[string]bool
+	preserve         func(existing, imported *yaml.Node)
 }
 
 // allSpecFields marks a native format that carries every key a spec can
@@ -54,13 +55,14 @@ var (
 // existing one.
 var (
 	claudeAgentFields      = specFields{all: true, omitted: map[string]bool{"readonly": true, "x-claude": true}, preserve: preserveClaudeReadonly}
-	clineAgentFields       = fieldsOf("name", "description")
-	cursorAgentFields      = fieldsOf("name", "description", "model", "background")
+	clineAgentFields       = specFields{keys: fieldsOf("name", "description").keys, scopedNative: map[string]bool{"tools": true, "skills": true, "providerId": true, "modelId": true, "maxIterations": true}}
+	cursorAgentFields      = specFields{keys: fieldsOf("name", "description", "model", "background").keys, scopedReconciled: true}
 	copilotAgentFields     = fieldsOf("name", "description", "tools", "model")
 	antigravityAgentFields = fieldsOf("name", "description")
 	kiroAgentFields        = fieldsOf("name", "description", "model", "tools")
 	qoderAgentFields       = fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background")
 	gooseAgentFields       = fieldsOf("name", "description", "model")
+	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true}}
 	traeAgentFields        = fieldsOf("name", "description", "tools")
 	windsurfAgentFields    = fieldsOf("name", "description", "model", "allowed-tools")
 	factoryAgentFields     = fieldsOf("name", "description", "model", "tools", "effort", "reasoningEffort")

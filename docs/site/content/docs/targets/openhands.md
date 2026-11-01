@@ -128,7 +128,7 @@ Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --globa
 | `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` |
 | `.openhands/skills/` and `.openhands/microagents/` (legacy) | the same, read after `.agents/skills/` |
 | flat `<name>.md` in any of those three directories | a rule, or a skill when it has `triggers` (kept under `x-openhands`) |
-| `.agents/agents/<name>.md` | `<agents>/<name>.md` |
+| `.agents/agents/<name>.md` | `<agents>/<name>.md`, with native `skills` under `x-openhands` |
 | `.openhands/hooks.json` | one hook spec per matcher group |
 | `config.toml` `[mcp]` table (legacy V0) | `<mcps>/<name>.yaml` per server |
 | `.openhands/setup.sh` | `<environments>/openhands-setup.yaml` with the script as `install` |

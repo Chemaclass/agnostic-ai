@@ -25,6 +25,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Specs, import and editors
 
+- Import preserves Cline agent settings and OpenHands agent skills through sync.
+
 - The unknown capability error no longer shows a stray colon after the list name, as in `for permissions.allow` and `for can` (#2922).
 - Markdown specs keep an opening `---` block of prose or a list as body text, and `lint` reports it as LINT056 (#2892).
 - A kept opening block of only headings stays in the body; generated files write an empty frontmatter block before it, with the header below (#2892).

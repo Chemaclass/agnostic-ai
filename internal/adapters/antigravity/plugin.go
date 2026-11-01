@@ -7,16 +7,16 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 )
 
-// Keep legacy mcp_config.json roots recognized so upgrades retain their manifests.
+// Both plugin MCP filenames retain their manifests.
 var pluginComponents = map[string]bool{
 	"skills": true, "agents": true, "rules": true,
 	"mcp.json": true, "mcp_config.json": true, "hooks.json": true,
 }
 
-func noteLegacyPluginMCP(path string) {
+func notePluginMCPFilename(path string) {
 	root := emit.PluginRootOf(path, pluginComponents)
-	if root != "" && filepath.Base(path) == "mcp_config.json" {
-		emit.NoteProject(fmt.Sprintf("antigravity: Antigravity documents plugin MCP in mcp.json; set outputs.antigravity.mcp-file to %s/mcp.json", root))
+	if root != "" && filepath.Base(path) == "mcp.json" {
+		emit.NoteProject(fmt.Sprintf("antigravity: Antigravity documents plugin MCP in mcp_config.json; set outputs.antigravity.mcp-file to %s/mcp_config.json", root))
 	}
 }
 

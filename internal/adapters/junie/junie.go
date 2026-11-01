@@ -18,12 +18,12 @@
 // "If this file exists, it is used exclusively; no other guidelines
 // files are combined with it."). The IDE plugin's own doc separately
 // lists a Custom Path step ahead of `.junie/AGENTS.md`, an IDE Settings
-// preference; the CLI-facing doc has none, and since that per-workspace
-// setting is not usually committed, it rarely changes which file wins
-// here (target-audit 2026-08-09, #590).
+// preference. The CLI also documents --guidelines-filename and
+// JUNIE_GUIDELINES_FILENAME for a custom file in .junie/ at the project
+// root (junie.jetbrains.com/docs/environment-variables.html).
 //
 // Rule bodies inline directly into `.junie/AGENTS.md`, the only file
-// Junie ever opens in a synced project, under a sentinel-marked
+// sync writes for Junie, under a sentinel-marked
 // `## Rules` block (emit.RenderRulesAppendix, the same mechanism
 // codex/gemini/aider use for their own single-entry-point surface).
 // There is no separate `.junie/rules/` output anymore: a prior version

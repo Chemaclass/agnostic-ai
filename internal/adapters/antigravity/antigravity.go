@@ -276,7 +276,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitMCP(sess, b.MCPs, mcpFile, dryRun); err != nil {
 		return err
 	}
-	noteLegacyPluginMCP(mcpFile)
+	notePluginMCPFilename(mcpFile)
 
 	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err

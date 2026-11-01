@@ -69,9 +69,9 @@ Rules, skills, and MCP go to the plural `.agents/` form Antigravity prefers ([ru
 
 ### Plugins
 
-Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, when an output key points at a component of the [plugin layout](https://antigravity.google/docs/build-plugins#supported-components): `skills/`, `agents/`, `rules/`, `hooks.json`, or `mcp.json`. A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
+Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, when an output key points at a component of the [plugin layout](https://antigravity.google/docs/build-plugins#supported-components): `skills/`, `agents/`, `rules/`, `hooks.json`, `mcp_config.json`, or `mcp.json`. A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
 
-To bundle MCP servers in a plugin, set `outputs.antigravity.mcp-file` to `.agents/plugins/<name>/mcp.json`, the path Antigravity documents for [plugin MCP](https://antigravity.google/docs/mcp?tab=ide). A legacy output at `.agents/plugins/<name>/mcp_config.json` still gets its manifest. Sync prints a note to move to `mcp.json`. Whether Antigravity loads the legacy name is unproven. The standalone file stays at `.agents/mcp_config.json`.
+To bundle MCP servers in a plugin, set `outputs.antigravity.mcp-file` to `.agents/plugins/<name>/mcp_config.json`, the path in the [plugin documentation](https://antigravity.google/docs/build-plugins). Sync also recognizes `mcp.json` for the manifest and notes the documented filename. The standalone file stays at `.agents/mcp_config.json`.
 
 Sync keeps an existing `plugin.json` it did not write and prints a note. Manifests recorded by an earlier sync remain managed.
 
@@ -84,7 +84,7 @@ Every file starts with frontmatter declaring a `trigger`. Antigravity [silently 
 - **`x-antigravity.trigger` overrides the mapping.** `import antigravity` writes it, because the portable fields cannot always recover the trigger. A `manual` rule with a `description` would come back as `model_decision`. An override missing its field (`globs` for `glob`, `description` for `model_decision`), or outside `always_on`/`glob`/`model_decision`/`manual`, becomes `trigger: manual` with a sync note, never `always_on`.
 - **24,000-byte cap.** Antigravity [truncates](https://antigravity.google/docs/rules) a rule file over 24,000 bytes after expanding `@[label](path)` includes. agnostic-ai writes it in full and adds a sync note, so split the rule. The count covers the written file (frontmatter, generated-file header, heading) and expands the built-in memory rule's project and checkout personal indexes, stripping included frontmatter. Other rules' includes are not counted.
 - **20,000-token budget.** All `always_on` rules share 20,000 tokens. Past it, Antigravity replaces its largest rules with a `path: description` pointer. `sync` gives no note, so give large rules a `description`.
-- **Scoped rules**: `scope: <dir>` writes to `<dir>/.agents/rules/<name>.md` with the same frontmatter. Antigravity walks up from each file it reads or edits and [loads rules at each level](https://antigravity.google/docs/rules). It scans only the `.md` files directly inside `.agents/rules/`, so rules never nest deeper.
+- **Scoped rules**: `scope: <dir>` writes to `<dir>/.agents/rules/<name>.md` with the same frontmatter. Antigravity [documents](https://antigravity.google/docs/rules) that it does not load rules from folders below the workspace. Use a workspace rooted at the scoped directory when relying on those rules.
 
 ### Agents
 

@@ -69,11 +69,11 @@ func TestPluginRoots_OnlyExactSupportedComponents(t *testing.T) {
 	}
 }
 
-func TestEmit_LegacyPluginMCPKeepsManifestAndNotesMove(t *testing.T) {
+func TestEmit_PluginMCPFilenameNotesDocumentedPath(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	notes := swapNoteWarner(t)
 	cfg := &config.Config{Outputs: map[string]config.Output{target: {
-		MCPFile: ".agents/plugins/team/mcp_config.json",
+		MCPFile: ".agents/plugins/team/mcp.json",
 	}}}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(mcpGoldenEntries()), cfg, false); err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func TestEmit_LegacyPluginMCPKeepsManifestAndNotesMove(t *testing.T) {
 		t.Errorf("unexpected manifest: %s", body)
 	}
 	emit.FlushCoverageNotes()
-	for _, want := range []string{"Antigravity documents plugin MCP in mcp.json", "outputs.antigravity.mcp-file", ".agents/plugins/team/mcp.json"} {
+	for _, want := range []string{"Antigravity documents plugin MCP in mcp_config.json", "outputs.antigravity.mcp-file", ".agents/plugins/team/mcp_config.json"} {
 		if !strings.Contains(notes.String(), want) {
 			t.Errorf("missing %q in notes: %s", want, notes)
 		}
