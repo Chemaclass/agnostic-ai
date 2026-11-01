@@ -10,7 +10,7 @@ const item = (findings: ItemFinding[]): SectionItem => ({ kind: 'settings', name
 const view = (findings: ItemFinding[], sectionFindings: ItemFinding[] = []): OverviewView => ({
   schemaVersion: 'overview/v1',
   snapshot: {} as OverviewView['snapshot'],
-  targets: [],
+  targets: [], tools: { source: 'default', items: [] },
   sections: [{ id: 'authority', label: 'Authority', question: '', order: 1, kinds: [], items: [item(findings)], support: [], findings: sectionFindings }],
 })
 const owner = itemEntryId(item([]))

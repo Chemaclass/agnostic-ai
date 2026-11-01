@@ -21,6 +21,7 @@ type View struct {
 	Snapshot      authority.Snapshot `json:"snapshot"`
 	Sections      []Section          `json:"sections"`
 	Targets       []TargetSupport    `json:"targets"`
+	Tools         ToolCatalog        `json:"tools"`
 	// Global is true for user configuration, which has no project to size.
 	Global bool `json:"global,omitempty"`
 }
@@ -319,6 +320,30 @@ type TargetSupport struct {
 	Label  string     `json:"label"`
 	Kinds  []string   `json:"kinds"`
 	Sync   TargetSync `json:"sync"`
+}
+
+// ToolCatalog lists every coding tool sync can write for, with the
+// ones the configuration selects turned on.
+type ToolCatalog struct {
+	// Source is where the selection comes from: "default" when no
+	// config file sets targets, "shared" for the committed config,
+	// or "personal" when the personal config replaces the shared list.
+	Source string       `json:"source"`
+	Items  []ToolChoice `json:"items"`
+}
+
+// ToolChoice is one coding tool in the catalog.
+type ToolChoice struct {
+	Target      string `json:"target"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+	// Local is true when the personal list decides Enabled differently
+	// from the shared list.
+	Local bool `json:"local"`
+	// Detected is true when the project already holds the tool's own
+	// files, such as .cursor/.
+	Detected bool `json:"detected"`
 }
 
 // Sync states of a target.

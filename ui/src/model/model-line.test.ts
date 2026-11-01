@@ -4,7 +4,7 @@ import { modelLine } from './model-line'
 
 const resolved = (over: Partial<TargetValue>): TargetValue => ({ target: 'claude', label: 'Claude Code', checked: true, others: [], ...over })
 const overview = (model: TargetValue[], effort: TargetValue[]): OverviewView => ({
-  schemaVersion: '1', snapshot: {} as OverviewView['snapshot'], targets: [],
+  schemaVersion: '1', snapshot: {} as OverviewView['snapshot'], targets: [], tools: { source: 'default', items: [] },
   sections: [{ id: 'settings', label: 'Settings', question: '', order: 5, kinds: [], items: [], findings: [], support: [], fields: [
     { key: 'model', label: 'Default model', description: '', set: [], resolved: model },
     { key: 'effort', label: 'Reasoning effort', description: '', set: [], resolved: effort },

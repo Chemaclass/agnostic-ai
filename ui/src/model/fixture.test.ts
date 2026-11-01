@@ -60,4 +60,9 @@ describe(`overview fixture (${OVERVIEW_FIXTURE})`, () => {
     expect(builtins.map((b) => b.name)).toEqual(expect.arrayContaining(['memory', 'handoff', 'handoff-hook', 'rtk', 'caveman']))
     for (const b of builtins) expect(typeof b.enabled, b.name).toBe('boolean')
   })
+
+  it('lists every coding tool with the project selection switched on', () => {
+    expect(overview.tools.items.length).toBeGreaterThan(20)
+    expect(overview.tools.items.filter((tool) => tool.enabled).map((tool) => tool.target)).toEqual(['claude', 'codex', 'cursor'])
+  })
 })
