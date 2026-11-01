@@ -8,6 +8,17 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
+func TestDoubleStarUnmanaged_ListsEntriesWithDoubleStar(t *testing.T) {
+	got := DoubleStarUnmanaged([]string{"**/.cursor/BUGBOT.md", ".claude/x.md", "a/**", "b/*/c.md"})
+	want := []string{"**/.cursor/BUGBOT.md", "a/**"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	if got := DoubleStarUnmanaged([]string{".claude/x.md", "*/y.md", `a/\**`, `a/[**]`, `a/\*\*`, "a/[*]*"}); len(got) != 0 {
+		t.Fatalf("entries without ** must not be listed, got %v", got)
+	}
+}
+
 func TestMatchUnmanaged(t *testing.T) {
 	cases := []struct {
 		name     string

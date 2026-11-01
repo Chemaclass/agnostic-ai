@@ -752,4 +752,5 @@
 # the new Settings tab grow the binary. The budget rises by 49152 (24649728
 # minus 24600576).
 # The import claude fix (#2935) measured 24653984 after main; the budget rises by 8192.
-24657920
+# The sync.unmanaged ** warning (#2937) measured 24662176 after main; the budget rises by 8192.
+24666112

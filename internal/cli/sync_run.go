@@ -665,6 +665,7 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	if err != nil {
 		return nil, nil, err
 	}
+	noteUnmanagedDoubleStar(cfg)
 	return targets, winners, noteUnreadOverlays(root)
 }
 

@@ -95,6 +95,44 @@ func normalizeUnmanaged(p string) string {
 	return strings.TrimPrefix(path.Clean(p), "/")
 }
 
+// DoubleStarUnmanaged lists the entries that contain `**`. path.Match
+// reads it as `*`, which stays inside one path segment.
+func DoubleStarUnmanaged(patterns []string) []string {
+	var out []string
+	for _, p := range patterns {
+		if hasDoubleStar(p) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// hasDoubleStar reports two `*` in a row that path.Match reads as
+// wildcards: an escaped `\*` or a `*` inside a `[...]` class is literal.
+func hasDoubleStar(p string) bool {
+	stars, inClass := 0, false
+	for i := 0; i < len(p); i++ {
+		switch c := p[i]; {
+		case c == '\\':
+			i++
+			stars = 0
+		case inClass:
+			inClass = c != ']'
+			stars = 0
+		case c == '[':
+			inClass = true
+			stars = 0
+		case c == '*':
+			if stars++; stars == 2 {
+				return true
+			}
+		default:
+			stars = 0
+		}
+	}
+	return false
+}
+
 // validateUnmanaged rejects a malformed glob in sync.unmanaged at load
 // time, so a typo fails loudly instead of silently owning nothing. An
 // entry that names no path (empty, `.`, `./`, `/`) is rejected too: it
