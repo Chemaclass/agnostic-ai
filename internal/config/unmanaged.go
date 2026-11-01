@@ -11,13 +11,15 @@ import (
 // are project-relative with forward slashes; a leading `./` or `/` is
 // ignored, and a backslash in p counts as a separator. A pattern is an
 // exact path, a path.Match glob (`*` never crosses `/`), or a directory
-// prefix when it ends with `/`. Malformed globs are rejected at config
+// when it ends with `/`, matched one segment at a time, so a glob such
+// as `skills/legacy-*/` owns every folder it matches. Malformed globs are rejected at config
 // load, so a Match error here never fires.
 func MatchUnmanaged(patterns []string, p string) bool {
 	if len(patterns) == 0 {
 		return false
 	}
 	rel := normalizeUnmanaged(strings.ReplaceAll(p, `\`, "/"))
+	relSegs := strings.Split(rel, "/")
 	for _, pattern := range patterns {
 		if pattern == "" {
 			continue
@@ -26,7 +28,8 @@ func MatchUnmanaged(patterns []string, p string) bool {
 		isDir := strings.HasSuffix(pattern, "/")
 		pattern = normalizeUnmanaged(pattern)
 		if isDir {
-			if rel == pattern || strings.HasPrefix(rel, pattern+"/") {
+			patSegs := strings.Split(pattern, "/")
+			if len(relSegs) >= len(patSegs) && segmentsMatch(patSegs, relSegs[:len(patSegs)]) {
 				return true
 			}
 			continue
