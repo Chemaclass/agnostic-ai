@@ -61,7 +61,12 @@ func importFromQwen(root string, src config.Sources) error {
 	skills := 0
 	seenSkills := map[string]bool{}
 	for _, skillsDir := range []string{".qwen/skills", ".agents/skills"} {
-		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills, ReserveSourceNames: skillsDir == ".qwen/skills", TransformSkill: scopeQwenSkillFields, Fields: &allSpecFields})
+		native := skillsDir == ".qwen/skills"
+		var fields *specFields
+		if native {
+			fields = &allSpecFields
+		}
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills, ReserveSourceNames: native, TransformSkill: scopeQwenSkillFields, Fields: fields})
 		if err != nil {
 			return err
 		}

@@ -53,3 +53,31 @@ func TestImportQwen_NativeSourceLinkWinsOverSharedDuplicate(t *testing.T) {
 		})
 	}
 }
+
+func TestImportQwen_SyncedPeerSkillCopyLeavesTheSpecUnchanged(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		flags []string
+	}{
+		{name: "import"},
+		{name: "overwrite", flags: []string{"--overwrite"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [qwen, codex]\n")
+			const spec = "---\nname: demo\ndescription: Demo skill.\ntargets-exclude: [qwen]\n---\nCodex only.\n"
+			writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", spec)
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			out, err := runCLI(t, append([]string{"import", "qwen"}, tc.flags...)...)
+			if err != nil {
+				t.Errorf("import: %v\n%s", err, out)
+			}
+			if got := readFile(t, ".agnostic-ai/skills/demo/SKILL.md"); got != spec {
+				t.Errorf("spec changed:\n%s", got)
+			}
+		})
+	}
+}
