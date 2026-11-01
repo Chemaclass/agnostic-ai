@@ -150,9 +150,25 @@ func newSyncCmd() *cobra.Command {
 					case dryRun:
 						command = "sync --dry-run"
 					}
-					return writeEmptyTargetsJSON(cmd, command)
+					if err := writeEmptyTargetsJSON(cmd, command); err != nil {
+						return err
+					}
+					if check && generatedFilesKept() {
+						return errEmptyTargetsCheck()
+					}
+					return nil
 				}
-				warnEmptyTargets(cmd.ErrOrStderr())
+				if check && generatedFilesKept() {
+					if format == checkFormatGitHub {
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "::error::%s\n", githubData(errEmptyTargetsCheck().Error()))
+					}
+					return errEmptyTargetsCheck()
+				}
+				if len(targets) > 0 {
+					warnEmptyTargetsIgnoring(cmd.ErrOrStderr())
+				} else {
+					warnEmptyTargets(cmd.ErrOrStderr())
+				}
 				return nil
 			}
 			// The state file lists every output, so one read serves the

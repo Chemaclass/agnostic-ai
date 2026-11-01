@@ -49,6 +49,7 @@ const (
 	// Sync / validate.
 	CodeSyncTargetUnknown Code = "AAI-301"
 	CodeFlagConflict      Code = "AAI-302"
+	CodeEmptyTargets      Code = "AAI-303"
 )
 
 // codedError is the concrete error type produced by Coded. It exposes

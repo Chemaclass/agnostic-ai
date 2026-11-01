@@ -10,10 +10,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
-- **Breaking:** With an empty `targets` list, `sync`, `status` and `doctor --fix` keep generated files. Run `agnostic-ai sync --allow-empty-targets` to remove them (#2963).
-- `sync --watch` without `--target`, `--only` or `--except` follows `targets`: an added tool gets its files, a dropped one loses the files sync wrote, and an empty list keeps files from the first pass (#2932, #2963).
+- **Breaking:** An empty `targets` list no longer removes generated files. Run `agnostic-ai sync --allow-empty-targets` to remove them (#2963).
+- `sync --watch` without `--target`, `--only` or `--except` follows `targets`, and an empty list keeps files from the first pass (#2932, #2963).
 - A repeated key in a nested map, such as `permissions.deny` or an MCP `env` entry, is a parse error with its line, not a silently dropped field (#2890).
-- An empty key or model tier in `agnostic-ai.local.yaml` keeps the shared group, `{}` clears it, and lint names what an empty key replaces (#2891).
+- An empty local key or model tier keeps the shared value, `{}` clears a group but not a tier, and lint names what an empty key replaces (#2891).
 - `init` sets minimums; `upgrade --requires` keeps minimum/exact pins or makes ranges minimums; `init`, `use` and AAI-005 explain exact pins (#2841, #2849).
 
 #### Checks and reports

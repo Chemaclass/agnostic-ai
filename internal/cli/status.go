@@ -248,6 +248,9 @@ func printStatus(cmd *cobra.Command, r *statusResult) {
 	cmd.Printf("Specs:   %s\n", formatSpecCounts(r.Specs))
 
 	cmd.Printf("Targets: %s\n", strings.Join(r.Targets, ", "))
+	if len(r.Targets) == 0 {
+		warnEmptyTargets(cmd.OutOrStdout())
+	}
 
 	switch {
 	case r.LastSync == nil:

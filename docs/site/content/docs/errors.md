@@ -139,3 +139,9 @@ A known target that is not in this run (`sync --only codex` with `targets: [clau
 You passed two conflicting flags, such as `--only` with `--except` or `--watch` with `--check`, or a flag without the one it needs, such as `--diff` without `--dry-run`.
 
 **Fix:** the message names both flags. Drop one when they conflict, or add the missing one.
+
+### AAI-303: Empty targets list
+
+`sync --check` ran while `targets` lists no tool. Sync keeps every generated file in that case, so the check cannot say whether they are current and fails instead of passing.
+
+**Fix:** add a tool to `targets`, or run `agnostic-ai sync --allow-empty-targets` to remove the generated files.

@@ -47,7 +47,7 @@ func TestSyncWatchCommandHelperProcess(t *testing.T) {
 	}
 }
 
-func TestWatchPass_SkipsAnUnpinnedPassWhileConfigListsNoTargets(t *testing.T) {
+func TestWatchPass_SkipsAPassWhileConfigListsNoTargets(t *testing.T) {
 	dir, buf, stop := followsTargetsFixture(t, nil)
 	stop()
 	writeTestFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets:\n")
@@ -67,8 +67,8 @@ func TestWatchPass_SkipsAnUnpinnedPassWhileConfigListsNoTargets(t *testing.T) {
 	if err := watchPass(".", []string{"claude"}, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err == nil {
-		t.Errorf("a pinned pass must still sync as before and drop codex's AGENTS.md")
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err != nil {
+		t.Errorf("a pinned pass over an empty targets list removed codex's AGENTS.md: %v", err)
 	}
 }
 

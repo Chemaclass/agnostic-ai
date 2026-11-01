@@ -86,31 +86,59 @@ func TestSync_EmptyTargetsKeepsEveryFile(t *testing.T) {
 	}
 }
 
-func TestSyncCheck_EmptyTargetsReportsNoDrift(t *testing.T) {
+func TestSyncCheck_EmptyTargetsFailsAndKeepsFiles(t *testing.T) {
+	for _, format := range []string{"human", "github"} {
+		t.Run(format, func(t *testing.T) {
+			syncedEmptyTargetsProject(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
+			var stdout, stderr bytes.Buffer
+			root := NewRootCmd("test")
+			root.SetOut(&stdout)
+			root.SetErr(&stderr)
+			root.SetArgs([]string{"sync", "--check", "--format", format})
+
+			err := root.Execute()
+
+			if err == nil || !strings.Contains(err.Error(), "--allow-empty-targets") || strings.Contains(err.Error(), "run `agnostic-ai sync`") {
+				t.Errorf("err = %v, want one that names --allow-empty-targets", err)
+			}
+			if format == "github" && !strings.Contains(stdout.String(), "::error::") {
+				t.Errorf("missing ::error:: annotation:\n%s", stdout.String())
+			}
+			requireEmptyTargetsOutputs(t, true)
+		})
+	}
+}
+
+func TestSync_ExplicitTargetWithEmptyTargetsIsSkipped(t *testing.T) {
 	syncedEmptyTargetsProject(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
 
-	if out, err := runCLI(t, "sync", "--check"); err != nil {
-		t.Errorf("sync --check: %v\n%s", err, out)
+	out, err := runCLI(t, "sync", "-t", "claude")
+
+	if err != nil {
+		t.Fatalf("sync -t claude: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "ignoring -t") {
+		t.Errorf("warning does not say -t was skipped:\n%s", out)
 	}
 	requireEmptyTargetsOutputs(t, true)
 }
 
-func TestStatus_EmptyTargetsShowsNoDrift(t *testing.T) {
+func TestStatus_EmptyTargetsWarnsAndShowsNoDrift(t *testing.T) {
 	syncedEmptyTargetsProject(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
-	cfg, b, err := loadProject(".")
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	drift, _, err := captureAllAndDiff(cfg.Targets, cfg, b)
+	out, err := runCLI(t, "status")
 
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("status: %v\n%s", err, out)
 	}
-	if drift != 0 {
-		t.Errorf("drift = %d, want 0", drift)
+	if !strings.Contains(out, "targets lists no tool") {
+		t.Errorf("status did not warn:\n%s", out)
+	}
+	if !strings.Contains(out, "Drift:   in sync") {
+		t.Errorf("status shows drift:\n%s", out)
 	}
 }
 
@@ -191,6 +219,30 @@ func TestSync_AllowEmptyTargetsConflicts(t *testing.T) {
 }
 
 func TestWatch_FirstPassKeepsFilesWithEmptyTargets(t *testing.T) {
+	for _, pinned := range [][]string{nil, {"claude"}} {
+		t.Run(strings.Join(pinned, ","), func(t *testing.T) {
+			testWatchFirstPassKeepsFiles(t, pinned)
+		})
+	}
+}
+
+func TestWatch_PinnedResyncKeepsFilesWhenTargetsBecomeEmpty(t *testing.T) {
+	syncedEmptyTargetsProject(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
+	buf := captureWatchOutput(t)
+
+	err := resyncForChanges(".", []string{"claude"}, []string{"agnostic-ai.yaml"}, false, false, "off", 1)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireEmptyTargetsOutputs(t, true)
+	if !strings.Contains(buf.String(), "targets lists no tool") {
+		t.Errorf("no warning:\n%s", buf.String())
+	}
+}
+
+func testWatchFirstPassKeepsFiles(t *testing.T, pinned []string) {
 	syncedEmptyTargetsProject(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
 	buf := captureWatchOutput(t)
@@ -198,7 +250,7 @@ func TestWatch_FirstPassKeepsFilesWithEmptyTargets(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		done <- watchSync(ctx, 20*time.Millisecond, ".", nil, false, false, "off", true, 1)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", pinned, false, false, "off", true, 1)
 	}()
 
 	waitForOutput(t, buf, "watching", 10*time.Second)
@@ -231,4 +283,20 @@ func TestSync_RemovingOneTargetStillRemovesItsFiles(t *testing.T) {
 			t.Errorf("%s should stay: %v", p, err)
 		}
 	}
+}
+
+func TestUpgradeRequires_EmptyTargetsWarnsOnStderrAndSkipsSync(t *testing.T) {
+	requiresProject(t, "0.76.0")
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\nrequires: \"0.76.0\"\n")
+
+	var err error
+	stderr := captureStderr(t, func() { err = executeUpgradeRequiresForTest(t, "v0.77.0", "-q") })
+
+	if err != nil {
+		t.Fatalf("upgrade --requires: %v", err)
+	}
+	if !strings.Contains(stderr, "targets lists no tool") {
+		t.Errorf("no warning on stderr:\n%s", stderr)
+	}
+	assertAbsent(t, filepath.Join(".claude", "rules", "safe.md"))
 }

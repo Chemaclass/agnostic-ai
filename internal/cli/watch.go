@@ -757,13 +757,13 @@ func resyncForChanges(root string, configured, changed []string, dryRun, backup 
 		// for a narrower emit. runSyncOnce surfaces the load error itself.
 		return runSyncOnce(root, configured, dryRun, backup, gitignoreFlag, jobs)
 	}
+	if noTargetsKept(cfg) {
+		warnEmptyTargetsSummary()
+		return nil
+	}
 	effective := configured
 	if len(effective) == 0 {
 		effective = cfg.Targets
-	}
-	if len(effective) == 0 {
-		warnEmptyTargetsSummary()
-		return nil
 	}
 	plan := planWatchResync(root, cfg, b, changed, effective)
 	if plan.full {
@@ -779,15 +779,14 @@ func resyncForChanges(root string, configured, changed []string, dryRun, backup 
 	return runSyncOnce(root, plan.targets, dryRun, backup, gitignoreFlag, jobs)
 }
 
-// watchPass runs one sync pass of a watch. An unpinned watch whose config
-// lists no tool skips the pass: an empty list is often an autosave in the
-// middle of an edit, and a pass over it would remove every generated file.
+// watchPass runs one sync pass of a watch. A watch whose config lists no
+// tool skips the pass, pinned with -t or not: an empty list is often an
+// autosave in the middle of an edit, and a pass over it would remove every
+// generated file.
 func watchPass(root string, configured []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
-	if len(configured) == 0 {
-		if cfg, _, err := loadValidConfig(root); err == nil && len(cfg.Targets) == 0 {
-			warnEmptyTargetsSummary()
-			return nil
-		}
+	if cfg, _, err := loadValidConfig(root); err == nil && noTargetsKept(cfg) {
+		warnEmptyTargetsSummary()
+		return nil
 	}
 	return runSyncOnce(root, configured, dryRun, backup, gitignoreFlag, jobs)
 }
