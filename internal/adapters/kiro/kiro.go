@@ -170,14 +170,15 @@ import (
 )
 
 const (
-	target             = "kiro"
-	defaultSteeringDir = ".kiro/steering"
-	defaultAgentsDir   = ".kiro/agents"
-	defaultSkillsDir   = ".kiro/skills"
-	defaultCommandsDir = ".kiro/prompts"
-	defaultHooksDir    = ".kiro/hooks"
-	defaultMCPFile     = ".kiro/settings/mcp.json"
-	defaultIgnoreFile  = ".kiroignore"
+	target              = "kiro"
+	defaultSteeringDir  = ".kiro/steering"
+	defaultAgentsDir    = ".kiro/agents"
+	defaultSkillsDir    = ".kiro/skills"
+	defaultCommandsDir  = ".kiro/prompts"
+	defaultHooksDir     = ".kiro/hooks"
+	defaultMCPFile      = ".kiro/settings/mcp.json"
+	defaultIgnoreFile   = ".kiroignore"
+	defaultSettingsFile = ".kiro/settings/cli.json"
 	// legacyAgentPrefix names the flattened steering file this adapter
 	// used to write per agent before agents moved to their native
 	// `.kiro/agents/` surface (see the package doc). Kept only so
@@ -194,7 +195,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
 	// Each name in an agent's mcpServers is written as the MCP spec's
 	// inline definition, the only form Kiro takes.
 	AgentFields: []string{"mcpServers"},
@@ -218,7 +219,8 @@ func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels 
 
 // Emit writes one steering file per rule, one native agent profile per
 // agent, one native skill folder per skill, one prompt per command,
-// one hook definition file per hook, `.kiroignore` when ignore entries exist, plus
+// one hook definition file per hook, `.kiroignore` when ignore entries exist,
+// `.kiro/settings/cli.json` when a settings spec selects a model, plus
 // `.kiro/settings/mcp.json` when MCP entries exist.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
@@ -261,6 +263,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
+		return err
+	}
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
+		emit.SpecsWithPermissions(b.Settings), permissionsNoOpReason)
+	if err := emitSettings(sess, b.Settings, dryRun); err != nil {
 		return err
 	}
 	return sess.WriteMCPFile(b.MCPs, emit.MCPSchemaServersMap,

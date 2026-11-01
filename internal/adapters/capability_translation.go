@@ -97,7 +97,7 @@ func translateCapability(target, list, rule string, cfg *config.Config) Capabili
 		if target == "claude" || target == "qoder" || list == "" && slices.Contains([]string{"copilot", "junie", "trae"}, target) {
 			native = name
 			ok = name != "Delete"
-		} else if target == "kiro" {
+		} else if list == "" && target == "kiro" {
 			native, ok = emit.MCPAtName(name)
 		}
 		if !ok {
