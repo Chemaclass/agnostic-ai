@@ -168,6 +168,10 @@ func computeGraphEdges(b spec.Bundle, cfg *config.Config, f graphFilter) ([]grap
 			single := singleEntryBundle(e)
 			captured, err := captureEmit(adapter, single, cfg)
 			if err != nil {
+				if len(cfg.Targets) == 0 {
+					edges = slices.DeleteFunc(edges, func(e graphEdge) bool { return e.Target == t })
+					break
+				}
 				return nil, fmt.Errorf("%s: %w", t, err)
 			}
 			if extra, ok := entryPointRuleFile(cfg, t, e, single); ok {

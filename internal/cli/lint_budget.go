@@ -206,6 +206,16 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 			load.add("AGENTS.md", wordsIn(agentsFile.Content))
 			load.addFileContext(agentsFile.Path, agentsFile.Content, agentsFile.Layers)
 		}
+		// Cursor reads the project-root AGENTS.md that another tool writes.
+		if t == "cursor" && agentsFile != nil && fileOf[t].Path != agentsFile.Path {
+			if _, ok := fileOf[t]; !ok {
+				load.path = agentsFile.Path
+				load.setFile(agentsFile.Path, agentsFile.Content, agentsFile.Layers)
+			} else {
+				load.add("AGENTS.md", wordsIn(agentsFile.Content))
+				load.addFileContext(agentsFile.Path, agentsFile.Content, agentsFile.Layers)
+			}
+		}
 		load.add("always-on rule files", alwaysOnRuleWords(cfg, b, t))
 		for _, r := range alwaysOnRules(cfg, b, t) {
 			load.context = append(load.context, measuredContext("always-on rule", "startup", adapters.EntrySourcePath(r), r.Body))
