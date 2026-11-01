@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ContextContribution } from '../contract'
-import { builtinOwner, contextAdvice, startHere } from './context-advice'
+import { builtinOwner, contextAdvice, explainCommand, shellQuote, startHere } from './context-advice'
 
 const report = { target: 'claude', startup: { words: 872, bytes: 5400 }, file_scope: { words: 46, bytes: 301 }, on_demand: { words: 316, bytes: 2084 } }
 const row = (source: string, category: string, load: ContextContribution['load'], words = 50): ContextContribution => ({ source, category, load, words, bytes: words * 6 })
@@ -45,7 +45,8 @@ describe('context advice', () => {
     expect(advice.prompt).toContain('Loads: at the start of every session (startup)')
     expect(advice.prompt).toContain('cuts its startup size')
     expect(advice.prompt).not.toContain('Configuration root')
-    expect(advice.actions[0]).toContain('Add globs to .agnostic-ai/rules/testing.md')
+    expect(advice.actions[0]).toContain('Narrow the globs in .agnostic-ai/rules/testing.md to the files it is for (not **/*) and remove alwaysApply: true')
+    expect(advice.actions[0]).toContain('if claude supports path rules')
   })
 
   it('keeps the file in the check step', () => {
@@ -82,5 +83,57 @@ describe('context advice', () => {
     const rows = [row('CLAUDE.md', 'generated framing', 'startup', 900), row('a.md', 'always-on rule', 'startup', 10), row('b.md', 'entry-point layer', 'startup', 120), row('c.md', 'skill discovery', 'startup', 30), row('d.md', 'skill discovery', 'startup', 30), row('e.md', 'skill body', 'on-demand', 500)]
     expect(startHere(rows).map((c) => c.source)).toEqual(['b.md', 'c.md', 'd.md'])
     expect(startHere([])).toEqual([])
+  })
+
+  it('makes no cost, speed or token claim in the advice text', () => {
+    for (const [source, category, load] of CATEGORIES) {
+      for (const withFile of [true, false]) {
+        const advice = contextAdvice(row(source, category, load), { ...report, takesFile: withFile })
+        for (const text of [advice.what, advice.why, ...advice.actions]) expect(text).not.toMatch(/cost|token|latency|faster|cheaper/i)
+      }
+    }
+    const index = contextAdvice(row('.agnostic-ai/memory', 'entry-point layer', 'startup'), report)
+    for (const text of [index.what, index.why, ...index.actions]) expect(text).not.toMatch(/cost|token|latency|faster|cheaper/i)
+  })
+
+  it('does not claim a rules block has no rule folder or that globs never help', () => {
+    const advice = contextAdvice(row('.agnostic-ai/rules/testing.md', 'rules section', 'startup'), report)
+    const text = [advice.what, advice.why, ...advice.actions].join(' ')
+    expect(text).toContain('Rules block inside its instructions file')
+    expect(text).not.toContain('no rule folder')
+    expect(text).not.toContain('still loads it at startup')
+    expect(advice.actions.join(' ')).toContain('target page')
+  })
+
+  it('drops the file steps for a tool that cannot check a single file', () => {
+    const rule = row('.agnostic-ai/rules/go.md', 'conditional rule body', 'on-demand')
+    const without = contextAdvice(rule, { ...report, takesFile: false, file: 'src/main.go' })
+    expect(without.why).toContain('claude cannot check a single file')
+    expect(without.why).not.toContain('Name a file above')
+    expect([...without.actions, without.prompt].join('\n')).not.toContain('--file')
+    const withFile = contextAdvice(rule, report)
+    expect(withFile.why).toContain('Name a file above')
+    expect(withFile.actions.join('\n')).toContain('explain --context --target claude --file <path>')
+  })
+
+  it('describes the shared memory index as a memory built-in source', () => {
+    const advice = contextAdvice(row('.agnostic-ai/memory', 'entry-point layer', 'startup', 40), report)
+    expect(advice.builtin).toBe('memory')
+    expect(advice.what).toContain('shared memory index')
+    expect(advice.what).toContain('memory built-in owns it')
+    expect(advice.what).not.toContain('instructions file')
+    expect(advice.actions[0]).toContain('Prune index lines')
+    expect(advice.actions.join(' ')).toContain('removes shared memory for every tool')
+  })
+
+  it('quotes a file path that holds whitespace or shell characters', () => {
+    expect(shellQuote('src/main.go')).toBe('src/main.go')
+    expect(shellQuote('src/my file.go')).toBe("'src/my file.go'")
+    expect(shellQuote("it's here.go")).toBe("'it'\\''s here.go'")
+    expect(shellQuote('a;b$c.go')).toBe("'a;b$c.go'")
+    expect(explainCommand('claude', 'src/my file.go')).toBe("agnostic-ai explain --context --target claude --file 'src/my file.go'")
+    const advice = contextAdvice(row('.agnostic-ai/rules/go.md', 'scoped rule', 'file-scope'), { ...report, file: 'src/my file.go' })
+    expect(advice.actions.at(-1)).toContain("--file 'src/my file.go' to check")
+    expect(advice.prompt).toContain("--target claude --file 'src/my file.go' to check")
   })
 })

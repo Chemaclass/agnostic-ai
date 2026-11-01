@@ -17,7 +17,7 @@ const ROWS_SHOWN = 10
 
 export const rowKey = (c: ContextContribution) => `${c.load}|${c.source}|${c.category}`
 
-export function ContextSources({ report, root, openByDefault }: { report: ContextReport; root?: string; openByDefault: boolean }) {
+export function ContextSources({ report, root, takesFile, openByDefault }: { report: ContextReport; root?: string; takesFile: boolean; openByDefault: boolean }) {
   const [advice, setAdvice] = useState<string>()
   const [expanded, setExpanded] = useState<Set<ContextLoad>>(new Set())
   const [open, setOpen] = useState(openByDefault)
@@ -36,7 +36,7 @@ export function ContextSources({ report, root, openByDefault }: { report: Contex
   return (
     <>
       <StartHere report={report} onPick={show} />
-      <Contributions report={report} root={root} open={open} onToggle={setOpen} advice={advice} setAdvice={setAdvice} expanded={expanded} setExpanded={setExpanded} focusKey={focusKey} />
+      <Contributions report={report} root={root} takesFile={takesFile} open={open} onToggle={setOpen} advice={advice} setAdvice={setAdvice} expanded={expanded} setExpanded={setExpanded} focusKey={focusKey} />
     </>
   )
 }
@@ -67,6 +67,7 @@ function StartHere({ report, onPick }: { report: ContextReport; onPick: (c: Cont
 interface ContributionsProps {
   report: ContextReport
   root?: string
+  takesFile: boolean
   open: boolean
   onToggle: (open: boolean) => void
   advice: string | undefined
@@ -76,7 +77,7 @@ interface ContributionsProps {
   focusKey: MutableRefObject<string | undefined>
 }
 
-function Contributions({ report, root, open, onToggle, advice, setAdvice, expanded, setExpanded, focusKey }: ContributionsProps) {
+function Contributions({ report, root, takesFile, open, onToggle, advice, setAdvice, expanded, setExpanded, focusKey }: ContributionsProps) {
   const app = useApp()
   const { contributions } = report
   const totals: Record<ContextLoad, ContextSize> = { startup: report.startup, 'file-scope': report.file_scope, 'on-demand': report.on_demand }
@@ -144,7 +145,7 @@ function Contributions({ report, root, open, onToggle, advice, setAdvice, expand
                         {isOpen && (
                           <tr className="context-advice-row">
                             <td colSpan={5} id={adviceId}>
-                              <Advice contribution={c} report={report} root={root} />
+                              <Advice contribution={c} report={report} root={root} takesFile={takesFile} />
                             </td>
                           </tr>
                         )}
@@ -169,9 +170,9 @@ function Contributions({ report, root, open, onToggle, advice, setAdvice, expand
   )
 }
 
-function Advice({ contribution: c, report, root }: { contribution: ContextContribution; report: ContextReport; root?: string }) {
+function Advice({ contribution: c, report, root, takesFile }: { contribution: ContextContribution; report: ContextReport; root?: string; takesFile: boolean }) {
   const app = useApp()
-  const a = contextAdvice(c, report, root)
+  const a = contextAdvice(c, { ...report, takesFile }, root)
   return (
     <div className="context-advice">
       <dl className="context-advice-facts">
