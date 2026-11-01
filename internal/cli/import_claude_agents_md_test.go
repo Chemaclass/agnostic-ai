@@ -156,6 +156,7 @@ const companionSyncWarning = "differs from what sync renders"
 
 func syncFencedClaudeBlock(t *testing.T, source string) (string, *bytes.Buffer) {
 	t.Helper()
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
@@ -245,6 +246,47 @@ func TestImportFromClaude_WarnsWhenCompanionClaudeTextEdited(t *testing.T) {
 
 	if !strings.Contains(buf.String(), companionSyncWarning) {
 		t.Errorf("expected the edit warning, got:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "! CLAUDE.md differs") || strings.Contains(buf.String(), "AGENTS.md") {
+		t.Errorf("expected the warning to name only CLAUDE.md, got:\n%s", buf.String())
+	}
+	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
+	}
+}
+
+func TestImportFromClaude_WarningNamesAgentsMDWhenOnlyItWasEdited(t *testing.T) {
+	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
+	dir, buf := syncFencedClaudeBlock(t, source)
+	agentsPath := filepath.Join(dir, "AGENTS.md")
+	mustWrite(t, agentsPath, mustRead(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	if !strings.Contains(buf.String(), "! AGENTS.md differs from what sync renders") || strings.Contains(buf.String(), "! CLAUDE.md differs") {
+		t.Errorf("expected the warning to name AGENTS.md, got:\n%s", buf.String())
+	}
+	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
+	}
+}
+
+func TestImportFromClaude_WarningNamesBothWhenBothEdited(t *testing.T) {
+	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
+	dir, buf := syncFencedClaudeBlock(t, source)
+	agentsPath := filepath.Join(dir, "AGENTS.md")
+	claudePath := filepath.Join(dir, "CLAUDE.md")
+	mustWrite(t, agentsPath, mustRead(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
+	mustWrite(t, claudePath, strings.Replace(mustRead(t, claudePath), "- Claude only line.", "- Claude only line, edited.", 1))
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	if !strings.Contains(buf.String(), "! AGENTS.md and CLAUDE.md differs") {
+		t.Errorf("expected the warning to name both files, got:\n%s", buf.String())
 	}
 	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
 		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
