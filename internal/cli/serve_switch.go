@@ -49,6 +49,14 @@ type switchReply struct {
 	Started bool   `json:"started"`
 }
 
+// switchMissingReply answers a switch to a global home that does not exist
+// yet, so the page can offer to create it. No server is started.
+type switchMissingReply struct {
+	Error   string `json:"error"`
+	Missing bool   `json:"missing"`
+	Root    string `json:"root"`
+}
+
 type switchHandler struct {
 	peer  *switchPeer
 	ports []string
@@ -120,6 +128,17 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	peer := *h.peer
+	if peer.global {
+		missing, err := globalHomeMissing(peer.root)
+		if err != nil {
+			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
+			return
+		}
+		if missing {
+			writeEditJSON(w, http.StatusConflict, switchMissingReply{Error: "no global setup in " + peer.root, Missing: true, Root: peer.root})
+			return
+		}
+	}
 	reply := func(addr string, started bool) {
 		writeEditJSON(w, http.StatusOK, switchReply{URL: "http://" + addr + "/", Root: peer.root, Global: peer.global, Started: started})
 	}

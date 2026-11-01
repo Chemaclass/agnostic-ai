@@ -196,6 +196,9 @@ func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions,
 	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
 	if switches != nil {
 		mux.Handle(switchPath, switches)
+		if switches.peer != nil && switches.peer.global {
+			mux.Handle(globalCreatePath, newGlobalCreateHandler(switches.peer.root))
+		}
 	}
 	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
 }

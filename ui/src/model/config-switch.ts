@@ -1,4 +1,4 @@
-import { API, type SwitchReply } from '../contract'
+import { API, type GlobalCreateReply, type SwitchReply } from '../contract'
 
 /** What `/api/health` says this server reads. */
 export interface ServedConfig {
@@ -64,6 +64,37 @@ export function parseSwitchReply(value: unknown): SwitchReply {
   return { url: url.toString(), root: reply.root, global: reply.global === true, started: reply.started === true }
 }
 
+export const GLOBAL_SETUP_TITLE = 'No global setup yet'
+export const GLOBAL_SETUP_BODY =
+  'One folder for your own rules, skills, agents, hooks, settings and MCP servers. Run "agnostic-ai sync --global" and every project gets them. Project specs never merge with it, so team defaults stay in the project. Put private files in "local/", which git ignores. Keep the folder in its own git repo and push it to a remote to back it up.'
+
+export function globalSetupCreated(root: string): string {
+  return `Created ${root}. Add files, then run "agnostic-ai sync --global".`
+}
+
+/** The switch found no global setup; the page offers to create it. */
+export class GlobalSetupError extends Error {
+  readonly root: string
+  constructor(root: string, message: string) {
+    super(message)
+    this.name = 'GlobalSetupError'
+    this.root = root
+  }
+}
+
+async function readJSON(res: Response): Promise<unknown> {
+  try {
+    return await res.json()
+  } catch {
+    return undefined
+  }
+}
+
+function errorText(body: unknown, status: number): string {
+  const error = (body as { error?: unknown } | undefined)?.error
+  return typeof error === 'string' ? error : `The server answered ${status}.`
+}
+
 export async function requestSwitch(fetcher: typeof fetch = fetch): Promise<SwitchReply> {
   let res: Response
   try {
@@ -71,15 +102,28 @@ export async function requestSwitch(fetcher: typeof fetch = fetch): Promise<Swit
   } catch {
     throw new Error('Could not reach the server to open the other configuration.')
   }
-  let body: unknown
-  try {
-    body = await res.json()
-  } catch {
-    body = undefined
-  }
+  const body = await readJSON(res)
   if (!res.ok) {
-    const error = (body as { error?: unknown } | undefined)?.error
-    throw new Error(typeof error === 'string' ? error : `The server answered ${res.status}.`)
+    const missing = body as { missing?: unknown; root?: unknown } | undefined
+    if (res.status === 409 && missing?.missing === true && typeof missing.root === 'string') {
+      throw new GlobalSetupError(missing.root, errorText(body, res.status))
+    }
+    throw new Error(errorText(body, res.status))
   }
   return parseSwitchReply(body)
+}
+
+export async function createGlobalSetup(git: boolean, fetcher: typeof fetch = fetch): Promise<GlobalCreateReply> {
+  let res: Response
+  try {
+    res = await fetcher(API.globalCreate, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ git }) })
+  } catch {
+    throw new Error('Could not reach the server to create the global setup.')
+  }
+  const body = await readJSON(res)
+  if (!res.ok) throw new Error(errorText(body, res.status))
+  const reply = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
+  if (typeof reply.root !== 'string') throw new Error('invalid create reply')
+  const created = Array.isArray(reply.created) ? reply.created.filter((c): c is string => typeof c === 'string') : []
+  return { root: reply.root, created, git: typeof reply.git === 'string' ? reply.git : '' }
 }

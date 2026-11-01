@@ -15,6 +15,8 @@ Keep personal instructions, rules, hooks, skills, agents, settings, and MCP serv
 
 The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --global` runs from any directory and loads no packs or project specs. [Global output](#global-output) lists the paths it writes.
 
+To start the folder from the web interface, click **Open global settings** on a project page when none exists. The panel creates an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/`, and can run `git init`. It does not run `sync --global`. See [the web interface](@/docs/cli-reference/inspect.md#serve).
+
 ```text
 ~/.agnostic-ai/
 ├── agnostic-ai.yaml        # optional: targets, builtins, requires, lint, on-unsupported, models
@@ -64,7 +66,7 @@ Global specs never merge with project specs. When both exist, each tool decides 
 
 Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop before any write and point you to the `--global` form. Read-only commands such as `lint`, `validate`, and `doctor` still run.
 
-For a home kept in Git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`. See [import](@/docs/cli-reference/start.md#import).
+Keep the home in its own Git repository and push it to a remote to back it up. For a home kept in Git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`. See [import](@/docs/cli-reference/start.md#import).
 
 `import --global` reads [voice dictation](@/docs/spec-format/settings.md#voice-dictation) keys into shared `settings/imported.yaml`. Tool arguments select which native files to read. Existing home voice specs keep their scope; see [voice import](@/docs/spec-format/settings.md#voice-dictation) for exclusions and skipped values.
 

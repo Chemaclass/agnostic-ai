@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { parseServedConfig, parseSwitchReply, requestSwitch, switchOffer } from './config-switch'
+import { createGlobalSetup, GLOBAL_SETUP_BODY, GlobalSetupError, globalSetupCreated, parseServedConfig, parseSwitchReply, requestSwitch, switchOffer } from './config-switch'
 
 describe('switch between project and global', () => {
   it('reads the configuration a server reads, with the project a global server started in', () => {
@@ -52,5 +52,31 @@ describe('switch between project and global', () => {
 
     const down = vi.fn(async () => { throw new TypeError('offline') })
     await expect(requestSwitch(down)).rejects.toThrow('Could not reach the server')
+  })
+
+  it('reports a missing global setup with its folder, and nothing else as that', async () => {
+    const missing = vi.fn(async () => new Response(JSON.stringify({ error: 'no global setup in /home/.agnostic-ai', missing: true, root: '/home/.agnostic-ai' }), { status: 409 }))
+    const err = await requestSwitch(missing).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(GlobalSetupError)
+    expect((err as GlobalSetupError).root).toBe('/home/.agnostic-ai')
+
+    const broken = vi.fn(async () => new Response(JSON.stringify({ error: '/h is a symlink to /gone, which does not exist' }), { status: 409 }))
+    const plain = await requestSwitch(broken).catch((e: unknown) => e)
+    expect(plain).not.toBeInstanceOf(GlobalSetupError)
+    expect((plain as Error).message).toContain('symlink')
+  })
+
+  it('posts the git choice to create the setup and reports a refusal', async () => {
+    const ok = vi.fn(async () => new Response(JSON.stringify({ root: '/h', created: ['agnostic-ai.yaml'], git: 'initialized' }), { status: 200 }))
+    await expect(createGlobalSetup(true, ok)).resolves.toEqual({ root: '/h', created: ['agnostic-ai.yaml'], git: 'initialized' })
+    expect(ok).toHaveBeenCalledWith('/api/global/create', expect.objectContaining({ method: 'POST', body: '{"git":true}' }))
+
+    const exists = vi.fn(async () => new Response(JSON.stringify({ error: 'a global setup already exists in /h' }), { status: 409 }))
+    await expect(createGlobalSetup(false, exists)).rejects.toThrow('already exists')
+  })
+
+  it('keeps the onboarding copy plain', () => {
+    expect(GLOBAL_SETUP_BODY).not.toMatch(/[–—]/)
+    expect(globalSetupCreated('/h/.agnostic-ai')).toBe('Created /h/.agnostic-ai. Add files, then run "agnostic-ai sync --global".')
   })
 })
