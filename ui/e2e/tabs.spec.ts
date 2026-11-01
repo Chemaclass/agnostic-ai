@@ -212,7 +212,7 @@ test('keeps every selected panel within a phone viewport', async ({ page }) => {
   await loadTabs(page)
   await page.setViewportSize({ width: 390, height: 844 })
   for (const [view, tabs] of [
-    ['context', ['Guidance', 'Rules', 'Agents', 'Skills', 'Context size']],
+    ['context', ['Context size', 'Guidance', 'Rules', 'Agents', 'Skills']],
     ['tools', ['Configured servers', 'Found in tools', 'Environments']],
     ['settings', ['Built-ins', 'Preferences', 'Config files']],
   ] as const) {

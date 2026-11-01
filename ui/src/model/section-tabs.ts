@@ -9,11 +9,11 @@ export interface SectionTab {
 }
 
 const contextTabs: SectionTab[] = [
+  { id: 'usage', label: 'Context size', kinds: [], extra: 'usage' },
   { id: 'guidance', label: 'Guidance', kinds: ['instructions', 'review', 'ignore'] },
   { id: 'rules', label: 'Rules', kinds: ['rule'] },
   { id: 'agents', label: 'Agents', kinds: ['agent'] },
   { id: 'skills', label: 'Skills', kinds: ['skill'] },
-  { id: 'usage', label: 'Context size', kinds: [], extra: 'usage' },
 ]
 const toolsTabs: SectionTab[] = [
   { id: 'servers', label: 'Configured servers', kinds: ['mcp'] },

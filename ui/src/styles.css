@@ -1921,7 +1921,7 @@ input:hover {
 
 .context-usage-controls {
   display: grid;
-  grid-template-columns: minmax(140px, 220px) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(140px, 220px) minmax(180px, 420px) auto;
   align-items: end;
   gap: 8px 16px;
   max-width: 860px;
@@ -1954,6 +1954,120 @@ input:hover {
 .context-usage-file-hint {
   grid-column: 1 / -1;
   font-size: 12px;
+}
+
+.context-contribution-load {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.context-kinds {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.context-share {
+  position: relative;
+  min-width: 72px;
+  isolation: isolate;
+}
+
+.context-share-bar {
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: 0;
+  z-index: -1;
+  max-width: 100%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent, currentColor) 22%, transparent);
+}
+
+.context-builtin {
+  margin-inline-start: 8px;
+  font-size: 12px;
+}
+
+.context-start-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-inline-start: 20px;
+}
+
+.context-start-pick {
+  display: inline-grid;
+  gap: 2px;
+  justify-items: start;
+  text-align: left;
+  padding: 6px 10px;
+}
+
+.context-start-pick .muted {
+  font-size: 12px;
+}
+
+.context-advice-toggle {
+  margin-inline-start: 8px;
+  font-size: 12px;
+}
+
+tr.is-advised > th,
+tr.is-advised > td {
+  background: var(--accent-wash);
+}
+
+.context-advice-row > td {
+  padding: 12px 14px 16px;
+  background: var(--accent-wash);
+  border-inline-start: 3px solid var(--accent);
+  white-space: normal;
+}
+
+.context-advice {
+  display: grid;
+  gap: 10px;
+  max-width: var(--measure);
+}
+
+.context-advice-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.context-advice-facts dt,
+.context-advice-heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.context-advice-facts dd {
+  margin: 0;
+}
+
+.context-advice-actions {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+@media (max-width: 760px) {
+  .context-advice-toggle,
+  .context-start-pick {
+    min-height: 44px;
+  }
+
+  .context-advice-row > td {
+    padding: 10px 10px 14px;
+  }
 }
 
 .context-usage-results {

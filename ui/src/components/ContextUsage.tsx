@@ -4,17 +4,19 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { loadContext } from '../api'
-import type { ContextContribution, ContextLoad, ContextOpportunity, ContextReport, ContextSize, ContextView } from '../contract'
+import { signed } from '../model/context-breakdown'
+import type { ContextOpportunity, ContextReport, ContextSize, ContextView } from '../contract'
 import { contextReviewPrompt, LOAD_CONDITIONS, LOAD_LABELS, sizeText } from '../model/context-prompt'
 import { formatTime, plural } from '../model/format'
 import { useApp } from './app-context'
 import { ErrorPanel } from './Banner'
+import { ContextSources } from './ContextSources'
 import { OpenInEditor } from './EditorLink'
 import { SectionHeading } from './SectionHeading'
 import { Select, Badge, Code, CopyButton } from './ui'
 
-const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
 const LONG_PASSAGE = 280
+const FILE_DELAY_MS = 500
 
 interface Snapshot {
   view: ContextView
@@ -28,9 +30,9 @@ export function ContextUsage() {
   const titleId = useId()
   const selectId = useId()
   const fileId = useId()
-  const [target, setTarget] = useState<string>()
-  const [file, setFile] = useState('')
-  const [fileDraft, setFileDraft] = useState('')
+  const target = app.state.target
+  const file = app.state.file ?? ''
+  const [fileDraft, setFileDraft] = useState(file)
   const [nonce, setNonce] = useState(0)
   const [current, setCurrent] = useState<Snapshot>()
   const [before, setBefore] = useState<Snapshot>()
@@ -58,6 +60,27 @@ export function ContextUsage() {
     return () => controller.abort()
   }, [reachable, app.source, target, file, nonce])
 
+  const view = current?.view
+  const selected = target ?? view?.target ?? ''
+  const takesFile = !!view?.fileTargets.includes(selected)
+  const draftFile = takesFile ? fileDraft.trim() : ''
+  const reserveResults = () => {
+    setStatusHeight(status.current?.getBoundingClientRect().height)
+    setResultsHeight(results.current?.getBoundingClientRect().height)
+  }
+  const go = (nextTarget: string, nextFile: string) => app.navigate({ target: nextTarget || undefined, file: nextFile || undefined }, { replace: true })
+
+  useEffect(() => { setFileDraft(file) }, [file])
+  useEffect(() => {
+    if (!takesFile || draftFile === file) return
+    const timer = setTimeout(() => {
+      reserveResults()
+      setBefore(undefined)
+      go(selected, draftFile)
+    }, FILE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [draftFile, file, takesFile, selected])
+
   const heading = <SectionHeading topic="usage" id={titleId}>Context size</SectionHeading>
   if (!reachable) {
     return (
@@ -68,22 +91,12 @@ export function ContextUsage() {
     )
   }
 
-  const view = current?.view
-  const selected = target ?? view?.target ?? ''
   const targets = view?.targets.length ? view.targets : selected ? [selected] : []
-  const takesFile = !!view?.fileTargets.includes(selected)
   const matches = (snapshot: Snapshot | undefined): snapshot is Snapshot => !!snapshot && snapshot.view.target === selected && snapshot.file === file
-  const reserveResults = () => {
-    setStatusHeight(status.current?.getBoundingClientRect().height)
-    setResultsHeight(results.current?.getBoundingClientRect().height)
-  }
   const refresh = () => {
     reserveResults()
-    const nextFile = takesFile ? fileDraft.trim() : ''
-
-    setBefore(matches(current) && current.file === nextFile ? current : undefined)
-    if (selected) setTarget(selected)
-    setFile(nextFile)
+    setBefore(matches(current) && current.file === draftFile ? current : undefined)
+    go(selected, draftFile)
     setNonce((n) => n + 1)
   }
   // A report for another target or file, or one a failed request left behind, is never shown as current.
@@ -110,19 +123,20 @@ export function ContextUsage() {
                 reserveResults()
                 setError(undefined)
                 setBefore(undefined)
-                setTarget(event.target.value)
-                if (!view?.fileTargets.includes(event.target.value)) setFile('')
+                const nextTakesFile = !!view?.fileTargets.includes(event.target.value)
+                if (!nextTakesFile) setFileDraft('')
+                go(event.target.value, nextTakesFile ? draftFile : '')
               }}
             >
               {targets.map((t) => <option key={t} value={t}>{t}</option>)}
             </Select>
           </div>
           <div className="context-usage-field">
-            <label htmlFor={fileId}>Working on file</label>
+            <label htmlFor={fileId}>Check against a file <span className="muted">(optional)</span></label>
             <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} aria-describedby={`${fileId}-hint`} onChange={(event) => setFileDraft(event.target.value)} />
           </div>
-          <button type="submit" className="button" disabled={pending}>{pending ? 'Refreshing…' : 'Refresh'}</button>
-          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Optional: name a file to include the scoped rules that match it.' : `${selected || 'This tool'} has no file-scoped rules to check.`}</p>
+          <button type="submit" className="button" disabled={pending} title="Read the specs again">{pending ? 'Rereading…' : 'Reread specs'}</button>
+          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Name a file to add the scoped rules that match it. Results update as you type.' : `${selected || 'This tool'} has no file-scoped rules, so there is no file to check.`}</p>
         </form>
       )}
       <p ref={status} className="muted context-usage-status" role="status" style={{ minHeight: pending ? statusHeight : undefined }}>
@@ -134,11 +148,11 @@ export function ContextUsage() {
         {shown && !shown.view.supported && <p>{shown.view.reason || 'Context size is not available for this configuration.'}</p>}
         {report && shown && (
           <>
-            <Totals report={report} file={shown.file} />
+            <Totals report={report} file={shown.file} takesFile={takesFile} />
             {report.note && <details className="context-usage-method"><summary>How this is counted</summary><p className="muted context-usage-note">{report.note}</p></details>}
             {comparable && <Comparison before={before.view.report!} now={report} />}
             <Opportunities report={report} root={shown.view.root} />
-            <Contributions contributions={report.contributions} />
+            <ContextSources report={report} root={shown.view.root} openByDefault={report.opportunities.length === 0} />
           </>
         )}
       </div>
@@ -158,7 +172,7 @@ function ReportPlaceholder() {
   )
 }
 
-function Totals({ report, file }: { report: ContextReport; file: string }) {
+function Totals({ report, file, takesFile }: { report: ContextReport; file: string; takesFile: boolean }) {
   const fileScope = !!file || report.file_scope.words > 0 || report.file_scope.bytes > 0
   return (
     <>
@@ -169,7 +183,7 @@ function Totals({ report, file }: { report: ContextReport; file: string }) {
         )}
         <Total title="On demand" description="Available when the tool loads it" size={report.on_demand} />
       </dl>
-      {!file && <p className="muted context-usage-note">Scoped rules count as on demand until you name a file.</p>}
+      {takesFile && !file && <p className="muted context-usage-note">Scoped rules count as on demand until you name a file.</p>}
     </>
   )
 }
@@ -190,10 +204,16 @@ function Total({ title, description, size }: { title: string; description: strin
 
 function Comparison({ before, now }: { before: ContextReport; now: ContextReport }) {
   const line = (r: ContextReport) => `${sizeText(r.startup)} at startup, ${plural(r.opportunities.length, 'duplicated passage')}.`
+  const changes: [string, ContextSize, ContextSize][] = [
+    ['Startup', before.startup, now.startup],
+    ['File-scoped', before.file_scope, now.file_scope],
+    ['On demand', before.on_demand, now.on_demand],
+  ]
   return (
     <dl className="context-usage-compare">
       <div><dt>Before refresh</dt><dd>{line(before)}</dd></div>
       <div><dt>Now</dt><dd>{line(now)}</dd></div>
+      <div><dt>Change</dt><dd>{changes.map(([label, was, is]) => `${label} ${signed(is.words - was.words)}${is.words === was.words ? '' : ' words'}`).join(', ')}.</dd></div>
     </dl>
   )
 }
@@ -250,44 +270,5 @@ function Opportunity({ opportunity: o, root }: { opportunity: ContextOpportunity
         <CopyButton text={contextReviewPrompt(o, root)} label="Copy review prompt" ariaLabel={`Copy review prompt for the passage in ${o.sources.map((s) => s.source).join(' and ')}`} />
       </div>
     </li>
-  )
-}
-
-function Contributions({ contributions }: { contributions: ContextContribution[] }) {
-  if (contributions.length === 0) return null
-  return (
-    <details className="context-usage-part context-contributions">
-      <summary>{plural(contributions.length, 'source')}, largest first</summary>
-      {LOADS.map((load) => {
-        const rows = contributions.filter((c) => c.load === load)
-        if (rows.length === 0) return null
-        const id = `context-contributions-${load}`
-        return (
-          <div key={load} className="table-wrap">
-            <table className="table" aria-labelledby={id}>
-              <caption id={id}>{LOAD_LABELS[load]}: loads {LOAD_CONDITIONS[load]}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Source</th>
-                  <th scope="col">Kind</th>
-                  <th scope="col">Words</th>
-                  <th scope="col">Bytes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((c, index) => (
-                  <tr key={`${c.load}-${index}-${c.source}-${c.category}`}>
-                    <th scope="row"><Code>{c.source}</Code></th>
-                    <td>{c.category}</td>
-                    <td className="context-number">{c.words.toLocaleString()}</td>
-                    <td className="context-number">{c.bytes.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
-      })}
-    </details>
   )
 }

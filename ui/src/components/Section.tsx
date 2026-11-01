@@ -178,7 +178,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           <button type="button" className="button button-quiet" onClick={() => app.navigate({ entry: undefined }, { replace: true })}>Dismiss</button>
         </div>
       )}
-      <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
+      {active !== 'usage' && <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
         <div className="section-search-controls">
           <div className="section-search-input">
@@ -194,7 +194,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query ? `${matchCount} of ${totalCount} items${section.fields ? ' and fields' : ''} match.` : `${totalCount} items${section.fields ? ' and fields' : ''}`}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
-      </div>
+      </div>}
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
       {section.findings.length > 0 && (

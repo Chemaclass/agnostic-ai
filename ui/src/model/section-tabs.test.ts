@@ -9,8 +9,8 @@ describe('section tabs', () => {
   it('groups guidance without losing review and ignore sources', () => {
     const data = section({ kinds: ['instructions', 'review', 'ignore', 'rule', 'agent', 'skill'].map((kind) => ({ kind, label: kind, count: 1 })) })
     const tabs = sectionTabs(data)
-    expect(tabs.map((tab) => tab.id)).toEqual(['guidance', 'rules', 'agents', 'skills', 'usage'])
-    expect(tabs[0].kinds).toEqual(['instructions', 'review', 'ignore'])
+    expect(tabs.map((tab) => tab.id)).toEqual(['usage', 'guidance', 'rules', 'agents', 'skills'])
+    expect(tabs[1].kinds).toEqual(['instructions', 'review', 'ignore'])
   })
 
   it('offers native servers even when none are listed and keeps one-purpose pages continuous', () => {

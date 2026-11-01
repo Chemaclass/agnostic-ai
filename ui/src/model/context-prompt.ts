@@ -14,7 +14,7 @@ export const LOAD_CONDITIONS: Record<ContextLoad, string> = {
 }
 
 export function sizeText(size: ContextSize): string {
-  return `${size.words} ${size.words === 1 ? 'word' : 'words'}, ${size.bytes} ${size.bytes === 1 ? 'byte' : 'bytes'}`
+  return `${size.words.toLocaleString('en-US')} ${size.words === 1 ? 'word' : 'words'}, ${size.bytes.toLocaleString('en-US')} ${size.bytes === 1 ? 'byte' : 'bytes'}`
 }
 
 export function contextReviewPrompt(opportunity: ContextOpportunity, root?: string): string {

@@ -43,6 +43,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Web interface
 
+- Context size is the first Context tab, explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address.
 - Select controls use a shared, theme-aware chevron with room for labels and keyboard navigation.
 - Context size keeps the report area in place while a different coding tool loads, with placeholders instead of stale totals.
 - Phone headers keep configuration and editor controls together, and Settings tabs fit their labels and counts.
