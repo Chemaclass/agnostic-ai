@@ -48,7 +48,10 @@ for (const width of [390, 1440]) {
     const { requests } = await setup(page)
     const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
     await row.getByRole('button', { name: 'Add rules', exact: true }).click()
-    await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('shell(git push *)\n\nread(private/**)')
+    const rules = row.getByRole('textbox', { name: 'Ask first rules', exact: true })
+    await expect(rules).toHaveAttribute('rows', '4')
+    await expect(rules).toHaveAttribute('placeholder', /shell\(git status\)\nread\(src\/\*\*\)/)
+    await rules.fill('shell(git push *)\n\nread(private/**)')
     await row.getByRole('button', { name: 'Preview changes' }).click()
     const preview = row.getByRole('region', { name: 'Ask first change preview' })
     await expect(preview).toContainText('Shared (committed)')
@@ -111,6 +114,22 @@ test('keeps a draft through a conflict and discards previews when the scope chan
   await row.getByRole('button', { name: 'Edit rules', exact: true }).click()
   await expect(row.getByRole('textbox', { name: 'Ask first rules' })).toHaveValue('read(private/**)')
   expect(requests.every((request) => request.action !== 'apply')).toBe(true)
+})
+
+test('shows a rejected rule as a readable message under the editor', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await setup(page)
+  const message = 'permissions.ask: rule 1 is invalid: unknown capability "test" for permissions.ask; use one of read, write, edit, delete, shell, web, shell(<pattern>), mcp:<server>, or a Claude Code tool name'
+  await page.route('**/api/edit/permissions', (route) => route.fulfill({ status: 400, json: { error: message } }))
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  await row.getByRole('button', { name: 'Add rules', exact: true }).click()
+  await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('test')
+  await row.getByRole('button', { name: 'Preview changes' }).click()
+  const alert = row.getByRole('alert')
+  await expect(alert).toContainText('unknown capability "test" for permissions.ask; use one of')
+  const box = await alert.boundingBox()
+  expect(box!.width).toBeGreaterThan(520)
+  expect(await alert.evaluate((element) => getComputedStyle(element).textAlign)).toMatch(/^(left|start)$/)
 })
 
 test('keeps a personal null clear empty and offers a reset to shared rules', async ({ page }) => {

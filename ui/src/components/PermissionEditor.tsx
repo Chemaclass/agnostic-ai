@@ -7,6 +7,8 @@ import { useEditAudience, ViewPersonalButton } from './EditAudience'
 import { Select, Code } from './ui'
 
 type Saved = Pick<PermissionEditPreview, 'file' | 'syncCommand'>
+const RULE_PLACEHOLDER = 'shell(git status)\nread(src/**)\nmcp:github'
+
 const SavedRules = createContext<{ saved?: Saved; update: (saved?: Saved) => void }>({ update: () => {} })
 
 export function PermissionEditProvider({ children }: { children: ReactNode }) {
@@ -142,7 +144,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       <label htmlFor={id}>{field.label} rules</label>
       <p id={`${id}-hint`} className="muted">One rule per line, for example <Code>shell(git status)</Code> or <Code>read(src/**)</Code>. Blank lines are ignored.</p>
       {inherited && <p className="muted">Starts with shared rules. Saving replaces this list for you; other settings keep inheriting.</p>}
-      <textarea ref={textarea} id={id} aria-describedby={`${id}-hint`} rows={6} value={text} disabled={locked} spellCheck={false} onChange={(event) => { setText(event.target.value); setError(undefined) }} />
+      <textarea ref={textarea} id={id} aria-describedby={`${id}-hint`} rows={4} placeholder={RULE_PLACEHOLDER} value={text} disabled={locked} spellCheck={false} onChange={(event) => { setText(event.target.value); setError(undefined) }} />
       <div className="field-edit-row">
         <button type="submit" className="button button-primary" disabled={locked || unchanged}>{pending === 'preview' ? 'Preparing preview…' : 'Preview changes'}</button>
         <button type="button" className="button button-quiet" disabled={locked} onClick={() => { setEditing(false); setError(undefined); setRefreshed(false) }}>Cancel</button>

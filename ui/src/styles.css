@@ -1416,6 +1416,12 @@ input:hover {
   text-align: right;
 }
 
+.permission-editor .edit-error,
+.field-edit .edit-error {
+  max-width: none;
+  text-align: left;
+}
+
 .edit-error ul {
   margin: 4px 0 0;
   padding-left: 18px;
@@ -3091,7 +3097,7 @@ input:hover {
 
 .permission-form textarea {
   width: 100%;
-  min-height: 132px;
+  min-height: 96px;
   max-height: 360px;
   resize: vertical;
   padding: 10px 12px;

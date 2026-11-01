@@ -160,10 +160,11 @@ func capabilityToolsOf(c string, form capabilityForm) ([]string, string) {
 		}
 		return nil, fmt.Sprintf("%s %q: only shell, read, and edit take a pattern", form.field, c)
 	}
+	field := strings.TrimSuffix(form.field, ":")
 	if s := suggest.Name(c, Capabilities); s != "" {
-		return nil, fmt.Sprintf("unknown capability %q for %s (did you mean %s?)", c, form.field, s)
+		return nil, fmt.Sprintf("unknown capability %q for %s (did you mean %s?)", c, field, s)
 	}
-	return nil, fmt.Sprintf("unknown capability %q for %s; use one of %s, shell(<pattern>), mcp:<server>, or a Claude Code tool name", c, form.field, strings.Join(Capabilities, ", "))
+	return nil, fmt.Sprintf("unknown capability %q for %s; use one of %s, shell(<pattern>), mcp:<server>, or a Claude Code tool name", c, field, strings.Join(Capabilities, ", "))
 }
 
 // isClaudeToolAlias reports whether name reads as a Claude Code tool
