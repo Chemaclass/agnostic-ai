@@ -47,7 +47,7 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
         <label className="coding-tools-only-on"><input type="checkbox" checked={onlyOn} onChange={(event) => { setOnlyOn(event.target.checked); setSaved(undefined) }} /> On only</label>
       </div>
       <p className="muted coding-tools-status" role="status" aria-live="polite">
-        {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}. Run <Code>{command}</Code> to apply the change.{global ? '' : ' A running sync --watch applies it on its own.'}</> : `${visible.length} of ${count.total} tools shown.`}
+        {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}. Run <Code>{command}</Code> to apply the change.</> : `${visible.length} of ${count.total} tools shown.`}
       </p>
       {catalog.items.length === 0 ? <p className="muted">No coding tools listed.</p> : visible.length === 0 ? <p className="muted">No tool matches.</p> : (
         <ul className="coding-tools-list">
@@ -88,6 +88,7 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
   const waitingForReload = useRef(false)
   const confirmButton = useRef<HTMLButtonElement>(null)
   const toggleButton = useRef<HTMLButtonElement>(null)
+  const reloadButton = useRef<HTMLButtonElement>(null)
   const refocus = useRef(false)
   useEffect(() => {
     if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
@@ -103,6 +104,9 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
       toggleButton.current?.focus()
     }
   }, [confirming, pending])
+  useEffect(() => {
+    if (error?.status === 409) reloadButton.current?.focus()
+  }, [error])
   const cancel = () => {
     refocus.current = true
     setConfirming(false)
@@ -141,7 +145,7 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
       {error && (
         <span className="edit-error" role="alert">
           {error.message}
-          {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}
+          {error.status === 409 && <> <button ref={reloadButton} type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}
           {error.problems.length > 0 && <ul>{error.problems.map((p) => <li key={p}>{p}</li>)}</ul>}
         </span>
       )}

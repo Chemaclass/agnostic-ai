@@ -178,8 +178,10 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     target.scrollIntoView({ block: 'center' })
     target.focus({ preventScroll: true })
   }, [entry, section.id])
-  const matchCount = matchingItems.size + (fieldMatches?.length ?? 0) + nativeMatches.length
-  const totalCount = section.items.length + (section.fields?.length ?? 0) + (section.native?.length ?? 0)
+  const hasTools = tabs.some((tab) => tab.extra === 'targets')
+  const matchCount = matchingItems.size + (fieldMatches?.length ?? 0) + nativeMatches.length + toolMatches
+  const totalCount = section.items.length + (section.fields?.length ?? 0) + (section.native?.length ?? 0) + (hasTools ? app.overview?.tools.items.length ?? 0 : 0)
+  const countedKinds = hasTools ? 'items, fields, and tools' : section.fields ? 'items and fields' : 'items'
   const retainedFindings = section.items.some((item) => item.findings.length > 0 && !matchingItems.has(item))
   const errors = section.findings.filter((finding) => finding.severity === 'error').length
   const warnings = section.findings.length - errors
@@ -219,7 +221,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           }}>Clear search</button>}
         </div>
         <p id={`${searchId}-status`} className="muted section-search-status" role="status">
-          {query ? `${matchCount} of ${totalCount} items${section.fields ? ' and fields' : ''} match.` : `${totalCount} items${section.fields ? ' and fields' : ''}`}
+          {query ? `${matchCount} of ${totalCount} ${countedKinds} match.` : `${totalCount} ${countedKinds}`}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
       </div>

@@ -22,7 +22,8 @@ describe('coding tools', () => {
 
   it('words the consequence and the save hint per mode', () => {
     expect(offConsequence('Cursor', false)).toContain('removes the files it wrote for Cursor')
-    expect(offConsequence('Cursor', false)).toContain('running sync --watch')
+    expect(offConsequence('Cursor', false)).not.toContain('watch')
+    expect(saveHint({ source: 'shared', items: [] }, 'shared', false)).toContain('restart it')
     expect(offConsequence('Cursor', true)).toContain('stay until you remove them by hand')
     const catalog: ToolCatalog = { source: 'default', items: [] }
     expect(saveHint(catalog, 'shared', false)).toContain('the default list applies')

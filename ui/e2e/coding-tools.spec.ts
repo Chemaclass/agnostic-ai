@@ -84,6 +84,7 @@ test.describe('coding tools', () => {
     const toggle = page.locator('.coding-tool[data-target="amp"]').getByRole('switch')
     await toggle.click()
     await expect(page.getByRole('alert')).toContainText('The list changed.')
+    await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeFocused()
     await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     await expect(toggle).toBeDisabled()
@@ -125,14 +126,15 @@ test.describe('coding tools', () => {
     await settings(page, { query: '/?view=settings&q=windsurf' })
     await expect(page.getByRole('tab', { name: /^Coding tools/ })).toHaveAttribute('aria-selected', 'true')
     await expect(page.locator('.coding-tool')).toHaveCount(1)
+    await expect(page.locator('.section-search-status')).toContainText(/^1 of \d+ items, fields, and tools match\./)
     await page.locator('.coding-tool[data-target="windsurf"]').getByRole('switch').click()
     await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
     await page.getByLabel('Filter tools').fill('c')
     await expect(page.getByRole('status').filter({ hasText: 'tools shown' })).toContainText(`of ${total} tools shown`)
   })
 
-  test('keeps the list in place while a switch saves', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 })
+  for (const width of [1280, 390]) test(`keeps the list in place while a switch saves at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
     await settings(page, { delay: 400 })
     const place = (selector: string) => page.locator(selector).evaluate((element) => {
       const box = element.getBoundingClientRect()
