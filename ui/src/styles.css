@@ -1628,11 +1628,6 @@ input:hover {
   font-size: 12px;
 }
 
-.editor-choice-label {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
 .editor-choice-mobile {
   display: none;
 }
@@ -3441,7 +3436,6 @@ tr.is-advised > td {
     flex: 0 0 120px;
   }
 
-  .editor-choice-label,
   .editor-switch {
     display: none;
   }
