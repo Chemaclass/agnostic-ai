@@ -140,6 +140,7 @@ export function normalizeContextView(raw: unknown): ContextView {
     targets: arr<unknown>(v.targets).filter((t): t is string => typeof t === 'string'),
     fileTargets: arr<unknown>(v.fileTargets).filter((t): t is string => typeof t === 'string'),
     target: text(v.target),
+    ...(typeof v.startupWordBudget === 'number' && v.startupWordBudget > 0 ? { startupWordBudget: v.startupWordBudget } : {}),
     ...(v.report ? { report: normalizeContextReport(v.report) } : {}),
   }
 }

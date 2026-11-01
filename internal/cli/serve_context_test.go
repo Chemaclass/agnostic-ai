@@ -25,7 +25,7 @@ func TestServeContext_MatchesTheCommandForTheChosenTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if served, _ := filepath.EvalSymlinks(view.Root); !view.Supported || view.Target != "claude" || served != root || len(view.Targets) != 2 || view.Report == nil {
+	if served, _ := filepath.EvalSymlinks(view.Root); !view.Supported || view.Target != "claude" || served != root || len(view.Targets) != 2 || view.Report == nil || view.StartupWordBudget != 2000 {
 		t.Fatalf("view: %+v", view)
 	}
 	got, _ := json.Marshal(view.Report)
@@ -45,6 +45,16 @@ func TestServeContext_MatchesTheCommandForTheChosenTarget(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep functions small.\n")
 	if refreshed := getContextView(t, srv.URL+contextViewPath+"?target=claude", http.StatusOK); len(refreshed.Report.Opportunities) != 0 || refreshed.Report.Startup.Words >= view.Report.Startup.Words {
 		t.Errorf("refresh did not read the changed source: %+v", refreshed.Report)
+	}
+}
+
+func TestServeContext_ReportsTheConfiguredWordBudget(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude]\nlint:\n  instructions-words: 300\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Keep functions small.\n")
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}))
+	defer srv.Close()
+	if view := getContextView(t, srv.URL+contextViewPath+"?target=claude", http.StatusOK); view.StartupWordBudget != 300 {
+		t.Errorf("budget: %d", view.StartupWordBudget)
 	}
 }
 

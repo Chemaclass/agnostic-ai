@@ -384,7 +384,7 @@ Edit and impact requests take JSON. Every edit and preview names its `audience`:
 | `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, and `ui` (whether the web interface is served), without loading specs. A global server started in a project adds that project's absolute `projectRoot`. |
 | `POST /api/switch` | `{}` with `Content-Type: application/json`. Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a global server. Returns `url`, `root`, `global`, and `started`. Answers 404 on a global server with no `projectRoot`, and 503 with the command to run when no server could start. |
 | `GET /api/views/overview` | None. |
-| `GET /api/views/context` | `?target=<tool>`, a configured target; default the first one. `&file=<path>` adds scoped rules for that file, as `--file` does; `fileTargets` lists the targets that accept it. Returns `targets`, `target`, absolute `root`, and `report`, the `explain --context --json` output. With `--global`, `supported` is false and `reason` says why. |
+| `GET /api/views/context` | `?target=<tool>`, a configured target; default the first one. `&file=<path>` adds scoped rules for that file, as `--file` does; `fileTargets` lists the targets that accept it. Returns `targets`, `target`, absolute `root`, `startupWordBudget` (the `lint.instructions-words` value the page compares startup words with), and `report`, the `explain --context --json` output. With `--global`, `supported` is false and `reason` says why. |
 | `GET /api/views/authority` | `?agentId=<id>&target=<tool>` for per-agent decisions. |
 | `POST /api/views/authority/impact` | A permission proposal to preview. |
 | `GET /api/views/authority/schema` | None. |

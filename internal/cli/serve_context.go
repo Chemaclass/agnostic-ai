@@ -11,14 +11,17 @@ import (
 const contextViewPath = "/api/views/context"
 
 type contextView struct {
-	SchemaVersion string                `json:"schemaVersion"`
-	Supported     bool                  `json:"supported"`
-	Reason        string                `json:"reason,omitempty"`
-	Root          string                `json:"root,omitempty"`
-	Targets       []string              `json:"targets"`
-	FileTargets   []string              `json:"fileTargets"`
-	Target        string                `json:"target"`
-	Report        *explainContextOutput `json:"report,omitempty"`
+	SchemaVersion string   `json:"schemaVersion"`
+	Supported     bool     `json:"supported"`
+	Reason        string   `json:"reason,omitempty"`
+	Root          string   `json:"root,omitempty"`
+	Targets       []string `json:"targets"`
+	FileTargets   []string `json:"fileTargets"`
+	Target        string   `json:"target"`
+	// StartupWordBudget is lint.instructions-words, the words LINT011
+	// allows one target to load every session.
+	StartupWordBudget int                   `json:"startupWordBudget,omitempty"`
+	Report            *explainContextOutput `json:"report,omitempty"`
 }
 
 // newContextHandler serves the explain --context report for one target.
@@ -45,6 +48,7 @@ func newContextHandler(root string, global bool) http.Handler {
 		if view.Target == "" && len(cfg.Targets) > 0 {
 			view.Target = cfg.Targets[0]
 		}
+		view.StartupWordBudget = cfg.Lint.InstructionsWordBudget()
 		report, err := explainContext(cfg, b, view.Target, r.URL.Query().Get("file"))
 		if err != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: preview.RedactText(err.Error())})

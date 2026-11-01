@@ -10,6 +10,7 @@
     "claude"
   ],
   "target": "claude",
+  "startupWordBudget": 2000,
   "report": {
     "version": "1",
     "command": "explain",
