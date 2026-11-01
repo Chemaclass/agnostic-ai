@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
+- The unknown capability error no longer shows a stray colon after the list name, as in `for permissions.allow` and `for can`.
 - Markdown specs keep an opening `---` block of prose or a list as body text, and `lint` reports it as LINT056 (#2892).
 - A kept opening block that is only Markdown headings stays in the body, and generated files write an empty frontmatter block before it with the header below (#2892).
 - Sync replaces `.gitignore`, `.git/info/exclude` and `.worktreeinclude` whole, so an interrupt or a full disk cannot leave them short or empty (#2884).
@@ -43,8 +44,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Web interface
 
-- Authority lists each saved permission rule with Edit and Remove; both lead to the usual preview before anything is saved.
-- A rejected permission rule shows a readable message under its editor, without the stray `:;` after the list name; the rules box is four lines tall and shows example rules.
+- Authority lists each saved permission rule with Edit and Remove. Edit opens the editor on that line. Remove goes to a preview before anything is saved.
+- A rejected permission rule shows a readable message under its editor.
+- The permission rules box is four lines tall.
+- The permission rules box shows example rules.
 - Select controls use a shared, theme-aware chevron with room for labels and keyboard navigation.
 - Context size keeps the report area in place while a different coding tool loads, with placeholders instead of stale totals.
 - Phone headers keep configuration and editor controls together, and Settings tabs fit their labels and counts.

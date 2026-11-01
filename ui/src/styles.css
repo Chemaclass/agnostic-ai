@@ -1416,8 +1416,7 @@ input:hover {
   text-align: right;
 }
 
-.permission-editor .edit-error,
-.field-edit .edit-error {
+.permission-editor .edit-error {
   max-width: none;
   text-align: left;
 }

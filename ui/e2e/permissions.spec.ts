@@ -160,7 +160,19 @@ test('removing the last saved rule previews clearing the list, not an empty list
   await page.reload()
   const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
   await row.getByRole('button', { name: 'Remove rule read(private/**)' }).click()
-  expect(requests.at(-1)).toMatchObject({ action: 'preview', rules: null, before: ['read(private/**)'] })
+  const preview = row.getByRole('region', { name: 'Ask first change preview' })
+  await expect(preview).toContainText('Remove shared list')
+  expect(requests.at(-1)).toMatchObject({ action: 'preview', audience: 'shared', rules: null, before: ['read(private/**)'] })
+})
+
+test('removing the last personal rule clears the list for you, not the shared fallback', async ({ page }) => {
+  const { requests } = await setup(page, true)
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  const preview = row.getByRole('region', { name: 'Ask first change preview' })
+  await row.getByRole('button', { name: 'View personal settings' }).click()
+  await row.getByRole('button', { name: 'Remove rule shell(git push origin main)' }).click()
+  await expect(preview).toContainText('Clear the list for you')
+  expect(requests.at(-1)).toMatchObject({ action: 'preview', audience: 'personal', rules: [], before: ['shell(git push origin main)'] })
 })
 
 test('keeps a personal null clear empty and offers a reset to shared rules', async ({ page }) => {

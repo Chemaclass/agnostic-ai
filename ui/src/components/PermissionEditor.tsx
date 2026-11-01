@@ -124,7 +124,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       }
       if (!active.current) return
       if (action === 'preview') setPreview(result)
-      else { setEditing(false); setPreview(undefined) }
+      else { restoreFocus.current = true; setEditing(false); setPreview(undefined) }
     } catch (failure) {
       if (active.current) {
         setPreview(undefined)
@@ -156,7 +156,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       {own.map((rule, index) => <li key={`${index}:${rule}`}>
         <Code>{rule}</Code>
         <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Edit rule ${rule}`} onClick={() => begin(index)}>Edit</button>
-        <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Remove rule ${rule}`} onClick={() => { const rest = own.filter((_, at) => at !== index); void request('preview', rest.length ? rest : null) }}>Remove</button>
+        <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Remove rule ${rule}`} onClick={() => { const rest = own.filter((_, at) => at !== index); void request('preview', rest.length ? rest : audience === 'personal' ? [] : null) }}>Remove</button>
       </li>)}
     </ul>}
     {!disabledReason && !overridden && !preview && !editing && <div className="field-edit-row">
@@ -178,7 +178,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     {!overridden && path && !preview && <p className="muted permission-destination">{audience === 'shared' ? 'Shared file' : 'Personal file'}: {audience === 'personal' && !current.personalPath ? <>an overlay for <Code>{path}</Code></> : <Code>{audience === 'personal' ? current.personalPath : path}</Code>}</p>}
     {preview && <section ref={previewRegion} tabIndex={-1} className="permission-preview" aria-label={`${field.label} change preview`} aria-busy={!!pending}>
       <div className="permission-preview-head">
-        <h3>{preview.rules === null ? audience === 'personal' ? 'Use shared rules' : 'Remove shared list' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
+        <h3>{preview.rules === null ? audience === 'personal' ? 'Use shared rules' : 'Remove shared list' : preview.rules.length === 0 && audience === 'personal' ? 'Clear the list for you' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
         <div className="field-edit-row">
           <button type="button" className="button button-primary" disabled={!!pending || !!disabledReason} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Saving…' : 'Save rules'}</button>
           <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { restoreFocus.current = true; setPreview(undefined); setError(undefined) }}>{editing ? 'Back to editing' : 'Cancel'}</button>
