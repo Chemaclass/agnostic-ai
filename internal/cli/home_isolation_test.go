@@ -24,7 +24,7 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 	}
-	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_DISABLE_AUTO_MEMORY"} {
+	for _, key := range []string{"AGNOSTIC_AI_HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_DISABLE_AUTO_MEMORY"} {
 		if err := os.Unsetenv(key); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -36,4 +36,10 @@ func TestMain(m *testing.M) {
 		code = 1
 	}
 	os.Exit(code)
+}
+
+func TestMainUnsetsAgnosticAIHome(t *testing.T) {
+	if value, ok := os.LookupEnv("AGNOSTIC_AI_HOME"); ok {
+		t.Fatalf("AGNOSTIC_AI_HOME=%q reached the tests; TestMain must unset it", value)
+	}
 }
