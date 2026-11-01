@@ -16,7 +16,7 @@ import { modelLine } from '../model/model-line'
 import { contextUsageAvailable } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
-import { ContextSources, useSourcePick, type SourcePick } from './ContextSources'
+import { ContextSources, LOADS, useSourcePick, type SourcePick } from './ContextSources'
 import { OpenInEditor } from './EditorLink'
 import { SectionHeading } from './SectionHeading'
 import { Select, Badge, Code, CopyButton, Icon } from './ui'
@@ -103,6 +103,7 @@ export function ContextUsage() {
     return () => clearTimeout(timer)
   }, [draftFile, file, takesFile, selected])
 
+  const toolLabel = app.overview?.targets.find((t) => t.target === selected)?.label ?? (selected || 'a coding tool')
   const targets = view?.targets.length ? view.targets : selected ? [selected] : []
   const matches = (snapshot: Snapshot | undefined): snapshot is Snapshot => !!snapshot && snapshot.view.target === selected && snapshot.file === file
   // A report for another target or file, or one a failed request left behind, is never shown as current.
@@ -132,7 +133,7 @@ export function ContextUsage() {
     <section className="block context-usage" aria-labelledby={titleId} aria-busy={pending || undefined}>
       <div className="context-usage-head">
         {heading}
-        <p className="muted">What {selected || 'a coding tool'} reads before it does anything, measured from your specs in words and bytes.</p>
+        <p className="muted">How much text {toolLabel} reads from your specs, at startup and later, in words and bytes.</p>
       </div>
       {view?.supported !== false && (
         <form className="context-usage-controls" onSubmit={(event) => { event.preventDefault(); refresh() }}>
@@ -212,13 +213,13 @@ function StartupCheck({ report, view, pick }: { report: ContextReport; view: Con
           {after === undefined ? verdict.text : <>{before}(<a href={documentationUrl(DOC_TOPICS.budget.path)} target="_blank" rel="noopener noreferrer">lint.instructions-words</a>){after}</>}
         </span>
       </p>
-      <p className="muted">Startup text loads in every session. File-scoped text loads with a matching file. On-demand text loads only when {report.target} opens a skill, an agent or a scoped rule.</p>
+      <p className="muted">{LOADS.map((load) => `${LOAD_LABELS[load]} text loads ${LOAD_CONDITIONS[load]}.`).join(' ')}</p>
       <ModelLine target={report.target} />
       <p className="context-check-heading" id={`${id}-next`}>Next</p>
       <ol className="context-next" aria-labelledby={`${id}-next`}>
         {largest && <li>Open the largest startup source. <button type="button" className="button button-quiet" onClick={() => pick.show(largest)}>Show <Code>{largest.source}</Code></button></li>}
-        <li>Check it in a terminal: <Code>{command}</Code> <CopyButton text={command} label="Copy command" className="button-quiet" ariaLabel={`Copy the explain command for ${report.target}`} /></li>
-        <li>Ask a coding agent to review everything {report.target} loads at startup: <CopyButton text={contextStartupPrompt(report, view.root, view.startupWordBudget)} label="Copy startup review prompt" className="button-quiet" ariaLabel={`Copy a startup review prompt for ${report.target}`} /></li>
+        <li>Check it in a terminal: <Code>{command}</Code> <CopyButton text={command} label="Copy command" className="button-quiet" ariaLabel={`Copy command for ${report.target}`} /></li>
+        <li>Ask a coding agent to review everything {report.target} loads at startup: <CopyButton text={contextStartupPrompt(report, view.root, view.startupWordBudget)} label="Copy startup review prompt" className="button-quiet" ariaLabel={`Copy startup review prompt for ${report.target}`} /></li>
       </ol>
     </section>
   )

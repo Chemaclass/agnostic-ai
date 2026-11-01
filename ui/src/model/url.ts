@@ -101,6 +101,11 @@ export function contextUsageAvailable(source: DataSource): boolean {
   return source.kind === 'api' || source.kind === 'mock'
 }
 
+/** Context size should open first: it can load, the server reads a project, and the project has a coding tool to size. */
+export function contextLanding(source: DataSource, overview: { global?: boolean; targets: unknown[] } | undefined): boolean {
+  return contextUsageAvailable(source) && !!overview && overview.global !== true && overview.targets.length > 0
+}
+
 export function staticOverviewUrl(base: string): string {
   return `${base}overview.json`
 }

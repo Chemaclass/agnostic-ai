@@ -21,6 +21,8 @@ type View struct {
 	Snapshot      authority.Snapshot `json:"snapshot"`
 	Sections      []Section          `json:"sections"`
 	Targets       []TargetSupport    `json:"targets"`
+	// Global is true for user configuration, which has no project to size.
+	Global bool `json:"global,omitempty"`
 }
 
 // Section ids, in harness order.

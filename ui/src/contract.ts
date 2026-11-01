@@ -654,6 +654,8 @@ export interface OverviewView {
   snapshot: Snapshot
   sections: Section[]
   targets: TargetSupport[]
+  /** True for user configuration, which has no project to size. */
+  global?: boolean
 }
 
 // ---------------------------------------------------------------------

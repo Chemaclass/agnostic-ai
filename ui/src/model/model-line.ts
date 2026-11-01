@@ -1,9 +1,9 @@
-import type { OverviewView, SettingField } from '../contract'
+import type { OverviewView, SettingField, TargetValue } from '../contract'
 import { generatedAnswer } from './field-resolution'
 
 export interface ModelLine {
   text: string
-  /** True when no model and no effort is set for the tool. */
+  /** True when no spec sets a model or effort for the tool. */
   unset: boolean
   field: SettingField
 }
@@ -16,6 +16,14 @@ function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1)
 }
 
+/** What the specs and sync say for one key, or nothing when no spec sets it. */
+function describe(r: TargetValue | undefined, key: string): string | undefined {
+  if (!r) return undefined
+  if (r.value || r.dropped) return lowerFirst(generatedAnswer(r))
+  if (r.native?.length) return `a spec sets x-${r.target}.${key}, which sync writes as is.`
+  return undefined
+}
+
 /** What sync writes as the default model and effort for one tool, from the Settings resolution. */
 export function modelLine(overview: OverviewView | undefined, target: string): ModelLine | undefined {
   if (!overview) return undefined
@@ -23,11 +31,10 @@ export function modelLine(overview: OverviewView | undefined, target: string): M
   const effort = settingField(overview, 'effort')
   const m = model?.resolved?.find((r) => r.target === target)
   if (!model || !m) return undefined
-  const e = effort?.resolved?.find((r) => r.target === target)
-  const modelSet = !!m.value && m.checked && !m.dropped
-  const effortSet = !!e?.value && e.checked && !e.dropped
-  if (!modelSet && !effortSet) return { text: `No default model or reasoning effort is set for ${m.label}, so it uses its own defaults.`, unset: true, field: model }
-  const parts = [modelSet ? `Model for ${m.label}: ${lowerFirst(generatedAnswer(m))}` : `No default model is set for ${m.label}.`]
-  if (effortSet && e) parts.push(`Reasoning effort: ${lowerFirst(generatedAnswer(e))}`)
+  const modelText = describe(m, 'model')
+  const effortText = describe(effort?.resolved?.find((r) => r.target === target), 'effort')
+  if (!modelText && !effortText) return { text: `No default model or reasoning effort is set for ${m.label}, so it keeps its own default.`, unset: true, field: model }
+  const parts = [modelText ? `Model for ${m.label}: ${modelText}` : `No default model is set for ${m.label}.`]
+  if (effortText) parts.push(`Reasoning effort: ${effortText}`)
   return { text: parts.join(' '), unset: false, field: model }
 }

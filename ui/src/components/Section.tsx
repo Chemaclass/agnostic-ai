@@ -21,7 +21,7 @@ import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/au
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
 import { entryTab, landingTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
-import { contextUsageAvailable } from '../model/url'
+import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
 import { Select, Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
@@ -145,7 +145,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const active = entryTab(section, tabs, entry)
     ?? tabs.find((tab) => tab.id === app.state.tab)?.id
     ?? (query ? tabs.find(hasMatches)?.id : undefined)
-    ?? landingTab(section, tabs, contextUsageAvailable(app.source))
+    ?? landingTab(section, tabs, contextLanding(app.source, app.overview))
   const setSearch = (value: string) => app.navigate({ q: value || undefined, tab: value.trim() ? undefined : active }, { replace: true })
   const selectTab = (tab: string) => app.navigate({ tab, entry: undefined, q: app.state.q })
   const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]

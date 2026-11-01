@@ -17,15 +17,18 @@ test.describe('landing', () => {
     await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
     expect(new URL(page.url()).searchParams.has('tab')).toBe(false)
     await expect(page.getByRole('searchbox', { name: 'Search context' })).toBeVisible()
+    await page.reload()
+    await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
+    expect(new URL(page.url()).searchParams.has('tab')).toBe(false)
     const check = page.getByRole('region', { name: 'Startup check' })
-    await expect(check.locator('.context-verdict')).toHaveText('Startup is 184 words, within the 2,000-word budget lint checks (lint.instructions-words).')
+    await expect(check.locator('.context-verdict')).toHaveText('Startup is 184 words, within the 2,000-word lint budget (lint.instructions-words).')
     await expect(check.getByRole('link', { name: 'lint.instructions-words' })).toHaveAttribute('href', 'https://agnostic-ai.org/docs/configuration/#lint')
     await expect(check.locator('.context-model')).toContainText('No default model or reasoning effort is set for Claude Code')
     await expect(check.getByRole('list', { name: 'Next' }).getByRole('listitem')).toHaveCount(3)
     await expect(check).toContainText('agnostic-ai explain --context --target claude')
     await expect(check).not.toContainText(/token|faster|cheaper|context window/i)
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await check.getByRole('button', { name: 'Copy a startup review prompt for claude' }).click()
+    await check.getByRole('button', { name: 'Copy startup review prompt for claude' }).click()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
     expect(prompt).toContain('Review everything claude loads at the start of every session')
     expect(prompt).toContain('- .agnostic-ai/AGNOSTIC_AI.md (entry-point layer): 120 words, 790 bytes, 65% of startup')
@@ -45,7 +48,7 @@ test.describe('landing', () => {
     await serve(page, over, data)
     await page.goto('/')
     const check = page.getByRole('region', { name: 'Startup check' })
-    await expect(check.locator('.context-verdict')).toHaveText('Startup is 184 words, 34 words over the 150-word budget lint checks (lint.instructions-words); agnostic-ai lint reports LINT011.')
+    await expect(check.locator('.context-verdict')).toHaveText('Startup is 184 words, 34 words over the 150-word lint budget (lint.instructions-words); agnostic-ai lint reports LINT011.')
     await expect(check.locator('.context-verdict')).toHaveClass(/is-over/)
     await expect(check.locator('.context-model')).toContainText('Model for Claude Code: sync writes sonnet (resolved from claude-sonnet-4-5).')
     await check.getByRole('link', { name: 'Change in Settings' }).click()
@@ -84,12 +87,33 @@ test.describe('landing', () => {
     await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
     const check = page.getByRole('region', { name: 'Startup check' })
     await expect(check).toBeVisible()
-    for (const name of ['Copy the explain command for claude', 'Copy a startup review prompt for claude']) {
+    for (const name of ['Copy command for claude', 'Copy startup review prompt for claude']) {
       expect((await check.getByRole('button', { name, exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44)
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  })
+
+  test('opens the first tab with content for user configuration, without flipping tabs', async ({ page }) => {
+    await serve(page, contextView, { ...structuredClone(overview), global: true })
+    await page.route('**/api/health', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      await route.fulfill({ json: { ok: true, global: true } })
+    })
+    await page.goto('/')
+    const rules = page.getByRole('tab', { name: /^Rules/ })
+    await expect(rules).toHaveAttribute('aria-selected', 'true')
+    await page.waitForTimeout(600)
+    await expect(rules).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('region', { name: 'Startup check' })).toHaveCount(0)
+  })
+
+  test('opens the first tab with content when the project has no coding tool', async ({ page }) => {
+    await serve(page, contextView, { ...structuredClone(overview), targets: [] })
+    await page.goto('/')
+    await expect(page.getByRole('tab', { name: /^Rules/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByText('is not a configured target')).toHaveCount(0)
   })
 
   test('reaches the first action by keyboard from the tab row', async ({ page }) => {

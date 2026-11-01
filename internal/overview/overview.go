@@ -250,6 +250,7 @@ func Build(in Inputs) *View {
 		Snapshot:      normalizedSnapshot(in.Snapshot),
 		Sections:      sections,
 		Targets:       targets,
+		Global:        in.Global,
 	}
 }
 

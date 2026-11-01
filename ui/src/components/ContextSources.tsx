@@ -1,7 +1,7 @@
 // Ranked sources with per-row advice. A source is keyed by load, source and
 // category because one path can appear twice (a skill's description and body).
 
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { ContextContribution, ContextLoad, ContextReport, ContextSize } from '../contract'
 import { contextAdvice, startHere } from '../model/context-advice'
@@ -12,7 +12,7 @@ import { useApp } from './app-context'
 import { OpenInEditor } from './EditorLink'
 import { Code, CopyButton } from './ui'
 
-const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
+export const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
 const ROWS_SHOWN = 10
 
 export const rowKey = (c: ContextContribution) => `${c.load}|${c.source}|${c.category}`
@@ -33,8 +33,15 @@ export function useSourcePick(report: ContextReport | undefined, openByDefault: 
   const [advice, setAdvice] = useState<string>()
   const [expanded, setExpanded] = useState<Set<ContextLoad>>(new Set())
   const [open, setOpen] = useState(openByDefault)
+  const [seen, setSeen] = useState({ report, openByDefault })
   const focusKey = useRef<string | undefined>(undefined)
-  useEffect(() => { setAdvice(undefined); setExpanded(new Set()); setOpen(openByDefault) }, [report, openByDefault])
+  // Reset while rendering, so a new report never paints with the old open state.
+  if (seen.report !== report || seen.openByDefault !== openByDefault) {
+    setSeen({ report, openByDefault })
+    setAdvice(undefined)
+    setExpanded(new Set())
+    setOpen(openByDefault)
+  }
   const show = (c: ContextContribution) => {
     const key = rowKey(c)
     const rows = (report?.contributions ?? []).filter((r) => r.load === c.load)

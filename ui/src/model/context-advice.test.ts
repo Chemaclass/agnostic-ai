@@ -157,7 +157,7 @@ describe('context advice', () => {
     ], opportunities: [] }
     const prompt = contextStartupPrompt(report, '/tmp/project', 2000)
     expect(prompt).toContain('Target: claude')
-    expect(prompt).toContain('within the 2,000-word budget')
+    expect(prompt).toContain('within the 2,000-word lint budget')
     expect(prompt).toContain('- .agnostic-ai/AGNOSTIC_AI.md (entry-point layer): 120 words, 790 bytes, 65% of startup')
     expect(prompt).not.toContain('SKILL.md')
     expect(prompt).toContain('Configuration root: /tmp/project')
