@@ -51,7 +51,7 @@ export function EditorChoice() {
   if (app.source.kind !== 'api') return null
   return (
     <div className="editor-choice" role="group" aria-label="Open files in">
-      <div className="editor-switch" role="radiogroup" aria-label="Open files in" onKeyDown={(event) => {
+      <div className="editor-switch" role="radiogroup" aria-label="Editor" onKeyDown={(event) => {
         const index = EDITORS.findIndex((e) => e.id === editor)
         const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
         if (step === 0) return

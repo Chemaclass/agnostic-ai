@@ -44,9 +44,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Web interface
 
-- The header editor switch shows only the Cursor and VS Code pill. Screen readers still announce it as Open files in.
 - Context size is the first Context tab, explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address.
-- The Open files in control in the header is a pill switch with a filled selected editor, arrow keys, and no shift when the choice changes.
+- The header editor switch is a Cursor and VS Code pill with a filled selected editor, arrow keys, and no shift when the choice changes; screen readers name it Open files in.
 - Section warnings show once, as a count under the page title with Review, instead of a banner on every tab; errors stay above the tabs.
 - The Docs link on Lifecycle opens the session timeline section of the hooks page.
 - Authority lists each saved permission rule with Edit and Remove. Edit opens the editor on that line. Remove goes to a preview before anything is saved.

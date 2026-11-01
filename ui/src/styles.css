@@ -1624,8 +1624,6 @@ input:hover {
 .editor-choice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
 }
 
 .editor-choice-mobile {
