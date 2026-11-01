@@ -166,7 +166,7 @@ func importJunieAgents(root, dstDir string) (int, error) {
 		if !dirExists(src) {
 			continue
 		}
-		return importFlatMarkdownFilesAt(src, dstDir, allSpecFields, func(data []byte, dst string) ([]byte, error) {
+		return importFlatMarkdownFilesAt(src, dstDir, reconciledAllSpecFields, func(data []byte, dst string) ([]byte, error) {
 			return importScopedTargetKeys(data, dst, "junie")
 		})
 	}

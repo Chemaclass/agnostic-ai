@@ -40,7 +40,7 @@ func importFromQwen(root string, src config.Sources) error {
 	if err := noteQwenRuleFiles(root); err != nil {
 		return err
 	}
-	agents, err := importFlatMarkdownFilesAt(filepath.Join(root, ".qwen/agents"), importSourcePath(root, src.Agents), allSpecFields, func(data []byte, dst string) ([]byte, error) {
+	agents, err := importFlatMarkdownFilesAt(filepath.Join(root, ".qwen/agents"), importSourcePath(root, src.Agents), reconciledAllSpecFields, func(data []byte, dst string) ([]byte, error) {
 		native, _ := splitMdcFrontmatter([]byte(header.Strip(string(data))))
 		if err := guardQwenValues(dst, native, false); err != nil {
 			return nil, err

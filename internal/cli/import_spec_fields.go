@@ -21,6 +21,8 @@ type specFields struct {
 // declare, so nothing is ever carried over.
 var allSpecFields = specFields{all: true}
 
+var reconciledAllSpecFields = specFields{all: true, scopedReconciled: true}
+
 // fieldsOf builds the set a target's emitter writes for one kind. The
 // lists come from syncing a spec that declares every portable key and
 // reading back what each adapter wrote; TestSpecFields_MatchWhatSyncEmits
@@ -54,13 +56,13 @@ var (
 // Agents: one list per target that imports an agent spec over an
 // existing one.
 var (
-	claudeAgentFields      = specFields{all: true, omitted: map[string]bool{"readonly": true, "x-claude": true}, preserve: preserveClaudeReadonly}
+	claudeAgentFields      = specFields{all: true, scopedReconciled: true, omitted: map[string]bool{"readonly": true, "x-claude": true}, preserve: preserveClaudeReadonly}
 	clineAgentFields       = specFields{keys: fieldsOf("name", "description").keys, scopedNative: map[string]bool{"tools": true, "skills": true, "providerId": true, "modelId": true, "maxIterations": true}}
 	cursorAgentFields      = specFields{keys: fieldsOf("name", "description", "model", "background").keys, scopedReconciled: true}
 	copilotAgentFields     = fieldsOf("name", "description", "tools", "model")
 	antigravityAgentFields = fieldsOf("name", "description")
 	kiroAgentFields        = fieldsOf("name", "description", "model", "tools")
-	qoderAgentFields       = fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background")
+	qoderAgentFields       = specFields{keys: fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background").keys, scopedReconciled: true}
 	gooseAgentFields       = fieldsOf("name", "description", "model")
 	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true}}
 	traeAgentFields        = fieldsOf("name", "description", "tools")

@@ -271,3 +271,17 @@ func TestImport_CursorDeletesScopedKeyBesideRetainedTools(t *testing.T) {
 		t.Errorf("sync restored deleted color: %s", native)
 	}
 }
+
+func TestImport_QoderDeletesScopedKeyBesideRetainedKey(t *testing.T) {
+	spec := "---\nname: rev\ndescription: Reviews\nx-qoder:\n  memory: project\n  custom: value\n---\n\nReview the diff.\n"
+	got := importRoundTrip(t, "qoder, claude", "qoder", "agents/rev.md", spec, ".qoder/agents/rev.md", func(s string) string {
+		return editBody(strings.Replace(s, "custom: value\n", "", 1))
+	})
+	if strings.Contains(got, "custom:") || !strings.Contains(got, "memory: project") {
+		t.Errorf("unexpected imported spec: %s", got)
+	}
+	native, _ := os.ReadFile(filepath.FromSlash(".qoder/agents/rev.md"))
+	if strings.Contains(string(native), "custom:") {
+		t.Errorf("sync restored deleted key: %s", native)
+	}
+}
