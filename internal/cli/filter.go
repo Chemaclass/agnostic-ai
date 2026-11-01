@@ -10,6 +10,15 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
+// watchTargets returns the list a watch keeps for every pass. Without target
+// flags it is nil, which makes each pass read targets from the config.
+func watchTargets(flagTargets, only, except, effective []string) []string {
+	if len(flagTargets) == 0 && len(only) == 0 && len(except) == 0 {
+		return nil
+	}
+	return effective
+}
+
 // filterTargets computes the effective target list from --only / --except.
 // Exactly one of only or except should be non-empty; passing both is a caller
 // error (the command layer enforces mutual exclusion before calling this).
