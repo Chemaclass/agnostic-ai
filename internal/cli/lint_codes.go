@@ -38,8 +38,8 @@ var lintCodes = map[string]lintCode{
 	"LINT057": {
 		Severity: lintWarn,
 		Title:    "sync.unmanaged entry uses **",
-		Cause:    "A `sync.unmanaged` entry contains `**`. The matcher reads it as `*`, so the entry covers exactly one folder and misses the root and deeper folders. Sync prints the same note.",
-		Fix:      "Add one entry per depth, such as `*/.cursor/BUGBOT.md` and `*/*/.cursor/BUGBOT.md`, or end an entry with `/` to own a whole folder.",
+		Cause:    "A `sync.unmanaged` entry contains `**`. The matcher reads `**` as `*`, which stays inside one folder name. `**/x` matches one folder deep, so it misses the root and deeper folders. `**` and `**.md` match only names in the root folder. `dir/**` matches only files directly inside `dir/`. Sync prints the same note.",
+		Fix:      "For `dir/**`, write `dir/`. Otherwise add one entry per depth, such as `*/.cursor/BUGBOT.md` and `*/*/.cursor/BUGBOT.md`. A trailing `/` entry must be a literal path such as `a/.cursor/`; it takes no wildcards.",
 	},
 	"LINT001": {
 		Severity: lintWarn,

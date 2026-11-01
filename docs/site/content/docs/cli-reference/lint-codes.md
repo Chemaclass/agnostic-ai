@@ -68,7 +68,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT054 | Error, and sync stops before changing any tool settings. A settings spec's `voice` is not a mapping, or `voice.enabled` is not `true` or `false`, `voice.mode` is not `hold` or `tap`, `voice.language` is not text, or it holds another key. Set other native voice keys under `x-<target>`. See [voice dictation](@/docs/spec-format/settings.md#voice-dictation). |
 | LINT055 | Warning. An empty (null) key in `agnostic-ai.local.yaml`, for example `outputs:` with every child commented out, is ignored when the shared value is a group of settings, so the shared value stays. Over a list or a single value, null replaces the shared value, and an empty `targets:` replaces the default targets. Remove the key. Write `{}` to clear a shared group, except a model tier, where `{}` fails to load. An empty `requires:` is not reported, since it turns the version check off. |
 | LINT056 | Warning. An opening Markdown block is not a YAML mapping, so sync keeps it as body text. |
-| LINT057 | Warning, also printed by `sync`. A `sync.unmanaged` entry uses `**`, which matches one folder only, like `*`. Add one entry per depth. |
+| LINT057 | Warning, also printed by `sync`. A `sync.unmanaged` entry uses `**`, which acts like `*` and stays inside one folder name. `**/x` matches one folder deep and misses the root and deeper folders, so add one entry per depth. `dir/**` matches only files directly inside `dir/`; write `dir/` instead. |
 
 ## Context budgets
 

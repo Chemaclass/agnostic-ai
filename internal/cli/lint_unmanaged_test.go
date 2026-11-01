@@ -24,7 +24,7 @@ func TestLint_WarnsOnDoubleStarUnmanagedEntry(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("want one LINT057 line, got:\n%s", out)
 	}
-	for _, want := range []string{"**/.cursor/BUGBOT.md", "matches exactly one folder"} {
+	for _, want := range []string{"**/.cursor/BUGBOT.md", "acts like *", "misses the root and deeper folders"} {
 		if !strings.Contains(lines[0], want) {
 			t.Errorf("LINT057 line lacks %q:\n%s", want, lines[0])
 		}
@@ -60,7 +60,23 @@ func TestSync_PrintsDoubleStarUnmanagedWarning(t *testing.T) {
 	if n := strings.Count(got, "**/.cursor/BUGBOT.md"); n != 1 {
 		t.Fatalf("want one note naming the entry, got %d:\n%s", n, got)
 	}
-	if !strings.Contains(got, "matches exactly one folder") {
+	if !strings.Contains(got, "acts like *") {
 		t.Errorf("note lacks the explanation:\n%s", got)
+	}
+}
+
+func TestDoubleStarAdvice_NamesTheFixForEachShape(t *testing.T) {
+	cases := map[string]string{
+		".claude/skills/**":    "write .claude/skills/ to own everything under it",
+		"*/.cursor/**":         "one entry per depth",
+		"**/.cursor/BUGBOT.md": "misses the root and deeper folders",
+	}
+	for entry, want := range cases {
+		if got := doubleStarAdvice(entry); !strings.Contains(got, want) {
+			t.Errorf("advice for %q = %q, want %q", entry, got, want)
+		}
+	}
+	if got := doubleStarAdvice("*/.cursor/**"); strings.Contains(got, "write */.cursor/") {
+		t.Errorf("a wildcard folder must not be offered as a trailing-slash entry: %q", got)
 	}
 }

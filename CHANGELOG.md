@@ -14,7 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - An empty key in `agnostic-ai.local.yaml` keeps a shared group, and `{}` clears it; lint says whether the shared value stays or is replaced (#2891).
 - An empty local model tier keeps the shared tier, and lint also warns about an empty `targets:` that replaces the default targets (#2891).
 - `init` sets minimums; `upgrade --requires` keeps minimum/exact pins or makes ranges minimums; `init`, `use` and AAI-005 explain exact pins (#2841, #2849).
-- Lint, doctor and sync warn (LINT057) when a `sync.unmanaged` entry uses `**`, which matches one folder only (#2937).
+- Lint, doctor and sync warn (LINT057) when a `sync.unmanaged` entry uses `**`, which acts like `*` and stays inside one folder name (#2937).
 
 #### Specs, import and editors
 

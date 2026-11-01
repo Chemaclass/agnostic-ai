@@ -14,7 +14,7 @@ func TestDoubleStarUnmanaged_ListsEntriesWithDoubleStar(t *testing.T) {
 	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("got %v, want %v", got, want)
 	}
-	if got := DoubleStarUnmanaged([]string{".claude/x.md", "*/y.md"}); len(got) != 0 {
+	if got := DoubleStarUnmanaged([]string{".claude/x.md", "*/y.md", `a/\**`, `a/[**]`, `a/\*\*`, "a/[*]*"}); len(got) != 0 {
 		t.Fatalf("entries without ** must not be listed, got %v", got)
 	}
 }
