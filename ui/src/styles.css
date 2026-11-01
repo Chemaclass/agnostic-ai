@@ -2203,7 +2203,6 @@ tr.is-advised > td {
 .context-advice-row > td {
   padding: 12px 14px 16px;
   background: var(--accent-wash);
-  border-inline-start: 3px solid var(--accent);
   white-space: normal;
 }
 
