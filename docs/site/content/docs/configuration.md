@@ -222,6 +222,8 @@ Default: every tool except `amp`, `warp`, `jules`, `goose`, `augment`, `ellipsis
 
 A likely typo of a built-in target, such as `cursr`, fails before any write. Any other unknown name is skipped with a warning, since it may be an external adapter missing from this machine's PATH.
 
+An empty list keeps generated files: `sync` warns, and [`--allow-empty-targets`](@/docs/cli-reference/sync.md) removes them.
+
 `init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
 
 The web interface lists every tool with a switch under **Settings**, **Coding tools**; see [serve](@/docs/cli-reference/inspect.md#serve).

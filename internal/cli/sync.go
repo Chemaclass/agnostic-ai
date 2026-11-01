@@ -18,7 +18,7 @@ import (
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, check, plan, backup, keepEdits, untrack, watch, watchPoll, jsonOut, allTargets, diff, global bool
+	var dryRun, check, plan, backup, keepEdits, untrack, watch, watchPoll, jsonOut, allTargets, diff, global, allowEmptyTargets bool
 	var gitignoreFlag, format, against string
 	var jobs int
 
@@ -72,6 +72,9 @@ func newSyncCmd() *cobra.Command {
 				previousOut := logOut
 				logOut = io.Discard
 				defer func() { logOut = previousOut }()
+			}
+			if allowEmptyTargets && (check || plan || watch || global) {
+				return errs.Coded(errs.CodeFlagConflict, "--allow-empty-targets cannot be combined with --check, --plan, --watch, or --global")
 			}
 			if keepEdits && (check || plan || watch || global) {
 				return errs.Coded(errs.CodeFlagConflict, "--keep-edits cannot be combined with --check, --plan, --watch, or --global")
@@ -135,6 +138,22 @@ func newSyncCmd() *cobra.Command {
 			logOut = firstLoadOut
 			if err != nil {
 				return err
+			}
+			if noTargetsKept(cfg) && !allowEmptyTargets && !watch {
+				if jsonOut {
+					command := "sync"
+					switch {
+					case check:
+						command = "sync --check"
+					case plan:
+						command = "sync --plan"
+					case dryRun:
+						command = "sync --dry-run"
+					}
+					return writeEmptyTargetsJSON(cmd, command)
+				}
+				warnEmptyTargets(cmd.ErrOrStderr())
+				return nil
 			}
 			// The state file lists every output, so one read serves the
 			// whole run. --against reads the trees it enters instead.
@@ -337,6 +356,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting (consumed by `agnostic-ai revert`; clear leftover .bak with `agnostic-ai cleanup --backups`)")
 	cmd.Flags().BoolVar(&keepEdits, "keep-edits", false, "Leave each output edited since the last sync in place and list it, writing the rest (for post-checkout and post-merge hooks)")
 	cmd.Flags().BoolVar(&untrack, "untrack", false, "Remove a generated path from git's index when it is also gitignored (git rm --cached, working tree untouched). Not with --check, --plan, --dry-run, --watch, or --global.")
+	cmd.Flags().BoolVar(&allowEmptyTargets, "allow-empty-targets", false, "With an empty targets list, remove every file sync generated instead of keeping them. Not with --check, --plan, --watch, or --global.")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().BoolVar(&watchPoll, "watch-poll", false, "Force polling instead of fsnotify (use on filesystems where fsnotify is unreliable, e.g. some network mounts)")

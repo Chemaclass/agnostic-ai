@@ -820,6 +820,9 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			cfg := scope.cfg
+			if noTargetsKept(cfg) {
+				warnEmptyTargets(cmd.OutOrStdout())
+			}
 			// These two read files only and take a large share of a run on
 			// a big project, so they run beside the checks before them.
 			var (
