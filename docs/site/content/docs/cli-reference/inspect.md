@@ -351,6 +351,7 @@ In the browser:
 - Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Make it a spec** action.
 - The header labels the page **Project** or **Global**.
 - On a project page, **Open global settings** opens the user configuration in a new tab. It reuses a `serve --global` already running on `127.0.0.1:4310` to `4319` that started in this project, or starts one on the next free port.
+- When the user configuration folder does not exist or is empty, the button shows a short panel instead. **Create global setup** writes `AGNOSTIC_AI.md`, `agnostic-ai.yaml` and a `.gitignore` with `/local/`, runs `git init` when the box is checked and git is installed, and then opens the global page. It never touches a folder that already holds a setup.
 - A global page that started in a project (from that button, or `ui --global` or `serve --global` run in a project folder) shows **Open project** with the project's name to go back.
 - A server the button starts stops with the server that started it. The way back from that global page returns to that server, also when it runs on another `--addr`.
 - Each browser tab edits only the configuration it serves.

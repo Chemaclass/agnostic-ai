@@ -73,3 +73,13 @@ Design choices and their reasons. Add new decisions without removing earlier one
 **Recommendation:** Retain the built-in and example pack with their current parity check. They duplicate seven pinned files; current packs cannot replace global built-in setup. No user setup or source asset changes.
 
 The [comparison and local proof](experiments/caveman-source-decision.md) record the existing contract, three options, pinning and ownership limits, and migration approval requirements for [#2458](https://github.com/Chemaclass/agnostic-ai/issues/2458).
+
+## 008: Check for a missing global setup on the switch, not on health
+
+**Date:** 2026-11-01
+
+**Context:** A project page needs to know that the global folder is missing before it opens a new tab.
+
+**Decision:** `POST /api/switch` answers 409 with `missing` and the folder path, and starts no server. `/api/health` stays unchanged. A second endpoint, `POST /api/global/create`, exists on project servers only and takes no path.
+
+**Why:** Health loads nothing and runs often; a folder check there adds disk work to every poll. The switch already runs on a click, and it is the one call that would otherwise start a server for an empty folder. A fixed path keeps the create call from writing anywhere else.
