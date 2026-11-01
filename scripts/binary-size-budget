@@ -756,4 +756,6 @@
 # The global setup panel and create endpoint measured 24674464 after main; the budget rises by 12288.
 # The LINT057 file name fix (#2956) measured 24678560 after main; the budget rises by 4096.
 # The Kiro settings model (#2960) measured 24682656 after main; the budget rises by 4096.
-24686592
+# The Claude companion revert and cleanup fix (#2965) measured 24686752 bytes
+# on Go 1.27.3. Raise the budget by 8192 to keep a build allowance.
+24694784
