@@ -10,30 +10,40 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
-- The unknown capability error no longer shows a stray colon after the list name, as in `for permissions.allow` and `for can`.
+- A repeated key in a nested map, such as `permissions.deny` or an MCP `env` entry, is a parse error with its line, not a silently dropped field (#2890).
+- An empty key in `agnostic-ai.local.yaml` keeps a shared group, and `{}` clears it; lint says whether the shared value stays or is replaced (#2891).
+- An empty local model tier keeps the shared tier, and lint also warns about an empty `targets:` that replaces the default targets (#2891).
+- `init` sets minimums; `upgrade --requires` keeps minimum/exact pins or makes ranges minimums; `init`, `use` and AAI-005 explain exact pins (#2841, #2849).
+
+#### Specs, import and editors
+
+- The unknown capability error no longer shows a stray colon after the list name, as in `for permissions.allow` and `for can` (#2922).
 - Markdown specs keep an opening `---` block of prose or a list as body text, and `lint` reports it as LINT056 (#2892).
 - A kept opening block of only headings stays in the body; generated files write an empty frontmatter block before it, with the header below (#2892).
-- Sync replaces `.gitignore`, `.git/info/exclude` and `.worktreeinclude` whole, so an interrupt or a full disk cannot leave them short or empty (#2884).
-- Sync stops with an error when a JSON settings file it merges into exists but cannot be read, instead of overwriting it (#2887).
-- MCP tool listing stops at its timeout when a detached child keeps stderr open (#2888).
-- A repeated key in a nested map, such as `permissions.deny` or an MCP `env` entry, is a parse error with its line, not a silently dropped field (#2890).
-- An empty key in `agnostic-ai.local.yaml` keeps the shared settings and `{}` clears them; lint warns and says whether the shared value stays (#2891).
-- An empty local model tier keeps the shared tier, and lint also warns about an empty `targets:` that replaces the default targets (#2891).
 - The language server answers malformed JSON with a parse error and keeps running, and rejects message sizes above 64 MiB instead of crashing (#2889, #2908).
+- Import keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
+
+#### Safe writes
+
+- Sync writes `.gitignore`, `.git/info/exclude` and `.worktreeinclude` whole, keeps `.gitignore` entries, and asks for a cut block's end marker (#2884, #2875).
+- Sync stops with an error instead of overwriting a JSON settings file it cannot read, or when it cannot record written files in its state file (#2887, #2883).
+- Git queries use the requested repository when sync runs from a Git hook (#2882).
+- Failed pack fetches keep installed content, and partial updates record each successful commit (#2880).
+- Claude settings keep user entries in configured objects and warn before replacing an entry (#2877).
+
+#### MCP and hooks
+
+- MCP tool listing stops at its timeout when a detached child keeps stderr open (#2888).
 - Hook commands keep home, variable and absolute paths such as `~/.claude/hooks/x.sh`; only project hook paths move to the target tool's folder (#2885).
 - MCP `type: local`, `streamable-http` and `remote` now write a working server instead of an empty one, and `lint` reports any other unknown `type` (#2886).
-- Git queries use the requested repository when sync runs from a Git hook (#2882).
-- Sync fails when it cannot record written files in its state file (#2883).
-- Memory indexing keeps nested and external links and avoids duplicate entries for filenames with spaces (#2881).
-- Failed pack fetches keep installed content, and partial updates record each successful commit (#2880).
 - Hook runs report Windows timeouts correctly, so Copilot lets the action proceed (#2878).
-- Claude settings keep user entries in configured objects and warn before replacing an entry (#2877).
-- Sync preserves `.gitignore` entries and asks for the closing marker when a managed block is truncated (#2875).
+
+#### Global settings and memory
+
+- Memory indexing keeps nested and external links and avoids duplicate entries for filenames with spaces (#2881).
 - Global voice settings round-trip native keys; Qwen, Gemini, Grok and Vibe join support, with notes for unsupported fields (#2833, #2834).
 - Global instruction updates keep private modes and stop if the file changes during sync (#2857).
 - `explain --global` lists native hook files and copied scripts for Cline, Grok and Kiro, including custom tool roots (#2863).
-- Import keeps an imported `effort` when the only other settings spec that sets one targets a different tool (#2796).
-- `init` sets minimums; `upgrade --requires` keeps minimum/exact pins or makes ranges minimums; `init`, `use` and AAI-005 explain exact pins (#2841, #2849).
 
 #### Security
 
@@ -43,26 +53,38 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `packs add` refuses packs folders that link outside the project (#2874).
 - Editor and vendor dependencies receive security patches; the scoped audit exception expires on November 14 (#2844).
 
-#### Web interface
+#### Context size
 
-- Context opens on Context size, now its first tab, with a startup check against `lint.instructions-words`, sent as `startupWordBudget` (#2924, #2929).
+- Context opens on Context size, now its first tab, for a project with a coding tool, with a startup check against `lint.instructions-words` (#2924, #2929).
 - Context size explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address (#2924).
-- Context size keeps its report in place with placeholders while another tool loads, and groups controls and highlights load totals.
-- Settings has a Coding tools tab: a switch per tool saves the targets list to shared or personal config, with a found in project badge and docs link (#2930).
+- Context size keeps its report in place with placeholders while a tool loads, groups tool and file controls, and highlights load totals (#2894, #2872).
+
+#### Settings
+
+- Settings has a Coding tools tab: a switch per tool saves shared or personal targets for the next sync, with a docs link and a found in project badge (#2930).
 - Settings has an Editor tab: Cursor, VS Code, VS Code Insiders, VSCodium, Zed, or a custom link with `{path}` and `{line}`; the header drops it (#2933).
 - File links show Open and explain how to recover when no editor opens.
-- The header shows the project name, its folder path and a Project label, as for Global, even when the project is named agnostic-ai (#2923).
-- Authority lists each saved permission rule with Edit and Remove. Edit opens the editor on that line; Remove shows a preview before anything is saved.
-- The permission rules box is four lines tall, shows example rules, and puts a readable message under it when a rule is rejected.
+- Global Settings edits shared or personal voice values; project settings stay read-only (#2835).
+- Config files shows merged values once below the source links.
+
+#### Tools and previews
+
+- Tools previews and saves a native-only MCP server as a shared or personal spec for the next sync (#2634).
+- Built-in previews group notes by tool, fold long lists, and keep Apply and Cancel at the top.
+- Authority, Settings and native server imports keep a compact Shared or Personal choice, and Settings shows the selected values.
+
+#### Authority
+
+- Authority lists each saved permission rule with Edit, which opens the editor on that line, and Remove, which shows a preview before saving (#2922).
+- The permission rules box is four lines tall, shows example rules, and puts a readable message under it when a rule is rejected (#2922).
 - Authority previews and saves shared or personal permission rules, compares personal overrides with Shared, and leaves applying them to sync.
+
+#### Page layout
+
+- The header shows the project name, its folder path and a Project label, as for Global, even when the project is named agnostic-ai (#2923).
 - Section warnings show once, as a count under the page title with Review, instead of a banner on every tab; errors stay above the tabs.
 - Section headings link to the matching docs in a new tab, even when nothing is configured; the Lifecycle Docs link opens the session timeline section.
-- Config files shows merged values once below the source links.
-- Authority, Settings and native server imports keep a compact Shared or Personal choice, and Settings shows the selected values.
-- Global Settings edits shared or personal voice values; project settings stay read-only (#2835).
-- Built-in previews group notes by tool, fold long lists, and keep Apply and Cancel at the top.
-- Tools previews and saves a native-only MCP server as a shared or personal spec for the next sync (#2634).
-- All five pages fit narrow screens: phone headers keep the configuration control on its own row, Settings tabs fit their labels, and source groups use tabs.
+- All five pages fit narrow screens: phone headers keep the configuration control on its own row and Settings tabs fit their labels and counts.
 - Select controls use a shared, theme-aware chevron with room for labels and keyboard navigation (#2894).
 
 ### By tool
