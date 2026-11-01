@@ -350,3 +350,14 @@ func TestSyncCheckAgainst_EmptyTargetsWithoutOutputsPasses(t *testing.T) {
 		t.Errorf("check with no outputs: %v\n%s\n%s", err, out, stderr)
 	}
 }
+
+func TestDoctorFix_ExplicitTargetWithEmptyTargetsKeepsFiles(t *testing.T) {
+	syncedEmptyTargetsProject(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
+	writeFile(t, "CLAUDE.md", "edited\n")
+	_, _ = runCLI(t, "doctor", "--fix", "-t", "claude")
+	got, err := os.ReadFile("CLAUDE.md")
+	if err != nil || string(got) != "edited\n" {
+		t.Errorf("doctor changed retained file: %q, %v", got, err)
+	}
+}
