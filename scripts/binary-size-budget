@@ -748,4 +748,7 @@
 # The Context size PR (#2924) measured 24592544 on Go 1.27.3 with main through
 # #2922: context size advice and the editor switch grow the embedded UI. The
 # budget rises by 24576 (24600576 minus 24576000).
-24600576
+# The Coding tools tab measured 24637600 on Go 1.27.3: the targets endpoint and
+# the new Settings tab grow the binary. The budget rises by 49152 (24649728
+# minus 24600576).
+24649728
