@@ -279,7 +279,7 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 			agentsAt = i
 		}
 	}
-	if claudeAt >= 0 && agentsAt < 0 && files[claudeAt].plain && claudeImportsAgentsOnDisk() {
+	if claudeAt >= 0 && agentsAt < 0 && files[claudeAt].plain && claudeOwnsAgentsCompanion(cfg) {
 		// The project keeps its instructions in AGENTS.md, CLAUDE.md
 		// imports it, and no other target writes AGENTS.md: Claude Code's
 		// sync writes it, so an edit to AGENTS.md keeps reaching Claude.
@@ -421,6 +421,26 @@ func claudeImportsAgentsOnDisk() bool {
 	}
 	_, ok := adapters.SplitAgentsCompanion(header.Strip(adapters.StripGeneratedAppendices(string(raw))))
 	return ok
+}
+
+// claudeOwnsAgentsCompanion reports whether sync writes the root
+// AGENTS.md for Claude Code alone (see claudeWritesAgents).
+func claudeOwnsAgentsCompanion(cfg *config.Config) bool {
+	if !slices.Contains(cfg.Targets, "claude") || cfg.Sync.TargetOverview {
+		return false
+	}
+	if adapters.EntryPointPath(cfg, "claude") != "CLAUDE.md" {
+		return false
+	}
+	for _, t := range cfg.Targets {
+		if t == "claude" || adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+			continue
+		}
+		if adapters.EntryPointPath(cfg, t) == "AGENTS.md" {
+			return false
+		}
+	}
+	return claudeImportsAgentsOnDisk()
 }
 
 // entryPointView returns text as the readers of path see it: ::target
