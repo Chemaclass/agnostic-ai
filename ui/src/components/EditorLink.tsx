@@ -52,9 +52,20 @@ export function EditorChoice() {
   return (
     <div className="editor-choice" role="group" aria-labelledby={labelId}>
       <span id={labelId} className="editor-choice-label">Open files in</span>
-      <div className="segmented">
+      <div className="editor-switch" role="radiogroup" onKeyDown={(event) => {
+        const index = EDITORS.findIndex((e) => e.id === editor)
+        const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
+        if (step === 0) return
+        event.preventDefault()
+        const next = EDITORS[(index + step + EDITORS.length) % EDITORS.length]
+        chooseEditor(next.id)
+        ;(event.currentTarget.children[EDITORS.indexOf(next)] as HTMLButtonElement | undefined)?.focus()
+      }}>
         {EDITORS.map((e) => (
-          <button key={e.id} type="button" aria-pressed={editor === e.id} onClick={() => chooseEditor(e.id)}>{e.label}</button>
+          <button key={e.id} type="button" role="radio" className="editor-switch-option" aria-checked={editor === e.id} tabIndex={editor === e.id ? 0 : -1} onClick={() => chooseEditor(e.id)}>
+            <span className="editor-switch-mark" aria-hidden="true" />
+            <span>{e.label}</span>
+          </button>
         ))}
       </div>
       <div className="editor-choice-mobile">

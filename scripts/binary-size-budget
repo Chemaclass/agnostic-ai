@@ -745,4 +745,7 @@
 # the shared value kind. Measured 24567968 after #2893; adds 4096 over main.
 # Permission editor: the per-rule Edit and Remove buttons and a readable rejection
 # message grow the embedded UI. Measured 24572064 bytes, 4096 over main.
-24576000
+# The Context size PR (#2924) measured 24592544 on Go 1.27.3 with main through
+# #2922: context size advice and the editor switch grow the embedded UI. The
+# budget rises by 24576 (24600576 minus 24576000).
+24600576

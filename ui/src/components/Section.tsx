@@ -51,7 +51,9 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
 
   return (
     <>
-      <PageHeader title={section.label} subtitle={section.question} />
+      <PageHeader title={section.label} subtitle={section.question}>
+        <SectionWarningsLine section={section} />
+      </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
           <ConfiguredTools.Provider value={data.targets}>
@@ -63,6 +65,29 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
         <SupportTable section={section} toolLabel={toolLabel} />
       </fieldset>
     </>
+  )
+}
+
+/** Opens the folded findings list that holds this heading, then moves focus to it. */
+export function revealFindings(findingsId: string) {
+  const heading = document.getElementById(findingsId)
+  if (!heading) return
+  const disclosure = heading.closest('details')
+  if (disclosure) disclosure.open = true
+  heading.scrollIntoView({ block: 'start' })
+  heading.focus({ preventScroll: true })
+}
+
+function SectionWarningsLine({ section }: { section: Section }) {
+  const errors = section.findings.filter((finding) => finding.severity === 'error').length
+  const warnings = section.findings.length - errors
+  if (errors > 0 || warnings === 0) return null
+  return (
+    <p className="section-warnings-line">
+      <Icon name="warning" />
+      <span>{warnings} warning{warnings === 1 ? '' : 's'}</span>
+      <button type="button" className="button button-quiet" onClick={() => revealFindings(`${section.id}-findings`)}>Review {warnings} finding{warnings === 1 ? '' : 's'}</button>
+    </p>
   )
 }
 
@@ -123,7 +148,13 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     ?? firstPopulated?.id
     ?? tabs[0]?.id
   const setSearch = (value: string) => app.navigate({ q: value || undefined, tab: value.trim() ? undefined : active }, { replace: true })
-  const selectTab = (tab: string) => app.navigate({ tab, entry: undefined })
+  const selectTab = (tab: string) => app.navigate({ tab, entry: undefined, q: tab === 'usage' ? undefined : app.state.q })
+  const hasUsageTab = tabs.some((tab) => tab.extra === 'usage')
+  const staleSearch = hasUsageTab && active === 'usage' && !!app.state.q
+  // The Context size tab has no search box, so a query left in the address would filter other tabs with no way to clear it.
+  useEffect(() => {
+    if (staleSearch) app.navigate({ q: undefined }, { replace: true })
+  }, [staleSearch])
   const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]
   const tabLabels = tabs.map((tab) => {
     const items = section.items.filter((item) => tab.kinds.includes(item.kind))
@@ -178,7 +209,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           <button type="button" className="button button-quiet" onClick={() => app.navigate({ entry: undefined }, { replace: true })}>Dismiss</button>
         </div>
       )}
-      <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
+      {active !== 'usage' && <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
         <div className="section-search-controls">
           <div className="section-search-input">
@@ -194,22 +225,14 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query ? `${matchCount} of ${totalCount} items${section.fields ? ' and fields' : ''} match.` : `${totalCount} items${section.fields ? ' and fields' : ''}`}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
-      </div>
+      </div>}
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
-      {section.findings.length > 0 && (
-        <div className={`section-findings-summary${errors ? ' has-errors' : ''}`} role={errors ? 'alert' : undefined}>
+      {errors > 0 && (
+        <div className="section-findings-summary has-errors" role="alert">
           <Icon name="warning" />
           <strong>{findingCounts}</strong>
-          <button type="button" className="button button-quiet" onClick={() => {
-            const heading = document.getElementById(findingsId)
-            if (heading) {
-              const disclosure = heading.closest('details')
-              if (disclosure) disclosure.open = true
-              heading.scrollIntoView({ block: 'start' })
-              heading.focus({ preventScroll: true })
-            }
-          }}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>
+          <button type="button" className="button button-quiet" onClick={() => revealFindings(findingsId)}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>
         </div>
       )}
       {errors > 0 && otherFindings}

@@ -41,6 +41,19 @@ describe('URL state parsing', () => {
     expect(nextState(state, { tab: 'servers' })).toMatchObject({ q: 'github', mock: true, tab: 'servers' })
     expect(parseUrlState('?tab=../invalid').tab).toBeUndefined()
   })
+
+  it('keeps the Context size tool and file in the URL', () => {
+    const state = parseUrlState('?view=context&tab=usage&target=claude&file=src%2Fmain.go')
+    expect(state).toMatchObject({ target: 'claude', file: 'src/main.go' })
+    expect(serializeUrlState(state)).toBe('?tab=usage&target=claude&file=src%2Fmain.go')
+    expect(parseUrlState('?target=../bad').target).toBeUndefined()
+  })
+
+  it('drops the tool and file when the page changes', () => {
+    const state = parseUrlState('?view=context&tab=usage&target=claude&file=src%2Fmain.go')
+    expect(nextState(state, { view: 'tools' })).toMatchObject({ target: undefined, file: undefined })
+    expect(nextState(state, { file: 'a.go' })).toMatchObject({ target: 'claude', file: 'a.go' })
+  })
 })
 
 describe('data source', () => {
