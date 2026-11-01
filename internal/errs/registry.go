@@ -79,6 +79,12 @@ var registry = map[Code]Entry{
 		Cause: "Two flags whose effects conflict were passed together (e.g. `--only` with `--except`), or a flag was passed without the one it needs (e.g. `--diff` without `--dry-run`).",
 		Fix:   "The message names both flags. Drop one when they conflict; add the missing one when a flag needs another.",
 	},
+	CodeEmptyTargets: {
+		Code:  CodeEmptyTargets,
+		Title: "Empty targets list",
+		Cause: "`sync --check` ran while `targets` lists no tool. Sync keeps every generated file in that case, so it cannot tell whether they are current.",
+		Fix:   "Add a tool to `targets`, or run `agnostic-ai sync --allow-empty-targets` to remove the generated files.",
+	},
 }
 
 // Lookup returns the registry entry for code. The boolean is false

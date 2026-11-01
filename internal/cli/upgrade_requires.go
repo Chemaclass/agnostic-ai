@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -49,7 +50,9 @@ func runUpgradeRequires() error {
 		return fmt.Errorf("reconcile requires: %w", err)
 	}
 	noteCollapsedRequires(changed)
-	if err := runSyncOnce(".", nil, false, false, "", 0); err != nil {
+	if cfg, _, err := loadValidConfig("."); err == nil && noTargetsKept(cfg) {
+		warnEmptyTargets(os.Stderr)
+	} else if err := runSyncOnce(".", nil, false, false, "", 0); err != nil {
 		return fmt.Errorf("sync after reconciling requires to %s: %w", version, err)
 	}
 	if len(changed) == 0 {

@@ -33,7 +33,7 @@ const agnosticOverlayDir = ".agnostic-ai/overlays"
 // changes. When forcePoll is false it tries fsnotify and falls back to
 // polling if the watcher cannot be created.
 func watchSync(ctx context.Context, pollInterval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string, forcePoll bool, jobs int) error {
-	if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
+	if err := watchPass(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
 		return err
 	}
 	// -v showed every warning on the first pass; each save after it
@@ -757,13 +757,13 @@ func resyncForChanges(root string, configured, changed []string, dryRun, backup 
 		// for a narrower emit. runSyncOnce surfaces the load error itself.
 		return runSyncOnce(root, configured, dryRun, backup, gitignoreFlag, jobs)
 	}
+	if noTargetsKept(cfg) {
+		warnEmptyTargetsSummary()
+		return nil
+	}
 	effective := configured
 	if len(effective) == 0 {
 		effective = cfg.Targets
-	}
-	if len(effective) == 0 {
-		warnNoWatchTargets()
-		return nil
 	}
 	plan := planWatchResync(root, cfg, b, changed, effective)
 	if plan.full {
@@ -779,21 +779,20 @@ func resyncForChanges(root string, configured, changed []string, dryRun, backup 
 	return runSyncOnce(root, plan.targets, dryRun, backup, gitignoreFlag, jobs)
 }
 
-// watchPass runs one sync pass of a watch. An unpinned watch whose config
-// lists no tool skips the pass: an empty list is often an autosave in the
-// middle of an edit, and a pass over it would remove every generated file.
+// watchPass runs one sync pass of a watch. A watch whose config lists no
+// tool skips the pass, pinned with -t or not: an empty list is often an
+// autosave in the middle of an edit, and a pass over it would remove every
+// generated file.
 func watchPass(root string, configured []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
-	if len(configured) == 0 {
-		if cfg, _, err := loadValidConfig(root); err == nil && len(cfg.Targets) == 0 {
-			warnNoWatchTargets()
-			return nil
-		}
+	if cfg, _, err := loadValidConfig(root); err == nil && noTargetsKept(cfg) {
+		warnEmptyTargetsSummary()
+		return nil
 	}
 	return runSyncOnce(root, configured, dryRun, backup, gitignoreFlag, jobs)
 }
 
-func warnNoWatchTargets() {
-	summaryf("  %s targets lists no tool; keeping files until it does\n", bang())
+func warnEmptyTargetsSummary() {
+	summaryf("  %s %s\n", bang(), emptyTargetsWarning)
 }
 
 // planWatchResync maps a debounced set of changed paths onto the targets

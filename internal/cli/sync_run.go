@@ -196,9 +196,12 @@ func (l ledgerSnapshot) unparsable() error {
 	return fmt.Errorf("%s does not parse (%v)", filepath.ToSlash(l.path), l.parseErr)
 }
 
-// checkError fails `sync --check` on a ledger that does not parse,
-// which would otherwise hide every leftover the lost ledger listed.
+// checkError fails `sync --check` when it cannot read the ledger,
+// which would otherwise hide every leftover the ledger listed.
 func (l ledgerSnapshot) checkError() error {
+	if l.readErr != nil {
+		return fmt.Errorf("read sync ledger: %w", l.readErr)
+	}
 	if err := l.unparsable(); err != nil {
 		return fmt.Errorf("%w; run agnostic-ai sync to rebuild the ledger", err)
 	}

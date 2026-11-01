@@ -820,6 +820,10 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			cfg := scope.cfg
+			if noTargetsKept(cfg) {
+				warnEmptyTargets(cmd.OutOrStdout())
+				targets = nil
+			}
 			// These two read files only and take a large share of a run on
 			// a big project, so they run beside the checks before them.
 			var (
@@ -879,7 +883,10 @@ func newDoctorCmd() *cobra.Command {
 			// A copy beside a scoped AGENTS.md stops the drift check, so
 			// --fix removes it before that check runs.
 			bundle := scope.bundle
-			copies := nestedClaudeCopies(cfg, bundle)
+			var copies []nestedClaudeCopy
+			if !noTargetsKept(cfg) {
+				copies = nestedClaudeCopies(cfg, bundle)
+			}
 			reportNestedClaudeCopies(cmd, copies)
 			removedCopies := 0
 			if fix {

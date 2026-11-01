@@ -758,4 +758,5 @@
 # The Kiro settings model (#2960) measured 24682656 after main; the budget rises by 4096.
 # The Claude companion revert and cleanup fix (#2965) measured 24686752 bytes
 # on Go 1.27.3. Raise the budget by 8192 to keep a build allowance.
-24694784
+# The empty targets guard (#2963) measured 24694944 bytes; the budget rises by 8192.
+24702976

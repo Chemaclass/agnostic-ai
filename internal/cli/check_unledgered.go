@@ -97,6 +97,9 @@ func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncSta
 // longer emits and no other rule claims: not an entry point, not a kept
 // orphan, not user-owned, and not under a linked folder.
 func strandedOutput(cfg *config.Config, emitted map[string]bool, state syncStateFile) func(string) bool {
+	if noTargetsKept(cfg) {
+		return func(string) bool { return false }
+	}
 	skip := map[string]bool{}
 	for _, p := range entryPointPaths(cfg, cfg.Targets) {
 		skip[p] = true
