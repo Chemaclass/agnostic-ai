@@ -52,7 +52,7 @@ export function EditorChoice() {
   return (
     <div className="editor-choice" role="group" aria-labelledby={labelId}>
       <span id={labelId} className="editor-choice-label">Open files in</span>
-      <div className="editor-switch" role="radiogroup" aria-labelledby={labelId} onKeyDown={(event) => {
+      <div className="editor-switch" role="radiogroup" onKeyDown={(event) => {
         const index = EDITORS.findIndex((e) => e.id === editor)
         const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
         if (step === 0) return

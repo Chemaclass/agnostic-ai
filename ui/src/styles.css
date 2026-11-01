@@ -1692,6 +1692,11 @@ input:hover {
     outline-offset: -2px;
   }
 
+  .editor-switch-option[aria-checked='true']:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+
   .editor-switch-option[aria-checked='true'] .editor-switch-mark {
     background: Highlight;
     forced-color-adjust: none;
