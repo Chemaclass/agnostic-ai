@@ -5,7 +5,6 @@ import { baseName, parseServedConfig, type ServedConfig } from '../model/config-
 import { ConfigSwitch } from './ConfigSwitch'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
-import { EditorChoice } from './EditorLink'
 import { APPLE_PLATFORM, Icon } from './ui'
 
 export interface Remote<T> {
@@ -127,7 +126,6 @@ export function Header({
           )}
         </div>
       )}
-      <EditorChoice />
       <div className="topbar-actions">
         <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
           <Icon name="search" />

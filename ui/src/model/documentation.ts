@@ -27,6 +27,7 @@ export const DOC_TOPICS: Record<string, DocTopic> = {
   budget: { path: '/docs/configuration/#lint', label: 'context budgets' },
   support: { path: '/docs/target-behavior/', label: 'coding tool support' },
   findings: { path: '/docs/cli-reference/check/', label: 'configuration checks' },
+  editor: { path: '/docs/cli-reference/inspect/#serve', label: 'opening files in an editor' },
   targets: { path: '/docs/configuration/#targets', label: 'selecting coding tools' },
 }
 

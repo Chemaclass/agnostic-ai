@@ -25,7 +25,7 @@ Keep the terminal running. The browser opens at `http://127.0.0.1:4310`, or the 
 
 Select a section to see its files and findings from `lint` and `doctor`. Findings appear beside the affected file or at the top of the section when no file matches.
 
-For example, a warning about bare `read` in **Authority** means the rule allows reading every file. Open the path beside the warning in your editor, or use the edit icon to open it in Cursor.
+For example, a warning about bare `read` in **Authority** means the rule allows reading every file. Open the path beside the warning in your editor, or use the edit icon to open it in the editor chosen in Settings > Editor.
 
 If the rule should cover only `src/`, replace `read` with `read(src/**)`:
 

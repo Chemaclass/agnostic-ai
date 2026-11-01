@@ -352,10 +352,10 @@ In the browser:
 - A global page that started in a project (from that button, or `ui --global` or `serve --global` run in a project folder) shows **Open project** with the project's name to go back.
 - A server the button starts stops with the server that started it. The way back from that global page returns to that server, also when it runs on another `--addr`.
 - Each browser tab edits only the configuration it serves.
-- The Cursor and VS Code switch in the header (named **Open files in** for screen readers) picks the editor for every **Open** link, and the browser remembers it. Choose an editor installed on your machine, then allow the browser to launch it when prompted. If nothing opens, choose another editor or copy the path. A finding on a file opens at its line when known. **Copy path** sits beside each link, because the browser cannot tell whether the editor opened.
-- All five page links stay visible on narrow screens. The phone header keeps the configuration switch beside an Editor menu.
-- **Context**, **Tools**, and **Settings** use tabs for their source groups. Tools separates configured servers, servers found in native configs, and environments. Settings separates built-ins, coding tools, preferences, and config files. Config files lists the source files, then shows their combined effective values once.
-- Tabs support arrow, Home, and End keys. On phones, Context and Tools tabs scroll horizontally; Settings keeps its four tabs visible.
+- **Settings > Editor** picks which editor Open links use: Cursor, VS Code, VS Code Insiders, VSCodium, Zed, or a custom link template with `{path}` and `{line}`. The choice is saved in the browser, not in config files. Allow the browser to launch the editor when prompted; if nothing opens, change the editor or copy the path. A finding on a file opens at its line when known. **Copy path** sits beside each link, because the browser cannot tell whether the editor opened.
+- All five page links stay visible on narrow screens.
+- **Context**, **Tools**, and **Settings** use tabs for their source groups. Tools separates configured servers, servers found in native configs, and environments. Settings separates built-ins, coding tools, preferences, config files, and the editor. Config files lists the source files, then shows their combined effective values once.
+- Tabs support arrow, Home, and End keys. On phones, Context and Tools tabs scroll horizontally; Settings keeps its tabs visible: five on a running server, four in a snapshot or the mock, which have no Editor tab.
 - The selected tab survives refresh and browser history. Switching tabs keeps unsaved input and previews.
 - Search covers all source tabs and opens a matching group. Linked results open their owning tab.
 - Authority keeps permissions together, and Lifecycle keeps its session timeline.

@@ -543,7 +543,6 @@ test.describe('overview', () => {
     await expect(permissions.locator('.finding')).toContainText('LINT038')
     await expect(permissions.locator('.finding-source')).toContainText('Files open in an editor only from a running agnostic-ai serve.')
     await expect(permissions.getByRole('button', { name: 'Copy path of .agnostic-ai/settings/permissions.yaml' })).toBeVisible()
-    await expect(page.getByRole('group', { name: 'Open files in' })).toHaveCount(0)
     await expect(permissions.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
     await expect(permissions.locator('.finding-recheck-result')).toHaveText('Rechecking a finding needs a running agnostic-ai serve.')
     await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
@@ -570,46 +569,27 @@ test.describe('overview', () => {
     const open = finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` })
     await expect(open).toHaveAttribute('href', 'cursor://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
 
-    const choice = page.getByRole('group', { name: 'Open files in' })
-    await expect(choice.getByRole('radio', { name: 'Cursor' })).toHaveAttribute('aria-checked', 'true')
-    await expect(page.locator('.topbar').getByRole('group', { name: 'Open files in' })).toBeInViewport()
-    await choice.getByRole('radio', { name: 'VS Code' }).focus()
-    const switchWidth = (await choice.boundingBox())!.width
-    await page.keyboard.press('Space')
-    await expect(choice.getByRole('radio', { name: 'VS Code' })).toHaveAttribute('aria-checked', 'true')
-    await page.emulateMedia({ forcedColors: 'active' })
-    const fill = (name: string) => choice.getByRole('radio', { name }).evaluate((element) => getComputedStyle(element).backgroundColor)
-    const highlight = await page.evaluate(() => {
-      const probe = document.body.appendChild(document.createElement('div'))
-      probe.style.background = 'Highlight'
-      const color = getComputedStyle(probe).backgroundColor
-      probe.remove()
-      return color
-    })
-    expect(await fill('VS Code')).toBe(highlight)
-    await page.emulateMedia({ forcedColors: 'none' })
-    expect(Math.abs((await choice.boundingBox())!.width - switchWidth)).toBeLessThanOrEqual(1)
-    await page.keyboard.press('ArrowLeft')
-    await expect(choice.getByRole('radio', { name: 'Cursor' })).toHaveAttribute('aria-checked', 'true')
-    await expect(choice.getByRole('radio', { name: 'Cursor' })).toBeFocused()
-    await page.keyboard.press('ArrowRight')
-    await expect(choice.getByRole('radio', { name: 'VS Code' })).toHaveAttribute('aria-checked', 'true')
+    const nav = page.getByRole('navigation', { name: 'Configuration sections' })
+    const chooseInSettings = async (label: string) => {
+      await nav.getByRole('link', { name: /^Settings/ }).click()
+      await selectTab(page, 'Editor')
+      await page.getByRole('combobox', { name: 'Open files in' }).selectOption({ label })
+      await nav.getByRole('link', { name: /^Authority/ }).click()
+    }
+    await chooseInSettings('VS Code')
     const vscode = finding.getByRole('link', { name: `Open ${path} in VS Code at line 7` })
     await expect(vscode).toHaveAttribute('href', 'vscode://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
     await expect(page.locator('.item-row', { hasText: 'protected' }).first().getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', /^vscode:\/\/file\/.+protected\.yaml$/)
 
     await page.evaluate(() => document.addEventListener('click', (event) => {
-      if ((event.target as Element).closest('a[href^="vscode:"]')) event.preventDefault()
+      if ((event.target as Element).closest('a[href^="vscode:"], a[href^="cursor:"]')) event.preventDefault()
     }, true))
     await vscode.focus()
     await page.keyboard.press('Enter')
-    await expect(finding.locator('.editor-hint')).toHaveText('Allow your browser to open VS Code. If nothing opens, choose an installed editor above or copy the path.')
+    await expect(finding.locator('.editor-hint')).toHaveText('Allow your browser to open VS Code. If nothing opens, change the editor in Settings or copy the path.')
     const linkBox = await vscode.boundingBox()
     const hintBox = await finding.locator('.editor-hint').boundingBox()
     expect(hintBox!.y).toBeGreaterThanOrEqual(linkBox!.y + linkBox!.height)
-    await choice.getByRole('radio', { name: 'Cursor' }).click()
-    await expect(finding.locator('.editor-hint')).toHaveText('Allow your browser to open Cursor. If nothing opens, choose an installed editor above or copy the path.')
-    await choice.getByRole('radio', { name: 'VS Code' }).click()
     await finding.getByRole('button', { name: `Copy path of ${path}` }).click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('C:\\Users\\Some One\\project #1\\.agnostic-ai\\settings\\permissions.yaml')
 
@@ -620,13 +600,19 @@ test.describe('overview', () => {
     await expect(gone.getByRole('link')).toHaveCount(0)
     await saveScreenshot(page, '04b-finding-editor.png')
 
+    await finding.locator('.editor-hint').getByRole('link', { name: 'Settings' }).click()
+    await expect(page.getByRole('combobox', { name: 'Open files in' })).toHaveValue('vscode')
+    await page.getByRole('combobox', { name: 'Open files in' }).selectOption({ label: 'Cursor' })
+    await nav.getByRole('link', { name: /^Authority/ }).click()
+    await finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` }).click()
+    await expect(finding.locator('.editor-hint')).toHaveText('Allow your browser to open Cursor. If nothing opens, change the editor in Settings or copy the path.')
+
+    await chooseInSettings('VS Code')
     await page.reload()
-    await expect(page.getByRole('group', { name: 'Open files in' }).getByRole('radio', { name: 'VS Code' })).toHaveAttribute('aria-checked', 'true')
     await expect(page.locator('.finding', { hasText: 'LINT038' }).getByRole('link', { name: `Open ${path} in VS Code at line 7` })).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await page.evaluate(() => window.scrollTo(0, 0))
-    await expect(page.locator('.topbar').getByRole('group', { name: 'Open files in' })).toBeInViewport()
-    await choice.getByRole('combobox', { name: 'Editor', exact: true }).selectOption('cursor')
+    await chooseInSettings('Cursor')
     await expect(finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` })).toHaveAttribute('href', 'cursor://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
   })
 

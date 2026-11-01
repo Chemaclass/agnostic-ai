@@ -48,7 +48,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Context opens on Context size for a project with a coding tool, with a startup check against lint.instructions-words, its default model, and next steps.
 - The context view carries startupWordBudget, the lint.instructions-words value, so the page can say whether startup text is within budget.
 - Context size is the first Context tab, explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address.
-- The header editor switch is a Cursor and VS Code pill with a filled selected editor, arrow keys, and no shift when the choice changes; screen readers name it Open files in.
+- The editor choice lives in Settings under Editor: Cursor, VS Code, VS Code Insiders, VSCodium, Zed, or a custom link template; the header no longer shows it.
 - Section warnings show once, as a count under the page title with Review, instead of a banner on every tab; errors stay above the tabs.
 - The Docs link on Lifecycle opens the session timeline section of the hooks page.
 - Authority lists each saved permission rule with Edit and Remove. Edit opens the editor on that line. Remove goes to a preview before anything is saved.
@@ -58,11 +58,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The header shows the project name, its folder path and a Project label, as it does for Global, even when the project is named agnostic-ai.
 - Select controls use a shared, theme-aware chevron with room for labels and keyboard navigation.
 - Context size keeps the report area in place while a different coding tool loads, with placeholders instead of stale totals.
-- Phone headers keep configuration and editor controls together, and Settings tabs fit their labels and counts.
+- Phone headers keep the configuration control on its own row, and Settings tabs fit their labels and counts.
 - Section warnings fold behind Review while errors stay visible; Config files shows merged values once below source links.
 - Authority, Settings, and native server imports keep a compact Shared or Personal choice with the content it controls.
 - Section headings link to the relevant spec or reference docs in a new tab, including when nothing is configured.
-- File links show Open, keep the editor choice visible in the header, and explain how to recover when no editor opens.
+- File links show Open and explain how to recover when no editor opens.
 - Context size groups tool and file controls, highlights load totals, and makes estimates and ranked sources easier to scan.
 - Global Settings edits shared or personal voice values; project settings stay read-only (#2835).
 - Authority previews and saves shared or personal permission rules, compares personal overrides with Shared, and leaves applying them to sync.

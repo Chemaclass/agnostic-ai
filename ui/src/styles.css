@@ -1645,68 +1645,6 @@ input:hover {
   font-size: 12px;
 }
 
-.editor-choice {
-  display: flex;
-  align-items: center;
-}
-
-.editor-choice-mobile {
-  display: none;
-}
-
-.editor-switch {
-  display: inline-grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--panel-sunken);
-}
-
-.editor-switch-option {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 2px 12px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-muted);
-  font-weight: 650;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.editor-switch-option:hover {
-  color: var(--text);
-}
-
-.editor-switch-option[aria-checked='true'] {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.editor-switch-option:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-@media (forced-colors: active) {
-  .editor-switch-option[aria-checked='true'] {
-    background: Highlight;
-    color: HighlightText;
-    forced-color-adjust: none;
-  }
-
-  .editor-switch-option[aria-checked='true']:focus-visible {
-    outline: 2px solid CanvasText;
-    outline-offset: 2px;
-  }
-}
-
 .editor-actions {
   display: inline-grid;
   grid-template-columns: auto auto;
@@ -1736,6 +1674,49 @@ input:hover {
   max-width: 32ch;
   white-space: normal;
   font-size: 12px;
+}
+
+.editor-settings {
+  display: grid;
+  gap: 8px;
+  max-width: 48ch;
+}
+
+.editor-settings > p {
+  margin: 0;
+}
+
+.editor-settings label {
+  font-weight: 600;
+}
+
+.editor-settings .select-control {
+  justify-self: start;
+  width: 100%;
+  max-width: 32ch;
+}
+
+.editor-settings-input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.editor-settings .editor-settings-error {
+  max-width: none;
+  text-align: left;
+}
+
+.editor-settings-example code {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .editor-settings select,
+  .editor-settings-input {
+    min-height: 44px;
+    font-size: 16px;
+  }
 }
 
 .editor-hint:empty {
@@ -3011,7 +2992,7 @@ tr.is-advised > td {
 
   .topbar-context {
     order: 3;
-    flex: 1 1 calc(100% - 132px);
+    flex: 1 1 100%;
     width: auto;
     justify-content: space-between;
     gap: 8px 12px;
@@ -3508,33 +3489,6 @@ tr.is-advised > td {
 }
 
 @media (max-width: 760px) {
-  .topbar > .editor-choice {
-    order: 4;
-    flex: 0 0 120px;
-  }
-
-  .editor-switch {
-    display: none;
-  }
-
-  .editor-choice-mobile {
-    display: grid;
-    gap: 3px;
-    width: 100%;
-  }
-
-  .editor-choice-mobile label {
-    color: var(--text-muted);
-    font-size: 11px;
-  }
-
-  .editor-choice-mobile select {
-    width: 100%;
-    min-width: 0;
-    min-height: 44px;
-    font-size: 16px;
-  }
-
   .editor-open,
   .editor-copy {
     min-height: 44px;
