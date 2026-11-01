@@ -133,6 +133,9 @@ func TestImportFromClaude_CompanionOfAgentsMDFencesClaudeText(t *testing.T) {
 	if strings.Contains(buf.String(), "unique content") {
 		t.Errorf("AGENTS.md is captured, got a warning:\n%s", buf.String())
 	}
+	if !strings.Contains(buf.String(), "seeded from AGENTS.md and CLAUDE.md") {
+		t.Errorf("expected the seed line to name both files, got:\n%s", buf.String())
+	}
 }
 
 // Importing AGENTS.md alone captures everything a companion CLAUDE.md
@@ -290,5 +293,26 @@ func TestImportFromClaude_WarningNamesBothWhenBothEdited(t *testing.T) {
 	}
 	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
 		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
+	}
+}
+
+func TestImportFromClaude_UnchangedLineNamesThePairOnRepeatImport(t *testing.T) {
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := captureSummary(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Rules\n\nHand written rules.\n")
+	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\nClaude only: use plan mode.\n\n\n")
+
+	for i := 0; i < 2; i++ {
+		buf.Reset()
+		if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+			t.Fatalf("import %d: %v", i+1, err)
+		}
+	}
+
+	if !strings.Contains(buf.String(), "it already holds what AGENTS.md and CLAUDE.md say") {
+		t.Errorf("expected the unchanged line to name both files, got:\n%s", buf.String())
 	}
 }

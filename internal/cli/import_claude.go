@@ -224,6 +224,9 @@ func mirrorClaudeMainFile(root string) (result mirrorResult, srcName string, pro
 			label = changed[0]
 		}
 		result, err := mirrorBodyAs(root, claudeMainFile, label, body, claudeAgentsMainFile)
+		if result == mirrorUnchanged {
+			return result, pair, false, err
+		}
 		return result, label, false, err
 	}
 	claimed := rootAgentsMainFileClaimedByPeer()
