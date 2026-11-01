@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -148,5 +149,104 @@ func TestImportFromCodex_NoWarnForClaudeCompanion(t *testing.T) {
 	}
 	if strings.Contains(buf.String(), "unique content") {
 		t.Errorf("CLAUDE.md only imports AGENTS.md, got a warning:\n%s", buf.String())
+	}
+}
+
+const companionSyncWarning = "differs from what sync renders"
+
+func syncFencedClaudeBlock(t *testing.T, source string) (string, *bytes.Buffer) {
+	t.Helper()
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := captureSummary(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	mustWrite(t, filepath.Join(dir, agnosticMainFile), source)
+	if err := runSync(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	buf.Reset()
+	return dir, buf
+}
+
+// Right after a clean sync, CLAUDE.md is the @AGENTS.md companion with the
+// claude-only text, so importing it has nothing to say (#2935).
+func TestImportFromClaude_NoWarnRightAfterSyncWithFencedClaudeBlock(t *testing.T) {
+	cases := map[string]string{
+		"blank lines inside the fence": "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n",
+		"no blank line before fence":   "Root text.\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n",
+		"one-line fence":               "Root text.\n\n::target claude\n- Claude only line.\n::end\n",
+	}
+	for name, source := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir, buf := syncFencedClaudeBlock(t, source)
+
+			if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+				t.Fatalf("import: %v", err)
+			}
+
+			out := buf.String()
+			if strings.Contains(out, companionSyncWarning) {
+				t.Errorf("clean sync must not warn, got:\n%s", out)
+			}
+			if !strings.Contains(out, "AGNOSTIC_AI.md unchanged (it already holds what AGENTS.md and CLAUDE.md say)") {
+				t.Errorf("expected the unchanged line, got:\n%s", out)
+			}
+			if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+				t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
+			}
+		})
+	}
+}
+
+// A rule codex inlines into AGENTS.md, or a code review section, makes sync
+// write CLAUDE.md as a full copy instead of the @AGENTS.md companion.
+func TestImportFromClaude_NoWarnRightAfterSyncWhenAgentsMDCarriesARule(t *testing.T) {
+	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := captureSummary(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	mustWrite(t, filepath.Join(dir, agnosticMainFile), source)
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\ndescription: Style rule\n---\n\nUse tabs.\n")
+	if err := runSync(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if strings.Contains(mustRead(t, filepath.Join(dir, "CLAUDE.md")), "@AGENTS.md") {
+		t.Fatal("CLAUDE.md is the companion; the test needs the full copy")
+	}
+	buf.Reset()
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	if out := buf.String(); strings.Contains(out, companionSyncWarning) {
+		t.Errorf("clean sync must not warn, got:\n%s", out)
+	}
+	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
+	}
+}
+
+func TestImportFromClaude_WarnsWhenCompanionClaudeTextEdited(t *testing.T) {
+	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
+	dir, buf := syncFencedClaudeBlock(t, source)
+	claudePath := filepath.Join(dir, "CLAUDE.md")
+	original := mustRead(t, claudePath)
+	edited := strings.Replace(original, "- Claude only line.", "- Claude only line, edited.", 1)
+	if edited == original {
+		t.Fatal("CLAUDE.md does not hold the claude-only line")
+	}
+	mustWrite(t, claudePath, edited)
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	if !strings.Contains(buf.String(), companionSyncWarning) {
+		t.Errorf("expected the edit warning, got:\n%s", buf.String())
+	}
+	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
 	}
 }

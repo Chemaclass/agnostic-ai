@@ -1793,3 +1793,62 @@ func TestPlanWatchResync_SpecWrittenAsASkillHitsItsSkillTargets(t *testing.T) {
 		})
 	}
 }
+
+// followsTargetsFixture starts a watch over a project whose config lists
+// claude and codex. The always-on rule lands in codex's AGENTS.md only, so
+// that file shows whether codex is still being emitted.
+func followsTargetsFixture(t *testing.T, watched []string) (dir string, buf *safeBuffer, stop func()) {
+	t.Helper()
+	dir = setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeTestFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: always\nalways: true\n---\nrule body\n")
+	writeTestFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	buf, stop = startWatch(t, watched, true)
+	return dir, buf, stop
+}
+
+func TestWatchSync_FollowsTargetsEditedInConfig(t *testing.T) {
+	dir, buf, stop := followsTargetsFixture(t, watchTargets(nil, nil, nil, []string{"claude", "codex"}))
+	defer stop()
+
+	agents := filepath.Join(dir, "AGENTS.md")
+	cursorRule := filepath.Join(dir, ".cursor", "rules", "r1.mdc")
+	if _, err := os.Stat(agents); err != nil {
+		t.Fatalf("initial sync did not write AGENTS.md for codex: %v", err)
+	}
+
+	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
+	writeAndBumpMtime(t, cfgPath, []byte("version: 1\ntargets: [claude]\n"))
+	waitForGone(t, agents, 15*time.Second)
+
+	waitForOutput(t, buf, "removed", 15*time.Second)
+	writeAndBumpMtime(t, cfgPath, []byte("version: 1\ntargets: [claude, cursor]\n"))
+	waitForFile(t, cursorRule, 15*time.Second)
+}
+
+func TestWatchSync_PinnedTargetsIgnoreConfigEdits(t *testing.T) {
+	dir, buf, stop := followsTargetsFixture(t, []string{"claude", "codex"})
+	defer stop()
+
+	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
+	writeAndBumpMtime(t, cfgPath, []byte("version: 1\ntargets: [claude, codex, cursor]\n"))
+	waitForOutput(t, buf, "full re-sync", 15*time.Second)
+	waitForOutput(t, buf, "up to date", 15*time.Second)
+
+	if _, err := os.Stat(filepath.Join(dir, ".cursor", "rules", "r1.mdc")); err == nil {
+		t.Errorf("a watch started with a pinned target list must not emit cursor")
+	}
+}
+
+func waitForGone(t *testing.T, path string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s to be removed", path)
+}

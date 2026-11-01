@@ -305,7 +305,7 @@ func newSyncCmd() *cobra.Command {
 			if watch {
 				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
-				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag, watchPoll, jobs)
+				return watchSync(ctx, 200*time.Millisecond, ".", watchTargets(targets, only, except, effective), dryRun, backup, gitignoreFlag, watchPoll, jobs)
 			}
 			if jsonOut && dryRun {
 				resetDrops()
