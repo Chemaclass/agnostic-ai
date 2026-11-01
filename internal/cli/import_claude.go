@@ -214,6 +214,9 @@ func mirrorClaudeMainFile(root string) (result mirrorResult, srcName string, pro
 		if err != nil {
 			return mirrorAbsent, claudeMainFile, false, err
 		}
+		if companionMatchesSync(root) {
+			return mirrorUnchanged, claudeAgentsMainFile + " and " + claudeMainFile, false, nil
+		}
 		result, err := mirrorBody(root, claudeMainFile, body, claudeAgentsMainFile)
 		return result, claudeAgentsMainFile + " and " + claudeMainFile, false, err
 	}
@@ -320,6 +323,32 @@ func claudeCompanionBody(root string) (body string, ok bool, err error) {
 		body += "\n::target claude\n" + rest + "\n::end\n"
 	}
 	return body, true, nil
+}
+
+// companionMatchesSync reports whether AGENTS.md and the @AGENTS.md
+// companion CLAUDE.md are exactly what sync renders from a fenced
+// AGNOSTIC_AI.md. The rebuilt companion body is never equal to either
+// rendered file, so each file is compared with its own view.
+func companionMatchesSync(root string) bool {
+	raw, err := os.ReadFile(filepath.Join(root, agnosticMainFile))
+	if err != nil {
+		return false
+	}
+	source := header.Strip(string(raw))
+	if !hasTargetFences(source) {
+		return false
+	}
+	for _, name := range []string{claudeMainFile, claudeAgentsMainFile} {
+		data, err := readEntryFile(root, filepath.Join(root, name))
+		if err != nil {
+			return false
+		}
+		body := header.Strip(adapters.StripGeneratedAppendices(string(data)))
+		if !matchesRenderedView(root, name, source, body) {
+			return false
+		}
+	}
+	return true
 }
 
 // mirrorBody writes body, captured from srcName, to AGNOSTIC_AI.md.
