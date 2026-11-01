@@ -7,6 +7,8 @@ import { useEditAudience, ViewPersonalButton } from './EditAudience'
 import { Select, Code } from './ui'
 
 type Saved = Pick<PermissionEditPreview, 'file' | 'syncCommand'>
+const RULE_PLACEHOLDER = 'shell(git status)\nread(src/**)\nmcp:github'
+
 const SavedRules = createContext<{ saved?: Saved; update: (saved?: Saved) => void }>({ update: () => {} })
 
 export function PermissionEditProvider({ children }: { children: ReactNode }) {
@@ -45,6 +47,9 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   const receipt = useContext(SavedRules)
   const id = useId()
   const textarea = useRef<HTMLTextAreaElement>(null)
+  const previewRegion = useRef<HTMLElement>(null)
+  const editButton = useRef<HTMLButtonElement>(null)
+  const restoreFocus = useRef(false)
   const active = useRef(true)
   const busy = useRef(false)
   const refreshing = useRef(false)
@@ -55,6 +60,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   const inherited = audience === 'personal' && !current.personalSet
   const effective = audience === 'personal' ? current.personalSet ? current.personal : current.shared : current.shared
   const [editing, setEditing] = useState(false)
+  const [focusLine, setFocusLine] = useState<number>()
   const [text, setText] = useState((effective ?? []).join('\n'))
   const [before, setBefore] = useState(own)
   const [preview, setPreview] = useState<PermissionEditPreview>()
@@ -66,14 +72,26 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     return () => { active.current = false }
   }, [])
   useEffect(() => {
-    if (editing && !preview) textarea.current?.focus()
-  }, [editing, preview])
+    const box = textarea.current
+    if (!editing || preview || !box) return
+    box.focus()
+    if (focusLine === undefined) return
+    const lines = box.value.split('\n')
+    const start = lines.slice(0, focusLine).reduce((sum, line) => sum + line.length + 1, 0)
+    box.setSelectionRange(start, start + (lines[focusLine]?.length ?? 0))
+    setFocusLine(undefined)
+  }, [editing, preview, focusLine])
+  useEffect(() => {
+    if (preview) previewRegion.current?.focus()
+    else if (restoreFocus.current && !editing) editButton.current?.focus()
+    if (!preview) restoreFocus.current = false
+  }, [preview, editing])
   useEffect(() => {
     if (!refreshing.current) return
     refreshing.current = false
     setBefore(own)
     setError(undefined)
-    setRefreshed(true)
+    setRefreshed(editing)
     setPreview(undefined)
   }, [app.overviewRevision, field])
 
@@ -85,8 +103,9 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   const differs = JSON.stringify(current.shared ?? []) !== JSON.stringify(current.personal ?? [])
   const rules = rulesFromText(text)
   const unchanged = JSON.stringify(rules) === JSON.stringify(own ?? []) && !inherited
-  const begin = () => {
+  const begin = (line?: number) => {
     setBefore(own)
+    setFocusLine(line)
     setText((effective ?? []).join('\n'))
     setError(undefined)
     setRefreshed(false)
@@ -105,7 +124,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       }
       if (!active.current) return
       if (action === 'preview') setPreview(result)
-      else { setEditing(false); setPreview(undefined) }
+      else { restoreFocus.current = true; setEditing(false); setPreview(undefined) }
     } catch (failure) {
       if (active.current) {
         setPreview(undefined)
@@ -133,8 +152,15 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       {overridden && <>{!disabledReason && <p className="muted">Reset this list in Personal to edit Shared.</p>}<ViewPersonalButton /></>}
     </div>}
     {disabledReason && <p className="muted">{disabledReason}</p>}
+    {!disabledReason && !overridden && !preview && !editing && !!own?.length && <ul className="permission-rules" aria-label={`Saved ${field.label} rules`}>
+      {own.map((rule, index) => <li key={`${index}:${rule}`}>
+        <Code>{rule}</Code>
+        <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Edit rule ${rule}`} onClick={() => begin(index)}>Edit</button>
+        <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Remove rule ${rule}`} onClick={() => { const rest = own.filter((_, at) => at !== index); void request('preview', rest.length ? rest : audience === 'personal' ? [] : null) }}>Remove</button>
+      </li>)}
+    </ul>}
     {!disabledReason && !overridden && !preview && !editing && <div className="field-edit-row">
-      <button type="button" className="button" disabled={!path || !!pending} onClick={begin}>{own === null && !effective?.length ? 'Add rules' : 'Edit rules'}</button>
+      <button ref={editButton} type="button" className="button" disabled={!path || !!pending} onClick={() => begin()}>{own === null && !effective?.length ? 'Add rules' : 'Edit rules'}</button>
       {audience === 'personal' && current.personalSet && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to shared rules</button>}
       {!path && <span className="muted">Choose the file whose rules you want to change.</span>}
     </div>}
@@ -142,7 +168,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       <label htmlFor={id}>{field.label} rules</label>
       <p id={`${id}-hint`} className="muted">One rule per line, for example <Code>shell(git status)</Code> or <Code>read(src/**)</Code>. Blank lines are ignored.</p>
       {inherited && <p className="muted">Starts with shared rules. Saving replaces this list for you; other settings keep inheriting.</p>}
-      <textarea ref={textarea} id={id} aria-describedby={`${id}-hint`} rows={6} value={text} disabled={locked} spellCheck={false} onChange={(event) => { setText(event.target.value); setError(undefined) }} />
+      <textarea ref={textarea} id={id} aria-describedby={`${id}-hint`} rows={4} placeholder={RULE_PLACEHOLDER} value={text} disabled={locked} spellCheck={false} onChange={(event) => { setText(event.target.value); setError(undefined) }} />
       <div className="field-edit-row">
         <button type="submit" className="button button-primary" disabled={locked || unchanged}>{pending === 'preview' ? 'Preparing preview…' : 'Preview changes'}</button>
         <button type="button" className="button button-quiet" disabled={locked} onClick={() => { setEditing(false); setError(undefined); setRefreshed(false) }}>Cancel</button>
@@ -150,12 +176,12 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       </div>
     </form>}
     {!overridden && path && !preview && <p className="muted permission-destination">{audience === 'shared' ? 'Shared file' : 'Personal file'}: {audience === 'personal' && !current.personalPath ? <>an overlay for <Code>{path}</Code></> : <Code>{audience === 'personal' ? current.personalPath : path}</Code>}</p>}
-    {preview && <section className="permission-preview" aria-label={`${field.label} change preview`} aria-busy={!!pending}>
+    {preview && <section ref={previewRegion} tabIndex={-1} className="permission-preview" aria-label={`${field.label} change preview`} aria-busy={!!pending}>
       <div className="permission-preview-head">
-        <h3>{preview.rules === null ? audience === 'personal' ? 'Use shared rules' : 'Remove shared list' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
+        <h3>{preview.rules === null ? audience === 'personal' ? 'Use shared rules' : 'Remove shared list' : preview.rules.length === 0 && audience === 'personal' ? 'Clear the list for you' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
         <div className="field-edit-row">
           <button type="button" className="button button-primary" disabled={!!pending || !!disabledReason} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Saving…' : 'Save rules'}</button>
-          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { setPreview(undefined); setError(undefined) }}>{editing ? 'Back to editing' : 'Cancel'}</button>
+          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { restoreFocus.current = true; setPreview(undefined); setError(undefined) }}>{editing ? 'Back to editing' : 'Cancel'}</button>
         </div>
       </div>
       <p>{audience === 'shared' ? 'Shared (committed)' : 'Personal (not committed)'} · <Code>{preview.file}</Code></p>
