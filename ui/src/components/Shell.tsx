@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { API, type OverviewView } from '../contract'
 import type { Loaded } from '../api'
-import { parseServedConfig, type ServedConfig } from '../model/config-switch'
+import { baseName, parseServedConfig, type ServedConfig } from '../model/config-switch'
 import { ConfigSwitch } from './ConfigSwitch'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
@@ -48,8 +48,12 @@ function useHeightVariable(ref: RefObject<HTMLElement | null>, name: string) {
   }, [ref, name])
 }
 
-function folderName(path: string): string | undefined {
-  return path.split(/[\\/]/).filter(Boolean).pop()
+function apiProjectName(snapshot: { project: { name?: string } } | undefined, served: ServedConfig | undefined): string | undefined {
+  if (!snapshot) return undefined
+  if (snapshot.project.name) return snapshot.project.name
+  if (!served || served.global) return undefined
+  const folder = baseName(served.root)
+  return folder === '' || /^[\\/]+$/.test(folder) ? undefined : folder
 }
 
 export function Header({
@@ -82,7 +86,7 @@ export function Header({
     return () => { live = false }
   }, [app.source.kind])
   const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
-  const projectName = served ? snapshot?.project.name || folderName(served.root) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
+  const projectName = app.source.kind === 'api' ? apiProjectName(snapshot, served) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
 
   return (
     <header className="topbar" ref={headerRef}>
@@ -106,7 +110,7 @@ export function Header({
           {projectName && (
             <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
               <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
-              <span className="project-title">{projectName}{served && <span className="chip chip-source">{served.global ? 'Global' : 'Project'}</span>}</span>
+              <span className="project-title">{projectName}{served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}</span>
               {root && <code className="project-root"><bdi>{root}</bdi></code>}
             </span>
           )}
