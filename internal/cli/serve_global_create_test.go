@@ -91,7 +91,7 @@ func TestGlobalCreate_WritesTheStarterFilesAndRunsGitInit(t *testing.T) {
 	if got := readText(t, filepath.Join(root, ".gitignore")); got != "/local/\n" {
 		t.Errorf(".gitignore = %q", got)
 	}
-	if got := readText(t, filepath.Join(root, "AGNOSTIC_AI.md")); !strings.HasPrefix(got, "# ") {
+	if got := readText(t, filepath.Join(root, "AGNOSTIC_AI.md")); got != "" {
 		t.Errorf("AGNOSTIC_AI.md = %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(root, ".git")); err != nil {
@@ -117,6 +117,63 @@ func TestGlobalCreate_SkipsGitWhenNotRequestedOrMissing(t *testing.T) {
 	}
 	if got := readText(t, filepath.Join(root, ".gitignore")); got != "/local/\n" {
 		t.Errorf(".gitignore = %q", got)
+	}
+}
+
+func TestGlobalCreate_KeepsAnExistingGitignoreAndAddsLocalOnce(t *testing.T) {
+	root := t.TempDir()
+	ignore := filepath.Join(root, ".gitignore")
+	mustWrite(t, ignore, "node_modules")
+	mustWrite(t, filepath.Join(root, "README.md"), "notes\n")
+	for i := 0; i < 2; i++ {
+		_ = os.Remove(filepath.Join(root, "agnostic-ai.yaml"))
+		_ = os.Remove(filepath.Join(root, "AGNOSTIC_AI.md"))
+		rec := postCreate(t, newGlobalCreateHandler(root), `{"git":false}`, nil)
+		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), ".gitignore") {
+			t.Fatalf("create %d = %d %s", i, rec.Code, rec.Body)
+		}
+	}
+	if got := readText(t, ignore); got != "node_modules\n/local/\n" {
+		t.Errorf(".gitignore = %q", got)
+	}
+}
+
+func TestGlobalCreate_SkipsGitInsideAnExistingRepo(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	parent := t.TempDir()
+	if out, err := exec.Command("git", "-C", parent, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	root := filepath.Join(parent, "agnostic-ai")
+	rec := postCreate(t, newGlobalCreateHandler(root), `{"git":true}`, nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "skipped: inside an existing repo") {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".git")); err == nil {
+		t.Error("git init ran inside a repository")
+	}
+}
+
+func TestGlobalCreate_TheSwitchAcceptsTheHomeItJustWrote(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	project := configuredProject(t, t.TempDir())
+	ports := freeLoopbackAddrs(t, 1)
+	started := false
+	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+		started = true
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project}), nil
+	})
+	defer h.close()
+	if rec, _ := postSwitch(t, h); rec.Code != http.StatusConflict {
+		t.Fatalf("switch before create = %d", rec.Code)
+	}
+	if rec := postCreate(t, newGlobalCreateHandler(home), `{"git":false}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if rec, _ := postSwitch(t, h); rec.Code != http.StatusOK || !started {
+		t.Errorf("switch after create = %d, started %v", rec.Code, started)
 	}
 }
 
@@ -205,8 +262,8 @@ func TestServeMux_GlobalCreateOnlyOnAProjectServer(t *testing.T) {
 	defer project.close()
 	global := newSwitchHandler(&switchPeer{root: src.root}, nil, probeViewServer, nil)
 	defer global.close()
-	if code := post(newServeMuxWithSwitch(src.load, opts, true, global)); code == http.StatusOK {
-		t.Error("global server mounts the create route")
+	if code := post(newServeMuxWithSwitch(src.load, opts, true, global)); code != http.StatusNotFound {
+		t.Errorf("global server create = %d, want 404", code)
 	}
 	if _, err := os.Stat(home); err == nil {
 		t.Error("the global server created the folder")

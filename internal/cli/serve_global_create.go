@@ -29,11 +29,14 @@ type globalStarterFile struct {
 	content string
 }
 
+// AGNOSTIC_AI.md starts empty: sync copies its text into every tool's user
+// instructions, so a placeholder would be read as an instruction.
 var globalStarterFiles = []globalStarterFile{
-	{"AGNOSTIC_AI.md", "# My instructions\n\nWrite what every project should know about how you work.\n"},
+	{"AGNOSTIC_AI.md", ""},
 	{"agnostic-ai.yaml", "version: 1\n"},
-	{".gitignore", "/local/\n"},
 }
+
+const globalGitignore = ".gitignore"
 
 // globalHomeMissing reports whether root holds no global setup. A symlink
 // whose target is gone is an error, so create never writes through it.
@@ -139,7 +142,40 @@ func writeGlobalStarter(root string) ([]string, error) {
 		}
 		created = append(created, f.name)
 	}
+	if ensureLocalIgnored(filepath.Join(root, globalGitignore)) {
+		created = append(created, globalGitignore)
+	}
 	return created, nil
+}
+
+// ensureLocalIgnored keeps an existing .gitignore and adds /local/ when no
+// line ignores it. It never fails the create, and reports whether it made
+// the file.
+func ensureLocalIgnored(path string) bool {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return writeExclusive(path, "/local/\n") == nil
+	}
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		switch strings.TrimSpace(line) {
+		case "/local/", "/local", "local/", "local":
+			return false
+		}
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = file.Close() }()
+	add := "/local/\n"
+	if len(data) > 0 && !strings.HasSuffix(string(data), "\n") {
+		add = "\n" + add
+	}
+	_, _ = file.WriteString(add)
+	return false
 }
 
 func writeExclusive(path, content string) error {
@@ -162,18 +198,18 @@ func writeExclusive(path, content string) error {
 // initGlobalGit never fails create: git is a convenience. It drops the
 // variables a git hook sets, which would point init at another repository.
 func initGlobalGit(root string) string {
-	if _, err := os.Lstat(filepath.Join(root, ".git")); err == nil {
-		return "skipped: already a git repository"
-	}
 	git, err := exec.LookPath("git")
 	if err != nil {
 		return "skipped: git not found"
 	}
+	env := worktreeGitEnvironment(os.Environ())
+	inside := exec.Command(git, "rev-parse", "--is-inside-work-tree")
+	inside.Dir, inside.Env = root, env
+	if inside.Run() == nil {
+		return "skipped: inside an existing repo"
+	}
 	cmd := exec.Command(git, "init", "--quiet")
-	cmd.Dir = root
-	cmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool {
-		return strings.HasPrefix(kv, "GIT_DIR=") || strings.HasPrefix(kv, "GIT_WORK_TREE=") || strings.HasPrefix(kv, "GIT_INDEX_FILE=")
-	})
+	cmd.Dir, cmd.Env = root, env
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "skipped: git init failed: " + strings.TrimSpace(string(out))
 	}
