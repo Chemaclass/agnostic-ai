@@ -75,7 +75,9 @@ func importFromOpenhands(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importFlatMarkdownFiles(filepath.Join(root, openhandsAgentsDir), importSourcePath(root, src.Agents), gooseAgentFields)
+	agents, err := importFlatMarkdownFilesWith(filepath.Join(root, openhandsAgentsDir), importSourcePath(root, src.Agents), openhandsAgentFields, func(data []byte) ([]byte, error) {
+		return importNativeAgentFields(data, "openhands", "skills")
+	})
 	if err != nil {
 		return err
 	}

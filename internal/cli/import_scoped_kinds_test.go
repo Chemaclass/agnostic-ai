@@ -257,3 +257,31 @@ func TestImport_KeptKeyNoteOnlyWhenTheFileChanged(t *testing.T) {
 		t.Errorf("notes:\n%s\nwant:\n%s", logged.String(), want)
 	}
 }
+
+func TestImport_CursorDeletesScopedKeyBesideRetainedTools(t *testing.T) {
+	spec := "---\nname: rev\ndescription: Reviews\nx-cursor:\n  tools: [Read]\n  color: blue\n---\n\nReview the diff.\n"
+	got := importRoundTrip(t, "cursor, claude", "cursor", "agents/rev.md", spec, ".cursor/agents/rev.md", func(s string) string {
+		return editBody(strings.Replace(s, "color: blue\n", "", 1))
+	})
+	if strings.Contains(got, "color:") || !strings.Contains(got, "tools: [Read]") {
+		t.Errorf("unexpected imported spec: %s", got)
+	}
+	native, _ := os.ReadFile(filepath.FromSlash(".cursor/agents/rev.md"))
+	if strings.Contains(string(native), "color:") {
+		t.Errorf("sync restored deleted color: %s", native)
+	}
+}
+
+func TestImport_QoderDeletesScopedKeyBesideRetainedKey(t *testing.T) {
+	spec := "---\nname: rev\ndescription: Reviews\nx-qoder:\n  memory: project\n  custom: value\n---\n\nReview the diff.\n"
+	got := importRoundTrip(t, "qoder, claude", "qoder", "agents/rev.md", spec, ".qoder/agents/rev.md", func(s string) string {
+		return editBody(strings.Replace(s, "custom: value\n", "", 1))
+	})
+	if strings.Contains(got, "custom:") || !strings.Contains(got, "memory: project") {
+		t.Errorf("unexpected imported spec: %s", got)
+	}
+	native, _ := os.ReadFile(filepath.FromSlash(".qoder/agents/rev.md"))
+	if strings.Contains(string(native), "custom:") {
+		t.Errorf("sync restored deleted key: %s", native)
+	}
+}

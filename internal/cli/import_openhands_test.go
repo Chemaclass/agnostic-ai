@@ -223,3 +223,41 @@ func readDirNames(t *testing.T, dir string) []string {
 	}
 	return names
 }
+
+func TestImportOpenhands_PreservesAgentSkills(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	path := filepath.Join(dir, ".agents/agents/reviewer.md")
+	writeFile(t, path, "---\nname: reviewer\ndescription: Review code\nskills: [security-review]\n---\n\nReview changes.\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	got := readFile(t, path)
+	if !strings.Contains(got, "security-review") {
+		t.Errorf("missing skill in %s", got)
+	}
+	execCLI(t, "sync", "--check", "-t", "openhands")
+	execCLI(t, "lint")
+	writeFile(t, path, "---\nname: reviewer\ndescription: Review code\n---\n\nReview changes.\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	if got := readFile(t, path); strings.Contains(got, "security-review") {
+		t.Errorf("deleted native field returned: %s", got)
+	}
+}
+
+func TestImportOpenhands_PreservesScopedNullModel(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/agents/reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmodel: shared-model\nx-openhands:\n  model: null\n  skills: [review]\n---\n\nReview changes.\n")
+	path := filepath.Join(dir, ".agents/agents/reviewer.md")
+	writeFile(t, path, "---\nname: reviewer\ndescription: Review code\nskills: [review]\n---\n\nReview changes.\n")
+	execCLI(t, "import", "openhands", "--overwrite")
+	execCLI(t, "sync", "-t", "openhands")
+	if got := readFile(t, path); strings.Contains(got, "shared-model") {
+		t.Errorf("scoped null model was lost: %s", got)
+	}
+}

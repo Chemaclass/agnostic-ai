@@ -47,7 +47,7 @@ func importFromCodebuddy(root string, cfg *config.Config) error {
 	if agents == "" {
 		agents = filepath.Join(dir, "agents")
 	}
-	if _, err := importFlatMarkdownFilesAt(filepath.Join(root, agents), importSourcePath(root, src.Agents), codebuddyMarkdownFields, func(data []byte, dst string) ([]byte, error) {
+	if _, err := importFlatMarkdownFilesAt(filepath.Join(root, agents), importSourcePath(root, src.Agents), codebuddyReconciledFields, func(data []byte, dst string) ([]byte, error) {
 		return importCodebuddyMarkdown(data, dst, spec.KindAgent)
 	}); err != nil {
 		return err
@@ -63,7 +63,7 @@ func importFromCodebuddy(root string, cfg *config.Config) error {
 	if commands == "" {
 		commands = filepath.Join(dir, "commands")
 	}
-	if _, err := importFlatMarkdownFilesAt(filepath.Join(root, commands), importSourcePath(root, src.Commands), codebuddyMarkdownFields, func(data []byte, dst string) ([]byte, error) {
+	if _, err := importFlatMarkdownFilesAt(filepath.Join(root, commands), importSourcePath(root, src.Commands), codebuddyReconciledFields, func(data []byte, dst string) ([]byte, error) {
 		return importCodebuddyMarkdown(data, dst, spec.KindCommand)
 	}); err != nil {
 		return err
@@ -501,6 +501,8 @@ func codebuddyPromptHandler(event string, handlers []any) bool {
 	}
 	return true
 }
+
+var codebuddyReconciledFields = specFields{all: true, omitted: map[string]bool{"model": true, "allowed-tools": true}, preserve: preserveCodebuddySharedFields, scopedReconciled: true}
 
 var codebuddyMarkdownFields = specFields{all: true, omitted: map[string]bool{"model": true, "allowed-tools": true}, preserve: preserveCodebuddySharedFields}
 

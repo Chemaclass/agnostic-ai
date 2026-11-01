@@ -172,3 +172,16 @@ func TestImport_AgentScopedValuesRoundTripAsWritten(t *testing.T) {
 		})
 	}
 }
+
+func TestImportScopedTargetKeysKeeping_PreservesUnwrittenKeyWithIncomingBlock(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "reviewer.md")
+	writeFile(t, dst, "---\nname: reviewer\nx-openhands:\n  tools: [terminal]\n  skills: [review]\n---\n\nReview.\n")
+	native := []byte("---\nname: reviewer\nx-openhands:\n  skills: [review]\n---\n\nReview.\n")
+	got, err := importScopedTargetKeysKeeping(native, dst, "openhands", nil, func(key string) bool { return key == "tools" }, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "terminal") {
+		t.Errorf("unwritten scoped tools lost: %s", got)
+	}
+}

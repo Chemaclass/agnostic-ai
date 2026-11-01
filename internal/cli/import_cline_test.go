@@ -404,3 +404,45 @@ func TestDoctorFix_RefusesUnimportedSingleFileClinerules(t *testing.T) {
 		t.Errorf("doctor --fix changed .clinerules: %q", got)
 	}
 }
+
+func TestImportCline_PreservesNativeAgentFields(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	path := filepath.Join(dir, ".cline/agents/reviewer.yml")
+	writeFile(t, path, "---\nname: reviewer\ndescription: Review code\ntools: [read_files]\nskills: [review]\nproviderId: anthropic\nmodelId: test-model\nmaxIterations: 12\n---\n\nReview changes.\n")
+	execCLI(t, "import", "cline")
+	execCLI(t, "sync", "-t", "cline")
+	got := readFile(t, path)
+	for _, want := range []string{"read_files", "review", "providerId: anthropic", "modelId: test-model", "maxIterations: 12"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	execCLI(t, "sync", "--check", "-t", "cline")
+	execCLI(t, "lint")
+	writeFile(t, path, "---\nname: reviewer\ndescription: Review code\n---\n\nReview changes.\n")
+	execCLI(t, "import", "cline")
+	execCLI(t, "sync", "-t", "cline")
+	if got := readFile(t, path); strings.Contains(got, "read_files") {
+		t.Errorf("deleted native field returned: %s", got)
+	}
+}
+
+func TestImportCline_PreservesAgentAliases(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	path := filepath.Join(dir, ".cline/agents/reviewer.yml")
+	writeFile(t, path, "---\nname: reviewer\nmodelId: &model test-model\ndescription: *model\nskills: &shared [review]\ntools: *shared\n---\n\nReview changes.\n")
+	execCLI(t, "import", "cline")
+	execCLI(t, "sync", "-t", "cline")
+	got := readFile(t, path)
+	for _, want := range []string{"description: test-model", "modelId: test-model", "review"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+}
