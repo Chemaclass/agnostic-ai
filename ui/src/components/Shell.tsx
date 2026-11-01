@@ -48,6 +48,10 @@ function useHeightVariable(ref: RefObject<HTMLElement | null>, name: string) {
   }, [ref, name])
 }
 
+function folderName(path: string): string | undefined {
+  return path.split(/[\\/]/).filter(Boolean).pop()
+}
+
 export function Header({
   overview,
   inspectorOpen,
@@ -67,7 +71,6 @@ export function Header({
   const headerRef = useRef<HTMLElement>(null)
   useHeightVariable(headerRef, '--topbar-offset')
   const snapshot = overview.loaded?.data.snapshot
-  const projectName = snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
   const [served, setServed] = useState<ServedConfig>()
   useEffect(() => {
     if (app.source.kind !== 'api') return
@@ -79,6 +82,7 @@ export function Header({
     return () => { live = false }
   }, [app.source.kind])
   const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
+  const projectName = served ? snapshot?.project.name || folderName(served.root) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
 
   return (
     <header className="topbar" ref={headerRef}>

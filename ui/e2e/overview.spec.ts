@@ -94,6 +94,22 @@ test.describe('overview', () => {
     await expect(page.locator('.project-name')).not.toHaveClass(/chip/)
   })
 
+  test('shows the project name and folder when served, even when the name matches the brand', async ({ page }) => {
+    const root = '/Users/chema/Code/Chemaclass/agnostic-ai'
+    await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root, global: false, ui: true } }))
+    const data = structuredClone(fixture)
+    data.snapshot.project.name = 'agnostic-ai'
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=context')
+    await expect(page.locator('.project-title')).toContainText('agnostic-ai')
+    await expect(page.locator('.project-title .chip')).toHaveText('Project')
+    await expect(page.locator('.project-root')).toHaveText(root)
+    data.snapshot.project.name = ''
+    await page.reload()
+    await expect(page.locator('.project-title')).toContainText('agnostic-ai')
+    await expect(page.locator('.project-root')).toHaveText(root)
+  })
+
   test('offers reload when a boolean save is stale', async ({ page }) => {
     const data = structuredClone(fixture)
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
