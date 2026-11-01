@@ -590,6 +590,9 @@ func entryPointPaths(cfg *config.Config, targets []string) []string {
 		seen[path] = true
 		paths = append(paths, path)
 	}
+	if slices.Contains(targets, "claude") && !seen["AGENTS.md"] && !cfg.IsUnmanaged("AGENTS.md") && claudeOwnsAgentsCompanion(cfg) {
+		paths = append(paths, "AGENTS.md")
+	}
 	return paths
 }
 
