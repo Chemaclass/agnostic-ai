@@ -346,7 +346,7 @@ test.describe('context size', () => {
   })
 })
 
-for (const width of [390, 1280]) {
+for (const width of [390, 1280, 1800]) {
   test(`keeps the report space stable while changing coding tools at ${width}px`, async ({ page }) => {
     const two = { ...structuredClone(contextView), targets: ['claude', 'gemini'], fileTargets: ['claude'] }
     let finish: (() => void) | undefined
@@ -379,3 +379,14 @@ for (const width of [390, 1280]) {
     await expect(panel.locator('.context-total-words').first()).toHaveText('97 words')
   })
 }
+
+test('uses the width of a wide screen: figures sit right of the prose', async ({ page }) => {
+  await page.setViewportSize({ width: 1800, height: 1000 })
+  await page.goto('/?mock=1&tab=usage')
+  const panel = page.locator('section.context-usage')
+  const prose = (await panel.locator('.context-check').boundingBox())!
+  const figures = (await panel.locator('.context-usage-totals').boundingBox())!
+  expect(figures.x).toBeGreaterThanOrEqual(prose.x + prose.width)
+  expect(figures.y).toBeLessThan(prose.y + prose.height)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1800)
+})

@@ -2465,6 +2465,50 @@ tr.is-advised > td {
   font-variant-numeric: tabular-nums;
 }
 
+/* Wide screens: the prose keeps its line length and the figures sit beside it. */
+@media (min-width: 1101px) {
+  .context-usage-results {
+    grid-template-columns: minmax(0, var(--measure)) minmax(240px, 1fr);
+    column-gap: 48px;
+  }
+
+  .context-usage-results > * {
+    grid-column: 1 / -1;
+  }
+
+  .context-usage-results > .context-check {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  .context-usage-results > .context-usage-totals,
+  .context-usage-results > .context-usage-note {
+    grid-column: 2;
+    max-width: none;
+  }
+
+  .context-usage-results > .context-usage-totals {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-self: start;
+  }
+
+  .context-usage-placeholder {
+    grid-template-columns: minmax(0, var(--measure)) minmax(240px, 1fr);
+    column-gap: 48px;
+    max-width: none;
+  }
+
+  .context-usage-placeholder > .context-placeholder-check {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .context-usage-placeholder > div:not(.context-placeholder-check) {
+    grid-column: 2;
+  }
+}
+
 @media (max-width: 760px) {
   .context-usage-file-hint {
     min-height: 3em;

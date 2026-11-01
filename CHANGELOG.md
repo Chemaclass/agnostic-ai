@@ -66,6 +66,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Context opens on Context size, now its first tab, for a project with a coding tool, with a startup check against `lint.instructions-words` (#2924, #2929).
 - Context size explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address (#2924).
 - Context size keeps its report in place with placeholders while a tool loads, groups tool and file controls, and highlights load totals (#2894, #2872).
+- On wide screens, Context size puts the Startup and On demand figures beside the startup check instead of below it.
 
 #### Settings
 
