@@ -115,7 +115,7 @@
     "src/model/testing.ts": "f90c0eaab647a088e35ce7bdf3be3fc64b63170bee97193675fbe49ea49bcee6",
     "src/model/url.test.ts": "735b7a93d5eaa9bb2dee68c5b124f67710ea248ea96b35a6cffa899ac49317eb",
     "src/model/url.ts": "e97c9907e123c4d7ecafab55bdabb038f9e2b886cfe864d8b065e23fbd82979b",
-    "src/styles.css": "e04496ed0b114ad08f615915f57bb1a9385f2dff053f698dbd6bb1f9347a3c4d",
+    "src/styles.css": "1c5de709829b4c3e5891d0c50c1490cabaad9ad4f021a6ebe9f3511be9d76969",
     "src/vite-env.d.ts": "2ead27e0f654eb53926df1439827e24aba232f3c3a413847b5862ee447b3f122",
     "tsconfig.json": "92730f301e12c45bbf33095c177dbd538b6f1b79bed1ed96a917a875c5a991e7",
     "vite.config.ts": "6cfab071d9e75b181655bb6657eb94753a8083a68936ea5018253b7fbc704b22"
@@ -124,12 +124,12 @@
     "assets/antigravity-DgAQAdn3.svg": "652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca",
     "assets/context.mock-CeYca_mm.js": "02a784cb3314f5a119b0c1cd7f9bfce9b34c9b6b52917c653af9733806202245",
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
-    "assets/index-DMkruPqJ.css": "c8ecea2d05065dcfc2e1a084737d54cd929869c00f04971585ce2fca384243fa",
-    "assets/index-V7-u5bwo.js": "2d59dc4d8e6c3bbd004af39c57fd1b12c752725ef027ee237f60c61e5a39908d",
+    "assets/index-CNkOTyAk.js": "2d59dc4d8e6c3bbd004af39c57fd1b12c752725ef027ee237f60c61e5a39908d",
+    "assets/index-Dy0_NULB.css": "f4e3282bada73fa1ecc56e7dd39a4f5413e57f10964b06c6fd95500f30170657",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-Btq6Uiqs.js": "aacc1f2a7640179c0cc3b8c1d8d4a37bb657d6f349c31f31fa637fb887a9ca3a",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "49454753e78a14b2000a5ab9c2cdf2c4610b4c925b6fb8476b9832f76951ca79",
+    "index.html": "31dc8c6ed50666f73f82f0700bd9b2819f82f072660d1f396d1489f507e715cf",
     "third-party-notices.txt": "a323be697d4e49da32e67813843982098f6331c7872fc0c181e0f60451e71438"
   }
 }

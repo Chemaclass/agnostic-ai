@@ -2465,7 +2465,7 @@ tr.is-advised > td {
 }
 
 /* Wide screens: the prose keeps its line length and the figures sit beside it. */
-@media (min-width: 1101px) {
+@media (min-width: 1280px) {
   .context-usage-results {
     grid-template-columns: minmax(0, var(--measure)) minmax(240px, 1fr);
     column-gap: 48px;
