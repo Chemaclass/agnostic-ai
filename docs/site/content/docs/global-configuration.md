@@ -15,7 +15,7 @@ Keep personal instructions, rules, hooks, skills, agents, settings, and MCP serv
 
 The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --global` runs from any directory and loads no packs or project specs. [Global output](#global-output) lists the paths it writes.
 
-To start the folder from the web interface, click **Open global settings** on a project page when none exists. The panel creates `AGNOSTIC_AI.md`, `agnostic-ai.yaml` and a `.gitignore` with `/local/`, and can run `git init`. It does not run `sync --global`. See [the web interface](@/docs/cli-reference/inspect.md#serve).
+To start the folder from the web interface, click **Open global settings** on a project page when none exists. The panel creates an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/`, and can run `git init`. It does not run `sync --global`. See [the web interface](@/docs/cli-reference/inspect.md#serve).
 
 ```text
 ~/.agnostic-ai/
