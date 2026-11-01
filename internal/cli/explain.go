@@ -285,8 +285,14 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 
 	var configured, extra []contribution
 	for i, name := range names {
-		if results[i].err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", name, results[i].err)
+		if err := results[i].err; err != nil {
+			if _, ok := configuredSet[name]; !ok {
+				continue
+			}
+			if !strings.HasPrefix(err.Error(), name+":") {
+				err = fmt.Errorf("%s: %w", name, err)
+			}
+			return nil, nil, err
 		}
 		for _, c := range results[i].found {
 			addContribution(&configured, &extra, configuredSet, c)

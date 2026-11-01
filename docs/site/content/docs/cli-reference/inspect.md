@@ -31,7 +31,7 @@ agnostic-ai explain builtin:handoff --json
 | `--context` | Rank startup context. See [below](#rank-context-contributions). |
 | `--inputs` | List generator inputs. See [below](#list-generator-inputs). |
 
-Contributions are grouped by configured target, each tagged `(full file)` or `(section "<name>")`, plus a "would emit if enabled" list for other tools. With `--global`, an agent or skill is a whole file, a rule a section of the instructions file, a hook its event in a shared hooks file or its standalone hook files, an MCP server its key in the user MCP file, and a settings spec each key it sets, tagged `(key "<key>")`.
+Contributions are grouped by configured target, each tagged `(full file)` or `(section "<name>")`, plus a "would emit if enabled" list for other tools. A tool outside `targets` that cannot render your setup is left out; a failure from a tool in `targets` stops the command and names it once. With `--global`, an agent or skill is a whole file, a rule a section of the instructions file, a hook its event in a shared hooks file or its standalone hook files, an MCP server its key in the user MCP file, and a settings spec each key it sets, tagged `(key "<key>")`.
 
 Directory-based global hooks (Cline, Grok, and Kiro) also list copied command scripts, using the same paths and target root settings as `sync --global`.
 
@@ -147,7 +147,7 @@ The report ends with opportunities: paragraphs of at least eight words written m
 <details>
 <summary>Read context accounting groups and JSON</summary>
 
-Entry-point layers, marked rule and review sections, inlined imports, always-on rules, each skill and agent description, and generated framing count separately, so the startup total matches lint. Sources sharing a document count once.
+Entry-point layers, marked rule and review sections, inlined imports, always-on rules, each skill and agent description, and generated framing count separately, so the startup total matches lint. Sources sharing a document count once. A root `AGENTS.md` another tool writes counts for Cursor, and for Copilot when VS Code reads it.
 
 Skill and agent bodies and conditional rule bodies appear under `on-demand`, outside the startup total, with their own `on_demand` sum. With `--file` for Cursor or Claude Code, matching scoped rule bodies appear under `file-scope` with their own total; unmatched or uncertain ones stay on demand. Entries sort by group, then words and bytes (descending), then source path and category. Text and JSON use the same numbers.
 
@@ -236,7 +236,7 @@ Each file prints as `# target: <name>: <output path>` and its body. A target tha
 
 ## graph
 
-Show which targets and files each spec feeds (spec → target → file). When a spec seems missing from a tool, run `agnostic-ai graph --spec <name>`: a `-` means that tool gets no file, so check the tool's supported kinds and the spec's target filters. Rows sort by spec name, then target.
+Show which targets and files each spec feeds (spec → target → file). When a spec seems missing from a tool, run `agnostic-ai graph --spec <name>`: a `-` means that tool gets no file, so check the tool's supported kinds and the spec's target filters. Rows sort by spec name, then target. Without `targets`, graph covers every tool and leaves out any that cannot render your setup.
 
 ```text
 $ agnostic-ai graph
