@@ -3,10 +3,13 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+var isolatedEnvKeys = []string{"AGNOSTIC_AI_HOME", "AGNOSTIC_AI_TARGET", "CODEX_HOME", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_DISABLE_AUTO_MEMORY", "CLAUDE_PROJECT_DIR", "GEMINI_PROJECT_DIR", "CURSOR_PROJECT_DIR", "QODER_PROJECT_DIR", "FACTORY_PROJECT_DIR", "DEVIN_PROJECT_DIR", "TRAE_PROJECT_DIR", "OPENHANDS_PROJECT_DIR", "AUGMENT_PROJECT_DIR"}
 
 func TestMain(m *testing.M) {
 	if err := testutil.DisableGitBackgroundWork(); err != nil {
@@ -24,7 +27,7 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 	}
-	for _, key := range []string{"AGNOSTIC_AI_HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_DISABLE_AUTO_MEMORY"} {
+	for _, key := range isolatedEnvKeys {
 		if err := os.Unsetenv(key); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -39,7 +42,22 @@ func TestMain(m *testing.M) {
 }
 
 func TestMainUnsetsAgnosticAIHome(t *testing.T) {
-	if value, ok := os.LookupEnv("AGNOSTIC_AI_HOME"); ok {
-		t.Fatalf("AGNOSTIC_AI_HOME=%q reached the tests; TestMain must unset it", value)
+	probeKeys := []string{"AGNOSTIC_AI_HOME", "AGNOSTIC_AI_TARGET", "GEMINI_PROJECT_DIR", "CURSOR_PROJECT_DIR", "QODER_PROJECT_DIR", "FACTORY_PROJECT_DIR", "DEVIN_PROJECT_DIR", "TRAE_PROJECT_DIR", "CLAUDE_PROJECT_DIR", "CODEX_HOME", "CLAUDE_CONFIG_DIR"}
+	if os.Getenv("AGNOSTIC_AI_HOME_PROBE") == "1" {
+		for _, key := range probeKeys {
+			if value, ok := os.LookupEnv(key); ok {
+				t.Errorf("%s=%q reached the tests; TestMain must unset it", key, value)
+			}
+		}
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestMainUnsetsAgnosticAIHome$")
+	cmd.Env = os.Environ()
+	for _, key := range probeKeys {
+		cmd.Env = append(cmd.Env, key+"="+t.TempDir())
+	}
+	cmd.Env = append(cmd.Env, "AGNOSTIC_AI_HOME_PROBE=1")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("TestMain left isolated variables set: %v\n%s", err, out)
 	}
 }
