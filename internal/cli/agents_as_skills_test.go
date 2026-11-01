@@ -196,8 +196,8 @@ func TestSync_AgentReferenceAgreesAcrossASharedSkillsDir(t *testing.T) {
 	}
 }
 
-func TestSync_KeepsAgentsOffASkillsTreeOpenCodeAndJunieRead(t *testing.T) {
-	for _, peer := range []string{"opencode", "junie"} {
+func TestSync_KeepsAgentsOffASkillsTreeOpenCodeJunieAndQwenRead(t *testing.T) {
+	for _, peer := range []string{"opencode", "junie", "qwen"} {
 		t.Run(peer, func(t *testing.T) {
 			agentsAsSkillsProject(t, "version: 1\ntargets: [amp, "+peer+"]\noutputs:\n  amp:\n    agents: skill\n")
 			if out, err := runCLI(t, "sync"); err != nil {

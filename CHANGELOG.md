@@ -135,7 +135,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Qwen Code
 
-- Import reads skills from `.agents/skills/` as well as `.qwen/skills/`; `.qwen/skills/` wins a same-name clash.
+- Import reads `.agents/skills/` as well as `.qwen/skills/`, and sync keeps agents-as-skills off that shared folder (#2931).
 
 #### Warp
 
