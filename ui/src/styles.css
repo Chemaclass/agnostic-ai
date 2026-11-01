@@ -306,7 +306,7 @@ html {
 
 .global-onboarding {
   position: fixed;
-  top: 56px;
+  top: var(--topbar-offset, var(--topbar-height));
   right: 16px;
   z-index: 40;
   display: grid;

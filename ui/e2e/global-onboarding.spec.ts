@@ -80,9 +80,7 @@ test('a project page offers to create the missing global setup and then opens it
     })
 
     await page.goto(URL)
-    const popup = page.waitForEvent('popup')
     await page.getByRole('button', { name: 'Open global settings' }).click()
-    const tab = await popup
 
     const panel = page.getByRole('dialog', { name: 'No global setup yet' })
     await expect(panel).toBeVisible()
@@ -90,15 +88,22 @@ test('a project page offers to create the missing global setup and then opens it
     await expect(panel).toContainText(home)
     await expect(panel.getByRole('checkbox', { name: 'Also run git init' })).toBeChecked()
     expect(await exists(home)).toBe(false)
+    // The blank tab opened before the request is closed, so the panel is in the tab the user sees.
+    await expect.poll(() => context.pages().length).toBe(1)
+    await expect(panel.getByRole('button', { name: 'Create global setup' })).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Open global settings' })).toBeDisabled()
 
+    const popup = page.waitForEvent('popup')
     await panel.getByRole('button', { name: 'Create global setup' }).click()
+    const tab = await popup
     await expect(panel).toBeHidden()
     await expect(page.locator('.config-switch').getByRole('status')).toHaveText(`Created ${home}. Add files, then run "agnostic-ai sync --global".`)
     await expect.poll(() => tab.url()).toBe(URL)
 
     expect(await readFile(join(home, 'agnostic-ai.yaml'), 'utf8')).toBe('version: 1\n')
     expect(await readFile(join(home, '.gitignore'), 'utf8')).toBe('/local/\n')
-    expect((await readFile(join(home, 'AGNOSTIC_AI.md'), 'utf8')).startsWith('# ')).toBe(true)
+    expect(await readFile(join(home, 'AGNOSTIC_AI.md'), 'utf8')).toBe('')
+    expect(context.pages().length).toBe(2)
     expect(switches).toBe(2)
     await context.close()
   } finally {
