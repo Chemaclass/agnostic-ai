@@ -335,23 +335,23 @@ In the browser:
 - **Docs** beside each section heading opens the matching spec or reference page in a new tab, including empty sections.
 - **Authority** lists permission files and rules. **Add rules** or **Edit rules** opens an editor for Allow, Ask first, or Always blocked; preview the source-file change before saving. See [permission editing](#permission-editing).
 - **Tools** lists the MCP server specs.
-- Under **Found in a tool's own config**, it also lists servers a configured tool keeps in its own MCP file that no spec of the same name covers, such as one you signed in to from inside Claude Code.
-- Each row names the server, the tool or tools that hold it, the file (`~/.claude.json`, `.mcp.json`), and the transport. It also shows the `agnostic-ai import <tool>` command that turns the server into a spec (`import --global <tool>` for a user file).
-- A project page reads each tool's project and user files, plus Claude Code's servers for this project under `projects` in `~/.claude.json`. `--global` reads user files only.
-- A row has no command when no import reads its file, such as Claude Code's per-project servers or an `outputs` MCP file path the tool's import does not follow.
-- Rows show no command, argument, URL, environment, or header value. A file it cannot read adds no row.
-- The JSON overview carries these rows as `native` on the Tools section.
+  - Under **Found in a tool's own config**, it also lists servers a configured tool keeps in its own MCP file that no spec of the same name covers, such as one you signed in to from inside Claude Code.
+  - Each native row names the server, the tool or tools that hold it, the file (`~/.claude.json`, `.mcp.json`), and the transport. It also shows the `agnostic-ai import <tool>` command that turns the server into a spec (`import --global <tool>` for a user file).
+  - A project page reads each tool's project and user files, plus Claude Code's servers for this project under `projects` in `~/.claude.json`. `--global` reads user files only.
+  - A native row has no command when no import reads its file, such as Claude Code's per-project servers or an `outputs` MCP file path the tool's import does not follow.
+  - Native rows hide the server's own command, arguments, URL, environment, and header values. A file the page cannot read adds no row.
+  - The JSON overview carries these rows as `native` on the Tools section.
 - **View and edit** below the Permissions, Built-ins, or Preferences heading switches Shared and Personal values. **Save new specs for** above the native server list chooses Shared or Personal for **Make it a spec**.
 - **Make it a spec** on a native-only server previews one spec file, its contents, the variables you must set, and the tools it will reach after sync.
 - **Apply** saves the spec using the [MCP import rules](@/docs/spec-format/mcp-import.md), then asks you to run `agnostic-ai sync` (or `sync --global`).
 - Shared saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the global home. Personal saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
 - An existing spec name or a credential import cannot rewrite stops the save.
-- Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no action.
+- Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Make it a spec** action.
 - The header labels the page **Project** or **Global**.
 - On a project page, **Open global settings** opens the user configuration in a new tab. It reuses a `serve --global` already running on `127.0.0.1:4310` to `4319` that started in this project, or starts one on the next free port.
 - A global page that started in a project (from that button, or `ui --global` or `serve --global` run in a project folder) shows **Open project** with the project's name to go back.
-- A server the button starts stops with the server that started it. Its way back returns to that server, also when it runs on another `--addr`.
-- Each tab edits only the configuration it serves.
+- A server the button starts stops with the server that started it. The way back from that global page returns to that server, also when it runs on another `--addr`.
+- Each browser tab edits only the configuration it serves.
 - **Open files in** in the header picks Cursor or VS Code for every **Open** link, and the browser remembers it. Choose an editor installed on your machine, then allow the browser to launch it when prompted. If nothing opens, choose another editor or copy the path. A finding on a file opens at its line when known. **Copy path** sits beside each link, because the browser cannot tell whether the editor opened.
 - All five page links stay visible on narrow screens. The phone header keeps the configuration switch beside an Editor menu.
 - **Context**, **Tools**, and **Settings** use tabs for their source groups. Tools separates configured servers, servers found in native configs, and environments. Settings separates built-ins, preferences, and config files. Config files lists the source files, then shows their combined effective values once.
@@ -360,12 +360,11 @@ In the browser:
 - Search covers all source tabs and opens a matching group. Linked results open their owning tab.
 - Authority keeps permissions together, and Lifecycle keeps its session timeline.
 - With `--global`, the `AGNOSTIC_AI.md` row in **Context** has **Copy refine prompt**. The prompt asks a coding agent to review the file against current guidance for instruction files, propose a full rewrite with a change table, recommend which rules belong in an existing or new skill or agent, and leave the file unchanged until you approve.
-- **Context size**, the first tab in **Context**, shows the [context report](#rank-context-contributions) for a chosen coding tool: startup, file-scoped (for a file you type under **Check against a file**, applied as you type) and on-demand sizes, then duplicated startup passages, then **Start here** (the three largest startup sources) and every source ranked by words with its share of its group.
-- **What can I do?** on a source says what it is, why it loads when it does, and what to change. **Copy advice prompt** gives a coding agent a prompt that proposes the smallest safe cut and its tradeoffs before editing.
+- **Context size**, the first tab in **Context**, shows the [context report](#rank-context-contributions) for a chosen coding tool: startup, file-scoped (for a file you type under **Check against a file**, applied as you type) and on-demand sizes, then duplicated startup passages, then **Start here** (the three largest startup sources) and every source ranked by words with its share of its group. Sizes are words and bytes.
+- **What can I do?** on a source says what it is, why it loads when it does, and what to change. **Copy advice prompt** copies a prompt that asks a coding agent to propose the smallest safe cut and its tradeoffs before editing.
 - A source from a built-in names the built-in and links to **Settings**, Built-ins.
 - Each duplicate has edit links to its sources and **Copy review prompt**.
 - **Reread specs** reads the specs again and shows the change against the previous counts under **Before reread**. The tool and file stay in the page address.
-- Sizes are words and bytes.
 - Each finding has **Copy fix prompt**. **Details** shows the suggested fix, explanation, and full prompt.
 - After you fix the source, **Recheck** runs the checks again with the same refresh and keeps your page, search, and unsaved input. It says whether that finding still appears and marks new findings from the same check on the same file. A failed refresh or a lint run that stopped early shows as unknown, never as fixed.
 - A doctor finding that disappears is shown as not confirmed, because these doctor checks skip files they cannot read. Snapshots cannot recheck.
@@ -377,24 +376,24 @@ In the browser:
 - **Settings** shows configured fields first and the rest under **Unconfigured fields**, including a default model or reasoning effort.
 - Global scalar fields offer **Update** and **Clear**. Session retention and voice dictation are editable only with `--global`. Voice has an on/off switch, a hold or tap menu, and a spoken language field.
 - Default model and reasoning effort have **What each tool gets**: the value sync writes for each configured tool, and the file or `agnostic-ai.yaml` key it comes from (Claude Code `outputs.claude.settings.model`, Codex `outputs.codex.config`).
-- It also says why each other value loses: a later spec, a personal override or clear, a spec scoped to other tools, or a per-tool map with no entry.
-- It names the model tier and alias, says when a tool has no place for the value, and says when sync writes none, without guessing the tool's own default.
-- It reports whether installed files match, not what a running tool uses.
-- It points out an `x-<tool>.model` native key. Other `x-<tool>` keys and imported native settings files are not covered.
-- The JSON overview carries it as `resolved` on those fields.
+  - It also says why each other value loses: a later spec, a personal override or clear, a spec scoped to other tools, or a per-tool map with no entry.
+  - It names the model tier and alias, says when a tool has no place for the value, and says when sync writes none, without guessing the tool's own default.
+  - It reports whether installed files match, not what a running tool uses.
+  - It points out an `x-<tool>.model` native key. Other `x-<tool>` keys and imported native settings files are not covered.
+  - The JSON overview carries it as `resolved` on those fields.
 - Under **What each tool gets**, each tool has its own edit control. It saves `model.<tool>` or `effort.<tool>` in the chosen file, which wins over the value for every tool.
-- The origin line says where the value comes from, such as `personal · codex` or `shared · all tools`, and names the `agnostic-ai.yaml` key that replaces it when one does.
-- **Use the value for every tool** removes that tool's entry.
-- Effort has a control only for tools that take an effort setting. A spec whose `model` names a model tier stays read-only here, and so does one tool's effort when the tier gives the effort.
+  - The origin line says where the value comes from, such as `personal · codex` or `shared · all tools`, and names the `agnostic-ai.yaml` key that replaces it when one does.
+  - **Use the value for every tool** removes that tool's entry.
+  - Effort has a control only for tools that take an effort setting. A spec whose `model` names a model tier stays read-only here, and so does one tool's effort when the tier gives the effort.
 - In a project, each built-in switch previews the config edit, generated files, and findings for every target.
 - **Apply change** and **Cancel** stay at the top. Tools, files, and review notes start collapsed. Notes group by tool in a bounded list, with **Copy notes** for the full messages. Pending source changes remain visible.
 - **Apply change** writes the change. **Cancel** discards the preview, so a reload does not bring it back.
 - **Undo last change** restores the files and permissions from before the last apply. Undo survives a browser reload, expires when the server stops, and is replaced by the next apply.
 - Turning on `memory` in a Git checkout also adds a `.git/info/exclude` line so Git ignores Claude Code's private `settings.local.json`.
 - In a project, a default model or reasoning effort uses **Preview and apply**, **Preview removal**, and **Preview personal reset**. The preview names the settings file, the targets, and every source and generated file that changes.
-- **Apply change** writes them and checks the generated files. That does not mean a running tool has reloaded them. Built-ins and settings share one **Undo last change**, which names the change.
+- **Apply change** writes those files and checks the generated ones. That does not mean a running tool has reloaded them. Built-ins and settings share one **Undo last change**, which names the change.
 - Global built-ins and settings edits save source files without syncing. Run `agnostic-ai sync` (or `sync --global`) to apply them.
-- If a boolean or built-in changed since the page loaded, the save stops and offers **Reload saved values**.
+- In the global view, if a boolean or built-in changed since the page loaded, the save stops and offers **Reload saved values**.
 
 Apply needs no earlier sync: the preview lists the generated files, sync state, and lock `.gitignore` entries it creates. It includes pending source changes when files are missing or match sync's recorded checksums, and undo can restore them. These need the CLI: hand edits, files without ownership records, external adapters, paths outside the project, linked skill folders, and memory changes that need fact migration or external storage. A changed input or output blocks apply or undo until a fresh preview. A failed write restores the files the operation owns; a recovery error names any it kept and points to `agnostic-ai doctor`.
 
@@ -412,7 +411,7 @@ Your first personal built-in change copies the shared list into `agnostic-ai.loc
 
 A personal save is refused when its file resolves, through links, outside the local folder, into a shared config or source folder, or to a file Git tracks.
 
-Before a personal save writes its file, the server checks that Git ignores it. When no rule does yet, as in a project that never ran `sync`, it adds the local folder (or `agnostic-ai.local.yaml`) to `.git/info/exclude`, which linked worktrees share. Your other lines in that file stay. If Git still would not ignore the file, the save is refused; add the path to `.gitignore` and save again. A new `.git/info/exclude` rule remains if it was added before a refusal or stale conflict. Outside a Git repository there is nothing to ignore, so the save writes the file directly.
+Before a personal save writes its file, the server checks that Git ignores it. When no rule does yet, as in a project that never ran `sync`, it adds the local folder (or `agnostic-ai.local.yaml`) to `.git/info/exclude`, which linked worktrees share. Your other lines in that file stay. If Git still would not ignore the file, the save is refused; add the path to `.gitignore` and save again. A new `.git/info/exclude` rule remains if it was added before a refusal or stale conflict, to protect personal files. Outside a Git repository there is nothing to ignore, so the save writes the file directly.
 
 In a linked worktree, a built-in only you turn on needs `agnostic-ai sync` in the CLI. The first personal change keeps the `memory.personal` mode inherited from the main checkout, and a reset leaves `memory.personal: checkout` behind rather than switch to the main checkout's mode.
 
@@ -436,7 +435,7 @@ Invalid rules, unsafe file paths, and credentials are refused. A changed file st
 
 ### API
 
-Edit and impact requests take JSON. Every edit and preview names its `audience`: `shared` or `personal`. Except for `/api/edit/mcp` and `/api/edit/permissions`, the older `scope` field (`team` or `local`) is accepted until the next minor release; a request that sends both with different meanings returns 400. A change plan carries both `audience` and `scope` until then. A boolean edit must include its `enabled` or `value` field, even when false. Invalid values and YAML that cannot be spliced safely are refused. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews), and run no MCP servers, hooks, or external adapters.
+Edit and impact requests take JSON. Every edit and preview names its `audience`: `shared` or `personal`. Except for `/api/edit/mcp` and `/api/edit/permissions`, the older `scope` field (`team` or `local`) is accepted until the next minor release; a request that sends both with different meanings returns 400. A change plan carries both `audience` and `scope` until then. A boolean edit must include its `enabled` or `value` field, even when false. Invalid values and YAML that cannot be spliced safely are refused without changing the file. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews), and run no MCP servers, hooks, or external adapters.
 
 | Endpoint | Body or query |
 |----------|---------------|
