@@ -35,6 +35,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A Markdown spec starts with a delimited block that is not a YAML mapping. Sync keeps the block as body text.",
 		Fix:      "Keep the block for Markdown text, or write a YAML mapping if it should be frontmatter.",
 	},
+	"LINT057": {
+		Severity: lintWarn,
+		Title:    "sync.unmanaged entry uses **",
+		Cause:    "A `sync.unmanaged` entry contains `**`. The matcher reads it as `*`, so the entry covers exactly one folder and misses the root and deeper folders. Sync prints the same note.",
+		Fix:      "Add one entry per depth, such as `*/.cursor/BUGBOT.md` and `*/*/.cursor/BUGBOT.md`, or end an entry with `/` to own a whole folder.",
+	},
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",

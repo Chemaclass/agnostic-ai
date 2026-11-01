@@ -308,7 +308,7 @@ sync:
     - .claude/skills/legacy/          # trailing slash: everything under the directory
 ```
 
-- Entries are project-relative with forward slashes. Filename patterns use Go `path.Match`; `**` is not supported. A malformed glob or an empty entry fails config load.
+- Entries are project-relative with forward slashes. Filename patterns use Go `path.Match`; `**` matches one folder, like `*`, and lint, doctor, and sync warn about it (LINT057). A malformed glob or an empty entry fails config load.
 - `sync` prints `~ skip (unmanaged) <path>`. `sync --check`, `status`, and `doctor` never count it as drift. `revert` and `doctor --fix` never touch it.
 - Removing the entry deletes nothing. The next sync rewrites the file.
 - `sync.shared-skills` never links such a skill folder.

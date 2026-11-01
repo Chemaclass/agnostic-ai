@@ -257,6 +257,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	}
 	findings = append(findings, budget...)
 	findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
+	findings = append(findings, lintUnmanagedDoubleStar(scope.cfg)...)
 	accepted := 0
 	if !scope.global {
 		nulls, err := lintLocalNulls()

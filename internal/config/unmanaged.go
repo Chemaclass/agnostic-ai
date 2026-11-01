@@ -95,6 +95,18 @@ func normalizeUnmanaged(p string) string {
 	return strings.TrimPrefix(path.Clean(p), "/")
 }
 
+// DoubleStarUnmanaged lists the entries that contain `**`. path.Match
+// reads it as `*`, so such an entry covers one folder, not any depth.
+func DoubleStarUnmanaged(patterns []string) []string {
+	var out []string
+	for _, p := range patterns {
+		if strings.Contains(p, "**") {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // validateUnmanaged rejects a malformed glob in sync.unmanaged at load
 // time, so a typo fails loudly instead of silently owning nothing. An
 // entry that names no path (empty, `.`, `./`, `/`) is rejected too: it
