@@ -737,7 +737,8 @@ export interface ContextView {
 //   GET  /api/views/overview                              → OverviewView
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot? }
-//   POST /api/switch                                      → SwitchReply (body: {})
+//   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
+//   POST /api/global/create                               → GlobalCreateReply (body: { git })
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
@@ -752,7 +753,15 @@ export const API = {
   editMCP: '/api/edit/mcp',
   health: '/api/health',
   switch: '/api/switch',
+  globalCreate: '/api/global/create',
 } as const
+
+/** The global setup folder the page just created. */
+export interface GlobalCreateReply {
+  root: string
+  created: string[]
+  git: string
+}
 
 /** The server for the other configuration, found running or just started. */
 export interface SwitchReply {

@@ -753,4 +753,5 @@
 # minus 24600576).
 # The import claude fix (#2935) measured 24653984 after main; the budget rises by 8192.
 # The sync.unmanaged ** warning (#2937) measured 24662176 after main; the budget rises by 8192.
-24666112
+# The global setup panel and create endpoint measured 24674464 after main; the budget rises by 12288.
+24678400

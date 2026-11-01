@@ -304,6 +304,49 @@ html {
   overflow-wrap: anywhere;
 }
 
+.global-onboarding {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel-raised);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.global-onboarding h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.global-onboarding p {
+  margin: 0;
+}
+
+.global-onboarding-path {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+
+.global-onboarding-git {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.global-onboarding-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .project-root {
   overflow: hidden;
   max-width: min(24vw, 360px);
