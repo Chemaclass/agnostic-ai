@@ -64,8 +64,8 @@ test('fits all Settings tabs and their counts within narrow screens', async ({ p
       const box = await tab.boundingBox()
       expect(box!.x).toBeGreaterThanOrEqual(0)
       expect(box!.x + box!.width).toBeLessThanOrEqual(width)
-      const count = await tab.locator('.section-tab-count').boundingBox()
-      expect(count!.x + count!.width).toBeLessThanOrEqual(width)
+      const count = await tab.locator('.section-tab-count').boundingBox({ timeout: 500 }).catch(() => null)
+      if (count) expect(count.x + count.width).toBeLessThanOrEqual(width)
     }
     await tabs.last().click()
     await expect(tabs.last()).toHaveAttribute('aria-selected', 'true')

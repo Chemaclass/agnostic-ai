@@ -1,26 +1,35 @@
-import { useId, useState, useSyncExternalStore } from 'react'
-import { copyablePath, DEFAULT_EDITOR, EDITORS, editorLabel, editorUrl, parseEditor, type EditorId } from '../model/editor'
-import { useApp } from './app-context'
-import { Select, CopyButton, Icon } from './ui'
+import { useState, useSyncExternalStore } from 'react'
+import { copyablePath, DEFAULT_EDITOR, editorLabel, editorUrl, effectiveEditor, parseEditor, type EditorId } from '../model/editor'
+import { AppLink, useApp } from './app-context'
+import { CopyButton, Icon } from './ui'
 
 const STORAGE_KEY = 'agnostic-ai.editor'
+const TEMPLATE_KEY = 'agnostic-ai.editor-template'
 const listeners = new Set<() => void>()
-let chosen: EditorId | undefined
 
-function readEditor(): EditorId {
-  if (chosen) return chosen
+interface Choice { editor: EditorId; template: string; saveFailed: boolean }
+
+const serverChoice: Choice = { editor: DEFAULT_EDITOR, template: '', saveFailed: false }
+let snapshot: Choice | undefined
+
+function stored(key: string): string | null {
   try {
-    return parseEditor(window.localStorage.getItem(STORAGE_KEY))
+    return window.localStorage.getItem(key)
   } catch {
-    return DEFAULT_EDITOR
+    return null
   }
+}
+
+function readChoice(): Choice {
+  snapshot ??= { editor: parseEditor(stored(STORAGE_KEY)), template: stored(TEMPLATE_KEY) ?? '', saveFailed: false }
+  return snapshot
 }
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
   const onStorage = (event: StorageEvent) => {
-    if (event.key !== STORAGE_KEY) return
-    chosen = undefined
+    if (event.key !== STORAGE_KEY && event.key !== TEMPLATE_KEY) return
+    snapshot = undefined
     listener()
   }
   window.addEventListener('storage', onStorage)
@@ -30,55 +39,39 @@ function subscribe(listener: () => void): () => void {
   }
 }
 
-function chooseEditor(editor: EditorId) {
-  chosen = editor
+function update(next: Partial<Choice>, key: string, value: string) {
+  const current = readChoice()
+  let saveFailed = false
   try {
-    window.localStorage.setItem(STORAGE_KEY, editor)
+    window.localStorage.setItem(key, value)
   } catch {
-    // The choice still holds until the page reloads.
+    saveFailed = true
   }
+  snapshot = { ...current, ...next, saveFailed }
   for (const listener of listeners) listener()
 }
 
-export function useEditor(): EditorId {
-  return useSyncExternalStore(subscribe, readEditor, () => DEFAULT_EDITOR)
+export function chooseEditor(editor: EditorId) {
+  update({ editor }, STORAGE_KEY, editor)
 }
 
-export function EditorChoice() {
-  const app = useApp()
-  const editor = useEditor()
-  const id = useId()
-  if (app.source.kind !== 'api') return null
-  return (
-    <div className="editor-choice" role="group" aria-label="Open files in">
-      <div className="editor-switch" role="radiogroup" aria-label="Editor" onKeyDown={(event) => {
-        const index = EDITORS.findIndex((e) => e.id === editor)
-        const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
-        if (step === 0) return
-        event.preventDefault()
-        const next = EDITORS[(index + step + EDITORS.length) % EDITORS.length]
-        chooseEditor(next.id)
-        ;(event.currentTarget.children[EDITORS.indexOf(next)] as HTMLButtonElement | undefined)?.focus()
-      }}>
-        {EDITORS.map((e) => (
-          <button key={e.id} type="button" role="radio" className="editor-switch-option" aria-checked={editor === e.id} tabIndex={editor === e.id ? 0 : -1} onClick={() => chooseEditor(e.id)}>
-            {e.label}
-          </button>
-        ))}
-      </div>
-      <div className="editor-choice-mobile">
-        <label htmlFor={`${id}-select`}>Editor</label>
-        <Select id={`${id}-select`} value={editor} onChange={(event) => chooseEditor(parseEditor(event.target.value))}>
-          {EDITORS.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
-        </Select>
-      </div>
-    </div>
-  )
+export function chooseTemplate(template: string) {
+  update({ template }, TEMPLATE_KEY, template)
+}
+
+export function useEditorChoice(): Choice {
+  return useSyncExternalStore(subscribe, readChoice, () => serverChoice)
+}
+
+export function useEditor(): EditorId {
+  const { editor, template } = useEditorChoice()
+  return effectiveEditor(editor, template)
 }
 
 export function OpenInEditor({ path, line, label, compact, shownPath }: { path?: string; line?: number; label: string; compact?: boolean; shownPath?: string }) {
   const app = useApp()
-  const editor = useEditor()
+  const { editor: chosen, template } = useEditorChoice()
+  const editor = effectiveEditor(chosen, template)
   const [attempted, setAttempted] = useState(false)
   const copy = (text: string) => <CopyButton text={copyablePath(text)} label="Copy path" ariaLabel={`Copy path of ${label}`} className="editor-copy" />
   if (app.source.kind !== 'api' || !path) {
@@ -100,7 +93,7 @@ export function OpenInEditor({ path, line, label, compact, shownPath }: { path?:
     <span className="editor-actions">
       <a
         className="button button-quiet editor-open"
-        href={editorUrl(editor, path, line)}
+        href={editorUrl(editor, path, line, template)}
         aria-label={`Open ${label} in ${name}${where}`}
         title={`Open in ${name}${where}`}
         onClick={() => setAttempted(true)}
@@ -110,7 +103,7 @@ export function OpenInEditor({ path, line, label, compact, shownPath }: { path?:
       </a>
       {copy(path)}
       <span className="muted editor-hint" role="status">
-        {attempted && `Allow your browser to open ${name}. If nothing opens, choose an installed editor above or copy the path.`}
+        {attempted && <>Allow your browser to open {name}. If nothing opens, change the editor in <AppLink to={{ view: 'settings', tab: 'editor' }}>Settings</AppLink> or copy the path.</>}
       </span>
     </span>
   )
