@@ -29,6 +29,21 @@ func TestEntryPointPaths_ClaudeCompanionAgents(t *testing.T) {
 		}
 	})
 
+	t.Run("claude and codex list AGENTS.md once", func(t *testing.T) {
+		setup(t, "@AGENTS.md\n")
+		cfg := &config.Config{Targets: []string{"claude", "codex"}}
+		got := entryPointPaths(cfg, cfg.Targets)
+		count := 0
+		for _, p := range got {
+			if p == "AGENTS.md" {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Errorf("entryPointPaths = %q, want AGENTS.md once", got)
+		}
+	})
+
 	t.Run("claude not importing AGENTS.md keeps the list unchanged", func(t *testing.T) {
 		setup(t, "# Claude\n")
 		cfg := &config.Config{Targets: []string{"claude"}}

@@ -576,6 +576,8 @@ func pathRulesImporter(cfg *config.Config, consumers []string) string {
 // stay symmetric with sync (#389).
 // User-owned paths (sync.unmanaged) are excluded so revert and cleanup
 // never touch them.
+// A Claude-only project whose CLAUDE.md imports AGENTS.md also lists that
+// AGENTS.md, which Claude's sync writes as a companion.
 func entryPointPaths(cfg *config.Config, targets []string) []string {
 	seen := map[string]bool{adapters.AgnosticEntryPointPath: true}
 	paths := []string{adapters.AgnosticEntryPointPath}
