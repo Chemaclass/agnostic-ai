@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
@@ -136,6 +138,61 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				if currentFile != file {
 					return nil, staleToggleError{req.Name}
+				}
+				return next(data)
+			}
+		}
+		if err != nil {
+			writeExpectedError(w, err)
+			return
+		}
+	case editTargetsPath:
+		var req struct {
+			audienceFields
+			Name     string          `json:"name"`
+			Enabled  *bool           `json:"enabled"`
+			Reset    bool            `json:"reset"`
+			Expected json.RawMessage `json:"expected"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil || req.Reset != (req.Name == "") || req.Reset && req.Enabled != nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a coding tool name and enabled, or reset alone"})
+			return
+		}
+		if !req.Reset && !slices.Contains(h.supportedTargetNames(), req.Name) {
+			if h.global && slices.Contains(adapters.Names(), req.Name) {
+				writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("sync --global cannot write %s; change it in a project", req.Name)})
+				return
+			}
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("name must be one of %s", strings.Join(h.supportedTargetNames(), ", "))})
+			return
+		}
+		if !req.Reset && req.Enabled == nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
+			return
+		}
+		audience, err = req.audience()
+		if err == nil && len(req.Expected) > 0 {
+			err = h.checkTargetsExpected(req.Name, req.Reset, req.Expected)
+		}
+		change := targetsRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset}
+		if err == nil {
+			file, edit, err = h.targetsEdit(audience, change)
+		}
+		if err == nil && len(req.Expected) > 0 {
+			team, local := h.builtinsConfigFiles()
+			sourceGuard, err = watchEditSources([]string{team, local}, file, cmp.Or(req.Name, "coding tools"))
+		}
+		if err == nil && len(req.Expected) > 0 {
+			edit = func(data []byte) ([]byte, error) {
+				if err := h.checkTargetsExpected(req.Name, req.Reset, req.Expected); err != nil {
+					return nil, err
+				}
+				currentFile, next, err := h.targetsEdit(audience, change)
+				if err != nil {
+					return nil, err
+				}
+				if currentFile != file {
+					return nil, staleToggleError{cmp.Or(req.Name, "coding tools")}
 				}
 				return next(data)
 			}
@@ -270,6 +327,10 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.As(err, &stale) {
 			writeEditJSON(w, http.StatusConflict, editError{Error: overviewDisplay(h.root, file) + ": " + stale.Error()})
+			return
+		}
+		if errors.Is(err, errLastTarget) {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
 		}
 		writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error(), Problems: problems})

@@ -393,6 +393,7 @@ func overviewInputsWith(root string, compareInstalled bool) (overview.Inputs, er
 		RefreshCommand: "agnostic-ai mcp tools",
 		BuiltinsTeam:   team,
 		BuiltinsLocal:  local,
+		Tools:          overviewTools(".", false),
 		NativeMCPs:     projectNativeMCPServers(cfg),
 	}, nil
 }

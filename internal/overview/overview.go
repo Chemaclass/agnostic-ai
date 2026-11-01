@@ -41,6 +41,9 @@ type Inputs struct {
 	// BuiltinsLocal whether the personal config replaces it.
 	BuiltinsTeam  []string
 	BuiltinsLocal bool
+	// Tools is the coding tool catalog the caller built, in display
+	// order, with Enabled, Local and Detected set.
+	Tools ToolCatalog
 	// FieldNotes are the settings model and effort notes the drift
 	// check's render raised.
 	FieldNotes []FieldNote
@@ -250,8 +253,24 @@ func Build(in Inputs) *View {
 		Snapshot:      normalizedSnapshot(in.Snapshot),
 		Sections:      sections,
 		Targets:       targets,
+		Tools:         toolCatalog(in.Tools, newLabeler()),
 		Global:        in.Global,
 	}
+}
+
+// toolCatalog fills labels and keeps every list an array.
+func toolCatalog(in ToolCatalog, labels labeler) ToolCatalog {
+	out := ToolCatalog{Source: in.Source, Items: make([]ToolChoice, 0, len(in.Items))}
+	if out.Source == "" {
+		out.Source = "default"
+	}
+	for _, item := range in.Items {
+		if item.Label == "" {
+			item.Label = labels.of(item.Target)
+		}
+		out.Items = append(out.Items, item)
+	}
+	return out
 }
 
 // placeFindings puts each lint and doctor finding on every item whose

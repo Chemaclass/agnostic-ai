@@ -1049,5 +1049,266 @@
         ]
       }
     }
-  ]
+  ],
+  "tools": {
+    "source": "shared",
+    "items": [
+      {
+        "target": "codebuddy",
+        "label": "CodeBuddy Code",
+        "description": "CodeBuddy Code (Tencent)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "claude",
+        "label": "Claude Code",
+        "description": "Claude Code (Anthropic)",
+        "enabled": true,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "codex",
+        "label": "Codex",
+        "description": "Codex CLI (OpenAI)",
+        "enabled": true,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "gemini",
+        "label": "Gemini CLI",
+        "description": "Gemini CLI (Google)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "qwen",
+        "label": "Qwen Code",
+        "description": "Qwen Code (Alibaba)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "cursor",
+        "label": "Cursor",
+        "description": "Cursor (cursor.com)",
+        "enabled": true,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "copilot",
+        "label": "GitHub Copilot",
+        "description": "GitHub Copilot",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "aider",
+        "label": "Aider",
+        "description": "Aider (aider.chat)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "cline",
+        "label": "Cline",
+        "description": "Cline (VSCode extension)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "windsurf",
+        "label": "Windsurf",
+        "description": "Windsurf / Devin Desktop",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "continue",
+        "label": "Continue",
+        "description": "Continue (continue.dev)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "amp",
+        "label": "Amp",
+        "description": "Amp (Sourcegraph)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "zed",
+        "label": "Zed",
+        "description": "Zed editor",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "warp",
+        "label": "Warp",
+        "description": "Warp terminal",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "opencode",
+        "label": "OpenCode",
+        "description": "OpenCode",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "antigravity",
+        "label": "Antigravity",
+        "description": "Google Antigravity",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "junie",
+        "label": "Junie",
+        "description": "Junie (JetBrains)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "kiro",
+        "label": "Kiro",
+        "description": "Kiro (AWS)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "crush",
+        "label": "Crush",
+        "description": "Crush (Charm)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "trae",
+        "label": "Trae",
+        "description": "Trae (ByteDance)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "vibe",
+        "label": "Mistral Vibe",
+        "description": "Mistral Vibe",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "kimi",
+        "label": "Kimi Code CLI",
+        "description": "Kimi Code CLI",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "qoder",
+        "label": "Qoder",
+        "description": "Qoder (Alibaba)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "pi",
+        "label": "Pi",
+        "description": "Pi coding agent",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "openhands",
+        "label": "OpenHands",
+        "description": "OpenHands (All Hands)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "factory",
+        "label": "Factory Droid",
+        "description": "Factory Droid",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "kilo",
+        "label": "Kilo Code",
+        "description": "Kilo Code",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "jules",
+        "label": "Jules",
+        "description": "Jules (Google, cloud)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "goose",
+        "label": "Goose",
+        "description": "Goose (Block)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "grok",
+        "label": "Grok Build",
+        "description": "Grok Build (explicit instructions policy)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "augment",
+        "label": "Augment Code",
+        "description": "Augment Code",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      },
+      {
+        "target": "ellipsis",
+        "label": "Ellipsis",
+        "description": "Ellipsis (code review, environment)",
+        "enabled": false,
+        "local": false,
+        "detected": false
+      }
+    ]
+  }
 }

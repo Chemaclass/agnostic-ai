@@ -44,6 +44,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Web interface
 
+- Settings has a Coding tools tab: every tool sync can write for, with a switch that saves the targets list in the shared or personal config, a found in project badge on tools that are off, a docs link per tool, and a note to run sync.
 - Context opens on Context size for a project with a coding tool, with a startup check against lint.instructions-words, its default model, and next steps.
 - The context view carries startupWordBudget, the lint.instructions-words value, so the page can say whether startup text is within budget.
 - Context size is the first Context tab, explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address.

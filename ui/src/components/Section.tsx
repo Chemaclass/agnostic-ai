@@ -3,6 +3,7 @@ import { API, type ItemFinding, type NativeServer, type OverviewView, type Secti
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
+import { CodingTools } from './CodingTools'
 import { ContextUsage } from './ContextUsage'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAudience, usePageAudience, useViewAudience, type EditAudience } from './EditAudience'
@@ -20,6 +21,7 @@ import { addressKey, configOverride, originLabel, personalSetsWhole, personalVal
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
+import { filterTools, toolCount } from '../model/coding-tools'
 import { entryTab, landingTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
@@ -141,7 +143,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === pendingPlace || itemEntryId(item) === rechecked?.place)
   const tabs = sectionTabs(section)
   const nativeMatches = section.native?.filter((server) => matches(nativeSearchText(server))) ?? []
-  const hasMatches = (tab: typeof tabs[number]) => tab.kinds.some((kind) => section.items.some((item) => item.kind === kind && matchingItems.has(item)) || kind === 'settings' && (fieldMatches?.length ?? 0) > 0) || tab.extra === 'native' && nativeMatches.length > 0
+  const toolMatches = query ? filterTools(app.overview?.tools.items ?? [], query, false, audience ?? 'shared').length : 0
+  const hasMatches = (tab: typeof tabs[number]) => tab.kinds.some((kind) => section.items.some((item) => item.kind === kind && matchingItems.has(item)) || kind === 'settings' && (fieldMatches?.length ?? 0) > 0) || tab.extra === 'native' && nativeMatches.length > 0 || tab.extra === 'targets' && toolMatches > 0
   const active = entryTab(section, tabs, entry)
     ?? tabs.find((tab) => tab.id === app.state.tab)?.id
     ?? (query ? tabs.find(hasMatches)?.id : undefined)
@@ -155,9 +158,10 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     let count: string | number | undefined
     if (tab.extra === 'usage') count = undefined
     else if (query) {
-      const matched = tab.extra === 'native' ? nativeMatches.length : items.filter((item) => matchingItems.has(item)).length + fields.filter((field) => fieldMatches?.includes(field)).length
+      const matched = tab.extra === 'native' ? nativeMatches.length : tab.extra === 'targets' ? toolMatches : items.filter((item) => matchingItems.has(item)).length + fields.filter((field) => fieldMatches?.includes(field)).length
       count = `${matched} match${matched === 1 ? '' : 'es'}`
     }
+    else if (tab.extra === 'targets') { const c = toolCount(app.overview?.tools.items ?? [], audience ?? 'shared'); count = `${c.on} of ${c.total} on` }
     else if (tab.extra === 'native') count = section.native?.length ?? 0
     else if (tab.kinds.includes('builtin')) count = `${items.filter((item) => builtinEnabled(item, audience)).length} on`
     else if (tab.kinds.includes('settings')) count = `${fields.filter((field) => sourcesForAudience(field.set, audience).length > 0).length} set`
@@ -174,8 +178,10 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     target.scrollIntoView({ block: 'center' })
     target.focus({ preventScroll: true })
   }, [entry, section.id])
-  const matchCount = matchingItems.size + (fieldMatches?.length ?? 0) + nativeMatches.length
-  const totalCount = section.items.length + (section.fields?.length ?? 0) + (section.native?.length ?? 0)
+  const hasTools = tabs.some((tab) => tab.extra === 'targets')
+  const matchCount = matchingItems.size + (fieldMatches?.length ?? 0) + nativeMatches.length + toolMatches
+  const totalCount = section.items.length + (section.fields?.length ?? 0) + (section.native?.length ?? 0) + (hasTools ? app.overview?.tools.items.length ?? 0 : 0)
+  const countedKinds = hasTools ? 'items, fields, and tools' : section.fields ? 'items and fields' : 'items'
   const retainedFindings = section.items.some((item) => item.findings.length > 0 && !matchingItems.has(item))
   const errors = section.findings.filter((finding) => finding.severity === 'error').length
   const warnings = section.findings.length - errors
@@ -215,7 +221,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           }}>Clear search</button>}
         </div>
         <p id={`${searchId}-status`} className="muted section-search-status" role="status">
-          {query ? `${matchCount} of ${totalCount} items${section.fields ? ' and fields' : ''} match.` : `${totalCount} items${section.fields ? ' and fields' : ''}`}
+          {query ? `${matchCount} of ${totalCount} ${countedKinds} match.` : `${totalCount} ${countedKinds}`}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
       </div>
@@ -271,6 +277,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         ? <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />
         : <section className="block"><SectionHeading topic="native">Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
       {panel.extra === 'usage' && <ContextUsage />}
+      {panel.extra === 'targets' && <CodingTools audienceControl={tabs.length < 2 || panel.id === active ? <EditAudienceSwitch /> : undefined} />}
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
@@ -826,7 +833,7 @@ function Tools({ listing }: { listing: ToolListing }) {
  * shows under the switch. Snapshots and the mock have no server, so the
  * switch only shows the value there.
  */
-function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on: boolean) => Promise<void> }) {
+function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on: boolean) => Promise<unknown> }) {
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
@@ -877,7 +884,7 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
 }
 
 /** Removes a personal override; the server refuses it when nothing is overridden. */
-function ResetAction({ label, reset }: { label: string; reset: () => Promise<void> }) {
+function ResetAction({ label, reset }: { label: string; reset: () => Promise<unknown> }) {
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()

@@ -4,7 +4,7 @@
 // Normalizing never invents a decision: a missing effect stays missing
 // and renders as its raw value, a missing list becomes an empty list.
 
-import type { ContextLoad, ContextReport, ContextSize, ContextView, OverviewView, Section, Snapshot } from '../contract'
+import type { ContextLoad, ContextReport, ContextSize, ContextView, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
 
 type Loose = Record<string, unknown>
 
@@ -84,6 +84,21 @@ export function normalizeOverviewView(raw: unknown): OverviewView {
         sync: { state: sync.state === 'in-sync' || sync.state === 'drifted' ? sync.state : 'not-checked', files: arr(sync.files) },
       }
     }),
+    tools: normalizeToolCatalog(v.tools),
+  }
+}
+
+function normalizeToolCatalog(raw: unknown): ToolCatalog {
+  const v = obj(raw)
+  const source = v.source === 'shared' || v.source === 'personal' ? v.source : 'default'
+  return {
+    source,
+    items: arr(v.items)
+      .map((t) => {
+        const tool = obj(t)
+        return { target: String(tool.target ?? ''), label: String(tool.label ?? tool.target ?? ''), description: String(tool.description ?? ''), enabled: tool.enabled === true, local: tool.local === true, detected: tool.detected === true }
+      })
+      .filter((tool) => tool.target),
   }
 }
 

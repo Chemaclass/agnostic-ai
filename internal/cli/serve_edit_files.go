@@ -125,8 +125,10 @@ func (s editFileSnapshot) replaceGuarded(path string, data []byte, guard func() 
 
 // sameEditValues compares two config or spec texts by value. Outside the
 // personal config an empty builtins list means the same as none; there
-// it turns every team built-in off.
-func sameEditValues(a, b []byte, emptyBuiltinsIsUnset bool) bool {
+// it turns every team built-in off. A targets list that holds exactly
+// defaultTargets means the same as none, so switching a default tool off
+// and on again restores a config that never listed targets.
+func sameEditValues(a, b []byte, emptyBuiltinsIsUnset bool, defaultTargets []string) bool {
 	var left, right map[string]any
 	if yaml.Unmarshal(a, &left) != nil || yaml.Unmarshal(b, &right) != nil {
 		return false
@@ -140,6 +142,19 @@ func sameEditValues(a, b []byte, emptyBuiltinsIsUnset bool) bool {
 	if _, present := left["builtins"]; !present && emptyBuiltinsIsUnset {
 		if list, ok := right["builtins"].([]any); ok && len(list) == 0 {
 			delete(right, "builtins")
+		}
+	}
+	if _, present := left["targets"]; !present && emptyBuiltinsIsUnset && len(defaultTargets) > 0 {
+		if list, ok := right["targets"].([]any); ok {
+			names := make([]string, 0, len(list))
+			for _, item := range list {
+				if name, ok := item.(string); ok {
+					names = append(names, name)
+				}
+			}
+			if len(names) == len(list) && sameBuiltins(names, defaultTargets) {
+				delete(right, "targets")
+			}
 		}
 	}
 	return reflect.DeepEqual(left, right)
@@ -169,7 +184,7 @@ func (h *editHandler) applyValidatedWithPrepare(file string, edit func([]byte) (
 		baseline = editBaseline{original: slices.Clone(original.data), existed: original.info != nil}
 	}
 	_, localConfig := h.builtinsConfigFiles()
-	restoreBaseline := sameEditValues(baseline.original, edited, file != localConfig)
+	restoreBaseline := sameEditValues(baseline.original, edited, file != localConfig, h.defaultTargets())
 	if restoreBaseline {
 		edited = slices.Clone(baseline.original)
 	}

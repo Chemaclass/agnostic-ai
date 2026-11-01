@@ -629,3 +629,13 @@ func TestBuild_LeavesTheNativeKeyOutWhenNoToolFileHoldsAServer(t *testing.T) {
 		t.Errorf("view carries an empty native list: %s", data)
 	}
 }
+
+func TestBuild_ToolCatalogKeepsOrderAndLabelsEveryTool(t *testing.T) {
+	v := Build(Inputs{Tools: ToolCatalog{Items: []ToolChoice{{Target: "cursor", Enabled: true}, {Target: "claude"}}}})
+	if v.Tools.Source != "default" || len(v.Tools.Items) != 2 {
+		t.Fatalf("tools = %+v", v.Tools)
+	}
+	if v.Tools.Items[0].Label != "Cursor" || !v.Tools.Items[0].Enabled || v.Tools.Items[1].Label != "Claude Code" {
+		t.Errorf("items = %+v", v.Tools.Items)
+	}
+}

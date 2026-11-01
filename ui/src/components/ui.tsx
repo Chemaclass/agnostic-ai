@@ -1,6 +1,6 @@
 // Small presentational pieces shared by every screen.
 
-import { useEffect, useRef, useState, type ReactNode, type SelectHTMLAttributes } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type Ref, type SelectHTMLAttributes } from 'react'
 import claudeIcon from '../assets/tools/claude.svg'
 import codexIcon from '../assets/tools/codex.svg'
 import cursorIcon from '../assets/tools/cursor.svg'
@@ -104,9 +104,10 @@ export function ToolAvatar({ target, label }: { target: string; label?: string }
 }
 
 /** An on/off switch that changes a setting; pending while the change saves. */
-export function Toggle({ on, label, disabled, pending, onToggle }: { on: boolean; label: string; disabled?: boolean; pending?: boolean; onToggle: () => void }) {
+export function Toggle({ on, label, disabled, pending, onToggle, ref }: { on: boolean; label: string; disabled?: boolean; pending?: boolean; onToggle: () => void; ref?: Ref<HTMLButtonElement> }) {
   return (
     <button
+      ref={ref}
       type="button"
       role="switch"
       aria-checked={on}

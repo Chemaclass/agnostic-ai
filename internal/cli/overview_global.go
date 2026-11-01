@@ -73,6 +73,7 @@ func globalOverviewInputsWith(compareInstalled bool) (overview.Inputs, error) {
 		RefreshCommand: "agnostic-ai mcp tools --global",
 		BuiltinsTeam:   team,
 		BuiltinsLocal:  local,
+		Tools:          overviewTools(scope.source, true),
 		NativeMCPs:     globalNativeMCPServers(scope.source, cfg),
 	}, nil
 }

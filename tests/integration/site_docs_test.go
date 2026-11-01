@@ -1257,3 +1257,17 @@ func TestSiteDocs_HeaderKeepsOnlySiteNavigation(t *testing.T) {
 		}
 	}
 }
+
+func TestSiteDocs_EveryAdapterHasATargetPage(t *testing.T) {
+	for _, name := range adapters.Names() {
+		path := filepath.Join("..", "..", "docs", "site", "content", "docs", "targets", name+".md")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("%s: the web interface links /docs/targets/%s/: %v", name, name, err)
+			continue
+		}
+		if !strings.Contains(string(data), "target_id = \""+name+"\"") {
+			t.Errorf("%s: %s has no target_id = %q in its frontmatter", name, path, name)
+		}
+	}
+}

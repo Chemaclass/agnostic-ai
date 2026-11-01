@@ -131,14 +131,21 @@ export class EditError extends Error {
 }
 
 /** POSTs one toggle edit; the server validates it and restores the file when it fails. */
-export async function postEdit(path: string, body: unknown): Promise<void> {
+export async function postEdit(path: string, body: unknown): Promise<{ file?: string }> {
   let res: Response
   try {
     res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
   } catch {
     throw new EditError('Could not reach the server to save the change.')
   }
-  if (res.ok) return
+  if (res.ok) {
+    try {
+      const reply = (await res.json()) as { file?: unknown }
+      return typeof reply.file === 'string' ? { file: reply.file } : {}
+    } catch {
+      return {}
+    }
+  }
   let reply: { error?: string; problems?: string[] } = {}
   try {
     reply = (await res.json()) as typeof reply

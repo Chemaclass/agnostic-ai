@@ -649,11 +649,16 @@ export interface TargetSupport {
   sync: TargetSync
 }
 
+export interface ToolChoice { target: string; label: string; description: string; enabled: boolean; local: boolean; detected: boolean }
+export type ToolCatalogSource = 'default' | 'shared' | 'personal'
+export interface ToolCatalog { source: ToolCatalogSource; items: ToolChoice[] }
+
 export interface OverviewView {
   schemaVersion: string
   snapshot: Snapshot
   sections: Section[]
   targets: TargetSupport[]
+  tools: ToolCatalog
   /** True for user configuration, which has no project to size. */
   global?: boolean
 }
@@ -740,6 +745,7 @@ export const API = {
   overview: '/api/views/overview',
   context: '/api/views/context',
   editBuiltin: '/api/edit/builtin',
+  editTargets: '/api/edit/targets',
   editValue: '/api/edit/value',
   editField: '/api/edit/field',
   editPermissions: '/api/edit/permissions',

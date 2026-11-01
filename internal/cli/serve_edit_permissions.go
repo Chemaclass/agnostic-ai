@@ -176,7 +176,7 @@ func (h *editHandler) permissionPlan(req permissionEditRequest, where editAudien
 		return nil, fmt.Errorf("%s: %w", file, err)
 	}
 	after = permissionEditRest(after, data, rules)
-	if baseline, ok := h.baselines[file]; ok && bytes.Equal(original.data, baseline.last) && sameEditValues(baseline.original, after, true) {
+	if baseline, ok := h.baselines[file]; ok && bytes.Equal(original.data, baseline.last) && sameEditValues(baseline.original, after, true, nil) {
 		after = slices.Clone(baseline.original)
 	}
 	view := permissionEditView{SchemaVersion: "permission-edit/v1", File: overviewDisplay(h.root, file), Key: req.Key, Audience: string(where), Before: before, Rules: rules, SyncCommand: "agnostic-ai sync"}
