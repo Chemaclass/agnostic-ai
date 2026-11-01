@@ -426,3 +426,34 @@ func TestLintBudget_CountsOnlyAgentsTheTargetReceives(t *testing.T) {
 		t.Errorf("agents excluded from claude must not count toward its budget, got:\n%s", out)
 	}
 }
+
+func TestLintBudget_WarnsForCursorReadingRootAgentsMd(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex, cursor]\nlint:\n  instructions-words: 300\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
+	out, err := runCLI(t, "lint")
+	if err != nil {
+		t.Fatalf("a budget warning alone must not fail lint: %v\n%s", err, out)
+	}
+	lines := findingLines(out, "LINT011")
+	if !strings.Contains(strings.Join(lines, "\n"), "cursor") {
+		t.Fatalf("want LINT011 to name cursor, got:\n%s", out)
+	}
+}
+
+func TestLintBudget_CursorSharesOneLineWithCodexWhenTotalsMatch(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex, cursor]\nlint:\n  instructions-words: 300\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
+	out, err := runCLI(t, "lint")
+	if err != nil {
+		t.Fatalf("a budget warning alone must not fail lint: %v\n%s", err, out)
+	}
+	lines := findingLines(out, "LINT011")
+	if len(lines) != 1 {
+		t.Fatalf("want one shared LINT011 line, got:\n%s", out)
+	}
+	for _, want := range []string{"codex, cursor load", "AGNOSTIC_AI.md 402"} {
+		if !strings.Contains(lines[0], want) {
+			t.Errorf("LINT011 line lacks %q:\n%s", want, lines[0])
+		}
+	}
+}
