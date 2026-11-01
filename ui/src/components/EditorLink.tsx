@@ -62,8 +62,7 @@ export function EditorChoice() {
       }}>
         {EDITORS.map((e) => (
           <button key={e.id} type="button" role="radio" className="editor-switch-option" aria-checked={editor === e.id} tabIndex={editor === e.id ? 0 : -1} onClick={() => chooseEditor(e.id)}>
-            <span className="editor-switch-mark" aria-hidden="true" />
-            <span>{e.label}</span>
+            {e.label}
           </button>
         ))}
       </div>
