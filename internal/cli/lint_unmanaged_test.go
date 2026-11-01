@@ -10,6 +10,7 @@ import (
 
 func seedDoubleStarProject(t *testing.T, unmanaged string) {
 	t.Helper()
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := testutil.TempCwd(t)
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor]\ngitignore:\n  enabled: false\nsync:\n  unmanaged:\n    - "+unmanaged+"\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root\n")
@@ -78,5 +79,48 @@ func TestDoubleStarAdvice_NamesTheFixForEachShape(t *testing.T) {
 	}
 	if got := doubleStarAdvice("*/.cursor/**"); strings.Contains(got, "write */.cursor/") {
 		t.Errorf("a wildcard folder must not be offered as a trailing-slash entry: %q", got)
+	}
+}
+
+const localDoubleStarEntry = ".cursor/**/legacy.mdc"
+
+func TestLint_DoubleStarFindingNamesTheLocalFile(t *testing.T) {
+	seedDoubleStarProject(t, ".claude/agents/keep.md")
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged:\n    - "+localDoubleStarEntry+"\n")
+
+	out, _ := runCLI(t, "lint")
+	lines := findingLines(out, "LINT057")
+	if len(lines) != 1 {
+		t.Fatalf("want one LINT057 line, got:\n%s", out)
+	}
+	if !strings.Contains(lines[0], "agnostic-ai.local.yaml") || strings.Contains(lines[0], "agnostic-ai.yaml:") {
+		t.Errorf("LINT057 should name the local file:\n%s", lines[0])
+	}
+}
+
+func TestSync_DoubleStarNoteNamesTheLocalFile(t *testing.T) {
+	seedDoubleStarProject(t, ".claude/agents/keep.md")
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged:\n    - "+localDoubleStarEntry+"\n")
+	notes := captureNotes(t)
+
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	if got := notes.String(); !strings.Contains(got, "agnostic-ai.local.yaml: sync.unmanaged") || strings.Contains(got, "agnostic-ai.yaml: ") {
+		t.Errorf("note should name the local file:\n%s", got)
+	}
+}
+
+func TestLint_DoubleStarFindingNamesTheBaseWhenLocalSetsOtherSyncKeys(t *testing.T) {
+	seedDoubleStarProject(t, `"**/.cursor/BUGBOT.md"`)
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  output-manifest: true\n")
+
+	out, _ := runCLI(t, "lint")
+	lines := findingLines(out, "LINT057")
+	if len(lines) != 1 {
+		t.Fatalf("want one LINT057 line, got:\n%s", out)
+	}
+	if !strings.Contains(lines[0], "agnostic-ai.yaml") || strings.Contains(lines[0], "agnostic-ai.local.yaml") {
+		t.Errorf("LINT057 should name the base file:\n%s", lines[0])
 	}
 }
