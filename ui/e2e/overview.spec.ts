@@ -577,6 +577,17 @@ test.describe('overview', () => {
     const switchWidth = (await choice.boundingBox())!.width
     await page.keyboard.press('Space')
     await expect(choice.getByRole('radio', { name: 'VS Code' })).toHaveAttribute('aria-checked', 'true')
+    await page.emulateMedia({ forcedColors: 'active' })
+    const fill = (name: string) => choice.getByRole('radio', { name }).evaluate((element) => getComputedStyle(element).backgroundColor)
+    const highlight = await page.evaluate(() => {
+      const probe = document.body.appendChild(document.createElement('div'))
+      probe.style.background = 'Highlight'
+      const color = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return color
+    })
+    expect(await fill('VS Code')).toBe(highlight)
+    await page.emulateMedia({ forcedColors: 'none' })
     expect(Math.abs((await choice.boundingBox())!.width - switchWidth)).toBeLessThanOrEqual(1)
     await page.keyboard.press('ArrowLeft')
     await expect(choice.getByRole('radio', { name: 'Cursor' })).toHaveAttribute('aria-checked', 'true')

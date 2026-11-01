@@ -47,12 +47,11 @@ export function useEditor(): EditorId {
 export function EditorChoice() {
   const app = useApp()
   const editor = useEditor()
-  const labelId = useId()
+  const id = useId()
   if (app.source.kind !== 'api') return null
   return (
-    <div className="editor-choice" role="group" aria-labelledby={labelId}>
-      <span id={labelId} className="editor-choice-label">Open files in</span>
-      <div className="editor-switch" role="radiogroup" onKeyDown={(event) => {
+    <div className="editor-choice" role="group" aria-label="Open files in">
+      <div className="editor-switch" role="radiogroup" aria-label="Editor" onKeyDown={(event) => {
         const index = EDITORS.findIndex((e) => e.id === editor)
         const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
         if (step === 0) return
@@ -63,14 +62,13 @@ export function EditorChoice() {
       }}>
         {EDITORS.map((e) => (
           <button key={e.id} type="button" role="radio" className="editor-switch-option" aria-checked={editor === e.id} tabIndex={editor === e.id ? 0 : -1} onClick={() => chooseEditor(e.id)}>
-            <span className="editor-switch-mark" aria-hidden="true" />
-            <span>{e.label}</span>
+            {e.label}
           </button>
         ))}
       </div>
       <div className="editor-choice-mobile">
-        <label htmlFor={`${labelId}-select`}>Editor</label>
-        <Select id={`${labelId}-select`} value={editor} onChange={(event) => chooseEditor(parseEditor(event.target.value))}>
+        <label htmlFor={`${id}-select`}>Editor</label>
+        <Select id={`${id}-select`} value={editor} onChange={(event) => chooseEditor(parseEditor(event.target.value))}>
           {EDITORS.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
         </Select>
       </div>
