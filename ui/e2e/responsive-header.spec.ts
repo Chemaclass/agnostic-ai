@@ -28,7 +28,7 @@ test('keeps configuration and editor controls on the second phone header row', a
     const headerBox = await header.boundingBox()
     const configurationBox = await configuration.boundingBox()
     const editorBox = await editor.boundingBox()
-    expect(headerBox!.height).toBeLessThanOrEqual(144)
+    expect(headerBox!.height).toBeLessThanOrEqual(160)
     expect(await header.locator('.brand-name').evaluate((element) => {
       const range = document.createRange()
       range.selectNodeContents(element)

@@ -48,6 +48,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - A rejected permission rule shows a readable message under its editor.
 - The permission rules box is four lines tall.
 - The permission rules box shows example rules.
+- The header shows the project name, its folder path and a Project label, as it does for Global, even when the project is named agnostic-ai.
 - Select controls use a shared, theme-aware chevron with room for labels and keyboard navigation.
 - Context size keeps the report area in place while a different coding tool loads, with placeholders instead of stale totals.
 - Phone headers keep configuration and editor controls together, and Settings tabs fit their labels and counts.
