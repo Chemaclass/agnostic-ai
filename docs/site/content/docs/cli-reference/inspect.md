@@ -188,7 +188,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
-Each field gets one result per target, with the output paths or the reason, and a `next:` step when known, such as a required `outputs.zed.tasks-file`. `(differs)` marks a field whose results differ.
+Each field gets one result per target, with the output paths or the reason, and a `next:` step when known, such as a required `outputs.zed.tasks-file`. `(differs)` marks a field whose results differ. A spec that neither tool reads is left out. A built-in spec shows as `builtin:<name>`, and its next step is the `builtins` setting or a project spec with the same name.
 
 | Result | Meaning |
 |---|---|
@@ -215,6 +215,8 @@ Permission rows use the source index, such as `permissions.deny[0]`, name the ru
    "results": [{"target": "cursor", "status": "unsupported", "reason": "...", "next": "..."}]}]}],
  "fields": 6, "differences": 3}
 ```
+
+A built-in spec has an empty `path` and a `"builtin": {"name", "version"}` object instead.
 
 </details>
 
