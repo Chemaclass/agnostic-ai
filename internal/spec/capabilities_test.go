@@ -84,7 +84,7 @@ func TestAgentCapabilityProblem_NamesWhatIsWrong(t *testing.T) {
 	}{
 		{map[string]any{"can": []any{"read", "shell(git diff *)", "Grep"}}, ""},
 		{map[string]any{"tools": []any{"Read"}}, ""},
-		{map[string]any{"can": []any{"raed"}}, `unknown capability "raed" for can: (did you mean read?)`},
+		{map[string]any{"can": []any{"raed"}}, `unknown capability "raed" for can (did you mean read?)`},
 		{map[string]any{"can": []any{"delete"}}, ""},
 		{map[string]any{"can": []any{"read"}, "tools": []any{"Read"}}, "sets both can: and tools:; keep one"},
 		{map[string]any{"can": "read"}, "can: must be a list"},

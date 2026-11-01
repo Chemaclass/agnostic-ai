@@ -110,7 +110,7 @@ func TestSync_KiroNotesTheAccessACategoryAdds(t *testing.T) {
 
 func TestSync_StopsOnACapabilityItCannotRead(t *testing.T) {
 	cases := []struct{ field, want string }{
-		{"can: [raed]", `unknown capability "raed" for can: (did you mean read?)`},
+		{"can: [raed]", `unknown capability "raed" for can (did you mean read?)`},
 		{"can: [read]\ntools: [Read]", "sets both can: and tools:; keep one"},
 		{"can: read", "can: must be a list"},
 		{"can: [shell()]", `can: "shell()" needs a command pattern`},

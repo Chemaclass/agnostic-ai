@@ -54,7 +54,7 @@ func TestSync_PermissionCapabilitiesWriteTheSameFilesAsTheClaudeRules(t *testing
 
 func TestSync_StopsOnAPermissionCapabilityItCannotRead(t *testing.T) {
 	cases := []struct{ rule, want string }{
-		{"raed", `unknown capability "raed" for permissions.deny: (did you mean read?)`},
+		{"raed", `unknown capability "raed" for permissions.deny (did you mean read?)`},
 		{"write(.env)", `permissions.deny: "write(.env)": Claude Code checks file writes against Edit rules only`},
 		{"read()", `permissions.deny: "read()" needs a path pattern`},
 		{"web(go.dev)", `permissions.deny: "web(go.dev)": only shell, read, and edit take a pattern`},

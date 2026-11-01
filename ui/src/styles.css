@@ -1436,6 +1436,11 @@ input:hover {
   text-align: right;
 }
 
+.permission-editor .edit-error {
+  max-width: none;
+  text-align: left;
+}
+
 .edit-error ul {
   margin: 4px 0 0;
   padding-left: 18px;
@@ -3278,6 +3283,26 @@ tr.is-advised > td {
 .permission-editor p,
 .permission-saved p { margin: 0; }
 
+.permission-rules {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.permission-rules li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.permission-rules li > code {
+  margin-inline-end: auto;
+  overflow-wrap: anywhere;
+}
+
 .permission-form {
   display: grid;
   gap: 10px;
@@ -3288,7 +3313,7 @@ tr.is-advised > td {
 
 .permission-form textarea {
   width: 100%;
-  min-height: 132px;
+  min-height: 96px;
   max-height: 360px;
   resize: vertical;
   padding: 10px 12px;

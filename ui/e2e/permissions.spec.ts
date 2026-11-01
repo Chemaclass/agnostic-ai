@@ -48,7 +48,10 @@ for (const width of [390, 1440]) {
     const { requests } = await setup(page)
     const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
     await row.getByRole('button', { name: 'Add rules', exact: true }).click()
-    await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('shell(git push *)\n\nread(private/**)')
+    const rules = row.getByRole('textbox', { name: 'Ask first rules', exact: true })
+    await expect(rules).toHaveAttribute('rows', '4')
+    await expect(rules).toHaveAttribute('placeholder', /shell\(git status\)\nread\(src\/\*\*\)/)
+    await rules.fill('shell(git push *)\n\nread(private/**)')
     await row.getByRole('button', { name: 'Preview changes' }).click()
     const preview = row.getByRole('region', { name: 'Ask first change preview' })
     await expect(preview).toContainText('Shared (committed)')
@@ -111,6 +114,65 @@ test('keeps a draft through a conflict and discards previews when the scope chan
   await row.getByRole('button', { name: 'Edit rules', exact: true }).click()
   await expect(row.getByRole('textbox', { name: 'Ask first rules' })).toHaveValue('read(private/**)')
   expect(requests.every((request) => request.action !== 'apply')).toBe(true)
+})
+
+test('shows a rejected rule as a readable message under the editor', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await setup(page)
+  const message = 'permissions.ask: rule 1 is invalid: unknown capability "test" for permissions.ask; use one of read, write, edit, delete, shell, web, shell(<pattern>), mcp:<server>, or a Claude Code tool name'
+  await page.route('**/api/edit/permissions', (route) => route.fulfill({ status: 400, json: { error: message } }))
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  await row.getByRole('button', { name: 'Add rules', exact: true }).click()
+  await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('test')
+  await row.getByRole('button', { name: 'Preview changes' }).click()
+  const alert = row.getByRole('alert')
+  await expect(alert).toContainText('unknown capability "test" for permissions.ask; use one of')
+  const box = await alert.boundingBox()
+  expect(box!.width).toBeGreaterThan(520)
+  expect(await alert.evaluate((element) => getComputedStyle(element).textAlign)).toMatch(/^(left|start)$/)
+})
+
+test('removes or edits one saved rule through the same preview and save', async ({ page }) => {
+  const { authority, requests } = await setup(page)
+  const ask = authority.fields!.find((field) => field.key === 'permissions.ask')!
+  ask.set = [{ spec: 'permissions', path: shared, values: [{ key: 'permissions.ask', type: 'list', list: ['shell(git push *)', 'read(private/**)'] }] }]
+  await page.reload()
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  const saved = row.getByRole('list', { name: 'Saved Ask first rules' })
+  await expect(saved.getByRole('listitem')).toHaveCount(2)
+  await saved.getByRole('button', { name: 'Remove rule shell(git push *)' }).click()
+  await expect(row.getByRole('region', { name: 'Ask first change preview' })).toBeVisible()
+  expect(requests.at(-1)).toMatchObject({ action: 'preview', rules: ['read(private/**)'], before: ['shell(git push *)', 'read(private/**)'] })
+  await expect(row.getByRole('region', { name: 'Ask first change preview' })).toBeFocused()
+  expect(requests.every((request) => request.action !== 'apply')).toBe(true)
+  await row.getByRole('region', { name: 'Ask first change preview' }).getByRole('button', { name: 'Cancel' }).click()
+  await expect(row.getByRole('button', { name: 'Edit rules', exact: true })).toBeFocused()
+  await saved.getByRole('button', { name: 'Edit rule read(private/**)' }).click()
+  const box = row.getByRole('textbox', { name: 'Ask first rules', exact: true })
+  await expect(box).toBeFocused()
+  expect(await box.evaluate((element: HTMLTextAreaElement) => element.value.slice(element.selectionStart, element.selectionEnd))).toBe('read(private/**)')
+})
+
+test('removing the last saved rule previews clearing the list, not an empty list', async ({ page }) => {
+  const { authority, requests } = await setup(page)
+  const ask = authority.fields!.find((field) => field.key === 'permissions.ask')!
+  ask.set = [{ spec: 'permissions', path: shared, values: [{ key: 'permissions.ask', type: 'list', list: ['read(private/**)'] }] }]
+  await page.reload()
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  await row.getByRole('button', { name: 'Remove rule read(private/**)' }).click()
+  const preview = row.getByRole('region', { name: 'Ask first change preview' })
+  await expect(preview).toContainText('Remove shared list')
+  expect(requests.at(-1)).toMatchObject({ action: 'preview', audience: 'shared', rules: null, before: ['read(private/**)'] })
+})
+
+test('removing the last personal rule clears the list for you, not the shared fallback', async ({ page }) => {
+  const { requests } = await setup(page, true)
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  const preview = row.getByRole('region', { name: 'Ask first change preview' })
+  await row.getByRole('button', { name: 'View personal settings' }).click()
+  await row.getByRole('button', { name: 'Remove rule shell(git push origin main)' }).click()
+  await expect(preview).toContainText('Clear the list for you')
+  expect(requests.at(-1)).toMatchObject({ action: 'preview', audience: 'personal', rules: [], before: ['shell(git push origin main)'] })
 })
 
 test('keeps a personal null clear empty and offers a reset to shared rules', async ({ page }) => {
