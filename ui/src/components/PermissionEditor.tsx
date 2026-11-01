@@ -57,6 +57,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   const inherited = audience === 'personal' && !current.personalSet
   const effective = audience === 'personal' ? current.personalSet ? current.personal : current.shared : current.shared
   const [editing, setEditing] = useState(false)
+  const [focusLine, setFocusLine] = useState<number>()
   const [text, setText] = useState((effective ?? []).join('\n'))
   const [before, setBefore] = useState(own)
   const [preview, setPreview] = useState<PermissionEditPreview>()
@@ -68,8 +69,14 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     return () => { active.current = false }
   }, [])
   useEffect(() => {
-    if (editing && !preview) textarea.current?.focus()
-  }, [editing, preview])
+    const box = textarea.current
+    if (!editing || preview || !box) return
+    box.focus()
+    if (focusLine === undefined) return
+    const lines = box.value.split('\n')
+    const start = lines.slice(0, focusLine).reduce((sum, line) => sum + line.length + 1, 0)
+    box.setSelectionRange(start, start + (lines[focusLine]?.length ?? 0))
+  }, [editing, preview, focusLine])
   useEffect(() => {
     if (!refreshing.current) return
     refreshing.current = false
@@ -87,8 +94,9 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   const differs = JSON.stringify(current.shared ?? []) !== JSON.stringify(current.personal ?? [])
   const rules = rulesFromText(text)
   const unchanged = JSON.stringify(rules) === JSON.stringify(own ?? []) && !inherited
-  const begin = () => {
+  const begin = (line?: number) => {
     setBefore(own)
+    setFocusLine(line)
     setText((effective ?? []).join('\n'))
     setError(undefined)
     setRefreshed(false)
@@ -135,8 +143,15 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       {overridden && <>{!disabledReason && <p className="muted">Reset this list in Personal to edit Shared.</p>}<ViewPersonalButton /></>}
     </div>}
     {disabledReason && <p className="muted">{disabledReason}</p>}
+    {!disabledReason && !overridden && !preview && !editing && !!own?.length && <ul className="permission-rules" aria-label={`Saved ${field.label} rules`}>
+      {own.map((rule, index) => <li key={`${index}:${rule}`}>
+        <Code>{rule}</Code>
+        <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Edit rule ${rule}`} onClick={() => begin(index)}>Edit</button>
+        <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Remove rule ${rule}`} onClick={() => { void request('preview', own.filter((_, at) => at !== index)) }}>Remove</button>
+      </li>)}
+    </ul>}
     {!disabledReason && !overridden && !preview && !editing && <div className="field-edit-row">
-      <button type="button" className="button" disabled={!path || !!pending} onClick={begin}>{own === null && !effective?.length ? 'Add rules' : 'Edit rules'}</button>
+      <button type="button" className="button" disabled={!path || !!pending} onClick={() => begin()}>{own === null && !effective?.length ? 'Add rules' : 'Edit rules'}</button>
       {audience === 'personal' && current.personalSet && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to shared rules</button>}
       {!path && <span className="muted">Choose the file whose rules you want to change.</span>}
     </div>}

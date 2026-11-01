@@ -132,6 +132,25 @@ test('shows a rejected rule as a readable message under the editor', async ({ pa
   expect(await alert.evaluate((element) => getComputedStyle(element).textAlign)).toMatch(/^(left|start)$/)
 })
 
+test('removes or edits one saved rule through the same preview and save', async ({ page }) => {
+  const { authority, requests } = await setup(page)
+  const ask = authority.fields!.find((field) => field.key === 'permissions.ask')!
+  ask.set = [{ spec: 'permissions', path: shared, values: [{ key: 'permissions.ask', type: 'list', list: ['shell(git push *)', 'read(private/**)'] }] }]
+  await page.reload()
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  const saved = row.getByRole('list', { name: 'Saved Ask first rules' })
+  await expect(saved.getByRole('listitem')).toHaveCount(2)
+  await saved.getByRole('button', { name: 'Remove rule shell(git push *)' }).click()
+  await expect(row.getByRole('region', { name: 'Ask first change preview' })).toBeVisible()
+  expect(requests.at(-1)).toMatchObject({ action: 'preview', rules: ['read(private/**)'], before: ['shell(git push *)', 'read(private/**)'] })
+  expect(requests.every((request) => request.action !== 'apply')).toBe(true)
+  await row.getByRole('region', { name: 'Ask first change preview' }).getByRole('button', { name: 'Cancel' }).click()
+  await saved.getByRole('button', { name: 'Edit rule read(private/**)' }).click()
+  const box = row.getByRole('textbox', { name: 'Ask first rules', exact: true })
+  await expect(box).toBeFocused()
+  expect(await box.evaluate((element: HTMLTextAreaElement) => element.value.slice(element.selectionStart, element.selectionEnd))).toBe('read(private/**)')
+})
+
 test('keeps a personal null clear empty and offers a reset to shared rules', async ({ page }) => {
   const { authority, requests } = await setup(page, true)
   const field = authority.fields!.find((field) => field.key === 'permissions.ask')!
