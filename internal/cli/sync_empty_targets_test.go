@@ -361,3 +361,18 @@ func TestDoctorFix_ExplicitTargetWithEmptyTargetsKeepsFiles(t *testing.T) {
 		t.Errorf("doctor changed retained file: %q, %v", got, err)
 	}
 }
+
+func TestSyncCheck_EmptyTargetsReportsUnreadableLedger(t *testing.T) {
+	syncedEmptyTargetsProject(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
+	if err := os.Remove(emptyTargetsStatePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(emptyTargetsStatePath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCLI(t, "sync", "--check")
+	if err == nil || !strings.Contains(err.Error(), emptyTargetsStatePath) {
+		t.Errorf("check did not report unreadable ledger: %v\n%s", err, out)
+	}
+}
