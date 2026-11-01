@@ -654,6 +654,8 @@ export interface OverviewView {
   snapshot: Snapshot
   sections: Section[]
   targets: TargetSupport[]
+  /** True for user configuration, which has no project to size. */
+  global?: boolean
 }
 
 // ---------------------------------------------------------------------
@@ -717,6 +719,8 @@ export interface ContextView {
   /** Targets that accept a file, so scoped rules can count as file-scoped. */
   fileTargets: string[]
   target: string
+  /** lint.instructions-words, the startup words LINT011 allows; absent for user configuration or an older server. */
+  startupWordBudget?: number
   report?: ContextReport
 }
 

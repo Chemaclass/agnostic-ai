@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Section, SectionItem } from '../contract'
 import { fieldEntryId, findingEntryIds, itemEntryId } from './identity'
-import { entryTab, sectionTabs } from './section-tabs'
+import { entryTab, landingTab, sectionTabs } from './section-tabs'
 
 const section = (over: Partial<Section>): Section => ({ id: 'context', label: 'Context', question: '', order: 0, kinds: [], items: [], findings: [], support: [], ...over })
 
@@ -29,5 +29,17 @@ describe('section tabs', () => {
     const settings = section({ id: 'settings', kinds: [{ kind: 'settings', label: 'Other settings', count: 1 }], fields: [field] })
     expect(entryTab(settings, sectionTabs(settings), fieldEntryId(field))).toBe('preferences')
     expect(entryTab(settings, sectionTabs(settings), 'unknown')).toBeUndefined()
+  })
+
+  it('lands on Context size only when it can load, else on the first tab with content', () => {
+    const rule: SectionItem = { kind: 'rule', name: 'go', label: 'go', path: 'rules/go.md', layer: 'project', description: '', values: [], findings: [] }
+    const context = section({ kinds: ['instructions', 'rule', 'skill'].map((kind) => ({ kind, label: kind, count: 0 })), items: [rule] })
+    const tabs = sectionTabs(context)
+    expect(landingTab(context, tabs, true)).toBe('usage')
+    expect(landingTab(context, tabs, false)).toBe('rules')
+    const empty = section({ kinds: [{ kind: 'rule', label: 'Rules', count: 0 }] })
+    expect(landingTab(empty, sectionTabs(empty), false)).toBe('usage')
+    const tools = section({ id: 'tools', kinds: [{ kind: 'mcp', label: 'MCP servers', count: 0 }], native: [{ name: 'notion', holders: [] }] })
+    expect(landingTab(tools, sectionTabs(tools), true)).toBe('native')
   })
 })

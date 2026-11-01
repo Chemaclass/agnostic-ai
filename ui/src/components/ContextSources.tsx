@@ -1,7 +1,7 @@
 // Ranked sources with per-row advice. A source is keyed by load, source and
 // category because one path can appear twice (a skill's description and body).
 
-import { Fragment, useEffect, useId, useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { ContextContribution, ContextLoad, ContextReport, ContextSize } from '../contract'
 import { contextAdvice, startHere } from '../model/context-advice'
@@ -12,45 +12,66 @@ import { useApp } from './app-context'
 import { OpenInEditor } from './EditorLink'
 import { Code, CopyButton } from './ui'
 
-const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
+export const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
 const ROWS_SHOWN = 10
 
 export const rowKey = (c: ContextContribution) => `${c.load}|${c.source}|${c.category}`
 
-export function ContextSources({ report, root, takesFile, openByDefault }: { report: ContextReport; root?: string; takesFile: boolean; openByDefault: boolean }) {
+export interface SourcePick {
+  advice: string | undefined
+  setAdvice: Dispatch<SetStateAction<string | undefined>>
+  expanded: Set<ContextLoad>
+  setExpanded: Dispatch<SetStateAction<Set<ContextLoad>>>
+  open: boolean
+  setOpen: (open: boolean) => void
+  focusKey: MutableRefObject<string | undefined>
+  /** Opens one source's advice, expanding its group and the list when needed, and moves focus to its toggle. */
+  show: (c: ContextContribution) => void
+}
+
+export function useSourcePick(report: ContextReport | undefined, openByDefault: boolean): SourcePick {
   const [advice, setAdvice] = useState<string>()
   const [expanded, setExpanded] = useState<Set<ContextLoad>>(new Set())
   const [open, setOpen] = useState(openByDefault)
+  const [seen, setSeen] = useState({ report, openByDefault })
   const focusKey = useRef<string | undefined>(undefined)
-  const { contributions } = report
-  useEffect(() => { setAdvice(undefined); setExpanded(new Set()); setOpen(openByDefault) }, [report, openByDefault])
-  if (contributions.length === 0) return null
+  // Reset while rendering, so a new report never paints with the old open state.
+  if (seen.report !== report || seen.openByDefault !== openByDefault) {
+    setSeen({ report, openByDefault })
+    setAdvice(undefined)
+    setExpanded(new Set())
+    setOpen(openByDefault)
+  }
   const show = (c: ContextContribution) => {
     const key = rowKey(c)
-    const rows = contributions.filter((r) => r.load === c.load)
+    const rows = (report?.contributions ?? []).filter((r) => r.load === c.load)
     if (rows.indexOf(c) >= ROWS_SHOWN) setExpanded((prev) => new Set(prev).add(c.load))
     setOpen(true)
     setAdvice(key)
     focusKey.current = key
   }
+  return { advice, setAdvice, expanded, setExpanded, open, setOpen, focusKey, show }
+}
+
+export function ContextSources({ report, root, takesFile, pick }: { report: ContextReport; root?: string; takesFile: boolean; pick: SourcePick }) {
+  if (report.contributions.length === 0) return null
   return (
     <>
-      <StartHere report={report} onPick={show} />
-      <Contributions report={report} root={root} takesFile={takesFile} open={open} onToggle={setOpen} advice={advice} setAdvice={setAdvice} expanded={expanded} setExpanded={setExpanded} focusKey={focusKey} />
+      <StartHere report={report} onPick={pick.show} />
+      <Contributions report={report} root={root} takesFile={takesFile} open={pick.open} onToggle={pick.setOpen} advice={pick.advice} setAdvice={pick.setAdvice} expanded={pick.expanded} setExpanded={pick.setExpanded} focusKey={pick.focusKey} />
     </>
   )
 }
 
 function StartHere({ report, onPick }: { report: ContextReport; onPick: (c: ContextContribution) => void }) {
-  const id = useId()
   const top = startHere(report.contributions)
   if (top.length === 0) return null
   const total = report.startup.words
   return (
     <div className="context-usage-part context-start">
-      <h3 id={id}>Start here</h3>
+      <h3 id="context-start-here">Start here</h3>
       <p className="muted">The largest sources at startup for {report.target}. Open one to see what it is and what you can do.</p>
-      <ol className="context-start-list" aria-labelledby={id}>
+      <ol className="context-start-list" aria-labelledby="context-start-here">
         {top.map((c) => (
           <li key={rowKey(c)}>
             <button type="button" className="button button-quiet context-start-pick" onClick={() => onPick(c)}>

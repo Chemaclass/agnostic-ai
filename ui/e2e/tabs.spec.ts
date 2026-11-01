@@ -24,6 +24,7 @@ function tabFixture() {
 async function loadTabs(page: Page) {
   const data = tabFixture()
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+  await page.route('**/api/views/context**', (route) => route.fulfill({ json: JSON.parse(readFileSync(new URL('../src/fixtures/context.mock.json', import.meta.url), 'utf8')) }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true } }))
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
   return data
@@ -63,7 +64,7 @@ test('keeps the tab in reload and browser history and resets it when changing pa
   await selectTab(page, 'Found in tools')
   await page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: /^Context/ }).click()
   expect(new URL(page.url()).searchParams.has('tab')).toBe(false)
-  await expect(page.getByRole('tab', { name: /^Guidance/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
   await page.goto('/?view=tools&tab=unknown-panel')
   await expect(page.getByRole('tab', { name: /^Configured servers/ })).toHaveAttribute('aria-selected', 'true')
 })

@@ -233,15 +233,12 @@ test.describe('context size', () => {
     await expect(input).toHaveValue('src/main.go ')
   })
 
-  test('clears a search when the Context size tab opens', async ({ page }) => {
+  test('keeps a search when the Context size tab opens', async ({ page }) => {
     await page.goto('/?mock=1&q=testing')
-    await expect(page).toHaveURL(/q=testing/)
     await selectTab(page, 'Context size')
     await expect(page.locator('section.context-usage')).toBeVisible()
-    await expect(page).not.toHaveURL(/q=/)
-    await page.goto('/?mock=1&tab=usage&q=testing')
-    await expect(page.locator('section.context-usage')).toBeVisible()
-    await expect(page).not.toHaveURL(/q=/)
+    await expect(page).toHaveURL(/q=testing/)
+    await expect(page.getByRole('searchbox', { name: 'Search context' })).toHaveValue('testing')
   })
 
   test('opens advice for a source and copies a prompt that names it', async ({ page, context }) => {
@@ -337,15 +334,15 @@ test.describe('context size', () => {
     await expect(panel.getByRole('table', { name: /^Startup/ })).toBeVisible()
   })
 
-  test('is the first Context tab and hides the section search', async ({ page }) => {
+  test('is the first Context tab, the landing, and keeps the section search', async ({ page }) => {
     await page.goto('/?mock=1')
     const tabs = page.getByRole('tablist').first().getByRole('tab')
     await expect(tabs.first()).toHaveText(/^Context size/)
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('search')).toHaveCount(1)
-    await selectTab(page, 'Context size')
-    await expect(page.getByRole('search')).toHaveCount(0)
     await selectTab(page, 'Guidance')
     await expect(page.getByRole('search')).toHaveCount(1)
+    await expect(page).toHaveURL(/tab=guidance/)
   })
 })
 

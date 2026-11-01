@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ContextContribution } from '../contract'
-import { builtinOwner, contextAdvice, explainCommand, shellQuote, startHere } from './context-advice'
+import { builtinOwner, contextAdvice, contextStartupPrompt, explainCommand, shellQuote, startHere } from './context-advice'
 
 const report = { target: 'claude', startup: { words: 872, bytes: 5400 }, file_scope: { words: 46, bytes: 301 }, on_demand: { words: 316, bytes: 2084 } }
 const row = (source: string, category: string, load: ContextContribution['load'], words = 50): ContextContribution => ({ source, category, load, words, bytes: words * 6 })
@@ -148,5 +148,22 @@ describe('context advice', () => {
     const advice = contextAdvice(row('.agnostic-ai/rules/go.md', 'scoped rule', 'file-scope'), { ...report, file: 'src/my file.go' })
     expect(advice.actions.at(-1)).toContain("--file 'src/my file.go' to check")
     expect(advice.prompt).toContain("--target claude --file 'src/my file.go' to check")
+  })
+
+  it('writes a startup review prompt that lists every startup source and the budget', () => {
+    const report = { version: '1', command: 'explain', target: 'claude', note: '', startup: { words: 184, bytes: 1212 }, file_scope: { words: 0, bytes: 0 }, on_demand: { words: 316, bytes: 2084 }, contributions: [
+      { source: '.agnostic-ai/AGNOSTIC_AI.md', category: 'entry-point layer', load: 'startup' as const, words: 120, bytes: 790 },
+      { source: '.agnostic-ai/skills/release/SKILL.md', category: 'skill body', load: 'on-demand' as const, words: 260, bytes: 1720 },
+    ], opportunities: [] }
+    const prompt = contextStartupPrompt(report, '/tmp/project', 2000)
+    expect(prompt).toContain('Target: claude')
+    expect(prompt).toContain('within the 2,000-word lint budget')
+    expect(prompt).toContain('- .agnostic-ai/AGNOSTIC_AI.md (entry-point layer): 120 words, 790 bytes, 65% of startup')
+    expect(prompt).not.toContain('SKILL.md')
+    expect(prompt).toContain('Configuration root: /tmp/project')
+    expect(prompt).toContain('Do not apply any change until I agree.')
+    expect(prompt).toContain('not tokens')
+    expect(prompt).not.toMatch(/[–—]/)
+    expect(contextStartupPrompt(report)).not.toContain('Configuration root')
   })
 })

@@ -2,6 +2,7 @@
 // pages do not thread them through every prop list.
 
 import { createContext, useContext, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
+import type { OverviewView } from '../contract'
 import type { DataSource, UrlState } from '../model/url'
 
 export interface AppApi {
@@ -12,6 +13,8 @@ export interface AppApi {
   /** Loads the overview again, after an edit. */
   reload(saved?: boolean): void
   overviewRevision?: object
+  /** The loaded overview, for pages that read another section's data. */
+  overview?: OverviewView
 }
 
 export const AppContext = createContext<AppApi | null>(null)

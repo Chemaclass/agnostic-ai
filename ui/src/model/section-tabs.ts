@@ -45,3 +45,13 @@ export function entryTab(section: Section, tabs: SectionTab[], entry?: string): 
 export function nativeSearchText(server: NativeServer): string[] {
   return [server.name, ...server.holders.flatMap((holder) => [holder.target, holder.label, holder.path, holder.scope, holder.transport ?? ''])]
 }
+
+/** The tab a section opens on when the address names none: Context size when it can load, else the first tab with content. */
+export function landingTab(section: Section, tabs: SectionTab[], usageAvailable: boolean): string | undefined {
+  const usage = tabs.find((tab) => tab.extra === 'usage')
+  if (usage && usageAvailable) return usage.id
+  const populated = tabs.find((tab) => tab.extra === 'native'
+    ? (section.native?.length ?? 0) > 0
+    : section.items.some((item) => tab.kinds.includes(item.kind)) || tab.kinds.includes('settings') && (section.fields?.some((field) => field.set.length > 0) ?? false))
+  return populated?.id ?? tabs[0]?.id
+}

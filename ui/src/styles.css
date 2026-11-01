@@ -1982,6 +1982,68 @@ input:hover {
   font-size: 13px;
 }
 
+.context-check {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 8px;
+  max-width: var(--measure);
+}
+
+.context-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-weight: 650;
+}
+
+.context-verdict .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.context-verdict.is-over {
+  color: var(--approval);
+}
+
+.context-verdict.is-over a {
+  color: inherit;
+}
+
+.context-check-heading {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.context-next {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+.context-next li {
+  overflow-wrap: anywhere;
+}
+
+.context-next .button {
+  margin-inline-start: 4px;
+  vertical-align: baseline;
+  white-space: normal;
+  text-align: start;
+}
+
+@media (max-width: 760px) {
+  .context-next .button {
+    min-height: 44px;
+  }
+}
+
 .context-usage-controls {
   display: grid;
   grid-template-columns: minmax(140px, 220px) minmax(180px, 420px) auto;
@@ -2068,6 +2130,12 @@ input:hover {
   justify-items: start;
   text-align: left;
   padding: 6px 10px;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.context-start {
+  min-width: 0;
 }
 
 .context-start-pick .muted {
@@ -2150,6 +2218,11 @@ tr.is-advised > td {
 .context-usage-placeholder > div {
   display: grid;
   gap: 10px;
+}
+
+.context-usage-placeholder > .context-placeholder-check {
+  grid-column: 1 / -1;
+  min-height: 120px;
 }
 
 .context-usage-placeholder span {

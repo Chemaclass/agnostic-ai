@@ -7,13 +7,19 @@ import { loadContext, LoadError } from '../api'
 import { signed } from '../model/context-breakdown'
 import type { ContextOpportunity, ContextReport, ContextSize, ContextView } from '../contract'
 import { contextReviewPrompt, LOAD_CONDITIONS, LOAD_LABELS, sizeText } from '../model/context-prompt'
+import { contextStartupPrompt, explainCommand, startHere } from '../model/context-advice'
+import { startupVerdict } from '../model/context-verdict'
+import { DOC_TOPICS, documentationUrl } from '../model/documentation'
 import { formatTime, plural } from '../model/format'
-import { useApp } from './app-context'
+import { fieldEntryId } from '../model/identity'
+import { modelLine } from '../model/model-line'
+import { contextUsageAvailable } from '../model/url'
+import { AppLink, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
-import { ContextSources } from './ContextSources'
+import { ContextSources, LOADS, useSourcePick, type SourcePick } from './ContextSources'
 import { OpenInEditor } from './EditorLink'
 import { SectionHeading } from './SectionHeading'
-import { Select, Badge, Code, CopyButton } from './ui'
+import { Select, Badge, Code, CopyButton, Icon } from './ui'
 
 const LONG_PASSAGE = 280
 const FILE_DELAY_MS = 500
@@ -42,7 +48,7 @@ export function ContextUsage() {
   const [statusHeight, setStatusHeight] = useState<number>()
   const results = useRef<HTMLDivElement>(null)
   const [resultsHeight, setResultsHeight] = useState<number>()
-  const reachable = app.source.kind === 'api' || app.source.kind === 'mock'
+  const reachable = contextUsageAvailable(app.source)
   const hasView = useRef(false)
   const droppedStale = useRef(false)
 
@@ -97,6 +103,21 @@ export function ContextUsage() {
     return () => clearTimeout(timer)
   }, [draftFile, file, takesFile, selected])
 
+  const targets = view?.targets.length ? view.targets : selected ? [selected] : []
+  const matches = (snapshot: Snapshot | undefined): snapshot is Snapshot => !!snapshot && snapshot.view.target === selected && snapshot.file === file
+  // A report for another target or file, or one a failed request left behind, is never shown as current.
+  const shown = !error && matches(current) ? current : undefined
+  const report = shown?.view.supported ? shown.view.report : undefined
+  const pending = !error && (loading || !!current && !matches(current))
+  const comparable = report && matches(before) && before.at !== shown?.at && before.view.report
+  const pick = useSourcePick(report, (report?.opportunities.length ?? 0) === 0)
+  const refresh = () => {
+    reserveResults()
+    setBefore(matches(current) && current.file === draftFile ? current : undefined)
+    go(selected, draftFile)
+    setNonce((n) => n + 1)
+  }
+
   const heading = <SectionHeading topic="usage" id={titleId}>Context size</SectionHeading>
   if (!reachable) {
     return (
@@ -107,25 +128,11 @@ export function ContextUsage() {
     )
   }
 
-  const targets = view?.targets.length ? view.targets : selected ? [selected] : []
-  const matches = (snapshot: Snapshot | undefined): snapshot is Snapshot => !!snapshot && snapshot.view.target === selected && snapshot.file === file
-  const refresh = () => {
-    reserveResults()
-    setBefore(matches(current) && current.file === draftFile ? current : undefined)
-    go(selected, draftFile)
-    setNonce((n) => n + 1)
-  }
-  // A report for another target or file, or one a failed request left behind, is never shown as current.
-  const shown = !error && matches(current) ? current : undefined
-  const report = shown?.view.supported ? shown.view.report : undefined
-  const pending = !error && (loading || !!current && !matches(current))
-  const comparable = report && matches(before) && before.at !== shown?.at && before.view.report
-
   return (
     <section className="block context-usage" aria-labelledby={titleId} aria-busy={pending || undefined}>
       <div className="context-usage-head">
         {heading}
-        <p className="muted">Instruction text for one coding tool, measured in words and bytes.</p>
+        <p className="muted">How much text a coding tool reads from your specs, at startup and later, in words and bytes.</p>
       </div>
       {view?.supported !== false && (
         <form className="context-usage-controls" onSubmit={(event) => { event.preventDefault(); refresh() }}>
@@ -164,11 +171,12 @@ export function ContextUsage() {
         {shown && !shown.view.supported && <p>{shown.view.reason || 'Context size is not available for this configuration.'}</p>}
         {report && shown && (
           <>
+            <StartupCheck report={report} view={shown.view} pick={pick} />
             <Totals report={report} file={shown.file} takesFile={takesFile} />
             {report.note && <details className="context-usage-method"><summary>How this is counted</summary><p className="muted context-usage-note">{report.note}</p></details>}
             {comparable && <Comparison before={before.view.report!} now={report} />}
             <Opportunities report={report} root={shown.view.root} />
-            <ContextSources report={report} root={shown.view.root} takesFile={takesFile} openByDefault={report.opportunities.length === 0} />
+            <ContextSources report={report} root={shown.view.root} takesFile={takesFile} pick={pick} />
           </>
         )}
       </div>
@@ -179,12 +187,52 @@ export function ContextUsage() {
 function ReportPlaceholder() {
   return (
     <div className="context-usage-placeholder" aria-hidden="true">
+      <div className="context-placeholder-check" />
       {[0, 1].map((column) => <div key={column}>
         <span className="context-placeholder-label" />
         <span className="context-placeholder-value" />
         <span className="context-placeholder-line" />
       </div>)}
     </div>
+  )
+}
+
+function StartupCheck({ report, view, pick }: { report: ContextReport; view: ContextView; pick: SourcePick }) {
+  const id = useId()
+  const verdict = startupVerdict(report.startup, view.startupWordBudget)
+  const largest = startHere(report.contributions, 1)[0]
+  const command = explainCommand(report.target, report.file)
+  const [before, after] = verdict.text.split('(lint.instructions-words)')
+  return (
+    <section className="context-usage-part context-check" aria-labelledby={id}>
+      <h3 id={id}>Startup check</h3>
+      <p className={`context-verdict is-${verdict.state}`}>
+        {verdict.state === 'over' && <Icon name="warning" />}
+        <span>
+          {after === undefined ? verdict.text : <>{before}(<a href={documentationUrl(DOC_TOPICS.budget.path)} target="_blank" rel="noopener noreferrer">lint.instructions-words</a>){after}</>}
+        </span>
+      </p>
+      <p className="muted">{LOADS.map((load) => `${LOAD_LABELS[load]} text loads ${LOAD_CONDITIONS[load]}.`).join(' ')}</p>
+      <ModelLine target={report.target} />
+      <p className="context-check-heading" id={`${id}-next`}>Next</p>
+      <ol className="context-next" aria-labelledby={`${id}-next`}>
+        {largest && <li>Open the largest startup source. <button type="button" className="button button-quiet" onClick={() => pick.show(largest)}>Show <Code>{largest.source}</Code></button></li>}
+        <li>Check it in a terminal: <Code>{command}</Code> <CopyButton text={command} label="Copy command" className="button-quiet" ariaLabel={`Copy command for ${report.target}`} /></li>
+        <li>Ask a coding agent to review everything {report.target} loads at startup: <CopyButton text={contextStartupPrompt(report, view.root, view.startupWordBudget)} label="Copy startup review prompt" className="button-quiet" ariaLabel={`Copy startup review prompt for ${report.target}`} /></li>
+      </ol>
+    </section>
+  )
+}
+
+function ModelLine({ target }: { target: string }) {
+  const app = useApp()
+  const line = modelLine(app.overview, target)
+  if (!line) return null
+  return (
+    <p className="context-model">
+      {line.text}{' '}
+      <AppLink to={{ view: 'settings', tab: 'preferences', entry: fieldEntryId(line.field) }}>{line.unset ? 'Set them in Settings' : 'Change in Settings'}</AppLink>
+    </p>
   )
 }
 
