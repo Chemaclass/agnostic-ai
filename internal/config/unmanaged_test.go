@@ -48,6 +48,37 @@ func TestMatchUnmanaged(t *testing.T) {
 	}
 }
 
+func TestMatchUnmanaged_DirectoryEntries(t *testing.T) {
+	cases := []struct {
+		name    string
+		pattern string
+		path    string
+		want    bool
+	}{
+		{"glob owns a file inside a matching folder", ".claude/skills/legacy-*/", ".claude/skills/legacy-a/SKILL.md", true},
+		{"glob owns the matching folder itself", ".claude/skills/legacy-*/", ".claude/skills/legacy-a", true},
+		{"glob skips a folder it does not match", ".claude/skills/legacy-*/", ".claude/skills/pr/SKILL.md", false},
+		{"glob does not match a sibling name", ".claude/skills/legacy-*/", ".claude/skills-legacy-a/x", false},
+		{"literal owns a nested file", "a/.cursor/", "a/.cursor/x.mdc", true},
+		{"literal owns the folder itself", "a/.cursor/", "a/.cursor", true},
+		{"literal skips a longer folder name", "a/.cursor/", "a/.cursorx/y", false},
+		{"star segment matches a nested folder", "*/.cursor/", "pkg/.cursor/rules/x.mdc", true},
+		{"star segment needs a parent folder", "*/.cursor/", ".cursor/x.mdc", false},
+		{"leading dot slash is ignored", "./.claude/skills/legacy-?/", ".claude/skills/legacy-a/SKILL.md", true},
+		{"backslash path input", ".claude/skills/legacy-*/", `.claude\skills\legacy-a\SKILL.md`, true},
+		{"bracket folder name stays literal", ".claude/skills/wip[1]/", ".claude/skills/wip[1]/SKILL.md", true},
+		{"bracket folder name literal itself", ".claude/skills/wip[1]/", ".claude/skills/wip[1]", true},
+		{"bracket entry still works as a class", ".claude/skills/wip[12]/", ".claude/skills/wip1/SKILL.md", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := MatchUnmanaged([]string{tc.pattern}, tc.path); got != tc.want {
+				t.Errorf("MatchUnmanaged(%q, %q) = %v, want %v", tc.pattern, tc.path, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestMatchUnmanagedDir(t *testing.T) {
 	cases := []struct {
 		name     string
