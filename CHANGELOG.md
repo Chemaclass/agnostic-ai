@@ -20,7 +20,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `explain <spec>` and `graph` skip tools outside `targets` that cannot render the project, so an unselected Grok no longer fails them (#2934).
 - `compare` leaves out specs neither tool reads and points a built-in spec at `builtins` in `agnostic-ai.yaml`, not a cache file (#2938).
-- Lint, doctor and sync warn (LINT057) when a `sync.unmanaged` entry uses `**`, which acts like `*` and stays inside one folder name (#2937).
+- Lint, doctor and sync warn (LINT057), naming the file that holds it, when a `sync.unmanaged` entry uses `**`, which acts like `*` (#2937, #2956).
 
 #### Specs, import and editors
 
@@ -66,6 +66,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Context opens on Context size, now its first tab, for a project with a coding tool, with a startup check against `lint.instructions-words` (#2924, #2929).
 - Context size explains each source with what to change and a copyable agent prompt, and keeps the tool and file in the page address (#2924).
 - Context size keeps its report in place with placeholders while a tool loads, groups tool and file controls, and highlights load totals (#2894, #2872).
+- On wide screens, Context size puts the Startup and On demand figures beside the startup check instead of below it (#2955).
 
 #### Settings
 
