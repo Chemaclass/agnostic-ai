@@ -71,7 +71,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 
 ## Context budgets
 
-LINT011 warns when a tool loads more words at session start than [`lint.instructions-words`](@/docs/configuration.md#lint) allows (default 2000), counting the entry-point file as `sync` writes it, always-on rule files, skill and agent descriptions, and `@`-imported rule files. [`explain --context`](@/docs/cli-reference/inspect.md#rank-context-contributions) ranks what adds the most. Tools with the same numbers share one line:
+LINT011 warns when a tool loads more words at session start than [`lint.instructions-words`](@/docs/configuration.md#lint) allows (default 2000), counting the entry-point file as `sync` writes it (a root `AGENTS.md` another tool writes counts for Cursor, and for Copilot when VS Code reads it), always-on rule files, skill and agent descriptions, and `@`-imported rule files. [`explain --context`](@/docs/cli-reference/inspect.md#rank-context-contributions) ranks what adds the most. Tools with the same numbers share one line:
 
 ```
 LINT011 [warn] AGENTS.md: cline, windsurf, trae load 2396 words every session: AGENTS.md 1187 (AGNOSTIC_AI.md 136, rules 1032), always-on rule files 908, skill descriptions 195, agent descriptions 106; budget 2000 (lint.instructions-words).

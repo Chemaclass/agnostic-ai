@@ -311,3 +311,24 @@ func TestGraph_UnknownFormatErrors(t *testing.T) {
 		t.Fatalf("expected unknown-format error, got %v", err)
 	}
 }
+
+func TestGraph_SkipsAdaptersThatCannotRenderWhenNoTargetsAreSet(t *testing.T) {
+	writeExplainTargetsProject(t, "[]")
+	out, err := runCLI(t, "graph", "--format", "json")
+	if err != nil {
+		t.Fatalf("an adapter that cannot render must not fail graph without targets: %v\n%s", err, out)
+	}
+	if strings.Contains(out, `"target": "grok"`) || strings.Contains(out, `"target":"grok"`) {
+		t.Errorf("grok cannot render this project, want no grok edge:\n%s", out)
+	}
+	if !strings.Contains(out, "claude") {
+		t.Errorf("want claude edges, got:\n%s", out)
+	}
+}
+
+func TestGraph_ConfiguredAdapterErrorStillFails(t *testing.T) {
+	writeExplainTargetsProject(t, "[claude, grok]")
+	if _, err := runCLI(t, "graph", "--format", "json"); err == nil {
+		t.Fatal("expected configured grok emission to fail")
+	}
+}
