@@ -573,3 +573,103 @@ timeout: 15
 		t.Errorf("held state changed the report:\ngot:  %+v\nwant: %+v", got, want)
 	}
 }
+
+func setupCompareBuiltinFixture(t *testing.T, targets string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for rel, body := range map[string]string{
+		"agnostic-ai.yaml":            "version: 1\nbuiltins: [memory]\ntargets: " + targets + "\n",
+		".agnostic-ai/AGNOSTIC_AI.md": "Root.\n",
+		".agnostic-ai/rules/web.md":   "---\nname: web\nscope: apps/web\n---\n\nWeb rule.\n",
+		"apps/web/.keep":              "",
+	} {
+		p := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func findCompareSpec(out compareOutput, name string) (compareSpec, bool) {
+	for _, s := range out.Specs {
+		if s.Name == name {
+			return s, true
+		}
+	}
+	return compareSpec{}, false
+}
+
+func TestCompare_LeavesOutSpecsNeitherTargetReads(t *testing.T) {
+	testutil.Chdir(t, setupCompareBuiltinFixture(t, "[claude, cursor]"))
+	silence(t)
+	out := compareJSON(t, "claude", "cursor")
+
+	for _, name := range []string{"gemini-memory-tiers", "kiro-memory-index", "antigravity-memory-index"} {
+		if _, ok := findCompareSpec(out, name); ok {
+			t.Errorf("%s is read by neither claude nor cursor, so compare must leave it out", name)
+		}
+	}
+	if _, ok := findCompareSpec(out, "web"); !ok {
+		t.Errorf("the project web rule must stay in the report: %+v", out.Specs)
+	}
+	text, err := runCompare(t, "claude", "cursor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(text, "builtins/") || strings.Contains(text, "agnostic-ai-builtin-") {
+		t.Errorf("the report must not show a built-in cache path:\n%s", text)
+	}
+	for _, s := range out.Specs {
+		for _, f := range s.Fields {
+			for _, r := range f.Results {
+				if strings.Contains(r.Next, "agnostic-ai-builtin-") {
+					t.Errorf("%s next step shows a cache path: %q", s.Name, r.Next)
+				}
+			}
+		}
+	}
+}
+
+func TestCompare_PointsBuiltinExclusionAtBuiltinsSetting(t *testing.T) {
+	testutil.Chdir(t, setupCompareBuiltinFixture(t, "[claude, gemini]"))
+	silence(t)
+	out := compareJSON(t, "claude", "gemini")
+
+	s, ok := findCompareSpec(out, "gemini-memory-tiers")
+	if !ok {
+		t.Fatalf("gemini reads gemini-memory-tiers, so it stays in the report: %+v", out.Specs)
+	}
+	if s.Path != "" {
+		t.Errorf("a built-in spec has no source path, got %q", s.Path)
+	}
+	if s.Builtin == nil || s.Builtin.Name != "memory" {
+		t.Fatalf("builtin = %+v, want name memory", s.Builtin)
+	}
+	var claude *compareResult
+	for _, f := range s.Fields {
+		for i, r := range f.Results {
+			if r.Target == "claude" {
+				claude = &f.Results[i]
+			}
+		}
+	}
+	if claude == nil || claude.Status != statusExcluded {
+		t.Fatalf("claude result = %+v, want excluded", claude)
+	}
+	if !strings.Contains(claude.Next, "builtins") || !strings.Contains(claude.Next, "agnostic-ai.yaml") ||
+		strings.Contains(claude.Next, "builtins/") || strings.Contains(claude.Next, "agnostic-ai-builtin-") ||
+		strings.Index(claude.Next, "add a project") > strings.Index(claude.Next, "builtins") {
+		t.Errorf("next step must point at the builtins setting: %q", claude.Next)
+	}
+	text, err := runCompare(t, "claude", "gemini")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(text, "builtin:memory") || strings.Contains(text, "/builtins/") || strings.Contains(text, "agnostic-ai-builtin-") {
+		t.Errorf("header must name the built-in, not the cache path:\n%s", text)
+	}
+}
