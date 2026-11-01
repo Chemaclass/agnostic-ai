@@ -28,7 +28,7 @@ function shellQuote(path: string): string {
   return `'${path.replaceAll("'", "'\\''")}'`
 }
 
-function baseName(path: string): string {
+export function baseName(path: string): string {
   return path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
 }
 

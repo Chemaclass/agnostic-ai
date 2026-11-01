@@ -77,21 +77,47 @@ test.describe('overview', () => {
   })
 
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
-    await page.route('**/api/health', (route) => route.fulfill({ json: {} }))
     const data = structuredClone(fixture)
     data.snapshot.project.name = 'agnostic-ai'
-    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-    await page.goto('/?view=context')
-    await expect(page.locator('.support-table')).toBeVisible()
+    await page.route('**/snapshot/overview.json', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=context&source=./snapshot')
     await expect(page.locator('.brand-name')).toHaveText('agnostic-ai')
+    await expect(page.locator('.chip', { hasText: 'Static snapshot' })).toBeVisible()
     await expect(page.locator('.project-name')).toHaveCount(0)
-    await expect(page.locator('.topbar-context')).toHaveCount(0)
     data.snapshot.project.name = 'billing-service'
     data.snapshot.project.root = '/work/clients/billing-service'
     await page.reload()
     await expect(page.locator('.project-title')).toHaveText('billing-service')
     await expect(page.locator('.project-root')).toHaveText('/work/clients/billing-service')
     await expect(page.locator('.project-name')).not.toHaveClass(/chip/)
+  })
+
+  test('shows the project name from the snapshot when health fails', async ({ page }) => {
+    await page.route('**/api/health', (route) => route.fulfill({ json: {} }))
+    const data = structuredClone(fixture)
+    data.snapshot.project.name = 'agnostic-ai'
+    data.snapshot.project.root = '/work/agnostic-ai'
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=context')
+    await expect(page.locator('.project-title')).toHaveText('agnostic-ai')
+    await expect(page.locator('.project-root')).toHaveText('/work/agnostic-ai')
+  })
+
+  test('shows the project name and folder when served, even when the name matches the brand', async ({ page }) => {
+    const root = '/work/agnostic-ai-header'
+    await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root, global: false, ui: true } }))
+    const data = structuredClone(fixture)
+    data.snapshot.project.name = 'agnostic-ai'
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=context')
+    await expect(page.locator('.project-title')).toContainText('agnostic-ai')
+    await expect(page.locator('.project-title')).not.toContainText('agnostic-ai-header')
+    await expect(page.locator('.project-title .chip')).toHaveText('Project')
+    await expect(page.locator('.project-root')).toHaveText(root)
+    data.snapshot.project.name = ''
+    await page.reload()
+    await expect(page.locator('.project-title')).toContainText('agnostic-ai-header')
+    await expect(page.locator('.project-root')).toHaveText(root)
   })
 
   test('offers reload when a boolean save is stale', async ({ page }) => {
