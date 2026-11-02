@@ -5,10 +5,10 @@ globs: "**/*_test.go"
 alwaysApply: false
 ---
 
-- Use `t.TempDir()` for files. Use `testutil.Chdir(t, dir)` only when the test needs a working directory; it changes process-wide state, so that test must not use `t.Parallel()`.
+- Use `t.TempDir()` for files. Use `testutil.Chdir(t, dir)` only when the test needs a working directory; that test must not use `t.Parallel()`.
 - Test names describe behavior. `TestEmit_WritesRulesFile`, not `TestEmit1`.
-- Use table-driven tests only when it pays off (three or more cases with the same shape). A one-off test stays a plain test function.
+- Table-driven tests only for three or more cases of the same shape.
 - Reuse helpers from `internal/testutil`. Do not add an external mocking library.
-- Assertions: `t.Errorf` when the test can keep going, `t.Fatalf` only when continuing would crash or hide the real failure.
-- Each adapter test reads the file back from disk to confirm content, not just that no error was returned.
+- `t.Errorf` by default; `t.Fatalf` only when continuing would crash or hide the failure.
+- Adapter tests read the emitted file back from disk.
 - Integration tests live under `tests/integration` and run the built binary; unit tests stay inside their package.

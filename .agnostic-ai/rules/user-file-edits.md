@@ -5,10 +5,10 @@ globs: "internal/cli/{sync_global,global_,settings_,grok_settings_,import_global
 alwaysApply: false
 ---
 
-`sync --global` edits files the user and other tools also write, such as `~/.claude.json` and `~/.codex/config.toml`. Treat every change here as risky:
+`sync --global` edits files the user and other tools also write (`~/.claude.json`, `~/.codex/config.toml`):
 
-- Edit text in place. Never re-encode a user file: formatting, comments, and every key sync does not own stay byte for byte.
+- Edit text in place; never re-encode. Formatting, comments and keys sync does not own stay byte for byte.
 - Prove add-then-remove restores the original bytes, for a file that existed and for one sync created.
-- Claim ownership of the smallest piece only: a key, a server, or a hook entry. Record it in `state/global.json`. If the user already wrote a value that means the same, take it over.
+- Own the smallest piece only (a key, server or hook entry) and record it in `state/global.json`. Take over an equal user value.
 - Keep a private file private. Stop if the file changed after sync read it.
 - Get a reviewer pass before merging, even for a small change.
