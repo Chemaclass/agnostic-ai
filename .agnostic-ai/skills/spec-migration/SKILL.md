@@ -1,6 +1,6 @@
 ---
 name: spec-migration
-description: Decide whether a change to the spec format needs a migration, and write it so `agnostic-ai migrate` rewrites old specs safely. Use when a change renames, replaces, deprecates, removes, or tightens any field users write under .agnostic-ai/ or in agnostic-ai.yaml.
+description: "Use when a change renames, replaces, deprecates, removes or tightens a field users write under .agnostic-ai/ or in agnostic-ai.yaml"
 ---
 
 # spec-migration

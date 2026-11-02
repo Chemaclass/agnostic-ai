@@ -1,6 +1,6 @@
 ---
 name: agnostic-ai-gh-issue
-description: Take one GitHub issue from branch to merged PR with TDD. Use when asked to work, fix, or implement an issue by number.
+description: "Use to work, fix or implement one GitHub issue by number, through TDD to a merged PR"
 argument-hint: "[issue-number]"
 x-claude:
   allowed-tools: "Read, Edit, Write, Bash(gh *), Bash(git *), Bash(go *), Bash(make *), Bash(./agnostic-ai *)"

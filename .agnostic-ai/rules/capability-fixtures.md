@@ -5,11 +5,11 @@ globs: ["internal/adapters/**/*.go", "internal/cli/native_capabilities.go", "doc
 alwaysApply: false
 ---
 
-When supported kinds change, update `caps.Supports`, `targetsSupportingKind` in `internal/cli/native_capabilities.go` and the target's row in `docs/site/data/capabilities.toml` together, plus its `kitSinkBundle`, parity test and integration fixture.
+When supported kinds change, update `caps.Supports`, `targetsSupportingKind` in `internal/cli/native_capabilities.go` and the target's row in `docs/site/data/capabilities.toml` together, plus `kitSinkBundle`, the parity test and the integration fixture.
 
 When emitted bytes change, refresh:
 
 - Adapter kit-sink golden file: `UPDATE_GOLDEN=1 go test ./internal/adapters/<target>/ -run TestKitSink_GoldenSnapshot`.
 - Integration golden files: `UPDATE_GOLDEN=1 go test ./tests/integration/ -run 'TestGolden|TestSiteDocs_Compare|TestSiteDocs_LandingExplorer'`. Compare and landing data come from `tests/integration/fixtures/`.
 
-Review every regenerated diff; discard unrelated churn.
+Review each regenerated diff; discard unrelated churn.

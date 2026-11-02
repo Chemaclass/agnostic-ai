@@ -1,6 +1,6 @@
 ---
 name: agent-context
-description: Set up or review project agent instructions for clear ownership, useful scope, and current commands.
+description: "Use to set up or review project agent instructions"
 ---
 
 # Agent Context

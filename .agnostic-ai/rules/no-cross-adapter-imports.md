@@ -5,6 +5,4 @@ globs: "internal/adapters/**/*.go"
 alwaysApply: false
 ---
 
-Target adapter packages under `internal/adapters/<target>/` must not import one another.
-
-Shared output helpers belong in `internal/adapters/internal/emit/`, not the registry. Other shared helpers belong in internal packages and must not import target adapters.
+Packages under `internal/adapters/<target>/` must not import one another. Shared output helpers go in `internal/adapters/internal/emit/`, other shared helpers in internal packages that import no target adapter.

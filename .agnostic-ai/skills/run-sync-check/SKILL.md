@@ -1,6 +1,6 @@
 ---
 name: run-sync-check
-description: Run agnostic-ai sync --check, interpret the diff, and pick the right next step. Use after editing specs or adapters.
+description: "Use after editing specs or adapters to run sync --check and pick the next step"
 ---
 
 # run-sync-check

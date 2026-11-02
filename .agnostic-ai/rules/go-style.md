@@ -6,5 +6,5 @@ alwaysApply: false
 ---
 
 - `gofmt` clean. Use `goimports` for import grouping.
-- No external deps unless they earn their place. Prefer stdlib.
-- One concern per PR. Open separate PRs for refactors.
+- Prefer stdlib; add a dependency only when it earns its place.
+- One concern per PR; refactors get their own.

@@ -1,6 +1,6 @@
 ---
 name: playground-rebuild
-description: Rebuild and serve the WASM playground at docs/playground/. Use after editing the playground source or any code reachable from cmd/agnostic-ai-wasm.
+description: "Use after editing the playground source or code reachable from cmd/agnostic-ai-wasm"
 ---
 
 # playground-rebuild

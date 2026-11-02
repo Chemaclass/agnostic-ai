@@ -1,6 +1,6 @@
 ---
 name: target-audit
-description: Audit every agnostic-ai target against current vendor docs, report evidence-backed drift, and report project capability changes. Use for the recurring adapter truth check or when a tool ships a new config feature.
+description: "Use for the recurring adapter truth check, or when a tool ships a new config feature"
 argument-hint: "[target...] [--no-file-issues] [--fix] [--compare-models <model>]"
 disable-model-invocation: false
 ---

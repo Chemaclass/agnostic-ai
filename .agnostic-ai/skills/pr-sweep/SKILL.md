@@ -1,6 +1,6 @@
 ---
 name: pr-sweep
-description: Review every open PR with the code-reviewer agent and an adversarial review, apply the findings, and merge each one once CI is green. Use when asked to ship, sweep, or merge open PRs.
+description: "Use to review, fix and merge every open PR once CI is green"
 argument-hint: "[PR-number ...] [--no-merge]"
 disable-model-invocation: false
 ---

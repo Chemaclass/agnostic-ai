@@ -1,6 +1,6 @@
 ---
 name: regen-schema
-description: Regenerate docs/schemas/config.schema.json after changes to config fields, schema tags, nested types, or cmd/schemagen mappings.
+description: "Use after changing config fields, schema tags, nested types or cmd/schemagen mappings"
 ---
 
 # regen-schema

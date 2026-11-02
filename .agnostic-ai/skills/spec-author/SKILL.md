@@ -1,6 +1,6 @@
 ---
 name: spec-author
-description: Author an agnostic-ai agent, skill, rule, or hook from the user's requested behavior.
+description: "Use to author an agent, skill, rule or hook"
 ---
 
 # spec-author

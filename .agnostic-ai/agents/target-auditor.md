@@ -1,6 +1,6 @@
 ---
 name: target-auditor
-description: Audit one batch of agnostic-ai targets against current vendor docs, reporting evidence-backed drift and meaningful project capability changes.
+description: "Use to audit one batch of targets against vendor docs"
 can: [read, Grep, shell, web]
 model:
   claude: sonnet

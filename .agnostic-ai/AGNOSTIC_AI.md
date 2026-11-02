@@ -4,6 +4,6 @@ agnostic-ai emits native AI tool configuration from portable specs. Go code: `cm
 
 Edit canonical specs in `.agnostic-ai/` and `agnostic-ai.yaml`, then run `go run ./cmd/agnostic-ai sync`. Native files such as `AGENTS.md` and `CLAUDE.md` are generated and ignored; `.openhands/setup.sh` is generated but tracked. Review tracked output before committing.
 
-Paths in these instructions are repository-root relative, including from nested generated files. Start with `CONTRIBUTING.md`; `docs/internal/contributing.md#choose-checks-for-your-change` owns validation selection. Read `docs/internal/adding-adapters.md` for adapter work. Run checks after the change set is complete; releases require `make ci-local`.
+Paths here are repository-root relative. Start with `CONTRIBUTING.md`; `docs/internal/contributing.md#choose-checks-for-your-change` picks the checks. Read `docs/internal/adding-adapters.md` for adapter work. Run checks once the change set is complete; releases need `make ci-local`.
 
-Delegate independent work in parallel with disjoint ownership. Use fast models for lookups, midrange for bounded changes, and higher reasoning for design, debugging, and verification. Coordinate expensive checks through one caller.
+Delegate independent work with disjoint ownership: fast models for lookups, midrange for bounded changes, high reasoning for design, debugging and verification. One caller runs expensive checks.

@@ -1,6 +1,6 @@
 ---
 name: agent-config-bootstrapper
-description: Set up or reshape project root agent instructions from current source and official model guidance.
+description: "Use to set up or reshape project root agent instructions"
 can: [read, write, edit, Grep, Glob, shell, web]
 model:
   claude: sonnet

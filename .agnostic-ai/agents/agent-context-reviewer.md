@@ -1,6 +1,6 @@
 ---
 name: agent-context-reviewer
-description: Audit project agent context for duplication, stale guidance, unsafe instructions, and missing boundaries.
+description: "Use to audit agent context for duplication, stale guidance, unsafe instructions and missing boundaries"
 can: [read, Grep, Glob, shell, web]
 model:
   claude: sonnet

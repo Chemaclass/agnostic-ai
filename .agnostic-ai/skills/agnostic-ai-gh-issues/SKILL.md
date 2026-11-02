@@ -1,6 +1,6 @@
 ---
 name: agnostic-ai-gh-issues
-description: Work the open issues that are unassigned or assigned to you, one at a time through agnostic-ai-gh-issue. Use when asked to work the backlog.
+description: "Use to work the backlog: open issues unassigned or assigned to you, one at a time"
 argument-hint: "[--limit N] [--label foo] [--dry-run]"
 disable-model-invocation: false
 x-claude:

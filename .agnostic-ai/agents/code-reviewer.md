@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Review a Go diff in agnostic-ai for bugs, style, and cross-adapter issues. Use before merging a PR.
+description: "Use before merging a PR to review a Go diff for bugs, style and cross-adapter issues"
 can: [read, Grep, shell]
 model:
   claude: opus

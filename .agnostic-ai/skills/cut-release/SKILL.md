@@ -1,6 +1,6 @@
 ---
 name: cut-release
-description: Cut a new agnostic-ai release end to end. Use when the user wants to ship a new version (tag + GitHub Release).
+description: "Use to ship a new version (tag and GitHub Release)"
 ---
 
 # cut-release

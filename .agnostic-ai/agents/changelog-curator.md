@@ -1,6 +1,6 @@
 ---
 name: changelog-curator
-description: Curate CHANGELOG.md Unreleased notes to the layout and entry rules. Use after merges and before a release.
+description: "Use after merges and before a release to curate CHANGELOG.md Unreleased"
 can: [read, edit, shell, Grep]
 model:
   claude: sonnet

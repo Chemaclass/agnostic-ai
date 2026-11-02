@@ -1,6 +1,6 @@
 ---
 name: adapter-fixer
-description: Close a confirmed target-audit finding end to end and open a PR. Never merges.
+description: "Use to close a confirmed target-audit finding and open a PR; never merges"
 can: [read, write, edit, shell, Grep]
 model:
   claude: sonnet

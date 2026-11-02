@@ -81,5 +81,3 @@ sync:
     - tests/integration/fixtures/rule-heading-context/
     - tests/integration/fixtures/codex-glob-context/
 
-lint:
-  instructions-words: 2300
