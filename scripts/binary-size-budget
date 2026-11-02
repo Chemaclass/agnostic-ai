@@ -760,4 +760,6 @@
 # on Go 1.27.3. Raise the budget by 8192 to keep a build allowance.
 # The empty targets guard (#2963) measured 24694944 bytes; the budget rises by 8192.
 # Target import preservation (#2967) measured 24703136 bytes; the budget rises by 8192.
-24711168
+# The sidebar version badge (#2974) measured 24711328 bytes, 8192 over main
+# 24703136 (embedded client styles and markup); the budget rises by 8192.
+24719360
