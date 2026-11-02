@@ -16,7 +16,8 @@ new capabilities and their value. Keep migration details in the upgrade steps.
 | Layer | Purpose |
 |---|---|
 | Title and dek | Why the reader should look at this release |
-| `Upgrading from vX.Y.Z` | Installation, migrations, and checks after upgrading |
+| `Highlights` | The few changes most readers care about, scannable in seconds |
+| `Upgrading from vX.Y.Z` | Only when a reader must act: migrations and checks after upgrading |
 | `What agnostic-ai changed` | Shipped features, before/after behavior, and examples |
 | `What changed in the targets` | Verified vendor changes and their support here |
 
@@ -28,8 +29,8 @@ Use "you" for what the reader does and plain words for what the software does.
 ## Curation
 
 A release briefing answers three questions: how do I move from the previous
-version, what can I do now, and what changed in the tools I use? Lead with
-upgrade blockers, then group substantial features into a few reader outcomes.
+version (only when that needs action), what can I do now, and what changed
+in the tools I use? Lead with upgrade blockers when there are any, then group substantial features into a few reader outcomes.
 Name the important capabilities without explaining their full contracts.
 Keep smaller fixes and secondary details in the linked release notes.
 
@@ -82,9 +83,14 @@ move a later announcement into an earlier release's news.
 
 ## Article contract
 
-Use these three sections, with feature or target subsections when useful:
+Open with `## Highlights {#highlights}`: up to five bullets that match the
+changelog's `### Highlights`, breaking changes first, each linking its
+reference page where one exists. Then use these sections, with feature or
+target subsections when useful:
 
-1. `## Upgrading from vX.Y.Z {#actions}` names the immediately previous
+1. `## Upgrading from vX.Y.Z {#actions}` only when a reader must act: a
+   breaking change, a required migration, or a config or pin change. Skip the
+   section otherwise; most releases have none. Name the immediately previous
    release. Explain installation, required migrations, and regeneration.
    Separate required migrations from optional adoption. Include any
    `requires` or schema update, and put required rule/config migrations

@@ -53,7 +53,7 @@ Use this workflow when the user asks to publish a new version. A request to prep
 5. After finalizing the changelog, create exactly one
    `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing. Read and
    follow [references/release-briefing.md](references/release-briefing.md).
-   Explain how to upgrade from the previous release, name the main shipped
+   Open with Highlights. Add upgrade steps only when a reader must act; name the main shipped
    value with a few useful examples, and select consequential target changes. Keep
    agnostic-ai support separate from upstream availability.
 6. Validate the completed release tree before committing. Follow the generation
