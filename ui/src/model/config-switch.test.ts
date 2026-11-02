@@ -7,6 +7,8 @@ describe('switch between project and global', () => {
     expect(parseServedConfig({ ok: true, root: '/home/.agnostic-ai', global: true, projectRoot: '/repo' }))
       .toEqual({ root: '/home/.agnostic-ai', global: true, projectRoot: '/repo' })
     expect(parseServedConfig({ ok: true, root: '/home', global: true, projectRoot: '' })).toEqual({ root: '/home', global: true })
+    expect(parseServedConfig({ ok: true, root: '/repo', global: false, version: '0.91.0' })).toEqual({ root: '/repo', global: false, version: '0.91.0' })
+    expect(parseServedConfig({ ok: true, root: '/repo', global: false, version: '' })).toEqual({ root: '/repo', global: false })
     expect(parseServedConfig({ ok: true })).toBeUndefined()
     expect(parseServedConfig('nope')).toBeUndefined()
   })

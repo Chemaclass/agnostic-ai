@@ -8,7 +8,7 @@ import { GlobalSearch } from './components/GlobalSearch'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
 import { ErrorPanel, RefreshFailure } from './components/Banner'
-import { Header, Nav, type Remote } from './components/Shell'
+import { Header, Nav, useServedConfig, type Remote } from './components/Shell'
 import { RecheckProvider, useRecheck } from './components/Recheck'
 import { APPLE_PLATFORM } from './components/ui'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
@@ -81,6 +81,7 @@ export default function App() {
   const retry = useCallback(() => setReloads((n) => n + 1), [])
   const refresh = retry
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
+  const served = useServedConfig(source.kind)
   const stale = overview.loaded !== undefined && overview.error !== undefined
   const recheck = useRecheck(overview, refresh, source.kind === 'api', sourceKey)
   useEffect(() => {
@@ -184,6 +185,7 @@ export default function App() {
           </a>
           <Header
             overview={overview}
+            served={served}
             inspectorOpen={inspectorOpen}
             onToggleInspector={() => setInspectorOpen((open) => !open)}
             theme={theme}
@@ -191,7 +193,7 @@ export default function App() {
             onOpenSearch={openSearch}
           />
           <div className="shell">
-            <Nav overview={overview} />
+            <Nav overview={overview} served={served} />
             <main id="main" className="main" tabIndex={-1}>
               <div className="page">
                 {sourceError && <ErrorPanel error={sourceError} />}

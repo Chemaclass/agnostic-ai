@@ -437,6 +437,82 @@ input:hover {
   min-width: 0;
 }
 
+/* The release badge rests at the foot of the sidebar. On hover the mark
+   turns a quarter and lands back on its own shape. */
+.sidenav-footer {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.release-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.release-badge-build {
+  border-style: dashed;
+}
+
+a.release-badge:hover,
+a.release-badge:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.release-mark {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+  transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+a.release-badge:hover .release-mark,
+a.release-badge:focus-visible .release-mark {
+  transform: rotate(90deg);
+}
+
+.release-text {
+  display: grid;
+  min-width: 0;
+}
+
+.release-version {
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.release-caption {
+  font-size: 11px;
+}
+
+.release-arrow {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  transition: transform 150ms ease-out, color 150ms ease-out;
+}
+
+a.release-badge:hover .release-arrow,
+a.release-badge:focus-visible .release-arrow {
+  color: var(--accent);
+  transform: translate(2px, -2px);
+}
+
 
 .icon {
   flex: none;
@@ -2892,7 +2968,8 @@ tr.is-advised > td {
     scrollbar-width: thin;
   }
 
-  .nav-description {
+  .nav-description,
+  .sidenav-footer {
     display: none;
   }
 

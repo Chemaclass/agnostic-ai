@@ -6,6 +6,8 @@ export interface ServedConfig {
   global: boolean
   /** The project a global server started in. */
   projectRoot?: string
+  /** The agnostic-ai version that serves the page, as `--version` prints it. */
+  version?: string
 }
 
 export interface SwitchOffer {
@@ -21,6 +23,7 @@ export function parseServedConfig(value: unknown): ServedConfig | undefined {
   if (typeof health.root !== 'string') return undefined
   const served: ServedConfig = { root: health.root, global: health.global === true }
   if (served.global && typeof health.projectRoot === 'string' && health.projectRoot) served.projectRoot = health.projectRoot
+  if (typeof health.version === 'string' && health.version) served.version = health.version
   return served
 }
 
