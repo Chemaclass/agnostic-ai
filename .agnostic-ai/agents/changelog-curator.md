@@ -27,6 +27,7 @@ Keep these sections in this order:
 
 | Section | Scope |
 |---|---|
+| `### Highlights` | Up to five bullets on the most impactful changes, breaking first, each citing the PRs of the entries it sums up |
 | `### General` | Shared CLI behavior, configuration, or the same behavior across three or more tools |
 | `### By tool` | Changes for one or two tools, under `#### <Tool>` using its public name; a new adapter belongs here |
 | `### Site` | Changes whose only effect is on the site or documentation |
