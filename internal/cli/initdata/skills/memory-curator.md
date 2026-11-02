@@ -1,6 +1,6 @@
 ---
 name: memory-curator
-description: Curate this tool's auto memory. Use when the memory index is near its load limit or the stored notes look duplicated or stale.
+description: "Use when the memory index nears its load limit or notes look duplicated or stale"
 targets: [claude, qoder]
 ---
 
