@@ -189,7 +189,7 @@ models:
   fast:     {claude: haiku,  codex: luna,  effort: low}
 ```
 
-An agent with `model: fast` gets `haiku` in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way.
+An agent with `model: fast` gets `haiku` (Haiku 5.5 today) in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. To pin a Claude version, write the exact id instead, such as `claude: claude-haiku-5-5`. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way.
 
 Claude Code resolves `opus`, `sonnet`, `haiku`, and `fable` itself. Codex takes only exact ids, so agnostic-ai resolves these aliases when it writes Codex files:
 
