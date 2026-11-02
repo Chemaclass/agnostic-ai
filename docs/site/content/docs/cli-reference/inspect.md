@@ -443,7 +443,7 @@ Edit and impact requests take JSON. Every edit and preview names its `audience`:
 
 | Endpoint | Body or query |
 |----------|---------------|
-| `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, and `ui` (whether the web interface is served), without loading specs. A global server started in a project adds that project's absolute `projectRoot`. |
+| `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, `ui` (whether the web interface is served), and `version` (as `agnostic-ai --version` prints it), without loading specs. A global server started in a project adds that project's absolute `projectRoot`. |
 | `POST /api/switch` | `{}` with `Content-Type: application/json`. Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a global server. Returns `url`, `root`, `global`, and `started`. Answers 404 on a global server with no `projectRoot`, 409 with `{error, missing, root}` and no server when the user configuration folder has no setup, and 503 with the command to run when no server could start. |
 | `POST /api/global/create` | `{"git": true}` or `{"git": false}`, project servers only. Writes the starter files into the user configuration folder fixed at startup, and replies `{root, created, git}`. Answers 409 when a setup already exists. Any other field is a 400. |
 | `GET /api/views/overview` | None. `global` is true for user configuration. |

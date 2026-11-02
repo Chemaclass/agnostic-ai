@@ -102,7 +102,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			}
 			defer src.close()
 			peer := switchPeerFor(".", global)
-			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global, AllowedOrigins: allowedOrigins}
+			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global, Version: cmd.Root().Version, AllowedOrigins: allowedOrigins}
 			if global && peer != nil {
 				opts.ProjectRoot = peer.root
 			}

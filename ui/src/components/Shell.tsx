@@ -6,6 +6,7 @@ import { ConfigSwitch } from './ConfigSwitch'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
+import { servingRelease } from '../model/release'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -47,6 +48,38 @@ function useHeightVariable(ref: RefObject<HTMLElement | null>, name: string) {
   }, [ref, name])
 }
 
+/** Reads `/api/health` once per API source; other sources have no server to ask. */
+export function useServedConfig(sourceKind: string): ServedConfig | undefined {
+  const [served, setServed] = useState<ServedConfig>()
+  useEffect(() => {
+    if (sourceKind !== 'api') return
+    let live = true
+    fetch(API.health).then((response) => response.ok ? response.json() : undefined).then((health) => {
+      const config = parseServedConfig(health)
+      if (live && config) setServed(config)
+    }).catch(() => undefined)
+    return () => { live = false }
+  }, [sourceKind])
+  return served
+}
+
+function LogoMark({ className }: { className: string }) {
+  return (
+    <svg className={className} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <path d="M43 32H50.5M39.78 39.78L45.08 45.08M32 43V50.5M24.22 39.78L18.92 45.08M21 32H13.5M24.22 24.22L18.92 18.92M32 21V13.5M39.78 24.22L45.08 18.92" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="8" fill="currentColor" />
+      <g fill="currentColor">
+        <circle cx="55" cy="32" r="4.5" /><circle cx="32" cy="55" r="4.5" />
+        <circle cx="9" cy="32" r="4.5" /><circle cx="32" cy="9" r="4.5" />
+      </g>
+      <g fill="var(--text-muted)">
+        <circle cx="48.26" cy="48.26" r="4.5" /><circle cx="15.74" cy="48.26" r="4.5" />
+        <circle cx="15.74" cy="15.74" r="4.5" /><circle cx="48.26" cy="15.74" r="4.5" />
+      </g>
+    </svg>
+  )
+}
+
 function apiProjectName(snapshot: { project: { name?: string } } | undefined, served: ServedConfig | undefined): string | undefined {
   if (!snapshot) return undefined
   if (snapshot.project.name) return snapshot.project.name
@@ -57,6 +90,7 @@ function apiProjectName(snapshot: { project: { name?: string } } | undefined, se
 
 export function Header({
   overview,
+  served,
   inspectorOpen,
   onToggleInspector,
   theme,
@@ -64,6 +98,7 @@ export function Header({
   onOpenSearch,
 }: {
   overview: Remote<OverviewView>
+  served: ServedConfig | undefined
   inspectorOpen: boolean
   onToggleInspector: () => void
   theme: 'dark' | 'light'
@@ -74,34 +109,13 @@ export function Header({
   const headerRef = useRef<HTMLElement>(null)
   useHeightVariable(headerRef, '--topbar-offset')
   const snapshot = overview.loaded?.data.snapshot
-  const [served, setServed] = useState<ServedConfig>()
-  useEffect(() => {
-    if (app.source.kind !== 'api') return
-    let live = true
-    fetch(API.health).then((response) => response.ok ? response.json() : undefined).then((health) => {
-      const config = parseServedConfig(health)
-      if (live && config) setServed(config)
-    }).catch(() => undefined)
-    return () => { live = false }
-  }, [app.source.kind])
   const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
   const projectName = app.source.kind === 'api' ? apiProjectName(snapshot, served) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
 
   return (
     <header className="topbar" ref={headerRef}>
       <div className="brand">
-        <svg className="logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-          <path d="M43 32H50.5M39.78 39.78L45.08 45.08M32 43V50.5M24.22 39.78L18.92 45.08M21 32H13.5M24.22 24.22L18.92 18.92M32 21V13.5M39.78 24.22L45.08 18.92" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-          <circle cx="32" cy="32" r="8" fill="currentColor" />
-          <g fill="currentColor">
-            <circle cx="55" cy="32" r="4.5" /><circle cx="32" cy="55" r="4.5" />
-            <circle cx="9" cy="32" r="4.5" /><circle cx="32" cy="9" r="4.5" />
-          </g>
-          <g fill="var(--text-muted)">
-            <circle cx="48.26" cy="48.26" r="4.5" /><circle cx="15.74" cy="48.26" r="4.5" />
-            <circle cx="15.74" cy="15.74" r="4.5" /><circle cx="48.26" cy="15.74" r="4.5" />
-          </g>
-        </svg>
+        <LogoMark className="logo" />
         <span className="brand-name">{PRODUCT_NAME}</span>
       </div>
       {(projectName || served || app.source.kind === 'static' || app.source.kind === 'mock') && (
@@ -149,7 +163,35 @@ export function Header({
   )
 }
 
-export function Nav({ overview }: { overview: Remote<OverviewView> }) {
+// The release badge sits at the bottom of the sidebar. A published
+// release links its notes; a checkout build shows its label as it is.
+function ReleaseBadge({ version }: { version: string }) {
+  const release = servingRelease(version)
+  const text = (
+    <span className="release-text">
+      <span className="release-version"><span className="sr-only">agnostic-ai </span>{release.label}</span>{' '}
+      <span className="release-caption">{release.kind === 'release' ? 'Release notes' : 'Development build'}</span>
+    </span>
+  )
+  if (release.kind === 'build') {
+    return (
+      <div className="release-badge release-badge-build" title={`agnostic-ai ${release.label}`}>
+        <LogoMark className="release-mark" />
+        {text}
+      </div>
+    )
+  }
+  return (
+    <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`Read the agnostic-ai ${release.label} release notes (opens in a new tab)`}>
+      <LogoMark className="release-mark" />
+      {text}
+      <Icon name="arrow" className="release-arrow" />
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
+  )
+}
+
+export function Nav({ overview, served }: { overview: Remote<OverviewView>; served: ServedConfig | undefined }) {
   const app = useApp()
   const asideRef = useRef<HTMLElement>(null)
   useHeightVariable(asideRef, '--nav-offset')
@@ -174,6 +216,11 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
       <nav className="section-nav" aria-label="Configuration sections">
         <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
       </nav>
+      {served?.version && (
+        <footer className="sidenav-footer">
+          <ReleaseBadge version={served.version} />
+        </footer>
+      )}
     </aside>
   )
 }

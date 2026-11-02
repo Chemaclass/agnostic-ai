@@ -33,6 +33,33 @@ for (const width of [320, 390, 768, 900, 1024, 1440]) {
   })
 }
 
+test('names the serving release at the foot of the sidebar', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.91.0' } }))
+  await page.goto('/?view=context')
+  const badge = page.getByRole('link', { name: 'agnostic-ai v0.91.0 Release notes (opens in a new tab)' })
+  await expect(badge).toHaveAttribute('href', 'https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.91.0')
+  await expect(badge).toBeInViewport({ ratio: 1 })
+  await page.setViewportSize({ width: 900, height: 900 })
+  await expect(badge).toBeHidden()
+})
+
+test('shows a checkout build without a release link', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: 'main@b434c92e1a2b' } }))
+  await page.goto('/?view=context')
+  await expect(page.locator('.release-badge')).toContainText('main@b434c92e1a2b Development build')
+  await expect(page.locator('.sidenav').getByRole('link', { name: /Release notes/ })).toHaveCount(0)
+})
+
+test('shows no version without a server that names one', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true } }))
+  await page.goto('/?view=context')
+  await expect(page.getByRole('heading', { level: 1, name: 'Context', exact: true })).toBeVisible()
+  await expect(page.locator('.release-badge')).toHaveCount(0)
+})
+
 test('fits long project names and configuration switches on a phone', async ({ page }) => {
   const data = structuredClone(fixture)
   data.snapshot.project.name = 'a-project-with-a-long-unbroken-name-that-needs-to-wrap'

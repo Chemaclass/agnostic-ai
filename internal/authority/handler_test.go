@@ -340,3 +340,19 @@ func TestHandler_HealthNamesTheProjectAGlobalServerStartedIn(t *testing.T) {
 		t.Errorf("health without a project = %v", bare)
 	}
 }
+
+func TestHandler_HealthNamesTheServingVersion(t *testing.T) {
+	var health struct {
+		Version string `json:"version"`
+	}
+	getJSON(t, demoServer(t, HandlerOptions{Version: "0.91.0"}).URL+"/api/health", &health)
+	if health.Version != "0.91.0" {
+		t.Errorf("health version = %q, want 0.91.0", health.Version)
+	}
+
+	var bare map[string]any
+	getJSON(t, demoServer(t, HandlerOptions{}).URL+"/api/health", &bare)
+	if _, ok := bare["version"]; ok {
+		t.Errorf("health without a version = %v", bare)
+	}
+}

@@ -6,6 +6,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### General
+
+- The web interface shows the agnostic-ai version at the foot of the sidebar, linked to its release notes; `/api/health` now returns `version`.
+
 ## v0.91.0 - 2026-11-01
 
 ### Highlights
