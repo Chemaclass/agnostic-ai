@@ -186,7 +186,7 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
 | [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in an agent's `mcp_servers` |
 
-Codex `environment_id` is the ID of a configured executor and defaults to `local`. The older `experimental_environment` still loads: sync writes `local` as `environment_id = "local"` and leaves `remote` out with a note, since Codex no longer reads that key. [`agnostic-ai migrate --only mcps`](@/docs/cli-reference/upgrades.md#migrate) rewrites `local`.
+Codex `environment_id` is the ID of a configured executor and defaults to `local`. The older `experimental_environment` still loads: sync writes `local` as `environment_id = "local"` and leaves `remote` out, since Codex no longer reads that key. `lint` and project `sync` say so. [`agnostic-ai migrate --only mcps`](@/docs/cli-reference/upgrades.md#migrate) rewrites `local`.
 
 The Crush and Claude Code fields also work under `x-crush` or `x-claude`, which wins, and other tools leave them out. On Amp, set `x-amp.includeTools`. `x-factory`, `x-kilo`, and `x-continue` override the matching top-level options for that target. Each target page gives the details: [Factory tool lists](@/docs/targets/factory.md#mcp), [Crush channels](@/docs/targets/crush.md#mcp), and [Claude Code flags](@/docs/targets/claude-reference.md#mcp-mappings).
 

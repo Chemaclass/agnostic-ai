@@ -44,7 +44,7 @@ var lintCodes = map[string]lintCode{
 	"LINT058": {
 		Severity: lintWarn,
 		Title:    "Old Codex MCP environment field",
-		Cause:    "An MCP spec that reaches Codex sets `experimental_environment`. Codex now reads `environment_id`, the ID of a configured executor, and ignores the old key. Sync writes `local` as `environment_id = \"local\"` and leaves any other value, such as `remote`, out with a note.",
+		Cause:    "An MCP spec that reaches Codex sets `experimental_environment`. Codex now reads `environment_id`, the ID of a configured executor, and ignores the old key. Sync writes `local` as `environment_id = \"local\"` and leaves any other value, such as `remote`, out, with a note on project sync.",
 		Fix:      "Run `agnostic-ai migrate --only mcps` to rewrite `experimental_environment: local`. For another value, set `environment_id` to a configured executor ID, or remove the key.",
 	},
 	"LINT001": {
