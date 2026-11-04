@@ -70,6 +70,23 @@ func TestImportKimi_LocalExecutorAndRuntimeIDRoundTrip(t *testing.T) {
 	}
 }
 
+func TestImportKimi_EnvironmentIDRoundTrip(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kimi]\nbuiltins: []\n")
+	writeFile(t, ".kimi-code/mcp.json", `{"mcpServers":{"remote-fs":{"transport":"stdio","command":"example-mcp","environment_id":"dev-box"}}}`)
+	for _, args := range [][]string{{"import", "kimi"}, {"sync"}, {"sync", "--check"}, {"lint"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	if data := readFile(t, ".agnostic-ai/mcps/remote-fs.yaml"); !strings.Contains(data, "x-kimi:") || !strings.Contains(data, "environment_id: dev-box") {
+		t.Errorf("imported spec lacks x-kimi environment_id: %s", data)
+	}
+	if data := readFile(t, ".kimi-code/mcp.json"); !strings.Contains(data, `"environment_id": "dev-box"`) {
+		t.Errorf("round-trip MCP lacks environment_id: %s", data)
+	}
+}
+
 func TestImportGemini_OAuthOptionsRoundTrip(t *testing.T) {
 	testutil.TempCwd(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\nbuiltins: []\n")

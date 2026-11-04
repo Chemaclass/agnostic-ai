@@ -368,7 +368,7 @@ func normalizeKimiMCP(server map[string]any) {
 		delete(server, "enabled")
 	}
 	native := map[string]any{}
-	for _, key := range []string{"executor", "runtime_id", "auth", "bearerTokenEnvVar", "deferred", "startupTimeoutMs", "toolTimeoutMs", "enabledTools", "disabledTools"} {
+	for _, key := range []string{"executor", "environment_id", "runtime_id", "auth", "bearerTokenEnvVar", "deferred", "startupTimeoutMs", "toolTimeoutMs", "enabledTools", "disabledTools"} {
 		if v, ok := server[key]; ok {
 			native[key] = v
 			delete(server, key)

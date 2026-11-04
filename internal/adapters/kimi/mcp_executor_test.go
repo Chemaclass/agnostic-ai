@@ -52,3 +52,40 @@ func TestEmit_MCPKeepsLocalExecutorAndRuntimeID(t *testing.T) {
 		}
 	}
 }
+
+func TestEmit_MCPKeepsEnvironmentID(t *testing.T) {
+	for name, native := range map[string]map[string]any{
+		"environment_id": {"environment_id": "dev-box"},
+		"both keys":      {"environment_id": "dev-box", "runtime_id": "dev-box"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			bundle := spec.Bundle{MCPs: []spec.Entry{{Name: "remote-fs", Meta: map[string]any{"command": "example-mcp", "x-kimi": native}}}}
+			if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(".kimi-code/mcp.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for key, value := range native {
+				if want := `"` + key + `": "` + value.(string) + `"`; !strings.Contains(string(data), want) {
+					t.Errorf("native MCP lacks %q: %s", want, data)
+				}
+			}
+		})
+	}
+}
+
+func TestEmit_MCPRejectsEmptyEnvironmentID(t *testing.T) {
+	for name, value := range map[string]any{"empty": "", "blank": " ", "number": 3} {
+		t.Run(name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			bundle := spec.Bundle{MCPs: []spec.Entry{{Name: "remote-fs", Meta: map[string]any{"command": "example-mcp", "x-kimi": map[string]any{"environment_id": value}}}}}
+			err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false)
+			if err == nil || !strings.Contains(err.Error(), "environment_id must name an environment") {
+				t.Fatalf("invalid environment_id was not rejected: %v", err)
+			}
+		})
+	}
+}

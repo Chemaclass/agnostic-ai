@@ -90,7 +90,7 @@ func (Adapter) CheckedUserMCPServers(mcps []spec.Entry) (map[string]any, error) 
 	for _, e := range mcps {
 		m := emit.ResolveMeta(e.Meta, target)
 		d := map[string]any{}
-		for _, key := range []string{"command", "args", "env", "cwd", "executor", "runtime_id", "url", "headers", "auth", "bearerTokenEnvVar", "enabled", "deferred", "startupTimeoutMs", "toolTimeoutMs", "enabledTools", "disabledTools"} {
+		for _, key := range []string{"command", "args", "env", "cwd", "executor", "environment_id", "runtime_id", "url", "headers", "auth", "bearerTokenEnvVar", "enabled", "deferred", "startupTimeoutMs", "toolTimeoutMs", "enabledTools", "disabledTools"} {
 			if v, ok := m[key]; ok {
 				d[key] = v
 			}
