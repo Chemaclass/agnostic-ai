@@ -117,3 +117,5 @@ openhands-ui-timeout	openhands	OpenHands offers no per-server timeout configurat
 qoder-shared-skill-source	qoder	Qoder CLI does not enable a compatible shared skill root.	compatibility source is now enabled by default	contradicts	2814
 claude-project-bash-diff-false	claude	Every project bashEditDiffEnabled value is ignored.	A false in either repository file	contradicts	2815
 vibe-mcp-sampling-native-default	vibe	Vibe treats omitted MCP sampling_enabled as true, so global sync may adopt an otherwise equal explicit true record.	sampling_enabled: bool = Field( default=False,	contradicts	2817
+codex-mcp-environment-id-renamed	codex	Codex places an MCP server with mcp_servers.<id>.experimental_environment set to local or remote.	Execution environment for the MCP server. Defaults to `local`. Use the ID of a configured executor to run a stdio server	contradicts	2976
+kimi-mcp-runtime-id-renamed	kimi	Stdio servers preserve x-kimi.runtime_id to start the server in a Kimi runtime.	Id of the remote environment that starts the server; defaults to local	contradicts	2977
