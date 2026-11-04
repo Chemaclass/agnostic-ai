@@ -10,10 +10,21 @@ import (
 )
 
 func (Adapter) MCPLaunchView() emit.MCPLaunchView { return emit.MCPLaunchView{Resolved: true} }
+
+// resolveMCPMeta keeps environment_id only from x-kimi: a top-level
+// environment_id names a Codex executor, not a Kimi environment.
+func resolveMCPMeta(meta map[string]any) map[string]any {
+	m := emit.ResolveMeta(meta, target)
+	if native, _ := meta["x-kimi"].(map[string]any); native["environment_id"] == nil {
+		delete(m, "environment_id")
+	}
+	return m
+}
+
 func (Adapter) PrepareMCPReferences(mcps []spec.Entry) []spec.Entry {
 	out := make([]spec.Entry, 0, len(mcps))
 	for _, e := range mcps {
-		m := emit.ResolveMeta(e.Meta, target)
+		m := resolveMCPMeta(e.Meta)
 		for _, key := range []string{"env", "headers"} {
 			if values, ok := m[key].(map[string]string); ok {
 				normalized := make(map[string]any, len(values))
@@ -69,6 +80,10 @@ func (Adapter) PrepareMCPReferences(mcps []spec.Entry) []spec.Entry {
 			emit.NoteEntryOmitted(target, spec.KindMCP, e.Name)
 			continue
 		}
+		// CheckedUserMCPServers resolves again and must still see x-kimi as the source.
+		if id, ok := m["environment_id"]; ok {
+			m["x-kimi"] = map[string]any{"environment_id": id}
+		}
 		e.Meta = m
 		out = append(out, e)
 	}
@@ -88,9 +103,9 @@ func (Adapter) RewriteMCPReferences(mcps []spec.Entry) []spec.Entry {
 func (Adapter) CheckedUserMCPServers(mcps []spec.Entry) (map[string]any, error) {
 	out := map[string]any{}
 	for _, e := range mcps {
-		m := emit.ResolveMeta(e.Meta, target)
+		m := resolveMCPMeta(e.Meta)
 		d := map[string]any{}
-		for _, key := range []string{"command", "args", "env", "cwd", "executor", "runtime_id", "url", "headers", "auth", "bearerTokenEnvVar", "enabled", "deferred", "startupTimeoutMs", "toolTimeoutMs", "enabledTools", "disabledTools"} {
+		for _, key := range []string{"command", "args", "env", "cwd", "executor", "environment_id", "runtime_id", "url", "headers", "auth", "bearerTokenEnvVar", "enabled", "deferred", "startupTimeoutMs", "toolTimeoutMs", "enabledTools", "disabledTools"} {
 			if v, ok := m[key]; ok {
 				d[key] = v
 			}
