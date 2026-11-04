@@ -89,3 +89,24 @@ func TestEmit_MCPRejectsEmptyEnvironmentID(t *testing.T) {
 		})
 	}
 }
+
+func TestEmit_MCPTakesEnvironmentIDOnlyFromXKimi(t *testing.T) {
+	testutil.TempCwd(t)
+	bundle := spec.Bundle{MCPs: []spec.Entry{
+		{Name: "shared", Meta: map[string]any{"command": "example-mcp", "environment_id": "devbox"}},
+		{Name: "remote-fs", Meta: map[string]any{"command": "example-mcp", "environment_id": "devbox", "x-kimi": map[string]any{"environment_id": "dev-box"}}},
+	}}
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(".kimi-code/mcp.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), `"devbox"`) {
+		t.Errorf("top-level environment_id leaked into native MCP: %s", data)
+	}
+	if strings.Count(string(data), `"environment_id": "dev-box"`) != 1 {
+		t.Errorf("native MCP lacks x-kimi environment_id once: %s", data)
+	}
+}
