@@ -1,0 +1,4 @@
+# Keep this comment: migrations must not reformat MCP specs.
+name: files
+command: npx
+experimental_environment: local

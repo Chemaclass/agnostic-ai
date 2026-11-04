@@ -158,6 +158,7 @@ func kitSinkBundle() spec.Bundle {
 				"startup_timeout_sec":         2.5,
 				"tool_timeout_sec":            90,
 				"default_tools_approval_mode": "writes",
+				"environment_id":              "devbox",
 			},
 		},
 		{

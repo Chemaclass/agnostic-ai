@@ -33,7 +33,7 @@ var specKeys = []string{
 	"oauth_client_id", "oauth_client_secret", "oauth_resource", "oauthClientId",
 	"oauthClientSecret", "oauthResource", "requestOptions", "required", "sandbox", "sandboxEnabled",
 	"scopes", "sessionless", "startup_timeout_ms", "startup_timeout_sec", "tool_timeout_sec",
-	"experimental_environment", "autoApprove", "disabledTools", "oauthScopes", "connectTimeout",
+	"environment_id", "experimental_environment", "autoApprove", "disabledTools", "oauthScopes", "connectTimeout",
 	"headersHelper", "envFile", "dev", "channel_enabled", "channel_reply",
 }
 

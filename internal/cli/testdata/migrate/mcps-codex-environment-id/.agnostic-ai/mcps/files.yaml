@@ -1,0 +1,6 @@
+# Keep this comment: migrations must not reformat MCP specs.
+name: files
+command: npx
+args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+experimental_environment:   "local"   # runs on this machine
+required: true

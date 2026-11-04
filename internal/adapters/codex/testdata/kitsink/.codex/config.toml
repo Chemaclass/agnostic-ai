@@ -28,3 +28,4 @@ tool_timeout_sec = 90
 default_tools_approval_mode = "writes"
 enabled_tools = ["read_file"]
 disabled_tools = ["delete_file"]
+environment_id = "devbox"

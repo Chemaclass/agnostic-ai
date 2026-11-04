@@ -1003,7 +1003,7 @@ disabled_tools = ["delete_file"]
 
 // Round-trip for #693: required, startup_timeout_sec, tool_timeout_sec,
 // default_tools_approval_mode, oauth, scopes, oauth_resource, and
-// experimental_environment must survive an import. A fractional
+// environment_id must survive an import. A fractional
 // startup_timeout_sec proves the importer decodes the vendor's
 // `number` type rather than only the integer literal form.
 // startup_timeout_ms joins them for #735.
@@ -1018,7 +1018,7 @@ tool_timeout_sec = 90
 default_tools_approval_mode = "writes"
 scopes = ["repo", "read:org"]
 oauth_resource = "https://api.githubcopilot.com/mcp/"
-experimental_environment = "remote"
+environment_id = "staging"
 
 [mcp_servers.github.oauth]
 client_id = "abc123"
@@ -1043,7 +1043,7 @@ callback_port = 8765
 		"- repo",
 		"- read:org",
 		"oauth_resource: https://api.githubcopilot.com/mcp/",
-		"experimental_environment: remote",
+		"environment_id: staging",
 		"client_id: abc123",
 		"callback_url: https://localhost/callback",
 		"callback_port: 8765",
@@ -1051,6 +1051,47 @@ callback_port = 8765
 		if !strings.Contains(string(github), want) {
 			t.Errorf("github.yaml missing %q:\n%s", want, github)
 		}
+	}
+}
+
+// Codex ignores the old experimental_environment key (#2976), so import
+// writes the new environment_id: `local` keeps its meaning, a value
+// that names no executor is dropped with a note, and environment_id wins
+// when a table sets both.
+func TestImportFromCodex_MCPExperimentalEnvironmentWritesEnvironmentID(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.old-local]
+command = "a"
+experimental_environment = "local"
+
+[mcp_servers.old-remote]
+command = "b"
+experimental_environment = "remote"
+
+[mcp_servers.both]
+command = "c"
+environment_id = "staging"
+experimental_environment = "local"
+`)
+	log := captureLogOut(t)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	out := log.String()
+	for name, want := range map[string]string{"old-local": "environment_id: local", "old-remote": "", "both": "environment_id: staging"} {
+		body, err := os.ReadFile(filepath.Join(dir, "mcps", name+".yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(body), "experimental_environment") {
+			t.Errorf("%s.yaml kept the old key:\n%s", name, body)
+		}
+		if want == "" && strings.Contains(string(body), "environment_id") || want != "" && !strings.Contains(string(body), want) {
+			t.Errorf("%s.yaml want %q:\n%s", name, want, body)
+		}
+	}
+	if want := "experimental_environment: remote names no executor"; strings.Count(out, want) != 1 {
+		t.Errorf("want one note %q, got:\n%s", want, out)
 	}
 }
 
@@ -1775,4 +1816,35 @@ func TestImportFromCodex_KeepsSkillsSectionWithIntro(t *testing.T) {
 func shredOn() importCodexOpts {
 	shred := true
 	return importCodexOpts{Shred: &shred}
+}
+
+// A hand-written environment_id survives import, sync, and sync --check,
+// and lint accepts the field it writes (#2976).
+func TestImportCodex_EnvironmentIDRoundTripsThroughSync(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, ".codex/config.toml"), "[mcp_servers.fs]\ncommand = \"npx\"\nenvironment_id = \"devbox\"\n")
+
+	if out, err := runCLI(t, "import", "codex"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".codex/config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "[mcp_servers.fs]\ncommand = \"npx\"\nenvironment_id = \"devbox\"\n") {
+		t.Errorf("synced config.toml lost environment_id:\n%s", data)
+	}
+	if out, err := runCLI(t, "sync", "--check", "--gitignore=off"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "lint"); err != nil || strings.Contains(out, "LINT0") {
+		t.Errorf("lint: %v\n%s", err, out)
+	}
 }

@@ -394,6 +394,13 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				}
 			}
 			docs := codexMCPDocs(servers)
+			if target == "codex" {
+				for _, note := range droppedCodexEnvironmentNotes(servers) {
+					if _, err := fmt.Fprintf(warn, "note: %s\n", note); err != nil {
+						return err
+					}
+				}
+			}
 			if target == "grok" {
 				native, _, err := readGrokConfig(path)
 				if err != nil {

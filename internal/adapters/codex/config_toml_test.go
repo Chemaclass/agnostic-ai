@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -252,7 +253,6 @@ func TestEmit_MCP_WritesRequiredAndTimeouts(t *testing.T) {
 				"startup_timeout_sec":         2.5,
 				"tool_timeout_sec":            90,
 				"default_tools_approval_mode": "writes",
-				"experimental_environment":    "remote",
 			},
 		},
 	}
@@ -265,11 +265,72 @@ func TestEmit_MCP_WritesRequiredAndTimeouts(t *testing.T) {
 		"startup_timeout_sec = 2.5",
 		"tool_timeout_sec = 90",
 		`default_tools_approval_mode = "writes"`,
-		`experimental_environment = "remote"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
+	}
+}
+
+// Codex reads `mcp_servers.<id>.environment_id`, "the ID of a configured
+// executor", and no longer reads `experimental_environment`: 0.166.0
+// ignores it, and --strict-config rejects the file (#2976). The old
+// spec field's `local` keeps its meaning as `environment_id = "local"`;
+// `remote` names no executor, so it writes nothing.
+func TestEmit_MCP_WritesEnvironmentID(t *testing.T) {
+	cases := []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"new field", map[string]any{"environment_id": "staging"}, `environment_id = "staging"`},
+		{"old local", map[string]any{"experimental_environment": "local"}, `environment_id = "local"`},
+		{"old remote", map[string]any{"experimental_environment": "remote"}, ""},
+		{"both forms", map[string]any{"environment_id": "staging", "experimental_environment": "local"}, `environment_id = "staging"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			meta := map[string]any{"command": "npx"}
+			maps.Copy(meta, tc.meta)
+			entries := []spec.Entry{{Kind: spec.KindMCP, Name: "fs", Meta: meta}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+			if strings.Contains(got, "experimental_environment") {
+				t.Errorf("wrote the key Codex ignores:\n%s", got)
+			}
+			if tc.want == "" && strings.Contains(got, "environment_id") {
+				t.Errorf("wrote environment_id for a value with no executor ID:\n%s", got)
+			}
+			if tc.want != "" && (strings.Count(got, "environment_id") != 1 || !strings.Contains(got, tc.want)) {
+				t.Errorf("want one %q in:\n%s", tc.want, got)
+			}
+		})
+	}
+}
+
+// A dropped `remote` says why, so the server does not move to a local
+// run without notice (#2976).
+func TestEmit_MCP_NotesDroppedExperimentalEnvironment(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{{Kind: spec.KindMCP, Name: "fs", Meta: map[string]any{"command": "npx", "experimental_environment": "remote"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+
+	want := "codex mcp fs: experimental_environment: remote has no effect"
+	if got := buf.String(); strings.Count(got, want) != 1 {
+		t.Errorf("want one note %q, got: %s", want, got)
 	}
 }
 

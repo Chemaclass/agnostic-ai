@@ -174,7 +174,7 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 
 | Target | Extra fields |
 |--------|--------------|
-| [Codex](@/docs/targets/codex.md) | `env_vars`, `env_http_headers`, `http_headers_helper`, `auth`, `required`, `startup_timeout_sec`, `startup_timeout_ms`, `tool_timeout_sec`, `default_tools_approval_mode`, `scopes`, `oauth_resource`, `experimental_environment`, `enabled_tools`, `disabled_tools` |
+| [Codex](@/docs/targets/codex.md) | `env_vars`, `env_http_headers`, `http_headers_helper`, `auth`, `required`, `startup_timeout_sec`, `startup_timeout_ms`, `tool_timeout_sec`, `default_tools_approval_mode`, `scopes`, `oauth_resource`, `environment_id`, `enabled_tools`, `disabled_tools` |
 | [Crush](@/docs/targets/crush.md) | `enabled_tools`, `disabled_tools`, `sessionless`, `channel_enabled`, `channel_reply` |
 | [Gemini](@/docs/targets/gemini.md) | `trust`, `includeTools`, `excludeTools` |
 | [Qoder](@/docs/targets/qoder.md) | `trust`, `includeTools`, `excludeTools`, `alwaysAllow` |
@@ -185,6 +185,8 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` and `sandbox` (VS Code file only), `tools` (Copilot CLI files only) |
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
 | [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in an agent's `mcp_servers` |
+
+Codex `environment_id` is the ID of a configured executor and defaults to `local`. The older `experimental_environment` still loads: sync writes `local` as `environment_id = "local"` and leaves `remote` out with a note, since Codex no longer reads that key. [`agnostic-ai migrate --only mcps`](@/docs/cli-reference/upgrades.md#migrate) rewrites `local`.
 
 The Crush and Claude Code fields also work under `x-crush` or `x-claude`, which wins, and other tools leave them out. On Amp, set `x-amp.includeTools`. `x-factory`, `x-kilo`, and `x-continue` override the matching top-level options for that target. Each target page gives the details: [Factory tool lists](@/docs/targets/factory.md#mcp), [Crush channels](@/docs/targets/crush.md#mcp), and [Claude Code flags](@/docs/targets/claude-reference.md#mcp-mappings).
 

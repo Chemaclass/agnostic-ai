@@ -140,7 +140,7 @@ func packSkip(path, pack string) migrationSkip {
 
 // specMigrations is the registry, in release order. Each entry is
 // idempotent: it plans nothing once its old form is gone.
-var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration, secretsMCPLiteralsMigration, capabilitiesAgentToolsMigration, capabilitiesSettingsPermissionsMigration, capabilitiesSkillToolsMigration}
+var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration, secretsMCPLiteralsMigration, capabilitiesAgentToolsMigration, capabilitiesSettingsPermissionsMigration, capabilitiesSkillToolsMigration, mcpsCodexEnvironmentIDMigration}
 
 // pendingMigration is a migration that applies here, or whose plan
 // failed with planErr.
