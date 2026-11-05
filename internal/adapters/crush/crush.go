@@ -34,7 +34,8 @@
 // [...], and "disabled_tools": [...], all four read from the vendor's
 // published schema.json rather than the README, which is the only place
 // the MCP property set appears closed. "timeout" is whole seconds in
-// Crush and milliseconds in the spec, so sync divides and rounds up. crush.json also holds
+// Crush and milliseconds in the spec, so sync divides and rounds up;
+// `x-crush.timeout` is already seconds and wins. crush.json also holds
 // user-managed keys (models, providers, lsp, options); the merge only
 // touches the `mcp` key so those survive a sync.
 // MCP channel_enabled and channel_reply preserve incoming-message opt-in and
@@ -281,24 +282,9 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	if disabledTools := emit.StringSlice(e.Meta["disabled_tools"]); len(disabledTools) > 0 {
 		out["disabled_tools"] = disabledTools
 	}
-	if seconds, ok := timeoutSeconds(e); ok {
+	if seconds, ok := emit.MCPTimeoutSeconds(target, e); ok {
 		out["timeout"] = seconds
 	}
 
 	return out
-}
-
-// timeoutSeconds turns the spec's millisecond timeout into the whole
-// seconds Crush reads, rounded up so a short limit never becomes 0,
-// which Crush reads as its default.
-func timeoutSeconds(e spec.Entry) (int, bool) {
-	ms, ok := emit.IntField(e.Meta, "timeout")
-	if !ok || ms <= 0 {
-		return 0, false
-	}
-	seconds := (ms + 999) / 1000
-	if seconds*1000 != ms {
-		emit.NoteProject(fmt.Sprintf("crush: MCP %s timeout %d ms is written as %d s, since Crush reads whole seconds", e.Name, ms, seconds))
-	}
-	return seconds, true
 }

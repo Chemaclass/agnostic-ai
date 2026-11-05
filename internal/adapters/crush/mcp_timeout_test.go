@@ -14,6 +14,15 @@ import (
 
 func emitMCPTimeout(t *testing.T, timeout any) (server map[string]any, notes string) {
 	t.Helper()
+	meta := map[string]any{}
+	if timeout != nil {
+		meta["timeout"] = timeout
+	}
+	return emitMCPTimeoutMeta(t, meta)
+}
+
+func emitMCPTimeoutMeta(t *testing.T, extra map[string]any) (server map[string]any, notes string) {
+	t.Helper()
 	dir := testutil.TempCwd(t)
 	buf := &strings.Builder{}
 	prev := emit.Warner
@@ -23,8 +32,8 @@ func emitMCPTimeout(t *testing.T, timeout any) (server map[string]any, notes str
 	t.Cleanup(emit.ResetCoverageNotes)
 
 	meta := map[string]any{"type": "http", "url": "https://api.example.com/mcp/"}
-	if timeout != nil {
-		meta["timeout"] = timeout
+	for k, v := range extra {
+		meta[k] = v
 	}
 	entries := []spec.Entry{{Kind: spec.KindMCP, Name: "slow", Meta: meta}}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
@@ -76,6 +85,38 @@ func TestEmit_MCP_NoTimeoutKeyWithoutAPositiveValue(t *testing.T) {
 		}
 		if strings.Contains(notes, "timeout") {
 			t.Errorf("timeout %v: want no note:\n%s", ms, notes)
+		}
+	}
+}
+
+// x-crush.timeout is already in Crush's seconds, so it is written as
+// given and wins over the portable milliseconds.
+func TestEmit_MCP_XCrushTimeoutIsSecondsAndWins(t *testing.T) {
+	server, notes := emitMCPTimeoutMeta(t, map[string]any{
+		"timeout": 600000, "x-crush": map[string]any{"timeout": 45},
+	})
+	if got, _ := server["timeout"].(float64); got != 45 {
+		t.Errorf("crush.json timeout = %v, want 45", server["timeout"])
+	}
+	if strings.Contains(notes, "timeout") {
+		t.Errorf("want no note:\n%s", notes)
+	}
+}
+
+// A timeout Crush cannot read writes no key, and the note says why
+// instead of dropping it silently.
+func TestEmit_MCP_TextTimeoutIsNoted(t *testing.T) {
+	for _, meta := range []map[string]any{
+		{"timeout": "30"},
+		{"x-crush": map[string]any{"timeout": "30s"}},
+		{"x-crush": map[string]any{"timeout": 1.5}},
+	} {
+		server, notes := emitMCPTimeoutMeta(t, meta)
+		if _, set := server["timeout"]; set {
+			t.Errorf("%v: want no timeout key, got %v", meta, server["timeout"])
+		}
+		if !strings.Contains(notes, "crush: MCP slow") || !strings.Contains(notes, "is not a whole number") {
+			t.Errorf("%v: want a note naming the server:\n%s", meta, notes)
 		}
 	}
 }
