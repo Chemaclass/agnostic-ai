@@ -101,3 +101,11 @@ func TestImportPi_MCPTimeoutSecondsRoundTripAcrossTargets(t *testing.T) {
 		t.Errorf("sync --check after import and sync: %v", err)
 	}
 }
+
+func TestSecondsTimeoutToMilliseconds_RoundsFloatError(t *testing.T) {
+	server := map[string]any{"timeout": 2.3}
+	secondsTimeoutToMilliseconds(server)
+	if server["timeout"] != 2300 {
+		t.Errorf("timeout = %v, want 2300", server["timeout"])
+	}
+}

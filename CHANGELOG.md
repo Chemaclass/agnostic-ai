@@ -26,7 +26,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Crush
 
-- Sync writes an MCP `timeout` to `crush.json` in whole seconds, and import turns Crush's seconds into the spec's milliseconds (#2997). If you imported a Crush server before this release, its `timeout` holds seconds: multiply it by 1000, or sync writes a 1 second limit.
+- Sync writes an MCP `timeout` to `crush.json` in seconds, and import converts Crush's seconds to milliseconds (#2997). Multiply a spec `timeout` held in seconds by 1000; `lint` flags it (LINT059).
 
 #### Ellipsis
 
@@ -34,7 +34,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Pi
 
-- Sync writes an MCP `timeout` to `.pi/mcp.json` in seconds, and import turns Pi's seconds into the spec's milliseconds (#3002). If you imported a Pi server before this release, its `timeout` holds seconds: multiply it by 1000.
+- Sync writes an MCP `timeout` to `.pi/mcp.json` in seconds, and import converts Pi's seconds to milliseconds (#3002). Multiply a spec `timeout` held in seconds, as the old Pi page said, by 1000; `lint` flags values under 1000 (LINT059).
 
 #### Qoder
 

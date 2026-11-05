@@ -11,13 +11,18 @@ import (
 // seconds. `x-<target>.timeout` is already in the target's unit and wins.
 // The portable `timeout` is milliseconds, rounded up so a short limit
 // never becomes 0, which such targets read as their default. A value
-// that is not a whole number writes no key and prints a note.
-func MCPTimeoutSeconds(target string, e spec.Entry) (int, bool) {
+// the target cannot read writes no key and prints a note. fractional
+// lets the override keep fractions of a second, for a target that
+// accepts them.
+func MCPTimeoutSeconds(target string, e spec.Entry, fractional bool) (any, bool) {
 	if custom, ok := e.Meta[XPrefix+target].(map[string]any); ok {
 		if raw, set := custom["timeout"]; set {
+			if seconds, isFloat := raw.(float64); fractional && isFloat && seconds > 0 {
+				return seconds, true
+			}
 			seconds, whole := wholeNumber(raw)
 			if !whole {
-				NoteProject(fmt.Sprintf("%s: MCP %s x-%s.timeout %v is not a whole number of seconds, so no timeout is written", target, e.Name, target, raw))
+				NoteProject(fmt.Sprintf("%s: MCP %s x-%s.timeout %v is not a number of seconds %s reads, so no timeout is written", target, e.Name, target, raw, target))
 			}
 			return seconds, whole
 		}

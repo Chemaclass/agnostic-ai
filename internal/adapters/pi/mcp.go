@@ -43,7 +43,7 @@ func mcpServer(entry spec.Entry) (map[string]any, error) {
 			out[key] = value
 		}
 	}
-	if seconds, ok := emit.MCPTimeoutSeconds(target, entry); ok {
+	if seconds, ok := emit.MCPTimeoutSeconds(target, entry, true); ok {
 		out["timeout"] = seconds
 	}
 	if value, present := meta["toolExposure"]; present {

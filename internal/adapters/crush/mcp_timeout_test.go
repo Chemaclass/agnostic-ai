@@ -115,7 +115,7 @@ func TestEmit_MCP_TextTimeoutIsNoted(t *testing.T) {
 		if _, set := server["timeout"]; set {
 			t.Errorf("%v: want no timeout key, got %v", meta, server["timeout"])
 		}
-		if !strings.Contains(notes, "crush: MCP slow") || !strings.Contains(notes, "is not a whole number") {
+		if !strings.Contains(notes, "crush: MCP slow") || !strings.Contains(notes, "is not a") {
 			t.Errorf("%v: want a note naming the server:\n%s", meta, notes)
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -795,5 +796,5 @@ func secondsTimeoutToMilliseconds(server map[string]any) {
 		delete(server, "timeout")
 		return
 	}
-	server["timeout"] = int(seconds * 1000)
+	server["timeout"] = int(math.Round(seconds * 1000))
 }

@@ -55,6 +55,7 @@ func TestEmit_MCPTimeoutIsWrittenInWholeSeconds(t *testing.T) {
 		{map[string]any{"timeout": 30000}, 30, false},
 		{map[string]any{"timeout": 1500}, 2, true},
 		{map[string]any{"timeout": 30000, "x-pi": map[string]any{"timeout": 45}}, 45, false},
+		{map[string]any{"x-pi": map[string]any{"timeout": 1.5}}, 1.5, false},
 	}
 	for _, c := range cases {
 		server, notes := emitPiMCPTimeout(t, c.meta)

@@ -282,7 +282,7 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	if disabledTools := emit.StringSlice(e.Meta["disabled_tools"]); len(disabledTools) > 0 {
 		out["disabled_tools"] = disabledTools
 	}
-	if seconds, ok := emit.MCPTimeoutSeconds(target, e); ok {
+	if seconds, ok := emit.MCPTimeoutSeconds(target, e, false); ok {
 		out["timeout"] = seconds
 	}
 
