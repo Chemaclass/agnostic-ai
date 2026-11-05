@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- **Breaking:** sync stops on an MCP `roots` item that is not a `{uri, name}` mapping with a `uri`, such as a plain string; `lint` (LINT060) and `validate` report it and name the server. Every tool used to drop it with no note. Write `- uri: file:///path` (#3016).
+
 - `hook run` rejects a `--payload` file that does not hold a JSON object instead of passing with no hook run, and `--format json` still prints its result object when a target cannot be set up (#2994).
 
 - `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
@@ -17,8 +19,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `sync --dry-run --diff` prints a diff of each file sync would change and names generated files it would remove, for project and `--global` sync. Project sync used to ignore `--diff` here, and global sync rejected it (#2991).
 
 - The web interface shows the agnostic-ai version at the foot of the sidebar, linked to its release notes; `/api/health` now returns `version` (#2974).
-
-- `lint`, `validate`, and sync refuse an MCP `roots` item that is not a `{uri, name}` mapping with a `uri`, such as a plain string, and name the server (LINT060). Every tool used to drop it with no note (#3016).
 
 - `lint` warns (LINT059) when an MCP `timeout` under 1000 reaches Crush, Pi or Junie; it most likely holds seconds.
 
