@@ -291,6 +291,7 @@ func newSyncCmd() *cobra.Command {
 				printSyncPlan(cmd, reports)
 				if diff {
 					printDriftDiffs(cmd, reports)
+					printDriftRemovals(cmd, reports)
 				}
 				return errors.Join(notesErr, driftErr)
 			}

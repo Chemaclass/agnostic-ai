@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"maps"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -137,5 +138,34 @@ func TestSyncGlobal_PlanDiffPrintsPlanThenDiffs(t *testing.T) {
 	out, _, err = runGlobalAgentTest("--only", "claude", "--plan", "--check", "--diff")
 	if err != nil || out != "No changes.\n" {
 		t.Errorf("after sync the plan has no changes and no diff, got err = %v, out:\n%s", err, out)
+	}
+}
+
+func TestSync_PlanDiffNamesARemoval(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	root = NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"sync", "--plan", "--diff"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "would remove .claude/rules/r1.md") {
+		t.Errorf("the plan diff must name the removal:\n%s", out.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude", "rules", "r1.md")); err != nil {
+		t.Errorf("previews must not remove anything: %v", err)
 	}
 }
