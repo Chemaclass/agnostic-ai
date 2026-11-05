@@ -34,7 +34,7 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 		{"server-tools", "can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
 			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "has no verified native mapping", "would restore all tools", ""},
 		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "has no verified native mapping", "would restore all tools", ""},
-		{"empty", "can: []", "tools: []", "empty tools list inherits all tools", "empty tools would inherit all tools", "no supported allowed tools"},
+		{"empty", "can: []", "tools: []", "empty tools list gives every tool before CodeBuddy 2.179.0", "empty tools would inherit all tools", "no supported allowed tools"},
 		{"exact-tools", "can: [read, edit, write, shell, web, Grep, mcp:github/get_issue]",
 			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", "", "would restore all tools", ""},
 	}
