@@ -100,12 +100,22 @@ func strandedOutput(cfg *config.Config, emitted map[string]bool, state syncState
 	if noTargetsKept(cfg) {
 		return func(string) bool { return false }
 	}
+	return strandedFile(cfg, emitted, state)
+}
+
+// strandedFile is strandedOutput without the empty targets guard, for
+// a run that removes every generated file.
+func strandedFile(cfg *config.Config, emitted map[string]bool, state syncStateFile) func(string) bool {
 	skip := map[string]bool{}
 	for _, p := range entryPointPaths(cfg, cfg.Targets) {
 		skip[p] = true
 	}
+	// An orphan the sweep kept for an edit is removed once it again
+	// holds what sync wrote.
 	for _, p := range state.Orphans {
-		skip[p] = true
+		if !provenGenerated(p, state.OutputSums[p]) {
+			skip[p] = true
+		}
 	}
 	return func(p string) bool {
 		if emitted[p] || skip[p] || cfg.IsUnmanaged(p) || underSymlinkedDir(p) {
@@ -333,4 +343,14 @@ func (h *historyRenderer) render(commit string) map[string]string {
 		return nil
 	}
 	return out
+}
+
+// provenGenerated reports whether the file at path still carries the
+// provenance header or the bytes whose sum the ledger recorded.
+func provenGenerated(path, sum string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return header.Has(string(data)) || sum != "" && adapters.MatchesSum(data, sum)
 }
