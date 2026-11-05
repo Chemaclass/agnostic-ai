@@ -310,3 +310,17 @@ func TestSync_AllowEmptyTargetsDryRunKeepsAnEditedHooksFile(t *testing.T) {
 		t.Errorf("sync keeps the edited file: %v", err)
 	}
 }
+
+// An older sync left no record of its keys in .claude/settings.json, so
+// the sweep keeps it and the preview must not name it.
+func TestSync_AllowEmptyTargetsDryRunKeepsAnUnrecordedSettingsFile(t *testing.T) {
+	mergedEmptyTargetsProject(t)
+	markMergedUnrecorded(t, ".claude/settings.json")
+	if got := dryRunAction(t, ".claude/settings.json"); got != "orphan" {
+		t.Errorf("--dry-run --json action = %q, want orphan", got)
+	}
+	requirePreviewMatchesRun(t)
+	if _, err := os.Stat(".claude/settings.json"); err != nil {
+		t.Errorf("sync keeps the unrecorded file: %v", err)
+	}
+}
