@@ -147,6 +147,69 @@ func TestEmit_OutputOverridesAndDryRun(t *testing.T) {
 	}
 }
 
+func TestEmit_RejectsPortableEmptyToolsAndPointsToNativeList(t *testing.T) {
+	for name, meta := range map[string]map[string]any{
+		"tools": {"tools": []any{}},
+		"can":   {"can": []any{}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			agent, _ := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: meta}.NativeToolsFor(target)
+			err := New().Emit(emit.NewSession(), spec.Bundle{Agents: []spec.Entry{agent}}, &config.Config{}, false)
+			if err == nil {
+				t.Fatal("portable empty list reached the agent file")
+			}
+			for _, want := range []string{"x-codebuddy.tools: []", "2.179.0"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error lacks %q: %v", want, err)
+				}
+			}
+			if _, statErr := os.Stat(".codebuddy/agents/reviewer.md"); !os.IsNotExist(statErr) {
+				t.Error("agent file was written")
+			}
+		})
+	}
+}
+
+func TestEmit_NativeEmptyToolsWritesEmptyListWithVersionNote(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	b := spec.Bundle{Agents: []spec.Entry{{Kind: spec.KindAgent, Name: "locked", Path: ".agnostic-ai/agents/locked.md", Meta: map[string]any{"x-codebuddy": map[string]any{"tools": []any{}}}}}}
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	got := read(t, ".codebuddy/agents/locked.md")
+	if !strings.Contains(got, "\ntools: []\n") || strings.Contains(got, `tools: ""`) {
+		t.Errorf("agent file:\n%s", got)
+	}
+	for _, want := range []string{".agnostic-ai/agents/locked.md", "2.179.0", "every tool"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("note lacks %q: %q", want, buf.String())
+		}
+	}
+}
+
+func TestEmit_NativeToolsWithoutListKeepTheirText(t *testing.T) {
+	for name, tools := range map[string]any{"empty string": "", "null": nil, "names": []any{"Read", "Grep"}} {
+		t.Run(name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			b := spec.Bundle{Agents: []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"x-codebuddy": map[string]any{"tools": tools}}}}}
+			if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			if got := read(t, ".codebuddy/agents/reviewer.md"); strings.Contains(got, "tools: []") {
+				t.Errorf("%s became an empty list:\n%s", name, got)
+			}
+		})
+	}
+}
+
 func TestEmit_RejectsRestrictionsWithoutNativeMeaning(t *testing.T) {
 	for _, tools := range []any{[]any{}, []any{"Read", "Delete"}, []any{"Read", "Bash(ls *)"}, []any{"mcp__docs"}} {
 		t.Run("agent", func(t *testing.T) {

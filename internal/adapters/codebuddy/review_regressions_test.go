@@ -28,6 +28,23 @@ func TestAgentMemoryReportsToolWideningBeforeWrites(t *testing.T) {
 	}
 }
 
+func TestAgentMemoryReportsWideningOfEmptyNativeTools(t *testing.T) {
+	testutil.TempCwd(t)
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindAgent, Name: "planner", Path: "agents/planner.md", Meta: map[string]any{"x-codebuddy": map[string]any{"tools": []any{}, "memory": "project"}}}})
+	err := New().Emit(emit.NewSession(), b, &config.Config{OnUnsupported: "error"}, false)
+	if err == nil {
+		t.Fatal("memory widened an empty tools list silently")
+	}
+	for _, want := range []string{"memory", "Read", "Write", "Edit"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("diagnostic lacks %s: %v", want, err)
+		}
+	}
+	if _, err := os.Stat(".codebuddy"); !os.IsNotExist(err) {
+		t.Fatal("error policy wrote files")
+	}
+}
+
 func TestNativeInstructionsRejectUnsafePlacementBeforeWrites(t *testing.T) {
 	for _, c := range []struct {
 		name      string

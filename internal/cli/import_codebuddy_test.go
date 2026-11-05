@@ -354,3 +354,25 @@ func TestCodebuddy_ImportEffortPlansAgainstOtherSettingsSpecs(t *testing.T) {
 		})
 	}
 }
+
+func TestCodebuddy_EmptyAgentToolsRoundTripAsEmptyList(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codebuddy]\n")
+	writeFile(t, ".codebuddy/agents/locked.md", "---\nname: locked\ndescription: No tools\ntools: []\n---\nAnswer from the prompt only.\n")
+	if out, err := runRoot(t, "import", "codebuddy"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	meta, _ := splitMdcFrontmatter([]byte(readFile(t, ".agnostic-ai/agents/locked.md")))
+	custom, _ := meta["x-codebuddy"].(map[string]any)
+	if tools, ok := custom["tools"].([]any); !ok || len(tools) != 0 || meta["tools"] != nil {
+		t.Fatalf("imported tools = top %v, x-codebuddy %#v", meta["tools"], custom["tools"])
+	}
+	mustSync(t)
+	if got := readFile(t, ".codebuddy/agents/locked.md"); !strings.Contains(got, "\ntools: []\n") {
+		t.Errorf("synced agent lost its empty list:\n%s", got)
+	}
+	if out, err := runCLI(t, "sync", "--check", "--gitignore=off"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}

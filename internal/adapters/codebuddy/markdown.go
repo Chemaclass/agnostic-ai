@@ -75,7 +75,7 @@ func validateAgentTools(agents []spec.Entry) error {
 			}
 		}
 		if _, set := m["tools"]; set && len(list(m["tools"])) == 0 {
-			return fmt.Errorf("%s: codebuddy: an empty tools list inherits all tools; remove the restriction or use explicit x-codebuddy.tools", a.Path)
+			return fmt.Errorf("%s: codebuddy: an empty tools list gives every tool before CodeBuddy 2.179.0; remove the restriction, or set x-codebuddy.tools: [] for no tools on CodeBuddy 2.179.0 or later", a.Path)
 		}
 		for _, tool := range list(m["tools"]) {
 			if _, ok := (Adapter{}).TranslateAgentCapability(tool); !ok {
@@ -97,7 +97,7 @@ func (Adapter) ReportAgentWidening(agents []spec.Entry, mode string) error {
 			continue
 		}
 		tools := list(m["tools"])
-		if len(tools) == 0 {
+		if len(tools) == 0 && !nativeNoTools(a) {
 			continue
 		}
 		var missing []string
@@ -114,6 +114,19 @@ func (Adapter) ReportAgentWidening(agents []spec.Entry, mode string) error {
 	}
 	return nil
 }
+
+// Only a literal empty list means no tools to CodeBuddy 2.179.0; "" and null inherit every tool.
+func nativeNoTools(a spec.Entry) bool {
+	custom, _ := a.Meta["x-codebuddy"].(map[string]any)
+	switch tools := custom["tools"].(type) {
+	case []any:
+		return len(tools) == 0
+	case []string:
+		return len(tools) == 0
+	}
+	return false
+}
+
 func list(v any) []string {
 	if s, ok := v.(string); ok {
 		return spec.SplitToolList(s)
@@ -172,6 +185,10 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 			if v, ok := meta[k]; ok {
 				meta[k] = strings.Join(list(v), ", ")
 			}
+		}
+		if nativeNoTools(a) {
+			meta["tools"] = []string{}
+			emit.NoteProject("codebuddy: " + a.Path + " sets tools: [], which means no tools only from CodeBuddy 2.179.0; older versions give the agent every tool")
 		}
 		if v, ok := meta["effort"]; ok && !slices.Contains((Adapter{}).SettingsEffortLevels(), fmt.Sprint(v)) {
 			return fmt.Errorf("%s: codebuddy: unsupported agent effort %v", a.Path, v)
