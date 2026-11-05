@@ -12,7 +12,7 @@ target_id = "codebuddy"
 
 Use `codebuddy` for Tencent's CodeBuddy Code CLI. This adapter follows the [official CLI documentation](https://www.codebuddy.ai/docs/cli/installation) and npm package `@tencent-ai/codebuddy-code` 2.177.0.
 
-Select it explicitly with `targets: [codebuddy]`. It is outside the default target list because native agent names reject digits, and scoped or empty agent tool lists cannot always be represented.
+Select it explicitly with `targets: [codebuddy]`. It is outside the default target list because native agent names reject digits, and scoped or portable empty agent tool lists cannot be represented.
 
 ## First rule
 
@@ -83,7 +83,9 @@ At user scope, sync and import use the first existing file: `~/.codebuddy/.mcp.j
 
 ## Fields and limits
 
-Agent names use lowercase letters and hyphens. Scoped tool patterns, server-only MCP names, and empty agent tool lists have no verified restrictive exposure mapping, so they fail sync. Keep scoped shell and file policies in permission rules. Use per-spec target filters when an agent requires a policy CodeBuddy cannot represent; `x-codebuddy.tools` supplies an explicit native exposure list.
+Agent names use lowercase letters and hyphens. Scoped tool patterns and server-only MCP names have no verified restrictive exposure mapping, so they fail sync. Keep scoped shell and file policies in permission rules. Use per-spec target filters when an agent requires a policy CodeBuddy cannot represent; `x-codebuddy.tools` supplies an explicit native exposure list.
+
+A portable empty `tools` or `can` list also fails sync, because CodeBuddy before 2.179.0 gives such an agent every tool. To run an agent without tools, set `x-codebuddy.tools: []`. Sync writes `tools: []` and prints a note that only CodeBuddy [2.179.0](https://www.codebuddy.ai/docs/cli/release-notes/v2.179.0) or later reads it as no tools; older versions still give every tool. CodeBuddy still adds its messaging tools and the plan-exit tool to such an agent. Import keeps a native `tools: []` as `x-codebuddy.tools: []`.
 
 Agents accept `name`, `description`, `tools`, `disallowedTools`, `model`, `effort`, `skills`, `mcpServers`, `permissionMode`, `maxTurns`, `background`, `initialPrompt`, `memory`, and `disable-model-invocation`. The last field keeps a manual-only agent out of model selection. Native additions belong under `x-codebuddy`. Portable tool names map only to verified native tools; sync fails when a restriction has no mapping, preventing broader access. Native agent memory adds `Read`, `Write`, and `Edit` even to a restrictive tools list. Sync reports that widening through `on-unsupported`; `error` rejects it before writing.
 
