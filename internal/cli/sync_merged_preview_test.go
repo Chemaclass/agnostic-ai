@@ -218,3 +218,90 @@ func TestSync_PlainDryRunPrintsAStrippedSettingsFile(t *testing.T) {
 		t.Error("previews must change no files")
 	}
 }
+
+// The user took out every key sync set, so sync has nothing to do and
+// check must agree before and after it runs.
+func TestSyncCheck_IgnoresASettingsFileWithNoSyncKeysLeft(t *testing.T) {
+	syncedHookProject(t, func(string) string { return "{\n  \"myKey\": 1\n}\n" })
+	before := snapshotTree(t, ".")
+	_, checkErr := runSyncStdout(t, "sync", "--check")
+	plan, err := runSyncStdout(t, "sync", "--plan")
+	if err != nil || strings.Contains(plan, "orphaned") {
+		t.Errorf("--plan has nothing to do with the file, got err = %v:\n%s", err, plan)
+	}
+	if got := dryRunJSONAction(t, ".claude/settings.json"); got != "" {
+		t.Errorf("--dry-run --json lists the file as %q", got)
+	}
+	if after := snapshotTree(t, "."); !maps.Equal(before, after) {
+		t.Error("previews must change no files")
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	_, afterErr := runSyncStdout(t, "sync", "--check")
+	if (checkErr == nil) != (afterErr == nil) {
+		t.Errorf("--check before sync = %v, after = %v; sync changed nothing", checkErr, afterErr)
+	}
+}
+
+// markMergedUnrecorded rewrites the ledger as an older sync left it,
+// with no record of which keys in path are sync's.
+func markMergedUnrecorded(t *testing.T, path string) {
+	t.Helper()
+	const state = ".agnostic-ai/.sync-state"
+	data, err := os.ReadFile(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	doc["merged"].(map[string]any)[path] = map[string]any{"unrecorded": true}
+	out, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, state, string(out))
+}
+
+func TestSync_DryRunDiffKeepsAnUnrecordedSettingsFile(t *testing.T) {
+	syncedHookProject(t, func(s string) string {
+		return strings.Replace(s, "{", "{\n  \"myKey\": 1,", 1)
+	})
+	markMergedUnrecorded(t, ".claude/settings.json")
+	out, err := runSyncStdout(t, "sync", "--dry-run", "--diff")
+	if err != nil || strings.Contains(out, "would remove .claude/settings.json") {
+		t.Errorf("sync keeps an unrecorded file, got err = %v:\n%s", err, out)
+	}
+	if got := dryRunJSONAction(t, ".claude/settings.json"); got != "orphan" {
+		t.Errorf("--dry-run --json action = %q, want orphan", got)
+	}
+	logs := captureLogOut(t)
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(".claude/settings.json"); err != nil || !strings.Contains(logs.String(), "kept orphan") {
+		t.Errorf("sync keeps the file as an orphan, got %v:\n%s", err, logs.String())
+	}
+}
+
+// With --keep-edits the sweep leaves a settings file edited since the
+// last sync alone, so the dry run prints no rewrite of it.
+func TestSync_PlainDryRunKeepEditsLeavesAnEditedSettingsFile(t *testing.T) {
+	syncedHookProject(t, func(s string) string {
+		return strings.Replace(s, "{", "{\n  \"myKey\": 1,", 1)
+	})
+	var err error
+	out := captureStdout(t, func() { _, err = runSyncStdout(t, "sync", "--dry-run", "--keep-edits") })
+	if err != nil || strings.Contains(out, "--- .claude/settings.json ---") {
+		t.Errorf("--keep-edits leaves the edited file, got err = %v:\n%s", err, out)
+	}
+	before, _ := os.ReadFile(".claude/settings.json")
+	if out, err := runCLI(t, "sync", "--keep-edits"); err != nil {
+		t.Fatalf("sync --keep-edits: %v\n%s", err, out)
+	}
+	if after, _ := os.ReadFile(".claude/settings.json"); string(after) != string(before) {
+		t.Errorf("sync --keep-edits changed the file:\n%s", after)
+	}
+}

@@ -269,7 +269,7 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged); err != nil {
+				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, false); err != nil {
 					return err
 				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
@@ -301,7 +301,7 @@ func newSyncCmd() *cobra.Command {
 					return err
 				}
 				if tree == nil {
-					if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged); err != nil {
+					if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, false); err != nil {
 						return err
 					}
 				}
@@ -394,7 +394,7 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged); err != nil {
+				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, false); err != nil {
 					return err
 				}
 				_, notesErr := checkCoverageNotes(cfg, effective)
@@ -411,7 +411,7 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged); err != nil {
+				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, keepEdits); err != nil {
 					return err
 				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
@@ -419,20 +419,6 @@ func newSyncCmd() *cobra.Command {
 			}
 			if jsonOut {
 				return runSyncJSON(cmd, ".", ledger(), effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
-			}
-			if dryRun && len(ledger().state.Merged) > 0 {
-				if err := runSyncPassWith(".", ledger(), effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs); err != nil {
-					return err
-				}
-				// The pass skips the orphan sweep, so it shows no merged
-				// file the sweep would strip.
-				resetDrops()
-				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
-				resetDrops()
-				if err != nil {
-					return err
-				}
-				return printStrippedMerged(reports, ledger().state, cfg.Sync.Unmanaged)
 			}
 			return runSyncPassWith(".", ledger(), effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
 		},
