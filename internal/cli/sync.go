@@ -63,6 +63,9 @@ func newSyncCmd() *cobra.Command {
   # Structured per-target diff (added/changed counts) without writing
   agnostic-ai sync --plan
 
+  # Preview user-level changes and fail on drift
+  agnostic-ai sync --global --plan --check
+
   # Machine-readable output for CI dashboards and editor extensions
   agnostic-ai sync --json
 
