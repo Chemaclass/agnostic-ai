@@ -114,3 +114,6 @@ codebuddy-runtime-artifacts-20261030	codebuddy	CodeBuddy Code prepares a separat
 codebuddy-auto-review-local-scope-20261030	codebuddy	project-local settings .codebuddy/settings.local.json Local supplement for a project on a machine	no	signal:cap-codebuddy-auto-review-policy
 goose-recipe-explicit-path-20261030	goose	goose run --recipe ./recipes/my-recipe.yaml	yes	signal:cap-project-parameterized-recipes
 zed-fixed-skill-roots-20261030	zed	Skills are loaded from ~/.agents/skills/ and <worktree>/.agents/skills/ only. Use a symlink if you need to point at another location.	yes	2818
+qwen-project-hooks-trust-20261104	qwen	Project hooks in .qwen/settings.json now require explicit folder or workspace trust in interactive sessions and show a warning when withheld.	yes	2978
+codex-mcp-tool-surface-controls-20261104	codex	Omit this server’s tools from selected model-facing surfaces. Choose `direct` (initial tools), `deferred` (tool search), or `code_mode` (Code Mode scripts).	yes	signal:cap-codex-mcp-tool-surface-controls
+pi-mcp-oauth-client-registration-20261104	pi	registers when `clientName` or a non-default `callbackUrl` is set	yes	signal:cap-pi-mcp-oauth-client-registration

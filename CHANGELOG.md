@@ -12,6 +12,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Qwen Code
+
+- The target page says interactive sessions from 0.26.7 run project hooks only after you turn on folder trust and trust the folder (#2978).
+
 #### Kimi Code CLI
 
 - Sync and import keep a stdio MCP server's `x-kimi.environment_id`, which Kimi Code 2.5.0 reads in place of `runtime_id` (#2980).
