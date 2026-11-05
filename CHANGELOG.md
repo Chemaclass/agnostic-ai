@@ -24,6 +24,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Deprecated:** MCP `experimental_environment`, which Codex ignores; sync and import now write `environment_id`. Run `agnostic-ai migrate --only mcps` (#2976).
 
+#### Crush
+
+- Sync writes an MCP `timeout` to `crush.json` in whole seconds, and import turns Crush's seconds into the spec's milliseconds (#2997).
+
 #### Qoder
 
 - The target page says only the Qoder IDE documents that rule files win over `AGENTS.md`; the CLI documents no order (#2984).

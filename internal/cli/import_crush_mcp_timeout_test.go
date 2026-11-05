@@ -1,0 +1,70 @@
+package cli
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
+)
+
+func crushTimeoutProject(t *testing.T, crushJSON string) string {
+	t.Helper()
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush, junie]\n")
+	writeFile(t, filepath.Join(dir, "crush.json"), crushJSON)
+	return dir
+}
+
+func mcpTimeoutIn(t *testing.T, path, mapKey, server string) any {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]map[string]map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	return doc[mapKey][server]["timeout"]
+}
+
+// A Crush timeout is seconds; the spec field is milliseconds, so import
+// scales it and sync scales it back. Junie reads milliseconds and must
+// get 30000, not 30.
+func TestImportCrush_MCPTimeoutSecondsRoundTrip(t *testing.T) {
+	dir := crushTimeoutProject(t, `{"mcp":{"slow":{"type":"http","url":"https://x.example/mcp","timeout":30}}}`)
+
+	execCLI(t, "import", "crush")
+	specYAML := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "slow.yaml"))
+	if !strings.Contains(specYAML, "timeout: 30000\n") {
+		t.Fatalf("spec should hold the timeout in milliseconds:\n%s", specYAML)
+	}
+
+	execCLI(t, "sync")
+	if got := mcpTimeoutIn(t, filepath.Join(dir, "crush.json"), "mcp", "slow"); got != float64(30) {
+		t.Errorf("crush.json timeout = %v, want 30", got)
+	}
+	if got := mcpTimeoutIn(t, filepath.Join(dir, ".junie", "mcp", "mcp.json"), "mcpServers", "slow"); got != float64(30000) {
+		t.Errorf("junie timeout = %v, want 30000", got)
+	}
+	if _, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after import and sync: %v", err)
+	}
+}
+
+// Crush reads 0 as its default, which no millisecond value means, so the
+// spec gets no timeout and every target keeps its own default.
+func TestImportCrush_ZeroMCPTimeoutImportsNothing(t *testing.T) {
+	dir := crushTimeoutProject(t, `{"mcp":{"slow":{"type":"http","url":"https://x.example/mcp","timeout":0}}}`)
+
+	execCLI(t, "import", "crush")
+	specYAML := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "slow.yaml"))
+	if strings.Contains(specYAML, "timeout") {
+		t.Errorf("a zero Crush timeout should not reach the spec:\n%s", specYAML)
+	}
+}
