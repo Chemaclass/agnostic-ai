@@ -789,7 +789,10 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	// Emit every target concurrently (bounded by jobs) on its own session,
 	// collecting per-target results in stable order. The first emit error
 	// cancels the group and trips the rollback above.
-	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs, edits, winners)
+	// A dry run records its writes too, so it can tell which merged
+	// files the sweep it skips would release.
+	recordWrites := gitignoreOn || dryRun
+	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, recordWrites, true, jobs, edits, winners)
 	for _, s := range targetSessions {
 		if s != nil {
 			sessions = append(sessions, s)
@@ -839,21 +842,28 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	// Entry points and shared-skill links write serially through mainSess,
 	// after every target, so their ordering, dedupe, and gitignore capture
 	// stay stable regardless of --jobs.
-	if gitignoreOn {
+	if recordWrites {
 		mainSess.StartRecording()
 	}
 	mainSess.StartDetailedRecording()
 	entryFiles, err := writeEntryPointFiles(mainSess, cfg, b, effectiveTargets, dryRun)
 	if err != nil {
 		mainSess.StopDetailedRecording()
-		if gitignoreOn {
+		if recordWrites {
 			mainSess.StopRecording()
 		}
 		return err
 	}
 	entryWrites := mainSess.StopDetailedRecording()
-	if gitignoreOn {
+	if recordWrites {
 		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
+	}
+	// Like the sweep, release merged files only when every configured
+	// target emitted; otherwise another target may still own them.
+	if dryRun && coversAllConfiguredTargets(emitted, cfg.Targets) {
+		if err := printMergedRewrites(prev, gitignoreEntries, keepEdits, cfg.Sync.Unmanaged); err != nil {
+			return err
+		}
 	}
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
