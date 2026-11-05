@@ -766,4 +766,6 @@
 # bytes; the budget rises by 8192.
 # Crush and Pi MCP timeouts in seconds, Ellipsis compute.idle, and LINT059
 # (#2997, #2998, #3002) measured 24744096 bytes; the budget is that plus 8192.
-24752288
+# Codex global MCP matching without description and roots (#2999), merged
+# with #3008, measured 24752288 bytes; the budget is that plus 8192.
+24760480

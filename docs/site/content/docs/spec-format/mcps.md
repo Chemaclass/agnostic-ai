@@ -49,7 +49,7 @@ A server needs `command` (stdio) or `url` (remote). Only [`agnostic-ai lint`](@/
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | yes | none | Server identifier and key in the generated config, not the filename. Package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`, are percent-encoded in filenames and kept in configs. On Windows, import refuses a server whose spec file name would hold a colon, which a name with a colon and no slash does; see [path semantics](@/docs/configuration.md#path-semantics). |
-| `description` | no | empty | Free-form notes. Dropped for Junie and Warp. |
+| `description` | no | empty | Free-form notes. Dropped for Codex, Junie, and Warp. |
 | `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. `local` means `stdio`; `streamable-http` and `remote` mean `http`. Remote types write an explicit `type`; `stdio` does not. Augment, Factory, and Qoder get no server for `ws`, and Ellipsis none for `sse` or `ws`. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. An element can hold a [reference](#references-in-url-and-args). |
@@ -60,7 +60,7 @@ A server needs `command` (stdio) or `url` (remote). Only [`agnostic-ai lint`](@/
 | `timeout` | no | empty | Milliseconds on most tools, including [Junie](@/docs/targets/junie.md#mcp). [Crush](@/docs/targets/crush.md#mcp) and [Pi](@/docs/targets/pi.md#native-mappings) read seconds, so sync divides by 1000; Crush rounds up to whole seconds. |
 | `oauth` | no | empty | OAuth settings. The format differs by tool. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
-| `roots` | no | empty | List of `{uri, name}` objects, for tools with MCP roots. |
+| `roots` | no | empty | List of `{uri, name}` objects, for tools with MCP roots. Dropped for Codex. |
 | `agent-only` | no | `false` | Keep the server out of every MCP file. Only the agents that name it can reach it. See [Agent-only servers](#agent-only). |
 
 ## Agent-only servers {#agent-only}
