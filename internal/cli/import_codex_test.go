@@ -615,11 +615,9 @@ timeout = 120
 
 // TestImportFromCodex_MCPSharedFieldsRoundTrip pins the importer
 // against silently dropping the description / disabled / roots fields
-// that the emitter renders via writeMCPSharedFields. Without this
-// round-trip a re-sync after import erases the metadata: the next
-// emit produces a config.toml with no `disabled = true` line, no
-// description, and no roots array even though the source kept them.
-// Regression coverage for the codex audit (#329).
+// (#329). Sync no longer writes description or roots, since Codex has
+// neither key (#2999), but a config.toml from an older sync still
+// carries them, and import keeps them in the spec.
 func TestImportFromCodex_MCPSharedFieldsRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.disabled-server]

@@ -164,19 +164,36 @@ func anyNamedMCP(mcps []spec.Entry) bool {
 	return false
 }
 
+// Codex's RawMcpServerConfig denies unknown fields in its schema and
+// has neither `description` nor `roots`, yet codex-cli 0.166.0 loads a
+// table carrying them and ignores both (#2999).
+const (
+	mcpDescriptionNoOpReason = "a Codex mcp_servers table has no description key"
+	mcpRootsNoOpReason       = "a Codex mcp_servers table has no roots key"
+)
+
 func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
 	// Sort by name for deterministic output.
 	sorted := append([]spec.Entry(nil), mcps...)
 	slices.SortFunc(sorted, func(a, b spec.Entry) int { return strings.Compare(a.Name, b.Name) })
+	descriptions, roots := 0, 0
 	for _, m := range sorted {
 		if m.Name == "" {
 			continue
+		}
+		if desc, _ := m.Meta["description"].(string); desc != "" {
+			descriptions++
+		}
+		if len(emit.BuildRoots(m.Meta)) > 0 {
+			roots++
 		}
 		if _, dropped := mcpEnvironmentID(m.Meta); dropped != "" {
 			emit.NoteProject(fmt.Sprintf("codex mcp %s: experimental_environment: %s has no effect, since Codex now reads environment_id, the ID of a configured executor; set environment_id or remove the key", m.Name, dropped))
 		}
 		writeMCPServerTable(sb, m)
 	}
+	emit.NoteFieldNoOp(target, spec.KindMCP, "description", descriptions, mcpDescriptionNoOpReason)
+	emit.NoteFieldNoOp(target, spec.KindMCP, "roots", roots, mcpRootsNoOpReason)
 }
 
 // mcpEnvironmentID returns the `environment_id` to write for an MCP
@@ -197,9 +214,9 @@ func mcpEnvironmentID(meta map[string]any) (id, dropped string) {
 }
 
 // writeMCPServerTable emits one `[mcp_servers.<name>]` table with the
-// transport-appropriate keys plus the shared description/enabled/roots
-// fields that mirror the `.mcp.json` schema (the spec's `disabled` field
-// maps to Codex's own `enabled` key; see writeMCPSharedFields).
+// transport-appropriate keys plus the shared fields in
+// writeMCPSharedFields (the spec's `disabled` field maps to Codex's own
+// `enabled` key).
 //
 // The name routes through emit.TOMLKey, the same helper already
 // applied to a tool name below. Codex CLI 0.152.0 widened the MCP
@@ -391,9 +408,8 @@ func writeCodexMCPEnvVars(sb *strings.Builder, raw any) {
 	}
 }
 
-// writeMCPSharedFields emits description, enabled, enabled_tools,
-// disabled_tools, and roots into the current `[mcp_servers.<name>]`
-// table. Roots renders as an array of inline tables.
+// writeMCPSharedFields emits the keys Codex reads on any transport
+// into the current `[mcp_servers.<name>]` table.
 //
 // The spec's `disabled` field inverts to Codex's own `enabled` key:
 // `learn.chatgpt.com/docs/config-file/config-reference` documents
@@ -407,9 +423,6 @@ func writeCodexMCPEnvVars(sb *strings.Builder, raw any) {
 // land here rather than in writeMCPServerTable's http/sse branch. See
 // #661.
 func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
-	if desc, _ := meta["description"].(string); desc != "" {
-		emit.WriteTOMLString(sb, "description", desc)
-	}
 	if disabled, _ := meta["disabled"].(bool); disabled {
 		sb.WriteString("enabled = false\n")
 	}
@@ -452,29 +465,6 @@ func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 	if id, _ := mcpEnvironmentID(meta); id != "" {
 		emit.WriteTOMLString(sb, "environment_id", id)
 	}
-	raw, _ := meta["roots"].([]any)
-	if len(raw) == 0 {
-		return
-	}
-	sb.WriteString("roots = [")
-	first := true
-	for _, r := range raw {
-		root, _ := r.(map[string]any)
-		uri, _ := root["uri"].(string)
-		if uri == "" {
-			continue
-		}
-		if !first {
-			sb.WriteString(", ")
-		}
-		first = false
-		sb.WriteString(`{ uri = "` + emit.EscapeTOMLBasic(uri) + `"`)
-		if name, _ := root["name"].(string); name != "" {
-			sb.WriteString(`, name = "` + emit.EscapeTOMLBasic(name) + `"`)
-		}
-		sb.WriteString(" }")
-	}
-	sb.WriteString("]\n")
 }
 
 // UserMCPServerTables renders each MCP server as its `[mcp_servers.<name>]`

@@ -64,7 +64,7 @@ Environment specs write the Codex app's `.codex/environments/environment.toml`. 
 
 ## MCP mappings
 
-Servers become `[mcp_servers.<name>]` in project config. `disabled: true` becomes `enabled = false`.
+Servers become `[mcp_servers.<name>]` in project config. `disabled: true` becomes `enabled = false`. Codex has no `description` or `roots` key, so sync leaves both out with a note.
 
 | Transport | Native fields |
 |---|---|
