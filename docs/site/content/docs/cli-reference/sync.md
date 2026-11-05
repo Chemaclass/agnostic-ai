@@ -24,11 +24,11 @@ agnostic-ai sync --only claude,cursor
 | `--only <list>` | Write only these targets. Errors on unknown names. |
 | `--except <list>` | Write all configured targets except these. Errors on unknown names. Not with `--only`. |
 | `--all` | Write every configured target without the [first-sync picker](#first-sync-target-picker). |
-| `--dry-run` | Print to stdout instead of writing. Leftover deletions show only with `--diff`. |
+| `--dry-run` | Print to stdout instead of writing. Files whose spec is gone show only with `--diff`. |
 | `--plan` | Print added and changed counts per target without writing. Exits 0, or 1 on drift with `--check`, so CI can gate on the short report. Ignores `--diff` and `--format`. |
 | `--check` | Exit non-zero if files on disk differ from what sync would write. Writes nothing. |
 | `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there, not the working tree. See [`--against` details](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
-| `--diff` | With `--check` or `--dry-run`, print a diff per changed file, on disk vs what sync would write, in place of full file bodies. `--dry-run --diff` also names each file a full sync would delete, and exits 0 on drift. Fails without `--check` or `--dry-run`. |
+| `--diff` | With `--check` or `--dry-run`, print a diff per changed file, on disk vs what sync would write, in place of full file bodies. `--dry-run --diff` also names each generated file a full sync removes because its spec is gone, stops where sync would stop on a hand edit, and exits 0 on drift. Fails without `--check` or `--dry-run`, and with `--watch` or `--keep-edits`. |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing output file to `<path>.bak` before overwriting, with the file's own permissions. When the managed `.gitignore` block is on, it lists the `.bak` of each output it ignores, and `.git/info/exclude` lists any other backup sync made, such as one whose output is no longer generated. Pair with `revert`. |
 | `--keep-edits` | Write every output except those edited since the last sync (with no record, tracked outputs that differ from `HEAD`), and print `~ kept <path>` for each (stderr under `--quiet`). Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |

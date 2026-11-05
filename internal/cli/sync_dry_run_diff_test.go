@@ -67,11 +67,7 @@ func TestSyncGlobal_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".claude", "CLAUDE.md")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mustWriteGlobalTest(t, path, strings.Replace(string(data), "- Rule one.", "- Rule one, edited by hand.", 1))
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one, revised.\n")
 	mustWriteGlobalTest(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 	before := snapshotTree(t, home)
 
@@ -81,8 +77,8 @@ func TestSyncGlobal_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
 	}
 	for _, want := range []string{
 		"--- " + filepath.ToSlash(path) + " (on disk)",
-		"-- Rule one, edited by hand.",
-		"+- Rule one.",
+		"-- Rule one.",
+		"+- Rule one, revised.",
 		"would create " + filepath.ToSlash(filepath.Join(home, ".claude", "skills", "tidy", "SKILL.md")),
 	} {
 		if !strings.Contains(out, want) {
@@ -93,12 +89,42 @@ func TestSyncGlobal_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
 		t.Error("--dry-run --diff must change no user files, backups, or state")
 	}
 
-	if _, _, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	out, _, err = runGlobalAgentTest("--only", "claude", "--dry-run", "--diff")
 	if err != nil || out != "" {
 		t.Errorf("after sync the preview prints nothing, got err = %v, out:\n%s", err, out)
+	}
+}
+
+func TestSyncGlobal_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, ".claude", "CLAUDE.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteGlobalTest(t, path, strings.Replace(string(data), "- Rule one.", "- Rule one, edited by hand.", 1))
+	before := snapshotTree(t, home)
+
+	_, _, err = runGlobalAgentTest("--only", "claude", "--dry-run", "--diff")
+	if err == nil || !strings.Contains(err.Error(), "edited since the last global sync") {
+		t.Fatalf("the preview must stop where sync stops, got %v", err)
+	}
+	out, _, err := runGlobalAgentTest("--only", "claude", "--dry-run", "--diff", "--backup")
+	if err != nil {
+		t.Fatalf("with --backup the preview shows the overwrite: %v", err)
+	}
+	if !strings.Contains(out, "-- Rule one, edited by hand.") || !strings.Contains(out, "+- Rule one.") {
+		t.Errorf("output missing the overwrite:\n%s", out)
+	}
+	if after := snapshotTree(t, home); !maps.Equal(before, after) {
+		t.Error("previews must change no user files, backups, or state")
 	}
 }
 
@@ -153,5 +179,19 @@ func TestSync_DryRunDiffNamesARemoval(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude", "rules", "r1.md")); err != nil {
 		t.Errorf("previews must not remove anything: %v", err)
+	}
+}
+
+func TestSync_DiffRejectsWatchAndKeepEdits(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	for _, flag := range []string{"--watch", "--keep-edits"} {
+		root := NewRootCmd("test")
+		root.SetArgs([]string{"sync", "--dry-run", "--diff", flag})
+		err := root.Execute()
+		if err == nil || !strings.Contains(err.Error(), flag) {
+			t.Errorf("--dry-run --diff %s must be rejected, got %v", flag, err)
+		}
 	}
 }

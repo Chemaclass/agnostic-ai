@@ -107,6 +107,9 @@ func newSyncCmd() *cobra.Command {
 			if watch && check {
 				return errs.Coded(errs.CodeFlagConflict, "--watch and --check are incompatible")
 			}
+			if diff && (watch || keepEdits) {
+				return errs.Coded(errs.CodeFlagConflict, "--diff cannot be combined with --watch or --keep-edits")
+			}
 			if jsonOut && (watch || diff) {
 				return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --watch or --diff")
 			}

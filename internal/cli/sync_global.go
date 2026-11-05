@@ -400,6 +400,11 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return errors.Join(printGlobalPlan(cmd, records), driftErr)
 	}
 	if o.dryRun && o.diff {
+		if !o.backup {
+			if err := refuseGlobalOverwrites(writes, removals, old, source); err != nil {
+				return err
+			}
+		}
 		if _, err := globalDrift(cmd, writes, existingPaths(removals), statePath, next, true); err != nil {
 			return err
 		}
@@ -427,30 +432,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return printGlobalAdoptions(cmd, adopted, writes)
 	}
 	if !o.backup {
-		var conflicts []string
-		for _, w := range writes {
-			for _, c := range w.conflicts {
-				conflicts = append(conflicts, w.path+": "+c)
-			}
-		}
-		if len(conflicts) > 0 {
-			return fmt.Errorf("%s; or rerun with --backup to overwrite and keep a .bak copy", strings.Join(conflicts, "; "))
-		}
-		edited, err := handEditedGlobalFiles(writes, removals, old)
-		if err != nil {
+		if err := refuseGlobalOverwrites(writes, removals, old, source); err != nil {
 			return err
-		}
-		if len(edited) > 0 {
-			return fmt.Errorf("edited since the last global sync: %s; move the edit into %s, or rerun with --backup to overwrite and keep a .bak copy", strings.Join(edited, ", "), source)
-		}
-		var commented []string
-		for _, w := range writes {
-			if w.dropsComments {
-				commented = append(commented, w.path)
-			}
-		}
-		if len(commented) > 0 {
-			return fmt.Errorf("rewriting %s would drop its comments; rerun with --backup to rewrite and keep a .bak copy", strings.Join(commented, ", "))
 		}
 	}
 	var applied []globalFileRecord
@@ -612,6 +595,37 @@ func printGlobalPlan(cmd *cobra.Command, records []globalFileRecord) error {
 				return fmt.Errorf("write plan: %w", err)
 			}
 		}
+	}
+	return nil
+}
+
+// refuseGlobalOverwrites stops a sync that would overwrite what the user
+// changed: a key conflict, a hand edit, or a file's comments.
+func refuseGlobalOverwrites(writes []globalWrite, removals []string, old globalState, source string) error {
+	var conflicts []string
+	for _, w := range writes {
+		for _, c := range w.conflicts {
+			conflicts = append(conflicts, w.path+": "+c)
+		}
+	}
+	if len(conflicts) > 0 {
+		return fmt.Errorf("%s; or rerun with --backup to overwrite and keep a .bak copy", strings.Join(conflicts, "; "))
+	}
+	edited, err := handEditedGlobalFiles(writes, removals, old)
+	if err != nil {
+		return err
+	}
+	if len(edited) > 0 {
+		return fmt.Errorf("edited since the last global sync: %s; move the edit into %s, or rerun with --backup to overwrite and keep a .bak copy", strings.Join(edited, ", "), source)
+	}
+	var commented []string
+	for _, w := range writes {
+		if w.dropsComments {
+			commented = append(commented, w.path)
+		}
+	}
+	if len(commented) > 0 {
+		return fmt.Errorf("rewriting %s would drop its comments; rerun with --backup to rewrite and keep a .bak copy", strings.Join(commented, ", "))
 	}
 	return nil
 }
