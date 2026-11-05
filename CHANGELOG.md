@@ -23,7 +23,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Codex
 
 - **Deprecated:** MCP `experimental_environment`, which Codex ignores; sync and import now write `environment_id`. Run `agnostic-ai migrate --only mcps` (#2976).
-- MCP servers no longer get `description` or `roots` in `.codex/config.toml`. Codex has neither key and ignored both; sync now says so in a note (#2999).
+- MCP servers no longer get `description` or `roots` in `.codex/config.toml` or `~/.codex/config.toml`. Codex has neither key and ignored both. Sync says so in a note, and import leaves both out of the spec (#2999).
 
 #### Qoder
 

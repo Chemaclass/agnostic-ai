@@ -516,7 +516,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				b, _ := native[m.Name].(map[string]any)
 				same = sameSetting(adapters.CanonicalUserArrayRecord(target, g.mcp.key, a), adapters.CanonicalUserArrayRecord(target, g.mcp.key, b))
 			}
-			if g.mcp.format == "json" || target == "grok" {
+			if g.mcp.format == "json" || target == "grok" || target == "codex" {
 				same = sameMCPServer(target, rendered[m.Name], native[m.Name])
 			}
 			if same {

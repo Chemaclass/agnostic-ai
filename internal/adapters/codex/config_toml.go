@@ -172,12 +172,11 @@ const (
 	mcpRootsNoOpReason       = "a Codex mcp_servers table has no roots key"
 )
 
-func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
-	// Sort by name for deterministic output.
-	sorted := append([]spec.Entry(nil), mcps...)
-	slices.SortFunc(sorted, func(a, b spec.Entry) int { return strings.Compare(a.Name, b.Name) })
+// NoteDroppedMCPFields buffers one note per spec field that no Codex MCP
+// table carries, for the project and the user config alike.
+func NoteDroppedMCPFields(mcps []spec.Entry) {
 	descriptions, roots := 0, 0
-	for _, m := range sorted {
+	for _, m := range mcps {
 		if m.Name == "" {
 			continue
 		}
@@ -187,13 +186,25 @@ func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
 		if len(emit.BuildRoots(m.Meta)) > 0 {
 			roots++
 		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindMCP, "description", descriptions, mcpDescriptionNoOpReason)
+	emit.NoteFieldNoOp(target, spec.KindMCP, "roots", roots, mcpRootsNoOpReason)
+}
+
+func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
+	// Sort by name for deterministic output.
+	sorted := append([]spec.Entry(nil), mcps...)
+	slices.SortFunc(sorted, func(a, b spec.Entry) int { return strings.Compare(a.Name, b.Name) })
+	for _, m := range sorted {
+		if m.Name == "" {
+			continue
+		}
 		if _, dropped := mcpEnvironmentID(m.Meta); dropped != "" {
 			emit.NoteProject(fmt.Sprintf("codex mcp %s: experimental_environment: %s has no effect, since Codex now reads environment_id, the ID of a configured executor; set environment_id or remove the key", m.Name, dropped))
 		}
 		writeMCPServerTable(sb, m)
 	}
-	emit.NoteFieldNoOp(target, spec.KindMCP, "description", descriptions, mcpDescriptionNoOpReason)
-	emit.NoteFieldNoOp(target, spec.KindMCP, "roots", roots, mcpRootsNoOpReason)
+	NoteDroppedMCPFields(mcps)
 }
 
 // mcpEnvironmentID returns the `environment_id` to write for an MCP

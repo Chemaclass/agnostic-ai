@@ -14,6 +14,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -110,6 +111,9 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 		sources[m.Name] = m.Path
 	}
 	if f.format == "toml" {
+		if target == "codex" {
+			codex.NoteDroppedMCPFields((spec.Bundle{MCPs: mcps}).For(target).MCPs)
+		}
 		tables, _ := adapters.UserMCPServerTables(target, mcps)
 		if target == "grok" {
 			data := base
@@ -138,7 +142,7 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 				}
 			}
 		}
-		return mergeGlobalMCPTables(path, f.key, base, tables, sources, previous)
+		return mergeGlobalMCPTables(path, target, f.key, base, tables, sources, previous)
 	}
 	servers, _, err := adapters.CheckedUserMCPServers(target, mcps)
 	if err != nil {
@@ -206,7 +210,7 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 }
 
 // mergeGlobalMCPTables is mergeGlobalMCP for TOML tables under parent.
-func mergeGlobalMCPTables(path, parent string, base []byte, tables, sources map[string]string, previous map[string]any) (globalSettingsMerge, error) {
+func mergeGlobalMCPTables(path, target, parent string, base []byte, tables, sources map[string]string, previous map[string]any) (globalSettingsMerge, error) {
 	data := base
 	if data == nil {
 		read, err := os.ReadFile(path)
@@ -240,11 +244,11 @@ func mergeGlobalMCPTables(path, parent string, base []byte, tables, sources map[
 		case !present:
 			m.changes = append(m.changes, "add ["+key+"]")
 			set[name], order = tables[name], append(order, name)
-		case sameSetting(have, value):
-			if !owned || !sameSetting(recorded, value) {
+		case sameMCPServer(target, have, value):
+			if !owned || !sameMCPServer(target, recorded, value) {
 				m.adopted = append(m.adopted, "["+key+"]")
 			}
-		case owned && sameSetting(have, recorded):
+		case owned && sameMCPServer(target, have, recorded):
 			m.changes = append(m.changes, "replace ["+key+"]")
 			set[name], order = tables[name], append(order, name)
 		default:
@@ -258,7 +262,7 @@ func mergeGlobalMCPTables(path, parent string, base []byte, tables, sources map[
 		if _, ok := tables[name]; ok {
 			continue
 		}
-		if have, ok := current[name]; ok && sameSetting(have, previous[name]) {
+		if have, ok := current[name]; ok && sameMCPServer(target, have, previous[name]) {
 			m.changes = append(m.changes, "remove ["+parent+"."+name+"]")
 			remove = append(remove, name)
 		}
@@ -394,6 +398,12 @@ func canonicalMCPServer(target string, v any) any {
 		if kind, err := codebuddy.MCPType(out); err == nil {
 			out["type"] = kind
 		}
+		return out
+	}
+	if target == "codex" {
+		// Codex reads neither key (#2999), so sync no longer writes them.
+		delete(out, "description")
+		delete(out, "roots")
 		return out
 	}
 	if target == "grok" {

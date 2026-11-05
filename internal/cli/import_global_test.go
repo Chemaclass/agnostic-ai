@@ -47,6 +47,35 @@ func TestImportGlobal_CodexConfigRoundTrips(t *testing.T) {
 	}
 }
 
+// Codex has no MCP description or roots key (#2999). Import leaves them
+// out of the spec and still keeps the server, and the next sync adopts
+// the hand-written table without touching config.toml.
+func TestImportGlobal_CodexDescribedServerRoundTrips(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	mustWriteGlobalTest(t, codexPath, "[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\ndescription = \"Docs search\"\nroots = [{ uri = \"file:///workspace\", name = \"workspace\" }]\n")
+
+	if _, warnings, err := runImportGlobalTest("codex"); err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"))
+	for _, unwanted := range []string{"description", "roots", "file:///workspace"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("docs.yaml must leave out %q:\n%s", unwanted, got)
+		}
+	}
+	before := readGlobalTest(t, codexPath)
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, codexPath); got != before {
+		t.Errorf("sync after import changed config.toml:\n%s", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+}
+
 // Every JSON user file sync writes reads back through import into specs
 // that render to the same bytes.
 func TestImportGlobal_RoundTripsWhatSyncWrote(t *testing.T) {

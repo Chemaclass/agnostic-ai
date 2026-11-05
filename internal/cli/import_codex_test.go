@@ -614,10 +614,9 @@ timeout = 120
 }
 
 // TestImportFromCodex_MCPSharedFieldsRoundTrip pins the importer
-// against silently dropping the description / disabled / roots fields
-// (#329). Sync no longer writes description or roots, since Codex has
-// neither key (#2999), but a config.toml from an older sync still
-// carries them, and import keeps them in the spec.
+// against silently dropping `disabled` (#329). Codex has no description
+// or roots key (#2999), so import leaves both out of the spec, and
+// the next sync writes back the same server.
 func TestImportFromCodex_MCPSharedFieldsRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.disabled-server]
@@ -641,8 +640,8 @@ roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
 		want []string
 	}{
 		{"disabled-server.yaml", []string{"name: disabled-server", "disabled: true"}},
-		{"described.yaml", []string{"name: described", "description: human-readable hint"}},
-		{"rooted.yaml", []string{"name: rooted", "roots:", "uri: file:///workspace", "name: root1", "uri: file:///tmp"}},
+		{"described.yaml", []string{"name: described"}},
+		{"rooted.yaml", []string{"name: rooted"}},
 	}
 	for _, c := range cases {
 		data, err := os.ReadFile(filepath.Join(dir, "mcps", c.file))
@@ -652,6 +651,11 @@ roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
 		for _, w := range c.want {
 			if !strings.Contains(string(data), w) {
 				t.Errorf("%s missing %q:\n%s", c.file, w, data)
+			}
+		}
+		for _, unwanted := range []string{"description", "roots", "file:///"} {
+			if strings.Contains(string(data), unwanted) {
+				t.Errorf("%s must leave out %q, which Codex never read:\n%s", c.file, unwanted, data)
 			}
 		}
 	}
