@@ -39,6 +39,8 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
+For user-level configuration, `agnostic-ai sync --global --plan --check` previews changes and exits non-zero on drift.
+
 Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files. Sync saves hand edits as `.bak` before replacing or removing a generated file; `revert` restores them.
 
 Changing only the capitalization of a rule, skill, or agent name needs one sync, including on macOS and Windows.

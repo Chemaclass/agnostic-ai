@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,10 +82,79 @@ func TestSyncGlobal_CheckJSONReportsDrift(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_PlanRejectsCheck(t *testing.T) {
+func TestSyncGlobal_PlanCheckGatesWithoutWriting(t *testing.T) {
+	for _, jsonOut := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json=%t", jsonOut), func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			input := filepath.Join(source, "AGNOSTIC_AI.md")
+			mustWriteGlobalTest(t, input, "Be brief.\n")
+			args := []string{"--only", "claude", "--plan", "--check"}
+			if jsonOut {
+				args = append(args, "--json")
+			}
+			out, _, err := runGlobalAgentTest(args...)
+			if err == nil || !strings.Contains(err.Error(), "drift detected") {
+				t.Errorf("missing output: %v\n%s", err, out)
+			}
+			if jsonOut {
+				var plan globalPlanJSON
+				if err := json.Unmarshal([]byte(out), &plan); err != nil {
+					t.Fatalf("decode: %v", err)
+				}
+				if plan.Command != "sync --global --plan" || len(plan.Writes) == 0 || plan.Writes[0].Action != "create" {
+					t.Errorf("plan = %+v", plan)
+				}
+			} else if !strings.Contains(out, "create ") {
+				t.Errorf("plan: %s", out)
+			}
+			if _, err := os.Stat(filepath.Join(source, "state")); !os.IsNotExist(err) {
+				t.Errorf("preview created state: %v", err)
+			}
+			output := filepath.Join(home, ".claude", "CLAUDE.md")
+			if _, err := os.Stat(output); !os.IsNotExist(err) {
+				t.Errorf("preview created output: %v", err)
+			}
+			if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+				t.Fatalf("sync: %v", err)
+			}
+			if out, _, err := runGlobalAgentTest(args...); err != nil {
+				t.Errorf("clean: %v\n%s", err, out)
+			}
+			before := readGlobalTest(t, output)
+			state := readGlobalTest(t, filepath.Join(source, "state", "global.json"))
+			mustWriteGlobalTest(t, input, "Be short.\n")
+			if out, _, err := runGlobalAgentTest(args...); err == nil || !strings.Contains(err.Error(), "drift detected") {
+				t.Errorf("changed source: %v\n%s", err, out)
+			}
+			if got := readGlobalTest(t, output); got != before {
+				t.Error("preview changed output")
+			}
+			if got := readGlobalTest(t, filepath.Join(source, "state", "global.json")); got != state {
+				t.Error("preview changed state")
+			}
+			if _, err := os.Stat(output + ".bak"); !os.IsNotExist(err) {
+				t.Errorf("preview created backup: %v", err)
+			}
+		})
+	}
+}
+
+func TestSyncGlobal_PlanCheckPreservesLoadFailure(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	path := filepath.Join(source, "settings", "bad.yaml")
+	mustWriteGlobalTest(t, path, "model: [\n")
+	for _, args := range [][]string{{"--plan", "--check"}, {"--plan", "--check", "--json"}} {
+		_, _, err := runGlobalAgentTest(args...)
+		if err == nil || strings.Contains(err.Error(), "drift detected") || !strings.Contains(err.Error(), "bad.yaml") {
+			t.Errorf("load failure: %v", err)
+		}
+	}
+}
+
+func TestSyncGlobal_PlanRejectsDryRun(t *testing.T) {
 	globalAgentTestHome(t)
-	if _, _, err := runGlobalAgentTest("--plan", "--check"); err == nil {
-		t.Error("--plan with --check must fail")
+	if _, _, err := runGlobalAgentTest("--plan", "--dry-run"); err == nil {
+		t.Error("--plan with --dry-run must fail")
 	}
 }
 
@@ -122,5 +192,26 @@ func TestSyncGlobal_PlanMarksHandEdit(t *testing.T) {
 	}
 	if !strings.Contains(out, "conflict: edited since the last global sync") {
 		t.Errorf("plan must mark the hand edit:\n%s", out)
+	}
+}
+
+func TestSyncGlobal_PlanCheckDoesNotGateOnOwnershipOnly(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	statePath := filepath.Join(source, "state", "global.json")
+	if err := os.Remove(statePath); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"--plan", "--check"}, {"--plan", "--check", "--json"}} {
+		out, _, err := runGlobalAgentTest(append([]string{"--only", "claude"}, args...)...)
+		if err != nil {
+			t.Errorf("ownership-only plan: %v\n%s", err, out)
+		}
+	}
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Errorf("preview restored state: %v", err)
 	}
 }

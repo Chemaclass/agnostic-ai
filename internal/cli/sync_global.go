@@ -165,8 +165,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if o.watch || o.watchPoll || o.allTargets || o.gitignore != "" || o.jobs != 0 {
 		return errs.Coded(errs.CodeFlagConflict, "--global does not support --watch, --watch-poll, --all, --gitignore, or --jobs")
 	}
-	if o.plan && (o.check || o.dryRun) {
-		return errs.Coded(errs.CodeFlagConflict, "--plan cannot be combined with --check or --dry-run")
+	if o.plan && o.dryRun {
+		return errs.Coded(errs.CodeFlagConflict, "--plan cannot be combined with --dry-run")
 	}
 	if o.jsonOut && o.diff {
 		return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --diff")
@@ -352,7 +352,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	removals := removedGlobalFiles(old.Files, next.Files, writes...)
-	if o.check && o.jsonOut {
+	if o.check && o.jsonOut && !o.plan {
 		records := globalFileRecords(writes, existingPaths(removals), statePath, next, true)
 		jsonWritten = true
 		if len(records) == 0 && !globalStateCurrent(statePath, next) {
@@ -366,7 +366,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		}
 		return nil
 	}
-	if o.check {
+	if o.check && !o.plan {
 		return checkGlobalWrites(cmd, writes, existingPaths(removals), statePath, next, o.diff)
 	}
 	if o.plan || (o.dryRun && o.jsonOut) {
@@ -385,15 +385,19 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 				records[i].Keys = append(records[i].Keys, "conflict: the rewrite drops the file's comments; use --backup")
 			}
 		}
+		var driftErr error
+		if o.check && len(globalFileRecords(writes, existingPaths(removals), statePath, next, true)) > 0 {
+			driftErr = errDriftDetected()
+		}
 		if o.jsonOut {
 			command := "sync --global --plan"
 			if o.dryRun {
 				command = "sync --global --dry-run"
 			}
 			jsonWritten = true
-			return emitGlobalJSON(cmd, command, records, drops)
+			return errors.Join(emitGlobalJSON(cmd, command, records, drops), driftErr)
 		}
-		return printGlobalPlan(cmd, records)
+		return errors.Join(printGlobalPlan(cmd, records), driftErr)
 	}
 	if o.dryRun {
 		for _, w := range writes {

@@ -55,8 +55,8 @@ agnostic-ai sync --only claude,cursor
 
 `sync --global` works outside a project and never loads project config or packs. It loads overrides from `local/` in the source root and reads `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there.
 
-- Accepts `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`.
-- `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
+- Accepts `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--dry-run`.
+- `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. Add `--check` to exit non-zero on drift. `--json` adds a `keys` list per settings or MCP file.
 - Files per tool: [global output](@/docs/global-configuration.md#global-output), [MCP servers](@/docs/global-configuration.md#global-mcp-servers), and [model, effort, and permissions](@/docs/global-configuration.md#global-default-model-and-effort).
 
 **Summary.** With nothing to do, `sync` prints `✓ 26 targets up to date · 49ms`. After an edit it names the changed specs, then the files created (`+`), updated (`~`), and removed (`-`):
