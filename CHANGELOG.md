@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `hook run` rejects a `--payload` file that is not valid JSON instead of passing with no hook run, and `--format json` still prints its result object when a target cannot be set up (#2994).
+
 - `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
 
 - `graph` and `hook run` accept `--json`, the same as `--format json`, like other commands that print JSON. `--json` with a different `--format` fails on all three; `why` used to print JSON (#2993).

@@ -83,6 +83,9 @@ func newHookRunCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("%s: %w", payloadFile, err)
 				}
+				if !json.Valid(raw) {
+					return fmt.Errorf("parse %s: not valid JSON", payloadFile)
+				}
 				in.Raw = raw
 			}
 			cfg, b, err := loadProject(".")
@@ -117,6 +120,11 @@ func newHookRunCmd() *cobra.Command {
 				runs, err = runHookTargets(cfg, hook, b.Hooks, targets, root, in, show)
 			}
 			if err != nil {
+				if format == "json" {
+					if jerr := printHookRunJSON(cmd.OutOrStdout(), hook.Name, runs, err); jerr != nil {
+						return errors.Join(err, jerr)
+					}
+				}
 				return err
 			}
 			runs = countHookRuns(runs, hookrun.Decision(expect), includeAssumed)
@@ -252,7 +260,7 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 		}
 		handlers, err := adapters.HookHandlers(cfg, target, hook)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", target, err)
+			return runs, fmt.Errorf("%s: %w", target, err)
 		}
 		if len(handlers) == 0 {
 			run.Reason = "no command handler; hook run runs command hooks only"
@@ -272,7 +280,7 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			continue
 		}
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", target, err)
+			return runs, fmt.Errorf("%s: %w", target, err)
 		}
 		run.Event, run.Trigger, run.Decision = event, payload.Trigger, hookrun.Allow
 		run.Warnings = append(run.Warnings, hookFileWarnings(cfg, target, hook.Name, event, adapters.HookNativeMatcher(target, event, matcher), root, handlers)...)
@@ -291,16 +299,16 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 		run.Assumptions = assumptions
 		// Claude Code and Qoder write the spec's `if` on every handler.
 		if rule := handlers[0].If; (target == "claude" || target == "qoder") && rule != "" {
-			runs, err := hookrun.IfRuns(target, rule, event, payload.Body, root)
+			matches, err := hookrun.IfRuns(target, rule, event, payload.Body, root)
 			if errors.As(err, &unbuilt) {
 				run.Decision, run.Reason = notRun, unbuilt.Reason
 				add(run)
 				continue
 			}
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", target, err)
+				return runs, fmt.Errorf("%s: %w", target, err)
 			}
-			if !runs {
+			if !matches {
 				run.Reason = fmt.Sprintf("if %q does not match this %s call", rule, payload.Trigger)
 				add(run)
 				continue
