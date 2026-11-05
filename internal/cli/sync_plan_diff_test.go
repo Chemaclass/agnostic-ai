@@ -169,3 +169,38 @@ func TestSync_PlanDiffNamesARemoval(t *testing.T) {
 		t.Errorf("previews must not remove anything: %v", err)
 	}
 }
+
+func TestSync_PlanDiffShowsAStrippedSettingsFileAsADiff(t *testing.T) {
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	testutil.TempCwd(t)
+	writeFile(t, ".agnostic-ai/hooks/status.yaml", "name: status\ndescription: show status\non: session-start\ncommand: git status --short\n")
+	writeFile(t, ".claude/settings.json", "{\n  \"model\": \"opus\",\n  \"env\": {\"MINE\": \"1\"}\n}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	captureLogOut(t)
+	if out, err := runCLI(t, "sync", "--all"); err != nil {
+		t.Fatalf("first sync: %v\n%s", err, out)
+	}
+	if err := os.Remove(".agnostic-ai/hooks/status.yaml"); err != nil {
+		t.Fatal(err)
+	}
+	before := snapshotTree(t, ".")
+
+	out, err := runSyncStdout(t, "sync", "--plan", "--diff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "would remove .claude/settings.json") || !strings.Contains(out, "--- .claude/settings.json (on disk)") {
+		t.Errorf("sync strips its keys and keeps the file, so the plan shows a diff:\n%s", out)
+	}
+	if after := snapshotTree(t, "."); !maps.Equal(before, after) {
+		t.Error("--plan --diff must change no files")
+	}
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	data, err := os.ReadFile(".claude/settings.json")
+	if err != nil || !strings.Contains(string(data), "MINE") || strings.Contains(string(data), "SessionStart") {
+		t.Errorf("sync keeps the file without its hook, got %q, %v", data, err)
+	}
+}
