@@ -7,13 +7,13 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// MCPTimeoutSeconds returns the MCP timeout for a target that reads whole
+// MCPTimeoutSeconds returns the MCP timeout for a target that reads
 // seconds. `x-<target>.timeout` is already in the target's unit and wins.
-// The portable `timeout` is milliseconds, rounded up so a short limit
-// never becomes 0, which such targets read as their default. A value
-// the target cannot read writes no key and prints a note. fractional
-// lets the override keep fractions of a second, for a target that
-// accepts them.
+// The portable `timeout` is milliseconds. fractional marks a target that
+// accepts fractions of a second, which gets the exact value; otherwise
+// it is rounded up so a short limit never becomes 0, which such targets
+// read as their default. A value the target cannot read writes no key
+// and prints a note.
 func MCPTimeoutSeconds(target string, e spec.Entry, fractional bool) (any, bool) {
 	if custom, ok := e.Meta[XPrefix+target].(map[string]any); ok {
 		if raw, set := custom["timeout"]; set {
@@ -38,6 +38,9 @@ func MCPTimeoutSeconds(target string, e spec.Entry, fractional bool) (any, bool)
 	}
 	if ms <= 0 {
 		return 0, false
+	}
+	if fractional && ms%1000 != 0 {
+		return float64(ms) / 1000, true
 	}
 	seconds := (ms + 999) / 1000
 	if seconds*1000 != ms {

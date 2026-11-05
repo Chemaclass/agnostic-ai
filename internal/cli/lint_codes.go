@@ -50,7 +50,7 @@ var lintCodes = map[string]lintCode{
 	"LINT059": {
 		Severity: lintWarn,
 		Title:    "MCP timeout looks like seconds",
-		Cause:    "An MCP spec that reaches Crush or Pi sets `timeout` below 1000. The spec field is milliseconds, and those tools read seconds, so sync writes 1 second. Import stored native seconds unchanged before this check existed, so the value is most likely seconds.",
+		Cause:    "An MCP spec that reaches Crush or Pi sets `timeout` below 1000. The spec field is milliseconds, and those tools read seconds, so sync writes a limit of one second or less. Import stored native seconds unchanged, and the Pi page said to write seconds, before this check existed, so the value is most likely seconds.",
 		Fix:      "Multiply `timeout` by 1000. To set seconds for one tool only, use `x-crush.timeout` or `x-pi.timeout`.",
 	},
 	"LINT001": {

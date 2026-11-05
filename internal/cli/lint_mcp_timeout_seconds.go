@@ -14,7 +14,8 @@ var secondsMCPTargets = []string{"crush", "pi"}
 
 // lintMCPTimeoutSeconds flags an MCP timeout under 1000 ms on a spec that
 // reaches a seconds target. Import stored native seconds unchanged until
-// #2997, so such a value is most likely seconds, and sync writes 1 second.
+// #2997, so such a value is most likely seconds, and sync writes a limit
+// of one second or less.
 // Sync's rounding note shows only until the output is unchanged; this
 // warning stays.
 func lintMCPTimeoutSeconds(targets []string, b spec.Bundle) []lintFinding {
@@ -47,7 +48,7 @@ func lintMCPTimeoutSeconds(targets []string, b spec.Bundle) []lintFinding {
 			verb = "read"
 		}
 		out = append(out, lintFinding{Code: "LINT059", Severity: lintWarn, Path: paths[name], Message: fmt.Sprintf(
-			"MCP server %q: timeout is milliseconds, and %s %s seconds, so sync writes 1 second. If the value is seconds from an older import, multiply it by 1000",
+			"MCP server %q: timeout is milliseconds, and %s %s seconds, so sync writes a limit of one second or less. If the value is seconds, multiply it by 1000",
 			name, strings.Join(reached[name], " and "), verb)})
 	}
 	return out

@@ -8,7 +8,7 @@
       "cwd": "tools",
       "enabled": false,
       "exposure": "direct",
-      "timeout": 2,
+      "timeout": 1.5,
       "toolExposure": {
         "write_*": "hidden",
         "*": "direct"

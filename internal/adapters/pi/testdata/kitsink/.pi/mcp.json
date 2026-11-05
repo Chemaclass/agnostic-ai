@@ -7,7 +7,7 @@
       "command": "npx",
       "cwd": "tools",
       "enabled": false,
-      "timeout": 2
+      "timeout": 1.5
     },
     "remote": {
       "enabled": true,

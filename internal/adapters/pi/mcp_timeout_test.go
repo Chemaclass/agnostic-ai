@@ -45,15 +45,16 @@ func emitPiMCPTimeout(t *testing.T, extra map[string]any) (server map[string]any
 }
 
 // Pi reads timeout in seconds (docs/mcp.md: "per-request timeout in
-// seconds"); the spec holds milliseconds.
-func TestEmit_MCPTimeoutIsWrittenInWholeSeconds(t *testing.T) {
+// seconds") and accepts fractions, so milliseconds divide exactly.
+func TestEmit_MCPTimeoutIsWrittenInSeconds(t *testing.T) {
 	cases := []struct {
 		meta     map[string]any
 		seconds  float64
 		rounding bool
 	}{
 		{map[string]any{"timeout": 30000}, 30, false},
-		{map[string]any{"timeout": 1500}, 2, true},
+		{map[string]any{"timeout": 1500}, 1.5, false},
+		{map[string]any{"timeout": 30}, 0.03, false},
 		{map[string]any{"timeout": 30000, "x-pi": map[string]any{"timeout": 45}}, 45, false},
 		{map[string]any{"x-pi": map[string]any{"timeout": 1.5}}, 1.5, false},
 	}
