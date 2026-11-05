@@ -26,7 +26,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### CodeBuddy Code
 
-- An agent with `x-codebuddy.tools: []` gets `tools: []`, which CodeBuddy 2.179.0 and later read as no tools; sync used to write `tools: ""`, every tool.
+- An agent with `x-codebuddy.tools: []` gets `tools: []`, which CodeBuddy 2.179.0 and later read as no tools; sync used to write `tools: ""`, every tool (#2983).
 
 ## v0.91.0 - 2026-11-01
 
