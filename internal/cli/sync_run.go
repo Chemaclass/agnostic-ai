@@ -858,7 +858,9 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	if recordWrites {
 		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
 	}
-	if dryRun {
+	// Like the sweep, release merged files only when every configured
+	// target emitted; otherwise another target may still own them.
+	if dryRun && coversAllConfiguredTargets(emitted, cfg.Targets) {
 		if err := printMergedRewrites(prev, gitignoreEntries, keepEdits, cfg.Sync.Unmanaged); err != nil {
 			return err
 		}

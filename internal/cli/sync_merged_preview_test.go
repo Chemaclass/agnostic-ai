@@ -305,3 +305,35 @@ func TestSync_PlainDryRunKeepEditsLeavesAnEditedSettingsFile(t *testing.T) {
 		t.Errorf("sync --keep-edits changed the file:\n%s", after)
 	}
 }
+
+// A -t run covers one target, so the real run releases no other
+// target's merged file, and the dry run must not print one.
+func TestSync_PlainDryRunForOneTargetLeavesOtherMergedFiles(t *testing.T) {
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	testutil.TempCwd(t)
+	writeFile(t, ".agnostic-ai/hooks/status.yaml", mergedPreviewHook)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	captureLogOut(t)
+	if out, err := runCLI(t, "sync", "--all"); err != nil {
+		t.Fatalf("first sync: %v\n%s", err, out)
+	}
+	data, err := os.ReadFile(".cursor/hooks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, ".cursor/hooks.json", strings.Replace(string(data), "{", "{\n  \"myKey\": 1,", 1))
+	for _, args := range [][]string{{"-t", "claude"}, {"--only", "claude"}, {"--except", "cursor"}} {
+		var err error
+		out := captureStdout(t, func() { _, err = runSyncStdout(t, append([]string{"sync", "--dry-run"}, args...)...) })
+		if err != nil || strings.Contains(out, "--- .cursor/hooks.json ---") {
+			t.Errorf("%v leaves cursor's file, got err = %v:\n%s", args, err, out)
+		}
+	}
+	before, _ := os.ReadFile(".cursor/hooks.json")
+	if out, err := runCLI(t, "sync", "-t", "claude"); err != nil {
+		t.Fatalf("sync -t claude: %v\n%s", err, out)
+	}
+	if after, _ := os.ReadFile(".cursor/hooks.json"); string(after) != string(before) {
+		t.Errorf("sync -t claude changed cursor's file:\n%s", after)
+	}
+}
