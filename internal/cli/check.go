@@ -398,6 +398,12 @@ func leftoverReportsIn(cfg *config.Config, emitted map[string]bool, ledger ledge
 	if missing {
 		return []driftReport{unledgered}
 	}
+	return []driftReport{ledgerLeftovers(state, stranded), unledgered}
+}
+
+// ledgerLeftovers is the ledger report: each stranded output the last
+// sync recorded that the orphan sweep can prove it wrote.
+func ledgerLeftovers(state syncStateFile, stranded func(string) bool) driftReport {
 	rep := driftReport{Target: ledgerReport}
 	for _, p := range state.Outputs {
 		if !stranded(p) {
@@ -413,7 +419,7 @@ func leftoverReportsIn(cfg *config.Config, emitted map[string]bool, ledger ledge
 			rep.Leftover = append(rep.Leftover, p)
 		}
 	}
-	return []driftReport{rep, unledgered}
+	return rep
 }
 
 // notOnDisk reports whether a read failed because no file sits at the

@@ -55,6 +55,15 @@ func generatedFilesKept(cfg *config.Config, ledger ledgerSnapshot) bool {
 	return false
 }
 
+// emptyTargetsRemovals is the ledger report of each file a sync with
+// --allow-empty-targets removes, so a dry run can name them.
+func emptyTargetsRemovals(cfg *config.Config, ledger ledgerSnapshot) driftReport {
+	if ledger.missing() {
+		return driftReport{Target: ledgerReport}
+	}
+	return ledgerLeftovers(ledger.state, strandedFile(cfg, nil, ledger.state))
+}
+
 func errEmptyTargetsCheck() error {
 	return errs.Coded(errs.CodeEmptyTargets, "targets lists no tool and generated files remain; add a tool to targets, or run `agnostic-ai sync --allow-empty-targets` to remove them")
 }

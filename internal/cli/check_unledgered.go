@@ -100,6 +100,12 @@ func strandedOutput(cfg *config.Config, emitted map[string]bool, state syncState
 	if noTargetsKept(cfg) {
 		return func(string) bool { return false }
 	}
+	return strandedFile(cfg, emitted, state)
+}
+
+// strandedFile is strandedOutput without the empty targets guard, for
+// a run that removes every generated file.
+func strandedFile(cfg *config.Config, emitted map[string]bool, state syncStateFile) func(string) bool {
 	skip := map[string]bool{}
 	for _, p := range entryPointPaths(cfg, cfg.Targets) {
 		skip[p] = true

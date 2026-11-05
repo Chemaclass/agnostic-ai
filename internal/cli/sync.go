@@ -385,6 +385,14 @@ func newSyncCmd() *cobra.Command {
 				defer stop()
 				return watchSync(ctx, 200*time.Millisecond, ".", watchTargets(targets, only, except, effective), dryRun, backup, gitignoreFlag, watchPoll, jobs)
 			}
+			// The drift reports keep every file when targets is empty, so
+			// they name none of the files --allow-empty-targets removes.
+			withEmptyTargetsRemovals := func(reports []driftReport) []driftReport {
+				if !allowEmptyTargets || !noTargetsKept(cfg) || len(effective) > 0 {
+					return reports
+				}
+				return append(reports, emptyTargetsRemovals(cfg, ledger()))
+			}
 			if dryRun && diff {
 				resetDrops()
 				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
@@ -394,6 +402,7 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				reports = withEmptyTargetsRemovals(reports)
 				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, false); err != nil {
 					return err
 				}
@@ -411,6 +420,7 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				reports = withEmptyTargetsRemovals(reports)
 				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, keepEdits); err != nil {
 					return err
 				}
@@ -419,6 +429,25 @@ func newSyncCmd() *cobra.Command {
 			}
 			if jsonOut {
 				return runSyncJSON(cmd, ".", ledger(), effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
+			}
+			if dryRun && allowEmptyTargets && noTargetsKept(cfg) {
+				if err := runSyncPassWith(".", ledger(), effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs); err != nil {
+					return err
+				}
+				// The pass skips the orphan sweep, so it names no file the
+				// sweep would remove.
+				resetDrops()
+				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
+				resetDrops()
+				if err != nil {
+					return err
+				}
+				removals, err := previewMergedLeftovers([]driftReport{emptyTargetsRemovals(cfg, ledger(), reports)}, ledger().state, cfg.Sync.Unmanaged, keepEdits)
+				if err != nil {
+					return err
+				}
+				printDriftRemovals(cmd, removals)
+				return nil
 			}
 			return runSyncPassWith(".", ledger(), effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
 		},
@@ -435,7 +464,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting (consumed by `agnostic-ai revert`; clear leftover .bak with `agnostic-ai cleanup --backups`)")
 	cmd.Flags().BoolVar(&keepEdits, "keep-edits", false, "Leave each output edited since the last sync in place and list it, writing the rest (for post-checkout and post-merge hooks)")
 	cmd.Flags().BoolVar(&untrack, "untrack", false, "Remove a generated path from git's index when it is also gitignored (git rm --cached, working tree untouched). Not with --check, --plan, --dry-run, --watch, or --global.")
-	cmd.Flags().BoolVar(&allowEmptyTargets, "allow-empty-targets", false, "With an empty targets list, remove every file sync generated instead of keeping them. Not with --check, --plan, --watch, or --global.")
+	cmd.Flags().BoolVar(&allowEmptyTargets, "allow-empty-targets", false, "With an empty targets list, remove every file sync generated instead of keeping them; with --dry-run, name each file it would remove. Not with --check, --plan, --watch, or --global.")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().BoolVar(&watchPoll, "watch-poll", false, "Force polling instead of fsnotify (use on filesystems where fsnotify is unreliable, e.g. some network mounts)")
