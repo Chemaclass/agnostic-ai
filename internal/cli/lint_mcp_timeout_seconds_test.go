@@ -59,3 +59,35 @@ func TestLint_MCPTimeoutInMillisecondsIsClean(t *testing.T) {
 		}
 	}
 }
+
+// Junie ignores a timeout above 3600000 ms and uses 60 seconds, whether
+// it comes from timeout or x-junie.timeout.
+func TestLint_MCPTimeoutAboveOneHourWarnsForJunie(t *testing.T) {
+	for _, mcp := range []string{
+		"timeout: 4000000\n",
+		"timeout: 60000\nx-junie:\n  timeout: 4000000\n",
+	} {
+		mcpTimeoutLintProject(t, "targets: [junie]\n", mcp)
+		out, err := runCLI(t, "lint")
+		if err != nil {
+			t.Fatalf("a warning alone must pass: %v\n%s", err, out)
+		}
+		lines := findingLines(out, "LINT059")
+		if len(lines) != 1 || !strings.Contains(lines[0], "60 seconds") || !strings.Contains(lines[0], "3600000") {
+			t.Errorf("%q: want one LINT059 naming the 60-second fallback:\n%s", mcp, out)
+		}
+	}
+}
+
+func TestLint_MCPTimeoutUpToOneHourIsClean(t *testing.T) {
+	for _, c := range []struct{ targets, mcp string }{
+		{"targets: [junie]\n", "timeout: 3600000\n"},
+		{"targets: [junie]\n", "timeout: 4000000\nx-junie:\n  timeout: 120000\n"},
+		{"targets: [crush, pi]\n", "timeout: 4000000\n"},
+	} {
+		mcpTimeoutLintProject(t, c.targets, c.mcp)
+		if out, err := runCLI(t, "lint"); err != nil || strings.Contains(out, "LINT059") {
+			t.Errorf("%s %q: want no LINT059: %v\n%s", c.targets, c.mcp, err, out)
+		}
+	}
+}

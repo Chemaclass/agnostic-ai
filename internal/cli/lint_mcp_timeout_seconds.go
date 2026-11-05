@@ -15,10 +15,16 @@ import (
 // from 1000 up.
 var subSecondMCPTargets = []string{"crush", "pi", "junie"}
 
-// lintMCPTimeoutSeconds flags an MCP timeout under 1000 ms on a spec that
-// reaches one of those targets. Import stored Crush and Pi seconds
-// unchanged until #2997, so such a value is most likely seconds. Sync's
-// notes show only until the output is unchanged; this warning stays.
+// junieMaxMCPTimeoutMs is the longest MCP timeout Junie accepts; above it
+// Junie uses 60 seconds.
+const junieMaxMCPTimeoutMs = 3600000
+
+// lintMCPTimeoutSeconds flags an MCP timeout that a target will not use
+// as written: under 1000 ms on a spec that reaches one of
+// subSecondMCPTargets, or above one hour on a spec that reaches Junie.
+// Import stored Crush and Pi seconds unchanged until #2997, so a value
+// under 1000 is most likely seconds. Sync's notes show only until the
+// output is unchanged; this warning stays.
 func lintMCPTimeoutSeconds(targets []string, b spec.Bundle) []lintFinding {
 	reached := map[string][]string{}
 	paths := map[string]string{}
@@ -52,6 +58,27 @@ func lintMCPTimeoutSeconds(targets []string, b spec.Bundle) []lintFinding {
 		out = append(out, lintFinding{Code: "LINT059", Severity: lintWarn, Path: paths[name], Message: fmt.Sprintf(
 			"MCP server %q: timeout is milliseconds, so %s %s a limit of one second or less. If the value is seconds, multiply it by 1000",
 			name, named, verb)})
+	}
+	return append(out, lintJunieMCPTimeoutAboveLimit(targets, b)...)
+}
+
+func lintJunieMCPTimeoutAboveLimit(targets []string, b spec.Bundle) []lintFinding {
+	if !slices.Contains(targets, "junie") {
+		return nil
+	}
+	var out []lintFinding
+	for _, m := range b.For("junie").MCPs {
+		field, raw := "timeout", m.Meta["timeout"]
+		if custom, ok := m.Meta["x-junie"].(map[string]any); ok && custom["timeout"] != nil {
+			field, raw = "x-junie.timeout", custom["timeout"]
+		}
+		ms, ok := adapters.WholeNumber(raw)
+		if !ok || ms <= junieMaxMCPTimeoutMs {
+			continue
+		}
+		out = append(out, lintFinding{Code: "LINT059", Severity: lintWarn, Path: m.Path, Message: fmt.Sprintf(
+			"MCP server %q: %s %d is above Junie's limit of %d ms (one hour), so Junie ignores it and uses 60 seconds. Lower it to %d or less",
+			m.Name, field, ms, junieMaxMCPTimeoutMs, junieMaxMCPTimeoutMs)})
 	}
 	return out
 }

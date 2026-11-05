@@ -292,6 +292,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
 	mcps = emit.StripMCPDescription(target, mcps, mcpDescriptionNoOpReason)
+	noteMCPTimeoutsAboveLimit(mcps)
 	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithJunieMCPTimeout())
 }
