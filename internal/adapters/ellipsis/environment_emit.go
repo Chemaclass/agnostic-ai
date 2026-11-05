@@ -275,7 +275,7 @@ func renderEnvironment(env *environmentConfig, portable portableEnvironment, ser
 		add(top, "hooks", hooks)
 	}
 	if env.compute != nil {
-		add(top, "compute", orderedMap(env.compute, []string{"cpu", "memory", "timeout"}))
+		add(top, "compute", orderedMap(env.compute, []string{"cpu", "memory", "timeout", "idle"}))
 	}
 	if list := serverList(env, servers); len(list.Content) > 0 {
 		add(top, "mcp_servers", list)

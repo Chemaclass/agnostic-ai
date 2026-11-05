@@ -50,6 +50,7 @@ compute:
   cpu: 2
   memory: 8GB
   timeout: 30m
+  idle: 5m
 
 mcp_servers:
   - slack
@@ -109,7 +110,7 @@ func TestImportEllipsisEnvironment_NativeFileBecomesSpecs(t *testing.T) {
 
 	settings := readFile(t, filepath.Join(source, "settings", "ellipsis-environment.yaml"))
 	for _, want := range []string{"x-ellipsis:", "name: api-environment", "name: api-repo", "ref: main", "API sandbox", "labels:", "NPM_TOKEN", "value: test",
-		"api-repo/package-lock.json", "before_start:", "test -d node_modules", "validate:", "command -v jq", "memory: 8GB", "- slack"} {
+		"api-repo/package-lock.json", "before_start:", "test -d node_modules", "validate:", "command -v jq", "memory: 8GB", "idle: 5m", "- slack"} {
 		if !strings.Contains(settings, want) {
 			t.Errorf("settings spec lost %q:\n%s", want, settings)
 		}

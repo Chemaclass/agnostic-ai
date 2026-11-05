@@ -28,6 +28,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Sync writes an MCP `timeout` to `crush.json` in whole seconds, and import turns Crush's seconds into the spec's milliseconds (#2997).
 
+#### Ellipsis
+
+- Sync and import accept `compute.idle` in an environment; it used to stop sync from writing the environment file (#2998).
+
 #### Qoder
 
 - The target page says only the Qoder IDE documents that rule files win over `AGENTS.md`; the CLI documents no order (#2984).

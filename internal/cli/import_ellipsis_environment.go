@@ -257,7 +257,7 @@ func splitEllipsisEnvironment(doc map[string]any) (*ellipsisEnvironmentImport, s
 	}
 	if compute, ok := doc["compute"].(map[string]any); ok {
 		for _, key := range slices.Sorted(maps.Keys(compute)) {
-			if key != "cpu" && key != "memory" && key != "timeout" {
+			if !slices.Contains([]string{"cpu", "memory", "timeout", "idle"}, key) {
 				return nil, fmt.Sprintf("its compute sets %q", key)
 			}
 		}
