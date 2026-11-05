@@ -70,7 +70,7 @@ Servers become `[mcp_servers.<name>]` in project config. `disabled: true` become
 |---|---|
 | Stdio | `command`, `args`, `env`, `cwd`, `env_vars` |
 | HTTP/SSE | `url`, `bearer_token_env_var`, `http_headers`, `env_http_headers`, `auth`, `http_headers_helper` |
-| Either | `enabled_tools`, `disabled_tools`, `required`, startup and tool timeouts, `default_tools_approval_mode`, `experimental_environment` |
+| Either | `enabled_tools`, `disabled_tools`, `required`, startup and tool timeouts, `default_tools_approval_mode`, `environment_id` |
 
 `${NAME}` in env or headers becomes a native environment reference. A reference in URL or args leaves the server out with a note. See [environment references](@/docs/spec-format/mcps.md#environment-references).
 

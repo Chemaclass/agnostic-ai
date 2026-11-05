@@ -12,6 +12,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Codex
+
+- **Deprecated:** MCP `experimental_environment`, which Codex ignores; sync and import now write `environment_id`. Run `agnostic-ai migrate --only mcps` (#2976).
+
 #### Qwen Code
 
 - The target page says interactive sessions from 0.26.7 run project hooks only after you turn on folder trust and trust the folder (#2978).

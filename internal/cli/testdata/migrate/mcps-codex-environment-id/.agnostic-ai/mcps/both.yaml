@@ -1,0 +1,4 @@
+name: both
+command: npx
+environment_id: staging
+experimental_environment: local

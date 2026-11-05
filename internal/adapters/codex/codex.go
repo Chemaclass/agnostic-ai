@@ -54,7 +54,7 @@
 // `env_vars` and `env_http_headers` retain the vendor's mixed-array
 // and environment-backed header shapes. `required`, `startup_timeout_sec`,
 // `tool_timeout_sec`, `default_tools_approval_mode`, and
-// `experimental_environment` carry no transport restriction and pass
+// `environment_id` carry no transport restriction and pass
 // through on any server; `scopes`, `oauth_resource`, and an
 // `[mcp_servers.<name>.oauth]` sub-table (`client_id`, `callback_url`,
 // `callback_port`) authenticate to an MCP HTTP server, so they land

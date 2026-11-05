@@ -69,6 +69,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT055 | Warning. An empty (null) key in `agnostic-ai.local.yaml`, for example `outputs:` with every child commented out, is ignored when the shared value is a group of settings, so the shared value stays. Over a list or a single value, null replaces the shared value, and an empty `targets:` replaces the default targets. Remove the key. Write `{}` to clear a shared group, except a model tier, where `{}` fails to load. An empty `requires:` is not reported, since it turns the version check off. |
 | LINT056 | Warning. An opening Markdown block is not a YAML mapping, so sync keeps it as body text. |
 | LINT057 | Warning, also printed by `sync`. A `sync.unmanaged` entry uses `**`, which acts like `*` and stays inside one folder name. `**/x` matches one folder deep and misses the root and deeper folders, so add one entry per depth. `dir/**` matches only files directly inside `dir/`; write `dir/` instead. |
+| LINT058 | Warning. An MCP spec that reaches Codex sets `experimental_environment`, a key Codex no longer reads. Sync writes `local` as `environment_id = "local"` and leaves any other value out, with a note on project sync. Run `agnostic-ai migrate --only mcps` for `local`; otherwise set `environment_id` to a configured executor ID, or remove the key. |
 
 ## Context budgets
 

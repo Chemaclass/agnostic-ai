@@ -762,4 +762,6 @@
 # Target import preservation (#2967) measured 24703136 bytes; the budget rises by 8192.
 # The sidebar version badge (#2974) measured 24711328 bytes, 8192 over main
 # 24703136 (embedded client styles and markup); the budget rises by 8192.
-24719360
+# The Codex MCP environment_id migration and lint (#2976) measured 24723616
+# bytes; the budget rises by 8192.
+24731808

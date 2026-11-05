@@ -1,0 +1,4 @@
+name: remote-runner
+command: npx
+args: ["-y", "remote-runner"]
+experimental_environment: remote

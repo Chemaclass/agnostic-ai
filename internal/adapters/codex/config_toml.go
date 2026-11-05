@@ -172,8 +172,28 @@ func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
 		if m.Name == "" {
 			continue
 		}
+		if _, dropped := mcpEnvironmentID(m.Meta); dropped != "" {
+			emit.NoteProject(fmt.Sprintf("codex mcp %s: experimental_environment: %s has no effect, since Codex now reads environment_id, the ID of a configured executor; set environment_id or remove the key", m.Name, dropped))
+		}
 		writeMCPServerTable(sb, m)
 	}
+}
+
+// mcpEnvironmentID returns the `environment_id` to write for an MCP
+// server, and the old `experimental_environment` value it drops. Codex
+// replaced the `local | remote` key with an executor ID that defaults to
+// `local` and ignores the old key, so only `local` keeps its meaning;
+// `remote` names no executor (#2976).
+func mcpEnvironmentID(meta map[string]any) (id, dropped string) {
+	id, _ = meta["environment_id"].(string)
+	old, _ := meta["experimental_environment"].(string)
+	switch {
+	case id != "" || old == "":
+		return id, ""
+	case old == "local":
+		return old, ""
+	}
+	return "", old
 }
 
 // writeMCPServerTable emits one `[mcp_servers.<name>]` table with the
@@ -429,14 +449,8 @@ func writeMCPSharedFields(sb *strings.Builder, meta map[string]any) {
 	if tools := emit.StringSlice(meta["disabled_tools"]); len(tools) > 0 {
 		emit.WriteTOMLStringArray(sb, "disabled_tools", tools)
 	}
-	// experimental_environment documents no transport restriction; its
-	// only implemented value today (`remote`, "starts stdio servers
-	// through a remote executor environment") is stdio-specific, but
-	// the vendor notes HTTP placement is merely "not implemented" yet,
-	// not invalid. Passed through verbatim; Codex validates the enum
-	// itself. See #693.
-	if env, _ := meta["experimental_environment"].(string); env != "" {
-		emit.WriteTOMLString(sb, "experimental_environment", env)
+	if id, _ := mcpEnvironmentID(meta); id != "" {
+		emit.WriteTOMLString(sb, "environment_id", id)
 	}
 	raw, _ := meta["roots"].([]any)
 	if len(raw) == 0 {

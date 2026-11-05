@@ -41,6 +41,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A `sync.unmanaged` entry contains `**`. The matcher reads `**` as `*`, which stays inside one folder name. `**/x` matches one folder deep, so it misses the root and deeper folders. `**` and `**.md` match only names in the root folder. `dir/**` matches only files directly inside `dir/`. Sync prints the same note.",
 		Fix:      "For `dir/**`, write `dir/`. Otherwise add one entry per depth, such as `*/.cursor/BUGBOT.md` and `*/*/.cursor/BUGBOT.md`. A trailing `/` entry must be a literal path such as `a/.cursor/`; it takes no wildcards.",
 	},
+	"LINT058": {
+		Severity: lintWarn,
+		Title:    "Old Codex MCP environment field",
+		Cause:    "An MCP spec that reaches Codex sets `experimental_environment`. Codex now reads `environment_id`, the ID of a configured executor, and ignores the old key. Sync writes `local` as `environment_id = \"local\"` and leaves any other value, such as `remote`, out, with a note on project sync.",
+		Fix:      "Run `agnostic-ai migrate --only mcps` to rewrite `experimental_environment: local`. For another value, set `environment_id` to a configured executor ID, or remove the key.",
+	},
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",

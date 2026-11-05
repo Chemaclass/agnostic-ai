@@ -754,7 +754,7 @@ type codexMCPEntry struct {
 	EnabledTools  []string `toml:"enabled_tools"`
 	DisabledTools []string `toml:"disabled_tools"`
 	// Required, StartupTimeoutSec, ToolTimeoutSec,
-	// DefaultToolsApprovalMode, and ExperimentalEnvironment have no
+	// DefaultToolsApprovalMode, and EnvironmentID have no
 	// transport restriction documented; OAuth, Scopes, and
 	// OAuthResource authenticate to an MCP HTTP server. See #693.
 	//
@@ -775,7 +775,10 @@ type codexMCPEntry struct {
 	OAuth                    codexMCPOAuth `toml:"oauth"`
 	Scopes                   []string      `toml:"scopes"`
 	OAuthResource            string        `toml:"oauth_resource"`
-	ExperimentalEnvironment  string        `toml:"experimental_environment"`
+	EnvironmentID            string        `toml:"environment_id"`
+	// ExperimentalEnvironment is the `local | remote` key Codex replaced
+	// with EnvironmentID and now ignores (#2976).
+	ExperimentalEnvironment string `toml:"experimental_environment"`
 }
 
 type codexMCPRoot struct {
@@ -1096,7 +1099,23 @@ func codexMCPOAuthDoc(o codexMCPOAuth) map[string]any {
 }
 
 func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error) {
+	for _, note := range droppedCodexEnvironmentNotes(servers) {
+		keptf("note: %s\n", note)
+	}
 	return writeMCPYAMLs("codex", codexMCPDocs(servers), dstDir)
+}
+
+// droppedCodexEnvironmentNotes names each server whose old
+// experimental_environment value codexMCPDocs leaves out.
+func droppedCodexEnvironmentNotes(servers map[string]codexMCPEntry) []string {
+	var notes []string
+	for _, name := range sortedMapKeys(servers) {
+		s := servers[name]
+		if s.EnvironmentID == "" && s.ExperimentalEnvironment != "" && s.ExperimentalEnvironment != "local" {
+			notes = append(notes, fmt.Sprintf("codex mcp %s: experimental_environment: %s names no executor, so import left it out; set environment_id to a configured executor ID", name, s.ExperimentalEnvironment))
+		}
+	}
+	return notes
 }
 
 func escapedStringAnyMap(m map[string]string) map[string]any {
@@ -1236,8 +1255,11 @@ func codexMCPDocs(servers map[string]codexMCPEntry) map[string]any {
 		if s.DefaultToolsApprovalMode != "" {
 			doc["default_tools_approval_mode"] = s.DefaultToolsApprovalMode
 		}
-		if s.ExperimentalEnvironment != "" {
-			doc["experimental_environment"] = s.ExperimentalEnvironment
+		switch {
+		case s.EnvironmentID != "":
+			doc["environment_id"] = s.EnvironmentID
+		case s.ExperimentalEnvironment == "local":
+			doc["environment_id"] = s.ExperimentalEnvironment
 		}
 		docs[name] = doc
 	}
