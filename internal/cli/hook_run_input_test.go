@@ -53,3 +53,31 @@ func TestHookRun_JSONKeepsItsShapeWhenATargetCannotBeSetUp(t *testing.T) {
 		t.Errorf("the kept result must be aider's: %s", report.Targets[0])
 	}
 }
+
+func TestHookRun_JSONCountsTheTargetsBeforeASetupError(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := hookRunProject(t, "name: guard\nevent: PreToolUse\nmatcher: Bash\nif: 'Bash(git'\ncommand: 'echo no >&2; exit 2'\n")
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\n")
+
+	var stdout bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&stdout)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"hook", "run", "guard", "--bash", "git push", "--expect", "block", "--format", "json"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a target that cannot be set up must fail the run")
+	}
+	var report struct {
+		Targets []struct {
+			Target  string `json:"target"`
+			Counted bool   `json:"counted"`
+		} `json:"targets"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("stdout must be one JSON object: %v\n%s", err, stdout.String())
+	}
+	if len(report.Targets) != 1 || report.Targets[0].Target != "codex" || !report.Targets[0].Counted {
+		t.Errorf("codex ran before claude failed, so it must be kept and counted: %+v", report)
+	}
+}
