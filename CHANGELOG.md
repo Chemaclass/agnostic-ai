@@ -14,6 +14,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `sync --allow-empty-targets --dry-run` names each generated file the real run removes, with or without `--diff` or `--json`. It used to print no removals (#2995).
 
+- `sync --plan --diff` prints the plan, then a diff of each changed file, for project and `--global` sync. It used to ignore `--diff` or reject it (#2996).
+
 - `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
 
 - `graph` and `hook run` accept `--json`, the same as `--format json`, like other commands that print JSON. `--json` with a different `--format` fails on all three; `why` used to print JSON (#2993).

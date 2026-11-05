@@ -66,6 +66,9 @@ func newSyncCmd() *cobra.Command {
   # Structured per-target diff (added/changed counts) without writing
   agnostic-ai sync --plan
 
+  # Per-target counts, then a unified diff of each changed file
+  agnostic-ai sync --plan --diff
+
   # Preview user-level changes and fail on drift
   agnostic-ai sync --global --plan --check
 
@@ -113,8 +116,8 @@ func newSyncCmd() *cobra.Command {
 			if jsonOut && (watch || diff) {
 				return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --watch or --diff")
 			}
-			if diff && !check && !dryRun {
-				return errs.Coded(errs.CodeFlagConflict, "--diff requires --check (or --dry-run); add --check to preview drift without writing")
+			if diff && !check && !dryRun && !plan {
+				return errs.Coded(errs.CodeFlagConflict, "--diff requires --check, --plan, or --dry-run; add --check to preview drift without writing")
 			}
 			if err := refuseGlobalHome(".", globalHomeSyncRemedy); err != nil {
 				return err
@@ -286,6 +289,10 @@ func newSyncCmd() *cobra.Command {
 					return errors.Join(printSyncPlanJSON(cmd, "sync --plan", reports, false, drops, notesErr), driftErr)
 				}
 				printSyncPlan(cmd, reports)
+				if diff {
+					printDriftDiffs(cmd, reports)
+					printDriftRemovals(cmd, reports)
+				}
 				return errors.Join(notesErr, driftErr)
 			}
 			if check {
@@ -468,10 +475,10 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&except, "except", nil, "Emit all configured targets except these (comma-separated); mutually exclusive with --only")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
-	cmd.Flags().BoolVar(&diff, "diff", false, "Requires --check (or --dry-run); prints a unified diff per drifted file (default: counts only, so CI logs stay lean)")
+	cmd.Flags().BoolVar(&diff, "diff", false, "Requires --check, --plan, or --dry-run; prints a unified diff per drifted file (default: counts only, so CI logs stay lean)")
 	cmd.Flags().StringVar(&format, "format", checkFormatHuman, "With --check, drift report format: 'human' or 'github' (GitHub Actions ::error annotations)")
 	cmd.Flags().StringVar(&against, "against", "", "With --check, compare what Git holds instead of the working tree: 'index' (staged, for pre-commit hooks) or 'HEAD' (the last commit, for CI). Only outputs Git tracks are compared.")
-	cmd.Flags().BoolVar(&plan, "plan", false, "Show per-target added/changed counts without writing")
+	cmd.Flags().BoolVar(&plan, "plan", false, "Show per-target added/changed counts without writing; with --diff, then a unified diff per changed file")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting (consumed by `agnostic-ai revert`; clear leftover .bak with `agnostic-ai cleanup --backups`)")
 	cmd.Flags().BoolVar(&keepEdits, "keep-edits", false, "Leave each output edited since the last sync in place and list it, writing the rest (for post-checkout and post-merge hooks)")
 	cmd.Flags().BoolVar(&untrack, "untrack", false, "Remove a generated path from git's index when it is also gitignored (git rm --cached, working tree untouched). Not with --check, --plan, --dry-run, --watch, or --global.")
