@@ -94,6 +94,7 @@ Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so 
 
 - Portable agent effort and agent permission mode have no equivalent mapping. Use explicit native approval fields under `x-qwen` when needed. Portable lists of agent MCP server names cannot replace Qwen's record of server definitions.
 - Project hooks and `.qwen/rules/` require a trusted folder. Safe mode and bare mode can disable project customizations. Trust and approval remain Qwen decisions.
+- From Qwen Code 0.26.7, interactive sessions skip hooks from `.qwen/settings.json`, agent and skill hooks, and skill permission grants until you set `security.folderTrust.enabled` to `true` and trust the folder. Folder trust is off by default. Runs with `-p`, piped input, or ACP and SDK clients trust the folder on their own.
 - `.qwenignore` applies to tools that honor it; it does not prevent every form of file access.
 - Commands and ignore files sync only at project scope. Global hook specs emit command handlers.
 - Reviews and environment specs have no native output.
