@@ -63,6 +63,7 @@ func importFromPi(root string, cfg *config.Config) error {
 var piSkillFields = fieldsOf("name", "description", "license", "compatibility", "metadata", "allowed-tools", "disable-model-invocation")
 
 func normalizePiMCPEntry(server map[string]any) {
+	secondsTimeoutToMilliseconds(server)
 	if enabled, ok := server["enabled"].(bool); ok {
 		server["disabled"] = !enabled
 	}

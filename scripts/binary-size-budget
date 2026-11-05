@@ -764,6 +764,8 @@
 # 24703136 (embedded client styles and markup); the budget rises by 8192.
 # The Codex MCP environment_id migration and lint (#2976) measured 24723616
 # bytes; the budget rises by 8192.
-# Codex global MCP matching without description and roots (#2999) measured
-# 24735904 bytes; the budget rises by 8192.
-24740000
+# Crush and Pi MCP timeouts in seconds, Ellipsis compute.idle, and LINT059
+# (#2997, #2998, #3002) measured 24744096 bytes; the budget is that plus 8192.
+# Codex global MCP matching without description and roots (#2999), merged
+# with #3008, measured 24752288 bytes; the budget is that plus 8192.
+24760480

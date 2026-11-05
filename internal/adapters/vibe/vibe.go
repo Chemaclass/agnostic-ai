@@ -1,4 +1,4 @@
-// Package vibe emits native Mistral Vibe v3.0.3 configuration.
+// Package vibe emits native Mistral Vibe v3.1.0 configuration.
 package vibe
 
 import (

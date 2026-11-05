@@ -63,6 +63,7 @@
       "oauth_callback_port": 8090,
       "oauth_client_id": "client-abc",
       "sessionless": true,
+      "timeout": 2,
       "type": "http",
       "url": "https://example.test/mcp"
     },

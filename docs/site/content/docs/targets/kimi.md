@@ -10,7 +10,7 @@ target_id = "kimi"
 
 # Kimi Code CLI (`kimi`)
 
-Sync generates native files for [Kimi Code CLI 2.3.1](https://github.com/MoonshotAI/kimi-code/releases/tag/%40moonshot-ai/kimi-code%402.3.1), the maintained `@moonshot-ai/kimi-code` package. Run Kimi from your synced Git project root. Its own workspace trust choice controls project MCP loading.
+Sync generates native files for [Kimi Code CLI 2.5.1](https://github.com/MoonshotAI/kimi-code/releases/tag/%40moonshot-ai/kimi-code%402.5.1), the maintained `@moonshot-ai/kimi-code` package. Run Kimi from your synced Git project root. Its own workspace trust choice controls project MCP loading.
 
 Select `kimi` explicitly. It is excluded from the default targets because its native agent tool lists cannot express scoped shell restrictions such as `Bash(git diff *)`. This keeps existing projects working with the default targets.
 
