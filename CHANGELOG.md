@@ -26,7 +26,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Crush
 
-- Sync writes an MCP `timeout` to `crush.json` in whole seconds, and import turns Crush's seconds into the spec's milliseconds (#2997).
+- Sync writes an MCP `timeout` to `crush.json` in whole seconds, and import turns Crush's seconds into the spec's milliseconds (#2997). If you imported a Crush server before this release, its `timeout` holds seconds: multiply it by 1000, or sync writes a 1 second limit.
 
 #### Ellipsis
 
