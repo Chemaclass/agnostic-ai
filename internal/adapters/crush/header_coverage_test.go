@@ -100,6 +100,7 @@ func kitSinkBundle() spec.Bundle {
 				"sessionless":     true,
 				"channel_enabled": true, "channel_reply": channelReply(),
 				"enabled_tools": []any{"read_file"}, "disabled_tools": []any{"delete_file"},
+				"timeout": 1500,
 			},
 		},
 		{

@@ -47,6 +47,92 @@ func TestImportGlobal_CodexConfigRoundTrips(t *testing.T) {
 	}
 }
 
+// Codex has no MCP description or roots key (#2999). Import leaves them
+// out of the spec and still keeps the server, and the next sync adopts
+// the hand-written table without touching config.toml.
+func TestImportGlobal_CodexDescribedServerRoundTrips(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	mustWriteGlobalTest(t, codexPath, "[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\ndescription = \"Docs search\"\nroots = [{ uri = \"file:///workspace\", name = \"workspace\" }]\n")
+
+	_, warnings, err := runImportGlobalTest("codex")
+	if err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	if !strings.Contains(warnings, "codex mcp docs: description and roots have no effect on Codex") {
+		t.Errorf("import must say it left the keys out:\n%s", warnings)
+	}
+	got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"))
+	for _, unwanted := range []string{"description", "roots", "file:///workspace"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("docs.yaml must leave out %q:\n%s", unwanted, got)
+		}
+	}
+	before := readGlobalTest(t, codexPath)
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, codexPath); got != before {
+		t.Errorf("sync after import changed config.toml:\n%s", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+}
+
+// Claude keeps an MCP description and Codex has none, so the same
+// server with the same description in both homes is one server (#2999).
+func TestImportGlobal_ClaudeAndCodexAgreeDespiteDescription(t *testing.T) {
+	home, _ := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(home, ".claude.json"), "{\"mcpServers\": {\"fs\": {\"command\": \"fs-mcp\", \"description\": \"Files\"}}}\n")
+	mustWriteGlobalTest(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.fs]\ncommand = \"fs-mcp\"\ndescription = \"Files\"\n")
+
+	_, warnings, err := runImportGlobalTest("claude", "codex")
+	if err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	if strings.Contains(warnings, "defines fs differently") {
+		t.Errorf("a description Codex cannot hold is no difference:\n%s", warnings)
+	}
+}
+
+// When Codex is read first, a later tool's copy of the same server keeps
+// the description Codex cannot hold, so the spec loses nothing and sync
+// writes every home back unchanged (#2999).
+func TestImportGlobal_LaterToolKeepsDescriptionCodexDrops(t *testing.T) {
+	for _, tc := range []struct {
+		other, rel, native string
+	}{
+		{"cursor", ".cursor/mcp.json", "{\n  \"mcpServers\": {\n    \"fs\": {\n      \"command\": \"fs-mcp\",\n      \"description\": \"Files\"\n    }\n  }\n}\n"},
+		{"claude", ".claude.json", "{\"mcpServers\": {\"fs\": {\"command\": \"fs-mcp\", \"description\": \"Files\"}}}\n"},
+	} {
+		t.Run(tc.other, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			otherPath := filepath.Join(home, filepath.FromSlash(tc.rel))
+			mustWriteGlobalTest(t, otherPath, tc.native)
+			codexPath := filepath.Join(home, ".codex", "config.toml")
+			mustWriteGlobalTest(t, codexPath, "[mcp_servers.fs]\ncommand = \"fs-mcp\"\ndescription = \"Files\"\n")
+
+			if _, warnings, err := runImportGlobalTest("codex", tc.other); err != nil {
+				t.Fatalf("import: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, filepath.Join(source, "mcps", "fs.yaml")); !strings.Contains(got, "description: Files") {
+				t.Errorf("fs.yaml lost the %s description:\n%s", tc.other, got)
+			}
+			codexBefore, otherBefore := readGlobalTest(t, codexPath), readGlobalTest(t, otherPath)
+			if _, warnings, err := runGlobalAgentTest("--only", "codex,"+tc.other); err != nil {
+				t.Fatalf("sync after import: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, codexPath); got != codexBefore {
+				t.Errorf("sync changed config.toml:\n%s", got)
+			}
+			if got := readGlobalTest(t, otherPath); got != otherBefore {
+				t.Errorf("sync changed %s:\n%s", tc.rel, got)
+			}
+		})
+	}
+}
+
 // Every JSON user file sync writes reads back through import into specs
 // that render to the same bytes.
 func TestImportGlobal_RoundTripsWhatSyncWrote(t *testing.T) {

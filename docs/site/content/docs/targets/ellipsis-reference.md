@@ -97,6 +97,7 @@ x-ellipsis:
       cpu: 2
       memory: 8GB
       timeout: 30m
+      idle: 5m              # how long the sandbox stays awake after the agent finishes
     hooks:
       build_base:
         inputs: [api-repo/package.json, api-repo/package-lock.json]

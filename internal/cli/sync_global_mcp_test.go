@@ -94,6 +94,152 @@ func TestSyncGlobal_MCPHandWrittenServerConflicts(t *testing.T) {
 	}
 }
 
+// Codex ignores an MCP description and roots (#2999), so a hand-written
+// table that differs from the spec only there is the same server: sync
+// adopts it as written, and removing the spec removes it like any
+// adopted server.
+func TestSyncGlobal_CodexAdoptsServerThatDiffersOnlyByDescription(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "mcps", "docs.yaml")
+	mustWriteGlobalTest(t, spec, globalDocsMCP)
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	mine := "model = \"gpt-6-luna\"\n"
+	described := mine + "\n[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\ndescription = \"Docs search\"\nroots = [{ uri = \"file:///workspace\" }]\n"
+	mustWriteGlobalTest(t, codexPath, described)
+
+	_, warnings, err := runGlobalAgentTest("--only", "codex")
+	if err != nil {
+		t.Fatalf("a server equal but for description must be adopted: %v\n%s", err, warnings)
+	}
+	if !strings.Contains(warnings, "adopted "+codexPath+" [mcp_servers.docs]") {
+		t.Errorf("adoption must be named:\n%s", warnings)
+	}
+	if got := readGlobalTest(t, codexPath); got != described {
+		t.Errorf("adoption must keep config.toml as written:\n%q", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
+		t.Fatalf("check after adoption: %v", err)
+	}
+
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, codexPath); got != mine {
+		t.Errorf("removal must take the adopted server and keep the rest:\n%q", got)
+	}
+}
+
+// A described spec adds a table without the keys and says so; removing
+// the spec restores config.toml byte for byte.
+func TestSyncGlobal_CodexNotesDroppedDescriptionAndRestoresOnRemoval(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "mcps", "docs.yaml")
+	mustWriteGlobalTest(t, spec, globalDocsMCP+"description: Docs search\nroots:\n  - uri: file:///workspace\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "helper.yaml"), "name: helper\ncommand: helper-mcp\nagent-only: true\ndescription: Only for agents\n")
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	before := "model = \"gpt-6-luna\"\n"
+	mustWriteGlobalTest(t, codexPath, before)
+
+	_, warnings, err := runGlobalAgentTest("--only", "codex")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if want := before + "\n[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\n"; readGlobalTest(t, codexPath) != want {
+		t.Errorf("config.toml = %q, want %q", readGlobalTest(t, codexPath), want)
+	}
+	for _, field := range []string{"description", "roots"} {
+		if !strings.Contains(warnings, "`"+field+"` on 1 mcp has no effect on codex") {
+			t.Errorf("missing %s note:\n%s", field, warnings)
+		}
+	}
+
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, codexPath); got != before {
+		t.Errorf("removal must restore config.toml:\n%q", got)
+	}
+}
+
+// An older sync wrote description and roots and recorded them. The table
+// is still sync's own, so the next sync rewrites it without the keys.
+func TestSyncGlobal_CodexDropsKeysAnOlderSyncWrote(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP+"description: Docs search\n")
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	current := readGlobalTest(t, codexPath)
+	old := strings.Replace(current, "args = [\"--stdio\"]\n", "args = [\"--stdio\"]\ndescription = \"Docs search\"\n", 1)
+	if old == current {
+		t.Fatalf("docs table not found:\n%s", current)
+	}
+	mustWriteGlobalTest(t, codexPath, old)
+	statePath := filepath.Join(source, "state", "global.json")
+	var state map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, statePath)), &state); err != nil {
+		t.Fatal(err)
+	}
+	mcp, _ := state["mcp"].(map[string]any)
+	codexState, _ := mcp["codex"].(map[string]any)
+	docs, _ := codexState["docs"].(map[string]any)
+	if docs == nil {
+		t.Fatalf("no recorded docs server in state:\n%s", readGlobalTest(t, statePath))
+	}
+	docs["description"] = "Docs search"
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteGlobalTest(t, statePath, string(data)+"\n")
+
+	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err == nil {
+		t.Errorf("check must report the stale description")
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatalf("sync after upgrade: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, codexPath); got != current {
+		t.Errorf("sync must drop the stale key:\n%q\nwant\n%q", got, current)
+	}
+}
+
+// A key added by hand to a table sync owns is the user's edit: a later
+// spec change stops on it instead of dropping it.
+func TestSyncGlobal_CodexHandEditInOwnedTableConflictsOnSpecChange(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "mcps", "docs.yaml")
+	mustWriteGlobalTest(t, spec, globalDocsMCP)
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	edited := strings.Replace(readGlobalTest(t, codexPath), "args = [\"--stdio\"]\n", "args = [\"--stdio\"]\ndescription = \"my note\"\n", 1)
+	mustWriteGlobalTest(t, codexPath, edited)
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatalf("an unchanged spec must leave the edit alone: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, codexPath); got != edited {
+		t.Errorf("unchanged spec rewrote the edited table:\n%q", got)
+	}
+
+	mustWriteGlobalTest(t, spec, "name: docs\ncommand: docs-mcp\nargs: [--stdio, --verbose]\n")
+	_, _, err := runGlobalAgentTest("--only", "codex")
+	if err == nil || !strings.Contains(err.Error(), "was written outside agnostic-ai and differs") {
+		t.Fatalf("a spec change must stop on the hand edit: %v", err)
+	}
+	if got := readGlobalTest(t, codexPath); got != edited {
+		t.Errorf("the hand edit must survive:\n%q", got)
+	}
+}
+
 func TestEditTOMLTables_ReplacesSubtablesInPlace(t *testing.T) {
 	in := "[mcp_servers.docs]\ncommand = \"old\"\n\n[mcp_servers.docs.env]\nA = \"1\"\n\n[tui]\ntheme = \"dark\"\n"
 	got, err := editTOMLTables("c.toml", []byte(in), "mcp_servers", []string{"docs"}, map[string]string{"docs": "[mcp_servers.docs]\ncommand = \"new\"\n"}, nil)

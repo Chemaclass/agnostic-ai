@@ -1,0 +1,5 @@
+name: crush-timeout
+targets: [crush]
+type: http
+url: https://example.test/mcp
+timeout: 1500

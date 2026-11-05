@@ -349,8 +349,8 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 	// it and its entry; names differing only in case share one file on
 	// a case-insensitive disk.
 	type supplied struct {
-		target, name string
-		server       any
+		target, name, out string
+		server            any
 	}
 	first := map[string]supplied{}
 	covered := map[string]bool{}
@@ -516,7 +516,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				b, _ := native[m.Name].(map[string]any)
 				same = sameSetting(adapters.CanonicalUserArrayRecord(target, g.mcp.key, a), adapters.CanonicalUserArrayRecord(target, g.mcp.key, b))
 			}
-			if g.mcp.format == "json" || target == "grok" {
+			if g.mcp.format == "json" || target == "grok" || target == "codex" {
 				same = sameMCPServer(target, rendered[m.Name], native[m.Name])
 			}
 			if same {
@@ -532,20 +532,30 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 		}
 		for _, m := range kept {
 			key := strings.ToLower(spec.MCPFileName(m.Name))
+			out := filepath.Join(dst, filepath.Base(m.Path))
 			if prior, ok := first[key]; ok {
-				if prior.name != m.Name || !sameSetting(canonicalMCPServer(prior.target, prior.server), canonicalMCPServer(target, native[m.Name])) {
+				same := prior.name == m.Name && sameImportedMCPServer(prior.target, prior.server, target, native[m.Name])
+				if !same {
 					if _, err := fmt.Fprintf(warn, "warning: %s: %s defines %s differently from %s's %s; kept %s's\n", target, path, m.Name, prior.target, prior.name, prior.target); err != nil {
 						return fmt.Errorf("write import warning: %w", err)
 					}
 				}
-				continue
+				// Codex's spec cannot carry description or roots (#2999), so
+				// the same server from another tool replaces it with them.
+				if !same || prior.target != "codex" || target == "codex" {
+					continue
+				}
+				if prior.out != out {
+					if err := os.Remove(prior.out); err != nil {
+						return fmt.Errorf("remove %s: %w", prior.out, err)
+					}
+				}
 			}
-			first[key] = supplied{target: target, name: m.Name, server: native[m.Name]}
+			first[key] = supplied{target: target, name: m.Name, out: out, server: native[m.Name]}
 			data, err := os.ReadFile(m.Path)
 			if err != nil {
 				return fmt.Errorf("read %s: %w", m.Path, err)
 			}
-			out := filepath.Join(dst, filepath.Base(m.Path))
 			if err := importMkdirAll(dst, 0o755); err != nil {
 				return fmt.Errorf("create directory for %s: %w", out, err)
 			}
@@ -688,4 +698,26 @@ func normalizeGeminiTransport(server map[string]any) {
 	if _, ok := server["url"]; ok && server["type"] == nil {
 		server["type"] = "sse"
 	}
+}
+
+// sameImportedMCPServer compares one server two homes define. Codex has
+// no description or roots (#2999), so neither counts when either side
+// is Codex.
+func sameImportedMCPServer(targetA string, a any, targetB string, b any) bool {
+	ca, cb := canonicalMCPServer(targetA, a), canonicalMCPServer(targetB, b)
+	if targetA == "codex" || targetB == "codex" {
+		ca, cb = withoutCodexIgnoredMCPKeys(ca), withoutCodexIgnoredMCPKeys(cb)
+	}
+	return sameSetting(ca, cb)
+}
+
+func withoutCodexIgnoredMCPKeys(v any) any {
+	server, ok := v.(map[string]any)
+	if !ok {
+		return v
+	}
+	out := maps.Clone(server)
+	delete(out, "description")
+	delete(out, "roots")
+	return out
 }
