@@ -10,7 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
 
-- `graph` and `hook run` accept `--json`, the same as `--format json`, like other commands that print JSON (#2993).
+- `graph` and `hook run` accept `--json`, the same as `--format json`, like other commands that print JSON. On these and `why`, `--json` with a different `--format` now fails instead of printing JSON (#2993).
 
 - `sync --dry-run --diff` prints a diff of each file sync would change and names generated files it would remove, for project and `--global` sync. Project sync used to ignore `--diff` here, and global sync rejected it (#2991).
 

@@ -12,7 +12,7 @@ func formatWithJSONFlag(cmd *cobra.Command, format string, jsonOut bool, jsonFor
 		return format, nil
 	}
 	if cmd.Flags().Changed("format") && format != jsonFormat {
-		return "", errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --format %s", format)
+		return "", errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --format %q", format)
 	}
 	return jsonFormat, nil
 }

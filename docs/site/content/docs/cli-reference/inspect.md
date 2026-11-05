@@ -290,7 +290,7 @@ Without `.agnostic-ai/.sync-state`, run `sync` first. A spec path points you to 
 | Flag | Description |
 |------|-------------|
 | `--format` | `text` (default) or `json`. |
-| `--json` | Alias for JSON output. |
+| `--json` | Same as `--format json`. Fails with another `--format`. |
 
 ## view
 

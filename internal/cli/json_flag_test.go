@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"regexp"
 	"strings"
 	"testing"
@@ -37,6 +40,22 @@ func TestGraph_JSONFlagRejectsAnotherFormat(t *testing.T) {
 	}
 }
 
+func TestWhy_JSONFlagRejectsAnotherFormat(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"why", ".claude/rules/r1.md", "--json", "--format", "text"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--json") {
+		t.Fatalf("--json --format text must fail naming --json, got %v", err)
+	}
+	if got := errs.CodeOf(err); got != errs.CodeFlagConflict {
+		t.Errorf("code=%q, want %q", got, errs.CodeFlagConflict)
+	}
+}
+
 func TestHookRun_JSONFlagMatchesFormatJSON(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	hookRunProject(t, "name: guard\nevent: PreToolUse\nmatcher: Edit|Write\n"+
@@ -48,8 +67,14 @@ func TestHookRun_JSONFlagMatchesFormatJSON(t *testing.T) {
 	if elapsed.ReplaceAllString(got, "") != elapsed.ReplaceAllString(want, "") {
 		t.Errorf("--json output differs from --format json:\n%s\nwant:\n%s", got, want)
 	}
-	if !strings.HasPrefix(strings.TrimSpace(got), "{") {
-		t.Errorf("--json must print JSON:\n%s", got)
+	var stdout bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&stdout)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"hook", "run", "guard", "--edit", ".github/workflows/tests.yml", "--json"})
+	_ = root.Execute()
+	if !json.Valid(stdout.Bytes()) {
+		t.Errorf("--json stdout must be one JSON value:\n%s", stdout.String())
 	}
 	if (gotErr == nil) != (wantErr == nil) || gotErr == nil {
 		t.Errorf("--json must fail like --format json on the wrong decision, got %v, want %v", gotErr, wantErr)
