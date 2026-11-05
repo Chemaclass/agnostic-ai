@@ -6,7 +6,8 @@
       ],
       "command": "npx",
       "cwd": "tools",
-      "enabled": false
+      "enabled": false,
+      "timeout": 1.5
     },
     "remote": {
       "enabled": true,

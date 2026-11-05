@@ -32,7 +32,7 @@ func mcpServer(entry spec.Entry) (map[string]any, error) {
 		return nil, fmt.Errorf("pi: MCP %s: a command or URL is required", entry.Name)
 	}
 	out := map[string]any{}
-	keys := []string{"description", "timeout", "exposure", "toolExposure"}
+	keys := []string{"description", "exposure", "toolExposure"}
 	if command != "" {
 		keys = append(keys, "command", "args", "env", "cwd")
 	} else {
@@ -42,6 +42,9 @@ func mcpServer(entry spec.Entry) (map[string]any, error) {
 		if value, ok := meta[key]; ok {
 			out[key] = value
 		}
+	}
+	if seconds, ok := emit.MCPTimeoutSeconds(target, entry, true); ok {
+		out["timeout"] = seconds
 	}
 	if value, present := meta["toolExposure"]; present {
 		tools, ok := value.(map[string]any)

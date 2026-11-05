@@ -57,7 +57,7 @@ func TestEnvironment_AcceptanceScenarioWritesSetupAndMCP(t *testing.T) {
 		review("general", "", "Check the changed code."),
 		settings(map[string]any{
 			"environment": selected(map[string]any{
-				"compute": map[string]any{"cpu": 2, "memory": "8GB", "timeout": "30m"},
+				"compute": map[string]any{"cpu": 2, "memory": "8GB", "timeout": "30m", "idle": "5m"},
 			}),
 			"reviewer": reviewer(nil),
 		}),
@@ -83,6 +83,7 @@ compute:
   cpu: 2
   memory: 8GB
   timeout: 30m
+  idle: 5m
 mcp_servers:
   - name: internal-tools
     url: https://tools.example.com/mcp

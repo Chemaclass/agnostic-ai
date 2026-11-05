@@ -732,10 +732,11 @@ type codexMCPEntry struct {
 	// HTTPHeadersHelper is documented "Supported only for locally
 	// connected HTTP MCP servers". See #661.
 	HTTPHeadersHelper string `toml:"http_headers_helper"`
-	// Shared fields the codex emitter writes via writeMCPSharedFields.
-	// Round-tripping requires capturing them here so a re-sync does
-	// not silently drop description / enabled / roots metadata.
+	// Description and Roots are read only to name them in a note: Codex
+	// has neither key, so one in a config.toml from an older sync never
+	// reached Codex and stays out of the spec (#2999).
 	Description string `toml:"description"`
+	Roots       any    `toml:"roots"`
 	// Enabled mirrors Codex's own `enabled` key (the key
 	// `learn.chatgpt.com/docs/config-file/config-reference` documents;
 	// the emitter only writes it when false, so nil here means the key
@@ -747,8 +748,7 @@ type codexMCPEntry struct {
 	// it only appears in files this tool emitted pre-fix; kept so a
 	// project upgrading mid-cycle does not silently lose an
 	// already-declared disabled flag on its first `import codex`.
-	Disabled bool           `toml:"disabled"`
-	Roots    []codexMCPRoot `toml:"roots"`
+	Disabled bool `toml:"disabled"`
 	// EnabledTools / DisabledTools have no transport restriction
 	// documented, unlike HTTPHeadersHelper. See #661.
 	EnabledTools  []string `toml:"enabled_tools"`
@@ -779,11 +779,6 @@ type codexMCPEntry struct {
 	// ExperimentalEnvironment is the `local | remote` key Codex replaced
 	// with EnvironmentID and now ignores (#2976).
 	ExperimentalEnvironment string `toml:"experimental_environment"`
-}
-
-type codexMCPRoot struct {
-	URI  string `toml:"uri"`
-	Name string `toml:"name"`
 }
 
 // codexMCPOAuth mirrors the `[mcp_servers.<id>.oauth]` sub-table
@@ -1114,6 +1109,14 @@ func droppedCodexEnvironmentNotes(servers map[string]codexMCPEntry) []string {
 		if s.EnvironmentID == "" && s.ExperimentalEnvironment != "" && s.ExperimentalEnvironment != "local" {
 			notes = append(notes, fmt.Sprintf("codex mcp %s: experimental_environment: %s names no executor, so import left it out; set environment_id to a configured executor ID", name, s.ExperimentalEnvironment))
 		}
+		switch {
+		case s.Description != "" && s.Roots != nil:
+			notes = append(notes, fmt.Sprintf("codex mcp %s: description and roots have no effect on Codex, so import left them out", name))
+		case s.Description != "":
+			notes = append(notes, fmt.Sprintf("codex mcp %s: description has no effect on Codex, so import left it out", name))
+		case s.Roots != nil:
+			notes = append(notes, fmt.Sprintf("codex mcp %s: roots has no effect on Codex, so import left it out", name))
+		}
 	}
 	return notes
 }
@@ -1212,27 +1215,8 @@ func codexMCPDocs(servers map[string]codexMCPEntry) map[string]any {
 		if len(env) > 0 {
 			doc["env"] = env
 		}
-		if s.Description != "" {
-			doc["description"] = s.Description
-		}
 		if s.Disabled || (s.Enabled != nil && !*s.Enabled) {
 			doc["disabled"] = true
-		}
-		if len(s.Roots) > 0 {
-			roots := make([]map[string]any, 0, len(s.Roots))
-			for _, r := range s.Roots {
-				if r.URI == "" {
-					continue
-				}
-				entry := map[string]any{"uri": r.URI}
-				if r.Name != "" {
-					entry["name"] = r.Name
-				}
-				roots = append(roots, entry)
-			}
-			if len(roots) > 0 {
-				doc["roots"] = roots
-			}
 		}
 		if len(s.EnabledTools) > 0 {
 			doc["enabled_tools"] = s.EnabledTools

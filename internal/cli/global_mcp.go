@@ -14,6 +14,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -110,6 +111,10 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 		sources[m.Name] = m.Path
 	}
 	if f.format == "toml" {
+		if target == "codex" {
+			shared, _ := spec.SplitAgentOnly((spec.Bundle{MCPs: mcps}).For(target).MCPs)
+			codex.NoteDroppedMCPFields(shared)
+		}
 		tables, _ := adapters.UserMCPServerTables(target, mcps)
 		if target == "grok" {
 			data := base
@@ -138,7 +143,7 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 				}
 			}
 		}
-		return mergeGlobalMCPTables(path, f.key, base, tables, sources, previous)
+		return mergeGlobalMCPTables(path, target, f.key, base, tables, sources, previous)
 	}
 	servers, _, err := adapters.CheckedUserMCPServers(target, mcps)
 	if err != nil {
@@ -206,7 +211,7 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 }
 
 // mergeGlobalMCPTables is mergeGlobalMCP for TOML tables under parent.
-func mergeGlobalMCPTables(path, parent string, base []byte, tables, sources map[string]string, previous map[string]any) (globalSettingsMerge, error) {
+func mergeGlobalMCPTables(path, target, parent string, base []byte, tables, sources map[string]string, previous map[string]any) (globalSettingsMerge, error) {
 	data := base
 	if data == nil {
 		read, err := os.ReadFile(path)
@@ -244,9 +249,16 @@ func mergeGlobalMCPTables(path, parent string, base []byte, tables, sources map[
 			if !owned || !sameSetting(recorded, value) {
 				m.adopted = append(m.adopted, "["+key+"]")
 			}
+		// Exact before canonical: a table equal to what sync recorded is
+		// still sync's own, so a key it once wrote and no longer does
+		// goes, while a key the user added stops the next spec change.
 		case owned && sameSetting(have, recorded):
 			m.changes = append(m.changes, "replace ["+key+"]")
 			set[name], order = tables[name], append(order, name)
+		case sameMCPServer(target, have, value):
+			if !owned || !sameSetting(recorded, value) {
+				m.adopted = append(m.adopted, "["+key+"]")
+			}
 		default:
 			m.changes = append(m.changes, "overwrite ["+key+"]")
 			m.conflicts = append(m.conflicts, fmt.Sprintf("[%s] was written outside agnostic-ai and differs from %s; remove it or make the spec match", key, sources[name]))
@@ -258,7 +270,7 @@ func mergeGlobalMCPTables(path, parent string, base []byte, tables, sources map[
 		if _, ok := tables[name]; ok {
 			continue
 		}
-		if have, ok := current[name]; ok && sameSetting(have, previous[name]) {
+		if have, ok := current[name]; ok && sameMCPServer(target, have, previous[name]) {
 			m.changes = append(m.changes, "remove ["+parent+"."+name+"]")
 			remove = append(remove, name)
 		}
@@ -394,6 +406,12 @@ func canonicalMCPServer(target string, v any) any {
 		if kind, err := codebuddy.MCPType(out); err == nil {
 			out["type"] = kind
 		}
+		return out
+	}
+	if target == "codex" {
+		// Codex reads neither key (#2999), so sync no longer writes them.
+		delete(out, "description")
+		delete(out, "roots")
 		return out
 	}
 	if target == "grok" {

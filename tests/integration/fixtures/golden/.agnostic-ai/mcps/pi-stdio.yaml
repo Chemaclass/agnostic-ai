@@ -4,6 +4,7 @@ command: native-server
 args: [--stdio]
 cwd: tools
 disabled: true
+timeout: 1500
 x-pi:
   exposure: direct
   toolExposure:

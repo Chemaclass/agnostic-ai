@@ -897,6 +897,7 @@ func TestEmit_SweepSkippedWhenUserOptsIntoLegacyDir(t *testing.T) {
 // key is not one Codex parses, so it silently fails to stop the server.
 func TestEmit_MCP_DescriptionAndDisabled(t *testing.T) {
 	dir := testutil.TempCwd(t)
+	notes := captureNotes(t)
 
 	entries := []spec.Entry{
 		{
@@ -913,21 +914,26 @@ func TestEmit_MCP_DescriptionAndDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
-	for _, want := range []string{
-		`description = "Filesystem MCP"`,
-		"enabled = false",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in %s", want, got)
-		}
+	if !strings.Contains(got, "enabled = false") {
+		t.Errorf("missing enabled = false in %s", got)
 	}
 	if strings.Contains(got, "disabled") {
 		t.Errorf("codex does not read a `disabled` key; must not emit it: %s", got)
 	}
+	// RawMcpServerConfig has no description field (codex-rs/config/src/mcp_types.rs, #2999).
+	if strings.Contains(got, "description") || strings.Contains(got, "Filesystem MCP") {
+		t.Errorf("codex has no MCP description key; must not emit it: %s", got)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(notes.String(), "`description` on 1 mcp has no effect on codex") {
+		t.Errorf("expected a description no-op note, got: %s", notes)
+	}
 }
 
+// RawMcpServerConfig has no roots field either (#2999).
 func TestEmit_MCP_Roots(t *testing.T) {
 	dir := testutil.TempCwd(t)
+	notes := captureNotes(t)
 
 	entries := []spec.Entry{
 		{
@@ -946,8 +952,31 @@ func TestEmit_MCP_Roots(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
-	if !strings.Contains(got, `roots = [{ uri = "file:///workspace", name = "workspace" }, { uri = "file:///tmp" }]`) {
-		t.Errorf("missing roots inline array in:\n%s", got)
+	if strings.Contains(got, "roots") || strings.Contains(got, "file:///workspace") {
+		t.Errorf("codex has no MCP roots key; must not emit it:\n%s", got)
+	}
+	if !strings.Contains(got, `command = "npx"`) {
+		t.Errorf("server must still emit:\n%s", got)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(notes.String(), "`roots` on 1 mcp has no effect on codex") {
+		t.Errorf("expected a roots no-op note, got: %s", notes)
+	}
+}
+
+func TestUserMCPServerTables_DropsDescriptionAndRoots(t *testing.T) {
+	tables := Adapter{}.UserMCPServerTables([]spec.Entry{{
+		Kind: spec.KindMCP,
+		Name: "fs",
+		Meta: map[string]any{
+			"command":     "npx",
+			"description": "Filesystem MCP",
+			"roots":       []any{map[string]any{"uri": "file:///workspace"}},
+		},
+	}})
+	got := tables["fs"]
+	if strings.Contains(got, "description") || strings.Contains(got, "roots") {
+		t.Errorf("global table must not carry description or roots:\n%s", got)
 	}
 }
 
