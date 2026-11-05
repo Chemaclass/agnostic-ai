@@ -28,6 +28,7 @@ compute:
   cpu: 2
   memory: 8GB
   timeout: 30m
+  idle: 5m
 mcp_servers:
   - slack
   - name: internal-tools

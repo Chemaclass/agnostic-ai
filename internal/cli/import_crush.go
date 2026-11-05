@@ -25,8 +25,9 @@ const (
 //     for the user-only fields.
 //   - `crush.json` (`mcp` map) reconstructs MCP specs: `type: stdio`,
 //     `type: http`, and `type: sse` entries all pass through verbatim
-//     via the shared JSON-map importer; user-managed keys (models,
-//     providers, lsp, options) are ignored.
+//     via the shared JSON-map importer, except `timeout`, which Crush
+//     reads in seconds and the spec holds in milliseconds; user-managed
+//     keys (models, providers, lsp, options) are ignored.
 //   - `crush.json` (`hooks` lifecycle event arrays) reconstructs hook specs,
 //     preserving supported native lifecycle events. See
 //     import_crush_hooks.go.
@@ -50,8 +51,7 @@ func importFromCrush(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	mcps, err := importJSONMCPMap("crush", filepath.Join(root, crushMCPFile), crushMCPKey,
-		importSourcePath(root, src.MCPs))
+	mcps, err := importCrushMCPs(filepath.Join(root, crushMCPFile), importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
@@ -65,6 +65,19 @@ func importFromCrush(root string, src config.Sources) error {
 	summaryf("imported %d rules, %d skills, %d hooks, %d mcps, %d ignores\n", rules, skills, hooks, mcps, ignores)
 	printImportNextSteps(root, "crush")
 	return nil
+}
+
+func importCrushMCPs(srcPath, dstDir string) (int, error) {
+	servers, err := readJSONMapAt(srcPath, crushMCPKey)
+	if err != nil || len(servers) == 0 {
+		return 0, err
+	}
+	for _, raw := range servers {
+		if server, ok := raw.(map[string]any); ok {
+			secondsTimeoutToMilliseconds(server)
+		}
+	}
+	return writeMCPYAMLs("crush", servers, dstDir)
 }
 
 // normalizeCrushSkill turns `disable-model-invocation: true` with

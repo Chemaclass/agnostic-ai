@@ -79,6 +79,9 @@ func MarshalJSONIndentWith(v any, indent string) ([]byte, error) {
 // helpers can sniff a captured file's indent before re-emitting it.
 func DetectJSONIndent(data []byte) string { return emit.DetectJSONIndent(data) }
 
+// WholeNumber reads a decoded number that has no fraction, as sync does.
+func WholeNumber(v any) (int, bool) { return emit.WholeNumber(v) }
+
 // WrittenFile mirrors emit.WrittenFile so callers outside the internal
 // emit tree can consume detailed recording output.
 type WrittenFile = emit.WrittenFile

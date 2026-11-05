@@ -15,3 +15,4 @@ x-ellipsis:
       name: api-repo
     compute:
       memory: 8GB
+      idle: 5m

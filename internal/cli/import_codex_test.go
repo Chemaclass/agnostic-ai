@@ -614,12 +614,9 @@ timeout = 120
 }
 
 // TestImportFromCodex_MCPSharedFieldsRoundTrip pins the importer
-// against silently dropping the description / disabled / roots fields
-// that the emitter renders via writeMCPSharedFields. Without this
-// round-trip a re-sync after import erases the metadata: the next
-// emit produces a config.toml with no `disabled = true` line, no
-// description, and no roots array even though the source kept them.
-// Regression coverage for the codex audit (#329).
+// against silently dropping `disabled` (#329). Codex has no description
+// or roots key (#2999), so import leaves both out of the spec, and
+// the next sync writes back the same server.
 func TestImportFromCodex_MCPSharedFieldsRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/config.toml"), `[mcp_servers.disabled-server]
@@ -634,8 +631,14 @@ description = "human-readable hint"
 command = "z"
 roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
 `)
+	log := captureLogOut(t)
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
+	}
+	for _, want := range []string{"codex mcp described: description has no effect on Codex", "codex mcp rooted: roots has no effect on Codex"} {
+		if strings.Count(log.String(), want) != 1 {
+			t.Errorf("want one note %q, got:\n%s", want, log)
+		}
 	}
 
 	cases := []struct {
@@ -643,8 +646,8 @@ roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
 		want []string
 	}{
 		{"disabled-server.yaml", []string{"name: disabled-server", "disabled: true"}},
-		{"described.yaml", []string{"name: described", "description: human-readable hint"}},
-		{"rooted.yaml", []string{"name: rooted", "roots:", "uri: file:///workspace", "name: root1", "uri: file:///tmp"}},
+		{"described.yaml", []string{"name: described"}},
+		{"rooted.yaml", []string{"name: rooted"}},
 	}
 	for _, c := range cases {
 		data, err := os.ReadFile(filepath.Join(dir, "mcps", c.file))
@@ -654,6 +657,11 @@ roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
 		for _, w := range c.want {
 			if !strings.Contains(string(data), w) {
 				t.Errorf("%s missing %q:\n%s", c.file, w, data)
+			}
+		}
+		for _, unwanted := range []string{"description", "roots", "file:///"} {
+			if strings.Contains(string(data), unwanted) {
+				t.Errorf("%s must leave out %q, which Codex never read:\n%s", c.file, unwanted, data)
 			}
 		}
 	}

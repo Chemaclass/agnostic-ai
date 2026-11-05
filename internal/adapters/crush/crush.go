@@ -33,7 +33,9 @@
 // accepts "disabled": true, "sessionless": true, "enabled_tools":
 // [...], and "disabled_tools": [...], all four read from the vendor's
 // published schema.json rather than the README, which is the only place
-// the MCP property set appears closed. crush.json also holds
+// the MCP property set appears closed. "timeout" is whole seconds in
+// Crush and milliseconds in the spec, so sync divides and rounds up;
+// `x-crush.timeout` is already seconds and wins. crush.json also holds
 // user-managed keys (models, providers, lsp, options); the merge only
 // touches the `mcp` key so those survive a sync.
 // MCP channel_enabled and channel_reply preserve incoming-message opt-in and
@@ -279,6 +281,9 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	}
 	if disabledTools := emit.StringSlice(e.Meta["disabled_tools"]); len(disabledTools) > 0 {
 		out["disabled_tools"] = disabledTools
+	}
+	if seconds, ok := emit.MCPTimeoutSeconds(target, e, false); ok {
+		out["timeout"] = seconds
 	}
 
 	return out

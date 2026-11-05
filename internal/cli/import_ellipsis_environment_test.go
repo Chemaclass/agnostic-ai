@@ -50,6 +50,7 @@ compute:
   cpu: 2
   memory: 8GB
   timeout: 30m
+  idle: 5m
 
 mcp_servers:
   - slack
@@ -109,7 +110,7 @@ func TestImportEllipsisEnvironment_NativeFileBecomesSpecs(t *testing.T) {
 
 	settings := readFile(t, filepath.Join(source, "settings", "ellipsis-environment.yaml"))
 	for _, want := range []string{"x-ellipsis:", "name: api-environment", "name: api-repo", "ref: main", "API sandbox", "labels:", "NPM_TOKEN", "value: test",
-		"api-repo/package-lock.json", "before_start:", "test -d node_modules", "validate:", "command -v jq", "memory: 8GB", "- slack"} {
+		"api-repo/package-lock.json", "before_start:", "test -d node_modules", "validate:", "command -v jq", "memory: 8GB", "idle: 5m", "- slack"} {
 		if !strings.Contains(settings, want) {
 			t.Errorf("settings spec lost %q:\n%s", want, settings)
 		}
@@ -152,6 +153,16 @@ func TestImportEllipsisEnvironment_ImportThenSyncKeepsTheFileMeaning(t *testing.
 	}
 	if out, err := runCLI(t, "lint"); err != nil {
 		t.Errorf("lint after import: %v\n%s", err, out)
+	}
+}
+
+func TestImportEllipsisEnvironment_ComputeIdleSurvivesImportAndSync(t *testing.T) {
+	dir := ellipsisEnvironmentImportProject(t, handWrittenEllipsisEnvironment)
+	execCLI(t, "import", "ellipsis")
+	execCLI(t, "sync")
+	compute, _ := parsedYAML(t, filepath.Join(dir, ellipsisEnvironmentFile))["compute"].(map[string]any)
+	if compute["idle"] != "5m" {
+		t.Errorf("compute.idle after import and sync = %v, want 5m", compute["idle"])
 	}
 }
 

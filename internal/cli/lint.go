@@ -297,6 +297,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	}
 	findings = append(findings, lintGeminiHookVariables(scope.cfg, scope.targets, scope.bundle)...)
 	findings = append(findings, lintCodexMCPEnvironment(scope.targets, scope.bundle)...)
+	findings = append(findings, lintMCPTimeoutSeconds(scope.targets, scope.bundle)...)
 	configPath := config.ConfigFileName
 	if scope.global {
 		configPath = globalConfigPaths(scope.source)[0]

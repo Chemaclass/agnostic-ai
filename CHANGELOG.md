@@ -20,11 +20,26 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - The web interface shows the agnostic-ai version at the foot of the sidebar, linked to its release notes; `/api/health` now returns `version` (#2974).
 
+- `lint` warns (LINT059) when an MCP `timeout` under 1000 reaches Crush, Pi or Junie; it most likely holds seconds.
+
 ### By tool
 
 #### Codex
 
 - **Deprecated:** MCP `experimental_environment`, which Codex ignores; sync and import now write `environment_id`. Run `agnostic-ai migrate --only mcps` (#2976).
+- MCP servers no longer get `description` or `roots` in `.codex/config.toml` or `~/.codex/config.toml`. Codex has neither key and ignored both. Sync and import say so in a note, and import leaves both out of the spec (#2999).
+
+#### Crush
+
+- MCP `timeout` reaches `crush.json` in seconds, and import converts it to milliseconds (#2997). Multiply a `timeout` held in seconds by 1000.
+
+#### Ellipsis
+
+- Sync and import accept `compute.idle` in an environment; it used to stop sync from writing the environment file (#2998).
+
+#### Pi
+
+- **Breaking:** MCP `timeout` is milliseconds for Pi too; sync and import convert it (#3002). Multiply a Pi `timeout` written in seconds by 1000. Lint and sync flag only values under 1000, so check larger ones yourself: an old `timeout: 1800` (30 minutes) now means 1.8 seconds; write `1800000`.
 
 #### Qoder
 
