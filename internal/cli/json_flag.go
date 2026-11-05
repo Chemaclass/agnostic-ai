@@ -1,8 +1,9 @@
 package cli
 
 import (
-	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 // formatWithJSONFlag resolves --json to the command's JSON format value.
