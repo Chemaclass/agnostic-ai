@@ -30,12 +30,13 @@ func TestHookRun_AnUncountedReplyKeepsAnotherCommandsTimeout(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	scripts := map[string]string{
 		"disputed.sh": "#!/bin/sh\ncat >/dev/null\nexit 1\n",
-		"slow.sh":     "#!/bin/sh\ncat >/dev/null\nsleep 5\n",
+		"slow.sh":     "#!/bin/sh\ncat >/dev/null\nsleep 8\n",
 	}
+	// A 2 second limit leaves the fast command time to exit on a loaded machine.
 	for _, order := range []string{"disputed.sh, slow.sh", "slow.sh, disputed.sh"} {
 		t.Run(order, func(t *testing.T) {
 			commands := strings.ReplaceAll(".agnostic-ai/scripts/"+order, ", ", ", .agnostic-ai/scripts/")
-			uncountedProject(t, "kiro", "name: guard\nevent: PreToolUse\ntimeout: 1\ncommand: ["+commands+"]\n", scripts)
+			uncountedProject(t, "kiro", "name: guard\nevent: PreToolUse\ntimeout: 2\ncommand: ["+commands+"]\n", scripts)
 
 			payload := filepath.Join(t.TempDir(), "call.json")
 			mustWrite(t, payload, `{"hook_event_name":"preToolUse","tool_name":"execute_bash","tool_input":{}}`)
