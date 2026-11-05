@@ -83,8 +83,9 @@ func newHookRunCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("%s: %w", payloadFile, err)
 				}
-				if !json.Valid(raw) {
-					return fmt.Errorf("parse %s: not valid JSON", payloadFile)
+				var event map[string]json.RawMessage
+				if err := json.Unmarshal(raw, &event); err != nil || event == nil {
+					return fmt.Errorf("parse %s: want a JSON object", payloadFile)
 				}
 				in.Raw = raw
 			}
@@ -121,6 +122,7 @@ func newHookRunCmd() *cobra.Command {
 			}
 			if err != nil {
 				if format == "json" {
+					runs = countHookRuns(runs, hookrun.Decision(expect), includeAssumed)
 					if jerr := printHookRunJSON(cmd.OutOrStdout(), hook.Name, runs, err); jerr != nil {
 						return errors.Join(err, jerr)
 					}

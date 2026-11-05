@@ -30,7 +30,7 @@ For each configured tool the hook reaches, it runs every command sync wrote for 
 
 ### Build sample event data {#event-data-replies}
 
-`--edit <path>` and `--bash <command>` build a `PreToolUse` or `PostToolUse` tool call (`BeforeTool` or `AfterTool` on Gemini). `--prompt <text>` builds `UserPromptSubmit` (`BeforeAgent` on Gemini). `SessionStart` takes its `source` from the matcher, or `startup` when the matcher is empty. `--payload <file>` sends a JSON file as is, for any event. A file that is not valid JSON fails before any hook runs.
+`--edit <path>` and `--bash <command>` build a `PreToolUse` or `PostToolUse` tool call (`BeforeTool` or `AfterTool` on Gemini). `--prompt <text>` builds `UserPromptSubmit` (`BeforeAgent` on Gemini). `SessionStart` takes its `source` from the matcher, or `startup` when the matcher is empty. `--payload <file>` sends a JSON file as is, for any event. A file that does not hold one JSON object fails before any hook runs.
 
 ### Apply matchers {#matcher-replies}
 

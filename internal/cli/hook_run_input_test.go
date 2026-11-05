@@ -9,22 +9,25 @@ import (
 	"testing"
 )
 
-func TestHookRun_RejectsAPayloadThatIsNotJSON(t *testing.T) {
+func TestHookRun_RejectsAPayloadThatIsNotAJSONObject(t *testing.T) {
 	dir := hookRunProject(t, "name: guard\nevent: PreToolUse\ncommand: 'true'\n")
-	bad := filepath.Join(dir, "bad.json")
-	mustWrite(t, bad, "{not json")
+	for name, body := range map[string]string{"broken": "{not json", "null": "null", "list": "[]", "empty": ""} {
+		bad := filepath.Join(dir, name+".json")
+		mustWrite(t, bad, body)
 
-	out, err := runHookRun(t, "guard", "--payload", bad, "--expect", "allow")
-	if err == nil || !strings.Contains(err.Error(), "bad.json") {
-		t.Fatalf("an invalid payload must fail naming the file, got %v\n%s", err, out)
-	}
-	if strings.Contains(out, "claude:") {
-		t.Errorf("no hook may run on an invalid payload:\n%s", out)
+		out, err := runHookRun(t, "guard", "--payload", bad, "--expect", "allow")
+		if err == nil || !strings.Contains(err.Error(), name+".json") {
+			t.Errorf("%s: an unusable payload must fail naming the file, got %v\n%s", name, err, out)
+		}
+		if strings.Contains(out, "claude:") {
+			t.Errorf("%s: no hook may run on an unusable payload:\n%s", name, out)
+		}
 	}
 }
 
 func TestHookRun_JSONKeepsItsShapeWhenATargetCannotBeSetUp(t *testing.T) {
-	hookRunProject(t, "name: guard\nevent: PreToolUse\nmatcher: 'Edit|('\ncommand: 'true'\n")
+	dir := hookRunProject(t, "name: guard\nevent: PreToolUse\nmatcher: 'Edit|('\ncommand: 'true'\n")
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [aider, claude]\n")
 
 	var stdout bytes.Buffer
 	root := NewRootCmd("test")
@@ -43,7 +46,10 @@ func TestHookRun_JSONKeepsItsShapeWhenATargetCannotBeSetUp(t *testing.T) {
 	if jerr := json.Unmarshal(stdout.Bytes(), &report); jerr != nil {
 		t.Fatalf("stdout must be one JSON object: %v\n%s", jerr, stdout.String())
 	}
-	if report.Hook != "guard" || report.Targets == nil || !strings.Contains(report.Error, "claude") {
-		t.Errorf("the report must name the hook, list targets, and name the failing target: %+v", report)
+	if report.Hook != "guard" || len(report.Targets) != 1 || !strings.HasPrefix(report.Error, "claude:") {
+		t.Errorf("the report must keep the target checked before the failure and name the failing one: %+v", report)
+	}
+	if len(report.Targets) == 1 && !strings.Contains(string(report.Targets[0]), `"target": "aider"`) {
+		t.Errorf("the kept result must be aider's: %s", report.Targets[0])
 	}
 }
