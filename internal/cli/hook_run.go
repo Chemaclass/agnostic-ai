@@ -32,7 +32,7 @@ func newHookRunCmd() *cobra.Command {
 	var only []string
 	var in hookrun.Input
 	var payloadFile, expect, format, hookRuntime string
-	var includeAssumed bool
+	var includeAssumed, jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "run <hook>",
 		Short: "Run a hook spec with each target's payload and report what each target decides",
@@ -41,7 +41,7 @@ func newHookRunCmd() *cobra.Command {
 			"Builds payloads for " + strings.Join(hookrun.Targets(), " and ") + "; other targets are listed as not run. " +
 			"Prints each command's decision (allow, block, error, or timeout), exit code, time, stdout, and stderr, " +
 			"and warns when the synced native file does not run the command the spec produces. " +
-			"--format json prints one object per target instead. " +
+			"--format json (or --json) prints one object per target instead. " +
 			"A target whose docs leave out its shell, working directory, or default timeout runs on stated assumptions, marked (assumed: ...); " +
 			"its result is shown but not counted unless --include-assumed is passed, and a disagreement prints a warning. " +
 			"Exits 1 when a counted command times out or errors, when counted targets decide differently, or when a decision differs from --expect. " +
@@ -56,7 +56,7 @@ func newHookRunCmd() *cobra.Command {
   agnostic-ai hook run on-stop --payload stop.json
 
   # Per-target results for a CI job
-  agnostic-ai hook run protect-files --edit .env --format json`,
+  agnostic-ai hook run protect-files --edit .env --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if hookRuntime != "" && hookRuntime != "vscode" {
@@ -67,6 +67,10 @@ func newHookRunCmd() *cobra.Command {
 			}
 			if expect != "" && expect != string(hookrun.Allow) && expect != string(hookrun.Block) {
 				return fmt.Errorf("--expect: expected allow or block, got %q", expect)
+			}
+			format, err := formatWithJSONFlag(cmd, format, jsonOut, "json")
+			if err != nil {
+				return err
 			}
 			if format != "text" && format != "json" {
 				return fmt.Errorf("--format: expected text or json, got %q", format)
@@ -136,6 +140,7 @@ func newHookRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&payloadFile, "payload", "", "Send this JSON file to every target as the payload")
 	cmd.Flags().StringVar(&expect, "expect", "", "Fail unless every target decides allow or block")
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Same as --format json")
 	cmd.Flags().BoolVar(&includeAssumed, "include-assumed", false, "Count results that rest on an assumed shell, working directory, or timeout in --expect and the comparison")
 	_ = cmd.RegisterFlagCompletionFunc("target", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return hookrun.Targets(), cobra.ShellCompDirectiveNoFileComp
