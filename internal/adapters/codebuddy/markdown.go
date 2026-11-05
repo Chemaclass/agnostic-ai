@@ -97,7 +97,7 @@ func (Adapter) ReportAgentWidening(agents []spec.Entry, mode string) error {
 			continue
 		}
 		tools := list(m["tools"])
-		if len(tools) == 0 {
+		if len(tools) == 0 && !nativeNoTools(a) {
 			continue
 		}
 		var missing []string
