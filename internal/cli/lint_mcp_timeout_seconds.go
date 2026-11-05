@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -30,7 +32,7 @@ func lintMCPTimeoutSeconds(targets []string, b spec.Bundle) []lintFinding {
 			if custom, ok := m.Meta["x-"+target].(map[string]any); ok && custom["timeout"] != nil {
 				continue
 			}
-			ms, ok := m.Meta["timeout"].(int)
+			ms, ok := adapters.WholeNumber(m.Meta["timeout"])
 			if !ok || ms <= 0 || ms >= 1000 {
 				continue
 			}

@@ -785,16 +785,18 @@ func reportMCPLiteralRefsWithHint(refs []mcpLiteralRef, hint string) {
 }
 
 // secondsTimeoutToMilliseconds scales a native MCP timeout in seconds
-// (Crush, Pi) to the spec's milliseconds. A value of 0 or less means
-// the tool's default, which no spec value means, so it is dropped.
+// (Crush, Pi) to the spec's milliseconds. A result of 0 ms or less is
+// dropped: Crush reads 0 as its default, Pi rejects it, and Junie would
+// read it as no time at all.
 func secondsTimeoutToMilliseconds(server map[string]any) {
 	seconds, ok := server["timeout"].(float64)
 	if !ok {
 		return
 	}
-	if seconds <= 0 {
+	ms := int(math.Round(seconds * 1000))
+	if ms <= 0 {
 		delete(server, "timeout")
 		return
 	}
-	server["timeout"] = int(math.Round(seconds * 1000))
+	server["timeout"] = ms
 }

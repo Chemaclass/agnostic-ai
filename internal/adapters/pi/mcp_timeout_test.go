@@ -54,7 +54,7 @@ func TestEmit_MCPTimeoutIsWrittenInSeconds(t *testing.T) {
 	}{
 		{map[string]any{"timeout": 30000}, 30, false},
 		{map[string]any{"timeout": 1500}, 1.5, false},
-		{map[string]any{"timeout": 30}, 0.03, false},
+		{map[string]any{"timeout": 30}, 0.03, true},
 		{map[string]any{"timeout": 30000, "x-pi": map[string]any{"timeout": 45}}, 45, false},
 		{map[string]any{"x-pi": map[string]any{"timeout": 1.5}}, 1.5, false},
 	}
@@ -74,7 +74,33 @@ func TestEmit_MCPTextTimeoutIsNoted(t *testing.T) {
 	if _, set := server["timeout"]; set {
 		t.Errorf("want no timeout key, got %v", server["timeout"])
 	}
-	if !strings.Contains(notes, "pi: MCP slow timeout 30 is not a whole number") {
+	if !strings.Contains(notes, "pi: MCP slow timeout \"30\" is text") {
 		t.Errorf("want a note:\n%s", notes)
+	}
+}
+
+// A value under one second most likely holds seconds from an older spec;
+// Crush gets a rounding note for it, so Pi needs its own.
+func TestEmit_MCPTimeoutUnderASecondIsNoted(t *testing.T) {
+	server, notes := emitPiMCPTimeout(t, map[string]any{"timeout": 40})
+	if got, _ := server["timeout"].(float64); got != 0.04 {
+		t.Errorf("timeout = %v, want 0.04", server["timeout"])
+	}
+	if !strings.Contains(notes, "pi: MCP slow timeout 40 ms") || !strings.Contains(notes, "multiply it by 1000") {
+		t.Errorf("want a note that the value looks like seconds:\n%s", notes)
+	}
+}
+
+// Pi rejects a timeout that is not positive and skips the server
+// (mcp-servers.ts: "timeout must be a positive number of seconds").
+func TestEmit_MCPOverrideTimeoutMustBePositive(t *testing.T) {
+	for _, value := range []any{0, -5, 0.0} {
+		server, notes := emitPiMCPTimeout(t, map[string]any{"x-pi": map[string]any{"timeout": value}})
+		if _, set := server["timeout"]; set {
+			t.Errorf("x-pi.timeout %v: want no key, got %v", value, server["timeout"])
+		}
+		if !strings.Contains(notes, "x-pi.timeout") {
+			t.Errorf("x-pi.timeout %v: want a note:\n%s", value, notes)
+		}
 	}
 }

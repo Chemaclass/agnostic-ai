@@ -109,3 +109,13 @@ func TestSecondsTimeoutToMilliseconds_RoundsFloatError(t *testing.T) {
 		t.Errorf("timeout = %v, want 2300", server["timeout"])
 	}
 }
+
+// Under half a millisecond rounds to 0, which Junie would read as no
+// time at all, so the key is dropped.
+func TestSecondsTimeoutToMilliseconds_DropsAZeroResult(t *testing.T) {
+	server := map[string]any{"timeout": 0.0004}
+	secondsTimeoutToMilliseconds(server)
+	if _, set := server["timeout"]; set {
+		t.Errorf("want no timeout, got %v", server["timeout"])
+	}
+}

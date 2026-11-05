@@ -20,18 +20,23 @@ func MCPTimeoutSeconds(target string, e spec.Entry, fractional bool) (any, bool)
 			if seconds, isFloat := raw.(float64); fractional && isFloat && seconds > 0 {
 				return seconds, true
 			}
-			seconds, whole := wholeNumber(raw)
-			if !whole {
-				NoteProject(fmt.Sprintf("%s: MCP %s x-%s.timeout %v is not a number of seconds %s reads, so no timeout is written", target, e.Name, target, raw, target))
+			seconds, whole := WholeNumber(raw)
+			if !whole || seconds <= 0 {
+				NoteProject(fmt.Sprintf("%s: MCP %s x-%s.timeout %v is not a positive number of seconds %s reads, so no timeout is written", target, e.Name, target, raw, target))
+				return 0, false
 			}
-			return seconds, whole
+			return seconds, true
 		}
 	}
 	raw, set := e.Meta["timeout"]
 	if !set || raw == nil {
 		return 0, false
 	}
-	ms, whole := wholeNumber(raw)
+	if text, isText := raw.(string); isText {
+		NoteProject(fmt.Sprintf("%s: MCP %s timeout %q is text, not a number of milliseconds, so no timeout is written", target, e.Name, text))
+		return 0, false
+	}
+	ms, whole := WholeNumber(raw)
 	if !whole {
 		NoteProject(fmt.Sprintf("%s: MCP %s timeout %v is not a whole number of milliseconds, so no timeout is written", target, e.Name, raw))
 		return 0, false
@@ -40,6 +45,9 @@ func MCPTimeoutSeconds(target string, e spec.Entry, fractional bool) (any, bool)
 		return 0, false
 	}
 	if fractional && ms%1000 != 0 {
+		if ms < 1000 {
+			NoteProject(fmt.Sprintf("%s: MCP %s timeout %d ms is written as %g s; if it holds seconds, multiply it by 1000", target, e.Name, ms, float64(ms)/1000))
+		}
 		return float64(ms) / 1000, true
 	}
 	seconds := (ms + 999) / 1000
@@ -49,7 +57,9 @@ func MCPTimeoutSeconds(target string, e spec.Entry, fractional bool) (any, bool)
 	return seconds, true
 }
 
-func wholeNumber(v any) (int, bool) {
+// WholeNumber reads a decoded number that has no fraction, such as 30
+// or 30.0.
+func WholeNumber(v any) (int, bool) {
 	switch n := v.(type) {
 	case int:
 		return n, true
