@@ -57,6 +57,10 @@ func newWhyCmd() *cobra.Command {
   agnostic-ai why .claude/rules/no-console-log.md --format json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			format, err := formatWithJSONFlag(cmd, format, jsonOut, "json")
+			if err != nil {
+				return err
+			}
 			if format != "" && format != "text" && format != "json" {
 				return fmt.Errorf("--format: expected 'text' or 'json', got %q", format)
 			}
@@ -68,7 +72,7 @@ func newWhyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if format == "json" || jsonOut {
+			if format == "json" {
 				return emitWhyJSON(cmd, report)
 			}
 			printWhyText(cmd, report)
@@ -76,7 +80,7 @@ func newWhyCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json.")
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Same as --format json.")
 	return cmd
 }
 

@@ -216,7 +216,7 @@ The Cline VS Code extension does not read stdout when the script exits non-zero,
 
 ## JSON output
 
-`--format json` prints the same results as one JSON object. Each target has a `decision` (`allow`, `block`, `error`, `timeout`, or `not run` with a `reason`), its `warnings`, its `assumptions`, whether it is `counted`, and one entry per command. `exit_code` is `null` after a timeout or a command that did not start. `error` holds the reason the run fails. The exit code is the same as in text:
+`--format json`, or `--json`, prints the same results as one JSON object; `--json` fails with any other `--format`. Each target has a `decision` (`allow`, `block`, `error`, `timeout`, or `not run` with a `reason`), its `warnings`, its `assumptions`, whether it is `counted`, and one entry per command. `exit_code` is `null` after a timeout or a command that did not start. `error` holds the reason the run fails. The exit code is the same as in text:
 
 ```json
 {

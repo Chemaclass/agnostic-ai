@@ -39,6 +39,7 @@ func newGraphCmd() *cobra.Command {
 		targetFilter string
 		specFilter   string
 		kindFilter   string
+		jsonOut      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "graph",
@@ -57,13 +58,17 @@ func newGraphCmd() *cobra.Command {
   agnostic-ai graph --format dot | dot -Tsvg > graph.svg
 
   # Machine-readable
-  agnostic-ai graph --format json
+  agnostic-ai graph --json
 
   # Narrow the view
   agnostic-ai graph --target claude
   agnostic-ai graph --spec no-console-log
   agnostic-ai graph --kind rule`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			format, err := formatWithJSONFlag(cmd, format, jsonOut, graphFormatJSON)
+			if err != nil {
+				return err
+			}
 			if err := validateGraphFormat(format); err != nil {
 				return err
 			}
@@ -86,6 +91,7 @@ func newGraphCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", graphFormatText, "Output format: text, mermaid, dot, json.")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Same as --format json.")
 	cmd.Flags().StringVar(&targetFilter, "target", "", "Restrict to one configured target.")
 	cmd.Flags().StringVar(&specFilter, "spec", "", "Restrict to one spec name.")
 	cmd.Flags().StringVar(&kindFilter, "kind", "", "Restrict to one spec kind (agent, skill, rule, hook, mcp, command, settings, review, environment, ignore).")
