@@ -171,8 +171,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if o.jsonOut && o.diff {
 		return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --diff")
 	}
-	if o.diff && !o.check {
-		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check with --global")
+	if o.diff && !o.check && !o.dryRun {
+		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check (or --dry-run) with --global")
 	}
 	if len(o.only) > 0 && len(o.except) > 0 {
 		return errs.Coded(errs.CodeFlagConflict, "--only and --except are mutually exclusive")
@@ -399,6 +399,17 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		}
 		return errors.Join(printGlobalPlan(cmd, records), driftErr)
 	}
+	if o.dryRun && o.diff {
+		if !o.backup {
+			if err := refuseGlobalOverwrites(writes, removals, old, source); err != nil {
+				return err
+			}
+		}
+		if _, err := globalDrift(cmd, writes, existingPaths(removals), statePath, next, true); err != nil {
+			return err
+		}
+		return printGlobalAdoptions(cmd, adopted, writes)
+	}
 	if o.dryRun {
 		for _, w := range writes {
 			if data, err := os.ReadFile(w.path); err == nil && bytes.Equal(data, w.data) {
@@ -418,43 +429,11 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 				return fmt.Errorf("write dry-run output: %w", err)
 			}
 		}
-		for _, path := range adopted {
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: adopt %s\n", path); err != nil {
-				return fmt.Errorf("write dry-run output: %w", err)
-			}
-		}
-		for _, line := range settingsAdoptions(writes) {
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: adopt %s\n", line); err != nil {
-				return fmt.Errorf("write dry-run output: %w", err)
-			}
-		}
-		return nil
+		return printGlobalAdoptions(cmd, adopted, writes)
 	}
 	if !o.backup {
-		var conflicts []string
-		for _, w := range writes {
-			for _, c := range w.conflicts {
-				conflicts = append(conflicts, w.path+": "+c)
-			}
-		}
-		if len(conflicts) > 0 {
-			return fmt.Errorf("%s; or rerun with --backup to overwrite and keep a .bak copy", strings.Join(conflicts, "; "))
-		}
-		edited, err := handEditedGlobalFiles(writes, removals, old)
-		if err != nil {
+		if err := refuseGlobalOverwrites(writes, removals, old, source); err != nil {
 			return err
-		}
-		if len(edited) > 0 {
-			return fmt.Errorf("edited since the last global sync: %s; move the edit into %s, or rerun with --backup to overwrite and keep a .bak copy", strings.Join(edited, ", "), source)
-		}
-		var commented []string
-		for _, w := range writes {
-			if w.dropsComments {
-				commented = append(commented, w.path)
-			}
-		}
-		if len(commented) > 0 {
-			return fmt.Errorf("rewriting %s would drop its comments; rerun with --backup to rewrite and keep a .bak copy", strings.Join(commented, ", "))
 		}
 	}
 	var applied []globalFileRecord
@@ -620,6 +599,48 @@ func printGlobalPlan(cmd *cobra.Command, records []globalFileRecord) error {
 	return nil
 }
 
+// refuseGlobalOverwrites stops a sync that would overwrite what the user
+// changed: a key conflict, a hand edit, or a file's comments.
+func refuseGlobalOverwrites(writes []globalWrite, removals []string, old globalState, source string) error {
+	var conflicts []string
+	for _, w := range writes {
+		for _, c := range w.conflicts {
+			conflicts = append(conflicts, w.path+": "+c)
+		}
+	}
+	if len(conflicts) > 0 {
+		return fmt.Errorf("%s; or rerun with --backup to overwrite and keep a .bak copy", strings.Join(conflicts, "; "))
+	}
+	edited, err := handEditedGlobalFiles(writes, removals, old)
+	if err != nil {
+		return err
+	}
+	if len(edited) > 0 {
+		return fmt.Errorf("edited since the last global sync: %s; move the edit into %s, or rerun with --backup to overwrite and keep a .bak copy", strings.Join(edited, ", "), source)
+	}
+	var commented []string
+	for _, w := range writes {
+		if w.dropsComments {
+			commented = append(commented, w.path)
+		}
+	}
+	if len(commented) > 0 {
+		return fmt.Errorf("rewriting %s would drop its comments; rerun with --backup to rewrite and keep a .bak copy", strings.Join(commented, ", "))
+	}
+	return nil
+}
+
+// printGlobalAdoptions names each file and settings key a dry run would
+// take over because it already holds what sync writes.
+func printGlobalAdoptions(cmd *cobra.Command, adopted []string, writes []globalWrite) error {
+	for _, line := range append(adopted, settingsAdoptions(writes)...) {
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: adopt %s\n", line); err != nil {
+			return fmt.Errorf("write dry-run output: %w", err)
+		}
+	}
+	return nil
+}
+
 // settingsAdoptions names each user settings key that already held the
 // value sync writes, as "<path> <key>".
 func settingsAdoptions(writes []globalWrite) []string {
@@ -632,10 +653,23 @@ func settingsAdoptions(writes []globalWrite) []string {
 	return out
 }
 
-// checkGlobalWrites reports every planned write that differs from disk
-// and every file a sync would remove. With diff it prints a unified diff
-// per file, limited to the managed block when both sides carry one.
+// checkGlobalWrites fails when a planned write differs from disk or a
+// sync would remove a file, naming each one.
 func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []string, statePath string, next globalState, diff bool) error {
+	drifted, err := globalDrift(cmd, writes, removals, statePath, next, diff)
+	if err != nil {
+		return err
+	}
+	if len(drifted) > 0 {
+		return fmt.Errorf("global configuration drift: %s", strings.Join(drifted, ", "))
+	}
+	return nil
+}
+
+// globalDrift returns every planned write that differs from disk and
+// every file a sync would remove. With diff it prints a unified diff per
+// file, limited to the managed block when both sides carry one.
+func globalDrift(cmd *cobra.Command, writes []globalWrite, removals []string, statePath string, next globalState, diff bool) ([]string, error) {
 	var drifted []string
 	var stateStale bool
 	out := cmd.OutOrStdout()
@@ -654,7 +688,7 @@ func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []stri
 		}
 		if err != nil {
 			if _, werr := fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(w.path), len(w.data)); werr != nil {
-				return fmt.Errorf("write global diff: %w", werr)
+				return nil, fmt.Errorf("write global diff: %w", werr)
 			}
 			continue
 		}
@@ -663,20 +697,20 @@ func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []stri
 			have, want = string(data), string(w.data)
 		}
 		if _, werr := fmt.Fprint(out, unifiedDiff(w.path, have, want, diffBodyMax)); werr != nil {
-			return fmt.Errorf("write global diff: %w", werr)
+			return nil, fmt.Errorf("write global diff: %w", werr)
 		}
 	}
 	for _, path := range removals {
 		drifted = append(drifted, path)
 		if diff {
 			if _, err := fmt.Fprintf(out, "would remove %s\n", filepath.ToSlash(path)); err != nil {
-				return fmt.Errorf("write global diff: %w", err)
+				return nil, fmt.Errorf("write global diff: %w", err)
 			}
 		}
 	}
 	if stateStale && len(drifted) == 0 {
 		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", globalOwnershipNote(statePath)); err != nil {
-			return fmt.Errorf("write global check: %w", err)
+			return nil, fmt.Errorf("write global check: %w", err)
 		}
 	}
 	if stateStale && len(drifted) > 0 {
@@ -687,14 +721,11 @@ func checkGlobalWrites(cmd *cobra.Command, writes []globalWrite, removals []stri
 				verb = "create"
 			}
 			if _, err := fmt.Fprintf(out, "would %s ownership state %s\n", verb, filepath.ToSlash(statePath)); err != nil {
-				return fmt.Errorf("write global diff: %w", err)
+				return nil, fmt.Errorf("write global diff: %w", err)
 			}
 		}
 	}
-	if len(drifted) > 0 {
-		return fmt.Errorf("global configuration drift: %s", strings.Join(drifted, ", "))
-	}
-	return nil
+	return drifted, nil
 }
 
 // existingPaths keeps the paths still on disk, the only ones a removal
