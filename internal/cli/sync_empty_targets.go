@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -56,12 +58,34 @@ func generatedFilesKept(cfg *config.Config, ledger ledgerSnapshot) bool {
 }
 
 // emptyTargetsRemovals is the ledger report of each file a sync with
-// --allow-empty-targets removes, so a dry run can name them.
-func emptyTargetsRemovals(cfg *config.Config, ledger ledgerSnapshot) driftReport {
+// --allow-empty-targets removes, so a dry run can name them. reports
+// hold what the run still writes for targets named with -t. Shared
+// skill links are listed too: the sweep removes them, but they are not
+// regular files.
+func emptyTargetsRemovals(cfg *config.Config, ledger ledgerSnapshot, reports []driftReport) driftReport {
 	if ledger.missing() {
 		return driftReport{Target: ledgerReport}
 	}
-	return ledgerLeftovers(ledger.state, strandedFile(cfg, nil, ledger.state))
+	emitted := map[string]bool{}
+	for _, r := range reports {
+		for _, list := range [][]adapters.CapturedFile{r.Current, r.Missing, r.Stale, r.Edited} {
+			for _, f := range list {
+				emitted[filepath.ToSlash(f.Path)] = true
+			}
+		}
+	}
+	state := ledger.state
+	rep := ledgerLeftovers(state, strandedFile(cfg, emitted, state))
+	for _, p := range state.Outputs {
+		if emitted[p] || cfg.IsUnmanaged(p) {
+			continue
+		}
+		if fi, err := os.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			rep.Leftover = append(rep.Leftover, p)
+		}
+	}
+	slices.Sort(rep.Leftover)
+	return rep
 }
 
 func errEmptyTargetsCheck() error {

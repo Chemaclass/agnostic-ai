@@ -388,10 +388,10 @@ func newSyncCmd() *cobra.Command {
 			// The drift reports keep every file when targets is empty, so
 			// they name none of the files --allow-empty-targets removes.
 			withEmptyTargetsRemovals := func(reports []driftReport) []driftReport {
-				if !allowEmptyTargets || !noTargetsKept(cfg) || len(effective) > 0 {
+				if !allowEmptyTargets || !noTargetsKept(cfg) {
 					return reports
 				}
-				return append(reports, emptyTargetsRemovals(cfg, ledger()))
+				return append(reports, emptyTargetsRemovals(cfg, ledger(), reports))
 			}
 			if dryRun && diff {
 				resetDrops()

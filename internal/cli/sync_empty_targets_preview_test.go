@@ -3,11 +3,15 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"io/fs"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func runSyncStdout(t *testing.T, args ...string) (string, error) {
@@ -130,14 +134,106 @@ func TestSync_EmptyTargetsDryRunWithoutAllowKeepsFiles(t *testing.T) {
 	requireEmptyTargetsOutputs(t, true)
 }
 
-// A -t run still writes the named target, so its files are not removals.
-func TestSync_AllowEmptyTargetsDryRunKeepsANamedTarget(t *testing.T) {
+// generatedPaths lists every file and link under the project, apart
+// from .git, without following links.
+func generatedPaths(t *testing.T) map[string]bool {
+	t.Helper()
+	paths := map[string]bool{}
+	err := filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if path == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		paths[filepath.ToSlash(path)] = true
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return paths
+}
+
+// requirePreviewMatchesRun checks that each dry run names exactly the
+// paths the real `sync --allow-empty-targets` run then removes.
+func requirePreviewMatchesRun(t *testing.T, args ...string) []string {
+	t.Helper()
+	base := append([]string{"sync"}, args...)
+	base = append(base, "--allow-empty-targets")
+	before := generatedPaths(t)
+	deletes := dryRunDeletes(t, append(slices.Clone(base), "--dry-run", "--json")...)
+	var outs []string
+	for _, extra := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
+		out, err := runSyncStdout(t, append(slices.Clone(base), extra...)...)
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", extra, err, out)
+		}
+		outs = append(outs, out)
+	}
+	if after := generatedPaths(t); !maps.Equal(before, after) {
+		t.Fatal("previews must write and delete nothing")
+	}
+	if out, err := runCLI(t, base...); err != nil {
+		t.Fatalf("%v: %v\n%s", base, err, out)
+	}
+	after := generatedPaths(t)
+	var removed []string
+	for p := range before {
+		if !after[p] {
+			removed = append(removed, p)
+		}
+	}
+	slices.Sort(removed)
+	if !slices.Equal(deletes, removed) {
+		t.Errorf("--dry-run --json deletes %v, the real run removed %v", deletes, removed)
+	}
+	for _, out := range outs {
+		for _, p := range removed {
+			if !strings.Contains(out, "would remove "+p+"\n") {
+				t.Errorf("preview must name %s:\n%s", p, out)
+			}
+		}
+	}
+	return removed
+}
+
+// A -t run still writes the named target and removes the others.
+func TestSync_AllowEmptyTargetsDryRunWithTargetNamesTheOthers(t *testing.T) {
 	syncedEmptyTargetsProject(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
 	captureLogOut(t)
-	for _, p := range dryRunDeletes(t, "sync", "-t", "claude", "--allow-empty-targets", "--dry-run", "--json") {
-		if p == "CLAUDE.md" || strings.HasPrefix(p, ".claude/") {
-			t.Errorf("a -t claude preview must not remove %s", p)
-		}
+	removed := requirePreviewMatchesRun(t, "-t", "claude")
+	if !slices.Contains(removed, "AGENTS.md") {
+		t.Errorf("the -t claude run must remove the codex files, removed %v", removed)
+	}
+	if slices.Contains(removed, "CLAUDE.md") {
+		t.Errorf("the -t claude run keeps the claude files, removed %v", removed)
+	}
+}
+
+func TestSync_AllowEmptyTargetsDryRunNamesSharedSkillLinks(t *testing.T) {
+	for _, pinned := range [][]string{nil, {"-t", "claude"}} {
+		t.Run(strings.Join(pinned, " "), func(t *testing.T) {
+			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			dir := testutil.TempCwd(t)
+			writeFile(t, filepath.Join(dir, ".agnostic-ai/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo skill.\n---\n\nBody.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\n")
+			captureLogOut(t)
+			if out, err := runCLI(t, "sync", "--all"); err != nil {
+				t.Fatalf("first sync: %v\n%s", err, out)
+			}
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\nsync:\n  shared-skills: true\n")
+			removed := requirePreviewMatchesRun(t, pinned...)
+			links := slices.ContainsFunc(removed, func(p string) bool {
+				return strings.HasSuffix(p, "skills/demo")
+			})
+			if !links {
+				t.Errorf("the run must remove a shared skill link, removed %v", removed)
+			}
+		})
 	}
 }
