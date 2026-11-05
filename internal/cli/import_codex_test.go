@@ -631,8 +631,14 @@ description = "human-readable hint"
 command = "z"
 roots = [{ uri = "file:///workspace", name = "root1" }, { uri = "file:///tmp" }]
 `)
+	log := captureLogOut(t)
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
+	}
+	for _, want := range []string{"codex mcp described: description has no effect on Codex", "codex mcp rooted: roots has no effect on Codex"} {
+		if strings.Count(log.String(), want) != 1 {
+			t.Errorf("want one note %q, got:\n%s", want, log)
+		}
 	}
 
 	cases := []struct {

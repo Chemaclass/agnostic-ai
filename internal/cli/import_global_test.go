@@ -55,8 +55,12 @@ func TestImportGlobal_CodexDescribedServerRoundTrips(t *testing.T) {
 	codexPath := filepath.Join(home, ".codex", "config.toml")
 	mustWriteGlobalTest(t, codexPath, "[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\ndescription = \"Docs search\"\nroots = [{ uri = \"file:///workspace\", name = \"workspace\" }]\n")
 
-	if _, warnings, err := runImportGlobalTest("codex"); err != nil {
+	_, warnings, err := runImportGlobalTest("codex")
+	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	if !strings.Contains(warnings, "codex mcp docs: description and roots have no effect on Codex") {
+		t.Errorf("import must say it left the keys out:\n%s", warnings)
 	}
 	got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"))
 	for _, unwanted := range []string{"description", "roots", "file:///workspace"} {
@@ -73,6 +77,22 @@ func TestImportGlobal_CodexDescribedServerRoundTrips(t *testing.T) {
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
 		t.Fatalf("check: %v", err)
+	}
+}
+
+// Claude keeps an MCP description and Codex has none, so the same
+// server with the same description in both homes is one server (#2999).
+func TestImportGlobal_ClaudeAndCodexAgreeDespiteDescription(t *testing.T) {
+	home, _ := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(home, ".claude.json"), "{\"mcpServers\": {\"fs\": {\"command\": \"fs-mcp\", \"description\": \"Files\"}}}\n")
+	mustWriteGlobalTest(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.fs]\ncommand = \"fs-mcp\"\ndescription = \"Files\"\n")
+
+	_, warnings, err := runImportGlobalTest("claude", "codex")
+	if err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	if strings.Contains(warnings, "defines fs differently") {
+		t.Errorf("a description Codex cannot hold is no difference:\n%s", warnings)
 	}
 }
 

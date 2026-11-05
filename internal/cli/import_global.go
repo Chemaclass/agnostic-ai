@@ -533,7 +533,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 		for _, m := range kept {
 			key := strings.ToLower(spec.MCPFileName(m.Name))
 			if prior, ok := first[key]; ok {
-				if prior.name != m.Name || !sameSetting(canonicalMCPServer(prior.target, prior.server), canonicalMCPServer(target, native[m.Name])) {
+				if prior.name != m.Name || !sameImportedMCPServer(prior.target, prior.server, target, native[m.Name]) {
 					if _, err := fmt.Fprintf(warn, "warning: %s: %s defines %s differently from %s's %s; kept %s's\n", target, path, m.Name, prior.target, prior.name, prior.target); err != nil {
 						return fmt.Errorf("write import warning: %w", err)
 					}
@@ -688,4 +688,26 @@ func normalizeGeminiTransport(server map[string]any) {
 	if _, ok := server["url"]; ok && server["type"] == nil {
 		server["type"] = "sse"
 	}
+}
+
+// sameImportedMCPServer compares one server two homes define. Codex has
+// no description or roots (#2999), so neither counts when either side
+// is Codex.
+func sameImportedMCPServer(targetA string, a any, targetB string, b any) bool {
+	ca, cb := canonicalMCPServer(targetA, a), canonicalMCPServer(targetB, b)
+	if targetA == "codex" || targetB == "codex" {
+		ca, cb = withoutCodexIgnoredMCPKeys(ca), withoutCodexIgnoredMCPKeys(cb)
+	}
+	return sameSetting(ca, cb)
+}
+
+func withoutCodexIgnoredMCPKeys(v any) any {
+	server, ok := v.(map[string]any)
+	if !ok {
+		return v
+	}
+	out := maps.Clone(server)
+	delete(out, "description")
+	delete(out, "roots")
+	return out
 }

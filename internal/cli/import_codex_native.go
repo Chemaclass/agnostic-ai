@@ -732,10 +732,11 @@ type codexMCPEntry struct {
 	// HTTPHeadersHelper is documented "Supported only for locally
 	// connected HTTP MCP servers". See #661.
 	HTTPHeadersHelper string `toml:"http_headers_helper"`
-	// No description or roots field: Codex has neither key, so one in a
-	// config.toml from an older sync never reached Codex and stays out
-	// of the spec (#2999).
-	//
+	// Description and Roots are read only to name them in a note: Codex
+	// has neither key, so one in a config.toml from an older sync never
+	// reached Codex and stays out of the spec (#2999).
+	Description string `toml:"description"`
+	Roots       any    `toml:"roots"`
 	// Enabled mirrors Codex's own `enabled` key (the key
 	// `learn.chatgpt.com/docs/config-file/config-reference` documents;
 	// the emitter only writes it when false, so nil here means the key
@@ -1107,6 +1108,14 @@ func droppedCodexEnvironmentNotes(servers map[string]codexMCPEntry) []string {
 		s := servers[name]
 		if s.EnvironmentID == "" && s.ExperimentalEnvironment != "" && s.ExperimentalEnvironment != "local" {
 			notes = append(notes, fmt.Sprintf("codex mcp %s: experimental_environment: %s names no executor, so import left it out; set environment_id to a configured executor ID", name, s.ExperimentalEnvironment))
+		}
+		switch {
+		case s.Description != "" && s.Roots != nil:
+			notes = append(notes, fmt.Sprintf("codex mcp %s: description and roots have no effect on Codex, so import left them out", name))
+		case s.Description != "":
+			notes = append(notes, fmt.Sprintf("codex mcp %s: description has no effect on Codex, so import left it out", name))
+		case s.Roots != nil:
+			notes = append(notes, fmt.Sprintf("codex mcp %s: roots has no effect on Codex, so import left it out", name))
 		}
 	}
 	return notes
