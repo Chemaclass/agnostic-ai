@@ -782,3 +782,18 @@ func reportMCPLiteralRefsWithHint(refs []mcpLiteralRef, hint string) {
 	}
 	keptf("  hint: %s\n", hint)
 }
+
+// secondsTimeoutToMilliseconds scales a native MCP timeout in seconds
+// (Crush, Pi) to the spec's milliseconds. A value of 0 or less means
+// the tool's default, which no spec value means, so it is dropped.
+func secondsTimeoutToMilliseconds(server map[string]any) {
+	seconds, ok := server["timeout"].(float64)
+	if !ok {
+		return
+	}
+	if seconds <= 0 {
+		delete(server, "timeout")
+		return
+	}
+	server["timeout"] = int(seconds * 1000)
+}

@@ -74,25 +74,10 @@ func importCrushMCPs(srcPath, dstDir string) (int, error) {
 	}
 	for _, raw := range servers {
 		if server, ok := raw.(map[string]any); ok {
-			crushTimeoutToMilliseconds(server)
+			secondsTimeoutToMilliseconds(server)
 		}
 	}
 	return writeMCPYAMLs("crush", servers, dstDir)
-}
-
-// crushTimeoutToMilliseconds scales Crush's seconds to the spec's
-// milliseconds. Crush reads 0 or less as its default, which no spec
-// value means, so that timeout is dropped.
-func crushTimeoutToMilliseconds(server map[string]any) {
-	seconds, ok := server["timeout"].(float64)
-	if !ok {
-		return
-	}
-	if seconds <= 0 {
-		delete(server, "timeout")
-		return
-	}
-	server["timeout"] = int(seconds * 1000)
 }
 
 // normalizeCrushSkill turns `disable-model-invocation: true` with

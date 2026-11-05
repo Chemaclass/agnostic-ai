@@ -68,3 +68,36 @@ func TestImportCrush_ZeroMCPTimeoutImportsNothing(t *testing.T) {
 		t.Errorf("a zero Crush timeout should not reach the spec:\n%s", specYAML)
 	}
 }
+
+// Pi reads seconds too. A Pi import scales to milliseconds, so Crush and
+// Pi get the same seconds back and Junie gets milliseconds.
+func TestImportPi_MCPTimeoutSecondsRoundTripAcrossTargets(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [pi, crush, junie]\n")
+	writeFile(t, filepath.Join(dir, ".pi", "mcp.json"), `{"mcpServers":{"slow":{"type":"http","url":"https://x.example/mcp","timeout":40}}}`)
+
+	execCLI(t, "import", "pi")
+	specYAML := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "slow.yaml"))
+	if !strings.Contains(specYAML, "timeout: 40000\n") {
+		t.Fatalf("spec should hold the timeout in milliseconds:\n%s", specYAML)
+	}
+
+	execCLI(t, "sync")
+	for _, c := range []struct {
+		path, key string
+		want      float64
+	}{
+		{filepath.Join(dir, ".pi", "mcp.json"), "mcpServers", 40},
+		{filepath.Join(dir, "crush.json"), "mcp", 40},
+		{filepath.Join(dir, ".junie", "mcp", "mcp.json"), "mcpServers", 40000},
+	} {
+		if got := mcpTimeoutIn(t, c.path, c.key, "slow"); got != c.want {
+			t.Errorf("%s timeout = %v, want %v", c.path, got, c.want)
+		}
+	}
+	if _, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after import and sync: %v", err)
+	}
+}

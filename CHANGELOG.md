@@ -32,6 +32,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Sync and import accept `compute.idle` in an environment; it used to stop sync from writing the environment file (#2998).
 
+#### Pi
+
+- Sync writes an MCP `timeout` to `.pi/mcp.json` in seconds, and import turns Pi's seconds into the spec's milliseconds (#3002). If you imported a Pi server before this release, its `timeout` holds seconds: multiply it by 1000.
+
 #### Qoder
 
 - The target page says only the Qoder IDE documents that rule files win over `AGENTS.md`; the CLI documents no order (#2984).
