@@ -14,17 +14,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func runSyncStdout(t *testing.T, args ...string) (string, error) {
-	t.Helper()
-	var out, errOut bytes.Buffer
-	root := NewRootCmd("test")
-	root.SetOut(&out)
-	root.SetErr(&errOut)
-	root.SetArgs(args)
-	err := root.Execute()
-	return out.String(), err
-}
-
 func dryRunDeletes(t *testing.T, args ...string) []string {
 	t.Helper()
 	out, err := runSyncStdout(t, args...)
@@ -192,6 +181,11 @@ func requirePreviewMatchesRun(t *testing.T, args ...string) []string {
 		t.Errorf("--dry-run --json deletes %v, the real run removed %v", deletes, removed)
 	}
 	for _, out := range outs {
+		for _, line := range strings.Split(out, "\n") {
+			if p, ok := strings.CutPrefix(line, "would remove "); ok && !slices.Contains(removed, p) {
+				t.Errorf("preview names %s, which the real run keeps", p)
+			}
+		}
 		for _, p := range removed {
 			if !strings.Contains(out, "would remove "+p+"\n") {
 				t.Errorf("preview must name %s:\n%s", p, out)
@@ -235,5 +229,84 @@ func TestSync_AllowEmptyTargetsDryRunNamesSharedSkillLinks(t *testing.T) {
 				t.Errorf("the run must remove a shared skill link, removed %v", removed)
 			}
 		})
+	}
+}
+
+// mergedEmptyTargetsProject syncs claude, codex, and cursor with a hook
+// and an MCP server, where .claude/settings.json also holds user keys.
+func mergedEmptyTargetsProject(t *testing.T) {
+	t.Helper()
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	testutil.TempCwd(t)
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Root.\n")
+	writeFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\n---\n\nUse tabs.\n")
+	writeFile(t, ".agnostic-ai/hooks/status.yaml", "name: status\ndescription: show status\non: session-start\ncommand: git status --short\n")
+	writeFile(t, ".agnostic-ai/mcps/fs.yaml", "name: fs\ncommand: npx\nargs: [\"-y\", \"x\"]\n")
+	writeFile(t, ".claude/settings.json", "{\n  \"model\": \"opus\",\n  \"env\": {\"MINE\": \"1\"}\n}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor]\n")
+	captureLogOut(t)
+	if out, err := runCLI(t, "sync", "--all"); err != nil {
+		t.Fatalf("first sync: %v\n%s", err, out)
+	}
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
+}
+
+func dryRunAction(t *testing.T, path string, args ...string) string {
+	t.Helper()
+	out, err := runSyncStdout(t, append(append([]string{"sync"}, args...), "--allow-empty-targets", "--dry-run", "--json")...)
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	var got struct {
+		Writes  []fileRecord `json:"writes"`
+		Skipped []fileRecord `json:"skipped"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	for _, r := range append(got.Writes, got.Skipped...) {
+		if r.Path == path {
+			return r.Action
+		}
+	}
+	return ""
+}
+
+func TestSync_AllowEmptyTargetsDryRunStripsSharedSettings(t *testing.T) {
+	for _, pinned := range [][]string{nil, {"-t", "cursor"}} {
+		t.Run(strings.Join(pinned, " "), func(t *testing.T) {
+			mergedEmptyTargetsProject(t)
+			if got := dryRunAction(t, ".claude/settings.json", pinned...); got != "update" {
+				t.Errorf("settings with user keys are stripped, so the action is update, got %q", got)
+			}
+			diff, err := runSyncStdout(t, append(append([]string{"sync"}, pinned...), "--allow-empty-targets", "--dry-run", "--diff")...)
+			if err != nil || !strings.Contains(diff, "--- .claude/settings.json (on disk)") {
+				t.Errorf("--diff shows the stripped settings, got err = %v:\n%s", err, diff)
+			}
+			removed := requirePreviewMatchesRun(t, pinned...)
+			if len(removed) == 0 {
+				t.Error("the run must remove the other targets' files")
+			}
+			data, err := os.ReadFile(".claude/settings.json")
+			if err != nil || !strings.Contains(string(data), "MINE") || strings.Contains(string(data), "hooks") {
+				t.Errorf("sync strips its keys and keeps the file, got %q, %v", data, err)
+			}
+		})
+	}
+}
+
+func TestSync_AllowEmptyTargetsDryRunKeepsAnEditedHooksFile(t *testing.T) {
+	mergedEmptyTargetsProject(t)
+	data, err := os.ReadFile(".cursor/hooks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, ".cursor/hooks.json", strings.Replace(string(data), "git status --short", "git status", 1))
+	if got := dryRunAction(t, ".cursor/hooks.json"); got == "delete" {
+		t.Error("an edited value keeps the file, so the preview must not delete it")
+	}
+	requirePreviewMatchesRun(t)
+	if _, err := os.Stat(".cursor/hooks.json"); err != nil {
+		t.Errorf("sync keeps the edited file: %v", err)
 	}
 }
