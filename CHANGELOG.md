@@ -18,6 +18,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - The web interface shows the agnostic-ai version at the foot of the sidebar, linked to its release notes; `/api/health` now returns `version` (#2974).
 
+- `lint`, `validate`, and sync refuse an MCP `roots` item that is not a `{uri, name}` mapping with a `uri`, such as a plain string, and name the server (LINT060). Every tool used to drop it with no note (#3016).
+
 - `lint` warns (LINT059) when an MCP `timeout` under 1000 reaches Crush, Pi or Junie; it most likely holds seconds.
 
 ### By tool

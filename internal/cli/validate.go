@@ -132,6 +132,7 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 				out = append(out, validationIssue{Path: e.Path, Field: field, Message: nonJSONValueMessage(e.Name, field, value), entry: e})
 			}
 			out = append(out, agentOnlyIssues([]spec.Entry{e})...)
+			out = append(out, mcpRootsIssues([]spec.Entry{e})...)
 			continue
 		}
 		if e.Kind != spec.KindRule {
