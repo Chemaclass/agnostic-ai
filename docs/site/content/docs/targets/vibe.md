@@ -10,7 +10,7 @@ target_id = "vibe"
 
 # Mistral Vibe (`vibe`)
 
-Sync writes the files [Mistral Vibe Code CLI v3.0.3](https://github.com/mistralai/mistral-vibe/releases/tag/v3.0.3) reads. Start Vibe from the project root and make its trust choice yourself. The normal CLI loads project configuration only for trusted roots. In host sandbox or agent-socket mode, Vibe reads project instructions and skills but ignores project `.vibe` configuration, agents, and hooks.
+Sync writes the files [Mistral Vibe Code CLI v3.1.0](https://github.com/mistralai/mistral-vibe/releases/tag/v3.1.0) reads. Start Vibe from the project root and make its trust choice yourself. The normal CLI loads project configuration only for trusted roots. In host sandbox or agent-socket mode, Vibe reads project instructions and skills but ignores project `.vibe` configuration, agents, and hooks.
 
 ## Set up this tool
 

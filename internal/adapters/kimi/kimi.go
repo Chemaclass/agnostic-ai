@@ -1,4 +1,4 @@
-// Package kimi emits native Kimi Code CLI 2.3.1 configuration.
+// Package kimi emits native Kimi Code CLI 2.5.1 configuration.
 package kimi
 
 import (
