@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -781,4 +782,21 @@ func reportMCPLiteralRefsWithHint(refs []mcpLiteralRef, hint string) {
 		keptf("%s MCP server %s: %s %s now reads %s; set %s%s\n", bang(), r.server, r.field, r.key, r.value, r.variable, was)
 	}
 	keptf("  hint: %s\n", hint)
+}
+
+// secondsTimeoutToMilliseconds scales a native MCP timeout in seconds
+// (Crush, Pi) to the spec's milliseconds. A result of 0 ms or less is
+// dropped: Crush reads 0 as its default, Pi rejects it, and Junie would
+// read it as no time at all.
+func secondsTimeoutToMilliseconds(server map[string]any) {
+	seconds, ok := server["timeout"].(float64)
+	if !ok {
+		return
+	}
+	ms := int(math.Round(seconds * 1000))
+	if ms <= 0 {
+		delete(server, "timeout")
+		return
+	}
+	server["timeout"] = ms
 }

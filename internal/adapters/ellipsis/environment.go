@@ -243,12 +243,12 @@ func (e *environmentConfig) readCompute(block map[string]any) []string {
 			if _, isInt := compute[key].(int); !isInt {
 				problems = append(problems, path+" must be a whole number of vCPUs")
 			}
-		case "memory", "timeout":
+		case "memory", "timeout", "idle":
 			if s, isString := compute[key].(string); !isString || s == "" {
 				problems = append(problems, path+" must be text such as 8GB or 30m")
 			}
 		default:
-			problems = append(problems, fmt.Sprintf("%s is not an Ellipsis compute key (use cpu, memory, timeout)", path))
+			problems = append(problems, fmt.Sprintf("%s is not an Ellipsis compute key (use cpu, memory, timeout, idle)", path))
 		}
 	}
 	e.compute = compute

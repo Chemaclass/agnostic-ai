@@ -30,7 +30,7 @@ func kitSinkBundle() spec.Bundle {
 			"output":        map[string]any{"on_fail": "request_changes"},
 			"budget":        map[string]any{"session": 3},
 			"environment": selected(map[string]any{
-				"compute": map[string]any{"cpu": 2, "memory": "8GB", "timeout": "30m"},
+				"compute": map[string]any{"cpu": 2, "memory": "8GB", "timeout": "30m", "idle": "5m"},
 				"hooks": map[string]any{
 					"build_base":   map[string]any{"inputs": []any{"api-repo/package.json", "api-repo/package-lock.json"}},
 					"before_start": "cd /sandbox/api-repo\ntest -d node_modules\n",

@@ -77,10 +77,11 @@ Every transport also accepts these fields from [Crush's `schema.json`](https://r
 - `disabled` is written as is.
 - `sessionless` marks a server that sends no `Mcp-Session-Id`, so Crush skips the subscription stream (Crush v0.91.2). When unset, Crush detects known cases such as GitHub MCP.
 - `enabled_tools` and `disabled_tools` choose which tools the agent gets.
+- `timeout` is whole seconds in Crush and milliseconds in the spec. Sync divides by 1000 and rounds up, with a note when rounding changes the value. A spec value of 0 or less writes no key, so Crush keeps its own default. `x-crush.timeout` is already seconds, is written as given, and wins. A value that is not a whole number writes no key, with a note.
 - `channel_enabled` opts into incoming MCP messages (Crush v0.97.0). An explicit `false` stays false.
 - `channel_reply` sets automatic replies: `user` routes direct messages, `group` routes group messages. Each route requires `tool` and `target_param`; optional `target_meta` chooses the incoming message attribute with the reply target. It defaults to `sender` for direct messages and `group` for group messages. `message_param` names the reply text argument (default `message`), and `suppress_tools` lists tools that prevent a duplicate automatic reply.
 
-Set the channel fields at the top level or under `x-crush`, which wins. Import keeps them at the top level. Sync checks channel types, required route fields and unknown nested keys before writing `crush.json`. Other `x-crush` MCP keys are ignored because Crush rejects unknown MCP fields. Skills still accept `x-crush` frontmatter.
+Set the channel fields at the top level or under `x-crush`, which wins. Import keeps them at the top level. Sync checks channel types, required route fields and unknown nested keys before writing `crush.json`. Other `x-crush` MCP keys, except `timeout`, are ignored because Crush rejects unknown MCP fields. Skills still accept `x-crush` frontmatter.
 
 ```yaml
 name: chat
@@ -131,7 +132,7 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 |--------|---------|
 | `AGENTS.md` embedded `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
 | `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
-| `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
+| `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml`; `timeout` is multiplied by 1000, and 0 is left out |
 | `crush.json` `hooks.<event>` | hook specs for each supported event; a unique safe name becomes the filename. Handlers with distinct labels or timeouts use separate spec names and `x-crush.name`, so native identities survive a round trip |
 | `.crushignore` | an ignore spec |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
