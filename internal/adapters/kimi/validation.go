@@ -122,6 +122,11 @@ func validateMCP(meta map[string]any) error {
 	if auth, ok := meta["auth"]; ok && auth != "oauth" {
 		return fmt.Errorf("auth must be oauth")
 	}
+	if value, ok := meta["environment_id"]; ok {
+		if id, valid := value.(string); !valid || strings.TrimSpace(id) == "" {
+			return fmt.Errorf("environment_id must name an environment")
+		}
+	}
 	if value, ok := meta["bearerTokenEnvVar"]; ok {
 		if name, valid := value.(string); !valid || strings.TrimSpace(name) == "" {
 			return fmt.Errorf("bearerTokenEnvVar must name an environment variable")
