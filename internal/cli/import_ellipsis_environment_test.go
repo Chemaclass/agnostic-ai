@@ -156,6 +156,16 @@ func TestImportEllipsisEnvironment_ImportThenSyncKeepsTheFileMeaning(t *testing.
 	}
 }
 
+func TestImportEllipsisEnvironment_ComputeIdleSurvivesImportAndSync(t *testing.T) {
+	dir := ellipsisEnvironmentImportProject(t, handWrittenEllipsisEnvironment)
+	execCLI(t, "import", "ellipsis")
+	execCLI(t, "sync")
+	compute, _ := parsedYAML(t, filepath.Join(dir, ellipsisEnvironmentFile))["compute"].(map[string]any)
+	if compute["idle"] != "5m" {
+		t.Errorf("compute.idle after import and sync = %v, want 5m", compute["idle"])
+	}
+}
+
 func TestImportEllipsisEnvironment_SecondImportAndSyncAreStable(t *testing.T) {
 	dir := ellipsisEnvironmentImportProject(t, handWrittenEllipsisEnvironment)
 	execCLI(t, "import", "ellipsis")

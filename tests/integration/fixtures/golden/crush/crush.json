@@ -42,6 +42,11 @@
       },
       "command": "channel-server",
       "type": "stdio"
+    },
+    "crush-timeout": {
+      "timeout": 2,
+      "type": "http",
+      "url": "https://example.test/mcp"
     }
   }
 }
