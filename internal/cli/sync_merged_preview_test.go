@@ -145,3 +145,76 @@ func runSyncStdout(t *testing.T, args ...string) (string, error) {
 	err := root.Execute()
 	return out.String(), err
 }
+
+func checkJSONAction(t *testing.T, path string) string {
+	t.Helper()
+	out, err := runSyncStdout(t, "sync", "--check", "--json")
+	if err == nil {
+		t.Fatalf("--check --json exits non-zero on drift:\n%s", out)
+	}
+	var got struct {
+		Writes []fileRecord `json:"writes"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	for _, r := range got.Writes {
+		if r.Path == path {
+			return r.Action
+		}
+	}
+	return ""
+}
+
+func TestSyncCheck_ReportsAStrippedSettingsFileAsStale(t *testing.T) {
+	syncedHookProject(t, func(s string) string {
+		return strings.Replace(s, "{", "{\n  \"myKey\": 1,", 1)
+	})
+	if got := checkJSONAction(t, ".claude/settings.json"); got != "stale" {
+		t.Errorf("--check --json action = %q, want stale", got)
+	}
+	logs := captureLogOut(t)
+	if _, err := runSyncStdout(t, "sync", "--check"); err == nil {
+		t.Error("--check exits non-zero on drift")
+	}
+	if got := logs.String(); !strings.Contains(got, "out of date") || strings.Contains(got, "no longer generated") {
+		t.Errorf("--check lists the stripped file as out of date:\n%s", got)
+	}
+}
+
+// Sync strips its other keys and keeps the hook the user edited, so
+// check reports a change, not a removal.
+func TestSyncCheck_ReportsAnEditedSettingsFileAsStale(t *testing.T) {
+	syncedHookProject(t, func(s string) string {
+		return strings.Replace(s, "git status --short", "git status", 1)
+	})
+	if got := checkJSONAction(t, ".claude/settings.json"); got != "stale" {
+		t.Errorf("--check --json action = %q, want stale", got)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	data, err := os.ReadFile(".claude/settings.json")
+	if err != nil || !strings.Contains(string(data), "git status") {
+		t.Errorf("sync keeps the edited hook, got %q, %v", data, err)
+	}
+}
+
+func TestSync_PlainDryRunPrintsAStrippedSettingsFile(t *testing.T) {
+	syncedHookProject(t, func(s string) string {
+		return strings.Replace(s, "{", "{\n  \"myKey\": 1,", 1)
+	})
+	before := snapshotTree(t, ".")
+	var err error
+	out := captureStdout(t, func() { _, err = runSyncStdout(t, "sync", "--dry-run") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	head := strings.Index(out, "--- .claude/settings.json ---")
+	if head < 0 || !strings.Contains(out[head:], "myKey") || strings.Contains(out[head:], "SessionStart") {
+		t.Errorf("plain --dry-run prints the stripped file as sync writes it:\n%s", out)
+	}
+	if after := snapshotTree(t, "."); !maps.Equal(before, after) {
+		t.Error("previews must change no files")
+	}
+}

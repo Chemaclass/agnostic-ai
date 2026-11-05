@@ -12,6 +12,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // mergedLedgerVersion is the first .sync-state version that records the
@@ -375,7 +376,8 @@ func releaseMergedRecords(state *syncStateFile, records map[string]*mergedOutput
 // previewMergedLeftovers moves each merged leftover a sync only strips
 // out of Leftover, as releaseMergedOrphans would treat it: a file the
 // sweep rewrites becomes a changed file with the bytes it writes, and
-// one it keeps an orphan. Only a file sync created and fully owns stays
+// one it leaves as is, such as one whose only value the user edited, an
+// orphan. Only a file sync created and fully owns stays
 // a removal. Nothing is written.
 func previewMergedLeftovers(reports []driftReport, state syncStateFile, unmanaged []string) ([]driftReport, error) {
 	sess := adapters.NewSession()
@@ -411,4 +413,29 @@ func previewMergedLeftovers(reports []driftReport, state syncStateFile, unmanage
 		r.Leftover = leftover
 	}
 	return reports, nil
+}
+
+// printStrippedMerged prints, as a plain dry run prints a write, each
+// merged leftover the sweep would rewrite, which the dry-run pass skips.
+func printStrippedMerged(reports []driftReport, state syncStateFile, unmanaged []string) error {
+	leftover := map[string]bool{}
+	for _, r := range reports {
+		if !r.Unledgered {
+			for _, p := range r.Leftover {
+				leftover[p] = true
+			}
+		}
+	}
+	reports, err := previewMergedLeftovers(reports, state, unmanaged)
+	if err != nil {
+		return err
+	}
+	for _, r := range reports {
+		for _, f := range r.Stale {
+			if leftover[f.Path] {
+				fmt.Printf("--- %s ---\n%s\n", f.Path, preview.Display(f.Path, f.Content).Text)
+			}
+		}
+	}
+	return nil
 }

@@ -12,6 +12,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `sync --dry-run`, with `--diff` or `--json`, and `sync --plan` show a shared settings file that keeps your own keys as an update, not a removal, matching what sync does (#3000).
 
+- `sync --dry-run` (plain, `--diff`, or `--json`), `sync --plan`, and `sync --check` show a shared settings file that keeps your own keys as an update, not a removal, or as kept when sync leaves it as is, matching what sync does (#3000).
+
 - `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
 
 - `graph` and `hook run` accept `--json`, the same as `--format json`, like other commands that print JSON. `--json` with a different `--format` fails on all three; `why` used to print JSON (#2993).
