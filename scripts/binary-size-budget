@@ -768,4 +768,6 @@
 # (#2997, #2998, #3002) measured 24744096 bytes; the budget is that plus 8192.
 # Codex global MCP matching without description and roots (#2999), merged
 # with #3008, measured 24752288 bytes; the budget is that plus 8192.
-24760480
+# The sync --allow-empty-targets removal preview (#2995) measured 24768672
+# bytes; the budget is that plus 8192.
+24776864
