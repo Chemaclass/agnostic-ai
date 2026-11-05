@@ -47,6 +47,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "An MCP spec that reaches Codex sets `experimental_environment`. Codex now reads `environment_id`, the ID of a configured executor, and ignores the old key. Sync writes `local` as `environment_id = \"local\"` and leaves any other value, such as `remote`, out, with a note on project sync.",
 		Fix:      "Run `agnostic-ai migrate --only mcps` to rewrite `experimental_environment: local`. For another value, set `environment_id` to a configured executor ID, or remove the key.",
 	},
+	"LINT059": {
+		Severity: lintWarn,
+		Title:    "MCP timeout looks like seconds",
+		Cause:    "An MCP spec that reaches Crush or Pi sets `timeout` below 1000. The spec field is milliseconds, and those tools read seconds, so sync writes 1 second. Import stored native seconds unchanged before this check existed, so the value is most likely seconds.",
+		Fix:      "Multiply `timeout` by 1000. To set seconds for one tool only, use `x-crush.timeout` or `x-pi.timeout`.",
+	},
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",
