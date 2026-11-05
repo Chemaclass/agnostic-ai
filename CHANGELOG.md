@@ -16,6 +16,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Deprecated:** MCP `experimental_environment`, which Codex ignores; sync and import now write `environment_id`. Run `agnostic-ai migrate --only mcps` (#2976).
 
+#### Qoder
+
+- The target page says only the Qoder IDE documents that rule files win over `AGENTS.md`; the CLI documents no order (#2984).
+
 #### Qwen Code
 
 - The target page says interactive sessions from 0.26.7 run project hooks only after you turn on folder trust and trust the folder (#2978).
