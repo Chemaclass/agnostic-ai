@@ -2,9 +2,9 @@
 // Qoder.
 //
 // Qoder reads project rules from `.qoder/rules/*.md`: one file per
-// rule, each carrying a name and description, and Qoder's own docs
-// state this native rules content takes precedence over `AGENTS.md`
-// when both are present. Qoder also reads the cross-tool root
+// rule, each carrying a name and description. Qoder's IDE docs state
+// rules content takes precedence over `AGENTS.md` on a conflict; the CLI
+// docs load both and give no order. Qoder also reads the cross-tool root
 // `AGENTS.md`, which is written centrally by `sync` as a slim pointer
 // to the source specs, not by this adapter. Rule activation frontmatter
 // preserves description, alwaysApply, trigger, glob, and paths, including

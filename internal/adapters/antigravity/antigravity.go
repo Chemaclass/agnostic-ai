@@ -48,10 +48,12 @@
 //
 // A rule with a `scope` emits into a copy of the rules directory nested
 // at that scope, `<scope>/.agents/rules/<name>.md`, rather than dropping
-// with a coverage note: "You can place ... a `.agents/rules/` directory
-// ... in any subdirectory of your project. Whenever Antigravity reads or
-// edits a file, it walks up the directory tree ..., loading rules at
-// each level" (antigravity.google/docs/rules). The frontmatter is the
+// with a coverage note. Antigravity "discovers rules in two scopes: your
+// workspace, including parent folders up to the repository root, and
+// your global configuration", and it "doesn’t load rules from subfolders
+// below the workspace folder" (antigravity.google/docs/rules), so the
+// nested file loads only when the workspace is opened at the scope or
+// below it; the target page says so. The frontmatter is the
 // same `rule()` renderer every unscoped file gets, and the file never
 // nests deeper than one level inside the scope: "Antigravity scans only
 // immediate `.md` children inside `.agents/rules/` ... ignores files
