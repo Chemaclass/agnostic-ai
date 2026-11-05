@@ -13,10 +13,17 @@ func mcpTimeoutLintProject(t *testing.T, targets, mcp string) {
 }
 
 // A spec imported from Crush or Pi before #2997 holds seconds, such as
-// 30. Sync then writes 1 second, and its rounding note shows only once,
-// so lint keeps warning.
+// 30. Sync then writes 1 second to Crush, 0.03 to Pi and 30 ms to Junie,
+// below Junie's 1000 ms floor, and sync's notes show only once, so lint
+// keeps warning and names each tool the value reaches.
 func TestLint_MCPTimeoutThatLooksLikeSecondsWarns(t *testing.T) {
-	for _, targets := range []string{"targets: [crush]\n", "targets: [pi]\n"} {
+	for targets, named := range map[string]string{
+		"targets: [crush]\n":            "crush",
+		"targets: [pi]\n":               "pi",
+		"targets: [junie]\n":            "junie",
+		"targets: [crush, junie]\n":     "crush and junie",
+		"targets: [crush, pi, junie]\n": "crush, pi and junie",
+	} {
 		mcpTimeoutLintProject(t, targets, "timeout: 30\n")
 
 		out, err := runCLI(t, "lint")
@@ -24,8 +31,8 @@ func TestLint_MCPTimeoutThatLooksLikeSecondsWarns(t *testing.T) {
 			t.Fatalf("a warning alone must pass: %v\n%s", err, out)
 		}
 		lines := findingLines(out, "LINT059")
-		if len(lines) != 1 || !strings.Contains(lines[0], "multiply it by 1000") {
-			t.Errorf("%s: want one LINT059 asking to multiply by 1000:\n%s", targets, out)
+		if len(lines) != 1 || !strings.Contains(lines[0], "multiply it by 1000") || !strings.Contains(lines[0], named+" get") {
+			t.Errorf("%s: want one LINT059 naming %s and asking to multiply by 1000:\n%s", targets, named, out)
 		}
 	}
 }
@@ -43,8 +50,8 @@ func TestLint_MCPTimeoutInMillisecondsIsClean(t *testing.T) {
 	for _, c := range []struct{ targets, mcp string }{
 		{"targets: [crush]\n", "timeout: 30000\n"},
 		{"targets: [pi]\n", "timeout: 30\nx-pi:\n  timeout: 30\n"},
-		{"targets: [junie]\n", "timeout: 30\n"},
-		{"targets: [crush, junie]\n", "timeout: 30\ntargets: [junie]\n"},
+		{"targets: [junie]\n", "timeout: 30\nx-junie:\n  timeout: 30000\n"},
+		{"targets: [crush, junie]\n", "timeout: 30\ntargets: [kiro]\n"},
 	} {
 		mcpTimeoutLintProject(t, c.targets, c.mcp)
 		if out, err := runCLI(t, "lint"); err != nil || strings.Contains(out, "LINT059") {

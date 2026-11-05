@@ -10,21 +10,20 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// secondsMCPTargets read an MCP timeout in seconds, so sync divides the
-// spec's milliseconds by 1000.
-var secondsMCPTargets = []string{"crush", "pi"}
+// subSecondMCPTargets get a limit of one second or less from a timeout
+// under 1000 ms: Crush and Pi read seconds, and Junie reads milliseconds
+// from 1000 up.
+var subSecondMCPTargets = []string{"crush", "pi", "junie"}
 
 // lintMCPTimeoutSeconds flags an MCP timeout under 1000 ms on a spec that
-// reaches a seconds target. Import stored native seconds unchanged until
-// #2997, so such a value is most likely seconds, and sync writes a limit
-// of one second or less.
-// Sync's rounding note shows only until the output is unchanged; this
-// warning stays.
+// reaches one of those targets. Import stored Crush and Pi seconds
+// unchanged until #2997, so such a value is most likely seconds. Sync's
+// notes show only until the output is unchanged; this warning stays.
 func lintMCPTimeoutSeconds(targets []string, b spec.Bundle) []lintFinding {
 	reached := map[string][]string{}
 	paths := map[string]string{}
 	var names []string
-	for _, target := range secondsMCPTargets {
+	for _, target := range subSecondMCPTargets {
 		if !slices.Contains(targets, target) {
 			continue
 		}
@@ -45,13 +44,14 @@ func lintMCPTimeoutSeconds(targets []string, b spec.Bundle) []lintFinding {
 	}
 	var out []lintFinding
 	for _, name := range names {
-		verb := "reads"
-		if len(reached[name]) > 1 {
-			verb = "read"
+		tools := reached[name]
+		named, verb := tools[0], "gets"
+		if n := len(tools); n > 1 {
+			named, verb = strings.Join(tools[:n-1], ", ")+" and "+tools[n-1], "get"
 		}
 		out = append(out, lintFinding{Code: "LINT059", Severity: lintWarn, Path: paths[name], Message: fmt.Sprintf(
-			"MCP server %q: timeout is milliseconds, and %s %s seconds, so sync writes a limit of one second or less. If the value is seconds, multiply it by 1000",
-			name, strings.Join(reached[name], " and "), verb)})
+			"MCP server %q: timeout is milliseconds, so %s %s a limit of one second or less. If the value is seconds, multiply it by 1000",
+			name, named, verb)})
 	}
 	return out
 }
