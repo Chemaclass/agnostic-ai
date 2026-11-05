@@ -349,8 +349,8 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 	// it and its entry; names differing only in case share one file on
 	// a case-insensitive disk.
 	type supplied struct {
-		target, name string
-		server       any
+		target, name, out string
+		server            any
 	}
 	first := map[string]supplied{}
 	covered := map[string]bool{}
@@ -532,20 +532,30 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 		}
 		for _, m := range kept {
 			key := strings.ToLower(spec.MCPFileName(m.Name))
+			out := filepath.Join(dst, filepath.Base(m.Path))
 			if prior, ok := first[key]; ok {
-				if prior.name != m.Name || !sameImportedMCPServer(prior.target, prior.server, target, native[m.Name]) {
+				same := prior.name == m.Name && sameImportedMCPServer(prior.target, prior.server, target, native[m.Name])
+				if !same {
 					if _, err := fmt.Fprintf(warn, "warning: %s: %s defines %s differently from %s's %s; kept %s's\n", target, path, m.Name, prior.target, prior.name, prior.target); err != nil {
 						return fmt.Errorf("write import warning: %w", err)
 					}
 				}
-				continue
+				// Codex's spec cannot carry description or roots (#2999), so
+				// the same server from another tool replaces it with them.
+				if !same || prior.target != "codex" || target == "codex" {
+					continue
+				}
+				if prior.out != out {
+					if err := os.Remove(prior.out); err != nil {
+						return fmt.Errorf("remove %s: %w", prior.out, err)
+					}
+				}
 			}
-			first[key] = supplied{target: target, name: m.Name, server: native[m.Name]}
+			first[key] = supplied{target: target, name: m.Name, out: out, server: native[m.Name]}
 			data, err := os.ReadFile(m.Path)
 			if err != nil {
 				return fmt.Errorf("read %s: %w", m.Path, err)
 			}
-			out := filepath.Join(dst, filepath.Base(m.Path))
 			if err := importMkdirAll(dst, 0o755); err != nil {
 				return fmt.Errorf("create directory for %s: %w", out, err)
 			}

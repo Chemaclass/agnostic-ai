@@ -96,6 +96,43 @@ func TestImportGlobal_ClaudeAndCodexAgreeDespiteDescription(t *testing.T) {
 	}
 }
 
+// When Codex is read first, a later tool's copy of the same server keeps
+// the description Codex cannot hold, so the spec loses nothing and sync
+// writes every home back unchanged (#2999).
+func TestImportGlobal_LaterToolKeepsDescriptionCodexDrops(t *testing.T) {
+	for _, tc := range []struct {
+		other, rel, native string
+	}{
+		{"cursor", ".cursor/mcp.json", "{\n  \"mcpServers\": {\n    \"fs\": {\n      \"command\": \"fs-mcp\",\n      \"description\": \"Files\"\n    }\n  }\n}\n"},
+		{"claude", ".claude.json", "{\"mcpServers\": {\"fs\": {\"command\": \"fs-mcp\", \"description\": \"Files\"}}}\n"},
+	} {
+		t.Run(tc.other, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			otherPath := filepath.Join(home, filepath.FromSlash(tc.rel))
+			mustWriteGlobalTest(t, otherPath, tc.native)
+			codexPath := filepath.Join(home, ".codex", "config.toml")
+			mustWriteGlobalTest(t, codexPath, "[mcp_servers.fs]\ncommand = \"fs-mcp\"\ndescription = \"Files\"\n")
+
+			if _, warnings, err := runImportGlobalTest("codex", tc.other); err != nil {
+				t.Fatalf("import: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, filepath.Join(source, "mcps", "fs.yaml")); !strings.Contains(got, "description: Files") {
+				t.Errorf("fs.yaml lost the %s description:\n%s", tc.other, got)
+			}
+			codexBefore, otherBefore := readGlobalTest(t, codexPath), readGlobalTest(t, otherPath)
+			if _, warnings, err := runGlobalAgentTest("--only", "codex,"+tc.other); err != nil {
+				t.Fatalf("sync after import: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, codexPath); got != codexBefore {
+				t.Errorf("sync changed config.toml:\n%s", got)
+			}
+			if got := readGlobalTest(t, otherPath); got != otherBefore {
+				t.Errorf("sync changed %s:\n%s", tc.rel, got)
+			}
+		})
+	}
+}
+
 // Every JSON user file sync writes reads back through import into specs
 // that render to the same bytes.
 func TestImportGlobal_RoundTripsWhatSyncWrote(t *testing.T) {
