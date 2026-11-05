@@ -1900,6 +1900,20 @@ func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
 	}
 }
 
+// printDriftRemovals names each generated file a sync would delete,
+// the removals a dry-run diff has no hunk for.
+func printDriftRemovals(cmd *cobra.Command, reports []driftReport) {
+	out := cmd.OutOrStdout()
+	for _, r := range foldSharedDrift(reports) {
+		if r.Unledgered {
+			continue
+		}
+		for _, path := range r.Leftover {
+			_, _ = fmt.Fprintf(out, "would remove %s\n", filepath.ToSlash(path))
+		}
+	}
+}
+
 // unifiedDiff renders a minimal unified diff between the on-disk content
 // (have) and what sync would write (want), keyed by path. It trims the shared
 // leading and trailing lines and prints the differing middle as one hunk:

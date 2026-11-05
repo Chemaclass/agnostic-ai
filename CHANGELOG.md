@@ -10,6 +10,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
 
+- `sync --dry-run --diff` prints a diff of each file sync would change and names files it would delete, for project and `--global` sync. Project sync used to ignore `--diff` here, and global sync rejected it (#2991).
+
 - The web interface shows the agnostic-ai version at the foot of the sidebar, linked to its release notes; `/api/health` now returns `version` (#2974).
 
 ### By tool

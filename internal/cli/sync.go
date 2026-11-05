@@ -45,6 +45,9 @@ func newSyncCmd() *cobra.Command {
   # Preview without writing
   agnostic-ai sync --dry-run
 
+  # Preview only the changed lines, without writing
+  agnostic-ai sync --dry-run --diff
+
   # CI gate: non-zero exit when output drifts from specs
   agnostic-ai sync --check
 
@@ -370,6 +373,20 @@ func newSyncCmd() *cobra.Command {
 				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
 				return watchSync(ctx, 200*time.Millisecond, ".", watchTargets(targets, only, except, effective), dryRun, backup, gitignoreFlag, watchPoll, jobs)
+			}
+			if dryRun && diff {
+				resetDrops()
+				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
+					return err
+				}
+				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
+				if err != nil {
+					return err
+				}
+				_, notesErr := checkCoverageNotes(cfg, effective)
+				printDriftDiffs(cmd, reports)
+				printDriftRemovals(cmd, reports)
+				return notesErr
 			}
 			if jsonOut && dryRun {
 				resetDrops()
