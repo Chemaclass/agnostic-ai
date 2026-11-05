@@ -387,11 +387,15 @@ func newSyncCmd() *cobra.Command {
 			}
 			// The drift reports keep every file when targets is empty, so
 			// they name none of the files --allow-empty-targets removes.
-			withEmptyTargetsRemovals := func(reports []driftReport) []driftReport {
+			withEmptyTargetsRemovals := func(reports []driftReport) ([]driftReport, error) {
 				if !allowEmptyTargets || !noTargetsKept(cfg) {
-					return reports
+					return reports, nil
 				}
-				return append(reports, emptyTargetsRemovals(cfg, ledger(), reports))
+				links, err := plannedSkillLinks(cfg, bundle, effective)
+				if err != nil {
+					return nil, err
+				}
+				return append(reports, emptyTargetsRemovals(cfg, ledger(), reports, links, keepEdits)), nil
 			}
 			if dryRun && diff {
 				resetDrops()
@@ -402,7 +406,9 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				reports = withEmptyTargetsRemovals(reports)
+				if reports, err = withEmptyTargetsRemovals(reports); err != nil {
+					return err
+				}
 				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, false); err != nil {
 					return err
 				}
@@ -420,7 +426,9 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				reports = withEmptyTargetsRemovals(reports)
+				if reports, err = withEmptyTargetsRemovals(reports); err != nil {
+					return err
+				}
 				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, keepEdits); err != nil {
 					return err
 				}
@@ -442,7 +450,10 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				removals, err := previewMergedLeftovers([]driftReport{emptyTargetsRemovals(cfg, ledger(), reports)}, ledger().state, cfg.Sync.Unmanaged, keepEdits)
+				if reports, err = withEmptyTargetsRemovals(reports); err != nil {
+					return err
+				}
+				removals, err := previewMergedLeftovers(reports[len(reports)-1:], ledger().state, cfg.Sync.Unmanaged, keepEdits)
 				if err != nil {
 					return err
 				}

@@ -511,8 +511,9 @@ func collectEntryPointDriftIn(cfg *config.Config, b spec.Bundle, targets []strin
 		rep.Current = append(rep.Current, file)
 	}
 	generated := driftGeneratedPaths([]driftReport{rep})
+	// An orphan proven generated again is a leftover the sweep removes.
 	rep.Orphaned = slices.DeleteFunc(recordedOrphans(cfg, state.Orphans), func(path string) bool {
-		return slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) })
+		return provenGenerated(path, state.OutputSums[path]) || slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) })
 	})
 	return rep, nil
 }
