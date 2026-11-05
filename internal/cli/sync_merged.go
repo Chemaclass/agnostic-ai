@@ -371,3 +371,44 @@ func releaseMergedRecords(state *syncStateFile, records map[string]*mergedOutput
 		}
 	}
 }
+
+// previewMergedLeftovers moves each merged leftover a sync only strips
+// out of Leftover, as releaseMergedOrphans would treat it: a file the
+// sweep rewrites becomes a changed file with the bytes it writes, and
+// one it keeps an orphan. Only a file sync created and fully owns stays
+// a removal. Nothing is written.
+func previewMergedLeftovers(reports []driftReport, state syncStateFile, unmanaged []string) ([]driftReport, error) {
+	sess := adapters.NewSession()
+	sess.SetProjectRoot(".")
+	sess.SetUnmanaged(unmanaged)
+	for i := range reports {
+		r := &reports[i]
+		if r.Unledgered {
+			continue
+		}
+		var leftover []string
+		for _, p := range r.Leftover {
+			m, ok := state.Merged[p]
+			if !ok || m.Unrecorded || underSymlinkedDir(p) {
+				leftover = append(leftover, p)
+				continue
+			}
+			sess.StartCapture()
+			result, _, err := sess.ReleaseMerged(p, m.Keys, m.Created, false, false)
+			files := sess.StopCapture()
+			if err != nil {
+				return nil, err
+			}
+			switch {
+			case result == adapters.MergedRemoved:
+				leftover = append(leftover, p)
+			case len(files) > 0:
+				r.Stale = append(r.Stale, adapters.CapturedFile{Path: p, Content: files[len(files)-1].Content})
+			default:
+				r.Orphaned = append(r.Orphaned, p)
+			}
+		}
+		r.Leftover = leftover
+	}
+	return reports, nil
+}

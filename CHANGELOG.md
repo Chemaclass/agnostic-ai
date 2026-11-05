@@ -10,6 +10,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `hook run` rejects a `--payload` file that does not hold a JSON object instead of passing with no hook run, and `--format json` still prints its result object when a target cannot be set up (#2994).
 
+- `sync --dry-run`, with `--diff` or `--json`, and `sync --plan` show a shared settings file that keeps your own keys as an update, not a removal, matching what sync does (#3000).
+
 - `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
 
 - `graph` and `hook run` accept `--json`, the same as `--format json`, like other commands that print JSON. `--json` with a different `--format` fails on all three; `why` used to print JSON (#2993).

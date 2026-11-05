@@ -269,6 +269,9 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged); err != nil {
+					return err
+				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
 				// With --check the plan still gates, so a CI step that
 				// asks for the short report does not pass on drift.
@@ -386,6 +389,9 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged); err != nil {
+					return err
+				}
 				_, notesErr := checkCoverageNotes(cfg, effective)
 				printDriftDiffs(cmd, reports)
 				printDriftRemovals(cmd, reports)
@@ -398,6 +404,9 @@ func newSyncCmd() *cobra.Command {
 				}
 				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
 				if err != nil {
+					return err
+				}
+				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged); err != nil {
 					return err
 				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
