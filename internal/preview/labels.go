@@ -13,13 +13,20 @@ const (
 	strongLabel    = `pass(?:word|wd|phrase)s?|secrets?|credentials?|` + multiWordLabel
 	weakLabel      = `tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?`
 	labelEmphasis  = "[*_~`]*"
+	credentialKey  = `(?:` + multiWordLabel + `|pass(?:word|wd|phrase)?|secret|token|credentials?|auth(?:orization)?|bearer|cookie|session)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`
 )
 
 var (
 	// credentialAssignment is a credential-named key with a value after
 	// it, in any layout: `password:`, `API key =`, `**Password:**`,
 	// `<config token="...">`, `{password: x}`.
-	credentialAssignment = regexp.MustCompile(`(?i)(?:^|[^A-Za-z])(?:` + multiWordLabel + `|pass(?:word|wd|phrase)?|secret|token|credentials?|auth(?:orization)?|bearer|cookie|session)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
+	credentialAssignment = regexp.MustCompile(`(?i)(?:^|[^A-Za-z])` + credentialKey)
+	// anyCredentialKey is credentialAssignment inside a longer word too,
+	// as in `oauth:`, for the whole-text check.
+	anyCredentialKey = regexp.MustCompile(`(?i)` + credentialKey)
+	// credentialWord is a strong credential word anywhere, even one that is
+	// only named, for the whole-text check.
+	credentialWord = regexp.MustCompile(`(?i)\b(?:` + strongLabel + `)\b`)
 	// credentialStatement is a strong credential word stated as having a
 	// value, as in "the password is x". A word that is only named, as in
 	// "never commit secrets", does not count.
@@ -72,13 +79,15 @@ func labelsCredential(text string) bool {
 		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text)
 }
 
-// Sensitive reports whether Display hides or withholds any part of text,
-// or text labels a credential anywhere, structured parts included. A
-// caller that must not show a value the detectors missed elsewhere in the
-// same text withholds the whole text then. Display applies the labels to
-// prose only, so a structured file that names a credential key with a
-// reference still previews.
+// Sensitive reports whether text shows any sign of a credential: Display
+// hides or withholds part of it, it labels a credential anywhere, a
+// credential-named key has any value, or a strong credential word
+// (password, secret, API key) appears at all. Layouts are endless, so a
+// caller that withholds the whole text on this never shows a value
+// sitting next to such a word; guidance that only names one is withheld
+// too. Display stays narrower, so previews of guidance still show.
 func Sensitive(path, text string) bool {
 	shown := Display(path, text)
-	return shown.Hidden || shown.Withheld || labelsCredential(text)
+	return shown.Hidden || shown.Withheld || labelsCredential(text) ||
+		credentialWord.MatchString(text) || anyCredentialKey.MatchString(text)
 }

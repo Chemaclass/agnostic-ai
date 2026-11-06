@@ -67,7 +67,7 @@ func TestDisplay_GuidanceThatOnlyNamesCredentialsStillShows(t *testing.T) {
 	} {
 		for _, path := range []string{"notes.md", "notes.txt"} {
 			shown := Display(path, text)
-			if shown.Hidden || shown.Withheld || shown.Text != text || Sensitive(path, text) {
+			if shown.Hidden || shown.Withheld || shown.Text != text {
 				t.Errorf("%q in %s must show unchanged: %+v", text, path, shown)
 			}
 		}
@@ -129,6 +129,31 @@ func TestDisplay_EveryCredentialWordLabelsAValueInEveryLayout(t *testing.T) {
 			if !shown.Hidden && !shown.Withheld || strings.Contains(shown.Text, "hunter2short") || !Sensitive("AGNOSTIC_AI.md", text) {
 				t.Errorf("%q as %s shows: %+v", word, layout, shown)
 			}
+		}
+	}
+}
+
+// Sensitive withholds any text with a strong credential word or a
+// credential-named key, whatever the layout, so a whole-text view is
+// never weaker than a plain word check.
+func TestSensitive_AnyStrongCredentialWordOrKeyCounts(t *testing.T) {
+	for _, text := range []string{
+		"| Production password | hunter2short |\n",
+		"| API key (production) | hunter2short |\n",
+		"The password for production is hunter2short.\n",
+		"## Password\nhunter2short\n",
+		"Never commit secrets.\n",
+		"Rotate API keys every 90 days.\n",
+		"Set `token: ${API_TOKEN}` in the server entry.\n",
+		"MCP OAuth objects beyond `oauth:false` stay out.\n",
+	} {
+		if !Sensitive("notes.md", text) {
+			t.Errorf("%q must count as sensitive", text)
+		}
+	}
+	for _, text := range []string{"Keep the token budget small.\n", "Run `mkdir -p build`.\n"} {
+		if Sensitive("notes.md", text) {
+			t.Errorf("%q names no credential", text)
 		}
 	}
 }
