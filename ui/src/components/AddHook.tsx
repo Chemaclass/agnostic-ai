@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { addHookSpec, EditError } from '../api'
 import type { HookSpecPreview, Stage } from '../contract'
 import { audienceDescription, type EditAudience } from '../model/edit-audience'
@@ -46,6 +46,12 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
   const [preview, setPreview] = useState<HookSpecPreview>()
   const [pending, setPending] = useState<'preview' | 'apply'>()
   const [error, setError] = useState<{ message: string; problems: string[] }>()
+  const previewRegion = useRef<HTMLElement>(null)
+  const nameField = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (preview) previewRegion.current?.focus()
+    else nameField.current?.focus()
+  }, [preview])
   const change = (patch: Partial<HookDraft>) => {
     setDraft((current) => ({ ...current, ...patch }))
     setError(undefined)
@@ -79,7 +85,7 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
   </div>
 
   if (preview) {
-    return <section className="builtin-change builtin-change-preview hook-preview" aria-label={`${draft.name} hook preview`} aria-busy={!!pending}>
+    return <section ref={previewRegion} tabIndex={-1} className="builtin-change builtin-change-preview hook-preview" aria-label={`${draft.name} hook preview`} aria-busy={!!pending}>
       <h3>Add {draft.name}</h3>
       <p>Create <Code>{preview.file}</Code> {audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
       <div className="builtin-change-files"><pre tabIndex={0} aria-label={`Spec for ${draft.name}`}>{preview.spec}</pre></div>
@@ -95,7 +101,7 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
 
   return <form className="builtin-change hook-form" aria-label="Add a hook" noValidate onSubmit={(event) => { event.preventDefault(); void request('preview') }}>
     <label>Name
-      <input value={draft.name} autoFocus autoComplete="off" spellCheck={false} placeholder="format-on-save" aria-describedby={`${id}-name`} onChange={(event) => change({ name: event.target.value })} />
+      <input ref={nameField} value={draft.name} autoComplete="off" spellCheck={false} placeholder="format-on-save" aria-describedby={`${id}-name`} onChange={(event) => change({ name: event.target.value })} />
     </label>
     <p id={`${id}-name`} className="muted hook-form-hint">Lowercase letters, digits, and hyphens. It becomes the file name.</p>
     <label>Stage

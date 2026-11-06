@@ -780,4 +780,7 @@
 # Adding a hook from the Lifecycle page (#3037) measured 24826016 bytes; the
 # budget is that rounded up to a multiple of 4096.
 # After merging main, the branch measured 24842400 bytes; budget is that plus 8192, rounded up to a multiple of 4096.
-24854528
+# The review fixes for #3037 (validate checks at preview, focus handling)
+# measured 24846496 bytes; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+24858624
