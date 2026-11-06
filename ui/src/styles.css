@@ -1051,7 +1051,14 @@ a.release-badge:focus-visible .release-arrow {
 
 .section-warnings > summary,
 .finding-details summary,
-.item-source > summary {
+.item-source > summary,
+.stage-head,
+.unconfigured-fields > summary,
+.field-resolution > summary,
+.preview-disclosure > summary,
+.preview-note-group > summary,
+.builtin-change-files summary,
+.permission-override summary {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1060,13 +1067,27 @@ a.release-badge:focus-visible .release-arrow {
 
 .section-warnings > summary::-webkit-details-marker,
 .finding-details summary::-webkit-details-marker,
-.item-source > summary::-webkit-details-marker {
+.item-source > summary::-webkit-details-marker,
+.stage-head::-webkit-details-marker,
+.unconfigured-fields > summary::-webkit-details-marker,
+.field-resolution > summary::-webkit-details-marker,
+.preview-disclosure > summary::-webkit-details-marker,
+.preview-note-group > summary::-webkit-details-marker,
+.builtin-change-files summary::-webkit-details-marker,
+.permission-override summary::-webkit-details-marker {
   display: none;
 }
 
 .section-warnings > summary::before,
 .finding-details summary::before,
-.item-source > summary::before {
+.item-source > summary::before,
+.stage-head::before,
+.unconfigured-fields > summary::before,
+.field-resolution > summary::before,
+.preview-disclosure > summary::before,
+.preview-note-group > summary::before,
+.builtin-change-files summary::before,
+.permission-override summary::before {
   content: '';
   flex: none;
   width: 5px;
@@ -1080,7 +1101,14 @@ a.release-badge:focus-visible .release-arrow {
 
 .section-warnings[open] > summary::before,
 .finding-details[open] summary::before,
-.item-source[open] > summary::before {
+.item-source[open] > summary::before,
+details[open] > .stage-head::before,
+.unconfigured-fields[open] > summary::before,
+.field-resolution[open] > summary::before,
+.preview-disclosure[open] > summary::before,
+.preview-note-group[open] > summary::before,
+.builtin-change-files details[open] > summary::before,
+.permission-override details[open] > summary::before {
   transform: rotate(45deg);
 }
 
@@ -1104,7 +1132,11 @@ a.release-badge:focus-visible .release-arrow {
 }
 
 @media (max-width: 760px) {
-  .section-warnings > summary {
+  .section-warnings > summary,
+  .unconfigured-fields > summary,
+  .field-resolution > summary,
+  .builtin-change-files summary,
+  .permission-override summary {
     min-height: 44px;
     align-content: center;
   }
@@ -2074,34 +2106,42 @@ a.release-badge:focus-visible .release-arrow {
 
 .stage-step {
   position: relative;
-  padding: 0 0 28px 48px;
+  padding: 0 0 28px 56px;
   counter-increment: stage;
 }
 
+/* An 8px square on a rail; the stage number sits left of it. */
 .stage-step::before {
-  content: counter(stage);
+  content: '';
   position: absolute;
-  inset: 0 auto auto 0;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
+  inset: 6px auto auto 32px;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
   border: 1px solid var(--line-strong);
-  border-radius: 50%;
   background: var(--panel);
-  color: var(--text-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
 }
 
 .stage-step:not(:last-child)::after {
   content: '';
   position: absolute;
-  left: 13px;
-  top: 34px;
-  bottom: 6px;
+  left: 35.5px;
+  top: 18px;
+  bottom: 4px;
   width: 1px;
-  background: var(--line);
+  background: var(--line-strong);
+}
+
+.stage-summary::before {
+  content: counter(stage, decimal-leading-zero);
+  position: absolute;
+  inset: 0 auto auto 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .stage-step:last-child {
@@ -2112,15 +2152,8 @@ a.release-badge:focus-visible .release-arrow {
   padding-bottom: 20px;
 }
 
-.stages.is-quiet .stage-step::before {
-  width: 24px;
-  height: 24px;
-  font-size: 11px;
-}
-
 .stages.is-quiet .stage-step:not(:last-child)::after {
-  left: 11px;
-  top: 30px;
+  bottom: 2px;
 }
 
 .stages.is-quiet .stage-summary {
@@ -2134,31 +2167,39 @@ a.release-badge:focus-visible .release-arrow {
 
 .stage-step.has-hooks::before {
   border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-wash);
+  background: var(--accent);
 }
 
 .stage-head {
   cursor: pointer;
   min-height: 44px;
-  padding-left: 4px;
-}
-
-.stage-head::marker {
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .stage-head:hover .stage-title {
   color: var(--accent-strong);
 }
 
+.stage-head {
+  align-items: flex-start;
+}
+
+.stage-head::before {
+  margin-top: 7px;
+}
+
 .stage-summary {
   display: inline-grid;
-  width: calc(100% - 20px);
+  flex: 1;
+  width: 100%;
+  min-width: 0;
   gap: 4px;
   font-size: inherit;
   vertical-align: top;
+}
+
+.stage-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .stage-body {
@@ -3440,6 +3481,14 @@ tr.is-advised > td {
     padding-left: 40px;
   }
 
+  .stage-step::before {
+    left: 22px;
+  }
+
+  .stage-step:not(:last-child)::after {
+    left: 25.5px;
+  }
+
   .switch-control {
     min-width: 44px;
     min-height: 44px;
@@ -3903,10 +3952,6 @@ tr.is-advised > td {
   padding: 8px;
   border-bottom: 1px solid var(--line);
   cursor: pointer;
-}
-
-.preview-note-group > summary::marker {
-  color: var(--text-muted);
 }
 
 .preview-note-heading {
