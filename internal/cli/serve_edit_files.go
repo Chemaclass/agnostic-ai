@@ -216,7 +216,7 @@ func (h *editHandler) applyValidatedWithPrepare(file string, edit func([]byte) (
 		if checkErr := original.check(file); checkErr != nil {
 			_ = finish(false)
 			finish = nil
-			return fmt.Errorf("%w; %s: kept the Git exclusion because the personal file changed: %w", err, file, checkErr)
+			return fmt.Errorf("%w; %s: kept the Git exclusion because the local file changed: %w", err, file, checkErr)
 		}
 		finishErr := finish(true)
 		finish = nil

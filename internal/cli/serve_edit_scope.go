@@ -116,10 +116,10 @@ func (h *editHandler) builtinsEdit(where editAudience, req builtinRequest) (stri
 	}
 	if where == audienceShared {
 		if req.reset {
-			return "", nil, fmt.Errorf("%s: reset applies to your personal list; send audience personal", overviewDisplay(h.root, local))
+			return "", nil, fmt.Errorf("%s: reset applies to your local list; send audience personal", overviewDisplay(h.root, local))
 		}
 		if personal, err := personalBuiltins(localData); err != nil || personal != nil {
-			return "", nil, cmp.Or(err, fmt.Errorf("%s sets builtins for you; reset it before changing the shared list", overviewDisplay(h.root, local)))
+			return "", nil, cmp.Or(err, fmt.Errorf("%s sets builtins for you; reset it before changing the %s list", overviewDisplay(h.root, local), h.level()))
 		}
 		return team, func(data []byte) ([]byte, error) { return setBuiltin(data, req.name, req.enabled) }, nil
 	}
@@ -148,7 +148,7 @@ func (h *editHandler) builtinsEdit(where editAudience, req builtinRequest) (stri
 		var out []byte
 		switch {
 		case req.reset && personal == nil:
-			return nil, fmt.Errorf("%s: there is no personal builtins list to reset", display)
+			return nil, fmt.Errorf("%s: there is no local builtins list to reset", display)
 		case req.reset:
 			out = data
 		case personal == nil && slices.Contains(teamList, req.name) == req.enabled:
@@ -313,13 +313,13 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, where editAud
 		return e.Path, "", nil
 	}
 	if e.Base == nil {
-		return "", "", fmt.Errorf("%s is a personal spec with no shared value; switch to Personal to edit it", overview.SpecPath(h.root, e))
+		return "", "", fmt.Errorf("%s is a local spec with no %s value; switch to Local to edit it", overview.SpecPath(h.root, e), h.level())
 	}
 	if overview.LocalSets(e, key) {
-		return "", "", fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the shared value", overview.SpecPath(h.root, e), key)}
+		return "", "", fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the %s value", overview.SpecPath(h.root, e), key, h.level())}
 	}
 	if e.Base.Layer == layerNameBuiltin || strings.HasPrefix(e.Base.Layer, "pack:") {
-		return "", "", fmt.Errorf("the shared value comes from %s, which updates replace", overview.SpecPath(h.root, *e.Base))
+		return "", "", fmt.Errorf("the %s value comes from %s, which updates replace", h.level(), overview.SpecPath(h.root, *e.Base))
 	}
 	return e.Base.Path, "", nil
 }
@@ -335,14 +335,14 @@ func (h *editHandler) checkPersonalTarget(file string) error {
 	}
 	target := resolvedAbs(file)
 	refuse := func(why string) error {
-		return fmt.Errorf("%s %s; personal files must stay in %s", overviewDisplay(h.root, file), why, overviewDisplay(h.root, localRoot))
+		return fmt.Errorf("%s %s; local files must stay in %s", overviewDisplay(h.root, file), why, overviewDisplay(h.root, localRoot))
 	}
 	if !withinDir(target, resolvedAbs(localRoot)) {
-		return refuse("resolves outside the personal folder")
+		return refuse("resolves outside the local folder")
 	}
 	for _, path := range team {
 		if withinDir(target, resolvedAbs(path)) {
-			return refuse("resolves to the team source " + overviewDisplay(h.root, path))
+			return refuse("resolves to the " + h.level() + " source " + overviewDisplay(h.root, path))
 		}
 	}
 	if gitTracks(target) {
@@ -400,7 +400,7 @@ func (h *editHandler) preparePersonalOutOfGit(file string) (func(bool) error, er
 		if !rollback || (before.info == nil) == (after.info == nil) && bytes.Equal(before.data, after.data) {
 			return nil
 		}
-		return fmt.Errorf("%s: kept the new Git exclusion to protect personal files", ex.path)
+		return fmt.Errorf("%s: kept the new Git exclusion to protect local files", ex.path)
 	}
 	if keepErr != nil {
 		if undoErr := finish(true); undoErr != nil {
@@ -423,7 +423,7 @@ func (h *editHandler) keepPersonalOutOfGitLocked(file string, guard *gitexclude.
 		if outsideGit(dir) {
 			return nil
 		}
-		return fmt.Errorf("%s: could not check Git before saving this personal file: %w", overviewDisplay(h.root, file), err)
+		return fmt.Errorf("%s: could not check Git before saving this local file: %w", overviewDisplay(h.root, file), err)
 	}
 	if !layout.HasToplevel || gitIgnores(dir, target) {
 		return nil
@@ -434,7 +434,7 @@ func (h *editHandler) keepPersonalOutOfGitLocked(file string, guard *gitexclude.
 	rootLayout, layoutErr := gitquery.LayoutAtFresh(h.root)
 	ex, ok := personalExcludeLayout(rootLayout, layoutErr)
 	if err != nil || !ok {
-		return fmt.Errorf("%s: Git would track this personal file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
+		return fmt.Errorf("%s: Git would track this local file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
 	}
 	pattern := "/" + ex.prefix + filepath.ToSlash(rel)
 	if folder {
@@ -451,10 +451,10 @@ func (h *editHandler) keepPersonalOutOfGitLocked(file string, guard *gitexclude.
 		updateErr = gitexclude.Update(ex.path, edit)
 	}
 	if err := updateErr; err != nil {
-		return fmt.Errorf("%s: could not keep this personal file out of Git: %w", display, err)
+		return fmt.Errorf("%s: could not keep this local file out of Git: %w", display, err)
 	}
 	if !gitIgnores(dir, target) {
-		return fmt.Errorf("%s: Git would still track this personal file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
+		return fmt.Errorf("%s: Git would still track this local file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
 	}
 	return nil
 }
