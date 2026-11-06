@@ -188,11 +188,12 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	if len(body) > sourceBodyLimit {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
 	}
-	if sensitiveSource(path, body) {
-		view.Body, view.Withheld = "", true
-	} else {
-		view.Body = body
+	head := strings.TrimSuffix(text, body)
+	if sensitiveSource(path, body) || sensitiveSource(path, head) {
+		view.Withheld = true
+		return view, true
 	}
+	view.Body = body
 	for _, key := range keys {
 		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), meta[key])
 	}
@@ -298,7 +299,7 @@ func isNested(v any) bool {
 var (
 	credentialAssignment = regexp.MustCompile(`(?i)(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session|client[_-]?secret)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
 	credentialWord       = regexp.MustCompile(`(?i)\b(?:pass(?:word|wd|phrase)s?|secrets?|credentials?|api[ _-]?keys?|private[ _-]?keys?|client[ _-]?secrets?)\b`)
-	credentialLabel      = regexp.MustCompile(`(?i)(?:\|\s*|<\s*/?\s*)[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[_-]?ids?)?|access[_-]?keys?)(?:[^A-Za-z]|$)`)
+	credentialLabel      = regexp.MustCompile(`(?im)(?:\|\s*|<\s*/?\s*|^\s*)[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[_-]?ids?)?|access[_-]?keys?)[*_~` + "`" + `]*(?:\s*[|>]|[^A-Za-z|>\n]*\|)`)
 	privateKeyBlock      = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY`)
 )
 

@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -364,9 +363,8 @@ func TestServeSource_ShowsEachNestedFieldWithTheOverviewRedaction(t *testing.T) 
 	for _, f := range view.Frontmatter {
 		got = append(got, f.Key+"="+f.Value)
 	}
-	slices.Sort(got)
-	if strings.Join(got, "|") != "metadata.api_key=<redacted>|metadata.type=user|name=nested" {
-		t.Errorf("frontmatter: %v", got)
+	if !view.Withheld || len(got) != 0 || strings.Contains(view.Body, "hunter2short") {
+		t.Errorf("a credential in frontmatter withholds the file: withheld %v, frontmatter %v", view.Withheld, got)
 	}
 }
 
@@ -392,7 +390,7 @@ func TestServeSource_NeverShowsFrontmatterThatClosesPastTheBodyLimit(t *testing.
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "big.md")
 	mustWriteFile(t, rule, "---\nname: big\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceBodyLimit+1024)+"\n---\nBody.\n")
 	view, raw := get(rule)
-	if strings.Contains(raw, "hunter2short") || view.Body != "Body.\n" || view.Truncated {
+	if strings.Contains(raw, "hunter2short") || !view.Withheld {
 		t.Errorf("closing past the body limit: truncated %v, body %q", view.Truncated, view.Body)
 	}
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
@@ -450,7 +448,7 @@ func TestServeSource_HidesCredentialsInsideListItems(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	data, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") || !strings.Contains(string(data), "accounts.0.name") {
+	if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") {
 		t.Errorf("status %d, a credential inside a list item must stay hidden: %s", resp.StatusCode, data)
 	}
 }
@@ -466,7 +464,7 @@ func TestServeSource_HidesCredentialsUnderNonStringKeys(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 	data, _ := io.ReadAll(resp.Body)
 	got := string(data)
-	if resp.StatusCode != http.StatusOK || strings.Contains(got, "hunter2short") || strings.Contains(got, "hunter3short") || !strings.Contains(got, "metadata.1") {
+	if resp.StatusCode != http.StatusOK || strings.Contains(got, "hunter2short") || strings.Contains(got, "hunter3short") {
 		t.Errorf("status %d, credentials under maps with non-string keys must stay hidden: %s", resp.StatusCode, got)
 	}
 }
@@ -488,7 +486,7 @@ func TestServeSource_NeverShowsALeadingBlockAsBody(t *testing.T) {
 		_ = resp.Body.Close()
 		var view sourceView
 		_ = json.Unmarshal(data, &view)
-		if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") || view.Body != "Body.\n" {
+		if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") || (view.Body != "Body.\n" && !view.Withheld) {
 			t.Errorf("%q: status %d, body %q, raw %s", content, resp.StatusCode, view.Body, data)
 		}
 	}
