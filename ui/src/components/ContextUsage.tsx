@@ -176,7 +176,7 @@ export function ContextUsage() {
             {report.note && <details className="context-usage-method"><summary>How this is counted</summary><p className="muted context-usage-note">{report.note}</p></details>}
             {comparable && <Comparison before={before.view.report!} now={report} />}
             <Opportunities report={report} root={shown.view.root} />
-            <ContextSources report={report} root={shown.view.root} takesFile={takesFile} pick={pick} />
+            <ContextSources report={report} root={shown.view.root} takesFile={takesFile} budget={shown.view.startupWordBudget} pick={pick} />
           </>
         )}
       </div>
