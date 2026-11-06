@@ -15,7 +15,7 @@ import (
 // audit's byte-stability gate from #336 acceptance criterion C. Skills
 // live under the shared .agents/skills/ tree (folder-per-skill), not
 // .devin/rules/, since a flat file there never loads as a skill
-// (docs.devin.ai/desktop/cascade/skills); the snapshot and wipe steps
+// (docs.devin.ai/desktop/devin-local/customizations); the snapshot and wipe steps
 // below cover both trees. Workflows excluded: the shared rules-dir
 // importer reclassifies by filename prefix, so a workflow at
 // .windsurf/workflows/<agent>.md would re-import as a rule and double
