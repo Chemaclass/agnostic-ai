@@ -97,10 +97,10 @@ func (h *editHandler) targetsEdit(where editAudience, req targetsRequest) (strin
 	defaults := h.defaultTargets()
 	if where == audienceShared {
 		if req.reset {
-			return "", nil, fmt.Errorf("%s: reset applies to your personal list; send audience personal", overviewDisplay(h.root, local))
+			return "", nil, fmt.Errorf("%s: reset applies to your local list; send audience personal", overviewDisplay(h.root, local))
 		}
 		if personal, err := configList(localData, "targets"); err != nil || personal != nil {
-			return "", nil, cmp.Or(err, fmt.Errorf("%s sets targets for you; reset it before changing the shared list", overviewDisplay(h.root, local)))
+			return "", nil, cmp.Or(err, fmt.Errorf("%s sets targets for you; reset it before changing the %s list", overviewDisplay(h.root, local), h.level()))
 		}
 		return team, func(data []byte) ([]byte, error) {
 			listed, err := configList(data, "targets")
@@ -143,7 +143,7 @@ func (h *editHandler) targetsEdit(where editAudience, req targetsRequest) (strin
 		var out []byte
 		switch {
 		case req.reset && personal == nil:
-			return nil, fmt.Errorf("%s: there is no personal targets list to reset", display)
+			return nil, fmt.Errorf("%s: there is no local targets list to reset", display)
 		case req.reset:
 			out = data
 		case personal == nil && slices.Contains(teamList, req.name) == req.enabled:

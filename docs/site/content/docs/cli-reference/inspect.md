@@ -344,10 +344,10 @@ In the browser:
   - A native row has no command when no import reads its file, such as Claude Code's per-project servers or an `outputs` MCP file path the tool's import does not follow.
   - Native rows hide the server's own command, arguments, URL, environment, and header values. A file the page cannot read adds no row.
   - The JSON overview carries these rows as `native` on the Tools section.
-- **View and edit** below the Permissions, Built-ins, or Preferences heading switches Shared and Personal values. **Save new specs for** above the native server list chooses Shared or Personal for **Make it a spec**.
+- **View and edit** below the Permissions, Built-ins, or Preferences heading switches between Project (Global in the global view) and Local values. **Save new specs for** above the native server list chooses Project or Local for **Make it a spec**.
 - **Make it a spec** on a native-only server previews one spec file, its contents, the variables you must set, and the tools it will reach after sync.
 - **Apply** saves the spec using the [MCP import rules](@/docs/spec-format/mcp-import.md), then asks you to run `agnostic-ai sync` (or `sync --global`).
-- Shared saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the global home. Personal saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
+- Project and Global saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the global home. Local saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
 - An existing spec name or a credential import cannot rewrite stops the save.
 - Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Make it a spec** action.
 - The header labels the page **Project** or **Global**.
@@ -380,13 +380,13 @@ In the browser:
 - **Settings** shows configured fields first and the rest under **Unconfigured fields**, including a default model or reasoning effort.
 - Global scalar fields offer **Update** and **Clear**. Session retention and voice dictation are editable only with `--global`. Voice has an on/off switch, a hold or tap menu, and a spoken language field.
 - Default model and reasoning effort have **What each tool gets**: the value sync writes for each configured tool, and the file or `agnostic-ai.yaml` key it comes from (Claude Code `outputs.claude.settings.model`, Codex `outputs.codex.config`).
-  - It also says why each other value loses: a later spec, a personal override or clear, a spec scoped to other tools, or a per-tool map with no entry.
+  - It also says why each other value loses: a later spec, a local override or clear, a spec scoped to other tools, or a per-tool map with no entry.
   - It names the model tier and alias, says when a tool has no place for the value, and says when sync writes none, without guessing the tool's own default.
   - It reports whether installed files match, not what a running tool uses.
   - It points out an `x-<tool>.model` native key. Other `x-<tool>` keys and imported native settings files are not covered.
   - The JSON overview carries it as `resolved` on those fields.
 - Under **What each tool gets**, each tool has its own edit control. It saves `model.<tool>` or `effort.<tool>` in the chosen file, which wins over the value for every tool.
-  - The origin line says where the value comes from, such as `personal · codex` or `shared · all tools`, and names the `agnostic-ai.yaml` key that replaces it when one does.
+  - The origin line says where the value comes from, such as `local · codex` or `project · all tools` (`global · all tools` in the global view), and names the `agnostic-ai.yaml` key that replaces it when one does.
   - **Use the value for every tool** removes that tool's entry.
   - Effort has a control only for tools that take an effort setting. A spec whose `model` names a model tier stays read-only here, and so does one tool's effort when the tier gives the effort.
 - In a project, each built-in switch previews the config edit, generated files, and findings for every target.
@@ -394,9 +394,9 @@ In the browser:
 - **Apply change** writes the change. **Cancel** discards the preview, so a reload does not bring it back.
 - **Undo last change** restores the files and permissions from before the last apply. Undo survives a browser reload, expires when the server stops, and is replaced by the next apply.
 - Turning on `memory` in a Git checkout also adds a `.git/info/exclude` line so Git ignores Claude Code's private `settings.local.json`.
-- In a project, a default model or reasoning effort uses **Preview and apply**, **Preview removal**, and **Preview personal reset**. The preview names the settings file, the targets, and every source and generated file that changes.
+- In a project, a default model or reasoning effort uses **Preview and apply**, **Preview removal**, and **Preview local reset**. The preview names the settings file, the targets, and every source and generated file that changes.
 - **Apply change** writes those files and checks the generated ones. That does not mean a running tool has reloaded them. Built-ins and settings share one **Undo last change**, which names the change.
-- **Coding tools** in **Settings** lists every tool sync can write for, with a switch, a **found in project** badge on a tool that is off but has its own files, and a **Docs** link to its target page. A switch saves the `targets` list in `agnostic-ai.yaml` (Shared) or `agnostic-ai.local.yaml` (Personal, which replaces the shared list whole, as built-ins do). With `--global` it saves `agnostic-ai.yaml` or `local/agnostic-ai.yaml` in the home folder and lists only tools `sync --global` can write. When no file lists `targets`, the first shared change writes the default list with the switch applied. Switching that tool back on removes the list again only in the same `serve` session and with no other edit to the file in between; otherwise the file keeps the full list. Turning a tool off asks first and says what the next sync does: in a project the next sync removes the files it wrote for that tool, keeps hand edits as `.bak` copies, and keeps other keys in shared settings files; with `--global` the files stay until you remove them. The last tool sync can write cannot be turned off; names of external adapters in the list do not count. The page never runs sync: after a save it names the file and asks you to run `agnostic-ai sync` (or `sync --global`). A running `sync --watch` applies the change on its own, unless it was started with `--target`, `--only`, or `--except`. A stale switch stops with **Reload saved values**. Snapshots and the mock show the list without switches.
+- **Coding tools** in **Settings** lists every tool sync can write for, with a switch, a **found in project** badge on a tool that is off but has its own files, and a **Docs** link to its target page. A switch saves the `targets` list in `agnostic-ai.yaml` (Project) or `agnostic-ai.local.yaml` (Local, which replaces the project list whole, as built-ins do). With `--global` it saves `agnostic-ai.yaml` or `local/agnostic-ai.yaml` in the home folder and lists only tools `sync --global` can write. When no file lists `targets`, the first project change writes the default list with the switch applied. Switching that tool back on removes the list again only in the same `serve` session and with no other edit to the file in between; otherwise the file keeps the full list. Turning a tool off asks first and says what the next sync does: in a project the next sync removes the files it wrote for that tool, keeps hand edits as `.bak` copies, and keeps other keys in shared settings files; with `--global` the files stay until you remove them. The last tool sync can write cannot be turned off; names of external adapters in the list do not count. The page never runs sync: after a save it names the file and asks you to run `agnostic-ai sync` (or `sync --global`). A running `sync --watch` applies the change on its own, unless it was started with `--target`, `--only`, or `--except`. A stale switch stops with **Reload saved values**. Snapshots and the mock show the list without switches.
 - Global built-ins and settings edits save source files without syncing. Run `agnostic-ai sync` (or `sync --global`) to apply them.
 - In the global view, if a boolean or built-in changed since the page loaded, the save stops and offers **Reload saved values**.
 
@@ -404,25 +404,25 @@ Apply needs no earlier sync: the preview lists the generated files, sync state, 
 
 Edits keep unrelated text and private file permissions. A validation failure restores the edit, unless another process changed the file; that is reported as a conflict.
 
-### Save shared or personal changes {#edit-scope}
+### Save project or local changes {#edit-scope}
 
-**View and edit** at the top of **Settings** and **Authority** selects the values shown and where edits go. The browser remembers your choice. **Shared (committed)**, the default, shows shared built-in states and settings, and writes files Git tracks. **Personal (not committed)** shows your overrides, with inherited shared settings labeled, and writes git-ignored [local overrides](@/docs/local-overrides.md): built-ins go to `agnostic-ai.local.yaml`, and a settings field to `.agnostic-ai/local/settings/<name>.yaml`, which overlays the shared spec of that name. In the global view they go to `local/agnostic-ai.yaml` and `local/settings/<name>.yaml`. Outputs a personal built-in adds go to `.git/info/exclude`, not the shared `.gitignore` block. The config snapshot and **What each tool gets** still describe the combined configuration used for sync.
+**View and edit** at the top of **Settings** and **Authority** selects the values shown and where edits go. It reads **Project | Local** in a project and **Global | Local** in the global view, matching the chip in the top bar. The browser remembers your choice. **Project**, the default, shows the project's built-in states and settings, and writes files Git tracks. **Local** shows your overrides, with values inherited from the project labeled, and writes git-ignored [local overrides](@/docs/local-overrides.md): built-ins go to `agnostic-ai.local.yaml`, and a settings field to `.agnostic-ai/local/settings/<name>.yaml`, which overlays the project spec of that name. In the global view **Global** writes `~/.agnostic-ai/`, and **Local** writes `local/agnostic-ai.yaml` and `local/settings/<name>.yaml` there. Outputs a local built-in adds go to `.git/info/exclude`, not the project's `.gitignore` block. The config snapshot and **What each tool gets** still describe the combined configuration used for sync.
 
-A value from a personal file shows a **personal** badge in Personal. Personal values take priority for you; rows where they differ show both values, such as **Shared: Off · Personal: On**. Built-in counts follow the selected view.
+A value from a local file shows a **local** badge in Local, and an item from either level's `local/` folder shows the layer `local`. Local values win for you; rows where they differ show both values, such as **Project: Off · Local: On**. Built-in counts follow the selected view.
 
-A shared control blocked by a personal override shows its shared value, stays disabled, and points to **View personal settings**. In Personal, **Reset to shared value**, or **Preview personal reset** for a project model or effort, removes your override and the personal file once it is empty.
+A project control blocked by a local override shows its project value, stays disabled, and points to **View local settings**. In Local, **Reset to the project value**, or **Preview local reset** for a project model or effort, removes your override and the local file once it is empty.
 
-Your first personal built-in change copies the shared list into `agnostic-ai.local.yaml`, since that list replaces the shared one whole. **Reset built-ins to the shared list** drops it. A personal list set through a YAML merge (`<<`) is refused; edit it by hand.
+Your first local built-in change copies the project list into `agnostic-ai.local.yaml`, since that list replaces the project one whole. **Reset built-ins to the project list** drops it. A local list set through a YAML merge (`<<`) is refused; edit it by hand.
 
-A personal save is refused when its file resolves, through links, outside the local folder, into a shared config or source folder, or to a file Git tracks.
+A local save is refused when its file resolves, through links, outside the local folder, into a project config or source folder, or to a file Git tracks.
 
-Before a personal save writes its file, the server checks that Git ignores it. When no rule does yet, as in a project that never ran `sync`, it adds the local folder (or `agnostic-ai.local.yaml`) to `.git/info/exclude`, which linked worktrees share. Your other lines in that file stay. If Git still would not ignore the file, the save is refused; add the path to `.gitignore` and save again. A new `.git/info/exclude` rule remains if it was added before a refusal or stale conflict, to protect personal files. Outside a Git repository there is nothing to ignore, so the save writes the file directly.
+Before a local save writes its file, the server checks that Git ignores it. When no rule does yet, as in a project that never ran `sync`, it adds the local folder (or `agnostic-ai.local.yaml`) to `.git/info/exclude`, which linked worktrees share. Your other lines in that file stay. If Git still would not ignore the file, the save is refused; add the path to `.gitignore` and save again. A new `.git/info/exclude` rule remains if it was added before a refusal or stale conflict, to protect local files. Outside a Git repository there is nothing to ignore, so the save writes the file directly.
 
-In a linked worktree, a built-in only you turn on needs `agnostic-ai sync` in the CLI. The first personal change keeps the `memory.personal` mode inherited from the main checkout, and a reset leaves `memory.personal: checkout` behind rather than switch to the main checkout's mode.
+In a linked worktree, a built-in only you turn on needs `agnostic-ai sync` in the CLI. The first local change keeps the `memory.personal` mode inherited from the main checkout, and a reset leaves `memory.personal: checkout` behind rather than switch to the main checkout's mode.
 
 ### Edit permission rules {#permission-editing}
 
-In **Authority**, select Shared or Personal, then **Add rules** or **Edit rules** on Allow, Ask first, or Always blocked. Enter one [permission rule](@/docs/spec-format/settings.md#permission-rules) per line, such as `shell(git status)` or `read(src/**)`. Blank lines are ignored.
+In **Authority**, select Project or Local, then **Add rules** or **Edit rules** on Allow, Ask first, or Always blocked. Enter one [permission rule](@/docs/spec-format/settings.md#permission-rules) per line, such as `shell(git status)` or `read(src/**)`. Blank lines are ignored.
 
 Each saved rule also has **Edit**, which opens the editor on that line, and **Remove**, which goes straight to the preview without that rule.
 
@@ -430,11 +430,11 @@ Each saved rule also has **Edit**, which opens the editor on that line, and **Re
 
 The support table names which tools accept permissions. Default mode and protected paths remain read-only.
 
-A personal edit starts with the shared rules and replaces only the selected list for that spec; other settings keep inheriting. A changed personal list offers **Compare shared and personal**. **Reset to shared rules** previews removing the override. An empty list is an explicit override with no rules; resetting removes it and inherits Shared again. Shared editing stays blocked while a personal list replaces it.
+A local edit starts with the project rules and replaces only the selected list for that spec; other settings keep inheriting. A changed local list offers **Compare project and local**. **Reset to the project rules** previews removing the override. An empty list is an explicit override with no rules; resetting removes it and inherits Project again. Project editing stays blocked while a local list replaces it.
 
-If a personal spec clears the whole group with `permissions: null`, individual lists stay read-only in both views. Shared still shows its baseline; Personal shows the clear and names the file to edit. Remove that whole-group clear in the personal file before editing one list.
+If a local spec clears the whole group with `permissions: null`, individual lists stay read-only in both views. Project still shows its baseline; Local shows the clear and names the file to edit. Remove that whole-group clear in the local file before editing one list.
 
-When several settings files are editable, choose one explicitly; lists from other specs still contribute their rules. With no settings spec, the editor creates `settings/permissions.yaml` under the configured source root, or `local/settings/permissions.yaml` for Personal. Pack-only sources remain read-only.
+When several settings files are editable, choose one explicitly; lists from other specs still contribute their rules. With no settings spec, the editor creates `settings/permissions.yaml` under the configured source root, or `local/settings/permissions.yaml` for Local. Pack-only sources remain read-only.
 
 Invalid rules, unsafe file paths, and credentials are refused. A changed file stops saving and offers **Reload saved values**, which keeps your draft for a fresh preview. Permission saves have no browser undo.
 

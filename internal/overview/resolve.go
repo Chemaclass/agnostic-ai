@@ -36,7 +36,7 @@ func resolveTargets(in Inputs, key string, labels labeler, caps map[string][]spe
 			if !hasField(e, key) {
 				if base != "" && LocalSets(e, key) && e.EmitsTo(target) {
 					tv.Others = append(tv.Others, ValueOrigin{Spec: e.Name, Path: SpecPath(root, e), Local: true, Value: "null",
-						Reason: "Your personal file clears " + base + " from " + SettingsTeamPath(root, e) + "."})
+						Reason: "Your local file clears " + base + " from " + SettingsTeamPath(root, e) + "."})
 				}
 				continue
 			}
@@ -53,7 +53,7 @@ func resolveTargets(in Inputs, key string, labels labeler, caps map[string][]spe
 				}
 				if base != "" && base != origin.Value {
 					tv.Others = append(tv.Others, ValueOrigin{Spec: e.Name, Path: SettingsTeamPath(root, e), Value: base,
-						Reason: "Your personal file " + origin.Path + " overrides it."})
+						Reason: "Your local file " + origin.Path + " overrides it."})
 				}
 			}
 			origin.PerTool = !fromTier && perToolValue(e, key, target, origin.Local, in.Cfg.Models)
