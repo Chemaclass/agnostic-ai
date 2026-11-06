@@ -537,6 +537,7 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 		"code label":   "| `auth` | hunter2short |\n",
 		"code cookie":  "| _cookie_ | hunter2short |\n",
 		"prose":        "The password is hunter2short.\n",
+		"repeated":     "Root.\n\n```yaml\nurl: https://user:hunter2short@example.com/\n```\n\nhunter2short\n",
 	} {
 		mustWriteFile(t, instructions, content)
 		view := getSource(t, srv, absSlash(t, instructions), http.StatusOK)

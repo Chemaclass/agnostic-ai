@@ -45,6 +45,28 @@ test.describe('row content', () => {
     await expect(agent.getByRole('alert')).toContainText('Could not show the file: the server no longer lists it.')
   })
 
+  test('says why a withheld file shows no text', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => route.fulfill({ json: contextView }))
+    await page.route((url) => url.pathname === '/api/views/source', (route) => {
+      const path = new URL(route.request().url()).searchParams.get('path') ?? ''
+      const large = path !== rulePath
+      return route.fulfill({ json: { path, kind: large ? 'agent' : 'rule', frontmatter: [], body: '', bytes: large ? 400000 : 120, truncated: large, withheld: true } })
+    })
+    await page.goto('/?view=context')
+    await selectTab(page, 'Rules')
+    const row = page.locator('.item-row').filter({ has: page.getByRole('link', { name: /^Open testing in / }) })
+    await row.getByText('Show content', { exact: true }).click()
+    await expect(row).toContainText('The text is hidden because it looks like it holds a credential.')
+    await expect(row).not.toContainText('The file has no text after its frontmatter.')
+
+    await selectTab(page, 'Agents')
+    const agent = page.locator('.item-row').filter({ has: page.getByRole('link', { name: /^Open reviewer in / }) })
+    await agent.getByText('Show content', { exact: true }).click()
+    await expect(agent).toContainText('The file is too large to check for credentials')
+    await expect(agent).not.toContainText('Showing the first 256 KB')
+  })
+
   test('hides the toggle without a server', async ({ page }) => {
     await page.goto('/?mock=1&view=context')
     await selectTab(page, 'Rules')

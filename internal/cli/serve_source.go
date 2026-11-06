@@ -176,15 +176,16 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		view.Withheld = true
 		return view, true
 	}
+	original := text
 	if shown.Hidden {
 		text = shown.Text
 	}
-	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
-	if err != nil {
-		keys = nil
-	}
-	if leadingBlock(text) {
-		body = afterLeadingBlock(text)
+	keys, meta, body := splitSource(text)
+	// Frontmatter values show redacted, but a body the preview had to
+	// redact is withheld whole: the same value may repeat in plain text.
+	if _, _, raw := splitSource(original); raw != body {
+		view.Withheld = true
+		return view, true
 	}
 	if len(body) > sourceBodyLimit {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
@@ -199,6 +200,19 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), meta[key])
 	}
 	return view, true
+}
+
+// splitSource is text's frontmatter keys, values and body. A leading
+// --- block never reaches the body, whatever it parses to.
+func splitSource(text string) ([]string, map[string]any, string) {
+	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
+	if err != nil {
+		keys = nil
+	}
+	if leadingBlock(text) {
+		body = afterLeadingBlock(text)
+	}
+	return keys, meta, body
 }
 
 // leadingBlock reports whether text opens with a --- line. That block

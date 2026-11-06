@@ -127,6 +127,7 @@ export async function loadSource(path: string, signal?: AbortSignal): Promise<So
     body: typeof data.body === 'string' ? data.body : '',
     bytes: typeof data.bytes === 'number' ? data.bytes : 0,
     truncated: data.truncated === true,
+    withheld: data.withheld === true,
   }
 }
 
