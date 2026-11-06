@@ -11,6 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -453,7 +454,7 @@ func specItems(in Inputs, r row, section string) []SectionItem {
 }
 
 // sourceSections are the sections whose rows can show their file's content.
-var sourceSections = []string{SectionContext}
+var sourceSections = []string{SectionContext, SectionLifecycle}
 
 // SourceFiles maps the open path of each row in sourceSections to the
 // row's kind: the files whose content the page may read.
@@ -570,10 +571,73 @@ func sectionItem(root string, e spec.Entry) SectionItem {
 			}
 		}
 	}
+	if e.Kind == spec.KindHook {
+		item.Fields = hookFields(e.Meta)
+	}
 	if e.Layer != builtinLayer {
 		item.OpenPath = editablePath(e.Path)
 	}
 	return item
+}
+
+// hookFieldKeys are the hook fields a row shows, portable and native
+// forms both.
+var hookFieldKeys = []string{"on", "event", "match", "matcher", "type", "command", "timeout", "disabled"}
+
+// hookFields are the hook's key fields. A field is redacted whole when
+// its text holds a value the hook keeps in env or in a field a view
+// redacts, since a command often repeats its own token.
+func hookFields(meta map[string]any) []Value {
+	secrets := hookCredentials(meta)
+	var fields []Value
+	for _, key := range hookFieldKeys {
+		if v, set := meta[key]; set {
+			fields = append(fields, specValues(map[string]any{key: v})...)
+		}
+	}
+	for i := range fields {
+		if slices.ContainsFunc(secrets, func(s string) bool { return strings.Contains(fields[i].Value, s) }) {
+			fields[i].Value = redacted
+		}
+		for j, item := range fields[i].List {
+			if slices.ContainsFunc(secrets, func(s string) bool { return strings.Contains(item, s) }) {
+				fields[i].List[j] = redacted
+			}
+		}
+	}
+	return fields
+}
+
+// minCredentialLength keeps a short value, such as "1", from redacting
+// every field that happens to contain it.
+const minCredentialLength = 4
+
+// hookCredentials are the scalar values under the hook's env and under
+// any key a view redacts.
+func hookCredentials(meta map[string]any) []string {
+	var out []string
+	var walk func(key string, v any, inEnv bool)
+	walk = func(key string, v any, inEnv bool) {
+		switch t := v.(type) {
+		case map[string]any:
+			for k, child := range t {
+				walk(joinKey(key, k), child, inEnv)
+			}
+		case []any:
+			for _, child := range t {
+				walk(key, child, inEnv)
+			}
+		default:
+			text := Scalar(t)
+			if len(text) >= minCredentialLength && !preview.PureReference(text) && (inEnv || safeValue(key, text) == redacted) {
+				out = append(out, text)
+			}
+		}
+	}
+	for k, v := range meta {
+		walk(k, v, k == "env")
+	}
+	return out
 }
 
 func entriesOf(b spec.Bundle, kind spec.Kind) []spec.Entry {

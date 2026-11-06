@@ -375,6 +375,52 @@ func TestBuild_GroupsHooksByLifecyclePoint(t *testing.T) {
 	}
 }
 
+func TestBuild_GivesEachHookItsKeyFieldsInAFixedOrder(t *testing.T) {
+	guard := entry(spec.KindHook, "guard", ".agnostic-ai/hooks/guard.yaml", map[string]any{
+		"name": "guard", "description": "Blocks force pushes.", "targets": []any{"claude"},
+		"disabled": false, "timeout": 10, "command": "API_TOKEN=sk-abcdefghijklmnop ./guard.sh", "match": "shell", "on": "before-tool",
+	})
+	native := entry(spec.KindHook, "native", "builtin:native", map[string]any{"event": "PreToolUse", "matcher": "Bash", "type": "command", "command": "./native.sh"})
+	native.Layer = "builtin"
+	v := Build(Inputs{Bundle: spec.Bundle{Hooks: []spec.Entry{guard, native}}})
+	got := map[string][]string{}
+	for _, it := range sectionByID(t, v, SectionLifecycle).Items {
+		for _, f := range it.Fields {
+			got[it.Name] = append(got[it.Name], f.Key+"="+f.Value)
+		}
+		if it.Name == "native" && it.OpenPath != "" {
+			t.Errorf("built-in hook has a path to open: %q", it.OpenPath)
+		}
+	}
+	if want := []string{"on=before-tool", "match=shell", "command=<redacted>", "timeout=10", "disabled=false"}; !slices.Equal(got["guard"], want) {
+		t.Errorf("guard fields = %v, want %v", got["guard"], want)
+	}
+	if want := []string{"event=PreToolUse", "matcher=Bash", "type=command", "command=./native.sh"}; !slices.Equal(got["native"], want) {
+		t.Errorf("native fields = %v, want %v", got["native"], want)
+	}
+}
+
+func TestBuild_RedactsAHookFieldThatRepeatsACredentialItHolds(t *testing.T) {
+	deploy := entry(spec.KindHook, "deploy", ".agnostic-ai/hooks/deploy.yaml", map[string]any{
+		"on": "stop", "command": "./deploy.sh hunter2short", "match": "hunter2short", "env": map[string]any{"API_TOKEN": "hunter2short", "LOG_LEVEL": "debug"},
+	})
+	v := Build(Inputs{Bundle: spec.Bundle{Hooks: []spec.Entry{deploy}}})
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "hunter2short") {
+		t.Fatalf("the overview leaks a credential the hook holds: %s", data)
+	}
+	var got []string
+	for _, f := range sectionByID(t, v, SectionLifecycle).Items[0].Fields {
+		got = append(got, f.Key+"="+f.Value)
+	}
+	if want := []string{"on=stop", "match=<redacted>", "command=<redacted>"}; !slices.Equal(got, want) {
+		t.Errorf("deploy fields = %v, want %v", got, want)
+	}
+}
+
 func TestBuild_PlacesFindingsOnTheItemsTheyName(t *testing.T) {
 	in := fullInputs()
 	in.Findings = []Finding{

@@ -80,7 +80,7 @@ func newSourceHandler(global bool) http.Handler {
 			writeEditJSON(w, http.StatusNotFound, errSourceNotFound)
 			return
 		}
-		view, ok := readSource(path, roots)
+		view, ok := readSource(path, roots, kind)
 		if !ok {
 			writeEditJSON(w, http.StatusNotFound, errSourceNotFound)
 			return
@@ -141,12 +141,12 @@ func sourceFiles(global bool) (map[string]string, []string, error) {
 }
 
 // sourceKinds are the spec kinds whose files the rows can show.
-var sourceKinds = []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindReview, spec.KindIgnore}
+var sourceKinds = []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindReview, spec.KindIgnore, spec.KindHook}
 
 // readSource reads path when it resolves to a regular file inside one
 // of roots, which have their symlinks resolved. The open stays inside
 // that root, so a link swapped in after the check cannot lead out.
-func readSource(path string, roots []string) (sourceView, bool) {
+func readSource(path string, roots []string, kind string) (sourceView, bool) {
 	target, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return sourceView{}, false
@@ -178,6 +178,9 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		view.Withheld = true
 		return view, true
 	}
+	if kind == string(spec.KindHook) {
+		return hookSource(path, view, text), true
+	}
 	keys, meta, body := splitSource(text)
 	if len(body) > sourceBodyLimit {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
@@ -192,6 +195,23 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	}
 	view.Body = body
 	return view, true
+}
+
+// hookSource shows a hook file as its fields, never as raw text. A file
+// that does not parse shows no fields.
+func hookSource(path string, view sourceView, text string) sourceView {
+	if sensitiveSource(path, text) {
+		view.Withheld = true
+		return view
+	}
+	e, err := spec.ParseYAMLBytes(spec.KindHook, []byte(text))
+	if err != nil {
+		return view
+	}
+	for _, key := range e.MetaKeys {
+		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), e.Meta[key])
+	}
+	return view
 }
 
 // splitSource is text's frontmatter keys, values and body. A leading

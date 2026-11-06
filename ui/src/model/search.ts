@@ -23,7 +23,7 @@ function valueText(values: Value[]): string[] {
 
 export function itemSearchText(item: SectionItem): (string | undefined)[] {
   return [
-    item.name, item.label, item.path, item.description, ...valueText(item.values),
+    item.name, item.label, item.path, item.description, ...valueText(item.values), ...valueText(item.fields ?? []),
     ...(item.tools?.tools.flatMap((tool) => [tool.name, tool.title, tool.description]) ?? []),
   ]
 }

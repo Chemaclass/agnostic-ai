@@ -488,6 +488,8 @@ export interface SectionItem {
   group?: string
   /** What the item sets, key by key. */
   values: Value[]
+  /** For a hook: its key fields, such as the command and what it matches. */
+  fields?: Value[]
   /** For a built-in: whether the config turns it on. */
   enabled?: boolean
   /** For a built-in: the personal config turns it on or off against the shared list. */

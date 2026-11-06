@@ -563,3 +563,120 @@ func TestServeSource_WithholdsAFileTooLargeToCheckWhole(t *testing.T) {
 		t.Errorf("a file past the read limit is withheld: withheld %v, truncated %v, body length %d", view.Withheld, view.Truncated, len(view.Body))
 	}
 }
+
+func TestServeSource_ShowsAHookAsFieldsAndNoRawText(t *testing.T) {
+	dir, srv := sourceProject(t)
+	hook := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
+	mustWriteFile(t, hook, "name: guard\non: before-tool\nmatch: shell\ncommand: ./guard.sh\ntimeout: 10\n")
+	view := getSource(t, srv, absSlash(t, hook), http.StatusOK)
+	var got []string
+	for _, f := range view.Frontmatter {
+		got = append(got, f.Key+"="+f.Value)
+	}
+	if view.Kind != "hook" || view.Body != "" || view.Withheld || strings.Join(got, "|") != "name=guard|on=before-tool|match=shell|command=./guard.sh|timeout=10" {
+		t.Errorf("kind %q, body %q, withheld %v, fields %v", view.Kind, view.Body, view.Withheld, got)
+	}
+}
+
+func TestServeSource_WithholdsAHookWithACredential(t *testing.T) {
+	dir, srv := sourceProject(t)
+	hook := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
+	for name, content := range map[string]string{
+		"token": "name: guard\non: before-tool\ncommand: API_TOKEN=sk-abcdefghijklmnop ./guard.sh\n",
+		"env":   "name: guard\non: before-tool\ncommand: ./guard.sh\nenv:\n  password: hunter2short\n",
+		"key":   "name: guard\non: before-tool\ncommand: ./deploy.sh hunter2short\napi_key: hunter2short\n",
+	} {
+		mustWriteFile(t, hook, content)
+		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, hook)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if strings.Contains(string(data), "sk-abcdefghijklmnop") || strings.Contains(string(data), "hunter2short") {
+			t.Fatalf("%s: leaked a secret: %s", name, data)
+		}
+		var view sourceView
+		if err := json.Unmarshal(data, &view); err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK || !view.Withheld || len(view.Frontmatter) != 0 || view.Body != "" {
+			t.Errorf("%s: status %d, withheld %v, fields %d, body %q", name, resp.StatusCode, view.Withheld, len(view.Frontmatter), view.Body)
+		}
+	}
+}
+
+func TestServeSource_HidesAHookThatDoesNotParseOrIsCut(t *testing.T) {
+	dir, srv := sourceProject(t)
+	broken := filepath.Join(dir, ".agnostic-ai", "hooks", "broken.yaml")
+	mustWriteFile(t, broken, "name: broken\non: stop\ncommand: echo hunter2short\nbad: [\n")
+	large := filepath.Join(dir, ".agnostic-ai", "hooks", "large.yaml")
+	mustWriteFile(t, large, "name: large\non: stop\ncommand: echo hunter2short\npad: "+strings.Repeat("a", sourceFrontmatterLimit+sourceBodyLimit)+"\n")
+	for _, path := range []string{broken, large} {
+		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if strings.Contains(string(data), "hunter2short") {
+			t.Errorf("%s: status %d leaked the command: %.200s", filepath.Base(path), resp.StatusCode, data)
+		}
+	}
+	mustWriteFile(t, broken, "name: broken\non: stop\ncommand: echo ok\n")
+	view := getSource(t, srv, absSlash(t, large), http.StatusOK)
+	if !view.Truncated || !view.Withheld || len(view.Frontmatter) != 0 || view.Body != "" {
+		t.Errorf("cut hook: truncated %v, withheld %v, fields %d, body length %d", view.Truncated, view.Withheld, len(view.Frontmatter), len(view.Body))
+	}
+}
+
+func TestServeSource_ServesEveryLifecycleRowTheOverviewCanOpen(t *testing.T) {
+	dir, srv := sourceProject(t)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: ./guard.sh\n")
+	resp, err := http.Get(srv.URL + overview.OverviewPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var view overview.View
+	if err := json.NewDecoder(resp.Body).Decode(&view); err != nil {
+		t.Fatal(err)
+	}
+	opened := 0
+	for _, s := range view.Sections {
+		if s.ID != overview.SectionLifecycle {
+			continue
+		}
+		for _, item := range s.Items {
+			if item.OpenPath == "" {
+				continue
+			}
+			opened++
+			if got := getSource(t, srv, item.OpenPath, http.StatusOK); got.Kind != "hook" {
+				t.Errorf("%s: kind %q", item.OpenPath, got.Kind)
+			}
+		}
+	}
+	if opened == 0 {
+		t.Error("no hook row to open")
+	}
+}
+
+func TestServeSource_RefusesABuiltinHook(t *testing.T) {
+	dir, srv := sourceProject(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
+	_, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range b.Hooks {
+		if e.Layer == "builtin" && e.Path != "" {
+			found = true
+			getSource(t, srv, absSlash(t, e.Path), http.StatusNotFound)
+		}
+	}
+	if !found {
+		t.Fatal("memory built-in loaded no hook")
+	}
+}

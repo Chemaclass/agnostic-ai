@@ -17,6 +17,7 @@ import { ConfigSwitch } from './ConfigSwitch'
 import { useServedConfig } from './Shell'
 import { SectionTabs } from './SectionTabs'
 import { SourceContent } from './SourceContent'
+import { HookDetails } from './HookDetails'
 import { SectionHeading } from './SectionHeading'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
@@ -761,7 +762,7 @@ function ItemList({ items, hideValues, sharedUnlisted }: { items: SectionItem[];
               : heading(control)}
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
-            <SourceContent item={item} />
+            {item.kind === 'hook' ? <HookDetails item={item} /> : <SourceContent item={item} />}
             <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
           </ItemRow>
         )
