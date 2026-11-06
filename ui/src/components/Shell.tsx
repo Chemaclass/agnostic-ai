@@ -114,16 +114,15 @@ export function Header({
         <LogoMark className="logo" />
         <span className="brand-name">{PRODUCT_NAME}</span>
       </div>
-      {(projectName || served || app.source.kind === 'static' || app.source.kind === 'mock') && (
+      {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
         <div className="topbar-context">
           {projectName && (
             <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
               <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
-              <span className="project-title">{projectName}{served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}</span>
+              <span className="project-title"><span className="project-label">{projectName}</span>{served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}</span>
               {root && <code className="project-root"><bdi>{root}</bdi></code>}
             </span>
           )}
-          {served && <ConfigSwitch served={served} />}
           {app.source.kind === 'static' && (
             <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
               Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}
@@ -220,6 +219,7 @@ export function Nav({
         <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
       </nav>
       <footer className="sidenav-footer">
+        {served && <ConfigSwitch served={served} />}
         {served?.version && <ReleaseBadge version={served.version} />}
         <button type="button" className="sidenav-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
           Overview JSON

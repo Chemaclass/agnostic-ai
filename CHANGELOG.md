@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The web interface moves **Open global settings** and **Open project** from the top bar to the foot of the sidebar, and shows the project path on the same line as its name, so the top bar stays one short row (#3035).
+
 - The web interface moves the JSON button out of the top bar: **Overview JSON** at the foot of the sidebar opens the same inspector, which now names `agnostic-ai view --json` (#3036).
 
 - `doctor` describes shared settings updates as removing unchanged managed keys and keeping your keys, with JSON action `stale` (#3009).
