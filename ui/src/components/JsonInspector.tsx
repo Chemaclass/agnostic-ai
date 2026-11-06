@@ -1,5 +1,5 @@
 // A drawer with the exact JSON behind the screen: the overview, with its
-// endpoint, schema version, and revision.
+// endpoint, the command that prints it, schema version, and revision.
 
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import type { OverviewView } from '../contract'
@@ -53,7 +53,7 @@ function sizeLabel(bytes: number): string {
   return bytes < 1024 ? `${bytes} bytes` : `${(bytes / 1024).toFixed(1)} KB`
 }
 
-export function JsonInspector({ onClose, overview }: { onClose: () => void; overview: Remote<OverviewView> }) {
+export function JsonInspector({ onClose, overview, global }: { onClose: () => void; overview: Remote<OverviewView>; global: boolean }) {
   const closeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
@@ -92,6 +92,12 @@ export function JsonInspector({ onClose, overview }: { onClose: () => void; over
               <dt>Endpoint</dt>
               <dd>
                 <code className="code">{doc.endpoint}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Command</dt>
+              <dd>
+                <code className="code">{global ? 'agnostic-ai view --global --json' : 'agnostic-ai view --json'}</code>
               </dd>
             </div>
             <div>

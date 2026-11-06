@@ -763,7 +763,7 @@ export interface ContextView {
 //   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
 //   GET  /api/views/overview                              → OverviewView
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
-//   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version? }
+//   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })
 export const API = {

@@ -432,7 +432,7 @@ function FieldEditor(props: FieldEditControlProps) {
 }
 
 function GlobalSettingsAction() {
-  const served = useServedConfig(useApp().source.kind)
+  const served = useServedConfig(useApp().source.kind, 0)
   return served && !served.global ? <div className="field-edit-row"><ConfigSwitch served={served} /></div> : null
 }
 

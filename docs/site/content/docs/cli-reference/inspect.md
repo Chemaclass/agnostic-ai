@@ -350,8 +350,10 @@ In the browser:
 - Project and Global saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the global home. Local saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
 - An existing spec name or a credential import cannot rewrite stops the save.
 - Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Make it a spec** action.
-- The header labels the page **Project** or **Global**.
-- On a project page, **Open global settings** opens the user configuration in a new tab. It reuses a `serve --global` already running on `127.0.0.1:4310` to `4319` that started in this project, or starts one on the next free port.
+- The header labels the page **Project** or **Global** and shows its path beside the name.
+- The foot of the sidebar names the agnostic-ai version that serves the page. When the config sets [`requires`](@/docs/configuration.md#requires), the line under it names that range, in the warning color when the running release is outside it.
+- **Overview JSON** at the foot of the sidebar opens the overview document behind the page, with its endpoint, schema version, revision, and the command that prints it (`agnostic-ai view --json`). `Esc` closes it.
+- On a project page, **Open global settings** at the foot of the sidebar opens the user configuration in a new tab. It reuses a `serve --global` already running on `127.0.0.1:4310` to `4319` that started in this project, or starts one on the next free port.
 - When the user configuration folder does not exist or holds no agnostic-ai files (`agnostic-ai.yaml`, `AGNOSTIC_AI.md`, a spec folder, `local/` or `state/`), the button shows a short panel instead. **Create global setup** writes an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/` (an existing one is kept), runs `git init` when the box is checked, git is installed and the folder is not already in a repository, and then opens the global page. It never touches a folder that already holds a setup.
 - A global page that started in a project (from that button, or `ui --global` or `serve --global` run in a project folder) shows **Open project** with the project's name to go back.
 - A server the button starts stops with the server that started it. The way back from that global page returns to that server, also when it runs on another `--addr`.
@@ -448,7 +450,7 @@ Edit and impact requests take JSON. Every edit and preview names its `audience`:
 
 | Endpoint | Body or query |
 |----------|---------------|
-| `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, `ui` (whether the web interface is served), and `version` (as `agnostic-ai --version` prints it), without loading specs. A global server started in a project adds that project's absolute `projectRoot`. |
+| `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, `ui` (whether the web interface is served), and `version` (as `agnostic-ai --version` prints it), without loading specs. A global server started in a project adds that project's absolute `projectRoot`. When the config sets [`requires`](@/docs/configuration.md#requires), it adds `requires` as written and `requiresMet`: `true` or `false`, or `null` for a build that is not a release. It reads them on each request. |
 | `POST /api/switch` | `{}` with `Content-Type: application/json`. Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a global server. Returns `url`, `root`, `global`, and `started`. Answers 404 on a global server with no `projectRoot`, 409 with `{error, missing, root}` and no server when the user configuration folder has no setup, and 503 with the command to run when no server could start. |
 | `POST /api/global/create` | `{"git": true}` or `{"git": false}`, project servers only. Writes the starter files into the user configuration folder fixed at startup, and replies `{root, created, git}`. Answers 409 when a setup already exists. Any other field is a 400. |
 | `GET /api/views/overview` | None. `global` is true for user configuration. |

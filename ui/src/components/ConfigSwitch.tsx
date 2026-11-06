@@ -30,9 +30,15 @@ export function ConfigSwitch({ served }: { served: ServedConfig }) {
   const [git, setGit] = useState(true)
   const [created, setCreated] = useState<string>()
   const createButton = useRef<HTMLButtonElement>(null)
+  const switchButton = useRef<HTMLButtonElement>(null)
+  const returnFocus = useRef(false)
 
   useEffect(() => {
     if (missingRoot !== undefined) createButton.current?.focus()
+    else if (returnFocus.current) {
+      returnFocus.current = false
+      switchButton.current?.focus()
+    }
   }, [missingRoot])
 
   if (!offer) return null
@@ -96,13 +102,15 @@ export function ConfigSwitch({ served }: { served: ServedConfig }) {
   }
 
   const cancel = () => {
+    // The switch is disabled while the panel is open, so focus moves after it re-enables.
+    returnFocus.current = true
     setMissingRoot(undefined)
     setError(undefined)
   }
 
   return (
     <span className="config-switch">
-      <button type="button" className="button button-quiet" title={offer.title} disabled={busy || missingRoot !== undefined} onClick={() => { void open() }}>
+      <button ref={switchButton} type="button" className="button button-quiet" title={offer.title} disabled={busy || missingRoot !== undefined} onClick={() => { void open() }}>
         {busy ? 'Opening…' : offer.label}
       </button>
       {missingRoot !== undefined && (
