@@ -37,6 +37,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, **Copy to global** on a rule, agent, skill, hook, or MCP spec (**Copy to project** in the global view) copies or moves it to the other level, a skill with its whole folder, and names the sync commands to run. It replaces an existing spec only when you tick **Replace it**. `POST /api/edit/spec/move` does the same (#3027).
 
+- In the web interface, tables get a plain monospace head over a ruled line and right-aligned monospace numbers; Context size shows its startup total as a large figure and each source's share as a thin bar (#3026).
+
 - In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 
 - The web interface counts findings by severity in the top bar and lists them on one **Setup health** page with **Copy all fixes** (#3032).
