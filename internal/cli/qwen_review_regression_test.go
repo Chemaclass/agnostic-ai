@@ -349,3 +349,22 @@ func TestImportFromQwen_ReadsAgentsSkillsAfterQwenSkills(t *testing.T) {
 		t.Errorf(".agents/skills skill not imported:\n%s", got)
 	}
 }
+
+func TestImportFromQwen_KeepsSkillInvocationFieldsShared(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".qwen/skills/deploy/SKILL.md"), "---\nname: deploy\ndescription: Ship\ndisable-model-invocation: true\nuser-invocable: true\npaths:\n  - deploy/**\n---\nRun it.\n")
+
+	if err := importFromQwen(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFile(t, filepath.Join(dir, "skills", "deploy", "SKILL.md"))
+	if strings.Contains(got, "x-qwen") {
+		t.Errorf("invocation fields should stay shared, not under x-qwen:\n%s", got)
+	}
+	for _, want := range []string{"disable-model-invocation: true", "user-invocable: true", "- deploy/**"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+}
