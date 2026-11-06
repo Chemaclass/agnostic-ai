@@ -1747,3 +1747,24 @@ test('live global voice edits an independent spec beside a personal clear', asyn
     expect(await readFile(local, 'utf8')).toBe(clear)
   } finally { await f.close() }
 })
+
+test('live Show content reads an agent and refuses files outside the configuration', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await page.goto(`${f.url}?view=context`)
+    await selectTab(page, 'Agents')
+    const row = page.locator('.item-row').filter({ hasText: 'reviewer' })
+    await row.getByText('Show content', { exact: true }).click()
+    await expect(row.getByLabel('Frontmatter')).toContainText('tools: Read')
+    await expect(row.locator('.source-text')).toHaveText('Review one change.\n')
+    await expect(row.getByRole('button', { name: 'Copy path of reviewer' })).toBeVisible()
+    const outside = join(f.userHome, 'notes.md')
+    await put(outside, 'Private notes.\n')
+    for (const path of [f.config, join(f.root, 'CLAUDE.md'), outside, `${join(f.root, '.agnostic-ai', 'agents')}/../agents/reviewer.md`]) {
+      const response = await page.request.get(`${f.url}api/views/source?path=${encodeURIComponent(path.replaceAll('\\', '/'))}`)
+      expect(response.status(), path).toBe(404)
+    }
+  } finally {
+    await f.close()
+  }
+})

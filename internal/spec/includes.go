@@ -124,3 +124,14 @@ func resolveEntryIncludes(entries []Entry, root string) error {
 	}
 	return nil
 }
+
+// SplitFrontmatter returns the keys of a file's leading YAML block in
+// file order, their values, and the body after the block. A file
+// without a complete block is all body.
+func SplitFrontmatter(data []byte) ([]string, map[string]any, string, error) {
+	front, body, err := splitFrontmatter(normalizeLineEndings(data))
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return front.keys, front.meta, body, nil
+}

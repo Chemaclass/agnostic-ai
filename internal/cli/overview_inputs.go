@@ -385,7 +385,7 @@ func overviewInputsWith(root string, compareInstalled bool) (overview.Inputs, er
 		Cfg:            cfg,
 		Bundle:         b,
 		Snapshot:       snapshot,
-		Instructions:   instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, "."),
+		Instructions:   projectInstructionDocuments(),
 		Findings:       checks.findings,
 		Compared:       checks.compared,
 		FieldNotes:     checks.fieldNotes,
@@ -408,6 +408,20 @@ func projectNativeMCPServers(cfg *config.Config) []overview.NativeMCP {
 	}
 	source, _ := globalSourceRoot()
 	return nativeMCPServers(home, ".", source, cfg, false)
+}
+
+// projectInstructionDocuments describes the project's instructions file.
+func projectInstructionDocuments() []overview.Document {
+	return instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, ".")
+}
+
+// globalInstructionDocuments describes the global instructions file and its
+// local layer under source.
+func globalInstructionDocuments(source string) []overview.Document {
+	return instructionDocuments([]instructionFile{
+		{path: filepath.Join(source, "AGNOSTIC_AI.md"), layer: "global"},
+		{path: filepath.Join(source, "local", "AGNOSTIC_AI.md"), layer: "global-local"},
+	}, source)
 }
 
 // instructionFile is one instructions file a configuration loads.

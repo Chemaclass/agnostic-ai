@@ -2941,6 +2941,7 @@ tr.is-advised > td {
 }
 
 .section-tabs {
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: 4px;
@@ -4092,5 +4093,51 @@ html:has(.search-backdrop) {
 
   .context-advice-row > td {
     border-inline-start: 3px solid CanvasText;
+  }
+}
+
+.item-source > summary {
+  min-height: 28px;
+  width: fit-content;
+  padding: 4px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.item-source > summary:hover {
+  color: var(--accent-strong);
+}
+
+.item-source[open] > summary {
+  margin-bottom: 8px;
+}
+
+.item-source-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.source-text {
+  max-height: 480px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-sunken);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  .item-source > summary {
+    min-height: 44px;
+    align-content: center;
   }
 }

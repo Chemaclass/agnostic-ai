@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, **Show content** on a Context row shows the file's frontmatter as chips above its text (#3025).
+
 - In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 
 - The web interface counts findings by severity in the top bar and lists them on one **Setup health** page with **Copy all fixes** (#3032).
@@ -41,6 +43,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `sync --dry-run --diff` prints a diff of each file sync would change and names generated files it would remove, for project and `--global` sync. Project sync used to ignore `--diff` here, and global sync rejected it (#2991).
 
 - In the web interface, **Copy all advice** on the Context size tab copies one prompt with the advice for every source (#3030).
+
+- In the web interface, the Context tab row no longer scrolls the page sideways on a narrow phone screen when items have findings (#3059).
 
 - In the web interface, the note after **Open** shows on its own line and no longer moves the Open and Copy path buttons or the other labels on that row (#3024).
 

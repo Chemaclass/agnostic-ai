@@ -7,7 +7,7 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type HookSpecPreview, type HookSpecRequest, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest } from './contract'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest } from './contract'
 import { normalizeContextView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
 import { parseProtectedPreview } from './model/protected-edit'
@@ -116,6 +116,20 @@ export async function loadContext(source: DataSource, target: string | undefined
   const path = query ? `${API.context}?${query}` : API.context
   const data = normalizeContextView(await getJson(path, signal, SERVER_HINT))
   return { data, endpoint: `GET ${path}`, schemaWarning: schemaWarning(data.schemaVersion, CONTEXT_SCHEMA_VERSION) }
+}
+
+/** One listed file's content from the running server. */
+export async function loadSource(path: string, signal?: AbortSignal): Promise<SourceView> {
+  const data = await getJson(`${API.source}?${new URLSearchParams({ path })}`, signal, SERVER_HINT) as Partial<SourceView>
+  return {
+    path: data.path ?? path,
+    kind: data.kind ?? '',
+    frontmatter: Array.isArray(data.frontmatter) ? data.frontmatter : [],
+    body: typeof data.body === 'string' ? data.body : '',
+    bytes: typeof data.bytes === 'number' ? data.bytes : 0,
+    truncated: data.truncated === true,
+    withheld: data.withheld === true,
+  }
 }
 
 /** An edit the server refused, with the validation problems it found. */
