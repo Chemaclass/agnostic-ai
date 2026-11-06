@@ -33,6 +33,23 @@ for (const width of [320, 390, 768, 900, 1024, 1440]) {
   })
 }
 
+for (const width of [320, 390, 1440]) {
+  test(`puts coding tool support above the tab row at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('/?view=context')
+    if (width <= 760) await page.locator('details.support-block > summary').click()
+    const support = page.getByRole('table', { name: 'Coding tool support' })
+    await expect(support).toBeVisible()
+    const search = (await page.getByRole('searchbox', { name: 'Search context' }).boundingBox())!
+    const table = (await support.boundingBox())!
+    const tabs = (await page.getByRole('tablist', { name: 'Context views' }).boundingBox())!
+    expect(table.y).toBeGreaterThan(search.y + search.height)
+    expect(table.y + table.height).toBeLessThanOrEqual(tabs.y)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+}
+
 test('names the serving release at the foot of the sidebar', async ({ page }) => {
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.91.0' } }))

@@ -67,6 +67,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, the Context tab row no longer scrolls the page sideways on a narrow phone screen when items have findings (#3059).
 
+- In the web interface, **Coding tool support** moves from the bottom of each page to just under the search field, above the tabs. It folds, starts folded on a phone, and remembers your choice per page (#3028).
+
 - In the web interface, the note after **Open** shows on its own line and no longer moves the Open and Copy path buttons or the other labels on that row (#3024).
 
 - The web interface shows the agnostic-ai version at the foot of the sidebar, linked to its release notes; `/api/health` now returns `version` (#2974).

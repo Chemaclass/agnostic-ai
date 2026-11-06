@@ -194,7 +194,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       </div>
       <p>{audienceDescription(audience, global)} · <Code>{preview.file}</Code></p>
       <pre tabIndex={0} aria-label={`${field.label} file changes`}>{preview.diff || 'No file changes.'}</pre>
-      <p className="muted">After saving, run <Code>{preview.syncCommand}</Code> to apply. Tool support varies, see Coding tool support below.</p>
+      <p className="muted">After saving, run <Code>{preview.syncCommand}</Code> to apply. Tool support varies, see Coding tool support above.</p>
     </section>}
     {error && <div className="edit-error" role="alert"><p>{error.message}</p>
       {error.status === 409 && <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { refreshing.current = true; app.reload() }}>Reload saved values</button>}
