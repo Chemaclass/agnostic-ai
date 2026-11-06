@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"maps"
 	"net/http"
@@ -222,16 +223,21 @@ func validUTF8Prefix(data []byte) []byte {
 // dotted keys in sorted order, a list of plain values shows its items
 // joined by commas, a list holding maps or lists walks each item by
 // index, and each value is shown and redacted as the overview shows it.
+// A value of any other shape is hidden, so an unexpected YAML type never
+// reaches the page unredacted.
 func appendSourceFields(fields []sourceField, key string, v any) []sourceField {
 	switch t := v.(type) {
 	case map[string]any:
-		if len(t) == 0 {
-			break
-		}
 		for _, k := range slices.Sorted(maps.Keys(t)) {
 			fields = appendSourceFields(fields, key+"."+k, t[k])
 		}
 		return fields
+	case map[any]any:
+		named := make(map[string]any, len(t))
+		for k, item := range t {
+			named[fmt.Sprint(k)] = item
+		}
+		return appendSourceFields(fields, key, named)
 	case []any:
 		if slices.ContainsFunc(t, isNested) {
 			for i, item := range t {
@@ -241,16 +247,26 @@ func appendSourceFields(fields []sourceField, key string, v any) []sourceField {
 		}
 		items := make([]string, 0, len(t))
 		for _, item := range t {
-			items = append(items, overview.ShownText(key, item))
+			items = append(items, shownSourceValue(key, item))
 		}
 		return append(fields, sourceField{Key: key, Value: strings.Join(items, ", ")})
 	}
-	return append(fields, sourceField{Key: key, Value: overview.ShownText(key, v)})
+	return append(fields, sourceField{Key: key, Value: shownSourceValue(key, v)})
 }
+
+func shownSourceValue(key string, v any) string {
+	switch v.(type) {
+	case nil, string, bool, int, int64, uint64, float64:
+		return overview.ShownText(key, v)
+	}
+	return sourceHidden
+}
+
+const sourceHidden = "<redacted>"
 
 func isNested(v any) bool {
 	switch v.(type) {
-	case map[string]any, []any:
+	case map[string]any, map[any]any, []any:
 		return true
 	}
 	return false

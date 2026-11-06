@@ -452,3 +452,19 @@ func TestServeSource_HidesCredentialsInsideListItems(t *testing.T) {
 		t.Errorf("status %d, a credential inside a list item must stay hidden: %s", resp.StatusCode, data)
 	}
 }
+
+func TestServeSource_HidesCredentialsUnderNonStringKeys(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "---\nmetadata: {1: public, password: hunter2short}\naccounts:\n  - {2: x, token: hunter3short}\nwhen: 2026-11-06\n---\nBody.\n")
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, _ := io.ReadAll(resp.Body)
+	got := string(data)
+	if resp.StatusCode != http.StatusOK || strings.Contains(got, "hunter2short") || strings.Contains(got, "hunter3short") || !strings.Contains(got, "metadata.1") {
+		t.Errorf("status %d, credentials under maps with non-string keys must stay hidden: %s", resp.StatusCode, got)
+	}
+}
