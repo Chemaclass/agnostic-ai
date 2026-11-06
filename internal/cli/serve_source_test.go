@@ -520,3 +520,24 @@ func TestServeSource_NeverReturnsACredentialFromAnyPartOfTheFile(t *testing.T) {
 		}
 	}
 }
+
+func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	for name, content := range map[string]string{
+		"flow":  "Root.\n\n```\n{password: hunter2short}\n```\n",
+		"pem":   "Root.\n\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAhunter2short\n-----END OPENSSH PRIVATE KEY-----\n",
+		"cut":   "Root.\n\n-----BEGIN RSA PRIVATE KEY-----\nMIIEhunter2short",
+		"token": "Root.\n\nUse ghp_123456789012345678901234567890123456 here.\n",
+	} {
+		mustWriteFile(t, instructions, content)
+		view := getSource(t, srv, absSlash(t, instructions), http.StatusOK)
+		if !view.Withheld || strings.Contains(view.Body, "hunter2short") || strings.Contains(view.Body, "ghp_") {
+			t.Errorf("%s: withheld %v, body %q", name, view.Withheld, view.Body)
+		}
+	}
+	mustWriteFile(t, instructions, "Root.\n\nNever commit a password or a token.\n")
+	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Withheld || view.Body != "Root.\n\nNever commit a password or a token.\n" {
+		t.Errorf("plain text must show: %+v", view)
+	}
+}

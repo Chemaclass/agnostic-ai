@@ -788,6 +788,8 @@ export interface SourceView {
   /** The file size; the body stops at 256 KB when truncated is set. */
   bytes: number
   truncated: boolean
+  /** The text looks like it holds a credential, so it is not sent. */
+  withheld?: boolean
 }
 
 /** The global setup folder the page just created. */

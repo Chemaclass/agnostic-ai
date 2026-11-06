@@ -50,7 +50,9 @@ function SourceText({ view }: { view: SourceView }) {
           ))}
         </span>
       )}
-      {view.body.trim() ? <pre className="source-text">{view.body}</pre> : <p className="muted">The file has no text after its frontmatter.</p>}
+      {view.withheld
+        ? <p className="muted">The text is hidden because it looks like it holds a credential. Open the file in your editor to read it.</p>
+        : view.body.trim() ? <pre className="source-text">{view.body}</pre> : <p className="muted">The file has no text after its frontmatter.</p>}
       {view.truncated && <p className="muted">Showing the first 256 KB of {view.bytes.toLocaleString()} bytes. Open the file to read the rest.</p>}
     </div>
   )

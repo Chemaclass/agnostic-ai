@@ -41,6 +41,7 @@ type sourceView struct {
 	Body        string        `json:"body"`
 	Bytes       int64         `json:"bytes"`
 	Truncated   bool          `json:"truncated"`
+	Withheld    bool          `json:"withheld,omitempty"`
 }
 
 var errSourceNotFound = editError{Error: "path is not a file of the loaded configuration"}
@@ -171,7 +172,7 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
 	shown := preview.Display(path, text)
 	if shown.Withheld {
-		view.Body = shown.Text
+		view.Withheld = true
 		return view, true
 	}
 	if shown.Hidden {
@@ -187,7 +188,11 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	if len(body) > sourceBodyLimit {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
 	}
-	view.Body = redactBody(body)
+	if sensitiveSource(path, body) {
+		view.Body, view.Withheld = "", true
+	} else {
+		view.Body = body
+	}
 	for _, key := range keys {
 		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), meta[key])
 	}
@@ -290,28 +295,20 @@ func isNested(v any) bool {
 	return false
 }
 
-var credentialLine = regexp.MustCompile(`^(\s*(?:-\s+)?(?:export\s+)?["']?([A-Za-z_][A-Za-z0-9_.-]*)["']?\s*[:=]\s*)(\S.*)$`)
+var (
+	credentialAssignment = regexp.MustCompile(`(?i)(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session[_-]?id|client[_-]?secret)[A-Za-z0-9_.-]*["']?\s*[:=]`)
+	privateKeyBlock      = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY`)
+)
 
-// redactBody hides the value on any line that assigns to a credential
-// name (password: x, API_KEY=x, export TOKEN=x), then applies the shared
-// text redaction, which catches recognizable tokens anywhere.
-func redactBody(body string) string {
-	lines := strings.Split(body, "\n")
-	for i := 0; i < len(lines); i++ {
-		m := credentialLine.FindStringSubmatch(lines[i])
-		if m == nil || preview.PureReference(m[3]) || !(preview.CredentialKey(m[2]) || preview.CredentialName(m[2])) {
-			continue
-		}
-		lines[i] = m[1] + preview.Redacted
-		if block := strings.TrimSpace(m[3]); strings.HasPrefix(block, "|") || strings.HasPrefix(block, ">") {
-			indent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
-			for i+1 < len(lines) && (strings.TrimSpace(lines[i+1]) == "" || len(lines[i+1])-len(strings.TrimLeft(lines[i+1], " \t")) > indent) {
-				i++
-				if strings.TrimSpace(lines[i]) != "" {
-					lines[i] = strings.Repeat(" ", indent+2) + preview.Redacted
-				}
-			}
-		}
-	}
-	return preview.RedactText(strings.Join(lines, "\n"))
+// sensitiveSource reports whether the body shows any sign of a credential:
+// the shared preview hid or withheld part of it, a credential-named key
+// is assigned, a private key block starts, or a recognizable token or
+// credential appears. The whole body is then withheld rather than
+// redacted piece by piece, so an unusual layout cannot slip a value
+// through; the file still opens in the editor. A credential written as
+// free prose is not detectable.
+func sensitiveSource(path, body string) bool {
+	shown := preview.Display(path, body)
+	return shown.Hidden || shown.Withheld || credentialAssignment.MatchString(body) || privateKeyBlock.MatchString(body) ||
+		preview.TokenIn(body) || preview.CredentialDetected(body)
 }
