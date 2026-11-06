@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -34,6 +36,11 @@ func (h *editHandler) permissionModeEdit(where editAudience, shown string, addr 
 	if err != nil {
 		return "", nil, err
 	}
+	if mode != nil {
+		if err := h.checkPermissionModeShadow(file, key); err != nil {
+			return "", nil, err
+		}
+	}
 	return file, func(data []byte) ([]byte, error) {
 		if len(data) == 0 {
 			data = []byte(scaffold)
@@ -52,4 +59,31 @@ func (h *editHandler) permissionModeEdit(where editAudience, shown string, addr 
 		}
 		return setPermissionValue(data, key, *mode)
 	}, nil
+}
+
+// shadowedFieldError refuses a save that a later settings spec overrides,
+// since sync would keep writing that spec's value.
+type shadowedFieldError struct{ error }
+
+// checkPermissionModeShadow refuses a mode save into file when a settings
+// spec that loads later sets the mode for the same tools, since global
+// sync writes the last one.
+func (h *editHandler) checkPermissionModeShadow(file, key string) error {
+	scope, err := loadCheckScope(h.global)
+	if err != nil {
+		return err
+	}
+	settings := scope.bundle.Settings
+	at := slices.IndexFunc(settings, func(e spec.Entry) bool {
+		return resolvedAbs(e.Path) == resolvedAbs(file) ||
+			e.Base != nil && resolvedAbs(e.Base.Path) == resolvedAbs(file) ||
+			!overview.LocalLayer(e) && resolvedAbs(filepath.Join(h.root, overview.SettingsOverlayPath(h.global, e.Name))) == resolvedAbs(file)
+	})
+	if at < 0 {
+		return nil
+	}
+	if j := overview.SettingsOverride(settings, at, key, scope.targets, h.global); j >= 0 {
+		return shadowedFieldError{fmt.Errorf("%s sets %s and loads after %s, so sync keeps its value; edit that spec", overview.SpecPath(h.root, settings[j]), key, overview.SpecPath(h.root, settings[at]))}
+	}
+	return nil
 }

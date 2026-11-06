@@ -299,7 +299,11 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var source fieldSourceError
 		var nothing noPersonalValueError
 		var tier tierEffortError
+		var shadowed shadowedFieldError
 		switch {
+		case errors.As(err, &shadowed):
+			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
+			return
 		case errors.As(err, &tier):
 			writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error()})
 			return

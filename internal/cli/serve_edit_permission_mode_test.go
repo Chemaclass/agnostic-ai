@@ -144,3 +144,37 @@ func TestPermissionModeEdit_ProjectRefusesBecauseOnlyGlobalSyncWritesIt(t *testi
 		t.Fatalf("a refused save wrote files: %q", got)
 	}
 }
+
+func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
+	h, home, source := globalModeHandler(t, "")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "name: a\npermissions:\n  allow: [read]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "z.yaml"), "name: z\npermissions:\n  default-mode: bypassPermissions\n")
+	code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "path": "settings/a.yaml", "value": "plan", "expected": nil})
+	if code != http.StatusConflict || !strings.Contains(body, "settings/z.yaml sets permissions.default-mode") {
+		t.Fatalf("shadowed save = %d %s", code, body)
+	}
+	if strings.Contains(readProjectFile(t, filepath.Join(source, "settings", "a.yaml")), "default-mode") {
+		t.Fatal("the refused save wrote the earlier spec")
+	}
+	nativeMode := func() any {
+		t.Helper()
+		if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+			t.Fatalf("sync --global: %v\n%s", err, warnings)
+		}
+		var native map[string]any
+		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
+			t.Fatal(err)
+		}
+		perms, _ := native["permissions"].(map[string]any)
+		return perms["defaultMode"]
+	}
+	if got := nativeMode(); got != "bypassPermissions" {
+		t.Fatalf("defaultMode = %v, want the later spec's value", got)
+	}
+	if code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "path": "settings/z.yaml", "value": "plan", "expected": "bypassPermissions"}); code != http.StatusOK {
+		t.Fatalf("save into the later spec = %d %s", code, body)
+	}
+	if got := nativeMode(); got != "plan" {
+		t.Fatalf("defaultMode = %v, want plan", got)
+	}
+}
