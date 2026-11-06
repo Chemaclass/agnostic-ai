@@ -55,3 +55,17 @@ func TestSyncGlobal_NotesAgentServersAnInlineTargetCannotWrite(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncGlobal_NoAgentServerNoteWhenOpenHandsServersAreSetNatively(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmcpServers: [db]\nx-openhands:\n  mcp_servers:\n    db:\n      command: db-mcp\n---\nReview carefully.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "db.yaml"), "name: db\ncommand: db-mcp\n")
+
+	out, warnings, err := runGlobalAgentTest("--only", "openhands", "--dry-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if all := out + warnings; strings.Contains(all, "`mcpServers` on 1 agent") {
+		t.Errorf("x-openhands.mcp_servers writes the servers, so no note is due:\n%s", all)
+	}
+}

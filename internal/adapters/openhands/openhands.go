@@ -111,7 +111,7 @@ var caps = emit.Capabilities{
 		"hooks":          "OpenHands names agent hook events in snake_case; set x-openhands.hooks",
 		"permissionMode": "OpenHands names its modes always_confirm, never_confirm and confirm_risky; set x-openhands.permission_mode",
 	},
-	AgentFieldNativeKeys: map[string]string{"permissionMode": "permission_mode"},
+	AgentFieldNativeKeys: map[string]string{"permissionMode": "permission_mode", "mcpServers": "mcp_servers"},
 }
 
 // Adapter emits OpenHands configs.
