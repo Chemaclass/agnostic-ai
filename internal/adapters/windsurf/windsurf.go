@@ -278,9 +278,8 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 // `<scope>/<rules-dir>` for a scoped one, one .md per agent into the
 // agents directory (default `.devin/agents`, Devin CLI's native
 // subagent path), and one folder per skill under the skills directory
-// (default `.agents/skills`, Devin Desktop's documented
-// cross-agent-compatibility SKILL.md tree behind its own
-// `.windsurf/skills/`; a flat file there never loads as a skill).
+// (default `.agents/skills`, a path Devin Desktop also reads beside its
+// own `.devin/skills/`; a flat file there never loads as a skill).
 // Ignore specs merge into `.devinignore` (default; override via
 // outputs.windsurf.ignore-file) for indexing and `.windsurfignore` for
 // agent file access. MCP servers merge into
