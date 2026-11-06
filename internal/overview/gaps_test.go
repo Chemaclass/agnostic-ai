@@ -117,3 +117,33 @@ func TestBuild_CountsOnlyTheProjectsOwnSpecs(t *testing.T) {
 		}
 	}
 }
+
+func TestBuild_ANativeHookFillsTheStageItsEventMapsTo(t *testing.T) {
+	native := entry(spec.KindHook, "guard", ".agnostic-ai/hooks/guard.yaml", map[string]any{"event": "PreToolUse", "matcher": "Bash"})
+	gaps := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}}, Bundle: spec.Bundle{Hooks: []spec.Entry{native}}}).Health.Gaps
+	if _, ok := gapByID(gaps, "stage:before-tool"); ok {
+		t.Error("a PreToolUse hook leaves before-tool reported as empty")
+	}
+	if _, ok := gapByID(gaps, "stage:after-tool"); !ok {
+		t.Error("a PreToolUse hook filled another stage")
+	}
+}
+
+func TestBuild_TheHookPromptReplacesTheScaffoldsNativeFields(t *testing.T) {
+	gap, _ := gapByID(Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}}}).Health.Gaps, "stage:stop")
+	if !strings.Contains(gap.Fix, "remove its `event` and `matcher` lines") {
+		t.Errorf("stop fix prompt: %q", gap.Fix)
+	}
+}
+
+func TestBuild_TheBuiltInPromptNamesTheFileWhoseListWins(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}}
+	shared, _ := gapByID(Build(Inputs{Cfg: cfg}).Health.Gaps, "builtin:handoff")
+	if !strings.Contains(shared.Fix, "`builtins` list in agnostic-ai.yaml") {
+		t.Errorf("shared list prompt: %q", shared.Fix)
+	}
+	local, _ := gapByID(Build(Inputs{Cfg: cfg, BuiltinsLocal: true, BuiltinsTeam: []string{"handoff"}}).Health.Gaps, "builtin:handoff")
+	if !strings.Contains(local.Fix, "`builtins` list in agnostic-ai.local.yaml") {
+		t.Errorf("local list prompt: %q", local.Fix)
+	}
+}

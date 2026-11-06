@@ -59,19 +59,24 @@ func buildGaps(in Inputs, targets []string, caps map[string][]spec.Kind) []Gap {
 				supported = append(supported, t)
 			}
 		}
-		if len(supported) == 0 || slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool { return ownSpec(e) && hookEvent(e) == st.id }) {
+		if len(supported) == 0 || slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool { return ownSpec(e) && runsAt(e, st.id, targets) }) {
 			continue
 		}
 		gaps = append(gaps, Gap{
 			ID: "stage:" + st.id, Section: SectionLifecycle, Label: st.label, Supported: supported,
 			Missing: "no hook yet",
-			Fix: fmt.Sprintf("In this agnostic-ai project, %s can run a hook at the %q stage and no hook runs there. %s Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, set `on: %s`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing.",
+			Fix: fmt.Sprintf("In this agnostic-ai project, %s can run a hook at the %q stage and no hook runs there. %s Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: %s`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing.",
 				strings.Join(supported, ", "), st.label, st.description, st.id),
 		})
 	}
 	var enabled []string
 	if in.Cfg != nil {
 		enabled = in.Cfg.Builtins
+	}
+	// A personal builtins list replaces the shared one, so only it can turn one on.
+	listFile := "agnostic-ai.yaml"
+	if in.BuiltinsLocal {
+		listFile = "agnostic-ai.local.yaml"
 	}
 	for _, b := range recommendedBuiltins {
 		supported := kindSupport(b.kind, "", targets, caps).Supported
@@ -82,8 +87,8 @@ func buildGaps(in Inputs, targets []string, caps map[string][]spec.Kind) []Gap {
 		gaps = append(gaps, Gap{
 			ID: "builtin:" + name, Section: SectionSettings, Label: name, Supported: supported,
 			Missing: "built-in is off",
-			Fix: fmt.Sprintf("The %s built-in of this agnostic-ai project is off. %s To turn it on, add `%s` to the `builtins` list in agnostic-ai.yaml and run `agnostic-ai sync`.",
-				name, builtinDescriptions[name], name),
+			Fix: fmt.Sprintf("The %s built-in of this agnostic-ai project is off. %s To turn it on, add `%s` to the `builtins` list in %s and run `agnostic-ai sync`.",
+				name, builtinDescriptions[name], name, listFile),
 		})
 	}
 	return gaps
@@ -93,4 +98,21 @@ func buildGaps(in Inputs, targets []string, caps map[string][]spec.Kind) []Gap {
 // spec, so it fills no gap.
 func ownSpec(e spec.Entry) bool {
 	return e.Layer != builtinLayer
+}
+
+// runsAt reports whether hook e runs at stage: its portable event is the
+// stage, or its native event is what a configured target calls it.
+func runsAt(e spec.Entry, stage string, targets []string) bool {
+	event := hookEvent(e)
+	if event == stage {
+		return true
+	}
+	native, ok := strings.CutPrefix(event, nativeStagePrefix)
+	if !ok {
+		return false
+	}
+	return slices.ContainsFunc(targets, func(t string) bool {
+		mapped, ok := spec.PortableHookEvent(t, stage)
+		return ok && mapped == native
+	})
 }
