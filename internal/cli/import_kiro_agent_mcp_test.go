@@ -92,3 +92,25 @@ func TestImportKiro_AgentServerTimeoutsKeepTheMapUnderXKiro(t *testing.T) {
 		})
 	}
 }
+
+func TestImportKiro_AgentServersScopedInTheSpecStayAMap(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md"), "---\nname: rev\ndescription: Reviews\nx-kiro:\n  mcpServers:\n    db:\n      command: db-mcp\n---\n\nReview code.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/mcps/db.yaml"), "name: db\ncommand: db-mcp\n")
+	execCLI(t, "sync", "-t", "kiro")
+	native := filepath.Join(dir, kiroAgentsDir, "rev.md")
+	writeFile(t, native, strings.Replace(readFile(t, native), "description: Reviews", "description: Changed", 1))
+
+	execCLI(t, "import", "kiro")
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md")); !strings.Contains(got, "x-kiro:\n  mcpServers:\n    db:\n      command: db-mcp\n") {
+		t.Errorf("imported agent lost its scoped server map:\n%s", got)
+	}
+
+	execCLI(t, "sync", "-t", "kiro")
+	if agent := readFile(t, native); !strings.Contains(agent, "mcpServers:\n  db:\n    command: db-mcp\n") {
+		t.Errorf("synced agent lost its servers:\n%s", agent)
+	}
+}

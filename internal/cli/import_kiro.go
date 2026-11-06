@@ -188,11 +188,17 @@ func importKiroAgents(root, dstDir string, projectServers map[string]any) (int, 
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
 		canonicalName := strings.TrimSuffix(e.Name(), ".md")
-		translated, err := importKiroAgentDocument([]byte(header.Strip(string(data))), canonicalName, projectServers)
+		dst := filepath.Join(dstDir, e.Name())
+		shared := projectServers
+		// A spec that scopes its servers to Kiro keeps them as a map: a
+		// list of names there would bypass sync's server expansion.
+		if specScopesKiroServers(dst) {
+			shared = nil
+		}
+		translated, err := importKiroAgentDocument([]byte(header.Strip(string(data))), canonicalName, shared)
 		if err != nil {
 			return count, fmt.Errorf("translate %s: %w", srcPath, err)
 		}
-		dst := filepath.Join(dstDir, e.Name())
 		if err := importWriteSpecMarkdown(dst, translated, 0o644, kiroAgentFields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}

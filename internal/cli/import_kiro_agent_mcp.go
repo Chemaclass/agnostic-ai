@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"os"
 	"reflect"
 
 	"gopkg.in/yaml.v3"
@@ -82,4 +83,15 @@ func kiroProjectServerNames(inline *yaml.Node, project map[string]any) ([]string
 		names = append(names, name)
 	}
 	return names, true, nil
+}
+
+// specScopesKiroServers reports whether the agent spec at path sets
+// `x-kiro.mcpServers`.
+func specScopesKiroServers(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	mapping, _, ok := frontmatterNode(data)
+	return ok && mappingValue(mappingValue(mapping, "x-kiro"), "mcpServers") != nil
 }
