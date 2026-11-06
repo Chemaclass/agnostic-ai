@@ -51,14 +51,26 @@ func importKiroAgentServers(mapping *yaml.Node, project map[string]any) (bool, e
 
 // referenceKiroAgentLiterals turns literal credentials in an agent's
 // inline servers into `${NAME}` references, as MCP file import does, so
-// the spec holds no secret. Kiro reads the same `${NAME}` form. A map
+// the spec holds no secret, and leaves out a server with an OAuth
+// credential. Kiro reads the same `${NAME}` form. A map
 // with nothing to rewrite is returned as written.
 func referenceKiroAgentLiterals(inline *yaml.Node) (*yaml.Node, error) {
 	var servers map[string]any
 	if err := inline.Decode(&servers); err != nil {
 		return nil, err
 	}
-	refs := referenceMCPLiterals(servers)
+	// An OAuth credential has no reference form, so its server is left
+	// out, as Qoder's MCP import does.
+	var refs []mcpLiteralRef
+	for i := 0; i+1 < len(inline.Content); i += 2 {
+		name := inline.Content[i].Value
+		server, _ := servers[name].(map[string]any)
+		if field := mcpOAuthCredential(server["oauth"]); field != "" {
+			delete(servers, name)
+			refs = append(refs, mcpLiteralRef{server: name, field: field, leftOut: true})
+		}
+	}
+	refs = append(refs, referenceMCPLiterals(servers)...)
 	if len(refs) == 0 {
 		return inline, nil
 	}

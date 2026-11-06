@@ -154,3 +154,22 @@ func TestImportKiro_MovedAgentServerEnvLiteralBecomesReference(t *testing.T) {
 		t.Errorf("synced agent does not write the reference:\n%s", agent)
 	}
 }
+
+func TestImportKiro_MovedAgentServerWithOAuthSecretIsLeftOut(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	log := captureLog(t)
+	const secret = "ghp_AAAAbbbbCCCC8888"
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md"), "---\ndescription: Reviews\nmcpServers:\n  gh:\n    url: https://gh.example/mcp\n    oauth:\n      clientId: app\n      clientSecret: "+secret+"\n  local:\n    command: local-mcp\n---\n\nReview code.\n")
+
+	execCLI(t, "import", "kiro")
+	got := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md"))
+	if strings.Contains(got, secret) || strings.Contains(got, "gh:") || !strings.Contains(got, "command: local-mcp") {
+		t.Errorf("imported agent keeps the OAuth secret or loses the other server:\n%s", got)
+	}
+	if out := log.String(); strings.Contains(out, secret) || !strings.Contains(out, "MCP server gh: left out; oauth.clientSecret holds a credential import cannot rewrite") {
+		t.Errorf("import output lacks the left-out note or prints the value:\n%s", out)
+	}
+}
