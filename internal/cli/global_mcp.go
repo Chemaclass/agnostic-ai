@@ -415,6 +415,7 @@ func canonicalMCPServer(target string, v any) any {
 		return out
 	}
 	if target == "grok" {
+		delete(out, "description")
 		if enabled, ok := out["enabled"].(bool); ok && enabled {
 			delete(out, "enabled")
 		}

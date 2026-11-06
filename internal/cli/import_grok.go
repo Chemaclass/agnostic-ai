@@ -57,6 +57,9 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 		return err
 	}
 	servers, _ := nativeConfig["mcp_servers"].(map[string]any)
+	for _, note := range droppedGrokMCPDescriptionNotes(servers) {
+		keptf("note: %s\n", note)
+	}
 	if _, err := writeMCPYAMLs("grok", grokMCPDocs(servers), importSourcePath(root, src.MCPs)); err != nil {
 		return err
 	}
@@ -167,6 +170,7 @@ func grokMCPDocs(servers map[string]any) map[string]any {
 			continue
 		}
 		entry := maps.Clone(native)
+		delete(entry, "description")
 		if _, explicit := entry["type"]; !explicit {
 			if url, ok := entry["url"].(string); ok && strings.HasSuffix(url, "/sse") {
 				entry["type"] = "sse"
@@ -180,6 +184,17 @@ func grokMCPDocs(servers map[string]any) map[string]any {
 	}
 	return out
 }
+func droppedGrokMCPDescriptionNotes(servers map[string]any) []string {
+	var notes []string
+	for _, name := range sortedMapKeys(servers) {
+		server, _ := servers[name].(map[string]any)
+		if _, exists := server["description"]; exists {
+			notes = append(notes, fmt.Sprintf("grok mcp %s: description has no effect on Grok, so import left it out", name))
+		}
+	}
+	return notes
+}
+
 func importGrokHookFile(path, dst string, scriptDirs ...string) (int, error) {
 	name := strings.TrimSuffix(filepath.Base(path), ".json")
 	if err := spec.ValidateName(spec.KindHook, name); err != nil {

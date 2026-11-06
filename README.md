@@ -62,7 +62,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 ## Next steps
 
 - [Set up your project](https://agnostic-ai.org/docs/getting-started/): the full walkthrough, Git choices, and everyday commands.
-- [Import an existing setup](https://agnostic-ai.org/docs/migration/): review your current tool files before the first sync.
+- [Import an existing setup](https://agnostic-ai.org/docs/migration/): review your current tool files before the first sync. Grok MCP imports leave out ignored descriptions.
 - [What you can share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when): rules, skills, agents, hooks, MCP servers, settings, and memory.
 - [Supported tools](https://agnostic-ai.org/docs/targets/): what each tool receives, and where.
 - [Inspect lifecycle hooks](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): scan stage counts, then expand a stage or all stages to see hooks.
