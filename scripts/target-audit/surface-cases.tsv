@@ -118,3 +118,7 @@ qwen-project-hooks-trust-20261104	qwen	Project hooks in .qwen/settings.json now 
 codex-mcp-tool-surface-controls-20261104	codex	Omit this server’s tools from selected model-facing surfaces. Choose `direct` (initial tools), `deferred` (tool search), or `code_mode` (Code Mode scripts).	yes	signal:cap-codex-mcp-tool-surface-controls
 pi-mcp-oauth-client-registration-20261104	pi	registers when `clientName` or a non-default `callbackUrl` is set	yes	signal:cap-pi-mcp-oauth-client-registration
 opencode-mcp-shared-connections-20261105	opencode	pool No Share one connection across directories	yes	signal:cap-mcp-shared-connections
+antigravity-mcp-per-tool-eager-20261106	antigravity	eager (boolean) registers the tool upfront instead of lazily (see Tool loading ). background ( "off" or "always" ) controls background execution	yes	signal:cap-mcp-per-tool-loading-and-background
+claude-deny-instead-of-prompting-20261106	claude	Added `permissions.denyInsteadOfPrompting` setting: a tool call that would wait on a permission prompt is denied and the turn continues	yes	signal:cap-claude-deny-instead-of-prompting
+qwen-skill-enablement-policy-20261106	qwen	Skill names that start disabled but can be opted into through skills.enabled	yes	signal:cap-qwen-skill-enablement-policy
+qwen-compat-ignore-files-20261106	qwen	By default, Qwen Code reads .qwenignore , .agentignore , and .aiignore .	yes	signal:cap-qwen-compat-ignore-files

@@ -32,10 +32,10 @@ export function personalSetsWhole(localKeys: string[] | undefined, key: string):
   return !!localKeys?.includes(key)
 }
 
-/** Where the value a tool gets comes from, such as "personal · codex" or "shared · all tools". */
-export function originLabel(r: TargetValue): string | undefined {
+/** Where the value a tool gets comes from, such as "local · codex" or "project · all tools". */
+export function originLabel(r: TargetValue, level: 'project' | 'global'): string | undefined {
   if (!r.from?.spec) return undefined
-  return `${r.from.local ? 'personal' : 'shared'} · ${r.from.perTool ? r.target : 'all tools'}`
+  return `${r.from.local ? 'local' : level} · ${r.from.perTool ? r.target : 'all tools'}`
 }
 
 /**

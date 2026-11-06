@@ -63,12 +63,11 @@
 //
 // Skills emit as a folder per skill under
 // `.agents/skills/<name>/SKILL.md`. Devin Desktop's own primary skill
-// path is `.windsurf/skills/` (workspace scope) or
-// `~/.codeium/windsurf/skills/` (global); `.agents/skills/` and
-// `~/.agents/skills/` are a separate, documented "cross-agent
-// compatibility" discovery path behind those
-// (docs.devin.ai/desktop/cascade/skills, target-audit 2026-08-08,
-// #563). This adapter writes the compatibility path deliberately: the
+// path is `.devin/skills/` (workspace) or `~/.config/devin/skills/`
+// (global); it also reads `.agents/skills/` and `~/.agents/skills/`,
+// and the legacy `.windsurf/skills/`
+// (docs.devin.ai/desktop/devin-local/customizations, #3045). This
+// adapter writes the shared path deliberately: the
 // renderer matches codex, amp, zed, crush, and openhands byte-for-byte,
 // so identical skills dedupe under `sync.shared-skills` instead of
 // adding a ninth on-disk copy. The target keeps its `windsurf` name so
@@ -279,9 +278,8 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 // `<scope>/<rules-dir>` for a scoped one, one .md per agent into the
 // agents directory (default `.devin/agents`, Devin CLI's native
 // subagent path), and one folder per skill under the skills directory
-// (default `.agents/skills`, Devin Desktop's documented
-// cross-agent-compatibility SKILL.md tree behind its own
-// `.windsurf/skills/`; a flat file there never loads as a skill).
+// (default `.agents/skills`, a path Devin Desktop also reads beside its
+// own `.devin/skills/`; a flat file there never loads as a skill).
 // Ignore specs merge into `.devinignore` (default; override via
 // outputs.windsurf.ignore-file) for indexing and `.windsurfignore` for
 // agent file access. MCP servers merge into

@@ -33,7 +33,7 @@ func (r settingRequest) title(where editAudience) string {
 	subject := r.addr.label()
 	switch {
 	case r.clearing() && where == audiencePersonal:
-		return "personal " + subject + " reset to the shared value"
+		return "local " + subject + " reset to the project value"
 	case r.clearing():
 		return subject + " cleared"
 	case json.Unmarshal(r.value, &value) != nil:

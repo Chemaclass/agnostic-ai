@@ -141,22 +141,24 @@ function Contributions({ report, root, takesFile, open, onToggle, advice, setAdv
                     const share = sharePercent(c.words, total)
                     const isOpen = advice === key
                     const adviceId = `context-advice-${key.replace(/[^a-z0-9]+/gi, '-')}`
+                    const toggle = (
+                      <button
+                        type="button"
+                        className="button button-quiet context-advice-toggle"
+                        aria-expanded={isOpen}
+                        aria-controls={adviceId}
+                        ref={(el) => { if (el && focusKey.current === key) { el.focus(); focusKey.current = undefined } }}
+                        onClick={() => setAdvice(isOpen ? undefined : key)}
+                      >{isOpen ? 'Hide advice' : 'What can I do?'}</button>
+                    )
                     return (
                       <Fragment key={key}>
                         <tr className={isOpen ? 'is-advised' : undefined}>
                           <th scope="row">
                             <Code>{c.source}</Code>
                             {isBuiltin(c.source)
-                              ? <span className="muted context-builtin"> Built in. <button type="button" className="button button-quiet" onClick={() => app.navigate({ view: 'settings', tab: 'builtins', entry: undefined })}>Change in Settings</button></span>
-                              : <OpenInEditor path={root ? `${root}/${c.source}` : undefined} label={c.source} shownPath={c.source} compact />}
-                            <button
-                              type="button"
-                              className="button button-quiet context-advice-toggle"
-                              aria-expanded={isOpen}
-                              aria-controls={adviceId}
-                              ref={(el) => { if (el && focusKey.current === key) { el.focus(); focusKey.current = undefined } }}
-                              onClick={() => setAdvice(isOpen ? undefined : key)}
-                            >{isOpen ? 'Hide advice' : 'What can I do?'}</button>
+                              ? <><span className="muted context-builtin"> Built in. <button type="button" className="button button-quiet" onClick={() => app.navigate({ view: 'settings', tab: 'builtins', entry: undefined })}>Change in Settings</button></span>{toggle}</>
+                              : <OpenInEditor path={root ? `${root}/${c.source}` : undefined} label={c.source} shownPath={c.source} compact trailing={toggle} />}
                           </th>
                           <td>{c.category}</td>
                           <td className="context-number">{c.words.toLocaleString()}</td>

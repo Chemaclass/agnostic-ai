@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { importMCPSpec } from '../api'
 import type { MCPSpecPreview, NativeServer } from '../contract'
 import { useApp } from './app-context'
-import { useEditAudience } from './EditAudience'
+import { useEditAudience, useGlobalLevel } from './EditAudience'
 import { Select, Code, ToolAvatar } from './ui'
 
 export type MCPSpecSaved = Pick<MCPSpecPreview, 'file' | 'syncCommand'>
@@ -10,6 +10,7 @@ export type MCPSpecSaved = Pick<MCPSpecPreview, 'file' | 'syncCommand'>
 export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSaved: (saved: MCPSpecSaved) => void }) {
   const app = useApp()
   const audience = useEditAudience()
+  const global = useGlobalLevel()
   const [selected, setSelected] = useState(0)
   const [preview, setPreview] = useState<MCPSpecPreview>()
   const [pending, setPending] = useState<'preview' | 'apply'>()
@@ -60,7 +61,7 @@ export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSav
     {error && <p className="builtin-change-error" role="alert">{error}</p>}
     {preview && <section className="builtin-change-preview" aria-label={`${server.name} spec preview`} aria-busy={!!pending}>
       <h3>Make {server.name} a spec</h3>
-      <p>Create <Code>{preview.file}</Code> {audience === 'personal' ? 'for you only' : 'for everyone'}.</p>
+      <p>Create <Code>{preview.file}</Code> {audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
       <div className="builtin-change-files"><pre tabIndex={0} aria-label={`Spec for ${server.name}`}>{preview.spec}</pre></div>
       {preview.variables.length > 0 && <p>Set these environment variables before syncing: {preview.variables.map((variable, index) => <span key={variable}>{index > 0 && ', '}<Code>{variable}</Code></span>)}.</p>}
       <p>{preview.targets.length > 0 ? <>After sync, this server reaches <span className="tool-list">{preview.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</> : 'No configured tool accepts this server.'}</p>

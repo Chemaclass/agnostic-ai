@@ -60,7 +60,7 @@ func TestOverview_ModelAndEffortMatchWhatSyncWrites(t *testing.T) {
 	if claude.Value != "sonnet" || claude.From == nil || !claude.From.Local || claude.From.Path != ".agnostic-ai/local/settings/team.yaml" {
 		t.Errorf("claude model = %+v, want the personal sonnet", claude)
 	}
-	if !hasOther(claude.Others, ".agnostic-ai/settings/team.yaml", "opus", "personal file") || !hasOther(claude.Others, ".agnostic-ai/settings/z-codex.yaml", "", "does not apply to Claude Code") {
+	if !hasOther(claude.Others, ".agnostic-ai/settings/team.yaml", "opus", "local file") || !hasOther(claude.Others, ".agnostic-ai/settings/z-codex.yaml", "", "does not apply to Claude Code") {
 		t.Errorf("claude others = %+v", claude.Others)
 	}
 	codex := resolved["model"]["codex"]

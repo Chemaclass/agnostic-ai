@@ -44,6 +44,22 @@ type editHandler struct {
 	baselines map[string]editBaseline
 }
 
+// level names the served level in messages: project, or global.
+func (h *editHandler) level() string {
+	if h.global {
+		return "global"
+	}
+	return "project"
+}
+
+// levelLabel is level as the page's selector shows it.
+func (h *editHandler) levelLabel() string {
+	if h.global {
+		return "Global"
+	}
+	return "Project"
+}
+
 func newEditHandler(root string, global bool) http.Handler {
 	return &editHandler{root: root, global: global}
 }
@@ -388,7 +404,7 @@ func (h *editHandler) settingsEdit(where editAudience, shown, key string, value 
 			return "", nil, fmt.Errorf("%s is not a boolean", key)
 		}
 		if value == nil && (where != audiencePersonal || !overview.LocalSets(e, key)) {
-			return "", nil, fmt.Errorf("%s has no personal value to reset; send audience personal for a key your file sets", key)
+			return "", nil, fmt.Errorf("%s has no local value to reset; send audience personal for a key your local file sets", key)
 		}
 		file, scaffold, err := h.scopedSettingsFile(e, key, where)
 		if err != nil {
