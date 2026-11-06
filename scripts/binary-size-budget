@@ -770,4 +770,6 @@
 # with #3008, measured 24752288 bytes; the budget is that plus 8192.
 # The sync --allow-empty-targets removal preview (#2995) measured 24768672
 # bytes; the budget is that plus 8192.
-24776864
+# Junie timeout range warnings (#3014), combined with roots validation (#3016),
+# measured 24780960 bytes on Go 1.27.3; keep the 8192-byte build allowance.
+24789152
