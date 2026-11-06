@@ -797,4 +797,7 @@
 # plus 8192, rounded up to a multiple of 4096.
 # The Kiro agent MCP import (#3051) measured 24993952 bytes in CI; the budget is
 # that plus 8192, rounded up to a multiple of 4096.
-25006080
+# The Field Ledger page furniture (#3026), on top of the setup health
+# global findings, measured 25010336 bytes; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+25022464

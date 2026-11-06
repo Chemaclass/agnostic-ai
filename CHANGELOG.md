@@ -18,6 +18,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Sync prints a note when a target drops an agent's `hooks` or `permissionMode`, as it does for `maxTurns` and `background`. Gemini CLI, Cursor, Codex, OpenHands, and other targets without these keys used to drop them with no note (#3052).
 
+- In the web interface, each page opens with its section number, a larger condensed title over a ruled line, and monospace counts; tabs and the page search follow the same style (#3026).
+
 - In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 
 - The web interface counts findings by severity in the top bar and lists them on one **Setup health** page with **Copy all fixes** (#3032).
