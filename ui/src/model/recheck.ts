@@ -103,3 +103,45 @@ export function recheckMessage(result: RecheckResult, finding: ItemFinding): str
   if (count) parts.push(`${plural(count, `new ${finding.source} finding`)} ${count === 1 ? 'appears' : 'appear'}${finding.path ? ` in ${finding.path}` : ''}.`)
   return parts.join(' ')
 }
+
+/** What one refresh found for every finding on the page. */
+export interface RecheckAllResult {
+  state: 'done' | 'failed'
+  resolved: number
+  /** Doctor findings that no longer appear, which doctor cannot confirm. */
+  unconfirmed: number
+  /** Lint findings that no longer appear while lint stopped. */
+  unknown: number
+  added: number
+  remaining: number
+}
+
+/** Rechecks every finding of before against after, each as one Recheck would. */
+export function recheckAllResult(before: OverviewView, after: OverviewView): RecheckAllResult {
+  const was = overviewFindings(before)
+  const now = overviewFindings(after)
+  const counts = { resolved: 0, unconfirmed: 0, unknown: 0 }
+  for (const finding of was) {
+    const state = recheckResult(finding, before, after).state
+    if (state === 'resolved') counts.resolved++
+    else if (state === 'unconfirmed') counts.unconfirmed++
+    else if (state === 'incomplete') counts.unknown++
+  }
+  const stayed = was.length - counts.resolved - counts.unconfirmed - counts.unknown
+  // A lint run that stopped is reported as such, not as a new finding.
+  const known = new Set(was.map((f) => findingKey(f.finding)))
+  const newlyStopped = now.filter((f) => stopped(f.finding) && !known.has(findingKey(f.finding))).length
+  return { state: 'done', ...counts, added: Math.max(0, now.length - stayed - newlyStopped), remaining: now.length }
+}
+
+export function recheckAllMessage(result: RecheckAllResult): string {
+  if (result.state === 'failed') return 'The recheck did not finish, so every finding may still apply.'
+  const parts = ['Rechecked every finding.']
+  if (result.resolved) parts.push(`${plural(result.resolved, 'finding')} no longer ${result.resolved === 1 ? 'appears' : 'appear'}.`)
+  if (result.unconfirmed) parts.push(`${plural(result.unconfirmed, 'doctor finding')} no longer ${result.unconfirmed === 1 ? 'appears' : 'appear'}, but doctor skips files it cannot read, so this does not confirm a fix.`)
+  if (result.unknown) parts.push(`Lint stopped before it finished, so ${plural(result.unknown, 'lint finding')} that no longer ${result.unknown === 1 ? 'appears' : 'appear'} may still apply.`)
+  if (result.added) parts.push(`${plural(result.added, 'new finding')} ${result.added === 1 ? 'appears' : 'appear'}.`)
+  if (parts.length === 1) parts.push('Nothing changed.')
+  parts.push(`${plural(result.remaining, 'finding')} ${result.remaining === 1 ? 'remains' : 'remain'}.`)
+  return parts.join(' ')
+}

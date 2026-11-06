@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LINT_INCOMPLETE, type ItemFinding, type OverviewView, type SectionItem } from '../contract'
 import { findingEntryIds, itemEntryId } from './identity'
-import { recheckMessage, recheckResult, type RecheckTarget } from './recheck'
+import { recheckAllMessage, recheckAllResult, recheckMessage, recheckResult, type RecheckTarget } from './recheck'
 
 const read: ItemFinding = { source: 'lint', code: 'LINT038', severity: 'warning', message: 'Bare read covers every file.', path: 'permissions.yaml', line: 2 }
 const edit: ItemFinding = { ...read, message: 'Bare edit covers every file.', line: 3 }
@@ -104,5 +104,33 @@ describe('recheck', () => {
 
   it('says a failed refresh proves nothing', () => {
     expect(recheckMessage({ state: 'failed', added: [] }, read)).toBe('The recheck did not finish, so this finding may still apply.')
+  })
+})
+
+describe('recheck all', () => {
+  const doctor: ItemFinding = { source: 'doctor', severity: 'error', message: 'Nested CLAUDE.md repeats a rule.', path: 'docs/CLAUDE.md' }
+
+  it('counts what no longer appears and what remains across sections', () => {
+    const result = recheckAllResult(view([read, edit], [doctor]), view([edit], [doctor]))
+    expect(result).toEqual({ state: 'done', resolved: 1, unconfirmed: 0, unknown: 0, added: 0, remaining: 2 })
+    expect(recheckAllMessage(result)).toBe('Rechecked every finding. 1 finding no longer appears. 2 findings remain.')
+  })
+
+  it('names new findings and doctor findings it cannot confirm', () => {
+    const result = recheckAllResult(view([read], [doctor]), view([read, shell]))
+    expect(result).toMatchObject({ resolved: 0, unconfirmed: 1, added: 1, remaining: 2 })
+    expect(recheckAllMessage(result)).toBe('Rechecked every finding. 1 doctor finding no longer appears, but doctor skips files it cannot read, so this does not confirm a fix. 1 new finding appears. 2 findings remain.')
+  })
+
+  it('does not count lint findings as fixed when lint stopped', () => {
+    const stopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'Lint stopped before it finished: bad config', path: 'agnostic-ai.yaml' }
+    const result = recheckAllResult(view([read, edit]), view([], [stopped]))
+    expect(result).toMatchObject({ resolved: 0, unknown: 2, added: 0, remaining: 1 })
+    expect(recheckAllMessage(result)).toBe('Rechecked every finding. Lint stopped before it finished, so 2 lint findings that no longer appear may still apply. 1 finding remains.')
+  })
+
+  it('says when nothing changed and when the refresh failed', () => {
+    expect(recheckAllMessage(recheckAllResult(view([read]), view([read])))).toBe('Rechecked every finding. Nothing changed. 1 finding remains.')
+    expect(recheckAllMessage({ state: 'failed', resolved: 0, unconfirmed: 0, unknown: 0, added: 0, remaining: 0 })).toBe('The recheck did not finish, so every finding may still apply.')
   })
 })

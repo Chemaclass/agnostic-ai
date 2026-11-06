@@ -4,7 +4,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ItemFinding, OverviewView } from '../contract'
-import { recheckMessage, recheckResult, type RecheckResult } from '../model/recheck'
+import { recheckAllResult, recheckMessage, recheckResult, type RecheckAllResult, type RecheckResult } from '../model/recheck'
 import type { Remote } from './Shell'
 import { Badge, Code } from './ui'
 
@@ -26,11 +26,16 @@ export interface RecheckApi {
   pending?: string
   pendingPlace?: string
   rechecked?: Rechecked
+  /** True while one refresh rechecks every finding. */
+  pendingAll?: boolean
+  /** What the last Recheck all found, until the next refresh. */
+  all?: RecheckAllResult
   start(id: string, finding: ItemFinding, section: string, place: string): void
+  startAll(): void
   dismiss(): void
 }
 
-const RecheckContext = createContext<RecheckApi>({ live: false, start() {}, dismiss() {} })
+const RecheckContext = createContext<RecheckApi>({ live: false, start() {}, startAll() {}, dismiss() {} })
 export const RecheckProvider = RecheckContext.Provider
 /** The id of the section whose findings render below. */
 export const RecheckSection = createContext('')
@@ -39,15 +44,22 @@ export const RecheckSectionEntries = createContext<Set<string>>(new Set())
 export function useRecheck(overview: Remote<OverviewView>, refresh: () => void, live: boolean, sourceKey: string): RecheckApi {
   const [request, setRequest] = useState<Request>()
   const [rechecked, setRechecked] = useState<Rechecked>()
+  const [allBefore, setAllBefore] = useState<OverviewView>()
+  const [all, setAll] = useState<RecheckAllResult>()
   const sawLoading = useRef(false)
   const shownWith = useRef<unknown>(undefined)
   useEffect(() => {
     setRequest(undefined)
     setRechecked(undefined)
+    setAllBefore(undefined)
+    setAll(undefined)
   }, [sourceKey])
   useEffect(() => {
-    if (!request) {
-      if (rechecked && overview.status === 'ready' && overview.loaded !== shownWith.current) setRechecked(undefined)
+    if (!request && !allBefore) {
+      if ((rechecked || all) && overview.status === 'ready' && overview.loaded !== shownWith.current) {
+        setRechecked(undefined)
+        setAll(undefined)
+      }
       return
     }
     if (overview.status === 'loading') {
@@ -56,21 +68,39 @@ export function useRecheck(overview: Remote<OverviewView>, refresh: () => void, 
     }
     if (!sawLoading.current) return
     const after = overview.loaded?.data
-    const result: RecheckResult = overview.status === 'error' || !after ? { state: 'failed', added: [] } : recheckResult(request, request.before, after)
+    const failed = overview.status === 'error' || !after
     shownWith.current = overview.loaded
-    setRechecked({ ...request, result })
-    setRequest(undefined)
-  }, [overview, request, rechecked])
+    if (request) {
+      const result: RecheckResult = failed ? { state: 'failed', added: [] } : recheckResult(request, request.before, after)
+      setRechecked({ ...request, result })
+      setRequest(undefined)
+    } else if (allBefore) {
+      setAll(failed ? { state: 'failed', resolved: 0, unconfirmed: 0, unknown: 0, added: 0, remaining: 0 } : recheckAllResult(allBefore, after))
+      setAllBefore(undefined)
+    }
+  }, [overview, request, rechecked, allBefore, all])
   const before = overview.loaded?.data
   const start = useCallback((id: string, finding: ItemFinding, section: string, place: string) => {
     if (!before) return
     sawLoading.current = false
     setRechecked(undefined)
+    setAll(undefined)
     setRequest({ id, finding, section, place, before })
     refresh()
   }, [before, refresh])
+  const startAll = useCallback(() => {
+    if (!before) return
+    sawLoading.current = false
+    setRechecked(undefined)
+    setAll(undefined)
+    setAllBefore(before)
+    refresh()
+  }, [before, refresh])
   const dismiss = useCallback(() => setRechecked(undefined), [])
-  return useMemo(() => ({ live, pending: request?.id, pendingPlace: request?.place, rechecked, start, dismiss }), [live, request, rechecked, start, dismiss])
+  return useMemo(
+    () => ({ live, pending: request?.id ?? (allBefore ? '' : undefined), pendingPlace: request?.place, pendingAll: allBefore !== undefined, rechecked, all, start, startAll, dismiss }),
+    [live, request, allBefore, rechecked, all, start, startAll, dismiss],
+  )
 }
 
 export function useRechecks(): RecheckApi {
