@@ -29,7 +29,7 @@ import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
 import { Select, Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
-const ConfigurationRoot = createContext<string | undefined>(undefined)
+export const ConfigurationRoot = createContext<string | undefined>(undefined)
 const ConfiguredTools = createContext<TargetSupport[]>([])
 const PersonalBuiltins = createContext(false)
 
@@ -135,7 +135,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const { rechecked, pendingPlace } = useRechecks()
   const sectionPlace = `section:${section.id}`
   const remainingHere = rechecked?.result.state === 'remaining' && sectionEntryIds(section).has(rechecked.result.id ?? rechecked.id)
-  const orphan = rechecked?.section === section.id && rechecked.place !== sectionPlace && !remainingHere && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
+  const orphan = rechecked?.section === section.id && !rechecked.place.startsWith('health:') && rechecked.place !== sectionPlace && !remainingHere && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const query = search.trim().toLowerCase()
@@ -1008,8 +1008,9 @@ function Values({ values, file, prefix, personal, localKeys, fieldKey, overrides
   )
 }
 
-function Findings({ findings, owner, place, orphanPlace }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string }) {
-  const ids = findingEntryIds(findings, owner)
+/** One owner's findings; pass `ids` when the list is a part of the owner's findings, so each keeps its link id. */
+export function Findings({ findings, owner, place, orphanPlace, ids: givenIds }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string; ids?: string[] }) {
+  const ids = givenIds ?? findingEntryIds(findings, owner)
   const gone = useGoneFinding(place, ids, orphanPlace)
   if (!findings.length && !gone) return null
   return (

@@ -374,6 +374,7 @@ In the browser:
 - Each finding has **Copy fix prompt**. **Details** shows the suggested fix, explanation, and full prompt.
 - After you fix the source, **Recheck** runs the checks again with the same refresh and keeps your page, search, and unsaved input. It says whether that finding still appears and marks new findings from the same check on the same file. A failed refresh or a lint run that stopped early shows as unknown, never as fixed.
 - A doctor finding that disappears is shown as not confirmed, because these doctor checks skip files they cannot read. Snapshots cannot recheck.
+- The top bar counts every finding by severity, such as **1 error, 3 warnings**, or shows **No findings**. Click it to open **Setup health** (`?view=health`), which lists all findings errors first, then by section and item, with the same rows and actions. The item name opens it in its section. **Copy all fixes** copies one prompt for every finding, errors first.
 - With warnings only, a line under the page title counts them and **Review** opens the folded list at the end of the page. Errors stay visible above the tabs with their findings.
 - Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links.
 - Every lifecycle stage starts closed and shows when it runs and its hook count. Open a stage for its tools and hooks. **Expand all** and **Collapse all** control every stage on the page.
