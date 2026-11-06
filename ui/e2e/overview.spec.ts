@@ -386,6 +386,7 @@ test.describe('overview', () => {
       await expect(page.locator('.stage-count')).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Expand all', exact: true })).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Collapse all', exact: true })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Add hook', exact: true })).toHaveCount(0)
       const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
       await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
       await expect(avatar.locator('img')).toBeVisible()
