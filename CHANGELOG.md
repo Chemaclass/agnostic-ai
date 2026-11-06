@@ -9,6 +9,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - In the web interface, each hook on Lifecycle has **Summary**, **Key fields** (event, match, type, command, timeout, disabled) and **Full spec**, which shows every field of the hook file, or hides the file when it looks like it holds a credential; search matches a hook's command (#3038).
+- The Authority page shows when a local settings file sets `protected: null`, which turns the project's protected paths off for you, and **Reset to project paths** removes it so sync protects them again (#3072).
 
 - In the web interface, **Show content** on a Context row shows the file's frontmatter as chips above its text (#3025).
 
