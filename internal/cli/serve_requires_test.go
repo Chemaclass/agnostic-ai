@@ -13,11 +13,14 @@ import (
 
 func healthFields(t *testing.T, root string, global bool) map[string]json.RawMessage {
 	t.Helper()
-	opts := authority.HandlerOptions{Root: root, Global: global}
-	opts.Requires, opts.RequiresMet = servedRequires(root, global)
-	srv := httptest.NewServer(newServeMux(nil, opts))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: root, Global: global, Requires: servedRequiresOf(root, global)}))
 	t.Cleanup(srv.Close)
-	resp, err := http.Get(srv.URL + authority.HealthPath)
+	return getHealthFields(t, srv.URL)
+}
+
+func getHealthFields(t *testing.T, base string) map[string]json.RawMessage {
+	t.Helper()
+	resp, err := http.Get(base + authority.HealthPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,5 +109,37 @@ func TestHealthLeavesOutAGlobalRequiresThatLocalClears(t *testing.T) {
 		if got, ok := fields[key]; ok {
 			t.Errorf("%s = %s, want it left out", key, got)
 		}
+	}
+}
+
+func TestHealthFollowsRequiresEditedWhileTheServerRuns(t *testing.T) {
+	requiresProject(t, ">=0.80.0")
+	setRunningVersion(t, "v0.81.0")
+	src, err := openAuthoritySource(".", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, Requires: servedRequiresOf(src.root, false)}))
+	t.Cleanup(srv.Close)
+	if got := string(getHealthFields(t, srv.URL)["requiresMet"]); got != "true" {
+		t.Fatalf("requiresMet before the edit = %s, want true", got)
+	}
+
+	setRequires(t, ">=0.82.0")
+	fields := getHealthFields(t, srv.URL)
+	if got := string(fields["requires"]); got != `">=0.82.0"` {
+		t.Errorf("requires after the edit = %s", got)
+	}
+	if got := string(fields["requiresMet"]); got != "false" {
+		t.Errorf("requiresMet after the edit = %s, want false", got)
+	}
+	// The overview cannot carry requires here: an unmet requires stops it loading.
+	resp, err := http.Get(srv.URL + "/api/views/overview")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("overview status = %d, want 500 while requires is unmet", resp.StatusCode)
 	}
 }

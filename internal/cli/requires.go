@@ -98,6 +98,12 @@ func requireGlobalVersion(source string, skipBroken io.Writer) error {
 	return requireVersionInScope(path, requires, true)
 }
 
+// servedRequiresOf reads servedRequires on each call, so the page sees
+// an edited requires, a switched branch, or an upgrade without a restart.
+func servedRequiresOf(root string, global bool) func() (string, *bool) {
+	return func() (string, *bool) { return servedRequires(root, global) }
+}
+
 // servedRequires is the requires the page shows beside the running
 // version, and whether that version meets it. It never fails: a config
 // that does not read shows no requires, and the page reports the load

@@ -81,7 +81,7 @@ export default function App() {
   const retry = useCallback(() => setReloads((n) => n + 1), [])
   const refresh = retry
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
-  const served = useServedConfig(source.kind)
+  const served = useServedConfig(source.kind, reloads)
   const stale = overview.loaded !== undefined && overview.error !== undefined
   const recheck = useRecheck(overview, refresh, source.kind === 'api', sourceKey)
   useEffect(() => {

@@ -71,6 +71,18 @@ test('names the release the config requires beside the serving release', async (
   await expect(badge).toBeHidden()
 })
 
+test('reads the required release again when the overview refreshes', async ({ page }) => {
+  let health: Record<string, unknown> = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.81.0', requires: '>=0.81.0', requiresMet: true }
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: health }))
+  await page.goto('/?view=authority')
+  const requires = page.locator('.release-badge .release-requires')
+  await expect(requires).toHaveText('requires >=0.81.0')
+  health = { ...health, requires: '>=0.82.0', requiresMet: false }
+  await page.locator('.finding', { hasText: 'LINT038' }).getByRole('button', { name: 'Recheck' }).click()
+  await expect(requires).toHaveText('requires >=0.82.0, not met by this version')
+})
+
 test('shows a checkout build without a release link', async ({ page }) => {
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: 'main@b434c92e1a2b' } }))

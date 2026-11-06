@@ -48,8 +48,8 @@ function useHeightVariable(ref: RefObject<HTMLElement | null>, name: string) {
   }, [ref, name])
 }
 
-/** Reads `/api/health` once per API source; other sources have no server to ask. */
-export function useServedConfig(sourceKind: string): ServedConfig | undefined {
+/** Reads `/api/health` for an API source with each overview load, so an edited `requires` shows; other sources have no server to ask. */
+export function useServedConfig(sourceKind: string, loads: number): ServedConfig | undefined {
   const [served, setServed] = useState<ServedConfig>()
   useEffect(() => {
     if (sourceKind !== 'api') return
@@ -59,7 +59,7 @@ export function useServedConfig(sourceKind: string): ServedConfig | undefined {
       if (live && config) setServed(config)
     }).catch(() => undefined)
     return () => { live = false }
-  }, [sourceKind])
+  }, [sourceKind, loads])
   return served
 }
 

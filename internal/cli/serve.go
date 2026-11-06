@@ -106,7 +106,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			if global && peer != nil {
 				opts.ProjectRoot = peer.root
 			}
-			opts.Requires, opts.RequiresMet = servedRequires(src.root, global)
+			opts.Requires = servedRequiresOf(src.root, global)
 			if !apiOnly && uiDir == "" {
 				opts.UIFiles = webui.Files()
 			}

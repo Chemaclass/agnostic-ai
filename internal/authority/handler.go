@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -50,16 +51,17 @@ type HandlerOptions struct {
 	// Version is the agnostic-ai release that serves, as --version
 	// prints it, so the page can name it. Empty leaves it out.
 	Version string
-	// Requires is the config's requires as written. Empty leaves it out.
-	Requires string
-	// RequiresMet says whether the running build is inside Requires;
-	// nil when the build is not a release the check can place.
-	RequiresMet    *bool
+	// Requires reads the config's requires as written, and whether the
+	// running build is inside it, on each health request: nil met when
+	// the build is not a release the check can place. An empty requires,
+	// or a nil Requires, leaves both out.
+	Requires       func() (requires string, met *bool)
 	AllowedOrigins []string
 }
 
-// HealthPath reports which configuration the server reads. It loads
-// nothing, so callers may answer it without waiting for other requests.
+// HealthPath reports which configuration the server reads. It reads
+// the config's requires but loads no specs, so callers may answer it
+// without waiting for other requests.
 const HealthPath = "/api/health"
 
 // Endpoint paths.
@@ -117,13 +119,6 @@ func NewHandler(load Loader, opts HandlerOptions) http.Handler {
 	h := &handler{load: load, opts: opts, identity: serverIdentity{OK: true, Root: absoluteRoot(opts.Root), Global: opts.Global, UI: opts.UIDir != "" || opts.UIFiles != nil, Version: opts.Version}}
 	if opts.Global && opts.ProjectRoot != "" {
 		h.identity.ProjectRoot = absoluteRoot(opts.ProjectRoot)
-	}
-	if opts.Requires != "" {
-		h.identity.Requires = opts.Requires
-		h.identity.RequiresMet = json.RawMessage("null")
-		if opts.RequiresMet != nil {
-			h.identity.RequiresMet = json.RawMessage(fmt.Sprint(*opts.RequiresMet))
-		}
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(pathView, h.view)
@@ -215,7 +210,17 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodGet) {
 		return
 	}
-	writeJSON(w, http.StatusOK, h.identity)
+	identity := h.identity
+	if h.opts.Requires != nil {
+		if requires, met := h.opts.Requires(); requires != "" {
+			identity.Requires = requires
+			identity.RequiresMet = json.RawMessage("null")
+			if met != nil {
+				identity.RequiresMet = json.RawMessage(strconv.FormatBool(*met))
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, identity)
 }
 
 func (h *handler) ui(w http.ResponseWriter, r *http.Request) {
