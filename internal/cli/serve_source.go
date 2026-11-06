@@ -18,8 +18,13 @@ import (
 
 const sourceViewPath = "/api/views/source"
 
-// sourceBodyLimit caps the bytes one source view returns.
-const sourceBodyLimit = 256 << 10
+// sourceBodyLimit caps the body one source view returns, and
+// sourceFrontmatterLimit the leading block read before it, which is
+// parsed whole so its values are redacted.
+const (
+	sourceBodyLimit        = 256 << 10
+	sourceFrontmatterLimit = 64 << 10
+)
 
 type sourceField struct {
 	Key   string `json:"key"`
@@ -151,24 +156,45 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	if err != nil || !info.Mode().IsRegular() {
 		return sourceView{}, false
 	}
-	data, err := io.ReadAll(io.LimitReader(f, sourceBodyLimit+1))
+	limit := sourceFrontmatterLimit + sourceBodyLimit
+	data, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
 	if err != nil {
 		return sourceView{}, false
 	}
 	view := sourceView{Bytes: info.Size(), Frontmatter: []sourceField{}}
-	if len(data) > sourceBodyLimit {
-		data, view.Truncated = validUTF8Prefix(data[:sourceBodyLimit]), true
+	if len(data) > limit {
+		data, view.Truncated = validUTF8Prefix(data[:limit]), true
 	}
-	keys, meta, body, err := spec.SplitFrontmatter(data)
-	if err != nil {
-		view.Body = spec.StripFrontmatter(string(data))
-		return view, true
+	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
+	switch {
+	case view.Truncated && strings.HasPrefix(text, "---") && !strings.Contains(text[3:], "\n---"):
+		body = ""
+	case err != nil:
+		body, keys = afterLeadingBlock(text), nil
+	}
+	if len(body) > sourceBodyLimit {
+		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
 	}
 	view.Body = body
 	for _, key := range keys {
 		view.Frontmatter = appendSourceFields(view.Frontmatter, key, meta[key])
 	}
 	return view, true
+}
+
+// afterLeadingBlock is text without a leading block that did not parse,
+// or nothing when that block never closes, so its values stay hidden.
+func afterLeadingBlock(text string) string {
+	end := strings.Index(text[3:], "\n---")
+	if end < 0 {
+		return ""
+	}
+	rest := text[3+end+4:]
+	if i := strings.IndexByte(rest, '\n'); i >= 0 {
+		return rest[i+1:]
+	}
+	return ""
 }
 
 func openInsideRoots(target string, roots []string) (*os.File, bool) {

@@ -367,3 +367,36 @@ func TestServeSource_ShowsEachNestedFieldWithTheOverviewRedaction(t *testing.T) 
 		t.Errorf("frontmatter: %v", got)
 	}
 }
+
+func TestServeSource_NeverShowsFrontmatterThatClosesPastTheBodyLimit(t *testing.T) {
+	dir, srv := sourceProject(t)
+	get := func(path string) (sourceView, string) {
+		t.Helper()
+		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		data, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status %d: %s", resp.StatusCode, data)
+		}
+		var view sourceView
+		if err := json.Unmarshal(data, &view); err != nil {
+			t.Fatal(err)
+		}
+		return view, string(data)
+	}
+	rule := filepath.Join(dir, ".agnostic-ai", "rules", "big.md")
+	mustWriteFile(t, rule, "---\nname: big\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceBodyLimit+1024)+"\n---\nBody.\n")
+	view, raw := get(rule)
+	if strings.Contains(raw, "hunter2short") || view.Body != "Body.\n" || view.Truncated {
+		t.Errorf("closing past the body limit: truncated %v, body %q", view.Truncated, view.Body)
+	}
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "---\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceFrontmatterLimit+sourceBodyLimit)+"\n---\nBody.\n")
+	view, raw = get(instructions)
+	if strings.Contains(raw, "hunter2short") || view.Body != "" || len(view.Frontmatter) != 0 || !view.Truncated {
+		t.Errorf("closing past the read limit: truncated %v, body length %d, frontmatter %d", view.Truncated, len(view.Body), len(view.Frontmatter))
+	}
+}
