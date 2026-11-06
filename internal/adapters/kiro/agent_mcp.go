@@ -26,7 +26,6 @@ var agentMCPTimeoutKeys = []string{"timeout", "requestTimeout"}
 func (Adapter) AgentMCPServers(mcps []spec.Entry) map[string]any {
 	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of the agent file")
 	servers := emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap, emit.WithKiroMCPExtras())
-	portable := 0
 	for _, e := range mcps {
 		server, ok := servers[e.Name].(map[string]any)
 		if !ok {
@@ -47,11 +46,11 @@ func (Adapter) AgentMCPServers(mcps []spec.Entry) map[string]any {
 		}
 		_, native := custom["timeout"]
 		_, perCall := custom["requestTimeout"]
+		// One line per server: notes repeat per agent, and identical
+		// lines print once.
 		if _, set := e.Meta["timeout"]; set && !native && !perCall {
-			portable++
+			emit.NoteProject(fmt.Sprintf("%s: MCP %s timeout is not written to agent files, since Kiro splits it into a handshake and a per-call limit; set x-kiro.timeout or x-kiro.requestTimeout in milliseconds", target, e.Name))
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", portable,
-		"Kiro agent files split it into a handshake and a per-call limit; set x-kiro.timeout or x-kiro.requestTimeout in milliseconds")
 	return servers
 }
