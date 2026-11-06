@@ -73,3 +73,22 @@ func TestImportKiroAgentDocument_MovedServersBeforeNameKeepDisplayName(t *testin
 		t.Errorf("display name left at top level:\n%s", out)
 	}
 }
+
+func TestImportKiro_AgentServerTimeoutsKeepTheMapUnderXKiro(t *testing.T) {
+	for _, key := range []string{"timeout", "requestTimeout"} {
+		t.Run(key, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+			writeFile(t, filepath.Join(dir, kiroMCPFile), `{"mcpServers":{"db":{"command":"db-mcp","`+key+`":5000}}}`)
+			writeFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md"), "---\ndescription: Reviews\nmcpServers:\n  db:\n    command: db-mcp\n    "+key+": 5000\n---\n\nReview code.\n")
+
+			execCLI(t, "import", "kiro")
+			execCLI(t, "sync", "-t", "kiro")
+			if agent := readFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md")); !strings.Contains(agent, key+": 5000") {
+				t.Errorf("synced agent lost %s:\n%s", key, agent)
+			}
+		})
+	}
+}

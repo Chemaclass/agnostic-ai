@@ -7,6 +7,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// kiroAgentTimeoutKeys are the per-server limits Kiro reads in agent
+// files only.
+var kiroAgentTimeoutKeys = []string{"timeout", "requestTimeout"}
+
 // importKiroAgentServers rewrites a Kiro agent's inline `mcpServers` map,
 // since the portable field is a list of MCP spec names. When every server
 // matches its enabled entry in `.kiro/settings/mcp.json`, which import
@@ -41,7 +45,8 @@ func importKiroAgentServers(mapping *yaml.Node, project map[string]any) (bool, e
 }
 
 // kiroProjectServerNames returns the server names of inline, in order,
-// when each one equals an enabled server of the project MCP file.
+// when each one equals an enabled server of the project MCP file and
+// sets no agent timeout.
 func kiroProjectServerNames(inline *yaml.Node, project map[string]any) ([]string, bool, error) {
 	if len(inline.Content) == 0 {
 		return nil, false, nil
@@ -63,9 +68,16 @@ func kiroProjectServerNames(inline *yaml.Node, project map[string]any) ([]string
 		if err != nil {
 			return nil, false, nil
 		}
-		var asJSON any
+		var asJSON map[string]any
 		if err := json.Unmarshal(data, &asJSON); err != nil || !reflect.DeepEqual(asJSON, shared) {
 			return nil, false, nil
+		}
+		// Sync writes agent timeouts only from x-kiro on the MCP spec, and
+		// import does not put them there.
+		for _, key := range kiroAgentTimeoutKeys {
+			if _, set := asJSON[key]; set {
+				return nil, false, nil
+			}
 		}
 		names = append(names, name)
 	}
