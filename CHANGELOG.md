@@ -43,6 +43,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Sync and import accept `compute.idle` in an environment; it used to stop sync from writing the environment file (#2998).
 
+#### Grok
+
+- Project and global import keep MCP servers with an ignored `description`; global sync preserves the native file (#3006).
+
 #### Junie
 
 - `lint` (LINT059) and sync warn when an MCP `timeout` or `x-junie.timeout` above 3600000 (one hour) reaches Junie. Junie ignores such a value and uses 60 seconds (#3014).

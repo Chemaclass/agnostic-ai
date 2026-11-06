@@ -406,12 +406,17 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				if err != nil {
 					return err
 				}
-				docs = grokMCPDocs(native)
-				for name := range docs {
+				for name := range native {
 					if covered[strings.ToLower(spec.MCPFileName(name))] {
-						delete(docs, name)
+						delete(native, name)
 					}
 				}
+				for _, note := range droppedGrokMCPDescriptionNotes(native) {
+					if _, err := fmt.Fprintf(warn, "note: %s\n", note); err != nil {
+						return err
+					}
+				}
+				docs = grokMCPDocs(native)
 			}
 			if err := withoutMCPCredentials(target, docs, skip); err != nil {
 				return err
@@ -540,9 +545,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 						return fmt.Errorf("write import warning: %w", err)
 					}
 				}
-				// Codex's spec cannot carry description or roots (#2999), so
-				// the same server from another tool replaces it with them.
-				if !same || prior.target != "codex" || target == "codex" {
+				if !same || !preferImportedMCPServer(prior.target, target) {
 					continue
 				}
 				if prior.out != out {
@@ -700,24 +703,33 @@ func normalizeGeminiTransport(server map[string]any) {
 	}
 }
 
-// sameImportedMCPServer compares one server two homes define. Codex has
-// no description or roots (#2999), so neither counts when either side
-// is Codex.
-func sameImportedMCPServer(targetA string, a any, targetB string, b any) bool {
-	ca, cb := canonicalMCPServer(targetA, a), canonicalMCPServer(targetB, b)
-	if targetA == "codex" || targetB == "codex" {
-		ca, cb = withoutCodexIgnoredMCPKeys(ca), withoutCodexIgnoredMCPKeys(cb)
+// Codex drops roots and description; Grok drops only description.
+func preferImportedMCPServer(prior, target string) bool {
+	if target == "codex" {
+		return false
 	}
-	return sameSetting(ca, cb)
+	return prior == "codex" || prior == "grok" && target != "grok"
 }
 
-func withoutCodexIgnoredMCPKeys(v any) any {
+func sameImportedMCPServer(targetA string, a any, targetB string, b any) bool {
+	ca, cb := canonicalMCPServer(targetA, a), canonicalMCPServer(targetB, b)
+	var ignored []string
+	if targetA == "codex" || targetB == "codex" {
+		ignored = []string{"description", "roots"}
+	} else if targetA == "grok" || targetB == "grok" {
+		ignored = []string{"description"}
+	}
+	return sameSetting(withoutImportedMCPKeys(ca, ignored), withoutImportedMCPKeys(cb, ignored))
+}
+
+func withoutImportedMCPKeys(v any, keys []string) any {
 	server, ok := v.(map[string]any)
 	if !ok {
 		return v
 	}
 	out := maps.Clone(server)
-	delete(out, "description")
-	delete(out, "roots")
+	for _, key := range keys {
+		delete(out, key)
+	}
 	return out
 }
