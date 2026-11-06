@@ -172,12 +172,11 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
 	shown := preview.Display(path, text)
-	if shown.Withheld {
+	// A value the preview hides may repeat elsewhere in plain text the
+	// detectors do not recognize, so the whole text is withheld.
+	if shown.Withheld || shown.Hidden {
 		view.Withheld = true
 		return view, true
-	}
-	if shown.Hidden {
-		text = shown.Text
 	}
 	keys, meta, body := splitSource(text)
 	if len(body) > sourceBodyLimit {
@@ -190,13 +189,6 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	}
 	for _, key := range keys {
 		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), meta[key])
-	}
-	// Frontmatter values show redacted, but once the preview hides
-	// anything the text is withheld: a hidden value may repeat in plain
-	// text the detectors do not recognize.
-	if shown.Hidden {
-		view.Withheld = true
-		return view, true
 	}
 	view.Body = body
 	return view, true
