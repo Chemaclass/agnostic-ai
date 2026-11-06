@@ -437,3 +437,18 @@ func TestServeSource_HidesValuesNestedUnderACredentialKey(t *testing.T) {
 		t.Errorf("status %d, a value under a credential key must stay hidden: %s", resp.StatusCode, data)
 	}
 }
+
+func TestServeSource_HidesCredentialsInsideListItems(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "---\naccounts:\n  - credentials:\n      value: hunter2short\n    name: ci\n---\nBody.\n")
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") || !strings.Contains(string(data), "accounts.0.name") {
+		t.Errorf("status %d, a credential inside a list item must stay hidden: %s", resp.StatusCode, data)
+	}
+}

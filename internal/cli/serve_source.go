@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -218,8 +219,9 @@ func validUTF8Prefix(data []byte) []byte {
 }
 
 // appendSourceFields adds one field per leaf of v: a map walks into
-// dotted keys in sorted order, a list shows its items joined by commas,
-// and each value is shown and redacted as the overview shows it.
+// dotted keys in sorted order, a list of plain values shows its items
+// joined by commas, a list holding maps or lists walks each item by
+// index, and each value is shown and redacted as the overview shows it.
 func appendSourceFields(fields []sourceField, key string, v any) []sourceField {
 	switch t := v.(type) {
 	case map[string]any:
@@ -231,6 +233,12 @@ func appendSourceFields(fields []sourceField, key string, v any) []sourceField {
 		}
 		return fields
 	case []any:
+		if slices.ContainsFunc(t, isNested) {
+			for i, item := range t {
+				fields = appendSourceFields(fields, key+"."+strconv.Itoa(i), item)
+			}
+			return fields
+		}
 		items := make([]string, 0, len(t))
 		for _, item := range t {
 			items = append(items, overview.ShownText(key, item))
@@ -238,4 +246,12 @@ func appendSourceFields(fields []sourceField, key string, v any) []sourceField {
 		return append(fields, sourceField{Key: key, Value: strings.Join(items, ", ")})
 	}
 	return append(fields, sourceField{Key: key, Value: overview.ShownText(key, v)})
+}
+
+func isNested(v any) bool {
+	switch v.(type) {
+	case map[string]any, []any:
+		return true
+	}
+	return false
 }
