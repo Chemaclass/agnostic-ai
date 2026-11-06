@@ -1789,8 +1789,9 @@ a.release-badge:focus-visible .release-arrow {
 }
 
 .editor-hint {
-  grid-column: 1 / -1;
-  max-width: 32ch;
+  display: block;
+  flex-basis: 100%;
+  contain: inline-size;
   white-space: normal;
   font-size: 12px;
 }

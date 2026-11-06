@@ -124,6 +124,26 @@ test.describe('editor settings', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Editor' })).toBeVisible()
   })
 
+  for (const width of [1280, 390]) {
+    test(`keeps the row buttons and badges still when the hint appears at ${width}px`, async ({ page }) => {
+      await serve(page)
+      await page.setViewportSize({ width, height: 844 })
+      await page.goto('/?view=context&tab=rules')
+      await page.evaluate(() => document.addEventListener('click', (event) => {
+        if ((event.target as Element).closest('a[href^="cursor:"]')) event.preventDefault()
+      }, true))
+      const open = openLink(page, 'Cursor')
+      const meta = page.locator('.item-meta').filter({ has: open })
+      const parts = [open, meta.getByRole('button', { name: 'Copy path of testing' }), meta.locator('.item-layer')]
+      const boxes = () => Promise.all(parts.map((part) => part.boundingBox()))
+      const before = await boxes()
+      await open.click()
+      await expect(meta.locator('.editor-hint')).toContainText('Allow your browser to open Cursor.')
+      await expect(meta.locator('.editor-hint').getByRole('link', { name: 'Settings' })).toBeVisible()
+      expect(await boxes()).toEqual(before)
+    })
+  }
+
   test('has no Editor tab on the bundled mock data', async ({ page }) => {
     await page.goto('/?mock=1&view=settings')
     await expect(page.getByRole('tab', { name: /^Config files/ })).toBeVisible()

@@ -87,23 +87,25 @@ export function OpenInEditor({ path, line, label, compact, shownPath }: { path?:
   const newTab = /^https?:/i.test(href)
   const where = line ? ` at line ${line}` : ''
   return (
-    <span className="editor-actions">
-      <a
-        className="button button-quiet editor-open"
-        href={href}
-        target={newTab ? '_blank' : undefined}
-        rel={newTab ? 'noopener noreferrer' : undefined}
-        aria-label={`Open ${label} in ${name}${where}`}
-        title={`Open in ${name}${where}`}
-        onClick={() => setAttempted(true)}
-      >
-        <Icon name="arrow" />
-        <span>{compact ? 'Open' : `Open in ${name}`}</span>
-      </a>
-      {copy(path)}
+    <>
+      <span className="editor-actions">
+        <a
+          className="button button-quiet editor-open"
+          href={href}
+          target={newTab ? '_blank' : undefined}
+          rel={newTab ? 'noopener noreferrer' : undefined}
+          aria-label={`Open ${label} in ${name}${where}`}
+          title={`Open in ${name}${where}`}
+          onClick={() => setAttempted(true)}
+        >
+          <Icon name="arrow" />
+          <span>{compact ? 'Open' : `Open in ${name}`}</span>
+        </a>
+        {copy(path)}
+      </span>
       <span className="muted editor-hint" role="status">
         {attempted && <>Allow your browser to open {name}. If nothing opens, change the editor in <AppLink to={{ view: 'settings', tab: 'editor' }}>Settings</AppLink> or copy the path.</>}
       </span>
-    </span>
+    </>
   )
 }
