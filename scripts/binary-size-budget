@@ -782,4 +782,7 @@
 # Adding a hook from the Lifecycle page (#3037), merged with the setup
 # health view, measured 24854688 bytes; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-24866816
+# The Field Ledger tokens and fonts (#3026), three subset WOFF2 files of
+# about 28 KB, measured 24895648 bytes; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+24907776

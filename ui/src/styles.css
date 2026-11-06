@@ -1,43 +1,147 @@
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/atkinson-next-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/atkinson-next-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Archivo Narrow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/archivo-narrow-700.woff2') format('woff2');
+}
+
+/* Local Arial scaled to each font's widths, so the swap does not reflow.
+   ui/src/assets/fonts/README.md shows how the numbers were measured. */
+@font-face {
+  font-family: 'Atkinson Fallback';
+  font-weight: 400;
+  src: local('Arial'), local('ArialMT');
+  size-adjust: 99.86%;
+  ascent-override: 98.54%;
+  descent-override: 31.64%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Atkinson Fallback';
+  font-weight: 600;
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  size-adjust: 98.39%;
+  ascent-override: 100.01%;
+  descent-override: 32.12%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Archivo Narrow Fallback';
+  font-weight: 700;
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  size-adjust: 82.01%;
+  ascent-override: 126.2%;
+  descent-override: 38.04%;
+  line-gap-override: 0%;
+}
+
 :root {
   color-scheme: dark;
-  --canvas-top: #14120f;
-  --canvas-bottom: #14120f;
-  --topbar: #1c1917;
-  --panel: #1c1917;
-  --panel-raised: #25211e;
-  --panel-sunken: #14120f;
-  --drawer: #1c1917;
-  --line: #38312a;
-  --line-strong: #72665a;
+  --canvas-top: #121110;
+  --canvas-bottom: #121110;
+  --sidebar: #171513;
+  --topbar: #1b1917;
+  --panel: #1b1917;
+  --panel-raised: #25221e;
+  --panel-sunken: #0f0e0d;
+  --drawer: #1b1917;
+  --field: #0e0d0c;
+  --slab: #0c0b0a;
+  --slab-raised: #1a1714;
+  --slab-ink: #f0eae0;
+  --slab-dim: #a99f91;
+  --slab-line: #2e2924;
+  --slab-accent: #f0a35e;
+  --line: #34302a;
+  --line-strong: #766d60;
+  --rule: #cfc7bb;
   --text: #f2ede5;
-  --text-muted: #b3a89b;
-  --on-accent: #21170f;
+  --text-soft: #cfc7bb;
+  --text-muted: #a59a8b;
+  --text-faint: #7f766a;
+  --on-accent: #1d130a;
   --accent: #f0a35e;
   --accent-strong: #f7b97f;
-  --accent-wash: rgba(240, 163, 94, 0.08);
-  --accent-wash-strong: rgba(240, 163, 94, 0.13);
+  --accent-wash: #2f2117;
+  --accent-wash-strong: #3d2a1a;
   --subject-fill: #30241a;
-  --permitted: #a6cf9a;
-  --permitted-wash: rgba(166, 207, 154, 0.09);
-  --info: #9dbde2;
-  --info-wash: rgba(157, 189, 226, 0.09);
-  --approval: #e7bf77;
-  --approval-wash: rgba(231, 191, 119, 0.08);
-  --on-approval: #2a1d05;
-  --blocked: #f39b91;
-  --blocked-wash: rgba(243, 155, 145, 0.08);
-  --neutral: #b3a89b;
-  --neutral-wash: rgba(179, 168, 155, 0.06);
-  --edge-muted: #72665a;
+  --permitted: #9fcf8a;
+  --permitted-wash: #1d2a1a;
+  --info: #9dbde4;
+  --info-wash: #1b2533;
+  --approval: #e6bb67;
+  --approval-wash: #2f2715;
+  --on-approval: #241a05;
+  --blocked: #f39689;
+  --blocked-wash: #33201d;
+  --neutral: #a59a8b;
+  --neutral-wash: #24211e;
+  --meter: #b8722f;
+  --edge-muted: #766d60;
   --focus: #f0a35e;
   --backdrop: rgba(0, 0, 0, 0.45);
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 12px;
+  --shadow-overlay: 0 0 0 1px var(--line-strong), 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-lg: 6px;
   --radius-pill: 999px;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --rail: 3px;
+  --font-body: 'Atkinson Hyperlegible Next', 'Atkinson Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: var(--font-body);
+  --font-display: 'Archivo Narrow', 'Archivo Narrow Fallback', 'Arial Narrow', var(--font-body);
   --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
-  --measure: 70ch;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 34px;
+  --text-stat: 40px;
+  --leading-2xs: 1.3;
+  --leading-xs: 1.4;
+  --leading-sm: 1.45;
+  --leading-md: 1.5;
+  --leading-lg: 1.35;
+  --leading-xl: 1.15;
+  --leading-2xl: 1.05;
+  --leading-stat: 1;
+  --space-0_5: 2px;
+  --space-1: 4px;
+  --space-1_5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-14: 56px;
+  --dur-1: 90ms;
+  --dur-2: 160ms;
+  --dur-3: 220ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --measure: 73ch;
   --kbd-on-accent: rgba(0, 0, 0, 0.12);
   --kbd-on-accent-line: rgba(0, 0, 0, 0.25);
   --nav-width: 228px;
@@ -46,36 +150,49 @@
 
 [data-theme='light'] {
   color-scheme: light;
-  --canvas-top: #f7f7f6;
-  --canvas-bottom: #f7f7f6;
-  --topbar: #ffffff;
-  --panel: #ffffff;
-  --panel-raised: #eeeeeb;
-  --panel-sunken: #f7f7f6;
-  --drawer: #ffffff;
-  --line: #d9d7d1;
-  --line-strong: #8c857b;
+  --canvas-top: #f3f1ec;
+  --canvas-bottom: #f3f1ec;
+  --sidebar: #eceae4;
+  --topbar: #fbfaf8;
+  --panel: #fbfaf8;
+  --panel-raised: #e9e6df;
+  --panel-sunken: #f0ede7;
+  --drawer: #fbfaf8;
+  --field: #ffffff;
+  --slab: #16130f;
+  --slab-raised: #221d18;
+  --slab-ink: #f0eae0;
+  --slab-dim: #a99f91;
+  --slab-line: #3a342c;
+  --slab-accent: #f0a35e;
+  --line: #d8d4ca;
+  --line-strong: #7f776c;
+  --rule: #1a1714;
   --text: #1a1714;
-  --text-muted: #6f6960;
+  --text-soft: #45403a;
+  --text-muted: #675f56;
+  --text-faint: #857d72;
   --on-accent: #ffffff;
   --accent: #a8481a;
-  --accent-strong: #913b13;
-  --accent-wash: rgba(168, 72, 26, 0.04);
-  --accent-wash-strong: rgba(168, 72, 26, 0.08);
+  --accent-strong: #8c3912;
+  --accent-wash: #f5e7dc;
+  --accent-wash-strong: #efd8c6;
   --subject-fill: #f5e9df;
-  --permitted: #376a2d;
-  --permitted-wash: rgba(55, 106, 45, 0.06);
-  --info: #325f94;
-  --info-wash: rgba(50, 95, 148, 0.06);
-  --approval: #825b14;
-  --approval-wash: rgba(130, 91, 20, 0.06);
+  --permitted: #2f6a2a;
+  --permitted-wash: #e6efe1;
+  --info: #2c5c93;
+  --info-wash: #e3ebf5;
+  --approval: #875800;
+  --approval-wash: #f6ecd9;
   --on-approval: #ffffff;
-  --blocked: #af3529;
-  --blocked-wash: rgba(175, 53, 41, 0.06);
-  --neutral: #6f6960;
-  --neutral-wash: rgba(111, 105, 96, 0.04);
-  --edge-muted: #8c857b;
+  --blocked: #ad2f1f;
+  --blocked-wash: #f8e5e1;
+  --neutral: #675f56;
+  --neutral-wash: #ebe8e2;
+  --meter: #c9773f;
+  --edge-muted: #7f776c;
   --focus: #a8481a;
+  --shadow-overlay: 0 0 0 1px var(--line-strong), 0 12px 32px -8px rgb(26 23 20 / 0.22);
 }
 
 *,
@@ -93,9 +210,10 @@ body {
   min-height: 100vh;
   background-color: var(--canvas-bottom);
   color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.5;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  font-synthesis-weight: none;
 }
 
 a {
@@ -109,6 +227,12 @@ h3,
 h4 {
   line-height: 1.2;
   margin: 0;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 p {
@@ -166,7 +290,7 @@ table,
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--on-accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .skip-link:focus {
@@ -259,7 +383,7 @@ html {
 
 .brand-name {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.025em;
 }
 
@@ -536,7 +660,7 @@ a.release-badge:focus-visible .release-mark {
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -555,7 +679,7 @@ a.release-badge:focus-visible .release-mark {
 
 .release-requires.is-unmet {
   color: var(--approval);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .release-arrow {
@@ -748,7 +872,7 @@ a.release-badge:focus-visible .release-arrow {
 
 .eyebrow {
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
@@ -768,7 +892,7 @@ a.release-badge:focus-visible .release-arrow {
 .block > h2,
 .section-head h2 {
   font-size: 17px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .section-head {
@@ -914,7 +1038,7 @@ a.release-badge:focus-visible .release-arrow {
 }
 
 .banner-title {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .banner-error {
@@ -947,7 +1071,7 @@ a.release-badge:focus-visible .release-arrow {
 
 .empty-title {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .facts {
@@ -959,7 +1083,7 @@ a.release-badge:focus-visible .release-arrow {
 
 .facts dt {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -999,7 +1123,7 @@ a.release-badge:focus-visible .release-arrow {
   border: 0;
   padding: 0;
   color: var(--accent-strong);
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -1081,7 +1205,7 @@ a.release-badge:focus-visible .release-arrow {
   border: 1.5px solid currentColor;
   border-radius: var(--radius-pill);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.35;
   vertical-align: middle;
 }
@@ -1179,7 +1303,7 @@ a.release-badge:focus-visible .release-arrow {
   background: transparent;
   border-radius: var(--radius-sm);
   padding: 6px 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
 }
@@ -1206,7 +1330,7 @@ a.release-badge:focus-visible .release-arrow {
 .kind-count {
   margin-left: 6px;
   font-size: 0.8em;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .item-groups {
@@ -1221,7 +1345,7 @@ a.release-badge:focus-visible .release-arrow {
 
 .item-group-title {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
@@ -1395,7 +1519,7 @@ a.release-badge:focus-visible .release-arrow {
   border-radius: 0;
   background: transparent;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .finding-meta .code,
@@ -1556,7 +1680,7 @@ a.release-badge:focus-visible .release-arrow {
 .finding-evidence strong,
 .finding-prompt label {
   color: var(--text);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .finding-prompt {
@@ -1641,7 +1765,7 @@ a.release-badge:focus-visible .release-arrow {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
@@ -1911,7 +2035,7 @@ a.release-badge:focus-visible .release-arrow {
   border: 1px solid var(--line);
   color: #1a1714;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 600;
   cursor: default;
 }
 
@@ -2230,7 +2354,7 @@ a.release-badge:focus-visible .release-arrow {
 
 .table thead th {
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -2259,7 +2383,7 @@ a.release-badge:focus-visible .release-arrow {
 
 .context-usage-head h2 {
   font-size: 17px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .context-usage-head p {
@@ -2279,7 +2403,7 @@ a.release-badge:focus-visible .release-arrow {
   align-items: flex-start;
   gap: 8px;
   margin: 0;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .context-verdict .icon {
@@ -2300,7 +2424,7 @@ a.release-badge:focus-visible .release-arrow {
 .context-check-heading {
   margin: 4px 0 0;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
@@ -2463,7 +2587,7 @@ tr.is-advised > td {
 .context-advice-heading {
   margin: 0;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
@@ -2563,7 +2687,7 @@ tr.is-advised > td {
   display: block;
   font-size: 30px;
   line-height: 1.2;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2613,7 +2737,7 @@ tr.is-advised > td {
 
 .context-usage-part h3 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .context-usage-compare {
@@ -2630,7 +2754,7 @@ tr.is-advised > td {
 }
 
 .context-usage-compare dt {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .context-usage-compare dd {
@@ -2690,14 +2814,14 @@ tr.is-advised > td {
 
 .context-contributions > summary {
   cursor: pointer;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .context-contributions caption {
   padding: 10px 14px;
   text-align: left;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .table .context-number {
@@ -2825,7 +2949,7 @@ tr.is-advised > td {
 .inspector-meta dt {
   min-width: 80px;
   color: var(--text-muted);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .inspector-meta dd {
@@ -2978,7 +3102,7 @@ tr.is-advised > td {
 .section-tabs [role="tab"][aria-selected="true"] {
   border-bottom-color: var(--accent);
   color: var(--accent-strong);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .section-tab-count {
@@ -2992,7 +3116,7 @@ tr.is-advised > td {
 .section-tab-findings {
   color: var(--approval);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .section-panel { min-width: 0; }

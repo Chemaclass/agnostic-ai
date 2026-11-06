@@ -120,11 +120,11 @@ The direction was worked out in code, not in a design tool. The frontmatter abov
 
 ## Colors
 
-Paper forms the canvas; surfaces hold navigation and grouped content. Ink carries names and values; muted ink carries descriptions and source paths. Rust marks active navigation, focus, and configured lifecycle markers. Separate green, blue, amber, and red tokens communicate permission, information, approval, and blocked states. Severity also has a visible text label.
+Paper forms the canvas; the sidebar sits one step darker, and surfaces hold grouped content. Ink carries names and values; muted ink carries descriptions and source paths. Faint ink is for disabled controls and decoration only, never for text a reader needs. Rust marks active navigation, focus, and configured lifecycle markers. Separate green, blue, amber, and red tokens communicate permission, information, approval, and blocked states, each with a solid wash for its background. Severity also has a visible text label. The slab tokens hold the dark top bar, which keeps the surface color until the chrome moves to it.
 
 ## Typography
 
-System sans serves headings, controls, and body text (15px, 1.5 line height). Page titles use 28px, weight 700, and tight tracking. Controls use 13px. System monospace distinguishes keys, paths, code, and JSON controls. Descriptions use 13px; source paths use 12px and wrap within their row.
+Atkinson Hyperlegible Next serves body text and controls (14px, 1.5 line height) in two weights, 400 and 600; the browser never fakes a bold, and heavier weights resolve to 600. Archivo Narrow 700 sets page and section headings. Page titles use 28px. Controls use 13px. System monospace distinguishes keys, paths, code, and JSON controls. Descriptions use 13px; source paths use 12px and wrap within their row. Both faces load from the binary with a local Arial fallback scaled to their widths, so the swap does not reflow the page; `src/assets/fonts/README.md` shows how to rebuild them.
 
 ## Layout
 
@@ -136,7 +136,7 @@ One-pixel borders, warm surface tones, and whitespace define groups. The interfa
 
 ## Shapes
 
-Small rounded corners soften controls and metadata. Larger corners group content; pills serve switches and compact badges. Source rows stay aligned within their containing list.
+Corners stay small: 2px on metadata, 4px on controls and grouped content, and 6px on dialogs and the drawer. Pills serve switches and compact badges. Source rows stay aligned within their containing list.
 
 ## Components
 
