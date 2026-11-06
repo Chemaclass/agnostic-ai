@@ -7,7 +7,7 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest } from './contract'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest } from './contract'
 import { normalizeContextView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
 import { staticOverviewUrl, type DataSource } from './model/url'
@@ -194,4 +194,23 @@ export async function importMCPSpec(action: 'preview' | 'apply', audience: 'shar
   }
   if (!res.ok) throw new EditError(await readError(res), [], res.status)
   return await res.json() as MCPSpecPreview
+}
+
+export async function addHookSpec(request: HookSpecRequest): Promise<HookSpecPreview> {
+  let res: Response
+  try {
+    res = await fetch(API.editHook, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request) })
+  } catch {
+    throw new EditError('Could not reach the server. Try again when it is running.')
+  }
+  if (!res.ok) {
+    let reply: { error?: string; problems?: string[] } = {}
+    try {
+      reply = (await res.json()) as typeof reply
+    } catch {
+      // Not JSON; fall back to the status.
+    }
+    throw new EditError(reply.error ?? `The server answered ${res.status}.`, reply.problems ?? [], res.status)
+  }
+  return await res.json() as HookSpecPreview
 }

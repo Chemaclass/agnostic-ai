@@ -347,7 +347,7 @@ test.describe('overview', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   })
 
-  test('opens on Context with five sections and an icon theme toggle', async ({ page }) => {
+  test('opens on Context with five sections, Setup health, and an icon theme toggle', async ({ page }) => {
     await openApp(page)
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
     await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
@@ -357,8 +357,8 @@ test.describe('overview', () => {
     }
     await selectTab(page, 'Agents')
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
-    await expect(nav.getByRole('link')).toHaveCount(5)
-    for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
+    await expect(nav.getByRole('link')).toHaveCount(6)
+    for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings', 'Setup health']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
     await expect(page.locator('.topbar .chip', { hasText: 'sync' })).toHaveCount(0)
     const theme = page.getByRole('button', { name: /^Switch to (light|dark) theme$/ })
     const before = await theme.getAttribute('aria-label')
@@ -386,6 +386,7 @@ test.describe('overview', () => {
       await expect(page.locator('.stage-count')).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Expand all', exact: true })).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Collapse all', exact: true })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Add hook', exact: true })).toHaveCount(0)
       const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
       await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
       await expect(avatar.locator('img')).toBeVisible()

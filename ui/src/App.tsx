@@ -7,6 +7,7 @@ import { AppContext, type AppApi } from './components/app-context'
 import { GlobalSearch } from './components/GlobalSearch'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
+import { HealthPage } from './components/Health'
 import { ErrorPanel, RefreshFailure } from './components/Banner'
 import { Header, Nav, useServedConfig, type Remote } from './components/Shell'
 import { RecheckProvider, useRecheck } from './components/Recheck'
@@ -196,7 +197,7 @@ export default function App() {
               <div className="page">
                 {sourceError && <ErrorPanel error={sourceError} />}
                 {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
-                <SectionPage sectionId={state.view} overview={overview} stale={stale} />
+                {state.view === 'health' ? <HealthPage overview={overview} stale={stale} /> : <SectionPage sectionId={state.view} overview={overview} stale={stale} />}
               </div>
             </main>
           </div>
