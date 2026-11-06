@@ -775,4 +775,6 @@
 # The sidebar footer with the configuration switch, Overview JSON and the
 # required version on /api/health (#3034, #3035, #3036) measured 24793248
 # bytes; the budget is that plus 8192.
-24801440
+# Qwen agent background and hooks (#3043) measured 24805536 bytes on Go 1.27.3,
+# up 8192 from main d36dce97; keep the 8192-byte build allowance.
+24813728

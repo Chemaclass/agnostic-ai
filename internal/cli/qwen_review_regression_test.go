@@ -368,3 +368,28 @@ func TestImportFromQwen_KeepsSkillInvocationFieldsShared(t *testing.T) {
 		}
 	}
 }
+
+func TestImportFromQwen_KeepsAgentHooksNative(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".qwen/agents/rev.md"), "---\nname: rev\ndescription: Review\nbackground: true\nhooks:\n  PreToolUse:\n    - matcher: ^run_shell_command$\n      hooks:\n        - type: command\n          command: ./guard.sh\n---\nReview.\n")
+
+	if err := importFromQwen(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readFile(t, filepath.Join(dir, "agents", "rev.md"))
+	entry, err := spec.ParseMarkdownBytes(spec.KindAgent, []byte(got))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry.Meta["background"] != true {
+		t.Errorf("background should be shared:\n%s", got)
+	}
+	if _, shared := entry.Meta["hooks"]; shared {
+		t.Errorf("Qwen hooks carry Qwen tool names and must stay under x-qwen:\n%s", got)
+	}
+	native, _ := entry.Meta["x-qwen"].(map[string]any)
+	if _, ok := native["hooks"]; !ok {
+		t.Errorf("hooks missing from x-qwen:\n%s", got)
+	}
+}

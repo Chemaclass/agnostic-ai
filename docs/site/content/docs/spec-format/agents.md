@@ -232,6 +232,7 @@ A native key under `x-<target>`, such as `x-gemini.max_turns`, `x-kilo.steps`, o
 |--------|------------|--------------|
 | [Claude Code](@/docs/targets/claude.md) | `maxTurns` | `background` |
 | [Qoder](@/docs/targets/qoder.md) | `maxTurns` | `background`, when background subagent sessions are on |
+| [Qwen Code](@/docs/targets/qwen.md) | `maxTurns` | `background` |
 | [Junie](@/docs/targets/junie.md) | `maxTurns` | Sync note |
 | [Gemini CLI](@/docs/targets/gemini.md) | `max_turns` | Sync note |
 | [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md) | `steps` | Sync note |
@@ -249,6 +250,7 @@ Without either field, the agent uses the session's setting. On Claude Code, a se
 | [Claude Code](@/docs/targets/claude.md) | Seven values; `manual` is an alias of `default` | Written to the agent file |
 | [Qoder](@/docs/targets/qoder.md) | Six values. Any other value is reported | Seven events. A wider setting is reported |
 | [OpenHands](@/docs/targets/openhands.md) | Different names (`always_confirm`, `never_confirm`, `confirm_risky`). Set `x-openhands` | Six snake_case events, command handlers only. Set `x-openhands` |
+| [Qwen Code](@/docs/targets/qwen.md) | Not written, with a note: Qwen maps Claude's names to its own approval modes with different strictness. Set `x-qwen.approvalMode` | Written to the agent file; `Stop` becomes `SubagentStop`. Project agent hooks need a trusted folder |
 
 On Qoder, `bypassPermissions` becomes `acceptEdits` when security policy disables it, and an agent runs fewer hook events than the project does.
 

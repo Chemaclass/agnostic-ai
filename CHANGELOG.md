@@ -81,6 +81,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Skills keep `disable-model-invocation`, `user-invocable`, and `paths` in `.qwen/skills/`, so a manual-only skill stays out of the model's reach, and import reads them back as shared fields (#3042).
 
+- Agents keep `background` and their `hooks` in `.qwen/agents/`; a shared `Stop` hook becomes `SubagentStop`. Agent hooks used to be dropped with no note. Import reads `background` back as a shared field (#3043).
+
 - The target page says project hooks need folder trust or hook approval: from 0.26.7 in interactive sessions, from 0.26.8 in headless runs too (#2978, #3015).
 
 #### Trae
