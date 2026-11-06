@@ -66,7 +66,8 @@ type driftReport struct {
 	// lineEndings marks the changed files that differ from what sync
 	// writes only by CRLF line endings. Sync cannot settle them while Git
 	// converts the files on checkout.
-	lineEndings map[string]bool
+	lineEndings    map[string]bool
+	releasedMerged map[string]bool
 }
 
 // leftoverFix names the command that removes the report's Leftover. Sync
@@ -659,7 +660,11 @@ func printDrift(reports []driftReport) bool {
 		if len(r.Stale) > 0 && r.against == "" {
 			summaryf("    %d file(s) out of date (run `agnostic-ai sync` to update):\n", len(r.Stale))
 			for _, f := range r.Stale {
-				summaryf("      - %s\n", r.label(f.Path))
+				if r.releasedMerged[f.Path] {
+					summaryf("      - %s (sync removes unchanged managed keys and keeps your keys and edits)\n", r.label(f.Path))
+				} else {
+					summaryf("      - %s\n", r.label(f.Path))
+				}
 			}
 		}
 		plain, merged := splitMerged(r.Edited)
@@ -700,6 +705,29 @@ func printDrift(reports []driftReport) bool {
 		}
 	}
 	return any
+}
+
+func doctorPreviewDrift(reports []driftReport, cfg *config.Config) ([]driftReport, error) {
+	display := slices.Clone(reports)
+	for i := range display {
+		display[i].Stale = slices.Clone(display[i].Stale)
+		display[i].Orphaned = slices.Clone(display[i].Orphaned)
+	}
+	display, err := previewMergedLeftovers(display, readStateFile("."), cfg.Sync.Unmanaged, false)
+	if err != nil {
+		return nil, err
+	}
+	for i := range display {
+		for _, f := range display[i].Stale {
+			if slices.Contains(reports[i].Leftover, f.Path) {
+				if display[i].releasedMerged == nil {
+					display[i].releasedMerged = map[string]bool{}
+				}
+				display[i].releasedMerged[f.Path] = true
+			}
+		}
+	}
+	return display, nil
 }
 
 func newDoctorCmd() *cobra.Command {
@@ -780,6 +808,10 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				displayReports, err := doctorPreviewDrift(reports, scope.cfg)
+				if err != nil {
+					return err
+				}
 				lint, accepted, err := lintScopeReport(scope)
 				if err != nil {
 					return err
@@ -800,7 +832,7 @@ func newDoctorCmd() *cobra.Command {
 				if claudeSkillOverridesSelected(scope.cfg, targets) {
 					overrides = collectClaudeSkillOverrides(scope.cfg, scope.bundle, diagnosticScope == "project")
 				}
-				return printDoctorJSON(cmd, reports, gate, refs, checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck, skillOverrideRecords(overrides))
+				return printDoctorJSON(cmd, displayReports, gate, refs, checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck, skillOverrideRecords(overrides))
 			}
 
 			configOK := doctorConfigOK()
@@ -912,7 +944,11 @@ func newDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			hasDrift := printDrift(reports)
+			displayReports, err := doctorPreviewDrift(reports, cfg)
+			if err != nil {
+				return err
+			}
+			hasDrift := printDrift(displayReports)
 			copiesOnly := !hasDrift && len(copies) > 0
 			// A target that did not resolve was warned about and skipped,
 			// so its files were never compared.

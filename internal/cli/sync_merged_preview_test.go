@@ -337,3 +337,34 @@ func TestSync_PlainDryRunForOneTargetLeavesOtherMergedFiles(t *testing.T) {
 		t.Errorf("sync -t claude changed cursor's file:\n%s", after)
 	}
 }
+
+func TestDoctor_ReportsStrippedSettingsWithoutChangingRepairOwnership(t *testing.T) {
+	syncedHookProject(t, func(s string) string {
+		return strings.Replace(s, "{", "{\n  \"myKey\": 1,", 1)
+	})
+	before := snapshotTree(t, ".")
+	logs := captureLogOut(t)
+	if _, err := runCLI(t, "doctor"); err == nil {
+		t.Error("doctor must report drift")
+	}
+	if got := logs.String(); !strings.Contains(got, "removes unchanged managed keys") || !strings.Contains(got, "keeps your keys") {
+		t.Errorf("doctor must explain the shared file update:\n%s", got)
+	}
+	out, err := runCLI(t, "doctor", "--json")
+	if err == nil || !strings.Contains(out, `"action": "stale"`) {
+		t.Errorf("doctor JSON must report stale: %v\n%s", err, out)
+	}
+	if after := snapshotTree(t, "."); !maps.Equal(before, after) {
+		t.Error("read-only doctor changed files")
+	}
+	if out, err := runCLI(t, "doctor", "--fix"); err != nil {
+		t.Fatalf("doctor --fix: %v\n%s", err, out)
+	}
+	if _, ok := readStateFile(".").Merged[".claude/settings.json"]; ok {
+		t.Error("doctor --fix must release merged ownership")
+	}
+	data, err := os.ReadFile(".claude/settings.json")
+	if err != nil || !strings.Contains(string(data), "myKey") || strings.Contains(string(data), "hooks") {
+		t.Errorf("doctor --fix must retain only user keys: %q, %v", data, err)
+	}
+}

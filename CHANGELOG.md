@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `doctor` describes shared settings updates as removing unchanged managed keys and keeping your keys, with JSON action `stale` (#3009).
+
 - **Breaking:** sync stops on an MCP `roots` item that is not a `{uri, name}` mapping with a `uri`, such as a plain string; `lint` (LINT060) and `validate` report it and name the server. Every tool used to drop it with no note. Write `- uri: file:///path` (#3016).
 
 - `hook run` rejects a `--payload` file that does not hold a JSON object instead of passing with no hook run, and `--format json` still prints its result object when a target cannot be set up (#2994).

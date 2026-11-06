@@ -39,7 +39,7 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-For user-level configuration, `agnostic-ai sync --global --plan --check` previews changes and exits non-zero on drift.
+For user-level configuration, `agnostic-ai sync --global --plan --check` previews changes and exits non-zero on drift. `agnostic-ai doctor` explains drift, including when a shared settings file keeps your keys after sync removes its own.
 
 Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files. Sync saves hand edits as `.bak` before replacing or removing a generated file; `revert` restores them.
 
