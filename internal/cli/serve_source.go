@@ -176,17 +176,10 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		view.Withheld = true
 		return view, true
 	}
-	original := text
 	if shown.Hidden {
 		text = shown.Text
 	}
 	keys, meta, body := splitSource(text)
-	// Frontmatter values show redacted, but a body the preview had to
-	// redact is withheld whole: the same value may repeat in plain text.
-	if _, _, raw := splitSource(original); raw != body {
-		view.Withheld = true
-		return view, true
-	}
 	if len(body) > sourceBodyLimit {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
 	}
@@ -195,10 +188,17 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		view.Withheld = true
 		return view, true
 	}
-	view.Body = body
 	for _, key := range keys {
 		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), meta[key])
 	}
+	// Frontmatter values show redacted, but once the preview hides
+	// anything the text is withheld: a hidden value may repeat in plain
+	// text the detectors do not recognize.
+	if shown.Hidden {
+		view.Withheld = true
+		return view, true
+	}
+	view.Body = body
 	return view, true
 }
 
