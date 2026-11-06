@@ -376,7 +376,7 @@ In the browser:
 - A doctor finding that disappears is shown as not confirmed, because these doctor checks skip files they cannot read. Snapshots cannot recheck.
 - With warnings only, a line under the page title counts them and **Review** opens the folded list at the end of the page. Errors stay visible above the tabs with their findings.
 - Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links.
-- Every lifecycle stage starts closed and shows when it runs and its hook count. Open a stage for its tools and hooks. **Expand all** and **Collapse all** control every stage on the page. Each hook row has **Summary**, **Key fields** (when and on what it runs, the command, timeout, and whether it is disabled), and, with a running server, **Full spec**, every field of the file with credentials redacted. A built-in hook has no file, so it shows key fields only.
+- Every lifecycle stage starts closed and shows when it runs and its hook count. Open a stage for its tools and hooks. **Expand all** and **Collapse all** control every stage on the page. Each hook row has **Summary**, **Key fields** (`on` or `event`, `match` or `matcher`, `type`, `command`, `timeout`, and `disabled`), and, with a running server, **Full spec**, every field of the file with credentials redacted. A built-in hook has no file, so it shows key fields only.
 - Search opens matching stages; clearing it closes them. A linked hook or finding opens its stage and receives focus. Open states are not saved.
 - Native settings are grouped by tool, with the `x-<tool>` prefix shown once.
 - **Settings** shows configured fields first and the rest under **Unconfigured fields**, including a default model or reasoning effort.

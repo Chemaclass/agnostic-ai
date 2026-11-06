@@ -447,6 +447,11 @@ func TestServeSource_HidesAHookThatDoesNotParseOrIsCut(t *testing.T) {
 			t.Errorf("%s: status %d leaked the command: %.200s", filepath.Base(path), resp.StatusCode, data)
 		}
 	}
+	mustWriteFile(t, broken, "name: broken\non: stop\ncommand: echo ok\n")
+	view := getSource(t, srv, absSlash(t, large), http.StatusOK)
+	if !view.Truncated || len(view.Frontmatter) != 0 || view.Body != "" {
+		t.Errorf("cut hook: truncated %v, fields %d, body length %d", view.Truncated, len(view.Frontmatter), len(view.Body))
+	}
 }
 
 func TestServeSource_ServesEveryLifecycleRowTheOverviewCanOpen(t *testing.T) {
