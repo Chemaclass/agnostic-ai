@@ -13,7 +13,7 @@ import (
 
 const target = "grok"
 
-var caps = emit.Capabilities{Target: target, Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindSettings}, AgentFields: []string{"effort", "mcpServers", "maxTurns", "background"}, SkillFields: emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown}}
+var caps = emit.Capabilities{Target: target, Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindSettings}, AgentFields: []string{"effort", "mcpServers", "maxTurns", "background", "hooks", "permissionMode"}, SkillFields: emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown}}
 
 type Adapter struct{}
 

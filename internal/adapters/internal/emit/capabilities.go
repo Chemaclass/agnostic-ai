@@ -30,6 +30,10 @@ type Capabilities struct {
 	// tracked field when the target has a more specific one, such as
 	// a native key that takes a different shape.
 	AgentFieldReasons map[string]string
+	// AgentFieldNativeKeys names, per tracked field, the native key under
+	// `x-<target>` that a note recommends. Setting it counts as handling
+	// the field, so the note stays quiet.
+	AgentFieldNativeKeys map[string]string
 	// SettingsFields lists the portable settings fields with a native
 	// key on only some targets, today just "effort", that this adapter
 	// writes. ReportUnsupported notes the field on every other target.
@@ -49,6 +53,8 @@ var trackedAgentFields = []struct{ field, reason string }{
 	{"mcpServers", "the agent file has no MCP server list"},
 	{"maxTurns", "the agent file has no turn limit key"},
 	{"background", "the agent file has no background run key"},
+	{"hooks", "the agent file has no hook key"},
+	{"permissionMode", "the agent file has no permission mode key"},
 }
 
 // supports reports whether the adapter declares native support for k.
@@ -146,6 +152,11 @@ func noteDroppedAgentFields(c Capabilities, agents []spec.Entry) {
 			custom, _ := a.Meta[XPrefix+c.Target].(map[string]any)
 			if _, explicit := custom[t.field]; explicit {
 				continue
+			}
+			if native, ok := c.AgentFieldNativeKeys[t.field]; ok {
+				if _, set := custom[native]; set {
+					continue
+				}
 			}
 			if v := ResolveMeta(a.Meta, c.Target)[t.field]; v != nil && v != "" && v != false {
 				dropped++

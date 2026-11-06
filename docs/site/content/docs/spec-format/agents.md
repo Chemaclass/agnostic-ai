@@ -251,6 +251,10 @@ Without either field, the agent uses the session's setting. On Claude Code, a se
 | [Qoder](@/docs/targets/qoder.md) | Six values. Any other value is reported | Seven events. A wider setting is reported |
 | [OpenHands](@/docs/targets/openhands.md) | Different names (`always_confirm`, `never_confirm`, `confirm_risky`). Set `x-openhands` | Six snake_case events, command handlers only. Set `x-openhands` |
 | [Qwen Code](@/docs/targets/qwen.md) | Not written, with a note: Qwen maps Claude's names to its own approval modes with different strictness. Set `x-qwen.approvalMode` | Written to the agent file; `Stop` becomes `SubagentStop`. Project agent hooks need a trusted folder |
+| [CodeBuddy](@/docs/targets/codebuddy.md) | Five values; any other value stops sync | Written to the agent file. Running them needs the user's `allowUntrustedFrontmatterHooks` choice |
+| [Grok Build](@/docs/targets/grok.md) | Written to the agent file | Written to the agent file |
+| [Junie](@/docs/targets/junie.md) | Written to the agent file | Copied with the frontmatter, with a note: Junie documents no agent hook field |
+| Every other target | Sync note | Sync note |
 
 On Qoder, `bypassPermissions` becomes `acceptEdits` when security policy disables it, and an agent runs fewer hook events than the project does.
 

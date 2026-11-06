@@ -11,7 +11,7 @@ import (
 
 const target = "codebuddy"
 
-var caps = emit.Capabilities{Target: target, Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindHook, spec.KindSettings, spec.KindMCP}, AgentFields: []string{"effort", "mcpServers", "maxTurns", "background"}, SettingsFields: []string{"effort"}, SkillFields: emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown}}
+var caps = emit.Capabilities{Target: target, Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindHook, spec.KindSettings, spec.KindMCP}, AgentFields: []string{"effort", "mcpServers", "maxTurns", "background", "hooks", "permissionMode"}, SettingsFields: []string{"effort"}, SkillFields: emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown}}
 
 type Adapter struct{}
 
