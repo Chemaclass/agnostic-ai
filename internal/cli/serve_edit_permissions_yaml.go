@@ -43,6 +43,12 @@ func setPermissionList(data []byte, key string, rules []string) ([]byte, error) 
 	if rules == nil {
 		return removeYAMLPath(data, key)
 	}
+	return setPermissionValue(data, key, rules)
+}
+
+// setPermissionValue writes one member of the permissions mapping: a rule
+// list, or the default mode name.
+func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
 	_, root, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
@@ -50,31 +56,46 @@ func setPermissionList(data []byte, key string, rules []string) ([]byte, error) 
 	if root.Anchor != "" || root.Style&yaml.FlowStyle != 0 {
 		return nil, fmt.Errorf("%s: flow-style or anchored settings are not safely editable", key)
 	}
-	list := strings.TrimPrefix(key, "permissions.")
+	member := strings.TrimPrefix(key, "permissions.")
+	mode, scalar := value.(string)
 	_, mapping := yamlMapValue(root, "permissions")
 	var out []byte
 	if mapping == nil {
-		out, err = editYAMLPair(data, root, "permissions", map[string]any{list: rules})
+		out, err = editYAMLPair(data, root, "permissions", map[string]any{member: value})
 	} else {
 		if mapping.Kind != yaml.MappingNode || mapping.Anchor != "" {
 			return nil, fmt.Errorf("%s is not in a plain permissions mapping", key)
 		}
-		_, value := yamlMapValue(mapping, list)
-		if value == nil {
-			out, err = editYAMLPair(data, mapping, list, rules)
-		} else {
-			if value.Anchor != "" || value.Kind != yaml.SequenceNode && (value.Kind != yaml.ScalarNode || value.Tag != "!!null") {
+		_, node := yamlMapValue(mapping, member)
+		switch {
+		case node == nil:
+			out, err = editYAMLPair(data, mapping, member, value)
+		case scalar:
+			if node.Anchor != "" || node.Kind != yaml.ScalarNode || node.Style&(yaml.LiteralStyle|yaml.FoldedStyle) != 0 {
+				return nil, fmt.Errorf("%s is not a plain one-line value", key)
+			}
+			start, end, e := yamlScalarSpan(data, node)
+			if e != nil {
+				return nil, fmt.Errorf("%s is not safely editable: %w", key, e)
+			}
+			encoded, e := yaml.Marshal(mode)
+			if e != nil {
+				return nil, e
+			}
+			out = spliceEditYAML(data, start, end, strings.TrimSpace(string(encoded)))
+		default:
+			if node.Anchor != "" || node.Kind != yaml.SequenceNode && (node.Kind != yaml.ScalarNode || node.Tag != "!!null") {
 				return nil, fmt.Errorf("%s is not a plain permission list", key)
 			}
-			start, e := yamlNodeOffset(data, value)
+			start, e := yamlNodeOffset(data, node)
 			if e != nil {
 				return nil, e
 			}
-			end, e := yamlCollectionEnd(data, value)
+			end, e := yamlCollectionEnd(data, node)
 			if e != nil {
 				return nil, e
 			}
-			encoded, e := json.Marshal(rules)
+			encoded, e := json.Marshal(value)
 			if e != nil {
 				return nil, e
 			}
@@ -99,11 +120,16 @@ func setPermissionList(data []byte, key string, rules []string) ([]byte, error) 
 		perms = map[string]any{}
 		before["permissions"] = perms
 	}
-	values := make([]any, len(rules))
-	for i, rule := range rules {
-		values[i] = rule
+	if scalar {
+		perms[member] = mode
+	} else {
+		rules, _ := value.([]string)
+		values := make([]any, len(rules))
+		for i, rule := range rules {
+			values[i] = rule
+		}
+		perms[member] = values
 	}
-	perms[list] = values
 	if !reflect.DeepEqual(before, after) {
 		return nil, fmt.Errorf("%s: the edit changes other YAML values", key)
 	}

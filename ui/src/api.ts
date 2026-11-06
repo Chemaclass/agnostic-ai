@@ -7,9 +7,10 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest } from './contract'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest } from './contract'
 import { normalizeContextView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
+import { parseProtectedPreview } from './model/protected-edit'
 import { staticOverviewUrl, type DataSource } from './model/url'
 
 export interface Loaded<T> {
@@ -166,6 +167,19 @@ export async function editPermissions(body: PermissionEditRequest) {
   }
   if (!res.ok) throw new EditError(await readError(res), [], res.status)
   return parsePermissionPreview(await res.json())
+}
+
+export async function editProtected(body: ProtectedEditRequest) {
+  let res: Response
+  try {
+    res = await fetch(API.editProtected, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body),
+    })
+  } catch {
+    throw new EditError('Could not reach the server to save the protected paths.')
+  }
+  if (!res.ok) throw new EditError(await readError(res), [], res.status)
+  return parseProtectedPreview(await res.json())
 }
 
 export async function importMCPSpec(action: 'preview' | 'apply', audience: 'shared' | 'personal', name: string, holder: NativeHolder, expected?: string): Promise<MCPSpecPreview> {

@@ -277,6 +277,55 @@ test('live Authority previews source changes, saves rules, and applies them on t
   } finally { await f.close() }
 })
 
+test('live Authority sets the default permission mode and protected paths in the permission spec', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    const original = '# Shared settings.\nname: native\npermissions:\n    deny: [edit(.env)] # Keep this rule.\nx-claude:\n    verbose: false\n'
+    await put(f.settings, original)
+    await page.goto(`${f.url}?view=authority`)
+    const mode = page.locator('.field-row').filter({ has: page.getByText('Default permission mode', { exact: true }) })
+    await expect(mode).toBeVisible()
+    const modeValue = mode.getByRole('combobox', { name: 'Default permission mode value', exact: true })
+    await expect(modeValue.locator('option')).toHaveText(['Choose a value', 'default', 'manual', 'acceptEdits', 'plan', 'auto', 'dontAsk', 'bypassPermissions'])
+    await modeValue.selectOption('plan')
+    await mode.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(page.locator('.permission-saved')).toContainText('Saved .agnostic-ai/settings/native.yaml. Run agnostic-ai sync')
+    await expect.poll(() => readFile(f.settings, 'utf8')).toBe('# Shared settings.\nname: native\npermissions:\n    deny: [edit(.env)] # Keep this rule.\n    default-mode: plan\nx-claude:\n    verbose: false\n')
+
+    const guarded = page.locator('.field-row').filter({ has: page.getByText('Protected paths', { exact: true }) })
+    await guarded.getByRole('button', { name: 'Add paths', exact: true }).click()
+    await guarded.getByRole('textbox', { name: 'Paths to protect', exact: true }).fill('.github/**\n\ncomposer.lock')
+    await guarded.getByRole('combobox', { name: 'Protected paths decision', exact: true }).selectOption('deny')
+    await guarded.getByRole('textbox', { name: 'Protected paths reason', exact: true }).fill('CI and the lock file change only on purpose.')
+    await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
+    const preview = guarded.getByRole('region', { name: 'Protected paths change preview' })
+    await expect(preview).toContainText('Project (committed)')
+    await expect(preview).toContainText('+protected:')
+    expect(await readFile(f.settings, 'utf8')).toContain('default-mode: plan\nx-claude')
+    await preview.getByRole('button', { name: 'Save paths', exact: true }).click()
+    await expect(page.locator('.permission-saved')).toContainText('Run agnostic-ai sync')
+    await expect.poll(() => readFile(f.settings, 'utf8')).toContain('protected:\n  paths:\n    - .github/**\n    - composer.lock\n  decision: deny\n  reason: CI and the lock file change only on purpose.\n')
+
+    await page.reload()
+    await expect(modeValue).toHaveValue('plan')
+    await expect(mode).toHaveClass(/is-set/)
+    await expect(guarded).toHaveClass(/is-set/)
+    await expect(guarded).toContainText('composer.lock')
+    await expect(page.locator('.unconfigured-fields')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    await modeValue.selectOption('acceptEdits')
+    await mode.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect.poll(() => readFile(f.localSettings, 'utf8')).toContain('permissions:\n  default-mode: acceptEdits\n')
+    expect(await readFile(f.settings, 'utf8')).toContain('default-mode: plan\n')
+    await run('git', ['check-ignore', '-q', '.agnostic-ai/local/settings/native.yaml'], { cwd: f.root, env: f.env })
+
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const native = JSON.parse(await readFile(join(f.root, '.claude', 'settings.json'), 'utf8'))
+    expect(native.permissions.deny).toEqual(expect.arrayContaining(['Edit(.env)', 'Edit(/.github/**)', 'Edit(/composer.lock)']))
+  } finally { await f.close() }
+})
+
 test('live Authority replaces one personal list and resets it without changing other settings', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {

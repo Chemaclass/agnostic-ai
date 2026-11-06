@@ -10,7 +10,8 @@ import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeErro
 import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAudience, useLevelName, usePageAudience, useViewAudience, type EditAudience } from './EditAudience'
 import { OpenInEditor } from './EditorLink'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
-import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice } from './PermissionEditor'
+import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice, useSavedEditNotice } from './PermissionEditor'
+import { ProtectedEditor } from './ProtectedEditor'
 import { SectionTabs } from './SectionTabs'
 import { SectionHeading } from './SectionHeading'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
@@ -305,7 +306,7 @@ function SettingsFields({ title, topic, audienceControl, fields, files, filterin
   const id = fieldsHeadingId(title)
   const configured = fields.filter((field) => sourcesForAudience(field.set, audience).length > 0)
   const unconfigured = fields.filter((field) => sourcesForAudience(field.set, audience).length === 0)
-  const editablePermissions = unconfigured.filter((field) => field.editable?.kind === 'permission-list')
+  const editablePermissions = unconfigured.filter((field) => field.editable?.kind === 'permission-list' || field.editable?.kind === 'protected-list' || field.key === 'permissions.default-mode' && field.editable)
   const remaining = unconfigured.filter((field) => !editablePermissions.includes(field))
   const visibleFields = fields.filter((field) => configured.includes(field) || editablePermissions.includes(field))
   return (
@@ -424,6 +425,7 @@ interface FieldEditControlProps {
 }
 
 function FieldEditor(props: FieldEditControlProps) {
+  if (props.field.editable?.kind === 'protected-list') return <ProtectedEditor {...props} />
   return props.field.editable?.kind === 'permission-list' ? <PermissionEditor {...props} /> : <FieldEditControl {...props} />
 }
 
@@ -438,6 +440,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const audience = useEditAudience()
   const level = useLevelName()
   const transaction = useSettingChange(field.key, target)
+  const savedNotice = useSavedEditNotice()
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const valueOf = (source?: SettingField['set'][number]) => source && valueAt(source.values, field.key, target)
@@ -488,7 +491,8 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     setReloaded(false)
     conflict.current = false
     try {
-      await postEdit(API.editField, { path: specFile || undefined, key: field.key, target, ...body, expected: expected ?? null })
+      const reply = await postEdit(API.editField, { path: specFile || undefined, key: field.key, target, ...body, expected: expected ?? null })
+      if (field.key === 'permissions.default-mode' && reply.file) savedNotice({ file: reply.file, syncCommand })
       const saved = body.value === null ? undefined : String(body.value)
       const next = body.audience === 'personal' ? { ...basis.current, local: saved } : { ...basis.current, team: saved }
       basis.current = { ...next, current: (audience === 'personal' ? next.local ?? next.team : next.team) ?? '' }

@@ -592,6 +592,33 @@ export interface PermissionEditPreview {
   syncCommand: string
 }
 
+/** A settings spec's protected block as written; an empty decision or reason is one the file leaves out. */
+export interface ProtectedBlock {
+  paths: string[]
+  decision: string
+  reason: string
+}
+
+export interface ProtectedEditRequest {
+  action: 'preview' | 'apply'
+  audience: 'shared' | 'personal'
+  path?: string
+  protected: ProtectedBlock | null
+  before: ProtectedBlock | null
+  expected?: string
+}
+
+export interface ProtectedEditPreview {
+  schemaVersion: 'protected-edit/v1'
+  file: string
+  audience: 'shared' | 'personal'
+  before: ProtectedBlock | null
+  protected: ProtectedBlock | null
+  diff: string
+  expected: string
+  syncCommand: string
+}
+
 /** One field a settings spec can set, with what each spec sets it to. */
 export interface SettingField {
   key: string
@@ -600,7 +627,7 @@ export interface SettingField {
   /** Each spec that sets the field; `local` marks a personal file Git ignores. */
   set: { spec: string; path: string; values: Value[]; local?: boolean }[]
   /** `localPath` is the personal file a personal edit of `path` writes. `toolAllowed` lists the values one tool accepts, for tools with a fixed list. */
-  editable?: { path?: string; paths?: string[]; sources?: { path: string; spec: string; localPath: string; disabledReason?: string }[]; kind: 'text' | 'number' | 'boolean' | 'permission-list'; allowed?: string[]; toolAllowed?: Record<string, string[]>; disabledReason?: string; syncCommand?: string; localPath?: string }
+  editable?: { path?: string; paths?: string[]; sources?: { path: string; spec: string; localPath: string; disabledReason?: string }[]; kind: 'text' | 'number' | 'boolean' | 'permission-list' | 'protected-list'; allowed?: string[]; toolAllowed?: Record<string, string[]>; disabledReason?: string; syncCommand?: string; localPath?: string }
   /** For model and effort: the value sync writes for each configured tool, and why. */
   resolved?: TargetValue[]
 }
@@ -750,6 +777,7 @@ export const API = {
   editValue: '/api/edit/value',
   editField: '/api/edit/field',
   editPermissions: '/api/edit/permissions',
+  editProtected: '/api/edit/protected',
   editMCP: '/api/edit/mcp',
   health: '/api/health',
   switch: '/api/switch',

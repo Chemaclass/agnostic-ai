@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"slices"
@@ -86,17 +87,48 @@ func (h *editHandler) servePermissions(w http.ResponseWriter, body []byte) {
 		writeEditJSON(w, http.StatusOK, plan.view)
 		return
 	}
-	if req.Expected == "" || plan.view.Expected != req.Expected {
-		writePermissionEditError(w, permissionEditConflict{errors.New("the permission source changed; review a fresh preview before applying")}, http.StatusConflict, nil)
+	if !h.applyPreviewedEdit(w, where, req.Expected, plan.preview(), func() (previewedEdit, error) {
+		now, err := h.permissionPlan(req, where)
+		if err != nil {
+			return previewedEdit{}, err
+		}
+		return now.preview(), nil
+	}) {
 		return
 	}
+	plan.view.OK = true
+	writeEditJSON(w, http.StatusOK, plan.view)
+}
+
+func (p *permissionEditPlan) preview() previewedEdit {
+	return previewedEdit{file: p.file, before: p.before, after: p.after, expected: p.view.Expected}
+}
+
+// previewedEdit is a source change a preview showed: the file, its
+// content then, the content to write, and the hash the page sends back.
+type previewedEdit struct {
+	file     string
+	before   editFileSnapshot
+	after    []byte
+	expected string
+}
+
+var errStalePreview = permissionEditConflict{errors.New("the source changed; review a fresh preview before applying")}
+
+// applyPreviewedEdit writes plan when expected still names it and a fresh
+// plan agrees, and reports the failure otherwise.
+func (h *editHandler) applyPreviewedEdit(w http.ResponseWriter, where editAudience, expected string, plan previewedEdit, replan func() (previewedEdit, error)) bool {
+	if expected == "" || plan.expected != expected {
+		writePermissionEditError(w, errStalePreview, http.StatusConflict, nil)
+		return false
+	}
 	guard := func() error {
-		now, err := h.permissionPlan(req, where)
+		now, err := replan()
 		if err != nil {
 			return permissionEditConflict{err}
 		}
-		if now.file != plan.file || now.view.Expected != req.Expected {
-			return permissionEditConflict{errors.New("the permission source changed; review a fresh preview before applying")}
+		if now.file != plan.file || now.expected != expected {
+			return errStalePreview
 		}
 		return nil
 	}
@@ -106,16 +138,15 @@ func (h *editHandler) servePermissions(w http.ResponseWriter, body []byte) {
 	}
 	problems, err := h.applyValidatedWithPrepare(plan.file, func(data []byte) ([]byte, error) {
 		if !bytes.Equal(data, plan.before.data) {
-			return nil, permissionEditConflict{errors.New("the permission source changed; review a fresh preview before applying")}
+			return nil, errStalePreview
 		}
 		return plan.after, nil
 	}, prepare, guard)
 	if err != nil {
 		writePermissionEditError(w, err, http.StatusUnprocessableEntity, problems)
-		return
+		return false
 	}
-	plan.view.OK = true
-	writeEditJSON(w, http.StatusOK, plan.view)
+	return true
 }
 
 func permissionRules(raw json.RawMessage, key string) ([]string, error) {
@@ -175,7 +206,7 @@ func (h *editHandler) permissionPlan(req permissionEditRequest, where editAudien
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", file, err)
 	}
-	after = permissionEditRest(after, data, rules)
+	after = permissionEditRest(after, data, rules == nil)
 	if baseline, ok := h.baselines[file]; ok && bytes.Equal(original.data, baseline.last) && sameEditValues(baseline.original, after, true, nil) {
 		after = slices.Clone(baseline.original)
 	}
@@ -195,15 +226,23 @@ func (h *editHandler) permissionPlan(req permissionEditRequest, where editAudien
 	_, _ = hash.Write(fingerprint)
 	_, _ = fmt.Fprintf(hash, "\x00%d\x00", len(after))
 	_, _ = hash.Write(after)
-	paths = append(paths, file)
-	for _, path := range slices.Compact(paths) {
-		snap, err := snapshotEditFile(path)
-		if err != nil {
-			return nil, err
-		}
-		_, _ = fmt.Fprintf(hash, "\x00%s\x00%t\x00%d\x00", resolvedAbs(path), snap.info != nil, len(snap.data))
-		_, _ = hash.Write(snap.data)
+	if err := hashEditSources(hash, append(paths, file)); err != nil {
+		return nil, err
 	}
 	view.Expected = hex.EncodeToString(hash.Sum(nil))
 	return &permissionEditPlan{view: view, file: file, before: original, after: after}, nil
+}
+
+// hashEditSources adds the current content of every file an edit reads
+// to sum, so a preview goes stale when any of them changes.
+func hashEditSources(sum hash.Hash, paths []string) error {
+	for _, path := range slices.Compact(paths) {
+		snap, err := snapshotEditFile(path)
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(sum, "\x00%s\x00%t\x00%d\x00", resolvedAbs(path), snap.info != nil, len(snap.data))
+		_, _ = sum.Write(snap.data)
+	}
+	return nil
 }

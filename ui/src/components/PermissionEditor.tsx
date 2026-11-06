@@ -17,6 +17,10 @@ export function PermissionEditProvider({ children }: { children: ReactNode }) {
   return <SavedRules.Provider value={{ saved, update }}>{children}</SavedRules.Provider>
 }
 
+export function useSavedEditNotice() {
+  return useContext(SavedRules).update
+}
+
 export function PermissionSaveNotice() {
   const { saved, update } = useContext(SavedRules)
   if (!saved) return null

@@ -43,7 +43,7 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 		}
 	}
 	if chosen.Path != "" {
-		if reason := overview.PermissionEditDisabledReason(chosen, h.root); reason != "" {
+		if reason := overview.PermissionEditDisabledReason(chosen, h.root); reason != "" && strings.HasPrefix(key, "permissions.") {
 			return "", "", nil, fmt.Errorf("%s", reason)
 		}
 		file, scaffold, err := h.scopedSettingsFile(chosen, key, where)
@@ -77,8 +77,8 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 	return file, scaffold, paths, nil
 }
 
-func permissionEditRest(data, original []byte, rules []string) []byte {
-	if rules != nil || !strings.HasPrefix(string(original), fieldCreatedMarker) {
+func permissionEditRest(data, original []byte, clearing bool) []byte {
+	if !clearing || !strings.HasPrefix(string(original), fieldCreatedMarker) {
 		return data
 	}
 	if string(data) == permissionCreatedSpec {

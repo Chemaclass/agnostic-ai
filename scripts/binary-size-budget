@@ -772,4 +772,6 @@
 # bytes; the budget is that plus 8192.
 # Junie timeout range warnings (#3014), combined with roots validation (#3016),
 # measured 24780960 bytes on Go 1.27.3; keep the 8192-byte build allowance.
-24789152
+# Authority default mode and protected paths editing (#3039) measured
+# 24830112 bytes; the budget is that rounded up to a multiple of 4096.
+24834048
