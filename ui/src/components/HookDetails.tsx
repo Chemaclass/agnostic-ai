@@ -13,7 +13,9 @@ export function HookDetails({ item }: { item: SectionItem }) {
   const loaded = useSource(item, level === 'full')
   const fields = (item.fields ?? []).map(fieldOf)
   if (!fields.length && !full) return null
-  const levels: [Level, string][] = [['summary', 'Summary'], ['fields', 'Key fields'], ...(full ? [['full', 'Full spec'] as [Level, string]] : [])]
+  // A personal file can override a few fields of a shared hook; the server reads that file alone, while Key fields are merged.
+  const fullLabel = item.layer === 'project-user' || item.layer === 'global-local' ? 'Fields this file sets' : 'Full spec'
+  const levels: [Level, string][] = [['summary', 'Summary'], ['fields', 'Key fields'], ...(full ? [['full', fullLabel] as [Level, string]] : [])]
   return (
     <div className="hook-details">
       <div className="segmented hook-zoom" role="group" aria-label={`Details of ${item.label}`}>
@@ -27,7 +29,7 @@ export function HookDetails({ item }: { item: SectionItem }) {
           {(view) => view.withheld
             ? <WithheldNote view={view} />
             : view.frontmatter.length
-              ? <FieldList fields={view.frontmatter} label={`Full spec of ${item.label}`} />
+              ? <FieldList fields={view.frontmatter} label={`${fullLabel} of ${item.label}`} />
               : <p className="muted">The file does not read as YAML. Open it to see it.</p>}
         </SourceState>
       )}

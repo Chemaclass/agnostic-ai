@@ -74,10 +74,11 @@ test.describe('row content', () => {
     const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
     lifecycle.items = [
       { kind: 'hook', name: 'guard', label: 'guard', description: 'Blocks force pushes.', path: '.agnostic-ai/hooks/guard.yaml', openPath: hookPath, layer: 'project', group: 'before-tool', values: [], fields: [{ key: 'on', type: 'text', value: 'before-tool' }, { key: 'match', type: 'text', value: 'shell' }, { key: 'command', type: 'text', value: './guard.sh' }, { key: 'timeout', type: 'text', value: '10' }], findings: [] },
+      { kind: 'hook', name: 'mine', label: 'mine', description: 'Waits longer on this machine.', path: '.agnostic-ai/local/hooks/mine.yaml', openPath: '/path/to/agnostic-ai/.agnostic-ai/local/hooks/mine.yaml', layer: 'project-user', group: 'before-tool', values: [], fields: [{ key: 'command', type: 'text', value: './mine.sh' }], findings: [] },
       { kind: 'hook', name: 'secret', label: 'secret', description: 'Calls the deploy API.', path: '.agnostic-ai/hooks/secret.yaml', openPath: secretPath, layer: 'project', group: 'before-tool', values: [], fields: [{ key: 'command', type: 'text', value: './deploy.sh' }], findings: [] },
       { kind: 'hook', name: 'memory-hook', label: 'memory-hook', description: '', path: 'builtin:memory', layer: 'builtin', group: 'before-tool', values: [], fields: [{ key: 'command', type: 'text', value: 'agnostic-ai hook memory' }], findings: [] },
     ]
-    lifecycle.kinds[0].count = 3
+    lifecycle.kinds[0].count = 4
     const requests: string[] = []
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.route((url) => url.pathname === '/api/views/source', (route) => {
@@ -125,6 +126,12 @@ test.describe('row content', () => {
     await expect(builtinZoom.getByRole('button')).toHaveText(['Summary', 'Key fields'])
     await builtinZoom.getByRole('button', { name: 'Key fields' }).click()
     await expect(builtin.getByLabel('Key fields of memory-hook')).toContainText('agnostic-ai hook memory')
+
+    const mine = page.locator('.item-row').filter({ hasText: 'Waits longer on this machine.' })
+    const mineZoom = mine.getByRole('group', { name: 'Details of mine' })
+    await expect(mineZoom.getByRole('button')).toHaveText(['Summary', 'Key fields', 'Fields this file sets'])
+    await mineZoom.getByRole('button', { name: 'Fields this file sets' }).click()
+    await expect(mine.getByLabel('Fields this file sets of mine')).toBeVisible()
 
     const secret = page.locator('.item-row').filter({ hasText: 'Calls the deploy API.' })
     await secret.getByRole('group', { name: 'Details of secret' }).getByRole('button', { name: 'Full spec' }).click()
