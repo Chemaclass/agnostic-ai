@@ -1766,7 +1766,7 @@ a.release-badge:focus-visible .release-arrow {
 
 .editor-actions {
   display: inline-grid;
-  grid-template-columns: auto auto;
+  grid-auto-flow: column;
   justify-content: start;
   align-items: center;
   gap: 4px 8px;
@@ -1789,8 +1789,9 @@ a.release-badge:focus-visible .release-arrow {
 }
 
 .editor-hint {
-  grid-column: 1 / -1;
-  max-width: 32ch;
+  display: block;
+  flex-basis: 100%;
+  contain: inline-size;
   white-space: normal;
   font-size: 12px;
 }
