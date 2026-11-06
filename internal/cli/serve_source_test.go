@@ -548,9 +548,11 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 			t.Errorf("%s: withheld %v, body %q", name, view.Withheld, view.Body)
 		}
 	}
-	mustWriteFile(t, instructions, "Root.\n\nKeep the token budget small.\n")
-	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Withheld || view.Body != "Root.\n\nKeep the token budget small.\n" {
-		t.Errorf("plain text must show: %+v", view)
+	for _, text := range []string{"Root.\n\nKeep the token budget small.\n", "Root.\n\nNever commit secrets or API keys.\n"} {
+		mustWriteFile(t, instructions, text)
+		if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Withheld || view.Body != text {
+			t.Errorf("plain text must show: %+v", view)
+		}
 	}
 }
 

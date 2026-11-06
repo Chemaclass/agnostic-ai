@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -186,7 +185,7 @@ func readSource(path string, roots []string, kind string) (sourceView, bool) {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
 	}
 	head := strings.TrimSuffix(text, body)
-	if sensitiveSource(path, body) || sensitiveSource(path, head) {
+	if preview.Sensitive(path, body) || preview.Sensitive(path, head) {
 		view.Withheld = true
 		return view, true
 	}
@@ -321,27 +320,4 @@ func isNested(v any) bool {
 		return true
 	}
 	return false
-}
-
-var (
-	credentialAssignment = regexp.MustCompile(`(?i)(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[ _-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session|client[ _-]?secret)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
-	credentialWord       = regexp.MustCompile(`(?i)\b(?:pass(?:word|wd|phrase)s?|secrets?|credentials?|api[ _-]?keys?|private[ _-]?keys?|client[ _-]?secrets?)\b`)
-	credentialLabel      = regexp.MustCompile(`(?im)(?:<\s*/?\s*[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?|access[ _-]?keys?)[\s/>]|(?:\|\s*|^\s*)[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?|access[ _-]?keys?)[*_~` + "`" + `]*(?:\s*\||[^A-Za-z|\n]*\|))`)
-	privateKeyBlock      = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY`)
-)
-
-// sensitiveSource reports whether the body shows any sign of a credential:
-// the shared preview hid or withheld part of it, a credential-named key
-// is assigned, a strong credential word (password, secret, API key)
-// appears anywhere, a weaker one (token, auth, cookie) labels a table
-// cell or an XML tag, a private key block starts, or a recognizable
-// token or credential appears. The whole body is then withheld rather than
-// redacted piece by piece, so an unusual layout cannot slip a value
-// through; the file still opens in the editor. A credential written as
-// free prose is not detectable.
-func sensitiveSource(path, body string) bool {
-	shown := preview.Display(path, body)
-	return shown.Hidden || shown.Withheld || credentialAssignment.MatchString(body) || credentialWord.MatchString(body) ||
-		credentialLabel.MatchString(body) || privateKeyBlock.MatchString(body) ||
-		preview.TokenIn(body) || preview.CredentialDetected(body)
 }

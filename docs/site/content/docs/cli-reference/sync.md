@@ -151,7 +151,8 @@ Dry-run, render, import, and migration previews hide literal values in known cre
 
 - JSON, JSON with comments, YAML, and TOML previews keep valid syntax; a recognized document or sensitive command that cannot be shown safely is withheld.
 - API-key helper paths stay visible, but helper commands with literal arguments or shell operations are hidden, since they can contain the key.
-- Written files, captured content, and tracking checksums keep the real values. Secrets in freeform prompts, prose, unknown scripts, or binary assets are not detected.
+- Markdown and other prose previews are withheld whole when a credential label carries a value: a key such as `password:` or `token =` with a literal value, a Markdown table cell or XML tag named `token`, `session`, or `password`, a sentence such as "the password is ...", or a private key block. Text that only names the words, such as "never commit secrets" or "token budget", still shows, as does a label set to `null`, a boolean, a number, or an environment reference.
+- Written files, captured content, and tracking checksums keep the real values. Secrets in freeform prompts, prose with no label, unknown scripts, or binary assets are not detected.
 
 ### Watch mode
 
