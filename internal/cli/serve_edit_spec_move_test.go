@@ -412,3 +412,42 @@ func TestSpecMove_StagesOutsideTheSkillsFolderAndWarnsOnLeftovers(t *testing.T) 
 		t.Errorf("the skills folder holds leftovers: %v", entries)
 	}
 }
+
+func TestSpecMove_RefusesADestinationInsideTheSourceSkill(t *testing.T) {
+	project, _ := moveProject(t)
+	// The global setup sits inside the skill being moved.
+	nested := filepath.Join(project, ".agnostic-ai", "skills", "review-pr")
+	mustWrite(t, ".agnostic-ai/skills/review-pr/agnostic-ai.yaml", "targets: [claude]\n")
+	code, reply := postSpecMove(t, projectMoveHandler(project, nested), moveBody("skill", "review-pr", "project", "global", "move"))
+	if code != http.StatusConflict || !strings.Contains(reply.Error, "same") {
+		t.Errorf("= %d %+v, want 409", code, reply)
+	}
+	if readOptional(t, filepath.Join(nested, "SKILL.md")) == "" {
+		t.Error("a refused move removed the source")
+	}
+}
+
+func TestSpecMove_KeepsTheOldSkillWhenRollbackFails(t *testing.T) {
+	project, global := moveProject(t)
+	mustWriteGlobalTest(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
+	rename := renameMoveUnit
+	calls := 0
+	renameMoveUnit = func(from, to string) error {
+		calls++
+		if calls == 1 {
+			return rename(from, to)
+		}
+		return os.ErrPermission
+	}
+	t.Cleanup(func() { renameMoveUnit = rename })
+	request := moveBody("skill", "review-pr", "project", "global", "copy")
+	request["overwrite"] = true
+	_, code, reply := previewThenApply(t, projectMoveHandler(project, global), request)
+	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, ".agnostic-ai-move-") {
+		t.Fatalf("apply = %d %+v, want 422 naming the kept folder", code, reply)
+	}
+	kept, err := filepath.Glob(filepath.Join(global, ".agnostic-ai-move-*", "old", "SKILL.md"))
+	if err != nil || len(kept) != 1 || !strings.Contains(readOptional(t, kept[0]), "Old.") {
+		t.Errorf("the old skill is gone: %v %v", kept, err)
+	}
+}

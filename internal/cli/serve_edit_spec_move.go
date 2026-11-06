@@ -27,7 +27,10 @@ const editSpecMovePath = "/api/edit/spec/move"
 // movableKinds are the kinds both a project and the global setup read.
 // The global setup reads no commands, reviews, environments, or ignore
 // files, and settings merge by key instead of moving whole.
-var removeMoveStaging = os.RemoveAll
+var (
+	removeMoveStaging = os.RemoveAll
+	renameMoveUnit    = os.Rename
+)
 
 var movableKinds = []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindHook, spec.KindMCP}
 
@@ -251,8 +254,12 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s is outside %s or is the folder itself; move it by hand", entry.Path, srcDir)
 	}
 	plan.dst = filepath.Join(dstDir, rel)
-	if sameMoveUnit(plan.src, plan.dst) {
-		return specMovePlan{}, moveRefusal(http.StatusConflict, "%s and its destination are the same file; both setups read one folder", entry.Path)
+	overlap, err := overlappingMoveUnits(plan.src, plan.dst)
+	if err != nil {
+		return specMovePlan{}, err
+	}
+	if overlap {
+		return specMovePlan{}, moveRefusal(http.StatusConflict, "%s and its destination hold the same files; one setup lies inside the other", entry.Path)
 	}
 	inside, err := insideRealRoot(dstRoot, plan.dst)
 	if err != nil {
@@ -465,12 +472,15 @@ func (p specMovePlan) write() (string, error) {
 	if err := os.MkdirAll(filepath.Dir(p.dst), 0o755); err != nil {
 		return "", err
 	}
-	work, err := os.MkdirTemp(p.stage, ".agnostic-ai-move-*")
+	work, err := os.MkdirTemp(p.stage, spec.MoveStagingPrefix+"*")
 	if err != nil {
 		return "", err
 	}
 	if err := p.swapFolder(work); err != nil {
-		_ = removeMoveStaging(work)
+		var lost rollbackError
+		if !errors.As(err, &lost) {
+			_ = removeMoveStaging(work)
+		}
 		return "", err
 	}
 	if err := removeMoveStaging(work); err != nil {
@@ -491,16 +501,23 @@ func (p specMovePlan) swapFolder(work string) error {
 		}
 	}
 	if !p.existing {
-		return os.Rename(staged, p.dst)
+		return renameMoveUnit(staged, p.dst)
 	}
-	if err := os.Rename(p.dst, old); err != nil {
+	if err := renameMoveUnit(p.dst, old); err != nil {
 		return err
 	}
-	if err := os.Rename(staged, p.dst); err != nil {
-		return errors.Join(err, os.Rename(old, p.dst))
+	if err := renameMoveUnit(staged, p.dst); err != nil {
+		if undo := renameMoveUnit(old, p.dst); undo != nil {
+			return rollbackError{fmt.Errorf("replace %s: %w; restoring it failed too (%v): the old skill is in %s and the new one in %s", p.dst, err, undo, old, staged)}
+		}
+		return err
 	}
 	return nil
 }
+
+// rollbackError is a failed swap whose old folder could not go back, so
+// the stage folder must stay.
+type rollbackError struct{ error }
 
 // globalRuleRefused reports whether sync --global would refuse rule for
 // the targets the global setup at source selects.
@@ -518,20 +535,47 @@ func globalRuleRefused(rule spec.Entry, source string) (bool, error) {
 	return globalRuleConditional(rule, targets), nil
 }
 
-// sameMoveUnit reports whether src and dst name one file or folder, as
-// when one setup's kind folder links to the other's.
-func sameMoveUnit(src, dst string) bool {
-	if a, err := os.Stat(src); err == nil {
-		if b, err := os.Stat(dst); err == nil && os.SameFile(a, b) {
-			return true
-		}
-	}
-	srcParent, err := filepath.EvalSymlinks(filepath.Dir(src))
+// overlappingMoveUnits reports whether src and dst, once links are
+// followed, are one file or folder or one lies inside the other, as when
+// one setup's folder links to, or sits inside, the other's.
+func overlappingMoveUnits(src, dst string) (bool, error) {
+	a, err := realPathOf(src)
 	if err != nil {
-		return false
+		return false, err
 	}
-	dstParent, err := filepath.EvalSymlinks(filepath.Dir(dst))
-	return err == nil && srcParent == dstParent
+	b, err := realPathOf(dst)
+	if err != nil {
+		return false, err
+	}
+	within := func(parent, child string) bool {
+		rel, err := filepath.Rel(parent, child)
+		return err == nil && filepath.IsLocal(rel)
+	}
+	return within(a, b) || within(b, a), nil
+}
+
+// realPathOf follows the links of path's nearest existing folder and
+// keeps the rest of path as written.
+func realPathOf(path string) (string, error) {
+	existing, rest := path, ""
+	for {
+		if _, err := os.Lstat(existing); err == nil {
+			break
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
+		parent := filepath.Dir(existing)
+		if parent == existing {
+			return path, nil
+		}
+		rest = filepath.Join(filepath.Base(existing), rest)
+		existing = parent
+	}
+	real, err := filepath.EvalSymlinks(existing)
+	if err != nil {
+		return "", moveRefusal(http.StatusUnprocessableEntity, "%s: %v; fix or remove the link", existing, err)
+	}
+	return filepath.Join(real, rest), nil
 }
 
 // insideRealRoot reports whether path, once links in its nearest existing
