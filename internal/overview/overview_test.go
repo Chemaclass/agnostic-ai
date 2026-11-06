@@ -421,6 +421,22 @@ func TestBuild_RedactsAHookFieldThatRepeatsACredentialItHolds(t *testing.T) {
 	}
 }
 
+// A key field the file content view would withhold is redacted, so the
+// key fields never show what the full spec hides.
+func TestBuild_RedactsAHookFieldTheSourceViewWithholds(t *testing.T) {
+	for _, command := range []string{"mysql -u root -phunter2short app", "echo 'the password is hunter2short'"} {
+		hook := entry(spec.KindHook, "db", ".agnostic-ai/hooks/db.yaml", map[string]any{"on": "stop", "command": command})
+		fields := sectionByID(t, Build(Inputs{Bundle: spec.Bundle{Hooks: []spec.Entry{hook}}}), SectionLifecycle).Items[0].Fields
+		if len(fields) != 2 || fields[0].Value != "stop" || fields[1].Value != redacted {
+			t.Errorf("%q fields = %+v", command, fields)
+		}
+	}
+	plain := entry(spec.KindHook, "fmt", ".agnostic-ai/hooks/fmt.yaml", map[string]any{"on": "after-edit", "command": "npm run fmt -- --write"})
+	if fields := sectionByID(t, Build(Inputs{Bundle: spec.Bundle{Hooks: []spec.Entry{plain}}}), SectionLifecycle).Items[0].Fields; fields[1].Value != "npm run fmt -- --write" {
+		t.Errorf("plain command = %+v", fields)
+	}
+}
+
 func TestBuild_PlacesFindingsOnTheItemsTheyName(t *testing.T) {
 	in := fullInputs()
 	in.Findings = []Finding{

@@ -199,7 +199,7 @@ func readSource(path string, roots []string, kind string) (sourceView, bool) {
 // hookSource shows a hook file as its fields, never as raw text. A file
 // that does not parse shows no fields.
 func hookSource(path string, view sourceView, text string) sourceView {
-	if sensitiveSource(path, text) {
+	if preview.Sensitive(path, text) {
 		view.Withheld = true
 		return view
 	}
