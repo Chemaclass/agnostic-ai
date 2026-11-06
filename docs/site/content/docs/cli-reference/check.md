@@ -157,6 +157,8 @@ Skill references:
 | `packaging_ignore` | `path`, and either `uncovered` (generated paths) or `problem` (why coverage could not be checked). |
 | `skill_overrides` | With `claude` selected, one item per `skillOverrides` entry, highest file first: `path` (absolute outside the project), `scope` (`local`, `shared`, or `user`), `skill` (the key as written), `value` (the string, or the JSON text of another value), `synced` (false for a skill sync does not write), and `effective` (false when a higher file sets the skill). An unreadable file has one item with `path`, `scope`, and `problem`. |
 
+When sync removes unchanged managed keys from a shared settings file but keeps your keys and edits, doctor reports the file as out of date. JSON reports its action as `stale`.
+
 After the file report, doctor prints:
 
 | Block | What it shows | Counts as drift |
