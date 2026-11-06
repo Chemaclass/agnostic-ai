@@ -14,7 +14,7 @@ amp	docs	https://ampcode.com/docs/integrations	200	html	eb5db0e1fdcf48eef5d3f749
 amp	docs	https://ampcode.com/docs/orbs/customizing	200	html	fb6c9aab108448d12de8c82a572c6a589063e717b985e5f924b2c27f2ae4b2eb	2026-11-05
 amp	docs	https://ampcode.com/docs/orbs/portals	200	html	569ab84d8530caf2f86a1ebae28575e21b8bdf86b6aab2078d9f0f734f44da0f	2026-11-05
 amp	docs	https://ampcode.com/docs/the-dial	200	html	a96e422d1acac7369425df5c7c4ff0f0af1e87091c544df06ec5b5a1a105d5dd	2026-11-05
-amp	docs	https://ampcode.com/docs/tools	200	html	60a13b68b97cfe93ed6f41b5a16c81740f9c5d5c69a154c5b5ac339e3be7357c	2026-10-29
+amp	docs	https://ampcode.com/docs/tools	200	html	3cf811e3c9588875fe78576d92d65b88d149e51a4bc3882b9073cf0b699cf1a2	2026-11-05
 amp	docs	https://ampcode.com/llms.txt	200	text	6213311c6318dc4c3b201b6e5d1fedccaffbdd2a9e3be08a2c96beddf0b6b043	2026-11-05
 amp	schema	https://ampcode.com/cli-settings.schema.json	200	schema-keys	0ff1e85515ad59145ea9bde52f2414bf1d9ad541d62c374b0439f1ad9f28ae75	2026-10-15
 antigravity	changelog	https://antigravity.google/docs/changelog	200	html	a11918bc6fa44b6e387a66a9da68efb8d5c26c114d89283387f717ee4854a2be	2026-11-05
@@ -78,7 +78,7 @@ codebuddy	docs	https://www.codebuddy.ai/docs/cli/skills	200	html	c23cbde3bd76e51
 codebuddy	docs	https://www.codebuddy.ai/docs/cli/slash-commands	200	html	76e1229f6e581f300f68af098fdca423f7d48e972df59eab27a872cf493a3083	2026-10-29
 codebuddy	docs	https://www.codebuddy.ai/docs/cli/sub-agents	200	html	8d1356175e8b0b3e4011f997ae977f150c1e3ae7756a1b57060b2c9c9fedb682	2026-11-04
 codex	changelog	https://github.com/openai/codex/releases	200	github-api	7b9559ae489ce72f2f1195854d4e810953889d2e87d29009c2d12ed7e89b0ea3	2026-11-01
-codex	changelog	https://learn.chatgpt.com/docs/changelog	200	html	9e9affe20addb6bdd31b9faf67eec4358e3971dc0047eba7756849f626c07030	2026-11-05
+codex	changelog	https://learn.chatgpt.com/docs/changelog	200	html	ddaf5933d3289ebfb5167258614bbdfb72acddbee0aa97a03c5c389b77d5c3b2	2026-11-05
 codex	code	https://github.com/openai/codex/blob/main/codex-rs/core/src/agents_md.rs	200	raw-github	d6661f6796f4b9ae1e33b4e5dbf16402c34f16f966b6580ff18e1c8245518df0	2026-11-05
 codex	code	https://github.com/openai/codex/blob/main/codex-rs/hooks/src/events/mod.rs	200	raw-github	e702ed892dc0f59c59dc0ebfeac0bdabeb42a8bf459bc588956bb469ae4f3e92	2026-10-19
 codex	docs	https://learn.chatgpt.com/docs/agent-configuration/agents-md.md	200	markdown-mirror	9d1f87a2d1cb55b4782b95abe710692b35b9659789c2db31a22c7074a3383e8e	2026-09-25
@@ -106,7 +106,7 @@ copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-on-github/custom
 copilot	docs	https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference.md	200	markdown-mirror	0b9d76d3a5818bfc97964df91078bbee7e3a5ed0eb074af5fcdc3a9c3d2cc53a	2026-11-04
 copilot	docs	https://docs.github.com/en/copilot/reference/custom-agents-configuration.md	200	markdown-mirror	60bec6cc8ff6b0a857cd98dccc9e300526f1d6e20de8763b3bf5cf548f64bdda	2026-10-29
 copilot	docs	https://docs.github.com/en/copilot/reference/hooks-reference.md	200	markdown-mirror	c139227723d63a785dc09ef59bdad59468f08647ce9e05fe545fae05284777dc	2026-10-29
-crush	changelog	https://github.com/charmbracelet/crush/releases	200	github-api	260522594796e7f978dc44c88c92f0b34810a2f97172733bbfba9a1f64849ac9	2026-11-04
+crush	changelog	https://github.com/charmbracelet/crush/releases	200	github-api	42620496d205d9545a41d001dd62be0b3779e7a13d09f090a1b5b4f7a1d2d9d6	2026-11-05
 crush	docs	https://github.com/charmbracelet/crush	200	raw-github	31f0bf326e050d211864d664486362b7dd86045476dae291123d7d1ea11ec7fd	2026-11-05
 crush	docs	https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md	200	raw-github	c99d22df5ce6f6c799db6138e3889a81d52d12f7cb4a832b3597334505c90187	2026-11-05
 crush	schema	https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json	200	schema-keys	4b075488fb06e16fa33a477f1d7caf82ea02a7d35413ebd0ab8674e949c7bbb2	2026-10-31
@@ -118,7 +118,7 @@ cursor	docs	https://cursor.com/docs/mcp	200	reader-proxy	c9187772cba68d963cf0124
 cursor	docs	https://cursor.com/docs/reference/third-party-hooks.md	200	markdown-mirror	c2d2e67fd529f5d14feaaab22b3662f9eac2d21a4c54846f3e28fca6d63292c6	2026-09-25
 cursor	docs	https://cursor.com/docs/rules	200	reader-proxy	e64a74c17252460c9c39aabf936974cbc08106d1df2bee21e1bd9368f27f5a7a	2026-10-07
 cursor	docs	https://cursor.com/docs/skills	200	reader-proxy	705b2f85b001caf7defcc83bb741caf926df23b3dc5321528f431592eb5be2be	2026-10-29
-cursor	docs	https://cursor.com/docs/subagents	200	reader-proxy	a3d8c374d6046764d56f705a8756dcff70eb2e653921cadc6140bcbda4de1797	2026-11-04
+cursor	docs	https://cursor.com/docs/subagents	200	reader-proxy	69b7121bd2b838ea93a4d743136c699d6de9bf1080f25c1059ef8db0bd3cac02	2026-11-05
 cursor	docs	https://cursor.com/help/customization/skills.md	200	markdown-mirror	7d551fc7939d4632228c7f178f89475113a1ad503000f890271ee95a4aee3a49	2026-09-25
 cursor	schema	https://cursor.com/schemas/environment.schema.json	200	schema-keys	e57e64bf2d517e0b5811a15752c2dcbfb3f9989044664fb9750639cc805e52d9	2026-09-30
 ellipsis	changelog	https://github.com/ellipsis-dev/cli/releases	200	github-api	a7ebf240734a52010962ceef5bca76928b0242a3e67baf5e7f3c846c8e708c1a	2026-11-05
@@ -172,7 +172,7 @@ grok	docs	https://docs.x.ai/build/settings	200	html	76c2ce1e6ba4eacf48c210aab442
 jules	changelog	https://jules.google/docs/changelog/	200	html	497c0ee01a8ac78790a70d50511bde1fa9fc3a707576594d7ef4bb84561d6321	2026-10-30
 jules	docs	https://jules.google/docs	200	html	3f8acbe2960312c2732e1487b7763fa134498ce31df3bca281e6225d5dcc8067	2026-10-30
 junie	changelog	https://junie.jetbrains.com/blog/	200	html	1a4d227776ea14daf89acc88cdcede4c78a4b721a4cd624574b0d36a645e7b1f	2026-10-29
-junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	ae0f964ad576973cac792c6e9c1b38650d9ef5095e2bdc6c9b613ba4adf85163	2026-11-05
+junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	64bfbde5c3141364affef3168b9ea7dcbecc1f90838ac0e6047387b83ee4048f	2026-11-05
 junie	docs	https://junie.jetbrains.com/docs/action-allowlist-junie-cli.html	200	html	217595614a236656e52be2593b867920f7ad575da71c618f0c8abc89a18af748	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/agent-skills.html	200	html	9b7af260ea22f9a37dd9a08248ad487ae50b239bc7701b9b06461665aa7131b2	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/automated-code-reviews.html	200	html	77840d1fdf89c4fd516af364381a68604b6093a06e06d3e85ae3527367fc8000	2026-10-19
@@ -183,7 +183,7 @@ junie	docs	https://junie.jetbrains.com/docs/guidelines-and-memory.html	200	html	
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-configuration.html	200	html	6dd4cc70b680139c9467b981f30168c3d3bc185a350b7aef6c8a23fa89b31497	2026-10-14
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-demo.html	200	html	ff5907fcdd823f46bba56c0d156ff8c1898fc1fe62598bb53610cb679a473336	2026-10-29
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-extensions.html	200	html	9919b2a8822fab898bce884cbc4b7fffa053b2b0a7e0259aba969294ff147208	2026-10-08
-junie	docs	https://junie.jetbrains.com/docs/junie-cli-hooks.html	200	html	a51e00a2fca105b9d5cfe7a0a71236d7d75e48c17a9624a02d70ef658c7d99b4	2026-09-23
+junie	docs	https://junie.jetbrains.com/docs/junie-cli-hooks.html	200	html	108d62391ba99796718bb994d93e507d20ea39bb35d3749dba2a341970e29d92	2026-11-05
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html	200	html	028836e5c0f73664ac97c267282caac9463dd0030d921723e51446bace011846	2026-10-23
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-subagents.html	200	html	35e248628d1bc6991f3aa504e844b8a8a9256ddf627d500f1ec48b42cea2638c	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/junie-ide-plugin.html	200	html	449e8eb6fd90e5d927a05ac44bc01b614723cc005ed158b3943c245510668e40	2026-09-23
@@ -230,7 +230,7 @@ kiro	docs	https://kiro.dev/docs/steering.md	200	markdown-mirror	e483b353c2fd9e4c
 kiro	docs	https://kiro.dev/docs/tools.md	200	markdown-mirror	190bc7ad179300aeb2869ff067d50c501797a8ba56feed86806cf2f1bc9637fc	2026-10-31
 kiro	docs	https://kiro.dev/docs/workflows.md	200	markdown-mirror	d5d454496ff189da1ec7ed83165274d7f89f77f9882e433eab422de5bb7fedcf	2026-11-04
 kiro	docs	https://kiro.dev/docs/workflows/authoring.md	200	markdown-mirror	9969d24b9a9a2af38f66171b499ee3b0f7d283694231a36aead344fbb0c3d8d3	2026-10-21
-opencode	changelog	https://github.com/anomalyco/opencode/releases	200	github-api	70c7d94e9e4e2a4314d4bd542c97f8b2337d454072c435b2676f6f1626587ed7	2026-10-31
+opencode	changelog	https://github.com/anomalyco/opencode/releases	200	github-api	86b329a6a16ef22c821449f01989778de68064bb7346d50e3200020e42f9c845	2026-11-05
 opencode	changelog	https://opencode.ai/update/api/latest/cli/npm	200	json	3060e289c39f44de165e19f7e74b747649029d542f819697ec732ea61281a516	2026-11-01
 opencode	docs	https://opencode.ai/docs/agents.md	200	markdown-mirror	e1c9b4a4c2ffefd2ca6991c8553deaed1ddb7b8b0983974584d048ca3ab0e9b8	2026-11-01
 opencode	docs	https://opencode.ai/docs/commands.md	200	markdown-mirror	d81c24335af2b95194cdc8c7c43ef29a07a24dc10c8db0e2669b536f38f1bbfa	2026-10-24
@@ -282,7 +282,7 @@ qoder	docs	https://docs.qoder.com/extensions/subagent.md	200	markdown-mirror	c50
 qoder	docs	https://docs.qoder.com/user-guide/chat/model-context-protocol.md	200	markdown-mirror	2bb118fa58debed920eb46a0e4efefe19702f6f9dda7f37a294ff50d3f0992cf	2026-09-25
 qoder	docs	https://docs.qoder.com/user-guide/commands.md	200	markdown-mirror	4dc0b6b7f45bebbc0004c542da409a78c76179d0c77a0d8532e53f42f61fc0bf	2026-09-25
 qoder	docs	https://docs.qoder.com/user-guide/rules.md	200	markdown-mirror	4df775be049af460957dc18aa8978673cff96f28db6755c7e234fab723e29fc7	2026-09-25
-qwen	changelog	https://github.com/QwenLM/qwen-code/releases	200	github-api	14a4676511aa02573cf51ef79ceb0c39c009031e680b7a1c5a8f8845faf58810	2026-11-05
+qwen	changelog	https://github.com/QwenLM/qwen-code/releases	200	github-api	269d1c87d64c8c16fb62190ac49399d2c517cc9f4cd163d71b2e967a325d3518	2026-11-05
 qwen	code	https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/config/storage.ts	200	raw-github	21bcd472463f36f7a7083df19c446e0d9a59c66c6e41c48422c05ebfaf7e8ad8	2026-10-23
 qwen	code	https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/hooks/types.ts	200	raw-github	458fdd1292ce1494b442b3afe05566ccf4b28868f4d6bf19ead81c358ba3a0aa	2026-10-23
 qwen	docs	https://qwenlm.github.io/qwen-code-docs/en/users/configuration/qwen-ignore/	200	html	70e608c4d2f90ff3365c625a37b47b50360038399f6d0587029227213915c9f7	2026-11-05
@@ -309,8 +309,8 @@ vibe	changelog	https://github.com/mistralai/mistral-vibe/releases	200	github-api
 vibe	code	https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/models.py	200	raw-github	fb51e2d631bf3ca2eb8be276803173ad0b5049575683cea1a04a2716e7d7e8ab	2026-10-30
 vibe	code	https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/vibe_schema.py	200	raw-github	cebdadcd77bab5bc3d20ebdefa085a76b1af364e5dae0816a4e6c3d6f6995e80	2026-10-30
 vibe	code	https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/hooks/models.py	200	raw-github	bcc42ce7c2e1cf4604abf9bdd90ad8da0412d9c4e0472c76033ad7cf2cd79180	2026-10-30
-vibe	docs	https://docs.mistral.ai/vibe/code/cli/agents	200	html	0f24059b3029c0a960dcda7dc2739dc8ab38ef98a26f8550d31da7720419ed43	2026-10-31
-vibe	docs	https://docs.mistral.ai/vibe/code/cli/configuration-reference	200	html	3f74ee5d8bce1b0e7dce8050d5315fefb46987c55af64d8dbd82e9c5238c79cb	2026-10-31
+vibe	docs	https://docs.mistral.ai/vibe/code/cli/agents	200	html	c006cd51e9cb2c3ddaf6b061a808773d6c36f94158d2dad80b27bf83f088656d	2026-11-05
+vibe	docs	https://docs.mistral.ai/vibe/code/cli/configuration-reference	200	html	9acde2e0ee75b0a75f4d3d2b17751e22be432f598dc182362f76e48b2baf78cd	2026-11-05
 vibe	docs	https://docs.mistral.ai/vibe/code/cli/hooks	200	html	4f63579633268a4b72d71758fd0ea9b36f8b07133a7c1a14933e293087a89a47	2026-10-31
 vibe	docs	https://docs.mistral.ai/vibe/code/cli/skills	200	html	56168e4e694512067c5e4f0a1c2a6c255d3bc9555e373b01417d1853e8765bb6	2026-10-31
 warp	changelog	https://docs.warp.dev/changelog.md	200	markdown-mirror	0f93b856e6d112f2360b7ae515e8c26949cdfff20d90f8157d66b0e5a8178ac2	2026-09-25
