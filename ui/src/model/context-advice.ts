@@ -254,7 +254,7 @@ function builtinText(c: ContextContribution, report: AdviceReport, name: string,
     actions: [
       `Write ${replacement} with the same name and a shorter body. A project spec with the same kind and name replaces the built-in.`,
       `Open Settings, Built-ins and turn ${owner ?? 'the built-in'} off to remove every spec it adds. The next sync removes its files.${memoryNote}`,
-      'To turn it off on your machine only, put the builtins list you keep in agnostic-ai.local.yaml. A local list replaces the shared one.',
+      'To turn it off on your machine only, put the builtins list you keep in agnostic-ai.local.yaml. A local list replaces the project one.',
       checkStep(report.target, report.file),
     ],
   }

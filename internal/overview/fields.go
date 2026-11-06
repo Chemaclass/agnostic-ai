@@ -256,14 +256,14 @@ func VoiceEditDisabledReason(e spec.Entry, root string) string {
 	if !personalFieldCleared(e, "voice") {
 		return ""
 	}
-	return fmt.Sprintf("%s sets voice: null, which clears every voice setting. Remove voice: null from that personal file before editing an individual setting.", SpecPath(root, e))
+	return fmt.Sprintf("%s sets voice: null, which clears every voice setting. Remove voice: null from that local file before editing an individual setting.", SpecPath(root, e))
 }
 
 func PermissionEditDisabledReason(e spec.Entry, root string) string {
 	if !personalPermissionsCleared(e) {
 		return ""
 	}
-	return fmt.Sprintf("%s sets permissions: null, which clears every permission list. Remove permissions: null from that personal file before editing an individual list.", SpecPath(root, e))
+	return fmt.Sprintf("%s sets permissions: null, which clears every permission list. Remove permissions: null from that local file before editing an individual list.", SpecPath(root, e))
 }
 
 func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {

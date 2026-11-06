@@ -8,6 +8,14 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The sidebar shows the config's `requires` under the version, in the warning color when unmet; `/api/health` adds `requires` and `requiresMet` (#3034).
+
+- **Open global settings** and **Open project** move to the foot of the sidebar, and the top bar shows the project path beside its name (#3035).
+
+- The JSON button moves to **Overview JSON** at the foot of the sidebar, and the inspector names `agnostic-ai view --json` (#3036).
+
+- The web interface says Project or Global and Local instead of Shared and Personal; API audience values stay `shared` and `personal` (#3033).
+
 - `doctor` describes shared settings updates as removing unchanged managed keys and keeping your keys, with JSON action `stale` (#3009).
 
 - **Breaking:** sync stops on an MCP `roots` item that is not a `{uri, name}` mapping with a `uri`, such as a plain string; `lint` (LINT060) and `validate` report it and name the server. Every tool used to drop it with no note. Write `- uri: file:///path` (#3016).
@@ -57,6 +65,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `lint` (LINT059) and sync warn when an MCP `timeout` or `x-junie.timeout` above 3600000 (one hour) reaches Junie. Junie ignores such a value and uses 60 seconds (#3014).
 
+#### Kiro
+
+- Agent files write an MCP server's `x-kiro.timeout` and `x-kiro.requestTimeout`. A portable `timeout` is left out with a note naming both keys (#3041).
+
 #### Pi
 
 - **Breaking:** MCP `timeout` is milliseconds for Pi too; sync and import convert it (#3002). Multiply a Pi `timeout` written in seconds by 1000. Lint and sync flag only values under 1000, so check larger ones yourself: an old `timeout: 1800` (30 minutes) now means 1.8 seconds; write `1800000`.
@@ -67,7 +79,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Qwen Code
 
+- Skills keep `disable-model-invocation`, `user-invocable`, and `paths` in `.qwen/skills/`, so a manual-only skill stays out of the model's reach, and import reads them back as shared fields (#3042).
+
 - The target page says project hooks need folder trust or hook approval: from 0.26.7 in interactive sessions, from 0.26.8 in headless runs too (#2978, #3015).
+
+#### Trae
+
+- The Trae page says the Build step under Settings > Indexing & Docs applies only to clients released before October 22, 2026; newer clients no longer have that panel (#3044).
 
 #### Kimi Code CLI
 

@@ -11,7 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-const permissionCreatedSpec = fieldCreatedMarker + "name: permissions\ndescription: Shared permission rules.\n"
+const permissionCreatedSpec = fieldCreatedMarker + "name: permissions\ndescription: Permission rules.\n"
 
 func (h *editHandler) permissionSource(where editAudience, shown, key string) (string, string, []string, error) {
 	scope, err := loadCheckScope(h.global)

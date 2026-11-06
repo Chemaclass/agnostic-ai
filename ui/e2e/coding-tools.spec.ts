@@ -98,7 +98,7 @@ test.describe('coding tools', () => {
     data.tools.source = 'personal'
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=settings&tab=targets')
-    await expect(page.getByText('Reset that list before changing the shared one.')).toBeVisible()
+    await expect(page.getByText('Reset that list before changing the project one.')).toBeVisible()
     await expect(page.locator('.coding-tool[data-target="claude"]').getByRole('switch')).toHaveCount(0)
     await page.goto('/?view=settings&tab=targets&mock=1')
     await expect(page.locator('.coding-tool')).toHaveCount(total)

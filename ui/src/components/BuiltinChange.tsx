@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { builtinChange, BuiltinChangeError, type BuiltinChange as Change, type BuiltinChangeAction as Action } from '../builtin-change'
 import { useApp } from './app-context'
-import { useEditAudience, type EditAudience } from './EditAudience'
+import { useEditAudience, useGlobalLevel, useLevelName, type EditAudience } from './EditAudience'
 import { addressKey } from '../model/field-address'
 import { Code, CopyButton, Switch, Toggle, ToolAvatar } from './ui'
 
@@ -184,15 +184,16 @@ export function ChangeError({ reloadLabel = 'Reload change state' }: { reloadLab
 
 export function BuiltinChangeControls({ local, resetSource }: { local: boolean; resetSource: ReactNode }) {
   const app = useApp()
+  const level = useLevelName()
   const { change, pending, proposal, resetList } = useBuiltinChanges()
   if (app.source.kind !== 'api') return null
   if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --global</Code> to apply them to your tools.</p>{local && resetSource}</>
   return <div className="builtin-change">
     <div className="builtin-change-controls">
       {!proposal && <span className="muted">Preview before applying to your tools.</span>}
-      {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || proposal} onClick={() => { void resetList() }}>Reset built-ins to the shared list</button>}
+      {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || proposal} onClick={() => { void resetList() }}>Reset built-ins to the {level} list</button>}
     </div>
-    {proposal && change?.reset && <Preview change={change} title="Built-in list reset" heading="Reset the built-in list to the shared list" />}
+    {proposal && change?.reset && <Preview change={change} title="Built-in list reset" heading={`Reset the built-in list to the ${level} list`} />}
   </div>
 }
 
@@ -221,6 +222,7 @@ export function SettingChangePreview({ change, label }: { change: Change; label:
 
 function Preview({ change, title, heading }: { change: Change; title: string; heading: string }) {
   const { pending, request, cancel } = useBuiltinChanges()
+  const global = useGlobalLevel()
   const preview = useRef<HTMLElement>(null)
   useEffect(() => { preview.current?.scrollIntoView({ block: 'start' }) }, [change.id])
   const findings = change.findings.filter((finding) => finding !== pendingSourceFinding)
@@ -232,7 +234,7 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
         <button className="button" type="button" disabled={!!pending} onClick={() => { void cancel() }}>Cancel</button>
       </div>
     </div>
-    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : 'for everyone'}.</p>
+    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
     {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> Applying writes source changes that were not synced yet, too. Every affected file is listed below.</p>}
     <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
     {change.targets.length > 0 && <details className="preview-disclosure">
@@ -281,6 +283,7 @@ export function BuiltinChange({ name, label, on, local, fallback, renderHeading 
   renderHeading: (control: ReactNode) => ReactNode
 }) {
   const app = useApp()
+  const level = useLevelName()
   const { change, pending, pendingName, error, proposal, request } = useBuiltinChanges()
   const blocked = !!error && !error.field && !error.setting
   if (app.source.kind !== 'api') return renderHeading(<Switch on={on} />)
@@ -290,7 +293,7 @@ export function BuiltinChange({ name, label, on, local, fallback, renderHeading 
   return <>
     {renderHeading(<>
       <Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || proposal || blocked} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />
-      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to shared value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'personal') }}>Reset to shared value</button>}
+      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to the ${level} value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'personal') }}>Reset to the {level} value</button>}
     </>)}
     {selected && change && <Preview change={change} title={`${title} change`} heading={`${change.enabled ? 'Enable' : 'Disable'} ${title}`} />}
   </>

@@ -4,7 +4,7 @@ import { API, type ToolCatalog, type ToolChoice } from '../contract'
 import { filterTools, offConsequence, saveHint, toolCount, toolOn } from '../model/coding-tools'
 import { documentationUrl, targetDocPath } from '../model/documentation'
 import { useApp } from './app-context'
-import { ViewPersonalButton, useViewAudience, type EditAudience } from './EditAudience'
+import { ViewPersonalButton, useLevelName, useViewAudience, type EditAudience } from './EditAudience'
 import { SectionHeading } from './SectionHeading'
 import { Badge, Code, Switch, Toggle, ToolAvatar } from './ui'
 
@@ -16,6 +16,7 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
   const app = useApp()
   const catalog = app.overview?.tools ?? emptyCatalog
   const global = app.overview?.global === true
+  const level = useLevelName()
   const audience = useViewAudience() ?? 'shared'
   const pageQuery = app.state.q ?? ''
   const [query, setQuery] = useState(pageQuery)
@@ -32,13 +33,13 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
     <section className="block coding-tools" aria-labelledby="settings-targets">
       <SectionHeading topic="targets" id="settings-targets" focusable>
         Coding tools <span className="muted kind-count">{count.on} of {count.total} on</span>
-        {catalog.source === 'personal' && audience !== 'shared' && <Badge tone="accent" title="Your personal config replaces the shared list">personal</Badge>}
+        {catalog.source === 'personal' && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
       </SectionHeading>
       <p className="muted">Each tool you turn on gets its own files from sync. Turn one off and the next sync stops writing for it.</p>
       {live && audienceControl}
-      {live && sharedBlocked && <div className="audience-notice"><p>These are the shared defaults. Your personal list of coding tools replaces them for you. Reset that list before changing the shared one.</p><ViewPersonalButton /></div>}
+      {live && sharedBlocked && <div className="audience-notice"><p>These are the {level} defaults. Your local list of coding tools replaces them for you. Reset that list before changing the {level} one.</p><ViewPersonalButton /></div>}
       {live && !sharedBlocked && <p className="muted coding-tools-hint">{saveHint(catalog, audience, global)}</p>}
-      {live && audience === 'personal' && catalog.source !== 'personal' && <p className="muted">Inherited from shared. Changing a tool creates your personal list.</p>}
+      {live && audience === 'personal' && catalog.source !== 'personal' && <p className="muted">Inherited from {level}. Changing a tool creates your local list.</p>}
       {live && audience === 'personal' && catalog.source === 'personal' && <ResetTools expected={catalog.items.filter((tool) => tool.enabled).map((tool) => tool.target)} onSaved={setSaved} />}
       {!live && <p className="muted">Switches need a running <Code>agnostic-ai serve</Code>; this view only shows the list.</p>}
       <div className="coding-tools-filter" role="search" aria-label="Filter coding tools">
@@ -68,7 +69,7 @@ function ToolRow({ tool, on, audience, global, live, onSaved }: { tool: ToolChoi
         <span className="muted coding-tool-description">
           {tool.description}
           {tool.detected && !on && <Badge tone="info" muted title="The project already holds this tool's own files">found in project</Badge>}
-          {tool.local && audience === 'personal' && <Badge tone="accent" muted title="Your personal list decides this tool">personal</Badge>}
+          {tool.local && audience === 'personal' && <Badge tone="accent" muted title="Your local list decides this tool">local</Badge>}
         </span>
       </div>
       <a className="coding-tool-docs" href={docs} target="_blank" rel="noopener noreferrer" aria-label={`${tool.label} docs`}>Docs</a>
@@ -155,6 +156,7 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
 
 function ResetTools({ expected, onSaved }: { expected: string[]; onSaved: (saved: Saved) => void }) {
   const app = useApp()
+  const level = useLevelName()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | undefined>()
   const reset = async () => {
@@ -171,7 +173,7 @@ function ResetTools({ expected, onSaved }: { expected: string[]; onSaved: (saved
   }
   return (
     <p className="coding-tools-reset">
-      <button type="button" className="button button-quiet" disabled={pending} onClick={() => { void reset() }}>Reset coding tools to the shared list</button>
+      <button type="button" className="button button-quiet" disabled={pending} onClick={() => { void reset() }}>Reset coding tools to the {level} list</button>
       {error && <span className="edit-error" role="alert">{error}</span>}
     </p>
   )

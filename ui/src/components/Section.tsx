@@ -7,7 +7,7 @@ import { CodingTools } from './CodingTools'
 import { EditorSettings } from './EditorSettings'
 import { ContextUsage } from './ContextUsage'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
-import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAudience, usePageAudience, useViewAudience, type EditAudience } from './EditAudience'
+import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAudience, useLevelName, usePageAudience, useViewAudience, type EditAudience } from './EditAudience'
 import { OpenInEditor } from './EditorLink'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
 import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice } from './PermissionEditor'
@@ -20,6 +20,7 @@ import { documentationUrl } from '../model/documentation'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, perToolEdit, valueAt } from '../model/field-address'
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
+import { audienceLabel, layerLabel } from '../model/edit-audience'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
 import { filterTools, toolCount } from '../model/coding-tools'
@@ -111,6 +112,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const audience = useViewAudience()
   const [warningsExpanded, setWarningsExpanded] = useState(false)
   const personalBuiltins = useContext(PersonalBuiltins)
+  const level = useLevelName()
   const root = useContext(ConfigurationRoot)
   const noticeKey = `agnostic-ai.mcp-spec-saved:${root ?? ''}`
   const [mcpSaved, setMCPSaved] = useState<MCPSpecSaved | undefined>(() => {
@@ -258,13 +260,13 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <SectionHeading topic={k.kind} id={titleId} focusable>
               {k.label} <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
-              {k.local && audience !== 'shared' && <Badge tone="accent" title="Your personal config replaces the shared list">personal</Badge>}
+              {k.local && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
             </SectionHeading>
             {audienceControl}
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
-            {sharedBlocked && <div className="audience-notice"><p>These are the shared defaults. Your personal built-in list replaces them for you. Reset that list before changing shared built-ins.</p><ViewPersonalButton /></div>}
-            {k.kind === 'builtin' && audience === 'personal' && !personalBuiltins && <p className="muted">Inherited from shared. Changing a built-in creates your personal list.</p>}
-            {k.kind === 'builtin' && !sharedBlocked && <BuiltinChangeControls local={audience === 'personal' && personalBuiltins} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
+            {sharedBlocked && <div className="audience-notice"><p>These are the {level} defaults. Your local built-in list replaces them for you. Reset that list before changing {level} built-ins.</p><ViewPersonalButton /></div>}
+            {k.kind === 'builtin' && audience === 'personal' && !personalBuiltins && <p className="muted">Inherited from {level}. Changing a built-in creates your local list.</p>}
+            {k.kind === 'builtin' && !sharedBlocked && <BuiltinChangeControls local={audience === 'personal' && personalBuiltins} resetSource={<ResetAction label={`Reset built-ins to the ${level} list`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
             {unlisted !== undefined && items.length > 0 && (
               <p className="muted tool-state tools-unlisted">
                 Tools not listed yet. Run <Code>{unlisted}</Code> to list them.
@@ -331,6 +333,7 @@ function SettingsFields({ title, topic, audienceControl, fields, files, filterin
 
 function FieldList({ fields, files }: { fields: SettingField[]; files: SectionItem[] }) {
   const viewAudience = useViewAudience()
+  const level = useLevelName()
   return (
     <ul className="fields">
       {fields.map((f) => (
@@ -338,8 +341,8 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
           <div className="field-head">
             <strong>{f.label}</strong>
             {f.key !== 'x-' && <code className="muted">{f.key}</code>}
-            {viewAudience === 'personal' && f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
-            {viewAudience === 'personal' && f.set.length > 0 && !f.set.some((src) => src.local) && <span className="item-layer">Inherited from shared</span>}
+            {viewAudience === 'personal' && f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a local file Git ignores">local</Badge>}
+            {viewAudience === 'personal' && f.set.length > 0 && !f.set.some((src) => src.local) && <span className="item-layer">Inherited from {level}</span>}
             <p className="muted">{f.description}</p>
           </div>
           {sourcesForAudience(f.set, viewAudience).length === 0 && <p className="muted field-unset">Not set</p>}
@@ -367,11 +370,12 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
 function FieldResolution({ field, files, resolved }: { field: SettingField; files: SectionItem[]; resolved: TargetValue[] }) {
   const app = useApp()
   const label = field.label
+  const level = useLevelName()
   const tools = useContext(ConfiguredTools)
   const [selected, setSelected] = useState(resolved[0].target)
   const current = resolved.find((r) => r.target === selected) ?? resolved[0]
   const groups = valueGroups(resolved)
-  const origin = originLabel(current)
+  const origin = originLabel(current, level)
   const override = configOverride(current)
   const toolEdit = app.source.kind === 'api' && perToolEdit(field, current.target)
   return (
@@ -432,6 +436,7 @@ function FieldEditControl(props: FieldEditControlProps) {
 function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath }: FieldEditControlProps & { path: string; setPath: (path: string) => void }) {
   const app = useApp()
   const audience = useEditAudience()
+  const level = useLevelName()
   const transaction = useSettingChange(field.key, target)
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
@@ -507,7 +512,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const save = (clear: boolean) => post({ audience, value: clear ? null : edit.kind === 'number' ? Number(value) : edit.kind === 'boolean' ? value === 'true' : value }, audience === 'personal' ? basis.current.local : basis.current.team)
   const reset = () => post({ audience: 'personal', value: null }, basis.current.local)
   const overridden = audience === 'shared' && (localCurrent !== undefined || wholePersonal)
-  const resetLabel = target ? 'Use the value for every tool' : 'Reset to shared value'
+  const resetLabel = target ? 'Use the value for every tool' : `Reset to the ${level} value`
   const valueLabel = `${field.label}${toolLabel ? ` for ${toolLabel}` : ''} value`
   const allowed = target ? edit.toolAllowed?.[target] : edit.allowed
   const configured = audience === 'personal' ? localCurrent !== undefined : teamCurrent !== undefined
@@ -536,7 +541,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     {overridden
       ? <div className="field-edit-row">
         <input aria-label={valueLabel} value={teamCurrent ?? ''} placeholder="Not set" disabled />
-        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the shared per-tool values.' : 'Your personal value overrides the shared value.'} Reset it in Personal to change this shared value.</p>
+        <p className="muted">{localCurrent === undefined ? `Your local value for every tool replaces the ${level} per-tool values.` : `Your local value overrides the ${level} value.`} Reset it in Local to change this {level} value.</p>
         <ViewPersonalButton />
       </div>
       : <div className="field-edit-row">
@@ -559,7 +564,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
       <span className="muted">Apply to your tools now:</span>
       {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, audience) }}>Preview and apply</button>}
       {!overridden && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'shared') }}>{target ? 'Preview using the value for every tool' : 'Preview removal'}</button>}
-      {audience === 'personal' && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'personal') }}>Preview personal reset</button>}
+      {audience === 'personal' && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'personal') }}>Preview local reset</button>}
       {transaction.preparing && <span className="muted">Preparing preview…</span>}
     </div>}
     {transaction.error && <ChangeError reloadLabel="Reload saved values" />}
@@ -567,7 +572,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
       {audience === 'personal' && (localSource?.path || path === edit.path && edit.localPath) && <>Saves to <Code>{localSource?.path ?? edit.localPath}</Code> · </>}
-      {audience === 'personal' && !localSource?.path && path !== edit.path && <>Saves to your personal overlay for <Code>{path}</Code> · </>}
+      {audience === 'personal' && !localSource?.path && path !== edit.path && <>Saves to your local override of <Code>{path}</Code> · </>}
       {audience === 'shared' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
       {audience === 'shared' && !configured && field.set.length > 0 && paths.length <= 1 && path && <>Saves to <Code>{path}</Code> · </>}
       {!transaction.supported && <>Run <Code>{syncCommand}</Code> to apply.</>}
@@ -665,7 +670,7 @@ function ConfigurationFiles({ items }: { items: SectionItem[] }) {
       <ItemList items={items} hideValues />
       <div className="effective-config">
         <h3>Effective configuration</h3>
-        <p className="muted">Combined configuration used for sync, including personal overrides.</p>
+        <p className="muted">Combined configuration used for sync, including local overrides.</p>
         <Values values={items[0].values} />
       </div>
     </>
@@ -697,6 +702,7 @@ function ItemList({ items, hideValues, sharedUnlisted }: { items: SectionItem[];
   const audience = useEditAudience()
   const viewAudience = useViewAudience()
   const personalBuiltins = useContext(PersonalBuiltins)
+  const level = useLevelName()
   const sharedBlocked = viewAudience === 'shared' && personalBuiltins
   return (
     <ul className="item-list">
@@ -706,7 +712,7 @@ function ItemList({ items, hideValues, sharedUnlisted }: { items: SectionItem[];
           {sharedBlocked
             ? <Toggle on={on} label={`${item.name} built-in`} disabled onToggle={() => {}} />
             : <EditSwitch key={audience} on={on} label={`${item.name} built-in`} save={(enabled) => postEdit(API.editBuiltin, { audience, name: item.name, enabled, expected: on })} />}
-          {viewAudience === 'personal' && item.local && <ResetAction label={`Reset ${item.name} to shared value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !on, expected: on })} />}
+          {viewAudience === 'personal' && item.local && <ResetAction label={`Reset ${item.name} to the ${level} value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !on, expected: on })} />}
         </>
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
@@ -742,9 +748,9 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
       </div>
       <div className="item-meta">
-        {item.local && audience !== 'shared' && <Badge tone="accent" title="Set in a personal file Git ignores">personal</Badge>}
+        {item.local && audience !== 'shared' && <Badge tone="accent" title="Set in a local file Git ignores">local</Badge>}
         {control}
-        {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
+        {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{layerLabel(item.layer)}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
         {refinable && <CopyButton text={instructionsRefinePrompt(item.openPath ?? (root ? `${root}/${item.path}` : item.path))} label="Copy refine prompt" ariaLabel={`Copy refine prompt for ${item.label}`} className="refine-copy" />}
         <OpenInEditor path={item.openPath} label={item.label} compact />
@@ -888,6 +894,7 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
 /** Removes a personal override; the server refuses it when nothing is overridden. */
 function ResetAction({ label, reset }: { label: string; reset: () => Promise<unknown> }) {
   const app = useApp()
+  const level = useLevelName()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
   const reloadBasis = useRef<object | undefined>(undefined)
@@ -913,19 +920,20 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<unk
   }
   return (
     <span className="edit-switch">
-      <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to shared value</button>
+      <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to the {level} value</button>
       {error && <span className="edit-error" role="alert">{error.message}{error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}</span>}
     </span>
   )
 }
 
 function OverrideComparison({ shared, personal }: { shared?: string; personal?: string }) {
+  const level = useLevelName()
   if (shared === personal) return null
   const label = (value?: string) => value === 'null' ? 'Cleared' : value ?? 'Not set'
-  return <span className="override-comparison" role="note" aria-label="Personal overrides shared">
-    <span>Shared: <strong>{label(shared)}</strong></span>
+  return <span className="override-comparison" role="note" aria-label={`Local overrides ${level}`}>
+    <span>{audienceLabel('shared', level === 'global')}: <strong>{label(shared)}</strong></span>
     <span aria-hidden="true">·</span>
-    <span>Personal: <strong>{label(personal)}</strong></span>
+    <span>Local: <strong>{label(personal)}</strong></span>
   </span>
 }
 
@@ -959,6 +967,7 @@ function NativeValues({ values, file, localKeys, overrides, baseline }: { values
 
 function Values({ values, file, prefix, personal, localKeys, fieldKey, overrides, baseline }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[]; fieldKey?: string; overrides?: Value[]; baseline?: Value[] }) {
   const audience = usePageAudience() ?? (personal ? 'personal' : 'shared')
+  const level = useLevelName()
   return (
     <dl className="values">
       {values.map((v) => (
@@ -981,9 +990,9 @@ function Values({ values, file, prefix, personal, localKeys, fieldKey, overrides
               file ? (
                 <>
                   {overrides?.some((override) => override.key === v.key || v.key.startsWith(`${override.key}.`))
-                    ? <span className="value-override"><Toggle on={v.value === 'true'} label={v.key} disabled onToggle={() => {}} /><span className="muted">Overridden in Personal</span><ViewPersonalButton /></span>
+                    ? <span className="value-override"><Toggle on={v.value === 'true'} label={v.key} disabled onToggle={() => {}} /><span className="muted">Overridden in Local</span><ViewPersonalButton /></span>
                     : <EditSwitch key={audience} on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { audience, path: file, key: v.key, value: on, expected: v.value === 'true' })} />}
-                  {audience === 'personal' && localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to shared value`} reset={() => postEdit(API.editValue, { audience: 'personal', path: file, key: v.key, value: null, expected: v.value === 'true' })} />}
+                  {audience === 'personal' && localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to the ${level} value`} reset={() => postEdit(API.editValue, { audience: 'personal', path: file, key: v.key, value: null, expected: v.value === 'true' })} />}
                 </>
               ) : (
                 <Switch on={v.value === 'true'} />

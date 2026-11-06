@@ -49,10 +49,11 @@ describe('field address', () => {
   })
 
   it('labels where the value comes from, and the config key that replaces it', () => {
-    expect(originLabel(tool({ value: 'gpt-5', from: { spec: 'defaults', path: 'a.yaml', local: true, perTool: true } }))).toBe('personal · codex')
-    expect(originLabel(tool({ value: 'sonnet', from: { spec: 'defaults', path: 'a.yaml' } }))).toBe('shared · all tools')
+    expect(originLabel(tool({ value: 'gpt-5', from: { spec: 'defaults', path: 'a.yaml', local: true, perTool: true } }), 'project')).toBe('local · codex')
+    expect(originLabel(tool({ value: 'sonnet', from: { spec: 'defaults', path: 'a.yaml' } }), 'project')).toBe('project · all tools')
+    expect(originLabel(tool({ value: 'sonnet', from: { spec: 'defaults', path: 'a.yaml' } }), 'global')).toBe('global · all tools')
     const replaced = tool({ value: 'o3', from: { path: 'outputs.codex.config.model' } })
-    expect(originLabel(replaced)).toBeUndefined()
+    expect(originLabel(replaced, 'project')).toBeUndefined()
     expect(configOverride(replaced)).toBe('outputs.codex.config.model')
     expect(configOverride(tool({ from: { spec: 'defaults', path: 'a.yaml' } }))).toBeUndefined()
   })

@@ -147,7 +147,7 @@ func scopeQwenSkillFields(data []byte) ([]byte, error) {
 	if err := guardQwenValues("qwen skill frontmatter", native, false); err != nil {
 		return nil, err
 	}
-	return scopeQwenFields(data, "name", "description", "license")
+	return scopeQwenFields(data, "name", "description", "license", "paths", "disable-model-invocation", "user-invocable")
 }
 func scopeQwenFields(data []byte, keep ...string) ([]byte, error) {
 	mapping, rest, ok := frontmatterNode(data)
