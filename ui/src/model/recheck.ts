@@ -134,7 +134,7 @@ export function recheckAllResult(before: OverviewView, after: OverviewView): Rec
       left.set(key, n - 1)
       continue
     }
-    if (finding.source === 'lint' && now.some((f) => stopped(f.finding))) counts.unknown++
+    if (finding.source === 'lint' && now.some((f) => f.finding.layer === finding.layer && stopped(f.finding))) counts.unknown++
     else if (finding.source === 'doctor') counts.unconfirmed++
     else counts.resolved++
   }

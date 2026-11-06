@@ -129,6 +129,12 @@ describe('recheck all', () => {
     expect(recheckAllMessage(result)).toBe('Rechecked every finding. Lint stopped before it finished, so 2 lint findings that no longer appear may still apply. 1 finding remains.')
   })
 
+  it('judges a gone lint finding by the lint run of its own layer', () => {
+    const stopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'Lint stopped before it finished: bad config', path: 'agnostic-ai.yaml', layer: 'global' }
+    expect(recheckAllResult(view([read]), view([], [stopped]))).toMatchObject({ resolved: 1, unknown: 0 })
+    expect(recheckAllResult(view([], [{ ...read, layer: 'global' }]), view([], [stopped]))).toMatchObject({ resolved: 0, unknown: 1 })
+  })
+
   it('matches identical findings one to one', () => {
     const twice = [read, { ...read, line: 7 }]
     expect(recheckAllResult(view(twice), view([read, shell]))).toMatchObject({ resolved: 1, added: 1, remaining: 2 })
