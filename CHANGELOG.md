@@ -14,6 +14,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `sync --global` notes agent fields a tool's agent file cannot hold, such as `maxTurns` or `background`, once each, as project sync does. It used to drop them with no note (#3073).
 
+- `sync --global` notes agent fields a tool's agent file cannot hold, such as `maxTurns` or `background`, once each, as project sync does, and an agent's `mcpServers` on Kiro and OpenHands, whose user-level agent files get no inline servers. It used to drop them with no note (#3073).
+
 - In the web interface, each hook on Lifecycle has **Summary**, **Key fields** (event, match, type, command, timeout, disabled) and **Full spec**, which shows every field of the hook file, or hides the file when it looks like it holds a credential; search matches a hook's command (#3038).
 - Dry-run, render, and other previews of Markdown and prose withhold text that labels a credential with a value (a `password:` line, a `token` table cell or tag, "the password is ..."). The web interface's file content view also withholds a file with such a label, besides any file that names a strong credential word, as before, and a Lifecycle hook's key fields redact the text that would hide its full spec (#3062).
 

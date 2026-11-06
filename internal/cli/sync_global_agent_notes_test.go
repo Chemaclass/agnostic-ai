@@ -37,3 +37,21 @@ func TestSyncGlobal_PrintsQwensOwnAgentNoteOnce(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncGlobal_NotesAgentServersAnInlineTargetCannotWrite(t *testing.T) {
+	for _, target := range []string{"kiro", "openhands"} {
+		t.Run(target, func(t *testing.T) {
+			_, source := globalAgentTestHome(t)
+			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmcpServers: [db]\n---\nReview carefully.\n")
+			mustWriteGlobalTest(t, filepath.Join(source, "mcps", "db.yaml"), "name: db\ncommand: db-mcp\n")
+
+			out, warnings, err := runGlobalAgentTest("--only", target, "--dry-run")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if all := out + warnings; strings.Count(all, "`mcpServers` on 1 agent has no effect on "+target) != 1 {
+				t.Errorf("want one mcpServers note:\n%s", all)
+			}
+		})
+	}
+}
