@@ -338,7 +338,7 @@ func TestServeSource_HidesFrontmatterThatDoesNotParse(t *testing.T) {
 	broken := "---\npassword: hunter2short\nbad: [\n---\nKeep functions small.\n"
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
 	mustWriteFile(t, instructions, broken)
-	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Body != "Keep functions small.\n" || len(view.Frontmatter) != 0 {
+	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); strings.Contains(view.Body, "hunter2short") || len(view.Frontmatter) != 0 {
 		t.Errorf("instructions: %+v", view)
 	}
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "style.md")
@@ -396,7 +396,7 @@ func TestServeSource_NeverShowsFrontmatterThatClosesPastTheBodyLimit(t *testing.
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
 	mustWriteFile(t, instructions, "---\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceFrontmatterLimit+sourceBodyLimit)+"\n---\nBody.\n")
 	view, raw = get(instructions)
-	if strings.Contains(raw, "hunter2short") || view.Body != "" || len(view.Frontmatter) != 0 || !view.Truncated {
+	if strings.Contains(raw, "hunter2short") || strings.Contains(view.Body, "api_key") || len(view.Frontmatter) != 0 || !view.Truncated {
 		t.Errorf("closing past the read limit: truncated %v, body length %d, frontmatter %d", view.Truncated, len(view.Body), len(view.Frontmatter))
 	}
 }
@@ -418,7 +418,7 @@ func TestServeSource_NeverShowsFrontmatterThatNeverCloses(t *testing.T) {
 	if err := json.Unmarshal(data, &view); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "hunter2short") || view.Body != "" || len(view.Frontmatter) != 0 {
+	if strings.Contains(string(data), "hunter2short") || strings.Contains(view.Body, "password") || len(view.Frontmatter) != 0 {
 		t.Errorf("an unclosed block must stay hidden: body %q, frontmatter %d", view.Body, len(view.Frontmatter))
 	}
 }
@@ -488,6 +488,30 @@ func TestServeSource_NeverShowsALeadingBlockAsBody(t *testing.T) {
 		_ = json.Unmarshal(data, &view)
 		if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") || view.Body != "Body.\n" {
 			t.Errorf("%q: status %d, body %q, raw %s", content, resp.StatusCode, view.Body, data)
+		}
+	}
+}
+
+func TestServeSource_NeverReturnsACredentialFromAnyPartOfTheFile(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	for name, content := range map[string]string{
+		"body":      "Root.\n\npassword: hunter2short\n\nexport GITHUB_TOKEN=ghp_123456789012345678901234567890123456\n",
+		"fenced":    "Root.\n\n```yaml\napi_key: hunter2short\n```\n",
+		"delimiter": "---\n---note: divider\npassword: hunter2short\n---\nBody.\n",
+		"alias":     "---\ndefaults: &login hunter2short\npassword: *login\n---\nBody.\n",
+		"key":       "---\naccounts: {ghp_123456789012345678901234567890123456: enabled}\n---\nBody.\n",
+	} {
+		mustWriteFile(t, instructions, content)
+		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		got := string(data)
+		if resp.StatusCode != http.StatusOK || strings.Contains(got, "hunter2short") || strings.Contains(got, "ghp_1234567890") {
+			t.Errorf("%s: status %d leaks a credential: %s", name, resp.StatusCode, got)
 		}
 	}
 }

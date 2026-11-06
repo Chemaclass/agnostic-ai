@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -168,6 +169,10 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		data, view.Truncated = validUTF8Prefix(data[:limit]), true
 	}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	if shown := preview.Display(path, text); shown.Withheld {
+		view.Body = shown.Text
+		return view, true
+	}
 	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
 	if err != nil {
 		keys = nil
@@ -178,9 +183,9 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	if len(body) > sourceBodyLimit {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
 	}
-	view.Body = body
+	view.Body = redactBody(body)
 	for _, key := range keys {
-		view.Frontmatter = appendSourceFields(view.Frontmatter, key, meta[key])
+		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), meta[key])
 	}
 	return view, true
 }
@@ -197,13 +202,13 @@ func leadingBlock(text string) bool {
 // afterLeadingBlock is text without its leading block, or nothing when
 // that block never closes.
 func afterLeadingBlock(text string) string {
-	end := strings.Index(text[3:], "\n---")
-	if end < 0 {
-		return ""
-	}
-	rest := text[3+end+4:]
-	if i := strings.IndexByte(rest, '\n'); i >= 0 {
-		return rest[i+1:]
+	_, rest, _ := strings.Cut(text, "\n")
+	for rest != "" {
+		line, next, _ := strings.Cut(rest, "\n")
+		if strings.TrimRight(line, " \t") == "---" {
+			return next
+		}
+		rest = next
 	}
 	return ""
 }
@@ -238,7 +243,7 @@ func appendSourceFields(fields []sourceField, key string, v any) []sourceField {
 	switch t := v.(type) {
 	case map[string]any:
 		for _, k := range slices.Sorted(maps.Keys(t)) {
-			fields = appendSourceFields(fields, key+"."+k, t[k])
+			fields = appendSourceFields(fields, key+"."+preview.RedactText(k), t[k])
 		}
 		return fields
 	case map[any]any:
@@ -279,4 +284,23 @@ func isNested(v any) bool {
 		return true
 	}
 	return false
+}
+
+var credentialLine = regexp.MustCompile(`^(\s*(?:-\s+)?(?:export\s+)?["']?([A-Za-z_][A-Za-z0-9_.-]*)["']?\s*[:=]\s*)(\S.*)$`)
+
+// redactBody hides the value on any line that assigns to a credential
+// name (password: x, API_KEY=x, export TOKEN=x), then applies the shared
+// text redaction, which catches recognizable tokens anywhere.
+func redactBody(body string) string {
+	lines := strings.Split(body, "\n")
+	for i, line := range lines {
+		m := credentialLine.FindStringSubmatch(line)
+		if m == nil || preview.PureReference(m[3]) {
+			continue
+		}
+		if preview.CredentialKey(m[2]) || preview.CredentialName(m[2]) {
+			lines[i] = m[1] + preview.Redacted
+		}
+	}
+	return preview.RedactText(strings.Join(lines, "\n"))
 }
