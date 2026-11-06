@@ -151,7 +151,7 @@ type FieldEdit struct {
 	Path    string            `json:"path,omitempty"`
 	Paths   []string          `json:"paths,omitempty"`
 	Sources []FieldEditSource `json:"sources,omitempty"`
-	// Kind is text, number, boolean, or permission-list.
+	// Kind is text, number, boolean, permission-list, or protected-list.
 	Kind    string   `json:"kind"`
 	Allowed []string `json:"allowed,omitempty"`
 	// ToolAllowed lists, for each tool that takes the field, the values

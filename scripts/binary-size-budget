@@ -790,6 +790,9 @@
 # Reading frontmatter whole before cutting the body (#3025) measured 24834208
 # bytes on Go 1.27.3; the budget is that plus 8192, rounded up to a multiple of 4096.
 # After merging main, the branch measured 24875168 bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
-# Hook zoom levels (#3038), which serve a hook file as fields, measured 24887456
-# bytes on Go 1.27.3; the budget is that plus 8192, rounded up to a multiple of 4096.
-24899584
+# The Field Ledger tokens and bundled fonts (#3026), merged with Show content,
+# measured 24924320 bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
+# Authority protected paths and the global default permission mode (#3039),
+# merged with the Field Ledger fonts, measured 24981664 bytes; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+24993792

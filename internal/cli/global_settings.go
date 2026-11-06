@@ -171,11 +171,9 @@ func noteIgnoredGlobalSettings(target string, f globalSettingsFile, written []gl
 	}
 }
 
-var globalPermissionModes = []string{"default", "manual", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"}
-
 func acceptsGlobalPermissionMode(value any) bool {
 	mode, ok := value.(string)
-	return ok && slices.Contains(globalPermissionModes, mode)
+	return ok && slices.Contains(spec.PermissionModes, mode)
 }
 
 func globalPermissionSettings(target string, f globalSettingsFile, settings []spec.Entry) []globalSetting {
@@ -210,7 +208,7 @@ func globalPermissionSettings(target string, f globalSettingsFile, settings []sp
 		return nil
 	}
 	if !acceptsGlobalPermissionMode(mode.value) {
-		adapters.NoteSettingsFieldNoOp(target, mode.field, 1, fmt.Sprintf("%s does not accept %v; it takes %s", mode.key, mode.value, strings.Join(globalPermissionModes, ", ")))
+		adapters.NoteSettingsFieldNoOp(target, mode.field, 1, fmt.Sprintf("%s does not accept %v; it takes %s", mode.key, mode.value, strings.Join(spec.PermissionModes, ", ")))
 		return nil
 	}
 	return []globalSetting{mode}
@@ -675,7 +673,7 @@ func lintGlobalSettings(settings []spec.Entry, targets []string) []validationIss
 			f := globalTargets[target].settings
 			permissions, _ := entry.Meta["permissions"].(map[string]any)
 			if mode, present := permissions["default-mode"]; present && entry.EmitsTo(target) && f.permissionMode != "" && !acceptsGlobalPermissionMode(mode) {
-				out = append(out, validationIssue{Path: entry.Path, Field: "permissions.default-mode", Message: fmt.Sprintf("%s: %s does not accept permissions.default-mode %v; it takes %s", target, f.permissionMode, mode, strings.Join(globalPermissionModes, ", "))})
+				out = append(out, validationIssue{Path: entry.Path, Field: "permissions.default-mode", Message: fmt.Sprintf("%s: %s does not accept permissions.default-mode %v; it takes %s", target, f.permissionMode, mode, strings.Join(spec.PermissionModes, ", "))})
 			}
 			if f.path == "" || f.effort == "" || !entry.EmitsTo(target) {
 				continue

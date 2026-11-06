@@ -40,7 +40,7 @@ func ProtectedPaths(settings []Entry) ([]ProtectGroup, error) {
 		if !ok {
 			continue
 		}
-		group, err := parseProtectGroup(raw)
+		group, err := ParseProtectGroup(raw)
 		if err != nil {
 			return nil, fmt.Errorf("%s: protected: %w", entry.Path, err)
 		}
@@ -50,7 +50,9 @@ func ProtectedPaths(settings []Entry) ([]ProtectGroup, error) {
 	return groups, nil
 }
 
-func parseProtectGroup(raw any) (ProtectGroup, error) {
+// ParseProtectGroup reads one protected block and refuses a shape the
+// targets cannot agree on.
+func ParseProtectGroup(raw any) (ProtectGroup, error) {
 	fields, ok := raw.(map[string]any)
 	if !ok {
 		return ProtectGroup{}, fmt.Errorf("want a mapping with paths, decision, and reason")

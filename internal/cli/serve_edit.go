@@ -30,6 +30,7 @@ const (
 	editValuePath       = "/api/edit/value"
 	editFieldPath       = "/api/edit/field"
 	editPermissionsPath = "/api/edit/permissions"
+	editProtectedPath   = "/api/edit/protected"
 )
 
 // editHandler switches a built-in in the config file, or a boolean field
@@ -103,6 +104,9 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case editPermissionsPath:
 		h.servePermissions(w, body)
+		return
+	case editProtectedPath:
+		h.serveProtected(w, body)
 		return
 	case editMCPPath:
 		h.serveMCP(w, body)
@@ -298,7 +302,11 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var source fieldSourceError
 		var nothing noPersonalValueError
 		var tier tierEffortError
+		var shadowed shadowedFieldError
 		switch {
+		case errors.As(err, &shadowed):
+			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
+			return
 		case errors.As(err, &tier):
 			writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error()})
 			return

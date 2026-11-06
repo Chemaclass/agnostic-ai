@@ -11,7 +11,10 @@ import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAu
 import { OpenInEditor } from './EditorLink'
 import { AddHookForm, HookSavedNotice, useHookSaved } from './AddHook'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
-import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice } from './PermissionEditor'
+import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice, useSavedEditNotice } from './PermissionEditor'
+import { ProtectedEditor } from './ProtectedEditor'
+import { ConfigSwitch } from './ConfigSwitch'
+import { useServedConfig } from './Shell'
 import { SectionTabs } from './SectionTabs'
 import { SourceContent } from './SourceContent'
 import { HookDetails } from './HookDetails'
@@ -309,7 +312,7 @@ function SettingsFields({ title, topic, audienceControl, fields, files, filterin
   const id = fieldsHeadingId(title)
   const configured = fields.filter((field) => sourcesForAudience(field.set, audience).length > 0)
   const unconfigured = fields.filter((field) => sourcesForAudience(field.set, audience).length === 0)
-  const editablePermissions = unconfigured.filter((field) => field.editable?.kind === 'permission-list')
+  const editablePermissions = unconfigured.filter((field) => field.editable?.kind === 'permission-list' || field.editable?.kind === 'protected-list' || field.key === 'permissions.default-mode' && field.editable)
   const remaining = unconfigured.filter((field) => !editablePermissions.includes(field))
   const visibleFields = fields.filter((field) => configured.includes(field) || editablePermissions.includes(field))
   return (
@@ -428,13 +431,27 @@ interface FieldEditControlProps {
 }
 
 function FieldEditor(props: FieldEditControlProps) {
+  if (props.field.editable?.kind === 'protected-list') return <ProtectedEditor {...props} />
   return props.field.editable?.kind === 'permission-list' ? <PermissionEditor {...props} /> : <FieldEditControl {...props} />
+}
+
+function GlobalSettingsAction() {
+  const served = useServedConfig(useApp().source.kind, 0)
+  return served && !served.global ? <div className="field-edit-row"><ConfigSwitch served={served} /></div> : null
 }
 
 function FieldEditControl(props: FieldEditControlProps) {
   const audience = useEditAudience()
-  const [path, setPath] = useState(props.field.editable?.path ?? props.field.editable?.paths?.[0] ?? '')
-  return <FieldEditForm key={`${audience}:${path}`} {...props} path={path} setPath={setPath} />
+  const edit = props.field.editable
+  const [selected, select] = useState(() => {
+    const path = edit?.path ?? edit?.paths?.[0] ?? ''
+    return { path, spec: edit?.sources?.find((source) => source.path === path)?.spec }
+  })
+  const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
+  // A save can move the selected spec, such as a first local file; follow it there.
+  const moved = !paths.includes(selected.path) && !edit?.sources?.some((source) => source.path === selected.path) ? edit?.sources?.find((source) => source.spec === selected.spec)?.path : undefined
+  const path = moved ?? selected.path
+  return <FieldEditForm key={`${audience}:${path}`} {...props} path={path} setPath={(next) => select({ path: next, spec: edit?.sources?.find((source) => source.path === next)?.spec })} />
 }
 
 function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath }: FieldEditControlProps & { path: string; setPath: (path: string) => void }) {
@@ -442,12 +459,15 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const audience = useEditAudience()
   const level = useLevelName()
   const transaction = useSettingChange(field.key, target)
+  const savedNotice = useSavedEditNotice()
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const valueOf = (source?: SettingField['set'][number]) => source && valueAt(source.values, field.key, target)
   const specPath = path
-  const specName = field.set.find((source) => source.path === specPath)?.spec
-  const localSource = field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath))
+  const selectedSource = edit?.sources?.find((source) => source.path === specPath)
+  const specName = selectedSource?.spec ?? field.set.find((source) => source.path === specPath)?.spec
+  const localPath = selectedSource?.localPath ?? (specPath === edit?.path ? edit?.localPath : undefined)
+  const localSource = field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === localPath))
   const localKeys = localSource && files.find((item) => item.name === localSource.spec && item.path === localSource.path)?.localKeys
   const teamSource = field.set.find((source) => source.path === path && !source.local)
   const localCurrent = localSource && personalValueAt(localSource.values, localKeys, field.key, target)
@@ -481,7 +501,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     if (clean) setValue(current)
   }, [current, localCurrent, teamCurrent])
   if (!edit) return sources()
-  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p></>
+  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p>{field.key === 'permissions.default-mode' && <GlobalSettingsAction />}</>
   const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
   if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
   if (app.source.kind !== 'api') return sources()
@@ -492,7 +512,8 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     setReloaded(false)
     conflict.current = false
     try {
-      await postEdit(API.editField, { path: specFile || undefined, key: field.key, target, ...body, expected: expected ?? null })
+      const reply = await postEdit(API.editField, { path: specFile || undefined, key: field.key, target, ...body, expected: expected ?? null })
+      if (field.key === 'permissions.default-mode' && reply.file) savedNotice({ file: reply.file, syncCommand })
       const saved = body.value === null ? undefined : String(body.value)
       const next = body.audience === 'personal' ? { ...basis.current, local: saved } : { ...basis.current, team: saved }
       basis.current = { ...next, current: (audience === 'personal' ? next.local ?? next.team : next.team) ?? '' }
@@ -575,8 +596,8 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={toolLabel ? `${field.label} for ${toolLabel}` : field.label} />}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
-      {audience === 'personal' && (localSource?.path || path === edit.path && edit.localPath) && <>Saves to <Code>{localSource?.path ?? edit.localPath}</Code> · </>}
-      {audience === 'personal' && !localSource?.path && path !== edit.path && <>Saves to your local override of <Code>{path}</Code> · </>}
+      {audience === 'personal' && (localSource?.path || localPath) && <>Saves to <Code>{localSource?.path ?? localPath}</Code> · </>}
+      {audience === 'personal' && !localSource?.path && !localPath && <>Saves to your local override of <Code>{path}</Code> · </>}
       {audience === 'shared' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
       {audience === 'shared' && !configured && field.set.length > 0 && paths.length <= 1 && path && <>Saves to <Code>{path}</Code> · </>}
       {!transaction.supported && <>Run <Code>{syncCommand}</Code> to apply.</>}

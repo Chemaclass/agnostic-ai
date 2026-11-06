@@ -49,6 +49,10 @@ try {
   for (const name of (await readdir(toolAssets)).filter((name) => name.startsWith('LICENSE')).sort()) {
     notices.push(`${name}\n\n${await readFile(join(toolAssets, name), 'utf8')}`)
   }
+  const fontAssets = join(root, 'src/assets/fonts')
+  for (const name of (await readdir(fontAssets)).filter((name) => name.startsWith('OFL')).sort()) {
+    notices.push(`${name}\n\n${await readFile(join(fontAssets, name), 'utf8')}`)
+  }
   await writeFile(join(output, 'third-party-notices.txt'), notices.join('\n\n'))
   const inputs = [
     ...['index.html', 'package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts'].map((file) => join(root, file)),

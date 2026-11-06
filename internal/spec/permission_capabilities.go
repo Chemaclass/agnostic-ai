@@ -9,6 +9,10 @@ import (
 // PermissionLists are the settings `permissions` lists that hold rules.
 var PermissionLists = []string{"allow", "ask", "deny"}
 
+// PermissionModes are the `permissions.default-mode` values. Only Claude
+// Code applies the mode, so they are its mode names.
+var PermissionModes = []string{"default", "manual", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"}
+
 const permissionsKey = "permissions"
 
 // PermissionRules returns the Claude Code rules one permission rule

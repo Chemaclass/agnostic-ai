@@ -26,8 +26,8 @@ var settingsFields = map[string][]fieldDef{
 		{key: "permissions.allow", label: "Allowed without asking", description: "Rules the agent runs without a prompt."},
 		{key: "permissions.ask", label: "Ask first", description: "Rules that prompt before running."},
 		{key: "permissions.deny", label: "Always blocked", description: "Rules the agent may never run."},
-		{key: "permissions.default-mode", label: "Default permission mode", description: "The permission mode a session starts in. Only Claude Code applies it today, so it takes Claude Code's mode names: default, manual, acceptEdits, plan, auto, dontAsk, or bypassPermissions. Other tools get a sync note."},
-		{key: "protected", label: "Protected paths", description: "Files agents must not edit without asking: paths, a decision (ask or deny), and a reason."},
+		{key: PermissionModeKey, label: "Default permission mode", description: "The permission mode a session starts in. Only Claude Code applies it today, so it takes Claude Code's mode names: default, manual, acceptEdits, plan, auto, dontAsk, or bypassPermissions. Other tools get a sync note."},
+		{key: ProtectedKey, label: "Protected paths", description: "Files agents must not edit without asking: paths, a decision (ask or deny), and a reason."},
 	},
 	SectionSettings: {
 		{key: "model", label: "Default model", description: "The model each tool starts with: one value, a map per tool, or a model tier name."},
@@ -98,6 +98,17 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 		}
 		if section == SectionAuthority && PermissionListField(d.key) {
 			f.Editable = PermissionFieldEdit(entries, cfg, root, global)
+		}
+		if section == SectionAuthority && d.key == PermissionModeKey {
+			f.Editable = PermissionFieldEdit(entries, cfg, root, global)
+			f.Editable.Kind = "text"
+			f.Editable.Allowed = slices.Clone(spec.PermissionModes)
+			if !global {
+				f.Editable.DisabledReason = PermissionModeProjectReason
+			}
+		}
+		if section == SectionAuthority && d.key == ProtectedKey {
+			f.Editable = protectedFieldEdit(entries, cfg, root, global)
 		}
 		if section == SectionSettings && !d.prefix && cfg != nil {
 			edit := &FieldEdit{Kind: "text", SyncCommand: "agnostic-ai sync"}
@@ -222,6 +233,32 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+// PermissionModeKey is the settings field that holds the default
+// permission mode.
+const PermissionModeKey = "permissions.default-mode"
+
+// PermissionModeProjectReason explains why a project cannot edit the
+// default mode: only sync --global writes Claude Code's defaultMode.
+const PermissionModeProjectReason = "Applies through global sync only. Set it in global settings."
+
+// ProtectedKey is the settings block that lists protected paths.
+const ProtectedKey = "protected"
+
+// protectedFieldEdit edits the protected block in the spec the permission
+// lists edit. A personal permissions: null leaves it editable, as it
+// clears only the permissions group.
+func protectedFieldEdit(entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
+	edit := PermissionFieldEdit(entries, cfg, root, global)
+	edit.Kind = "protected-list"
+	for i := range edit.Sources {
+		edit.Sources[i].DisabledReason = ""
+	}
+	if global {
+		edit.DisabledReason = "sync --global does not write protected paths. Protect files from a project's Authority page."
+	}
+	return edit
 }
 
 func PermissionListField(key string) bool {
