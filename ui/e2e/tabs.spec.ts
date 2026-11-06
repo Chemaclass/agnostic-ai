@@ -149,7 +149,7 @@ test('retains a personal model draft and audience while changing Settings tabs',
     return route.fulfill({ json: { ok: true } })
   })
   await page.goto('/?view=settings&tab=preferences')
-  const personal = page.getByRole('button', { name: 'Personal (not committed)', exact: true })
+  const personal = page.getByRole('button', { name: 'Local (not committed)', exact: true })
   await personal.click()
   const model = page.getByRole('textbox', { name: 'Default model value', exact: true })
   await model.fill('opus')

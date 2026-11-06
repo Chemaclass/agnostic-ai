@@ -1,6 +1,6 @@
 import { createContext, useContext, useId, useState, type ReactNode } from 'react'
 import { useApp } from './app-context'
-import { readAudience, type EditAudience } from '../model/edit-audience'
+import { audienceDescription, audienceLabel, levelName, readAudience, type EditAudience } from '../model/edit-audience'
 
 export type { EditAudience }
 
@@ -21,7 +21,7 @@ function storedAudience(): EditAudience {
   }
 }
 
-/** Offers the audience choice on pages that enable it; every other page edits shared files. */
+/** Offers the audience choice on pages that enable it; every other page edits the level's own files. */
 export function EditAudienceProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const [audience, setAudienceState] = useState<EditAudience>(() => (enabled ? storedAudience() : 'shared'))
   const setAudience = (next: EditAudience) => {
@@ -50,10 +50,20 @@ export function useViewAudience(): EditAudience | undefined {
   return app.source.kind === 'api' && (app.state.view === 'settings' || app.state.view === 'authority') ? audience : undefined
 }
 
+/** Whether the page serves the global setup rather than a project. */
+export function useGlobalLevel(): boolean {
+  return useApp().overview?.global === true
+}
+
+/** The level name for copy: `project` or `global`. */
+export function useLevelName(): 'project' | 'global' {
+  return levelName(useGlobalLevel())
+}
+
 export function ViewPersonalButton() {
   const state = useContext(Audience)
   if (!state) return null
-  return <button type="button" className="button button-quiet" onClick={() => state.setAudience('personal')}>View personal settings</button>
+  return <button type="button" className="button button-quiet" onClick={() => state.setAudience('personal')}>View local settings</button>
 }
 
 export function EditAudienceSwitch() {
@@ -62,22 +72,24 @@ export function EditAudienceSwitch() {
   const labelId = useId()
   if (!state || app.source.kind !== 'api') return null
   const viewing = app.state.view === 'settings' || app.state.view === 'authority'
-  const option = (value: EditAudience, label: string) => (
-    <button type="button" aria-label={label} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>
-      {value === 'shared' ? 'Shared' : 'Personal'}
+  const global = app.overview?.global === true
+  const localFolder = global ? '~/.agnostic-ai/local' : '.agnostic-ai/local'
+  const option = (value: EditAudience) => (
+    <button type="button" aria-label={audienceDescription(value, global)} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>
+      {audienceLabel(value, global)}
     </button>
   )
   return (
     <div className="edit-scope">
       <span id={labelId} className="edit-scope-label">{viewing ? 'View and edit' : 'Save new specs for'}</span>
       <div className="segmented" role="group" aria-labelledby={labelId}>
-        {option('shared', 'Shared (committed)')}
-        {option('personal', 'Personal (not committed)')}
+        {option('shared')}
+        {option('personal')}
       </div>
       <p className="muted edit-scope-hint" role="status">
         {state.audience === 'shared'
-          ? `Shared files, tracked by Git.${viewing ? ' Personal overrides take priority for you.' : ''}`
-          : `${viewing ? 'Your personal overrides take priority over Shared. ' : ''}Personal files, ignored by Git.`}
+          ? `${global ? 'Global files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
+          : `Local files in ${localFolder}, ignored by Git.${viewing ? ' Local values win.' : ''}`}
       </p>
     </div>
   )

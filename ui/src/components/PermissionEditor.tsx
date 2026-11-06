@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { EditError, editPermissions } from '../api'
 import type { PermissionEditPreview, SectionItem, SettingField } from '../contract'
+import { audienceDescription, audienceLabel } from '../model/edit-audience'
 import { isPermissionKey, permissionSelection, rulesFromText } from '../model/permission-edit'
 import { useApp } from './app-context'
-import { useEditAudience, ViewPersonalButton } from './EditAudience'
+import { useEditAudience, useGlobalLevel, ViewPersonalButton } from './EditAudience'
 import { Select, Code } from './ui'
 
 type Saved = Pick<PermissionEditPreview, 'file' | 'syncCommand'>
@@ -44,6 +45,9 @@ export function PermissionEditor(props: PermissionEditorProps) {
 function PermissionForm({ field, files, sources, path, select }: PermissionEditorProps & { path: string; select: (path: string) => void }) {
   const app = useApp()
   const audience = useEditAudience()
+  const global = useGlobalLevel()
+  const Level = audienceLabel('shared', global)
+  const level = Level.toLowerCase()
   const receipt = useContext(SavedRules)
   const id = useId()
   const textarea = useRef<HTMLTextAreaElement>(null)
@@ -144,12 +148,12 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       </Select>
     </label>}
     {current.personalSet && <div className="permission-override">
-      <p>{differs ? 'Personal overrides this file’s shared rules.' : 'Personal matches Shared and replaces this file’s list.'}</p>
-      {differs && <details><summary>Compare shared ({current.shared?.length ?? 0}) and personal ({current.personal?.length ?? 0})</summary>
-        <RuleComparison label="Shared" rules={current.shared} />
-        <RuleComparison label="Personal" rules={current.personal} cleared={current.personal === null} />
+      <p>{differs ? `Local overrides this file’s ${level} rules.` : `Local matches ${Level} and replaces this file’s list.`}</p>
+      {differs && <details><summary>Compare {level} ({current.shared?.length ?? 0}) and local ({current.personal?.length ?? 0})</summary>
+        <RuleComparison label={Level} rules={current.shared} />
+        <RuleComparison label="Local" rules={current.personal} cleared={current.personal === null} />
       </details>}
-      {overridden && <>{!disabledReason && <p className="muted">Reset this list in Personal to edit Shared.</p>}<ViewPersonalButton /></>}
+      {overridden && <>{!disabledReason && <p className="muted">Reset this list in Local to edit {Level}.</p>}<ViewPersonalButton /></>}
     </div>}
     {disabledReason && <p className="muted">{disabledReason}</p>}
     {!disabledReason && !overridden && !preview && !editing && !!own?.length && <ul className="permission-rules" aria-label={`Saved ${field.label} rules`}>
@@ -161,13 +165,13 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     </ul>}
     {!disabledReason && !overridden && !preview && !editing && <div className="field-edit-row">
       <button ref={editButton} type="button" className="button" disabled={!path || !!pending} onClick={() => begin()}>{own === null && !effective?.length ? 'Add rules' : 'Edit rules'}</button>
-      {audience === 'personal' && current.personalSet && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to shared rules</button>}
+      {audience === 'personal' && current.personalSet && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to the {level} rules</button>}
       {!path && <span className="muted">Choose the file whose rules you want to change.</span>}
     </div>}
     {!disabledReason && editing && !preview && <form className="permission-form" onSubmit={(event) => { event.preventDefault(); void request('preview') }}>
       <label htmlFor={id}>{field.label} rules</label>
       <p id={`${id}-hint`} className="muted">One rule per line, for example <Code>shell(git status)</Code> or <Code>read(src/**)</Code>. Blank lines are ignored.</p>
-      {inherited && <p className="muted">Starts with shared rules. Saving replaces this list for you; other settings keep inheriting.</p>}
+      {inherited && <p className="muted">Starts with the {level} rules. Saving replaces this list for you; other settings keep inheriting.</p>}
       <textarea ref={textarea} id={id} aria-describedby={`${id}-hint`} rows={4} placeholder={RULE_PLACEHOLDER} value={text} disabled={locked} spellCheck={false} onChange={(event) => { setText(event.target.value); setError(undefined) }} />
       <div className="field-edit-row">
         <button type="submit" className="button button-primary" disabled={locked || unchanged}>{pending === 'preview' ? 'Preparing preview…' : 'Preview changes'}</button>
@@ -175,16 +179,16 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
         {audience === 'shared' && own !== null && <button type="button" className="button button-quiet" disabled={locked} onClick={() => { void request('preview', null) }}>Remove this list</button>}
       </div>
     </form>}
-    {!overridden && path && !preview && <p className="muted permission-destination">{audience === 'shared' ? 'Shared file' : 'Personal file'}: {audience === 'personal' && !current.personalPath ? <>an overlay for <Code>{path}</Code></> : <Code>{audience === 'personal' ? current.personalPath : path}</Code>}</p>}
+    {!overridden && path && !preview && <p className="muted permission-destination">{audience === 'shared' ? `${Level} file` : 'Local file'}: {audience === 'personal' && !current.personalPath ? <>an overlay for <Code>{path}</Code></> : <Code>{audience === 'personal' ? current.personalPath : path}</Code>}</p>}
     {preview && <section ref={previewRegion} tabIndex={-1} className="permission-preview" aria-label={`${field.label} change preview`} aria-busy={!!pending}>
       <div className="permission-preview-head">
-        <h3>{preview.rules === null ? audience === 'personal' ? 'Use shared rules' : 'Remove shared list' : preview.rules.length === 0 && audience === 'personal' ? 'Clear the list for you' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
+        <h3>{preview.rules === null ? audience === 'personal' ? `Use the ${level} rules` : `Remove the ${level} list` : preview.rules.length === 0 && audience === 'personal' ? 'Clear the list for you' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
         <div className="field-edit-row">
           <button type="button" className="button button-primary" disabled={!!pending || !!disabledReason} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Saving…' : 'Save rules'}</button>
           <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { restoreFocus.current = true; setPreview(undefined); setError(undefined) }}>{editing ? 'Back to editing' : 'Cancel'}</button>
         </div>
       </div>
-      <p>{audience === 'shared' ? 'Shared (committed)' : 'Personal (not committed)'} · <Code>{preview.file}</Code></p>
+      <p>{audienceDescription(audience, global)} · <Code>{preview.file}</Code></p>
       <pre tabIndex={0} aria-label={`${field.label} file changes`}>{preview.diff || 'No file changes.'}</pre>
       <p className="muted">After saving, run <Code>{preview.syncCommand}</Code> to apply. Tool support varies, see Coding tool support below.</p>
     </section>}
