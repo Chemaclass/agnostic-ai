@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, **Show content** on a Context row shows the file's frontmatter as chips above its text (#3025).
+
 - The web interface sets body text in Atkinson Hyperlegible Next at 14px and page headings in Archivo Narrow, both bundled in the binary, on a warmer palette with smaller corners (#3026).
 
 - In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).

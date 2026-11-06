@@ -55,17 +55,13 @@ func globalOverviewInputsWith(compareInstalled bool) (overview.Inputs, error) {
 		snapshot.Evidence.Installed = "checked"
 	}
 	snapshot.Evidence.Note = globalOverviewEvidenceNote(checks)
-	instructions := instructionDocuments([]instructionFile{
-		{path: filepath.Join(scope.source, "AGNOSTIC_AI.md"), layer: "global"},
-		{path: filepath.Join(scope.source, "local", "AGNOSTIC_AI.md"), layer: "global-local"},
-	}, scope.source)
 	team, local := overviewBuiltins(scope.source, true)
 	return overview.Inputs{
 		Cfg:            cfg,
 		Global:         true,
 		Bundle:         scope.bundle,
 		Snapshot:       snapshot,
-		Instructions:   instructions,
+		Instructions:   globalInstructionDocuments(scope.source),
 		Findings:       checks.findings,
 		Compared:       checks.compared,
 		FieldNotes:     checks.fieldNotes,

@@ -100,18 +100,15 @@ func Scalar(v any) string {
 	return string(data)
 }
 
-// safeValue redacts a value whose key names a credential, or whose text
-// looks like one. A reference such as ${API_TOKEN} names a variable and
-// shows as written.
+// safeValue redacts a value when any part of its dotted key names a
+// credential, so credentials.value stays hidden, or when its text looks
+// like one. A reference such as ${API_TOKEN} names a variable and shows
+// as written.
 func safeValue(key, value string) string {
-	last := key
-	if i := strings.LastIndex(key, "."); i >= 0 {
-		last = key[i+1:]
-	}
 	if preview.PureReference(value) {
 		return value
 	}
-	if preview.CredentialKey(last) || secretShape.MatchString(value) {
+	if slices.ContainsFunc(strings.Split(key, "."), preview.CredentialKey) || secretShape.MatchString(value) {
 		return redacted
 	}
 	return preview.RedactText(value)
