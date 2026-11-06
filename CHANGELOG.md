@@ -69,6 +69,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - The target page says project hooks need folder trust or hook approval: from 0.26.7 in interactive sessions, from 0.26.8 in headless runs too (#2978, #3015).
 
+#### Trae
+
+- The Trae page says the Build step under Settings > Indexing & Docs applies only to clients released before October 22, 2026; newer clients no longer have that panel (#3044).
+
 #### Kimi Code CLI
 
 - Sync and import keep a stdio MCP server's `x-kimi.environment_id`, which Kimi Code 2.5.0 reads in place of `runtime_id` (#2980).
