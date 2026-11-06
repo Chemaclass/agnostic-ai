@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { EditError, editProtected } from '../api'
 import type { ProtectedBlock, ProtectedEditPreview, SectionItem, SettingField } from '../contract'
 import { rulesFromText } from '../model/permission-edit'
-import { PROTECT_DECISIONS, protectedSelection } from '../model/protected-edit'
+import { hidesValue, PROTECT_DECISIONS, protectedSelection } from '../model/protected-edit'
 import { useApp } from './app-context'
 import { useEditAudience, ViewPersonalButton } from './EditAudience'
 import { useSavedEditNotice } from './PermissionEditor'
@@ -50,6 +50,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
 
   if (app.source.kind !== 'api' || !edit) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}</p></>
+  if (hidesValue(effective) || hidesValue(own)) return <>{sources()}<p className="muted">These protected paths include a value hidden because it looks like a credential. Edit the file directly.</p></>
   const overridden = !local && current.personalSet
   const draft: ProtectedBlock = { paths: rulesFromText(text), decision, reason: reason.trim() }
   const begin = () => {

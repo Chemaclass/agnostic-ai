@@ -313,7 +313,7 @@ test('live Authority sets the default permission mode and protected paths in the
     await expect(guarded).toContainText('composer.lock')
     await expect(page.locator('.unconfigured-fields')).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Local (not committed)', exact: true }).click()
     await modeValue.selectOption('acceptEdits')
     await mode.getByRole('button', { name: 'Save', exact: true }).click()
     await expect.poll(() => readFile(f.localSettings, 'utf8')).toContain('permissions:\n  default-mode: acceptEdits\n')

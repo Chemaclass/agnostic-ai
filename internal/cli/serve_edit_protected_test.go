@@ -166,3 +166,36 @@ func TestProtectedEdit_GlobalViewRefuses(t *testing.T) {
 		t.Fatal("global refusal wrote files")
 	}
 }
+
+func TestProtectedEdit_ComparesBeforeAsThePageShowsIt(t *testing.T) {
+	h := targetProject(t, "name: defaults\nprotected:\n  paths: [.github/**]\n")
+	isolateGit(t)
+	git(t, h.root, "init", "-q")
+	body := map[string]any{"audience": "personal", "protected": map[string]any{"paths": []string{"notes/"}, "decision": "ask", "reason": ""}, "before": nil}
+	if rec := protectedApply(t, h, body, protectedPreview(t, h, body)); rec.Code != http.StatusOK {
+		t.Fatalf("apply = %d %s", rec.Code, rec.Body)
+	}
+	shown := map[string]any{"paths": []string{"notes/"}, "decision": "ask", "reason": ""}
+	reset := map[string]any{"audience": "personal", "protected": nil, "before": shown}
+	if rec := protectedApply(t, h, reset, protectedPreview(t, h, reset)); rec.Code != http.StatusOK {
+		t.Fatalf("reset after an empty local reason = %d %s", rec.Code, rec.Body)
+	}
+	mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nprotected:\n  decision: deny\n")
+	partial := map[string]any{"audience": "personal", "protected": nil, "before": map[string]any{"paths": []string{}, "decision": "deny", "reason": ""}}
+	preview := protectedPreview(t, h, partial)
+	if before, _ := preview["before"].(map[string]any); before == nil || before["paths"] == nil {
+		t.Fatalf("partial block preview = %v", preview)
+	}
+}
+
+func TestProtectedEdit_RefusesValuesThePageHides(t *testing.T) {
+	h := targetProject(t, "name: defaults\nprotected:\n  paths: [src/AbstractSingletonProxyFactoryBeanImpl.java]\n")
+	hidden := map[string]any{"action": "preview", "audience": "shared", "protected": map[string]any{"paths": []string{"<redacted>"}, "decision": "ask", "reason": ""}}
+	if rec := protectedRequest(t, h, hidden); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "hidden value") {
+		t.Fatalf("hidden draft = %d %s", rec.Code, rec.Body)
+	}
+	replace := map[string]any{"action": "preview", "audience": "shared", "protected": map[string]any{"paths": []string{"vendor"}, "decision": "ask", "reason": ""}}
+	if rec := protectedRequest(t, h, replace); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "page hides") {
+		t.Fatalf("hidden source = %d %s", rec.Code, rec.Body)
+	}
+}

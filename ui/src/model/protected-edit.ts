@@ -3,10 +3,18 @@ import type { ProtectedBlock, ProtectedEditPreview, SectionItem, SettingField } 
 export const PROTECT_DECISIONS = ['ask', 'deny'] as const
 
 function blockFrom(values: SettingField['set'][number]['values'] | undefined): ProtectedBlock | null {
-  const text = (key: string) => values?.find((value) => value.key === `protected.${key}` && value.type === 'text')?.value ?? ''
+  const text = (key: string) => {
+    const shown = values?.find((value) => value.key === `protected.${key}` && value.type === 'text')?.value ?? ''
+    return shown === '""' ? '' : shown
+  }
   const paths = values?.find((value) => value.key === 'protected.paths' && value.type === 'list')?.list
   if (!paths && !text('decision') && !text('reason')) return null
   return { paths: paths ?? [], decision: text('decision'), reason: text('reason') }
+}
+
+/** Whether the overview hid part of block because it looks like a credential. */
+export function hidesValue(block: ProtectedBlock | null) {
+  return !!block && [...block.paths, block.reason].some((text) => text.includes('<redacted>'))
 }
 
 /** The project and local protected blocks of the spec at path, as each file writes them. */

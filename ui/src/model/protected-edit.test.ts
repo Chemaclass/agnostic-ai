@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseProtectedPreview, protectedSelection } from './protected-edit'
+import { hidesValue, parseProtectedPreview, protectedSelection } from './protected-edit'
 import type { SettingField } from '../contract'
 
 describe('protected paths editing', () => {
@@ -30,5 +30,13 @@ describe('protected paths editing', () => {
     const preview = { schemaVersion: 'protected-edit/v1', file: project, audience: 'shared', before: null, protected: { paths: ['a'], decision: 'ask', reason: '' }, diff: '', expected: 'x', syncCommand: 'agnostic-ai sync' }
     expect(parseProtectedPreview(preview)).toEqual(preview)
     expect(() => parseProtectedPreview({ ...preview, protected: { paths: 'a' } })).toThrow('invalid protected paths preview')
+  })
+
+  it('reads an empty written reason as empty and spots hidden values', () => {
+    const empty = { ...field, set: [{ ...field.set[0], values: [...field.set[0].values.filter((value) => value.key !== 'protected.reason'), { key: 'protected.reason', type: 'text' as const, value: '""' }] }] }
+    const block = protectedSelection(empty, [], project).shared
+    expect(block?.reason).toBe('')
+    expect(hidesValue(block)).toBe(false)
+    expect(hidesValue({ paths: ['<redacted>'], decision: '', reason: '' })).toBe(true)
   })
 })

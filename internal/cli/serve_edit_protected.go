@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -117,6 +118,9 @@ func decodeProtectedBlock(raw json.RawMessage) (*protectedBlock, error) {
 		return nil, fmt.Errorf("protected: decision must be %s or %s", spec.ProtectAsk, spec.ProtectDeny)
 	}
 	block.Reason = strings.Join(strings.Fields(block.Reason), " ")
+	if slices.ContainsFunc(append(slices.Clone(block.Paths), block.Reason), func(text string) bool { return strings.Contains(text, protectedHiddenMarker) }) {
+		return nil, fmt.Errorf("protected: %s stands for a hidden value; edit the file directly", protectedHiddenMarker)
+	}
 	if _, err := spec.ParseProtectGroup(map[string]any{"paths": paths, "decision": block.Decision, "reason": block.Reason}); err != nil {
 		return nil, fmt.Errorf("protected: %w", err)
 	}
@@ -138,7 +142,7 @@ func protectedBlockAt(data []byte) (*protectedBlock, error) {
 	if !ok {
 		return nil, errors.New("protected is not a mapping; edit the file directly")
 	}
-	block := &protectedBlock{}
+	block := &protectedBlock{Paths: []string{}}
 	list, _ := fields["paths"].([]any)
 	for _, item := range list {
 		block.Paths = append(block.Paths, fmt.Sprint(item))
@@ -146,6 +150,27 @@ func protectedBlockAt(data []byte) (*protectedBlock, error) {
 	block.Decision, _ = fields["decision"].(string)
 	block.Reason, _ = fields["reason"].(string)
 	return block, nil
+}
+
+const protectedHiddenMarker = "<redacted>"
+
+// shownProtectedBlock is block as the overview shows it, with values that
+// look like credentials hidden and an empty value left empty.
+func shownProtectedBlock(block *protectedBlock) *protectedBlock {
+	if block == nil {
+		return nil
+	}
+	shown := func(key, text string) string {
+		if text == "" {
+			return ""
+		}
+		return overview.ShownText(key, text)
+	}
+	out := &protectedBlock{Paths: make([]string, len(block.Paths)), Decision: shown("protected.decision", block.Decision), Reason: shown("protected.reason", block.Reason)}
+	for i, path := range block.Paths {
+		out.Paths[i] = shown("protected.paths", path)
+	}
+	return out
 }
 
 func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience) (protectedEditView, previewedEdit, error) {
@@ -171,9 +196,12 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 		if json.Unmarshal(req.Before, &wanted) != nil {
 			return protectedEditView{}, none, errors.New("before must be the selected scope's own protected block, or null when unset")
 		}
-		if !reflect.DeepEqual(before, wanted) {
+		if !reflect.DeepEqual(shownProtectedBlock(before), wanted) {
 			return protectedEditView{}, none, permissionEditConflict{fmt.Errorf("%s: protected paths changed after editing began; reload saved paths", overviewDisplay(h.root, file))}
 		}
+	}
+	if shown := shownProtectedBlock(before); !reflect.DeepEqual(shown, before) {
+		return protectedEditView{}, none, fmt.Errorf("%s: protected paths hold a value the page hides; edit the file directly", overviewDisplay(h.root, file))
 	}
 	if block == nil && before == nil {
 		return protectedEditView{}, none, fmt.Errorf("%s: no protected paths are set for %s", overviewDisplay(h.root, file), where)
