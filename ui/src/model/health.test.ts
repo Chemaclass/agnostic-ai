@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
-import { countFindings, healthFixPrompt, healthGroups, healthPlace, healthSummary } from './health'
+import { countFindings, healthFixPrompt, healthGroups, healthPlace, healthSummary, placeLabel } from './health'
 import { findingEntryIds, itemEntryId } from './identity'
 import { overviewFindings } from './recheck'
 import { loadOverviewFixture } from './testing'
@@ -9,6 +9,7 @@ const hookError: ItemFinding = { source: 'lint', code: 'LINT001', severity: 'err
 const hookWarning: ItemFinding = { source: 'lint', code: 'LINT002', severity: 'warning', message: 'The hook has no timeout.', path: '.agnostic-ai/hooks/prepare.yaml' }
 const skillWarning = (name: string): ItemFinding => ({ source: 'doctor', severity: 'warn', message: `Skill ${name} is not synced.`, path: `.agnostic-ai/skills/${name}/SKILL.md` })
 const sectionError: ItemFinding = { source: 'doctor', severity: 'error', message: 'The configuration file cannot be read.' }
+const globalWarning: ItemFinding = { source: 'lint', code: 'LINT007', severity: 'warn', message: 'Unknown key modl.', path: 'agents/helper.md', openPath: '/home/u/.agnostic-ai/agents/helper.md', layer: 'global' }
 
 const item = (kind: string, name: string, findings: ItemFinding[]): SectionItem => ({ kind, name, label: name, description: '', path: `.agnostic-ai/${kind}s/${name}`, layer: 'project', values: [], findings })
 const section = (id: Section['id'], order: number, items: SectionItem[], findings: ItemFinding[] = []): Section => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1), question: '', order, kinds: [], items, support: [], findings })
@@ -95,5 +96,31 @@ describe('setup health', () => {
   it('names a single finding in the singular', () => {
     const one = view([section('lifecycle', 4, [structuredClone(hook)])])
     expect(healthFixPrompt(one)).toMatch(/^Fix this agnostic-ai finding in the project or global configuration:\n\n1\. Lifecycle: prepare/)
+  })
+
+  it('counts global findings and lists them apart from the project findings, with the section page link ids', () => {
+    const overview = view([section('settings', 5, [], [sectionError, globalWarning])])
+    expect(countFindings(overview)).toMatchObject({ errors: 1, warnings: 1 })
+    const ids = findingEntryIds([sectionError, globalWarning])
+    const [errors, warnings] = healthGroups(overview)
+    expect(errors.sections[0].entries[0]).toMatchObject({ place: 'health:error:section:settings', ids: [ids[0]] })
+    const global = warnings.sections[0].entries[0]
+    expect(global).toMatchObject({ place: 'health:warning:global:section:settings', ids: [ids[1]], global: true, findings: [globalWarning] })
+    expect(placeLabel(global)).toBe('Global setup')
+    expect(placeLabel(errors.sections[0].entries[0])).toBe('Other findings')
+  })
+
+  it('keeps a global place a recheck started from', () => {
+    const before = view([section('settings', 5, [], [globalWarning])])
+    const after = view([section('settings', 5, [], [])])
+    const place = 'health:warning:global:section:settings'
+    const kept = healthGroups(after, { place, before })
+    expect(kept[0].sections[0].entries[0]).toMatchObject({ place, findings: [], global: true })
+  })
+
+  it('names the global setup in the combined prompt', () => {
+    const prompt = healthFixPrompt(view([section('settings', 5, [], [globalWarning])]), '/tmp/project')
+    expect(prompt).toContain('1. Settings: Global setup')
+    expect(prompt).toContain('Source: /home/u/.agnostic-ai/agents/helper.md')
   })
 })
