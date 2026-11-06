@@ -116,7 +116,7 @@ The direction was worked out in code, not in a design tool. The frontmatter abov
 
 **It drops** rounded card boxes, pill badges, full-row tints, gradients, glass, emoji and centered empty states. Corners stay between 0 and 4px; dialogs and the drawer use 6px, and the switch track is the only pill.
 
-**Type:** Archivo Narrow 700 sets page and section headings; Atkinson Hyperlegible Next (400 and 600) sets body text and controls at 14px. Both ship inside the binary as small subsets under the SIL Open Font License; the interface loads no network font. System monospace keeps paths, keys and counts aligned.
+**Type:** Archivo Narrow 700 sets page and section headings; Atkinson Hyperlegible Next (400 and 600) sets body text at 14px and controls at 13px. Both ship inside the binary as small subsets under the SIL Open Font License; the interface loads no network font. System monospace keeps paths, keys and counts aligned.
 
 ## Colors
 
@@ -132,7 +132,7 @@ The page scrolls as one document, so a wheel over the sidebar moves the content 
 
 ## Elevation & Depth
 
-One-pixel borders, warm surface tones, and whitespace define groups. The interface uses no shadows.
+One-pixel borders, warm surface tones, and whitespace define groups. The interface uses no shadows, except the floating global setup panel.
 
 ## Shapes
 
