@@ -49,6 +49,8 @@ var trackedAgentFields = []struct{ field, reason string }{
 	{"mcpServers", "the agent file has no MCP server list"},
 	{"maxTurns", "the agent file has no turn limit key"},
 	{"background", "the agent file has no background run key"},
+	{"hooks", "the agent file has no hook key"},
+	{"permissionMode", "the agent file has no permission mode key"},
 }
 
 // supports reports whether the adapter declares native support for k.

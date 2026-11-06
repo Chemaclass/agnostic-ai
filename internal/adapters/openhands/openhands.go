@@ -107,6 +107,10 @@ var caps = emit.Capabilities{
 	// Each name in an agent's mcpServers is written to mcp_servers as
 	// the MCP spec's inline definition, the only form OpenHands takes.
 	AgentFields: []string{"mcpServers"},
+	AgentFieldReasons: map[string]string{
+		"hooks":          "OpenHands names agent hook events in snake_case; set x-openhands.hooks",
+		"permissionMode": "OpenHands names its modes always_confirm, never_confirm and confirm_risky; set x-openhands.permission_mode",
+	},
 }
 
 // Adapter emits OpenHands configs.

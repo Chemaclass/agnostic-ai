@@ -24,11 +24,14 @@ const (
 )
 
 var caps = emit.Capabilities{
-	Target:            target,
-	Supports:          []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindSettings, spec.KindIgnore},
-	AgentFields:       []string{"maxTurns", "background"},
-	SkillFields:       emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown},
-	AgentFieldReasons: map[string]string{"mcpServers": "Qwen requires inline server records; use x-qwen.mcpServers"},
+	Target:      target,
+	Supports:    []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindSettings, spec.KindIgnore},
+	AgentFields: []string{"maxTurns", "background", "hooks"},
+	SkillFields: emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown},
+	AgentFieldReasons: map[string]string{
+		"mcpServers":     "Qwen requires inline server records; use x-qwen.mcpServers",
+		"permissionMode": "use x-qwen.approvalMode; native modes have different approval semantics",
+	},
 }
 
 type Adapter struct{}

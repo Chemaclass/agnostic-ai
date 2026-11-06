@@ -176,10 +176,13 @@ const (
 const EntryFile = defaultEntryFile
 
 var caps = emit.Capabilities{
-	Target:         target,
-	Supports:       []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
-	AgentFields:    []string{"effort", "mcpServers", "maxTurns"},
-	SettingsFields: []string{"effort"},
+	Target:      target,
+	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	AgentFields: []string{"effort", "mcpServers", "maxTurns", "permissionMode"},
+	// Frontmatter is copied verbatim, so `hooks` reaches the file, but
+	// Junie documents no agent hook field.
+	AgentFieldReasons: map[string]string{"hooks": "Junie documents no agent hook field"},
+	SettingsFields:    []string{"effort"},
 }
 
 // agentNameRule is the regex the subagent frontmatter table states for
