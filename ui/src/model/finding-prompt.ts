@@ -6,7 +6,10 @@ export function findingFacts(finding: ItemFinding): string[] {
     `Check: ${finding.source}${finding.code ? ` (${finding.code})` : ''}`,
     `Severity: ${finding.severity}`,
   ]
-  if (finding.path) lines.push(`Source: ${finding.path}${finding.line ? `:${finding.line}` : ''}`)
+  if (finding.layer === 'global') lines.push('Layer: global setup, which reaches every project; edit it there, not in this project')
+  // A global path is relative to the global source, so the open path names the file.
+  const source = finding.layer === 'global' ? finding.openPath || finding.path : finding.path
+  if (source) lines.push(`Source: ${source}${finding.line ? `:${finding.line}` : ''}`)
   else if (finding.line) lines.push(`Line: ${finding.line}`)
   lines.push(`Finding: ${finding.message}`)
   if (finding.explanation) lines.push(`Explanation: ${finding.explanation}`)

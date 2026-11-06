@@ -685,3 +685,23 @@ func TestBuild_ToolCatalogKeepsOrderAndLabelsEveryTool(t *testing.T) {
 		t.Errorf("items = %+v", v.Tools.Items)
 	}
 }
+
+func TestBuild_KeepsAGlobalFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
+	in := Inputs{
+		Cfg:      &config.Config{Targets: []string{"claude"}},
+		Bundle:   spec.Bundle{MCPs: []spec.Entry{entry(spec.KindMCP, "db", "mcps/db.yaml", map[string]any{"command": "db-mcp"})}},
+		Findings: []Finding{{Source: SourceLint, Code: "LINT999", Severity: "warn", Message: "m", Path: "mcps/db.yaml", Layer: LayerGlobal}},
+	}
+	v := Build(in)
+	for _, s := range v.Sections {
+		for _, item := range s.Items {
+			if len(item.Findings) > 0 {
+				t.Errorf("global finding placed on project item %s: %+v", item.Path, item.Findings)
+			}
+		}
+	}
+	got := sectionByID(t, v, SectionSettings).Findings
+	if len(got) != 1 || got[0].Layer != LayerGlobal {
+		t.Errorf("settings findings = %+v, want the global finding with its layer", got)
+	}
+}
