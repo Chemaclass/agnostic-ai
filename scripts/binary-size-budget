@@ -782,4 +782,6 @@
 # embedded UI bundle carries the row disclosure. The budget is that plus 8192, rounded up to a multiple of 4096.
 # The #3025 review fixes (open the file inside its root, one chip per nested
 # field) measured 24826016 bytes on Go 1.27.3; rounded up to the next 4096 bytes.
-24829952
+# Reading frontmatter whole before cutting the body (#3025) measured 24834208
+# bytes on Go 1.27.3; the budget is that plus 8192, rounded up to a multiple of 4096.
+24846336
