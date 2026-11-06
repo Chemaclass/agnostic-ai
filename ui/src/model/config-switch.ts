@@ -8,6 +8,10 @@ export interface ServedConfig {
   projectRoot?: string
   /** The agnostic-ai version that serves the page, as `--version` prints it. */
   version?: string
+  /** The config's `requires`, as written. */
+  requires?: string
+  /** Whether the serving version meets `requires`; null when it is not a release the check can place. */
+  requiresMet?: boolean | null
 }
 
 export interface SwitchOffer {
@@ -24,6 +28,10 @@ export function parseServedConfig(value: unknown): ServedConfig | undefined {
   const served: ServedConfig = { root: health.root, global: health.global === true }
   if (served.global && typeof health.projectRoot === 'string' && health.projectRoot) served.projectRoot = health.projectRoot
   if (typeof health.version === 'string' && health.version) served.version = health.version
+  if (typeof health.requires === 'string' && health.requires) {
+    served.requires = health.requires
+    served.requiresMet = typeof health.requiresMet === 'boolean' ? health.requiresMet : null
+  }
   return served
 }
 

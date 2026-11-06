@@ -44,6 +44,45 @@ test('names the serving release at the foot of the sidebar', async ({ page }) =>
   await expect(badge).toBeHidden()
 })
 
+test('names the release the config requires beside the serving release', async ({ page }) => {
+  let health: Record<string, unknown> = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0', requires: '>=0.81.0', requiresMet: false }
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: health }))
+  await page.goto('/?view=context')
+  const badge = page.locator('.release-badge')
+  const requires = badge.locator('.release-requires')
+  await expect(badge.locator('.release-version')).toHaveText('agnostic-ai v0.80.0')
+  await expect(requires).toHaveText('requires >=0.81.0, not met by this version')
+  await expect(requires).toHaveAttribute('title', 'This project needs agnostic-ai >=0.81.0, and v0.80.0 is outside it. Run agnostic-ai sync to see the fix.')
+  const muted = await badge.evaluate((element) => getComputedStyle(element).color)
+  expect(await requires.evaluate((element) => getComputedStyle(element).color)).not.toBe(muted)
+  expect((await requires.boundingBox())!.y).toBeGreaterThan((await badge.locator('.release-version').boundingBox())!.y)
+
+  health = { ...health, version: '0.81.0', requiresMet: true }
+  await page.reload()
+  await expect(requires).toHaveText('requires >=0.81.0')
+  expect(await requires.evaluate((element) => getComputedStyle(element).color)).toBe(muted)
+
+  health = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.81.0' }
+  await page.reload()
+  await expect(badge.locator('.release-version')).toHaveText('agnostic-ai v0.81.0')
+  await expect(requires).toHaveCount(0)
+  await page.setViewportSize({ width: 900, height: 900 })
+  await expect(badge).toBeHidden()
+})
+
+test('reads the required release again when the overview refreshes', async ({ page }) => {
+  let health: Record<string, unknown> = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.81.0', requires: '>=0.81.0', requiresMet: true }
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: health }))
+  await page.goto('/?view=authority')
+  const requires = page.locator('.release-badge .release-requires')
+  await expect(requires).toHaveText('requires >=0.81.0')
+  health = { ...health, requires: '>=0.82.0', requiresMet: false }
+  await page.locator('.finding', { hasText: 'LINT038' }).getByRole('button', { name: 'Recheck' }).click()
+  await expect(requires).toHaveText('requires >=0.82.0, not met by this version')
+})
+
 test('shows a checkout build without a release link', async ({ page }) => {
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: 'main@b434c92e1a2b' } }))
@@ -73,9 +112,10 @@ test('fits long project names and configuration switches on a phone', async ({ p
   await page.goto('/?view=context')
   const switchButton = page.getByRole('button', { name: /^Open project / })
   await expect(switchButton).toBeInViewport({ ratio: 1 })
-  for (const name of ['Search', 'JSON', 'Switch to']) {
+  for (const name of ['Search', 'Switch to']) {
     await expect(page.locator('.topbar').getByRole('button', { name: new RegExp(`^${name}`) })).toBeInViewport({ ratio: 1 })
   }
+  await expect(page.locator('.sidenav').getByRole('button', { name: 'Overview JSON', exact: true })).toBeInViewport({ ratio: 1 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
@@ -139,14 +179,27 @@ test('keeps header buttons on the header colour in the light theme', async ({ pa
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.goto('/?view=context')
   const header = await page.locator('.topbar').evaluate((element) => getComputedStyle(element).backgroundColor)
-  for (const name of ['Search', 'JSON']) {
-    const button = page.locator('.topbar').getByRole('button', { name, exact: true })
-    expect(await button.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(header)
-  }
-  await page.locator('.topbar').getByRole('button', { name: 'JSON', exact: true }).click()
-  const pressed = page.locator('.topbar').getByRole('button', { name: 'JSON', exact: true })
-  await expect(pressed).toHaveAttribute('aria-pressed', 'true')
-  expect(await pressed.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(header)
+  const search = page.locator('.topbar').getByRole('button', { name: 'Search', exact: true })
+  expect(await search.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(header)
+})
+
+test('keeps the top bar to search and theme, with the overview JSON in the sidebar', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context')
+  const actions = page.locator('.topbar-actions').getByRole('button')
+  await expect(actions).toHaveCount(2)
+  await expect(page.locator('.topbar').getByRole('button', { name: /JSON/ })).toHaveCount(0)
+  const json = page.locator('.sidenav-footer').getByRole('button', { name: 'Overview JSON', exact: true })
+  await json.click()
+  await expect(json).toHaveAttribute('aria-pressed', 'true')
+  const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+  await expect(drawer.locator('.inspector-meta')).toContainText('agnostic-ai view --json')
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+  await expect(json).toBeFocused()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(json).toBeInViewport({ ratio: 1 })
+  expect((await json.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 })
 
 for (const width of [320, 900]) {
@@ -221,7 +274,7 @@ test('keeps the JSON inspector and search results scrolling their own content', 
   await expect(page.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toBeInViewport()
   const pageScroll = () => page.evaluate(() => window.scrollY)
 
-  const inspectorButton = page.getByRole('button', { name: 'JSON', exact: true })
+  const inspectorButton = page.getByRole('button', { name: 'Overview JSON', exact: true })
   await inspectorButton.click()
   const json = page.getByRole('dialog', { name: 'JSON inspector' }).locator('.json')
   await expect(json).toBeVisible()

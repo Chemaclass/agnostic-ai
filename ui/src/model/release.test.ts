@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { servingRelease } from './release'
+import { requiredRelease, servingRelease } from './release'
 
 describe('serving release', () => {
   it('names a published release and links its notes', () => {
@@ -10,5 +10,35 @@ describe('serving release', () => {
   it('shows a checkout build as it is, with no release to link', () => {
     expect(servingRelease('main@b434c92e1a2b')).toEqual({ kind: 'build', label: 'main@b434c92e1a2b' })
     expect(servingRelease('(devel)')).toEqual({ kind: 'build', label: '(devel)' })
+  })
+})
+
+describe('required release', () => {
+  it('stays away when the config sets no requires', () => {
+    expect(requiredRelease({ global: false, version: '0.80.0' })).toBeUndefined()
+  })
+
+  it('warns when the serving release is outside requires', () => {
+    expect(requiredRelease({ global: false, version: '0.80.0', requires: '>=0.81.0', requiresMet: false })).toEqual({
+      label: 'requires >=0.81.0',
+      state: 'unmet',
+      title: 'This project needs agnostic-ai >=0.81.0, and v0.80.0 is outside it. Run agnostic-ai sync to see the fix.',
+    })
+  })
+
+  it('shows requires quietly when the serving release meets it', () => {
+    expect(requiredRelease({ global: true, version: '0.81.0', requires: '>=0.81.0', requiresMet: true })).toEqual({
+      label: 'requires >=0.81.0',
+      state: 'met',
+      title: 'The global setup needs agnostic-ai >=0.81.0; v0.81.0 meets it.',
+    })
+  })
+
+  it('says a source build is not checked without naming the release it reports', () => {
+    expect(requiredRelease({ global: false, version: '0.91.0', requires: '>=0.81.0', requiresMet: null })).toEqual({
+      label: 'requires >=0.81.0',
+      state: 'unchecked',
+      title: 'This project needs agnostic-ai >=0.81.0. This build is not a release, so it is not checked.',
+    })
   })
 })

@@ -8,6 +8,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The sidebar shows the config's `requires` under the version, in the warning color when unmet; `/api/health` adds `requires` and `requiresMet` (#3034).
+
+- **Open global settings** and **Open project** move to the foot of the sidebar, and the top bar shows the project path beside its name (#3035).
+
+- The JSON button moves to **Overview JSON** at the foot of the sidebar, and the inspector names `agnostic-ai view --json` (#3036).
+
 - The web interface says Project or Global and Local instead of Shared and Personal; API audience values stay `shared` and `personal` (#3033).
 
 - `doctor` describes shared settings updates as removing unchanged managed keys and keeping your keys, with JSON action `stale` (#3009).
