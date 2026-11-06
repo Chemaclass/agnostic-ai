@@ -3,6 +3,7 @@ package preview
 import (
 	"bytes"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -90,7 +91,12 @@ func sensitiveShellTree(file *syntax.File) bool {
 			}
 		case *syntax.CallExpr:
 			nextSensitive, header := false, false
+			mysql := len(n.Args) > 0 && mysqlClient(shellWord(n.Args[0]))
 			for _, word := range n.Args {
+				if mysql && mysqlPasswordArg(shellWord(word)) {
+					hidden = true
+					break
+				}
 				value := shellWord(word)
 				name, inline, hasValue := strings.Cut(strings.TrimPrefix(value, "--"), "=")
 				flag := strings.HasPrefix(value, "--") && CredentialName(name)
@@ -194,4 +200,18 @@ func sensitiveHelper(body string) bool {
 		}
 	}
 	return sensitiveShellTree(file)
+}
+
+// mysqlClients take the password glued to -p, as in `mysql -psecret`.
+var mysqlClients = regexp.MustCompile(`^(?:mysql|mysqldump|mysqladmin|mysqlimport|mysqlcheck|mysqlshow|mysqlslap|mariadb(?:-[a-z]+)?)$`)
+
+func mysqlClient(command string) bool {
+	return mysqlClients.MatchString(filepath.Base(command))
+}
+
+// mysqlPasswordArg reports whether arg is -p with a literal password
+// glued to it. A bare -p prompts for the password instead.
+func mysqlPasswordArg(arg string) bool {
+	value, ok := strings.CutPrefix(arg, "-p")
+	return ok && value != "" && !PureReference(value)
 }

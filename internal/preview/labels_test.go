@@ -33,6 +33,8 @@ func TestDisplay_LabeledCredentialLayoutsAreHiddenOrWithheld(t *testing.T) {
 		"labeled prose":           "The password is hunter2short.\n",
 		"field-only label":        "**Password:** hunter2short\n",
 		"known token shape":       "Use ghp_123456789012345678901234567890123456 here.\n",
+		"mysql attached password": "Run `mysql -u root -phunter2short app`.\n",
+		"mysql in a shell fence":  "```sh\nmysqldump -h db -phunter2short app > dump.sql\n```\n",
 	} {
 		for _, path := range []string{"notes.md", "notes.txt"} {
 			shown := Display(path, text)
@@ -56,6 +58,12 @@ func TestDisplay_GuidanceThatOnlyNamesCredentialsStillShows(t *testing.T) {
 		"MCP OAuth objects beyond `oauth:false` stay out.\n",
 		"Record `{\"input_tokens\":null,\"output_tokens\":12}` per run.\n",
 		"Set `token: ${API_TOKEN}` in the server entry.\n",
+		"Run `mysql -u root -p app`; it prompts for the password.\n",
+		"Run `mysql -u root -p$MYSQL_PASSWORD app`.\n",
+		"Run `mkdir -p build` and `ssh -p2222 host`.\n",
+		// A path segment of letters only cannot be told from an ordinary
+		// word without a dictionary, so URL paths like this stay visible.
+		"See https://docs.example.com/guides/configuration/ for details.\n",
 	} {
 		for _, path := range []string{"notes.md", "notes.txt"} {
 			shown := Display(path, text)
@@ -79,5 +87,15 @@ func TestSensitive_ReadsLabelsInStructuredText(t *testing.T) {
 	reference := "env:\n  GITHUB_TOKEN: ${GITHUB_TOKEN}\n"
 	if shown := Display("mcp.yaml", reference); shown.Hidden || shown.Withheld || shown.Text != reference {
 		t.Errorf("a reference must still preview: %+v", shown)
+	}
+}
+
+// A script that passes a MySQL password glued to -p is hidden too.
+func TestDisplay_HidesAMySQLPasswordGluedToItsFlag(t *testing.T) {
+	if shown := Display("db.sh", "#!/bin/sh\nmysql -u root -phunter2short app\n"); !shown.Withheld || strings.Contains(shown.Text, "hunter2short") {
+		t.Errorf("script = %+v", shown)
+	}
+	if !CommandCredentialDetected("mariadb -phunter2short") || CommandCredentialDetected("mysql -p app") || CommandCredentialDetected("mysql -p${DB_PASSWORD} app") {
+		t.Error("only a literal value glued to -p counts")
 	}
 }

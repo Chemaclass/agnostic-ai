@@ -23,6 +23,22 @@ var (
 	plainAssignedValue = regexp.MustCompile(`(?i)^\s*["']?(?:null|~|true|false|-?[0-9]+(?:\.[0-9]+)?|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?)["']?\s*(?:[,}\])]|$)`)
 )
 
+// mysqlInText is a MySQL client named in prose with the rest of its line.
+var mysqlInText = regexp.MustCompile(`(?:^|[\s` + "`" + `(])((?:mysql|mysqldump|mysqladmin|mysqlimport|mysqlcheck|mysqlshow|mysqlslap|mariadb(?:-[a-z]+)?)[^\n` + "`" + `]*)`)
+
+// passesMySQLPassword reports whether text runs a MySQL client with a
+// literal password glued to -p, outside a fenced shell block too.
+func passesMySQLPassword(text string) bool {
+	for _, m := range mysqlInText.FindAllStringSubmatch(text, -1) {
+		for _, arg := range strings.Fields(m[1])[1:] {
+			if mysqlPasswordArg(strings.Trim(arg, `"'.,;:)`)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // assignsCredential reports whether a credential-named key is given a
 // value other than a plain one, such as `"input_tokens":null`.
 func assignsCredential(text string) bool {
@@ -43,7 +59,7 @@ func assignsCredential(text string) bool {
 func labelsCredential(text string) bool {
 	return assignsCredential(text) || credentialStatement.MatchString(text) ||
 		credentialLabel.MatchString(text) || privateKeyBlock.MatchString(text) ||
-		TokenIn(text) || CredentialDetected(text)
+		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text)
 }
 
 // Sensitive reports whether Display hides or withholds any part of text,
