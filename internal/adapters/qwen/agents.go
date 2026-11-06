@@ -71,6 +71,11 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 				keys = append(keys, "tools")
 			}
 		}
+		// Noted here rather than through caps, since sync --global writes
+		// agents without the project coverage report.
+		if _, present := a.Meta["permissionMode"]; present {
+			emit.NoteFieldNoOp(target, spec.KindAgent, "permissionMode", 1, "use x-qwen.approvalMode; native modes have different approval semantics")
+		}
 		emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, append([]string{"name", "description", "effort"}, agentFields...)...)
 		body := emit.WithHeader(emit.FrontmatterOrdered(meta, keys)+"\n"+strings.TrimSpace(a.Body)+"\n", emit.FormatMarkdown)
 		if err := sess.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {

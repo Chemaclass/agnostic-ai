@@ -261,3 +261,18 @@ func TestReportUnsupported_NotesDroppedReadonly(t *testing.T) {
 		})
 	}
 }
+
+// The native key a note recommends counts as handling the field (#3052).
+func TestReportUnsupported_NativeKeyUnderTargetBlockSilencesTheNote(t *testing.T) {
+	caps := Capabilities{Target: "openhands", AgentFieldNativeKeys: map[string]string{"permissionMode": "permission_mode"}}
+	got := droppedAgentFieldNotes(t, caps,
+		spec.Entry{Name: "a", Meta: map[string]any{"permissionMode": "plan", "x-openhands": map[string]any{"permission_mode": "confirm_risky"}}},
+	)
+	if strings.Contains(got, "permissionMode") {
+		t.Errorf("the native key is set, got:\n%s", got)
+	}
+	got = droppedAgentFieldNotes(t, caps, spec.Entry{Name: "b", Meta: map[string]any{"permissionMode": "plan"}})
+	if !strings.Contains(got, "`permissionMode` on 1 agent has no effect on openhands") {
+		t.Errorf("expected the note without the native key, got:\n%s", got)
+	}
+}

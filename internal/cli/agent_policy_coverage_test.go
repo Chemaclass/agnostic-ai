@@ -75,3 +75,17 @@ func outputContains(t *testing.T, root, needle string) bool {
 	}
 	return found
 }
+
+// sync --global writes agents without the project coverage report, so
+// Qwen's permissionMode note must come from its own agent writer.
+func TestSyncGlobal_NotesQwenAgentPermissionMode(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agents", "guard.md"), "---\nname: guard\ndescription: Guards the shell.\npermissionMode: plan\n---\n\nGuard.\n")
+	_, errOut, err := runGlobalAgentTest("--only", "qwen")
+	if err != nil {
+		t.Fatalf("sync --global: %v", err)
+	}
+	if want := "`permissionMode` on 1 agent has no effect on qwen"; !strings.Contains(errOut, want) {
+		t.Errorf("missing %q in:\n%s", want, errOut)
+	}
+}
