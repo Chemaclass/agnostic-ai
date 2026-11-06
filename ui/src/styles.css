@@ -638,10 +638,6 @@ a.release-badge:focus-visible .release-arrow {
   border-color: var(--line-strong);
 }
 
-.health-badge[aria-current='page'] {
-  border-color: var(--accent);
-}
-
 .health-badge .icon {
   width: 16px;
   height: 16px;
@@ -657,6 +653,15 @@ a.release-badge:focus-visible .release-arrow {
   border-color: var(--approval);
   background: var(--approval-wash);
   color: var(--approval);
+}
+
+.health-badge[aria-current='page'] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+  border-color: var(--accent);
+}
+
+.health-count-letter {
+  display: none;
 }
 
 .health-count.is-error {
@@ -3326,17 +3331,22 @@ tr.is-advised > td {
   }
 
   .health-badge {
+    gap: 4px;
     min-height: 44px;
-    padding: 0 10px;
+    padding: 0 8px;
   }
 
   .health-badge .health-count-word {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
+    display: none;
+  }
+
+  .health-count-letter {
+    display: inline;
+  }
+
+  .health-badge.is-error .icon,
+  .health-badge.is-warning .icon {
+    display: none;
   }
 
   .button-search-label {

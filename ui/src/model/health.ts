@@ -126,7 +126,7 @@ export function placeLabel(place: Pick<FindingPlace, 'item'>): string {
 export function healthFixPrompt(overview: OverviewView, root?: string): string {
   const count = countFindings(overview)
   const total = count.errors + count.warnings
-  const lines = [total === 1 ? 'Fix this agnostic-ai finding in the selected project or user configuration:' : `Fix these ${total} agnostic-ai findings in the selected project or user configuration, errors first:`]
+  const lines = [total === 1 ? 'Fix this agnostic-ai finding in the project or global configuration:' : `Fix these ${total} agnostic-ai findings in the project or global configuration, errors first:`]
   if (root) lines.push(`Configuration root: ${root}`)
   let n = 0
   for (const severity of HEALTH_SEVERITIES) {

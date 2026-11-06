@@ -92,9 +92,9 @@ function HealthBadge({ overview }: { overview: OverviewView | undefined }) {
   return (
     <AppLink to={{ view: 'health' }} className={`health-badge ${tone}`} aria-label={`Setup health: ${summary}`} title={`Setup health: ${summary}`} aria-current={app.state.view === 'health' ? 'page' : undefined}>
       <Icon name={count.errors || count.warnings ? 'warning' : 'health'} />
-      {count.errors > 0 && <span className="health-count is-error">{count.errors}<span className="health-count-word"> {count.errors === 1 ? 'error' : 'errors'}{count.warnings ? ',' : ''}</span></span>}
+      {count.errors > 0 && <span className="health-count is-error">{count.errors}<span className="health-count-letter" aria-hidden="true">E</span><span className="health-count-word"> {count.errors === 1 ? 'error' : 'errors'}{count.warnings ? ',' : ''}</span></span>}
       {count.errors > 0 && count.warnings > 0 && ' '}
-      {count.warnings > 0 && <span className="health-count is-warning">{count.warnings}<span className="health-count-word"> {count.warnings === 1 ? 'warning' : 'warnings'}</span></span>}
+      {count.warnings > 0 && <span className="health-count is-warning">{count.warnings}<span className="health-count-letter" aria-hidden="true">W</span><span className="health-count-word"> {count.warnings === 1 ? 'warning' : 'warnings'}</span></span>}
       {!count.errors && !count.warnings && <span className="health-count-word">{summary}</span>}
     </AppLink>
   )

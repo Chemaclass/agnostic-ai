@@ -81,7 +81,7 @@ describe('setup health', () => {
 
   it('builds one prompt for every finding, errors first', () => {
     const prompt = healthFixPrompt(scenario(), '/tmp/project')
-    expect(prompt).toMatch(/^Fix these 4 agnostic-ai findings in the selected project or user configuration, errors first:/)
+    expect(prompt).toMatch(/^Fix these 4 agnostic-ai findings in the project or global configuration, errors first:/)
     expect(prompt).toContain('Configuration root: /tmp/project')
     expect(prompt.indexOf('1. Lifecycle: prepare')).toBeGreaterThan(0)
     expect(prompt.indexOf('1. Lifecycle: prepare')).toBeLessThan(prompt.indexOf('2. Context: review'))
@@ -94,6 +94,6 @@ describe('setup health', () => {
 
   it('names a single finding in the singular', () => {
     const one = view([section('lifecycle', 4, [structuredClone(hook)])])
-    expect(healthFixPrompt(one)).toMatch(/^Fix this agnostic-ai finding in the selected project or user configuration:\n\n1\. Lifecycle: prepare/)
+    expect(healthFixPrompt(one)).toMatch(/^Fix this agnostic-ai finding in the project or global configuration:\n\n1\. Lifecycle: prepare/)
   })
 })
