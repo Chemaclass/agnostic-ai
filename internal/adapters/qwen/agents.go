@@ -28,6 +28,7 @@ func (Adapter) ToolCapabilities() emit.ToolCapabilityTable { return toolCapabili
 var agentFields = []string{"model", "color", "maxTurns", "background", "hooks"}
 
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	permissionModes := 0
 	for _, a := range agents {
 		a = emit.WithValidAgentLimits(a, target, emit.AgentMaxTurns, emit.AgentBackground)
 		resolved := emit.ResolveMeta(a.Meta, target)
@@ -71,10 +72,8 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 				keys = append(keys, "tools")
 			}
 		}
-		// Noted here rather than through caps, since sync --global writes
-		// agents without the project coverage report.
 		if _, present := a.Meta["permissionMode"]; present {
-			emit.NoteFieldNoOp(target, spec.KindAgent, "permissionMode", 1, "use x-qwen.approvalMode; native modes have different approval semantics")
+			permissionModes++
 		}
 		emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, append([]string{"name", "description", "effort"}, agentFields...)...)
 		body := emit.WithHeader(emit.FrontmatterOrdered(meta, keys)+"\n"+strings.TrimSpace(a.Body)+"\n", emit.FormatMarkdown)
@@ -82,6 +81,9 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 			return err
 		}
 	}
+	// Noted here rather than through caps, since sync --global writes
+	// agents without the project coverage report.
+	emit.NoteFieldNoOp(target, spec.KindAgent, "permissionMode", permissionModes, "use x-qwen.approvalMode; native modes have different approval semantics")
 	return nil
 }
 
