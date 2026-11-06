@@ -194,6 +194,7 @@ func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions,
 	mux.Handle(builtinStatusPath, changes)
 	mux.Handle(builtinStatusPath+"/", changes)
 	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
+	mux.Handle(sourceViewPath, newSourceHandler(opts.Global))
 	if switches != nil {
 		mux.Handle(switchPath, switches)
 		if switches.peer != nil && switches.peer.global {

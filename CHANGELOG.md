@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, **Show content** on an instructions, rule, agent, skill, command, review instructions or ignore file row on the Context page opens the file in place: its frontmatter fields as chips above the text. A running `agnostic-ai serve` answers `GET /api/views/source` for files of the loaded configuration only (#3025).
+
 - The web interface says Project or Global and Local instead of Shared and Personal; API audience values stay `shared` and `personal` (#3033).
 
 - `doctor` describes shared settings updates as removing unchanged managed keys and keeping your keys, with JSON action `stale` (#3009).

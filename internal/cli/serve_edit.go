@@ -363,13 +363,26 @@ func editRequestGuard(r *http.Request) (int, string) {
 	if mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mediaType != "application/json" {
 		return http.StatusUnsupportedMediaType, "send Content-Type: application/json"
 	}
-	if !authority.RequestAllowed(r) {
-		if r.Header.Get("Origin") == "" && r.Header.Get("Sec-Fetch-Site") != "cross-site" {
-			return http.StatusMisdirectedRequest, "edits are served on loopback only"
-		}
+	switch requestOriginStatus(r) {
+	case http.StatusMisdirectedRequest:
+		return http.StatusMisdirectedRequest, "edits are served on loopback only"
+	case http.StatusForbidden:
 		return http.StatusForbidden, "edits are accepted from the server origin only"
 	}
 	return 0, ""
+}
+
+// requestOriginStatus is 0 for a request from the server's own origin,
+// 421 for one that names no browser origin and came off loopback, and
+// 403 for one from another origin.
+func requestOriginStatus(r *http.Request) int {
+	if authority.RequestAllowed(r) {
+		return 0
+	}
+	if r.Header.Get("Origin") == "" && r.Header.Get("Sec-Fetch-Site") != "cross-site" {
+		return http.StatusMisdirectedRequest
+	}
+	return http.StatusForbidden
 }
 
 // Only a boolean present in the loaded settings can gain a local override.

@@ -736,6 +736,7 @@ export interface ContextView {
 //   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
 //   GET  /api/views/overview                              → OverviewView
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
+//   GET  /api/views/source?path=<openPath>               → SourceView; 404 for a file the configuration does not list
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })
@@ -745,6 +746,7 @@ export const API = {
   schema: '/api/views/authority/schema',
   overview: '/api/views/overview',
   context: '/api/views/context',
+  source: '/api/views/source',
   editBuiltin: '/api/edit/builtin',
   editTargets: '/api/edit/targets',
   editValue: '/api/edit/value',
@@ -755,6 +757,18 @@ export const API = {
   switch: '/api/switch',
   globalCreate: '/api/global/create',
 } as const
+
+/** One file a row lists, as GET /api/views/source returns it. */
+export interface SourceView {
+  path: string
+  kind: string
+  /** Frontmatter keys in file order, each value as text. */
+  frontmatter: { key: string; value: string }[]
+  body: string
+  /** The file size; the body stops at 256 KB when truncated is set. */
+  bytes: number
+  truncated: boolean
+}
 
 /** The global setup folder the page just created. */
 export interface GlobalCreateReply {
