@@ -7,6 +7,7 @@ import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
 import { requiredRelease, servingRelease } from '../model/release'
+import { countFindings, healthSummary } from '../model/health'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -28,6 +29,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   tools: 'Servers & available tools',
   lifecycle: 'Hooks through a session',
   settings: 'Built-ins & preferences',
+  health: 'Findings to fix, errors first',
 }
 
 const PRODUCT_NAME = 'agnostic-ai'
@@ -77,6 +79,24 @@ function LogoMark({ className }: { className: string }) {
         <circle cx="15.74" cy="15.74" r="4.5" /><circle cx="48.26" cy="15.74" r="4.5" />
       </g>
     </svg>
+  )
+}
+
+// Counts by severity, linking to the Setup health view; nothing shows until the overview loads.
+function HealthBadge({ overview }: { overview: OverviewView | undefined }) {
+  const app = useApp()
+  if (!overview) return null
+  const count = countFindings(overview)
+  const summary = healthSummary(count)
+  const tone = count.errors ? 'is-error' : count.warnings ? 'is-warning' : 'is-clean'
+  return (
+    <AppLink to={{ view: 'health' }} className={`health-badge ${tone}`} aria-label={`Setup health: ${summary}`} title={`Setup health: ${summary}`} aria-current={app.state.view === 'health' ? 'page' : undefined}>
+      <Icon name={count.errors || count.warnings ? 'warning' : 'health'} />
+      {count.errors > 0 && <span className="health-count is-error">{count.errors}<span className="health-count-letter" aria-hidden="true">E</span><span className="health-count-word"> {count.errors === 1 ? 'error' : 'errors'}{count.warnings ? ',' : ''}</span></span>}
+      {count.errors > 0 && count.warnings > 0 && ' '}
+      {count.warnings > 0 && <span className="health-count is-warning">{count.warnings}<span className="health-count-letter" aria-hidden="true">W</span><span className="health-count-word"> {count.warnings === 1 ? 'warning' : 'warnings'}</span></span>}
+      {!count.errors && !count.warnings && <span className="health-count-word">{summary}</span>}
+    </AppLink>
   )
 }
 
@@ -136,6 +156,7 @@ export function Header({
         </div>
       )}
       <div className="topbar-actions">
+        <HealthBadge overview={overview.loaded?.data} />
         <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
           <Icon name="search" />
           <span className="button-search-label">Search</span>
@@ -213,7 +234,7 @@ export function Nav({
 
   const item = (id: ViewId, label: string) => {
     return (
-      <li key={id}>
+      <li key={id} className={id === 'health' ? 'nav-item-health' : undefined}>
         <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined}>
           <Icon name={id} />
           <span className="nav-text">{label}<span className="nav-description">{SECTION_DESCRIPTIONS[id]}</span></span>
@@ -225,7 +246,7 @@ export function Nav({
   return (
     <aside className="sidenav" ref={asideRef}>
       <nav className="section-nav" aria-label="Configuration sections">
-        <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
+        <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}{item('health', 'Setup health')}</ul>
       </nav>
       <footer className="sidenav-footer">
         {served && <ConfigSwitch served={served} />}

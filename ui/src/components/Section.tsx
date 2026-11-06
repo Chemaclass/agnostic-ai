@@ -9,6 +9,7 @@ import { ContextUsage } from './ContextUsage'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAudience, useLevelName, usePageAudience, useViewAudience, type EditAudience } from './EditAudience'
 import { OpenInEditor } from './EditorLink'
+import { AddHookForm, HookSavedNotice, useHookSaved } from './AddHook'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
 import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice, useSavedEditNotice } from './PermissionEditor'
 import { ProtectedEditor } from './ProtectedEditor'
@@ -29,10 +30,11 @@ import { fieldSearchText, itemSearchText } from '../model/search'
 import { filterTools, toolCount } from '../model/coding-tools'
 import { entryTab, landingTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
+import { hookStages } from '../model/hook-form'
 import type { Remote } from './Shell'
 import { Select, Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
-const ConfigurationRoot = createContext<string | undefined>(undefined)
+export const ConfigurationRoot = createContext<string | undefined>(undefined)
 const ConfiguredTools = createContext<TargetSupport[]>([])
 const PersonalBuiltins = createContext(false)
 
@@ -138,7 +140,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const { rechecked, pendingPlace } = useRechecks()
   const sectionPlace = `section:${section.id}`
   const remainingHere = rechecked?.result.state === 'remaining' && sectionEntryIds(section).has(rechecked.result.id ?? rechecked.id)
-  const orphan = rechecked?.section === section.id && rechecked.place !== sectionPlace && !remainingHere && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
+  const orphan = rechecked?.section === section.id && !rechecked.place.startsWith('health:') && rechecked.place !== sectionPlace && !remainingHere && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const query = search.trim().toLowerCase()
@@ -603,8 +605,17 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
 
 function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean; matchingHooks: Set<SectionItem> }) {
   const root = useRef<HTMLElement>(null)
-  const entry = useApp().state.entry
+  const app = useApp()
+  const entry = app.state.entry
   const recheck = useRechecks()
+  const [adding, setAdding] = useState(false)
+  const [hookSaved, saveHookNotice] = useHookSaved()
+  const portable = hookStages(stages)
+  const addButton = app.source.kind === 'api' && portable.length > 0 && <button type="button" className="button" aria-expanded={adding} onClick={() => setAdding(!adding)}>Add hook</button>
+  const addHook = <>
+    {adding && <AddHookForm stages={portable} onClose={() => setAdding(false)} onSaved={(saved) => { setAdding(false); saveHookNotice(saved) }} />}
+    {app.source.kind === 'api' && hookSaved && <HookSavedNotice saved={hookSaved} dismiss={() => saveHookNotice()} />}
+  </>
   const setExpanded = (open: boolean) => {
     root.current?.querySelectorAll<HTMLDetailsElement>('details.stage').forEach((stage) => { stage.open = open })
   }
@@ -618,7 +629,11 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
   if (count === 0) {
     return (
       <section className="block" aria-labelledby="lifecycle-hooks">
-        <SectionHeading topic="hook" id="lifecycle-hooks">Hooks <span className="muted kind-count">0</span></SectionHeading>
+        <div className="section-head lifecycle-head">
+          <SectionHeading topic="hook" id="lifecycle-hooks">Hooks <span className="muted kind-count">0</span></SectionHeading>
+          {addButton && <div className="lifecycle-actions">{addButton}</div>}
+        </div>
+        {addHook}
         <p className="muted">None configured. A hook can run at each of these stages.</p>
         <ol className="stages is-quiet">
           {stages.map((st) => (
@@ -643,8 +658,10 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
         <div className="lifecycle-actions">
           <button type="button" className="button button-quiet" onClick={() => setExpanded(true)}>Expand all</button>
           <button type="button" className="button button-quiet" onClick={() => setExpanded(false)}>Collapse all</button>
+          {addButton}
         </div>
       </div>
+      {addHook}
       <ol className="stages">
         {stages.map((st) => {
           const here = hooks.filter((h) => h.group === st.id)
@@ -1029,8 +1046,9 @@ function Values({ values, file, prefix, personal, localKeys, fieldKey, overrides
   )
 }
 
-function Findings({ findings, owner, place, orphanPlace }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string }) {
-  const ids = findingEntryIds(findings, owner)
+/** One owner's findings; pass `ids` when the list is a part of the owner's findings, so each keeps its link id. */
+export function Findings({ findings, owner, place, orphanPlace, ids: givenIds }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string; ids?: string[] }) {
+  const ids = givenIds ?? findingEntryIds(findings, owner)
   const gone = useGoneFinding(place, ids, orphanPlace)
   if (!findings.length && !gone) return null
   return (

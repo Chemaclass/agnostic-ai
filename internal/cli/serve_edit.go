@@ -111,6 +111,9 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case editMCPPath:
 		h.serveMCP(w, body)
 		return
+	case editHookPath:
+		h.serveHook(w, body)
+		return
 	case editBuiltinPath:
 		var req struct {
 			audienceFields

@@ -105,24 +105,32 @@ func (s checkScope) migrationScope() migrationScope {
 // home config or else every supported one, and against what each writes
 // at user level.
 func loadCheckScope(global bool) (checkScope, error) {
+	scope, _, err := loadCheckScopeAllHooks(global)
+	return scope, err
+}
+
+// loadCheckScopeAllHooks is loadCheckScope that also returns every loaded
+// hook, built-in hooks for tools the scope does not write included.
+func loadCheckScopeAllHooks(global bool) (checkScope, []spec.Entry, error) {
 	scope, err := loadSpecScope(global, nil)
 	if err != nil {
-		return scope, err
+		return scope, nil, err
 	}
 	if global {
 		targets, err := loadGlobalTargets(scope.source, io.Discard)
 		if err != nil {
-			return checkScope{}, err
+			return checkScope{}, nil, err
 		}
 		if targets == nil {
 			targets = globalTargetNames()
 		}
 		scope.targets, scope.hookTargets = targets, globalHookTargets(targets)
 	}
-	scope.bundle.Hooks = slices.DeleteFunc(slices.Clone(scope.bundle.Hooks), func(hook spec.Entry) bool {
+	all := scope.bundle.Hooks
+	scope.bundle.Hooks = slices.DeleteFunc(slices.Clone(all), func(hook spec.Entry) bool {
 		return hook.Layer == layerNameBuiltin && !slices.ContainsFunc(scope.hookTargets, hook.EmitsTo)
 	})
-	return scope, nil
+	return scope, all, nil
 }
 
 // loadSpecScope is loadCheckScope without the global targets, for list,
