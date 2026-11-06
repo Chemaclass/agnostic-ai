@@ -161,40 +161,40 @@ func writeHookError(w http.ResponseWriter, err error) {
 }
 
 // hookSpecYAML writes the fields in the order the hook reference lists them.
+// The command keeps every byte, since trailing spaces and backslashes can
+// change what the shell runs; the first style that reads back unchanged wins.
 func hookSpecYAML(req hookSpecRequest) ([]byte, error) {
-	m := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
-	add := func(key, value string, style yaml.Style, tag string) {
-		m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, &yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: value, Style: style})
+	styles := []yaml.Style{0, yaml.DoubleQuotedStyle}
+	if strings.Contains(req.Command, "\n") {
+		styles = append([]yaml.Style{yaml.LiteralStyle}, styles...)
 	}
-	add("name", req.Name, 0, "!!str")
-	if description := strings.TrimSpace(req.Description); description != "" {
-		add("description", description, 0, "!!str")
+	for _, style := range styles {
+		m := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		add := func(key, value string, style yaml.Style, tag string) {
+			m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, &yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: value, Style: style})
+		}
+		add("name", req.Name, 0, "!!str")
+		if description := strings.TrimSpace(req.Description); description != "" {
+			add("description", description, 0, "!!str")
+		}
+		add("on", req.On, 0, "!!str")
+		if req.Match != "" {
+			add("match", req.Match, 0, "!!str")
+		}
+		add("command", req.Command, style, "!!str")
+		if req.Timeout != nil {
+			add("timeout", strconv.Itoa(*req.Timeout), 0, "!!int")
+		}
+		data, err := encodeYAML(&yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{m}})
+		if err != nil {
+			continue
+		}
+		back, err := spec.ParseYAMLBytes(spec.KindHook, data)
+		if err == nil && back.Meta["command"] == req.Command && back.Meta["on"] == req.On && back.Name == req.Name {
+			return data, nil
+		}
 	}
-	add("on", req.On, 0, "!!str")
-	if req.Match != "" {
-		add("match", req.Match, 0, "!!str")
-	}
-	command := strings.TrimRight(req.Command, " \t\r\n")
-	var style yaml.Style
-	if strings.Contains(command, "\n") {
-		style = yaml.LiteralStyle
-	}
-	add("command", command, style, "!!str")
-	if req.Timeout != nil {
-		add("timeout", strconv.Itoa(*req.Timeout), 0, "!!int")
-	}
-	data, err := encodeYAML(&yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{m}})
-	if err != nil {
-		return nil, err
-	}
-	back, err := spec.ParseYAMLBytes(spec.KindHook, data)
-	if err != nil {
-		return nil, err
-	}
-	if back.Meta["command"] != command || back.Meta["on"] != req.On || back.Name != req.Name {
-		return nil, errors.New("the command cannot be written as YAML unchanged")
-	}
-	return data, nil
+	return nil, errors.New("the command cannot be written as YAML unchanged")
 }
 
 func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hookSpecPreview, string, error) {

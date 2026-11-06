@@ -321,3 +321,38 @@ func TestServeEditHook_RefusesRequestsAnotherSiteCouldSend(t *testing.T) {
 		t.Errorf("refused request wrote hooks: %v", err)
 	}
 }
+
+func TestServeEditHook_KeepsTheCommandByteForByte(t *testing.T) {
+	for _, tc := range []struct{ name, command string }{
+		{"escaped trailing space", `rm -- release\ `},
+		{"trailing line continuation", "echo one \\\n"},
+		{"trailing newline", "make lint\n"},
+		{"trailing tab", "make lint\t"},
+		{"leading space", "  make lint"},
+		{"carriage return line ends", "make lint\r\nmake test"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			project := scopeProject(t)
+			h := newEditHandler(project, false)
+			request := hookEditBody("keep-bytes", "stop", tc.command)
+			preview := hookEditPreview(t, h, request)
+			hookEditApply(t, h, request, preview)
+			if got := readOptional(t, filepath.Join(project, preview.File)); got != preview.Spec {
+				t.Errorf("written spec = %q, preview = %q", got, preview.Spec)
+			}
+			scope, err := loadCheckScope(false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, e := range scope.bundle.Hooks {
+				if e.Name == "keep-bytes" {
+					if e.Meta["command"] != tc.command {
+						t.Errorf("reloaded command = %q, want %q\n%s", e.Meta["command"], tc.command, preview.Spec)
+					}
+					return
+				}
+			}
+			t.Error("hook not loaded")
+		})
+	}
+}
