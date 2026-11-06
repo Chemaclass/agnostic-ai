@@ -24,6 +24,7 @@ func TestImport_AgentTurnLimitAndBackgroundRoundTrip(t *testing.T) {
 		{"gemini", ".gemini/agents", "max_turns: 12\n", map[string]any{"maxTurns": 12}},
 		{"cursor", ".cursor/agents", "is_background: true\n", map[string]any{"background": true}},
 		{"opencode", ".opencode/agents", "steps: 12\n", map[string]any{"maxTurns": 12}},
+		{"qwen", ".qwen/agents", "maxTurns: 12\nbackground: true\n", map[string]any{"maxTurns": 12, "background": true}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.target, func(t *testing.T) {

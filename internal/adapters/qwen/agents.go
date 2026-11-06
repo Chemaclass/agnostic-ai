@@ -20,9 +20,15 @@ var toolCapabilities = emit.ToolCapabilityTable{
 
 func (Adapter) ToolCapabilities() emit.ToolCapabilityTable { return toolCapabilities }
 
+// agentFields are the portable agent keys Qwen Code reads as written.
+// Its subagents take Claude Code's frontmatter, including per-agent
+// `hooks` keyed by Claude event names
+// (qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/).
+var agentFields = []string{"model", "color", "maxTurns", "background", "hooks"}
+
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
-		a = emit.WithValidAgentLimits(a, target, emit.AgentMaxTurns)
+		a = emit.WithValidAgentLimits(a, target, emit.AgentMaxTurns, emit.AgentBackground)
 		resolved := emit.ResolveMeta(a.Meta, target)
 		description, _ := resolved["description"].(string)
 		if description == "" {
@@ -30,7 +36,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		}
 		meta := map[string]any{"name": a.Name, "description": description}
 		keys := []string{"name", "description"}
-		for _, key := range []string{"model", "color", "maxTurns"} {
+		for _, key := range agentFields {
 			if value, ok := resolved[key]; ok {
 				meta[key] = value
 				keys = append(keys, key)
@@ -56,7 +62,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		if _, present := a.Meta["permissionMode"]; present {
 			emit.NoteFieldNoOp(target, spec.KindAgent, "permissionMode", 1, "use x-qwen.approvalMode; native modes have different approval semantics")
 		}
-		emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, "name", "description", "model", "color", "maxTurns", "effort")
+		emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, append([]string{"name", "description", "effort"}, agentFields...)...)
 		body := emit.WithHeader(emit.FrontmatterOrdered(meta, keys)+"\n"+strings.TrimSpace(a.Body)+"\n", emit.FormatMarkdown)
 		if err := sess.WriteFile(filepath.Join(dir, a.Name+".md"), body, dryRun); err != nil {
 			return err
