@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
-import { countFindings, gapLine, healthFixPrompt, healthGroups, healthPlace, healthSummary, placeLabel } from './health'
+import { countFindings, gapLine, healthFixPrompt, healthGroups, healthPlace, healthSummary, improvementsLine, placeLabel } from './health'
 import { findingEntryIds, itemEntryId } from './identity'
 import { overviewFindings } from './recheck'
 import { normalizeOverviewView } from './normalize'
@@ -150,5 +150,21 @@ describe('setup health', () => {
     expect(older.health).toEqual({ gaps: [] })
     const partial = normalizeOverviewView({ health: { gaps: [{ id: 'kind:rule' }, { id: 'kind:skill', fix: 'Add one.', supported: ['claude'] }] } })
     expect(partial.health.gaps.map((gap) => gap.id)).toEqual(['kind:skill'])
+  })
+
+  it('counts the improvements applied, and says so when every one is', () => {
+    expect(improvementsLine({ applied: 7, total: 9 })).toBe('7 of 9 improvements applied')
+    expect(improvementsLine({ applied: 0, total: 1 })).toBe('0 of 1 improvement applied')
+    expect(improvementsLine({ applied: 9, total: 9 })).toBe('All 9 improvements applied')
+    expect(improvementsLine({ applied: 1, total: 1 })).toBe('The one improvement is applied')
+    expect(improvementsLine({ applied: 0, total: 0 })).toBeUndefined()
+    expect(improvementsLine(undefined)).toBeUndefined()
+  })
+
+  it('reads the improvements count from the overview, and none from an older one or a bad count', () => {
+    expect(loadOverviewFixture().health.improvements).toEqual({ applied: 2, total: 14 })
+    expect(normalizeOverviewView({ health: { gaps: [] } }).health.improvements).toBeUndefined()
+    expect(normalizeOverviewView({ health: { improvements: { applied: 3, total: 2 } } }).health.improvements).toBeUndefined()
+    expect(normalizeOverviewView({ health: { improvements: { applied: '1', total: 2 } } }).health.improvements).toBeUndefined()
   })
 })

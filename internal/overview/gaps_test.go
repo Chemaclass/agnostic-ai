@@ -147,3 +147,28 @@ func TestBuild_TheBuiltInPromptNamesTheFileWhoseListWins(t *testing.T) {
 		t.Errorf("local list prompt: %q", local.Fix)
 	}
 }
+
+func TestBuild_CountsTheImprovementsAppliedFromTheGapRules(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Builtins: []string{"handoff"}}
+	rule := entry(spec.KindRule, "testing", ".agnostic-ai/rules/testing.md", nil)
+	before := Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Rules: []spec.Entry{rule}}}).Health
+	if before.Improvements == nil {
+		t.Fatal("no improvements count")
+	}
+	if got := *before.Improvements; got.Applied != 2 || got.Total-got.Applied != len(before.Gaps) {
+		t.Errorf("improvements %+v with %d gaps, want 2 applied and one gap per missing improvement", got, len(before.Gaps))
+	}
+
+	skill := entry(spec.KindSkill, "release", ".agnostic-ai/skills/release/SKILL.md", nil)
+	after := Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Rules: []spec.Entry{rule}, Skills: []spec.Entry{skill}}}).Health
+	if after.Improvements.Applied != 3 || after.Improvements.Total != before.Improvements.Total {
+		t.Errorf("after adding a skill: %+v, before %+v", *after.Improvements, *before.Improvements)
+	}
+}
+
+func TestBuild_CountsNoImprovementsWithoutTools(t *testing.T) {
+	got := Build(Inputs{Cfg: &config.Config{}}).Health.Improvements
+	if got == nil || got.Applied != 0 || got.Total != 0 {
+		t.Errorf("no tools, improvements %+v", got)
+	}
+}

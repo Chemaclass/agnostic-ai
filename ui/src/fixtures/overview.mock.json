@@ -1451,6 +1451,10 @@
         "missing": "built-in is off",
         "fix": "The handoff built-in of this agnostic-ai project is off. Saves a task so the next session, in this or another tool, can resume it. To turn it on, add `handoff` to the `builtins` list in agnostic-ai.yaml and run `agnostic-ai sync`."
       }
-    ]
+    ],
+    "improvements": {
+      "applied": 2,
+      "total": 14
+    }
   }
 }

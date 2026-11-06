@@ -31,17 +31,23 @@ var recommendedBuiltins = []struct {
 	kind spec.Kind
 }{{"handoff", spec.KindSkill}}
 
-// buildGaps lists what the configured tools support and the project does
-// not use yet. Gaps are suggestions, never findings. The user
-// configuration has none: `agnostic-ai new` writes project specs only.
-func buildGaps(in Inputs, targets []string, caps map[string][]spec.Kind) []Gap {
+// buildHealth lists what the configured tools support and the project
+// does not use yet, and counts what it already uses. Gaps are
+// suggestions, never findings. The user configuration has none:
+// `agnostic-ai new` writes project specs only.
+func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Health {
 	gaps := []Gap{}
 	if in.Global {
-		return gaps
+		return Health{Gaps: gaps}
 	}
+	total := 0
 	for _, k := range gapKinds {
 		supported := kindSupport(k.kind, "", targets, caps).Supported
-		if len(supported) == 0 || slices.ContainsFunc(entriesOf(in.Bundle, k.kind), ownSpec) {
+		if len(supported) == 0 {
+			continue
+		}
+		total++
+		if slices.ContainsFunc(entriesOf(in.Bundle, k.kind), ownSpec) {
 			continue
 		}
 		label := kindLabels[k.kind]
@@ -59,7 +65,11 @@ func buildGaps(in Inputs, targets []string, caps map[string][]spec.Kind) []Gap {
 				supported = append(supported, t)
 			}
 		}
-		if len(supported) == 0 || slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool { return ownSpec(e) && runsAt(e, st.id, targets) }) {
+		if len(supported) == 0 {
+			continue
+		}
+		total++
+		if slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool { return ownSpec(e) && runsAt(e, st.id, targets) }) {
 			continue
 		}
 		gaps = append(gaps, Gap{
@@ -80,7 +90,11 @@ func buildGaps(in Inputs, targets []string, caps map[string][]spec.Kind) []Gap {
 	}
 	for _, b := range recommendedBuiltins {
 		supported := kindSupport(b.kind, "", targets, caps).Supported
-		if len(supported) == 0 || slices.Contains(enabled, b.name) {
+		if len(supported) == 0 {
+			continue
+		}
+		total++
+		if slices.Contains(enabled, b.name) {
 			continue
 		}
 		name := b.name
@@ -91,7 +105,7 @@ func buildGaps(in Inputs, targets []string, caps map[string][]spec.Kind) []Gap {
 				name, builtinDescriptions[name], name, listFile),
 		})
 	}
-	return gaps
+	return Health{Gaps: gaps, Improvements: &Improvements{Applied: total - len(gaps), Total: total}}
 }
 
 // ownSpec reports whether the project wrote e. A built-in ships a fixed

@@ -185,11 +185,12 @@ test.describe('setup health', () => {
       for (const item of s.items) item.findings = []
     }
     const fix = 'This agnostic-ai project has no skills, and claude, codex support them.'
-    data.health = { gaps: [{ id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix }] }
+    data.health = { gaps: [{ id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix }], improvements: { applied: 8, total: 9 } }
     await serve(page, data)
     await page.goto('/?view=health')
     await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: No findings' })).toBeVisible()
     const gaps = page.getByRole('region', { name: /^Reach the best setup/ })
+    await expect(gaps).toContainText('8 of 9 improvements applied')
     await expect(gaps.getByRole('listitem')).toHaveCount(1)
     const gap = gaps.getByRole('listitem').first()
     await expect(gap).toContainText('Skills: supported by claude, codex; no skill yet')
@@ -198,6 +199,16 @@ test.describe('setup health', () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fix)
     await gap.getByRole('link', { name: 'Context' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
+  })
+
+  test('says every improvement is applied and lists none', async ({ page }) => {
+    const data = structuredClone(fixture)
+    data.health = { gaps: [], improvements: { applied: 9, total: 9 } }
+    await serve(page, data)
+    await page.goto('/?view=health')
+    const gaps = page.getByRole('region', { name: /^Reach the best setup/ })
+    await expect(gaps).toContainText('All 9 improvements applied')
+    await expect(gaps.getByRole('list')).toHaveCount(0)
   })
 })
 

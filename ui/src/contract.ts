@@ -719,6 +719,13 @@ export interface OverviewView {
 /** What the page suggests beyond the lint and doctor findings. */
 export interface Health {
   gaps: Gap[]
+  /** What the gap check considered; each improvement not applied is a gap. Absent for user configuration. */
+  improvements?: Improvements
+}
+
+export interface Improvements {
+  applied: number
+  total: number
 }
 
 /** Something the configured tools support that the project does not use yet. A suggestion, never a finding. */
