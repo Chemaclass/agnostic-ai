@@ -51,7 +51,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Qwen Code
 
-- The target page says interactive sessions from 0.26.7 run project hooks only after you turn on folder trust and trust the folder (#2978).
+- The target page says project hooks need folder trust or hook approval: from 0.26.7 in interactive sessions, from 0.26.8 in headless runs too (#2978, #3015).
 
 #### Kimi Code CLI
 
