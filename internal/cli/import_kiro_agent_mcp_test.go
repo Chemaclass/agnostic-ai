@@ -114,3 +114,19 @@ func TestImportKiro_AgentServersScopedInTheSpecStayAMap(t *testing.T) {
 		t.Errorf("synced agent lost its servers:\n%s", agent)
 	}
 }
+
+func TestImportKiro_DeletedAgentServersLeaveTheSpec(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md"), "---\nname: rev\ndescription: Reviews\nmcpServers: [db]\n---\n\nReview code.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/mcps/db.yaml"), "name: db\ncommand: db-mcp\n")
+	execCLI(t, "sync", "-t", "kiro")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md"), "---\ndescription: Reviews\n---\n\nReview code.\n")
+
+	execCLI(t, "import", "kiro")
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md")); strings.Contains(got, "mcpServers") {
+		t.Errorf("imported agent kept the deleted servers:\n%s", got)
+	}
+}

@@ -716,12 +716,20 @@ func (v *importToolView) hidesKey(tools []adapters.Adapter, e spec.Entry, key st
 		delete(without.Meta, k)
 	}
 	without.MetaKeys = slices.DeleteFunc(slices.Clone(e.MetaKeys), func(k string) bool { return slices.Contains(keys, k) })
+	// An agent's mcpServers names MCP specs, so its render needs them.
+	bundle := func(entry spec.Entry) spec.Bundle {
+		entries := []spec.Entry{entry}
+		if entry.Kind == spec.KindAgent {
+			entries = append(entries, v.after.MCPs...)
+		}
+		return spec.NewBundle(entries)
+	}
 	for _, a := range tools {
-		with, err := v.render(a, spec.NewBundle([]spec.Entry{e}))
+		with, err := v.render(a, bundle(e))
 		if err != nil {
 			return false, false
 		}
-		got, err := v.render(a, spec.NewBundle([]spec.Entry{without}))
+		got, err := v.render(a, bundle(without))
 		if err != nil {
 			return false, false
 		}
