@@ -782,4 +782,7 @@
 # Adding a hook from the Lifecycle page (#3037), merged with the setup
 # health view, measured 24854688 bytes; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-24866816
+# Authority protected paths and the global default permission mode
+# (#3039), merged with Add hook and Setup health, measured 24916128 bytes;
+# the budget is that plus 8192, rounded up to a multiple of 4096.
+24928256
