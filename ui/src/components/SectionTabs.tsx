@@ -3,6 +3,7 @@ import { useEffect, useRef, type KeyboardEvent } from 'react'
 export interface SectionTabLabel {
   id: string
   label: string
+  title?: string
   count?: string | number
   findings: number
 }
@@ -45,6 +46,7 @@ export function SectionTabs({ section, label, tabs, active, select }: { section:
       id={`tab-${section}-${tab.id}`}
       aria-controls={`panel-${section}-${tab.id}`}
       aria-selected={active === tab.id}
+      title={tab.title}
       tabIndex={active === tab.id ? 0 : -1}
       onClick={() => select(tab.id)}
       onKeyDown={(event) => keyDown(event, index)}

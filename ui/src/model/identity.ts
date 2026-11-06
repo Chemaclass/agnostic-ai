@@ -17,6 +17,10 @@ export function fieldEntryId(field: Pick<SettingField, 'key'>): string {
   return `field:${field.key}`
 }
 
+export function kindEntryId(kind: string): string {
+  return `kind:${part(kind)}`
+}
+
 export function findingKey(finding: ItemFinding): string {
   const message = finding.message.replace(/\bline \d+/gi, 'line').replace(/(\S):\d+(?::\d+)?\b/g, '$1')
   return [finding.source, finding.code ?? '', finding.path ?? '', message, ...(finding.layer ? [finding.layer] : [])].join('\u0000')
@@ -42,6 +46,7 @@ export function sectionEntryIds(section: Section): Set<string> {
   }
   for (const field of section.fields ?? []) ids.add(fieldEntryId(field))
   for (const id of findingEntryIds(section.findings)) ids.add(id)
+  for (const kind of section.kinds ?? []) ids.add(kindEntryId(kind.kind))
   return ids
 }
 
