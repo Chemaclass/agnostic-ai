@@ -8,7 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
-- The web interface sets the default permission mode and protected paths from Authority, in project or local scope. The mode offers only the names Claude Code accepts. Protected paths take one path per line, a decision, and a reason, with a preview before saving through the new `/api/edit/protected` endpoint. Both write the settings spec the permission lists use (#3039).
+- The web interface edits protected paths from Authority in project or local scope, and the default permission mode in the global view (#3039).
 
 - The web interface says Project or Global and Local instead of Shared and Personal; API audience values stay `shared` and `personal` (#3033).
 

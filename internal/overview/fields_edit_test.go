@@ -39,7 +39,11 @@ func TestAuthorityFields_EditTheSpecThePermissionListsUse(t *testing.T) {
 	fields := buildFields(SectionAuthority, nil, nil, cfg, "", false)
 	for _, field := range fields {
 		edit := field.Editable
-		if edit == nil || edit.Kind != kinds[field.Key] || edit.Path != "config/policies/permissions.yaml" || edit.LocalPath != ".agnostic-ai/local/settings/permissions.yaml" || edit.SyncCommand != "agnostic-ai sync" || edit.DisabledReason != "" {
+		reason := ""
+		if field.Key == PermissionModeKey {
+			reason = PermissionModeProjectReason
+		}
+		if edit == nil || edit.Kind != kinds[field.Key] || edit.Path != "config/policies/permissions.yaml" || edit.LocalPath != ".agnostic-ai/local/settings/permissions.yaml" || edit.SyncCommand != "agnostic-ai sync" || edit.DisabledReason != reason {
 			t.Errorf("%s metadata = %+v", field.Key, edit)
 		} else if len(edit.Sources) != 1 || edit.Sources[0] != (FieldEditSource{Path: edit.Path, Spec: "permissions", LocalPath: edit.LocalPath}) {
 			t.Errorf("%s scaffold source = %+v", field.Key, edit.Sources)

@@ -103,6 +103,9 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			f.Editable = PermissionFieldEdit(entries, cfg, root, global)
 			f.Editable.Kind = "text"
 			f.Editable.Allowed = slices.Clone(spec.PermissionModes)
+			if !global {
+				f.Editable.DisabledReason = PermissionModeProjectReason
+			}
 		}
 		if section == SectionAuthority && d.key == ProtectedKey {
 			f.Editable = protectedFieldEdit(entries, cfg, root, global)
@@ -235,6 +238,10 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 // PermissionModeKey is the settings field that holds the default
 // permission mode.
 const PermissionModeKey = "permissions.default-mode"
+
+// PermissionModeProjectReason explains why a project cannot edit the
+// default mode: only sync --global writes Claude Code's defaultMode.
+const PermissionModeProjectReason = "Applies through global sync only. Set it in global settings."
 
 // ProtectedKey is the settings block that lists protected paths.
 const ProtectedKey = "protected"

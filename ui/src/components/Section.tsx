@@ -12,6 +12,8 @@ import { OpenInEditor } from './EditorLink'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
 import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice, useSavedEditNotice } from './PermissionEditor'
 import { ProtectedEditor } from './ProtectedEditor'
+import { ConfigSwitch } from './ConfigSwitch'
+import { useServedConfig } from './Shell'
 import { SectionTabs } from './SectionTabs'
 import { SectionHeading } from './SectionHeading'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
@@ -429,6 +431,11 @@ function FieldEditor(props: FieldEditControlProps) {
   return props.field.editable?.kind === 'permission-list' ? <PermissionEditor {...props} /> : <FieldEditControl {...props} />
 }
 
+function GlobalSettingsAction() {
+  const served = useServedConfig(useApp().source.kind)
+  return served && !served.global ? <div className="field-edit-row"><ConfigSwitch served={served} /></div> : null
+}
+
 function FieldEditControl(props: FieldEditControlProps) {
   const audience = useEditAudience()
   const [path, setPath] = useState(props.field.editable?.path ?? props.field.editable?.paths?.[0] ?? '')
@@ -480,7 +487,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     if (clean) setValue(current)
   }, [current, localCurrent, teamCurrent])
   if (!edit) return sources()
-  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p></>
+  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p>{field.key === 'permissions.default-mode' && <GlobalSettingsAction />}</>
   const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
   if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
   if (app.source.kind !== 'api') return sources()
