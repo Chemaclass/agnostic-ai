@@ -151,7 +151,8 @@
 // Unlike every other ignore target, it does not apply on save: "The
 // `.ignore` file will take effect after re-indexing is complete", so a
 // freshly synced pattern needs a Build under Settings > Indexing & Docs
-// before it holds.
+// before it holds. Trae removes Indexing & Docs from clients released on
+// or after 2026-10-22 and names no replacement (#3044).
 //
 // Trae also reads the cross-tool root `AGENTS.md`, which is written
 // centrally by `sync`, not by this adapter.
