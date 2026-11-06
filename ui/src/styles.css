@@ -395,8 +395,11 @@ input:hover {
   grid-template-columns: var(--nav-width) minmax(0, 1fr);
 }
 
+/* The onboarding panel opens from the sidebar footer; the stack keeps it
+   above sticky page content. */
 .sidenav {
   position: sticky;
+  z-index: 20;
   top: var(--topbar-offset, var(--topbar-height));
   align-self: start;
   height: calc(100vh - var(--topbar-offset, var(--topbar-height)));
@@ -2658,7 +2661,7 @@ tr.is-advised > td {
 
 /* JSON inspector ----------------------------------------------------------- */
 
-/* The drawer opens below the header, so the pressed JSON toggle stays in view. */
+/* The drawer opens below the header. */
 .inspector {
   position: fixed;
   top: var(--topbar-offset, var(--topbar-height));
@@ -2999,7 +3002,6 @@ tr.is-advised > td {
 
   /* Keep section links in one scrolling row. */
   .sidenav {
-    z-index: 20;
     height: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr);

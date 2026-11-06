@@ -86,3 +86,30 @@ test('keeps global configuration context and the project switch compact on phone
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
   }
 })
+
+test('opens the global setup panel from the sidebar above the page and returns focus on close', async ({ page }) => {
+  const root = '/tmp/missing-global-home'
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true } }))
+  await page.route('**/api/switch', (route) => route.fulfill({ status: 409, json: { error: `no global setup at ${root}`, missing: true, root } }))
+  await page.setViewportSize({ width: 1280, height: 500 })
+  await page.goto('/?view=settings')
+  const configuration = page.locator('.sidenav').getByRole('button', { name: 'Open global settings' })
+  const panel = page.getByRole('dialog', { name: 'No global setup yet' })
+
+  for (const close of ['Escape', 'Cancel'] as const) {
+    await configuration.click()
+    await expect(panel).toBeVisible()
+    for (const part of [panel.getByRole('heading', { name: 'No global setup yet' }), panel.getByRole('button', { name: 'Create global setup' })]) {
+      expect(await part.evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+        return top !== null && element.contains(top)
+      })).toBe(true)
+    }
+    if (close === 'Escape') await page.keyboard.press('Escape')
+    else await panel.getByRole('button', { name: 'Cancel' }).click()
+    await expect(panel).toHaveCount(0)
+    await expect(configuration).toBeFocused()
+  }
+})
