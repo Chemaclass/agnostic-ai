@@ -19,8 +19,11 @@ interface ProtectedEditorProps {
 export function ProtectedEditor(props: ProtectedEditorProps) {
   const audience = useEditAudience()
   const edit = props.field.editable
-  const [path, select] = useState(edit?.path ?? '')
-  return <ProtectedForm key={`${audience}:${path}`} {...props} path={path} select={select} />
+  const [selected, select] = useState(() => ({ path: edit?.path ?? '', spec: edit?.sources?.find((source) => source.path === edit.path)?.spec }))
+  const source = edit?.sources?.find((source) => source.path === selected.path) ?? edit?.sources?.find((source) => source.spec === selected.spec)
+  const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
+  const path = source?.path ?? (paths.includes(selected.path) ? selected.path : '')
+  return <ProtectedForm key={`${audience}:${path}`} {...props} path={path} select={(next) => select({ path: next, spec: edit?.sources?.find((source) => source.path === next)?.spec })} />
 }
 
 function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorProps & { path: string; select: (path: string) => void }) {
@@ -43,10 +46,19 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
   const [preview, setPreview] = useState<ProtectedEditPreview>()
   const [pending, setPending] = useState<'preview' | 'apply'>()
   const [error, setError] = useState<EditError>()
+  const [before, setBefore] = useState(own)
+  const refreshing = useRef(false)
   useEffect(() => {
     active.current = true
     return () => { active.current = false }
   }, [])
+  useEffect(() => {
+    if (!refreshing.current) return
+    refreshing.current = false
+    setBefore(own)
+    setError(undefined)
+    setPreview(undefined)
+  }, [app.overviewRevision, field])
 
   if (app.source.kind !== 'api' || !edit) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}</p></>
@@ -54,6 +66,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
   const overridden = !local && current.personalSet
   const draft: ProtectedBlock = { paths: rulesFromText(text), decision, reason: reason.trim() }
   const begin = () => {
+    setBefore(own)
     setText((effective?.paths ?? []).join('\n'))
     setDecision(effective?.decision || 'ask')
     setReason(effective?.reason ?? '')
@@ -66,7 +79,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
     setPending(action)
     setError(undefined)
     try {
-      const result = await editProtected({ action, audience, path, protected: action === 'apply' ? preview!.protected : next, before: own, ...(action === 'apply' ? { expected: preview!.expected } : {}) })
+      const result = await editProtected({ action, audience, path, protected: action === 'apply' ? preview!.protected : next, before: editing ? before : own, ...(action === 'apply' ? { expected: preview!.expected } : {}) })
       if (action === 'apply') {
         saved(result)
         app.reload(true)
@@ -135,7 +148,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       <p className="muted">After saving, run <Code>{preview.syncCommand}</Code> to apply.</p>
     </section>}
     {error && <div className="edit-error" role="alert"><p>{error.message}</p>
-      {error.status === 409 && <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => app.reload()}>Reload saved values</button>}
+      {error.status === 409 && <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { refreshing.current = true; app.reload() }}>Reload saved values</button>}
     </div>}
   </div></>
 }

@@ -327,6 +327,63 @@ test('live Authority sets protected paths, keeps a project deny for a local bloc
   } finally { await f.close() }
 })
 
+test('live Authority rejects a stale protected paths draft after another save refreshes the page', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    const base = '# Shared settings.\nname: native\nx-claude:\n    verbose: false\n'
+    await put(f.settings, base + 'protected:\n    paths: [vendor]\n')
+    await page.goto(`${f.url}?view=authority`)
+    const guarded = page.locator('.field-row').filter({ has: page.getByText('Protected paths', { exact: true }) })
+    await guarded.getByRole('button', { name: 'Edit paths', exact: true }).click()
+    await guarded.getByRole('textbox', { name: 'Paths to protect', exact: true }).fill('mine/')
+    const changed = base + 'protected:\n    paths: [theirs/]\n'
+    await put(f.settings, changed)
+    const ask = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+    await ask.getByRole('button', { name: 'Add rules', exact: true }).click()
+    await ask.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('shell(git push *)')
+    await ask.getByRole('button', { name: 'Preview changes' }).click()
+    await ask.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await expect(guarded).toContainText('theirs/')
+    await expect(guarded.getByRole('textbox', { name: 'Paths to protect', exact: true })).toHaveValue('mine/')
+    await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
+    await expect(guarded.getByRole('alert')).toContainText('changed after editing began')
+    expect(await readFile(f.settings, 'utf8')).toContain('paths: [theirs/]')
+    await guarded.getByRole('button', { name: 'Reload saved values', exact: true }).click()
+    await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
+    await guarded.getByRole('button', { name: 'Save paths', exact: true }).click()
+    await expect.poll(() => readFile(f.settings, 'utf8')).toContain('paths:\n    - mine/\n')
+  } finally { await f.close() }
+})
+
+test('live Authority adds, edits, and resets the first local protected block with no settings spec', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    await page.goto(`${f.url}?view=authority`)
+    await page.getByRole('button', { name: 'Local (not committed)', exact: true }).click()
+    const guarded = page.locator('.field-row').filter({ has: page.getByText('Protected paths', { exact: true }) })
+    const source = join(f.root, '.agnostic-ai', 'local', 'settings', 'permissions.yaml')
+    await guarded.getByRole('button', { name: 'Add paths', exact: true }).click()
+    await guarded.getByRole('textbox', { name: 'Paths to protect', exact: true }).fill('notes/')
+    await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
+    await guarded.getByRole('button', { name: 'Save paths', exact: true }).click()
+    await expect.poll(() => readFile(source, 'utf8').catch(() => '')).toContain('- notes/')
+    await guarded.getByRole('button', { name: 'Edit paths', exact: true }).click()
+    await expect(guarded.getByRole('textbox', { name: 'Paths to protect', exact: true })).toHaveValue('notes/')
+    await guarded.getByRole('textbox', { name: 'Paths to protect', exact: true }).fill('notes/\ndrafts/')
+    await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
+    await expect(guarded.getByRole('region', { name: 'Protected paths change preview' })).toContainText('.agnostic-ai/local/settings/permissions.yaml')
+    await guarded.getByRole('button', { name: 'Save paths', exact: true }).click()
+    await expect.poll(() => readFile(source, 'utf8').catch(() => '')).toContain('- drafts/')
+    await guarded.getByRole('button', { name: 'Reset to project paths', exact: true }).click()
+    await guarded.getByRole('button', { name: 'Save paths', exact: true }).click()
+    await expect(guarded.getByRole('button', { name: 'Add paths', exact: true })).toBeVisible()
+    await expect.poll(async () => (await readFile(source, 'utf8').catch(() => '')).includes('protected')).toBe(false)
+    await expect(guarded.getByRole('alert')).toHaveCount(0)
+  } finally { await f.close() }
+})
+
 test('live global Authority sets the default permission mode and global sync writes it for Claude', async ({ page }) => {
   const f = await fixture(true)
   try {
