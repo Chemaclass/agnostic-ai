@@ -211,15 +211,15 @@ func importKiroAgentDocument(data []byte, canonicalName string, projectServers m
 	if !ok {
 		return data, nil
 	}
+	servers, err := importKiroAgentServers(mapping, projectServers)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", canonicalName, err)
+	}
 	at := -1
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
 		if mapping.Content[i].Value == "name" && mapping.Content[i+1].Kind == yaml.ScalarNode && mapping.Content[i+1].Value != "" {
 			at = i
 		}
-	}
-	servers, err := importKiroAgentServers(mapping, projectServers)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", canonicalName, err)
 	}
 	if at < 0 && !servers {
 		return data, nil

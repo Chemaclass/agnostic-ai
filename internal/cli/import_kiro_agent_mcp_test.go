@@ -56,3 +56,20 @@ func TestImportKiro_AgentServersMissingFromProjectFileMoveUnderXKiro(t *testing.
 		}
 	}
 }
+
+func TestImportKiroAgentDocument_MovedServersBeforeNameKeepDisplayName(t *testing.T) {
+	in := "---\nmcpServers:\n  local:\n    command: local-mcp\nname: Display\ndescription: Reviews\n---\n\nReview code.\n"
+	got, err := importKiroAgentDocument([]byte(in), "rev", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(got)
+	for _, want := range []string{"description: Reviews", "x-kiro:", "name: Display", "command: local-mcp"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "\nname: Display") {
+		t.Errorf("display name left at top level:\n%s", out)
+	}
+}
