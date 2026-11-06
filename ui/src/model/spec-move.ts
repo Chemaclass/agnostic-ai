@@ -35,10 +35,12 @@ export interface SpecMoved {
   mode: SpecMoveMode
   destination: string
   syncCommands: string[]
+  warning?: string
 }
 
 export function specMovedText(moved: SpecMoved): string {
-  return `${moved.mode === 'move' ? 'Moved' : 'Copied'} ${moved.name} to ${moved.destination}.`
+  const text = `${moved.mode === 'move' ? 'Moved' : 'Copied'} ${moved.name} to ${moved.destination}.`
+  return moved.warning ? `${text} ${moved.warning}.` : text
 }
 
 /** Reads a notice saved before the page reloaded; anything else is dropped. */
@@ -47,7 +49,9 @@ export function parseSpecMoved(value: unknown): SpecMoved | undefined {
   const v = value as Record<string, unknown>
   if (typeof v.name !== 'string' || (v.mode !== 'copy' && v.mode !== 'move') || typeof v.destination !== 'string') return undefined
   if (!Array.isArray(v.syncCommands) || !v.syncCommands.every((command) => typeof command === 'string')) return undefined
-  return { name: v.name, mode: v.mode, destination: v.destination, syncCommands: v.syncCommands }
+  const moved: SpecMoved = { name: v.name, mode: v.mode, destination: v.destination, syncCommands: v.syncCommands }
+  if (typeof v.warning === 'string' && v.warning) moved.warning = v.warning
+  return moved
 }
 
 export const GLOBAL_SETUP_MISSING = 'The global setup does not exist yet. Create it with Open global settings at the foot of the sidebar, then copy again.'

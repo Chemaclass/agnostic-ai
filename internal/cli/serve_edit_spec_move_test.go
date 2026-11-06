@@ -24,6 +24,7 @@ type specMoveTestReply struct {
 	Error        string   `json:"error"`
 	Missing      bool     `json:"missing"`
 	Root         string   `json:"root"`
+	Warning      string   `json:"warning"`
 }
 
 // moveProject is a project server's working folder with a global setup
@@ -283,5 +284,131 @@ func TestSpecMove_OnePreviewCoversEachChoice(t *testing.T) {
 	code, reply := postSpecMove(t, h, request)
 	if code != http.StatusOK || !slices.Equal(reply.SyncCommands, []string{"agnostic-ai sync", "agnostic-ai sync --global"}) {
 		t.Fatalf("move with the copy preview = %d %+v", code, reply)
+	}
+}
+
+func symlinkOrSkip(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+}
+
+func TestSpecMove_RefusesWhenSourceAndDestinationAreTheSameFile(t *testing.T) {
+	project, _ := moveProject(t)
+	// The global setup is the project's own .agnostic-ai folder.
+	h := projectMoveHandler(project, filepath.Join(project, ".agnostic-ai"))
+	for _, request := range []map[string]any{
+		moveBody("agent", "guard", "project", "global", "move"),
+		moveBody("skill", "review-pr", "project", "global", "move"),
+	} {
+		code, reply := postSpecMove(t, h, request)
+		if code != http.StatusConflict || !strings.Contains(reply.Error, "same") {
+			t.Errorf("%s = %d %+v, want 409 naming the same file", request["name"], code, reply)
+		}
+	}
+
+	project, global := moveProject(t)
+	if err := os.RemoveAll(filepath.Join(global, "agents")); err != nil {
+		t.Fatal(err)
+	}
+	symlinkOrSkip(t, filepath.Join(project, ".agnostic-ai", "agents"), filepath.Join(global, "agents"))
+	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("agent", "guard", "project", "global", "move"))
+	if code != http.StatusConflict || !strings.Contains(reply.Error, "same") {
+		t.Errorf("linked kind folder = %d %+v", code, reply)
+	}
+	if readOptional(t, filepath.Join(project, ".agnostic-ai", "agents", "guard.md")) == "" {
+		t.Error("a refused move removed the source")
+	}
+}
+
+func TestSpecMove_RefusesASkillAtTheSkillsFolderRoot(t *testing.T) {
+	project, global := moveProject(t)
+	mustWrite(t, ".agnostic-ai/skills/SKILL.md", "---\ndescription: Root.\n---\n\nRoot.\n")
+	mustWriteGlobalTest(t, filepath.Join(global, "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\n---\n\nOther.\n")
+	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("skill", "skills", "project", "global", "copy"))
+	if code != http.StatusUnprocessableEntity {
+		t.Errorf("= %d %+v, want 422", code, reply)
+	}
+	if readOptional(t, filepath.Join(global, "skills", "other", "SKILL.md")) == "" {
+		t.Error("the global skills folder lost a skill")
+	}
+}
+
+func TestSpecMove_RefusesADestinationLinkedOutsideTheSetup(t *testing.T) {
+	project, global := moveProject(t)
+	outside := t.TempDir()
+	symlinkOrSkip(t, outside, filepath.Join(global, "agents"))
+	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("agent", "guard", "project", "global", "copy"))
+	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "outside") {
+		t.Errorf("= %d %+v, want 422 naming outside", code, reply)
+	}
+	if _, err := os.Stat(filepath.Join(outside, "guard.md")); !os.IsNotExist(err) {
+		t.Errorf("wrote outside the setup: %v", err)
+	}
+}
+
+func TestSpecMove_RefusesARuleWithATargetCondition(t *testing.T) {
+	project, global := moveProject(t)
+	mustWrite(t, ".agnostic-ai/rules/web.md", "---\nname: web\ndescription: Web.\nx-claude:\n  paths: [\"web/**\"]\n---\n\nWeb.\n")
+	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("rule", "web", "project", "global", "move"))
+	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "global rules") {
+		t.Errorf("= %d %+v", code, reply)
+	}
+	if readOptional(t, filepath.Join(project, ".agnostic-ai", "rules", "web.md")) == "" {
+		t.Error("a refused move removed the source")
+	}
+}
+
+func TestSpecMove_RefusesWhenTheDestinationLayoutChangesHowTheSkillLoads(t *testing.T) {
+	project, global := moveProject(t)
+	mustWrite(t, ".agnostic-ai/skills/tools/lint.md", "---\nname: lint\ndescription: Lint.\n---\n\nLint.\n")
+	mustWriteGlobalTest(t, filepath.Join(global, "skills", "tools", "SKILL.md"), "---\nname: tools\ndescription: Tools.\n---\n\nTools.\n")
+	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("skill", "lint", "project", "global", "move"))
+	if code != http.StatusConflict || !strings.Contains(reply.Error, "tools") {
+		t.Errorf("flat skill into a folder skill = %d %+v", code, reply)
+	}
+
+	// A folder skill must not replace a folder of flat skills.
+	mustWriteGlobalTest(t, filepath.Join(global, "skills", "review-pr", "keep.md"), "---\nname: keep\ndescription: Keep.\n---\n\nKeep.\n")
+	request := moveBody("skill", "review-pr", "project", "global", "copy")
+	request["overwrite"] = true
+	code, reply = postSpecMove(t, projectMoveHandler(project, global), request)
+	if code != http.StatusConflict {
+		t.Errorf("folder skill over flat skills = %d %+v", code, reply)
+	}
+	if readOptional(t, filepath.Join(project, ".agnostic-ai", "skills", "tools", "lint.md")) == "" {
+		t.Error("a refused move removed the source")
+	}
+}
+
+func TestSpecMove_StagesOutsideTheSkillsFolderAndWarnsOnLeftovers(t *testing.T) {
+	project, global := moveProject(t)
+	mustWriteGlobalTest(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
+	removeAll := removeMoveStaging
+	removeMoveStaging = func(string) error { return os.ErrPermission }
+	t.Cleanup(func() { removeMoveStaging = removeAll })
+	request := moveBody("skill", "review-pr", "project", "global", "move")
+	request["overwrite"] = true
+	_, code, reply := previewThenApply(t, projectMoveHandler(project, global), request)
+	if code != http.StatusOK || !reply.OK || reply.Warning == "" {
+		t.Fatalf("apply = %d %+v, want ok with a warning", code, reply)
+	}
+	b, err := loadGlobalBundle(global, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Skills) != 1 || b.Skills[0].Name != "review-pr" {
+		t.Errorf("the global setup loads %d skills: %+v", len(b.Skills), b.Skills)
+	}
+	entries, err := os.ReadDir(filepath.Join(global, "skills"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("the skills folder holds leftovers: %v", entries)
 	}
 }

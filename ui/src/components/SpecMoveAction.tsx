@@ -55,7 +55,7 @@ export function SpecMoveAction({ item }: { item: SectionItem }) {
       }
       const done = await moveSpec(specMoveRequest(item, level, 'apply', action, overwrite, preview?.expected))
       setPreview(undefined)
-      saved({ name: item.name, mode: action, destination: done.destination, syncCommands: done.syncCommands })
+      saved({ name: item.name, mode: action, destination: done.destination, syncCommands: done.syncCommands, warning: done.warning })
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Could not copy this spec. Try again.')
     } finally {

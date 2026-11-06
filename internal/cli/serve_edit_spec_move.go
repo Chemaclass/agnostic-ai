@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -26,6 +27,8 @@ const editSpecMovePath = "/api/edit/spec/move"
 // movableKinds are the kinds both a project and the global setup read.
 // The global setup reads no commands, reviews, environments, or ignore
 // files, and settings merge by key instead of moving whole.
+var removeMoveStaging = os.RemoveAll
+
 var movableKinds = []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindHook, spec.KindMCP}
 
 type specMoveRequest struct {
@@ -47,13 +50,17 @@ type specMovePreview struct {
 	SyncCommands []string `json:"syncCommands"`
 	Expected     string   `json:"expected"`
 	OK           bool     `json:"ok,omitempty"`
+	Warning      string   `json:"warning,omitempty"`
 }
 
 // specMovePlan is what apply writes: unit is the spec file, or a folder
 // skill's folder, on each side.
 type specMovePlan struct {
-	preview  specMovePreview
-	srcDir   string
+	preview specMovePreview
+	srcDir  string
+	// stage is where a skill folder is built and the replaced one kept
+	// until the swap ends: the destination root, which no loader scans.
+	stage    string
 	src      string
 	dst      string
 	folder   bool
@@ -132,10 +139,12 @@ func (h *specMoveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusConflict, editError{Error: fmt.Sprintf("%s already exists; tick overwrite to replace it", plan.preview.Destination)})
 		return
 	}
-	if err := plan.write(); err != nil {
+	warning, err := plan.write()
+	if err != nil {
 		writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error()})
 		return
 	}
+	plan.preview.Warning = warning
 	if req.Mode == "move" {
 		if err := plan.removeSource(); err != nil {
 			writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: fmt.Sprintf("wrote %s but could not remove %s: %v", plan.preview.Destination, plan.preview.Source, err)})
@@ -212,8 +221,14 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	case entry.Layer != h.level():
 		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s is a local spec; local specs stay where they are", req.Name)
 	}
-	if kind == spec.KindRule && !h.global && globalRuleConditional(entry, nil) {
-		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s has a scope, paths, or target condition; global rules must apply to every file and tool", req.Name)
+	if kind == spec.KindRule && !h.global {
+		conditional, err := globalRuleRefused(entry, h.peer.root)
+		if err != nil {
+			return specMovePlan{}, err
+		}
+		if conditional {
+			return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s has a scope, paths, or target condition; global rules must apply to every file and tool", req.Name)
+		}
 	}
 	var srcDir string
 	if h.global {
@@ -227,15 +242,30 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	}
 	dstDir := config.ResolveSourcePath(dstRoot, sourceFor(dstSources, kind))
 
-	plan := specMovePlan{srcDir: srcDir, src: entry.Path}
+	plan := specMovePlan{srcDir: srcDir, src: entry.Path, stage: dstRoot}
 	if kind == spec.KindSkill && filepath.Base(entry.Path) == "SKILL.md" {
 		plan.folder, plan.src = true, filepath.Dir(entry.Path)
 	}
 	rel, err := filepath.Rel(srcDir, plan.src)
-	if err != nil || !filepath.IsLocal(rel) {
-		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s is outside %s", entry.Path, srcDir)
+	if err != nil || !filepath.IsLocal(rel) || rel == "." {
+		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s is outside %s or is the folder itself; move it by hand", entry.Path, srcDir)
 	}
 	plan.dst = filepath.Join(dstDir, rel)
+	if sameMoveUnit(plan.src, plan.dst) {
+		return specMovePlan{}, moveRefusal(http.StatusConflict, "%s and its destination are the same file; both setups read one folder", entry.Path)
+	}
+	inside, err := insideRealRoot(dstRoot, plan.dst)
+	if err != nil {
+		return specMovePlan{}, err
+	}
+	if !inside {
+		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s leads outside %s through a link; move it by hand", plan.dst, dstRoot)
+	}
+	if kind == spec.KindSkill {
+		if err := refuseSkillLayoutChange(plan.dst, dstDir, plan.folder); err != nil {
+			return specMovePlan{}, err
+		}
+	}
 	if err := h.refuseOtherDestinationSpec(dstRoot, dstSources, kind, req.Name, plan.dst, plan.folder); err != nil {
 		return specMovePlan{}, err
 	}
@@ -421,25 +451,36 @@ func readMoveUnit(path string, folder bool) ([]specMoveFile, error) {
 }
 
 // write replaces the destination. A file goes through atomicfile; a skill
-// folder is built beside its destination and renamed into place, so a
-// failure leaves the old folder whole.
-func (p specMovePlan) write() error {
+// folder is built in the stage folder and renamed into place, so a
+// failure leaves the old folder whole. The reply is a warning when the
+// swap worked but the stage folder could not be removed.
+func (p specMovePlan) write() (string, error) {
 	if !p.folder {
 		f := p.files[0]
 		if err := os.MkdirAll(filepath.Dir(p.dst), 0o755); err != nil {
-			return err
+			return "", err
 		}
-		return atomicfile.Write(p.dst, f.data, f.mode)
+		return "", atomicfile.Write(p.dst, f.data, f.mode)
 	}
-	parent := filepath.Dir(p.dst)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return err
+	if err := os.MkdirAll(filepath.Dir(p.dst), 0o755); err != nil {
+		return "", err
 	}
-	staged, err := os.MkdirTemp(parent, "."+filepath.Base(p.dst)+".agnostic-ai-move-*")
+	work, err := os.MkdirTemp(p.stage, ".agnostic-ai-move-*")
 	if err != nil {
-		return err
+		return "", err
 	}
-	defer func() { _ = os.RemoveAll(staged) }()
+	if err := p.swapFolder(work); err != nil {
+		_ = removeMoveStaging(work)
+		return "", err
+	}
+	if err := removeMoveStaging(work); err != nil {
+		return fmt.Sprintf("wrote %s but could not remove %s: %v; delete it by hand", p.preview.Destination, work, err), nil
+	}
+	return "", nil
+}
+
+func (p specMovePlan) swapFolder(work string) error {
+	staged, old := filepath.Join(work, "new"), filepath.Join(work, "old")
 	for _, f := range p.files {
 		full := filepath.Join(staged, filepath.FromSlash(f.rel))
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
@@ -452,14 +493,98 @@ func (p specMovePlan) write() error {
 	if !p.existing {
 		return os.Rename(staged, p.dst)
 	}
-	old := staged + ".old"
 	if err := os.Rename(p.dst, old); err != nil {
 		return err
 	}
 	if err := os.Rename(staged, p.dst); err != nil {
 		return errors.Join(err, os.Rename(old, p.dst))
 	}
-	return os.RemoveAll(old)
+	return nil
+}
+
+// globalRuleRefused reports whether sync --global would refuse rule for
+// the targets the global setup at source selects.
+func globalRuleRefused(rule spec.Entry, source string) (bool, error) {
+	targets, err := loadGlobalTargets(source, io.Discard)
+	if err != nil {
+		return false, err
+	}
+	if len(targets) == 0 {
+		targets = globalTargetNames()
+	}
+	if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
+		return true, nil
+	}
+	return globalRuleConditional(rule, targets), nil
+}
+
+// sameMoveUnit reports whether src and dst name one file or folder, as
+// when one setup's kind folder links to the other's.
+func sameMoveUnit(src, dst string) bool {
+	if a, err := os.Stat(src); err == nil {
+		if b, err := os.Stat(dst); err == nil && os.SameFile(a, b) {
+			return true
+		}
+	}
+	srcParent, err := filepath.EvalSymlinks(filepath.Dir(src))
+	if err != nil {
+		return false
+	}
+	dstParent, err := filepath.EvalSymlinks(filepath.Dir(dst))
+	return err == nil && srcParent == dstParent
+}
+
+// insideRealRoot reports whether path, once links in its nearest existing
+// folder are followed, stays inside root.
+func insideRealRoot(root, path string) (bool, error) {
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return false, err
+	}
+	dir := filepath.Dir(path)
+	for {
+		_, err := os.Lstat(dir)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return false, err
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false, nil
+		}
+		dir = parent
+	}
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return false, moveRefusal(http.StatusUnprocessableEntity, "%s: %v; fix or remove the link", dir, err)
+	}
+	rel, err := filepath.Rel(realRoot, real)
+	return err == nil && filepath.IsLocal(rel), nil
+}
+
+// refuseSkillLayoutChange stops a skill landing where the loader would
+// read it differently: under a folder skill, whose files are its assets,
+// or over a folder of flat skills instead of a folder skill.
+func refuseSkillLayoutChange(dst, dstDir string, folder bool) error {
+	for dir := filepath.Dir(dst); ; dir = filepath.Dir(dir) {
+		if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err == nil {
+			return moveRefusal(http.StatusConflict, "%s holds a skill, which would read this one as its file; move it by hand", dir)
+		}
+		if dir == dstDir || dir == filepath.Dir(dir) {
+			break
+		}
+	}
+	if !folder {
+		return nil
+	}
+	if info, err := os.Lstat(dst); err == nil && info.IsDir() {
+		if _, err := os.Stat(filepath.Join(dst, "SKILL.md")); err != nil {
+			return moveRefusal(http.StatusConflict, "%s is a folder of other skills, not a skill; move it by hand", dst)
+		}
+	}
+	return nil
 }
 
 // removeSource deletes the source after a move: the spec file, or the

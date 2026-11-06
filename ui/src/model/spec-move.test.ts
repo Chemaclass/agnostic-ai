@@ -47,4 +47,11 @@ describe('spec move', () => {
     expect(parseSpecMoved({ ...moved, syncCommands: [1] })).toBeUndefined()
     expect(parseSpecMoved(null)).toBeUndefined()
   })
+
+  it('keeps the warning of a move that left a folder behind', () => {
+    const moved = { name: 'review-pr', mode: 'copy', destination: 'd', syncCommands: [], warning: 'wrote d but could not remove ~/.agnostic-ai/.agnostic-ai-move-1: permission denied; delete it by hand' }
+    expect(parseSpecMoved(moved)).toEqual(moved)
+    expect(specMovedText(parseSpecMoved(moved)!)).toBe(`Copied review-pr to d. ${moved.warning}.`)
+    expect(parseSpecMoved({ ...moved, warning: 3 })).toEqual({ ...moved, warning: undefined })
+  })
 })

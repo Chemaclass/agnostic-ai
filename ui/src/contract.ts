@@ -613,6 +613,8 @@ export interface SpecMovePreview {
   files: string[]
   syncCommands: string[]
   expected: string
+  /** Set on an apply that worked but left a leftover folder to delete by hand. */
+  warning?: string
 }
 
 export type PermissionKey = 'permissions.allow' | 'permissions.ask' | 'permissions.deny'
