@@ -26,7 +26,7 @@ const (
 var caps = emit.Capabilities{
 	Target:            target,
 	Supports:          []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindSettings, spec.KindIgnore},
-	AgentFields:       []string{"maxTurns"},
+	AgentFields:       []string{"maxTurns", "background"},
 	SkillFields:       emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown},
 	AgentFieldReasons: map[string]string{"mcpServers": "Qwen requires inline server records; use x-qwen.mcpServers"},
 }
@@ -38,13 +38,20 @@ func (Adapter) Name() string              { return target }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	renderSkill := (Adapter{}).SkillMarkdown
+	if sess.SkillsDirWrittenByOthers(skillsDir, target) {
+		renderSkill = sharedSkillMarkdown
+	}
+	coverage := caps
+	coverage.SkillFields.Markdown = renderSkill
+	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
 		return err
 	}
-	if err := sess.WriteScopedSkillFoldersWith(b.Skills, emit.OutputSkillsDir(cfg, target, defaultSkillsDir), dryRun, (Adapter{}).SkillMarkdown); err != nil {
+	if err := sess.WriteScopedSkillFoldersWith(b.Skills, skillsDir, dryRun, renderSkill); err != nil {
 		return err
 	}
 	if err := emitCommands(sess, b.Commands, emit.OutputCommandsDir(cfg, target, defaultCommandsDir), dryRun); err != nil {

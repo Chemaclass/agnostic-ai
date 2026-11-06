@@ -271,6 +271,39 @@ test.describe('context size', () => {
     await expect(advice).toHaveCount(0)
   })
 
+  test('copies one prompt with the advice for every source', async ({ page, context }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => route.fulfill({ json: contextView }))
+    await page.goto('/?view=context&tab=usage')
+    const panel = page.locator('section.context-usage')
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await panel.getByRole('button', { name: 'Copy all advice for claude' }).click()
+    await expect(panel.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
+    const prompt = await page.evaluate(() => navigator.clipboard.readText())
+    expect(prompt).toContain('Target: claude')
+    for (const c of contextView.report.contributions.filter((c: { category: string }) => c.category !== 'generated framing')) {
+      expect(prompt).toContain(`. ${c.source} (${c.category})`)
+    }
+    expect(prompt.split('Do not apply any change until I agree.')).toHaveLength(2)
+    expect(prompt).toContain('agnostic-ai explain --context --target claude')
+    expect(prompt).not.toContain('CLAUDE.md (generated framing)')
+    expect(prompt).not.toContain('Nothing to edit here')
+    expect(prompt).not.toMatch(/[\u2013\u2014]/)
+  })
+
+  test('hides Copy all advice when no source has anything to change', async ({ page }) => {
+    const framingOnly = structuredClone(contextView)
+    framingOnly.report.contributions = framingOnly.report.contributions.filter((c: { category: string }) => c.category === 'generated framing')
+    framingOnly.report.opportunities = []
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => route.fulfill({ json: framingOnly }))
+    await page.goto('/?view=context&tab=usage')
+    const panel = page.locator('section.context-usage')
+    await expect(panel.locator('.context-contributions > summary')).toBeVisible()
+    await expect(panel.locator('.context-all-advice')).toHaveCount(0)
+    await expect(panel.getByRole('button', { name: /Copy all advice/ })).toHaveCount(0)
+  })
+
   test('Start here opens the largest startup source and a built-in links to Settings', async ({ page }) => {
     const data = structuredClone(contextView)
     data.report.opportunities = []

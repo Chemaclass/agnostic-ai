@@ -2417,6 +2417,11 @@ a.release-badge:focus-visible .release-arrow {
   min-width: 0;
 }
 
+.context-all-advice {
+  align-items: center;
+  font-size: 13px;
+}
+
 .context-start-pick .muted {
   font-size: 12px;
 }
