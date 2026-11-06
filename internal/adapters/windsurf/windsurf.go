@@ -63,12 +63,11 @@
 //
 // Skills emit as a folder per skill under
 // `.agents/skills/<name>/SKILL.md`. Devin Desktop's own primary skill
-// path is `.windsurf/skills/` (workspace scope) or
-// `~/.codeium/windsurf/skills/` (global); `.agents/skills/` and
-// `~/.agents/skills/` are a separate, documented "cross-agent
-// compatibility" discovery path behind those
-// (docs.devin.ai/desktop/cascade/skills, target-audit 2026-08-08,
-// #563). This adapter writes the compatibility path deliberately: the
+// path is `.devin/skills/` (workspace) or `~/.config/devin/skills/`
+// (global); it also reads `.agents/skills/` and `~/.agents/skills/`,
+// and the legacy `.windsurf/skills/`
+// (docs.devin.ai/desktop/devin-local/customizations, #3045). This
+// adapter writes the shared path deliberately: the
 // renderer matches codex, amp, zed, crush, and openhands byte-for-byte,
 // so identical skills dedupe under `sync.shared-skills` instead of
 // adding a ninth on-disk copy. The target keeps its `windsurf` name so
