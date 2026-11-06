@@ -133,7 +133,7 @@ func importNativeAgentFixture(root, target string) error {
 		_, err := importGeminiAgents(root, filepath.Join(root, "agents"))
 		return err
 	case "kiro":
-		_, err := importKiroAgents(root, filepath.Join(root, "agents"))
+		_, err := importKiroAgents(root, filepath.Join(root, "agents"), nil)
 		return err
 	case "factory":
 		_, err := importFactoryDroids(filepath.Join(root, ".factory/droids"), filepath.Join(root, "agents"))

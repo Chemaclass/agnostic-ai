@@ -165,7 +165,7 @@ func TestImportKiroAgent_PreservesDisplayNameSeparatelyFromPath(t *testing.T) {
 	if err := os.MkdirAll(dst, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	count, err := importKiroAgents(dir, dst)
+	count, err := importKiroAgents(dir, dst, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -61,7 +61,7 @@ var (
 	cursorAgentFields      = specFields{keys: fieldsOf("name", "description", "model", "background").keys, scopedReconciled: true}
 	copilotAgentFields     = fieldsOf("name", "description", "tools", "model")
 	antigravityAgentFields = fieldsOf("name", "description")
-	kiroAgentFields        = fieldsOf("name", "description", "model", "tools")
+	kiroAgentFields        = fieldsOf("name", "description", "model", "tools", "mcpServers")
 	qoderAgentFields       = specFields{keys: fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background").keys, scopedReconciled: true}
 	gooseAgentFields       = fieldsOf("name", "description", "model")
 	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true}}
