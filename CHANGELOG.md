@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, **Add hook** on the Lifecycle page writes a new hook spec from a form: name, stage, tool match, command, timeout, and description, saved to the project (or global setup) or to local files. It previews the file, refuses a name that already exists or a hook `validate` would report, and asks you to run `agnostic-ai sync` (#3037).
+
 - The web interface says Project or Global and Local instead of Shared and Personal; API audience values stay `shared` and `personal` (#3033).
 
 - `doctor` describes shared settings updates as removing unchanged managed keys and keeping your keys, with JSON action `stale` (#3009).

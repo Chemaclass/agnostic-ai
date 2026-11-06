@@ -3543,6 +3543,42 @@ tr.is-advised > td {
 
 .permission-destination { font-size: 12px; }
 
+.hook-form {
+  display: grid;
+  gap: 10px;
+  max-width: 640px;
+  margin-bottom: 16px;
+}
+
+.hook-form > label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.hook-form input,
+.hook-form .select-control,
+.hook-form textarea {
+  width: 100%;
+  font-weight: 400;
+}
+
+.hook-form textarea {
+  min-height: 72px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font: 13px/1.65 var(--font-mono);
+}
+
+.hook-form-hint { margin: -6px 0 0; font-size: 12px; }
+
+.hook-preview,
+.hook-saved { margin-bottom: 16px; }
+
 .permission-preview,
 .permission-override,
 .permission-saved {
