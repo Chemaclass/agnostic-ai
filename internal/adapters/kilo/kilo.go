@@ -716,3 +716,6 @@ func withoutOutOfRootIndexes(list []string) []string {
 	}
 	return out
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

@@ -106,3 +106,6 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, path, scriptsDir string, 
 	}
 	return writeDocument(sess, path, map[string]any{"hooks": records}, len(records) > 0, dryRun)
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

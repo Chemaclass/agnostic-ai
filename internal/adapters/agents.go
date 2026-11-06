@@ -14,6 +14,13 @@ type AgentEmitter interface {
 	EmitAgents(sess *Session, agents []spec.Entry, dir string, dryRun bool) error
 }
 
+// agentCoverage is implemented by an AgentEmitter to name the agent
+// fields its files hold, so user-level sync notes the others as project
+// sync does.
+type agentCoverage interface {
+	AgentCoverage() emit.Capabilities
+}
+
 // RenderAgents plans native agent files without touching project configuration
 // or disk. It applies the same target selection and body fences as project sync,
 // in a user-tier session.
@@ -34,7 +41,11 @@ func RenderAgents(target string, agents []spec.Entry, dir string) ([]CapturedFil
 	if !ok {
 		return nil, fmt.Errorf("%s: native agent emission is unsupported", target)
 	}
-	emit.NoteDroppedAgentReadonly(target, b.Agents)
+	if coverage, ok := a.(agentCoverage); ok {
+		emit.NoteDroppedAgentFields(coverage.AgentCoverage(), b.Agents)
+	} else {
+		emit.NoteDroppedAgentReadonly(target, b.Agents)
+	}
 	sess := NewSession()
 	sess.SetUserTier()
 	sess.StartCapture()

@@ -129,3 +129,6 @@ func validateSkill(s spec.Entry) error {
 	return nil
 }
 func (Adapter) SkillSidecars(s spec.Entry) (map[string]string, error) { return nil, validateSkill(s) }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

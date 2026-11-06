@@ -475,3 +475,6 @@ func unscopedReviews(reviews []spec.Entry) int {
 	}
 	return n
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

@@ -556,3 +556,6 @@ func commandTOML(e spec.Entry) string {
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 	return buildMCPServers(mcps)
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

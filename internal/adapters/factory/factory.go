@@ -421,3 +421,6 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools, readonlyOverrode
 func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 	return emit.MCPLaunchView{Resolved: true}
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

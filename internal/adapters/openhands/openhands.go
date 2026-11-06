@@ -289,3 +289,6 @@ func hasHeader(headers map[string]string, name string) bool {
 	}
 	return false
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

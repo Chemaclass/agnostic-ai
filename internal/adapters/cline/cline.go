@@ -342,3 +342,6 @@ func renderWorkflow(e spec.Entry) string {
 	}
 	return e.Body
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }
