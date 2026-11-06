@@ -775,9 +775,11 @@
 # The sidebar footer with the configuration switch, Overview JSON and the
 # required version on /api/health (#3034, #3035, #3036) measured 24793248
 # bytes; the budget is that plus 8192.
+# Qwen agent background and hooks (#3043) measured 24805536 bytes on Go 1.27.3,
+# up 8192 from main d36dce97; keep the 8192-byte build allowance.
 # Show content on Context rows (#3025), on top of the sidebar footer change,
 # measured 24813728 bytes on Go 1.27.3: serve answers /api/views/source and the
-# embedded UI bundle carries the row disclosure. The budget is that plus 8192.
+# embedded UI bundle carries the row disclosure. The budget is that plus 8192, rounded up to a multiple of 4096.
 # The #3025 review fixes (open the file inside its root, one chip per nested
 # field) measured 24826016 bytes on Go 1.27.3; rounded up to the next 4096 bytes.
 24829952
