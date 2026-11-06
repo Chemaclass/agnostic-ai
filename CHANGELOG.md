@@ -8,7 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
-- In the web interface, **Add hook** on the Lifecycle page writes a new hook spec from a form: name, stage, tool match, command, timeout, and description, saved to the project (or global setup) or to local files. It previews the file, refuses a name that already exists or a hook `validate` would report, and asks you to run `agnostic-ai sync` (#3037).
+- In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 
 - The sidebar shows the config's `requires` under the version, in the warning color when unmet; `/api/health` adds `requires` and `requiresMet` (#3034).
 
