@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The web interface counts findings by severity in the top bar and opens them on one **Setup health** page (`?view=health`), errors first, with the item they belong to, the usual finding actions, and **Copy all fixes** for one combined prompt (#3032).
+
 - The sidebar shows the config's `requires` under the version, in the warning color when unmet; `/api/health` adds `requires` and `requiresMet` (#3034).
 
 - **Open global settings** and **Open project** move to the foot of the sidebar, and the top bar shows the project path beside its name (#3035).

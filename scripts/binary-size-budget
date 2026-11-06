@@ -775,4 +775,6 @@
 # The sidebar footer with the configuration switch, Overview JSON and the
 # required version on /api/health (#3034, #3035, #3036) measured 24793248
 # bytes; the budget is that plus 8192.
-24801440
+# The setup health badge and view (#3032) measured 24805536 bytes; the
+# budget is that plus 8192, rounded up to 4096.
+24817664

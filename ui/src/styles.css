@@ -617,6 +617,105 @@ a.release-badge:focus-visible .release-arrow {
   outline: none;
 }
 
+/* Setup health: a compact count in the top bar and one page of findings. */
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 150ms ease-out;
+}
+
+.health-badge:hover {
+  border-color: var(--line-strong);
+}
+
+.health-badge[aria-current='page'] {
+  border-color: var(--accent);
+}
+
+.health-badge .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.health-badge.is-error {
+  border-color: var(--blocked);
+  background: var(--blocked-wash);
+  color: var(--blocked);
+}
+
+.health-badge.is-warning {
+  border-color: var(--approval);
+  background: var(--approval-wash);
+  color: var(--approval);
+}
+
+.health-count.is-error {
+  color: var(--blocked);
+}
+
+.health-count.is-warning {
+  color: var(--approval);
+}
+
+.health-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.health-total {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.health-total .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.health-total.is-error {
+  color: var(--blocked);
+}
+
+.health-total.is-warning {
+  color: var(--approval);
+}
+
+.health-section + .health-section {
+  margin-top: 20px;
+}
+
+.health-section-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.health-place + .health-place {
+  margin-top: 14px;
+}
+
+.health-place-name {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .section-warnings-line {
   display: flex;
   align-items: center;
@@ -3056,6 +3155,10 @@ tr.is-advised > td {
     border: 0;
   }
 
+  .nav-item-health {
+    display: none;
+  }
+
   .nav-link {
     padding: 10px 12px;
     justify-content: center;
@@ -3215,6 +3318,20 @@ tr.is-advised > td {
     width: 40px;
     padding: 0;
     justify-content: center;
+  }
+
+  .health-badge {
+    min-height: 44px;
+    padding: 0 10px;
+  }
+
+  .health-badge .health-count-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .button-search-label {

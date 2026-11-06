@@ -3,7 +3,9 @@
 // parses location.search and pushes history.
 
 export const SECTION_VIEWS = ['context', 'authority', 'tools', 'lifecycle', 'settings'] as const
-export type ViewId = (typeof SECTION_VIEWS)[number]
+/** Every page: the sections, then Setup health, which lists their findings together. */
+export const VIEWS = [...SECTION_VIEWS, 'health'] as const
+export type ViewId = (typeof VIEWS)[number]
 
 export interface UrlState {
   view: ViewId
@@ -25,7 +27,7 @@ export interface UrlState {
 export const DEFAULT_STATE: UrlState = { view: 'context', mock: false }
 
 function isView(value: string | null): value is ViewId {
-  return !!value && (SECTION_VIEWS as readonly string[]).includes(value)
+  return !!value && (VIEWS as readonly string[]).includes(value)
 }
 
 export function parseUrlState(search: string): UrlState {
