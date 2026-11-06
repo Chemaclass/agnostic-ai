@@ -94,6 +94,7 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	issues = append(issues, mcpLiteralIssues(packSpecs(inlined))...)
 	issues = append(issues, agentFileCredentialIssues(inlined)...)
 	issues = append(issues, agentOnlyIssues(b.MCPs)...)
+	issues = append(issues, mcpRootsIssues(own.MCPs)...)
 	if slices.Contains(targets, "ellipsis") {
 		issues = append(issues, ellipsisVariableIssues(b.Settings)...)
 	}
@@ -225,6 +226,37 @@ func agentOnlyIssues(mcps []spec.Entry) []validationIssue {
 			if _, ok := v.(bool); !ok {
 				out = append(out, validationIssue{Path: e.Path, Field: spec.AgentOnlyKey,
 					Message: fmt.Sprintf("MCP server %q: agent-only must be true or false", e.Name)})
+			}
+		}
+	}
+	return out
+}
+
+// mcpRootsIssues reports a `roots` value that is not a list of mappings
+// with a text `uri`. Every target drops such an entry without a note.
+func mcpRootsIssues(mcps []spec.Entry) []validationIssue {
+	var out []validationIssue
+	for _, e := range mcps {
+		raw, set := e.Meta["roots"]
+		if !set || raw == nil {
+			continue
+		}
+		items, ok := raw.([]any)
+		if !ok {
+			out = append(out, validationIssue{Path: e.Path, Field: "roots",
+				Message: fmt.Sprintf("MCP server %q: roots must be a list of {uri, name} mappings", e.Name)})
+			continue
+		}
+		for i, item := range items {
+			root, ok := item.(map[string]any)
+			if !ok {
+				out = append(out, validationIssue{Path: e.Path, Field: "roots",
+					Message: fmt.Sprintf("MCP server %q: roots[%d] must be a mapping with `uri`, such as `- uri: file:///path`", e.Name, i)})
+				continue
+			}
+			if uri, _ := root["uri"].(string); uri == "" {
+				out = append(out, validationIssue{Path: e.Path, Field: "roots",
+					Message: fmt.Sprintf("MCP server %q: roots[%d] has no `uri` text, so no tool gets it", e.Name, i)})
 			}
 		}
 	}

@@ -260,6 +260,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
 	issues = append(issues, voiceIssues(bundle.Settings)...)
 	issues = append(issues, agentOnlyIssues(bundle.MCPs)...)
+	issues = append(issues, mcpRootsIssues(own.MCPs)...)
 	// A permission rule the target cannot read would be written as it
 	// stands, so a deny rule could stop guarding anything.
 	if slices.ContainsFunc(targets, func(t string) bool { return globalTargets[t].settings.permissionLists }) {
