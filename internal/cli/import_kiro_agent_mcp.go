@@ -40,9 +40,42 @@ func importKiroAgentServers(mapping *yaml.Node, project map[string]any) (bool, e
 		mapping.Content[at+1] = list
 		return true, nil
 	}
+	inline, err := referenceKiroAgentLiterals(inline)
+	if err != nil {
+		return false, err
+	}
 	mapping.Content = append(mapping.Content[:at], mapping.Content[at+2:]...)
 	setMappingNode(xTargetMapping(mapping, "x-kiro"), "mcpServers", inline)
 	return true, nil
+}
+
+// referenceKiroAgentLiterals turns literal credentials in an agent's
+// inline servers into `${NAME}` references, as MCP file import does, so
+// the spec holds no secret. Kiro reads the same `${NAME}` form. A map
+// with nothing to rewrite is returned as written.
+func referenceKiroAgentLiterals(inline *yaml.Node) (*yaml.Node, error) {
+	var servers map[string]any
+	if err := inline.Decode(&servers); err != nil {
+		return nil, err
+	}
+	refs := referenceMCPLiterals(servers)
+	if len(refs) == 0 {
+		return inline, nil
+	}
+	out := &yaml.Node{Kind: yaml.MappingNode}
+	for i := 0; i+1 < len(inline.Content); i += 2 {
+		server, kept := servers[inline.Content[i].Value]
+		if !kept {
+			continue
+		}
+		value := &yaml.Node{}
+		if err := value.Encode(server); err != nil {
+			return nil, err
+		}
+		out.Content = append(out.Content, inline.Content[i], value)
+	}
+	reportMCPLiteralRefs(refs)
+	return out, nil
 }
 
 // kiroProjectServerNames returns the server names of inline, in order,

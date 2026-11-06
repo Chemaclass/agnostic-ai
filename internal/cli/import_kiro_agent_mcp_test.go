@@ -130,3 +130,27 @@ func TestImportKiro_DeletedAgentServersLeaveTheSpec(t *testing.T) {
 		t.Errorf("imported agent kept the deleted servers:\n%s", got)
 	}
 }
+
+func TestImportKiro_MovedAgentServerEnvLiteralBecomesReference(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	log := captureLog(t)
+	const secret = "ghp_AAAAbbbbCCCC7777"
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md"), "---\ndescription: Reviews\nmcpServers:\n  gh:\n    command: gh-mcp\n    env:\n      GITHUB_TOKEN: "+secret+"\n---\n\nReview code.\n")
+
+	execCLI(t, "import", "kiro")
+	got := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md"))
+	if strings.Contains(got, secret) || !strings.Contains(got, "GITHUB_TOKEN: ${GITHUB_TOKEN}") {
+		t.Errorf("imported agent does not reference the env value:\n%s", got)
+	}
+	if out := log.String(); strings.Contains(out, secret) || !strings.Contains(out, "MCP server gh: env GITHUB_TOKEN now reads ${GITHUB_TOKEN}; set GITHUB_TOKEN") {
+		t.Errorf("import output lacks the reference note or prints the value:\n%s", out)
+	}
+
+	execCLI(t, "sync", "-t", "kiro")
+	if agent := readFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md")); !strings.Contains(agent, "GITHUB_TOKEN: ${GITHUB_TOKEN}") {
+		t.Errorf("synced agent does not write the reference:\n%s", agent)
+	}
+}

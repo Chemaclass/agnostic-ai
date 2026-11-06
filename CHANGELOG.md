@@ -85,6 +85,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Agent files write an MCP server's `x-kiro.timeout` and `x-kiro.requestTimeout`. A portable `timeout` is left out with a note naming both keys (#3041).
 - `import kiro` keeps an agent's inline `mcpServers` through the next sync. Servers that match `.kiro/settings/mcp.json` become a list of MCP spec names; any other map moves to `x-kiro.mcpServers` (#3051).
+- `import kiro` turns literal credentials in an agent map it moves to `x-kiro.mcpServers` into `${NAME}` references, with the same note as MCP file import (#3067).
 
 #### Pi
 
