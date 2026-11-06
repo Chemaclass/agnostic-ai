@@ -239,7 +239,7 @@ func TestServeSource_HandlerGuardsOriginWithoutTheOuterServer(t *testing.T) {
 
 func TestServeSource_CutsALargeBodyAndSaysSo(t *testing.T) {
 	dir, srv := sourceProject(t)
-	body := strings.Repeat("é", sourceBodyLimit)
+	body := strings.Repeat("é", sourceBodyLimit/2+1000)
 	path := filepath.Join(dir, ".agnostic-ai", "rules", "large.md")
 	mustWriteFile(t, path, "---\nname: large\n---\n"+body)
 	view := getSource(t, srv, absSlash(t, path), http.StatusOK)
@@ -547,5 +547,15 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 	mustWriteFile(t, instructions, "Root.\n\nKeep the token budget small.\n")
 	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Withheld || view.Body != "Root.\n\nKeep the token budget small.\n" {
 		t.Errorf("plain text must show: %+v", view)
+	}
+}
+
+func TestServeSource_WithholdsAFileTooLargeToCheckWhole(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "hunter2short\n"+strings.Repeat("plain text\n", (sourceFrontmatterLimit+sourceBodyLimit)/10)+"The password is hunter2short.\n")
+	view := getSource(t, srv, absSlash(t, instructions), http.StatusOK)
+	if !view.Withheld || !view.Truncated || view.Body != "" || len(view.Frontmatter) != 0 {
+		t.Errorf("a file past the read limit is withheld: withheld %v, truncated %v, body length %d", view.Withheld, view.Truncated, len(view.Body))
 	}
 }

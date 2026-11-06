@@ -167,7 +167,8 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	}
 	view := sourceView{Bytes: info.Size(), Frontmatter: []sourceField{}}
 	if len(data) > limit {
-		data, view.Truncated = validUTF8Prefix(data[:limit]), true
+		view.Truncated, view.Withheld = true, true
+		return view, true
 	}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
 	shown := preview.Display(path, text)
@@ -297,9 +298,9 @@ func isNested(v any) bool {
 }
 
 var (
-	credentialAssignment = regexp.MustCompile(`(?i)(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session|client[_-]?secret)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
+	credentialAssignment = regexp.MustCompile(`(?i)(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[ _-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session|client[ _-]?secret)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
 	credentialWord       = regexp.MustCompile(`(?i)\b(?:pass(?:word|wd|phrase)s?|secrets?|credentials?|api[ _-]?keys?|private[ _-]?keys?|client[ _-]?secrets?)\b`)
-	credentialLabel      = regexp.MustCompile(`(?im)(?:\|\s*|<\s*/?\s*|^\s*)[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[_-]?ids?)?|access[_-]?keys?)[*_~` + "`" + `]*(?:\s*[|>]|[^A-Za-z|>\n]*\|)`)
+	credentialLabel      = regexp.MustCompile(`(?im)(?:<\s*/?\s*[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?|access[ _-]?keys?)[\s/>]|(?:\|\s*|^\s*)[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?|access[ _-]?keys?)[*_~` + "`" + `]*(?:\s*\||[^A-Za-z|\n]*\|))`)
 	privateKeyBlock      = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY`)
 )
 
