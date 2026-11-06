@@ -468,3 +468,26 @@ func TestServeSource_HidesCredentialsUnderNonStringKeys(t *testing.T) {
 		t.Errorf("status %d, credentials under maps with non-string keys must stay hidden: %s", resp.StatusCode, got)
 	}
 }
+
+func TestServeSource_NeverShowsALeadingBlockAsBody(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	for _, content := range []string{
+		"---\n- password: hunter2short\n---\nBody.\n",
+		"---\nhunter2short\n---\nBody.\n",
+		"--- \npassword: hunter2short\n---\nBody.\n",
+	} {
+		mustWriteFile(t, instructions, content)
+		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		var view sourceView
+		_ = json.Unmarshal(data, &view)
+		if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") || view.Body != "Body.\n" {
+			t.Errorf("%q: status %d, body %q, raw %s", content, resp.StatusCode, view.Body, data)
+		}
+	}
+}

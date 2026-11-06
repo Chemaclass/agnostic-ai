@@ -169,11 +169,11 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
 	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
-	switch {
-	case strings.HasPrefix(text, "---") && !strings.Contains(text[3:], "\n---"):
-		body, keys = "", nil
-	case err != nil:
-		body, keys = afterLeadingBlock(text), nil
+	if err != nil {
+		keys = nil
+	}
+	if leadingBlock(text) {
+		body = afterLeadingBlock(text)
 	}
 	if len(body) > sourceBodyLimit {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
@@ -185,8 +185,17 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	return view, true
 }
 
-// afterLeadingBlock is text without a leading block that did not parse,
-// or nothing when that block never closes, so its values stay hidden.
+// leadingBlock reports whether text opens with a --- line. That block
+// never reaches the body, whatever it parses to, so a value the parser
+// treats as body text (a YAML list, a block that does not parse, one
+// that never closes) cannot show unredacted.
+func leadingBlock(text string) bool {
+	first, _, _ := strings.Cut(text, "\n")
+	return strings.TrimRight(first, " \t") == "---"
+}
+
+// afterLeadingBlock is text without its leading block, or nothing when
+// that block never closes.
 func afterLeadingBlock(text string) string {
 	end := strings.Index(text[3:], "\n---")
 	if end < 0 {
