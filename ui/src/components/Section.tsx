@@ -460,8 +460,10 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const valueOf = (source?: SettingField['set'][number]) => source && valueAt(source.values, field.key, target)
   const specPath = path
-  const specName = field.set.find((source) => source.path === specPath)?.spec
-  const localSource = field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath))
+  const selectedSource = edit?.sources?.find((source) => source.path === specPath)
+  const specName = selectedSource?.spec ?? field.set.find((source) => source.path === specPath)?.spec
+  const localPath = selectedSource?.localPath ?? (specPath === edit?.path ? edit?.localPath : undefined)
+  const localSource = field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === localPath))
   const localKeys = localSource && files.find((item) => item.name === localSource.spec && item.path === localSource.path)?.localKeys
   const teamSource = field.set.find((source) => source.path === path && !source.local)
   const localCurrent = localSource && personalValueAt(localSource.values, localKeys, field.key, target)
@@ -590,8 +592,8 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={toolLabel ? `${field.label} for ${toolLabel}` : field.label} />}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
-      {audience === 'personal' && (localSource?.path || path === edit.path && edit.localPath) && <>Saves to <Code>{localSource?.path ?? edit.localPath}</Code> · </>}
-      {audience === 'personal' && !localSource?.path && path !== edit.path && <>Saves to your local override of <Code>{path}</Code> · </>}
+      {audience === 'personal' && (localSource?.path || localPath) && <>Saves to <Code>{localSource?.path ?? localPath}</Code> · </>}
+      {audience === 'personal' && !localSource?.path && !localPath && <>Saves to your local override of <Code>{path}</Code> · </>}
       {audience === 'shared' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
       {audience === 'shared' && !configured && field.set.length > 0 && paths.length <= 1 && path && <>Saves to <Code>{path}</Code> · </>}
       {!transaction.supported && <>Run <Code>{syncCommand}</Code> to apply.</>}
