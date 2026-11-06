@@ -452,6 +452,35 @@ func specItems(in Inputs, r row, section string) []SectionItem {
 	return items
 }
 
+// sourceSections are the sections whose rows can show their file's content.
+var sourceSections = []string{SectionContext}
+
+// SourceFiles maps the open path of each row in sourceSections to the
+// row's kind: the files whose content the page may read.
+func SourceFiles(in Inputs) map[string]string {
+	files := map[string]string{}
+	for _, def := range sectionDefs {
+		if !slices.Contains(sourceSections, def.id) {
+			continue
+		}
+		for _, r := range def.rows {
+			var items []SectionItem
+			switch r.special {
+			case kindInstructions:
+				items = instructionItems(in.Instructions)
+			case "":
+				items = specItems(in, r, def.id)
+			}
+			for _, item := range items {
+				if item.OpenPath != "" {
+					files[item.OpenPath] = item.Kind
+				}
+			}
+		}
+	}
+	return files
+}
+
 func instructionItems(docs []Document) []SectionItem {
 	items := make([]SectionItem, 0, len(docs))
 	for _, d := range docs {

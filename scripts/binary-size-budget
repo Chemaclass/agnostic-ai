@@ -782,4 +782,12 @@
 # Adding a hook from the Lifecycle page (#3037), merged with the setup
 # health view, measured 24854688 bytes; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-24866816
+# Show content on Context rows (#3025), on top of the sidebar footer change,
+# measured 24813728 bytes on Go 1.27.3: serve answers /api/views/source and the
+# embedded UI bundle carries the row disclosure. The budget is that plus 8192, rounded up to a multiple of 4096.
+# The #3025 review fixes (open the file inside its root, one chip per nested
+# field) measured 24826016 bytes on Go 1.27.3; rounded up to the next 4096 bytes.
+# Reading frontmatter whole before cutting the body (#3025) measured 24834208
+# bytes on Go 1.27.3; the budget is that plus 8192, rounded up to a multiple of 4096.
+# After merging main, the branch measured 24875168 bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
+24887296
