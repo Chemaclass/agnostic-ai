@@ -178,3 +178,24 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
 		t.Fatalf("defaultMode = %v, want plan", got)
 	}
 }
+
+func TestPermissionModeEdit_RefusesASaveALaterSpecOverridesForOneTool(t *testing.T) {
+	h, home, source := globalModeHandler(t, "")
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "name: a\npermissions:\n  allow: [read]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "z.yaml"), "name: z\ntargets: [claude]\npermissions:\n  default-mode: bypassPermissions\n")
+	code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "path": "settings/a.yaml", "value": "plan", "expected": nil})
+	if code != http.StatusConflict || !strings.Contains(body, "settings/z.yaml sets permissions.default-mode for claude") {
+		t.Fatalf("shadowed save = %d %s", code, body)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync --global: %v\n%s", err, warnings)
+	}
+	var native map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
+		t.Fatal(err)
+	}
+	if perms, _ := native["permissions"].(map[string]any); perms["defaultMode"] != "bypassPermissions" {
+		t.Fatalf("Claude settings = %v, want the later Claude-only value", native)
+	}
+}

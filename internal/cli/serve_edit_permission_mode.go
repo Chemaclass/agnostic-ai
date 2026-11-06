@@ -66,8 +66,8 @@ func (h *editHandler) permissionModeEdit(where editAudience, shown string, addr 
 type shadowedFieldError struct{ error }
 
 // checkPermissionModeShadow refuses a mode save into file when a settings
-// spec that loads later sets the mode for the same tools, since global
-// sync writes the last one.
+// spec that loads later sets the mode for any tool that applies it, since
+// global sync writes the last value for each tool.
 func (h *editHandler) checkPermissionModeShadow(file, key string) error {
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
@@ -82,8 +82,13 @@ func (h *editHandler) checkPermissionModeShadow(file, key string) error {
 	if at < 0 {
 		return nil
 	}
-	if j := overview.SettingsOverride(settings, at, key, scope.targets, h.global); j >= 0 {
-		return shadowedFieldError{fmt.Errorf("%s sets %s and loads after %s, so sync keeps its value; edit that spec", overview.SpecPath(h.root, settings[j]), key, overview.SpecPath(h.root, settings[at]))}
+	for _, target := range scope.targets {
+		if globalTargets[target].settings.permissionMode == "" || !settings[at].EmitsTo(target) {
+			continue
+		}
+		if j := overview.SettingsOverride(settings, at, key, []string{target}, h.global); j >= 0 {
+			return shadowedFieldError{fmt.Errorf("%s sets %s for %s and loads after %s, so sync keeps its value; edit that spec", overview.SpecPath(h.root, settings[j]), key, target, overview.SpecPath(h.root, settings[at]))}
+		}
 	}
 	return nil
 }
