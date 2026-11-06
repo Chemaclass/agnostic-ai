@@ -1,40 +1,130 @@
 ---
 name: agnostic-ai local configuration UI
-description: Warm, compact source configuration views with visible findings and controls.
+description: A ruled ledger of what your agents receive, with findings and controls in plain view.
 colors:
-  light-paper: "#f7f7f6"
-  light-surface: "#ffffff"
+  light-canvas: "#f3f1ec"
+  light-sidebar: "#eceae4"
+  light-surface: "#fbfaf8"
+  light-raised: "#e9e6df"
+  light-sunken: "#f0ede7"
+  light-field: "#ffffff"
+  light-slab: "#16130f"
+  light-line: "#d8d4ca"
+  light-control: "#7f776c"
+  light-rule: "#1a1714"
   light-ink: "#1a1714"
-  light-muted: "#6f6960"
-  light-line: "#d9d7d1"
+  light-soft: "#45403a"
+  light-muted: "#675f56"
+  light-faint: "#857d72"
   light-rust: "#a8481a"
-  dark-paper: "#14120f"
-  dark-surface: "#1c1917"
+  light-rust-strong: "#8c3912"
+  light-permitted: "#2f6a2a"
+  light-approval: "#875800"
+  light-blocked: "#ad2f1f"
+  light-info: "#2c5c93"
+  dark-canvas: "#121110"
+  dark-sidebar: "#171513"
+  dark-surface: "#1b1917"
+  dark-raised: "#25221e"
+  dark-sunken: "#0f0e0d"
+  dark-field: "#0e0d0c"
+  dark-slab: "#0c0b0a"
+  dark-line: "#34302a"
+  dark-control: "#766d60"
+  dark-rule: "#cfc7bb"
   dark-ink: "#f2ede5"
-  dark-muted: "#b3a89b"
-  dark-line: "#38312a"
+  dark-soft: "#cfc7bb"
+  dark-muted: "#a59a8b"
+  dark-faint: "#7f766a"
   dark-rust: "#f0a35e"
+  dark-rust-strong: "#f7b97f"
+  dark-permitted: "#9fcf8a"
+  dark-approval: "#e6bb67"
+  dark-blocked: "#f39689"
+  dark-info: "#9dbde4"
+  slab-ink: "#f0eae0"
+  slab-dim: "#a99f91"
+  slab-accent: "#f0a35e"
   backdrop: "rgba(0, 0, 0, 0.45)"
+typography:
+  display:
+    fontFamily: "Archivo Narrow, Arial Narrow, sans-serif"
+    fontSize: "34px"
+    fontWeight: 700
+    lineHeight: 1.05
+    letterSpacing: "-0.01em"
+  headline:
+    fontFamily: "Archivo Narrow, Arial Narrow, sans-serif"
+    fontSize: "20px"
+    fontWeight: 700
+    lineHeight: 1.15
+  stat:
+    fontFamily: "Archivo Narrow, Arial Narrow, sans-serif"
+    fontSize: "40px"
+    fontWeight: 700
+    lineHeight: 1
+  title:
+    fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "16px"
+    fontWeight: 600
+    lineHeight: 1.35
+  body:
+    fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.5
+  small:
+    fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.45
+  label:
+    fontFamily: "ui-monospace, SFMono-Regular, JetBrains Mono, Menlo, Consolas, monospace"
+    fontSize: "11px"
+    fontWeight: 400
+    lineHeight: 1.3
 rounded:
-  small: "6px"
-  medium: "10px"
-  large: "12px"
+  small: "2px"
+  medium: "4px"
+  large: "6px"
   pill: "999px"
+spacing:
+  0_5: "2px"
+  1: "4px"
+  1_5: "6px"
+  2: "8px"
+  3: "12px"
+  4: "16px"
+  5: "20px"
+  6: "24px"
+  8: "32px"
+  10: "40px"
+  14: "56px"
 ---
 
 # Design System: agnostic-ai local UI
 
 ## Overview
 
-Context, Authority, Tools, Lifecycle, and Settings share one compact workspace. The warm neutrals, rust accent, and system fonts follow the [product identity](../DESIGN.md). This document describes the local interface in `src/styles.css`, `src/components/Shell.tsx`, and `src/components/Section.tsx`.
+**Direction: "Field Ledger"**
+
+The interface reads like a ruled ledger of what your agents receive. Each page is a numbered section of a manual: a condensed heading over a 2px ink rule, then full-width rows separated by hairlines. A row that needs attention carries a 3px rail on its left edge: rust when it is linked, amber when it has findings, red when it fails. Color appears only where it means something.
+
+The direction was worked out in code, not in a design tool. The frontmatter above holds the target tokens. The interface lives in `src/styles.css`, `src/components/Shell.tsx` and `src/components/Section.tsx`, and moves to them one slice at a time (#3026), so some sections below still describe the current interface.
+
+**From the docs site** (the [Toolchain Field Briefing](../DESIGN.md)) it takes the rust signal, warm ink on warm paper, hairline rules, monospace metadata for paths, counts and versions, the dark slab block, and no shadows. The top bar becomes a slab in both themes, with a thin rust signal rule on its bottom edge that moves only while a request is in flight. Sidebar sections carry a monospace index, 01 Context to 05 Settings, as Lifecycle already numbers its stages.
+
+**It drops** rounded card boxes, pill badges, full-row tints, gradients, glass, emoji and centered empty states. Corners stay between 0 and 4px; dialogs and the drawer use 6px, and the switch track is the only pill.
+
+**Type:** Archivo Narrow 700 sets page and section headings; Atkinson Hyperlegible Next (400 and 600) sets body text at 14px and controls at 13px. Both ship inside the binary as small subsets under the SIL Open Font License; the interface loads no network font. System monospace keeps paths, keys and counts aligned.
 
 ## Colors
 
-Paper forms the canvas; surfaces hold navigation and grouped content. Ink carries names and values; muted ink carries descriptions and source paths. Rust marks active navigation, focus, and configured lifecycle markers. Separate green, blue, amber, and red tokens communicate permission, information, approval, and blocked states. Severity also has a visible text label.
+Paper forms the canvas; the sidebar sits one step darker, and surfaces hold grouped content. Ink carries names and values; muted ink carries descriptions and source paths. Faint ink is for disabled controls and decoration only, never for text a reader needs. Rust marks active navigation, focus, and configured lifecycle markers. Separate green, blue, amber, and red tokens communicate permission, information, approval, and blocked states, each with a solid wash for its background. Severity also has a visible text label. The slab tokens hold the dark top bar, which keeps the surface color until the chrome moves to it.
 
 ## Typography
 
-System sans serves headings, controls, and body text (15px, 1.5 line height). Page titles use 28px, weight 700, and tight tracking. Controls use 13px. System monospace distinguishes keys, paths, code, and JSON controls. Descriptions use 13px; source paths use 12px and wrap within their row.
+Atkinson Hyperlegible Next serves body text and controls (14px, 1.5 line height) in two weights, 400 and 600; the browser never fakes a bold, and heavier weights resolve to 600. Archivo Narrow 700 sets page and section headings. Page titles use 28px. Controls use 13px. System monospace distinguishes keys, paths, code, and JSON controls. Descriptions use 13px; source paths use 12px and wrap within their row. Both faces load from the binary with a local Arial fallback scaled to their widths, so the swap does not reflow the page; `src/assets/fonts/README.md` shows how to rebuild them.
 
 ## Layout
 
@@ -42,11 +132,11 @@ The page scrolls as one document, so a wheel over the sidebar moves the content 
 
 ## Elevation & Depth
 
-One-pixel borders, warm surface tones, and whitespace define groups. The interface uses no shadows.
+One-pixel borders, warm surface tones, and whitespace define groups. The interface uses no shadows, except the floating global setup panel.
 
 ## Shapes
 
-Small rounded corners soften controls and metadata. Larger corners group content; pills serve switches and compact badges. Source rows stay aligned within their containing list.
+Corners stay small: 2px on metadata, 4px on controls and grouped content, and 6px on dialogs and the drawer. Pills serve switches and compact badges. Source rows stay aligned within their containing list.
 
 ## Components
 
