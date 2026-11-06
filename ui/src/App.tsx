@@ -186,14 +186,12 @@ export default function App() {
           <Header
             overview={overview}
             served={served}
-            inspectorOpen={inspectorOpen}
-            onToggleInspector={() => setInspectorOpen((open) => !open)}
             theme={theme}
             onToggleTheme={toggleTheme}
             onOpenSearch={openSearch}
           />
           <div className="shell">
-            <Nav overview={overview} served={served} />
+            <Nav overview={overview} served={served} inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
             <main id="main" className="main" tabIndex={-1}>
               <div className="page">
                 {sourceError && <ErrorPanel error={sourceError} />}
@@ -203,7 +201,7 @@ export default function App() {
             </main>
           </div>
           {searchOpen && <GlobalSearch overview={overview.loaded?.data} onClose={closeSearch} />}
-          {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} />}
+          {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} global={served?.global === true} />}
         </div>
       </RecheckProvider>
     </AppContext.Provider>

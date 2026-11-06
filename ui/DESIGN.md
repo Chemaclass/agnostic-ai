@@ -38,7 +38,7 @@ System sans serves headings, controls, and body text (15px, 1.5 line height). Pa
 
 ## Layout
 
-The page scrolls as one document, so a wheel over the sidebar moves the content too; the 64px header and a 228px sidebar stick in place beside it. A sidebar taller than the window scrolls on its own. Pages have a 1240px maximum width. The sidebar lists the five sections, each with an icon and a short description, and ends with the release badge. At 900px and below, all five links share one equal-width navigation row. Descriptions hide. At 760px and below, icons sit above navigation labels, and content uses 16px side gutters. Fields, values, metadata, and support groups stack. Built-in switches stay beside their names; rows with reset buttons place their controls below the description.
+The page scrolls as one document, so a wheel over the sidebar moves the content too; the 64px header and a 228px sidebar stick in place beside it. A sidebar taller than the window scrolls on its own. Pages have a 1240px maximum width. The sidebar lists the five sections, each with an icon and a short description, and ends with the release badge and a quiet **Overview JSON** link that opens the JSON inspector. The top bar keeps only search and the theme button as actions. At 900px and below, all five links share one equal-width navigation row, and the footer becomes a short row under it that keeps the link. Descriptions hide. At 760px and below, icons sit above navigation labels, and content uses 16px side gutters. Fields, values, metadata, and support groups stack. Built-in switches stay beside their names; rows with reset buttons place their controls below the description.
 
 ## Elevation & Depth
 

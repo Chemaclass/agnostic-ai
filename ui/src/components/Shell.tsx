@@ -91,16 +91,12 @@ function apiProjectName(snapshot: { project: { name?: string } } | undefined, se
 export function Header({
   overview,
   served,
-  inspectorOpen,
-  onToggleInspector,
   theme,
   onToggleTheme,
   onOpenSearch,
 }: {
   overview: Remote<OverviewView>
   served: ServedConfig | undefined
-  inspectorOpen: boolean
-  onToggleInspector: () => void
   theme: 'dark' | 'light'
   onToggleTheme: () => void
   onOpenSearch: () => void
@@ -146,9 +142,6 @@ export function Header({
           <span className="button-search-label">Search</span>
           <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
         </button>
-        <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
-          JSON
-        </button>
         <button
           type="button"
           className="button button-quiet button-icon"
@@ -191,7 +184,17 @@ function ReleaseBadge({ version }: { version: string }) {
   )
 }
 
-export function Nav({ overview, served }: { overview: Remote<OverviewView>; served: ServedConfig | undefined }) {
+export function Nav({
+  overview,
+  served,
+  inspectorOpen,
+  onToggleInspector,
+}: {
+  overview: Remote<OverviewView>
+  served: ServedConfig | undefined
+  inspectorOpen: boolean
+  onToggleInspector: () => void
+}) {
   const app = useApp()
   const asideRef = useRef<HTMLElement>(null)
   useHeightVariable(asideRef, '--nav-offset')
@@ -216,11 +219,12 @@ export function Nav({ overview, served }: { overview: Remote<OverviewView>; serv
       <nav className="section-nav" aria-label="Configuration sections">
         <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
       </nav>
-      {served?.version && (
-        <footer className="sidenav-footer">
-          <ReleaseBadge version={served.version} />
-        </footer>
-      )}
+      <footer className="sidenav-footer">
+        {served?.version && <ReleaseBadge version={served.version} />}
+        <button type="button" className="sidenav-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
+          Overview JSON
+        </button>
+      </footer>
     </aside>
   )
 }

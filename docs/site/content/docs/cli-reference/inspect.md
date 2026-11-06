@@ -351,6 +351,7 @@ In the browser:
 - An existing spec name or a credential import cannot rewrite stops the save.
 - Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Make it a spec** action.
 - The header labels the page **Project** or **Global**.
+- **Overview JSON** at the foot of the sidebar opens the overview document behind the page, with its endpoint, schema version, revision, and the command that prints it (`agnostic-ai view --json`). `Esc` closes it.
 - On a project page, **Open global settings** opens the user configuration in a new tab. It reuses a `serve --global` already running on `127.0.0.1:4310` to `4319` that started in this project, or starts one on the next free port.
 - When the user configuration folder does not exist or holds no agnostic-ai files (`agnostic-ai.yaml`, `AGNOSTIC_AI.md`, a spec folder, `local/` or `state/`), the button shows a short panel instead. **Create global setup** writes an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/` (an existing one is kept), runs `git init` when the box is checked, git is installed and the folder is not already in a repository, and then opens the global page. It never touches a folder that already holds a setup.
 - A global page that started in a project (from that button, or `ui --global` or `serve --global` run in a project folder) shows **Open project** with the project's name to go back.

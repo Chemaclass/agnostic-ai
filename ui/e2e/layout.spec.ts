@@ -73,9 +73,10 @@ test('fits long project names and configuration switches on a phone', async ({ p
   await page.goto('/?view=context')
   const switchButton = page.getByRole('button', { name: /^Open project / })
   await expect(switchButton).toBeInViewport({ ratio: 1 })
-  for (const name of ['Search', 'JSON', 'Switch to']) {
+  for (const name of ['Search', 'Switch to']) {
     await expect(page.locator('.topbar').getByRole('button', { name: new RegExp(`^${name}`) })).toBeInViewport({ ratio: 1 })
   }
+  await expect(page.locator('.sidenav').getByRole('button', { name: 'Overview JSON', exact: true })).toBeInViewport({ ratio: 1 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
@@ -139,14 +140,27 @@ test('keeps header buttons on the header colour in the light theme', async ({ pa
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.goto('/?view=context')
   const header = await page.locator('.topbar').evaluate((element) => getComputedStyle(element).backgroundColor)
-  for (const name of ['Search', 'JSON']) {
-    const button = page.locator('.topbar').getByRole('button', { name, exact: true })
-    expect(await button.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(header)
-  }
-  await page.locator('.topbar').getByRole('button', { name: 'JSON', exact: true }).click()
-  const pressed = page.locator('.topbar').getByRole('button', { name: 'JSON', exact: true })
-  await expect(pressed).toHaveAttribute('aria-pressed', 'true')
-  expect(await pressed.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(header)
+  const search = page.locator('.topbar').getByRole('button', { name: 'Search', exact: true })
+  expect(await search.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(header)
+})
+
+test('keeps the top bar to search and theme, with the overview JSON in the sidebar', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context')
+  const actions = page.locator('.topbar-actions').getByRole('button')
+  await expect(actions).toHaveCount(2)
+  await expect(page.locator('.topbar').getByRole('button', { name: /JSON/ })).toHaveCount(0)
+  const json = page.locator('.sidenav-footer').getByRole('button', { name: 'Overview JSON', exact: true })
+  await json.click()
+  await expect(json).toHaveAttribute('aria-pressed', 'true')
+  const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+  await expect(drawer.locator('.inspector-meta')).toContainText('agnostic-ai view --json')
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+  await expect(json).toBeFocused()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(json).toBeInViewport({ ratio: 1 })
+  expect((await json.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 })
 
 for (const width of [320, 900]) {
@@ -221,7 +235,7 @@ test('keeps the JSON inspector and search results scrolling their own content', 
   await expect(page.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toBeInViewport()
   const pageScroll = () => page.evaluate(() => window.scrollY)
 
-  const inspectorButton = page.getByRole('button', { name: 'JSON', exact: true })
+  const inspectorButton = page.getByRole('button', { name: 'Overview JSON', exact: true })
   await inspectorButton.click()
   const json = page.getByRole('dialog', { name: 'JSON inspector' }).locator('.json')
   await expect(json).toBeVisible()

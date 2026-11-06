@@ -128,7 +128,7 @@ The build uses relative asset paths, so `dist/` runs from any directory.
 | `mock`    | `1` to read the bundled fixture |
 | `source`  | A static snapshot directory or URL |
 
-`Esc` closes the JSON inspector.
+Overview JSON, at the foot of the sidebar, opens the JSON inspector with the overview document and the command that prints it (`agnostic-ai view --json`). `Esc` closes it.
 
 ## Scripts
 
