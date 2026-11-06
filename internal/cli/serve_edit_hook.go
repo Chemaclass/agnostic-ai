@@ -21,6 +21,10 @@ import (
 
 const editHookPath = "/api/edit/hook"
 
+// hookFormMatches are the tool kinds the form offers; leaving match out
+// means every tool, so any is not needed.
+var hookFormMatches = []string{"shell", "edit", "read", "web"}
+
 type hookSpecRequest struct {
 	Action      string `json:"action"`
 	Audience    string `json:"audience"`
@@ -125,8 +129,8 @@ func (req hookSpecRequest) check() error {
 		if req.On != "before-tool" && req.On != "after-tool" {
 			return errors.New("match applies only to before-tool and after-tool")
 		}
-		if !slices.Contains(spec.HookToolKinds, req.Match) {
-			return fmt.Errorf("match must be one of %s", strings.Join(spec.HookToolKinds, ", "))
+		if !slices.Contains(hookFormMatches, req.Match) {
+			return fmt.Errorf("match must be one of %s, or left out for every tool", strings.Join(hookFormMatches, ", "))
 		}
 	}
 	if req.Timeout != nil && *req.Timeout <= 0 {
@@ -198,11 +202,11 @@ func hookSpecYAML(req hookSpecRequest) ([]byte, error) {
 }
 
 func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hookSpecPreview, string, error) {
-	scope, err := loadCheckScope(h.global)
+	scope, hooks, err := loadCheckScopeAllHooks(h.global)
 	if err != nil {
 		return hookSpecPreview{}, "", err
 	}
-	for _, e := range scope.bundle.Hooks {
+	for _, e := range hooks {
 		stem := strings.TrimSuffix(filepath.Base(e.Path), filepath.Ext(e.Path))
 		if strings.EqualFold(e.Name, req.Name) || e.Path != "" && strings.EqualFold(stem, req.Name) {
 			return hookSpecPreview{}, "", hookEditConflict{hookExists(req.Name)}
@@ -240,13 +244,8 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 	if err != nil {
 		return hookSpecPreview{}, "", err
 	}
-	entry.Path = file
-	issues := append(lintEntries([]spec.Entry{entry}), lintHookEvents([]spec.Entry{entry}, scope.hookTargets)...)
-	if len(issues) > 0 {
-		problems := make(hookSpecProblems, 0, len(issues))
-		for _, issue := range issues {
-			problems = append(problems, issue.Message)
-		}
+	entry.Path, entry.Name = file, req.Name
+	if problems := h.addedHookIssues(scope, entry); len(problems) > 0 {
 		return hookSpecPreview{}, "", problems
 	}
 	command := "agnostic-ai sync"
@@ -267,4 +266,25 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 	sum := sha256.Sum256(fingerprint)
 	proposed.Expected = hex.EncodeToString(sum[:])
 	return proposed, file, nil
+}
+
+// addedHookIssues runs what validate runs with the hook added, and names
+// only the issues the hook brings, as apply compares before and after.
+func (h *editHandler) addedHookIssues(scope checkScope, entry spec.Entry) hookSpecProblems {
+	describe := func(issues []validationIssue) []string {
+		out := make([]string, 0, len(issues))
+		for _, i := range issues {
+			out = append(out, overviewDisplay(h.root, i.Path)+": "+i.Message)
+		}
+		return out
+	}
+	before := describe(scopeValidationIssues(scope))
+	scope.bundle.Hooks = append(slices.Clone(scope.bundle.Hooks), entry)
+	var added hookSpecProblems
+	for _, problem := range describe(scopeValidationIssues(scope)) {
+		if !slices.Contains(before, problem) {
+			added = append(added, problem)
+		}
+	}
+	return added
 }

@@ -356,3 +356,32 @@ func TestServeEditHook_KeepsTheCommandByteForByte(t *testing.T) {
 		})
 	}
 }
+
+func TestServeEditHook_RefusesTheNameOfABuiltinHookForAnotherTool(t *testing.T) {
+	project := scopeProject(t)
+	h := newEditHandler(project, false)
+	rec := hookEditRequest(t, h, hookEditBody("memory-windsurf-session-start", "session-start", "echo mine"))
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "A hook named memory-windsurf-session-start already exists") {
+		t.Errorf("built-in name = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestServeEditHook_PreviewRefusesWhatValidateWouldReport(t *testing.T) {
+	project := scopeProject(t)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\n")
+	h := newEditHandler(project, false)
+	rec := hookEditRequest(t, h, hookEditBody("lint-on-stop", "stop", "make lint"))
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "lint-on-stop.yaml") {
+		t.Errorf("preview with no hook tool = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestServeEditHook_RefusesMatchAny(t *testing.T) {
+	project := scopeProject(t)
+	request := hookEditBody("guard", "before-tool", "exit 0")
+	request["match"] = "any"
+	rec := hookEditRequest(t, newEditHandler(project, false), request)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "match must be one of shell, edit, read, web") {
+		t.Errorf("match any = %d %s", rec.Code, rec.Body)
+	}
+}
