@@ -772,7 +772,10 @@
 # bytes; the budget is that plus 8192.
 # Junie timeout range warnings (#3014), combined with roots validation (#3016),
 # measured 24780960 bytes on Go 1.27.3; keep the 8192-byte build allowance.
-# Show content on Context rows (#3025) measured 24805536 bytes on Go 1.27.3:
-# serve answers /api/views/source and the embedded UI bundle carries the
-# row disclosure. Rounded up to the next 4096 bytes.
-24809472
+# The sidebar footer with the configuration switch, Overview JSON and the
+# required version on /api/health (#3034, #3035, #3036) measured 24793248
+# bytes; the budget is that plus 8192.
+# Show content on Context rows (#3025), on top of the sidebar footer change,
+# measured 24813728 bytes on Go 1.27.3: serve answers /api/views/source and the
+# embedded UI bundle carries the row disclosure. The budget is that plus 8192.
+24825856
