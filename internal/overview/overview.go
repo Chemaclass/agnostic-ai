@@ -248,6 +248,7 @@ func Build(in Inputs) *View {
 	sections := buildSections(in, caps)
 	placeFindings(sections, in.Findings)
 	targets := targetSupport(targetsOf(in.Cfg), caps, newLabeler())
+	gaps := buildGaps(in, targetsOf(in.Cfg), caps)
 	syncStates(targets, in.Findings, in.Compared)
 	return &View{
 		SchemaVersion: SchemaVersion,
@@ -255,6 +256,7 @@ func Build(in Inputs) *View {
 		Sections:      sections,
 		Targets:       targets,
 		Tools:         toolCatalog(in.Tools, newLabeler()),
+		Health:        Health{Gaps: gaps},
 		Global:        in.Global,
 	}
 }

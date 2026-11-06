@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, **Setup health** lists what the enabled tools support and the project does not use yet (a spec kind, a hook stage, the `handoff` built-in), each with a fix prompt; `/api/views/overview` adds `health.gaps` (#3070).
+
 - In a project, the web interface's finding counts and **Setup health** include the global setup's `lint --global` findings, labelled **global**; `view --json` marks them `"layer": "global"` (#3069).
 
 - In the web interface, each hook on Lifecycle has **Summary**, **Key fields** (event, match, type, command, timeout, disabled) and **Full spec**, which shows every field of the hook file, or hides the file when it looks like it holds a credential; search matches a hook's command (#3038).

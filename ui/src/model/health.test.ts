@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
-import { countFindings, healthFixPrompt, healthGroups, healthPlace, healthSummary, placeLabel } from './health'
+import { countFindings, gapLine, healthFixPrompt, healthGroups, healthPlace, healthSummary, placeLabel } from './health'
 import { findingEntryIds, itemEntryId } from './identity'
 import { overviewFindings } from './recheck'
+import { normalizeOverviewView } from './normalize'
 import { loadOverviewFixture } from './testing'
 
 const hookError: ItemFinding = { source: 'lint', code: 'LINT001', severity: 'error', message: 'The hook has no command.', path: '.agnostic-ai/hooks/prepare.yaml', fix: 'Add a command.' }
@@ -16,7 +17,7 @@ const section = (id: Section['id'], order: number, items: SectionItem[], finding
 const view = (sections: Section[]): OverviewView => ({
   schemaVersion: 'overview/v1',
   snapshot: { project: { root: '/tmp/project' } } as OverviewView['snapshot'],
-  targets: [], tools: { source: 'default', items: [] },
+  targets: [], tools: { source: 'default', items: [] }, health: { gaps: [] },
   sections,
 })
 
@@ -122,5 +123,23 @@ describe('setup health', () => {
     const prompt = healthFixPrompt(view([section('settings', 5, [], [globalWarning])]), '/tmp/project')
     expect(prompt).toContain('1. Settings: Global setup')
     expect(prompt).toContain('Source: /home/u/.agnostic-ai/agents/helper.md')
+  })
+
+  it('shows a gap as the tools that support it and what is missing, never as a finding', () => {
+    const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix: 'Add a skill.' }
+    expect(gapLine(skills)).toBe('Skills: supported by claude, codex; no skill yet')
+    const withGap = { ...scenario(), health: { gaps: [skills] } }
+    expect(countFindings(withGap)).toMatchObject({ errors: 1, warnings: 3 })
+    expect(healthFixPrompt(withGap)).not.toContain('Add a skill.')
+  })
+
+  it('reads the gaps from the overview, and none from an older one', () => {
+    const fixture = loadOverviewFixture()
+    expect(fixture.health.gaps.map((gap) => gap.id)).toContain('kind:skill')
+    expect(fixture.health.gaps.every((gap) => gap.fix && gap.supported.length)).toBe(true)
+    const older = normalizeOverviewView({ schemaVersion: 'overview/v1', sections: [] })
+    expect(older.health).toEqual({ gaps: [] })
+    const partial = normalizeOverviewView({ health: { gaps: [{ id: 'kind:rule' }, { id: 'kind:skill', fix: 'Add one.', supported: ['claude'] }] } })
+    expect(partial.health.gaps.map((gap) => gap.id)).toEqual(['kind:skill'])
   })
 })

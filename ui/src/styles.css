@@ -843,6 +843,24 @@ a.release-badge:focus-visible .release-arrow {
   font-weight: 600;
 }
 
+.health-gap-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-gap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .section-warnings-line {
   display: flex;
   align-items: center;

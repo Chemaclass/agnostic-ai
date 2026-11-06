@@ -1,8 +1,8 @@
 // Setup health: every finding in the overview on one page, errors first,
 // with the same finding rows, fix prompts, and rechecks as the sections.
 
-import type { OverviewView } from '../contract'
-import { countFindings, healthFixPrompt, healthGroups, healthSummary, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
+import type { Gap, OverviewView } from '../contract'
+import { countFindings, gapLine, healthFixPrompt, healthGroups, healthSummary, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
 import { sectionEntryIds } from '../model/identity'
 import { AppLink, PageHeader } from './app-context'
 import { ErrorPanel } from './Banner'
@@ -68,6 +68,7 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
               </section>
             )
           })}
+          {data.health.gaps.length > 0 && <Gaps gaps={data.health.gaps} sections={data.sections} />}
         </ConfigurationRoot.Provider>
       </fieldset>
     </>
@@ -85,5 +86,30 @@ function HealthPlace({ entry }: { entry: HealthEntry }) {
       </p>
       <Findings findings={entry.findings} ids={entry.ids} owner={entry.owner} place={entry.place} />
     </div>
+  )
+}
+
+function Gaps({ gaps, sections }: { gaps: Gap[]; sections: OverviewView['sections'] }) {
+  return (
+    <section className="block health-gaps" aria-labelledby="health-gaps">
+      <SectionHeading topic="support" id="health-gaps">
+        Reach the best setup <span className="muted kind-count">{gaps.length}</span>
+      </SectionHeading>
+      <p className="muted">What the enabled tools support and this project does not use yet. These are suggestions, not findings.</p>
+      <ul className="health-gap-list">
+        {gaps.map((gap) => {
+          const section = sections.find((s) => s.id === gap.section)
+          return (
+            <li key={gap.id} className="health-gap">
+              <span>
+                {gapLine(gap)}
+                {section && <span className="muted"> · <AppLink to={{ view: section.id as ViewId }}>{section.label}</AppLink></span>}
+              </span>
+              <CopyButton text={gap.fix} label="Copy fix prompt" copiedLabel="Copied" ariaLabel={`Copy the fix prompt for ${gap.label}`} />
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
