@@ -54,3 +54,17 @@ func TestSkillMarkdown_KeepsNativeInvocationOverride(t *testing.T) {
 		t.Errorf("x-qwen.disable-model-invocation lost:\n%s", out)
 	}
 }
+
+func TestSkillMarkdown_WritesStringPathsAsList(t *testing.T) {
+	out := New().SkillMarkdown(spec.Entry{
+		Kind: spec.KindSkill, Name: "deploy",
+		Meta: map[string]any{"description": "d", "paths": "deploy/**, src/*.go"},
+	})
+	entry, err := spec.ParseMarkdownBytes(spec.KindSkill, []byte(out))
+	if err != nil {
+		t.Fatalf("parse: %v\n%s", err, out)
+	}
+	if want := []any{"deploy/**", "src/*.go"}; !reflect.DeepEqual(entry.Meta["paths"], want) {
+		t.Errorf("paths = %#v, want %#v\n%s", entry.Meta["paths"], want, out)
+	}
+}
