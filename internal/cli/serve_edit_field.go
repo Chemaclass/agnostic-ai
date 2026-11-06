@@ -285,7 +285,7 @@ func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir string, addr fie
 	scaffold, err := yaml.Marshal(struct {
 		Name        string `yaml:"name"`
 		Description string `yaml:"description"`
-	}{personal.Name, "Shared settings."})
+	}{personal.Name, "Settings."})
 	if err != nil {
 		return "", nil, err
 	}

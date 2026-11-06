@@ -8,7 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
-- The web interface says Project, Global and Local instead of Shared and Personal. **View and edit** reads Project | Local in a project and Global | Local in the global view, values from a `local/` folder carry a **local** badge, and the layer label shows `local` for both levels. The API audience values `shared` and `personal` stay the same (#3033).
+- The web interface says Project or Global and Local instead of Shared and Personal; API audience values stay `shared` and `personal` (#3033).
 
 - `doctor` describes shared settings updates as removing unchanged managed keys and keeping your keys, with JSON action `stale` (#3009).
 

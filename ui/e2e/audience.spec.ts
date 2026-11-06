@@ -134,4 +134,3 @@ test('names the global level and its local layer in the global view', async ({ p
   await expect(scope.locator('.edit-scope-hint')).toHaveText('Local files in ~/.agnostic-ai/local, ignored by Git. Local values win.')
   await expect(scope).not.toContainText(/\b(shared|personal)\b/i)
 })
-
