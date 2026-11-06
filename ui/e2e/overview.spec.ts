@@ -983,7 +983,7 @@ test.describe('overview', () => {
     await effortRow.getByRole('button', { name: 'Update' }).click()
     const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
     await expect(alert).toBeVisible()
-    await page.getByRole('button', { name: 'JSON' }).click()
+    await page.getByRole('button', { name: 'Overview JSON', exact: true }).click()
     await expect(page.getByText('Not refreshed: this is the previous overview')).toBeVisible()
     await page.getByRole('button', { name: 'Close the JSON inspector' }).click()
 
@@ -1089,7 +1089,7 @@ test.describe('overview', () => {
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await openApp(page)
-    const button = page.getByRole('button', { name: 'JSON', exact: true })
+    const button = page.getByRole('button', { name: 'Overview JSON', exact: true })
     await button.click()
     const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
     await expect(drawer.locator('.inspector-meta')).toContainText('overview/v1')

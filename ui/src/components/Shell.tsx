@@ -6,7 +6,7 @@ import { ConfigSwitch } from './ConfigSwitch'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
-import { servingRelease } from '../model/release'
+import { requiredRelease, servingRelease } from '../model/release'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -48,8 +48,8 @@ function useHeightVariable(ref: RefObject<HTMLElement | null>, name: string) {
   }, [ref, name])
 }
 
-/** Reads `/api/health` once per API source; other sources have no server to ask. */
-export function useServedConfig(sourceKind: string): ServedConfig | undefined {
+/** Reads `/api/health` for an API source with each overview load, so an edited `requires` shows; other sources have no server to ask. */
+export function useServedConfig(sourceKind: string, loads: number): ServedConfig | undefined {
   const [served, setServed] = useState<ServedConfig>()
   useEffect(() => {
     if (sourceKind !== 'api') return
@@ -59,7 +59,7 @@ export function useServedConfig(sourceKind: string): ServedConfig | undefined {
       if (live && config) setServed(config)
     }).catch(() => undefined)
     return () => { live = false }
-  }, [sourceKind])
+  }, [sourceKind, loads])
   return served
 }
 
@@ -91,16 +91,12 @@ function apiProjectName(snapshot: { project: { name?: string } } | undefined, se
 export function Header({
   overview,
   served,
-  inspectorOpen,
-  onToggleInspector,
   theme,
   onToggleTheme,
   onOpenSearch,
 }: {
   overview: Remote<OverviewView>
   served: ServedConfig | undefined
-  inspectorOpen: boolean
-  onToggleInspector: () => void
   theme: 'dark' | 'light'
   onToggleTheme: () => void
   onOpenSearch: () => void
@@ -118,16 +114,15 @@ export function Header({
         <LogoMark className="logo" />
         <span className="brand-name">{PRODUCT_NAME}</span>
       </div>
-      {(projectName || served || app.source.kind === 'static' || app.source.kind === 'mock') && (
+      {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
         <div className="topbar-context">
           {projectName && (
             <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
               <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
-              <span className="project-title">{projectName}{served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}</span>
+              <span className="project-title"><span className="project-label">{projectName}</span>{served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}</span>
               {root && <code className="project-root"><bdi>{root}</bdi></code>}
             </span>
           )}
-          {served && <ConfigSwitch served={served} />}
           {app.source.kind === 'static' && (
             <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
               Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}
@@ -146,9 +141,6 @@ export function Header({
           <span className="button-search-label">Search</span>
           <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
         </button>
-        <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
-          JSON
-        </button>
         <button
           type="button"
           className="button button-quiet button-icon"
@@ -165,11 +157,20 @@ export function Header({
 
 // The release badge sits at the bottom of the sidebar. A published
 // release links its notes; a checkout build shows its label as it is.
-function ReleaseBadge({ version }: { version: string }) {
+function ReleaseBadge({ served, version }: { served: ServedConfig; version: string }) {
   const release = servingRelease(version)
+  const required = requiredRelease(served)
   const text = (
     <span className="release-text">
       <span className="release-version"><span className="sr-only">agnostic-ai </span>{release.label}</span>{' '}
+      {required && (
+        <>
+          <span className={`release-requires is-${required.state}`} title={required.title}>
+            {required.label}
+            {required.state === 'unmet' && <span className="sr-only">, not met by this version</span>}
+          </span>{' '}
+        </>
+      )}
       <span className="release-caption">{release.kind === 'release' ? 'Release notes' : 'Development build'}</span>
     </span>
   )
@@ -191,7 +192,17 @@ function ReleaseBadge({ version }: { version: string }) {
   )
 }
 
-export function Nav({ overview, served }: { overview: Remote<OverviewView>; served: ServedConfig | undefined }) {
+export function Nav({
+  overview,
+  served,
+  inspectorOpen,
+  onToggleInspector,
+}: {
+  overview: Remote<OverviewView>
+  served: ServedConfig | undefined
+  inspectorOpen: boolean
+  onToggleInspector: () => void
+}) {
   const app = useApp()
   const asideRef = useRef<HTMLElement>(null)
   useHeightVariable(asideRef, '--nav-offset')
@@ -216,11 +227,13 @@ export function Nav({ overview, served }: { overview: Remote<OverviewView>; serv
       <nav className="section-nav" aria-label="Configuration sections">
         <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
       </nav>
-      {served?.version && (
-        <footer className="sidenav-footer">
-          <ReleaseBadge version={served.version} />
-        </footer>
-      )}
+      <footer className="sidenav-footer">
+        {served && <ConfigSwitch served={served} />}
+        {served?.version && <ReleaseBadge served={served} version={served.version} />}
+        <button type="button" className="sidenav-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
+          Overview JSON
+        </button>
+      </footer>
     </aside>
   )
 }

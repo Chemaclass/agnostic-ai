@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ContextContribution } from '../contract'
-import { builtinOwner, contextAdvice, contextStartupPrompt, explainCommand, shellQuote, startHere } from './context-advice'
+import { builtinOwner, contextAdvice, contextAllAdvicePrompt, contextStartupPrompt, explainCommand, shellQuote, startHere } from './context-advice'
 
 const report = { target: 'claude', startup: { words: 872, bytes: 5400 }, file_scope: { words: 46, bytes: 301 }, on_demand: { words: 316, bytes: 2084 } }
 const row = (source: string, category: string, load: ContextContribution['load'], words = 50): ContextContribution => ({ source, category, load, words, bytes: words * 6 })
@@ -165,5 +165,92 @@ describe('context advice', () => {
     expect(prompt).toContain('not tokens')
     expect(prompt).not.toMatch(/[–—]/)
     expect(contextStartupPrompt(report)).not.toContain('Configuration root')
+  })
+  describe('all advice prompt', () => {
+    const contributions: ContextContribution[] = [
+      row('.agnostic-ai/AGNOSTIC_AI.md', 'entry-point layer', 'startup', 400),
+      row('.agnostic-ai/rules/testing.md', 'always-on rule', 'startup', 270),
+      row('CLAUDE.md', 'generated framing', 'startup', 120),
+      row('.agnostic-ai/skills/release/SKILL.md', 'skill discovery', 'startup', 82),
+      row('.agnostic-ai/rules/go.md', 'scoped rule', 'file-scope', 46),
+      row('.agnostic-ai/skills/release/SKILL.md', 'skill body', 'on-demand', 260),
+      row('.agnostic-ai/rules/go.md', 'conditional rule body', 'on-demand', 56),
+    ]
+    const full = { ...report, contributions }
+    const count = (text: string, part: string) => text.split(part).length - 1
+
+    it('opens with the target, the verdict and the root, then one section per source, startup first and largest first', () => {
+      const shuffled = [contributions[6], contributions[3], contributions[4], contributions[1], contributions[5], contributions[2], contributions[0]]
+      const prompt = contextAllAdvicePrompt({ ...full, contributions: shuffled }, '/tmp/project', 2000)
+      expect(prompt.startsWith('Review the advice for every source of instruction text that agnostic-ai explain --context ranked for claude')).toBe(true)
+      expect(prompt).toContain('largest first within each load, and propose one change set:')
+      expect(prompt).toContain('Target: claude')
+      expect(prompt).toContain('within the 2,000-word lint budget')
+      expect(prompt).toContain('Configuration root: /tmp/project')
+      const headings = prompt.split('\n').filter((line) => /^## \d/.test(line))
+      expect(headings).toEqual([
+        '## 1. .agnostic-ai/AGNOSTIC_AI.md (entry-point layer)',
+        '## 2. .agnostic-ai/rules/testing.md (always-on rule)',
+        '## 3. .agnostic-ai/skills/release/SKILL.md (skill discovery)',
+        '## 4. .agnostic-ai/rules/go.md (scoped rule)',
+        '## 5. .agnostic-ai/skills/release/SKILL.md (skill body)',
+        '## 6. .agnostic-ai/rules/go.md (conditional rule body)',
+      ])
+    })
+
+    it('carries the same what, why and options text each row shows', () => {
+      const prompt = contextAllAdvicePrompt(full)
+      const rule = contextAdvice(contributions[1], full)
+      expect(prompt).toContain(`What it is: ${rule.what}`)
+      expect(prompt).toContain(`Why it loads: ${rule.why}`)
+      for (const action of rule.actions.slice(0, -1)) expect(prompt).toContain(`- ${action}`)
+      expect(prompt).toContain('Size: 270 words, 1,620 bytes (31% of startup content for claude)')
+    })
+
+    it('keeps the shared memory tradeoff in the single-source prompt', () => {
+      const advice = contextAdvice(row('.agnostic-ai/rules/testing.md', 'always-on rule', 'startup'), report)
+      expect(advice.prompt).toContain('such as a tool that would stop loading a rule, or shared memory that would stop working.')
+      expect(contextAllAdvicePrompt(full)).toContain('shared memory that would stop working')
+    })
+
+    it('skips sources with nothing to edit', () => {
+      const prompt = contextAllAdvicePrompt(full)
+      expect(prompt).not.toContain('CLAUDE.md (generated framing)')
+      expect(prompt).not.toContain('Nothing to edit here')
+    })
+
+    it('states the closing instruction and the check once, at the end', () => {
+      const prompt = contextAllAdvicePrompt(full, '/tmp/project')
+      expect(count(prompt, 'Do not apply any change until I agree.')).toBe(1)
+      expect(count(prompt, 'run agnostic-ai sync, then')).toBe(1)
+      expect(count(prompt, 'Run agnostic-ai sync, then')).toBe(0)
+      expect(prompt).toContain('largest saving first')
+      expect(prompt).toContain('Edit the canonical specs under .agnostic-ai/, not generated files.')
+      expect(prompt.trimEnd().endsWith('Words and bytes measure text size, not tokens; do not claim lower latency or cost.')).toBe(true)
+      expect(prompt).toContain('After the change, run agnostic-ai sync, then agnostic-ai explain --context --target claude to check the new counts.')
+      expect(prompt).not.toMatch(/[–—]/)
+      expect(prompt).not.toContain('undefined')
+    })
+
+    it('names the file and keeps the per-file sources when one is set', () => {
+      const prompt = contextAllAdvicePrompt({ ...full, file: 'src/main.go' })
+      expect(prompt).toContain('File: src/main.go')
+      expect(prompt).toContain('## 4. .agnostic-ai/rules/go.md (scoped rule)')
+      expect(prompt).toContain('explain --context --target claude --file src/main.go to check the new counts.')
+      const without = contextAllAdvicePrompt({ ...full, file: 'src/main.go', takesFile: false })
+      expect(without).not.toContain('File: src/main.go')
+      expect(without).not.toContain('--file src/main.go')
+    })
+
+    it('marks a built-in and lists each source once', () => {
+      const prompt = contextAllAdvicePrompt({ ...full, contributions: [...contributions, row('builtin:caveman', 'skill discovery', 'startup', 30), contributions[1]] })
+      expect(prompt).toContain('Built-in: caveman (ships with agnostic-ai; its text is not in the project)')
+      expect(count(prompt, '(always-on rule)')).toBe(1)
+    })
+
+    it('returns no prompt when no source has anything to do', () => {
+      expect(contextAllAdvicePrompt({ ...full, contributions: [contributions[2]] })).toBe('')
+      expect(contextAllAdvicePrompt({ ...full, contributions: [] })).toBe('')
+    })
   })
 })

@@ -774,4 +774,5 @@
 # measured 24780960 bytes on Go 1.27.3; keep the 8192-byte build allowance.
 # Adding a hook from the Lifecycle page (#3037) measured 24826016 bytes; the
 # budget is that rounded up to a multiple of 4096.
-24829952
+# After merging main, the branch measured 24842400 bytes; budget is that plus 8192.
+24854528

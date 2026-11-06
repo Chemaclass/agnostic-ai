@@ -272,8 +272,10 @@ html {
 }
 
 .project-name {
-  display: grid;
-  gap: 1px;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 10px;
   min-width: 0;
   padding-left: 14px;
   border-left: 1px solid var(--line);
@@ -284,10 +286,18 @@ html {
 
 .project-title {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  max-width: 65%;
   color: var(--text);
-  overflow-wrap: anywhere;
+}
+
+.project-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .config-switch {
@@ -306,8 +316,8 @@ html {
 
 .global-onboarding {
   position: fixed;
-  top: var(--topbar-offset, var(--topbar-height));
-  right: 16px;
+  bottom: 16px;
+  left: calc(var(--nav-width) + 16px);
   z-index: 40;
   display: grid;
   gap: 8px;
@@ -348,8 +358,10 @@ html {
 }
 
 .project-root {
+  flex: 0 1000 auto;
+  min-width: 0;
   overflow: hidden;
-  max-width: min(24vw, 360px);
+  max-width: min(40vw, 560px);
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 400;
@@ -383,8 +395,11 @@ input:hover {
   grid-template-columns: var(--nav-width) minmax(0, 1fr);
 }
 
+/* The onboarding panel opens from the sidebar footer; the stack keeps it
+   above sticky page content. */
 .sidenav {
   position: sticky;
+  z-index: 20;
   top: var(--topbar-offset, var(--topbar-height));
   align-self: start;
   height: calc(100vh - var(--topbar-offset, var(--topbar-height)));
@@ -442,6 +457,37 @@ input:hover {
 .sidenav-footer {
   margin-top: auto;
   padding-top: 20px;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.sidenav-footer .release-badge,
+.sidenav-footer .config-switch {
+  justify-self: stretch;
+}
+
+.sidenav-footer .config-switch .button {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.sidenav-json {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sidenav-json:hover,
+.sidenav-json[aria-pressed='true'] {
+  color: var(--accent-strong);
+  text-decoration: underline;
 }
 
 .release-badge {
@@ -497,6 +543,19 @@ a.release-badge:focus-visible .release-mark {
 
 .release-caption {
   font-size: 11px;
+}
+
+.release-requires {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.release-requires.is-unmet {
+  color: var(--approval);
+  font-weight: 700;
 }
 
 .release-arrow {
@@ -998,10 +1057,6 @@ a.release-badge:focus-visible .release-arrow {
   color: var(--permitted);
   border-color: currentColor;
   background: var(--permitted-wash);
-}
-
-.button-json[aria-pressed='true'] {
-  border-color: var(--accent);
 }
 
 .segmented {
@@ -2263,6 +2318,11 @@ a.release-badge:focus-visible .release-arrow {
   min-width: 0;
 }
 
+.context-all-advice {
+  align-items: center;
+  font-size: 13px;
+}
+
 .context-start-pick .muted {
   font-size: 12px;
 }
@@ -2607,7 +2667,7 @@ tr.is-advised > td {
 
 /* JSON inspector ----------------------------------------------------------- */
 
-/* The drawer opens below the header, so the pressed JSON toggle stays in view. */
+/* The drawer opens below the header. */
 .inspector {
   position: fixed;
   top: var(--topbar-offset, var(--topbar-height));
@@ -2710,11 +2770,6 @@ tr.is-advised > td {
 }
 
 /* Workspace navigation and section search */
-
-.button-json {
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
 
 .nav-description {
   display: block;
@@ -2953,7 +3008,6 @@ tr.is-advised > td {
 
   /* Keep section links in one scrolling row. */
   .sidenav {
-    z-index: 20;
     height: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -2970,8 +3024,32 @@ tr.is-advised > td {
   }
 
   .nav-description,
-  .sidenav-footer {
+  .sidenav-footer .release-badge {
     display: none;
+  }
+
+  .sidenav-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 0 0 4px;
+  }
+
+  .sidenav-footer .config-switch .button {
+    flex: 0 1 auto;
+  }
+
+  .sidenav-json {
+    margin-left: auto;
+  }
+
+  .global-onboarding {
+    top: calc(var(--topbar-offset, var(--topbar-height)) + var(--nav-offset, 60px));
+    right: 16px;
+    bottom: auto;
+    left: 16px;
+    width: auto;
   }
 
   .nav-list {
@@ -3130,7 +3208,6 @@ tr.is-advised > td {
     width: 44px;
   }
 
-  .button-json,
   .button-search {
     order: 0;
   }
@@ -3164,30 +3241,24 @@ tr.is-advised > td {
 
   .project-name {
     width: 100%;
+    gap: 8px;
     padding-left: 0;
     border-left: 0;
   }
 
   .project-root {
-    max-width: 100%;
+    flex: 1 1 0;
+    max-width: none;
     line-height: 14px;
   }
 
   .project-title {
-    position: relative;
-    display: block;
-    overflow: hidden;
-    padding-right: 46px;
     font-size: 12px;
     line-height: 16px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
   }
 
   .project-title .chip {
-    position: absolute;
-    top: 0;
-    right: 0;
+    flex: none;
     padding: 0 4px;
     font-size: 10px;
     line-height: 14px;
@@ -3208,6 +3279,11 @@ tr.is-advised > td {
   }
 
   .sidenav {
+    padding-inline: 8px;
+  }
+
+  .sidenav-json {
+    min-height: 44px;
     padding-inline: 8px;
   }
 

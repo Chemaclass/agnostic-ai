@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,12 +50,18 @@ type HandlerOptions struct {
 	ProjectRoot string
 	// Version is the agnostic-ai release that serves, as --version
 	// prints it, so the page can name it. Empty leaves it out.
-	Version        string
+	Version string
+	// Requires reads the config's requires as written, and whether the
+	// running build is inside it, on each health request: nil met when
+	// the build is not a release the check can place. An empty requires,
+	// or a nil Requires, leaves both out.
+	Requires       func() (requires string, met *bool)
 	AllowedOrigins []string
 }
 
-// HealthPath reports which configuration the server reads. It loads
-// nothing, so callers may answer it without waiting for other requests.
+// HealthPath reports which configuration the server reads. It reads
+// the config's requires but loads no specs, so callers may answer it
+// without waiting for other requests.
 const HealthPath = "/api/health"
 
 // Endpoint paths.
@@ -86,6 +93,10 @@ type serverIdentity struct {
 	ProjectRoot string `json:"projectRoot,omitempty"`
 	// Version is the agnostic-ai release that serves this page.
 	Version string `json:"version,omitempty"`
+	// Requires and RequiresMet are set only when the config sets
+	// requires; RequiresMet is null when the build cannot be placed.
+	Requires    string          `json:"requires,omitempty"`
+	RequiresMet json.RawMessage `json:"requiresMet,omitempty"`
 }
 
 // endpoint documents one route for the schema endpoint.
@@ -99,7 +110,7 @@ var endpoints = []endpoint{
 	{Method: http.MethodGet, Path: pathView + "?agentId=<id>&target=<tool>", Description: "The Authority view for one subject on one coding tool."},
 	{Method: http.MethodPost, Path: pathImpact, Description: "The impact of a proposed permission change, computed on a copy of the specs; nothing is written."},
 	{Method: http.MethodGet, Path: pathSchema, Description: "The schema version and these endpoints."},
-	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, the agnostic-ai version that serves it, and for a global server the project it started in."},
+	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, the agnostic-ai version that serves it, the config's requires and whether that version meets it, and for a global server the project it started in."},
 }
 
 // NewHandler serves the Authority view as JSON, and the built client
@@ -199,7 +210,17 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodGet) {
 		return
 	}
-	writeJSON(w, http.StatusOK, h.identity)
+	identity := h.identity
+	if h.opts.Requires != nil {
+		if requires, met := h.opts.Requires(); requires != "" {
+			identity.Requires = requires
+			identity.RequiresMet = json.RawMessage("null")
+			if met != nil {
+				identity.RequiresMet = json.RawMessage(strconv.FormatBool(*met))
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, identity)
 }
 
 func (h *handler) ui(w http.ResponseWriter, r *http.Request) {
