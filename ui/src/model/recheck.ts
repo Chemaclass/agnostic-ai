@@ -116,22 +116,37 @@ export interface RecheckAllResult {
   remaining: number
 }
 
-/** Rechecks every finding of before against after, each as one Recheck would. */
+/**
+ * Rechecks every finding of before against after. Findings match one to
+ * one by identity, so of two identical findings one can go and a new one
+ * still counts. A finding that is gone is judged as one Recheck judges it.
+ */
 export function recheckAllResult(before: OverviewView, after: OverviewView): RecheckAllResult {
   const was = overviewFindings(before)
   const now = overviewFindings(after)
+  const left = new Map<string, number>()
+  for (const f of now) left.set(findingKey(f.finding), (left.get(findingKey(f.finding)) ?? 0) + 1)
   const counts = { resolved: 0, unconfirmed: 0, unknown: 0 }
-  for (const finding of was) {
-    const state = recheckResult(finding, before, after).state
-    if (state === 'resolved') counts.resolved++
-    else if (state === 'unconfirmed') counts.unconfirmed++
-    else if (state === 'incomplete') counts.unknown++
+  for (const { finding } of was) {
+    const key = findingKey(finding)
+    const n = left.get(key) ?? 0
+    if (n > 0) {
+      left.set(key, n - 1)
+      continue
+    }
+    if (finding.source === 'lint' && now.some((f) => stopped(f.finding))) counts.unknown++
+    else if (finding.source === 'doctor') counts.unconfirmed++
+    else counts.resolved++
   }
-  const stayed = was.length - counts.resolved - counts.unconfirmed - counts.unknown
   // A lint run that stopped is reported as such, not as a new finding.
-  const known = new Set(was.map((f) => findingKey(f.finding)))
-  const newlyStopped = now.filter((f) => stopped(f.finding) && !known.has(findingKey(f.finding))).length
-  return { state: 'done', ...counts, added: Math.max(0, now.length - stayed - newlyStopped), remaining: now.length }
+  const added = now.filter((f) => {
+    const key = findingKey(f.finding)
+    const n = left.get(key) ?? 0
+    if (n === 0) return false
+    left.set(key, n - 1)
+    return !stopped(f.finding)
+  }).length
+  return { state: 'done', ...counts, added, remaining: now.length }
 }
 
 export function recheckAllMessage(result: RecheckAllResult): string {

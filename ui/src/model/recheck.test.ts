@@ -129,6 +129,13 @@ describe('recheck all', () => {
     expect(recheckAllMessage(result)).toBe('Rechecked every finding. Lint stopped before it finished, so 2 lint findings that no longer appear may still apply. 1 finding remains.')
   })
 
+  it('matches identical findings one to one', () => {
+    const twice = [read, { ...read, line: 7 }]
+    expect(recheckAllResult(view(twice), view([read, shell]))).toMatchObject({ resolved: 1, added: 1, remaining: 2 })
+    expect(recheckAllResult(view(twice), view([read]))).toMatchObject({ resolved: 1, added: 0, remaining: 1 })
+    expect(recheckAllResult(view([read]), view(twice))).toMatchObject({ resolved: 0, added: 1, remaining: 2 })
+  })
+
   it('says when nothing changed and when the refresh failed', () => {
     expect(recheckAllMessage(recheckAllResult(view([read]), view([read])))).toBe('Rechecked every finding. Nothing changed. 1 finding remains.')
     expect(recheckAllMessage({ state: 'failed', resolved: 0, unconfirmed: 0, unknown: 0, added: 0, remaining: 0 })).toBe('The recheck did not finish, so every finding may still apply.')
