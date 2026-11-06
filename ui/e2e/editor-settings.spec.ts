@@ -155,8 +155,11 @@ test.describe('editor settings', () => {
       await page.evaluate(() => document.addEventListener('click', (event) => {
         if ((event.target as Element).closest('a[href^="cursor:"]')) event.preventDefault()
       }, true))
-      const actions = page.locator('.context-source-actions').filter({ has: page.locator('a[href^="cursor:"]') }).first()
+      const actions = page.locator('th[scope="row"]').filter({ has: page.locator('a[href^="cursor:"]') }).first()
       const open = actions.locator('a[href^="cursor:"]')
+      const name = await actions.locator('code').first().boundingBox()
+      const start = await open.boundingBox()
+      if (width >= 1280) expect(start!.y).toBeLessThan(name!.y + name!.height)
       const parts = [open, actions.getByRole('button', { name: /^Copy path/ }), actions.getByRole('button', { name: 'What can I do?' })]
       const boxes = () => Promise.all(parts.map((part) => part.evaluate((element) => {
         const box = element.getBoundingClientRect()

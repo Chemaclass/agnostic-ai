@@ -1766,7 +1766,7 @@ a.release-badge:focus-visible .release-arrow {
 
 .editor-actions {
   display: inline-grid;
-  grid-template-columns: auto auto;
+  grid-auto-flow: column;
   justify-content: start;
   align-items: center;
   gap: 4px 8px;
@@ -1786,17 +1786,6 @@ a.release-badge:focus-visible .release-arrow {
 
 .editor-unavailable {
   grid-column: 1 / -1;
-}
-
-.context-source-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-
-.context-source-actions .editor-hint {
-  order: 1;
 }
 
 .editor-hint {

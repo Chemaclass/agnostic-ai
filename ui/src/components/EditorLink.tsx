@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { copyablePath, CUSTOM_EDITOR, DEFAULT_EDITOR, editorLabel, editorUrl, effectiveEditor, parseEditor, type EditorId } from '../model/editor'
 import { AppLink, useApp } from './app-context'
 import { CopyButton, Icon } from './ui'
@@ -63,7 +63,7 @@ export function useEditorChoice(): Choice {
   return useSyncExternalStore(subscribe, readChoice, () => serverChoice)
 }
 
-export function OpenInEditor({ path, line, label, compact, shownPath }: { path?: string; line?: number; label: string; compact?: boolean; shownPath?: string }) {
+export function OpenInEditor({ path, line, label, compact, shownPath, trailing }: { path?: string; line?: number; label: string; compact?: boolean; shownPath?: string; trailing?: ReactNode }) {
   const app = useApp()
   const { editor: chosen, template } = useEditorChoice()
   const editor = effectiveEditor(chosen, template)
@@ -79,6 +79,7 @@ export function OpenInEditor({ path, line, label, compact, shownPath }: { path?:
             : 'This path is not a file on disk, so it cannot be opened in an editor.'}
         </span>
         {copy(shownPath)}
+        {trailing}
       </span>
     )
   }
@@ -102,6 +103,7 @@ export function OpenInEditor({ path, line, label, compact, shownPath }: { path?:
           <span>{compact ? 'Open' : `Open in ${name}`}</span>
         </a>
         {copy(path)}
+        {trailing}
       </span>
       <span className="muted editor-hint" role="status">
         {attempted && <>Allow your browser to open {name}. If nothing opens, change the editor in <AppLink to={{ view: 'settings', tab: 'editor' }}>Settings</AppLink> or copy the path.</>}
