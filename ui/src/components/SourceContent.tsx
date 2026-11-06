@@ -26,7 +26,7 @@ export function SourceContent({ item }: { item: SectionItem }) {
         setLoaded({ error: err instanceof LoadError && err.status === 404 ? 'the server no longer lists it. Reload the page to see the current files.' : (err as Error).message })
       })
     return () => controller.abort()
-  }, [shown, open, loaded, path])
+  }, [shown, open, loaded, path, app.overviewRevision])
   if (!shown) return null
   return (
     <details className="item-source" onToggle={(event) => setOpen(event.currentTarget.open)}>
@@ -42,7 +42,7 @@ function SourceText({ view }: { view: SourceView }) {
   return (
     <div className="item-source-body">
       {view.frontmatter.length > 0 && (
-        <span className="value-chips" aria-label="Frontmatter">
+        <span className="value-chips" role="group" aria-label="Frontmatter">
           {view.frontmatter.map((field) => (
             <Chip key={field.key} title={`${field.key}: ${field.value}`}>
               {field.key}: {field.value}

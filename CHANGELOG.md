@@ -8,7 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
-- In the web interface, **Show content** on an instructions, rule, agent, skill, command, review instructions or ignore file row on the Context page opens the file in place: its frontmatter fields as chips above the text. A running `agnostic-ai serve` answers `GET /api/views/source` for files of the loaded configuration only (#3025).
+- In the web interface, **Show content** on a Context row shows the file's frontmatter as chips above its text (#3025).
 
 - The sidebar shows the config's `requires` under the version, in the warning color when unmet; `/api/health` adds `requires` and `requiresMet` (#3034).
 

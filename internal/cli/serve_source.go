@@ -2,9 +2,11 @@ package cli
 
 import (
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -133,14 +135,15 @@ func sourceFiles(global bool) (map[string]string, []string, error) {
 var sourceKinds = []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindReview, spec.KindIgnore}
 
 // readSource reads path when it resolves to a regular file inside one
-// of roots, which have their symlinks resolved.
+// of roots, which have their symlinks resolved. The open stays inside
+// that root, so a link swapped in after the check cannot lead out.
 func readSource(path string, roots []string) (sourceView, bool) {
 	target, err := filepath.EvalSymlinks(path)
-	if err != nil || !insideAny(target, roots) {
+	if err != nil {
 		return sourceView{}, false
 	}
-	f, err := os.Open(target)
-	if err != nil {
+	f, ok := openInsideRoots(target, roots)
+	if !ok {
 		return sourceView{}, false
 	}
 	defer func() { _ = f.Close() }()
@@ -158,23 +161,26 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	}
 	keys, meta, body, err := spec.SplitFrontmatter(data)
 	if err != nil {
-		view.Body = string(data)
+		view.Body = spec.StripFrontmatter(string(data))
 		return view, true
 	}
 	view.Body = body
 	for _, key := range keys {
-		view.Frontmatter = append(view.Frontmatter, sourceField{Key: key, Value: sourceFieldValue(key, meta[key])})
+		view.Frontmatter = appendSourceFields(view.Frontmatter, key, meta[key])
 	}
 	return view, true
 }
 
-func insideAny(path string, roots []string) bool {
+func openInsideRoots(target string, roots []string) (*os.File, bool) {
 	for _, root := range roots {
-		if _, inside := resolvedInside(root, path); inside {
-			return true
+		rel, inside := resolvedInside(root, target)
+		if !inside {
+			continue
 		}
+		f, err := os.OpenInRoot(root, rel)
+		return f, err == nil
 	}
-	return false
+	return nil, false
 }
 
 // validUTF8Prefix drops a rune the cut split in two.
@@ -185,16 +191,25 @@ func validUTF8Prefix(data []byte) []byte {
 	return data
 }
 
-// sourceFieldValue shows a list as its items joined by commas, and any
-// other value as the overview shows it.
-func sourceFieldValue(key string, v any) string {
-	list, ok := v.([]any)
-	if !ok {
-		return overview.ShownText(key, v)
+// appendSourceFields adds one field per leaf of v: a map walks into
+// dotted keys in sorted order, a list shows its items joined by commas,
+// and each value is shown and redacted as the overview shows it.
+func appendSourceFields(fields []sourceField, key string, v any) []sourceField {
+	switch t := v.(type) {
+	case map[string]any:
+		if len(t) == 0 {
+			break
+		}
+		for _, k := range slices.Sorted(maps.Keys(t)) {
+			fields = appendSourceFields(fields, key+"."+k, t[k])
+		}
+		return fields
+	case []any:
+		items := make([]string, 0, len(t))
+		for _, item := range t {
+			items = append(items, overview.ShownText(key, item))
+		}
+		return append(fields, sourceField{Key: key, Value: strings.Join(items, ", ")})
 	}
-	items := make([]string, 0, len(list))
-	for _, item := range list {
-		items = append(items, overview.ShownText(key, item))
-	}
-	return strings.Join(items, ", ")
+	return append(fields, sourceField{Key: key, Value: overview.ShownText(key, v)})
 }

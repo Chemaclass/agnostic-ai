@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -190,11 +191,14 @@ func TestServeSource_GuardsMethodHostAndOrigin(t *testing.T) {
 		method string
 		host   string
 		origin string
+		site   string
 		status int
 	}{
 		{name: "post", method: http.MethodPost, status: http.StatusMethodNotAllowed},
 		{name: "foreign host", method: http.MethodGet, host: "attacker.example", status: http.StatusMisdirectedRequest},
 		{name: "foreign origin", method: http.MethodGet, origin: "http://attacker.example", status: http.StatusForbidden},
+		{name: "cross-site fetch without an origin", method: http.MethodGet, site: "cross-site", status: http.StatusForbidden},
+		{name: "head", method: http.MethodHead, status: http.StatusOK},
 		{name: "own origin", method: http.MethodGet, origin: srv.URL, status: http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -207,6 +211,9 @@ func TestServeSource_GuardsMethodHostAndOrigin(t *testing.T) {
 			}
 			if tc.origin != "" {
 				req.Header.Set("Origin", tc.origin)
+			}
+			if tc.site != "" {
+				req.Header.Set("Sec-Fetch-Site", tc.site)
 			}
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
@@ -297,5 +304,66 @@ func TestServeSource_ServesEveryContextRowTheOverviewCanOpen(t *testing.T) {
 		if !kinds[kind] {
 			t.Errorf("no %s row to open: %v", kind, kinds)
 		}
+	}
+}
+
+func TestServeSource_RefusesARawEncodedTraversal(t *testing.T) {
+	dir, srv := sourceProject(t)
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + absSlash(t, dir) + "/.agnostic-ai/rules/%2e%2e/rules/style.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestServeSource_RefusesASkillFolderLinkedOutside(t *testing.T) {
+	dir, srv := sourceProject(t)
+	outside := filepath.Join(t.TempDir(), "deploy")
+	mustWriteFile(t, filepath.Join(outside, "SKILL.md"), "---\nname: deploy\ndescription: Deploys.\n---\nOutside.\n")
+	link := filepath.Join(dir, ".agnostic-ai", "skills", "deploy")
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	getSource(t, srv, absSlash(t, filepath.Join(link, "SKILL.md")), http.StatusNotFound)
+}
+
+func TestServeSource_HidesFrontmatterThatDoesNotParse(t *testing.T) {
+	dir, srv := sourceProject(t)
+	broken := "---\npassword: hunter2short\nbad: [\n---\nKeep functions small.\n"
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, broken)
+	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Body != "Keep functions small.\n" || len(view.Frontmatter) != 0 {
+		t.Errorf("instructions: %+v", view)
+	}
+	rule := filepath.Join(dir, ".agnostic-ai", "rules", "style.md")
+	mustWriteFile(t, rule, broken)
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, rule)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, _ := io.ReadAll(resp.Body)
+	if strings.Contains(string(data), "hunter2short") {
+		t.Errorf("status %d leaked the value: %s", resp.StatusCode, data)
+	}
+}
+
+func TestServeSource_ShowsEachNestedFieldWithTheOverviewRedaction(t *testing.T) {
+	dir, srv := sourceProject(t)
+	rule := filepath.Join(dir, ".agnostic-ai", "rules", "nested.md")
+	mustWriteFile(t, rule, "---\nname: nested\nmetadata:\n  type: user\n  api_key: hunter2short\n---\nBody.\n")
+	view := getSource(t, srv, absSlash(t, rule), http.StatusOK)
+	var got []string
+	for _, f := range view.Frontmatter {
+		got = append(got, f.Key+"="+f.Value)
+	}
+	if strings.Join(got, "|") != "name=nested|metadata.api_key=<redacted>|metadata.type=user" {
+		t.Errorf("frontmatter: %v", got)
 	}
 }
