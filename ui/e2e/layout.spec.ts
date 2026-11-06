@@ -44,6 +44,33 @@ test('names the serving release at the foot of the sidebar', async ({ page }) =>
   await expect(badge).toBeHidden()
 })
 
+test('names the release the config requires beside the serving release', async ({ page }) => {
+  let health: Record<string, unknown> = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0', requires: '>=0.81.0', requiresMet: false }
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: health }))
+  await page.goto('/?view=context')
+  const badge = page.locator('.release-badge')
+  const requires = badge.locator('.release-requires')
+  await expect(badge.locator('.release-version')).toHaveText('agnostic-ai v0.80.0')
+  await expect(requires).toHaveText('requires >=0.81.0, not met by this version')
+  await expect(requires).toHaveAttribute('title', 'This project needs agnostic-ai >=0.81.0, and v0.80.0 is outside it. Run agnostic-ai sync to see the fix.')
+  const muted = await badge.evaluate((element) => getComputedStyle(element).color)
+  expect(await requires.evaluate((element) => getComputedStyle(element).color)).not.toBe(muted)
+  expect((await requires.boundingBox())!.y).toBeGreaterThan((await badge.locator('.release-version').boundingBox())!.y)
+
+  health = { ...health, version: '0.81.0', requiresMet: true }
+  await page.reload()
+  await expect(requires).toHaveText('requires >=0.81.0')
+  expect(await requires.evaluate((element) => getComputedStyle(element).color)).toBe(muted)
+
+  health = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.81.0' }
+  await page.reload()
+  await expect(badge.locator('.release-version')).toHaveText('agnostic-ai v0.81.0')
+  await expect(requires).toHaveCount(0)
+  await page.setViewportSize({ width: 900, height: 900 })
+  await expect(badge).toBeHidden()
+})
+
 test('shows a checkout build without a release link', async ({ page }) => {
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: 'main@b434c92e1a2b' } }))

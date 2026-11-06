@@ -542,6 +542,19 @@ a.release-badge:focus-visible .release-mark {
   font-size: 11px;
 }
 
+.release-requires {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.release-requires.is-unmet {
+  color: var(--approval);
+  font-weight: 700;
+}
+
 .release-arrow {
   flex: none;
   width: 14px;

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -95,6 +96,35 @@ func requireGlobalVersion(source string, skipBroken io.Writer) error {
 		}
 	}
 	return requireVersionInScope(path, requires, true)
+}
+
+// servedRequires is the requires the page shows beside the running
+// version, and whether that version meets it. It never fails: a config
+// that does not read shows no requires, and the page reports the load
+// error on its own. met is nil for a build the check cannot place.
+func servedRequires(root string, global bool) (requires string, met *bool) {
+	if global {
+		requires = globalRequires(root)
+	} else {
+		cfg, _, err := config.LoadWithSources(root)
+		if unknown, ok := errors.AsType[*config.UnknownKeysError](err); ok {
+			requires = unknown.Requires
+		} else if err == nil {
+			requires = cfg.Requires
+		}
+	}
+	requires = strings.TrimSpace(requires)
+	if requires == "" {
+		return "", nil
+	}
+	req, err := config.ParseRequirement(requires)
+	if err != nil {
+		return requires, nil
+	}
+	if allowed, release := req.Allows(runningVersion); release {
+		return requires, &allowed
+	}
+	return requires, nil
 }
 
 // requireVersion stops the command when the running binary is outside

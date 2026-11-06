@@ -49,7 +49,12 @@ type HandlerOptions struct {
 	ProjectRoot string
 	// Version is the agnostic-ai release that serves, as --version
 	// prints it, so the page can name it. Empty leaves it out.
-	Version        string
+	Version string
+	// Requires is the config's requires as written. Empty leaves it out.
+	Requires string
+	// RequiresMet says whether the running build is inside Requires;
+	// nil when the build is not a release the check can place.
+	RequiresMet    *bool
 	AllowedOrigins []string
 }
 
@@ -86,6 +91,10 @@ type serverIdentity struct {
 	ProjectRoot string `json:"projectRoot,omitempty"`
 	// Version is the agnostic-ai release that serves this page.
 	Version string `json:"version,omitempty"`
+	// Requires and RequiresMet are set only when the config sets
+	// requires; RequiresMet is null when the build cannot be placed.
+	Requires    string          `json:"requires,omitempty"`
+	RequiresMet json.RawMessage `json:"requiresMet,omitempty"`
 }
 
 // endpoint documents one route for the schema endpoint.
@@ -99,7 +108,7 @@ var endpoints = []endpoint{
 	{Method: http.MethodGet, Path: pathView + "?agentId=<id>&target=<tool>", Description: "The Authority view for one subject on one coding tool."},
 	{Method: http.MethodPost, Path: pathImpact, Description: "The impact of a proposed permission change, computed on a copy of the specs; nothing is written."},
 	{Method: http.MethodGet, Path: pathSchema, Description: "The schema version and these endpoints."},
-	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, the agnostic-ai version that serves it, and for a global server the project it started in."},
+	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, the agnostic-ai version that serves it, the config's requires and whether that version meets it, and for a global server the project it started in."},
 }
 
 // NewHandler serves the Authority view as JSON, and the built client
@@ -108,6 +117,13 @@ func NewHandler(load Loader, opts HandlerOptions) http.Handler {
 	h := &handler{load: load, opts: opts, identity: serverIdentity{OK: true, Root: absoluteRoot(opts.Root), Global: opts.Global, UI: opts.UIDir != "" || opts.UIFiles != nil, Version: opts.Version}}
 	if opts.Global && opts.ProjectRoot != "" {
 		h.identity.ProjectRoot = absoluteRoot(opts.ProjectRoot)
+	}
+	if opts.Requires != "" {
+		h.identity.Requires = opts.Requires
+		h.identity.RequiresMet = json.RawMessage("null")
+		if opts.RequiresMet != nil {
+			h.identity.RequiresMet = json.RawMessage(fmt.Sprint(*opts.RequiresMet))
+		}
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(pathView, h.view)

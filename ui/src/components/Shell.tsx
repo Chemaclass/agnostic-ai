@@ -6,7 +6,7 @@ import { ConfigSwitch } from './ConfigSwitch'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
-import { servingRelease } from '../model/release'
+import { requiredRelease, servingRelease } from '../model/release'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -157,11 +157,20 @@ export function Header({
 
 // The release badge sits at the bottom of the sidebar. A published
 // release links its notes; a checkout build shows its label as it is.
-function ReleaseBadge({ version }: { version: string }) {
+function ReleaseBadge({ served, version }: { served: ServedConfig; version: string }) {
   const release = servingRelease(version)
+  const required = requiredRelease(served)
   const text = (
     <span className="release-text">
       <span className="release-version"><span className="sr-only">agnostic-ai </span>{release.label}</span>{' '}
+      {required && (
+        <>
+          <span className={`release-requires is-${required.state}`} title={required.title}>
+            {required.label}
+            {required.state === 'unmet' && <span className="sr-only">, not met by this version</span>}
+          </span>{' '}
+        </>
+      )}
       <span className="release-caption">{release.kind === 'release' ? 'Release notes' : 'Development build'}</span>
     </span>
   )
@@ -220,7 +229,7 @@ export function Nav({
       </nav>
       <footer className="sidenav-footer">
         {served && <ConfigSwitch served={served} />}
-        {served?.version && <ReleaseBadge version={served.version} />}
+        {served?.version && <ReleaseBadge served={served} version={served.version} />}
         <button type="button" className="sidenav-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
           Overview JSON
         </button>

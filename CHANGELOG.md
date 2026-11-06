@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The web interface shows the config's `requires` under the version at the foot of the sidebar, in the warning color when the running release is outside it; `/api/health` now returns `requires` and `requiresMet` (#3034).
+
 - The web interface moves **Open global settings** and **Open project** from the top bar to the foot of the sidebar, and shows the project path on the same line as its name, so the top bar stays one short row (#3035).
 
 - The web interface moves the JSON button out of the top bar: **Overview JSON** at the foot of the sidebar opens the same inspector, which now names `agnostic-ai view --json` (#3036).
