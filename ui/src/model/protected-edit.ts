@@ -8,7 +8,7 @@ function fieldsFrom(values: Values | undefined): Partial<ProtectedBlock> {
   const fields: Partial<ProtectedBlock> = {}
   for (const value of values ?? []) {
     if (value.key === 'protected.paths' && value.type === 'list') fields.paths = value.list ?? []
-    else if ((value.key === 'protected.decision' || value.key === 'protected.reason') && value.type === 'text') fields[value.key === 'protected.decision' ? 'decision' : 'reason'] = value.value === '""' ? '' : value.value ?? ''
+    else if ((value.key === 'protected.decision' || value.key === 'protected.reason') && value.type === 'text') fields[value.key === 'protected.decision' ? 'decision' : 'reason'] = value.value === '""' || value.value === 'null' ? '' : value.value ?? ''
   }
   return fields
 }

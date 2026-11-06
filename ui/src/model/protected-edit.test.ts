@@ -40,6 +40,11 @@ describe('protected paths editing', () => {
     expect(hidesValue({ paths: ['<redacted>'], decision: '', reason: '' })).toBe(true)
   })
 
+  it('reads a null reason or decision as empty, as the server does', () => {
+    const nulls = { ...field, set: [{ ...field.set[0], values: [...field.set[0].values.filter((value) => value.key !== 'protected.reason'), { key: 'protected.reason', type: 'text' as const, value: 'null' }, { key: 'protected.decision', type: 'text' as const, value: 'null' }] }] }
+    expect(protectedSelection(nulls, [], project).shared).toMatchObject({ decision: '', reason: '' })
+  })
+
   it('fills a local block that leaves keys out from the project block, so a project deny stays', () => {
     const deny = { ...field, set: [
       { ...field.set[0], values: [...field.set[0].values, { key: 'protected.decision', type: 'text' as const, value: 'deny' }] },
