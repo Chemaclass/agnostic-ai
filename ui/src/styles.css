@@ -3971,9 +3971,34 @@ html:has(.search-backdrop) {
   white-space: pre-wrap;
 }
 
+.hook-details {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hook-zoom {
+  justify-self: start;
+  padding: 2px;
+}
+
+.hook-zoom button {
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
+.hook-field-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 760px) {
   .item-source > summary {
     min-height: 44px;
     align-content: center;
+  }
+
+  .hook-zoom button {
+    min-height: 44px;
   }
 }

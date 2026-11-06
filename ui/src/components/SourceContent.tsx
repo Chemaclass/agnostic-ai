@@ -1,23 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { SectionItem, SourceView } from '../contract'
 import { LoadError, loadSource } from '../api'
 import { useApp } from './app-context'
 import { Chip } from './ui'
 
-const sourceKinds = new Set(['instructions', 'rule', 'agent', 'skill', 'command', 'review', 'ignore'])
+const sourceKinds = new Set(['instructions', 'rule', 'agent', 'skill', 'command', 'review', 'ignore', 'hook'])
 
-type Loaded = { view: SourceView } | { error: string }
+export type LoadedSource = { view: SourceView } | { error: string }
 
-/** Show content on a Context row: reads the file from the running server on first open and keeps it until the overview reloads. */
-export function SourceContent({ item }: { item: SectionItem }) {
+/** Whether the running server can show this row's file. */
+export function useSourceShown(item: SectionItem): boolean {
   const app = useApp()
-  const [open, setOpen] = useState(false)
-  const [loaded, setLoaded] = useState<Loaded | undefined>()
+  return app.source.kind === 'api' && item.openPath !== undefined && sourceKinds.has(item.kind)
+}
+
+/** Reads the row's file from the running server once it is wanted, and keeps it until the overview reloads. */
+export function useSource(item: SectionItem, wanted: boolean): LoadedSource | undefined {
+  const app = useApp()
+  const [loaded, setLoaded] = useState<LoadedSource | undefined>()
   const path = item.openPath
-  const shown = app.source.kind === 'api' && path !== undefined && sourceKinds.has(item.kind)
+  const shown = useSourceShown(item)
   useEffect(() => setLoaded(undefined), [app.overviewRevision, path])
   useEffect(() => {
-    if (!shown || !open || loaded || !path) return
+    if (!shown || !wanted || loaded || !path) return
     const controller = new AbortController()
     loadSource(path, controller.signal)
       .then((view) => setLoaded({ view }))
@@ -26,16 +31,27 @@ export function SourceContent({ item }: { item: SectionItem }) {
         setLoaded({ error: err instanceof LoadError && err.status === 404 ? 'the server no longer lists it. Reload the page to see the current files.' : (err as Error).message })
       })
     return () => controller.abort()
-  }, [shown, open, loaded, path, app.overviewRevision])
-  if (!shown) return null
+  }, [shown, wanted, loaded, path, app.overviewRevision])
+  return loaded
+}
+
+/** Show content on a Context row. */
+export function SourceContent({ item }: { item: SectionItem }) {
+  const [open, setOpen] = useState(false)
+  const loaded = useSource(item, open)
+  if (!useSourceShown(item)) return null
   return (
     <details className="item-source" onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary aria-label={`${open ? 'Hide' : 'Show'} content of ${item.label}`}>{open ? 'Hide content' : 'Show content'}</summary>
-      {!loaded && <p className="loading" aria-busy="true">Reading the file…</p>}
-      {loaded && 'error' in loaded && <p className="tool-state is-warning" role="alert">Could not show the file: {loaded.error}</p>}
-      {loaded && 'view' in loaded && <SourceText view={loaded.view} />}
+      <SourceState loaded={loaded}>{(view) => <SourceText view={view} />}</SourceState>
     </details>
   )
+}
+
+export function SourceState({ loaded, children }: { loaded: LoadedSource | undefined; children: (view: SourceView) => ReactNode }) {
+  if (!loaded) return <p className="loading" aria-busy="true">Reading the file…</p>
+  if ('error' in loaded) return <p className="tool-state is-warning" role="alert">Could not show the file: {loaded.error}</p>
+  return <>{children(loaded.view)}</>
 }
 
 function SourceText({ view }: { view: SourceView }) {

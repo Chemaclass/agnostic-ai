@@ -236,6 +236,9 @@ type SectionItem struct {
 	// fields or the config's keys. A value that names or looks like a
 	// credential is shown as <redacted>.
 	Values []Value `json:"values"`
+	// Fields are a hook's key fields, in a fixed order: when and on what
+	// it runs, the command, its timeout, and whether it is disabled.
+	Fields []Value `json:"fields,omitempty"`
 	// Enabled is set for a built-in: whether the config turns it on.
 	Enabled *bool `json:"enabled,omitempty"`
 	// Local is set for a built-in the personal config turns on or off

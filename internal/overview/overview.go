@@ -453,7 +453,7 @@ func specItems(in Inputs, r row, section string) []SectionItem {
 }
 
 // sourceSections are the sections whose rows can show their file's content.
-var sourceSections = []string{SectionContext}
+var sourceSections = []string{SectionContext, SectionLifecycle}
 
 // SourceFiles maps the open path of each row in sourceSections to the
 // row's kind: the files whose content the page may read.
@@ -570,10 +570,27 @@ func sectionItem(root string, e spec.Entry) SectionItem {
 			}
 		}
 	}
+	if e.Kind == spec.KindHook {
+		item.Fields = hookFields(e.Meta)
+	}
 	if e.Layer != builtinLayer {
 		item.OpenPath = editablePath(e.Path)
 	}
 	return item
+}
+
+// hookFieldKeys are the hook fields a row shows, portable and native
+// forms both.
+var hookFieldKeys = []string{"on", "event", "match", "matcher", "type", "command", "timeout", "disabled"}
+
+func hookFields(meta map[string]any) []Value {
+	var fields []Value
+	for _, key := range hookFieldKeys {
+		if v, set := meta[key]; set {
+			fields = append(fields, specValues(map[string]any{key: v})...)
+		}
+	}
+	return fields
 }
 
 func entriesOf(b spec.Bundle, kind spec.Kind) []spec.Entry {

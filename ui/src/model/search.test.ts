@@ -30,6 +30,13 @@ describe('overview search', () => {
     expect(results).toContainEqual(expect.objectContaining({ kind: 'finding', view: 'authority', entry: findingEntryIds(owner.findings, itemEntryId(owner))[0] }))
   })
 
+  it('finds a hook by the command it runs', () => {
+    const data = structuredClone(fixture)
+    const lifecycle = data.sections.find((section) => section.id === 'lifecycle')!
+    lifecycle.items.push({ kind: 'hook', name: 'guard', label: 'guard', description: '', path: '.agnostic-ai/hooks/guard.yaml', layer: 'project', group: 'before-tool', values: [], fields: [{ key: 'command', type: 'text', value: './scripts/no-force-push.sh' }], findings: [] })
+    expect(search(data, 'no-force-push')).toContainEqual(expect.objectContaining({ view: 'lifecycle', kind: 'item', title: 'guard' }))
+  })
+
   it('requires every word, ignores case, and returns nothing for an empty or unmatched query', () => {
     expect(search(fixture, '   ')).toEqual([])
     expect(search(fixture, 'no-such-thing-anywhere')).toEqual([])

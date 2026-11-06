@@ -76,7 +76,7 @@ func newSourceHandler(global bool) http.Handler {
 			writeEditJSON(w, http.StatusNotFound, errSourceNotFound)
 			return
 		}
-		view, ok := readSource(path, roots)
+		view, ok := readSource(path, roots, kind)
 		if !ok {
 			writeEditJSON(w, http.StatusNotFound, errSourceNotFound)
 			return
@@ -137,12 +137,12 @@ func sourceFiles(global bool) (map[string]string, []string, error) {
 }
 
 // sourceKinds are the spec kinds whose files the rows can show.
-var sourceKinds = []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindReview, spec.KindIgnore}
+var sourceKinds = []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindReview, spec.KindIgnore, spec.KindHook}
 
 // readSource reads path when it resolves to a regular file inside one
 // of roots, which have their symlinks resolved. The open stays inside
 // that root, so a link swapped in after the check cannot lead out.
-func readSource(path string, roots []string) (sourceView, bool) {
+func readSource(path string, roots []string, kind string) (sourceView, bool) {
 	target, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return sourceView{}, false
@@ -166,6 +166,9 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		data, view.Truncated = validUTF8Prefix(data[:limit]), true
 	}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	if kind == string(spec.KindHook) {
+		return hookSource(view, text), true
+	}
 	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
 	switch {
 	case view.Truncated && strings.HasPrefix(text, "---") && !strings.Contains(text[3:], "\n---"):
@@ -181,6 +184,23 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		view.Frontmatter = appendSourceFields(view.Frontmatter, key, meta[key])
 	}
 	return view, true
+}
+
+// hookSource shows a hook file as its fields, each redacted as the
+// overview shows it, and never as raw text, which could carry a
+// credential. A file that was cut or does not parse shows nothing.
+func hookSource(view sourceView, text string) sourceView {
+	if view.Truncated {
+		return view
+	}
+	e, err := spec.ParseYAMLBytes(spec.KindHook, []byte(text))
+	if err != nil {
+		return view
+	}
+	for _, key := range e.MetaKeys {
+		view.Frontmatter = appendSourceFields(view.Frontmatter, key, e.Meta[key])
+	}
+	return view
 }
 
 // afterLeadingBlock is text without a leading block that did not parse,
