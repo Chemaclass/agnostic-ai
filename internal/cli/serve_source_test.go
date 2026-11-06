@@ -584,6 +584,7 @@ func TestServeSource_WithholdsAHookWithACredential(t *testing.T) {
 	for name, content := range map[string]string{
 		"token": "name: guard\non: before-tool\ncommand: API_TOKEN=sk-abcdefghijklmnop ./guard.sh\n",
 		"env":   "name: guard\non: before-tool\ncommand: ./guard.sh\nenv:\n  password: hunter2short\n",
+		"key":   "name: guard\non: before-tool\ncommand: ./deploy.sh hunter2short\napi_key: hunter2short\n",
 	} {
 		mustWriteFile(t, hook, content)
 		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, hook)))

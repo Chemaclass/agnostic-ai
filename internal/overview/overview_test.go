@@ -400,6 +400,27 @@ func TestBuild_GivesEachHookItsKeyFieldsInAFixedOrder(t *testing.T) {
 	}
 }
 
+func TestBuild_RedactsAHookFieldThatRepeatsACredentialItHolds(t *testing.T) {
+	deploy := entry(spec.KindHook, "deploy", ".agnostic-ai/hooks/deploy.yaml", map[string]any{
+		"on": "stop", "command": "./deploy.sh hunter2short", "match": "hunter2short", "env": map[string]any{"API_TOKEN": "hunter2short", "LOG_LEVEL": "debug"},
+	})
+	v := Build(Inputs{Bundle: spec.Bundle{Hooks: []spec.Entry{deploy}}})
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "hunter2short") {
+		t.Fatalf("the overview leaks a credential the hook holds: %s", data)
+	}
+	var got []string
+	for _, f := range sectionByID(t, v, SectionLifecycle).Items[0].Fields {
+		got = append(got, f.Key+"="+f.Value)
+	}
+	if want := []string{"on=stop", "match=<redacted>", "command=<redacted>"}; !slices.Equal(got, want) {
+		t.Errorf("deploy fields = %v, want %v", got, want)
+	}
+}
+
 func TestBuild_PlacesFindingsOnTheItemsTheyName(t *testing.T) {
 	in := fullInputs()
 	in.Findings = []Finding{
