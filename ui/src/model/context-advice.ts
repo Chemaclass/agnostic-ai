@@ -290,7 +290,7 @@ export function contextAdvice(c: ContextContribution, report: AdviceReport, root
   lines.push('', `What it is: ${text.what}`, `Why it loads: ${text.why}`, 'Options:', ...text.actions.map((a) => `- ${a}`))
   lines.push(
     '',
-    `Read the source and propose the smallest safe change that ${goal} without losing instructions the team relies on. State the tradeoffs of each option, such as a tool that would stop loading a rule, or project memory that would stop working. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.`,
+    `Read the source and propose the smallest safe change that ${goal} without losing instructions the team relies on. State the tradeoffs of each option, such as a tool that would stop loading a rule, or shared memory that would stop working. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.`,
     '',
     `After the change, run agnostic-ai sync, then ${explainCommand(report.target, report.takesFile === false ? undefined : report.file)} to check the new counts. Words and bytes measure text size, not tokens; do not claim lower latency or cost.`,
   )
@@ -333,7 +333,8 @@ const NOTHING_TO_DO = new Set(['generated framing'])
 /** One prompt that asks a coding agent to apply the advice for every source that has something to change, startup first. */
 export function contextAllAdvicePrompt(report: AdviceReport & Pick<ContextReport, 'contributions'>, root?: string, budget?: number): string {
   const seen = new Set<string>()
-  const sources = RANK_ORDER.flatMap((load) => report.contributions.filter((c) => c.load === load)).filter((c) => {
+  const byLoad = (load: ContextLoad) => report.contributions.filter((c) => c.load === load).sort((a, b) => b.words - a.words || b.bytes - a.bytes || a.source.localeCompare(b.source) || a.category.localeCompare(b.category))
+  const sources = RANK_ORDER.flatMap(byLoad).filter((c) => {
     const key = `${c.load}|${c.source}|${c.category}`
     if (NOTHING_TO_DO.has(c.category) || seen.has(key)) return false
     seen.add(key)
@@ -342,7 +343,7 @@ export function contextAllAdvicePrompt(report: AdviceReport & Pick<ContextReport
   if (sources.length === 0) return ''
   const file = report.takesFile === false ? undefined : report.file
   const lines = [
-    `Apply the advice for every source of instruction text that agnostic-ai explain --context ranked for ${report.target}, startup first and largest first within each load:`,
+    `Review the advice for every source of instruction text that agnostic-ai explain --context ranked for ${report.target}, startup first and largest first within each load, and propose one change set:`,
     '',
     `Target: ${report.target}`,
     startupVerdict(report.startup, budget).text,
@@ -365,7 +366,7 @@ export function contextAllAdvicePrompt(report: AdviceReport & Pick<ContextReport
     '',
     '## Your task',
     '',
-    'Read every source above. Propose one change set that applies the advice together, largest saving first, with the tradeoff of each change: a tool that would stop loading a rule, a built-in that would be turned off, project memory that would stop working, or an instruction the team relies on. Where two sources need the same change, make it once. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.',
+    'Read every source above. Propose one change set that applies the advice together, largest saving first, with the tradeoff of each change: a tool that would stop loading a rule, a built-in that would be turned off, shared memory that would stop working, or an instruction the team relies on. Where two sources need the same change, make it once. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.',
     '',
     `After the change, run agnostic-ai sync, then ${explainCommand(report.target, file)} to check the new counts. Words and bytes measure text size, not tokens; do not claim lower latency or cost.`,
   )

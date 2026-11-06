@@ -59,10 +59,12 @@ export function ContextSources({ report, root, takesFile, budget, pick }: { repo
   return (
     <>
       <StartHere report={report} onPick={pick.show} />
-      <div className="finding-actions context-all-advice">
-        <span className="muted">Ask a coding agent to apply the advice for every source at once:</span>
-        <CopyButton text={allAdvice} label="Copy all advice" ariaLabel={`Copy all advice for ${report.target}`} disabled={!allAdvice} />
-      </div>
+      {allAdvice && (
+        <div className="finding-actions context-all-advice">
+          <span className="muted">Ask a coding agent to review the advice for every source at once:</span>
+          <CopyButton text={allAdvice} label="Copy all advice" ariaLabel={`Copy all advice for ${report.target}`} />
+        </div>
+      )}
       <Contributions report={report} root={root} takesFile={takesFile} open={pick.open} onToggle={pick.setOpen} advice={pick.advice} setAdvice={pick.setAdvice} expanded={pick.expanded} setExpanded={pick.setExpanded} focusKey={pick.focusKey} />
     </>
   )

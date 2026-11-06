@@ -179,9 +179,11 @@ describe('context advice', () => {
     const full = { ...report, contributions }
     const count = (text: string, part: string) => text.split(part).length - 1
 
-    it('opens with the target, the verdict and the root, then one section per source in rank order', () => {
-      const prompt = contextAllAdvicePrompt(full, '/tmp/project', 2000)
-      expect(prompt.startsWith('Apply the advice for every source of instruction text that agnostic-ai explain --context ranked for claude')).toBe(true)
+    it('opens with the target, the verdict and the root, then one section per source, startup first and largest first', () => {
+      const shuffled = [contributions[6], contributions[3], contributions[4], contributions[1], contributions[5], contributions[2], contributions[0]]
+      const prompt = contextAllAdvicePrompt({ ...full, contributions: shuffled }, '/tmp/project', 2000)
+      expect(prompt.startsWith('Review the advice for every source of instruction text that agnostic-ai explain --context ranked for claude')).toBe(true)
+      expect(prompt).toContain('largest first within each load, and propose one change set:')
       expect(prompt).toContain('Target: claude')
       expect(prompt).toContain('within the 2,000-word lint budget')
       expect(prompt).toContain('Configuration root: /tmp/project')
@@ -203,6 +205,12 @@ describe('context advice', () => {
       expect(prompt).toContain(`Why it loads: ${rule.why}`)
       for (const action of rule.actions.slice(0, -1)) expect(prompt).toContain(`- ${action}`)
       expect(prompt).toContain('Size: 270 words, 1,620 bytes (31% of startup content for claude)')
+    })
+
+    it('keeps the shared memory tradeoff in the single-source prompt', () => {
+      const advice = contextAdvice(row('.agnostic-ai/rules/testing.md', 'always-on rule', 'startup'), report)
+      expect(advice.prompt).toContain('such as a tool that would stop loading a rule, or shared memory that would stop working.')
+      expect(contextAllAdvicePrompt(full)).toContain('shared memory that would stop working')
     })
 
     it('skips sources with nothing to edit', () => {

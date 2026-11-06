@@ -26,7 +26,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `sync --dry-run --diff` prints a diff of each file sync would change and names generated files it would remove, for project and `--global` sync. Project sync used to ignore `--diff` here, and global sync rejected it (#2991).
 
-- In the web interface, **Copy all advice** on the Context size tab copies one prompt with the advice for every source, startup first and largest first, and one closing check, so a coding agent can propose all the changes together (#3030).
+- In the web interface, **Copy all advice** on the Context size tab copies one prompt with the advice for every source (#3030).
 
 - In the web interface, the note after **Open** shows on its own line and no longer moves the Open and Copy path buttons or the other labels on that row (#3024).
 
