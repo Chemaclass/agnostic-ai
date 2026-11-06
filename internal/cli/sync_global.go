@@ -171,8 +171,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if o.jsonOut && o.diff {
 		return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --diff")
 	}
-	if o.diff && !o.check && !o.dryRun {
-		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check (or --dry-run) with --global")
+	if o.diff && !o.check && !o.dryRun && !o.plan {
+		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check, --plan, or --dry-run with --global")
 	}
 	if len(o.only) > 0 && len(o.except) > 0 {
 		return errs.Coded(errs.CodeFlagConflict, "--only and --except are mutually exclusive")
@@ -260,6 +260,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
 	issues = append(issues, voiceIssues(bundle.Settings)...)
 	issues = append(issues, agentOnlyIssues(bundle.MCPs)...)
+	issues = append(issues, mcpRootsIssues(own.MCPs)...)
 	// A permission rule the target cannot read would be written as it
 	// stands, so a deny rule could stop guarding anything.
 	if slices.ContainsFunc(targets, func(t string) bool { return globalTargets[t].settings.permissionLists }) {
@@ -397,7 +398,15 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			jsonWritten = true
 			return errors.Join(emitGlobalJSON(cmd, command, records, drops), driftErr)
 		}
-		return errors.Join(printGlobalPlan(cmd, records), driftErr)
+		if err := printGlobalPlan(cmd, records); err != nil {
+			return err
+		}
+		if o.diff {
+			if _, err := globalDrift(cmd, writes, existingPaths(removals), statePath, next, true); err != nil {
+				return err
+			}
+		}
+		return driftErr
 	}
 	if o.dryRun && o.diff {
 		if !o.backup {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // mergedLedgerVersion is the first .sync-state version that records the
@@ -370,4 +371,122 @@ func releaseMergedRecords(state *syncStateFile, records map[string]*mergedOutput
 			state.Orphans = finalizeLedger(append(state.Orphans, path))
 		}
 	}
+}
+
+// mergedFate is what the orphan sweep does to a file the last sync
+// wrote and this one does not.
+type mergedFate int
+
+const (
+	fateNotMerged mergedFate = iota
+	fateRemoved
+	fateRewritten
+	fateKept
+	fateUntouched
+)
+
+// previewMergedFate runs releaseMergedOrphans' decision for path in
+// capture mode, so nothing is written, and returns the bytes a rewrite
+// would leave.
+func previewMergedFate(sess *adapters.Session, state syncStateFile, path string, keepEdits bool) (mergedFate, string, error) {
+	if fi, err := os.Lstat(path); err != nil || !fi.Mode().IsRegular() || underSymlinkedDir(path) {
+		return fateNotMerged, "", nil
+	}
+	m, ok := state.Merged[path]
+	switch {
+	case !ok && unrecordedMergedCandidate(state, path) && !sess.IsUnmanaged(path):
+		return fateKept, "", nil
+	case !ok:
+		return fateNotMerged, "", nil
+	case keepEdits && editedSince(path, state.OutputSums[path]):
+		return fateKept, "", nil
+	case m.Unrecorded:
+		return fateKept, "", nil
+	}
+	sess.StartCapture()
+	result, _, err := sess.ReleaseMerged(path, m.Keys, m.Created, false, false)
+	files := sess.StopCapture()
+	if err != nil {
+		return fateNotMerged, "", err
+	}
+	switch result {
+	case adapters.MergedRemoved:
+		return fateRemoved, "", nil
+	case adapters.MergedStripped, adapters.MergedEdited:
+		if len(files) > 0 {
+			return fateRewritten, files[len(files)-1].Content, nil
+		}
+		if result == adapters.MergedEdited {
+			return fateKept, "", nil
+		}
+	case adapters.MergedKept:
+		if !sess.IsUnmanaged(path) {
+			return fateKept, "", nil
+		}
+	}
+	return fateUntouched, "", nil
+}
+
+func mergedPreviewSession(unmanaged []string) *adapters.Session {
+	sess := adapters.NewSession()
+	sess.SetProjectRoot(".")
+	sess.SetUnmanaged(unmanaged)
+	return sess
+}
+
+// previewMergedLeftovers sorts each leftover as the orphan sweep would
+// treat it: a file it rewrites becomes a changed file with the bytes it
+// writes, one it keeps an orphan, and one it leaves alone drops out.
+// Only a file it deletes stays a removal. Nothing is written.
+func previewMergedLeftovers(reports []driftReport, state syncStateFile, unmanaged []string, keepEdits bool) ([]driftReport, error) {
+	sess := mergedPreviewSession(unmanaged)
+	for i := range reports {
+		r := &reports[i]
+		if r.Unledgered {
+			continue
+		}
+		var leftover []string
+		for _, p := range r.Leftover {
+			fate, content, err := previewMergedFate(sess, state, p, keepEdits)
+			if err != nil {
+				return nil, err
+			}
+			switch fate {
+			case fateNotMerged, fateRemoved:
+				leftover = append(leftover, p)
+			case fateRewritten:
+				r.Stale = append(r.Stale, adapters.CapturedFile{Path: p, Content: content})
+			case fateKept:
+				r.Orphaned = append(r.Orphaned, p)
+			}
+		}
+		r.Leftover = leftover
+	}
+	return reports, nil
+}
+
+// printMergedRewrites prints, as a dry run prints a write, each merged
+// file the last sync wrote and this one does not that the skipped
+// sweep would rewrite.
+func printMergedRewrites(prev syncStateFile, written []string, keepEdits bool, unmanaged []string) error {
+	var sess *adapters.Session
+	for _, p := range prev.Outputs {
+		if slices.Contains(written, p) {
+			continue
+		}
+		if _, ok := prev.Merged[p]; !ok && !unrecordedMergedCandidate(prev, p) {
+			continue
+		}
+		if sess == nil {
+			sess = mergedPreviewSession(unmanaged)
+		}
+		fate, content, err := previewMergedFate(sess, prev, p, keepEdits)
+		if err != nil {
+			return err
+		}
+		if fate == fateRewritten {
+			fmt.Printf("--- %s ---\n%s\n", p, preview.Display(p, content).Text)
+		}
+	}
+	return nil
 }

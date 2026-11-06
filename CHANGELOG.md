@@ -8,7 +8,15 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- **Breaking:** sync stops on an MCP `roots` item that is not a `{uri, name}` mapping with a `uri`, such as a plain string; `lint` (LINT060) and `validate` report it and name the server. Every tool used to drop it with no note. Write `- uri: file:///path` (#3016).
+
 - `hook run` rejects a `--payload` file that does not hold a JSON object instead of passing with no hook run, and `--format json` still prints its result object when a target cannot be set up (#2994).
+
+- `sync --dry-run` (plain, `--diff`, or `--json`), `sync --plan`, and `sync --check` show a shared settings file that keeps your own keys as an update, not a removal, or as kept when sync leaves it as is, matching what sync does (#3000).
+
+- `sync --allow-empty-targets --dry-run` names each generated file the real run removes, with or without `--diff` or `--json`. It used to print no removals (#2995).
+
+- `sync --plan --diff` prints the plan, then a diff of each changed file, for project and `--global` sync. It used to ignore `--diff` or reject it (#2996).
 
 - `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
 
@@ -49,7 +57,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Qwen Code
 
-- The target page says interactive sessions from 0.26.7 run project hooks only after you turn on folder trust and trust the folder (#2978).
+- The target page says project hooks need folder trust or hook approval: from 0.26.7 in interactive sessions, from 0.26.8 in headless runs too (#2978, #3015).
 
 #### Kimi Code CLI
 

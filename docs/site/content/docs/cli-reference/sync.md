@@ -25,14 +25,14 @@ agnostic-ai sync --only claude,cursor
 | `--except <list>` | Write all configured targets except these. Errors on unknown names. Not with `--only`. |
 | `--all` | Write every configured target without the [first-sync picker](#first-sync-target-picker). |
 | `--dry-run` | Print to stdout instead of writing. Files whose spec is gone show only with `--diff`. |
-| `--plan` | Print added and changed counts per target without writing. Exits 0, or 1 on drift with `--check`, so CI can gate on the short report. Ignores `--diff` and `--format`. |
+| `--plan` | Print added and changed counts per target without writing. Exits 0, or 1 on drift with `--check`, so CI can gate on the short report. With `--diff`, prints a diff per changed file after the plan and names each file it would remove, for project and `--global` sync. Ignores `--format`. |
 | `--check` | Exit non-zero if files on disk differ from what sync would write. Writes nothing. |
 | `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there, not the working tree. See [`--against` details](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
-| `--diff` | With `--check` or `--dry-run`, print a diff per changed file, on disk vs what sync would write, in place of full file bodies. `--dry-run --diff` also names each generated file a full sync removes because its spec is gone, stops where sync would stop on a hand edit, and exits 0 on drift. Fails without `--check` or `--dry-run`, and with `--watch` or `--keep-edits`. |
+| `--diff` | With `--check`, `--plan`, or `--dry-run`, print a diff per changed file, on disk vs what sync would write, in place of full file bodies. `--dry-run --diff` also names each generated file a full sync removes because its spec is gone (a shared settings file that keeps your own keys shows as a diff instead; `--check`, `--plan`, and plain `--dry-run` report it as changed too), stops where sync would stop on a hand edit, and exits 0 on drift. Fails without `--check`, `--plan`, or `--dry-run`, and with `--watch` or `--keep-edits`. |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing output file to `<path>.bak` before overwriting, with the file's own permissions. When the managed `.gitignore` block is on, it lists the `.bak` of each output it ignores, and `.git/info/exclude` lists any other backup sync made, such as one whose output is no longer generated. Pair with `revert`. |
 | `--keep-edits` | Write every output except those edited since the last sync (with no record, tracked outputs that differ from `HEAD`), and print `~ kept <path>` for each (stderr under `--quiet`). Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
-| `--allow-empty-targets` | With an empty `targets` list, remove every file sync generated. Without it, sync warns and keeps them. Not with `--check`, `--plan`, `--watch`, or `--global`. |
+| `--allow-empty-targets` | With an empty `targets` list, remove every file sync generated. Without it, sync warns and keeps them. With `--dry-run` (plain, `--diff`, or `--json`), name each file the real run removes and change nothing. Not with `--check`, `--plan`, `--watch`, or `--global`. |
 | `--untrack` | Run `git rm --cached` on generated paths that git tracks and ignores, keeping the working copy. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Stay running and [re-write on changes](#watch-mode). Not with `--check`. |
@@ -55,7 +55,7 @@ agnostic-ai sync --only claude,cursor
 
 `sync --global` works outside a project and never loads project config or packs. It loads overrides from `local/` in the source root and reads `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there.
 
-- Accepts `--target`, `--only`, `--except`, `--dry-run`, `--dry-run --diff`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--dry-run`.
+- Accepts `--target`, `--only`, `--except`, `--dry-run`, `--dry-run --diff`, `--check`, `--check --diff`, `--backup`, `--plan`, `--plan --diff`, and `--json`. Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--dry-run`.
 - `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. Add `--check` to exit non-zero on drift. `--json` adds a `keys` list per settings or MCP file.
 - Files per tool: [global output](@/docs/global-configuration.md#global-output), [MCP servers](@/docs/global-configuration.md#global-mcp-servers), and [model, effort, and permissions](@/docs/global-configuration.md#global-default-model-and-effort).
 

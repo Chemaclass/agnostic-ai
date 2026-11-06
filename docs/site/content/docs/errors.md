@@ -144,4 +144,4 @@ You passed two conflicting flags, such as `--only` with `--except` or `--watch` 
 
 `sync --check` ran while `targets` lists no tool. Sync keeps every generated file in that case, so the check cannot say whether they are current and fails instead of passing.
 
-**Fix:** add a tool to `targets`, or run `agnostic-ai sync --allow-empty-targets` to remove the generated files.
+**Fix:** add a tool to `targets`, or run `agnostic-ai sync --allow-empty-targets` to remove the generated files. Add `--dry-run` first to see which files go.

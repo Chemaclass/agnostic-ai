@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -11,6 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/term"
 )
 
@@ -53,6 +56,65 @@ func generatedFilesKept(cfg *config.Config, ledger ledgerSnapshot) bool {
 		return rep.hasDrift()
 	}
 	return false
+}
+
+// emptyTargetsRemovals is the ledger report of each file a sync with
+// --allow-empty-targets removes, so a dry run can name them. reports
+// hold what the run still writes for targets named with -t. Shared
+// skill links are listed too: the sweep removes them, but they are not
+// regular files.
+func emptyTargetsRemovals(cfg *config.Config, ledger ledgerSnapshot, reports []driftReport, links map[string]bool, keepEdits bool) driftReport {
+	if ledger.missing() {
+		return driftReport{Target: ledgerReport}
+	}
+	emitted := map[string]bool{}
+	for _, r := range reports {
+		for _, list := range [][]adapters.CapturedFile{r.Current, r.Missing, r.Stale, r.Edited} {
+			for _, f := range list {
+				emitted[filepath.ToSlash(f.Path)] = true
+			}
+		}
+	}
+	state := ledger.state
+	rep := ledgerLeftovers(state, strandedFile(cfg, emitted, state))
+	for _, p := range state.Outputs {
+		if emitted[p] || links[p] || cfg.IsUnmanaged(p) {
+			continue
+		}
+		if fi, err := os.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			rep.Leftover = append(rep.Leftover, p)
+		}
+	}
+	// --keep-edits keeps an output edited since the last sync.
+	if keepEdits {
+		rep.Leftover = slices.DeleteFunc(rep.Leftover, func(p string) bool {
+			if editedSince(p, state.OutputSums[p]) {
+				rep.Orphaned = append(rep.Orphaned, p)
+				return true
+			}
+			return false
+		})
+	}
+	slices.Sort(rep.Leftover)
+	return rep
+}
+
+// plannedSkillLinks lists the shared skill links a run of targets
+// writes, which it relinks rather than removes.
+func plannedSkillLinks(cfg *config.Config, b spec.Bundle, targets []string) (map[string]bool, error) {
+	links := map[string]bool{}
+	if !cfg.Sync.SharedSkills {
+		return links, nil
+	}
+	shared, err := planSharedSkills(cfg, newTargetRenders(cfg, b), targets)
+	resetDrops()
+	if err != nil {
+		return nil, err
+	}
+	for _, l := range shared.links {
+		links[filepath.ToSlash(l.path)] = true
+	}
+	return links, nil
 }
 
 func errEmptyTargetsCheck() error {

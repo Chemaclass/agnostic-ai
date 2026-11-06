@@ -53,6 +53,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "An MCP spec that reaches Crush, Pi or Junie sets `timeout` below 1000. The spec field is milliseconds: Crush and Pi read seconds, so sync writes a limit of one second or less, and Junie accepts 1000 ms or more. Import stored Crush and Pi seconds unchanged, and the Pi page said to write seconds, before this check existed, so the value is most likely seconds. Or an MCP spec that reaches Junie sets `timeout` or `x-junie.timeout` above 3600000 (one hour). Junie ignores such a value and uses 60 seconds; sync prints the same note.",
 		Fix:      "For a value below 1000, multiply `timeout` by 1000. To set a value for one tool only, use `x-crush.timeout` or `x-pi.timeout` in seconds, or `x-junie.timeout` in milliseconds. For Junie above one hour, lower the value to 3600000 or less, or set a lower `x-junie.timeout`.",
 	},
+	"LINT060": {
+		Severity: lintError,
+		Title:    "MCP root without uri",
+		Cause:    "An MCP spec's `roots` is not a list, or an item is not a mapping with a text `uri`, such as `- file:///path`. Every tool drops such an item without a note. Sync and `validate` refuse the spec too.",
+		Fix:      "Write each root as a mapping: `- uri: file:///path`, with an optional `name`.",
+	},
 	"LINT001": {
 		Severity: lintWarn,
 		Title:    "Empty spec",

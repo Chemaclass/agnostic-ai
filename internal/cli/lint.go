@@ -339,6 +339,9 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintAgentDescriptions(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs, targets...)...)
 	findings = append(findings, lintMCPNonJSONValues(b.MCPs)...)
+	for _, issue := range mcpRootsIssues(b.MCPs) {
+		findings = append(findings, lintFinding{Code: "LINT060", Severity: lintError, Path: issue.Path, Message: issue.Message})
+	}
 	findings = append(findings, lintMCPToolRefs(targets, support, b.MCPs)...)
 	findings = append(findings, lintMCPLiterals(b.MCPs)...)
 	findings = append(findings, lintAgentFileCredentials(b, targets)...)
