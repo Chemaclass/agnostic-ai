@@ -790,4 +790,6 @@
 # Reading frontmatter whole before cutting the body (#3025) measured 24834208
 # bytes on Go 1.27.3; the budget is that plus 8192, rounded up to a multiple of 4096.
 # After merging main, the branch measured 24875168 bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
-24887296
+# The Field Ledger tokens and bundled fonts (#3026), merged with Show content,
+# measured 24924320 bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
+24936448
