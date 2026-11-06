@@ -105,7 +105,7 @@ Without the field, every tool lets the model use the skill on its own. Each targ
 
 | Target | Behavior |
 |--------|----------|
-| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Zed](@/docs/targets/zed.md) | Written to `SKILL.md` |
+| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Zed](@/docs/targets/zed.md), [Qwen Code](@/docs/targets/qwen.md) | Written to `SKILL.md` |
 | [Copilot](@/docs/targets/copilot.md) | Written to `SKILL.md`, with `argument-hint` |
 | [OpenCode](@/docs/targets/opencode.md) | Written to `SKILL.md`. V2 honors it; V1 does not |
 | [Codex](@/docs/targets/codex.md) | `allow_implicit_invocation: false` in `agents/openai.yaml` |
