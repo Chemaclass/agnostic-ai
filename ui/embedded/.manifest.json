@@ -129,7 +129,7 @@
     "src/model/testing.ts": "f90c0eaab647a088e35ce7bdf3be3fc64b63170bee97193675fbe49ea49bcee6",
     "src/model/url.test.ts": "8cb354b291c26b28f37895ba685471789060800707dd1f433c3531b9359cabe7",
     "src/model/url.ts": "aa9077ca2dcfe2e38821f1f1c7e24d4f2a99a820f80957c4018ab13c59559328",
-    "src/styles.css": "48d1c4f6b89f6e3b13a0302f7d8d48b87c908eef0f54587d9cf1a29e6010ae8d",
+    "src/styles.css": "5d96696837cd0330923b213866217c0bc14b0a586cab4db247e2ad38153c0061",
     "src/vite-env.d.ts": "2ead27e0f654eb53926df1439827e24aba232f3c3a413847b5862ee447b3f122",
     "tsconfig.json": "92730f301e12c45bbf33095c177dbd538b6f1b79bed1ed96a917a875c5a991e7",
     "vite.config.ts": "6cfab071d9e75b181655bb6657eb94753a8083a68936ea5018253b7fbc704b22"
@@ -141,12 +141,12 @@
     "assets/atkinson-next-600-CtM8oly8.woff2": "7e611aee93618cb770839dd0d85ffcffa0ad6d01acd1dc18a46dfbd2900b341b",
     "assets/context.mock-CeYca_mm.js": "02a784cb3314f5a119b0c1cd7f9bfce9b34c9b6b52917c653af9733806202245",
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
-    "assets/index-CfUH49rG.css": "5b9dc7e0f6902fb66b500e8585f5fa269e0ce9b2231705dc94edbdabaf282e13",
-    "assets/index-D-N56rK3.js": "2153740d9692133b295862c09415ec049537d567e46b023f390555340948b6da",
+    "assets/index-B9-HFgu5.js": "2153740d9692133b295862c09415ec049537d567e46b023f390555340948b6da",
+    "assets/index-DgBp-CnN.css": "411c053868e2b5503365ea6ac5f80d32b5bc2b4d80bbdd448294a6ca94be75ff",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-Btq6Uiqs.js": "aacc1f2a7640179c0cc3b8c1d8d4a37bb657d6f349c31f31fa637fb887a9ca3a",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "5537f6b28fb0a5b73be509c6eb5cbc183051d2609f24cf665fefb3836046e5ca",
+    "index.html": "b21e3b5db8648c0de683d2513bd4961621bbefe278b89a771c2fb9595ed00cde",
     "third-party-notices.txt": "d6a910359a9401faa7596df6b8e2a821b095e6bec204f0cfacc9dd087220cc5f"
   }
 }
