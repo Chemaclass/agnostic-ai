@@ -18,7 +18,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Sync prints a note when a target drops an agent's `hooks` or `permissionMode`, as it does for `maxTurns` and `background`. Gemini CLI, Cursor, Codex, OpenHands, and other targets without these keys used to drop them with no note (#3052).
 
-- `POST /api/edit/spec/move` copies or moves a rule, agent, skill folder, hook, or MCP spec between the project and the global setup, and refuses to replace an existing one unless `overwrite` is set (#3027).
+- In the web interface, **Copy to global** on a rule, agent, skill, hook, or MCP spec (**Copy to project** in the global view) copies or moves it to the other level, a skill with its whole folder, and names the sync commands to run. It replaces an existing spec only when you tick **Replace it**. `POST /api/edit/spec/move` does the same (#3027).
 
 - In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 

@@ -591,6 +591,30 @@ export interface HookSpecPreview {
   expected: string
 }
 
+export type SpecLevel = 'project' | 'global'
+
+export interface SpecMoveRequest {
+  action: 'preview' | 'apply'
+  kind: string
+  name: string
+  from: SpecLevel
+  to: SpecLevel
+  mode: 'copy' | 'move'
+  overwrite: boolean
+  expected?: string
+}
+
+export interface SpecMovePreview {
+  source: string
+  destination: string
+  /** The destination already holds this spec; apply needs overwrite. */
+  exists: boolean
+  /** The files written, relative to the spec's file or skill folder. */
+  files: string[]
+  syncCommands: string[]
+  expected: string
+}
+
 export type PermissionKey = 'permissions.allow' | 'permissions.ask' | 'permissions.deny'
 
 export interface PermissionEditRequest {
@@ -792,6 +816,7 @@ export interface ContextView {
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })
+//   POST /api/edit/spec/move                              → SpecMovePreview (body: SpecMoveRequest); 409 { missing, root } when there is no global setup
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
@@ -807,6 +832,7 @@ export const API = {
   editProtected: '/api/edit/protected',
   editMCP: '/api/edit/mcp',
   editHook: '/api/edit/hook',
+  editSpecMove: '/api/edit/spec/move',
   health: '/api/health',
   switch: '/api/switch',
   globalCreate: '/api/global/create',

@@ -269,15 +269,19 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	for _, f := range plan.files {
 		plan.preview.Files = append(plan.preview.Files, f.rel)
 	}
+	// One preview covers both buttons and the overwrite box: the revision
+	// names the spec and the two sides, not the choice.
 	identity := req
-	identity.Action, identity.Expected = "", ""
+	identity.Action, identity.Expected, identity.Mode, identity.Overwrite = "", "", "", false
+	shown := plan.preview
+	shown.SyncCommands = nil
 	sum := sha256.New()
 	_ = json.NewEncoder(sum).Encode(struct {
 		Request specMoveRequest
 		Preview specMovePreview
 		Src     string
 		Dst     string
-	}{identity, plan.preview, plan.src, plan.dst})
+	}{identity, shown, plan.src, plan.dst})
 	for _, unit := range [][]specMoveFile{plan.files, current} {
 		for _, f := range unit {
 			_, _ = fmt.Fprintf(sum, "%s\x00%o\x00%d\x00", f.rel, f.mode, len(f.data))

@@ -271,3 +271,17 @@ func TestServeMux_RoutesSpecMoveToThePeer(t *testing.T) {
 		t.Error("the served move did not reach the global setup")
 	}
 }
+
+// The panel previews once, then the user picks Copy or Move and may tick
+// overwrite; the one revision covers each choice.
+func TestSpecMove_OnePreviewCoversEachChoice(t *testing.T) {
+	project, global := moveProject(t)
+	h := projectMoveHandler(project, global)
+	_, preview := postSpecMove(t, h, moveBody("agent", "guard", "project", "global", "copy"))
+	request := moveBody("agent", "guard", "project", "global", "move")
+	request["action"], request["expected"], request["overwrite"] = "apply", preview.Expected, true
+	code, reply := postSpecMove(t, h, request)
+	if code != http.StatusOK || !slices.Equal(reply.SyncCommands, []string{"agnostic-ai sync", "agnostic-ai sync --global"}) {
+		t.Fatalf("move with the copy preview = %d %+v", code, reply)
+	}
+}
