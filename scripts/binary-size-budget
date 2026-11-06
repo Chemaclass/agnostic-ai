@@ -772,4 +772,6 @@
 # bytes; the budget is that plus 8192.
 # Junie timeout range warnings (#3014), combined with roots validation (#3016),
 # measured 24780960 bytes on Go 1.27.3; keep the 8192-byte build allowance.
-24789152
+# Kiro agent MCP timeouts (#3041) measured 24793248 bytes on Go 1.27.3, up 4096
+# from main cb86a743, which sat at the budget; keep the 8192-byte build allowance.
+24801440
