@@ -296,9 +296,9 @@ func isNested(v any) bool {
 }
 
 var (
-	credentialAssignment = regexp.MustCompile(`(?i)(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session[_-]?id|client[_-]?secret)[A-Za-z0-9_.-]*["']?\s*[:=]`)
+	credentialAssignment = regexp.MustCompile(`(?i)(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session|client[_-]?secret)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
 	credentialWord       = regexp.MustCompile(`(?i)\b(?:pass(?:word|wd|phrase)s?|secrets?|credentials?|api[ _-]?keys?|private[ _-]?keys?|client[ _-]?secrets?)\b`)
-	credentialLabel      = regexp.MustCompile(`(?i)(?:\|\s*|<\s*/?\s*)(?:tokens?|auth(?:orization)?|bearer|cookies?|session[_-]?ids?|access[_-]?keys?)\b`)
+	credentialLabel      = regexp.MustCompile(`(?i)(?:\|\s*|<\s*/?\s*)[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[_-]?ids?)?|access[_-]?keys?)(?:[^A-Za-z]|$)`)
 	privateKeyBlock      = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY`)
 )
 
