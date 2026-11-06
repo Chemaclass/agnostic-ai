@@ -133,6 +133,15 @@ describe('setup health', () => {
     expect(healthFixPrompt(withGap)).not.toContain('Add a skill.')
   })
 
+  it('counts a global finding once beside the gaps, which stay out of the counts', () => {
+    const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude'], missing: 'no skill yet', fix: 'Add a skill.' }
+    const overview = { ...view([section('settings', 5, [], [globalWarning])]), health: { gaps: [skills] } }
+    expect(countFindings(overview)).toMatchObject({ errors: 0, warnings: 1 })
+    const prompt = healthFixPrompt(overview)
+    expect(prompt).toMatch(/^Fix this agnostic-ai finding/)
+    expect(prompt).not.toContain('Add a skill.')
+  })
+
   it('reads the gaps from the overview, and none from an older one', () => {
     const fixture = loadOverviewFixture()
     expect(fixture.health.gaps.map((gap) => gap.id)).toContain('kind:skill')
