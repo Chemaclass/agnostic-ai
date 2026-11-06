@@ -99,3 +99,36 @@ func TestDisplay_HidesAMySQLPasswordGluedToItsFlag(t *testing.T) {
 		t.Error("only a literal value glued to -p counts")
 	}
 }
+
+// Every credential word the file content view withheld on before #3062
+// still counts when it labels a value, in every layout, and so do the
+// multi-word labels in their spaced, hyphenated, and joined forms.
+func TestDisplay_EveryCredentialWordLabelsAValueInEveryLayout(t *testing.T) {
+	words := []string{
+		"password", "passwords", "passwd", "passphrase", "secret", "secrets", "credential", "credentials",
+		"API key", "api_key", "api-key", "apikey", "API keys",
+		"private key", "private_key", "private-key", "privatekey",
+		"client secret", "client_secret", "client-secret", "clientsecret",
+		"access key", "access_key", "access-key", "secret key", "secret_key", "secret-key",
+	}
+	for _, word := range words {
+		layouts := map[string]string{
+			"table":           "| field | value |\n| --- | --- |\n| " + word + " | hunter2short |\n",
+			"table no pipes":  word + " | hunter2short\n",
+			"bold cell":       "| **" + word + "** | hunter2short |\n",
+			"code cell":       "| `" + word + "` | hunter2short |\n",
+			"field label":     "**" + word + ":** hunter2short\n",
+			"plain label":     word + ": hunter2short\n",
+			"stated in prose": "The " + word + " is hunter2short.\n",
+		}
+		if !strings.Contains(word, " ") {
+			layouts["xml"] = "<" + word + ">hunter2short</" + word + ">\n"
+		}
+		for layout, text := range layouts {
+			shown := Display("AGNOSTIC_AI.md", text)
+			if !shown.Hidden && !shown.Withheld || strings.Contains(shown.Text, "hunter2short") || !Sensitive("AGNOSTIC_AI.md", text) {
+				t.Errorf("%q as %s shows: %+v", word, layout, shown)
+			}
+		}
+	}
+}

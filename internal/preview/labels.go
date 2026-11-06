@@ -5,18 +5,28 @@ import (
 	"strings"
 )
 
+// Credential words as label text writes them. A multi-word label may be
+// spaced, hyphenated, underscored, or joined: `API key`, `api-key`,
+// `apikey`.
+const (
+	multiWordLabel = `(?:api|private|access|secret)[ _-]?keys?|client[ _-]?secrets?`
+	strongLabel    = `pass(?:word|wd|phrase)s?|secrets?|credentials?|` + multiWordLabel
+	weakLabel      = `tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?`
+	labelEmphasis  = "[*_~`]*"
+)
+
 var (
 	// credentialAssignment is a credential-named key with a value after
-	// it, in any layout: `password:`, `token =`, `**Password:**`,
+	// it, in any layout: `password:`, `API key =`, `**Password:**`,
 	// `<config token="...">`, `{password: x}`.
-	credentialAssignment = regexp.MustCompile(`(?i)(?:^|[^A-Za-z])(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[ _-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session|client[ _-]?secret)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
+	credentialAssignment = regexp.MustCompile(`(?i)(?:^|[^A-Za-z])(?:` + multiWordLabel + `|pass(?:word|wd|phrase)?|secret|token|credentials?|auth(?:orization)?|bearer|cookie|session)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
 	// credentialStatement is a strong credential word stated as having a
 	// value, as in "the password is x". A word that is only named, as in
 	// "never commit secrets", does not count.
-	credentialStatement = regexp.MustCompile(`(?i)\b(?:pass(?:word|wd|phrase)|secret|credential|api[ _-]?key|private[ _-]?key|client[ _-]?secret)s?\s+(?:is|are|was|were)\s+\S`)
-	// credentialLabel is a weaker credential word that labels a table
-	// cell or an XML tag.
-	credentialLabel = regexp.MustCompile(`(?im)(?:<\s*/?\s*[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?|access[ _-]?keys?|pass(?:word|wd|phrase)s?|secrets?|credentials?)[\s/>]|(?:\|\s*|^\s*)[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?|access[ _-]?keys?|pass(?:word|wd|phrase)s?|secrets?|credentials?)[*_~` + "`" + `]*(?:\s*\||[^A-Za-z|\n]*\|))`)
+	credentialStatement = regexp.MustCompile(`(?i)\b(?:` + strongLabel + `)\s+(?:is|are|was|were)\s+\S`)
+	// credentialLabel is a credential word that labels a table cell or an
+	// XML tag.
+	credentialLabel = regexp.MustCompile(`(?im)(?:<\s*/?\s*` + labelEmphasis + `(?:` + strongLabel + `|` + weakLabel + `)[\s/>]|(?:\|\s*|^\s*)` + labelEmphasis + `(?:` + strongLabel + `|` + weakLabel + `)` + labelEmphasis + `(?:\s*\||[^A-Za-z|\n]*\|))`)
 	privateKeyBlock = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY`)
 	// plainAssignedValue is a value no credential takes: null, a boolean, a
 	// number, or a pure reference, ending the field.

@@ -531,6 +531,8 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 		"table":              "| field | value |\n| --- | --- |\n| password | hunter2short |\n",
 		"xml":                "<password>hunter2short</password>\n",
 		"label":              "| token | hunter2short |\n",
+		"api key cell":       "| API key | hunter2short |\n",
+		"client secret tag":  "<client-secret>hunter2short</client-secret>\n",
 		"session":            "session: hunter2short\n",
 		"session cell":       "| session | hunter2short |\n",
 		"session tag":        "<session>hunter2short</session>\n",
