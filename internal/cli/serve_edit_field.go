@@ -39,6 +39,9 @@ func isFieldCreatedSpec(data []byte) bool {
 // and stores the loaded spec it edits in picked.
 func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddress, raw json.RawMessage, picked *spec.Entry) (string, func([]byte) ([]byte, error), error) {
 	key := addr.key
+	if key == overview.PermissionModeKey {
+		return h.permissionModeEdit(where, shown, addr, raw)
+	}
 	if key != "model" && key != "effort" && key != "session-retention-days" && !voiceEditField(key) {
 		return "", nil, fmt.Errorf("%s is not an editable field", key)
 	}

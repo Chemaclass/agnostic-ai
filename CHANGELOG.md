@@ -16,6 +16,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - The web interface counts findings by severity in the top bar and lists them on one **Setup health** page with **Copy all fixes** (#3032).
 
+- The web interface edits protected paths from Authority in project or local scope, and the default permission mode in the global view (#3039).
+
 - The sidebar shows the config's `requires` under the version, in the warning color when unmet; `/api/health` adds `requires` and `requiresMet` (#3034).
 
 - **Open global settings** and **Open project** move to the foot of the sidebar, and the top bar shows the project path beside its name (#3035).

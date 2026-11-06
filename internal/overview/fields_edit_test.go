@@ -33,20 +33,31 @@ func TestSettingsFields_ExposeEditContract(t *testing.T) {
 	}
 }
 
-func TestAuthorityFields_OnlyPermissionListsExposeListEditing(t *testing.T) {
+func TestAuthorityFields_EditTheSpecThePermissionListsUse(t *testing.T) {
 	cfg := &config.Config{Sources: config.Sources{Settings: "config/policies"}}
+	kinds := map[string]string{"permissions.allow": "permission-list", "permissions.ask": "permission-list", "permissions.deny": "permission-list", PermissionModeKey: "text", ProtectedKey: "protected-list"}
 	fields := buildFields(SectionAuthority, nil, nil, cfg, "", false)
 	for _, field := range fields {
-		if !PermissionListField(field.Key) {
-			if field.Editable != nil {
-				t.Errorf("%s unexpectedly editable: %+v", field.Key, field.Editable)
-			}
-			continue
+		edit := field.Editable
+		reason := ""
+		if field.Key == PermissionModeKey {
+			reason = PermissionModeProjectReason
 		}
-		if edit := field.Editable; edit == nil || edit.Kind != "permission-list" || edit.Path != "config/policies/permissions.yaml" || edit.LocalPath != ".agnostic-ai/local/settings/permissions.yaml" || edit.SyncCommand != "agnostic-ai sync" {
+		if edit == nil || edit.Kind != kinds[field.Key] || edit.Path != "config/policies/permissions.yaml" || edit.LocalPath != ".agnostic-ai/local/settings/permissions.yaml" || edit.SyncCommand != "agnostic-ai sync" || edit.DisabledReason != reason {
 			t.Errorf("%s metadata = %+v", field.Key, edit)
 		} else if len(edit.Sources) != 1 || edit.Sources[0] != (FieldEditSource{Path: edit.Path, Spec: "permissions", LocalPath: edit.LocalPath}) {
 			t.Errorf("%s scaffold source = %+v", field.Key, edit.Sources)
+		}
+		if field.Key == PermissionModeKey && !reflect.DeepEqual(edit.Allowed, spec.PermissionModes) {
+			t.Errorf("mode choices = %v", edit.Allowed)
+		}
+	}
+	for _, field := range buildFields(SectionAuthority, nil, nil, cfg, "", true) {
+		if field.Key == ProtectedKey && (field.Editable == nil || !strings.Contains(field.Editable.DisabledReason, "sync --global does not write protected paths")) {
+			t.Errorf("global protected = %+v", field.Editable)
+		}
+		if field.Key == PermissionModeKey && (field.Editable == nil || field.Editable.DisabledReason != "") {
+			t.Errorf("global mode = %+v", field.Editable)
 		}
 	}
 }
