@@ -77,7 +77,11 @@ func importFromKiro(root string, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importKiroAgents(root, importSourcePath(root, src.Agents))
+	projectServers, err := readJSONMapAt(filepath.Join(root, kiroMCPFile), kiroMCPKey)
+	if err != nil {
+		return err
+	}
+	agents, err := importKiroAgents(root, importSourcePath(root, src.Agents), projectServers)
 	if err != nil {
 		return err
 	}
@@ -162,8 +166,9 @@ func importKiroCommands(root, dstDir string, cfg *config.Config) (int, error) {
 // importKiroAgents copies every native agent profile under
 // `.kiro/agents/` into the agents source dir. An explicit native `name`
 // becomes `x-kiro.name`, leaving the filename as the canonical spec name.
-// A missing directory imports nothing.
-func importKiroAgents(root, dstDir string) (int, error) {
+// An inline `mcpServers` map is read by importKiroAgentServers. A
+// missing directory imports nothing.
+func importKiroAgents(root, dstDir string, projectServers map[string]any) (int, error) {
 	src := filepath.Join(root, kiroAgentsDir)
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -183,7 +188,7 @@ func importKiroAgents(root, dstDir string) (int, error) {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
 		canonicalName := strings.TrimSuffix(e.Name(), ".md")
-		translated, err := importKiroAgentDocument([]byte(header.Strip(string(data))), canonicalName)
+		translated, err := importKiroAgentDocument([]byte(header.Strip(string(data))), canonicalName, projectServers)
 		if err != nil {
 			return count, fmt.Errorf("translate %s: %w", srcPath, err)
 		}
@@ -196,7 +201,7 @@ func importKiroAgents(root, dstDir string) (int, error) {
 	return count, nil
 }
 
-func importKiroAgentDocument(data []byte, canonicalName string) ([]byte, error) {
+func importKiroAgentDocument(data []byte, canonicalName string, projectServers map[string]any) ([]byte, error) {
 	var err error
 	data, err = importNativeAgentTools(data, "kiro", "tools")
 	if err != nil {
@@ -212,12 +217,18 @@ func importKiroAgentDocument(data []byte, canonicalName string) ([]byte, error) 
 			at = i
 		}
 	}
-	if at < 0 {
+	servers, err := importKiroAgentServers(mapping, projectServers)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", canonicalName, err)
+	}
+	if at < 0 && !servers {
 		return data, nil
 	}
-	display := mapping.Content[at+1]
-	mapping.Content = append(mapping.Content[:at], mapping.Content[at+2:]...)
-	setMappingNode(xTargetMapping(mapping, "x-kiro"), "name", display)
+	if at >= 0 {
+		display := mapping.Content[at+1]
+		mapping.Content = append(mapping.Content[:at], mapping.Content[at+2:]...)
+		setMappingNode(xTargetMapping(mapping, "x-kiro"), "name", display)
+	}
 	out, err := encodeFrontmatter(mapping, rest, "kiro")
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", canonicalName, err)

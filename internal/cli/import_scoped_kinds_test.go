@@ -169,7 +169,7 @@ func TestImport_ClaudeReadonlyScopedDisallowedToolsStaysScoped(t *testing.T) {
 
 func TestImportKiroAgentDocument_MovesNameInPlace(t *testing.T) {
 	in := "---\ndescription: Reviews # why\nname: Rev Bot\nmodel: auto\n---\n\nBody.\n"
-	got, err := importKiroAgentDocument([]byte(in), "rev")
+	got, err := importKiroAgentDocument([]byte(in), "rev", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
