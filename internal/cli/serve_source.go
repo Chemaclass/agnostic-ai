@@ -168,8 +168,8 @@ func readSource(path string, roots []string) (sourceView, bool) {
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
 	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
 	switch {
-	case view.Truncated && strings.HasPrefix(text, "---") && !strings.Contains(text[3:], "\n---"):
-		body = ""
+	case strings.HasPrefix(text, "---") && !strings.Contains(text[3:], "\n---"):
+		body, keys = "", nil
 	case err != nil:
 		body, keys = afterLeadingBlock(text), nil
 	}

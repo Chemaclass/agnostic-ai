@@ -400,3 +400,25 @@ func TestServeSource_NeverShowsFrontmatterThatClosesPastTheBodyLimit(t *testing.
 		t.Errorf("closing past the read limit: truncated %v, body length %d, frontmatter %d", view.Truncated, len(view.Body), len(view.Frontmatter))
 	}
 }
+
+func TestServeSource_NeverShowsFrontmatterThatNeverCloses(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "---\npassword: hunter2short\n")
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d: %s", resp.StatusCode, data)
+	}
+	var view sourceView
+	if err := json.Unmarshal(data, &view); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "hunter2short") || view.Body != "" || len(view.Frontmatter) != 0 {
+		t.Errorf("an unclosed block must stay hidden: body %q, frontmatter %d", view.Body, len(view.Frontmatter))
+	}
+}
