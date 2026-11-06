@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -94,7 +95,46 @@ func runOverviewChecksWith(root string, cfg *config.Config, b spec.Bundle, compa
 		out.findings[i].Message = servedFindingMessage(out.findings[i].Message)
 	}
 	setFindingOpenPaths(out.findings, root)
+	out.findings = append(out.findings, overviewGlobalLayerFindings()...)
 	return out
+}
+
+// overviewGlobalLayerFindings is what lint --global reports for the
+// global setup, which reaches every project, marked with its layer. The
+// doctor checks read a project's files, so the global setup has none. A
+// missing global setup has no findings.
+func overviewGlobalLayerFindings() []overview.Finding {
+	source, err := globalSourceRoot()
+	if err != nil {
+		return nil
+	}
+	if info, err := os.Stat(source); err != nil || !info.IsDir() {
+		return nil
+	}
+	adapters.SetWarner(io.Discard)
+	defer adapters.SetWarner(os.Stderr)
+	defer adapters.DrainNotes()
+	configPath := globalConfigPaths(source)[0]
+	display := func(path string) string { return globalOverviewPath(source, path) }
+	var findings []overview.Finding
+	scope, err := loadCheckScope(true)
+	if err != nil {
+		findings = []overview.Finding{{
+			Source:      overview.SourceLint,
+			Code:        overview.CodeLintIncomplete,
+			Severity:    lintError.String(),
+			Path:        display(configPath),
+			Message:     servedFindingMessage("The global setup did not load: " + err.Error()),
+			Explanation: "The overview shows no global findings until the global setup loads.",
+		}}
+	} else {
+		findings = overviewScopeLintFindings(scope, configPath, display)
+	}
+	setFindingOpenPaths(findings, source)
+	for i := range findings {
+		findings[i].Layer = overview.LayerGlobal
+	}
+	return findings
 }
 
 // setFindingOpenPaths gives each lint and doctor finding the absolute

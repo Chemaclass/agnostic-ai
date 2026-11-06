@@ -21,6 +21,13 @@ describe('entry identity', () => {
     expect(id(finding)).toMatch(/^finding:LINT038:[0-9a-z]+$/)
   })
 
+  it('tells a global finding from the same project finding, and keeps project ids', () => {
+    expect(findingKey({ ...finding, layer: 'global' })).not.toBe(findingKey(finding))
+    expect(findingKey(finding)).toBe(['lint', 'LINT038', '.agnostic-ai/settings/permissions.yaml', 'Bare read covers every file.'].join('\u0000'))
+    const [project, global] = findingEntryIds([finding, { ...finding, layer: 'global' }])
+    expect(global).not.toBe(`${project}-2`)
+  })
+
   it('ignores line numbers written in the message', () => {
     const at = (message: string) => findingKey({ ...finding, message })
     expect(at('line 4 links notes.md, which does not exist')).toBe(at('line 12 links notes.md, which does not exist'))

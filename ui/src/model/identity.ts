@@ -19,7 +19,7 @@ export function fieldEntryId(field: Pick<SettingField, 'key'>): string {
 
 export function findingKey(finding: ItemFinding): string {
   const message = finding.message.replace(/\bline \d+/gi, 'line').replace(/(\S):\d+(?::\d+)?\b/g, '$1')
-  return [finding.source, finding.code ?? '', finding.path ?? '', message].join('\u0000')
+  return [finding.source, finding.code ?? '', finding.path ?? '', message, ...(finding.layer ? [finding.layer] : [])].join('\u0000')
 }
 
 /** Link ids for the findings one owner carries, in order; the owner is an item, or none for section findings. */
