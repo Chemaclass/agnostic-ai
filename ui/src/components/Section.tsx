@@ -438,8 +438,16 @@ function GlobalSettingsAction() {
 
 function FieldEditControl(props: FieldEditControlProps) {
   const audience = useEditAudience()
-  const [path, setPath] = useState(props.field.editable?.path ?? props.field.editable?.paths?.[0] ?? '')
-  return <FieldEditForm key={`${audience}:${path}`} {...props} path={path} setPath={setPath} />
+  const edit = props.field.editable
+  const [selected, select] = useState(() => {
+    const path = edit?.path ?? edit?.paths?.[0] ?? ''
+    return { path, spec: edit?.sources?.find((source) => source.path === path)?.spec }
+  })
+  const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
+  // A save can move the selected spec, such as a first local file; follow it there.
+  const moved = !paths.includes(selected.path) && !edit?.sources?.some((source) => source.path === selected.path) ? edit?.sources?.find((source) => source.spec === selected.spec)?.path : undefined
+  const path = moved ?? selected.path
+  return <FieldEditForm key={`${audience}:${path}`} {...props} path={path} setPath={(next) => select({ path: next, spec: edit?.sources?.find((source) => source.path === next)?.spec })} />
 }
 
 function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath }: FieldEditControlProps & { path: string; setPath: (path: string) => void }) {

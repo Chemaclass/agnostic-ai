@@ -441,6 +441,30 @@ test('live global Authority sets the default permission mode and global sync wri
   } finally { await f.close() }
 })
 
+test('live global Authority creates, updates, and resets the first local mode with no settings spec', async ({ page }) => {
+  const f = await fixture(true)
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    await page.goto(`${f.url}?view=authority`)
+    await page.getByRole('button', { name: 'Local (not committed)', exact: true }).click()
+    const mode = page.locator('.field-row').filter({ has: page.getByText('Default permission mode', { exact: true }) })
+    const modeValue = mode.getByRole('combobox', { name: 'Default permission mode value', exact: true })
+    const source = join(f.root, 'local', 'settings', 'permissions.yaml')
+    await modeValue.selectOption('plan')
+    await mode.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect.poll(() => readFile(source, 'utf8').catch(() => '')).toMatch(/default-mode: plan\n/)
+    await expect(modeValue).toHaveValue('plan')
+    await modeValue.selectOption('acceptEdits')
+    await mode.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect.poll(() => readFile(source, 'utf8').catch(() => '')).toMatch(/default-mode: acceptEdits\n/)
+    await expect(mode.getByRole('alert')).toHaveCount(0)
+    await mode.getByRole('button', { name: 'Reset to the global value', exact: true }).click()
+    await expect.poll(() => readFile(source, 'utf8').catch(() => '')).not.toContain('default-mode')
+    await expect(mode.getByRole('alert')).toHaveCount(0)
+  } finally { await f.close() }
+})
+
 test('live Authority replaces one personal list and resets it without changing other settings', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
