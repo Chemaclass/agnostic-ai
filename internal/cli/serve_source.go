@@ -169,9 +169,13 @@ func readSource(path string, roots []string) (sourceView, bool) {
 		data, view.Truncated = validUTF8Prefix(data[:limit]), true
 	}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
-	if shown := preview.Display(path, text); shown.Withheld {
+	shown := preview.Display(path, text)
+	if shown.Withheld {
 		view.Body = shown.Text
 		return view, true
+	}
+	if shown.Hidden {
+		text = shown.Text
 	}
 	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
 	if err != nil {
@@ -293,13 +297,20 @@ var credentialLine = regexp.MustCompile(`^(\s*(?:-\s+)?(?:export\s+)?["']?([A-Za
 // text redaction, which catches recognizable tokens anywhere.
 func redactBody(body string) string {
 	lines := strings.Split(body, "\n")
-	for i, line := range lines {
-		m := credentialLine.FindStringSubmatch(line)
-		if m == nil || preview.PureReference(m[3]) {
+	for i := 0; i < len(lines); i++ {
+		m := credentialLine.FindStringSubmatch(lines[i])
+		if m == nil || preview.PureReference(m[3]) || !(preview.CredentialKey(m[2]) || preview.CredentialName(m[2])) {
 			continue
 		}
-		if preview.CredentialKey(m[2]) || preview.CredentialName(m[2]) {
-			lines[i] = m[1] + preview.Redacted
+		lines[i] = m[1] + preview.Redacted
+		if block := strings.TrimSpace(m[3]); strings.HasPrefix(block, "|") || strings.HasPrefix(block, ">") {
+			indent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
+			for i+1 < len(lines) && (strings.TrimSpace(lines[i+1]) == "" || len(lines[i+1])-len(strings.TrimLeft(lines[i+1], " \t")) > indent) {
+				i++
+				if strings.TrimSpace(lines[i]) != "" {
+					lines[i] = strings.Repeat(" ", indent+2) + preview.Redacted
+				}
+			}
 		}
 	}
 	return preview.RedactText(strings.Join(lines, "\n"))

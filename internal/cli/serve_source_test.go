@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -363,7 +364,8 @@ func TestServeSource_ShowsEachNestedFieldWithTheOverviewRedaction(t *testing.T) 
 	for _, f := range view.Frontmatter {
 		got = append(got, f.Key+"="+f.Value)
 	}
-	if strings.Join(got, "|") != "name=nested|metadata.api_key=<redacted>|metadata.type=user" {
+	slices.Sort(got)
+	if strings.Join(got, "|") != "metadata.api_key=<redacted>|metadata.type=user|name=nested" {
 		t.Errorf("frontmatter: %v", got)
 	}
 }
@@ -496,11 +498,14 @@ func TestServeSource_NeverReturnsACredentialFromAnyPartOfTheFile(t *testing.T) {
 	dir, srv := sourceProject(t)
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
 	for name, content := range map[string]string{
-		"body":      "Root.\n\npassword: hunter2short\n\nexport GITHUB_TOKEN=ghp_123456789012345678901234567890123456\n",
-		"fenced":    "Root.\n\n```yaml\napi_key: hunter2short\n```\n",
-		"delimiter": "---\n---note: divider\npassword: hunter2short\n---\nBody.\n",
-		"alias":     "---\ndefaults: &login hunter2short\npassword: *login\n---\nBody.\n",
-		"key":       "---\naccounts: {ghp_123456789012345678901234567890123456: enabled}\n---\nBody.\n",
+		"body":         "Root.\n\npassword: hunter2short\n\nexport GITHUB_TOKEN=ghp_123456789012345678901234567890123456\n",
+		"fenced":       "Root.\n\n```yaml\napi_key: hunter2short\n```\n",
+		"delimiter":    "---\n---note: divider\npassword: hunter2short\n---\nBody.\n",
+		"alias":        "---\ndefaults: &login hunter2short\npassword: *login\n---\nBody.\n",
+		"key":          "---\naccounts: {ghp_123456789012345678901234567890123456: enabled}\n---\nBody.\n",
+		"nested":       "Root.\n\n```yaml\ncredentials:\n  value: hunter2short\n```\n",
+		"block":        "Root.\n\npassword: |\n  hunter2short\n\nAfter.\n",
+		"fenced block": "Root.\n\n```yaml\npassword: |\n  hunter2short\n```\n",
 	} {
 		mustWriteFile(t, instructions, content)
 		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
