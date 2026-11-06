@@ -8,7 +8,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
@@ -81,27 +80,43 @@ func newSourceHandler(global bool) http.Handler {
 }
 
 // sourceFiles loads the served configuration and returns the files its
-// rows may show, with the folders those files must resolve into.
+// rows may show, with the folders those files must resolve into: each
+// layer's source folder of a kind the rows list, and the folder of each
+// instructions file.
 func sourceFiles(global bool) (map[string]string, []string, error) {
 	var in overview.Inputs
-	var roots []string
+	var layers []spec.Layer
 	if global {
 		scope, err := loadCheckScope(true)
 		if err != nil {
 			return nil, nil, err
 		}
 		in = overview.Inputs{Cfg: &config.Config{Targets: scope.targets}, Bundle: scope.bundle, Instructions: globalInstructionDocuments(scope.source)}
-		roots = []string{scope.source}
+		if layers, err = globalLayers(scope.source, nil); err != nil {
+			return nil, nil, err
+		}
 	} else {
 		cfg, b, err := loadProject(".")
 		if err != nil {
 			return nil, nil, err
 		}
 		in = overview.Inputs{Cfg: cfg, Bundle: b, Instructions: projectInstructionDocuments()}
-		roots = []string{".", filepath.Dir(adapters.AgnosticEntryPointPath)}
-		if source, err := globalSourceRoot(); err == nil {
-			roots = append(roots, source)
+		layers = append(resolvePacksLayers("."), resolveProjectLayer(".", cfg))
+		if l, ok := resolveProjectUserLayer("."); ok {
+			layers = append(layers, l)
 		}
+	}
+	var roots []string
+	for _, l := range layers {
+		dirs := sourceDirsByKind(l.Sources)
+		for _, kind := range sourceKinds {
+			if dirs[kind] != "" {
+				roots = append(roots, config.ResolveSourcePath(l.Root, dirs[kind]))
+			}
+		}
+	}
+	for _, doc := range in.Instructions {
+		roots = append(roots, filepath.Dir(doc.AbsPath))
 	}
 	resolved := make([]string, 0, len(roots))
 	for _, root := range roots {
@@ -113,6 +128,9 @@ func sourceFiles(global bool) (map[string]string, []string, error) {
 	}
 	return overview.SourceFiles(in), resolved, nil
 }
+
+// sourceKinds are the spec kinds whose files the rows can show.
+var sourceKinds = []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindReview, spec.KindIgnore}
 
 // readSource reads path when it resolves to a regular file inside one
 // of roots, which have their symlinks resolved.

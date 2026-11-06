@@ -122,6 +122,47 @@ func TestServeSource_RefusesASpecWhoseSymlinkLeadsOutside(t *testing.T) {
 	getSource(t, srv, absSlash(t, link), http.StatusNotFound)
 }
 
+func TestServeSource_ServesRulesFromAnAbsoluteSourceOutsideTheProject(t *testing.T) {
+	dir, srv := sourceProject(t)
+	external := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(external)+"\n")
+	rule := filepath.Join(external, "team.md")
+	mustWriteFile(t, rule, "---\nname: team\n---\nTeam rule.\n")
+	if view := getSource(t, srv, absSlash(t, rule), http.StatusOK); view.Kind != "rule" || view.Body != "Team rule.\n" {
+		t.Errorf("view: %+v", view)
+	}
+	outside := filepath.Join(t.TempDir(), "secret.md")
+	mustWriteFile(t, outside, "---\nname: linked\n---\nOutside.\n")
+	link := filepath.Join(external, "linked.md")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	getSource(t, srv, absSlash(t, link), http.StatusNotFound)
+}
+
+func TestServeSource_ServesRulesFromALinkedSourceFolder(t *testing.T) {
+	dir, srv := sourceProject(t)
+	external := t.TempDir()
+	rule := filepath.Join(external, "team.md")
+	mustWriteFile(t, rule, "---\nname: team\n---\nTeam rule.\n")
+	rules := filepath.Join(dir, ".agnostic-ai", "rules")
+	if err := os.RemoveAll(rules); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(external, rules); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	if view := getSource(t, srv, absSlash(t, filepath.Join(rules, "team.md")), http.StatusOK); view.Body != "Team rule.\n" {
+		t.Errorf("view: %+v", view)
+	}
+	outside := filepath.Join(t.TempDir(), "secret.md")
+	mustWriteFile(t, outside, "---\nname: linked\n---\nOutside.\n")
+	if err := os.Symlink(outside, filepath.Join(external, "linked.md")); err != nil {
+		t.Fatal(err)
+	}
+	getSource(t, srv, absSlash(t, filepath.Join(rules, "linked.md")), http.StatusNotFound)
+}
+
 func TestServeSource_RefusesABuiltinSpec(t *testing.T) {
 	dir, srv := sourceProject(t)
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
