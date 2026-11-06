@@ -132,7 +132,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: `Exec` prefix-matches, so an exact `Bash(cmd)` widens. A widened deny emits (CLI v3000.10.31: "A command deny such as `Exec(rm)` blocks the command"); allow and ask drop.
 - decision: `.devin/config.json` takes only `permissions`, `read_config_from` and `hooks` in project scope, so portable `model` stays out with a coverage note.
 - hazard: `/cli/subagents` also reads `.agents/agents/`, the tree antigravity, goose and openhands write, so Devin sees two profiles per agent. A shared file is blocked on `model` (Devin model ID vs antigravity tier enum); see `target-behavior.md`.
-- quirk: `.devin/hooks.v1.json` tool names are lowercase snake_case, so a Claude-style matcher surfaces a coverage note. `.agents/skills/` is a documented compatibility path behind `.windsurf/skills/`.
+- quirk: `.devin/hooks.v1.json` tool names are lowercase snake_case, so a Claude-style matcher surfaces a coverage note. `.devin/skills/` is primary; `.agents/skills/` and the legacy `.windsurf/skills/` are also read (#3045).
 
 ## continue
 
