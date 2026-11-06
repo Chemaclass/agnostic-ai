@@ -17,7 +17,7 @@ describe('protected paths editing', () => {
   it('reads the block each file writes and leaves an absent decision empty', () => {
     expect(protectedSelection(field, [], project)).toEqual({
       shared: { paths: ['.github/**', 'composer.lock'], decision: '', reason: 'CI only.' },
-      personal: null, personalSet: false, personalPath: local,
+      personal: null, merged: { paths: ['.github/**', 'composer.lock'], decision: '', reason: 'CI only.' }, personalSet: false, personalPath: local,
     })
   })
 
@@ -38,5 +38,20 @@ describe('protected paths editing', () => {
     expect(block?.reason).toBe('')
     expect(hidesValue(block)).toBe(false)
     expect(hidesValue({ paths: ['<redacted>'], decision: '', reason: '' })).toBe(true)
+  })
+
+  it('fills a local block that leaves keys out from the project block, so a project deny stays', () => {
+    const deny = { ...field, set: [
+      { ...field.set[0], values: [...field.set[0].values, { key: 'protected.decision', type: 'text' as const, value: 'deny' }] },
+      { spec: 'permissions', path: local, local: true, values: [{ key: 'protected.paths', type: 'list' as const, list: ['notes/'] }] },
+    ] }
+    const selection = protectedSelection(deny, [], project)
+    expect(selection.personal).toEqual({ paths: ['notes/'], decision: '', reason: '' })
+    expect(selection.merged).toEqual({ paths: ['notes/'], decision: 'deny', reason: 'CI only.' })
+  })
+
+  it('keeps the project paths and reason a local block leaves out', () => {
+    const decisionOnly = { ...field, set: [...field.set, { spec: 'permissions', path: local, local: true, values: [{ key: 'protected.decision', type: 'text' as const, value: 'deny' }] }] }
+    expect(protectedSelection(decisionOnly, [], project).merged).toEqual({ paths: ['.github/**', 'composer.lock'], decision: 'deny', reason: 'CI only.' })
   })
 })

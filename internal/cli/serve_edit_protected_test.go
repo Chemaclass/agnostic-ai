@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -197,5 +198,56 @@ func TestProtectedEdit_RefusesValuesThePageHides(t *testing.T) {
 	replace := map[string]any{"action": "preview", "audience": "shared", "protected": map[string]any{"paths": []string{"vendor"}, "decision": "ask", "reason": ""}}
 	if rec := protectedRequest(t, h, replace); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "page hides") {
 		t.Fatalf("hidden source = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestProtectedEdit_LocalPathsKeepTheProjectDenyThroughSync(t *testing.T) {
+	h := targetProject(t, "name: defaults\nprotected:\n  paths: [.github/**]\n  decision: deny\n")
+	isolateGit(t)
+	git(t, h.root, "init", "-q")
+	local := ".agnostic-ai/local/settings/defaults.yaml"
+	mustWrite(t, local, "name: defaults\nprotected:\n  paths: [notes/]\n")
+	weaker := map[string]any{"action": "preview", "audience": "personal", "protected": map[string]any{"paths": []string{"notes/"}, "decision": "ask", "reason": "Mine."}}
+	if rec := protectedRequest(t, h, weaker); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "cannot lower that to ask") {
+		t.Fatalf("downgrade = %d %s", rec.Code, rec.Body)
+	}
+	body := map[string]any{"audience": "personal", "protected": map[string]any{"paths": []string{"notes/"}, "decision": "deny", "reason": "Mine."}, "before": map[string]any{"paths": []string{"notes/"}, "decision": "", "reason": ""}}
+	if rec := protectedApply(t, h, body, protectedPreview(t, h, body)); rec.Code != http.StatusOK {
+		t.Fatalf("apply = %d %s", rec.Code, rec.Body)
+	}
+	if block := protectedIn(t, local); block["decision"] != "deny" || block["reason"] != "Mine." {
+		t.Fatalf("local block = %v", block)
+	}
+	if out, err := runCLI(t, "sync", "--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	var native struct {
+		Permissions struct{ Deny, Ask []string } `json:"permissions"`
+	}
+	if err := json.Unmarshal([]byte(readProjectFile(t, ".claude/settings.json")), &native); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(native.Permissions.Deny, "Edit(/notes/**)") || slices.Contains(native.Permissions.Ask, "Edit(/notes/**)") {
+		t.Fatalf("Claude permissions = %+v", native.Permissions)
+	}
+}
+
+func TestProtectedEdit_ReplacesTheBlockInPlace(t *testing.T) {
+	h := targetProject(t, "name: defaults\n# Protect CI.\nprotected:\n  paths: [.github/**]\n  decision: ask\n# Model.\nmodel: sonnet\n")
+	body := map[string]any{"audience": "shared", "protected": map[string]any{"paths": []string{"vendor"}, "decision": "deny", "reason": ""}}
+	if rec := protectedApply(t, h, body, protectedPreview(t, h, body)); rec.Code != http.StatusOK {
+		t.Fatalf("apply = %d %s", rec.Code, rec.Body)
+	}
+	want := "name: defaults\n# Protect CI.\nprotected:\n  paths:\n    - vendor\n  decision: deny\n# Model.\nmodel: sonnet\n"
+	if got := readProjectFile(t, ".agnostic-ai/settings/defaults.yaml"); got != want {
+		t.Fatalf("file = %q, want %q", got, want)
+	}
+}
+
+func TestProtectedEdit_NamesTheScopeWithNothingToRemove(t *testing.T) {
+	h := targetProject(t, "name: defaults\n")
+	rec := protectedRequest(t, h, map[string]any{"action": "preview", "audience": "shared", "protected": nil})
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "no protected paths are set in Project") {
+		t.Fatalf("remove = %d %s", rec.Code, rec.Body)
 	}
 }

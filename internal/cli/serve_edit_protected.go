@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -204,7 +205,18 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 		return protectedEditView{}, none, fmt.Errorf("%s: protected paths hold a value the page hides; edit the file directly", overviewDisplay(h.root, file))
 	}
 	if block == nil && before == nil {
-		return protectedEditView{}, none, fmt.Errorf("%s: no protected paths are set for %s", overviewDisplay(h.root, file), where)
+		scope := h.levelLabel()
+		if where == audiencePersonal {
+			scope = "Local"
+		}
+		return protectedEditView{}, none, fmt.Errorf("%s: no protected paths are set in %s", overviewDisplay(h.root, file), scope)
+	}
+	if where == audiencePersonal && block != nil && block.Decision == spec.ProtectAsk {
+		if source, err := h.projectProtectDecision(file); err != nil {
+			return protectedEditView{}, none, err
+		} else if source != "" {
+			return protectedEditView{}, none, fmt.Errorf("%s denies edits to protected paths, and a local block cannot lower that to ask; keep deny or change the project block", source)
+		}
 	}
 	data := original.data
 	if original.info == nil {
@@ -235,16 +247,44 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 	return view, previewedEdit{file: file, before: original, after: after, expected: view.Expected}, nil
 }
 
+// projectProtectDecision names the project spec under the local file
+// when that spec's protected block denies edits, or returns "".
+func (h *editHandler) projectProtectDecision(file string) (string, error) {
+	scope, err := loadCheckScope(h.global)
+	if err != nil {
+		return "", err
+	}
+	for _, e := range scope.bundle.Settings {
+		var project *spec.Entry
+		switch {
+		case e.Base != nil && resolvedAbs(e.Path) == resolvedAbs(file):
+			project = e.Base
+		case !overview.LocalLayer(e) && resolvedAbs(filepath.Join(h.root, overview.SettingsOverlayPath(h.global, e.Name))) == resolvedAbs(file):
+			project = &e
+		default:
+			continue
+		}
+		fields, _ := project.Meta[protectedKey].(map[string]any)
+		if fields["decision"] == spec.ProtectDeny {
+			return overview.SpecPath(h.root, *project), nil
+		}
+		return "", nil
+	}
+	return "", nil
+}
+
 // setProtectedBlock replaces the whole protected block in data, in the
 // documented key order. A local file always writes the reason, because a
 // local block merges over the shared one key by key.
 func setProtectedBlock(data []byte, block *protectedBlock, local bool) ([]byte, error) {
-	out, err := removeYAMLPath(data, protectedKey)
-	if err != nil {
-		return nil, err
-	}
+	var out []byte
 	var want any
-	if block != nil {
+	if block == nil {
+		var err error
+		if out, err = removeYAMLPath(data, protectedKey); err != nil {
+			return nil, err
+		}
+	} else {
 		value := struct {
 			Paths    []string `yaml:"paths"`
 			Decision string   `yaml:"decision"`
@@ -253,14 +293,8 @@ func setProtectedBlock(data []byte, block *protectedBlock, local bool) ([]byte, 
 		if block.Reason != "" || local {
 			value.Reason = &block.Reason
 		}
-		_, root, err := yamlDocument(out)
-		if err != nil {
-			return nil, err
-		}
-		if root.Anchor != "" || root.Style&yaml.FlowStyle != 0 {
-			return nil, errors.New("flow-style or anchored settings are not safely editable")
-		}
-		if out, err = editYAMLPair(out, root, protectedKey, value); err != nil {
+		var err error
+		if out, err = replaceYAMLPair(data, protectedKey, value); err != nil {
 			return nil, err
 		}
 		fields := map[string]any{"paths": toAnyList(block.Paths), "decision": block.Decision}
@@ -291,6 +325,62 @@ func setProtectedBlock(data []byte, block *protectedBlock, local bool) ([]byte, 
 		return nil, errors.New("protected: the edit changes other YAML values")
 	}
 	return out, nil
+}
+
+// replaceYAMLPair writes key: value at the top level, in place of the
+// key's current lines when it is set, so comments around it stay put.
+func replaceYAMLPair(data []byte, key string, value any) ([]byte, error) {
+	_, root, err := yamlDocument(data)
+	if err != nil {
+		return nil, err
+	}
+	if root.Anchor != "" || root.Style&yaml.FlowStyle != 0 {
+		return nil, errors.New("flow-style or anchored settings are not safely editable")
+	}
+	at, node := yamlMapValue(root, key)
+	if node == nil {
+		return editYAMLPair(data, root, key, value)
+	}
+	keyNode := root.Content[at]
+	if node.Anchor != "" || node.Kind == yaml.AliasNode {
+		return nil, fmt.Errorf("%s is anchored and not safely editable", key)
+	}
+	start, err := yamlNodeOffset(data, keyNode)
+	if err != nil {
+		return nil, err
+	}
+	lineStart := bytes.LastIndexByte(data[:start], '\n') + 1
+	if len(bytes.TrimSpace(data[lineStart:start])) > 0 {
+		return nil, fmt.Errorf("%s is not safely editable", key)
+	}
+	end, err := yamlCollectionEnd(data, node)
+	if err != nil {
+		return nil, fmt.Errorf("%s is not safely editable: %w", key, err)
+	}
+	for end < len(data) && data[end] != '\n' {
+		end++
+	}
+	var fragment yaml.Node
+	if err := fragment.Encode(map[string]any{key: value}); err != nil {
+		return nil, err
+	}
+	raw, err := encodeYAML(&fragment)
+	if err != nil {
+		return nil, err
+	}
+	newline := "\n"
+	if bytes.Contains(data, []byte("\r\n")) {
+		newline = "\r\n"
+		if end > 0 && data[end-1] == '\r' {
+			end--
+		}
+	}
+	lines := strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n")
+	indent := strings.Repeat(" ", keyNode.Column-1)
+	for i, line := range lines {
+		lines[i] = indent + line
+	}
+	return spliceEditYAML(data, lineStart, end, strings.Join(lines, newline)), nil
 }
 
 func toAnyList(items []string) []any {

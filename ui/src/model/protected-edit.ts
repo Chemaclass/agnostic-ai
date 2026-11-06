@@ -2,14 +2,20 @@ import type { ProtectedBlock, ProtectedEditPreview, SectionItem, SettingField } 
 
 export const PROTECT_DECISIONS = ['ask', 'deny'] as const
 
-function blockFrom(values: SettingField['set'][number]['values'] | undefined): ProtectedBlock | null {
-  const text = (key: string) => {
-    const shown = values?.find((value) => value.key === `protected.${key}` && value.type === 'text')?.value ?? ''
-    return shown === '""' ? '' : shown
+type Values = SettingField['set'][number]['values']
+
+function fieldsFrom(values: Values | undefined): Partial<ProtectedBlock> {
+  const fields: Partial<ProtectedBlock> = {}
+  for (const value of values ?? []) {
+    if (value.key === 'protected.paths' && value.type === 'list') fields.paths = value.list ?? []
+    else if ((value.key === 'protected.decision' || value.key === 'protected.reason') && value.type === 'text') fields[value.key === 'protected.decision' ? 'decision' : 'reason'] = value.value === '""' ? '' : value.value ?? ''
   }
-  const paths = values?.find((value) => value.key === 'protected.paths' && value.type === 'list')?.list
-  if (!paths && !text('decision') && !text('reason')) return null
-  return { paths: paths ?? [], decision: text('decision'), reason: text('reason') }
+  return fields
+}
+
+function blockOf(fields: Partial<ProtectedBlock>): ProtectedBlock | null {
+  if (Object.keys(fields).length === 0) return null
+  return { paths: fields.paths ?? [], decision: fields.decision ?? '', reason: fields.reason ?? '' }
 }
 
 /** Whether the overview hid part of block because it looks like a credential. */
@@ -17,14 +23,17 @@ export function hidesValue(block: ProtectedBlock | null) {
   return !!block && [...block.paths, block.reason].some((text) => text.includes('<redacted>'))
 }
 
-/** The project and local protected blocks of the spec at path, as each file writes them. */
+/** The project and local protected blocks of the spec at path, as each file writes them, and the block sync reads for you. */
 export function protectedSelection(field: SettingField, files: SectionItem[], path: string) {
   const team = field.set.find((source) => source.path === path && !source.local)
   const target = field.editable?.sources?.find((source) => source.path === path)
   const spec = target?.spec ?? team?.spec ?? files.find((file) => file.path === path)?.name
   const localPath = target?.localPath ?? (path === field.editable?.path ? field.editable.localPath : undefined)
   const local = field.set.find((source) => source.local && (spec ? source.spec === spec : source.path === localPath))
-  return { shared: blockFrom(team?.values), personal: blockFrom(local?.values), personalSet: local !== undefined, personalPath: local?.path ?? localPath }
+  const project = fieldsFrom(team?.values)
+  const own = fieldsFrom(local?.values)
+  // A local block merges over the project block key by key, as sync reads it.
+  return { shared: blockOf(project), personal: blockOf(own), merged: blockOf({ ...project, ...own }), personalSet: local !== undefined, personalPath: local?.path ?? localPath }
 }
 
 function isBlock(value: unknown): value is ProtectedBlock | null {

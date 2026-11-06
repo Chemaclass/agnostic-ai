@@ -35,7 +35,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
   const current = protectedSelection(field, files, path)
   const local = audience === 'personal'
   const own = local ? current.personal : current.shared
-  const effective = local && !current.personalSet ? current.shared : own
+  const effective = local ? current.merged : current.shared
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState('')
   const [decision, setDecision] = useState('ask')
