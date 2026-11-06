@@ -45,21 +45,46 @@ test.describe('row content', () => {
     await expect(agent.getByRole('alert')).toContainText('Could not show the file: the server no longer lists it.')
   })
 
+  test('says why a withheld file shows no text', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => route.fulfill({ json: contextView }))
+    await page.route((url) => url.pathname === '/api/views/source', (route) => {
+      const path = new URL(route.request().url()).searchParams.get('path') ?? ''
+      const large = path !== rulePath
+      return route.fulfill({ json: { path, kind: large ? 'agent' : 'rule', frontmatter: [], body: '', bytes: large ? 400000 : 120, truncated: large, withheld: true } })
+    })
+    await page.goto('/?view=context')
+    await selectTab(page, 'Rules')
+    const row = page.locator('.item-row').filter({ has: page.getByRole('link', { name: /^Open testing in / }) })
+    await row.getByText('Show content', { exact: true }).click()
+    await expect(row).toContainText('The text is hidden because it looks like it holds a credential.')
+    await expect(row).not.toContainText('The file has no text after its frontmatter.')
+
+    await selectTab(page, 'Agents')
+    const agent = page.locator('.item-row').filter({ has: page.getByRole('link', { name: /^Open reviewer in / }) })
+    await agent.getByText('Show content', { exact: true }).click()
+    await expect(agent).toContainText('The file is too large to check for credentials')
+    await expect(agent).not.toContainText('Showing the first 256 KB')
+  })
+
   test('zooms a hook from its summary to its key fields and its full spec', async ({ page, context }) => {
     const hookPath = '/path/to/agnostic-ai/.agnostic-ai/hooks/guard.yaml'
+    const secretPath = '/path/to/agnostic-ai/.agnostic-ai/hooks/secret.yaml'
     const data = structuredClone(overview)
     const lifecycle = data.sections.find((section: { id: string }) => section.id === 'lifecycle')
     lifecycle.items = [
       { kind: 'hook', name: 'guard', label: 'guard', description: 'Blocks force pushes.', path: '.agnostic-ai/hooks/guard.yaml', openPath: hookPath, layer: 'project', group: 'before-tool', values: [], fields: [{ key: 'on', type: 'text', value: 'before-tool' }, { key: 'match', type: 'text', value: 'shell' }, { key: 'command', type: 'text', value: './guard.sh' }, { key: 'timeout', type: 'text', value: '10' }], findings: [] },
+      { kind: 'hook', name: 'secret', label: 'secret', description: 'Calls the deploy API.', path: '.agnostic-ai/hooks/secret.yaml', openPath: secretPath, layer: 'project', group: 'before-tool', values: [], fields: [{ key: 'command', type: 'text', value: './deploy.sh' }], findings: [] },
       { kind: 'hook', name: 'memory-hook', label: 'memory-hook', description: '', path: 'builtin:memory', layer: 'builtin', group: 'before-tool', values: [], fields: [{ key: 'command', type: 'text', value: 'agnostic-ai hook memory' }], findings: [] },
     ]
-    lifecycle.kinds[0].count = 2
+    lifecycle.kinds[0].count = 3
     const requests: string[] = []
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.route((url) => url.pathname === '/api/views/source', (route) => {
       const path = new URL(route.request().url()).searchParams.get('path') ?? ''
       requests.push(path)
-      return route.fulfill({ json: { path, kind: 'hook', frontmatter: [{ key: 'name', value: 'guard' }, { key: 'targets', value: 'claude, codex' }, { key: 'command', value: './guard.sh' }, { key: 'env.API_TOKEN', value: '<redacted>' }], body: '', bytes: 120, truncated: false } })
+      if (path === secretPath) return route.fulfill({ json: { path, kind: 'hook', frontmatter: [], body: '', bytes: 90, truncated: false, withheld: true } })
+      return route.fulfill({ json: { path, kind: 'hook', frontmatter: [{ key: 'name', value: 'guard' }, { key: 'targets', value: 'claude, codex' }, { key: 'command', value: './guard.sh' }, { key: 'timeout', value: '10' }], body: '', bytes: 120, truncated: false } })
     })
     await page.goto('/?view=lifecycle')
     await page.locator('details.stage').filter({ hasText: 'Before a tool runs' }).locator('summary').click()
@@ -79,8 +104,7 @@ test.describe('row content', () => {
     await zoom.getByRole('button', { name: 'Full spec' }).click()
     const full = row.getByLabel('Full spec of guard')
     await expect(full).toContainText('claude, codex')
-    await expect(full).toContainText('env.API_TOKEN')
-    await expect(full).toContainText('<redacted>')
+    await expect(full).toContainText('timeout')
     await saveScreenshot(page, 'hook-full-spec.png')
 
     await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
@@ -101,6 +125,11 @@ test.describe('row content', () => {
     await expect(builtinZoom.getByRole('button')).toHaveText(['Summary', 'Key fields'])
     await builtinZoom.getByRole('button', { name: 'Key fields' }).click()
     await expect(builtin.getByLabel('Key fields of memory-hook')).toContainText('agnostic-ai hook memory')
+
+    const secret = page.locator('.item-row').filter({ hasText: 'Calls the deploy API.' })
+    await secret.getByRole('group', { name: 'Details of secret' }).getByRole('button', { name: 'Full spec' }).click()
+    await expect(secret).toContainText('The text is hidden because it looks like it holds a credential.')
+    await expect(secret).not.toContainText('does not read as YAML')
   })
 
   test('hides the toggle without a server', async ({ page }) => {

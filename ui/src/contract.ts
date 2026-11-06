@@ -570,6 +570,25 @@ export interface MCPSpecPreview {
   expected: string
 }
 
+export interface HookSpecRequest {
+  action: 'preview' | 'apply'
+  audience: 'shared' | 'personal'
+  name: string
+  on: string
+  match?: string
+  command: string
+  timeout?: number
+  description?: string
+  expected?: string
+}
+
+export interface HookSpecPreview {
+  file: string
+  spec: string
+  syncCommand: string
+  expected: string
+}
+
 export type PermissionKey = 'permissions.allow' | 'permissions.ask' | 'permissions.deny'
 
 export interface PermissionEditRequest {
@@ -755,6 +774,7 @@ export const API = {
   editField: '/api/edit/field',
   editPermissions: '/api/edit/permissions',
   editMCP: '/api/edit/mcp',
+  editHook: '/api/edit/hook',
   health: '/api/health',
   switch: '/api/switch',
   globalCreate: '/api/global/create',
@@ -770,6 +790,8 @@ export interface SourceView {
   /** The file size; the body stops at 256 KB when truncated is set. */
   bytes: number
   truncated: boolean
+  /** The text looks like it holds a credential, so it is not sent. */
+  withheld?: boolean
 }
 
 /** The global setup folder the page just created. */

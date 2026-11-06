@@ -239,7 +239,7 @@ func TestServeSource_HandlerGuardsOriginWithoutTheOuterServer(t *testing.T) {
 
 func TestServeSource_CutsALargeBodyAndSaysSo(t *testing.T) {
 	dir, srv := sourceProject(t)
-	body := strings.Repeat("é", sourceBodyLimit)
+	body := strings.Repeat("é", sourceBodyLimit/2+1000)
 	path := filepath.Join(dir, ".agnostic-ai", "rules", "large.md")
 	mustWriteFile(t, path, "---\nname: large\n---\n"+body)
 	view := getSource(t, srv, absSlash(t, path), http.StatusOK)
@@ -338,7 +338,7 @@ func TestServeSource_HidesFrontmatterThatDoesNotParse(t *testing.T) {
 	broken := "---\npassword: hunter2short\nbad: [\n---\nKeep functions small.\n"
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
 	mustWriteFile(t, instructions, broken)
-	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Body != "Keep functions small.\n" || len(view.Frontmatter) != 0 {
+	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); strings.Contains(view.Body, "hunter2short") || len(view.Frontmatter) != 0 {
 		t.Errorf("instructions: %+v", view)
 	}
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "style.md")
@@ -363,8 +363,8 @@ func TestServeSource_ShowsEachNestedFieldWithTheOverviewRedaction(t *testing.T) 
 	for _, f := range view.Frontmatter {
 		got = append(got, f.Key+"="+f.Value)
 	}
-	if strings.Join(got, "|") != "name=nested|metadata.api_key=<redacted>|metadata.type=user" {
-		t.Errorf("frontmatter: %v", got)
+	if !view.Withheld || len(got) != 0 || strings.Contains(view.Body, "hunter2short") {
+		t.Errorf("a credential in frontmatter withholds the file: withheld %v, frontmatter %v", view.Withheld, got)
 	}
 }
 
@@ -390,22 +390,22 @@ func TestServeSource_NeverShowsFrontmatterThatClosesPastTheBodyLimit(t *testing.
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "big.md")
 	mustWriteFile(t, rule, "---\nname: big\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceBodyLimit+1024)+"\n---\nBody.\n")
 	view, raw := get(rule)
-	if strings.Contains(raw, "hunter2short") || view.Body != "Body.\n" || view.Truncated {
+	if strings.Contains(raw, "hunter2short") || !view.Withheld {
 		t.Errorf("closing past the body limit: truncated %v, body %q", view.Truncated, view.Body)
 	}
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
 	mustWriteFile(t, instructions, "---\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceFrontmatterLimit+sourceBodyLimit)+"\n---\nBody.\n")
 	view, raw = get(instructions)
-	if strings.Contains(raw, "hunter2short") || view.Body != "" || len(view.Frontmatter) != 0 || !view.Truncated {
+	if strings.Contains(raw, "hunter2short") || strings.Contains(view.Body, "api_key") || len(view.Frontmatter) != 0 || !view.Truncated {
 		t.Errorf("closing past the read limit: truncated %v, body length %d, frontmatter %d", view.Truncated, len(view.Body), len(view.Frontmatter))
 	}
 }
 
-func TestServeSource_ShowsAHookAsRedactedFieldsAndNoRawText(t *testing.T) {
+func TestServeSource_NeverShowsFrontmatterThatNeverCloses(t *testing.T) {
 	dir, srv := sourceProject(t)
-	hook := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
-	mustWriteFile(t, hook, "name: guard\non: before-tool\nmatch: shell\ncommand: API_TOKEN=sk-abcdefghijklmnop ./guard.sh\ntimeout: 10\nenv:\n  password: hunter2short\n")
-	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, hook)))
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "---\npassword: hunter2short\n")
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -414,19 +414,194 @@ func TestServeSource_ShowsAHookAsRedactedFieldsAndNoRawText(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status %d: %s", resp.StatusCode, data)
 	}
-	if strings.Contains(string(data), "sk-abcdefghijklmnop") || strings.Contains(string(data), "hunter2short") {
-		t.Fatalf("leaked a secret: %s", data)
-	}
 	var view sourceView
 	if err := json.Unmarshal(data, &view); err != nil {
 		t.Fatal(err)
 	}
+	if strings.Contains(string(data), "hunter2short") || strings.Contains(view.Body, "password") || len(view.Frontmatter) != 0 {
+		t.Errorf("an unclosed block must stay hidden: body %q, frontmatter %d", view.Body, len(view.Frontmatter))
+	}
+}
+
+func TestServeSource_HidesValuesNestedUnderACredentialKey(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "---\ncredentials:\n  value: hunter2short\n---\nBody.\n")
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") {
+		t.Errorf("status %d, a value under a credential key must stay hidden: %s", resp.StatusCode, data)
+	}
+}
+
+func TestServeSource_HidesCredentialsInsideListItems(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "---\naccounts:\n  - credentials:\n      value: hunter2short\n    name: ci\n---\nBody.\n")
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") {
+		t.Errorf("status %d, a credential inside a list item must stay hidden: %s", resp.StatusCode, data)
+	}
+}
+
+func TestServeSource_HidesCredentialsUnderNonStringKeys(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "---\nmetadata: {1: public, password: hunter2short}\naccounts:\n  - {2: x, token: hunter3short}\nwhen: 2026-11-06\n---\nBody.\n")
+	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, _ := io.ReadAll(resp.Body)
+	got := string(data)
+	if resp.StatusCode != http.StatusOK || strings.Contains(got, "hunter2short") || strings.Contains(got, "hunter3short") {
+		t.Errorf("status %d, credentials under maps with non-string keys must stay hidden: %s", resp.StatusCode, got)
+	}
+}
+
+func TestServeSource_NeverShowsALeadingBlockAsBody(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	for _, content := range []string{
+		"---\n- password: hunter2short\n---\nBody.\n",
+		"---\nhunter2short\n---\nBody.\n",
+		"--- \npassword: hunter2short\n---\nBody.\n",
+	} {
+		mustWriteFile(t, instructions, content)
+		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		var view sourceView
+		_ = json.Unmarshal(data, &view)
+		if resp.StatusCode != http.StatusOK || strings.Contains(string(data), "hunter2short") || (view.Body != "Body.\n" && !view.Withheld) {
+			t.Errorf("%q: status %d, body %q, raw %s", content, resp.StatusCode, view.Body, data)
+		}
+	}
+}
+
+func TestServeSource_NeverReturnsACredentialFromAnyPartOfTheFile(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	for name, content := range map[string]string{
+		"body":               "Root.\n\npassword: hunter2short\n\nexport GITHUB_TOKEN=ghp_123456789012345678901234567890123456\n",
+		"fenced":             "Root.\n\n```yaml\napi_key: hunter2short\n```\n",
+		"delimiter":          "---\n---note: divider\npassword: hunter2short\n---\nBody.\n",
+		"alias":              "---\ndefaults: &login hunter2short\npassword: *login\n---\nBody.\n",
+		"key":                "---\naccounts: {ghp_123456789012345678901234567890123456: enabled}\n---\nBody.\n",
+		"nested":             "Root.\n\n```yaml\ncredentials:\n  value: hunter2short\n```\n",
+		"block":              "Root.\n\npassword: |\n  hunter2short\n\nAfter.\n",
+		"fenced block":       "Root.\n\n```yaml\npassword: |\n  hunter2short\n```\n",
+		"frontmatter repeat": "---\nurl: https://user:hunter2short@example.com/\nnote: hunter2short\n---\nBody.\n",
+	} {
+		mustWriteFile(t, instructions, content)
+		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		got := string(data)
+		if resp.StatusCode != http.StatusOK || strings.Contains(got, "hunter2short") || strings.Contains(got, "ghp_1234567890") {
+			t.Errorf("%s: status %d leaks a credential: %s", name, resp.StatusCode, got)
+		}
+	}
+}
+
+func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	for name, content := range map[string]string{
+		"flow":               "Root.\n\n```\n{password: hunter2short}\n```\n",
+		"pem":                "Root.\n\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAhunter2short\n-----END OPENSSH PRIVATE KEY-----\n",
+		"cut":                "Root.\n\n-----BEGIN RSA PRIVATE KEY-----\nMIIEhunter2short",
+		"token":              "Root.\n\nUse ghp_123456789012345678901234567890123456 here.\n",
+		"table":              "| field | value |\n| --- | --- |\n| password | hunter2short |\n",
+		"xml":                "<password>hunter2short</password>\n",
+		"label":              "| token | hunter2short |\n",
+		"session":            "session: hunter2short\n",
+		"session cell":       "| session | hunter2short |\n",
+		"session tag":        "<session>hunter2short</session>\n",
+		"bold label":         "| **token** | hunter2short |\n",
+		"code label":         "| `auth` | hunter2short |\n",
+		"code cookie":        "| _cookie_ | hunter2short |\n",
+		"prose":              "The password is hunter2short.\n",
+		"repeated":           "Root.\n\n```yaml\nurl: https://user:hunter2short@example.com/\n```\n\nhunter2short\n",
+		"frontmatter repeat": "---\nurl: https://user:hunter2short@example.com/\nnote: hunter2short\n---\nBody.\n",
+		"indented end":       "---\nname: x\n  ---\n```yaml\nurl: https://user:hunter2short@example.com/\n```\n---\nhunter2short\n",
+	} {
+		mustWriteFile(t, instructions, content)
+		view := getSource(t, srv, absSlash(t, instructions), http.StatusOK)
+		if !view.Withheld || strings.Contains(view.Body, "hunter2short") || strings.Contains(view.Body, "ghp_") {
+			t.Errorf("%s: withheld %v, body %q", name, view.Withheld, view.Body)
+		}
+	}
+	mustWriteFile(t, instructions, "Root.\n\nKeep the token budget small.\n")
+	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Withheld || view.Body != "Root.\n\nKeep the token budget small.\n" {
+		t.Errorf("plain text must show: %+v", view)
+	}
+}
+
+func TestServeSource_WithholdsAFileTooLargeToCheckWhole(t *testing.T) {
+	dir, srv := sourceProject(t)
+	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	mustWriteFile(t, instructions, "hunter2short\n"+strings.Repeat("plain text\n", (sourceFrontmatterLimit+sourceBodyLimit)/10)+"The password is hunter2short.\n")
+	view := getSource(t, srv, absSlash(t, instructions), http.StatusOK)
+	if !view.Withheld || !view.Truncated || view.Body != "" || len(view.Frontmatter) != 0 {
+		t.Errorf("a file past the read limit is withheld: withheld %v, truncated %v, body length %d", view.Withheld, view.Truncated, len(view.Body))
+	}
+}
+
+func TestServeSource_ShowsAHookAsFieldsAndNoRawText(t *testing.T) {
+	dir, srv := sourceProject(t)
+	hook := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
+	mustWriteFile(t, hook, "name: guard\non: before-tool\nmatch: shell\ncommand: ./guard.sh\ntimeout: 10\n")
+	view := getSource(t, srv, absSlash(t, hook), http.StatusOK)
 	var got []string
 	for _, f := range view.Frontmatter {
 		got = append(got, f.Key+"="+f.Value)
 	}
-	if view.Kind != "hook" || view.Body != "" || strings.Join(got, "|") != "name=guard|on=before-tool|match=shell|command=<redacted>|timeout=10|env.password=<redacted>" {
-		t.Errorf("kind %q, body %q, fields %v", view.Kind, view.Body, got)
+	if view.Kind != "hook" || view.Body != "" || view.Withheld || strings.Join(got, "|") != "name=guard|on=before-tool|match=shell|command=./guard.sh|timeout=10" {
+		t.Errorf("kind %q, body %q, withheld %v, fields %v", view.Kind, view.Body, view.Withheld, got)
+	}
+}
+
+func TestServeSource_WithholdsAHookWithACredential(t *testing.T) {
+	dir, srv := sourceProject(t)
+	hook := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
+	for name, content := range map[string]string{
+		"token": "name: guard\non: before-tool\ncommand: API_TOKEN=sk-abcdefghijklmnop ./guard.sh\n",
+		"env":   "name: guard\non: before-tool\ncommand: ./guard.sh\nenv:\n  password: hunter2short\n",
+	} {
+		mustWriteFile(t, hook, content)
+		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, hook)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if strings.Contains(string(data), "sk-abcdefghijklmnop") || strings.Contains(string(data), "hunter2short") {
+			t.Fatalf("%s: leaked a secret: %s", name, data)
+		}
+		var view sourceView
+		if err := json.Unmarshal(data, &view); err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK || !view.Withheld || len(view.Frontmatter) != 0 || view.Body != "" {
+			t.Errorf("%s: status %d, withheld %v, fields %d, body %q", name, resp.StatusCode, view.Withheld, len(view.Frontmatter), view.Body)
+		}
 	}
 }
 
@@ -449,8 +624,8 @@ func TestServeSource_HidesAHookThatDoesNotParseOrIsCut(t *testing.T) {
 	}
 	mustWriteFile(t, broken, "name: broken\non: stop\ncommand: echo ok\n")
 	view := getSource(t, srv, absSlash(t, large), http.StatusOK)
-	if !view.Truncated || len(view.Frontmatter) != 0 || view.Body != "" {
-		t.Errorf("cut hook: truncated %v, fields %d, body length %d", view.Truncated, len(view.Frontmatter), len(view.Body))
+	if !view.Truncated || !view.Withheld || len(view.Frontmatter) != 0 || view.Body != "" {
+		t.Errorf("cut hook: truncated %v, withheld %v, fields %d, body length %d", view.Truncated, view.Withheld, len(view.Frontmatter), len(view.Body))
 	}
 }
 

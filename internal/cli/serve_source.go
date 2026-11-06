@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -38,6 +41,7 @@ type sourceView struct {
 	Body        string        `json:"body"`
 	Bytes       int64         `json:"bytes"`
 	Truncated   bool          `json:"truncated"`
+	Withheld    bool          `json:"withheld,omitempty"`
 }
 
 var errSourceNotFound = editError{Error: "path is not a file of the loaded configuration"}
@@ -163,34 +167,41 @@ func readSource(path string, roots []string, kind string) (sourceView, bool) {
 	}
 	view := sourceView{Bytes: info.Size(), Frontmatter: []sourceField{}}
 	if len(data) > limit {
-		data, view.Truncated = validUTF8Prefix(data[:limit]), true
+		view.Truncated, view.Withheld = true, true
+		return view, true
 	}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	shown := preview.Display(path, text)
+	// A value the preview hides may repeat elsewhere in plain text the
+	// detectors do not recognize, so the whole text is withheld.
+	if shown.Withheld || shown.Hidden {
+		view.Withheld = true
+		return view, true
+	}
 	if kind == string(spec.KindHook) {
-		return hookSource(view, text), true
+		return hookSource(path, view, text), true
 	}
-	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
-	switch {
-	case view.Truncated && strings.HasPrefix(text, "---") && !strings.Contains(text[3:], "\n---"):
-		body = ""
-	case err != nil:
-		body, keys = afterLeadingBlock(text), nil
-	}
+	keys, meta, body := splitSource(text)
 	if len(body) > sourceBodyLimit {
 		body, view.Truncated = string(validUTF8Prefix([]byte(body[:sourceBodyLimit]))), true
 	}
-	view.Body = body
-	for _, key := range keys {
-		view.Frontmatter = appendSourceFields(view.Frontmatter, key, meta[key])
+	head := strings.TrimSuffix(text, body)
+	if sensitiveSource(path, body) || sensitiveSource(path, head) {
+		view.Withheld = true
+		return view, true
 	}
+	for _, key := range keys {
+		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), meta[key])
+	}
+	view.Body = body
 	return view, true
 }
 
-// hookSource shows a hook file as its fields, each redacted as the
-// overview shows it, and never as raw text, which could carry a
-// credential. A file that was cut or does not parse shows nothing.
-func hookSource(view sourceView, text string) sourceView {
-	if view.Truncated {
+// hookSource shows a hook file as its fields, never as raw text. A file
+// that does not parse shows no fields.
+func hookSource(path string, view sourceView, text string) sourceView {
+	if sensitiveSource(path, text) {
+		view.Withheld = true
 		return view
 	}
 	e, err := spec.ParseYAMLBytes(spec.KindHook, []byte(text))
@@ -198,21 +209,43 @@ func hookSource(view sourceView, text string) sourceView {
 		return view
 	}
 	for _, key := range e.MetaKeys {
-		view.Frontmatter = appendSourceFields(view.Frontmatter, key, e.Meta[key])
+		view.Frontmatter = appendSourceFields(view.Frontmatter, preview.RedactText(key), e.Meta[key])
 	}
 	return view
 }
 
-// afterLeadingBlock is text without a leading block that did not parse,
-// or nothing when that block never closes, so its values stay hidden.
-func afterLeadingBlock(text string) string {
-	end := strings.Index(text[3:], "\n---")
-	if end < 0 {
-		return ""
+// splitSource is text's frontmatter keys, values and body. A leading
+// --- block never reaches the body, whatever it parses to.
+func splitSource(text string) ([]string, map[string]any, string) {
+	keys, meta, body, err := spec.SplitFrontmatter([]byte(text))
+	if err != nil {
+		keys = nil
 	}
-	rest := text[3+end+4:]
-	if i := strings.IndexByte(rest, '\n'); i >= 0 {
-		return rest[i+1:]
+	if leadingBlock(text) {
+		body = afterLeadingBlock(text)
+	}
+	return keys, meta, body
+}
+
+// leadingBlock reports whether text opens with a --- line. That block
+// never reaches the body, whatever it parses to, so a value the parser
+// treats as body text (a YAML list, a block that does not parse, one
+// that never closes) cannot show unredacted.
+func leadingBlock(text string) bool {
+	first, _, _ := strings.Cut(text, "\n")
+	return strings.TrimRight(first, " \t") == "---"
+}
+
+// afterLeadingBlock is text without its leading block, or nothing when
+// that block never closes.
+func afterLeadingBlock(text string) string {
+	_, rest, _ := strings.Cut(text, "\n")
+	for rest != "" {
+		line, next, _ := strings.Cut(rest, "\n")
+		if strings.TrimRight(line, " \t") == "---" {
+			return next
+		}
+		rest = next
 	}
 	return ""
 }
@@ -238,24 +271,77 @@ func validUTF8Prefix(data []byte) []byte {
 }
 
 // appendSourceFields adds one field per leaf of v: a map walks into
-// dotted keys in sorted order, a list shows its items joined by commas,
-// and each value is shown and redacted as the overview shows it.
+// dotted keys in sorted order, a list of plain values shows its items
+// joined by commas, a list holding maps or lists walks each item by
+// index, and each value is shown and redacted as the overview shows it.
+// A value of any other shape is hidden, so an unexpected YAML type never
+// reaches the page unredacted.
 func appendSourceFields(fields []sourceField, key string, v any) []sourceField {
 	switch t := v.(type) {
 	case map[string]any:
-		if len(t) == 0 {
-			break
-		}
 		for _, k := range slices.Sorted(maps.Keys(t)) {
-			fields = appendSourceFields(fields, key+"."+k, t[k])
+			fields = appendSourceFields(fields, key+"."+preview.RedactText(k), t[k])
 		}
 		return fields
+	case map[any]any:
+		named := make(map[string]any, len(t))
+		for k, item := range t {
+			named[fmt.Sprint(k)] = item
+		}
+		return appendSourceFields(fields, key, named)
 	case []any:
+		if slices.ContainsFunc(t, isNested) {
+			for i, item := range t {
+				fields = appendSourceFields(fields, key+"."+strconv.Itoa(i), item)
+			}
+			return fields
+		}
 		items := make([]string, 0, len(t))
 		for _, item := range t {
-			items = append(items, overview.ShownText(key, item))
+			items = append(items, shownSourceValue(key, item))
 		}
 		return append(fields, sourceField{Key: key, Value: strings.Join(items, ", ")})
 	}
-	return append(fields, sourceField{Key: key, Value: overview.ShownText(key, v)})
+	return append(fields, sourceField{Key: key, Value: shownSourceValue(key, v)})
+}
+
+func shownSourceValue(key string, v any) string {
+	switch v.(type) {
+	case nil, string, bool, int, int64, uint64, float64:
+		return overview.ShownText(key, v)
+	}
+	return sourceHidden
+}
+
+const sourceHidden = "<redacted>"
+
+func isNested(v any) bool {
+	switch v.(type) {
+	case map[string]any, map[any]any, []any:
+		return true
+	}
+	return false
+}
+
+var (
+	credentialAssignment = regexp.MustCompile(`(?i)(?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|access[ _-]?key|private[_-]?key|credentials?|auth(?:orization)?|bearer|cookie|session|client[ _-]?secret)[A-Za-z0-9_.-]*["'*_` + "`" + `]*\s*[:=]`)
+	credentialWord       = regexp.MustCompile(`(?i)\b(?:pass(?:word|wd|phrase)s?|secrets?|credentials?|api[ _-]?keys?|private[ _-]?keys?|client[ _-]?secrets?)\b`)
+	credentialLabel      = regexp.MustCompile(`(?im)(?:<\s*/?\s*[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?|access[ _-]?keys?)[\s/>]|(?:\|\s*|^\s*)[*_~` + "`" + `]*(?:tokens?|auth(?:orization)?|bearer|cookies?|sessions?(?:[ _-]?ids?)?|access[ _-]?keys?)[*_~` + "`" + `]*(?:\s*\||[^A-Za-z|\n]*\|))`)
+	privateKeyBlock      = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY`)
+)
+
+// sensitiveSource reports whether the body shows any sign of a credential:
+// the shared preview hid or withheld part of it, a credential-named key
+// is assigned, a strong credential word (password, secret, API key)
+// appears anywhere, a weaker one (token, auth, cookie) labels a table
+// cell or an XML tag, a private key block starts, or a recognizable
+// token or credential appears. The whole body is then withheld rather than
+// redacted piece by piece, so an unusual layout cannot slip a value
+// through; the file still opens in the editor. A credential written as
+// free prose is not detectable.
+func sensitiveSource(path, body string) bool {
+	shown := preview.Display(path, body)
+	return shown.Hidden || shown.Withheld || credentialAssignment.MatchString(body) || credentialWord.MatchString(body) ||
+		credentialLabel.MatchString(body) || privateKeyBlock.MatchString(body) ||
+		preview.TokenIn(body) || preview.CredentialDetected(body)
 }

@@ -66,8 +66,16 @@ function SourceText({ view }: { view: SourceView }) {
           ))}
         </span>
       )}
-      {view.body.trim() ? <pre className="source-text">{view.body}</pre> : <p className="muted">The file has no text after its frontmatter.</p>}
-      {view.truncated && <p className="muted">Showing the first 256 KB of {view.bytes.toLocaleString()} bytes. Open the file to read the rest.</p>}
+      {view.withheld
+        ? <WithheldNote view={view} />
+        : view.body.trim() ? <pre className="source-text">{view.body}</pre> : <p className="muted">The file has no text after its frontmatter.</p>}
+      {view.truncated && !view.withheld && <p className="muted">Showing the first 256 KB of {view.bytes.toLocaleString()} bytes. Open the file to read the rest.</p>}
     </div>
   )
+}
+
+export function WithheldNote({ view }: { view: SourceView }) {
+  return <p className="muted">{view.truncated
+    ? 'The file is too large to check for credentials, so its text is hidden. Open it in your editor to read it.'
+    : 'The text is hidden because it looks like it holds a credential. Open the file in your editor to read it.'}</p>
 }

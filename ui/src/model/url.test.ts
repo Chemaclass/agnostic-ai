@@ -7,6 +7,8 @@ describe('URL state parsing', () => {
     expect(parseUrlState('?view=nonsense').view).toBe('context')
     expect(parseUrlState('?view=feed').view).toBe('context')
     expect(parseUrlState('?view=lifecycle').view).toBe('lifecycle')
+    expect(parseUrlState('?view=health').view).toBe('health')
+    expect(serializeUrlState(parseUrlState('?view=health&mock=1'))).toBe('?view=health&mock=1')
   })
 
   it('round-trips through serialization, leaving defaults out', () => {

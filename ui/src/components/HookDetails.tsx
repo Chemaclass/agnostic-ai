@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { SectionItem, Value } from '../contract'
-import { SourceState, useSource, useSourceShown } from './SourceContent'
+import { SourceState, useSource, useSourceShown, WithheldNote } from './SourceContent'
 
 type Level = 'summary' | 'fields' | 'full'
 
@@ -24,9 +24,11 @@ export function HookDetails({ item }: { item: SectionItem }) {
       {level === 'fields' && (fields.length ? <FieldList fields={fields} label={`Key fields of ${item.label}`} /> : <p className="muted">The hook sets none of its key fields.</p>)}
       {level === 'full' && (
         <SourceState loaded={loaded}>
-          {(view) => view.frontmatter.length
-            ? <FieldList fields={view.frontmatter} label={`Full spec of ${item.label}`} />
-            : <p className="muted">{view.truncated ? 'The file is too large to show here.' : 'The file does not read as YAML.'} Open it to see it.</p>}
+          {(view) => view.withheld
+            ? <WithheldNote view={view} />
+            : view.frontmatter.length
+              ? <FieldList fields={view.frontmatter} label={`Full spec of ${item.label}`} />
+              : <p className="muted">The file does not read as YAML. Open it to see it.</p>}
         </SourceState>
       )}
     </div>
