@@ -140,7 +140,7 @@ func noteQwenRuleFiles(root string) error {
 }
 
 func scopeQwenAgentFields(data []byte) ([]byte, error) {
-	return scopeQwenFields(data, "name", "description", "model", "color", "maxTurns", "background", "hooks", "can")
+	return scopeQwenFields(data, "name", "description", "model", "color", "maxTurns", "background", "can")
 }
 func scopeQwenSkillFields(data []byte) ([]byte, error) {
 	native, _ := splitMdcFrontmatter([]byte(header.Strip(string(data))))

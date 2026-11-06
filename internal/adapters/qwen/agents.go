@@ -2,6 +2,7 @@ package qwen
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -36,13 +37,24 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		}
 		meta := map[string]any{"name": a.Name, "description": description}
 		keys := []string{"name", "description"}
+		native, _ := emit.CustomTargetMeta(a.Meta, target)
 		for _, key := range agentFields {
 			if value, ok := resolved[key]; ok {
 				meta[key] = value
 				keys = append(keys, key)
 			}
 		}
-		native, _ := emit.CustomTargetMeta(a.Meta, target)
+		if _, override := native["hooks"]; !override {
+			if hooks, ok := meta["hooks"].(map[string]any); ok {
+				hooks = agentStopAsSubagentStop(hooks)
+				meta["hooks"] = hooks
+				for event := range hooks {
+					if !slices.Contains(HookEvents(), event) {
+						emit.NoteFieldNoOp(target, spec.KindAgent, "hooks", 1, "Qwen skips agent hook event "+event)
+					}
+				}
+			}
+		}
 		if _, override := native["tools"]; !override {
 			names := emit.StringSlice(a.Meta["tools"])
 			if len(names) > 0 {
@@ -76,4 +88,23 @@ func (Adapter) TranslatePermission(_ string, rule string) ([]string, bool) {
 		return nil, false
 	}
 	return []string{rule}, true
+}
+
+// agentStopAsSubagentStop moves a shared agent `Stop` hook to
+// `SubagentStop`, the event Claude Code runs it on: Qwen "Stop is not
+// automatically remapped" (qwenlm.github.io/qwen-code-docs/en/users/features/hooks/).
+func agentStopAsSubagentStop(hooks map[string]any) map[string]any {
+	stop, ok := hooks["Stop"].([]any)
+	if !ok {
+		return hooks
+	}
+	out := make(map[string]any, len(hooks))
+	for event, groups := range hooks {
+		if event != "Stop" {
+			out[event] = groups
+		}
+	}
+	existing, _ := out["SubagentStop"].([]any)
+	out["SubagentStop"] = append(append([]any(nil), existing...), stop...)
+	return out
 }
