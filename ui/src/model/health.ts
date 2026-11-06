@@ -21,6 +21,8 @@ export interface FindingPlace {
   section: Section
   item?: SectionItem
   owner?: string
+  /** Section findings on the global setup, listed apart from the project's. */
+  global?: boolean
   findings: ItemFinding[]
   ids: string[]
 }
@@ -35,18 +37,25 @@ export function countFindings(overview: OverviewView): FindingCount {
   const byPlace: FindingPlace[] = []
   let errors = 0
   let warnings = 0
-  const add = (section: Section, findings: ItemFinding[], item?: SectionItem) => {
-    if (!findings.length) return
-    const owner = item ? itemEntryId(item) : undefined
-    byPlace.push({ section, item, owner, findings, ids: findingEntryIds(findings, owner) })
-    for (const finding of findings) {
+  const add = (place: FindingPlace) => {
+    if (!place.findings.length) return
+    byPlace.push(place)
+    for (const finding of place.findings) {
       if (healthSeverity(finding) === 'error') errors++
       else warnings++
     }
   }
   for (const section of [...overview.sections].sort((a, b) => a.order - b.order)) {
-    for (const item of section.items) add(section, item.findings, item)
-    add(section, section.findings)
+    for (const item of section.items) {
+      const owner = itemEntryId(item)
+      add({ section, item, owner, findings: item.findings, ids: findingEntryIds(item.findings, owner) })
+    }
+    // Ids come from the whole list, as the section page gives them.
+    const ids = findingEntryIds(section.findings)
+    for (const global of [false, true]) {
+      const picked = section.findings.map((finding, i) => ({ finding, id: ids[i] })).filter(({ finding }) => (finding.layer === 'global') === global)
+      add({ section, global: global || undefined, findings: picked.map(({ finding }) => finding), ids: picked.map(({ id }) => id) })
+    }
   }
   return { errors, warnings, byPlace }
 }
@@ -57,8 +66,8 @@ export function healthSummary(count: Pick<FindingCount, 'errors' | 'warnings'>):
 }
 
 /** The recheck place for one owner's findings of one severity in the health view. */
-export function healthPlace(severity: HealthSeverity, place: Pick<FindingPlace, 'section' | 'owner'>): string {
-  return `health:${severity}:${place.owner ?? `section:${place.section.id}`}`
+export function healthPlace(severity: HealthSeverity, place: Pick<FindingPlace, 'section' | 'owner' | 'global'>): string {
+  return `health:${severity}:${place.owner ?? `${place.global ? 'global:' : ''}section:${place.section.id}`}`
 }
 
 /** One owner's findings of one severity. */
@@ -100,7 +109,7 @@ export function healthGroups(overview: OverviewView, keep?: KeptPlace): HealthGr
       const section = sections.find((s) => s.id === earlier.section.id) ?? earlier.section
       const item = earlier.owner ? section.items.find((it) => itemEntryId(it) === earlier.owner) ?? earlier.item : undefined
       const group = groups.find((g) => g.severity === severity)!
-      group.entries.push({ section, item, owner: earlier.owner, findings: [], ids: [], place: keep.place, entry: item ? earlier.owner : undefined })
+      group.entries.push({ section, item, owner: earlier.owner, global: earlier.global, findings: [], ids: [], place: keep.place, entry: item ? earlier.owner : undefined })
       break
     }
   }
@@ -118,8 +127,9 @@ export function healthGroups(overview: OverviewView, keep?: KeptPlace): HealthGr
     })
 }
 
-export function placeLabel(place: Pick<FindingPlace, 'item'>): string {
-  return place.item ? place.item.label || place.item.name : 'Other findings'
+export function placeLabel(place: Pick<FindingPlace, 'item' | 'global'>): string {
+  if (place.item) return place.item.label || place.item.name
+  return place.global ? 'Global setup' : 'Other findings'
 }
 
 /** One prompt for every finding, errors first, with the shared guidance once at the end. */
