@@ -101,7 +101,8 @@ func requireGlobalVersion(source string, skipBroken io.Writer) error {
 // servedRequires is the requires the page shows beside the running
 // version, and whether that version meets it. It never fails: a config
 // that does not read shows no requires, and the page reports the load
-// error on its own. met is nil for a build the check cannot place.
+// error on its own, and so does a requires that does not parse. met is
+// nil for a build the check cannot place.
 func servedRequires(root string, global bool) (requires string, met *bool) {
 	if global {
 		requires = globalRequires(root)
@@ -119,7 +120,7 @@ func servedRequires(root string, global bool) (requires string, met *bool) {
 	}
 	req, err := config.ParseRequirement(requires)
 	if err != nil {
-		return requires, nil
+		return "", nil
 	}
 	if allowed, release := req.Allows(runningVersion); release {
 		return requires, &allowed

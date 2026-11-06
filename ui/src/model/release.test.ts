@@ -34,7 +34,11 @@ describe('required release', () => {
     })
   })
 
-  it('says a checkout build is not checked', () => {
-    expect(requiredRelease({ global: false, version: 'main@b434c92e1a2b', requires: '>=0.81.0', requiresMet: null })).toMatchObject({ state: 'unchecked' })
+  it('says a source build is not checked without naming the release it reports', () => {
+    expect(requiredRelease({ global: false, version: '0.91.0', requires: '>=0.81.0', requiresMet: null })).toEqual({
+      label: 'requires >=0.81.0',
+      state: 'unchecked',
+      title: 'This project needs agnostic-ai >=0.81.0. This build is not a release, so it is not checked.',
+    })
   })
 })
