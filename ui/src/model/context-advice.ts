@@ -75,8 +75,10 @@ function projectPath(kind: Kind, name: string): string {
   return `.agnostic-ai/rules/${name}.md`
 }
 
+const CHECK_STEP = 'Run agnostic-ai sync, then '
+
 function checkStep(target: string, file?: string): string {
-  return `Run agnostic-ai sync, then ${explainCommand(target, file)} to check the new counts.`
+  return `${CHECK_STEP}${explainCommand(target, file)} to check the new counts.`
 }
 
 function loadTotal(report: AdviceReport, load: ContextLoad): ContextSize {
@@ -258,27 +260,37 @@ function builtinText(c: ContextContribution, report: AdviceReport, name: string,
   }
 }
 
+function sourceFacts(c: ContextContribution, report: AdviceReport): string[] {
+  const share = sharePercent(c.words, loadTotal(report, c.load).words)
+  return [
+    `Loads: ${LOAD_CONDITIONS[c.load]} (${c.load})`,
+    `Size: ${sizeText(c)} (${share}% of ${LOAD_LABELS[c.load].toLowerCase()} content for ${report.target})`,
+  ]
+}
+
+function builtinLine(owner: string | undefined): string {
+  return `Built-in: ${owner ?? 'unknown'} (ships with agnostic-ai; its text is not in the project)`
+}
+
 export function contextAdvice(c: ContextContribution, report: AdviceReport, root?: string): ContextAdvice {
   const name = specName(c.source)
   const owner = c.source === MEMORY_INDEX ? 'memory' : builtinOwner(c.source)
   const base = describe(c, report, name)
   const text = isBuiltin(c.source) ? builtinText(c, report, name, owner, base) : base
-  const share = sharePercent(c.words, loadTotal(report, c.load).words)
   const goal = c.load === 'startup' ? 'cuts its startup size' : 'cuts its size'
   const lines = [
     `Review one source of instruction text that agnostic-ai explain --context ranked for ${report.target}:`,
     '',
     `Source: ${c.source}`,
     `Kind: ${c.category}`,
-    `Loads: ${LOAD_CONDITIONS[c.load]} (${c.load})`,
-    `Size: ${sizeText(c)} (${share}% of ${LOAD_LABELS[c.load].toLowerCase()} content for ${report.target})`,
+    ...sourceFacts(c, report),
   ]
   if (root) lines.push(`Configuration root: ${root}`)
-  if (isBuiltin(c.source)) lines.push(`Built-in: ${owner ?? 'unknown'} (ships with agnostic-ai; its text is not in the project)`)
+  if (isBuiltin(c.source)) lines.push(builtinLine(owner))
   lines.push('', `What it is: ${text.what}`, `Why it loads: ${text.why}`, 'Options:', ...text.actions.map((a) => `- ${a}`))
   lines.push(
     '',
-    `Read the source and propose the smallest safe change that ${goal} without losing instructions the team relies on. State the tradeoffs of each option, such as a tool that would stop loading a rule, or shared memory that would stop working. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.`,
+    `Read the source and propose the smallest safe change that ${goal} without losing instructions the team relies on. State the tradeoffs of each option, such as a tool that would stop loading a rule, or project memory that would stop working. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.`,
     '',
     `After the change, run agnostic-ai sync, then ${explainCommand(report.target, report.takesFile === false ? undefined : report.file)} to check the new counts. Words and bytes measure text size, not tokens; do not claim lower latency or cost.`,
   )
@@ -311,6 +323,51 @@ export function contextStartupPrompt(report: ContextReport, root?: string, budge
     'Read each source. For every one, say whether it must load in every session, could load only for matching files (a rule with globs), only when a task needs it (a skill), or could go. Propose the smallest safe set of changes, largest saving first, with the tradeoff of each: a tool that would stop loading a rule, a built-in that would be turned off, or an instruction the team relies on. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.',
     '',
     `After the change, run agnostic-ai sync, then ${explainCommand(report.target, report.file)} to check the new counts. Words and bytes measure text size, not tokens; do not claim lower latency or cost.`,
+  )
+  return lines.join('\n')
+}
+
+const RANK_ORDER: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
+const NOTHING_TO_DO = new Set(['generated framing'])
+
+/** One prompt that asks a coding agent to apply the advice for every source that has something to change, startup first. */
+export function contextAllAdvicePrompt(report: AdviceReport & Pick<ContextReport, 'contributions'>, root?: string, budget?: number): string {
+  const seen = new Set<string>()
+  const sources = RANK_ORDER.flatMap((load) => report.contributions.filter((c) => c.load === load)).filter((c) => {
+    const key = `${c.load}|${c.source}|${c.category}`
+    if (NOTHING_TO_DO.has(c.category) || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  if (sources.length === 0) return ''
+  const file = report.takesFile === false ? undefined : report.file
+  const lines = [
+    `Apply the advice for every source of instruction text that agnostic-ai explain --context ranked for ${report.target}, startup first and largest first within each load:`,
+    '',
+    `Target: ${report.target}`,
+    startupVerdict(report.startup, budget).text,
+    `Startup size: ${sizeText(report.startup)}`,
+  ]
+  if (file) lines.push(`File: ${file}`)
+  if (root) lines.push(`Configuration root: ${root}`)
+  sources.forEach((c, index) => {
+    const advice = contextAdvice(c, report, root)
+    lines.push('', `## ${index + 1}. ${c.source} (${c.category})`, ...sourceFacts(c, report))
+    if (isBuiltin(c.source)) lines.push(builtinLine(advice.builtin))
+    lines.push(
+      `What it is: ${advice.what}`,
+      `Why it loads: ${advice.why}`,
+      'Options:',
+      ...advice.actions.filter((a) => !a.startsWith(CHECK_STEP)).map((a) => `- ${a}`),
+    )
+  })
+  lines.push(
+    '',
+    '## Your task',
+    '',
+    'Read every source above. Propose one change set that applies the advice together, largest saving first, with the tradeoff of each change: a tool that would stop loading a rule, a built-in that would be turned off, project memory that would stop working, or an instruction the team relies on. Where two sources need the same change, make it once. Edit the canonical specs under .agnostic-ai/, not generated files. Do not apply any change until I agree.',
+    '',
+    `After the change, run agnostic-ai sync, then ${explainCommand(report.target, file)} to check the new counts. Words and bytes measure text size, not tokens; do not claim lower latency or cost.`,
   )
   return lines.join('\n')
 }

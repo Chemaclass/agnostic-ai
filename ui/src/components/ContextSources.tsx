@@ -4,7 +4,7 @@
 import { Fragment, useRef, useState } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { ContextContribution, ContextLoad, ContextReport, ContextSize } from '../contract'
-import { contextAdvice, startHere } from '../model/context-advice'
+import { contextAdvice, contextAllAdvicePrompt, startHere } from '../model/context-advice'
 import { isBuiltin, kindTotals, sharePercent } from '../model/context-breakdown'
 import { LOAD_CONDITIONS, LOAD_LABELS } from '../model/context-prompt'
 import { plural } from '../model/format'
@@ -53,11 +53,16 @@ export function useSourcePick(report: ContextReport | undefined, openByDefault: 
   return { advice, setAdvice, expanded, setExpanded, open, setOpen, focusKey, show }
 }
 
-export function ContextSources({ report, root, takesFile, pick }: { report: ContextReport; root?: string; takesFile: boolean; pick: SourcePick }) {
+export function ContextSources({ report, root, takesFile, budget, pick }: { report: ContextReport; root?: string; takesFile: boolean; budget?: number; pick: SourcePick }) {
   if (report.contributions.length === 0) return null
+  const allAdvice = contextAllAdvicePrompt({ ...report, takesFile }, root, budget)
   return (
     <>
       <StartHere report={report} onPick={pick.show} />
+      <div className="finding-actions context-all-advice">
+        <span className="muted">Ask a coding agent to apply the advice for every source at once:</span>
+        <CopyButton text={allAdvice} label="Copy all advice" ariaLabel={`Copy all advice for ${report.target}`} disabled={!allAdvice} />
+      </div>
       <Contributions report={report} root={root} takesFile={takesFile} open={pick.open} onToggle={pick.setOpen} advice={pick.advice} setAdvice={pick.setAdvice} expanded={pick.expanded} setExpanded={pick.setExpanded} focusKey={pick.focusKey} />
     </>
   )
