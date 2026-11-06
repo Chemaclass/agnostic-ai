@@ -778,4 +778,6 @@
 # Show content on Context rows (#3025), on top of the sidebar footer change,
 # measured 24813728 bytes on Go 1.27.3: serve answers /api/views/source and the
 # embedded UI bundle carries the row disclosure. The budget is that plus 8192.
-24825856
+# The #3025 review fixes (open the file inside its root, one chip per nested
+# field) measured 24826016 bytes on Go 1.27.3; rounded up to the next 4096 bytes.
+24829952
