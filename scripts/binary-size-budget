@@ -772,7 +772,12 @@
 # bytes; the budget is that plus 8192.
 # Junie timeout range warnings (#3014), combined with roots validation (#3016),
 # measured 24780960 bytes on Go 1.27.3; keep the 8192-byte build allowance.
+# The sidebar footer with the configuration switch, Overview JSON and the
+# required version on /api/health (#3034, #3035, #3036) measured 24793248
+# bytes; the budget is that plus 8192.
+# Qwen agent background and hooks (#3043) measured 24805536 bytes on Go 1.27.3,
+# up 8192 from main d36dce97; keep the 8192-byte build allowance.
 # Adding a hook from the Lifecycle page (#3037) measured 24826016 bytes; the
 # budget is that rounded up to a multiple of 4096.
-# After merging main, the branch measured 24842400 bytes; budget is that plus 8192.
+# After merging main, the branch measured 24842400 bytes; budget is that plus 8192, rounded up to a multiple of 4096.
 24854528
