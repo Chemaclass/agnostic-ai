@@ -32,6 +32,36 @@ func importJSONMCPMap(target, srcPath, mapKey, dstDir string) (int, error) {
 	return writeMCPYAMLs(target, servers, dstDir)
 }
 
+// importJSONMCPMapSkippingOAuthLiterals is importJSONMCPMap for a native file
+// that can carry an `oauth` block. A literal credential in that block cannot be
+// rewritten into a spec reference, so the server is left out with a note rather
+// than committed, the same way importQoderMCP treats it.
+func importJSONMCPMapSkippingOAuthLiterals(target, srcPath, mapKey, dstDir string) (int, error) {
+	servers, err := readJSONMapAt(srcPath, mapKey)
+	if err != nil || len(servers) == 0 {
+		return 0, err
+	}
+	clean := make(map[string]any, len(servers))
+	var skipped []mcpLiteralRef
+	for name, raw := range servers {
+		server, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if field := mcpOAuthCredential(server["oauth"]); field != "" {
+			skipped = append(skipped, mcpLiteralRef{server: name, field: field, leftOut: true})
+			continue
+		}
+		clean[name] = server
+	}
+	count, err := writeMCPYAMLs(target, clean, dstDir)
+	if err != nil {
+		return count, err
+	}
+	reportMCPLiteralRefs(skipped)
+	return count, nil
+}
+
 // readJSONMapAt loads srcPath as JSON and returns the map at mapKey.
 // Supports a dotted key like "amp.mcpServers" so callers can target a
 // nested key without writing custom decoders. Missing file or missing

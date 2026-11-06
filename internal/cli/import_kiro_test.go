@@ -393,3 +393,61 @@ func TestImportKiro_OnDemandSteeringWarnsWhenARuleWouldOverwriteIt(t *testing.T)
 		t.Error("expected the existing rule source to stay untouched")
 	}
 }
+
+// A literal oauth credential in .kiro/settings/mcp.json cannot be rewritten
+// into a spec reference, so the server is left out with a note and the secret
+// never reaches the source tree (#3074). A reference is not a literal, so a
+// server whose clientSecret reads ${NAME} still imports.
+func TestImportFromKiro_LeavesOutLiteralOAuthClientSecret(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	out := captureSummary(t)
+	src := rootSources()
+	const secret = "sk-live-9f8c7b6a5d4e3c2b1a"
+	writeFile(t, filepath.Join(dir, kiroMCPFile), `{"mcpServers":{
+		"literal":{"command":"run-server","oauth":{"clientSecret":"`+secret+`"}},
+		"referenced":{"command":"ref-server","oauth":{"clientSecret":"${KIRO_CLIENT_SECRET}"}},
+		"clean":{"command":"ok-server"}}}`)
+	if err := importFromKiro(dir, &config.Config{Sources: src}); err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := spec.LoadLayered([]spec.Layer{{Root: dir, Sources: src}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(bundle.MCPs))
+	for _, e := range bundle.MCPs {
+		names = append(names, e.Name)
+	}
+	for _, got := range names {
+		if got == "literal" {
+			t.Errorf("a literal oauth.clientSecret was imported: %v", names)
+		}
+	}
+	if len(names) != 2 {
+		t.Fatalf("imported %v, want referenced and clean only", names)
+	}
+	want := "MCP server literal: left out; oauth.clientSecret holds a credential import cannot rewrite"
+	if !strings.Contains(out.String(), want) {
+		t.Errorf("missing note %q in:\n%s", want, out.String())
+	}
+	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return walkErr
+		}
+		if path == filepath.Join(dir, kiroMCPFile) {
+			return nil // the source file is where the literal already lives
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		if strings.Contains(string(data), secret) {
+			t.Errorf("secret written to %s", path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

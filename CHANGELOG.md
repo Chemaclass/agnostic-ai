@@ -78,6 +78,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Kiro
 
 - Agent files write an MCP server's `x-kiro.timeout` and `x-kiro.requestTimeout`. A portable `timeout` is left out with a note naming both keys (#3041).
+- Import leaves out a `.kiro/settings/mcp.json` server whose `oauth` block holds a literal credential, with a note naming the field, so a client secret no longer lands in a committed spec (#3074).
 
 #### Pi
 
