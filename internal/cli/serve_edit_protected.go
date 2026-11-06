@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -36,6 +37,7 @@ type protectedEditRequest struct {
 	Path      string          `json:"path"`
 	Protected json.RawMessage `json:"protected"`
 	Before    json.RawMessage `json:"before"`
+	Inherited json.RawMessage `json:"inherited"`
 	Expected  string          `json:"expected"`
 }
 
@@ -143,6 +145,10 @@ func protectedBlockAt(data []byte) (*protectedBlock, error) {
 	if !ok {
 		return nil, errors.New("protected is not a mapping; edit the file directly")
 	}
+	return protectedBlockOf(fields), nil
+}
+
+func protectedBlockOf(fields map[string]any) *protectedBlock {
 	block := &protectedBlock{Paths: []string{}}
 	list, _ := fields["paths"].([]any)
 	for _, item := range list {
@@ -150,7 +156,7 @@ func protectedBlockAt(data []byte) (*protectedBlock, error) {
 	}
 	block.Decision, _ = fields["decision"].(string)
 	block.Reason, _ = fields["reason"].(string)
-	return block, nil
+	return block
 }
 
 const protectedHiddenMarker = "<redacted>"
@@ -211,22 +217,41 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 		}
 		return protectedEditView{}, none, fmt.Errorf("%s: no protected paths are set in %s", overviewDisplay(h.root, file), scope)
 	}
-	if where == audiencePersonal && block != nil && block.Decision == spec.ProtectAsk {
-		if source, err := h.projectProtectDecision(file); err != nil {
+	var inherited *protectedBlock
+	if where == audiencePersonal {
+		project, source, err := h.projectProtectBlock(file)
+		if err != nil {
 			return protectedEditView{}, none, err
-		} else if source != "" {
+		}
+		if req.Action == "preview" && len(req.Inherited) > 0 {
+			var wanted *protectedBlock
+			if json.Unmarshal(req.Inherited, &wanted) != nil {
+				return protectedEditView{}, none, errors.New("inherited must be the project protected block the page showed, or null when unset")
+			}
+			if !reflect.DeepEqual(shownProtectedBlock(project), wanted) {
+				return protectedEditView{}, none, permissionEditConflict{fmt.Errorf("%s: the protected paths this file inherits changed after editing began; reload saved paths", source)}
+			}
+		}
+		if block != nil && project != nil && project.Decision == spec.ProtectDeny && block.Decision == spec.ProtectAsk {
 			return protectedEditView{}, none, fmt.Errorf("%s denies edits to protected paths, and a local block cannot lower that to ask; keep deny or change the project block", source)
+		}
+		inherited = project
+	}
+	write := protectedWriteFor(block, inherited)
+	if block != nil && write == nil {
+		if before == nil {
+			return protectedEditView{}, none, errors.New("these values match the protected paths this file inherits; there is nothing to save in Local")
 		}
 	}
 	data := original.data
 	if original.info == nil {
 		data = []byte(scaffold)
 	}
-	after, err := setProtectedBlock(data, block, where == audiencePersonal)
+	after, err := setProtectedBlock(data, write)
 	if err != nil {
 		return protectedEditView{}, none, fmt.Errorf("%s: %w", overviewDisplay(h.root, file), err)
 	}
-	after = permissionEditRest(after, data, block == nil)
+	after = permissionEditRest(after, data, write == nil)
 	view := protectedEditView{SchemaVersion: "protected-edit/v1", File: overviewDisplay(h.root, file), Audience: string(where), Before: before, Protected: block, SyncCommand: "agnostic-ai sync"}
 	view.Diff = previewDiff(view.File, view.File+" (before)", view.File+" (proposed)", string(original.data), string(after), original.info == nil, 2048)
 	sum := sha256.New()
@@ -247,12 +272,14 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 	return view, previewedEdit{file: file, before: original, after: after, expected: view.Expected}, nil
 }
 
-// projectProtectDecision names the project spec under the local file
-// when that spec's protected block denies edits, or returns "".
-func (h *editHandler) projectProtectDecision(file string) (string, error) {
+// projectProtectBlock is the protected block of the project spec under
+// the local file, as that spec writes it, and the spec's shown path. It
+// returns a nil block when no project spec sits under the file or the
+// spec has no block.
+func (h *editHandler) projectProtectBlock(file string) (*protectedBlock, string, error) {
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	for _, e := range scope.bundle.Settings {
 		var project *spec.Entry
@@ -264,42 +291,77 @@ func (h *editHandler) projectProtectDecision(file string) (string, error) {
 		default:
 			continue
 		}
-		fields, _ := project.Meta[protectedKey].(map[string]any)
-		if fields["decision"] == spec.ProtectDeny {
-			return overview.SpecPath(h.root, *project), nil
+		source := overview.SpecPath(h.root, *project)
+		fields, ok := project.Meta[protectedKey].(map[string]any)
+		if !ok {
+			return nil, source, nil
 		}
-		return "", nil
+		return protectedBlockOf(fields), source, nil
 	}
-	return "", nil
+	return nil, "", nil
 }
 
-// setProtectedBlock replaces the whole protected block in data, in the
-// documented key order. A local file always writes the reason, because a
-// local block merges over the shared one key by key.
-func setProtectedBlock(data []byte, block *protectedBlock, local bool) ([]byte, error) {
+// protectedWrite is the protected block a file gets: a nil member is a
+// key the file leaves to the block it inherits.
+type protectedWrite struct {
+	Paths    []string `yaml:"paths,omitempty"`
+	Decision *string  `yaml:"decision,omitempty"`
+	Reason   *string  `yaml:"reason,omitempty"`
+}
+
+// protectedWriteFor is what a save of block writes. Over an inherited
+// block it keeps only the keys that differ, so a list the user did not
+// change keeps following the project; nil means remove the block.
+func protectedWriteFor(block, inherited *protectedBlock) *protectedWrite {
+	if block == nil {
+		return nil
+	}
+	if inherited == nil {
+		write := &protectedWrite{Paths: block.Paths, Decision: &block.Decision}
+		if block.Reason != "" {
+			write.Reason = &block.Reason
+		}
+		return write
+	}
+	write := &protectedWrite{}
+	if !slices.Equal(block.Paths, inherited.Paths) {
+		write.Paths = block.Paths
+	}
+	if block.Decision != cmp.Or(inherited.Decision, spec.ProtectAsk) {
+		write.Decision = &block.Decision
+	}
+	if block.Reason != inherited.Reason {
+		write.Reason = &block.Reason
+	}
+	if write.Paths == nil && write.Decision == nil && write.Reason == nil {
+		return nil
+	}
+	return write
+}
+
+// setProtectedBlock replaces the protected block in data with write, in
+// the documented key order, or removes it when write is nil.
+func setProtectedBlock(data []byte, write *protectedWrite) ([]byte, error) {
 	var out []byte
 	var want any
-	if block == nil {
-		var err error
+	var err error
+	if write == nil {
 		if out, err = removeYAMLPath(data, protectedKey); err != nil {
 			return nil, err
 		}
 	} else {
-		value := struct {
-			Paths    []string `yaml:"paths"`
-			Decision string   `yaml:"decision"`
-			Reason   *string  `yaml:"reason,omitempty"`
-		}{Paths: block.Paths, Decision: block.Decision}
-		if block.Reason != "" || local {
-			value.Reason = &block.Reason
-		}
-		var err error
-		if out, err = replaceYAMLPair(data, protectedKey, value); err != nil {
+		if out, err = replaceYAMLPair(data, protectedKey, write); err != nil {
 			return nil, err
 		}
-		fields := map[string]any{"paths": toAnyList(block.Paths), "decision": block.Decision}
-		if value.Reason != nil {
-			fields["reason"] = block.Reason
+		fields := map[string]any{}
+		if write.Paths != nil {
+			fields["paths"] = toAnyList(write.Paths)
+		}
+		if write.Decision != nil {
+			fields["decision"] = *write.Decision
+		}
+		if write.Reason != nil {
+			fields["reason"] = *write.Reason
 		}
 		want = fields
 	}

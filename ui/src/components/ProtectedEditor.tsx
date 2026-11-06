@@ -47,6 +47,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
   const [pending, setPending] = useState<'preview' | 'apply'>()
   const [error, setError] = useState<EditError>()
   const [before, setBefore] = useState(own)
+  const [inherited, setInherited] = useState(current.shared)
   const refreshing = useRef(false)
   useEffect(() => {
     active.current = true
@@ -56,6 +57,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
     if (!refreshing.current) return
     refreshing.current = false
     setBefore(own)
+    setInherited(current.shared)
     setError(undefined)
     setPreview(undefined)
   }, [app.overviewRevision, field])
@@ -67,6 +69,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
   const draft: ProtectedBlock = { paths: rulesFromText(text), decision, reason: reason.trim() }
   const begin = () => {
     setBefore(own)
+    setInherited(current.shared)
     setText((effective?.paths ?? []).join('\n'))
     setDecision(effective?.decision || 'ask')
     setReason(effective?.reason ?? '')
@@ -79,7 +82,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
     setPending(action)
     setError(undefined)
     try {
-      const result = await editProtected({ action, audience, path, protected: action === 'apply' ? preview!.protected : next, before: editing ? before : own, ...(action === 'apply' ? { expected: preview!.expected } : {}) })
+      const result = await editProtected({ action, audience, path, protected: action === 'apply' ? preview!.protected : next, before: editing ? before : own, ...(local ? { inherited: editing ? inherited : current.shared } : {}), ...(action === 'apply' ? { expected: preview!.expected } : {}) })
       if (action === 'apply') {
         saved(result)
         app.reload(true)

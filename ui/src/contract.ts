@@ -605,6 +605,8 @@ export interface ProtectedEditRequest {
   path?: string
   protected: ProtectedBlock | null
   before: ProtectedBlock | null
+  /** For a local edit, the project block the draft started from, or null when there was none. */
+  inherited?: ProtectedBlock | null
   expected?: string
 }
 

@@ -169,14 +169,17 @@ func TestProtectedEdit_GlobalViewRefuses(t *testing.T) {
 }
 
 func TestProtectedEdit_ComparesBeforeAsThePageShowsIt(t *testing.T) {
-	h := targetProject(t, "name: defaults\nprotected:\n  paths: [.github/**]\n")
+	h := targetProject(t, "name: defaults\nprotected:\n  paths: [.github/**]\n  reason: CI only.\n")
 	isolateGit(t)
 	git(t, h.root, "init", "-q")
 	body := map[string]any{"audience": "personal", "protected": map[string]any{"paths": []string{"notes/"}, "decision": "ask", "reason": ""}, "before": nil}
 	if rec := protectedApply(t, h, body, protectedPreview(t, h, body)); rec.Code != http.StatusOK {
 		t.Fatalf("apply = %d %s", rec.Code, rec.Body)
 	}
-	shown := map[string]any{"paths": []string{"notes/"}, "decision": "ask", "reason": ""}
+	if reason, set := protectedIn(t, ".agnostic-ai/local/settings/defaults.yaml")["reason"]; !set || reason != "" {
+		t.Fatalf("local reason = %v, %v", reason, set)
+	}
+	shown := map[string]any{"paths": []string{"notes/"}, "decision": "", "reason": ""}
 	reset := map[string]any{"audience": "personal", "protected": nil, "before": shown}
 	if rec := protectedApply(t, h, reset, protectedPreview(t, h, reset)); rec.Code != http.StatusOK {
 		t.Fatalf("reset after an empty local reason = %d %s", rec.Code, rec.Body)
@@ -215,7 +218,7 @@ func TestProtectedEdit_LocalPathsKeepTheProjectDenyThroughSync(t *testing.T) {
 	if rec := protectedApply(t, h, body, protectedPreview(t, h, body)); rec.Code != http.StatusOK {
 		t.Fatalf("apply = %d %s", rec.Code, rec.Body)
 	}
-	if block := protectedIn(t, local); block["decision"] != "deny" || block["reason"] != "Mine." {
+	if block := protectedIn(t, local); block["reason"] != "Mine." || block["decision"] != nil {
 		t.Fatalf("local block = %v", block)
 	}
 	if out, err := runCLI(t, "sync", "--only", "claude"); err != nil {
@@ -249,5 +252,40 @@ func TestProtectedEdit_NamesTheScopeWithNothingToRemove(t *testing.T) {
 	rec := protectedRequest(t, h, map[string]any{"action": "preview", "audience": "shared", "protected": nil})
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "no protected paths are set in Project") {
 		t.Fatalf("remove = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestProtectedEdit_LocalDraftConflictsWhenTheProjectBlockChanges(t *testing.T) {
+	h := targetProject(t, "name: defaults\nprotected:\n  paths: [vendor]\n")
+	isolateGit(t)
+	git(t, h.root, "init", "-q")
+	shown := map[string]any{"paths": []string{"vendor"}, "decision": "", "reason": ""}
+	mustWrite(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nprotected:\n  paths: [vendor, .github/**]\n")
+	stale := map[string]any{"action": "preview", "audience": "personal", "protected": map[string]any{"paths": []string{"vendor"}, "decision": "ask", "reason": "Mine."}, "before": nil, "inherited": shown}
+	if rec := protectedRequest(t, h, stale); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "inherits changed") {
+		t.Fatalf("stale inherited = %d %s", rec.Code, rec.Body)
+	}
+	fresh := map[string]any{"audience": "personal", "protected": map[string]any{"paths": []string{"vendor", ".github/**"}, "decision": "ask", "reason": "Mine."}, "before": nil, "inherited": map[string]any{"paths": []string{"vendor", ".github/**"}, "decision": "", "reason": ""}}
+	if rec := protectedApply(t, h, fresh, protectedPreview(t, h, fresh)); rec.Code != http.StatusOK {
+		t.Fatalf("apply = %d %s", rec.Code, rec.Body)
+	}
+	local := ".agnostic-ai/local/settings/defaults.yaml"
+	if block := protectedIn(t, local); len(block) != 1 || block["reason"] != "Mine." {
+		t.Fatalf("a reason-only edit wrote %v", block)
+	}
+	mustWrite(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nprotected:\n  paths: [vendor, .github/**, migrations/]\n")
+	if out, err := runCLI(t, "sync", "--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	var native struct {
+		Permissions struct{ Ask []string } `json:"permissions"`
+	}
+	if err := json.Unmarshal([]byte(readProjectFile(t, ".claude/settings.json")), &native); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Edit(/vendor)", "Edit(/.github/**)", "Edit(/migrations/**)"} {
+		if !slices.Contains(native.Permissions.Ask, want) {
+			t.Errorf("Claude ask misses %s: %v", want, native.Permissions.Ask)
+		}
 	}
 }

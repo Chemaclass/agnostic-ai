@@ -317,7 +317,7 @@ test('live Authority sets protected paths, keeps a project deny for a local bloc
     await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
     await expect(preview).toContainText('Local (not committed)')
     await preview.getByRole('button', { name: 'Save paths', exact: true }).click()
-    await expect.poll(() => readFile(f.localSettings, 'utf8')).toContain('protected:\n  paths:\n    - notes/\n  decision: deny\n  reason: My notes.\n')
+    await expect.poll(() => readFile(f.localSettings, 'utf8')).toContain('protected:\n  paths:\n    - notes/\n  reason: My notes.\n')
     await run('git', ['check-ignore', '-q', '.agnostic-ai/local/settings/native.yaml'], { cwd: f.root, env: f.env })
 
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
@@ -352,6 +352,40 @@ test('live Authority rejects a stale protected paths draft after another save re
     await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
     await guarded.getByRole('button', { name: 'Save paths', exact: true }).click()
     await expect.poll(() => readFile(f.settings, 'utf8')).toContain('paths:\n    - mine/\n')
+  } finally { await f.close() }
+})
+
+test('live Authority rejects a local protected paths draft when the project block it inherits changes', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    const base = '# Shared settings.\nname: native\nx-claude:\n    verbose: false\n'
+    await put(f.settings, base + 'protected:\n    paths: [vendor]\n')
+    await page.goto(`${f.url}?view=authority`)
+    await page.getByRole('button', { name: 'Local (not committed)', exact: true }).click()
+    const guarded = page.locator('.field-row').filter({ has: page.getByText('Protected paths', { exact: true }) })
+    await guarded.getByRole('button', { name: 'Edit paths', exact: true }).click()
+    await expect(guarded.getByRole('textbox', { name: 'Paths to protect', exact: true })).toHaveValue('vendor')
+    await guarded.getByRole('textbox', { name: 'Protected paths reason', exact: true }).fill('Mine.')
+    await put(f.settings, base + 'protected:\n    paths: [vendor, .github/**]\n')
+    const ask = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+    await ask.getByRole('button', { name: 'Add rules', exact: true }).click()
+    await ask.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('shell(git push *)')
+    await ask.getByRole('button', { name: 'Preview changes' }).click()
+    await ask.getByRole('button', { name: 'Save rules', exact: true }).click()
+    await expect(page.locator('.permission-saved')).toBeVisible()
+    await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
+    await expect(guarded.getByRole('alert')).toContainText('inherits changed after editing began')
+    expect(await readFile(f.localSettings, 'utf8')).not.toContain('protected')
+    await guarded.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await guarded.getByRole('button', { name: 'Edit paths', exact: true }).click()
+    await expect(guarded.getByRole('textbox', { name: 'Paths to protect', exact: true })).toHaveValue('vendor\n.github/**')
+    await guarded.getByRole('textbox', { name: 'Protected paths reason', exact: true }).fill('Mine.')
+    await guarded.getByRole('button', { name: 'Preview changes', exact: true }).click()
+    await guarded.getByRole('button', { name: 'Save paths', exact: true }).click()
+    await expect.poll(() => readFile(f.localSettings, 'utf8')).toMatch(/\nprotected:\n {2}reason: Mine\.\n$/)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const native = JSON.parse(await readFile(join(f.root, '.claude', 'settings.json'), 'utf8'))
+    expect(native.permissions.ask).toEqual(expect.arrayContaining(['Edit(/vendor)', 'Edit(/.github/**)']))
   } finally { await f.close() }
 })
 
