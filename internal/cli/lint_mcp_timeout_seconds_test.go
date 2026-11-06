@@ -91,3 +91,10 @@ func TestLint_MCPTimeoutUpToOneHourIsClean(t *testing.T) {
 		}
 	}
 }
+
+func TestLint_MCPTimeoutRemovedForJunieIsClean(t *testing.T) {
+	mcpTimeoutLintProject(t, "targets: [junie]\n", "timeout: 4000000\nx-junie:\n  timeout: null\n")
+	if out, err := runCLI(t, "lint"); err != nil || strings.Contains(out, "LINT059") {
+		t.Errorf("want no LINT059 for removed timeout: %v\n%s", err, out)
+	}
+}

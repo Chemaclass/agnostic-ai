@@ -68,9 +68,11 @@ func lintJunieMCPTimeoutAboveLimit(targets []string, b spec.Bundle) []lintFindin
 	}
 	var out []lintFinding
 	for _, m := range b.For("junie").MCPs {
-		field, raw := "timeout", m.Meta["timeout"]
-		if custom, ok := m.Meta["x-junie"].(map[string]any); ok && custom["timeout"] != nil {
-			field, raw = "x-junie.timeout", custom["timeout"]
+		field, raw := "timeout", adapters.ResolveMeta(m.Meta, "junie")["timeout"]
+		if custom, ok := m.Meta["x-junie"].(map[string]any); ok {
+			if _, set := custom["timeout"]; set {
+				field = "x-junie.timeout"
+			}
 		}
 		ms, ok := adapters.WholeNumber(raw)
 		if !ok || ms <= junieMaxMCPTimeoutMs {
