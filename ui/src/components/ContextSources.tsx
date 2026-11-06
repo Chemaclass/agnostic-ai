@@ -146,6 +146,7 @@ function Contributions({ report, root, takesFile, open, onToggle, advice, setAdv
                         <tr className={isOpen ? 'is-advised' : undefined}>
                           <th scope="row">
                             <Code>{c.source}</Code>
+                            <span className="context-source-actions">
                             {isBuiltin(c.source)
                               ? <span className="muted context-builtin"> Built in. <button type="button" className="button button-quiet" onClick={() => app.navigate({ view: 'settings', tab: 'builtins', entry: undefined })}>Change in Settings</button></span>
                               : <OpenInEditor path={root ? `${root}/${c.source}` : undefined} label={c.source} shownPath={c.source} compact />}
@@ -157,6 +158,7 @@ function Contributions({ report, root, takesFile, open, onToggle, advice, setAdv
                               ref={(el) => { if (el && focusKey.current === key) { el.focus(); focusKey.current = undefined } }}
                               onClick={() => setAdvice(isOpen ? undefined : key)}
                             >{isOpen ? 'Hide advice' : 'What can I do?'}</button>
+                            </span>
                           </th>
                           <td>{c.category}</td>
                           <td className="context-number">{c.words.toLocaleString()}</td>

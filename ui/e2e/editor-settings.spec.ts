@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const contextFixture = JSON.parse(readFileSync(new URL('../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
 
 async function serve(page: Page) {
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
@@ -140,6 +141,30 @@ test.describe('editor settings', () => {
       await open.click()
       await expect(meta.locator('.editor-hint')).toContainText('Allow your browser to open Cursor.')
       await expect(meta.locator('.editor-hint').getByRole('link', { name: 'Settings' })).toBeVisible()
+      expect(await boxes()).toEqual(before)
+    })
+  }
+
+  for (const width of [1280, 390]) {
+    test(`keeps the context size row actions still when the hint appears at ${width}px`, async ({ page }) => {
+      await serve(page)
+      await page.setViewportSize({ width, height: 844 })
+      await page.route('**/api/views/context**', (route) => route.fulfill({ json: structuredClone(contextFixture) }))
+      await page.goto('/?view=context&tab=usage')
+      await page.locator('section.context-usage').getByText(/sources, largest first/).first().click()
+      await page.evaluate(() => document.addEventListener('click', (event) => {
+        if ((event.target as Element).closest('a[href^="cursor:"]')) event.preventDefault()
+      }, true))
+      const actions = page.locator('.context-source-actions').filter({ has: page.locator('a[href^="cursor:"]') }).first()
+      const open = actions.locator('a[href^="cursor:"]')
+      const parts = [open, actions.getByRole('button', { name: /^Copy path/ }), actions.getByRole('button', { name: 'What can I do?' })]
+      const boxes = () => Promise.all(parts.map((part) => part.evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        return { x: box.x + scrollX, y: box.y + scrollY, width: box.width, height: box.height }
+      })))
+      const before = await boxes()
+      await open.click()
+      await expect(actions.locator('.editor-hint')).toContainText('Allow your browser to open Cursor.')
       expect(await boxes()).toEqual(before)
     })
   }

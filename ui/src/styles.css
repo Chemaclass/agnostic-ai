@@ -1788,6 +1788,17 @@ a.release-badge:focus-visible .release-arrow {
   grid-column: 1 / -1;
 }
 
+.context-source-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.context-source-actions .editor-hint {
+  order: 1;
+}
+
 .editor-hint {
   display: block;
   flex-basis: 100%;

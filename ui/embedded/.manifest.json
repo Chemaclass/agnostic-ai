@@ -49,7 +49,7 @@
     "src/components/BuiltinChange.tsx": "216f2d840f403cccdffd7b248cf3afb9e7376e30624e4754e2e6f8c42b6c7c26",
     "src/components/CodingTools.tsx": "687beb1daef007f93495231ab982aa33adcce8da548828e8e53cdee92fed19f9",
     "src/components/ConfigSwitch.tsx": "cfaa05a1bca9032fb227451cb5367506c34d16291f01fbd6bc813b96e4e7747b",
-    "src/components/ContextSources.tsx": "e41709f097a0e8fdc241fee1923659e253a17a1eed56737f708602f296ce2c63",
+    "src/components/ContextSources.tsx": "a594993a2c0ec3eb75597f39bd5a5d79d9a5ad87c38e99003c10547eaa89378c",
     "src/components/ContextUsage.tsx": "0495e7e543884db1813f7c4d95012ded7506da19ce7c0292b50a2d3d41004496",
     "src/components/EditAudience.tsx": "fe043728ce7d994493388648777af13b4e49c5583ce127a3e206835bc3f22751",
     "src/components/EditorLink.tsx": "0f31c2f1b19bc458742b26984793fb33bec1f1925e7247be3d53b13f01bebd93",
@@ -117,7 +117,7 @@
     "src/model/testing.ts": "f90c0eaab647a088e35ce7bdf3be3fc64b63170bee97193675fbe49ea49bcee6",
     "src/model/url.test.ts": "735b7a93d5eaa9bb2dee68c5b124f67710ea248ea96b35a6cffa899ac49317eb",
     "src/model/url.ts": "e97c9907e123c4d7ecafab55bdabb038f9e2b886cfe864d8b065e23fbd82979b",
-    "src/styles.css": "9b2fee3f627e83216fc21ddf025406004beaa96aafb2a00f91382b76b8701926",
+    "src/styles.css": "a08e97f0a23601cfba56fc014b74c483cd7d2e97047b4bc6615771fe4d726723",
     "src/vite-env.d.ts": "2ead27e0f654eb53926df1439827e24aba232f3c3a413847b5862ee447b3f122",
     "tsconfig.json": "92730f301e12c45bbf33095c177dbd538b6f1b79bed1ed96a917a875c5a991e7",
     "vite.config.ts": "6cfab071d9e75b181655bb6657eb94753a8083a68936ea5018253b7fbc704b22"
@@ -126,12 +126,12 @@
     "assets/antigravity-DgAQAdn3.svg": "652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca",
     "assets/context.mock-CeYca_mm.js": "02a784cb3314f5a119b0c1cd7f9bfce9b34c9b6b52917c653af9733806202245",
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
-    "assets/index-BjB7DLsE.js": "ace559a82e249bace685f6d36c8cb7fddfbc41678e13618b9f8c267dde2c8432",
-    "assets/index-rDyfzc4M.css": "8cae6d9a5da35055d13e3e592316999bdf5df7708a028cef79ce14109744df30",
+    "assets/index-CQaI3aJz.js": "64a7e86a14d9866a024d248e1021cbdd8fd7d98a22a256c3e0706d76b1dd8b51",
+    "assets/index-CrM-VSn_.css": "386cb40486e6d8c61bc25efa913c3c43be1bd354f30603f5c90969da531b5710",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-Btq6Uiqs.js": "aacc1f2a7640179c0cc3b8c1d8d4a37bb657d6f349c31f31fa637fb887a9ca3a",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "5ca03edfe4a83f44783063926778cdfe3d0246d8ebc0c1f422d96bd176e52c4f",
+    "index.html": "3e650c8d6cee8e8bf2026eb346e5b9c7caa06e97aaa7236df698e10fed0cb7ff",
     "third-party-notices.txt": "a323be697d4e49da32e67813843982098f6331c7872fc0c181e0f60451e71438"
   }
 }
