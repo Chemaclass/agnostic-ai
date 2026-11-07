@@ -79,6 +79,16 @@ func labelsCredential(text string) bool {
 		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text)
 }
 
+// ProseSensitive is Sensitive for prose that is not a file, such as a
+// chat title or prompt: the same signs of a credential, plus one in a
+// URL, without reading the text as YAML, JSON or a shell script. A
+// prompt that only looks structured, such as "[WIP] Fix: login crash",
+// is then not withheld as content that could not be parsed.
+func ProseSensitive(text string) bool {
+	return labelsCredential(text) || credentialWord.MatchString(text) ||
+		anyCredentialKey.MatchString(text) || URLCredentialIn(text)
+}
+
 // Sensitive reports whether text shows any sign of a credential: Display
 // hides or withholds part of it, it labels a credential anywhere, a
 // credential-named key has any value, or a strong credential word
