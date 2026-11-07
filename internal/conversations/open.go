@@ -95,7 +95,7 @@ func openWindowFolders(storagePath string) map[string]bool {
 
 // folderKey is the form a folder takes in openWindowFolders.
 func folderKey(folder string) string {
-	return windowPath(uriPath(folder))
+	return windowPath(uriPath(filepath.ToSlash(folder)))
 }
 
 // windowPath drops a trailing slash and writes a Windows drive in lower

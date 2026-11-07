@@ -935,7 +935,7 @@ func TestEnclosingWindowFolder_PrefersTheEditorWindowAroundTheFolder(t *testing.
 		"/home/me/app/src":  "",
 		"/home/me":          "/home/me",
 	} {
-		if actual, _ := enclosingWindowFolder(storage, folder, "/home/me"); actual != want {
+		if actual, _ := enclosingWindowFolder(storage, folder, "/home/me"); filepath.ToSlash(actual) != want {
 			t.Errorf("enclosingWindowFolder(%q) = %q, want %q", folder, actual, want)
 		}
 	}
