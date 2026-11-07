@@ -20,6 +20,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - The Conversations page takes the Mineral look and opens with a sentence that says how many chats are open and how many wait for you, or when the last one ran. Each row names its tool beside the logo, and on phones its open button spans the row (#3120).
 
+- In the web interface, the permission and protected path editors use **Preview**, **Apply** and **Cancel**, mark added and removed lines in the diff, and show saved, failed and overridden states as one notice with **Dismiss** (#3121). After **Apply** or **Reload saved values**, they wait for the refreshed rules before offering the next change, so a quick next step no longer fails as changed after editing began.
+
 - In the web interface, **Setup health** opens with one sentence, such as "1 thing needs a fix, and 3 more are worth a look.", a facts line that says whether the data was checked just now or comes from a saved snapshot, and a row of bars for the features your tools support, filled for those in use. Findings sit under **Needs a fix** and **Worth a look**, suggestions are plain rows that name tools by name, and **Recheck all** reports in a notice. On every page, recheck results say "configuration check" and "setup check" instead of "lint" and "doctor" (#3120).
 
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
