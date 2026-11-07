@@ -21,7 +21,7 @@ agnostic-ai upgrade --version v0.81.0    # install a specific release
 
 `upgrade` updates the installed tool. If the latest release is already installed but the project still requires an older one, the message points to `agnostic-ai upgrade --requires`. That command updates the project requirement and schema URL, then runs sync.
 
-Stop any running `agnostic-ai sync --watch` before you upgrade, and complete the release's required migrations first: package install hooks can run sync. After upgrading, run `agnostic-ai upgrade --requires` in each project, review the generated diff, and run `agnostic-ai sync --check` before starting watch again.
+Stop any running `agnostic-ai sync --watch` before you upgrade, then install the new release. A release's migrations ship with it, so the old version cannot run them. In each project, run `agnostic-ai upgrade --requires`, which syncs and names the migrations that apply. Old spec forms keep working, so that sync is safe. Then run `agnostic-ai migrate --dry-run` and `agnostic-ai migrate`, make any manual spec edits the release page lists, run `agnostic-ai sync`, review the generated diff, and run `agnostic-ai sync --check` before starting watch again.
 
 ### Automatic upgrade offers
 
