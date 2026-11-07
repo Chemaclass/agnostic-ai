@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { OverviewView } from '../contract'
+import type { OverviewView, SectionItem } from '../contract'
 import { fieldEntryId, findingEntryIds, itemEntryId } from './identity'
-import { buildSearchIndex, searchOverview } from './search'
+import { buildSearchIndex, itemSearchText, matchesSearch, searchOverview } from './search'
 import { loadOverviewFixture } from './testing'
 
 const fixture = loadOverviewFixture('src/fixtures/overview.mock.json')
@@ -51,5 +51,33 @@ describe('overview search', () => {
     const twins = search(data, context.items[0].name).filter((result) => result.title === context.items[0].label)
     expect(new Set(twins.map((result) => result.entry)).size).toBe(twins.length)
     expect(new Set(twins.map((result) => `${result.context} ${result.detail}`)).size).toBe(twins.length)
+  })
+})
+
+describe('section search', () => {
+  const item: SectionItem = {
+    kind: 'rule', name: 'quality-gate', label: 'Quality checks', path: '.agnostic-ai/rules/policies.md',
+    description: 'Run checks before sharing changes.', layer: 'project', findings: [],
+    values: [
+      { key: 'release-channel', type: 'text', value: 'preview' },
+      { key: 'branches', type: 'list', list: ['mainline'] },
+    ],
+  }
+
+  it.each([
+    ['name', 'quality-gate'],
+    ['label', 'quality checks'],
+    ['path', 'rules/policies.md'],
+    ['description, ignoring case', 'SHARING CHANGES'],
+    ['value key', 'release-channel'],
+    ['text value', 'preview'],
+    ['list value', 'mainline'],
+    ['blank query', '  '],
+  ])('matches an item by its %s', (_, query) => {
+    expect(matchesSearch(itemSearchText(item), query)).toBe(true)
+  })
+
+  it('does not match an item that holds no part of the query', () => {
+    expect(matchesSearch(itemSearchText(item), 'no-such-item')).toBe(false)
   })
 })

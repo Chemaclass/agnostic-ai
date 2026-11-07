@@ -19,6 +19,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
@@ -435,6 +436,7 @@ func overviewInputsWith(root string, compareInstalled bool) (overview.Inputs, er
 		BuiltinsLocal:  local,
 		Tools:          overviewTools(".", false),
 		NativeMCPs:     projectNativeMCPServers(cfg),
+		OriginURL:      gitquery.OriginURL("."),
 	}, nil
 }
 

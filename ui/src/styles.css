@@ -709,6 +709,28 @@ textarea:focus {
   text-decoration: underline;
 }
 
+.sidenav-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.sidenav-github .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.sidenav-github:hover,
+.sidenav-github:focus-visible {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
 .release-badge {
   display: flex;
   align-items: center;
@@ -3929,6 +3951,21 @@ tr.is-advised > td {
 
   .sidenav-json {
     margin-left: auto;
+  }
+
+  .sidenav-github {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .sidenav-github-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
   }
 
   .global-onboarding {

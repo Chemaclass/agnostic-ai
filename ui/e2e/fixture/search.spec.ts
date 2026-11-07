@@ -5,7 +5,7 @@ import type { OverviewView } from '../../src/contract'
 const fixture: OverviewView = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('section search', () => {
-  test('searches item names, labels, paths, descriptions, and values, then clears on navigation', async ({ page }) => {
+  test('filters items as the person types, then clears on navigation', async ({ page }) => {
     const data = structuredClone(fixture)
     const section = data.sections.find((entry) => entry.id === 'context')!
     Object.assign(section.items[0], {
@@ -20,12 +20,10 @@ test.describe('section search', () => {
     await page.goto('./?view=context')
     const search = page.getByRole('searchbox', { name: 'Search context' })
     await expect(page.locator('.item-row')).toHaveCount(section.items.length)
-    for (const query of ['quality-gate', 'quality checks', 'rules/policies.md', 'SHARING CHANGES', 'release-channel', 'preview', 'mainline']) {
-      await search.fill(query)
-      await expect(page.locator('.item-row')).toHaveCount(1)
-      await expect(page.locator('.item-row .item-main strong')).toHaveText('Quality checks')
-      await expect(page.locator('.section-search-status')).toHaveText(`1 of ${section.items.length} items match.`)
-    }
+    await search.fill('quality-gate')
+    await expect(page.locator('.item-row')).toHaveCount(1)
+    await expect(page.locator('.item-row .item-main strong')).toHaveText('Quality checks')
+    await expect(page.locator('.section-search-status')).toHaveText(`1 of ${section.items.length} items match.`)
     await search.fill('no-such-item')
     await expect(page.locator('.item-row')).toHaveCount(0)
     await expect(page.locator('.section-search-status')).toHaveText(`0 of ${section.items.length} items match.`)

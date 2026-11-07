@@ -63,6 +63,27 @@ func TestNewViewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
 	}
 }
 
+func TestNewViewCmd_LinksTheProjectGitHubRepositoryWithoutCredentials(t *testing.T) {
+	dir := t.TempDir()
+	writeBareReadProject(t, dir)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	git(t, dir, "remote", "add", "origin", "https://user:secret-token@github.com/octo/hello.git")
+
+	out := runViewCmd(t, "--dir", dir, "--json")
+
+	var view overview.View
+	if err := json.Unmarshal([]byte(out), &view); err != nil {
+		t.Fatalf("output is not an overview view: %v\n%s", err, out)
+	}
+	if view.Repository == nil || view.Repository.URL != "https://github.com/octo/hello" || view.Repository.Name != "octo/hello" {
+		t.Errorf("repository = %+v, want octo/hello", view.Repository)
+	}
+	if strings.Contains(out, "secret-token") {
+		t.Error("the overview exposes the remote's credentials")
+	}
+}
+
 func TestView_HasNoSubcommands(t *testing.T) {
 	for _, sub := range []string{"authority", "overview"} {
 		_, err := runCLI(t, "view", sub)
@@ -172,7 +193,7 @@ func TestView_RejectsInvalidSourcesBeforeOpeningBrowser(t *testing.T) {
 				cmd := newViewCmdWithBrowser(func(string) error { opened = true; return nil })
 				cmd.SetOut(io.Discard)
 				cmd.SetErr(io.Discard)
-				args := slices.Clone(tc.args)
+				args := append([]string{}, tc.args...)
 				if asJSON {
 					args = append(args, "--json")
 				}
