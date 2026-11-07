@@ -8,8 +8,9 @@ import { isTurnedOff, joinAnd, kindNoun, liveCount, permissionCounts, plural, tu
 
 type VerdictSection = Pick<Section, 'id' | 'kinds' | 'items'> & Partial<Pick<Section, 'fields' | 'native' | 'stages' | 'support'>>
 
-// Verdicts describe what the setup configures, never what an agent will do:
-// a tool that does not support a type ignores it, and the facts line says so.
+// Verdicts describe what the setup configures, not what an agent will do: a tool that
+// does not support a type ignores it, and the facts line says so. The Tools verdict
+// says what agents can use only when a set-up tool supports MCP servers.
 
 function counted(section: VerdictSection): string[] {
   return section.kinds.map((kind) => ({ ...kind, count: liveCount(section, kind) })).filter((kind) => kind.count > 0).map((kind) => `${kind.count} ${kindNoun(kind, kind.count)}`)
@@ -32,7 +33,9 @@ function authorityVerdict(section: VerdictSection): string {
 
 function toolsVerdict(section: VerdictSection): string {
   const parts = counted(section)
-  return parts.length ? `Your setup configures ${joinAnd(parts)}.` : 'Your setup configures no extra tools yet.'
+  const usable = section.support?.find((support) => support.kind === 'mcp')?.supported.length
+  if (parts.length) return `Your ${usable ? 'agents can use' : 'setup configures'} ${joinAnd(parts)}.`
+  return turnedOff(section).length ? 'No MCP servers are turned on.' : 'Your setup configures no extra tools yet.'
 }
 
 function lifecycleVerdict(section: VerdictSection): string {

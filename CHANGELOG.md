@@ -10,6 +10,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
 
+- The Tools page says what your agents can use, counts only MCP servers that are turned on, notes how many are turned off, and shows each turned-off server as off. Saving a server as a spec reports through the same notice as the other pages (#3145).
+
 - The web interface takes the Mineral look: bone paper, a slate rail that asks each section's question over a live summary, Fraunces headings (replacing Archivo Narrow), ink pill buttons and verdigris links. Phones get a top bar with the finding count, Search and **Menu** over one row of page links (#3120).
 
 - In the web interface, each section page opens with a verdict sentence, such as "Your rules allow 11 actions, ask before 3, and block 4.", and one facts line with the finding count and any tool that ignores what is configured. Then one filter row with **Docs**, the tabs and the content; coding tool support folds closed below it with a summary such as "3 of 3 tools support rules, agents, and skills". Findings are cards with **Copy prompt** and **Details**, an empty type says what it is and which tools support it, and counts show only above zero (#3121).
