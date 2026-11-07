@@ -336,3 +336,14 @@ func ExcludesFile() string {
 		return ""
 	})
 }
+
+// OriginURL returns the URL of the origin remote of the repository
+// around dir, or empty when there is no repository or no origin. It is
+// not cached, so a changed remote shows on the next call.
+func OriginURL(dir string) string {
+	out, err := isolateGitCommand(exec.Command("git", "-C", dir, "remote", "get-url", "origin")).Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}

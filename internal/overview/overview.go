@@ -51,6 +51,9 @@ type Inputs struct {
 	// NativeMCPs are the MCP servers the caller found in the configured
 	// tools' own config files, whether or not a spec covers them.
 	NativeMCPs []NativeMCP
+	// OriginURL is the origin remote of the project's Git repository, or
+	// empty when there is none.
+	OriginURL string
 }
 
 // NativeMCP is one MCP server a tool's own config file defines. It
@@ -259,7 +262,15 @@ func Build(in Inputs) *View {
 		Tools:         toolCatalog(in.Tools, newLabeler()),
 		Health:        health,
 		Global:        in.Global,
+		Repository:    projectRepository(in),
 	}
+}
+
+func projectRepository(in Inputs) *Repository {
+	if in.Global {
+		return nil
+	}
+	return GitHubRepository(in.OriginURL)
 }
 
 // toolCatalog fills labels and keeps every list an array.
