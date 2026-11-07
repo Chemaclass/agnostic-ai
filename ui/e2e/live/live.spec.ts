@@ -1653,7 +1653,7 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     await put(permissions, 'permissions:\n  allow: ["read(src/**)", edit, shell]\n')
     await read.getByRole('button', { name: 'Recheck' }).click()
     const gone = page.locator('.finding-rechecked')
-    await expect(gone.getByRole('status')).toHaveText('This lint finding no longer appears. 1 new lint finding appears in .agnostic-ai/settings/permissions.yaml.')
+    await expect(gone.getByRole('status')).toHaveText('This finding no longer appears. 1 new finding appears in .agnostic-ai/settings/permissions.yaml.')
     await expect(gone).toBeFocused()
     await expect(read).toHaveCount(0)
     await expect(finding('shell').getByText('New since recheck')).toBeVisible()
@@ -1679,7 +1679,7 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     await rm(permissions)
     await edit.getByRole('button', { name: 'Recheck' }).click()
     const other = page.locator('section.block', { has: page.getByRole('heading', { name: 'Other findings' }) })
-    await expect(other.locator('.finding-rechecked .finding-recheck-result')).toHaveText('This lint finding no longer appears.')
+    await expect(other.locator('.finding-rechecked .finding-recheck-result')).toHaveText('This finding no longer appears.')
     await expect(other.locator('.finding-rechecked')).toBeFocused()
   } finally { await f.close() }
 })
