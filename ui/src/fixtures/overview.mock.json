@@ -475,6 +475,13 @@
           "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/railway.yaml",
           "layer": "project",
           "values": [],
+          "fields": [
+            {
+              "key": "disabled",
+              "type": "bool",
+              "value": "true"
+            }
+          ],
           "tools": {
             "state": "not-listed",
             "tools": [],

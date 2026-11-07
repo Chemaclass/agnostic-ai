@@ -81,7 +81,7 @@ export function EditAudienceSwitch() {
   )
   return (
     <div className="edit-scope">
-      <span id={labelId} className="edit-scope-label">{viewing ? 'View and edit' : 'Save new specs for'}</span>
+      <span id={labelId} className="edit-scope-label">{viewing ? 'View and edit' : 'Save new servers for'}</span>
       <div className="segmented" role="group" aria-labelledby={labelId}>
         {option('shared')}
         {option('personal')}
