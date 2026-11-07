@@ -1,7 +1,7 @@
 // The rail's live summaries: one line per section, from the loaded overview.
 
 import type { Section } from '../contract'
-import { kindNoun, permissionCounts } from './counts'
+import { kindNoun, liveCount, permissionCounts, turnedOff } from './counts'
 import type { FindingCount } from './health'
 
 const PERMISSION_WORDS = { 'permissions.allow': 'allowed', 'permissions.ask': 'ask', 'permissions.deny': 'denied' } as const
@@ -16,8 +16,10 @@ export function authoritySummary(section: Pick<Section, 'label' | 'items'>): str
 /** "Context: 1 rule, 3 agents": counts above zero only, or what is missing. */
 export function sectionSummary(section: Pick<Section, 'id' | 'label' | 'kinds' | 'items'>): string {
   if (section.id === 'authority') return authoritySummary(section)
-  const counted = section.kinds.filter((kind) => kind.count > 0)
+  const counted = section.kinds.map((kind) => ({ ...kind, count: liveCount(section, kind) })).filter((kind) => kind.count > 0)
   if (counted.length) return `${section.label}: ${counted.map((kind) => `${kind.count} ${kindNoun(kind, kind.count)}`).join(', ')}`
+  const off = turnedOff(section)
+  if (off.length) return `${section.label}: ${off.join(', ')} turned off`
   if (section.kinds.length === 1) return `${section.label}: no ${kindNoun(section.kinds[0], 0)} yet`
   return `${section.label}: nothing set up yet`
 }

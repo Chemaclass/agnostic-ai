@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import type { OverviewView, Section } from '../contract'
+import { sectionSummary } from './rail'
 import { emptyState, findingTallyText, ignoredFacts, sectionFacts, sectionFindings, sectionVerdict, supportSummary, tallyFindings } from './verdict'
 
 const fixture: OverviewView = JSON.parse(readFileSync(new URL('../fixtures/overview.mock.json', import.meta.url), 'utf8'))
@@ -35,6 +36,32 @@ describe('section verdict', () => {
     const hook = (group: string) => ({ ...item([]), kind: 'hook', group })
     expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('pre-tool'), hook('pre-tool'), hook('session-start')] })).toBe('3 hooks are set to run at 2 stages of a session.')
     expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('pre-tool')] })).toBe('1 hook is set to run at 1 stage of a session.')
+  })
+})
+
+describe('turned-off hooks', () => {
+  const hook = (group: string, disabled = false) => ({ ...item([]), kind: 'hook', group, fields: disabled ? [{ key: 'disabled', type: 'bool' as const, value: 'true' }] : [] })
+  const lifecycle = (hooks: ReturnType<typeof hook>[]) => ({ ...empty('lifecycle', [kind('hook', 'Hooks', hooks.length)]), items: hooks })
+
+  it('counts every hook when all run', () => {
+    const section = lifecycle([hook('pre-tool'), hook('session-start')])
+    expect(sectionVerdict(section)).toBe('2 hooks are set to run at 2 stages of a session.')
+    expect(sectionFacts(section)).toEqual([])
+    expect(sectionSummary({ ...section, label: 'Lifecycle' })).toBe('Lifecycle: 2 hooks')
+  })
+
+  it('leaves turned-off hooks and their stages out of the verdict and names them in the facts', () => {
+    const section = lifecycle([hook('pre-tool'), hook('session-start', true)])
+    expect(sectionVerdict(section)).toBe('1 hook is set to run at 1 stage of a session.')
+    expect(sectionFacts(section)).toEqual(['1 hook turned off'])
+    expect(sectionSummary({ ...section, label: 'Lifecycle' })).toBe('Lifecycle: 1 hook')
+  })
+
+  it('says none are set to run when every hook is turned off', () => {
+    const section = lifecycle([hook('pre-tool', true), hook('stop', true)])
+    expect(sectionVerdict(section)).toBe('No hooks are set to run.')
+    expect(sectionFacts(section)).toEqual(['2 hooks turned off'])
+    expect(sectionSummary({ ...section, label: 'Lifecycle' })).toBe('Lifecycle: 2 hooks turned off')
   })
 })
 

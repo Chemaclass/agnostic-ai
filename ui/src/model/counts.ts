@@ -1,6 +1,6 @@
 // Counts shared by the rail summaries and the page verdicts.
 
-import type { KindCount, PermissionKey, Section } from '../contract'
+import type { KindCount, PermissionKey, Section, SectionItem, Value } from '../contract'
 import { isPermissionKey } from './permission-edit'
 
 /** A type's label as a noun in a sentence, singular for one: "1 rule", "2 instructions files". */
@@ -34,4 +34,23 @@ export function permissionCounts(section: Pick<Section, 'items'>): PermissionCou
     }
   }
   return counts
+}
+
+/** A hook or server whose spec sets `disabled: true`; sync skips it. */
+export function isTurnedOff(item: Pick<SectionItem, 'values' | 'fields'>): boolean {
+  const off = (value: Value) => value.key === 'disabled' && value.type === 'bool' && value.value === 'true'
+  return item.values.some(off) || (item.fields ?? []).some(off)
+}
+
+/** A type's count without the items turned off. */
+export function liveCount(section: Pick<Section, 'items'>, kind: Pick<KindCount, 'kind' | 'count'>): number {
+  return Math.max(0, kind.count - section.items.filter((item) => item.kind === kind.kind && isTurnedOff(item)).length)
+}
+
+/** Each type's items turned off, as "1 hook". */
+export function turnedOff(section: Pick<Section, 'kinds' | 'items'>): string[] {
+  return section.kinds.flatMap((kind) => {
+    const off = section.items.filter((item) => item.kind === kind.kind && isTurnedOff(item)).length
+    return off ? [`${off} ${kindNoun(kind, off)}`] : []
+  })
 }

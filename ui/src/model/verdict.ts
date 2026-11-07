@@ -4,19 +4,19 @@
 
 import type { ItemFinding, KindCount, KindSupport, Section } from '../contract'
 import { builtinEnabled } from './audience-view'
-import { joinAnd, kindNoun, permissionCounts, plural } from './counts'
+import { isTurnedOff, joinAnd, kindNoun, liveCount, permissionCounts, plural, turnedOff } from './counts'
 
 type VerdictSection = Pick<Section, 'id' | 'kinds' | 'items'> & Partial<Pick<Section, 'fields' | 'native' | 'stages' | 'support'>>
 
 // Verdicts describe what the setup configures, never what an agent will do:
 // a tool that does not support a type ignores it, and the facts line says so.
 
-function counted(kinds: KindCount[]): string[] {
-  return kinds.filter((kind) => kind.count > 0).map((kind) => `${kind.count} ${kindNoun(kind, kind.count)}`)
+function counted(section: VerdictSection): string[] {
+  return section.kinds.map((kind) => ({ ...kind, count: liveCount(section, kind) })).filter((kind) => kind.count > 0).map((kind) => `${kind.count} ${kindNoun(kind, kind.count)}`)
 }
 
 function contextVerdict(section: VerdictSection): string {
-  const parts = counted(section.kinds)
+  const parts = counted(section)
   return parts.length ? `Your setup gives agents ${joinAnd(parts)}.` : 'Your setup gives agents no instructions yet.'
 }
 
@@ -31,13 +31,15 @@ function authorityVerdict(section: VerdictSection): string {
 }
 
 function toolsVerdict(section: VerdictSection): string {
-  const parts = counted(section.kinds)
+  const parts = counted(section)
   return parts.length ? `Your setup gives agents ${joinAnd(parts)}.` : 'Your setup gives agents no extra tools yet.'
 }
 
 function lifecycleVerdict(section: VerdictSection): string {
-  const hooks = section.items.filter((item) => item.kind === 'hook')
-  if (!hooks.length) return 'No hooks are set yet.'
+  const all = section.items.filter((item) => item.kind === 'hook')
+  if (!all.length) return 'No hooks are set yet.'
+  const hooks = all.filter((item) => !isTurnedOff(item))
+  if (!hooks.length) return 'No hooks are set to run.'
   const verb = hooks.length === 1 ? 'is' : 'are'
   const stages = new Set(hooks.map((hook) => hook.group).filter(Boolean)).size
   return stages ? `${plural(hooks.length, 'hook')} ${verb} set to run at ${plural(stages, 'stage')} of a session.` : `${plural(hooks.length, 'hook')} ${verb} set.`
@@ -90,7 +92,8 @@ export function ignoredFacts(section: VerdictSection, toolName: (target: string)
 
 /** Facts beside the verdict that it does not already say. */
 export function sectionFacts(section: VerdictSection, toolName: (target: string) => string = (target) => target): string[] {
-  return [...sectionOwnFacts(section), ...ignoredFacts(section, toolName)]
+  const off = turnedOff(section)
+  return [...sectionOwnFacts(section), ...(off.length ? [`${joinAnd(off)} turned off`] : []), ...ignoredFacts(section, toolName)]
 }
 
 export interface FindingTally {
