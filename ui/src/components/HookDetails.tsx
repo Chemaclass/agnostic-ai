@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { SectionItem, Value } from '../contract'
+import { launcherCall } from '../model/hook-command'
 import { SourceState, useSource, useSourceShown, WithheldNote } from './SourceContent'
 
 type Level = 'summary' | 'fields' | 'full'
@@ -47,9 +48,25 @@ function FieldList({ fields, label }: { fields: Field[]; label: string }) {
       {fields.map((f) => (
         <div key={f.key} className="value-row">
           <dt><code>{f.key}</code></dt>
-          <dd><code className="hook-field-value">{f.value}</code></dd>
+          <dd><FieldValue value={f.value} /></dd>
         </div>
       ))}
     </dl>
+  )
+}
+
+/** A launcher shows the agnostic-ai call it makes; the whole script stays one click away. */
+function FieldValue({ value }: { value: string }) {
+  const call = launcherCall(value)
+  if (!call) return <code className="hook-field-value">{value}</code>
+  return (
+    <>
+      <code className="hook-field-value">{call}</code>
+      <details className="hook-launcher">
+        <summary>Full command</summary>
+        <p className="muted">It finds the project root, uses the project's pinned agnostic-ai when there is one, does nothing when agnostic-ai is not installed, and stops with an error when that version is too old.</p>
+        <code className="hook-field-value">{value}</code>
+      </details>
+    </>
   )
 }

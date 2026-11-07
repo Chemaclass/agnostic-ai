@@ -73,6 +73,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Lifecycle shows stages as a timeline and a turned-off hook as off (#3120, #3145).
 - Each Lifecycle hook has **Summary**, **Key fields** and **Full spec**, hidden if the file looks like a credential. Search matches hook commands (#3038, #3062).
+- A built-in hook's command shows only the agnostic-ai call it makes, such as `agnostic-ai project -- hook memory --target codex`; **Full command** shows the whole launcher script.
 - **Add hook** on Lifecycle previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 - Tools counts only MCP servers that are on and shows others as off; `view --json` gives each one `disabled` in `fields` (#3120, #3145).
 - **Context size** starts with word counts, a budget line with **Change budget** and three **Next** steps (#3120, #3121).

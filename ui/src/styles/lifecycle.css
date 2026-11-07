@@ -332,6 +332,32 @@ details[open] > .stage-head::before {
   white-space: pre-wrap;
 }
 
+.hook-launcher {
+  margin-top: 6px;
+}
+
+.hook-launcher > summary {
+  width: fit-content;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.hook-launcher > summary:hover {
+  color: var(--text);
+}
+
+.hook-launcher > p {
+  margin: 6px 0;
+  font-size: var(--text-xs);
+}
+
+.hook-launcher > .hook-field-value {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
 @media (max-width: 760px) {
   .hook-zoom button {
     min-height: 44px;
