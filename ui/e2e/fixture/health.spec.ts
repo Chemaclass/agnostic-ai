@@ -55,7 +55,7 @@ test.describe('setup health', () => {
     await expect(warnings.locator('.finding')).toHaveCount(3)
     await expect(warnings.getByRole('heading', { level: 3, name: 'Context' })).toBeVisible()
     const finding = errors.locator('.finding', { hasText: 'LINT001' })
-    await expect(finding.getByRole('button', { name: 'Copy fix prompt' })).toBeVisible()
+    await expect(finding.getByRole('button', { name: 'Copy prompt' })).toBeVisible()
     await expect(finding.getByText('Details', { exact: true })).toBeVisible()
     await saveScreenshot(page, 'setup-health.png', { fullPage: true })
 
@@ -148,7 +148,7 @@ test.describe('setup health', () => {
     await expect(finding).toBeVisible()
     await expect(finding.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
     await expect(finding.locator('.finding-recheck-result')).toHaveCount(0)
-    await expect(page.locator('.page-header .page-note')).toHaveText('Read-only snapshot: open files, rechecks and switches need agnostic-ai view.')
+    await expect(page.locator('.page > .banner-info')).toContainText('Opening files, rechecks and switches need agnostic-ai view.')
     await expect(page.getByRole('button', { name: 'Copy the fix prompt for the one finding' })).toBeVisible()
   })
 

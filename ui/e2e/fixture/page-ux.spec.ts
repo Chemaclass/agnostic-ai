@@ -18,8 +18,7 @@ test('folds section warnings while Review and finding links reveal them', async 
   const finding = warnings.locator('.finding')
   await expect(warnings).not.toHaveAttribute('open', '')
   await expect(finding).toBeHidden()
-  await expect(page.locator('.section-findings-summary')).toHaveCount(0)
-  await expect(page.locator('.page-header .section-warnings-line')).toContainText('1 warning')
+  await expect(page.locator('.page-header .page-fact-findings')).toHaveText('1 warning')
   await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
   await expect(finding).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
@@ -36,7 +35,12 @@ test('keeps section errors visible without opening a disclosure', async ({ page 
   await expect(page.getByText('The session context exceeds its budget.', { exact: true })).toBeVisible()
   await expect(page.locator('.section-warnings')).toHaveCount(0)
   await expect(page.getByRole('alert')).toContainText('1 error')
-  await expect(page.locator('.page-header .section-warnings-line')).toHaveCount(0)
+  await expect(page.locator('.page-header .page-fact-findings')).toHaveText('1 error')
+  expect(await page.evaluate(() => {
+    const card = document.querySelector('.finding-error')
+    const tabs = document.querySelector('[role="tablist"]')
+    return Boolean(card && tabs && card.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING)
+  })).toBe(true)
 })
 
 test('shows the effective configuration once beside its source file links', async ({ page }) => {
@@ -64,7 +68,7 @@ test('fits all Settings tabs and their counts within narrow screens', async ({ p
       const box = await tab.boundingBox()
       expect(box!.x).toBeGreaterThanOrEqual(0)
       expect(box!.x + box!.width).toBeLessThanOrEqual(width)
-      if ((await tab.innerText()).startsWith('Editor')) continue
+      if (await tab.locator('.section-tab-count').count() === 0) continue
       const count = await tab.locator('.section-tab-count').boundingBox()
       expect(count!.x + count!.width).toBeLessThanOrEqual(width)
     }
@@ -93,12 +97,15 @@ test('keeps warnings open and focus visible after dismissing a recheck result', 
 test('says once per page that a snapshot is read-only', async ({ page }) => {
   for (const view of ['health', 'authority', 'context', 'settings&tab=targets']) {
     await page.goto(`/?view=${view}&mock=1`)
-    await expect(page.locator('.page-header .page-note')).toHaveText('Read-only snapshot: open files, rechecks and switches need agnostic-ai view.')
+    await expect(page.locator('.page > .banner')).toHaveCount(1)
+    await expect(page.locator('.page > .banner-info')).toContainText('Opening files, rechecks and switches need agnostic-ai view.')
+    await expect(page.getByText(/switches need agnostic-ai view/)).toHaveCount(1)
     await expect(page.getByText(/needs? a running agnostic-ai serve|only from a running agnostic-ai serve/)).toHaveCount(0)
   }
   await overview(page)
   await page.goto('/?view=settings')
-  await expect(page.locator('.page-note')).toHaveCount(0)
+  await expect(page.locator('.page > .banner-info')).toHaveCount(0)
+  await expect(page.getByText(/switches need agnostic-ai view/)).toHaveCount(0)
 })
 
 test('explains a snapshot that does not load and retries it', async ({ page }) => {

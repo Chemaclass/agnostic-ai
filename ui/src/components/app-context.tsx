@@ -51,16 +51,15 @@ export function AppLink({ to, children, onNavigate, ...rest }: { to: Partial<Url
   )
 }
 
-export function PageHeader({ eyebrow, title, subtitle, children }: { eyebrow?: ReactNode; title: ReactNode; subtitle?: ReactNode; children?: ReactNode }) {
-  const app = useApp()
+/** The top of a page: the section name as a small label, then, on a section page, its verdict sentence and a facts line. */
+export function PageHeader({ title, verdict, subtitle, children }: { title: ReactNode; verdict?: ReactNode; subtitle?: ReactNode; children?: ReactNode }) {
   return (
-    <header className="page-header">
-      {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+    <header className={`page-header${verdict ? ' has-verdict' : ''}`}>
       <h1 id="page-title" tabIndex={-1}>
         {title}
       </h1>
+      {verdict && <p className="page-verdict">{verdict}</p>}
       {subtitle && <p className="page-subtitle">{subtitle}</p>}
-      {(app.source.kind === 'static' || app.source.kind === 'mock') && <p className="page-note">Read-only snapshot: open files, rechecks and switches need <code>agnostic-ai view</code>.</p>}
       {children}
     </header>
   )

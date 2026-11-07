@@ -354,14 +354,14 @@ export function SourceNotice({ overview }: { overview: Remote<OverviewView> }) {
     const revision = overview.loaded?.data.snapshot.revision
     return (
       <Notice tone="info">
-        <p><strong>Static snapshot{revision ? ` · revision ${revision}` : ''}.</strong> Read from {app.source.base} with no server.</p>
+        <p><strong>Static snapshot{revision ? ` · revision ${revision}` : ''}.</strong> Read from {app.source.base} with no server. Opening files, rechecks and switches need <code>agnostic-ai view</code>.</p>
       </Notice>
     )
   }
   if (app.source.kind === 'mock') {
     return (
       <Notice tone="info">
-        <p><strong>Mock data.</strong> Handwritten data bundled with the page, not a live scan of a configuration.</p>
+        <p><strong>Mock data.</strong> Handwritten data bundled with the page, not a live scan of a configuration. Opening files, rechecks and switches need <code>agnostic-ai view</code>.</p>
       </Notice>
     )
   }

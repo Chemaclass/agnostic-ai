@@ -41,7 +41,7 @@ test('links each source section to its documentation, including empty sections',
     await expect(link).toHaveAttribute('href', `https://agnostic-ai.org/docs/${path}`)
     await expect(link).toHaveAttribute('target', '_blank')
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
-    await expect(page.locator('details.support-block').getByRole('link', { name: /^Documentation for/ })).toHaveAttribute('href', 'https://agnostic-ai.org/docs/target-behavior/')
+    await expect(page.locator('.support-frame > .section-doc-link')).toHaveAttribute('href', 'https://agnostic-ai.org/docs/target-behavior/')
   }
 })
 
@@ -50,7 +50,8 @@ test('keeps help reachable on a phone and opens it without losing the selected t
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await context.route('https://agnostic-ai.org/docs/spec-format/skills/', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Skill documentation</title>' }))
   await page.goto('/?view=context&tab=skills')
-  const help = page.getByRole('link', { name: 'Documentation for skills (opens in a new tab)' })
+  const help = page.locator('.section-head').getByRole('link', { name: 'Documentation for skills (opens in a new tab)' })
+  await expect(page.locator('.empty-state').getByRole('link', { name: 'Documentation for skills (opens in a new tab)' })).toBeVisible()
   await expect(help).toBeVisible()
   const bounds = await help.boundingBox()
   expect(bounds!.x).toBeGreaterThanOrEqual(0)

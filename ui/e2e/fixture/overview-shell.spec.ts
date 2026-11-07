@@ -75,7 +75,7 @@ test.describe('overview', () => {
   test('opens Context with Conversations, five sections, Setup health, and an icon theme toggle', async ({ page }) => {
     await openApp(page, '?view=context')
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
-    await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
+    await expect(page.locator('.page-verdict')).toHaveText('Agents follow 1 rule and can hand work to 3 agents.')
     for (const [tab, kind] of [['Guidance', 'Instructions'], ['Rules', 'Rules'], ['Agents', 'Agents'], ['Skills', 'Skills']] as const) {
       await selectTab(page, tab)
       await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${kind}`) })).toBeVisible()

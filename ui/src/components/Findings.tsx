@@ -1,10 +1,12 @@
 import { useContext, useId, useState } from 'react'
 import type { ItemFinding } from '../contract'
 import { OpenInEditor } from './EditorLink'
-import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, useGoneFinding, useRechecks } from './Recheck'
+import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { findingEntryIds } from '../model/identity'
-import { Badge, Code, CopyButton, Icon } from './ui'
+import { Badge, Code, CopyButton } from './ui'
+import { useApp } from './app-context'
+import { HEALTH_STATUS } from '../model/rail'
 import { ConfigurationRoot, useEntry } from './section-context'
 
 /** One owner's findings; pass `ids` when the list is a part of the owner's findings, so each keeps its link id. */
@@ -23,40 +25,40 @@ export function Findings({ findings, owner, place, orphanPlace, ids: givenIds }:
 }
 
 function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId: string; place: string }) {
+  const app = useApp()
   const root = useContext(ConfigurationRoot)
+  const sectionId = useContext(RecheckSection)
   const fresh = isNewSinceRecheck(useRechecks(), entryId)
   const prompt = findingFixPrompt(f, root)
   const promptId = useId()
   const { linked, ...entry } = useEntry(entryId)
+  const severity = f.severity === 'error' ? 'error' : 'warning'
+  const section = sectionId && sectionId !== app.state.view ? app.overview?.sections.find((s) => s.id === sectionId)?.label : undefined
   return (
-    <li {...entry} className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}${linked ? ' is-linked' : ''}`}>
+    <li {...entry} className={`finding finding-${severity === 'error' ? 'error' : 'warn'}${linked ? ' is-linked' : ''}`}>
       <div className="finding-body">
-        <div className="finding-head">
-          <div className="finding-meta">
-            <Icon name="warning" className="finding-icon" />
-            <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
-            {f.code && <Code>{f.code}</Code>}
-            <span className="muted">{f.source}</span>
-            {f.layer === 'global' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">global</Badge>}
-            {fresh && <Badge tone="accent">New since recheck</Badge>}
-          </div>
-          <div className="finding-actions">
-            <CopyButton text={prompt} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
-            <RecheckAction id={entryId} finding={f} place={place} />
-          </div>
-        </div>
+        <p className="finding-label">
+          <span>{section ? `${HEALTH_STATUS[severity]} · ${section}` : HEALTH_STATUS[severity]}</span>
+          {f.layer === 'global' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">global</Badge>}
+          {fresh && <Badge tone="accent">New since recheck</Badge>}
+        </p>
         <FindingMessage message={f.message} />
-        <RecheckNote id={entryId} finding={f} />
+        {f.fix && <p className="finding-fix">{f.fix}</p>}
         {f.path ? (
-          <div className="finding-source muted">
+          <div className="finding-source">
             <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
             <OpenInEditor path={f.openPath} line={f.line} label={f.path} shownPath={f.path} />
           </div>
-        ) : f.line ? <p className="finding-source muted">Line {f.line}</p> : null}
+        ) : f.line ? <p className="finding-source">Line {f.line}</p> : null}
+        <div className="finding-actions">
+          <CopyButton text={prompt} label="Copy prompt" copiedLabel="Copied" className="button-primary finding-copy" />
+          <RecheckAction id={entryId} finding={f} place={place} />
+        </div>
+        <RecheckNote id={entryId} finding={f} />
         <details className="finding-details">
           <summary>Details</summary>
-          <div className="finding-evidence muted">
-            {f.fix && <p><strong>Suggested fix</strong><span>{f.fix}</span></p>}
+          <div className="finding-evidence">
+            {f.code && <p className="finding-code"><Code>{f.code}</Code><span>{f.source === 'doctor' ? 'Found by the setup check' : 'Found by the configuration check'}</span></p>}
             {f.explanation && <p><strong>Why this appears</strong><span>{f.explanation}</span></p>}
             <div className="finding-prompt">
               <label htmlFor={promptId}>Fix prompt</label>

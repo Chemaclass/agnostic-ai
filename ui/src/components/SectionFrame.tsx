@@ -12,7 +12,7 @@ import { MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
 import { SpecMovedNotice, SpecMovedSaver, useSpecMovedNotice } from './SpecMoveAction'
 import { PermissionEditProvider, PermissionSaveNotice } from './PermissionEditor'
 import { SectionTabs } from './SectionTabs'
-import { SectionHeading } from './SectionHeading'
+import { DocLink, SectionHeading } from './SectionHeading'
 import { RecheckSection, RecheckSectionEntries, useRechecks } from './Recheck'
 import { builtinEnabled, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, itemEntryId, kindEntryId, sectionEntryIds } from '../model/identity'
@@ -22,6 +22,8 @@ import { entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '.
 import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
 import { Badge, Code, Icon } from './ui'
+import { EmptyState } from './EmptyState'
+import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings } from '../model/verdict'
 import { ConfigurationRoot, ConfiguredTools, PersonalBuiltins } from './section-context'
 import { SettingsFields } from './Fields'
 import { ConfigurationFiles, GroupedItems, sharedUnlistedCommand } from './Items'
@@ -54,8 +56,8 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
 
   return (
     <>
-      <PageHeader eyebrow={<span aria-hidden="true">{String(section.order).padStart(2, '0')} / {section.label}</span>} title={section.label} subtitle={section.question}>
-        <SectionWarningsLine section={section} />
+      <PageHeader title={section.label} verdict={sectionVerdict(section)}>
+        <SectionFacts section={section} />
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
@@ -80,18 +82,25 @@ export function revealFindings(findingsId: string) {
   heading.focus({ preventScroll: true })
 }
 
-function SectionWarningsLine({ section }: { section: Section }) {
-  const errors = section.findings.filter((finding) => finding.severity === 'error').length
-  const warnings = section.findings.length - errors
-  if (errors > 0 || warnings === 0) return null
+function SectionFacts({ section }: { section: Section }) {
+  const tally = tallyFindings(sectionFindings(section))
+  const findings = findingTallyText(tally)
+  const own = section.findings.length
+  const facts = sectionFacts(section)
+  const tone = tally.errors ? 'is-error' : tally.warnings ? 'is-warning' : 'is-clean'
   return (
-    <p className="section-warnings-line">
-      <Icon name="warning" />
-      <span>{warnings} warning{warnings === 1 ? '' : 's'}</span>
-      <button type="button" className="button button-quiet" onClick={() => revealFindings(`${section.id}-findings`)}>Review {warnings} finding{warnings === 1 ? '' : 's'}</button>
+    <p className="page-facts">
+      {facts.map((fact) => <span key={fact} className="page-fact">{fact}</span>)}
+      <span className={`page-fact page-fact-findings ${tone}`} role={tally.errors ? 'alert' : undefined}>
+        {findings && <Icon name="warning" />}
+        {findings ?? 'No findings'}
+      </span>
+      {own > 0 && <button type="button" className="button page-facts-review" onClick={() => revealFindings(`${section.id}-findings`)}>Review {own} finding{own === 1 ? '' : 's'}</button>}
     </p>
   )
 }
+
+const SECTION_DOCS: Record<string, string> = { context: 'instructions', authority: 'permissions', tools: 'mcp', lifecycle: 'hook', settings: 'config' }
 
 // Built-ins and model or effort fields share one preview, apply, and undo flow.
 function hasChanges(section: Section) {
@@ -164,9 +173,10 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
     }
     else if (tab.extra === 'targets') { const c = toolCount(app.overview?.tools.items ?? [], audience ?? 'shared'); count = `${c.on} of ${c.total} on` }
     else if (tab.extra === 'native') count = section.native?.length ?? 0
-    else if (tab.kinds.includes('builtin')) count = `${items.filter((item) => builtinEnabled(item, audience)).length} on`
-    else if (tab.kinds.includes('settings')) count = `${fields.filter((field) => sourcesForAudience(field.set, audience).length > 0).length} set`
+    else if (tab.kinds.includes('builtin')) { const on = items.filter((item) => builtinEnabled(item, audience)).length; count = on ? `${on} on` : undefined }
+    else if (tab.kinds.includes('settings')) { const set = fields.filter((field) => sourcesForAudience(field.set, audience).length > 0).length; count = set ? `${set} set` : undefined }
     else count = items.length
+    if (count === 0) count = undefined
     return { id: tab.id, label: tab.label, title: tabTitle(section, tab), count, findings: items.reduce((sum, item) => sum + item.findings.length, 0) }
   })
   const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
@@ -179,15 +189,11 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
     target.scrollIntoView({ block: 'center' })
     target.focus({ preventScroll: true })
   }, [entry, section.id, app.reveals])
-  const hasTools = tabs.some((tab) => tab.extra === 'targets')
   const matchCount = matchingItems.size + (fieldMatches?.length ?? 0) + nativeMatches.length + toolMatches
-  const totalCount = section.items.length + (section.fields?.length ?? 0) + (section.native?.length ?? 0) + (hasTools ? app.overview?.tools.items.length ?? 0 : 0)
-  const countedKinds = hasTools ? 'items, fields, and tools' : section.fields ? 'items and fields' : 'items'
   const retainedFindings = section.items.some((item) => item.findings.length > 0 && !matchingItems.has(item))
   const errors = section.findings.filter((finding) => finding.severity === 'error').length
   const warnings = section.findings.length - errors
   const findingsId = `${section.id}-findings`
-  const findingCounts = [errors ? `${errors} error${errors === 1 ? '' : 's'}` : '', warnings ? `${warnings} warning${warnings === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')
   const otherFindings = (section.findings.length > 0 || rechecked?.place === sectionPlace || orphan !== undefined) && (
     <section className="block" aria-labelledby={findingsId}>
       <SectionHeading topic="findings" id={findingsId} focusable>Other findings</SectionHeading>
@@ -211,34 +217,25 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
           <button type="button" className="button button-quiet" onClick={() => app.navigate({ entry: undefined }, { replace: true })}>Dismiss</button>
         </div>
       )}
+      {errors > 0 && otherFindings}
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
-        <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
-        <div className="section-search-controls">
-          <div className="section-search-input">
-            <Icon name="search" />
-            <input ref={searchInput} id={searchId} type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, path, description, or value" aria-describedby={`${searchId}-status`} />
-          </div>
-          {search && <button type="button" className="button button-quiet" onClick={() => {
-            setSearch('')
-            searchInput.current?.focus()
-          }}>Clear search</button>}
+        <label htmlFor={searchId} className="sr-only">Search {section.label.toLowerCase()}</label>
+        <div className="section-search-input">
+          <Icon name="search" />
+          <input ref={searchInput} id={searchId} type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Filter ${section.label.toLowerCase()}`} aria-describedby={`${searchId}-status`} />
         </div>
-        <p id={`${searchId}-status`} className="muted section-search-status" role="status">
-          {query ? `${matchCount} of ${totalCount} ${countedKinds} match.` : `${totalCount} ${countedKinds}`}
+        {search && <button type="button" className="button" onClick={() => {
+          setSearch('')
+          searchInput.current?.focus()
+        }}>Clear search</button>}
+        <p id={`${searchId}-status`} className="section-search-status" role="status">
+          {query ? (matchCount ? `${matchCount} ${matchCount === 1 ? 'match' : 'matches'}.` : 'No matches.') : ''}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
+        <DocLink topic={SECTION_DOCS[section.id] ?? section.id} />
       </div>
-      {support}
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
-      {errors > 0 && (
-        <div className="section-findings-summary has-errors" role="alert">
-          <Icon name="warning" />
-          <strong>{findingCounts}</strong>
-          <button type="button" className="button button-quiet" onClick={() => revealFindings(findingsId)}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>
-        </div>
-      )}
-      {errors > 0 && otherFindings}
       {panels.map((panel) => <div
         key={panel.id}
         className="section-panel"
@@ -260,7 +257,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <SectionHeading topic={k.kind} id={titleId} focusable entry={kindEntryId(k.kind)}>
-              {k.label} <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
+              {k.label}{tabs.length < 2 && count > 0 && <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>}
               {k.local && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
             </SectionHeading>
             {audienceControl}
@@ -273,7 +270,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
                 Tools not listed yet. Run <Code>{unlisted}</Code> to list them.
               </p>
             )}
-            {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : k.kind === 'config' ? <ConfigurationFiles items={items} /> : <GroupedItems items={items} sharedUnlisted={unlisted !== undefined} />}
+            {items.length === 0 ? <EmptyState kind={k} support={section.support.find((entry) => entry.kind === k.kind)} filtering={Boolean(query)} /> : k.kind === 'config' ? <ConfigurationFiles items={items} /> : <GroupedItems items={items} sharedUnlisted={unlisted !== undefined} />}
           </section>
         )
       })}
@@ -286,6 +283,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
+      {support}
       </SpecMovedSaver.Provider>
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>
