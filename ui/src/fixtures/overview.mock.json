@@ -1310,5 +1310,147 @@
         "detected": false
       }
     ]
+  },
+  "health": {
+    "gaps": [
+      {
+        "id": "kind:skill",
+        "section": "context",
+        "label": "Skills",
+        "supported": [
+          "claude",
+          "codex",
+          "cursor"
+        ],
+        "missing": "no skill yet",
+        "fix": "This agnostic-ai project has no skills, and claude, codex, cursor support them. Read the project and decide whether a skill would help the agent here: a workflow the agent runs on request, such as cutting a release. If one would, create it with `agnostic-ai new skill <name>`, fill it in, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "kind:command",
+        "section": "context",
+        "label": "Commands",
+        "supported": [
+          "claude",
+          "codex",
+          "cursor"
+        ],
+        "missing": "no command yet",
+        "fix": "This agnostic-ai project has no commands, and claude, codex, cursor support them. Read the project and decide whether a command would help the agent here: a prompt the user starts by name. If one would, create it with `agnostic-ai new command <name>`, fill it in, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "kind:review",
+        "section": "context",
+        "label": "Review instructions",
+        "supported": [
+          "codex",
+          "cursor"
+        ],
+        "missing": "no review instructions yet",
+        "fix": "This agnostic-ai project has no review instructions, and codex, cursor support them. Read the project and decide whether review instructions would help the agent here: what a code review checks in this project. If one would, create it with `agnostic-ai new review <name>`, fill it in, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "kind:ignore",
+        "section": "context",
+        "label": "Ignore files",
+        "supported": [
+          "cursor"
+        ],
+        "missing": "no ignore file yet",
+        "fix": "This agnostic-ai project has no ignore files, and cursor support them. Read the project and decide whether an ignore file would help the agent here: files the agent must not read, such as secrets or build output. If one would, create it with `agnostic-ai new ignore <name>`, fill it in, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "stage:session-start",
+        "section": "lifecycle",
+        "label": "Session start",
+        "supported": [
+          "claude",
+          "codex",
+          "cursor"
+        ],
+        "missing": "no hook yet",
+        "fix": "In this agnostic-ai project, claude, codex, cursor can run a hook at the \"Session start\" stage and no hook runs there. When a session opens: load context or check the environment. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: session-start`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "stage:prompt-submit",
+        "section": "lifecycle",
+        "label": "Prompt submit",
+        "supported": [
+          "claude",
+          "codex",
+          "cursor"
+        ],
+        "missing": "no hook yet",
+        "fix": "In this agnostic-ai project, claude, codex, cursor can run a hook at the \"Prompt submit\" stage and no hook runs there. Before the agent reads a prompt; exit 2 blocks the prompt. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: prompt-submit`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "stage:before-tool",
+        "section": "lifecycle",
+        "label": "Before a tool runs",
+        "supported": [
+          "claude",
+          "codex",
+          "cursor"
+        ],
+        "missing": "no hook yet",
+        "fix": "In this agnostic-ai project, claude, codex, cursor can run a hook at the \"Before a tool runs\" stage and no hook runs there. Before each tool call; exit 2 blocks the call. Guards live here. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: before-tool`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "stage:after-tool",
+        "section": "lifecycle",
+        "label": "After a tool runs",
+        "supported": [
+          "claude",
+          "codex"
+        ],
+        "missing": "no hook yet",
+        "fix": "In this agnostic-ai project, claude, codex can run a hook at the \"After a tool runs\" stage and no hook runs there. After each tool call: check, log, or react to the result. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: after-tool`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "stage:after-edit",
+        "section": "lifecycle",
+        "label": "After a file edit",
+        "supported": [
+          "claude",
+          "codex"
+        ],
+        "missing": "no hook yet",
+        "fix": "In this agnostic-ai project, claude, codex can run a hook at the \"After a file edit\" stage and no hook runs there. After the agent edits a file: format or lint it. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: after-edit`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "stage:stop",
+        "section": "lifecycle",
+        "label": "Stop",
+        "supported": [
+          "claude",
+          "codex"
+        ],
+        "missing": "no hook yet",
+        "fix": "In this agnostic-ai project, claude, codex can run a hook at the \"Stop\" stage and no hook runs there. When the agent finishes; exit 2 keeps it working. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: stop`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "stage:session-end",
+        "section": "lifecycle",
+        "label": "Session end",
+        "supported": [
+          "claude",
+          "codex",
+          "cursor"
+        ],
+        "missing": "no hook yet",
+        "fix": "In this agnostic-ai project, claude, codex, cursor can run a hook at the \"Session end\" stage and no hook runs there. When a session closes: save state or clean up. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: session-end`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+      },
+      {
+        "id": "builtin:handoff",
+        "section": "settings",
+        "label": "handoff",
+        "supported": [
+          "claude",
+          "codex",
+          "cursor"
+        ],
+        "missing": "built-in is off",
+        "fix": "The handoff built-in of this agnostic-ai project is off. Saves a task so the next session, in this or another tool, can resume it. To turn it on, add `handoff` to the `builtins` list in agnostic-ai.yaml and run `agnostic-ai sync`."
+      }
+    ]
   }
 }

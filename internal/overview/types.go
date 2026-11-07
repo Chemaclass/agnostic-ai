@@ -22,6 +22,7 @@ type View struct {
 	Sections      []Section          `json:"sections"`
 	Targets       []TargetSupport    `json:"targets"`
 	Tools         ToolCatalog        `json:"tools"`
+	Health        Health             `json:"health"`
 	// Global is true for user configuration, which has no project to size.
 	Global bool `json:"global,omitempty"`
 }
@@ -205,6 +206,28 @@ type KindCount struct {
 	// Local is set on the built-ins row when the personal config replaces
 	// the team list.
 	Local bool `json:"local,omitempty"`
+}
+
+// Health holds what the page suggests beyond the lint and doctor
+// findings.
+type Health struct {
+	Gaps []Gap `json:"gaps"`
+}
+
+// Gap is something the configured tools support that the project does
+// not use yet: a spec kind, a hook stage, or a recommended built-in. It
+// is a suggestion, never a finding.
+type Gap struct {
+	// ID is kind:<kind>, stage:<stage> or builtin:<name>.
+	ID      string `json:"id"`
+	Section string `json:"section"`
+	Label   string `json:"label"`
+	// Supported are the configured targets that would use it.
+	Supported []string `json:"supported"`
+	// Missing says what the project lacks, such as "no skill yet".
+	Missing string `json:"missing"`
+	// Fix is a prompt a coding agent can run to fill the gap.
+	Fix string `json:"fix"`
 }
 
 // KindSupport lists which configured targets emit a spec kind natively,

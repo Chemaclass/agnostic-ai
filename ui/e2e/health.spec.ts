@@ -196,5 +196,27 @@ test.describe('setup health', () => {
     await place.getByText('Details', { exact: true }).click()
     await expect(place.locator('textarea')).toHaveValue(/Source: \/home\/u\/\.agnostic-ai\/agents\/helper\.md/)
   })
+
+  test('lists what the enabled tools could get below the findings, without counting it', async ({ page, context }) => {
+    const data = structuredClone(fixture)
+    for (const s of data.sections) {
+      s.findings = []
+      for (const item of s.items) item.findings = []
+    }
+    const fix = 'This agnostic-ai project has no skills, and claude, codex support them.'
+    data.health = { gaps: [{ id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix }] }
+    await serve(page, data)
+    await page.goto('/?view=health')
+    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: No findings' })).toBeVisible()
+    const gaps = page.getByRole('region', { name: /^Reach the best setup/ })
+    await expect(gaps.getByRole('listitem')).toHaveCount(1)
+    const gap = gaps.getByRole('listitem').first()
+    await expect(gap).toContainText('Skills: supported by claude, codex; no skill yet')
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await gap.getByRole('button', { name: 'Copy the fix prompt for Skills' }).click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fix)
+    await gap.getByRole('link', { name: 'Context' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
+  })
 })
 
