@@ -52,12 +52,6 @@ typography:
     fontWeight: 500
     lineHeight: 1.12
     letterSpacing: "-0.02em"
-  display:
-    fontFamily: "Fraunces, Georgia, serif"
-    fontSize: "36px"
-    fontWeight: 500
-    lineHeight: 1.15
-    letterSpacing: "-0.015em"
   headline:
     fontFamily: "Fraunces, Georgia, serif"
     fontSize: "22px"
@@ -134,7 +128,7 @@ Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built
 
 ## Layout
 
-- **Rail** (280px, dark slate, sticky, full height): wordmark and project name, then Setup health as a status row (dot in the state color, "Needs attention" or "All clear", and "1 to fix, 12 you could add"), then the five sections and Conversations, each as its question over its live summary in small dim text (Conversations: *Where did you leave off?*, with the open chat count). The current row fills `rail-raised` with an 8px radius. The foot holds Search with its shortcut, Open global settings or Open project, the version badge, and Overview JSON.
+- **Rail** (280px, dark slate, sticky, full height): wordmark and project name, then Setup health as a status row (dot in the state color, "Needs attention" or "All clear", and "1 to fix, 12 you could add"), then the five sections (plus Conversations once #3109 adds it), each as its question over its live summary in small dim text (Conversations: *Where did you leave off?*, with the open chat count). The current row fills `rail-raised` with an 8px radius. The foot holds Search with its shortcut, Open global settings or Open project, the version badge, and Overview JSON.
 - **No top bar on wide screens.** What the top bar held moves into the rail or the page:
   - Finding counts by severity: the rail's Setup health row shows them as words ("1 error, 3 warnings", or "No findings" in `rail-dim`). On phones the top bar shows them as a chip ("1E 3W").
   - Project path: under the project name in the rail, monospace in `rail-dim`, truncated from the left, with the full path on hover.
@@ -142,7 +136,7 @@ Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built
   - Search, theme button and the configuration switch: the rail foot.
   - Mock and snapshot notice: one `Notice` strip at the top of the page content, above the verdict, once per page.
 - **Page**: 72px side padding, 56px top, content width up to 1080px. Each page starts with the verdict block: the section name as the page `h1`, styled as the small monospace label; the verdict sentence as a paragraph; and one line of supporting facts. On Setup health the facts line ends with "Checked just now" after a live server fetch, or "From a saved snapshot" for snapshots and mock data, once per page.
-- **At 900px and below** the rail collapses to a 60px top bar on canvas: wordmark and project on the left; the finding chip ("1E 3W"), Search and Menu as 44px buttons on the right. Under it, one row holds every page link by its section name (Conversations, Context, Authority, Tools, Lifecycle, Settings), scrolling sideways when it does not fit, so all page links stay visible as today. Menu opens a sheet from the left with the questions and summaries, the configuration switch, theme, version and Overview JSON.
+- **At 900px and below** the rail collapses to a 60px top bar on canvas: wordmark and project on the left; the finding chip ("1E 3W"), Search and Menu as 44px buttons on the right. Under it, one row of equal-width cells holds every page link, with the icon over a short label (the section name) at 760px and below, and never scrolls, so every page link stays fully visible down to 320px as today. Menu opens a sheet from the left with the questions and summaries, the configuration switch, theme, version and Overview JSON.
 - **At 760px and below** side padding is 16px, verdicts drop to 34px, finding cards stack their actions under the text as one full-width pill button.
 
 ## Components
