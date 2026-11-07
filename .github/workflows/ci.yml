@@ -577,6 +577,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
       # One pinned release file, checked against its published sha256
       # before it runs, instead of piping an install script into bash.
       - name: Install bashunit
