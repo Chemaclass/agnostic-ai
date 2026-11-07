@@ -542,12 +542,12 @@ a.release-badge:hover .release-arrow {
   overflow-wrap: anywhere;
 }
 
-.banner-title {
-  font-weight: 600;
+.banner p > code {
+  white-space: nowrap;
 }
 
-.banner code {
-  white-space: nowrap;
+.banner-title {
+  font-weight: 600;
 }
 
 .banner-error { border-inline-start-color: var(--blocked); }
