@@ -96,6 +96,24 @@ test('shows personal replacement, compares values, and previews resetting one li
   expect(requests.at(-1)).toMatchObject({ audience: 'personal', before: null, rules: ['shell(git push origin release)'] })
 })
 
+test('waits for the refreshed rules before offering the next change', async ({ page }) => {
+  const { data } = await setup(page, true)
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  await row.getByRole('button', { name: 'View local settings' }).click()
+  let release = () => {}
+  const held = new Promise<void>((resolve) => { release = resolve })
+  await page.route('**/api/views/overview', async (route) => { await held; await route.fulfill({ json: data }) })
+  await row.getByRole('button', { name: 'Edit rules', exact: true }).click()
+  await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('shell(git push origin release)')
+  await row.getByRole('button', { name: 'Preview', exact: true }).click()
+  await row.getByRole('button', { name: 'Apply', exact: true }).click()
+  const reset = row.getByRole('button', { name: 'Reset to the project rules', exact: true })
+  await expect(reset).toBeDisabled()
+  await expect(row.getByRole('button', { name: 'Edit rules', exact: true })).toBeDisabled()
+  release()
+  await expect(reset).toBeEnabled()
+})
+
 test('keeps a draft through a conflict and discards previews when the scope changes', async ({ page }) => {
   const { authority, requests } = await setup(page)
   const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })

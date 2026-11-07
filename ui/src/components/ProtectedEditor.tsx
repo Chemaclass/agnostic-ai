@@ -51,11 +51,17 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
   const [before, setBefore] = useState(own)
   const [inherited, setInherited] = useState(current.shared)
   const refreshing = useRef(false)
+  const settleFrom = useRef<object | null>(null)
+  const [settling, setSettling] = useState(false)
   useEffect(() => {
     active.current = true
     return () => { active.current = false }
   }, [])
   useEffect(() => {
+    if (settleFrom.current && app.overviewRevision !== settleFrom.current) {
+      settleFrom.current = null
+      setSettling(false)
+    }
     if (!refreshing.current) return
     refreshing.current = false
     setBefore(own)
@@ -78,8 +84,12 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
     setError(undefined)
     setEditing(true)
   }
+  const awaitRefresh = () => {
+    settleFrom.current = app.overviewRevision ?? null
+    setSettling(true)
+  }
   const request = async (action: 'preview' | 'apply', next: ProtectedBlock | null = draft) => {
-    if (busy.current || !path) return
+    if (busy.current || settleFrom.current || !path) return
     busy.current = true
     setPending(action)
     setError(undefined)
@@ -87,6 +97,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       const result = await editProtected({ action, audience, path, protected: action === 'apply' ? preview!.protected : next, before: editing ? before : own, ...(local ? { inherited: editing ? inherited : current.shared } : {}), ...(action === 'apply' ? { expected: preview!.expected } : {}) })
       if (action === 'apply') {
         saved(result)
+        awaitRefresh()
         app.reload(true)
       }
       if (!active.current) return
@@ -103,7 +114,8 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       if (active.current) setPending(undefined)
     }
   }
-  const locked = !!pending || !!preview
+  const waiting = !!pending || settling
+  const locked = waiting || !!preview
   const where = local ? 'Local' : 'Project'
   return <>{sources()}<div className="permission-editor">
     {paths.length > 1 && <label className="field-edit-target">Settings file
@@ -121,8 +133,8 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       <Notice tone="info"><p>Your local file sets <Code>protected: null</Code>, so sync does not protect the project paths for you.</p></Notice>
     </div>}
     {!overridden && !preview && !editing && <div className="field-edit-row">
-      <button type="button" className="button" disabled={!path || !!pending} onClick={begin}>{effective ? 'Edit paths' : 'Add paths'}</button>
-      {local && (current.personal || current.personalCleared) && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to project paths</button>}
+      <button type="button" className="button" disabled={!path || waiting} onClick={begin}>{effective ? 'Edit paths' : 'Add paths'}</button>
+      {local && (current.personal || current.personalCleared) && <button type="button" className="button button-quiet" disabled={!path || waiting} onClick={() => { void request('preview', null) }}>Reset to project paths</button>}
       {!path && <span className="muted">Choose the file whose protected paths you want to change.</span>}
     </div>}
     {editing && !preview && <form className="permission-form" onSubmit={(event) => { event.preventDefault(); void request('preview') }}>
@@ -157,6 +169,6 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       <FileDiff label={`${field.label} file changes`} diff={preview.diff} />
       <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools.</p>
     </section>}
-    {error && <EditFailure error={error} action={failed} busy={!!pending} onReload={() => { refreshing.current = true; app.reload() }} onDismiss={() => setError(undefined)} />}
+    {error && <EditFailure error={error} action={failed} busy={waiting} onReload={() => { refreshing.current = true; awaitRefresh(); app.reload() }} onDismiss={() => setError(undefined)} />}
   </div></>
 }

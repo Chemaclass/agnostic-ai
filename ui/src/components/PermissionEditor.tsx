@@ -88,6 +88,8 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   const active = useRef(true)
   const busy = useRef(false)
   const refreshing = useRef(false)
+  const settleFrom = useRef<object | null>(null)
+  const [settling, setSettling] = useState(false)
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const current = permissionSelection(field, files, path)
@@ -123,6 +125,10 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     if (!preview) restoreFocus.current = false
   }, [preview, editing])
   useEffect(() => {
+    if (settleFrom.current && app.overviewRevision !== settleFrom.current) {
+      settleFrom.current = null
+      setSettling(false)
+    }
     if (!refreshing.current) return
     refreshing.current = false
     setBefore(own)
@@ -147,8 +153,12 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     setRefreshed(false)
     setEditing(true)
   }
+  const awaitRefresh = () => {
+    settleFrom.current = app.overviewRevision ?? null
+    setSettling(true)
+  }
   const request = async (action: 'preview' | 'apply', next: string[] | null = rules) => {
-    if (busy.current || !path) return
+    if (busy.current || settleFrom.current || !path) return
     busy.current = true
     setPending(action)
     setError(undefined)
@@ -156,6 +166,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       const result = await editPermissions({ action, audience, path, key, rules: action === 'apply' ? preview!.rules : next, before: editing ? before : own, ...(action === 'apply' ? { expected: preview!.expected } : {}) })
       if (action === 'apply') {
         receipt.update(result)
+        awaitRefresh()
         app.reload(true)
       }
       if (!active.current) return
@@ -172,7 +183,8 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       if (active.current) setPending(undefined)
     }
   }
-  const locked = !!pending || !!preview || !!disabledReason
+  const waiting = !!pending || settling
+  const locked = waiting || !!preview || !!disabledReason
   return <>{sources()}<div className="permission-editor">
     {(paths.length > 1 || !path && paths.length > 0) && <label className="field-edit-target">Settings file
       <Select aria-label={`Settings file for ${field.label}`} value={path} disabled={!!pending} onChange={(event) => select(event.target.value)}>
@@ -194,13 +206,13 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     {!disabledReason && !overridden && !preview && !editing && !!own?.length && <ul className="permission-rules" aria-label={`Saved ${field.label} rules`}>
       {own.map((rule, index) => <li key={`${index}:${rule}`}>
         <Code>{rule}</Code>
-        <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Edit rule ${rule}`} onClick={() => begin(index)}>Edit</button>
-        <button type="button" className="button button-quiet" disabled={!path || !!pending} aria-label={`Remove rule ${rule}`} onClick={() => { const rest = own.filter((_, at) => at !== index); void request('preview', rest.length ? rest : audience === 'personal' ? [] : null) }}>Remove</button>
+        <button type="button" className="button button-quiet" disabled={!path || waiting} aria-label={`Edit rule ${rule}`} onClick={() => begin(index)}>Edit</button>
+        <button type="button" className="button button-quiet" disabled={!path || waiting} aria-label={`Remove rule ${rule}`} onClick={() => { const rest = own.filter((_, at) => at !== index); void request('preview', rest.length ? rest : audience === 'personal' ? [] : null) }}>Remove</button>
       </li>)}
     </ul>}
     {!disabledReason && !overridden && !preview && !editing && <div className="field-edit-row">
-      <button ref={editButton} type="button" className="button" disabled={!path || !!pending} onClick={() => begin()}>{own === null && !effective?.length ? 'Add rules' : 'Edit rules'}</button>
-      {audience === 'personal' && current.personalSet && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to the {level} rules</button>}
+      <button ref={editButton} type="button" className="button" disabled={!path || waiting} onClick={() => begin()}>{own === null && !effective?.length ? 'Add rules' : 'Edit rules'}</button>
+      {audience === 'personal' && current.personalSet && <button type="button" className="button button-quiet" disabled={!path || waiting} onClick={() => { void request('preview', null) }}>Reset to the {level} rules</button>}
       {!path && <span className="muted">Choose the file whose rules you want to change.</span>}
     </div>}
     {!disabledReason && editing && !preview && <form className="permission-form" onSubmit={(event) => { event.preventDefault(); void request('preview') }}>
@@ -227,7 +239,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       <FileDiff label={`${field.label} file changes`} diff={preview.diff} />
       <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools. Tool support varies; see Coding tool support below.</p>
     </section>}
-    {error && <EditFailure error={error} action={failed} busy={!!pending} onReload={() => { refreshing.current = true; app.reload() }} onDismiss={() => setError(undefined)} />}
+    {error && <EditFailure error={error} action={failed} busy={waiting} onReload={() => { refreshing.current = true; awaitRefresh(); app.reload() }} onDismiss={() => setError(undefined)} />}
     {refreshed && <div role="status"><Notice tone="info" title="Saved rules refreshed" onDismiss={() => setRefreshed(false)}><p>Your draft is kept. Preview again to compare it with the saved list.</p></Notice></div>}
   </div></>
 }
