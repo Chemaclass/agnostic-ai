@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const uiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const uiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const binary = resolve(process.env.AGNOSTIC_E2E_BIN ?? join(uiRoot, '..', process.platform === 'win32' ? 'agnostic-ai.exe' : 'agnostic-ai'))
 
 async function exists(path: string) {

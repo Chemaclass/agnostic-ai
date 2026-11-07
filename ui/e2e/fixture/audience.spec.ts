@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { normalizeOverviewView } from '../src/model/normalize'
-import { selectTab } from './helpers'
+import { normalizeOverviewView } from '../../src/model/normalize'
+import { selectTab } from '../helpers'
 
 for (const width of [320, 390, 1440]) {
   test(`changes the visible built-in, model, and native values with the selected audience at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
-    const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
+    const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
     const settings = data.sections.find((section) => section.id === 'settings')!
     for (const item of settings.items) {
       if (item.name === 'caveman') Object.assign(item, { enabled: true, local: true })
@@ -95,7 +95,7 @@ for (const width of [320, 390, 1440]) {
 }
 
 test('keeps the compact audience control inside the section it edits', async ({ page }) => {
-  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
+  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
   for (const width of [390, 1440]) {
@@ -120,7 +120,7 @@ test('keeps the compact audience control inside the section it edits', async ({ 
 })
 
 test('names the global level and its local layer in the global view', async ({ page }) => {
-  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
+  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
   data.global = true
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))

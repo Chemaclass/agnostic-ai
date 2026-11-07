@@ -3,8 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 const executablePath = process.env.E2E_CHROMIUM_PATH
 
 export default defineConfig({
-  testDir: './e2e',
-  testMatch: ['**/live.spec.ts', '**/global-onboarding.spec.ts'],
+  testDir: './e2e/live',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
