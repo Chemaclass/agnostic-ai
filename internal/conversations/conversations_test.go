@@ -778,7 +778,7 @@ func TestScan_LeavesOutAJobWhoseNameIsNotAPlainID(t *testing.T) {
 	}
 }
 
-func TestScan_KeepsCachedSessionsWhenTheScanIsCancelled(t *testing.T) {
+func TestScan_KeepsCachedSessionsWhenTheScanIsCanceled(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idCache+".jsonl"), lines(
 		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-06T10:00:00.000Z", "message": obj{"role": "user", "content": "Run the suite"}}))
@@ -790,7 +790,7 @@ func TestScan_KeepsCachedSessionsWhenTheScanIsCancelled(t *testing.T) {
 	scanner.Scan(ctx, ScanOptions{})
 
 	if cached == 0 || len(scanner.claude) != cached {
-		t.Errorf("cache held %d sessions, then %d after a cancelled scan", cached, len(scanner.claude))
+		t.Errorf("cache held %d sessions, then %d after a canceled scan", cached, len(scanner.claude))
 	}
 }
 
