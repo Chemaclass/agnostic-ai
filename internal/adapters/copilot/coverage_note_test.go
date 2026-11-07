@@ -132,3 +132,24 @@ func TestAgentEffortLevels_KeepsOnlyDroppedSupportedLevels(t *testing.T) {
 		t.Errorf("AgentEffortLevels = %v, want only rev: xhigh", got)
 	}
 }
+
+// Copilot CLI reads a hooks map in agent frontmatter, so the note names
+// x-copilot.hooks instead of saying the agent file has no hook key (#3137).
+func TestEmit_AgentHooksNoteNamesTheCopilotKey(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	hooks := map[string]any{"PostToolUse": []any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "echo hi"}}}}}
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "fmt", Body: "Format.", Meta: map[string]any{"description": "Formats files.", "hooks": hooks}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	emit.FlushCoverageNotes()
+	want := "`hooks` on 1 agent has no effect on copilot (sync writes no agent hooks here; set x-copilot.hooks, which Copilot CLI reads)"
+	if !strings.Contains(buf.String(), want) {
+		t.Errorf("want %q, got: %s", want, buf.String())
+	}
+}

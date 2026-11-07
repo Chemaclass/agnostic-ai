@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { openMenu } from '../helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -115,20 +116,24 @@ test('links agnostic-ai and the project repository on GitHub', async ({ page }) 
   const product = page.locator('.sidenav').getByRole('link', { name: 'agnostic-ai on GitHub (opens in a new tab)' })
   await expect(product).toHaveAttribute('href', 'https://github.com/Chemaclass/agnostic-ai')
   await expect(product).toHaveAttribute('target', '_blank')
-  const project = page.getByRole('banner').getByRole('link', { name: 'octo/demo-project on GitHub (opens in a new tab)' })
+  const project = page.locator('.sidenav').getByRole('link', { name: 'octo/demo-project on GitHub (opens in a new tab)' })
   await expect(project).toHaveAttribute('href', 'https://github.com/octo/demo-project')
   await expect(project).toHaveAttribute('target', '_blank')
   await expect(project).toBeInViewport({ ratio: 1 })
-  await page.setViewportSize({ width: 320, height: 900 })
-  await expect(project).toBeInViewport({ ratio: 1 })
   await expect(product).toBeInViewport({ ratio: 1 })
+  await page.setViewportSize({ width: 320, height: 900 })
+  const menu = await openMenu(page)
+  for (const name of ['octo/demo-project on GitHub (opens in a new tab)', 'agnostic-ai on GitHub (opens in a new tab)']) {
+    await expect(menu.getByRole('link', { name })).toBeInViewport({ ratio: 1 })
+  }
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.keyboard.press('Escape')
   await page.setViewportSize({ width: 1280, height: 900 })
 
   overview = fixture
   await page.reload()
   await expect(page.getByRole('heading', { level: 1, name: 'Context', exact: true })).toBeVisible()
-  await expect(page.getByRole('banner').getByRole('link', { name: /on GitHub/ })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /^octo\/demo-project on GitHub/ })).toHaveCount(0)
   await expect(product).toBeVisible()
 })
 
@@ -159,13 +164,15 @@ test('fits long project names and configuration switches on a phone', async ({ p
     projectRoot: data.snapshot.project.root,
   } }))
   await page.goto('/?view=context')
-  const switchButton = page.getByRole('button', { name: /^Open project / })
-  await expect(switchButton).toBeInViewport({ ratio: 1 })
-  for (const name of ['Search', 'Switch to']) {
-    await expect(page.locator('.topbar').getByRole('button', { name: new RegExp(`^${name}`) })).toBeInViewport({ ratio: 1 })
+  for (const name of ['Search', 'Menu']) {
+    await expect(page.locator('.topbar').getByRole('button', { name, exact: true })).toBeInViewport({ ratio: 1 })
   }
-  await expect(page.locator('.sidenav').getByRole('button', { name: 'Overview JSON', exact: true })).toBeInViewport({ ratio: 1 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  const menu = await openMenu(page)
+  await expect(menu.getByRole('button', { name: /^Open project / })).toBeInViewport({ ratio: 1 })
+  await expect(menu.getByRole('button', { name: /^Switch to/ })).toBeInViewport({ ratio: 1 })
+  await expect(menu.getByRole('button', { name: 'Overview JSON', exact: true })).toBeInViewport({ ratio: 1 })
+  expect(await menu.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
 })
 
 test('switches a source tab without losing search or keyboard focus', async ({ page }) => {
@@ -185,7 +192,8 @@ test('switches a source tab without losing search or keyboard focus', async ({ p
 test('starts every section with its page header', async ({ page }) => {
   for (const view of ['context', 'authority', 'tools', 'lifecycle', 'settings']) {
     await page.goto(`/?view=${view}&mock=1`)
-    await expect(page.locator('.page > :first-child')).toHaveClass('page-header')
+    await expect(page.locator('.page > :first-child')).toHaveClass(/\bbanner-info\b/)
+    await expect(page.locator('.page > :first-child + .page-header')).toHaveCount(1)
   }
 })
 
@@ -223,21 +231,20 @@ test('shows a permission key once in the narrow Authority layout', async ({ page
   await expect(row.locator('.value-row dt').first()).toBeVisible()
 })
 
-test('keeps header buttons on the header colour in the light theme', async ({ page }) => {
+test('keeps the rail slate and its buttons unboxed in the light theme', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.goto('/?view=context')
-  const header = await page.locator('.topbar').evaluate((element) => getComputedStyle(element).backgroundColor)
-  const search = page.locator('.topbar').getByRole('button', { name: 'Search', exact: true })
-  expect(await search.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(header)
+  expect(await page.locator('.rail').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(34, 40, 42)')
+  const search = page.locator('.sidenav').getByRole('button', { name: 'Search', exact: true })
+  expect(await search.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
 })
 
-test('keeps the top bar to search and theme, with the overview JSON in the sidebar', async ({ page }) => {
+test('keeps the phone top bar to Search and Menu, with the overview JSON in the rail', async ({ page }) => {
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.goto('/?view=context')
   const actions = page.locator('.topbar-actions').getByRole('button')
-  await expect(actions).toHaveCount(2)
-  await expect(page.locator('.topbar').getByRole('button', { name: /JSON/ })).toHaveCount(0)
+  await expect(actions).toHaveCount(0)
   const json = page.locator('.sidenav-footer').getByRole('button', { name: 'Overview JSON', exact: true })
   await json.click()
   await expect(json).toHaveAttribute('aria-pressed', 'true')
@@ -247,8 +254,14 @@ test('keeps the top bar to search and theme, with the overview JSON in the sideb
   await expect(drawer).toHaveCount(0)
   await expect(json).toBeFocused()
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect(json).toBeInViewport({ ratio: 1 })
-  expect((await json.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  await expect(actions).toHaveCount(2)
+  await expect(actions.nth(0)).toHaveAccessibleName('Search')
+  await expect(actions.nth(1)).toHaveAccessibleName('Menu')
+  await expect(page.locator('.topbar').getByRole('button', { name: /JSON/ })).toHaveCount(0)
+  const menu = await openMenu(page)
+  const sheetJson = menu.getByRole('button', { name: 'Overview JSON', exact: true })
+  await expect(sheetJson).toBeInViewport({ ratio: 1 })
+  expect((await sheetJson.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 })
 
 for (const width of [320, 900]) {
@@ -272,7 +285,8 @@ for (const width of [1440, 390]) {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
-    const sidenav = page.locator('.sidenav')
+    // Wide screens stick the whole rail; phones stick the page-link row.
+    const sidenav = page.locator(width > 900 ? '.rail' : '.sidenav')
     const views = ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']
     for (const [index, name] of views.entries()) {
       await page.goto(`/?view=${name.toLowerCase()}${name === 'Context' ? '&tab=agents' : ''}`)
@@ -352,4 +366,69 @@ test('keeps the JSON inspector and search results scrolling their own content', 
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
   await expect(inspectorButton).toBeFocused()
+})
+
+test('lands a linked row below the sticky phone link row', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=tools')
+  await expect(page.getByRole('heading', { level: 1, name: 'Tools', exact: true })).toBeVisible()
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+  const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
+  await dialog.getByRole('combobox', { name: 'Search all configuration' }).fill('railway')
+  await dialog.getByRole('option').first().click()
+  const linked = page.locator('.is-linked').first()
+  await expect(linked).toBeFocused()
+  await expect.poll(async () => {
+    const row = (await page.locator('.sidenav').boundingBox())!
+    return (await linked.boundingBox())!.y >= row.y + row.height
+  }).toBe(true)
+})
+
+test('closes the phone Menu before search opens, and follows a result', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context')
+  const menu = await openMenu(page)
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+  await expect(menu).toBeHidden()
+  const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
+  const input = dialog.getByRole('combobox', { name: 'Search all configuration' })
+  await expect(input).toBeFocused()
+  await page.keyboard.type('github')
+  await expect(dialog.getByRole('option').first()).toContainText('github')
+  await page.keyboard.press('Enter')
+  await expect(dialog).toHaveCount(0)
+  await expect(page).toHaveURL(/view=tools&entry=/)
+  await expect(page.locator('.item-row.is-linked')).toBeFocused()
+})
+
+test('scrolls only the Menu while it is open', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=settings')
+  await openMenu(page)
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).toBe('hidden')
+  await page.keyboard.press('Escape')
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe('hidden')
+})
+
+test('keeps Overview JSON on one line and the release arrow beside its text', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0', notesUrl: 'https://example.com/notes' } }))
+  await page.goto('/?view=context')
+  const json = page.locator('.sidenav-footer .sidenav-json')
+  const lineHeight = await json.evaluate((element) => parseFloat(getComputedStyle(element).lineHeight) || parseFloat(getComputedStyle(element).fontSize) * 1.6)
+  expect((await json.boundingBox())!.height).toBeLessThan(lineHeight * 2)
+  const badge = page.locator('.sidenav-footer .release-badge')
+  await expect(badge.locator('.release-arrow')).toBeVisible()
+  const gap = await badge.evaluate((element) => {
+    const range = document.createRange()
+    range.selectNodeContents(element.querySelector('.release-caption')!.firstChild!)
+    const arrow = element.querySelector('.release-arrow')!.getBoundingClientRect()
+    return arrow.left - range.getBoundingClientRect().right
+  })
+  expect(gap).toBeGreaterThanOrEqual(0)
+  expect(gap).toBeLessThanOrEqual(8)
 })

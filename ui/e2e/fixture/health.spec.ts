@@ -7,6 +7,8 @@ import type { ItemFinding, SectionItem } from '../../src/contract'
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 type Overview = typeof fixture
+// The rail row names the counts first, then the status word.
+const healthRow = (page: Page, summary: string) => page.locator('.sidenav').getByRole('link', { name: new RegExp(`^Setup health: ${summary} `) })
 const section = (data: Overview, id: string) => data.sections.find((s: { id: string }) => s.id === id)
 
 // One lint error on a hook and three doctor warnings on skills; the fixture's own finding is removed.
@@ -34,18 +36,17 @@ async function serve(page: Page, data: Overview) {
 }
 
 test.describe('setup health', () => {
-  test('counts findings in the top bar, lists them by severity, and drops a fixed one after a recheck', async ({ page }) => {
+  test('counts findings in the rail, lists them by severity, and drops a fixed one after a recheck', async ({ page }) => {
     const { data, hook } = scenario()
     await serve(page, data)
     await page.goto('/?view=settings')
-    const badge = page.locator('.topbar').getByRole('link', { name: 'Setup health: 1 error, 3 warnings' })
-    await expect(badge).toHaveText('1 error, 3 warnings', { useInnerText: true })
-    await expect(badge).toHaveClass(/is-error/)
+    const badge = healthRow(page, '1 error, 3 warnings')
+    await expect(badge).toHaveAccessibleName('Setup health: 1 error, 3 warnings Needs a fix')
+    await expect(badge.locator('.nav-dot')).toHaveClass(/is-error/)
     await badge.click()
     await expect(page).toHaveURL(/[?&]view=health(&|$)/)
     await expect(page.getByRole('heading', { level: 1, name: 'Setup health' })).toBeFocused()
     await expect(badge).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('.sidenav').getByRole('link', { name: /^Setup health/ })).toHaveAttribute('aria-current', 'page')
 
     const errors = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Errors 1' }) })
     const warnings = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Warnings 3' }) })
@@ -69,7 +70,7 @@ test.describe('setup health', () => {
     const feedback = page.locator('.finding-rechecked')
     await expect(feedback).toHaveCount(1)
     await expect(feedback).toContainText('This lint finding no longer appears.')
-    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 3 warnings' })).toBeVisible()
+    await expect(healthRow(page, '3 warnings')).toBeVisible()
   })
 
   test('rechecks every section at once and says how many findings remain', async ({ page }) => {
@@ -88,7 +89,7 @@ test.describe('setup health', () => {
     await expect(page.locator('.health-recheck-result')).toHaveText('Rechecked every finding. 1 finding no longer appears. 3 findings remain.')
     expect(loads - before).toBe(1)
     await expect(page.locator('.health-group .finding', { hasText: 'LINT001' })).toHaveCount(0)
-    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 3 warnings' })).toBeVisible()
+    await expect(healthRow(page, '3 warnings')).toBeVisible()
   })
 
   test('shows one recheck result when an item has an error and a warning', async ({ page }) => {
@@ -97,13 +98,13 @@ test.describe('setup health', () => {
     section(data, 'lifecycle').items[0].findings.push(warning)
     await serve(page, data)
     await page.goto('/?view=health')
-    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 1 error, 4 warnings' })).toBeVisible()
+    await expect(healthRow(page, '1 error, 4 warnings')).toBeVisible()
     section(data, 'lifecycle').items[0].findings = [warning]
     await page.locator('.finding', { hasText: 'LINT001' }).getByRole('button', { name: 'Recheck', exact: true }).click()
     await expect(page.locator('.finding-rechecked')).toHaveCount(1)
     await expect(page.locator('.health-group', { has: page.getByRole('heading', { name: /^Errors/ }) }).locator('.finding-rechecked')).toHaveCount(1)
     await expect(page.locator('.finding', { hasText: 'LINT002' })).toHaveCount(1)
-    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 4 warnings' })).toBeVisible()
+    await expect(healthRow(page, '4 warnings')).toBeVisible()
   })
 
   test('copies one prompt for every finding, errors first', async ({ page, context }) => {
@@ -133,15 +134,16 @@ test.describe('setup health', () => {
     for (const item of section(data, 'context').items) item.findings = []
     await serve(page, data)
     await page.goto('/?view=health')
-    const badge = page.locator('.topbar').getByRole('link', { name: 'Setup health: No findings' })
-    await expect(badge).toHaveClass(/is-clean/)
+    const badge = healthRow(page, 'No findings')
+    await expect(badge).toContainText('All clear')
+    await expect(badge.locator('.nav-dot')).toHaveClass(/is-clean/)
     await expect(page.getByText('Lint and doctor found nothing to fix in this configuration.')).toBeVisible()
     await expect(page.getByRole('button', { name: /Copy one fix prompt/ })).toHaveCount(0)
   })
 
   test('works from data with no server, without Recheck', async ({ page }) => {
     await openApp(page, '?view=health&mock=1')
-    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 1 warning' })).toBeVisible()
+    await expect(healthRow(page, '1 warning')).toBeVisible()
     const finding = page.locator('.health-group .finding', { hasText: 'LINT038' })
     await expect(finding).toBeVisible()
     await expect(finding.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
@@ -172,7 +174,7 @@ test.describe('setup health', () => {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 })
       await page.goto('/?view=health')
-      const badge = page.locator('.topbar').getByRole('link', { name: 'Setup health: 1 error, 3 warnings' })
+      const badge = page.locator('.topbar').getByRole('link', { name: 'Setup health: 1 error, 3 warnings', exact: true })
       await expect(badge).toBeInViewport({ ratio: 1 })
       expect((await badge.boundingBox())!.height).toBeGreaterThanOrEqual(44)
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
@@ -180,7 +182,7 @@ test.describe('setup health', () => {
     }
     await page.locator('.topbar').getByRole('link', { name: /^Setup health/ }).click()
     const current = page.locator('.health-badge[aria-current="page"]')
-    expect(await current.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none')
+    expect(await current.evaluate((element) => getComputedStyle(element).borderColor)).toBe(await current.evaluate((element) => getComputedStyle(element).color))
   })
 
   test('counts a global setup finding and lists it as Global setup', async ({ page }) => {
@@ -189,7 +191,7 @@ test.describe('setup health', () => {
     settings.findings = [{ source: 'lint', code: 'LINT007', severity: 'warn', message: 'Unknown key modl.', path: 'agents/helper.md', openPath: '/home/u/.agnostic-ai/agents/helper.md', layer: 'global' }]
     await serve(page, data)
     await page.goto('/?view=health')
-    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 1 error, 4 warnings' })).toBeVisible()
+    await expect(healthRow(page, '1 error, 4 warnings')).toBeVisible()
     const warnings = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Warnings 4' }) })
     const place = warnings.locator('.health-place', { hasText: 'Global setup' })
     await expect(place.locator('.finding')).toHaveCount(1)
@@ -208,7 +210,7 @@ test.describe('setup health', () => {
     data.health = { gaps: [{ id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix }], improvements: { applied: 8, total: 9 } }
     await serve(page, data)
     await page.goto('/?view=health')
-    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: No findings' })).toBeVisible()
+    await expect(healthRow(page, 'No findings')).toBeVisible()
     const gaps = page.getByRole('region', { name: /^Reach the best setup/ })
     await expect(gaps).toContainText('8 of 9 improvements applied')
     await expect(gaps.getByRole('listitem')).toHaveCount(1)

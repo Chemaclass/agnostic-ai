@@ -11,7 +11,7 @@ test.describe('overview', () => {
     await page.route('**/snapshot/overview.json', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=context&source=./snapshot')
     await expect(page.locator('.brand-name')).toHaveText('agnostic-ai')
-    await expect(page.locator('.chip', { hasText: 'Static snapshot' })).toBeVisible()
+    await expect(page.locator('.page > .banner-info', { hasText: 'Static snapshot' })).toBeVisible()
     await expect(page.locator('.project-name')).toHaveCount(0)
     data.snapshot.project.name = 'billing-service'
     data.snapshot.project.root = '/work/clients/billing-service'
@@ -109,7 +109,7 @@ test.describe('overview', () => {
     const navTop = await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)
     await page.evaluate(() => window.scrollTo({ top: document.scrollingElement!.scrollHeight }))
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
-    expect(await page.locator('.topbar').evaluate((el) => el.getBoundingClientRect().top)).toBe(0)
+    expect(await page.locator('.rail').evaluate((el) => el.getBoundingClientRect().top)).toBeCloseTo(0, 0)
     expect(await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)).toBeCloseTo(navTop, 0)
   })
 
@@ -141,8 +141,8 @@ test.describe('overview', () => {
     await expect(drawer.locator('.inspector-meta')).toContainText('overview/v1')
     await expect(button).toBeInViewport({ ratio: 1 })
     await expect(button).toHaveAttribute('aria-pressed', 'true')
-    const headerBottom = await page.locator('.topbar').evaluate((element) => element.getBoundingClientRect().bottom)
-    expect(await drawer.evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(headerBottom - 1)
+    const railRight = await page.locator('.rail').evaluate((element) => element.getBoundingClientRect().right)
+    expect(await drawer.evaluate((element) => element.getBoundingClientRect().left)).toBeGreaterThanOrEqual(railRight - 1)
     await drawer.getByRole('button', { name: 'Copy JSON' }).click()
     await expect(drawer.getByRole('button', { name: 'JSON copied' })).toBeVisible()
     await page.keyboard.press('Escape')

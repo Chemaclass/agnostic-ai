@@ -175,6 +175,7 @@ var caps = emit.Capabilities{
 	SkillFields:    emit.SkillFieldCoverage{Markdown: skillMarkdown},
 	AgentFieldReasons: map[string]string{
 		"mcpServers": "sync writes no inline agent server here; set x-copilot.mcp-servers",
+		"hooks":      "sync writes no agent hooks here; set x-copilot.hooks, which Copilot CLI reads",
 	},
 }
 

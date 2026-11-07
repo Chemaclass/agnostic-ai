@@ -122,3 +122,5 @@ antigravity-mcp-per-tool-eager-20261106	antigravity	eager (boolean) registers th
 claude-deny-instead-of-prompting-20261106	claude	Added `permissions.denyInsteadOfPrompting` setting: a tool call that would wait on a permission prompt is denied and the turn continues	yes	signal:cap-claude-deny-instead-of-prompting
 qwen-skill-enablement-policy-20261106	qwen	Skill names that start disabled but can be opted into through skills.enabled	yes	signal:cap-qwen-skill-enablement-policy
 qwen-compat-ignore-files-20261106	qwen	By default, Qwen Code reads .qwenignore , .agentignore , and .aiignore .	yes	signal:cap-qwen-compat-ignore-files
+kiro-compaction-hooks-20261107	kiro	In Kiro CLI 3.1.0 or later, the `PostCompact` trigger fires after a CLI V3 session compacts its conversation.	yes	signal:cap-kiro-compaction-hooks
+opencode-cache-warming-release-20261107	opencode	Added provider- and model-specific session warming settings, including an `interval: "auto"` mode based on cache TTL.	yes	signal:cap-provider-cache-warming

@@ -513,3 +513,12 @@ func TestValidate_AcceptsKiroSessionEndTrigger(t *testing.T) {
 		t.Errorf("validate rejected the documented SessionEnd trigger: %s", got)
 	}
 }
+
+// Kiro CLI 3.1.0 added the `PreCompact` and `PostCompact` triggers (#3136).
+func TestValidate_AcceptsKiroCompactionTriggers(t *testing.T) {
+	for _, event := range []string{"PreCompact", "PostCompact"} {
+		if got := validateKiroHookEvent(t, event); strings.Contains(got, "unknown hook event") {
+			t.Errorf("validate rejected the documented %s trigger: %s", event, got)
+		}
+	}
+}

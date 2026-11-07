@@ -4,7 +4,7 @@
 //   E2E_MOCK=1          append ?mock=1 so the client reads its bundled fixture
 //   E2E_SCREENSHOT_DIR  where screenshots go (default ui/test-results/screenshots, ignored by git)
 
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -34,4 +34,12 @@ export async function saveScreenshot(page: Page, name: string, options: { fullPa
   // Park the pointer in a corner so no hover state shows in the picture.
   await page.mouse.move(1, 1)
   await page.screenshot({ path: resolve(SCREENSHOT_DIR, name), animations: 'disabled', fullPage: options.fullPage === true })
+}
+
+/** Opens the phone Menu sheet and returns it. */
+export async function openMenu(page: Page): Promise<Locator> {
+  await page.locator('.topbar').getByRole('button', { name: 'Menu', exact: true }).click()
+  const menu = page.getByRole('dialog', { name: 'Menu' })
+  await menu.waitFor()
+  return menu
 }

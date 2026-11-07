@@ -20,7 +20,7 @@ func TestEntryPointPath_MatchesVendorReadPath(t *testing.T) {
 	// Each entry is a path the vendor documents, with the source in the
 	// comment. A target belongs here only once its read path is confirmed.
 	for target, want := range map[string]string{
-		// opencode.ai/docs/rules: an upward walk for files named exactly
+		// docs.opencode.ai/docs/rules: an upward walk for files named exactly
 		// AGENTS.md. No .opencode/ variant appears in the docs or in the
 		// vendor's own instruction-context.ts (#623).
 		"opencode": "AGENTS.md",
