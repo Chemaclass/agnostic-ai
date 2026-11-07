@@ -190,27 +190,26 @@ function ReleaseBadge({ served, version }: { served: ServedConfig; version: stri
     <span className="release-text">
       <span className="release-line">
         <span className="release-version"><span className="sr-only">agnostic-ai </span>{release.label}</span>
-        {required && (
-          <>
-            {' '}
-            <span className={`release-requires is-${required.state}`} title={required.title}>
-              {required.label}
-              {required.state === 'unmet' && <span className="sr-only">, not met by this version</span>}
-            </span>
-          </>
-        )}
-      </span>{' '}
-      <span className="release-caption">
-        {release.kind === 'release' ? 'Release notes' : 'Development build'}
         {release.kind === 'release' && <Icon name="arrow" className="release-arrow" />}
       </span>
+      {required?.state === 'unmet' && (
+        <>
+          {' '}
+          <span className="release-requires is-unmet" title={required.title}>
+            Update needed
+            <span className="sr-only">: {required.label}, not met by this version</span>
+          </span>
+        </>
+      )}{' '}
+      <span className="sr-only">{release.kind === 'release' ? 'Release notes' : 'Development build'}</span>
     </span>
   )
+  const requirement = required && required.state !== 'unmet' ? ` (${required.label}: ${required.title})` : ''
   if (release.kind === 'build') {
-    return <div className="release-badge release-badge-build" title={`agnostic-ai ${release.label}`}>{text}</div>
+    return <div className="release-badge release-badge-build" title={`agnostic-ai ${release.label}, a development build${requirement}`}>{text}</div>
   }
   return (
-    <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`Read the agnostic-ai ${release.label} release notes (opens in a new tab)`}>
+    <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`Read the agnostic-ai ${release.label} release notes${requirement}`}>
       {text}
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
@@ -287,32 +286,32 @@ function RailFoot({
   const themeLabel = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
   return (
     <footer className="sidenav-footer">
-      {onOpenSearch && (
-        <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
-          <Icon name="search" />
-          <span className="button-search-label">Search</span>
-          <kbd aria-hidden="true">{SEARCH_SHORTCUT}</kbd>
-        </button>
-      )}
-      {served ? <ConfigSwitch served={served} /> : servedPending && <span className="config-switch is-pending"><Placeholder /></span>}
-      <div className="sidenav-row">
-        <button type="button" className="button button-quiet sidenav-theme" aria-label={themeLabel} title={themeLabel} onClick={onToggleTheme}>
-          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-          <span aria-hidden="true">{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
-        </button>
-        <a className="sidenav-github" href={PRODUCT_REPOSITORY} target="_blank" rel="noopener noreferrer" title={`${PRODUCT_NAME} on GitHub`}>
-          <Icon name="github" />
-          <span className="sidenav-github-label">{PRODUCT_NAME} on GitHub</span>
-          <span className="sr-only"> (opens in a new tab)</span>
-        </a>
+      <div className="sidenav-actions">
+        {onOpenSearch && (
+          <button type="button" className="sidenav-action button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
+            <Icon name="search" />
+            <span className="sidenav-action-label">Search</span>
+            <kbd aria-hidden="true">{SEARCH_SHORTCUT}</kbd>
+          </button>
+        )}
+        {served ? <ConfigSwitch served={served} inRail /> : servedPending && <span className="config-switch is-pending"><Placeholder /></span>}
       </div>
-      <div className="sidenav-meta">
+      <div className="sidenav-bar">
         {served?.version
           ? <ReleaseBadge served={served} version={served.version} />
-          : servedPending && <span className="release-badge is-pending"><span className="release-text"><Placeholder /><Placeholder /></span></span>}
-        <button type="button" className="sidenav-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
-          Overview JSON
-        </button>
+          : servedPending && <span className="release-badge is-pending"><span className="release-text"><Placeholder /></span></span>}
+        <div className="sidenav-icons">
+          <button type="button" className="sidenav-icon" aria-label={themeLabel} title={themeLabel} onClick={onToggleTheme}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+          </button>
+          <button type="button" className="sidenav-icon sidenav-json" aria-label="Overview JSON" title="Overview JSON: the data behind this page" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
+            <Icon name="code" />
+          </button>
+          <a className="sidenav-icon sidenav-github" href={PRODUCT_REPOSITORY} target="_blank" rel="noopener noreferrer" title={`${PRODUCT_NAME} on GitHub`}>
+            <Icon name="github" />
+            <span className="sr-only">{PRODUCT_NAME} on GitHub (opens in a new tab)</span>
+          </a>
+        </div>
       </div>
     </footer>
   )

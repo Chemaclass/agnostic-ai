@@ -67,7 +67,7 @@ test('names the serving release at the foot of the sidebar', async ({ page }) =>
   await expect(badge).toBeHidden()
 })
 
-test('names the release the config requires beside the serving release', async ({ page }) => {
+test('warns under the serving release only when the config requires a newer one', async ({ page }) => {
   let health: Record<string, unknown> = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0', requires: '>=0.81.0', requiresMet: false }
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: health }))
@@ -75,16 +75,24 @@ test('names the release the config requires beside the serving release', async (
   const badge = page.locator('.release-badge')
   const requires = badge.locator('.release-requires')
   await expect(badge.locator('.release-version')).toHaveText('agnostic-ai v0.80.0')
-  await expect(requires).toHaveText('requires >=0.81.0, not met by this version')
+  await expect(requires).toHaveText('Update needed: requires >=0.81.0, not met by this version')
   await expect(requires).toHaveAttribute('title', 'This project needs agnostic-ai >=0.81.0, and v0.80.0 is outside it. Run agnostic-ai sync to see the fix.')
   const muted = await badge.evaluate((element) => getComputedStyle(element).color)
   expect(await requires.evaluate((element) => getComputedStyle(element).color)).not.toBe(muted)
-  expect(Math.abs((await requires.boundingBox())!.y - (await badge.locator('.release-version').boundingBox())!.y)).toBeLessThan(2)
+  await expect(requires).toBeInViewport({ ratio: 1 })
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.getByRole('button', { name: 'Menu', exact: true }).click()
+  const sheetRequires = page.getByRole('dialog', { name: 'Menu' }).locator('.release-requires')
+  await expect(sheetRequires).toBeInViewport({ ratio: 1 })
+  expect(await sheetRequires.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await page.keyboard.press('Escape')
+  await page.setViewportSize({ width: 1280, height: 720 })
 
   health = { ...health, version: '0.81.0', requiresMet: true }
   await page.reload()
-  await expect(requires).toHaveText('requires >=0.81.0')
-  expect(await requires.evaluate((element) => getComputedStyle(element).color)).toBe(muted)
+  await expect(badge.locator('.release-version')).toHaveText('agnostic-ai v0.81.0')
+  await expect(requires).toHaveCount(0)
+  await expect(badge).toHaveAttribute('title', /requires >=0\.81\.0: This project needs agnostic-ai >=0\.81\.0; v0\.81\.0 meets it\./)
 
   health = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.81.0' }
   await page.reload()
@@ -100,10 +108,11 @@ test('reads the required release again when the overview refreshes', async ({ pa
   await page.route('**/api/health', (route) => route.fulfill({ json: health }))
   await page.goto('/?view=authority')
   const requires = page.locator('.release-badge .release-requires')
-  await expect(requires).toHaveText('requires >=0.81.0')
+  await expect(page.locator('.release-badge .release-version')).toHaveText('agnostic-ai v0.81.0')
+  await expect(requires).toHaveCount(0)
   health = { ...health, requires: '>=0.82.0', requiresMet: false }
   await page.locator('.finding', { hasText: 'LINT038' }).getByRole('button', { name: 'Recheck' }).click()
-  await expect(requires).toHaveText('requires >=0.82.0, not met by this version')
+  await expect(requires).toHaveText('Update needed: requires >=0.82.0, not met by this version')
 })
 
 test('keeps every rail row in place while the overview and server details load', async ({ page }) => {
@@ -459,24 +468,25 @@ test('scrolls only the Menu while it is open', async ({ page }) => {
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe('hidden')
 })
 
-test('keeps Overview JSON on one line and the release arrow beside its text', async ({ page }) => {
+test('lines the version and the theme, Overview JSON and GitHub buttons up at the foot of the rail', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
-  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0', notesUrl: 'https://example.com/notes' } }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0' } }))
   await page.goto('/?view=context')
-  const json = page.locator('.sidenav-footer .sidenav-json')
-  const lineHeight = await json.evaluate((element) => parseFloat(getComputedStyle(element).lineHeight) || parseFloat(getComputedStyle(element).fontSize) * 1.6)
-  expect((await json.boundingBox())!.height).toBeLessThan(lineHeight * 2)
-  const badge = page.locator('.sidenav-footer .release-badge')
-  await expect(badge.locator('.release-arrow')).toBeVisible()
-  const gap = await badge.evaluate((element) => {
-    const range = document.createRange()
-    range.selectNodeContents(element.querySelector('.release-caption')!.firstChild!)
-    const arrow = element.querySelector('.release-arrow')!.getBoundingClientRect()
-    return arrow.left - range.getBoundingClientRect().right
-  })
-  expect(gap).toBeGreaterThanOrEqual(0)
-  expect(gap).toBeLessThanOrEqual(8)
+  const foot = page.locator('.sidenav-footer')
+  const version = foot.locator('.release-version')
+  const icons = [
+    foot.getByRole('button', { name: 'Switch to dark theme' }),
+    foot.getByRole('button', { name: 'Overview JSON', exact: true }),
+    foot.getByRole('link', { name: 'agnostic-ai on GitHub (opens in a new tab)' }),
+  ]
+  const middle = async (locator: typeof version) => { const box = (await locator.boundingBox())!; return box.y + box.height / 2 }
+  const line = await middle(version)
+  for (const icon of icons) expect(Math.abs((await middle(icon)) - line)).toBeLessThan(4)
+  const arrow = (await foot.locator('.release-arrow').boundingBox())!
+  const text = (await version.boundingBox())!
+  expect(arrow.x - (text.x + text.width)).toBeGreaterThanOrEqual(0)
+  expect(arrow.x - (text.x + text.width)).toBeLessThanOrEqual(8)
 })
 
 test('keeps focus inside the JSON inspector sheet on a phone and clear of the top bar at 761px', async ({ page }) => {
