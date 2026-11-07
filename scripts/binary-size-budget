@@ -800,4 +800,6 @@
 # Global findings in setup health (#3069) and the Kiro env references (#3067)
 # measured 25006240 bytes in CI; the budget is that plus 8192, rounded up to a
 # multiple of 4096.
-25018368
+# Agent notes on sync --global (#3073) measured 25039008 bytes; the budget is
+# that plus 8192, rounded up to a multiple of 4096.
+25051136
