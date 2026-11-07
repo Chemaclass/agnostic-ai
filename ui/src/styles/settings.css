@@ -680,6 +680,17 @@
   font-size: var(--text-sm);
 }
 
+/* In the filter row the hint wraps, so Docs stays at the row's right. */
+.section-search > .edit-scope {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.section-search .edit-scope-hint {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
 @media (max-width: 760px) {
   .edit-scope .segmented button {
     min-height: 44px;

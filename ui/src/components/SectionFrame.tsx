@@ -167,6 +167,9 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
     ?? landingTab(section, tabs, contextLanding(app.source, app.overview))
   const setSearch = (value: string) => app.navigate({ q: value || undefined, tab: value.trim() ? undefined : active }, { replace: true })
   const selectTab = (tab: string) => app.navigate({ tab, entry: undefined, q: app.state.q })
+  const activePanel = tabs.find((tab) => tab.id === active)
+  // One selector serves every block on the page; Config files and Editor show the combined setup.
+  const scoped = (section.id === 'settings' || section.id === 'authority') && (activePanel ? activePanel.extra === 'targets' || activePanel.kinds.some((kind) => kind === 'settings' || kind === 'builtin') : section.kinds.some((k) => k.kind === 'settings' || k.kind === 'builtin'))
   const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]
   const tabLabels = tabs.map((tab) => {
     const items = section.items.filter((item) => tab.kinds.includes(item.kind))
@@ -238,7 +241,8 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
           {query ? (matchCount ? `${matchCount} ${matchCount === 1 ? 'match' : 'matches'}.` : 'No matches.') : ''}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
-        <DocLink topic={docsTopic(section, tabs.find((tab) => tab.id === active))} />
+        {scoped && <EditAudienceSwitch />}
+        <DocLink topic={docsTopic(section, activePanel)} />
       </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
@@ -253,9 +257,8 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
       >
       {section.kinds.filter((kind) => panel.kinds.includes(kind.kind)).map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
-        const audienceControl = (section.id === 'settings' || section.id === 'authority') && (k.kind === 'settings' || k.kind === 'builtin') && (tabs.length < 2 || panel.id === active) ? <EditAudienceSwitch /> : undefined
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} support={section.support.find((entry) => entry.kind === k.kind)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} support={section.support.find((entry) => entry.kind === k.kind)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
         const sharedBlocked = k.kind === 'builtin' && audience === 'shared' && personalBuiltins
@@ -266,7 +269,6 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
               {k.label}{tabs.length < 2 && count > 0 && <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>}
               {k.local && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
             </SectionHeading>
-            {audienceControl}
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
             {sharedBlocked && <div className="audience-notice"><p>These are the {level} defaults. Your local built-in list replaces them for you. Reset that list before changing {level} built-ins.</p><ViewPersonalButton /></div>}
             {k.kind === 'builtin' && audience === 'personal' && !personalBuiltins && <p className="muted">Inherited from {level}. Changing a built-in creates your local list.</p>}
@@ -284,7 +286,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
         ? <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />
         : <section className="block"><SectionHeading>Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
       {panel.extra === 'usage' && <ContextUsage />}
-      {panel.extra === 'targets' && <CodingTools audienceControl={tabs.length < 2 || panel.id === active ? <EditAudienceSwitch /> : undefined} />}
+      {panel.extra === 'targets' && <CodingTools />}
       {panel.extra === 'editor' && <EditorSettings />}
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
