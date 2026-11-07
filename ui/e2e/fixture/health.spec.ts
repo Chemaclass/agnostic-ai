@@ -97,6 +97,21 @@ test.describe('setup health', () => {
     await expect(healthRow(page, '3 warnings')).toBeVisible()
   })
 
+  test('says the last check failed when a recheck cannot refresh', async ({ page }) => {
+    const { data } = scenario()
+    let fail = false
+    await page.route('**/api/views/overview', (route) => (fail ? route.fulfill({ status: 500, body: 'boom' }) : route.fulfill({ json: data })))
+    await page.goto('/?view=health')
+    await expect(page.locator('.page-facts')).toContainText('Checked just now')
+    fail = true
+    await page.getByRole('button', { name: 'Recheck all' }).click()
+    const result = page.locator('.health-recheck-result')
+    await expect(result.locator('.banner-error')).toContainText('The recheck did not finish')
+    await expect(result).not.toHaveAttribute('role', 'status')
+    await expect(page.locator('.page-facts')).toContainText('Last check failed; showing earlier results')
+    await expect(page.locator('.page-facts')).not.toContainText('Checked just now')
+  })
+
   test('shows one recheck result when an item has an error and a warning', async ({ page }) => {
     const { data, hook } = scenario()
     const warning: ItemFinding = { source: 'lint', code: 'LINT002', severity: 'warning', message: 'The hook has no timeout.', path: hook.path }
@@ -228,6 +243,7 @@ test.describe('setup health', () => {
     const gap = gaps.getByRole('listitem').first()
     await expect(gap.locator('.health-gap-name')).toHaveText('Skills')
     await expect(gap.locator('.health-gap-text')).toContainText('No skill yet. Supported by Claude Code and Codex.')
+    await expect(gap.locator('.health-gap-text .sr-only')).toHaveText('Supported by Claude Code and Codex.')
     await expect(gap.getByRole('button', { name: 'Copy prompt for Skills' })).toHaveText('Copy prompt')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await gap.getByRole('button', { name: 'Copy prompt for Skills' }).click()

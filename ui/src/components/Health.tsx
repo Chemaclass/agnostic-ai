@@ -7,6 +7,7 @@ import { countFindings, featureBars, gapTools, healthFixPrompt, healthGroups, he
 import { HEALTH_STATUS } from '../model/rail'
 import { sectionEntryIds } from '../model/identity'
 import { plural } from '../model/format'
+import { joinAnd } from '../model/counts'
 import { AppLink, PageHeader, useApp } from './app-context'
 import { ErrorPanel, Notice, type NoticeTone } from './Banner'
 import { RecheckSection, RecheckSectionEntries, useRechecks } from './Recheck'
@@ -41,7 +42,7 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
   return (
     <>
       <PageHeader title={TITLE} verdict={<>{verdict.key && <span className="health-verdict-key">{verdict.key}</span>}{verdict.rest}</>}>
-        <HealthFacts errors={count.errors} warnings={count.warnings} gaps={data.health.gaps.length} />
+        <HealthFacts errors={count.errors} warnings={count.warnings} gaps={data.health.gaps.length} stale={stale} />
         {(total > 0 || recheck.live) && (
           <div className="health-actions">
             {total > 0 && <CopyButton text={healthFixPrompt(data, data.snapshot.project.root)} label="Copy all fixes" copiedLabel="Copied" className="button-primary" ariaLabel={total === 1 ? 'Copy the fix prompt for the one finding' : `Copy one fix prompt for all ${total} findings`} />}
@@ -53,7 +54,8 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
           </div>
         )}
         {recheck.live && (
-          <div className="health-recheck-result" role="status">
+          // A failed result is an error Notice, which announces itself as an alert.
+          <div className="health-recheck-result" role={recheck.all?.state === 'failed' ? undefined : 'status'}>
             {recheck.pendingAll ? <Notice><p>Running the checks again…</p></Notice> : recheck.all && <Notice tone={recheckAllTone(recheck.all)}><p>{recheckAllMessage(recheck.all)}</p></Notice>}
           </div>
         )}
@@ -94,7 +96,7 @@ function recheckAllTone(result: RecheckAllResult): NoticeTone {
   return result.remaining || result.unconfirmed || result.unknown ? 'warning' : 'success'
 }
 
-function HealthFacts({ errors, warnings, gaps }: { errors: number; warnings: number; gaps: number }) {
+function HealthFacts({ errors, warnings, gaps, stale }: { errors: number; warnings: number; gaps: number; stale: boolean }) {
   const app = useApp()
   const tone = errors ? 'is-error' : warnings ? 'is-warning' : 'is-clean'
   return (
@@ -104,7 +106,7 @@ function HealthFacts({ errors, warnings, gaps }: { errors: number; warnings: num
         {healthSummary({ errors, warnings })}
       </span>
       {gaps > 0 && <span className="page-fact">{plural(gaps, 'feature')} you could add</span>}
-      <span className="page-fact">{app.source.kind === 'api' ? 'Checked just now' : 'From a saved snapshot'}</span>
+      <span className="page-fact">{stale ? 'Last check failed; showing earlier results' : app.source.kind === 'api' ? 'Checked just now' : 'From a saved snapshot'}</span>
     </p>
   )
 }
@@ -151,7 +153,7 @@ function Gaps({ gaps, sections }: { gaps: OverviewView['health']['gaps']; sectio
       <ul className="health-gap-list">
         {gaps.map((gap) => {
           const section = sections.find((s) => s.id === gap.section)
-          const every = gap.supported.map(toolName).join(', ')
+          const every = joinAnd(gap.supported.map(toolName))
           return (
             <li key={gap.id} className="health-gap">
               <p className="health-gap-name">{gap.label}</p>
