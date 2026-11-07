@@ -105,7 +105,7 @@ Duplicates are merged. A Kiro category covers more than one tool, so access wide
 **Hooks** are [native](https://kiro.dev/docs/hooks/): one JSON file per spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`.
 
 - Portable `on: before-tool` maps to `PreToolUse`, with anchored lists of documented built-in IDs for `shell`, `read`, `web`, and `edit`, and `@<server>/*` for `mcp:<server>`. Built-in kinds exclude MCP tools and need an updated mapping for new IDs. The tool wildcard keeps server names such as `mcp` distinct from source selectors. Other portable events and `decision: stdout` have no Kiro mapping. See [portable hooks](@/docs/spec-format/hook-reference.md#portable-events).
-- `event` becomes `trigger`, as written. `validate` flags `AgentSpawn` and `agentSpawn`, Kiro V3's compatibility aliases, and suggests `SessionStart`.
+- `event` becomes `trigger`, as written. `validate` flags `AgentSpawn` and `agentSpawn`, Kiro V3's compatibility aliases, and suggests `SessionStart`. `PreCompact` and `PostCompact` run in Kiro CLI 3.1.0 or later, around conversation compaction, and take no matcher ([hook types](https://kiro.dev/docs/hooks/types/#pre-compaction)).
 - Each `command` (string or list) becomes an `action: {"type": "command", "command": ...}` entry in the same file. The `name` gets a `-2`, `-3`, ... suffix to stay unique.
 - `disabled: true` writes `"enabled": false`. `description` is written to the file as documentation only.
 - `timeout: 0` disables the timeout; omitting it keeps Kiro's 60-second default.
