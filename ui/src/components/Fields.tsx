@@ -114,7 +114,7 @@ function FieldResolution({ field, files, resolved }: { field: SettingField; file
       <div className="field-resolution-detail" aria-live="polite">
         <p>{generatedAnswer(current)}</p>
         {current.from && <p className="muted">From <Code>{current.from.path}</Code>{origin ? <>, {origin}</> : ' in the config'}</p>}
-        {override && <p className="muted"><Code>{override}</Code> in the config replaces every spec value for {current.label}. An edit below changes the spec only; remove that key for {current.label} to get it.</p>}
+        {override && <p className="muted"><Code>{override}</Code> in the configuration replaces every value from your files for {current.label}. An edit below changes the file only; remove that key for {current.label} to get it.</p>}
         {current.others.length > 0 && <>
           <p className="muted">Values that do not win:</p>
           <ul className="field-resolution-others">
@@ -233,7 +233,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   if (!edit) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p>{field.key === 'permissions.default-mode' && <GlobalSettingsAction />}</>
   const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
-  if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
+  if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override file'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
   if (app.source.kind !== 'api') return sources()
   const specFile = specPath
   const post = async (body: Record<string, unknown>, expected: string | undefined) => {
@@ -312,7 +312,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
         {!transaction.supported && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>{target ? resetLabel : 'Clear'}</button>}
         {resetButton}
       </div>}
-    {paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}
+    {paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override file'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}
     {error && <Notice tone="error" title="Could not apply the change" actions={error.status === 409 && <button type="button" className="button" disabled={settling} onClick={() => reloadOverview()}>Reload</button>} onDismiss={() => setError(undefined)}>
       <p>{error.message}</p>
       {error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}

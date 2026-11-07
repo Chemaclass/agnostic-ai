@@ -1,4 +1,5 @@
 import type { ItemFinding, OverviewView, SectionItem, SettingField, Value } from '../contract'
+import { findingTitle } from './finding-title'
 import { fieldEntryId, findingEntryIds, itemEntryId } from './identity'
 import type { ViewId } from './url'
 
@@ -41,7 +42,7 @@ export function matchesSearch(parts: (string | undefined)[], query: string): boo
 }
 
 function findingSearchText(finding: ItemFinding): (string | undefined)[] {
-  return [finding.message, finding.code, finding.source, finding.path, finding.fix]
+  return [findingTitle(finding), finding.message, finding.code, finding.source, finding.path, finding.fix]
 }
 
 function severityLabel(finding: ItemFinding): string {
@@ -59,9 +60,9 @@ export function buildSearchIndex(overview: OverviewView): SearchIndex {
     const view = section.id as ViewId
     const kindLabel = (kind: string) => section.kinds.find((entry) => entry.kind === kind)?.label ?? kind
     const finding = (f: ItemFinding, entry: string, where: string) => indexed({
-      view, kind: 'finding', entry, title: f.message,
+      view, kind: 'finding', entry, title: findingTitle(f),
       context: `${section.label} · ${severityLabel(f)} ${where}`,
-      detail: [f.code, f.path].filter(Boolean).join(' · ') || undefined,
+      detail: f.path || undefined,
     }, findingSearchText(f))
     for (const item of section.items) {
       const owner = itemEntryId(item)
