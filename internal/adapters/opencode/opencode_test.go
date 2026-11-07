@@ -377,7 +377,7 @@ func TestEmit_MCP_HTTPWritesRemoteURL(t *testing.T) {
 }
 
 // oauth (client credentials for a pre-registered remote server,
-// opencode.ai/docs/mcp-servers/ "Pre-registered": `"oauth":
+// docs.opencode.ai/docs/mcp-servers/ "Pre-registered": `"oauth":
 // {"clientId": ..., "clientSecret": ..., "scope": ...}`) reaches the
 // file through x-opencode, the same passthrough commandFile already
 // gives commands and agents. buildMCPEntry enumerated its fields with
@@ -451,7 +451,7 @@ func TestEmit_MCP_PassesThroughCwdAndTimeout(t *testing.T) {
 }
 
 // A spec's `disabled: true` writes OpenCode's own `enabled: false` key
-// (#555), the vocabulary opencode.ai/docs/mcp-servers documents:
+// (#555), the vocabulary docs.opencode.ai/docs/mcp-servers documents:
 // "You can also disable a server by setting `enabled` to `false`."
 func TestEmit_MCP_DisabledWritesEnabledFalse(t *testing.T) {
 	dir := testutil.TempCwd(t)
@@ -625,7 +625,7 @@ func TestEmit_Agent_AgentsDirOverride(t *testing.T) {
 	}
 }
 
-// opencode.ai/docs/skills documents `^[a-z0-9]+(-[a-z0-9]+)*$` for a
+// docs.opencode.ai/docs/skills documents `^[a-z0-9]+(-[a-z0-9]+)*$` for a
 // skill name. A folder that breaks it never loads and never reaches the
 // `skill` tool catalog, so emit fails instead of writing it (#857).
 func TestEmit_Skill_RejectsNameBreakingVendorRegex(t *testing.T) {

@@ -52,13 +52,13 @@ opencode.json                             # when MCP entries exist (merged with 
 
 ### Rules
 
-[OpenCode](https://opencode.ai/docs/rules/) finds the repo-root `AGENTS.md` by walking up from the current directory. Codex, Amp, Warp, and the other `AGENTS.md` tools share the same file, so `sync` writes it once.
+[OpenCode](https://docs.opencode.ai/docs/rules/) finds the repo-root `AGENTS.md` by walking up from the current directory. Codex, Amp, Warp, and the other `AGENTS.md` tools share the same file, so `sync` writes it once.
 
 ### Agents
 
-([docs](https://opencode.ai/docs/agents/)): `.opencode/agents/<name>.md` (the singular directory is legacy), with `description`, `mode`, `model`, `temperature`, `permission`, and any `x-opencode` key. The portable `maxTurns` is written as `steps`, and `x-opencode.steps` wins. The body is the system prompt.
+([docs](https://docs.opencode.ai/docs/agents/)): `.opencode/agents/<name>.md` (the singular directory is legacy), with `description`, `mode`, `model`, `temperature`, `permission`, and any `x-opencode` key. The portable `maxTurns` is written as `steps`, and `x-opencode.steps` wins. The body is the system prompt.
 
-- In legacy agent files, a `can` or `tools` list becomes the agent [`permission`](https://opencode.ai/docs/agents/#permissions) map: `can: [read]` writes `permission: {"*": deny, doom_loop: ask, external_directory: ask, read: {"*": allow, "*.env": ask, "*.env.*": ask, "*.env.example": allow}}`. Every tool not listed is denied. The catch-all comes first because the last matching rule wins.
+- In legacy agent files, a `can` or `tools` list becomes the agent [`permission`](https://docs.opencode.ai/docs/agents/#permissions) map: `can: [read]` writes `permission: {"*": deny, doom_loop: ask, external_directory: ask, read: {"*": allow, "*.env": ask, "*.env.*": ask, "*.env.example": allow}}`. Every tool not listed is denied. The catch-all comes first because the last matching rule wins.
 - Restricted agents keep project permission decisions for their allowed tools, including `.env` prompts, and deny other tools. Sync reads root `opencode.json`, including native V2 `permissions` in order. It does not read `opencode.jsonc`, `.opencode/opencode.json`, or global user policy, so agent rules can override restrictions kept only there.
 - Files with `permissions`, `request`, `system`, or `disabled` use V2 rules, including `disabled: false`. Sync writes generated restrictions as an ordered `permissions` array and appends explicit native array rules in their source order. These explicit rules can override generated restrictions. OpenCode 2 ignores a top-level `temperature` in such a file, so sync writes it as `request: {body: {temperature: ...}}`, merged with any `request` you set; a `temperature` already in `request.body` wins. OpenCode 2.2.0 keeps request values but does not yet send them with model requests ([agents](https://opencode.ai/v2/docs/agents#request)); this also applies to `temperature` in a V1 file. Import preserves the V2 fields and rebuilds the agent without its original native file.
 - Native `permission` keys retain source order because the last matching rule wins. `x-opencode.permission` overrides the keys it names; an explicit native action wins outright. Malformed project rules or resource rules that cannot fit the agent format fail sync with the affected paths.
@@ -67,7 +67,7 @@ opencode.json                             # when MCP entries exist (merged with 
 
 ### Skills
 
-([docs](https://opencode.ai/docs/skills/)): `.opencode/skills/<name>/SKILL.md` plus bundled files. OpenCode also scans `.claude/skills/` and `.agents/skills/`. A directory scope from the source folder moves the folder under that directory, and import keeps it.
+([docs](https://docs.opencode.ai/docs/skills/)): `.opencode/skills/<name>/SKILL.md` plus bundled files. OpenCode also scans `.claude/skills/` and `.agents/skills/`. A directory scope from the source folder moves the folder under that directory, and import keeps it.
 
 - `disable-model-invocation: true` keeps a skill out of the model's available list in OpenCode V2 (verified with 2.0.26). Explicit loading by ID still works. V1 does not enforce this field. Native `metadata.opencode/autoinvoke` takes precedence when both forms are set, and import preserves both.
 - `outputs.opencode.emit-skills-as-commands: true` also writes the command form. Its relative links to bundled files point into the skill folder (`../skills/<name>/references/x.md`). Other links stay as written.
@@ -79,7 +79,7 @@ opencode.json                             # when MCP entries exist (merged with 
 
 ### V1 hooks
 
-One [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. The generated TypeScript module runs the hook command. OpenCode loads every JS or TS file in `.opencode/plugins/` at startup.
+One [OpenCode plugin](https://docs.opencode.ai/docs/plugins/) module per hook spec. The generated TypeScript module runs the hook command. OpenCode loads every JS or TS file in `.opencode/plugins/` at startup.
 
 - Modules follow the vendor's example: `import type { Plugin } from "@opencode-ai/plugin"`, then `export const <Name>Plugin: Plugin = async ({ $ }) => { return { ... } }`. The type-only import is removed at runtime, so `@opencode-ai/plugin` is optional. A `//` comment at the top marks the file as generated.
 - `PreToolUse` and `PostToolUse` map to `tool.execute.before` and `tool.execute.after`. OpenCode's dotted names are kept. Other documented events (`session.idle`, `file.edited`, `permission.asked`, ...) use the single `event` hook with an `event.type` guard.
@@ -101,7 +101,7 @@ One [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. T
 - Sync manages each native server separately. Servers and defaults added by hand stay; a removed spec server stays when you have edited it.
 - Stdio becomes `{type: "local", command: [...], cwd}`, and HTTP or SSE becomes `{type: "remote", url, headers}`. `cwd` (relative to the workspace) keeps its name.
 - `timeout` keeps its name and uses milliseconds for MCP requests, including tool calls. OpenCode defaults to `30000` ms when connecting and fetching tools.
-- `disabled: true` writes `"enabled": false` ([MCP docs](https://opencode.ai/docs/mcp-servers/)), and import reads `enabled: false` back. An enabled server gets no key.
+- `disabled: true` writes `"enabled": false` ([MCP docs](https://docs.opencode.ai/docs/mcp-servers/)), and import reads `enabled: false` back. An enabled server gets no key.
 - Other documented fields, such as the `oauth` object for pre-registered remote servers, go through `x-opencode`.
 - Sync changes only `$schema` and `mcp`. `theme`, `model`, and other keys stay. They never show as drift in `sync --check` or `doctor`, and `doctor --fix` keeps them.
 
@@ -140,13 +140,13 @@ x-opencode:
 
 Keep the native `permissions` array in one settings spec: arrays from separate specs replace each other rather than combine. Put this broad `ask` rule before intentional exceptions. [V2 permissions](https://opencode.ai/v2/docs/permissions#directories) use the last matching rule.
 
-Portable `allow`, `deny`, and `ask` lists become [OpenCode's `permission` map](https://opencode.ai/docs/permissions/).
+Portable `allow`, `deny`, and `ask` lists become [OpenCode's `permission` map](https://docs.opencode.ai/docs/permissions/).
 
 - A bare tool name covers the whole tool (`Read` becomes `read: allow`). A scoped rule becomes a glob (`Bash(go test:*)` becomes `bash: {"go test *": "allow"}`).
 - `Write` and `Edit` both land on `edit`, which covers edit, write, and patch.
 - If two lists claim one tool and pattern, the stricter wins.
 - OpenCode takes the last match, so inside one tool sync writes allow, then ask, then deny, each group with the `*` catch-all first. A narrower allow never bypasses a broader deny, as on Claude Code.
-- `mcp__<server>__<tool>` becomes `<server>_<tool>` (`mcp__github__create_issue` becomes `github_create_issue: deny`), the key OpenCode uses for MCP tools ([agents docs](https://opencode.ai/docs/agents/)). The server name keeps its hyphens.
+- `mcp__<server>__<tool>` becomes `<server>_<tool>` (`mcp__github__create_issue` becomes `github_create_issue: deny`), the key OpenCode uses for MCP tools ([agents docs](https://docs.opencode.ai/docs/agents/)). The server name keeps its hyphens.
 - Scoped `WebFetch` or `WebSearch` rules (those keys take a bare action) and denying a whole MCP server (`github_*` has no portable spelling) raise a sync note.
 - `x-opencode.permission` writes OpenCode's own map and replaces the translated rules for that tool.
 - Sync owns only the tool keys your specs produce. A key you wrote in `permission` that no spec sets, such as `"edit": "ask"`, stays, and a bare `"permission": "ask"` stays as the `"*"` entry. A tool key leaves with its spec while you have not edited it. When a spec starts setting a key you wrote, sync saves the file as `opencode.json.bak` first.

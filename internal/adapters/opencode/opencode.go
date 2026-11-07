@@ -4,7 +4,7 @@
 // slim pointer to the source specs, with every rule body inlined under
 // a sentinel-marked block (one body shared with codex, amp, warp, and
 // the other AGENTS.md consumers, so the write dedupes). That path is
-// the only one OpenCode reads: opencode.ai/docs/rules documents an
+// the only one OpenCode reads: docs.opencode.ai/docs/rules documents an
 // upward walk from the current directory for `AGENTS.md` and
 // `CLAUDE.md`, and the vendor's own source file
 // `packages/core/src/instruction-context.ts` on branch `dev` walks with
@@ -39,7 +39,7 @@
 // imported back into specs.
 //
 // Skill names must contain 1-64 lowercase alphanumeric characters
-// separated by single hyphens, per opencode.ai/docs/skills. Invalid
+// separated by single hyphens, per docs.opencode.ai/docs/skills. Invalid
 // names fail before output is written: OpenCode V1 skips such a folder (V2 does not enforce the pattern), so
 // the skill would never reach the `skill` tool catalog.
 package opencode
@@ -96,7 +96,7 @@ func capabilities(cfg *config.Config) emit.Capabilities {
 	return coverage
 }
 
-// skillNameRule is the regex opencode.ai/docs/skills states for a skill
+// skillNameRule is the regex docs.opencode.ai/docs/skills states for a skill
 // `name`, which must also match the folder holding SKILL.md. Byte-identical
 // to Zed's rule, hence the shared emit.ValidateNames (#857).
 var skillNameRule = emit.NameRule{
@@ -318,7 +318,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 //	http:   {type: "remote", url: "...", headers: {...}}
 //
 // A spec's `disabled: true` maps to OpenCode's own `enabled: false` key
-// (#555): opencode.ai/docs/mcp-servers documents "You can also disable
+// (#555): docs.opencode.ai/docs/mcp-servers documents "You can also disable
 // a server by setting `enabled` to `false`" for both local and remote
 // servers. OpenCode's own default (enabled) needs no explicit key, so
 // an enabled server gets no `enabled` key at all, matching the codex
@@ -343,7 +343,7 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 // set: type, command plus cwd (stdio) or url/headers (remote),
 // environment, enabled, and timeout. Any other documented field beyond
 // that set (`oauth` on a "Pre-registered" remote entry,
-// opencode.ai/docs/mcp-servers/) or any
+// docs.opencode.ai/docs/mcp-servers/) or any
 // field OpenCode adds next reaches the entry through `x-opencode`
 // (emit.MergeCustomTargetMeta) instead of staying unreachable: commands
 // and agents already get that passthrough (commandFile, agent.go), so

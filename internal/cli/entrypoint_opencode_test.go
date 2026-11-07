@@ -22,7 +22,7 @@ func opencodeRuleBundle() spec.Bundle {
 }
 
 // OpenCode's instruction lookup is an upward walk for files named
-// exactly `AGENTS.md` (opencode.ai/docs/rules, and `fs.up({ targets:
+// exactly `AGENTS.md` (docs.opencode.ai/docs/rules, and `fs.up({ targets:
 // ["AGENTS.md"] })` in packages/core/src/instruction-context.ts on
 // branch `dev`). A project syncing only opencode must therefore get its
 // rule bodies at the root `AGENTS.md`, not under `.opencode/` (#623).

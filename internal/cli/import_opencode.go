@@ -9,7 +9,7 @@ import (
 
 var (
 	// opencodeEntryPointFile is the file OpenCode's instruction lookup
-	// walks up for (opencode.ai/docs/rules, and `fs.up({ targets:
+	// walks up for (docs.opencode.ai/docs/rules, and `fs.up({ targets:
 	// ["AGENTS.md"] })` in the vendor's
 	// packages/core/src/instruction-context.ts on branch `dev`), and
 	// where `sync` writes opencode's entry point since #623.

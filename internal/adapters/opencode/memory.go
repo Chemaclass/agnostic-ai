@@ -12,7 +12,7 @@ import (
 
 // externalDirectoryKey is the `permission` key for tool calls that touch
 // paths outside the directory OpenCode started in. It defaults to "ask"
-// (opencode.ai/docs/permissions).
+// (docs.opencode.ai/docs/permissions).
 const externalDirectoryKey = "external_directory"
 
 // RepoMemoryFiles names opencode.json, which holds the repo store of
