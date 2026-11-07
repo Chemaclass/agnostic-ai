@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, **Settings** shows preferences and coding tools as plain rows, and a built-in or model change preview as a card whose diff marks added and removed lines. Actions use one label each: **Preview**, **Apply**, **Cancel** and **Reload**. Switches and edit buttons stay off until the page has the saved values, so a quick second click no longer sends a stale change (#3120).
+
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
 
 - The Tools page says what your agents can use, counts only MCP servers that are turned on, notes how many are turned off, and shows each turned-off server as off. Saving a server as a spec reports through the same notice as the other pages (#3145).

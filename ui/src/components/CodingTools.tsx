@@ -32,7 +32,7 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
   return (
     <section className="block coding-tools" aria-labelledby="settings-targets">
       <SectionHeading topic="targets" id="settings-targets" focusable>
-        Coding tools <span className="muted kind-count">{count.on} of {count.total} on</span>
+        Coding tools
         {catalog.source === 'personal' && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
       </SectionHeading>
       <p className="muted">Each tool you turn on gets its own files from sync. Turn one off and the next sync stops writing for it.</p>
@@ -47,7 +47,7 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
         <label className="coding-tools-only-on"><input type="checkbox" checked={onlyOn} onChange={(event) => { setOnlyOn(event.target.checked); setSaved(undefined) }} /> On only</label>
       </div>
       <p className="muted coding-tools-status" role="status" aria-live="polite">
-        {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}. Run <Code>{command}</Code> to apply the change.</> : `${visible.length} of ${count.total} tools shown.`}
+        {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}. Run <Code>{command}</Code> to apply the change.</> : query.trim() || onlyOn ? `${visible.length} of ${count.total} tools shown.` : ''}
       </p>
       {catalog.items.length === 0 ? <p className="muted">No coding tools listed.</p> : visible.length === 0 ? <p className="muted">No tool matches.</p> : (
         <ul className="coding-tools-list">
@@ -84,6 +84,7 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
   const [choice, setChoice] = useState<boolean | undefined>()
+  const [settling, setSettling] = useState(false)
   const reloadBasis = useRef<object | undefined>(undefined)
   const waitingForReload = useRef(false)
   const confirmButton = useRef<HTMLButtonElement>(null)
@@ -94,16 +95,17 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
     if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
       waitingForReload.current = false
       setChoice(undefined)
+      setSettling(false)
       setError(undefined)
     }
   }, [app.overviewRevision])
   useEffect(() => {
     if (confirming) confirmButton.current?.focus()
-    else if (refocus.current && !pending) {
+    else if (refocus.current && !pending && !settling) {
       refocus.current = false
       toggleButton.current?.focus()
     }
-  }, [confirming, pending])
+  }, [confirming, pending, settling])
   useEffect(() => {
     if (error?.status === 409) reloadButton.current?.focus()
   }, [error])
@@ -119,6 +121,11 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
     try {
       const reply = await postEdit(API.editTargets, { audience, name: tool.target, enabled, expected: on })
       onSaved(reply)
+      // The switch shows the saved state and stays off until the reloaded overview arrives.
+      reloadBasis.current = app.overviewRevision
+      waitingForReload.current = true
+      setChoice(enabled)
+      setSettling(true)
       app.reload(true)
     } catch (err) {
       const failure = err instanceof EditError ? err : new EditError(String(err))
@@ -139,13 +146,13 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
         <span className="coding-tool-confirm" role="group" aria-label={`Turn off ${tool.label}`} onKeyDown={(event: KeyboardEvent) => { if (event.key === 'Escape') cancel() }}>
           <span>{offConsequence(tool.label, global)}</span>
           <button ref={confirmButton} type="button" className="button button-quiet" onClick={() => { void save(false) }}>Turn off</button>
-          <button type="button" className="button button-quiet" onClick={cancel}>Keep on</button>
+          <button type="button" className="button button-quiet" onClick={cancel}>Cancel</button>
         </span>
       )}
       {error && (
         <span className="edit-error" role="alert">
           {error.message}
-          {error.status === 409 && <> <button ref={reloadButton} type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}
+          {error.status === 409 && <> <button ref={reloadButton} type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload</button></>}
           {error.problems.length > 0 && <ul>{error.problems.map((p) => <li key={p}>{p}</li>)}</ul>}
         </span>
       )}
