@@ -1,16 +1,16 @@
-/* Conversations: open chats first, then by day, each row with the button
-   that asks the server to reopen it where it lives. The source chips in
-   the header filter by tool. */
+/* Conversations: the verdict block with the source filter, the filter row,
+   then open chats first and each day after, as hairline rows with the
+   button that asks the server to reopen the chat where it lives. */
 
 .conversation-sources {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 8px;
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .conversation-source {
@@ -23,40 +23,40 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
-  padding: 4px 12px 4px 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
+  min-height: 40px;
+  padding: 4px 16px 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
   color: var(--text);
   font: inherit;
   text-align: left;
 }
 
-.conversation-source-chip .tool-avatar {
+.conversation-source-chip .tool-avatar,
+.conversation .tool-avatar {
   width: 24px;
   height: 24px;
 }
 
 .conversation-source-toggle {
   cursor: pointer;
-  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out);
 }
 
 .conversation-source-toggle:hover {
-  border-color: var(--line-strong);
-  background: var(--panel-raised);
+  background: var(--accent-wash);
 }
 
 .conversation-source-toggle[aria-pressed='true'] {
-  border-color: var(--accent);
-  background: var(--accent-wash-strong);
-  color: var(--accent-strong);
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--canvas);
 }
 
 .conversation-source.is-missing .conversation-source-chip {
   border-style: dashed;
-  background: transparent;
+  border-color: var(--line);
   color: var(--text-muted);
 }
 
@@ -73,6 +73,8 @@
 }
 
 .conversation-source-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
@@ -82,44 +84,15 @@
 
 .conversation-source-note {
   max-width: 48ch;
-  font-size: 12px;
+  padding-inline: 8px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
   overflow-wrap: anywhere;
 }
 
 .conversations-search-note {
-  font-size: 12px;
-}
-
-/* The end of the list: the sentinel that loads the week before as it nears
-   the viewport, then the button that does the same, its error, or the end. */
-
-.conversations-more {
-  display: grid;
-  justify-items: start;
-  gap: 8px;
-}
-
-.conversations-sentinel {
-  height: 1px;
-}
-
-.conversations-more-error {
-  color: var(--blocked);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.conversations-more .button[aria-disabled='true'] {
-  opacity: 0.55;
-  cursor: progress;
-}
-
-.conversations-end {
-  font-size: 13px;
-}
-
-.conversations-end:focus {
-  outline: none;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }
 
 .conversation-list {
@@ -132,10 +105,10 @@
 
 .conversation {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: start;
-  gap: 4px 12px;
-  padding: 14px 4px;
+  gap: 4px 16px;
+  padding: 16px 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -146,8 +119,10 @@
 }
 
 .conversation-title {
-  font-size: 15px;
+  font-size: var(--text-body);
   font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 
@@ -156,25 +131,32 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 2px 12px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
-  font-size: 12px;
+}
+
+.conversation-tool {
+  font-weight: 600;
+  color: var(--text-soft);
 }
 
 .conversation-folder,
 .conversation-branch {
   font-family: var(--font-mono);
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 
 .conversation-live {
   padding: 0 8px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .conversation-opening {
   display: grid;
-  color: var(--text-muted);
-  font-size: 13px;
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  color: var(--text-soft);
   overflow-wrap: anywhere;
 }
 
@@ -184,29 +166,32 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
-  font-size: 13px;
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  color: var(--text-soft);
   overflow-wrap: anywhere;
 }
 
 .conversation-withheld {
+  font-size: var(--text-sm);
   color: var(--text-muted);
-  font-size: 13px;
 }
 
 .conversation-label {
-  margin-right: 4px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  margin-right: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .conversation-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 8px 16px;
 }
 
 .conversation-open[aria-disabled='true'] {
@@ -224,8 +209,12 @@
 }
 
 .conversation-status {
-  font-size: 13px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
+}
+
+.conversation-status:empty {
+  display: none;
 }
 
 .conversation-status.is-opened {
@@ -240,17 +229,71 @@
   color: var(--blocked);
 }
 
+/* The end of the list: the sentinel that loads the week before as it nears
+   the viewport, then the link that does the same, its error, or the end. */
+
+.conversations-more {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.conversations-more > .banner {
+  justify-self: stretch;
+}
+
+.conversations-sentinel {
+  height: 1px;
+}
+
+.conversations-more .button[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.conversations-end {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.conversations-end:focus {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-source-toggle {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .conversation-source-toggle[aria-pressed='true'] {
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
 @media (max-width: 760px) {
   .conversation {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: 24px minmax(0, 1fr);
   }
 
   .conversation-actions {
-    grid-column: 2;
+    grid-column: 1 / -1;
     justify-content: flex-start;
   }
 
-  .conversation-source-toggle,
+  .conversation-actions .conversation-open {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .conversation-result {
+    grid-column: 1 / -1;
+  }
+
+  .conversation-source-chip,
   .conversations-more .button,
   .conversation-actions .button,
   .conversation-result .button {

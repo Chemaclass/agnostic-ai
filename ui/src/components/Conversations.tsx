@@ -10,13 +10,13 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationRoute, ConversationSource, ConversationsView, ConversationTool } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
 import { PageHeader, useApp } from './app-context'
-import { ErrorPanel } from './Banner'
+import { ErrorPanel, Notice } from './Banner'
 import { useEditorChoice } from './EditorLink'
-import { Badge, CopyButton, Icon, ToolAvatar } from './ui'
+import { Badge, CopyButton, Icon, ToolAvatar, toolName } from './ui'
 
 const TITLE = 'Conversations'
 const INTRO = 'Pick up a chat where you left it, in the tool where it lives.'
@@ -117,8 +117,9 @@ export function ConversationsPage() {
   if (needsServer) {
     return (
       <>
-        <PageHeader title={TITLE} subtitle={INTRO} />
-        <p className="muted">{CONVERSATIONS_NEED_SERVER} A static snapshot has no chats to list.</p>
+        <PageHeader title={TITLE} verdict={CONVERSATIONS_NEED_SERVER}>
+          <p className="page-facts">A static snapshot has no chats to list.</p>
+        </PageHeader>
       </>
     )
   }
@@ -135,8 +136,8 @@ export function ConversationsPage() {
   const sources = pages.at(-1)!.tools
   const query = app.state.q ?? ''
   const setQuery = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
-  const matching = filterConversations(rows, query, tool)
   const now = new Date()
+  const matching = filterConversations(rows, query, tool)
   const groups = groupConversations(matching, now)
   const filtering = query.trim() !== '' || tool !== 'all'
   const canOpen = app.source.kind === 'api'
@@ -144,17 +145,17 @@ export function ConversationsPage() {
 
   return (
     <>
-      <PageHeader title={TITLE} subtitle={INTRO}>
+      <PageHeader title={TITLE} verdict={conversationsVerdict(rows, now, next !== undefined)}>
+        <p className="page-facts">{plural(rows.length, 'conversation')}. {INTRO}</p>
         <Sources sources={sources} rows={rows} tool={tool} onToggle={(chosen) => setTool(toggleTool(tool, chosen))} />
       </PageHeader>
       {error && <ErrorPanel error={error} />}
       <Search
         query={query}
         onQuery={setQuery}
-        status={filtering ? `${matching.length} of ${plural(rows.length, 'conversation')} match.` : plural(rows.length, 'conversation')}
+        status={filtering ? `${matching.length} of ${plural(rows.length, 'conversation')} match.` : ''}
       />
-      {rows.length === 0 && <p className="muted">{next ? 'No conversation in the past week.' : 'No conversations to show.'}</p>}
-      {rows.length > 0 && groups.length === 0 && <p className="muted">No conversation matches.</p>}
+      {rows.length > 0 && groups.length === 0 && <p className="muted empty-matches">No conversation matches.</p>}
       {groups.map((group) => {
         const headingId = `conversations-${group.id}`
         return (
@@ -170,7 +171,7 @@ export function ConversationsPage() {
       })}
       <div className="conversations-more">
         <div ref={sentinel} className="conversations-sentinel" aria-hidden="true" />
-        {older.state === 'failed' && <p className="conversations-more-error" role="alert">Could not load the week before. {older.error.message}</p>}
+        {older.state === 'failed' && <Notice tone="error" title="Could not load the week before." details={older.error.message} />}
         {next ? (
           <button
             ref={olderButton}
@@ -235,24 +236,21 @@ function Sources({ sources, rows, tool, onToggle }: { sources: ConversationSourc
 function Search({ query, onQuery, status }: { query: string; onQuery: (value: string) => void; status: string }) {
   const searchId = useId()
   const input = useRef<HTMLInputElement>(null)
-  const describedBy = `${searchId}-status ${searchId}-note`
   return (
     <div className="section-search conversations-search" role="search" aria-label="Search conversations">
-      <label htmlFor={searchId}>Search conversations</label>
-      <div className="section-search-controls">
-        <div className="section-search-input">
-          <Icon name="search" />
-          <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Title, folder, branch, or prompt" aria-describedby={describedBy} />
-        </div>
-        {query && (
-          <button type="button" className="button button-quiet" onClick={() => {
-            onQuery('')
-            input.current?.focus()
-          }}>Clear search</button>
-        )}
+      <label htmlFor={searchId} className="sr-only">Search conversations</label>
+      <div className="section-search-input">
+        <Icon name="search" />
+        <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Title, folder, branch, or prompt" aria-describedby={`${searchId}-status ${searchId}-note`} />
       </div>
-      <p id={`${searchId}-status`} className="muted section-search-status" role="status">{status}</p>
-      <p id={`${searchId}-note`} className="muted conversations-search-note">Search covers the weeks loaded so far.</p>
+      {query && (
+        <button type="button" className="button" onClick={() => {
+          onQuery('')
+          input.current?.focus()
+        }}>Clear search</button>
+      )}
+      <p id={`${searchId}-status`} className="section-search-status" role="status">{status}</p>
+      <p id={`${searchId}-note`} className="conversations-search-note">Search covers the weeks loaded so far.</p>
     </div>
   )
 }
@@ -293,11 +291,12 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
 
   return (
     <li className={`conversation${conversation.live ? ' is-live' : ''}`} data-tool={conversation.tool}>
-      <ToolAvatar target={conversation.tool} />
+      <span aria-hidden="true"><ToolAvatar target={conversation.tool} /></span>
       <div className="conversation-body">
         <h3 className="conversation-title">{title}</h3>
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
         <p className="conversation-meta">
+          <span className="conversation-tool">{toolName(conversation.tool)}</span>
           <span>{appLabel(conversation.app)}</span>
           {conversation.live && <LiveBadge conversation={conversation} />}
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}

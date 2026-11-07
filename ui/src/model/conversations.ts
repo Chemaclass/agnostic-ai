@@ -187,3 +187,17 @@ export function replyCommand(reply: ConversationOpenReply, route: ConversationRo
   if (reply.command === route.command) return undefined
   return reply.command
 }
+
+/** The page's answer to "Where did you leave off?": the open chats and how many wait, else when the last one ran. */
+export function conversationsVerdict(conversations: Conversation[], now: Date, olderWeeks: boolean): string {
+  const open = conversations.filter((conversation) => conversation.live)
+  if (open.length > 0) {
+    const waiting = open.filter((conversation) => conversation.activity === 'waiting').length
+    if (open.length === 1) return waiting ? 'One chat is open and waits for you.' : 'One chat is open now.'
+    const lead = `${open.length} chats are open now`
+    return waiting ? `${lead}; ${waiting} ${waiting === 1 ? 'waits' : 'wait'} for you.` : `${lead}.`
+  }
+  const newest = conversations[0]
+  if (newest) return `Your last chat was ${relativeTime(newest.updatedAt, now)}.`
+  return olderWeeks ? 'No chat in the past week.' : 'No chats to show.'
+}

@@ -55,7 +55,8 @@ test.describe('conversations', () => {
     const mocks = await mockServer(page)
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1, name: 'Conversations', exact: true })).toBeVisible()
-    await expect(page.getByText('Pick up a chat where you left it, in the tool where it lives.')).toBeVisible()
+    await expect(page.locator('.page-verdict')).toHaveText('3 chats are open now; 1 waits for you.')
+    await expect(page.locator('.page-facts')).toHaveText('9 conversations. Pick up a chat where you left it, in the tool where it lives.')
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
     const conversationsLink = nav.getByRole('link').first()
     await expect(conversationsLink).toHaveAccessibleName(/^Conversations/)
@@ -68,7 +69,7 @@ test.describe('conversations', () => {
 
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 3', 'Today 2', 'Yesterday 2', 'This week 2'])
     await expect(page.locator('li.conversation')).toHaveCount(9)
-    await expect(page.locator('.section-search-status')).toHaveText('9 conversations')
+    await expect(page.locator('.section-search-status')).toBeEmpty()
     await expect(page.getByText('Search covers the weeks loaded so far.')).toBeVisible()
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
@@ -77,12 +78,12 @@ test.describe('conversations', () => {
     await expect(page.getByRole('region', { name: /^Today/ }).getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader', 'Explain the sync --watch debounce'])
 
     const working = row(page, 'Add a Conversations page to the local UI')
-    await expect(working.locator('.conversation-meta')).toHaveText('TerminalWorkingOpen now: the agent is workingagnostic-aimotechfr/conversations-tab6 min ago')
+    await expect(working.locator('.conversation-meta')).toHaveText('Claude CodeTerminalWorkingOpen now: the agent is workingagnostic-aimotechfr/conversations-tab6 min ago')
     await expect(working.locator('.conversation-live')).toHaveAttribute('title', 'Open now: the agent is working')
     await expect(working.locator('.conversation-folder')).toHaveAttribute('title', '/Users/you/Products/agnostic-ai')
     await expect(working.locator('.conversation-opening p')).toHaveCount(3)
     await expect(working.locator('.conversation-prompt')).toHaveText('Last prompt Run the e2e suite again and tell me which tests still fail.')
-    await expect(working.getByRole('img', { name: 'Claude Code' })).toBeVisible()
+    await expect(working.locator('.conversation-tool')).toHaveText('Claude Code')
     await expect(working.getByRole('button', { name: 'Switch to its terminal: Add a Conversations page to the local UI' })).toBeVisible()
     await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toBeVisible()
 
@@ -91,7 +92,7 @@ test.describe('conversations', () => {
     await expect(waiting).toHaveClass(/badge-approval/)
     const plain = row(page, 'Tighten the nav labels on phones')
     await expect(plain.locator('.conversation-live')).toHaveText('Open nowOpen now')
-    await expect(plain.getByRole('img', { name: 'Cursor' })).toBeVisible()
+    await expect(plain.locator('.conversation-tool')).toHaveText('Cursor')
     await expect(plain.locator('.conversation-withheld')).toHaveText('Opening Hidden: may hold a credential')
 
     await expect(row(page, 'Explain the sync --watch debounce').locator('.conversation-withheld')).toHaveText('Last prompt Hidden: may hold a credential')
@@ -131,7 +132,7 @@ test.describe('conversations', () => {
     await cursor.click()
     await expect(cursor).toHaveAttribute('aria-pressed', 'false')
     await expect(page.locator('li.conversation')).toHaveCount(9)
-    await expect(status).toHaveText('9 conversations')
+    await expect(status).toBeEmpty()
 
     const claude = chip(page, 'Claude Code')
     await claude.focus()
@@ -183,7 +184,8 @@ test.describe('conversations', () => {
     await expect(cursor).toHaveText("CursorNot foundNo Cursor chats in /Users/you/.cursor/chats or Cursor's state.vscdb.")
     await expect(cursor.getByRole('button')).toHaveCount(0)
     await expect(page.locator('li.conversation')).toHaveCount(7)
-    await expect(page.locator('.section-search-status')).toHaveText('7 conversations')
+    await expect(page.locator('.section-search-status')).toBeEmpty()
+    await expect(page.locator('.page-facts')).toHaveText(/^7 conversations\./)
   })
 
   test('asks the server to open a conversation and shows its reply', async ({ page }) => {
@@ -237,7 +239,8 @@ test.describe('conversations', () => {
     await page.route('**/api/**', (route) => route.fulfill({ status: 404, json: { error: 'Not mocked in this test.' } }))
     await page.route('**/snapshot/overview.json', (route) => route.fulfill({ json: overview }))
     await page.goto('/?view=conversations&source=./snapshot')
-    await expect(page.getByText('Conversations need a running agnostic-ai serve. A static snapshot has no chats to list.')).toBeVisible()
+    await expect(page.locator('.page-verdict')).toHaveText('Conversations need a running agnostic-ai serve.')
+    await expect(page.locator('.page-facts')).toHaveText('A static snapshot has no chats to list.')
     await expect(page.locator('li.conversation')).toHaveCount(0)
   })
 
@@ -324,7 +327,7 @@ test.describe('conversations by week', () => {
     await expect(row(page, 'Speed up the sqlite reader')).toHaveCount(0)
     await expect(page.getByRole('region', { name: /^Today/ }).getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader, measured', 'Explain the sync --watch debounce'])
     await expect(chips(page)).toHaveText(['Claude Code6 of 37', 'Codex3 of 14', 'Cursor2 of 5'])
-    await expect(page.locator('.section-search-status')).toHaveText('11 conversations')
+    await expect(page.locator('.page-facts')).toHaveText(/^11 conversations\./)
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
 
