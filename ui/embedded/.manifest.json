@@ -70,10 +70,10 @@
     "src/components/PermissionEditor.tsx": "d9a6902cb55fcc334d0f7e8ec90ad3d3ad8302590a7a347b87554fb7192546e9",
     "src/components/ProtectedEditor.tsx": "c07255d494a867d70372a2f548dfa5e5ee9db9057e9565fcb55903efde7cb4fa",
     "src/components/Recheck.tsx": "7a0205a6b50d1defc61a85cf96d39a0c31e0bf5f93dcfb76b41cf8565f2bab3b",
-    "src/components/Section.tsx": "dbc46590d75894bf9b80572a3355fefe37587627ba7b2a2ad0e45fdaffb47927",
+    "src/components/Section.tsx": "7e1264b7a56fa781c5ddaa6f13b2b952075bc6bb75c27664af56ba39250a83b9",
     "src/components/SectionHeading.tsx": "28b03e7caaddfa18f76cf7c8cf79a8f4ad52d0deec934b44fa659afb308171ae",
     "src/components/SectionTabs.tsx": "2048d57ed91671d8d7a3a22c2b5cd89a40fccbb70999404545e5645be8f275b8",
-    "src/components/Shell.tsx": "d226501d4063449852c440972116b9f5810b69432b602658d199b4a4b2ae19df",
+    "src/components/Shell.tsx": "0eb368de8306c4ae458537e226d814ec27ddf89676ea63d749a72eba8360b180",
     "src/components/SourceContent.tsx": "1fb35c8485fda68cac73c2d703e5f52fd129f5449f46bd431460e460b4a0e37f",
     "src/components/SpecMoveAction.tsx": "aa9c1ce6d72b624a6fb816a605f7645266491e5f9c0f5d3792060ceaf53f19d4",
     "src/components/app-context.tsx": "e4af0f19a858de1af086fa86a0dea888062fb569f9046096f7db4856253c6413",
@@ -141,7 +141,7 @@
     "src/model/testing.ts": "f90c0eaab647a088e35ce7bdf3be3fc64b63170bee97193675fbe49ea49bcee6",
     "src/model/url.test.ts": "6384c5446f9a47ec0275ca51413adde4e00958d7d1674dc2d5798ea762fda816",
     "src/model/url.ts": "acb273d0712b9976b42cae69388f2e17f98cc6a87b40ff6ca06c544b15e60d20",
-    "src/styles.css": "2bd68a7b6be9b9b728d8b847bb40b068c7c53a3e7e6278fd9ed64ce2a1063ab1",
+    "src/styles.css": "0e9a8ab085589fd236a82e8795d2f1c9e2b6c9fa54bfb46f355889eab2565530",
     "src/vite-env.d.ts": "2ead27e0f654eb53926df1439827e24aba232f3c3a413847b5862ee447b3f122",
     "tsconfig.json": "92730f301e12c45bbf33095c177dbd538b6f1b79bed1ed96a917a875c5a991e7",
     "vite.config.ts": "6cfab071d9e75b181655bb6657eb94753a8083a68936ea5018253b7fbc704b22"
@@ -154,12 +154,12 @@
     "assets/context.mock-CeYca_mm.js": "02a784cb3314f5a119b0c1cd7f9bfce9b34c9b6b52917c653af9733806202245",
     "assets/conversations.mock-YXyLNJSP.js": "efd36aa72762461caba44c42ad6edd2ec90460d9fdb2f4261b15b3909056496b",
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
-    "assets/index-BAepiHXw.js": "655ee5857ac35fdaf035778dc3873b56b5bc4e457618d2f05d5ca8bd6cdf16f9",
-    "assets/index-DMcV-96d.css": "7c73a18ee97fdab9d91744d590f4e51e1187abf6996b351c42f0db85d21df6c3",
+    "assets/index-6m9SL2SQ.css": "a13309aff4c7cfb15e05e699cbd009d551fefbf35a7f4274a5fd86fc1ff90316",
+    "assets/index-BFUxoZb_.js": "f3668dfa3ff1747b6802bfff60fb190a9c752081b39530138a52bc60b864376e",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-jh0sZfrN.js": "f4e026ac5c1bbf5083385034a9fb247fc79c82903a23b247b487cacef7e38042",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "a9e24b5921aa135badcf2e1bbaf8d4fce0b92a504ed15ab63d46ebc7f9c2e434",
+    "index.html": "1657f2733348b5de9fd5c2ab3f6bae134418876270efbd60eb557ac0ac6c4218",
     "third-party-notices.txt": "d6a910359a9401faa7596df6b8e2a821b095e6bec204f0cfacc9dd087220cc5f"
   }
 }

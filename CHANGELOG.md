@@ -9,6 +9,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives.
+- In the web interface, Lifecycle numbers its stages in monospace beside square markers on a ruled line, filled for stages with hooks, and the Lifecycle, Settings and change preview disclosures draw their own chevron (#3026).
 
 - In the web interface, **Setup health** lists what the enabled tools support and the project does not use yet (a spec kind, a hook stage, the `handoff` built-in), each with a fix prompt; `/api/views/overview` adds `health.gaps` (#3070).
 
@@ -33,7 +34,17 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Sync prints a note when a target drops an agent's `hooks` or `permissionMode`, as it does for `maxTurns` and `background`. Gemini CLI, Cursor, Codex, OpenHands, and other targets without these keys used to drop them with no note (#3052).
 
+- In the web interface, item lists become ruled rows with a colored left edge for findings, errors and linked rows instead of boxed cards and tinted rows; badges and chips get square corners, notices a colored left edge, and disclosures their own chevron (#3026).
+
+- In the web interface, each page opens with its section number, a larger condensed title over a ruled line, and monospace counts; tabs and the page search follow the same style (#3026).
+
 - In the web interface, **Copy to global** on a rule, agent, skill, hook, or MCP spec (**Copy to project** in the global view) copies or moves it to the other level, a skill with its whole folder, and names the sync commands to run. It replaces an existing spec only when you tick **Replace it**. `POST /api/edit/spec/move` does the same (#3027).
+
+- In the web interface, tables get a plain monospace head over a ruled line and right-aligned monospace numbers; Context size shows its startup total as a large figure and each source's share as a thin bar (#3026).
+
+- In the web interface, form fields, segmented choices and switches on Settings and Authority follow the new style: plain fields with a rust focus border, an ink-filled selected choice, rust switches, and dotted leaders between a setting and its value (#3026).
+
+- In the web interface, the top bar becomes a dark band in both themes with a rust line under it that moves while the page reloads, and the sidebar numbers its sections 01 to 05 (#3026).
 
 - In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 

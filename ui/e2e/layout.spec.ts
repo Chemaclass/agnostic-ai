@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { selectTab } from './helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -243,8 +242,7 @@ for (const width of [1440, 390]) {
     const sidenav = page.locator('.sidenav')
     const views = ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']
     for (const [index, name] of views.entries()) {
-      await page.goto(`/?view=${name.toLowerCase()}`)
-      if (name === 'Context') await selectTab(page, 'Agents')
+      await page.goto(`/?view=${name.toLowerCase()}${name === 'Context' ? '&tab=agents' : ''}`)
       const heading = page.getByRole('heading', { level: 1, name, exact: true })
       await expect(heading).toBeInViewport()
       const headingTop = () => heading.evaluate((element) => element.getBoundingClientRect().top)
