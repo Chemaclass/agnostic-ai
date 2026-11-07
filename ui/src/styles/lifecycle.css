@@ -305,7 +305,8 @@ details[open] > .stage-head::before {
 .hook-preview,
 .hook-saved { margin-bottom: 16px; }
 
-.hook-form .banner ul {
+.hook-form .banner ul,
+.hook-preview .banner ul {
   margin: 0;
   padding-inline-start: 20px;
 }
@@ -335,4 +336,11 @@ details[open] > .stage-head::before {
   .hook-zoom button {
     min-height: 44px;
   }
+}
+
+.stage-toggle {
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

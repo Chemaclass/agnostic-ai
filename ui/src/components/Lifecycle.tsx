@@ -31,7 +31,7 @@ export function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { 
   const stageTools = (st: Stage) => st.targets.length > 0 && (
     <p className="stage-tools">
       {st.targets.map((t) => (
-        <span key={t.target} className="stage-tool"><ToolAvatar target={t.target} label={`${t.label} - ${t.event}`} />{t.label}</span>
+        <span key={t.target} className="stage-tool"><span aria-hidden="true"><ToolAvatar target={t.target} label={`${t.label} - ${t.event}`} /></span>{t.label}</span>
       ))}
     </p>
   )
@@ -66,8 +66,8 @@ export function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { 
       <div className="section-head lifecycle-head">
         <SectionHeading topic="hook" id="lifecycle-hooks" entry={kindEntryId('hook')}>Hooks <span className="muted kind-count">{count}</span></SectionHeading>
         <div className="lifecycle-actions">
-          <button type="button" className="button button-quiet" onClick={() => setExpanded(true)}>Expand all</button>
-          <button type="button" className="button button-quiet" onClick={() => setExpanded(false)}>Collapse all</button>
+          <button type="button" className="button button-quiet stage-toggle" onClick={() => setExpanded(true)}>Expand all</button>
+          <button type="button" className="button button-quiet stage-toggle" onClick={() => setExpanded(false)}>Collapse all</button>
           {addButton}
         </div>
       </div>
