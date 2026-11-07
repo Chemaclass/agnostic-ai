@@ -124,7 +124,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			continue
 		}
 		c := Conversation{Tool: ToolClaude, ID: id, Folder: meta.cwd, Branch: meta.branch, StartedAt: meta.started, UpdatedAt: meta.updated}
-		c.fill(texts{title: meta.title, firstPrompt: meta.firstPrompt, lastPrompt: meta.lastPrompt})
+		s.fill(&c, texts{title: meta.title, firstPrompt: meta.firstPrompt, lastPrompt: meta.lastPrompt})
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity

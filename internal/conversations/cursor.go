@@ -128,7 +128,7 @@ func (s *Scanner) fillPending(ctx context.Context, page []Conversation) {
 		t := *c.pending
 		t.firstPrompt, t.lastPrompt = prompts[c.ID].First, prompts[c.ID].Last
 		c.pending = nil
-		c.fill(t)
+		s.fill(c, t)
 	}
 }
 
@@ -245,7 +245,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 			StartedAt: timeFromMillis(meta.CreatedAt), UpdatedAt: updated,
 			Open: Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
 		}
-		c.fill(texts{title: title, firstPrompt: first, lastPrompt: last})
+		s.fill(&c, texts{title: title, firstPrompt: first, lastPrompt: last})
 		chats = append(chats, c)
 	}
 	if ctx.Err() == nil {

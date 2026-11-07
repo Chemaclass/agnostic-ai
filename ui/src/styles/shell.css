@@ -212,27 +212,7 @@ html {
   height: 16px;
 }
 
-/* Placeholder bars hold the size of rail text that is still loading. */
-
-.skeleton {
-  display: block;
-  width: 70%;
-  height: 10px;
-  margin-block: 3px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--text-muted) 28%, transparent);
-  animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
-}
-
-@keyframes skeleton-pulse {
-  to { opacity: 0.45; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton {
-    animation: none;
-  }
-}
+/* Rail placeholder sizes; the base .skeleton bar is in components.css. */
 
 .project-title .skeleton {
   width: 55%;
