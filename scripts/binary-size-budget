@@ -809,4 +809,7 @@
 # rounded up to a multiple of 4096.
 # The Field Ledger chrome (#3026 slice 8) measured 25129120 bytes; the budget is that
 # plus 8192, rounded up to a multiple of 4096.
-25141248
+# The Conversations page and its store readers measured 25309344 bytes,
+# up 180224 from main 366005e4; the budget is that plus 8192, rounded
+# up to a multiple of 4096.
+25321472
