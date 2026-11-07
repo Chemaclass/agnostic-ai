@@ -4,7 +4,7 @@
 // Normalizing never invents a decision: a missing effect stays missing
 // and renders as its raw value, a missing list becomes an empty list.
 
-import type { ContextLoad, ContextReport, ContextSize, ContextView, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
+import type { ContextLoad, ContextReport, ContextSize, ContextView, Gap, Improvements, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
 
 type Loose = Record<string, unknown>
 
@@ -85,7 +85,28 @@ export function normalizeOverviewView(raw: unknown): OverviewView {
       }
     }),
     tools: normalizeToolCatalog(v.tools),
+    health: normalizeHealth(v.health),
   }
+}
+
+function normalizeHealth(raw: unknown): OverviewView['health'] {
+  const v = obj(raw)
+  const health: OverviewView['health'] = { gaps: arr(v.gaps).map(normalizeGap).filter((gap) => gap.id && gap.fix) }
+  const improvements = normalizeImprovements(v.improvements)
+  if (improvements) health.improvements = improvements
+  return health
+}
+
+function normalizeImprovements(raw: unknown): Improvements | undefined {
+  const { applied, total } = obj(raw)
+  if (!Number.isInteger(applied) || !Number.isInteger(total)) return undefined
+  const a = applied as number, t = total as number
+  return a >= 0 && a <= t ? { applied: a, total: t } : undefined
+}
+
+function normalizeGap(raw: unknown): Gap {
+  const v = obj(raw)
+  return { id: String(v.id ?? ''), section: String(v.section ?? ''), label: String(v.label ?? ''), supported: arr(v.supported).map(String), missing: String(v.missing ?? ''), fix: String(v.fix ?? '') }
 }
 
 function normalizeToolCatalog(raw: unknown): ToolCatalog {

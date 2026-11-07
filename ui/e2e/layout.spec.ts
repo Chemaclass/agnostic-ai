@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { selectTab } from './helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -30,6 +29,23 @@ for (const width of [320, 390, 768, 900, 1024, 1440]) {
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       }
     }
+  })
+}
+
+for (const width of [320, 390, 1440]) {
+  test(`puts coding tool support above the tab row at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('/?view=context')
+    if (width <= 760) await page.locator('details.support-block > summary').click()
+    const support = page.getByRole('table', { name: 'Coding tool support' })
+    await expect(support).toBeVisible()
+    const search = (await page.getByRole('searchbox', { name: 'Search context' }).boundingBox())!
+    const table = (await support.boundingBox())!
+    const tabs = (await page.getByRole('tablist', { name: 'Context views' }).boundingBox())!
+    expect(table.y).toBeGreaterThan(search.y + search.height)
+    expect(table.y + table.height).toBeLessThanOrEqual(tabs.y)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }
 
@@ -226,8 +242,7 @@ for (const width of [1440, 390]) {
     const sidenav = page.locator('.sidenav')
     const views = ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']
     for (const [index, name] of views.entries()) {
-      await page.goto(`/?view=${name.toLowerCase()}`)
-      if (name === 'Context') await selectTab(page, 'Agents')
+      await page.goto(`/?view=${name.toLowerCase()}${name === 'Context' ? '&tab=agents' : ''}`)
       const heading = page.getByRole('heading', { level: 1, name, exact: true })
       await expect(heading).toBeInViewport()
       const headingTop = () => heading.evaluate((element) => element.getBoundingClientRect().top)

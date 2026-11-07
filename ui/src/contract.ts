@@ -591,6 +591,32 @@ export interface HookSpecPreview {
   expected: string
 }
 
+export type SpecLevel = 'project' | 'global'
+
+export interface SpecMoveRequest {
+  action: 'preview' | 'apply'
+  kind: string
+  name: string
+  from: SpecLevel
+  to: SpecLevel
+  mode: 'copy' | 'move'
+  overwrite: boolean
+  expected?: string
+}
+
+export interface SpecMovePreview {
+  source: string
+  destination: string
+  /** The destination already holds this spec; apply needs overwrite. */
+  exists: boolean
+  /** The files written, relative to the spec's file or skill folder. */
+  files: string[]
+  syncCommands: string[]
+  expected: string
+  /** Set on an apply that worked but left a leftover folder to delete by hand. */
+  warning?: string
+}
+
 export type PermissionKey = 'permissions.allow' | 'permissions.ask' | 'permissions.deny'
 
 export interface PermissionEditRequest {
@@ -639,6 +665,8 @@ export interface ProtectedEditPreview {
   audience: 'shared' | 'personal'
   before: ProtectedBlock | null
   protected: ProtectedBlock | null
+  /** The file writes `protected: null`, which turns the inherited paths off. */
+  cleared?: boolean
   diff: string
   expected: string
   syncCommand: string
@@ -711,8 +739,35 @@ export interface OverviewView {
   sections: Section[]
   targets: TargetSupport[]
   tools: ToolCatalog
+  health: Health
   /** True for user configuration, which has no project to size. */
   global?: boolean
+}
+
+/** What the page suggests beyond the lint and doctor findings. */
+export interface Health {
+  gaps: Gap[]
+  /** What the gap check considered; each improvement not applied is a gap. Absent for user configuration. */
+  improvements?: Improvements
+}
+
+export interface Improvements {
+  applied: number
+  total: number
+}
+
+/** Something the configured tools support that the project does not use yet. A suggestion, never a finding. */
+export interface Gap {
+  /** `kind:<kind>`, `stage:<stage>` or `builtin:<name>`. */
+  id: string
+  section: string
+  label: string
+  /** The configured targets that would use it. */
+  supported: string[]
+  /** What the project lacks, such as "no skill yet". */
+  missing: string
+  /** A prompt a coding agent can run to fill the gap. */
+  fix: string
 }
 
 // ---------------------------------------------------------------------
@@ -792,6 +847,7 @@ export interface ContextView {
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })
+//   POST /api/edit/spec/move                              → SpecMovePreview (body: SpecMoveRequest); 409 { missing, root } when there is no global setup
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
@@ -807,6 +863,7 @@ export const API = {
   editProtected: '/api/edit/protected',
   editMCP: '/api/edit/mcp',
   editHook: '/api/edit/hook',
+  editSpecMove: '/api/edit/spec/move',
   health: '/api/health',
   switch: '/api/switch',
   globalCreate: '/api/global/create',

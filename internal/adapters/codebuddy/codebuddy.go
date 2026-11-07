@@ -76,3 +76,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	return sess.MergeJSONFile(path, map[string]any{"mcpServers": emit.MergeJSONEntries(servers)}, dryRun)
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

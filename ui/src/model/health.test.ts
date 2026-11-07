@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
-import { countFindings, healthFixPrompt, healthGroups, healthPlace, healthSummary, placeLabel } from './health'
+import { countFindings, gapLine, healthFixPrompt, healthGroups, healthPlace, healthSummary, improvementsLine, placeLabel } from './health'
 import { findingEntryIds, itemEntryId } from './identity'
 import { overviewFindings } from './recheck'
+import { normalizeOverviewView } from './normalize'
 import { loadOverviewFixture } from './testing'
 
 const hookError: ItemFinding = { source: 'lint', code: 'LINT001', severity: 'error', message: 'The hook has no command.', path: '.agnostic-ai/hooks/prepare.yaml', fix: 'Add a command.' }
@@ -16,7 +17,7 @@ const section = (id: Section['id'], order: number, items: SectionItem[], finding
 const view = (sections: Section[]): OverviewView => ({
   schemaVersion: 'overview/v1',
   snapshot: { project: { root: '/tmp/project' } } as OverviewView['snapshot'],
-  targets: [], tools: { source: 'default', items: [] },
+  targets: [], tools: { source: 'default', items: [] }, health: { gaps: [] },
   sections,
 })
 
@@ -122,5 +123,48 @@ describe('setup health', () => {
     const prompt = healthFixPrompt(view([section('settings', 5, [], [globalWarning])]), '/tmp/project')
     expect(prompt).toContain('1. Settings: Global setup')
     expect(prompt).toContain('Source: /home/u/.agnostic-ai/agents/helper.md')
+  })
+
+  it('shows a gap as the tools that support it and what is missing, never as a finding', () => {
+    const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix: 'Add a skill.' }
+    expect(gapLine(skills)).toBe('Skills: supported by claude, codex; no skill yet')
+    const withGap = { ...scenario(), health: { gaps: [skills] } }
+    expect(countFindings(withGap)).toMatchObject({ errors: 1, warnings: 3 })
+    expect(healthFixPrompt(withGap)).not.toContain('Add a skill.')
+  })
+
+  it('counts a global finding once beside the gaps, which stay out of the counts', () => {
+    const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude'], missing: 'no skill yet', fix: 'Add a skill.' }
+    const overview = { ...view([section('settings', 5, [], [globalWarning])]), health: { gaps: [skills] } }
+    expect(countFindings(overview)).toMatchObject({ errors: 0, warnings: 1 })
+    const prompt = healthFixPrompt(overview)
+    expect(prompt).toMatch(/^Fix this agnostic-ai finding/)
+    expect(prompt).not.toContain('Add a skill.')
+  })
+
+  it('reads the gaps from the overview, and none from an older one', () => {
+    const fixture = loadOverviewFixture()
+    expect(fixture.health.gaps.map((gap) => gap.id)).toContain('kind:skill')
+    expect(fixture.health.gaps.every((gap) => gap.fix && gap.supported.length)).toBe(true)
+    const older = normalizeOverviewView({ schemaVersion: 'overview/v1', sections: [] })
+    expect(older.health).toEqual({ gaps: [] })
+    const partial = normalizeOverviewView({ health: { gaps: [{ id: 'kind:rule' }, { id: 'kind:skill', fix: 'Add one.', supported: ['claude'] }] } })
+    expect(partial.health.gaps.map((gap) => gap.id)).toEqual(['kind:skill'])
+  })
+
+  it('counts the improvements applied, and says so when every one is', () => {
+    expect(improvementsLine({ applied: 7, total: 9 })).toBe('7 of 9 improvements applied')
+    expect(improvementsLine({ applied: 0, total: 1 })).toBe('0 of 1 improvement applied')
+    expect(improvementsLine({ applied: 9, total: 9 })).toBe('All 9 improvements applied')
+    expect(improvementsLine({ applied: 1, total: 1 })).toBe('The one improvement is applied')
+    expect(improvementsLine({ applied: 0, total: 0 })).toBeUndefined()
+    expect(improvementsLine(undefined)).toBeUndefined()
+  })
+
+  it('reads the improvements count from the overview, and none from an older one or a bad count', () => {
+    expect(loadOverviewFixture().health.improvements).toEqual({ applied: 2, total: 14 })
+    expect(normalizeOverviewView({ health: { gaps: [] } }).health.improvements).toBeUndefined()
+    expect(normalizeOverviewView({ health: { improvements: { applied: 3, total: 2 } } }).health.improvements).toBeUndefined()
+    expect(normalizeOverviewView({ health: { improvements: { applied: '1', total: 2 } } }).health.improvements).toBeUndefined()
   })
 })

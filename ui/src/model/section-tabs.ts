@@ -1,5 +1,5 @@
 import type { NativeServer, Section } from '../contract'
-import { fieldEntryId, findingEntryIds, itemEntryId } from './identity'
+import { fieldEntryId, findingEntryIds, itemEntryId, kindEntryId } from './identity'
 
 export interface SectionTab {
   id: string
@@ -41,7 +41,13 @@ export function entryTab(section: Section, tabs: SectionTab[], entry?: string): 
   const item = section.items.find((item) => itemEntryId(item) === entry || findingEntryIds(item.findings, itemEntryId(item)).includes(entry))
   if (item) return tabs.find((tab) => tab.kinds.includes(item.kind))?.id
   if (section.fields?.some((field) => fieldEntryId(field) === entry)) return tabs.find((tab) => tab.kinds.includes('settings'))?.id
-  return undefined
+  return tabs.find((tab) => tab.kinds.some((kind) => kindEntryId(kind) === entry))?.id
+}
+
+/** The kinds a tab holds, for its hover text: "Instructions, review instructions, ignore files". */
+export function tabTitle(section: Section, tab: SectionTab): string | undefined {
+  const labels = section.kinds.filter((kind) => tab.kinds.includes(kind.kind)).map((kind, index) => index === 0 || /^.[A-Z]/.test(kind.label) ? kind.label : kind.label.charAt(0).toLowerCase() + kind.label.slice(1))
+  return labels.length ? labels.join(', ') : undefined
 }
 
 export function nativeSearchText(server: NativeServer): string[] {

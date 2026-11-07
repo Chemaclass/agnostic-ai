@@ -8,9 +8,22 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, **Setup health** lists what the enabled tools support and the project does not use yet (a spec kind, a hook stage, the `handoff` built-in), each with a fix prompt; `/api/views/overview` adds `health.gaps` (#3070).
+
+- **Setup health** in the web interface has **Recheck all**, which runs the checks once for every section and says how many findings remain (#3071).
+
 - In a project, the web interface's finding counts and **Setup health** include the global setup's `lint --global` findings, labelled **global**; `view --json` marks them `"layer": "global"` (#3069).
 
+- In the web interface, following a link to an entry you already opened scrolls to it and focuses it again (#3076).
+
+- `sync --global` notes agent fields a tool's agent file cannot hold, such as `maxTurns` or `background`, once each, as project sync does, and an agent's `mcpServers` on Kiro and OpenHands, whose user-level agent files get no inline servers. It used to drop them with no note (#3073).
+
 - In the web interface, each hook on Lifecycle has **Summary**, **Key fields** (event, match, type, command, timeout, disabled) and **Full spec**, which shows every field of the hook file, or hides the file when it looks like it holds a credential; search matches a hook's command (#3038).
+- The Authority page shows when a local settings file sets `protected: null`, which turns the project's protected paths off for you, and **Reset to project paths** removes it so sync protects them again (#3072).
+
+- Dry-run, render, and other previews of Markdown and prose withhold text that labels a credential with a value (a `password:` line, a `token` table cell or tag, "the password is ..."). The web interface's file content view also withholds a file with such a label, besides any file that names a strong credential word, as before, and a Lifecycle hook's key fields redact the text that would hide its full spec (#3062).
+
+- In the web interface, **Setup health** says how many improvements the enabled tools support are in place, such as **7 of 9 improvements applied**; `/api/views/overview` adds `health.improvements` with `applied` and `total` (#3079).
 
 - In the web interface, **Show content** on a Context row shows the file's frontmatter as chips above its text (#3025).
 
@@ -19,6 +32,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Sync prints a note when a target drops an agent's `hooks` or `permissionMode`, as it does for `maxTurns` and `background`. Gemini CLI, Cursor, Codex, OpenHands, and other targets without these keys used to drop them with no note (#3052).
 
 - In the web interface, each page opens with its section number, a larger condensed title over a ruled line, and monospace counts; tabs and the page search follow the same style (#3026).
+
+- In the web interface, **Copy to global** on a rule, agent, skill, hook, or MCP spec (**Copy to project** in the global view) copies or moves it to the other level, a skill with its whole folder, and names the sync commands to run. It replaces an existing spec only when you tick **Replace it**. `POST /api/edit/spec/move` does the same (#3027).
 
 - In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 
@@ -56,6 +71,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, the Context tab row no longer scrolls the page sideways on a narrow phone screen when items have findings (#3059).
 
+- In the web interface, **Coding tool support** moves from the bottom of each page to just under the search field, above the tabs. It folds, starts folded on a phone, and remembers your choice per page (#3028).
+
+- In the web interface, each kind in **Coding tool support** links to the tab that holds it and its heading, and hovering a tab lists the kinds it holds, such as review instructions and ignore files under Guidance (#3029).
+
 - In the web interface, the note after **Open** shows on its own line and no longer moves the Open and Copy path buttons or the other labels on that row (#3024).
 
 - The web interface shows the agnostic-ai version at the foot of the sidebar, linked to its release notes; `/api/health` now returns `version` (#2974).
@@ -90,6 +109,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Agent files write an MCP server's `x-kiro.timeout` and `x-kiro.requestTimeout`. A portable `timeout` is left out with a note naming both keys (#3041).
 - `import kiro` keeps an agent's inline `mcpServers` through the next sync. Servers that match `.kiro/settings/mcp.json` become a list of MCP spec names; any other map moves to `x-kiro.mcpServers` (#3051).
 - `import kiro` turns literal credentials in an agent map it moves to `x-kiro.mcpServers` into `${NAME}` references, with the same note as MCP file import, and leaves out a server whose `oauth` holds a credential (#3067).
+- `import kiro` leaves out a `.kiro/settings/mcp.json` server whose `oauth` holds a literal credential, with a note, instead of writing the secret into its MCP spec (#3074).
 
 #### Pi
 

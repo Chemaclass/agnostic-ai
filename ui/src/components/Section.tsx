@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { API, type ItemFinding, type NativeServer, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type TargetSupport, type TargetValue, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
-import { PageHeader, useApp } from './app-context'
+import { AppLink, PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import { CodingTools } from './CodingTools'
 import { EditorSettings } from './EditorSettings'
@@ -11,6 +11,7 @@ import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAu
 import { OpenInEditor } from './EditorLink'
 import { AddHookForm, HookSavedNotice, useHookSaved } from './AddHook'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
+import { SpecMoveAction, SpecMovedNotice, SpecMovedSaver, useSpecMovedNotice } from './SpecMoveAction'
 import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice, useSavedEditNotice } from './PermissionEditor'
 import { ProtectedEditor } from './ProtectedEditor'
 import { ConfigSwitch } from './ConfigSwitch'
@@ -18,7 +19,7 @@ import { useServedConfig } from './Shell'
 import { SectionTabs } from './SectionTabs'
 import { SourceContent } from './SourceContent'
 import { HookDetails } from './HookDetails'
-import { SectionHeading } from './SectionHeading'
+import { DocLink, SectionHeading } from './SectionHeading'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
@@ -27,10 +28,10 @@ import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-re
 import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, perToolEdit, valueAt } from '../model/field-address'
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
 import { audienceLabel, layerLabel } from '../model/edit-audience'
-import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
+import { fieldEntryId, findingEntryIds, itemEntryId, kindEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
 import { filterTools, toolCount } from '../model/coding-tools'
-import { entryTab, landingTab, nativeSearchText, sectionTabs } from '../model/section-tabs'
+import { entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
 import { hookStages } from '../model/hook-form'
 import type { Remote } from './Shell'
@@ -70,11 +71,10 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
           <ConfiguredTools.Provider value={data.targets}>
             <EditAudienceProvider key={`${data.snapshot.project.root}:${section.id}`} enabled={section.id === 'settings' || section.id === 'tools' || section.id === 'authority'}>
-              <SectionContents section={section} />
+              <SectionContents section={section} support={<SupportTable key={section.id} section={section} toolLabel={toolLabel} />} />
             </EditAudienceProvider>
           </ConfiguredTools.Provider>
         </ConfigurationRoot.Provider>
-        <SupportTable section={section} toolLabel={toolLabel} />
       </fieldset>
     </>
   )
@@ -108,13 +108,13 @@ function hasChanges(section: Section) {
   return section.items.some((item) => item.kind === 'builtin') || (section.fields ?? []).some((field) => (field.key === 'model' || field.key === 'effort') && field.editable && !field.editable.disabledReason)
 }
 
-export function SectionContents({ section }: { section: Section }) {
+export function SectionContents({ section, support }: { section: Section; support?: ReactNode }) {
   const changes = hasChanges(section)
   const personalBuiltins = section.kinds.some((kind) => kind.kind === 'builtin' && kind.local) || section.items.some((item) => item.kind === 'builtin' && item.local)
-  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
+  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} support={support} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
 }
 
-function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
+function SectionContentsBody({ section, changes, support }: { section: Section; changes: boolean; support?: ReactNode }) {
   const app = useApp()
   const audience = useViewAudience()
   const [warningsExpanded, setWarningsExpanded] = useState(false)
@@ -137,6 +137,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     } catch { /* Keep the notice until this page reloads. */ }
     if (saved) app.reload(true)
   }
+  const [specMoved, saveSpecMoved] = useSpecMovedNotice(root)
   const search = app.state.q ?? ''
   const entry = app.state.entry
   const { rechecked, pendingPlace } = useRechecks()
@@ -176,7 +177,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     else if (tab.kinds.includes('builtin')) count = `${items.filter((item) => builtinEnabled(item, audience)).length} on`
     else if (tab.kinds.includes('settings')) count = `${fields.filter((field) => sourcesForAudience(field.set, audience).length > 0).length} set`
     else count = items.length
-    return { id: tab.id, label: tab.label, count, findings: items.reduce((sum, item) => sum + item.findings.length, 0) }
+    return { id: tab.id, label: tab.label, title: tabTitle(section, tab), count, findings: items.reduce((sum, item) => sum + item.findings.length, 0) }
   })
   const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
   useEffect(() => {
@@ -187,7 +188,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     if (details) details.open = true
     target.scrollIntoView({ block: 'center' })
     target.focus({ preventScroll: true })
-  }, [entry, section.id])
+  }, [entry, section.id, app.reveals])
   const hasTools = tabs.some((tab) => tab.extra === 'targets')
   const matchCount = matchingItems.size + (fieldMatches?.length ?? 0) + nativeMatches.length + toolMatches
   const totalCount = section.items.length + (section.fields?.length ?? 0) + (section.native?.length ?? 0) + (hasTools ? app.overview?.tools.items.length ?? 0 : 0)
@@ -212,6 +213,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   return (
     <RecheckSection.Provider value={section.id}>
       <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
+      <SpecMovedSaver.Provider value={saveSpecMoved}>
+      {app.source.kind === 'api' && specMoved && <SpecMovedNotice moved={specMoved} dismiss={() => saveSpecMoved()} />}
       {entryMissing && (
         <div className="entry-missing" role="status">
           <p>The linked {entry.startsWith('finding:') ? 'finding' : entry.startsWith('field:') ? 'setting' : 'item'} is not in this {section.label.toLowerCase()} section. It may have been removed, renamed, or fixed, or the link may come from another configuration.</p>
@@ -235,6 +238,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
       </div>
+      {support}
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
       {errors > 0 && (
@@ -258,14 +262,14 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         const items = visibleItems.filter((it) => it.kind === k.kind)
         const audienceControl = (section.id === 'settings' || section.id === 'authority') && (k.kind === 'settings' || k.kind === 'builtin') && (tabs.length < 2 || panel.id === active) ? <EditAudienceSwitch /> : undefined
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} topic={section.id === 'authority' ? 'permissions' : 'settings'} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} topic={section.id === 'authority' ? 'permissions' : 'settings'} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
         const sharedBlocked = k.kind === 'builtin' && audience === 'shared' && personalBuiltins
         const count = k.kind === 'builtin' ? section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, audience)).length : k.count
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
-            <SectionHeading topic={k.kind} id={titleId} focusable>
+            <SectionHeading topic={k.kind} id={titleId} focusable entry={kindEntryId(k.kind)}>
               {k.label} <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
               {k.local && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
             </SectionHeading>
@@ -292,6 +296,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
+      </SpecMovedSaver.Provider>
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>
   )
@@ -306,7 +311,7 @@ function fieldsHeadingId(title: string) {
   return `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
 }
 
-function SettingsFields({ title, topic, audienceControl, fields, files, filtering, status }: { title: string; topic: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
+function SettingsFields({ title, topic, headingEntry, audienceControl, fields, files, filtering, status }: { title: string; topic: string; headingEntry?: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
   const entry = useApp().state.entry
   const audience = useViewAudience()
   const id = fieldsHeadingId(title)
@@ -317,7 +322,7 @@ function SettingsFields({ title, topic, audienceControl, fields, files, filterin
   const visibleFields = fields.filter((field) => configured.includes(field) || editablePermissions.includes(field))
   return (
     <section className="block" aria-labelledby={id}>
-      <SectionHeading topic={topic} id={id} focusable>{title}</SectionHeading>
+      <SectionHeading topic={topic} id={id} focusable entry={headingEntry}>{title}</SectionHeading>
       {audienceControl}
       {status}
       {configured.length === 0 && <p className="muted">{filtering ? 'No matching configured settings.' : editablePermissions.length ? 'No permission rules configured. Add rules below.' : 'No settings configured.'}</p>}
@@ -632,7 +637,7 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
     return (
       <section className="block" aria-labelledby="lifecycle-hooks">
         <div className="section-head lifecycle-head">
-          <SectionHeading topic="hook" id="lifecycle-hooks">Hooks <span className="muted kind-count">0</span></SectionHeading>
+          <SectionHeading topic="hook" id="lifecycle-hooks" entry={kindEntryId('hook')}>Hooks <span className="muted kind-count">0</span></SectionHeading>
           {addButton && <div className="lifecycle-actions">{addButton}</div>}
         </div>
         {addHook}
@@ -656,7 +661,7 @@ function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { stages:
   return (
     <section ref={root} className="block" aria-labelledby="lifecycle-hooks">
       <div className="section-head lifecycle-head">
-        <SectionHeading topic="hook" id="lifecycle-hooks">Hooks <span className="muted kind-count">{count}</span></SectionHeading>
+        <SectionHeading topic="hook" id="lifecycle-hooks" entry={kindEntryId('hook')}>Hooks <span className="muted kind-count">{count}</span></SectionHeading>
         <div className="lifecycle-actions">
           <button type="button" className="button button-quiet" onClick={() => setExpanded(true)}>Expand all</button>
           <button type="button" className="button button-quiet" onClick={() => setExpanded(false)}>Collapse all</button>
@@ -760,6 +765,7 @@ function ItemList({ items, hideValues, sharedUnlisted }: { items: SectionItem[];
             {item.kind === 'builtin' && item.enabled !== undefined && !sharedBlocked
               ? <BuiltinChange name={item.name} label={item.label} on={on} local={viewAudience === 'personal' && (item.local ?? false)} fallback={control} renderHeading={heading} />
               : heading(control)}
+            <SpecMoveAction item={item} />
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
             {item.kind === 'hook' ? <HookDetails item={item} /> : <SourceContent item={item} />}
@@ -1128,11 +1134,47 @@ function FindingMessage({ message }: { message: string }) {
   )
 }
 
+const narrowScreen = '(max-width: 760px)'
+
+function supportOpenKey(section: string) {
+  return `agnostic-ai.support-open:${section}`
+}
+
+function readSupportChoice(section: string): boolean | undefined {
+  try {
+    const value = window.localStorage.getItem(supportOpenKey(section))
+    return value === null ? undefined : value === '1'
+  } catch {
+    return undefined
+  }
+}
+
+function useNarrowScreen() {
+  return useSyncExternalStore((change) => {
+    const query = window.matchMedia?.(narrowScreen)
+    query?.addEventListener('change', change)
+    return () => query?.removeEventListener('change', change)
+  }, () => window.matchMedia?.(narrowScreen).matches ?? false)
+}
+
 function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (target: string) => string }) {
+  const [choice, setChoice] = useState(() => readSupportChoice(section.id))
+  // On a phone the stacked table would push the tabs below the fold.
+  const narrow = useNarrowScreen()
+  const open = choice ?? !narrow
   if (!section.support.length) return null
+  const tabs = sectionTabs(section)
+  const toggle = (next: boolean) => {
+    if (next === open) return
+    setChoice(next)
+    try {
+      window.localStorage.setItem(supportOpenKey(section.id), next ? '1' : '0')
+    } catch { /* The choice lasts until this page reloads. */ }
+  }
   return (
-    <section className="block" aria-labelledby="support-title">
-      <SectionHeading topic="support" id="support-title">Coding tool support</SectionHeading>
+    <details className="block support-block" open={open} onToggle={(event) => toggle(event.currentTarget.open)}>
+      <summary className="support-summary"><h2 id="support-title">Coding tool support</h2></summary>
+      <DocLink topic="support" />
       <div className="table-wrap">
         <table className="table support-table" role="table" aria-labelledby="support-title">
           <thead role="rowgroup">
@@ -1145,7 +1187,7 @@ function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (ta
           <tbody role="rowgroup">
             {section.support.map((k) => (
               <tr key={k.kind} role="row">
-                <th id={`${section.id}-${k.kind}-support`} scope="row" role="rowheader">{k.label}</th>
+                <th id={`${section.id}-${k.kind}-support`} scope="row" role="rowheader">{section.kinds.some((kind) => kind.kind === k.kind) ? <AppLink to={{ tab: entryTab(section, tabs, kindEntryId(k.kind)), entry: kindEntryId(k.kind) }}>{k.label}</AppLink> : k.label}</th>
                 <td role="cell" headers={`${section.id}-${k.kind}-support support-supported`}>
                   <span className="support-status-label" aria-hidden="true">Supported on</span>
                   {k.supported.length ? (
@@ -1175,6 +1217,6 @@ function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (ta
           </tbody>
         </table>
       </div>
-    </section>
+    </details>
   )
 }

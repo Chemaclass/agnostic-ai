@@ -102,7 +102,11 @@ export default function App() {
     setState(next)
   }, [])
 
-  const navigate = useCallback((patch: Partial<UrlState>, options?: { replace?: boolean }) => go(nextState(stateRef.current, patch), options), [go])
+  const [reveals, setReveals] = useState(0)
+  const navigate = useCallback((patch: Partial<UrlState>, options?: { replace?: boolean }) => {
+    if (patch.entry) setReveals((n) => n + 1)
+    go(nextState(stateRef.current, patch), options)
+  }, [go])
 
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -135,8 +139,9 @@ export default function App() {
       reload,
       overviewRevision: overview.loaded,
       overview: overview.loaded?.data,
+      reveals,
     }),
-    [state, source, navigate, reload, overview.loaded],
+    [state, source, navigate, reload, overview.loaded, reveals],
   )
 
   // Move focus to the page heading after a navigation, for keyboard and

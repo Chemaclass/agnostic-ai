@@ -2,7 +2,9 @@ package adapters
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -12,6 +14,31 @@ import (
 // Project migrations and other configuration writes stay in Adapter.Emit.
 type AgentEmitter interface {
 	EmitAgents(sess *Session, agents []spec.Entry, dir string, dryRun bool) error
+}
+
+// agentCoverage is implemented by an AgentEmitter to name the agent
+// fields its files hold, so user-level sync notes the others as project
+// sync does.
+type agentCoverage interface {
+	AgentCoverage() emit.Capabilities
+}
+
+// userAgentCoverage is c for user-level agents. Project sync turns an
+// agent's mcpServers names into inline servers before the agent file is
+// written; user-level sync does not, so a target that takes only inline
+// servers writes none.
+func userAgentCoverage(a Adapter, c emit.Capabilities) emit.Capabilities {
+	inliner, ok := a.(agentMCPInliner)
+	if !ok || inliner.AgentMCPForm().Names {
+		return c
+	}
+	c.AgentFields = slices.DeleteFunc(slices.Clone(c.AgentFields), func(field string) bool { return field == "mcpServers" })
+	c.AgentFieldReasons = maps.Clone(c.AgentFieldReasons)
+	if c.AgentFieldReasons == nil {
+		c.AgentFieldReasons = map[string]string{}
+	}
+	c.AgentFieldReasons["mcpServers"] = fmt.Sprintf("sync --global writes no inline agent server; set x-%s.%s", c.Target, inliner.AgentMCPForm().Key)
+	return c
 }
 
 // RenderAgents plans native agent files without touching project configuration
@@ -34,7 +61,11 @@ func RenderAgents(target string, agents []spec.Entry, dir string) ([]CapturedFil
 	if !ok {
 		return nil, fmt.Errorf("%s: native agent emission is unsupported", target)
 	}
-	emit.NoteDroppedAgentReadonly(target, b.Agents)
+	if coverage, ok := a.(agentCoverage); ok {
+		emit.NoteDroppedAgentFields(userAgentCoverage(a, coverage.AgentCoverage()), b.Agents)
+	} else {
+		emit.NoteDroppedAgentReadonly(target, b.Agents)
+	}
 	sess := NewSession()
 	sess.SetUserTier()
 	sess.StartCapture()

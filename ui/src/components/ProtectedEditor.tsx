@@ -110,12 +110,13 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       </Select>
     </label>}
     {overridden && <div className="permission-override">
-      <p>Your local file sets protected paths for this spec. Reset them in Local to edit the project paths.</p>
+      <p>{current.personalCleared ? 'Your local file turns these protected paths off for you. Reset it in Local to protect them again.' : 'Your local file sets protected paths for this spec. Reset them in Local to edit the project paths.'}</p>
       <ViewPersonalButton />
     </div>}
+    {local && current.personalCleared && !preview && !editing && <p className="permission-override">Your local file sets <Code>protected: null</Code>, so sync does not protect the project paths for you.</p>}
     {!overridden && !preview && !editing && <div className="field-edit-row">
       <button type="button" className="button" disabled={!path || !!pending} onClick={begin}>{effective ? 'Edit paths' : 'Add paths'}</button>
-      {local && current.personal && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to project paths</button>}
+      {local && (current.personal || current.personalCleared) && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to project paths</button>}
       {!path && <span className="muted">Choose the file whose protected paths you want to change.</span>}
     </div>}
     {editing && !preview && <form className="permission-form" onSubmit={(event) => { event.preventDefault(); void request('preview') }}>

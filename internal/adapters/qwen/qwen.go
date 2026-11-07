@@ -79,3 +79,6 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 	emit.MergeSettingsCustomRecordMap(keys, []spec.Entry{e}, target, "mcpServers")
 	return emit.SettingsModel([]spec.Entry{e}, target) != "" || emit.SettingsPermissions([]spec.Entry{e}) != nil || len(keys) > 0
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

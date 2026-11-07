@@ -337,3 +337,6 @@ func ruleActivation(e spec.Entry) map[string]any {
 	}
 	return meta
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

@@ -495,3 +495,6 @@ func withFrontmatter(front map[string]any, keys []string, body string) string {
 	b.WriteString(body)
 	return b.String()
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

@@ -397,8 +397,7 @@ for (const width of [390, 1000, 1280, 1800]) {
     await panel.getByLabel('Check against a file').fill('src/features/context/components/a-long-directory-name/a-long-component-name.tsx')
     await panel.getByRole('button', { name: 'Reread specs' }).click()
     await expect(panel.locator('.context-usage-status')).toContainText('a-long-component-name.tsx')
-    const support = page.getByRole('heading', { name: 'Coding tool support', exact: true })
-    const position = async () => (await support.boundingBox())!.y + await page.evaluate(() => window.scrollY)
+    const position = async () => { const box = (await panel.boundingBox())!; return box.y + box.height + await page.evaluate(() => window.scrollY) }
     const before = await position()
     await panel.getByLabel('Coding tool').selectOption('gemini')
     await expect(panel).toHaveAttribute('aria-busy', 'true')

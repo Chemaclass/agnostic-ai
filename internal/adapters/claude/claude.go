@@ -1070,3 +1070,6 @@ func mergeHooksInto(doc *emit.OrderedJSON, path string, hooks []spec.Entry) ([]e
 	}
 	return claimed, nil
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

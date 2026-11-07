@@ -162,9 +162,10 @@ var sectionDefs = []sectionDef{
 	},
 }
 
-// grantsAuthority keeps authority specs, including a personal permissions clear.
+// grantsAuthority keeps authority specs, including a personal clear of
+// the permissions or the protected paths.
 func grantsAuthority(e spec.Entry) bool {
-	return hasField(e, "permissions") || hasField(e, "protected") || personalPermissionsCleared(e)
+	return hasField(e, "permissions") || hasField(e, ProtectedKey) || personalPermissionsCleared(e) || personalFieldCleared(e, ProtectedKey)
 }
 
 // shapesExecution keeps every settings spec that sets no permission
@@ -248,6 +249,7 @@ func Build(in Inputs) *View {
 	sections := buildSections(in, caps)
 	placeFindings(sections, in.Findings)
 	targets := targetSupport(targetsOf(in.Cfg), caps, newLabeler())
+	health := buildHealth(in, targetsOf(in.Cfg), caps)
 	syncStates(targets, in.Findings, in.Compared)
 	return &View{
 		SchemaVersion: SchemaVersion,
@@ -255,6 +257,7 @@ func Build(in Inputs) *View {
 		Sections:      sections,
 		Targets:       targets,
 		Tools:         toolCatalog(in.Tools, newLabeler()),
+		Health:        health,
 		Global:        in.Global,
 	}
 }
@@ -592,9 +595,14 @@ var hookFieldKeys = []string{"on", "event", "match", "matcher", "type", "command
 
 // hookFields are the hook's key fields. A field is redacted whole when
 // its text holds a value the hook keeps in env or in a field a view
-// redacts, since a command often repeats its own token.
+// redacts, since a command often repeats its own token, or when the file
+// content view would withhold that text, so the key fields never show
+// what the full spec hides.
 func hookFields(meta map[string]any) []Value {
 	secrets := hookCredentials(meta)
+	hidden := func(text string) bool {
+		return preview.Sensitive("hook.sh", text) || slices.ContainsFunc(secrets, func(s string) bool { return strings.Contains(text, s) })
+	}
 	var fields []Value
 	for _, key := range hookFieldKeys {
 		if v, set := meta[key]; set {
@@ -602,11 +610,11 @@ func hookFields(meta map[string]any) []Value {
 		}
 	}
 	for i := range fields {
-		if slices.ContainsFunc(secrets, func(s string) bool { return strings.Contains(fields[i].Value, s) }) {
+		if hidden(fields[i].Value) {
 			fields[i].Value = redacted
 		}
 		for j, item := range fields[i].List {
-			if slices.ContainsFunc(secrets, func(s string) bool { return strings.Contains(item, s) }) {
+			if hidden(item) {
 				fields[i].List[j] = redacted
 			}
 		}

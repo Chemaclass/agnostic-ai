@@ -2,7 +2,7 @@
 // grouped for one view. Findings keep the link ids the section pages
 // give them, so links and rechecks agree between the two places.
 
-import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
+import type { Gap, Improvements, ItemFinding, OverviewView, Section, SectionItem } from '../contract'
 import { FIX_GUIDANCE, findingFacts } from './finding-prompt'
 import { plural } from './format'
 import { findingEntryIds, itemEntryId } from './identity'
@@ -150,4 +150,17 @@ export function healthFixPrompt(overview: OverviewView, root?: string): string {
   }
   lines.push('', 'Work through them in this order.', '', ...FIX_GUIDANCE)
   return lines.join('\n')
+}
+
+/** One gap as the list shows it, such as "Skills: supported by claude, codex; no skill yet". */
+export function gapLine(gap: Gap): string {
+  return `${gap.label}: supported by ${gap.supported.join(', ')}; ${gap.missing}`
+}
+
+/** How many improvements the enabled tools support are in place; nothing when they support none. */
+export function improvementsLine(improvements: Improvements | undefined): string | undefined {
+  if (!improvements || improvements.total === 0) return undefined
+  const { applied, total } = improvements
+  if (applied === total) return total === 1 ? 'The one improvement is applied' : `All ${total} improvements applied`
+  return `${applied} of ${total} ${total === 1 ? 'improvement' : 'improvements'} applied`
 }
