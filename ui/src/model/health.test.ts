@@ -94,6 +94,29 @@ describe('setup health', () => {
     expect(prompt).not.toContain('undefined')
   })
 
+  it('builds one prompt for the picked findings and suggestions, errors first and the guidance once', () => {
+    const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude'], missing: 'no skill yet', fix: 'Add a skill.' }
+    const rules = { id: 'kind:rule', section: 'context', label: 'Rules', supported: ['claude'], missing: 'no rule yet', fix: 'Add a rule.' }
+    const overview = { ...scenario(), health: { gaps: [skills, rules] } }
+    const places = countFindings(overview).byPlace
+    const idOf = (name: string) => places.find((place) => place.item?.name === name)!.ids[0]
+    const [error, warning] = [idOf('prepare'), idOf('review')]
+    const prompt = healthFixPrompt(overview, '/tmp/project', { findings: new Set([warning, error]), gaps: new Set(['kind:skill']) })
+    expect(prompt).toMatch(/^Work through these 3 agnostic-ai items in the project or global configuration, errors first, then suggestions:/)
+    expect(prompt.indexOf('1. Lifecycle: prepare')).toBeLessThan(prompt.indexOf('2. Context: review'))
+    expect(prompt).toContain('3. Context: Skills (suggestion)\nAdd a skill.')
+    expect(prompt).not.toContain('Add a rule.')
+    expect(prompt).not.toContain('Context: docs')
+    expect(prompt.match(/canonical specs, not generated files/g)).toHaveLength(1)
+  })
+
+  it('leaves the finding guidance out of a prompt with only suggestions', () => {
+    const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude'], missing: 'no skill yet', fix: 'Add a skill.' }
+    const prompt = healthFixPrompt({ ...scenario(), health: { gaps: [skills] } }, undefined, { findings: new Set(), gaps: new Set(['kind:skill']) })
+    expect(prompt).toMatch(/^Work through this agnostic-ai item in the project or global configuration:\n\n1\. Context: Skills \(suggestion\)/)
+    expect(prompt).not.toContain('canonical specs')
+  })
+
   it('names a single finding in the singular', () => {
     const one = view([section('lifecycle', 4, [structuredClone(hook)])])
     expect(healthFixPrompt(one)).toMatch(/^Fix this agnostic-ai finding in the project or global configuration:\n\n1\. Lifecycle: prepare/)

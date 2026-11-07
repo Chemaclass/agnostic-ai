@@ -85,7 +85,7 @@
 
 .health-gap {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 7.5rem;
+  grid-template-columns: 20px 180px minmax(0, 1fr) 7.5rem;
   align-items: baseline;
   gap: 4px 20px;
   padding-block: 12px;
@@ -110,7 +110,64 @@
   justify-self: end;
 }
 
+/* Picks: one checkbox per finding and suggestion, and a bar that copies one prompt for them. */
+
+.pick-box {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.health-gap-pick {
+  align-self: start;
+  margin-top: 2px;
+}
+
+html:has(.pick-tray:not([hidden])) {
+  scroll-padding-bottom: 96px;
+}
+
+.pick-tray {
+  position: sticky;
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px 20px;
+  width: max-content;
+  max-width: 100%;
+  margin: 32px auto 0;
+  padding: 10px 12px 10px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--overlay-shadow);
+}
+
+.pick-tray[hidden] {
+  display: none;
+}
+
+.pick-tray-count {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
 @media (max-width: 760px) {
+  .pick-tray {
+    width: auto;
+    margin-inline: 0;
+    bottom: 12px;
+  }
+
+  .pick-tray-count {
+    flex: 1;
+  }
+
   .health-actions {
     flex-basis: 100%;
     order: 1;
@@ -122,7 +179,11 @@
   }
 
   .health-gap {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .health-gap > :not(.health-gap-pick) {
+    grid-column: 2;
   }
 
   .health-gap-copy {
@@ -131,6 +192,10 @@
 }
 
 @media (forced-colors: active) {
+  .pick-tray {
+    border: 1px solid CanvasText;
+  }
+
   .health-track-bar {
     border-color: CanvasText;
   }
