@@ -13,21 +13,12 @@ import (
 
 func TestProjectLifecycle_FirstLaunchAfterFreshInstall(t *testing.T) {
 	skipFlakyWindowsStartup(t)
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
 	name, installerName := "agnostic-ai", "pnpm"
 	if runtime.GOOS == "windows" {
 		name += ".exe"
 		installerName += ".cmd"
 	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-ldflags", "-X main.version=99.1.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=99.1.0", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, out)
-	}
+	binary := builtCandidateBinary(t, "99.1.0")
 	helper, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)

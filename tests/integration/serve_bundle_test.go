@@ -17,7 +17,7 @@ import (
 )
 
 func TestServe_InstalledBinaryContainsTheWebInterface(t *testing.T) {
-	built := handoffBuildCLI(t)
+	built := builtBinary(t)
 	data, err := os.ReadFile(built)
 	if err != nil {
 		t.Fatal(err)

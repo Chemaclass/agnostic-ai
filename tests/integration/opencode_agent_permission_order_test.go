@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -12,18 +11,7 @@ import (
 )
 
 func TestRoundTrip_OpenCodeAgentPermissionOrder(t *testing.T) {
-	packageDir, err := os.Getwd()
-	must(t, err)
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_NO_UPDATE_CHECK", "1")
 	dir := testutil.TempCwd(t)
