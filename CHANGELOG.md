@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
+
 - The web interface takes the Mineral look: bone paper, a slate rail that asks each section's question over a live summary, Fraunces headings (replacing Archivo Narrow), ink pill buttons and verdigris links. Phones get a top bar with the finding count, Search and **Menu** over one row of page links (#3120).
 
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
