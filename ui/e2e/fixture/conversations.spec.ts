@@ -190,6 +190,11 @@ test.describe('conversations', () => {
     await expect(note).toBeHidden()
     await chip.hover()
     await expect(note).toBeVisible()
+    const [chipBox, noteBox] = [(await chip.boundingBox())!, (await note.boundingBox())!]
+    expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(chipBox.y + 1)
+    expect(Math.min(Math.abs(noteBox.x - chipBox.x), Math.abs(noteBox.x + noteBox.width - (chipBox.x + chipBox.width)))).toBeLessThanOrEqual(1)
+    await note.hover()
+    await expect(note).toBeVisible()
     await page.mouse.move(0, 0)
     await expect(note).toBeHidden()
     await chip.click()

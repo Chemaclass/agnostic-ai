@@ -3,7 +3,6 @@
    button that asks the server to reopen the chat where it lives. */
 
 .conversation-sources {
-  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -91,26 +90,59 @@
   overflow-wrap: anywhere;
 }
 
-/* With a pointer, the note floats under the chips only while its chip is
-   hovered or keyboard-focused. It is anchored to the list so it never runs
-   past the page edge, and its transparent top border keeps the pointer on
-   it while crossing from the chip. */
+/* With a pointer, a chip's note floats above that chip only while it is
+   hovered or keyboard-focused. An invisible bridge under it keeps the
+   pointer on it while crossing from the chip. Where anchor positioning
+   works, the note is fixed to its chip and flips to the chip's right edge
+   near the end of the screen, so it never widens the page. */
 @media (hover: hover) {
+  .conversation-source {
+    position: relative;
+  }
+
   .conversation-source-note {
     position: absolute;
-    top: 100%;
+    bottom: 100%;
     left: 0;
     z-index: 10;
     width: max-content;
-    max-width: min(48ch, 100%);
+    max-width: min(48ch, calc(100vw - 32px));
+    margin-bottom: 6px;
     padding: 8px 12px;
-    border-top: 6px solid transparent;
     border-radius: var(--radius);
-    background: var(--panel) padding-box;
+    background: var(--panel);
     box-shadow: var(--overlay-shadow);
     visibility: hidden;
     opacity: 0;
     transition: opacity var(--dur-1) var(--ease-out), visibility 0s var(--dur-2);
+  }
+
+  .conversation-source-note::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    height: 6px;
+  }
+
+  @supports (anchor-name: --a) and (anchor-scope: --a) {
+    .conversation-source {
+      anchor-scope: --source-chip;
+    }
+
+    .conversation-source-chip {
+      anchor-name: --source-chip;
+    }
+
+    .conversation-source-note {
+      position: fixed;
+      position-anchor: --source-chip;
+      position-area: top span-right;
+      position-try-fallbacks: flip-inline;
+      inset: auto;
+      margin: 0 0 6px;
+    }
   }
 
   .conversation-source:hover .conversation-source-note,
