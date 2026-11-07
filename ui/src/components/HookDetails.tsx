@@ -14,7 +14,7 @@ export function HookDetails({ item }: { item: SectionItem }) {
   const fields = (item.fields ?? []).map(fieldOf)
   if (!fields.length && !full) return null
   // A personal file can override a few fields of a shared hook; the server reads that file alone, while Key fields are merged.
-  const fullLabel = item.layer === 'project-user' || item.layer === 'global-local' ? 'Fields this file sets' : 'Full spec'
+  const fullLabel = item.layer === 'project-user' || item.layer === 'global-local' ? 'Fields this file sets' : 'Full file'
   const levels: [Level, string][] = [['summary', 'Summary'], ['fields', 'Key fields'], ...(full ? [['full', fullLabel] as [Level, string]] : [])]
   return (
     <div className="hook-details">

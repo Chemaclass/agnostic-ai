@@ -104,7 +104,7 @@
             "category": "always-on rule"
           }
         ],
-        "suggestion": "This passage is written 2 times in specs that load at startup for claude. Review the copies and remove one if they say the same thing."
+        "suggestion": "This passage is written 2 times in files that load at startup for Claude Code. Review the copies and remove one if they say the same thing."
       }
     ]
   }

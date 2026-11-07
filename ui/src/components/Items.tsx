@@ -139,7 +139,7 @@ function Tools({ listing }: { listing: ToolListing }) {
       )}
       {listing.state === 'stale' && (
         <p className="tool-state is-warning">
-          The spec changed after these were listed ({when}). Run <Code>{listing.command}</Code> to list them again.
+          The file changed after these were listed ({when}). Run <Code>{listing.command}</Code> to list them again.
         </p>
       )}
       {listing.state === 'failed' && (

@@ -47,7 +47,7 @@ test.describe('overview', () => {
     await expect(row).toContainText('Claude Code only')
     await expect(row).toContainText('~/.claude.json')
     await expect(row).toContainText('http')
-    await expect(row.locator('.tool-state')).toContainText('Run agnostic-ai import --global claude to make it a spec.')
+    await expect(row.locator('.tool-state')).toContainText('Run agnostic-ai import --global claude to add it to your shared setup.')
     await expect(row.getByRole('button', { name: 'Make it a spec' })).toHaveCount(0)
     await page.getByRole('searchbox').fill('notion')
     await expect(block.locator('.kind-count')).toHaveText('1 of 1 match')

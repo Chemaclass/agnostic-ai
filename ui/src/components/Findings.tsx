@@ -3,6 +3,7 @@ import type { ItemFinding } from '../contract'
 import { OpenInEditor } from './EditorLink'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
+import { findingHasRawMessage, findingTitle } from '../model/finding-title'
 import { findingEntryIds } from '../model/identity'
 import { Badge, Code, CopyButton } from './ui'
 import { useApp } from './app-context'
@@ -44,7 +45,7 @@ function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId
             {f.layer === 'global' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">global</Badge>}
             {fresh && <Badge tone="accent">New since recheck</Badge>}
           </p>
-          <FindingMessage message={f.message} />
+          <FindingMessage message={findingTitle(f)} />
           {f.fix && <p className="finding-fix">{f.fix}</p>}
           {f.path ? (
             <div className="finding-source">
@@ -62,6 +63,7 @@ function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId
           <summary>Details</summary>
           <div className="finding-evidence">
             {f.code && <p className="finding-code"><Code>{f.code}</Code><span>{f.source === 'doctor' ? 'Found by the setup check' : 'Found by the configuration check'}</span></p>}
+            {findingHasRawMessage(f) && <p><strong>Check message</strong><span className="finding-raw">{f.message}</span></p>}
             {f.explanation && <p><strong>Why this appears</strong><span>{f.explanation}</span></p>}
             <div className="finding-prompt">
               <label htmlFor={promptId}>Fix prompt</label>

@@ -126,13 +126,14 @@ test.describe('overview', () => {
     const message = 'The session-start hook keeps the first 6000 bytes of the memory indexes. ' +
       'These entries exceed the current budget: ' + Array.from({ length: 24 }, (_, i) => `project-learning-${i + 1}.md`).join(', ') + '. Shorten the index to include these entries.'
     data.sections.find((section: { id: string }) => section.id === 'settings').findings = [
-      { source: 'lint', severity: 'warn', code: 'LINT039', message, path: '.agnostic-ai/local/memory/MEMORY.md' },
+      // A code the UI has no plain title for shows its raw message, collapsed when long.
+      { source: 'lint', severity: 'warn', code: 'LINT099', message, path: '.agnostic-ai/local/memory/MEMORY.md' },
       { source: 'doctor', severity: 'error', message: 'The configuration file cannot be read.' },
     ]
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await page.goto('/?view=settings')
-    const finding = page.locator('.finding', { hasText: 'LINT039' })
+    const finding = page.locator('.finding', { hasText: 'LINT099' })
     const text = finding.locator('.finding-message')
     const expand = finding.getByRole('button', { name: 'Show full message', exact: true })
     await expect(expand).toHaveAttribute('aria-expanded', 'false')
@@ -166,7 +167,7 @@ test.describe('overview', () => {
     await expect(page.getByRole('heading', { name: /^Built-ins/, level: 2 })).toBeInViewport()
     await review.click()
     await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
-    await expect(page.getByText('The session context exceeds its budget.', { exact: true })).toBeInViewport()
+    await expect(page.getByText('Your tools load more text at startup than the startup budget allows.', { exact: true })).toBeInViewport()
     await expect(page.locator('.topbar')).toBeInViewport({ ratio: 1 })
     await expect(page.locator('.sidenav')).toBeInViewport({ ratio: 1 })
   })

@@ -123,7 +123,7 @@ export function ContextUsage() {
     return (
       <section className="block context-usage" aria-labelledby={titleId}>
         {heading}
-        <p className="muted">Context size needs a running agnostic-ai serve.</p>
+        <p className="muted">Context size needs agnostic-ai view running.</p>
       </section>
     )
   }

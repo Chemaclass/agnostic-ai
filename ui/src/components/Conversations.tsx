@@ -21,7 +21,7 @@ import { Badge, CopyButton, Icon, ToolAvatar, toolName } from './ui'
 const TITLE = 'Conversations'
 const NEEDS_SERVER = CONVERSATIONS_NEED_SERVER
 const INTRO = 'Pick up a chat where you left it, in the tool where it lives.'
-const MOCK_OPEN_MESSAGE = 'Mock data: opening a conversation needs a running agnostic-ai serve.'
+const MOCK_OPEN_MESSAGE = 'Mock data: opening a conversation needs agnostic-ai view running.'
 
 /** Where loading the week before stands. */
 type Older =

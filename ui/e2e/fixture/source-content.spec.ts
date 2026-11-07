@@ -102,18 +102,18 @@ test.describe('row content', () => {
     await expect(keyFields).toContainText('./guard.sh')
     expect(requests).toEqual([])
 
-    await zoom.getByRole('button', { name: 'Full spec' }).click()
-    const full = row.getByLabel('Full spec of guard')
+    await zoom.getByRole('button', { name: 'Full file' }).click()
+    const full = row.getByLabel('Full file of guard')
     await expect(full).toContainText('claude, codex')
     await expect(full).toContainText('timeout')
     await saveScreenshot(page, 'hook-full-spec.png')
 
     await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
     await page.getByRole('button', { name: 'Expand all', exact: true }).click()
-    await expect(zoom.getByRole('button', { name: 'Full spec' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(zoom.getByRole('button', { name: 'Full file' })).toHaveAttribute('aria-pressed', 'true')
     await zoom.getByRole('button', { name: 'Summary' }).click()
     await expect(row.locator('.hook-fields')).toHaveCount(0)
-    await zoom.getByRole('button', { name: 'Full spec' }).click()
+    await zoom.getByRole('button', { name: 'Full file' }).click()
     await expect(full).toBeVisible()
     expect(requests).toEqual([hookPath])
 
@@ -134,7 +134,7 @@ test.describe('row content', () => {
     await expect(mine.getByLabel('Fields this file sets of mine')).toBeVisible()
 
     const secret = page.locator('.item-row').filter({ hasText: 'Calls the deploy API.' })
-    await secret.getByRole('group', { name: 'Details of secret' }).getByRole('button', { name: 'Full spec' }).click()
+    await secret.getByRole('group', { name: 'Details of secret' }).getByRole('button', { name: 'Full file' }).click()
     await expect(secret).toContainText('The text is hidden because it looks like it holds a credential.')
     await expect(secret).not.toContainText('does not read as YAML')
   })
