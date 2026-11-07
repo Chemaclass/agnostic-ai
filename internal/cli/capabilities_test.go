@@ -28,6 +28,9 @@ func syncedAgentTree(t *testing.T, target, field string) (map[string]string, err
 }
 
 func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("full sync for every target")
+	}
 	cases := []struct{ name, can, tools, codebuddyError, grokError, vibeError string }{
 		{"read-only", "can: [read]", "tools: [Read]", "", "", ""},
 		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "has no verified native mapping", "would restore all tools", ""},

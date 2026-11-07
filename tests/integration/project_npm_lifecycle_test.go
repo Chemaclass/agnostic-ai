@@ -12,6 +12,7 @@ import (
 )
 
 func TestProjectLifecycle_RealNpmBootstrap(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	for _, command := range []string{"node", "npm"} {
 		if _, err := exec.LookPath(command); err != nil {
 			if os.Getenv("CI") != "" {

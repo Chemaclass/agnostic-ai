@@ -88,6 +88,7 @@ type compareKind struct {
 //
 // Regenerate with: UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestSiteDocs_Compare
 func TestSiteDocs_CompareMatchesSync(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	var capabilities capabilityData
 	if _, err := toml.DecodeFile(capabilitiesData, &capabilities); err != nil {
 		t.Fatalf("decode capability data: %v", err)
