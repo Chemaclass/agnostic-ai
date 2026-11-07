@@ -110,7 +110,7 @@ spacing:
 
 The interface reads like a ruled ledger of what your agents receive. Each page is a numbered section of a manual: a condensed heading over a 2px ink rule, then full-width rows separated by hairlines. A row that needs attention carries a 3px rail on its left edge: rust when it is linked, amber when it has findings, red when it fails. Color appears only where it means something.
 
-The direction was worked out in code, not in a design tool. The frontmatter above holds the target tokens. The interface lives in `src/styles.css`, `src/components/Shell.tsx` and `src/components/SectionFrame.tsx` (with the files it composes), and moves to them one slice at a time (#3026), so some sections below still describe the current interface.
+The direction was worked out in code, not in a design tool. The frontmatter above holds the target tokens. The interface lives in `src/styles/`, `src/components/Shell.tsx` and `src/components/SectionFrame.tsx` (with the files it composes), and moves to them one slice at a time (#3026), so some sections below still describe the current interface.
 
 **From the docs site** (the [Toolchain Field Briefing](../DESIGN.md)) it takes the rust signal, warm ink on warm paper, hairline rules, monospace metadata for paths, counts and versions, the dark slab block, and no shadows. The top bar becomes a slab in both themes, with a thin rust signal rule on its bottom edge that moves only while a request is in flight. Sidebar sections carry a monospace index, 01 Context to 05 Settings, as Lifecycle already numbers its stages.
 

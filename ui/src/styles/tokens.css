@@ -1,0 +1,197 @@
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/atkinson-next-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../assets/fonts/atkinson-next-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Archivo Narrow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/archivo-narrow-700.woff2') format('woff2');
+}
+
+/* Local Arial scaled to each font's widths, so the swap does not reflow.
+   ui/src/assets/fonts/README.md shows how the numbers were measured. */
+
+@font-face {
+  font-family: 'Atkinson Fallback';
+  font-weight: 400;
+  src: local('Arial'), local('ArialMT');
+  size-adjust: 99.86%;
+  ascent-override: 98.54%;
+  descent-override: 31.64%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Atkinson Fallback';
+  font-weight: 600;
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  size-adjust: 98.39%;
+  ascent-override: 100.01%;
+  descent-override: 32.12%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Archivo Narrow Fallback';
+  font-weight: 700;
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  size-adjust: 82.01%;
+  ascent-override: 126.2%;
+  descent-override: 38.04%;
+  line-gap-override: 0%;
+}
+
+:root {
+  color-scheme: dark;
+  --canvas-top: #121110;
+  --canvas-bottom: #121110;
+  --sidebar: #171513;
+  --overlay-shadow: 0 0 0 1px var(--line-strong), 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  --topbar: var(--slab);
+  --panel: #1b1917;
+  --panel-raised: #25221e;
+  --panel-sunken: #0f0e0d;
+  --drawer: #1b1917;
+  --field: #0e0d0c;
+  --slab: #0c0b0a;
+  --slab-raised: #1a1714;
+  --slab-ink: #f0eae0;
+  --slab-dim: #a99f91;
+  --slab-line: #2e2924;
+  --slab-accent: #f0a35e;
+  --line: #34302a;
+  --line-strong: #766d60;
+  --rule: #cfc7bb;
+  --text: #f2ede5;
+  --text-soft: #cfc7bb;
+  --text-muted: #a59a8b;
+  --text-faint: #7f766a;
+  --on-accent: #1d130a;
+  --accent: #f0a35e;
+  --accent-strong: #f7b97f;
+  --accent-wash: #2f2117;
+  --accent-wash-strong: #3d2a1a;
+  --subject-fill: #30241a;
+  --permitted: #9fcf8a;
+  --permitted-wash: #1d2a1a;
+  --info: #9dbde4;
+  --info-wash: #1b2533;
+  --approval: #e6bb67;
+  --approval-wash: #2f2715;
+  --on-approval: #241a05;
+  --blocked: #f39689;
+  --blocked-wash: #33201d;
+  --neutral: #a59a8b;
+  --neutral-wash: #24211e;
+  --meter: #b8722f;
+  --edge-muted: #766d60;
+  --focus: #f0a35e;
+  --backdrop: rgba(0, 0, 0, 0.45);
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-lg: 6px;
+  --radius-pill: 999px;
+  --rail: 3px;
+  --font-body: 'Atkinson Hyperlegible Next', 'Atkinson Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: var(--font-body);
+  --font-display: 'Archivo Narrow', 'Archivo Narrow Fallback', 'Arial Narrow', var(--font-body);
+  --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 34px;
+  --text-stat: 40px;
+  --leading-2xs: 1.3;
+  --leading-xs: 1.4;
+  --leading-sm: 1.45;
+  --leading-md: 1.5;
+  --leading-lg: 1.35;
+  --leading-xl: 1.15;
+  --leading-2xl: 1.05;
+  --leading-stat: 1;
+  --space-0_5: 2px;
+  --space-1: 4px;
+  --space-1_5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-14: 56px;
+  --dur-1: 90ms;
+  --dur-2: 160ms;
+  --dur-3: 220ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --measure: 73ch;
+  --kbd-on-accent: rgba(0, 0, 0, 0.12);
+  --kbd-on-accent-line: rgba(0, 0, 0, 0.25);
+  --nav-width: 228px;
+  --topbar-height: 64px;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --canvas-top: #f3f1ec;
+  --canvas-bottom: #f3f1ec;
+  --sidebar: #eceae4;
+  --overlay-shadow: 0 0 0 1px var(--line-strong), 0 12px 32px -8px rgb(26 23 20 / 0.22);
+  --topbar: var(--slab);
+  --panel: #fbfaf8;
+  --panel-raised: #e9e6df;
+  --panel-sunken: #f0ede7;
+  --drawer: #fbfaf8;
+  --field: #ffffff;
+  --slab: #16130f;
+  --slab-raised: #221d18;
+  --slab-ink: #f0eae0;
+  --slab-dim: #a99f91;
+  --slab-line: #3a342c;
+  --slab-accent: #f0a35e;
+  --line: #d8d4ca;
+  --line-strong: #7f776c;
+  --rule: #1a1714;
+  --text: #1a1714;
+  --text-soft: #45403a;
+  --text-muted: #675f56;
+  --text-faint: #857d72;
+  --on-accent: #ffffff;
+  --accent: #a8481a;
+  --accent-strong: #8c3912;
+  --accent-wash: #f5e7dc;
+  --accent-wash-strong: #efd8c6;
+  --subject-fill: #f5e9df;
+  --permitted: #2f6a2a;
+  --permitted-wash: #e6efe1;
+  --info: #2c5c93;
+  --info-wash: #e3ebf5;
+  --approval: #875800;
+  --approval-wash: #f6ecd9;
+  --on-approval: #ffffff;
+  --blocked: #ad2f1f;
+  --blocked-wash: #f8e5e1;
+  --neutral: #675f56;
+  --neutral-wash: #ebe8e2;
+  --meter: #c9773f;
+  --edge-muted: #7f776c;
+  --focus: #a8481a;
+}

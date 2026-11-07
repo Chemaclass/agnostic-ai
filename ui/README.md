@@ -200,5 +200,8 @@ The live suite also checks Handoff then Caveman for Claude and Codex, pending so
 - `src/api.ts` loading from the server, the mock fixture, or a static snapshot
 - `src/model/` URL state and normalization
 - `src/components/` the shell, the section page, and the JSON inspector
-- `src/styles.css` every colour as a token on `:root`, with a light theme
-  under `[data-theme="light"]` and reduced-motion rules
+- `src/styles/` the stylesheets, imported in order by `index.css`. `tokens.css`
+  holds every colour as a token on `:root`, with a light theme under
+  `[data-theme="light"]`. `shell.css`, `components.css` and one file per area
+  hold the rules, each with its own media, reduced-motion and forced-colors
+  variants

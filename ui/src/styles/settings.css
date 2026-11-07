@@ -1,0 +1,348 @@
+.preview-disclosure > summary,
+.preview-note-group > summary,
+.builtin-change-files summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+
+.preview-disclosure > summary::-webkit-details-marker,
+.preview-note-group > summary::-webkit-details-marker,
+.builtin-change-files summary::-webkit-details-marker {
+  display: none;
+}
+
+.preview-disclosure > summary::before,
+.preview-note-group > summary::before,
+.builtin-change-files summary::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin-inline: 1px 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.preview-disclosure[open] > summary::before,
+.preview-note-group[open] > summary::before,
+.builtin-change-files details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+@media (max-width: 760px) {
+  .builtin-change-files summary {
+    min-height: 44px;
+    align-content: center;
+  }
+}
+
+.finding-recheck[aria-disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.finding-recheck-result {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.finding-recheck-result.is-empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.finding-rechecked.is-resolved .finding-recheck-result {
+  color: var(--permitted);
+}
+
+.finding-rechecked .button {
+  justify-self: start;
+}
+
+.finding-recheck {
+  min-height: 32px;
+  padding: 4px 8px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.finding-recheck:not(:disabled, [aria-disabled]):hover {
+  border-color: var(--line);
+  background: var(--panel);
+}
+
+@media (max-width: 760px) {
+  .finding-recheck {
+    min-height: 44px;
+    padding-inline: 0;
+  }
+}
+
+.editor-settings {
+  display: grid;
+  gap: 8px;
+  max-width: 48ch;
+}
+
+.editor-settings > p {
+  margin: 0;
+}
+
+.editor-settings label {
+  font-weight: 600;
+}
+
+.editor-settings .select-control {
+  justify-self: start;
+  width: 100%;
+  max-width: 32ch;
+}
+
+.editor-settings-input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.editor-settings .editor-settings-error {
+  max-width: none;
+  text-align: left;
+}
+
+.editor-settings-example code {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .editor-settings select,
+  .editor-settings-input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
+.builtin-change {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.builtin-change-controls,
+.builtin-change-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.builtin-change-status:empty {
+  display: none;
+}
+
+.builtin-change-status,
+.builtin-change-error,
+.builtin-change-preview {
+  margin-top: 12px;
+}
+
+.builtin-change-preview-head {
+  position: sticky;
+  top: var(--topbar-offset, var(--topbar-height));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-block: 8px 12px;
+  background: var(--panel);
+}
+
+.builtin-change-preview .builtin-change-preview-head h3 {
+  margin: 0;
+}
+
+.preview-disclosure {
+  border-top: 1px solid var(--line);
+}
+
+.preview-disclosure > summary {
+  min-height: 44px;
+  padding-block: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.preview-targets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 16px;
+  max-height: 180px;
+  overflow: auto;
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.preview-targets li,
+.preview-note-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-notes-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+
+.preview-notes-body {
+  max-height: 320px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.preview-note-group > summary {
+  min-height: 44px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.preview-note-heading {
+  display: inline-flex;
+  width: calc(100% - 20px);
+  vertical-align: middle;
+}
+
+.preview-note-heading code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.preview-note-group > summary .muted {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.preview-note-group .builtin-change-findings {
+  display: grid;
+  gap: 8px;
+  margin-block: 12px;
+}
+
+@media (max-width: 900px) {
+  .builtin-change-preview-head {
+    top: calc(var(--topbar-offset, var(--topbar-height)) + var(--nav-offset, 60px));
+  }
+}
+
+.builtin-change-error {
+  color: var(--blocked);
+  overflow-wrap: anywhere;
+}
+
+.builtin-change-preview {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.builtin-change-preview h3,
+.builtin-change-preview p,
+.builtin-change-error p {
+  margin: 0 0 8px;
+}
+
+.builtin-change-files {
+  max-height: 360px;
+  overflow: auto;
+  margin: 12px 0;
+  border-block: 1px solid var(--line);
+}
+
+.builtin-change-files summary {
+  padding: 10px 0;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.builtin-change-action {
+  display: inline-block;
+  min-width: 48px;
+  color: var(--text-muted);
+}
+
+.builtin-change-files pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: 12px;
+  margin: 0 0 8px;
+  background: var(--panel-sunken);
+  font-size: 12px;
+}
+
+.builtin-change-findings {
+  padding-left: 20px;
+  overflow-wrap: anywhere;
+}
+
+.builtin-change-pending {
+  padding: 8px 12px;
+  border: 1px solid var(--approval);
+  border-radius: var(--radius-sm);
+  background: var(--approval-wash);
+}
+
+.change-status:not(:has(> *:not(:empty))) {
+  display: none;
+}
+
+.edit-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 0;
+}
+
+.edit-scope .segmented button {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.edit-scope-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.edit-scope-hint {
+  flex-basis: auto;
+  margin: 0;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .edit-scope .segmented button {
+    min-height: 44px;
+  }
+
+  .edit-scope .segmented {
+    flex-wrap: nowrap;
+  }
+}

@@ -1,0 +1,551 @@
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+}
+
+.facts dt {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 2px 0 0;
+}
+
+.context-usage-head {
+  display: grid;
+  gap: 4px;
+}
+
+.context-usage-head h2 {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.context-usage-head p {
+  font-size: 13px;
+}
+
+.context-check {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 8px;
+  max-width: var(--measure);
+}
+
+.context-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.context-verdict .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.context-verdict.is-over {
+  padding-left: 9px;
+  border-left: 3px solid currentColor;
+  color: var(--approval);
+}
+
+.context-verdict.is-over a {
+  color: inherit;
+}
+
+.context-check-heading {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.context-next {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+.context-next li {
+  overflow-wrap: anywhere;
+}
+
+.context-next .button {
+  margin-inline-start: 4px;
+  vertical-align: baseline;
+  white-space: normal;
+  text-align: start;
+}
+
+@media (max-width: 760px) {
+  .context-next .button {
+    min-height: 44px;
+  }
+}
+
+.context-usage-controls {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(180px, 420px) auto;
+  align-items: end;
+  gap: 8px 16px;
+  max-width: 860px;
+  padding: 16px 0;
+  border-block: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.context-usage-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.context-usage-field label {
+  font-weight: 600;
+}
+
+.context-usage-field input,
+.context-usage-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+}
+
+.context-usage-controls > .button {
+  min-height: 40px;
+}
+
+.context-usage-file-hint {
+  grid-column: 1 / -1;
+  font-size: 12px;
+}
+
+.context-contribution-load {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.context-kinds {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.context-share {
+  position: relative;
+  min-width: 72px;
+  isolation: isolate;
+}
+
+.context-share-bar {
+  position: absolute;
+  bottom: 2px;
+  inset-inline-start: 0;
+  z-index: -1;
+  height: 6px;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--meter);
+}
+
+.context-builtin {
+  margin-inline-start: 8px;
+  font-size: 12px;
+}
+
+.context-start-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-inline-start: 20px;
+}
+
+.context-start-pick {
+  display: inline-grid;
+  gap: 2px;
+  justify-items: start;
+  text-align: left;
+  padding: 6px 10px;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.context-start {
+  min-width: 0;
+}
+
+.context-all-advice {
+  align-items: center;
+  font-size: 13px;
+}
+
+.context-start-pick .muted {
+  font-size: 12px;
+}
+
+.context-advice-toggle {
+  margin-inline-start: 8px;
+  font-size: 12px;
+}
+
+tr.is-advised > th,
+tr.is-advised > td {
+  background: var(--accent-wash);
+}
+
+.context-advice-row > td {
+  padding: 12px 14px 16px;
+  background: var(--accent-wash);
+  white-space: normal;
+}
+
+.context-advice {
+  display: grid;
+  gap: 10px;
+  max-width: var(--measure);
+}
+
+.context-advice-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.context-advice-facts dt,
+.context-advice-heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.context-advice-facts dd {
+  margin: 0;
+}
+
+.context-advice-actions {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+@media (max-width: 760px) {
+  .context-advice-toggle,
+  .context-start-pick {
+    min-height: 44px;
+  }
+
+  .context-advice-row > td {
+    padding: 10px 10px 14px;
+  }
+}
+
+.context-usage-results {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.context-usage-placeholder {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 24px;
+  /* auto-fit sizes its min-content to the 860px cap; let the column shrink it. */
+  min-width: 0;
+  max-width: 860px;
+  padding-block: 8px;
+}
+
+.context-usage-placeholder > div {
+  display: grid;
+  gap: 10px;
+}
+
+.context-usage-placeholder > .context-placeholder-check {
+  grid-column: 1 / -1;
+  min-height: 120px;
+}
+
+.context-usage-placeholder span {
+  display: block;
+  background: var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.context-placeholder-label {
+  width: 72px;
+  height: 13px;
+}
+
+.context-placeholder-value {
+  width: 150px;
+  height: 36px;
+}
+
+.context-placeholder-line {
+  width: 110px;
+  height: 12px;
+}
+
+.context-usage-status {
+  font-size: 12px;
+}
+
+.context-usage-status:empty {
+  display: none;
+}
+
+.context-usage-totals {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 24px;
+  max-width: 860px;
+  padding-block: 8px;
+}
+
+.context-usage-totals dt {
+  font-size: 13px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.context-usage-totals dd {
+  margin-top: 6px;
+}
+
+.context-total-words {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--text-stat);
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.context-total-words > span {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.context-total-bytes,
+.context-total-description {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.context-total-bytes {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.context-total-description {
+  margin-top: 10px;
+}
+
+.context-usage-method {
+  max-width: 75ch;
+  font-size: 13px;
+}
+
+.context-usage-method summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.context-usage-method[open] summary {
+  margin-bottom: 8px;
+}
+
+.context-usage-note {
+  font-size: 13px;
+  max-width: 75ch;
+}
+
+.context-usage-part {
+  display: grid;
+  gap: 8px;
+}
+
+.context-usage-part h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.context-usage-compare {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.context-usage-compare div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.context-usage-compare dt {
+  font-weight: 600;
+}
+
+.context-usage-compare dd {
+  margin: 0;
+}
+
+.context-passage {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 1px solid var(--line-strong);
+  background: var(--panel-sunken);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.context-passage.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.context-passage-toggle {
+  justify-self: start;
+}
+
+.context-suggestion {
+  font-size: 13px;
+  max-width: 75ch;
+}
+
+.context-sources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.context-sources li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.context-contributions {
+  gap: 12px;
+  border-block: 1px solid var(--line);
+  padding-block: 14px;
+}
+
+.context-contributions > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.context-contributions caption {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.table .context-number {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wide screens: the prose keeps its line length and the figures sit beside it. */
+
+@media (min-width: 1280px) {
+  .context-usage-results {
+    grid-template-columns: minmax(0, var(--measure)) minmax(240px, 1fr);
+    column-gap: 48px;
+  }
+
+  .context-usage-results > * {
+    grid-column: 1 / -1;
+  }
+
+  .context-usage-results > .context-check {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  .context-usage-results > .context-usage-totals,
+  .context-usage-results > .context-usage-note {
+    grid-column: 2;
+    max-width: none;
+  }
+
+  .context-usage-results > .context-usage-totals {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-self: start;
+  }
+
+  .context-usage-placeholder {
+    grid-template-columns: minmax(0, var(--measure)) minmax(240px, 1fr);
+    column-gap: 48px;
+    max-width: none;
+  }
+
+  .context-usage-placeholder > .context-placeholder-check {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .context-usage-placeholder > div:not(.context-placeholder-check) {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 760px) {
+  .context-usage-file-hint {
+    min-height: 3em;
+  }
+
+  .context-usage-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .context-usage-controls > .button {
+    justify-self: start;
+  }
+
+  .context-usage-field input,
+  .context-usage-field select,
+  .context-usage-controls > .button {
+    min-height: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  .context-advice-row > td {
+    border-inline-start: 3px solid CanvasText;
+  }
+}
