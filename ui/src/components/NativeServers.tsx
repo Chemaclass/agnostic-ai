@@ -15,12 +15,12 @@ export function NativeServers({ servers, matches, filtering, onSaved }: { server
       <p className="muted">These servers work only in the tool that holds them. No spec covers them, so sync does not share them with your other tools.</p>
       {visible.some((server) => server.holders.length > 0) && <EditAudienceSwitch />}
       {visible.length === 0 && filtering ? <p className="muted">No matches.</p> : (
-        <ul className="item-list">
+        <ul className="item-list native-list">
           {visible.map((s) => {
             const tools = [...new Set(s.holders.map((h) => h.label))]
             const transports = [...new Set(s.holders.flatMap((h) => (h.transport ? [h.transport] : [])))]
             return (
-              <li key={s.name} className="item-row">
+              <li key={s.name} className="item-row native-row">
                 <div className="item-heading">
                   <div className="item-main">
                     <strong>{s.name}</strong>
