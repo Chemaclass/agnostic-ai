@@ -1,17 +1,12 @@
-import { expect, test, type Locator } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { openMenu } from '../helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 // Reserve the width of a classic scrollbar on the narrowest viewport.
 const narrowContent = '@media (max-width: 320px) { .app { max-width: 305px; } }'
 
-async function sameLine(a: Locator, b: Locator) {
-  const first = (await a.boundingBox())!
-  const second = (await b.boundingBox())!
-  return first.y < second.y + second.height && second.y < first.y + first.height
-}
-
-test('keeps the project path beside its name and the configuration switch in the sidebar', async ({ page }) => {
+test('keeps the project path under its name and the configuration switch in the rail', async ({ page }) => {
   const overview = structuredClone(fixture)
   overview.snapshot.project.name = 'agnostic-ai'
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
@@ -21,8 +16,10 @@ test('keeps the project path beside its name and the configuration switch in the
   const header = page.locator('.topbar')
   await expect(header.getByRole('button', { name: 'Open global settings' })).toHaveCount(0)
   await expect(header.locator('.project-root')).toHaveText('/tmp/agnostic-ai')
-  expect(await sameLine(header.locator('.project-title'), header.locator('.project-root'))).toBe(true)
-  expect((await header.boundingBox())!.height).toBeLessThanOrEqual(64)
+  const title = (await header.locator('.project-title').boundingBox())!
+  const path = (await header.locator('.project-root').boundingBox())!
+  expect(path.y).toBeGreaterThanOrEqual(title.y + title.height - 1)
+  expect(path.x + path.width).toBeLessThanOrEqual((await page.locator('.rail').boundingBox())!.width)
 
   const footer = page.locator('.sidenav-footer')
   const configuration = footer.getByRole('button', { name: 'Open global settings' })
@@ -31,7 +28,7 @@ test('keeps the project path beside its name and the configuration switch in the
   expect((await configuration.boundingBox())!.y).toBeLessThan(badge.y)
 })
 
-test('keeps the configuration switch reachable under the phone navigation', async ({ page }) => {
+test('keeps the configuration switch reachable from the phone Menu', async ({ page }) => {
   const overview = structuredClone(fixture)
   overview.snapshot.project.name = 'agnostic-ai'
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
@@ -40,22 +37,23 @@ test('keeps the configuration switch reachable under the phone navigation', asyn
   await page.goto('/?view=context&tab=rules')
   await page.addStyleTag({ content: narrowContent })
   const header = page.locator('.topbar')
-  const configuration = page.locator('.sidenav').getByRole('button', { name: 'Open global settings' })
-  await expect(configuration).toBeVisible()
 
   for (const width of [320, 390, 900]) {
     await page.setViewportSize({ width, height: 844 })
-    await expect(configuration).toBeInViewport({ ratio: 1 })
-    const navBox = (await page.locator('.section-nav').boundingBox())!
-    expect((await configuration.boundingBox())!.y).toBeGreaterThanOrEqual(navBox.y + navBox.height - 1)
-    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(120)
+    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(64)
     expect(await header.locator('.brand-name').evaluate((element) => {
       const range = document.createRange()
       range.selectNodeContents(element)
       return range.getClientRects().length
     })).toBe(1)
-    if (width < 760) expect((await configuration.boundingBox())!.height).toBeGreaterThanOrEqual(44)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    const menu = await openMenu(page)
+    const configuration = menu.getByRole('button', { name: 'Open global settings' })
+    await expect(configuration).toBeInViewport({ ratio: 1 })
+    expect((await configuration.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(header.getByRole('button', { name: 'Menu', exact: true })).toBeFocused()
   }
 })
 
@@ -70,24 +68,24 @@ test('keeps global configuration context and the project switch compact on phone
   await page.goto('/?view=settings&tab=preferences')
   await page.addStyleTag({ content: narrowContent })
   const header = page.locator('.topbar')
-  const project = page.locator('.sidenav').getByRole('button', { name: 'Open project agnostic-ai' })
-  await expect(project).toBeVisible()
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 })
     await expect(header.locator('.project-title .chip')).toBeInViewport({ ratio: 1 })
     await expect(header.locator('.project-title .chip')).toHaveText('Global')
-    await expect(header.locator('.project-root')).toHaveText(root)
-    expect(await sameLine(header.locator('.project-title'), header.locator('.project-root'))).toBe(true)
-    expect((await header.locator('.project-root').boundingBox())!.width).toBeGreaterThan(40)
-    await expect(project).toBeInViewport({ ratio: 1 })
-    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(120)
-    expect((await project.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(64)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    const menu = await openMenu(page)
+    await expect(menu.locator('.project-root')).toHaveText(root)
+    expect((await menu.locator('.project-root').boundingBox())!.width).toBeGreaterThan(40)
+    const project = menu.getByRole('button', { name: 'Open project agnostic-ai' })
+    await expect(project).toBeInViewport({ ratio: 1 })
+    expect((await project.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await page.keyboard.press('Escape')
   }
 })
 
-test('opens the global setup panel from the sidebar above the page and returns focus on close', async ({ page }) => {
+test('opens the global setup panel from the rail above the page and returns focus on close', async ({ page }) => {
   const root = '/tmp/missing-global-home'
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true } }))
