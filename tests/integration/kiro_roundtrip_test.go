@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -14,20 +13,7 @@ import (
 )
 
 func TestKiroRoundTrip_PromptsPreserveNativeTemplates(t *testing.T) {
-	packageDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	for _, layout := range []string{"default", "configured", "absolute-source", "absolute-native", "target-dir", "per-kind-precedence"} {
 		t.Run(layout, func(t *testing.T) {
 			dir := t.TempDir()
@@ -154,20 +140,7 @@ func TestKiroRoundTrip_PromptsPreserveNativeTemplates(t *testing.T) {
 }
 
 func TestKiroRoundTrip_PromptsPreserveLeadingYAML(t *testing.T) {
-	packageDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	must(t, os.WriteFile("agnostic-ai.yaml", []byte("version: 1\ntargets: [kiro]\ngitignore:\n  enabled: false\n"), 0o644))

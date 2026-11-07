@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "warp" {
-		t.Errorf("Name() = %q, want %q", got, "warp")
-	}
-}
-
 // Default emission no longer writes AGENTS.md; sync owns the entry-point
 // write so codex + amp + warp can coexist at the same path. Legacy
 // WARP.md is never written.

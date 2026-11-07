@@ -4,25 +4,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestDoctor_PackagingIgnoresGeneratedSkillAssets(t *testing.T) {
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	bin := filepath.Join(t.TempDir(), "agnostic-ai")
-	if runtime.GOOS == "windows" {
-		bin += ".exe"
-	}
-	build := exec.Command("go", "build", "-o", bin, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v: %s", err, output)
-	}
+	bin := builtBinary(t)
 	dir := t.TempDir()
 	t.Setenv("CODEX_HOME", t.TempDir())
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/skills/review"), 0755))

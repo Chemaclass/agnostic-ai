@@ -20,10 +20,6 @@ func TestProjectLifecycle_RealNpmBootstrap(t *testing.T) {
 			t.Skipf("real npm lifecycle requires %s: %v", command, err)
 		}
 	}
-	packageDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
 	workspace := filepath.Join(t.TempDir(), "npm lifecycle with spaces")
 	project := filepath.Join(workspace, "project with spaces")
 	packageSource := filepath.Join(workspace, "fake package")
@@ -43,11 +39,7 @@ func TestProjectLifecycle_RealNpmBootstrap(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		binary += ".exe"
 	}
-	build := exec.Command("go", "build", "-ldflags", "-X main.version=0.82.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=0.82.0", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	copyBuiltBinary(t, builtCandidateBinary(t, "0.82.0"), binary)
 	t.Setenv("PROJECT_NPM_TEST_BINARY", binary)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_PROJECT_BOOTSTRAP", "")
@@ -106,10 +98,11 @@ execFileSync(process.execPath, [path.join('node_modules', 'agnostic-ai', 'bin', 
 	npm(project, "install", "--package-lock-only", "--ignore-scripts", "--offline", "--no-audit", "--no-fund")
 	originals := make(map[string][]byte)
 	for _, name := range []string{"package.json", "package-lock.json"} {
-		originals[name], err = os.ReadFile(filepath.Join(project, name))
+		data, err := os.ReadFile(filepath.Join(project, name))
 		if err != nil {
 			t.Fatal(err)
 		}
+		originals[name] = data
 	}
 	oldGlobal := "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai 0.81.0'; exit 0; fi\necho 'older global must not run' >&2\nexit 91\n"
 	oldName := "agnostic-ai"

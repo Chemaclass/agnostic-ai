@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -15,20 +14,7 @@ func TestSync_PersonalBuiltinsLeaveCommittedIgnoresAlone(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not installed")
 	}
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	bin := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", bin, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v: %s", err, output)
-	}
+	bin := builtBinary(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)

@@ -4,31 +4,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
-
-// buildEllipsisBinary builds the CLI the way a release does, so the test
-// runs the program a user runs and not the package under test.
-func buildEllipsisBinary(t *testing.T) string {
-	t.Helper()
-	packageDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
-	return binary
-}
 
 // ellipsisCommand runs the built binary in dir with no inherited target
 // selection and an isolated home.
@@ -70,7 +48,7 @@ func readProjectFile(t *testing.T, dir, rel string) string {
 func TestEllipsisEnvironment_BuiltBinaryWritesSetupMCPAndTheReviewLink(t *testing.T) {
 	const secret = "ELLIPSIS_BINARY_SECRET_2188"
 	t.Setenv("TOOLS_TOKEN", secret)
-	binary := buildEllipsisBinary(t)
+	binary := builtBinary(t)
 	dir := t.TempDir()
 	writeProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [ellipsis]\ngitignore:\n  enabled: false\n")
 	writeProjectFile(t, dir, ".agnostic-ai/AGNOSTIC_AI.md", "Project guidance.\n")
@@ -146,7 +124,7 @@ func TestEllipsisEnvironment_BuiltBinaryWritesSetupMCPAndTheReviewLink(t *testin
 }
 
 func TestEllipsisEnvironment_BuiltBinaryImportsANativeEnvironmentFile(t *testing.T) {
-	binary := buildEllipsisBinary(t)
+	binary := builtBinary(t)
 	dir := t.TempDir()
 	native := `ellipsis:
   kind: environment

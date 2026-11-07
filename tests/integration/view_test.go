@@ -15,7 +15,7 @@ import (
 )
 
 func TestView_BinaryResolvesProjectGlobalAndLinkedWorktree(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	source := t.TempDir()
 	t.Setenv("AGNOSTIC_AI_HOME", source)
 	t.Setenv("AGNOSTIC_AI_NO_UPDATE_CHECK", "1")

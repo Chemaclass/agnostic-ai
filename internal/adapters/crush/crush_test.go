@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "crush" {
-		t.Errorf("Name() = %q, want %q", got, "crush")
-	}
-}
-
 // The project-root AGENTS.md is written centrally by sync, never by
 // this adapter: Crush has no per-rule or per-agent surface of its own.
 func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {

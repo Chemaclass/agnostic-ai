@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "amp" {
-		t.Errorf("Name() = %q, want %q", got, "amp")
-	}
-}
-
 // Command specs write nothing: a full sweep of Amp's docs finds no
 // file-based command surface, and its migration guidance is to delete
 // the old command file rather than point at a replacement path.

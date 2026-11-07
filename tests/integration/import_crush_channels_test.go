@@ -6,23 +6,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"testing"
 )
 
 func TestImportCrush_ChannelRoundTrip(t *testing.T) {
-	packageDir, err := os.Getwd()
-	must(t, err)
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	dir := t.TempDir()
 	write := func(path, content string) { t.Helper(); must(t, os.WriteFile(path, []byte(content), 0o644)) }
 	run := func(args ...string) {
