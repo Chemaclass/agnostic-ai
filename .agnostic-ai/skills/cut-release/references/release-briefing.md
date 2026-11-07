@@ -21,14 +21,17 @@ the main capabilities. Migration details belong in the actions section.
 
 ## Sections, in order
 
-1. `## Highlights {#highlights}`: up to five one-sentence bullets that match
+1. `## Highlights {#highlights}`: three to five one-sentence bullets that match
    the changelog `### Highlights`, breaking changes first, each linking its
    reference page where one exists.
 2. `## Upgrading from vPREV {#actions}`: only when a reader must act. One
    bullet per required action: who it affects, what to change, where it is
-   documented. Close with one line that links the
+   documented. A `migrate` step runs after installing the new release and
+   running `upgrade --requires`, since the old release does not have its
+   migrations. Close with one line that links the
    [upgrade page](@/docs/cli-reference/upgrades.md#upgrade) for stopping
-   watch, installing, and `upgrade --requires`. Do not repeat those steps.
+   watch, installing, `upgrade --requires`, and migrating. Do not repeat
+   those steps.
    Skip the section when nothing is required.
 3. `## What changed`: at most four `###` subsections, grouped by reader
    outcome, not by module. Each holds a short paragraph or two to three
