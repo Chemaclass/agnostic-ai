@@ -1,68 +1,3 @@
-.support-block {
-  position: relative;
-  display: block;
-}
-
-.support-summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding-right: 72px;
-  cursor: pointer;
-  list-style: none;
-}
-
-.support-summary::-webkit-details-marker {
-  display: none;
-}
-
-.support-summary::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid var(--text-muted);
-  border-bottom: 2px solid var(--text-muted);
-  transform: rotate(-45deg);
-  transition: transform 160ms ease;
-}
-
-.support-block[open] > .support-summary::before {
-  transform: rotate(45deg);
-}
-
-.support-summary h2 {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-.support-summary:hover h2 {
-  color: var(--accent-strong);
-}
-
-.support-block > .section-doc-link {
-  position: absolute;
-  top: 0;
-  right: 0;
-}
-
-.support-block > .table-wrap {
-  margin-top: 12px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .support-summary::before {
-    transition: none;
-  }
-}
-
-@media (max-width: 760px) {
-  .support-summary {
-    min-height: 44px;
-  }
-}
-
 .tool-list {
   display: inline-flex;
   flex-wrap: wrap;
@@ -182,82 +117,73 @@
   color: var(--approval);
 }
 
-.support-status-label {
-  display: none;
-}
-
-/* A filled square for tools that support the kind, an outline for those that do not; the text says the same. */
-
-.support-table #support-supported::before,
-.support-table #support-unsupported::before,
-.support-table td:nth-child(2) .support-status-label::before,
-.support-table td:nth-child(3) .support-status-label::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 6px;
-  vertical-align: 0;
-  box-sizing: border-box;
-  border: 1px solid var(--line-strong);
-}
-
-.support-table #support-supported::before,
-.support-table td:nth-child(2) .support-status-label::before {
-  border: 4px solid var(--permitted);
-}
-
 .item-row > .tool-listing {
   border-top: 1px solid var(--line);
   padding-top: 12px;
   margin-top: 4px;
 }
 
-@media (max-width: 760px) {
-  .support-table,
-  .support-table tbody,
-  .support-table tr {
-    display: block;
-  }
+/* Servers found in a tool's own config: hairline rows, the action in its own lane. */
 
-  .support-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
+.native-row .item-main > strong {
+  font-size: 15px;
+}
 
-  .support-table tbody tr {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--line);
-  }
+.native-row .tool-state {
+  margin: 0;
+  color: var(--text-muted);
+}
 
-  .support-table tbody tr:last-child {
-    border-bottom: 0;
-  }
+.mcp-spec {
+  min-width: 0;
+  font-size: 13px;
+}
 
-  .support-table tbody th,
-  .support-table tbody td {
-    display: block;
-    padding: 0;
-    border: 0;
-  }
+.mcp-spec-controls,
+.mcp-spec-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
 
-  .support-table tbody th {
-    font-size: 14px;
-  }
+.mcp-spec-controls > [role='status']:empty {
+  display: none;
+}
 
-  .support-table tbody td {
-    margin-top: 8px;
-  }
+.mcp-spec > .banner,
+.mcp-spec-preview {
+  margin-top: 12px;
+}
 
-  .support-status-label {
-    display: block;
-    margin-bottom: 6px;
-    color: var(--text-muted);
-    font-size: 12px;
-  }
+.mcp-spec-preview {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.mcp-spec-preview h3,
+.mcp-spec-preview p {
+  margin: 0 0 8px;
+}
+
+.mcp-spec-files {
+  max-height: 360px;
+  overflow: auto;
+  margin: 12px 0;
+}
+
+.mcp-spec-files pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: 12px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  background: var(--panel-sunken);
+  font-size: 12px;
+}
+
+.item-row.is-off .item-main > strong {
+  color: var(--text-muted);
 }

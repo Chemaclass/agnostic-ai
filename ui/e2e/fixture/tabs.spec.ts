@@ -192,6 +192,7 @@ test('keeps support and section findings available outside panels and leaves Aut
   const data = await loadTabs(page)
   data.sections.find((section) => section.id === 'tools')!.findings = [{ source: 'doctor', severity: 'warn', message: 'Tools configuration warning.' }]
   await page.goto('/?view=tools')
+  await page.locator('details.support-block > summary').click()
   for (const tab of ['MCP servers', 'Found in tools', 'Environments']) {
     await selectTab(page, tab)
     await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()

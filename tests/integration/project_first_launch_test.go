@@ -12,6 +12,7 @@ import (
 )
 
 func TestProjectLifecycle_FirstLaunchAfterFreshInstall(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	skipFlakyWindowsStartup(t)
 	installerName := "pnpm"
 	if runtime.GOOS == "windows" {

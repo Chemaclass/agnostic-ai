@@ -8,13 +8,29 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
+
+- In the web interface, the search dialog and the JSON inspector take the Mineral look: a surface panel with a soft ring, and a full-screen sheet on phones (#3120).
+
+- The Lifecycle page shows its stages as a timeline with a filled dot for each stage that runs a hook, names each tool next to its logo, and shows a count only above zero instead of "Hooks 0" and "No hooks" on every stage. With no hooks it uses the shared empty state with the tools that support them. A turned-off hook shows as off, and its stage counts it as "turned off". Saving a hook reports through the same notice as the other pages.
+
+- The Tools page says what your agents can use, counts only MCP servers that are turned on, notes how many are turned off, and shows each turned-off server as off. Saving a server as a spec reports through the same notice as the other pages (#3145).
+
 - The web interface takes the Mineral look: bone paper, a slate rail that asks each section's question over a live summary, Fraunces headings (replacing Archivo Narrow), ink pill buttons and verdigris links. Phones get a top bar with the finding count, Search and **Menu** over one row of page links (#3120).
+
+- In the web interface, each section page opens with a verdict sentence, such as "Your rules allow 11 actions, ask before 3, and block 4.", and one facts line with the finding count and any tool that ignores what is configured. Then one filter row with **Docs**, the tabs and the content; coding tool support folds closed below it with a summary such as "3 of 3 tools support rules, agents, and skills". Findings are cards with **Copy prompt** and **Details**, an empty type says what it is and which tools support it, and counts show only above zero (#3121).
+
+- In the web interface, **Context size** shows its totals in the Mineral style, with a share bar beside each percentage. Source types use plain names (instructions file, tool wrapper text, skill name and description) under a **Type** column, **Reread specs** is now **Read again**, and copying or moving a file to the other level reports success or failure in one notice with **Dismiss** (#3120).
+
+- In the web interface, the permission and protected path editors use **Preview**, **Apply** and **Cancel**, mark added and removed lines in the diff, and show saved, failed and overridden states as one notice with **Dismiss** (#3121). After **Apply** or **Reload saved values**, they wait for the refreshed rules before offering the next change, so a quick next step no longer fails as changed after editing began.
+
+- In the web interface, **Setup health** opens with one sentence, such as "1 thing needs a fix, and 3 more are worth a look.", a facts line that says whether the data was checked just now or comes from a saved snapshot, and a row of bars for the features your tools support, filled for those in use. Findings sit under **Needs a fix** and **Worth a look**, suggestions are plain rows that name tools by name, and **Recheck all** reports in a notice. On every page, recheck results say "configuration check" and "setup check" instead of "lint" and "doctor" (#3120).
 
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
 
 - In the web interface, **Context size** starts with the startup and on-demand word counts, then one line on the startup budget with **Change budget**, then three **Next** steps. The ranked sources are always shown and replace **Start here**; duplicated passages show only when there are any; the load explanation and the model line moved into **How this is counted**; coding tools show by name (#3121).
 
-- In the web interface, a snapshot or the mock fixture says once under each page title that it is read-only, instead of a sentence on every finding and path, and a snapshot that does not load shows **Could not load the snapshot** with the raw error under **Details** and **Retry**.
+- In the web interface, a snapshot or the mock fixture says once, in the notice at the top of each page, that it is read-only, instead of a sentence on every finding and path, and a snapshot that does not load shows **Could not load the snapshot** with the raw error under **Details** and **Retry**.
 
 - In the web interface, labels use plain words: Settings asks "How are your tools set up?", its kinds are **Preferences** and **Config files** as their tabs say, on Tools the configured servers tab reads **MCP servers** and the native servers heading reads **Found in tools**, each matching its tab or heading, and Lifecycle stage descriptions say "A hook here can block the prompt" instead of naming exit codes. `view --json` carries the new labels and descriptions; ids and keys are unchanged.
 
@@ -110,6 +126,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - **Conversations** lists Codex and Cursor chats on Windows, marks a Codex thread open when `~/.codex` or `CODEX_HOME` is a symlink, marks a Cursor chat open when its folder name has a character such as `@`, rereads a cursor-agent chat only when it changes, and withholds a prompt that passes `curl -u user:password` or `--user` (#3119).
 
 - In **Conversations**, opening a Codex CLI thread that a running `codex` holds switches to its terminal instead of resuming it a second time, and opening a chat from an editor brings forward the window on its enclosing workspace instead of opening a new window on its subfolder (#3134).
+
+- On Windows, `sync -t <tool> --allow-empty-targets --dry-run` no longer names that tool's own files and skill links as removals, and `sync --check` with an empty targets list passes once every generated file is gone (#3142).
 
 ### By tool
 

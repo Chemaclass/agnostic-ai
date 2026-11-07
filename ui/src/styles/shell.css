@@ -542,6 +542,15 @@ a.release-badge:hover .release-arrow {
   overflow-wrap: anywhere;
 }
 
+.banner p > code {
+  white-space: nowrap;
+}
+
+.banner .banner-title > code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .banner-title {
   font-weight: 600;
 }

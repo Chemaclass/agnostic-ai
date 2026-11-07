@@ -34,6 +34,9 @@ func TestPortableHookWrapper_GeminiPrintsTheDeny(t *testing.T) {
 // A large stdout neither slows the wrapper past a hook timeout nor slips
 // past it: a long reason still denies, and long plain text still blocks.
 func TestPortableHookWrapper_ReadsALargeStdoutQuickly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("large payload")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("runs the wrapper with bash")
 	}

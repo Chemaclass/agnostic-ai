@@ -42,18 +42,16 @@ for (const { width, colorSchemes } of usableLayouts) {
 }
 
 for (const width of [320, 390, 1440]) {
-  test(`puts coding tool support above the tab row at ${width}px`, async ({ page }) => {
+  test(`puts coding tool support below the tab panels at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
-    await page.goto('/?view=context')
-    if (width <= 760) await page.locator('details.support-block > summary').click()
+    await page.goto('/?view=context&tab=rules')
+    await page.locator('details.support-block > summary').click()
     const support = page.getByRole('table', { name: 'Coding tool support' })
     await expect(support).toBeVisible()
-    const search = (await page.getByRole('searchbox', { name: 'Search context' }).boundingBox())!
+    const panel = (await page.getByRole('tabpanel', { name: /^Rules/ }).boundingBox())!
     const table = (await support.boundingBox())!
-    const tabs = (await page.getByRole('tablist', { name: 'Context views' }).boundingBox())!
-    expect(table.y).toBeGreaterThan(search.y + search.height)
-    expect(table.y + table.height).toBeLessThanOrEqual(tabs.y)
+    expect(table.y).toBeGreaterThanOrEqual(panel.y + panel.height)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }
@@ -208,14 +206,17 @@ test('moves focus to the page title after keyboard navigation without drawing a 
 })
 
 for (const width of [1440, 390]) {
-  test(`puts the search result count under the search field at ${width}px`, async ({ page }) => {
+  test(`shows the search result count beside the search field only while filtering at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=tools')
-    const input = (await page.getByRole('searchbox', { name: 'Search tools' }).boundingBox())!
+    const search = page.getByRole('searchbox', { name: 'Search tools' })
+    await expect(page.locator('.section-search-status')).toBeHidden()
+    await search.fill('notion')
+    const input = (await search.boundingBox())!
     const status = (await page.locator('.section-search-status').boundingBox())!
-    expect(status.y).toBeGreaterThanOrEqual(input.y + input.height)
-    expect(status.x).toBeCloseTo(input.x, 0)
+    expect(status.x >= input.x + input.width || status.y >= input.y + input.height).toBe(true)
+    expect(status.x + status.width).toBeLessThanOrEqual(width)
   })
 }
 
@@ -431,4 +432,46 @@ test('keeps Overview JSON on one line and the release arrow beside its text', as
   })
   expect(gap).toBeGreaterThanOrEqual(0)
   expect(gap).toBeLessThanOrEqual(8)
+})
+
+test('keeps focus inside the JSON inspector sheet on a phone and clear of the top bar at 761px', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  for (const width of [900, 800, 761]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('/?view=settings')
+    await page.getByRole('button', { name: 'Menu' }).click()
+    await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name: 'Overview JSON', exact: true }).click()
+    const box = (await page.getByRole('dialog', { name: 'JSON inspector' }).boundingBox())!
+    expect(box.x).toBe(0)
+    expect(box.y).toBe(0)
+  }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name: 'Overview JSON', exact: true }).click()
+  const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+  const close = drawer.getByRole('button', { name: /Close/ })
+  await expect(close).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(drawer.locator('.json')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(close).toBeFocused()
+})
+
+test('keeps Tab inside search opened over the JSON inspector, and modal only as a sheet', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.setViewportSize({ width: 1440, height: 844 })
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Overview JSON', exact: true }).click()
+  const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+  await expect(drawer).toHaveAttribute('aria-modal', 'false')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(drawer).toHaveAttribute('aria-modal', 'true')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+  const search = page.getByRole('dialog', { name: 'Search all configuration' })
+  await expect(search.getByRole('combobox')).toBeFocused()
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press('Tab')
+    await expect(search.locator(':focus')).toHaveCount(1)
+  }
 })

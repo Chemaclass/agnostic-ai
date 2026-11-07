@@ -6,6 +6,17 @@ import type { SectionItem } from '../../src/contract'
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('overview', () => {
+  test('says what agents can use and shows a turned-off server as off', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('./?view=tools')
+    await expect(page.locator('.page-verdict')).toHaveText('Your agents can use 3 MCP servers.')
+    await expect(page.locator('.page-facts, .page-verdict + *').first()).toContainText('1 MCP server turned off')
+    const row = page.getByRole('region', { name: /^MCP servers/ }).locator('.item-row', { hasText: 'railway' })
+    await expect(row).toHaveClass(/is-off/)
+    await expect(row.getByText('Turned off', { exact: true })).toBeVisible()
+    await expect(page.getByText('Turned off', { exact: true })).toHaveCount(1)
+  })
+
   test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('./?view=tools')
@@ -61,7 +72,7 @@ test.describe('overview', () => {
     await page.goto('./?view=tools&tab=native')
     const row = page.getByRole('region', { name: /Found in tools/ }).locator('.item-row', { hasText: native.name })
     const scope = page.getByRole('region', { name: /Found in tools/ }).locator('.edit-scope')
-    await expect(scope.getByRole('group', { name: 'Save new specs for' })).toBeVisible()
+    await expect(scope.getByRole('group', { name: 'Save new servers for' })).toBeVisible()
     await expect(scope).toContainText('Project files, tracked by Git.')
     await expect(scope.getByRole('button', { name: 'Project (committed)', exact: true })).toHaveText('Project')
     const scopeBox = await scope.boundingBox()
@@ -79,15 +90,35 @@ test.describe('overview', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await saveScreenshot(page, 'mcp-spec-preview-mobile.png')
     await preview.getByRole('button', { name: 'Apply', exact: true }).click()
-    await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync')
+    const saved = page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })
+    await expect(saved).toContainText('Run agnostic-ai sync')
+    await expect(saved.locator('.banner-success')).toBeVisible()
     await expect(row).toHaveCount(0)
-    await expect(page.getByRole('group', { name: 'Save new specs for' })).toHaveCount(0)
+    await expect(page.getByRole('group', { name: 'Save new servers for' })).toHaveCount(0)
     expect(calls).toEqual([
       { action: 'preview', audience: 'shared', name: native.name, target: native.holders[0].target, path: native.holders[0].path, scope: native.holders[0].scope },
       { action: 'apply', audience: 'shared', name: native.name, target: native.holders[0].target, path: native.holders[0].path, scope: native.holders[0].scope, expected: 'reviewed-server' },
     ])
     await page.reload()
     await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync')
+    await page.getByRole('button', { name: 'Dismiss' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toHaveCount(0)
+  })
+
+  test('keeps a long saved file path inside the page at 390', async ({ page }) => {
+    const name = 'a-server-with-a-very-long-name-that-has-no-break-points-at-all-so-the-path-is-long'
+    const data = structuredClone(fixture)
+    const tools = data.sections.find((section: { id: string }) => section.id === 'tools')!
+    tools.native![0].name = name
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.route('**/api/edit/mcp', (route) => route.fulfill({ json: { file: `.agnostic-ai/mcps/${name}.yaml`, spec: `name: ${name}\n`, variables: [], targets: ['claude'], syncCommand: 'agnostic-ai sync', expected: 'reviewed-server' } }))
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('./?view=tools&tab=native')
+    const row = page.getByRole('region', { name: /Found in tools/ }).locator('.item-row', { hasText: name })
+    await row.getByRole('button', { name: 'Make it a spec' }).click()
+    await row.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 
   test('drops a native server preview when its audience changes and shows import refusals', async ({ page }) => {
@@ -107,6 +138,7 @@ test.describe('overview', () => {
     await expect(row.getByRole('region', { name: 'notion spec preview' })).toHaveCount(0)
     await row.getByRole('button', { name: 'Make it a spec' }).click()
     await expect(row.getByRole('alert')).toContainText('args holds a credential import cannot rewrite')
+    await expect(row.locator('.banner-error')).toBeVisible()
     await expect(row.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0)
   })
 })

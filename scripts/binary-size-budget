@@ -819,4 +819,7 @@
 # #3133: curl credential redaction and cursor-agent cache measured 25366688
 # bytes after merging main at 50ed867c; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-25378816
+# The Authority editor restyle (#3151: FileDiff and the refresh guard in the
+# embedded bundle) measured 25378976 bytes on CI; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+25391104

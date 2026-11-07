@@ -11,6 +11,7 @@ import { instructionsRefinePrompt } from '../model/refine-prompt'
 import { builtinEnabled, comparisonValue } from '../model/audience-view'
 import { audienceLabel, layerLabel } from '../model/edit-audience'
 import { itemEntryId } from '../model/identity'
+import { isTurnedOff } from '../model/counts'
 import { Badge, Chip, Code, CopyButton, Switch, Toggle, ToolAvatar } from './ui'
 import { ConfigurationRoot, PersonalBuiltins, useEntry } from './section-context'
 import { Findings } from './Findings'
@@ -94,7 +95,7 @@ export function ItemList({ items, hideValues, sharedUnlisted }: { items: Section
 
 function ItemRow({ item, children }: { item: SectionItem; children: ReactNode }) {
   const { linked, ...entry } = useEntry(itemEntryId(item))
-  return <li {...entry} className={`item-row${item.findings.length ? ' has-findings' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
+  return <li {...entry} className={`item-row${isTurnedOff(item) ? ' is-off' : ''}${item.findings.length ? ' has-findings' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
 }
 
 function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
@@ -111,6 +112,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
       </div>
       <div className="item-meta">
         {item.local && audience !== 'shared' && <Badge tone="accent" title="Set in a local file Git ignores">local</Badge>}
+        {isTurnedOff(item) && <Chip>Turned off</Chip>}
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{layerLabel(item.layer)}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
