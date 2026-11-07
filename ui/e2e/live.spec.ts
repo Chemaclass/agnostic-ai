@@ -476,6 +476,8 @@ test('live global Authority creates, updates, and resets the first local mode wi
     await mode.getByRole('button', { name: 'Save', exact: true }).click()
     await expect.poll(() => readFile(source, 'utf8').catch(() => '')).toMatch(/default-mode: plan\n/)
     await expect(modeValue).toHaveValue('plan')
+    // The page reloads after Save; a choice made before that reload is lost.
+    await expect(mode.getByRole('button', { name: 'Update', exact: true })).toBeDisabled()
     await modeValue.selectOption('acceptEdits')
     await mode.getByRole('button', { name: 'Update', exact: true }).click()
     await expect.poll(() => readFile(source, 'utf8').catch(() => '')).toMatch(/default-mode: acceptEdits\n/)
