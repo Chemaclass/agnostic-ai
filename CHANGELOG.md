@@ -166,6 +166,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - An agent with `x-codebuddy.tools: []` gets `tools: []`, which CodeBuddy 2.179.0 and later read as no tools; sync used to write `tools: ""`, every tool (#2983).
 
+#### Copilot
+
+- The sync note for an agent's `hooks` names `x-copilot.hooks`, which Copilot CLI reads, instead of saying the agent file has no hook key (#3137).
+
 ## v0.91.0 - 2026-11-01
 
 ### Highlights
