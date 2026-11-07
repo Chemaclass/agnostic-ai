@@ -11,6 +11,7 @@ import (
 )
 
 func TestProjectLifecycle_BootstrapsOnceAndUsesLocalHooks(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	if runtime.GOOS == "windows" {
 		t.Skip("POSIX package-manager and old-binary fixtures")
 	}

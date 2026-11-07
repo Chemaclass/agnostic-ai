@@ -36,6 +36,7 @@ type handoffNativeGroup struct {
 }
 
 func TestBuiltinHandoffHooks(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	packageDir, err := os.Getwd()
 	if err != nil {

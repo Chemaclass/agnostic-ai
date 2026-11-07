@@ -73,6 +73,9 @@ func TestRunCrush_InterruptsBeforeKillingOnTimeout(t *testing.T) {
 // hook run exits right after a run, so it must end every process the
 // hook started, even one that ignores SIGINT.
 func TestRunCrush_LeavesNoProcessBehind(t *testing.T) {
+	if testing.Short() {
+		t.Skip("waits on real processes")
+	}
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "hooks"), 0o755); err != nil {
 		t.Fatal(err)
