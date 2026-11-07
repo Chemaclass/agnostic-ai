@@ -79,14 +79,16 @@ const curlSwitches = "sSfLkviIOJgGNnqRjlp0123456aBMVZ#"
 // user and password, as -u user:pass, --user user:pass or their proxy
 // forms -U and --proxy-user. A user alone makes curl ask for the
 // password, and a variable holds none. Each curl is read to the end of
-// its line or command; a -u of another command later on that line can
-// still count, and a quoted user name with a space is not read.
+// its line or command. Accepted gaps: a -u of another command later on
+// that line still counts, a quoted user name with a space is not read,
+// an apostrophe in prose upsets the quote count, and a PowerShell
+// backtick glued to a word is not read as a line continuation.
 func passesCurlCredential(text string) bool {
 	text = lineContinuation.ReplaceAllString(text, " ")
 	for _, at := range curlInText.FindAllStringIndex(text, -1) {
 		line, _, _ := strings.Cut(text[at[1]:], "\n")
 		args := strings.Fields(line)
-		quotes := 0
+		doubles, singles := 0, 0
 		for i, arg := range args {
 			if arg == ";" || arg == "|" || arg == "&&" || arg == "||" {
 				break
@@ -94,13 +96,16 @@ func passesCurlCredential(text string) bool {
 			if value, ok := curlUserValue(strings.Trim(arg, `"'`), args[i+1:]); ok {
 				_, password, found := strings.Cut(strings.Trim(value, "\"'`;,)"), ":")
 				password = strings.Trim(password, `"'`)
-				if found && password != "" && !PureReference(password) && !envReference.MatchString(password) {
+				// Single quotes keep $ literal, so '$ecret' is no variable.
+				variable := !strings.Contains(value, "'") && (PureReference(password) || envReference.MatchString(password))
+				if found && password != "" && !variable {
 					return true
 				}
 			}
 			// A ; inside a quoted header or cookie does not end the command.
-			quotes += strings.Count(arg, `"`) + strings.Count(arg, "'")
-			if strings.HasSuffix(arg, ";") && quotes%2 == 0 {
+			doubles += strings.Count(arg, `"`)
+			singles += strings.Count(arg, "'")
+			if strings.HasSuffix(arg, ";") && doubles%2 == 0 && singles%2 == 0 {
 				break
 			}
 		}
