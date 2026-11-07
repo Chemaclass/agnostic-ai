@@ -117,14 +117,26 @@ func (SystemProcesses) Held(paths []string) map[string]bool {
 	if len(paths) == 0 {
 		return held
 	}
+	// lsof names each open file by its resolved path, so a path under a
+	// symlinked folder, such as a linked ~/.codex, is looked up by its target.
+	asked := make(map[string]string, len(paths))
+	for _, path := range paths {
+		if resolved, err := filepath.EvalSymlinks(path); err == nil {
+			asked[resolved] = path
+		} else {
+			asked[path] = path
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), psTimeout)
 	defer cancel()
 	// lsof exits 1 when none of the files is open; its output still lists
 	// the ones that are, one "n<path>" line each.
 	out, _ := exec.CommandContext(ctx, "lsof", append([]string{"-F", "n", "--"}, paths...)...).Output()
 	for _, line := range strings.Split(string(out), "\n") {
-		if path, ok := strings.CutPrefix(line, "n"); ok {
-			held[path] = true
+		if open, ok := strings.CutPrefix(line, "n"); ok {
+			if path, ok := asked[open]; ok {
+				held[path] = true
+			}
 		}
 	}
 	return held

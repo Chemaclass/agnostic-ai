@@ -537,7 +537,7 @@ func TestSQLiteURI_ReadsTheWALOnlyWhenOneExists(t *testing.T) {
 	dir := t.TempDir()
 	db := filepath.Join(dir, "Application Support", "state.vscdb")
 	write(t, db, "")
-	if actual := sqliteURI(db); actual != "file://"+filepath.ToSlash(dir)+"/Application%20Support/state.vscdb?immutable=1" {
+	if actual := sqliteURI(db); actual != "file://"+uriPath(dir)+"/Application%20Support/state.vscdb?immutable=1" {
 		t.Errorf("without a WAL = %s", actual)
 	}
 	write(t, db+"-wal", "")
@@ -805,5 +805,94 @@ func TestFill_WithholdsAnIndentedSecretInAPrompt(t *testing.T) {
 		if c.Opening != nil || c.Prompt != "" || len(c.Withheld) != 2 {
 			t.Errorf("%q: opening %q, prompt %q, withheld %v", prompts, c.Opening, c.Prompt, c.Withheld)
 		}
+	}
+}
+
+func TestSQLiteURI_WritesAWindowsPathAsAFileURIPath(t *testing.T) {
+	if actual := sqliteURI(`C:\Users\me\.codex\state_5.sqlite`); actual != "file:///C:/Users/me/.codex/state_5.sqlite?immutable=1" {
+		t.Errorf("SQLite reads file://C:... as a host named C, actual %s", actual)
+	}
+}
+
+func TestFolderOpenIn_DecodesTheEditorsFolderURIs(t *testing.T) {
+	storage := filepath.Join(t.TempDir(), "storage.json")
+	write(t, storage, `{"windowsState":{"openedWindows":[{"folder":"file:///Users/me/%40scope/pkg%2Bv2"},{"folder":"file:///c%3A/Users/me/app"}]}}`)
+	for folder, want := range map[string]bool{
+		"/Users/me/@scope/pkg+v2": true,
+		`C:\Users\me\app`:         true,
+		"/Users/me/@scope/pkg":    false,
+	} {
+		if actual := folderOpenIn(storage, folder); actual != want {
+			t.Errorf("folderOpenIn(%q) = %v, want %v", folder, actual, want)
+		}
+	}
+}
+
+func TestSystemProcesses_HeldFindsALockUnderASymlinkedFolder(t *testing.T) {
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof is not installed")
+	}
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "codex", "thread-writer-locks", "a.lock"), "")
+	if err := os.Symlink(filepath.Join(dir, "codex"), filepath.Join(dir, ".codex")); err != nil {
+		t.Skip("cannot create a symlink:", err)
+	}
+	lock := filepath.Join(dir, ".codex", "thread-writer-locks", "a.lock")
+	f, err := os.Open(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if held := (SystemProcesses{}).Held([]string{lock}); !held[lock] {
+		t.Errorf("a lock this process holds through a symlink must be held, actual %v", held)
+	}
+}
+
+func TestScan_ReadsACursorAgentChatAgainOnlyWhenItChanges(t *testing.T) {
+	agent := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	meta := hex.EncodeToString([]byte(`{"agentId":"` + agent + `","name":"Release","createdAt":1762500000000}`))
+	answer := fakeStores(t, map[string]string{
+		"state.vscdb|FROM composerHeaders": `[]`,
+		"store.db|FROM meta":               `[{"value":"` + meta + `"}]`,
+	})
+	storeReads := 0
+	scanner, stores := testScanner(t, func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if filepath.Base(path) == "store.db" {
+			storeReads++
+		}
+		return answer(ctx, path, query)
+	}, fakeProcesses{})
+	store := filepath.Join(stores.CursorDir, "chats", md5Hex("/tmp/app"), agent, "store.db")
+	transcript := filepath.Join(stores.CursorDir, "projects", "p1", "agent-transcripts", agent, agent+".jsonl")
+	prompt := func(text string) string {
+		return lines(obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<user_query>" + text + "</user_query>"}}}})
+	}
+	write(t, stores.CursorDB, "")
+	write(t, store, "")
+	write(t, transcript, prompt("Ship it"))
+	scanner.Now = func() time.Time { return time.Now() }
+	scan := func() Conversation {
+		return byID(t, scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}}), agent)
+	}
+
+	scan()
+	info, err := os.Stat(transcript)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, transcript, prompt("Skip it"))
+	if err := os.Chtimes(transcript, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	scan()
+	if c := scan(); storeReads != 1 || c.Prompt != "Ship it" {
+		t.Errorf("an unchanged chat must come from the cache: %d store reads, prompt %q", storeReads, c.Prompt)
+	}
+
+	write(t, store, "changed")
+	write(t, transcript, prompt("Fix the build"))
+	if c := scan(); storeReads != 2 || c.Prompt != "Fix the build" {
+		t.Errorf("a changed chat must be read again: %d store reads, prompt %q", storeReads, c.Prompt)
 	}
 }

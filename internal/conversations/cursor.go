@@ -146,7 +146,7 @@ func (s *Scanner) cursorOpenChats(ctx context.Context, headers []cursorHeader) m
 	windows := openWindowFolders(filepath.Join(filepath.Dir(s.Stores.CursorDB), "storage.json"))
 	workspaces := map[string]bool{}
 	for _, header := range headers {
-		if header.Folder != "" && windows[fileURI(header.Folder)] && cursorWorkspacePattern.MatchString(header.WorkspaceID) {
+		if header.Folder != "" && windows[folderKey(header.Folder)] && cursorWorkspacePattern.MatchString(header.WorkspaceID) {
 			workspaces[header.WorkspaceID] = true
 		}
 	}
@@ -221,26 +221,21 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 	for _, root := range roots {
 		byHash[md5Hex(root)] = root
 	}
-	type metaRow struct {
-		Value string `json:"value"`
+	if s.cursorAgents == nil {
+		s.cursorAgents = map[string]cached[cursorAgentMeta]{}
+		s.cursorTranscripts = map[string]cached[[2]string]{}
 	}
+	seen := map[string]bool{}
 	var chats []Conversation
 	for _, store := range stores {
-		rows, err := queryRows[metaRow](ctx, s.SQLite, store, `SELECT value FROM meta WHERE key = '0'`)
-		if err != nil || len(rows) == 0 {
-			continue
-		}
-		decoded, err := hex.DecodeString(rows[0].Value)
-		if err != nil {
-			continue
-		}
-		var meta cursorAgentMeta
-		if json.Unmarshal(decoded, &meta) != nil || !cursorIDPattern.MatchString(meta.AgentID) {
+		meta, ok := s.cursorAgentMeta(ctx, store)
+		if !ok {
 			continue
 		}
 		folder := byHash[filepath.Base(filepath.Dir(filepath.Dir(store)))]
 		updated := modTime(store)
-		first, last := s.cursorAgentPrompts(meta.AgentID)
+		first, last := s.cursorAgentPrompts(meta.AgentID, seen)
+		seen[store] = true
 		title := meta.Name
 		if title == cursorAgentDefaultName {
 			title = ""
@@ -253,21 +248,59 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		c.fill(texts{title: title, firstPrompt: first, lastPrompt: last})
 		chats = append(chats, c)
 	}
+	if ctx.Err() == nil {
+		forget(s.cursorAgents, seen)
+		forget(s.cursorTranscripts, seen)
+	}
 	return chats
 }
 
+// cursorAgentMeta reads the chat's metadata from its store.db, or from
+// the cache while the store and its WAL are unchanged.
+func (s *Scanner) cursorAgentMeta(ctx context.Context, store string) (cursorAgentMeta, bool) {
+	stamp := fileStamp(store, store+"-wal")
+	if entry, ok := s.cursorAgents[store]; ok && entry.stamp == stamp {
+		return entry.value, true
+	}
+	type metaRow struct {
+		Value string `json:"value"`
+	}
+	rows, err := queryRows[metaRow](ctx, s.SQLite, store, `SELECT value FROM meta WHERE key = '0'`)
+	if err != nil || len(rows) == 0 {
+		return cursorAgentMeta{}, false
+	}
+	decoded, err := hex.DecodeString(rows[0].Value)
+	if err != nil {
+		return cursorAgentMeta{}, false
+	}
+	var meta cursorAgentMeta
+	if json.Unmarshal(decoded, &meta) != nil || !cursorIDPattern.MatchString(meta.AgentID) {
+		return cursorAgentMeta{}, false
+	}
+	s.cursorAgents[store] = cached[cursorAgentMeta]{stamp: stamp, value: meta}
+	return meta, true
+}
+
 // cursorAgentPrompts reads the first and last prompt from the chat's
-// transcript, where cursor-agent wraps what was typed in <user_query>.
-func (s *Scanner) cursorAgentPrompts(id string) (first, last string) {
+// transcript, where cursor-agent wraps what was typed in <user_query>,
+// or from the cache while the transcript is unchanged. It adds the
+// transcript to seen.
+func (s *Scanner) cursorAgentPrompts(id string, seen map[string]bool) (first, last string) {
 	matches, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "projects", "*", "agent-transcripts", id, id+".jsonl"))
 	if len(matches) == 0 {
 		return "", ""
 	}
-	info, err := os.Stat(matches[0])
+	transcript := matches[0]
+	seen[transcript] = true
+	stamp := fileStamp(transcript)
+	if entry, ok := s.cursorTranscripts[transcript]; ok && entry.stamp == stamp {
+		return entry.value[0], entry.value[1]
+	}
+	info, err := os.Stat(transcript)
 	if err != nil {
 		return "", ""
 	}
-	head, tail, err := readEnds(matches[0], info.Size(), claudeWindow)
+	head, tail, err := readEnds(transcript, info.Size(), claudeWindow)
 	if err != nil {
 		return "", ""
 	}
@@ -300,7 +333,36 @@ func (s *Scanner) cursorAgentPrompts(id string) (first, last string) {
 	if all := prompts(tail); len(all) > 0 {
 		last = all[len(all)-1]
 	}
+	s.cursorTranscripts[transcript] = cached[[2]string]{stamp: stamp, value: [2]string{first, last}}
 	return first, last
+}
+
+// cached is a value read from files, kept while their fileStamp holds.
+type cached[T any] struct {
+	stamp string
+	value T
+}
+
+// fileStamp tells whether files changed, by their sizes and modification times.
+func fileStamp(paths ...string) string {
+	var stamp strings.Builder
+	for _, path := range paths {
+		if info, err := os.Stat(path); err == nil {
+			fmt.Fprintf(&stamp, "%d@%d;", info.Size(), info.ModTime().UnixNano())
+		} else {
+			stamp.WriteString("-;")
+		}
+	}
+	return stamp.String()
+}
+
+// forget drops the entries of files a full scan no longer found.
+func forget[T any](cache map[string]cached[T], seen map[string]bool) {
+	for path := range cache {
+		if !seen[path] {
+			delete(cache, path)
+		}
+	}
 }
 
 func md5Hex(value string) string {
