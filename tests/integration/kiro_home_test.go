@@ -4,21 +4,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestKiroHome_BuiltBinaryUsesFallbackAndKeepsUserFiles(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), "agnostic-ai")
-	if runtime.GOOS == "windows" {
-		binary += ".exe"
-	}
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join("..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	for _, profile := range []string{"relative", "home", "ancestor", "valid"} {
 		t.Run(profile, func(t *testing.T) {
 			base := t.TempDir()

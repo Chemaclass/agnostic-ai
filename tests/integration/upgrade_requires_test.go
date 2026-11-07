@@ -14,10 +14,6 @@ import (
 )
 
 func TestUpgradeRequires_UpdatesProjectPinsAndSyncs(t *testing.T) {
-	packageDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
 	project := t.TempDir()
 	testutil.Chdir(t, project)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -37,14 +33,7 @@ func TestUpgradeRequires_UpdatesProjectPinsAndSyncs(t *testing.T) {
 		name += ".exe"
 	}
 	binary := filepath.Join(project, "node_modules", "agnostic-ai", "bin", name)
-	must(t, os.MkdirAll(filepath.Dir(binary), 0o755))
-	build := exec.Command("go", "build", "-ldflags",
-		"-X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=0.77.0 -X main.version=0.77.0",
-		"-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build released CLI candidate: %v\n%s", err, out)
-	}
+	copyBuiltBinary(t, builtCandidateBinary(t, "0.77.0"), binary)
 	run := func(args ...string) (string, error) {
 		t.Helper()
 		cmd := exec.Command(binary, args...)

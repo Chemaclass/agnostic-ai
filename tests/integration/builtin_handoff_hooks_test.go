@@ -38,17 +38,7 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repoRoot := filepath.Clean(filepath.Join(packageDir, "..", ".."))
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-ldflags", "-X main.version=0.80.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=0.80.0", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repoRoot
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := builtCandidateBinary(t, "0.80.0")
 	fixture := handoffRead(t, filepath.Join(packageDir, "fixtures", "builtin-handoff-hook", "agnostic-ai.yaml"))
 	run := func(t *testing.T, dir string, args ...string) string {
 		t.Helper()

@@ -18,21 +18,8 @@ import (
 )
 
 func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *testing.T) {
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
 	// High fixture versions identify candidate builds, not published releases.
-	build := exec.Command("go", "build", "-ldflags", "-X main.version=99.1.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=99.1.0", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, out)
-	}
+	binary := builtCandidateBinary(t, "99.1.0")
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	t.Setenv("CODEX_HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_NO_UPDATE_CHECK", "1")
@@ -257,12 +244,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 	})
 
 	t.Run("exact package pin changes across clone and linked worktree", func(t *testing.T) {
-		matching := filepath.Join(t.TempDir(), name)
-		build := exec.Command("go", "build", "-ldflags", "-X main.version=99.2.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=99.2.0", "-o", matching, "./cmd/agnostic-ai")
-		build.Dir = repository
-		if out, err := build.CombinedOutput(); err != nil {
-			t.Fatalf("build matching fixture candidate: %v\n%s", err, out)
-		}
+		matching := builtCandidateBinary(t, "99.2.0")
 		helper, err := os.Executable()
 		if err != nil {
 			t.Fatal(err)

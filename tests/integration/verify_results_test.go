@@ -11,7 +11,7 @@ import (
 )
 
 func TestVerify_RecordsAndComparesInstructionChange(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	verifier, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)

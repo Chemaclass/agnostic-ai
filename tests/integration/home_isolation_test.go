@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -33,6 +34,19 @@ func runIsolated(m *testing.M) (code int, err error) {
 	if err := pinGoEnv("GOCACHE", "GOMODCACHE", "GOPATH", "GOENV"); err != nil {
 		return 1, err
 	}
+	if moduleRoot, err = filepath.Abs(filepath.Join("..", "..")); err != nil {
+		return 1, err
+	}
+	if builtCLIRoot, err = os.MkdirTemp("", "agnostic-integration-cli-"); err != nil {
+		return 1, err
+	}
+	// A virus scanner can still hold a fresh .exe on Windows; a leftover
+	// temp binary must not fail a passing run.
+	defer func() {
+		if rmErr := os.RemoveAll(builtCLIRoot); rmErr != nil {
+			fmt.Fprintln(os.Stderr, "remove built CLI:", rmErr)
+		}
+	}()
 	home, err := os.MkdirTemp("", "agnostic-integration-tests-")
 	if err != nil {
 		return 1, err

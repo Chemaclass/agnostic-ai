@@ -9,15 +9,7 @@ import (
 )
 
 func TestGrokNativeProject_ImportSyncCheckAndLint(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), "agnostic-ai")
-	if os.PathSeparator == '\\' {
-		binary += ".exe"
-	}
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join("..", "..")
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, output)
-	}
+	binary := builtBinary(t)
 	project := t.TempDir()
 	files := map[string]string{
 		"agnostic-ai.yaml":                "version: 1\ntargets: [grok]\ngitignore:\n  enabled: true\n  commit: [grok:instructions]\n",
