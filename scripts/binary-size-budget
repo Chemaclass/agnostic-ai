@@ -797,4 +797,6 @@
 # plus 8192, rounded up to a multiple of 4096.
 # The Kiro agent MCP import (#3051) measured 24993952 bytes in CI; the budget is
 # that plus 8192, rounded up to a multiple of 4096.
-25006080
+# Resetting a local protected: null from Authority (#3072) measured 25010336
+# bytes; the budget matches the one #3080 and #3083 set.
+25018368
