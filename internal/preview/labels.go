@@ -60,12 +60,12 @@ func passesMySQLPassword(text string) bool {
 	return false
 }
 
-// curlInText is curl named in prose, also as a path or curl.exe, with
-// the rest of its line.
-var curlInText = regexp.MustCompile(`\bcurl(?:\.exe)?[ \t]([^\n` + "`" + `]*)`)
+// curlInText is curl named in prose, also as a path or curl.exe.
+var curlInText = regexp.MustCompile(`\bcurl(?:\.exe)?[ \t]`)
 
-// lineContinuation is a backslash that carries a command to the next line.
-var lineContinuation = regexp.MustCompile(`\\\r?\n`)
+// lineContinuation is a backslash, or a PowerShell backtick, that carries
+// a command to the next line.
+var lineContinuation = regexp.MustCompile("[\\\\`]\r?\n")
 
 // curlSwitches are curl's short options that take no value, so they may
 // come before -u in a group such as -fsSu.
@@ -74,20 +74,25 @@ const curlSwitches = "sSfLkviIOJgGNnqRjlp0123456aBMVZ#"
 // passesCurlCredential reports whether text runs curl with a literal
 // user and password, as -u user:pass, --user user:pass or their proxy
 // forms -U and --proxy-user. A user alone makes curl ask for the
-// password, and a variable holds none.
+// password, and a variable holds none. Each curl is read to the end of
+// its line or command; a -u of another command later on that line can
+// still count.
 func passesCurlCredential(text string) bool {
 	text = lineContinuation.ReplaceAllString(text, " ")
-	for _, m := range curlInText.FindAllStringSubmatch(text, -1) {
-		args := strings.Fields(m[1])
+	for _, at := range curlInText.FindAllStringIndex(text, -1) {
+		line, _, _ := strings.Cut(text[at[1]:], "\n")
+		args := strings.Fields(line)
 		for i, arg := range args {
+			if arg == ";" || arg == "|" || arg == "&&" || arg == "||" {
+				break
+			}
 			if value, ok := curlUserValue(arg, args[i+1:]); ok {
 				_, password, found := strings.Cut(strings.Trim(value, `"'`), ":")
 				if found && password != "" && !PureReference(password) {
 					return true
 				}
 			}
-			// The command or the sentence ends here.
-			if strings.ContainsAny(arg, ";|&") || strings.ContainsAny(arg[len(arg)-1:], ".,?!") {
+			if strings.HasSuffix(arg, ";") {
 				break
 			}
 		}
