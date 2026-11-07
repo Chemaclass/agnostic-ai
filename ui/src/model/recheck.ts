@@ -89,18 +89,18 @@ export function recheckMessage(result: RecheckResult, finding: ItemFinding): str
       if (result.copies) parts.push(`${result.copies.after} of ${result.copies.before} identical findings still ${result.copies.after === 1 ? 'appears' : 'appear'}.`)
       break
     case 'resolved':
-      parts.push(`This ${finding.source} finding no longer appears.`)
+      parts.push('This finding no longer appears.')
       break
     case 'unconfirmed':
-      parts.push('This doctor finding no longer appears, but this check skips files it cannot read, so this does not confirm a fix.')
+      parts.push('This finding no longer appears, but the setup check skips files it cannot read, so this does not confirm a fix.')
       break
     case 'incomplete':
-      return 'Lint stopped before it finished, so this recheck cannot tell whether the finding is fixed. The last known finding is shown.'
+      return 'The configuration check stopped before it finished, so this recheck cannot tell whether the finding is fixed. The last known finding is shown.'
     case 'failed':
       return 'The recheck did not finish, so this finding may still apply.'
   }
   const count = result.added.length
-  if (count) parts.push(`${plural(count, `new ${finding.source} finding`)} ${count === 1 ? 'appears' : 'appear'}${finding.path ? ` in ${finding.path}` : ''}.`)
+  if (count) parts.push(`${plural(count, 'new finding')} ${count === 1 ? 'appears' : 'appear'}${finding.path ? ` in ${finding.path}` : ''}.`)
   return parts.join(' ')
 }
 
@@ -153,8 +153,8 @@ export function recheckAllMessage(result: RecheckAllResult): string {
   if (result.state === 'failed') return 'The recheck did not finish, so every finding may still apply.'
   const parts = ['Rechecked every finding.']
   if (result.resolved) parts.push(`${plural(result.resolved, 'finding')} no longer ${result.resolved === 1 ? 'appears' : 'appear'}.`)
-  if (result.unconfirmed) parts.push(`${plural(result.unconfirmed, 'doctor finding')} no longer ${result.unconfirmed === 1 ? 'appears' : 'appear'}, but doctor skips files it cannot read, so this does not confirm a fix.`)
-  if (result.unknown) parts.push(`Lint stopped before it finished, so ${plural(result.unknown, 'lint finding')} that no longer ${result.unknown === 1 ? 'appears' : 'appear'} may still apply.`)
+  if (result.unconfirmed) parts.push(`${plural(result.unconfirmed, 'finding')} from the setup check no longer ${result.unconfirmed === 1 ? 'appears' : 'appear'}, but the setup check skips files it cannot read, so this does not confirm a fix.`)
+  if (result.unknown) parts.push(`The configuration check stopped before it finished, so ${plural(result.unknown, 'finding')} that no longer ${result.unknown === 1 ? 'appears' : 'appear'} may still apply.`)
   if (result.added) parts.push(`${plural(result.added, 'new finding')} ${result.added === 1 ? 'appears' : 'appear'}.`)
   if (parts.length === 1) parts.push('Nothing changed.')
   parts.push(`${plural(result.remaining, 'finding')} ${result.remaining === 1 ? 'remains' : 'remain'}.`)
