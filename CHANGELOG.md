@@ -20,6 +20,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, each section page opens with a verdict sentence, such as "Your rules allow 11 actions, ask before 3, and block 4.", and one facts line with the finding count and any tool that ignores what is configured. Then one filter row with **Docs**, the tabs and the content; coding tool support folds closed below it with a summary such as "3 of 3 tools support rules, agents, and skills". Findings are cards with **Copy prompt** and **Details**, an empty type says what it is and which tools support it, and counts show only above zero (#3121).
 
+- The Conversations page takes the Mineral look and opens with a sentence that says how many chats are open and how many wait for you, or when the last one ran. Each row names its tool beside the logo, and on phones its open button spans the row (#3120).
+
 - In the web interface, **Context size** shows its totals in the Mineral style, with a share bar beside each percentage. Source types use plain names (instructions file, tool wrapper text, skill name and description) under a **Type** column, **Reread specs** is now **Read again**, and copying or moving a file to the other level reports success or failure in one notice with **Dismiss** (#3120).
 
 - In the web interface, the permission and protected path editors use **Preview**, **Apply** and **Cancel**, mark added and removed lines in the diff, and show saved, failed and overridden states as one notice with **Dismiss** (#3121). After **Apply** or **Reload saved values**, they wait for the refreshed rules before offering the next change, so a quick next step no longer fails as changed after editing began.
