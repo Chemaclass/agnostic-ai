@@ -187,7 +187,7 @@ test.describe('setup health', () => {
     await serve(page, data)
     await page.goto('/?view=health')
     const badge = healthRow(page, 'nothing to fix')
-    await expect(badge).toContainText('All clear')
+    await expect(badge).toHaveAccessibleName(/ All clear$/)
     await expect(badge.locator('.nav-dot')).toHaveClass(/is-clean/)
     await expect(page.locator('.page-verdict')).toHaveText('Nothing needs a fix.')
     await expect(page.locator('.health-group')).toHaveCount(0)
