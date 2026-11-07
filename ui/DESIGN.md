@@ -15,6 +15,7 @@ colors:
   light-accent: "#256f61"
   light-accent-strong: "#1f5e52"
   light-accent-wash: "#dbe6df"
+  light-focus: "#2f5fd0"
   light-permitted: "#2f6b3a"
   light-approval: "#7f560c"
   light-blocked: "#a8382a"
@@ -32,6 +33,7 @@ colors:
   dark-accent: "#7cc4b2"
   dark-accent-strong: "#9ad6c7"
   dark-accent-wash: "#1f3330"
+  dark-focus: "#8fb0ff"
   dark-permitted: "#93cf9b"
   dark-approval: "#e0b252"
   dark-blocked: "#f2998c"
@@ -118,7 +120,7 @@ The Paper file "agnostic-ai UI redesign (#3120)" holds the source frames: page *
 
 Bone (`canvas`) is the page; `surface` holds one grouped thing, such as a finding card or an editor; `sunken` sits behind code and chips. The rail is dark slate in both themes. Ink carries names and values, soft ink carries sentences, muted ink carries paths and secondary lines. Faint ink is for disabled controls only.
 
-Verdigris (`accent`) marks links, the current page, focus, switches that are on, and progress. `accent-wash` fills the selected rail row's dot area and hover states. State colors: `permitted` (green) for allowed, `approval` (ochre) for warnings and ask-first, `blocked` (brick) for errors and always-blocked, `info` (blue) for notes. Each state also has a text label or glyph; color never stands alone.
+Verdigris (`accent`) marks links, the current page, switches that are on, and progress. Keyboard focus has its own blue `focus` token, so a focused link or current row never hides its ring in the accent color. `accent-wash` fills the selected rail row's dot area and hover states. State colors: `permitted` (green) for allowed, `approval` (ochre) for warnings and ask-first, `blocked` (brick) for errors and always-blocked, `info` (blue) for notes. Each state also has a text label or glyph; color never stands alone.
 
 Contrast: every text token passes 4.5:1 on `canvas`, `surface` and `sunken` in its theme, except `faint`, which is never used for text a reader needs. A unit test reads the frontmatter tokens and checks these pairs.
 
@@ -132,7 +134,7 @@ Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built
 
 ## Layout
 
-- **Rail** (280px, dark slate, sticky, full height): wordmark and project name, then Setup health as a status row (dot in the state color, "Needs attention" or "All clear", and "1 to fix, 12 you could add"), then the five sections, each as its question over its live summary in small dim text. The current row fills `rail-raised` with an 8px radius. The foot holds Search with its shortcut, Open global settings or Open project, the version badge, and Overview JSON.
+- **Rail** (280px, dark slate, sticky, full height): wordmark and project name, then Setup health as a status row (dot in the state color, "Needs attention" or "All clear", and "1 to fix, 12 you could add"), then the five sections and Conversations, each as its question over its live summary in small dim text (Conversations: *What did the agent do?*, with the session count). The current row fills `rail-raised` with an 8px radius. The foot holds Search with its shortcut, Open global settings or Open project, the version badge, and Overview JSON.
 - **No top bar on wide screens.** What the top bar held moves into the rail or the page:
   - Finding counts by severity: the rail's Setup health row shows them as words ("1 error, 3 warnings", or "No findings" in muted ink). On phones the top bar shows them as a chip ("1E 3W").
   - Project path: under the project name in the rail, muted monospace, truncated from the left, with the full path on hover.
@@ -165,7 +167,7 @@ Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built
 - **Saved and error states:** one `Notice` (from #3124): state rail, a plain title, the raw text under Details.
 - **Add hook form, field resolution, global setup panel:** forms and disclosures as above inside a `surface` card.
 - **Tool logos:** 18px, in a fixed 24px lane, with the tool name beside them, never logos alone.
-- **Focus ring:** 2px `accent` outline with 2px offset on every focusable element; on the rail it uses `rail-ink`.
+- **Focus ring:** 2px `focus` outline with 2px offset on every focusable element (4.8:1 on canvas); on the rail it uses `rail-ink`.
 - **Forced colors:** borders on cards, chips, pills and the feature track bars; the current rail row uses `Highlight`; state rails keep their width with `CanvasText`.
 - **Loading:** a 2px accent line sweeps under the verdict label; reduced motion shows a steady line.
 
