@@ -82,6 +82,9 @@ func viewPortCandidates() []string {
 // was taken between the probe and the bind.
 func serveView(cmd *cobra.Command, browser func(string) error, addr, root string, global bool) error {
 	serve := newServeCmdWithBrowser(browser)
+	// serve runs as a command of its own, outside the root, so it takes
+	// the root's version along for /api/health.
+	serve.Version = cmd.Root().Version
 	serve.SetContext(cmd.Context())
 	serve.SetOut(cmd.OutOrStdout())
 	serve.SetErr(cmd.ErrOrStderr())
