@@ -13,15 +13,14 @@ test.describe('context size', () => {
     await expect(panel.getByRole('heading', { name: 'Context size' })).toBeVisible()
     await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
     await expect(panel.locator('.context-usage-totals')).toContainText('184 words, 1,212 bytes')
-    await expect(panel.locator('.context-contributions > summary')).toBeVisible()
-    await expect(panel.getByRole('table', { name: /^Startup/ })).toBeHidden()
+    await expect(panel.getByRole('table', { name: /^Startup/ })).toBeVisible()
     const duplicate = panel.locator('.context-opportunity')
     await expect(duplicate).toHaveCount(1)
     await expect(duplicate).toContainText('Run the full test suite before you push.')
-    await expect(duplicate).toContainText('Could drop 18 words, 94 bytes from startup content for claude.')
+    await expect(duplicate).toContainText('Could drop 18 words, 94 bytes from startup content for Claude Code.')
     await expect(duplicate.getByRole('list', { name: 'Sources' })).toContainText('.agnostic-ai/rules/testing.md')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await duplicate.getByRole('button', { name: /^Copy review prompt/ }).click()
+    await duplicate.getByRole('button', { name: /^Copy prompt to review the passage in/ }).click()
     await expect(duplicate.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
     expect(prompt).toContain('Target: claude')
@@ -40,9 +39,10 @@ test.describe('context size', () => {
     await expect(panel.getByLabel('Check against a file')).toHaveAccessibleDescription('Name a file to add the scoped rules that match it. Results update as you type.')
     await expect(panel.locator('.context-total-words').first()).toHaveText('184 words')
     const method = panel.locator('.context-usage-method')
-    await expect(method.locator('p')).toBeHidden()
+    const body = method.locator('.context-usage-method-body')
+    await expect(body).toBeHidden()
     await method.getByText('How this is counted').click()
-    await expect(method.locator('p')).toContainText('not model tokens or live context')
+    await expect(body).toContainText('not model tokens or live context')
     for (const control of await panel.locator('form input, form select, form button').all()) {
       const box = await control.boundingBox()
       expect(box).not.toBeNull()
@@ -50,7 +50,6 @@ test.describe('context size', () => {
       expect(box!.x + box!.width).toBeLessThanOrEqual(390)
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
-    await panel.getByText(/sources, largest first/).click()
     await panel.getByRole('button', { name: 'What can I do?' }).first().click()
     await expect(panel.locator('.context-advice')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
@@ -71,7 +70,8 @@ test.describe('context size', () => {
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
     await panel.getByRole('button', { name: 'Reread specs' }).click()
-    await expect(panel).toContainText('No duplicated passages found for claude.')
+    await expect(panel.locator('.context-opportunity')).toHaveCount(0)
+    await expect(panel.getByRole('heading', { name: 'Duplicated passages' })).toHaveCount(0)
     await expect(panel.locator('.context-usage-compare')).toContainText('Before reread184 words, 1,212 bytes at startup, 1 duplicated passage.')
     await expect(panel.locator('.context-usage-compare')).toContainText('Now166 words, 1,118 bytes at startup, 0 duplicated passages.')
     await expect(panel.locator('.context-usage-compare')).toContainText('ChangeStartup -18 words, File-scoped no change, On demand no change.')
@@ -110,7 +110,6 @@ test.describe('context size', () => {
     await panel.getByRole('button', { name: 'Reread specs' }).click()
     await expect(panel.locator('.context-usage-totals')).toContainText('File-scoped, additional46 words, 301 bytes')
     await expect(panel).not.toContainText('Scoped rules count as on demand')
-    await panel.getByText(/sources, largest first/).click()
     await expect(panel.getByRole('table', { name: /^File-scoped/ })).toContainText('scoped rule')
     await panel.getByRole('button', { name: 'Reread specs' }).click()
     await expect.poll(() => requests.length).toBe(3)
@@ -155,7 +154,7 @@ test.describe('context size', () => {
     await panel.getByLabel('Coding tool').selectOption('copilot')
     await expect.poll(() => requests.at(-1)).toBe('?target=copilot')
     await expect(panel.getByLabel('Check against a file')).toBeDisabled()
-    await expect(panel.locator('.context-usage-file-hint')).toHaveText('This page cannot check a single file for copilot.')
+    await expect(panel.locator('.context-usage-file-hint')).toHaveText('This page cannot check a single file for GitHub Copilot.')
   })
 
   test('shows the reason for user configuration', async ({ page }) => {
@@ -270,7 +269,7 @@ test.describe('context size', () => {
     await expect(advice).toContainText('loads at the start of every session')
     await expect(advice).toContainText('Narrow the globs in .agnostic-ai/rules/testing.md')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await advice.getByRole('button', { name: 'Copy advice prompt for .agnostic-ai/rules/testing.md' }).click()
+    await advice.getByRole('button', { name: 'Copy prompt for .agnostic-ai/rules/testing.md' }).click()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
     expect(prompt).toContain('Source: .agnostic-ai/rules/testing.md')
     expect(prompt).toContain('Kind: always-on rule')
@@ -281,13 +280,13 @@ test.describe('context size', () => {
     await expect(advice).toHaveCount(0)
   })
 
-  test('copies one prompt with the advice for every source', async ({ page, context }) => {
+  test('copies all prompts in one, with the advice for every source', async ({ page, context }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: contextView }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await panel.getByRole('button', { name: 'Copy all advice for claude' }).click()
+    await panel.getByRole('button', { name: 'Copy all prompts for Claude Code' }).click()
     await expect(panel.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
     expect(prompt).toContain('Target: claude')
@@ -301,7 +300,7 @@ test.describe('context size', () => {
     expect(prompt).not.toMatch(/[\u2013\u2014]/)
   })
 
-  test('hides Copy all advice when no source has anything to change', async ({ page }) => {
+  test('hides Copy all prompts when no source has anything to change', async ({ page }) => {
     const framingOnly = structuredClone(contextView)
     framingOnly.report.contributions = framingOnly.report.contributions.filter((c: { category: string }) => c.category === 'generated framing')
     framingOnly.report.opportunities = []
@@ -309,12 +308,12 @@ test.describe('context size', () => {
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: framingOnly }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
-    await expect(panel.locator('.context-contributions > summary')).toBeVisible()
+    await expect(panel.getByRole('heading', { name: '1 source, largest first' })).toBeVisible()
     await expect(panel.locator('.context-all-advice')).toHaveCount(0)
-    await expect(panel.getByRole('button', { name: /Copy all advice/ })).toHaveCount(0)
+    await expect(panel.getByRole('button', { name: /Copy all prompts/ })).toHaveCount(0)
   })
 
-  test('Start here opens the largest startup source and a built-in links to Settings', async ({ page }) => {
+  test('Next opens the largest startup source and a built-in links to Settings', async ({ page }) => {
     const data = structuredClone(contextView)
     data.report.opportunities = []
     data.report.contributions = [
@@ -326,11 +325,8 @@ test.describe('context size', () => {
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
-    const start = panel.getByRole('list', { name: 'Start here' })
-    await expect(start.getByRole('listitem')).toHaveCount(3)
-    await expect(start.getByRole('listitem').first()).toContainText('builtin:shared-memory-policy')
-    await expect(start.getByRole('listitem').first()).toContainText('59% of startup')
-    await start.getByRole('button').first().click()
+    await expect(panel.getByRole('heading', { name: 'Start here' })).toHaveCount(0)
+    await page.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Show builtin:shared-memory-policy' }).click()
     const row = panel.getByRole('row', { name: /builtin:shared-memory-policy/ })
     await expect(row.getByRole('button', { name: 'Hide advice' })).toBeFocused()
     const advice = panel.locator('.context-advice')
@@ -361,7 +357,7 @@ test.describe('context size', () => {
     await expect(table.locator('tbody tr')).toHaveCount(10)
   })
 
-  test('opens the source list by default only without duplicates', async ({ page }) => {
+  test('opens the source list by default and shows duplicated passages only when there are any', async ({ page }) => {
     const noDuplicates = structuredClone(contextView)
     noDuplicates.report.opportunities = []
     let withDuplicates = true
@@ -369,11 +365,12 @@ test.describe('context size', () => {
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: withDuplicates ? contextView : noDuplicates }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
-    await expect(panel.locator('.context-opportunity')).toHaveCount(1)
-    await expect(panel.getByRole('table', { name: /^Startup/ })).toBeHidden()
+    await expect(panel.getByRole('table', { name: /^Startup/ })).toBeVisible()
+    await expect(panel.getByRole('heading', { name: 'Duplicated passages' })).toBeVisible()
     withDuplicates = false
     await panel.getByRole('button', { name: 'Reread specs' }).click()
-    await expect(panel).toContainText('No duplicated passages found for claude.')
+    await expect(panel.locator('.context-usage-compare')).toBeVisible()
+    await expect(panel.getByRole('heading', { name: 'Duplicated passages' })).toHaveCount(0)
     await expect(panel.getByRole('table', { name: /^Startup/ })).toBeVisible()
   })
 
@@ -413,7 +410,7 @@ for (const width of [390, 1000, 1280, 1800]) {
     await expect(panel).toHaveAttribute('aria-busy', 'true')
     await expect(panel.locator('.context-usage-totals')).toHaveCount(0)
     expect(Math.abs(await position() - before)).toBeLessThanOrEqual(1)
-    await expect(panel.locator('.context-usage-status')).toContainText('Checking context size for gemini')
+    await expect(panel.locator('.context-usage-status')).toContainText('Checking context size for Gemini CLI')
     finish!()
     await expect(panel).not.toHaveAttribute('aria-busy', 'true')
     await expect(panel.locator('.context-usage-totals')).toBeVisible()
@@ -422,25 +419,22 @@ for (const width of [390, 1000, 1280, 1800]) {
   })
 }
 
-for (const width of [1280, 1300, 1400, 1800]) {
-  test(`uses the width of a wide screen at ${width}px: figures sit right of a full-width prose column`, async ({ page }) => {
+for (const width of [390, 1280, 1440]) {
+  test(`leads with the figures under the controls, then the verdict and Next, at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto('/?mock=1&tab=usage')
     const panel = page.locator('section.context-usage')
-    const prose = (await panel.locator('.context-check').boundingBox())!
+    await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
+    await expect(panel.getByLabel('Coding tool').locator('option:checked')).toHaveText('Claude Code')
+    const results = (await panel.locator('.context-usage-results').boundingBox())!
     const figures = (await panel.locator('.context-usage-totals').boundingBox())!
-    expect(prose.width).toBeGreaterThanOrEqual(640)
-    expect(figures.x).toBeGreaterThanOrEqual(prose.x + prose.width)
-    expect(figures.y).toBeLessThan(prose.y + prose.height)
+    const verdict = (await panel.locator('.context-verdict').boundingBox())!
+    const next = (await page.getByRole('region', { name: 'Next' }).boundingBox())!
+    expect(figures.y).toBeLessThanOrEqual(results.y + 1)
+    expect(verdict.y).toBeGreaterThanOrEqual(figures.y + figures.height)
+    expect(verdict.height).toBeLessThan(width < 760 ? 60 : 32)
+    expect(next.y).toBeGreaterThanOrEqual(verdict.y + verdict.height)
+    if (width >= 1280) expect(figures.y).toBeLessThan(1000)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
   })
 }
-
-test('keeps one column below 1280px', async ({ page }) => {
-  await page.setViewportSize({ width: 1279, height: 1000 })
-  await page.goto('/?mock=1&tab=usage')
-  const panel = page.locator('section.context-usage')
-  const prose = (await panel.locator('.context-check').boundingBox())!
-  const figures = (await panel.locator('.context-usage-totals').boundingBox())!
-  expect(figures.y).toBeGreaterThanOrEqual(prose.y + prose.height)
-})

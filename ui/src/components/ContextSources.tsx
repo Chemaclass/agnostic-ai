@@ -4,13 +4,13 @@
 import { Fragment, useRef, useState } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { ContextContribution, ContextLoad, ContextReport, ContextSize } from '../contract'
-import { contextAdvice, contextAllAdvicePrompt, startHere } from '../model/context-advice'
+import { contextAdvice, contextAllAdvicePrompt } from '../model/context-advice'
 import { isBuiltin, kindTotals, sharePercent } from '../model/context-breakdown'
 import { LOAD_CONDITIONS, LOAD_LABELS } from '../model/context-prompt'
 import { plural } from '../model/format'
 import { useApp } from './app-context'
 import { OpenInEditor } from './EditorLink'
-import { Code, CopyButton } from './ui'
+import { Code, CopyButton, toolName } from './ui'
 
 export const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
 const ROWS_SHOWN = 10
@@ -22,96 +22,53 @@ export interface SourcePick {
   setAdvice: Dispatch<SetStateAction<string | undefined>>
   expanded: Set<ContextLoad>
   setExpanded: Dispatch<SetStateAction<Set<ContextLoad>>>
-  open: boolean
-  setOpen: (open: boolean) => void
   focusKey: MutableRefObject<string | undefined>
-  /** Opens one source's advice, expanding its group and the list when needed, and moves focus to its toggle. */
+  /** Opens one source's advice, expanding its group when needed, and moves focus to its toggle. */
   show: (c: ContextContribution) => void
 }
 
-export function useSourcePick(report: ContextReport | undefined, openByDefault: boolean): SourcePick {
+export function useSourcePick(report: ContextReport | undefined): SourcePick {
   const [advice, setAdvice] = useState<string>()
   const [expanded, setExpanded] = useState<Set<ContextLoad>>(new Set())
-  const [open, setOpen] = useState(openByDefault)
-  const [seen, setSeen] = useState({ report, openByDefault })
+  const [seen, setSeen] = useState(report)
+  const [, rerender] = useState(0)
   const focusKey = useRef<string | undefined>(undefined)
-  // Reset while rendering, so a new report never paints with the old open state.
-  if (seen.report !== report || seen.openByDefault !== openByDefault) {
-    setSeen({ report, openByDefault })
+  // Reset while rendering, so a new report never paints with the old advice open.
+  if (seen !== report) {
+    setSeen(report)
     setAdvice(undefined)
     setExpanded(new Set())
-    setOpen(openByDefault)
   }
   const show = (c: ContextContribution) => {
     const key = rowKey(c)
     const rows = (report?.contributions ?? []).filter((r) => r.load === c.load)
     if (rows.indexOf(c) >= ROWS_SHOWN) setExpanded((prev) => new Set(prev).add(c.load))
-    setOpen(true)
     setAdvice(key)
     focusKey.current = key
+    // Advice already open for this row changes no state; render anyway so the toggle takes focus now, not on a later keystroke.
+    rerender((n) => n + 1)
   }
-  return { advice, setAdvice, expanded, setExpanded, open, setOpen, focusKey, show }
+  return { advice, setAdvice, expanded, setExpanded, focusKey, show }
 }
 
 export function ContextSources({ report, root, takesFile, budget, pick }: { report: ContextReport; root?: string; takesFile: boolean; budget?: number; pick: SourcePick }) {
   if (report.contributions.length === 0) return null
   const allAdvice = contextAllAdvicePrompt({ ...report, takesFile }, root, budget)
-  return (
-    <>
-      <StartHere report={report} onPick={pick.show} />
-      {allAdvice && (
-        <div className="finding-actions context-all-advice">
-          <span className="muted">Ask a coding agent to review the advice for every source at once:</span>
-          <CopyButton text={allAdvice} label="Copy all advice" ariaLabel={`Copy all advice for ${report.target}`} />
-        </div>
-      )}
-      <Contributions report={report} root={root} takesFile={takesFile} open={pick.open} onToggle={pick.setOpen} advice={pick.advice} setAdvice={pick.setAdvice} expanded={pick.expanded} setExpanded={pick.setExpanded} focusKey={pick.focusKey} />
-    </>
-  )
+  return <Contributions report={report} root={root} takesFile={takesFile} pick={pick} allAdvice={allAdvice} />
 }
 
-function StartHere({ report, onPick }: { report: ContextReport; onPick: (c: ContextContribution) => void }) {
-  const top = startHere(report.contributions)
-  if (top.length === 0) return null
-  const total = report.startup.words
-  return (
-    <div className="context-usage-part context-start">
-      <h3 id="context-start-here">Start here</h3>
-      <p className="muted">The largest sources at startup for {report.target}. Open one to see what it is and what you can do.</p>
-      <ol className="context-start-list" aria-labelledby="context-start-here">
-        {top.map((c) => (
-          <li key={rowKey(c)}>
-            <button type="button" className="button button-quiet context-start-pick" onClick={() => onPick(c)}>
-              <Code>{c.source}</Code>
-              <span className="muted">{c.category}, {c.words.toLocaleString()} words, {sharePercent(c.words, total)}% of startup</span>
-            </button>
-          </li>
-        ))}
-      </ol>
-    </div>
-  )
-}
-
-interface ContributionsProps {
-  report: ContextReport
-  root?: string
-  takesFile: boolean
-  open: boolean
-  onToggle: (open: boolean) => void
-  advice: string | undefined
-  setAdvice: Dispatch<SetStateAction<string | undefined>>
-  expanded: Set<ContextLoad>
-  setExpanded: Dispatch<SetStateAction<Set<ContextLoad>>>
-  focusKey: MutableRefObject<string | undefined>
-}
-
-function Contributions({ report, root, takesFile, open, onToggle, advice, setAdvice, expanded, setExpanded, focusKey }: ContributionsProps) {
+function Contributions({ report, root, takesFile, pick, allAdvice }: { report: ContextReport; root?: string; takesFile: boolean; pick: SourcePick; allAdvice: string }) {
   const app = useApp()
+  const { advice, setAdvice, expanded, setExpanded, focusKey } = pick
   const { contributions } = report
   const totals: Record<ContextLoad, ContextSize> = { startup: report.startup, 'file-scope': report.file_scope, 'on-demand': report.on_demand }
+  const tool = toolName(report.target)
   return (
-    <details className="context-usage-part context-contributions" open={open} onToggle={(e) => onToggle((e.target as HTMLDetailsElement).open)}>
-      <summary>{plural(contributions.length, 'source')}, largest first</summary>
+    <section className="context-usage-part context-contributions" aria-labelledby="context-contributions-title">
+      <div className="context-contributions-head">
+        <h3 id="context-contributions-title">{plural(contributions.length, 'source')}, largest first</h3>
+        {allAdvice && <CopyButton text={allAdvice} label="Copy all prompts" className="button-quiet context-all-advice" ariaLabel={`Copy all prompts for ${tool}`} />}
+      </div>
       {LOADS.map((load) => {
         const rows = contributions.filter((c) => c.load === load)
         if (rows.length === 0) return null
@@ -196,7 +153,7 @@ function Contributions({ report, root, takesFile, open, onToggle, advice, setAdv
           </div>
         )
       })}
-    </details>
+    </section>
   )
 }
 
@@ -214,7 +171,7 @@ function Advice({ contribution: c, report, root, takesFile }: { contribution: Co
         {a.actions.map((action, index) => <li key={index}>{action}</li>)}
       </ol>
       <div className="finding-actions">
-        <CopyButton text={a.prompt} label="Copy advice prompt" ariaLabel={`Copy advice prompt for ${c.source}`} />
+        <CopyButton text={a.prompt} label="Copy prompt" ariaLabel={`Copy prompt for ${c.source}`} />
         {a.builtin && <button type="button" className="button button-quiet" onClick={() => app.navigate({ view: 'settings', tab: 'builtins', entry: undefined })}>Open Built-ins</button>}
       </div>
     </div>

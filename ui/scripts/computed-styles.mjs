@@ -41,13 +41,6 @@ if (!out) throw new Error('usage: node scripts/computed-styles.mjs <out.json>')
 
 const server = spawn('npx', ['vite', '--port', String(port), '--strictPort', '--host', '127.0.0.1'], { cwd: root, stdio: 'ignore' })
 const base = `http://127.0.0.1:${port}/`
-for (let i = 0; ; i++) {
-  try {
-    if ((await fetch(base)).ok) break
-  } catch {}
-  if (i > 100) throw new Error('dev server did not start')
-  await new Promise((r) => setTimeout(r, 300))
-}
 
 const collect = () => {
   const names = (style) => Array.from({ length: style.length }, (_, i) => style[i])
@@ -87,8 +80,17 @@ const record = async (page, name) => {
   })
 }
 
-const browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM_PATH || undefined })
+let browser
 try {
+  for (let i = 0; ; i++) {
+    if (server.exitCode !== null) throw new Error('dev server exited')
+    try {
+      if ((await fetch(base)).ok) break
+    } catch {}
+    if (i > 100) throw new Error('dev server did not start')
+    await new Promise((r) => setTimeout(r, 300))
+  }
+  browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM_PATH || undefined })
   for (const colorScheme of schemes) {
     for (const width of widths) {
       const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme })
@@ -111,7 +113,7 @@ try {
     }
   }
 } finally {
-  await browser.close()
+  await browser?.close()
   server.kill()
 }
 

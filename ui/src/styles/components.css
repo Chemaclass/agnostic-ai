@@ -475,7 +475,8 @@ textarea:focus {
   justify-content: center;
 }
 
-.button:disabled {
+.button:disabled,
+.finding-recheck[aria-disabled] {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -869,8 +870,18 @@ textarea:focus {
   gap: 4px;
 }
 
+.finding-recheck-result {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.finding-rechecked .button {
+  justify-self: start;
+}
+
 .finding-copy,
-.refine-copy {
+.refine-copy,
+.finding-recheck {
   min-height: 32px;
   padding: 4px 8px;
   border-color: transparent;
@@ -882,7 +893,8 @@ textarea:focus {
 }
 
 .finding-copy:hover,
-.refine-copy:hover {
+.refine-copy:hover,
+.finding-recheck:not(:disabled, [aria-disabled]):hover {
   border-color: var(--line);
   background: var(--panel);
 }
@@ -957,7 +969,8 @@ textarea:focus {
   }
 
   .finding-copy,
-  .refine-copy {
+  .refine-copy,
+  .finding-recheck {
     min-height: 44px;
     padding-inline: 0;
   }

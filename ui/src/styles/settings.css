@@ -40,16 +40,6 @@
   }
 }
 
-.finding-recheck[aria-disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.finding-recheck-result {
-  font-size: 13px;
-  font-weight: 600;
-}
-
 .finding-recheck-result.is-empty {
   position: absolute;
   width: 1px;
@@ -60,33 +50,6 @@
 
 .finding-rechecked.is-resolved .finding-recheck-result {
   color: var(--permitted);
-}
-
-.finding-rechecked .button {
-  justify-self: start;
-}
-
-.finding-recheck {
-  min-height: 32px;
-  padding: 4px 8px;
-  border-color: transparent;
-  background: transparent;
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.finding-recheck:not(:disabled, [aria-disabled]):hover {
-  border-color: var(--line);
-  background: var(--panel);
-}
-
-@media (max-width: 760px) {
-  .finding-recheck {
-    min-height: 44px;
-    padding-inline: 0;
-  }
 }
 
 .editor-settings {
