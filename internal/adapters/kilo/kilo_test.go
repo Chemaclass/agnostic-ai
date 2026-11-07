@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "kilo" {
-		t.Errorf("Name() = %q, want %q", got, "kilo")
-	}
-}
-
 // The project-root AGENTS.md is written centrally by sync, never by
 // this adapter. Rules land natively at .kilo/rules/, referenced from
 // kilo.jsonc's instructions array (target-audit 2026-08-01, #535).

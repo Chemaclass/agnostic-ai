@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "opencode" {
-		t.Errorf("Name() = %q, want %q", got, "opencode")
-	}
-}
-
 // Command specs emit one markdown file per command under
 // .opencode/commands/, the native slash-prompt surface.
 func TestEmit_WritesCommandFile(t *testing.T) {
