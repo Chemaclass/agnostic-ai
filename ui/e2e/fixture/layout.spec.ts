@@ -520,3 +520,13 @@ test('keeps Tab inside search opened over the JSON inspector, and modal only as 
     await expect(search.locator(':focus')).toHaveCount(1)
   }
 })
+
+test('draws dropdowns as a styled panel instead of the native list', async ({ page }) => {
+  await page.goto('/?view=context&mock=1')
+  const select = page.locator('.select-control select').first()
+  await expect(select).toBeVisible()
+  expect(await select.evaluate((element) => getComputedStyle(element).appearance)).toBe('base-select')
+  await select.click()
+  const picker = await select.evaluate((element) => getComputedStyle(element, '::picker(select)').borderRadius)
+  expect(picker).toBe('8px')
+})
