@@ -29,17 +29,17 @@ func GitHubRepository(remote string) *Repository {
 			return nil
 		}
 		host, path = u.Hostname(), u.Path
-	} else if at := strings.Index(remote, "@"); at >= 0 && !strings.Contains(remote, "://") {
-		hostPath := remote[at+1:]
-		h, p, ok := strings.Cut(hostPath, ":")
-		if !ok {
+	} else if !strings.Contains(remote, "://") {
+		// scp-like: [user@]host:owner/repo
+		userHost, p, ok := strings.Cut(remote, ":")
+		if !ok || strings.Contains(userHost, "/") {
 			return nil
 		}
-		host, path = h, p
+		host, path = userHost[strings.LastIndex(userHost, "@")+1:], p
 	} else {
 		return nil
 	}
-	if !strings.EqualFold(host, "github.com") {
+	if !strings.EqualFold(host, "github.com") && !strings.EqualFold(host, "ssh.github.com") {
 		return nil
 	}
 	path = strings.TrimSuffix(strings.Trim(path, "/"), ".git")

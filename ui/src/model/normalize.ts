@@ -68,10 +68,19 @@ function normalizeSection(raw: unknown): Section {
   }
 }
 
+// A static or ?source= overview can come from anywhere, so the top bar links only a GitHub page.
+function normalizeRepository(raw: unknown): OverviewView['repository'] {
+  const r = obj(raw)
+  if (typeof r.url !== 'string' || typeof r.name !== 'string') return undefined
+  if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/.test(r.url)) return undefined
+  return { url: r.url, name: r.name }
+}
+
 export function normalizeOverviewView(raw: unknown): OverviewView {
   const v = obj(raw)
   return {
     ...(v as unknown as OverviewView),
+    repository: normalizeRepository(v.repository),
     schemaVersion: String(v.schemaVersion ?? ''),
     snapshot: normalizeSnapshot(v.snapshot),
     sections: arr(v.sections).map(normalizeSection),

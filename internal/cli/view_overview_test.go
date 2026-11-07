@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -67,11 +66,9 @@ func TestNewViewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
 func TestNewViewCmd_LinksTheProjectGitHubRepositoryWithoutCredentials(t *testing.T) {
 	dir := t.TempDir()
 	writeBareReadProject(t, dir)
-	for _, args := range [][]string{{"init", "-q"}, {"remote", "add", "origin", "https://user:secret-token@github.com/octo/hello.git"}} {
-		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v: %s", args, err, out)
-		}
-	}
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	git(t, dir, "remote", "add", "origin", "https://user:secret-token@github.com/octo/hello.git")
 
 	out := runViewCmd(t, "--dir", dir, "--json")
 
