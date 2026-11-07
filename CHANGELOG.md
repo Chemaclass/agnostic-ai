@@ -16,6 +16,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, following a link to an entry you already opened scrolls to it and focuses it again (#3076).
 
+- `sync --global` notes agent fields a tool's agent file cannot hold, such as `maxTurns` or `background`, once each, as project sync does, and an agent's `mcpServers` on Kiro and OpenHands, whose user-level agent files get no inline servers. It used to drop them with no note (#3073).
+
 - In the web interface, each hook on Lifecycle has **Summary**, **Key fields** (event, match, type, command, timeout, disabled) and **Full spec**, which shows every field of the hook file, or hides the file when it looks like it holds a credential; search matches a hook's command (#3038).
 - The Authority page shows when a local settings file sets `protected: null`, which turns the project's protected paths off for you, and **Reset to project paths** removes it so sync protects them again (#3072).
 

@@ -599,3 +599,6 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 // ~/.cursor/mcp.json has no per-server disable key, and a listed server
 // is live in every project.
 const userMCPDisabledReason = "a disabled server is left out of ~/.cursor/mcp.json, which has no per-server disable key"
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

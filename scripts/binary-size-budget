@@ -802,4 +802,6 @@
 # multiple of 4096.
 # Setup gaps in setup health (#3070) measured 25034912 bytes; the budget is that plus
 # 8192, rounded up to a multiple of 4096.
-25047040
+# Agent notes on sync --global (#3073), merged with setup gaps, measured 25063584
+# bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
+25075712

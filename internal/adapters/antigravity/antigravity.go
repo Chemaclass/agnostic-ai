@@ -324,3 +324,6 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 	}
 	return sess.MigrateLegacyPath(target, legacyEntryPointFile, defaultEntryPointFile, dryRun)
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

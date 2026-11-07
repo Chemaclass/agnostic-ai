@@ -554,3 +554,6 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 // userMCPDisabledReason explains a dropped `disabled: true` under sync
 // --global: the user MCP file has no per-server disable key.
 const userMCPDisabledReason = "a disabled server is left out of the user MCP file, which has no per-server disable key"
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }
