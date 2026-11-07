@@ -9,6 +9,7 @@ import { Badge, Code, CopyButton } from './ui'
 import { useApp } from './app-context'
 import { HEALTH_STATUS } from '../model/rail'
 import { ConfigurationRoot, useEntry } from './section-context'
+import { PickBox } from './pick'
 
 /** One owner's findings; pass `ids` when the list is a part of the owner's findings, so each keeps its link id. */
 export function Findings({ findings, owner, place, orphanPlace, ids: givenIds }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string; ids?: string[] }) {
@@ -21,13 +22,13 @@ export function Findings({ findings, owner, place, orphanPlace, ids: givenIds }:
       {findings.map((f, i) => (
         <Finding key={ids[i]} finding={f} entryId={ids[i]} place={place} sharesTitle={titles.some((title, j) => j !== i && title === titles[i] && findings[j].path === f.path)} />
       ))}
-      {gone && (gone.result.state === 'incomplete' ? <Finding key={gone.id} finding={gone.finding} entryId={gone.id} place={place} /> : <GoneFinding rechecked={gone} />)}
+      {gone && (gone.result.state === 'incomplete' ? <Finding key={gone.id} finding={gone.finding} entryId={gone.id} place={place} pickable={false} /> : <GoneFinding rechecked={gone} />)}
     </ul>
   )
 }
 
 // A title another finding in the same file shares gets the check's own message under it, so the two read apart.
-function Finding({ finding: f, entryId, place, sharesTitle = false }: { finding: ItemFinding; entryId: string; place: string; sharesTitle?: boolean }) {
+function Finding({ finding: f, entryId, place, pickable = true, sharesTitle = false }: { finding: ItemFinding; entryId: string; place: string; pickable?: boolean; sharesTitle?: boolean }) {
   const app = useApp()
   const root = useContext(ConfigurationRoot)
   const sectionId = useContext(RecheckSection)
@@ -43,6 +44,7 @@ function Finding({ finding: f, entryId, place, sharesTitle = false }: { finding:
       <div className="finding-body">
         <div className="finding-text">
           <p className="finding-label">
+            {pickable && <PickBox id={entryId} name={findingTitle(f)} />}
             <span>{section ? `${HEALTH_STATUS[severity]} · ${section}` : HEALTH_STATUS[severity]}</span>
             {f.layer === 'global' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">global</Badge>}
             {fresh && <Badge tone="accent">New since recheck</Badge>}
