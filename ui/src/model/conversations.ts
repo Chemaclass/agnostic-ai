@@ -198,6 +198,9 @@ export function conversationsVerdict(conversations: Conversation[], now: Date, o
     return waiting ? `${lead}; ${waiting} ${waiting === 1 ? 'waits' : 'wait'} for you.` : `${lead}.`
   }
   const newest = conversations[0]
-  if (newest) return `Your last chat was ${relativeTime(newest.updatedAt, now)}.`
+  if (newest) {
+    const when = relativeTime(newest.updatedAt, now)
+    return /ago$|^just now$/.test(when) ? `Your last chat was ${when}.` : `Your last chat was on ${when}.`
+  }
   return olderWeeks ? 'No chat in the past week.' : 'No chats to show.'
 }

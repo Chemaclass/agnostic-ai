@@ -7,7 +7,7 @@
 // server to read the chats, so it only says what it needs.
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
+import { loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationRoute, ConversationSource, ConversationsView, ConversationTool } from '../contract'
 import { baseName } from '../model/config-switch'
 import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
@@ -19,6 +19,7 @@ import { useEditorChoice } from './EditorLink'
 import { Badge, CopyButton, Icon, ToolAvatar, toolName } from './ui'
 
 const TITLE = 'Conversations'
+const NEEDS_SERVER = 'Conversations need agnostic-ai running on your computer.'
 const INTRO = 'Pick up a chat where you left it, in the tool where it lives.'
 const MOCK_OPEN_MESSAGE = 'Mock data: opening a conversation needs a running agnostic-ai serve.'
 
@@ -117,7 +118,7 @@ export function ConversationsPage() {
   if (needsServer) {
     return (
       <>
-        <PageHeader title={TITLE} verdict={CONVERSATIONS_NEED_SERVER}>
+        <PageHeader title={TITLE} verdict={NEEDS_SERVER}>
           <p className="page-facts">A static snapshot has no chats to list.</p>
         </PageHeader>
       </>
@@ -146,7 +147,7 @@ export function ConversationsPage() {
   return (
     <>
       <PageHeader title={TITLE} verdict={conversationsVerdict(rows, now, next !== undefined)}>
-        <p className="page-facts">{plural(rows.length, 'conversation')}. {INTRO}</p>
+        <p className="page-facts">{plural(rows.length, 'conversation')}{next ? ' loaded so far' : ''}. {INTRO}</p>
         <Sources sources={sources} rows={rows} tool={tool} onToggle={(chosen) => setTool(toggleTool(tool, chosen))} />
       </PageHeader>
       {error && <ErrorPanel error={error} />}

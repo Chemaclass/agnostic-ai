@@ -217,6 +217,8 @@ describe('conversations verdict', () => {
   it('says when the last chat ran when none is open, or that there is none', () => {
     const rows = [conversation({ id: 'new', updatedAt: local(11, 7, 14, 30).toISOString() }), conversation({ id: 'old', updatedAt: local(11, 5, 9).toISOString() })]
     expect(conversationsVerdict(rows, NOW, false)).toBe('Your last chat was 2 h ago.')
+    const older = local(10, 25, 9).toISOString()
+    expect(conversationsVerdict([conversation({ updatedAt: older })], NOW, false)).toBe(`Your last chat was on ${relativeTime(older, NOW)}.`)
     expect(conversationsVerdict([], NOW, true)).toBe('No chat in the past week.')
     expect(conversationsVerdict([], NOW, false)).toBe('No chats to show.')
   })
