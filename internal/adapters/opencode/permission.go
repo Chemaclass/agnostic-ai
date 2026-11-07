@@ -16,7 +16,7 @@ const permissionKey = "permission"
 // catchAllPattern is OpenCode's match-everything pattern. A portable
 // bare tool name becomes this when the same tool also carries scoped
 // rules: "A common pattern is to put the catch-all `"*"` rule first,
-// and more specific rules after it" (opencode.ai/docs/permissions).
+// and more specific rules after it" (docs.opencode.ai/docs/permissions).
 const catchAllPattern = "*"
 
 // opencodePatternTool reports which of those keys accept a pattern
@@ -142,9 +142,9 @@ func translateRule(rule string) (tool, pattern string, ok bool) {
 	// An MCP tool is a permission key like any other: "Permission keys
 	// are matched as wildcard patterns against the underlying tool
 	// name, so the same syntax works for built-ins, custom tools, and
-	// MCP tools" (opencode.ai/docs/agents), and "MCP server tools are
+	// MCP tools" (docs.opencode.ai/docs/agents), and "MCP server tools are
 	// registered with server name as prefix"
-	// (opencode.ai/docs/mcp-servers). The server name passes through
+	// (docs.opencode.ai/docs/mcp-servers). The server name passes through
 	// verbatim, hyphens included: the same page's glob section reads
 	// `"my-mcp*"` matches `my-mcp_search`. Same join kilo makes.
 	if server, name, isMCP := spec.SplitMCPPermissionRule(rule); isMCP {

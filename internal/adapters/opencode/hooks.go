@@ -11,7 +11,7 @@ import (
 // loads at startup: "Place JavaScript or TypeScript files in the plugin
 // directory. `.opencode/plugins/` - Project-level plugins ... Files in
 // these directories are automatically loaded at startup."
-// (opencode.ai/docs/plugins/, re-read 2026-09-19).
+// (docs.opencode.ai/docs/plugins/, re-read 2026-09-19).
 const defaultPluginsDir = ".opencode/plugins"
 
 // pluginHost adds OpenCode's TUI events to the shared bus vocabulary;
