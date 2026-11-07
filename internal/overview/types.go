@@ -212,6 +212,16 @@ type KindCount struct {
 // findings.
 type Health struct {
 	Gaps []Gap `json:"gaps"`
+	// Improvements counts what the gap check considered; nil for the user
+	// configuration, which it does not check.
+	Improvements *Improvements `json:"improvements,omitempty"`
+}
+
+// Improvements counts the spec kinds, hook stages, and recommended
+// built-ins the configured tools support. Each one not applied is a gap.
+type Improvements struct {
+	Applied int `json:"applied"`
+	Total   int `json:"total"`
 }
 
 // Gap is something the configured tools support that the project does

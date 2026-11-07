@@ -23,6 +23,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Dry-run, render, and other previews of Markdown and prose withhold text that labels a credential with a value (a `password:` line, a `token` table cell or tag, "the password is ..."). The web interface's file content view also withholds a file with such a label, besides any file that names a strong credential word, as before, and a Lifecycle hook's key fields redact the text that would hide its full spec (#3062).
 
+- In the web interface, **Setup health** says how many improvements the enabled tools support are in place, such as **7 of 9 improvements applied**; `/api/views/overview` adds `health.improvements` with `applied` and `total` (#3079).
+
 - In the web interface, **Show content** on a Context row shows the file's frontmatter as chips above its text (#3025).
 
 - The web interface sets body text in Atkinson Hyperlegible Next at 14px and page headings in Archivo Narrow, both bundled in the binary, on a warmer palette with smaller corners (#3026).

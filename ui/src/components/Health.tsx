@@ -1,9 +1,9 @@
 // Setup health: every finding in the overview on one page, errors first,
 // with the same finding rows, fix prompts, and rechecks as the sections.
 
-import type { Gap, OverviewView } from '../contract'
+import type { OverviewView } from '../contract'
 import { recheckAllMessage } from '../model/recheck'
-import { countFindings, gapLine, healthFixPrompt, healthGroups, healthSummary, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
+import { countFindings, gapLine, healthFixPrompt, healthGroups, healthSummary, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
 import { sectionEntryIds } from '../model/identity'
 import { AppLink, PageHeader } from './app-context'
 import { ErrorPanel } from './Banner'
@@ -76,7 +76,7 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
               </section>
             )
           })}
-          {data.health.gaps.length > 0 && <Gaps gaps={data.health.gaps} sections={data.sections} />}
+          <Gaps health={data.health} sections={data.sections} />
         </ConfigurationRoot.Provider>
       </fieldset>
     </>
@@ -97,14 +97,18 @@ function HealthPlace({ entry }: { entry: HealthEntry }) {
   )
 }
 
-function Gaps({ gaps, sections }: { gaps: Gap[]; sections: OverviewView['sections'] }) {
+function Gaps({ health, sections }: { health: OverviewView['health']; sections: OverviewView['sections'] }) {
+  const { gaps } = health
+  const applied = improvementsLine(health.improvements)
+  if (gaps.length === 0 && !applied) return null
   return (
     <section className="block health-gaps" aria-labelledby="health-gaps">
       <SectionHeading topic="support" id="health-gaps">
-        Reach the best setup <span className="muted kind-count">{gaps.length}</span>
+        Reach the best setup {gaps.length > 0 && <span className="muted kind-count">{gaps.length}</span>}
       </SectionHeading>
-      <p className="muted">What the enabled tools support and this project does not use yet. These are suggestions, not findings.</p>
-      <ul className="health-gap-list">
+      {applied && <p>{applied}</p>}
+      {gaps.length > 0 && <p className="muted">What the enabled tools support and this project does not use yet. These are suggestions, not findings.</p>}
+      {gaps.length > 0 && <ul className="health-gap-list">
         {gaps.map((gap) => {
           const section = sections.find((s) => s.id === gap.section)
           return (
@@ -117,7 +121,7 @@ function Gaps({ gaps, sections }: { gaps: Gap[]; sections: OverviewView['section
             </li>
           )
         })}
-      </ul>
+      </ul>}
     </section>
   )
 }
