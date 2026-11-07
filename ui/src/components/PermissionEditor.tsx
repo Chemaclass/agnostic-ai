@@ -121,9 +121,9 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   }, [editing, preview, focusLine])
   useEffect(() => {
     if (preview) previewRegion.current?.focus()
-    else if (restoreFocus.current && !editing) editButton.current?.focus()
-    if (!preview) restoreFocus.current = false
-  }, [preview, editing])
+    else if (restoreFocus.current && !editing && !settling) editButton.current?.focus()
+    if (!preview && !settling) restoreFocus.current = false
+  }, [preview, editing, settling])
   useEffect(() => {
     if (settleFrom.current && app.overviewRevision !== settleFrom.current) {
       settleFrom.current = null
