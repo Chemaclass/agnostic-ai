@@ -3,6 +3,7 @@ import { moveSpec } from '../api'
 import type { SectionItem, SpecMovePreview } from '../contract'
 import { canMoveSpec, destinationNote, parseSpecMoved, specMoveLabel, specMovedText, specMoveRequest, type SpecMoved, type SpecMoveMode } from '../model/spec-move'
 import { useApp } from './app-context'
+import { Notice } from './Banner'
 import { useLevelName } from './EditAudience'
 import { Code, CopyButton } from './ui'
 
@@ -70,7 +71,7 @@ export function SpecMoveAction({ item }: { item: SectionItem }) {
       <button className="button button-quiet" type="button" disabled={!!pending} aria-label={`${label}: ${item.label}`} onClick={() => { void run('preview') }}>{label}</button>
       <span role="status" aria-live="polite">{pending === 'preview' ? 'Checking the destination…' : ''}</span>
     </div>}
-    {error && <p className="builtin-change-error" role="alert">{error}</p>}
+    {error && <Notice tone="error" title={`Could not ${label.toLowerCase()}`} onDismiss={() => setError(undefined)}><p>{error}</p></Notice>}
     {preview && <section className="builtin-change-preview" aria-label={`${label}: ${item.label}`} aria-busy={!!pending}>
       <h3>{label}: {item.label}</h3>
       <p>Write <Code>{preview.destination}</Code>. {destinationNote(preview)}</p>
@@ -90,8 +91,9 @@ export function SpecMoveAction({ item }: { item: SectionItem }) {
 }
 
 export function SpecMovedNotice({ moved, dismiss }: { moved: SpecMoved; dismiss: () => void }) {
-  return <div className="builtin-change builtin-change-controls" role="status">
-    <span>{specMovedText(moved)} Run {moved.syncCommands.map((command, index) => <span key={command}>{index > 0 && ' and '}<Code>{command}</Code> <CopyButton text={command} label="Copy" ariaLabel={`Copy ${command}`} /></span>)} so your tools pick it up.</span>
-    <button className="button button-quiet" type="button" onClick={dismiss}>Dismiss</button>
+  return <div role="status">
+    <Notice tone="success" title={specMovedText(moved)} onDismiss={dismiss}>
+      <p>Run {moved.syncCommands.map((command, index) => <span key={command}>{index > 0 && ' and '}<Code>{command}</Code> <CopyButton text={command} label="Copy command" ariaLabel={`Copy command: ${command}`} /></span>)} so your tools pick it up.</p>
+    </Notice>
   </div>
 }

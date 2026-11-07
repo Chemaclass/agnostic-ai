@@ -380,7 +380,7 @@ In the browser:
 - **What can I do?** on a source says what it is, why it loads when it does, and what to change. **Copy prompt** copies a prompt that asks a coding agent to propose the smallest safe cut and its tradeoffs before editing. **Copy all prompts**, beside the ranked list, copies one prompt with the advice for every source that has something to change, startup first and largest first, so the agent can propose all the changes together.
 - A source from a built-in names the built-in and links to **Settings**, Built-ins.
 - Each duplicate has edit links to its sources and **Copy prompt**.
-- **Reread specs** reads the specs again and shows the change against the previous counts under **Before reread**. The tool and file stay in the page address.
+- **Read again** reads your setup files again and shows the change against the previous counts under **Before**. The tool and file stay in the page address.
 - Each finding has **Copy fix prompt**. **Details** shows the suggested fix, explanation, and full prompt.
 - After you fix the source, **Recheck** runs the checks again with the same refresh and keeps your page, search, and unsaved input. It says whether that finding still appears and marks new findings from the same check on the same file. A failed refresh or a lint run that stopped early shows as unknown, never as fixed.
 - A doctor finding that disappears is shown as not confirmed, because these doctor checks skip files they cannot read. Snapshots cannot recheck.

@@ -22,14 +22,9 @@
   gap: 4px;
 }
 
-.context-usage-head h2 {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  line-height: 1.15;
-}
-
 .context-usage-head p {
-  font-size: 13px;
+  font-size: var(--text-sm);
+  max-width: var(--measure);
 }
 
 .context-summary {
@@ -54,8 +49,8 @@
 }
 
 .context-verdict.is-over {
-  padding-left: 9px;
-  border-left: 3px solid currentColor;
+  padding-left: 10px;
+  border-left: var(--state-rail) solid currentColor;
   color: var(--approval);
 }
 
@@ -125,7 +120,7 @@
 
 .context-usage-file-hint {
   grid-column: 1 / -1;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .context-contribution-load {
@@ -136,25 +131,31 @@
 
 .context-kinds {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
   font-size: 13px;
 }
 
-.context-share {
-  position: relative;
-  min-width: 72px;
-  isolation: isolate;
+.table .context-share {
+  white-space: nowrap;
+}
+
+.context-share-track {
+  display: inline-block;
+  width: 40px;
+  height: 6px;
+  margin-inline-end: 8px;
+  vertical-align: middle;
+  border-radius: var(--radius-sm);
+  background: var(--panel-sunken);
+  overflow: hidden;
 }
 
 .context-share-bar {
-  position: absolute;
-  bottom: 2px;
-  inset-inline-start: 0;
-  z-index: -1;
-  height: 6px;
+  display: block;
+  height: 100%;
   max-width: 100%;
   border-radius: var(--radius-sm);
   background: var(--meter);
@@ -162,22 +163,23 @@
 
 .context-builtin {
   margin-inline-start: 8px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .context-advice-toggle {
   margin-inline-start: 8px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 tr.is-advised > th,
 tr.is-advised > td {
-  background: var(--accent-wash);
+  background: var(--panel);
 }
 
 .context-advice-row > td {
   padding: 12px 14px 16px;
-  background: var(--accent-wash);
+  border-inline-start: var(--state-rail) solid var(--accent);
+  background: var(--panel);
   white-space: normal;
 }
 
@@ -196,8 +198,10 @@ tr.is-advised > td {
 .context-advice-facts dt,
 .context-advice-heading {
   margin: 0;
-  font-size: 12px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -271,7 +275,7 @@ tr.is-advised > td {
 }
 
 .context-usage-status {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .context-usage-status:empty {
@@ -286,9 +290,10 @@ tr.is-advised > td {
 }
 
 .context-usage-totals dt {
-  font-size: 13px;
-  letter-spacing: normal;
-  text-transform: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.08em;
 }
 
 .context-usage-totals dd {
@@ -299,21 +304,23 @@ tr.is-advised > td {
   display: block;
   font-family: var(--font-display);
   font-size: var(--text-stat);
-  line-height: 1;
-  font-weight: 700;
+  line-height: var(--leading-stat);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .context-total-words > span {
-  font-size: 14px;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
   font-weight: 400;
+  color: var(--text-soft);
 }
 
 .context-total-bytes,
 .context-total-description {
   display: block;
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .context-total-bytes {
@@ -326,8 +333,8 @@ tr.is-advised > td {
 }
 
 .context-usage-method {
-  max-width: 75ch;
-  font-size: 13px;
+  max-width: var(--measure);
+  font-size: var(--text-sm);
 }
 
 .context-usage-method-body {
@@ -345,8 +352,8 @@ tr.is-advised > td {
 }
 
 .context-usage-note {
-  font-size: 13px;
-  max-width: 75ch;
+  font-size: var(--text-sm);
+  max-width: var(--measure);
 }
 
 .context-usage-part {
@@ -382,11 +389,11 @@ tr.is-advised > td {
 
 .context-passage {
   margin: 0;
-  padding: 8px 12px;
-  border-left: 1px solid var(--line-strong);
+  padding: 10px 14px;
+  border-left: 2px solid var(--line-strong);
   background: var(--panel-sunken);
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: var(--text-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -404,8 +411,8 @@ tr.is-advised > td {
 }
 
 .context-suggestion {
-  font-size: 13px;
-  max-width: 75ch;
+  font-size: var(--text-sm);
+  max-width: var(--measure);
 }
 
 .context-sources {
@@ -414,7 +421,7 @@ tr.is-advised > td {
   padding: 0;
   display: grid;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 
@@ -440,13 +447,18 @@ tr.is-advised > td {
 }
 
 .context-contributions caption {
-  padding: 10px 14px;
+  padding: 12px 14px 8px;
   text-align: left;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
+.table .context-type {
+  width: 16ch;
+}
+
 .table .context-number {
+  padding-inline: 10px;
   text-align: right;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -454,7 +466,7 @@ tr.is-advised > td {
 
 @media (max-width: 760px) {
   .context-usage-file-hint {
-    min-height: 3em;
+    min-height: 2lh;
   }
 
   .context-usage-controls {
@@ -474,6 +486,15 @@ tr.is-advised > td {
 
 @media (forced-colors: active) {
   .context-advice-row > td {
-    border-inline-start: 3px solid CanvasText;
+    border-inline-start-color: CanvasText;
+  }
+
+  .context-share-track {
+    border: 1px solid CanvasText;
+  }
+
+  .context-share-bar {
+    forced-color-adjust: none;
+    background: CanvasText;
   }
 }

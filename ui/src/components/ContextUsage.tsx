@@ -16,7 +16,7 @@ import { modelLine } from '../model/model-line'
 import { contextUsageAvailable } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
-import { ContextSources, LOADS, useSourcePick, type SourcePick } from './ContextSources'
+import { ContextSources, LOADS, typeLabel, useSourcePick, type SourcePick } from './ContextSources'
 import { OpenInEditor } from './EditorLink'
 import { SectionHeading } from './SectionHeading'
 import { Select, Badge, Code, CopyButton, Icon, toolName } from './ui'
@@ -132,7 +132,7 @@ export function ContextUsage() {
     <section className="block context-usage" aria-labelledby={titleId} aria-busy={pending || undefined}>
       <div className="context-usage-head">
         {heading}
-        <p className="muted">How much text a coding tool reads from your specs, at startup and later, in words and bytes.</p>
+        <p className="muted">How much text a coding tool reads from your setup files, at startup and later, in words and bytes.</p>
       </div>
       {view?.supported !== false && (
         <form className="context-usage-controls" onSubmit={(event) => { event.preventDefault(); refresh() }}>
@@ -158,7 +158,7 @@ export function ContextUsage() {
             <label htmlFor={fileId}>Check against a file <span className="muted">(optional)</span></label>
             <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} aria-describedby={`${fileId}-hint`} onChange={(event) => setFileDraft(event.target.value)} />
           </div>
-          <button type="submit" className="button" disabled={pending} title="Read the specs again">{pending ? 'Rereading…' : 'Reread specs'}</button>
+          <button type="submit" className="button" disabled={pending} title="Read your setup files again">{pending ? 'Reading…' : 'Read again'}</button>
           <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Name a file to add the scoped rules that match it. Results update as you type.' : `This page cannot check a single file for ${selected ? toolName(selected) : 'this tool'}.`}</p>
         </form>
       )}
@@ -285,7 +285,7 @@ function Comparison({ before, now }: { before: ContextReport; now: ContextReport
   ]
   return (
     <dl className="context-usage-compare">
-      <div><dt>Before reread</dt><dd>{line(before)}</dd></div>
+      <div><dt>Before</dt><dd>{line(before)}</dd></div>
       <div><dt>Now</dt><dd>{line(now)}</dd></div>
       <div><dt>Change</dt><dd>{changes.map(([label, was, is]) => `${label} ${signed(is.words - was.words)}${is.words === was.words ? '' : ' words'}`).join(', ')}.</dd></div>
     </dl>
@@ -331,7 +331,7 @@ function Opportunity({ opportunity: o, root }: { opportunity: ContextOpportunity
         {o.sources.map((s) => (
           <li key={`${s.source}-${s.category}`}>
             <Code>{s.source}</Code>
-            {s.category && <span className="muted"> {s.category}</span>}
+            {s.category && <span className="muted"> {typeLabel(s.category)}</span>}
             <OpenInEditor path={root ? `${root}/${s.source}` : undefined} label={s.source} shownPath={s.source} compact />
           </li>
         ))}
