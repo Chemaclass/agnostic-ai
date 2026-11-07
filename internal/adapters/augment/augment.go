@@ -501,3 +501,6 @@ func xAugmentSetsTools(meta map[string]any) bool {
 	_, disabledTools := x["disabled_tools"]
 	return tools || disabledTools
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

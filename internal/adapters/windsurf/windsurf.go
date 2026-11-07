@@ -473,3 +473,6 @@ func warnWorkflowsDirRemoved(sess *emit.Session, cfg *config.Config) {
 		"%s: outputs.windsurf.workflows-dir (%s) is set, but Devin Desktop removed Cascade in v3.9.19, the only agent that read Workflows; Devin Local does not support them. Nothing is written there anymore. Migrate to skills instead (Devin: Open Cascade Migration Wizard), or remove outputs.windsurf.workflows-dir to silence this.\n",
 		target, dir)
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

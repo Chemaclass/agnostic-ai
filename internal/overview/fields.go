@@ -68,6 +68,8 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				cleared = "permissions"
 			} else if strings.HasPrefix(d.key, "voice.") && personalFieldCleared(e, "voice") {
 				cleared = "voice"
+			} else if d.key == ProtectedKey && personalFieldCleared(e, ProtectedKey) {
+				cleared = ProtectedKey
 			}
 			if e.Base == nil {
 				if cleared != "" {

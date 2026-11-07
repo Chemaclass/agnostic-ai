@@ -189,7 +189,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     if (details) details.open = true
     target.scrollIntoView({ block: 'center' })
     target.focus({ preventScroll: true })
-  }, [entry, section.id])
+  }, [entry, section.id, app.reveals])
   const hasTools = tabs.some((tab) => tab.extra === 'targets')
   const matchCount = matchingItems.size + (fieldMatches?.length ?? 0) + nativeMatches.length + toolMatches
   const totalCount = section.items.length + (section.fields?.length ?? 0) + (section.native?.length ?? 0) + (hasTools ? app.overview?.tools.items.length ?? 0 : 0)

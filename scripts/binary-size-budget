@@ -797,7 +797,14 @@
 # plus 8192, rounded up to a multiple of 4096.
 # The Kiro agent MCP import (#3051) measured 24993952 bytes in CI; the budget is
 # that plus 8192, rounded up to a multiple of 4096.
-# Spec copy and move between project and global (#3027), merged with the Kiro
-# agent MCP import, measured 25063584 bytes; the budget is that plus 8192, rounded
-# up to a multiple of 4096.
-25075712
+# Global findings in setup health (#3069) and the Kiro env references (#3067)
+# measured 25006240 bytes in CI; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+# Setup gaps in setup health (#3070) measured 25034912 bytes; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+# Agent notes on sync --global (#3073), merged with setup gaps, measured 25063584
+# bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
+# Spec copy and move between project and global (#3027), merged with the
+# improvements count, measured 25116832 bytes; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+25128960

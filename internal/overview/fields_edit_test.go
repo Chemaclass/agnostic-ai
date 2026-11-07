@@ -612,3 +612,37 @@ func TestSettingsOverride_SkipsALaterClaudeModelForToolsThatDropIt(t *testing.T)
 		t.Errorf("global codex override = %d, want 1", got)
 	}
 }
+
+// A local protected: null shows in Authority as a local clear over the
+// project block, so the page can offer to reset it (#3072).
+func TestAuthorityFields_PersonalProtectedClearKeepsTheProjectBlock(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}}
+	shared := entry(spec.KindSettings, "defaults", ".agnostic-ai/settings/defaults.yaml", map[string]any{
+		"protected": map[string]any{"paths": []any{".github/**"}, "decision": "deny"},
+	})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/defaults.yaml", map[string]any{"protected": nil})
+	delete(overlay.Meta, "protected")
+	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}}), SectionAuthority)
+	if len(section.Items) != 1 || section.Items[0].Path != overlay.Path {
+		t.Fatalf("Authority items = %+v, want the local clear", section.Items)
+	}
+	for _, field := range section.Fields {
+		if field.Key != ProtectedKey {
+			continue
+		}
+		if len(field.Set) != 2 {
+			t.Fatalf("protected sources = %+v, want the local clear and the project block", field.Set)
+		}
+		if own := field.Set[0]; !own.Local || own.Path != overlay.Path || len(own.Values) != 1 || own.Values[0].Key != ProtectedKey || own.Values[0].Value != "null" {
+			t.Errorf("local clear = %+v", own)
+		}
+		if team := field.Set[1]; team.Local || team.Path != shared.Path {
+			t.Errorf("project block = %+v", team)
+		}
+		if field.Editable == nil || field.Editable.DisabledReason != "" {
+			t.Errorf("the clear must stay editable: %+v", field.Editable)
+		}
+		return
+	}
+	t.Fatal("no protected field in Authority")
+}

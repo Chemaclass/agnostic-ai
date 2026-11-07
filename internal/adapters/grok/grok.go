@@ -117,3 +117,6 @@ func validateBundle(b spec.Bundle) error {
 }
 
 func OutputPaths(cfg *config.Config) map[string]string { return emit.VarsFor(cfg, target) }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

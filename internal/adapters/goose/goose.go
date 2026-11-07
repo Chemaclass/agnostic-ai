@@ -213,3 +213,6 @@ func sortedScopeKeys(byScope map[string][]spec.Entry) []string {
 	sort.Strings(out)
 	return out
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }

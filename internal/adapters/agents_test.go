@@ -92,3 +92,23 @@ func TestEmitAgents_MatchesProjectOutputForEveryEmitter(t *testing.T) {
 		t.Fatal("no adapter implements AgentEmitter")
 	}
 }
+
+func TestAgentEmitters_NameTheAgentFieldsTheyWrite(t *testing.T) {
+	for _, name := range Names() {
+		a, err := Resolve(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, emits := a.(AgentEmitter); !emits {
+			continue
+		}
+		coverage, ok := a.(agentCoverage)
+		if !ok {
+			t.Errorf("%s writes user-level agents but does not name its agent fields, so sync --global drops them with no note", name)
+			continue
+		}
+		if got := coverage.AgentCoverage().Target; got != name {
+			t.Errorf("%s agent coverage names target %q", name, got)
+		}
+	}
+}

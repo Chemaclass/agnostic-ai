@@ -665,6 +665,8 @@ export interface ProtectedEditPreview {
   audience: 'shared' | 'personal'
   before: ProtectedBlock | null
   protected: ProtectedBlock | null
+  /** The file writes `protected: null`, which turns the inherited paths off. */
+  cleared?: boolean
   diff: string
   expected: string
   syncCommand: string
@@ -737,8 +739,35 @@ export interface OverviewView {
   sections: Section[]
   targets: TargetSupport[]
   tools: ToolCatalog
+  health: Health
   /** True for user configuration, which has no project to size. */
   global?: boolean
+}
+
+/** What the page suggests beyond the lint and doctor findings. */
+export interface Health {
+  gaps: Gap[]
+  /** What the gap check considered; each improvement not applied is a gap. Absent for user configuration. */
+  improvements?: Improvements
+}
+
+export interface Improvements {
+  applied: number
+  total: number
+}
+
+/** Something the configured tools support that the project does not use yet. A suggestion, never a finding. */
+export interface Gap {
+  /** `kind:<kind>`, `stage:<stage>` or `builtin:<name>`. */
+  id: string
+  section: string
+  label: string
+  /** The configured targets that would use it. */
+  supported: string[]
+  /** What the project lacks, such as "no skill yet". */
+  missing: string
+  /** A prompt a coding agent can run to fill the gap. */
+  fix: string
 }
 
 // ---------------------------------------------------------------------

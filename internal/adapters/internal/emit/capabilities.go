@@ -132,10 +132,17 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 		}
 	}
 	if c.supports(spec.KindAgent) {
-		noteDroppedAgentFields(c, b.Agents)
-		NoteDroppedAgentReadonly(c.Target, b.Agents)
+		NoteDroppedAgentFields(c, b.Agents)
 	}
 	return noteForeignClaudeModels(c, b, mode)
+}
+
+// NoteDroppedAgentFields raises the notes for agent fields the target's
+// agent file cannot hold, as project and user-level sync both write
+// agents.
+func NoteDroppedAgentFields(c Capabilities, agents []spec.Entry) {
+	noteDroppedAgentFields(c, agents)
+	NoteDroppedAgentReadonly(c.Target, agents)
 }
 
 // noteDroppedAgentFields raises one field no-op note per tracked agent

@@ -422,3 +422,6 @@ func yamlScalar(s string) string {
 	}
 	return strings.TrimRight(string(out), "\n")
 }
+
+// AgentCoverage names the agent fields this target writes.
+func (Adapter) AgentCoverage() emit.Capabilities { return caps }
