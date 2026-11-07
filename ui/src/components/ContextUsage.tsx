@@ -19,7 +19,7 @@ import { ErrorPanel } from './Banner'
 import { ContextSources, LOADS, useSourcePick, type SourcePick } from './ContextSources'
 import { OpenInEditor } from './EditorLink'
 import { SectionHeading } from './SectionHeading'
-import { Select, Badge, Code, CopyButton, Icon } from './ui'
+import { Select, Badge, Code, CopyButton, Icon, toolName } from './ui'
 
 const LONG_PASSAGE = 280
 const FILE_DELAY_MS = 500
@@ -110,7 +110,7 @@ export function ContextUsage() {
   const report = shown?.view.supported ? shown.view.report : undefined
   const pending = !error && (loading || !!current && !matches(current))
   const comparable = report && matches(before) && before.at !== shown?.at && before.view.report
-  const pick = useSourcePick(report, (report?.opportunities.length ?? 0) === 0)
+  const pick = useSourcePick(report)
   const refresh = () => {
     reserveResults()
     setBefore(matches(current) && current.file === draftFile ? current : undefined)
@@ -151,7 +151,7 @@ export function ContextUsage() {
                 go(event.target.value, nextTakesFile ? draftFile : '')
               }}
             >
-              {targets.map((t) => <option key={t} value={t}>{t}</option>)}
+              {targets.map((t) => <option key={t} value={t}>{toolName(t)}</option>)}
             </Select>
           </div>
           <div className="context-usage-field">
@@ -159,24 +159,24 @@ export function ContextUsage() {
             <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} aria-describedby={`${fileId}-hint`} onChange={(event) => setFileDraft(event.target.value)} />
           </div>
           <button type="submit" className="button" disabled={pending} title="Read the specs again">{pending ? 'Rereading…' : 'Reread specs'}</button>
-          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Name a file to add the scoped rules that match it. Results update as you type.' : `This page cannot check a single file for ${selected || 'this tool'}.`}</p>
+          <p id={`${fileId}-hint`} className="muted context-usage-file-hint">{takesFile ? 'Name a file to add the scoped rules that match it. Results update as you type.' : `This page cannot check a single file for ${selected ? toolName(selected) : 'this tool'}.`}</p>
         </form>
       )}
       <p ref={status} className="muted context-usage-status" role="status" style={{ minHeight: pending ? statusHeight : undefined }}>
-        {pending ? `Checking context size${selected ? ` for ${selected}` : ''}…` : shown ? `Checked ${formatTime(shown.at)}${shown.file ? ` for ${shown.file}` : ''}.` : ''}
+        {pending ? `Checking context size${selected ? ` for ${toolName(selected)}` : ''}…` : shown ? `Checked ${formatTime(shown.at)}${shown.file ? ` for ${shown.file}` : ''}.` : ''}
       </p>
       <div ref={results} className="context-usage-results" style={{ minHeight: pending && !report ? resultsHeight : undefined }}>
         {pending && !report && <ReportPlaceholder />}
-        {error && <ErrorPanel error={error} />}
+        {error && <ErrorPanel error={error} title="Could not check context size" onRetry={refresh} />}
         {shown && !shown.view.supported && <p>{shown.view.reason || 'Context size is not available for this configuration.'}</p>}
         {report && shown && (
           <>
-            <StartupCheck report={report} view={shown.view} pick={pick} />
-            <Totals report={report} file={shown.file} takesFile={takesFile} />
-            {report.note && <details className="context-usage-method"><summary>How this is counted</summary><p className="muted context-usage-note">{report.note}</p></details>}
+            <Totals report={report} file={shown.file} budget={shown.view.startupWordBudget} />
             {comparable && <Comparison before={before.view.report!} now={report} />}
-            <Opportunities report={report} root={shown.view.root} />
+            <NextSteps report={report} view={shown.view} pick={pick} />
+            <Method report={report} file={shown.file} takesFile={takesFile} />
             <ContextSources report={report} root={shown.view.root} takesFile={takesFile} budget={shown.view.startupWordBudget} pick={pick} />
+            {report.opportunities.length > 0 && <Opportunities report={report} root={shown.view.root} />}
           </>
         )}
       </div>
@@ -187,40 +187,44 @@ export function ContextUsage() {
 function ReportPlaceholder() {
   return (
     <div className="context-usage-placeholder" aria-hidden="true">
-      <div className="context-placeholder-check" />
       {[0, 1].map((column) => <div key={column}>
         <span className="context-placeholder-label" />
         <span className="context-placeholder-value" />
         <span className="context-placeholder-line" />
       </div>)}
+      <div className="context-placeholder-check" />
     </div>
   )
 }
 
-function StartupCheck({ report, view, pick }: { report: ContextReport; view: ContextView; pick: SourcePick }) {
+function NextSteps({ report, view, pick }: { report: ContextReport; view: ContextView; pick: SourcePick }) {
   const id = useId()
-  const verdict = startupVerdict(report.startup, view.startupWordBudget)
   const largest = startHere(report.contributions, 1)[0]
   const command = explainCommand(report.target, report.file)
-  const [before, after] = verdict.text.split('(lint.instructions-words)')
+  const tool = toolName(report.target)
   return (
-    <section className="context-usage-part context-check" aria-labelledby={id}>
-      <h3 id={id}>Startup check</h3>
-      <p className={`context-verdict is-${verdict.state}`}>
-        {verdict.state === 'over' && <Icon name="warning" />}
-        <span>
-          {after === undefined ? verdict.text : <>{before}(<a href={documentationUrl(DOC_TOPICS.budget.path)} target="_blank" rel="noopener noreferrer">lint.instructions-words</a>){after}</>}
-        </span>
-      </p>
-      <p className="muted">{LOADS.map((load) => `${LOAD_LABELS[load]} text loads ${LOAD_CONDITIONS[load]}.`).join(' ')}</p>
-      <ModelLine target={report.target} />
-      <p className="context-check-heading" id={`${id}-next`}>Next</p>
-      <ol className="context-next" aria-labelledby={`${id}-next`}>
-        {largest && <li>Open the largest startup source. <button type="button" className="button button-quiet" onClick={() => pick.show(largest)}>Show <Code>{largest.source}</Code></button></li>}
-        <li>Check it in a terminal: <Code>{command}</Code> <CopyButton text={command} label="Copy command" className="button-quiet" ariaLabel={`Copy command for ${report.target}`} /></li>
-        <li>Ask a coding agent to review everything {report.target} loads at startup: <CopyButton text={contextStartupPrompt(report, view.root, view.startupWordBudget)} label="Copy startup review prompt" className="button-quiet" ariaLabel={`Copy startup review prompt for ${report.target}`} /></li>
+    <section className="context-usage-part context-next-part" aria-labelledby={id}>
+      <h3 id={id}>Next</h3>
+      <ol className="context-next">
+        {largest && <li><span>See what the largest startup source does.</span> <button type="button" className="button button-quiet" onClick={() => pick.show(largest)}>Show <Code>{largest.source}</Code></button></li>}
+        <li><span>Check the count in a terminal.</span> <CopyButton text={command} label="Copy command" className="button-quiet" ariaLabel={`Copy command: ${command}`} /></li>
+        <li><span>Ask a coding agent to review what {tool} loads at startup.</span> <CopyButton text={contextStartupPrompt(report, view.root, view.startupWordBudget)} label="Copy prompt" className="button-quiet" ariaLabel={`Copy prompt to review startup for ${tool}`} /></li>
       </ol>
     </section>
+  )
+}
+
+function Method({ report, file, takesFile }: { report: ContextReport; file: string; takesFile: boolean }) {
+  return (
+    <details className="context-usage-method">
+      <summary>How this is counted</summary>
+      <div className="context-usage-method-body">
+        <p className="muted">{LOADS.map((load) => `${LOAD_LABELS[load]} text loads ${LOAD_CONDITIONS[load]}.`).join(' ')}</p>
+        {takesFile && !file && <p className="muted">Scoped rules count as on demand until you name a file.</p>}
+        {report.note && <p className="muted context-usage-note">{report.note}</p>}
+        <ModelLine target={report.target} />
+      </div>
+    </details>
   )
 }
 
@@ -236,19 +240,25 @@ function ModelLine({ target }: { target: string }) {
   )
 }
 
-function Totals({ report, file, takesFile }: { report: ContextReport; file: string; takesFile: boolean }) {
+function Totals({ report, file, budget }: { report: ContextReport; file: string; budget?: number }) {
   const fileScope = !!file || report.file_scope.words > 0 || report.file_scope.bytes > 0
+  const verdict = startupVerdict(report.startup, budget)
   return (
-    <>
+    <div className="context-summary">
       <dl className="facts context-usage-totals">
         <Total title="Startup" description="At the start of every session" size={report.startup} />
         {fileScope && (
           <Total title="File-scoped, additional" description="Rules that match the named file" size={report.file_scope} />
         )}
-        <Total title="On demand" description="Available when the tool loads it" size={report.on_demand} />
+        <Total title="On demand" description="When the tool opens it" size={report.on_demand} />
       </dl>
-      {takesFile && !file && <p className="muted context-usage-note">Scoped rules count as on demand until you name a file.</p>}
-    </>
+      {verdict.text && (
+        <p className={`context-verdict is-${verdict.state}`}>
+          {verdict.state === 'over' && <Icon name="warning" />}
+          <span>{verdict.text} <a href={documentationUrl(DOC_TOPICS.budget.path)} target="_blank" rel="noopener noreferrer">Change budget</a></span>
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -287,13 +297,9 @@ function Opportunities({ report, root }: { report: ContextReport; root?: string 
   return (
     <div className="context-usage-part">
       <h3 id={id}>Duplicated passages</h3>
-      {report.opportunities.length === 0
-        ? <p className="muted">No duplicated passages found for {report.target}.</p>
-        : (
-          <ul className="item-list" aria-labelledby={id}>
-            {report.opportunities.map((o, index) => <Opportunity key={`${o.load}-${index}`} opportunity={o} root={root} />)}
-          </ul>
-        )}
+      <ul className="item-list" aria-labelledby={id}>
+        {report.opportunities.map((o, index) => <Opportunity key={`${o.load}-${index}`} opportunity={o} root={root} />)}
+      </ul>
     </div>
   )
 }
@@ -307,11 +313,11 @@ function Opportunity({ opportunity: o, root }: { opportunity: ContextOpportunity
       <div className="item-heading">
         <div className="item-main">
           <strong>{o.copies} copies load {LOAD_CONDITIONS[o.load]}</strong>
-          <span className="muted item-description">Could drop {sizeText(o.reduction)} from {LOAD_LABELS[o.load].toLowerCase()} content for {o.target}. Each copy is {sizeText(o.size)}.</span>
+          <span className="muted item-description">Could drop {sizeText(o.reduction)} from {LOAD_LABELS[o.load].toLowerCase()} content for {toolName(o.target)}. Each copy is {sizeText(o.size)}.</span>
         </div>
         <div className="item-meta">
           <Badge tone="neutral">{LOAD_LABELS[o.load]}</Badge>
-          <Badge tone="neutral">{o.target}</Badge>
+          <Badge tone="neutral">{toolName(o.target)}</Badge>
         </div>
       </div>
       <blockquote id={passageId} className={`context-passage${long && !open ? ' is-clamped' : ''}`}>{o.passage}</blockquote>
@@ -331,7 +337,7 @@ function Opportunity({ opportunity: o, root }: { opportunity: ContextOpportunity
         ))}
       </ul>
       <div className="finding-actions">
-        <CopyButton text={contextReviewPrompt(o, root)} label="Copy review prompt" ariaLabel={`Copy review prompt for the passage in ${o.sources.map((s) => s.source).join(' and ')}`} />
+        <CopyButton text={contextReviewPrompt(o, root)} label="Copy prompt" ariaLabel={`Copy prompt to review the passage in ${o.sources.map((s) => s.source).join(' and ')}`} />
       </div>
     </li>
   )

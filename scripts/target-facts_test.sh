@@ -598,15 +598,19 @@ function test_builtin_regression_invalid_baseline_is_conservative() {
 
 function test_builtin_regression_failed_history_inspection_is_conservative() {
   builtin_regression_fixture
-  local out operation status
+  local out operation status real_git shim="$CHANGED_DIR/shim"
+  real_git=$(command -v git)
+  mkdir -p "$shim"
+  cat >"$shim/git" <<EOF
+#!/usr/bin/env bash
+case " \$* " in *" \$FAIL_GIT_OPERATION "*) exit 1 ;; esac
+exec "$real_git" "\$@"
+EOF
+  chmod +x "$shim/git"
   for operation in diff ls-files; do
     status=0
-    git() {
-      case " $* " in *" $operation "*) return 1 ;; esac
-      command git "$@"
-    }
-    out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE" 2>"$CHANGED_DIR/reason") || status=$?
-    unset -f git
+    out=$(PATH="$shim:$PATH" FAIL_GIT_OPERATION=$operation \
+      main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE" 2>"$CHANGED_DIR/reason") || status=$?
     assert_equals 0 "$status"
     assert_builtin_regression_shared_deep "$out"
     assert_equals 1 "$(wc -l <"$CHANGED_DIR/reason" | tr -d ' ')"

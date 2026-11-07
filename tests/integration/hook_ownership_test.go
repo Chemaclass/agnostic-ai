@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -13,20 +12,7 @@ import (
 // Sync keeps hook entries it did not write when a built-in hook reaches a
 // target, and dropping the built-in takes out only its own (#1858).
 func TestSync_KeepsHandWrittenHooks(t *testing.T) {
-	packageDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Clean(filepath.Join(packageDir, "..", ".."))
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	run := func(t *testing.T, dir string, args ...string) {
 		t.Helper()
 		cmd := exec.Command(binary, args...)

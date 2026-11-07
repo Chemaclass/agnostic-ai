@@ -11,7 +11,7 @@ import (
 )
 
 func TestExplainLayers_BuiltBinaryShowsResolutionWithoutChangingFiles(t *testing.T) {
-	binary := buildEllipsisBinary(t)
+	binary := builtBinary(t)
 	dir := t.TempDir()
 	home := t.TempDir()
 	writeProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: []\ngitignore:\n  enabled: false\n")

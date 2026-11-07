@@ -80,6 +80,11 @@ jobs:
             packages: ./tests/integration
             run: ''
             skip: '^Test[A-H]'
+            require_zola: '1'
+    # gh attestation verify reads the Zola release attestation.
+    permissions:
+      contents: read
+      attestations: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -92,12 +97,30 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # The site tests (TestSiteDocs_, TestTargetUpdates_) sort into this
+      # shard and fail instead of skipping without the pinned Zola.
+      - name: Install Zola 0.23.6
+        if: matrix.require_zola == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZOLA_VERSION: 0.23.6
+        run: |
+          set -euo pipefail
+          archive="zola-v${ZOLA_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSLo "$archive" "https://github.com/getzola/zola/releases/download/v${ZOLA_VERSION}/${archive}"
+          gh attestation verify "$archive" --repo getzola/zola
+          tar -xzf "$archive" zola
+          sudo install -m 0755 zola /usr/local/bin/zola
+          rm -f "$archive" zola
+          test "$(zola --version)" = "zola ${ZOLA_VERSION}"
+
       - name: Test with coverage
         shell: bash
         env:
           PACKAGES: ${{ matrix.packages }}
           RUN: ${{ matrix.run }}
           SKIP: ${{ matrix.skip }}
+          AGNOSTIC_AI_REQUIRE_ZOLA: ${{ matrix.require_zola }}
         run: |
           packages=()
           if [ -n "$PACKAGES" ]; then
@@ -577,6 +600,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
       # One pinned release file, checked against its published sha256
       # before it runs, instead of piping an install script into bash.
       - name: Install bashunit
@@ -590,6 +619,9 @@ jobs:
 
       - name: Run shell tests
         run: make test-shell
+
+      - name: Run site script tests
+        run: node --test docs/site/static/assets/scripts/*.test.js
 
   editor_changes:
     name: Editor changes
@@ -666,10 +698,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Compile
-        run: npm run compile
-
-      - name: Test
+      # npm test compiles first.
+      - name: Compile and test
         run: npm test
 
       - name: Package
@@ -707,11 +737,9 @@ jobs:
             editors/jetbrains/.gradle
           key: gradle-${{ hashFiles('editors/jetbrains/**/*.gradle*', 'editors/jetbrains/gradle/wrapper/gradle-wrapper.properties') }}
 
-      - name: Test
-        run: ./gradlew --no-daemon test
-
-      - name: Build plugin
-        run: ./gradlew --no-daemon buildPlugin
+      # One Gradle start instead of two cold ones.
+      - name: Test and build plugin
+        run: ./gradlew --no-daemon test buildPlugin
 
   ui:
     name: Web client

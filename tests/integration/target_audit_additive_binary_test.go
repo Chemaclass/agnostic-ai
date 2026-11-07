@@ -9,7 +9,7 @@ import (
 )
 
 func TestAuditAdditive_BuiltBinaryImportsAndChecksNativeConfiguration(t *testing.T) {
-	binary := buildEllipsisBinary(t)
+	binary := builtBinary(t)
 	for _, tc := range []struct {
 		target, nativePath, native, expected string
 	}{

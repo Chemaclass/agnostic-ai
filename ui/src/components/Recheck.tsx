@@ -140,7 +140,7 @@ export function RecheckNote({ id, finding }: { id: string; finding: ItemFinding 
   useEffect(() => {
     if (result) takeFocus(ref.current, false)
   }, [result])
-  if (!recheck.live) return <p className="finding-recheck-result muted">Rechecking a finding needs a running agnostic-ai serve.</p>
+  if (!recheck.live) return null
   const text = recheck.pending === id ? 'Running the checks again…' : result ? recheckMessage(result, finding) : ''
   return <p ref={ref} tabIndex={result ? -1 : undefined} className={`finding-recheck-result${text ? '' : ' is-empty'}`} role="status">{text}</p>
 }

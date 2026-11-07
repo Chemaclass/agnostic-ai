@@ -63,6 +63,27 @@ func TestNewViewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
 	}
 }
 
+func TestNewViewCmd_LinksTheProjectGitHubRepositoryWithoutCredentials(t *testing.T) {
+	dir := t.TempDir()
+	writeBareReadProject(t, dir)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	git(t, dir, "remote", "add", "origin", "https://user:secret-token@github.com/octo/hello.git")
+
+	out := runViewCmd(t, "--dir", dir, "--json")
+
+	var view overview.View
+	if err := json.Unmarshal([]byte(out), &view); err != nil {
+		t.Fatalf("output is not an overview view: %v\n%s", err, out)
+	}
+	if view.Repository == nil || view.Repository.URL != "https://github.com/octo/hello" || view.Repository.Name != "octo/hello" {
+		t.Errorf("repository = %+v, want octo/hello", view.Repository)
+	}
+	if strings.Contains(out, "secret-token") {
+		t.Error("the overview exposes the remote's credentials")
+	}
+}
+
 func TestView_HasNoSubcommands(t *testing.T) {
 	for _, sub := range []string{"authority", "overview"} {
 		_, err := runCLI(t, "view", sub)
@@ -172,7 +193,7 @@ func TestView_RejectsInvalidSourcesBeforeOpeningBrowser(t *testing.T) {
 				cmd := newViewCmdWithBrowser(func(string) error { opened = true; return nil })
 				cmd.SetOut(io.Discard)
 				cmd.SetErr(io.Discard)
-				args := slices.Clone(tc.args)
+				args := append([]string{}, tc.args...)
 				if asJSON {
 					args = append(args, "--json")
 				}
@@ -875,5 +896,48 @@ func TestView_ScanFastRejectKeepsTheBudgetForASlowMatch(t *testing.T) {
 	}
 	if want := "http://" + ports[1] + "/"; opened != want || strings.Contains(out, "Serving") {
 		t.Errorf("opened %q, output %q, want reuse of %s", opened, out, want)
+	}
+}
+
+// view runs serve as a command of its own, outside the root, so the
+// root's version has to reach /api/health another way.
+func TestView_HealthNamesTheRootVersion(t *testing.T) {
+	globalOverviewHome(t)
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	health := make(chan string, 1)
+	view := newViewCmdWithPorts(func(url string) error {
+		go func() {
+			defer cancel()
+			var got struct {
+				Version string `json:"version"`
+			}
+			resp, err := http.Get(url + "api/health")
+			if err != nil {
+				health <- "error: " + err.Error()
+				return
+			}
+			defer func() { _ = resp.Body.Close() }()
+			if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+				health <- "error: " + err.Error()
+				return
+			}
+			health <- got.Version
+		}()
+		return nil
+	}, func(string, time.Duration) *viewServer { return nil }, freeLoopbackAddrs(t, 1), time.Now)
+	root := &cobra.Command{Use: "agnostic-ai", Version: "0.92.0", SilenceErrors: true, SilenceUsage: true}
+	root.AddCommand(view)
+	root.SetContext(ctx)
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"view", "--dir", project})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-health; got != "0.92.0" {
+		t.Errorf("health version = %q, want 0.92.0", got)
 	}
 }

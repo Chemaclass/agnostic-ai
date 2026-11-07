@@ -14,12 +14,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "continue" {
-		t.Errorf("Name() = %q, want %q", got, "continue")
-	}
-}
-
 func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

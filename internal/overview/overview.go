@@ -51,6 +51,9 @@ type Inputs struct {
 	// NativeMCPs are the MCP servers the caller found in the configured
 	// tools' own config files, whether or not a spec covers them.
 	NativeMCPs []NativeMCP
+	// OriginURL is the origin remote of the project's Git repository, or
+	// empty when there is none.
+	OriginURL string
 }
 
 // NativeMCP is one MCP server a tool's own config file defines. It
@@ -153,11 +156,11 @@ var sectionDefs = []sectionDef{
 		rows: []row{{kind: spec.KindHook, group: hookEvent}},
 	},
 	{
-		id: SectionSettings, label: "Settings", question: "How is the harness configured?",
+		id: SectionSettings, label: "Settings", question: "How are your tools set up?",
 		rows: []row{
 			{special: kindBuiltin, label: "Built-ins"},
-			{special: kindConfig, label: "Config"},
-			{kind: spec.KindSettings, label: "Other settings", keep: shapesExecution},
+			{special: kindConfig, label: "Config files"},
+			{kind: spec.KindSettings, label: "Preferences", keep: shapesExecution},
 		},
 	},
 }
@@ -181,15 +184,16 @@ func hasField(e spec.Entry, key string) bool {
 }
 
 // lifecycleStages are the portable hook events, in session order, with
-// what a hook at each does.
-var lifecycleStages = []struct{ id, label, description string }{
-	{"session-start", "Session start", "When a session opens: load context or check the environment."},
-	{"prompt-submit", "Prompt submit", "Before the agent reads a prompt; exit 2 blocks the prompt."},
-	{"before-tool", "Before a tool runs", "Before each tool call; exit 2 blocks the call. Guards live here."},
-	{"after-tool", "After a tool runs", "After each tool call: check, log, or react to the result."},
-	{"after-edit", "After a file edit", "After the agent edits a file: format or lint it."},
-	{"stop", "Stop", "When the agent finishes; exit 2 keeps it working."},
-	{"session-end", "Session end", "When a session closes: save state or clean up."},
+// what a hook at each does in plain words and, for the stages that can
+// block, the exit-code contract a hook author needs.
+var lifecycleStages = []struct{ id, label, description, contract string }{
+	{"session-start", "Session start", "When a session opens: load context or check the environment.", ""},
+	{"prompt-submit", "Prompt submit", "Before the agent reads a prompt. A hook here can block the prompt.", "Exit 2 blocks the prompt."},
+	{"before-tool", "Before a tool runs", "Before each tool call. A hook here can block the call, so guards live here.", "Exit 2 blocks the call."},
+	{"after-tool", "After a tool runs", "After each tool call: check, log, or react to the result.", ""},
+	{"after-edit", "After a file edit", "After the agent edits a file: format or check it.", ""},
+	{"stop", "Stop", "When the agent finishes. A hook here can keep it working.", "Exit 2 keeps it working."},
+	{"session-end", "Session end", "When a session closes: save state or clean up.", ""},
 }
 
 // nativeStagePrefix marks a stage named by one tool's own event.
@@ -259,7 +263,15 @@ func Build(in Inputs) *View {
 		Tools:         toolCatalog(in.Tools, newLabeler()),
 		Health:        health,
 		Global:        in.Global,
+		Repository:    projectRepository(in),
 	}
+}
+
+func projectRepository(in Inputs) *Repository {
+	if in.Global {
+		return nil
+	}
+	return GitHubRepository(in.OriginURL)
 }
 
 // toolCatalog fills labels and keeps every list an array.

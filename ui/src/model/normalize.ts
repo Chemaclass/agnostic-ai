@@ -4,7 +4,7 @@
 // Normalizing never invents a decision: a missing effect stays missing
 // and renders as its raw value, a missing list becomes an empty list.
 
-import type { ContextLoad, ContextReport, ContextSize, ContextView, Gap, Improvements, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
+import type { ContextLoad, ContextReport, ContextSize, ContextView, Conversation, ConversationRoute, ConversationSource, ConversationsView, Gap, Improvements, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
 
 type Loose = Record<string, unknown>
 
@@ -68,10 +68,19 @@ function normalizeSection(raw: unknown): Section {
   }
 }
 
+// A static or ?source= overview can come from anywhere, so the top bar links only a GitHub page.
+function normalizeRepository(raw: unknown): OverviewView['repository'] {
+  const r = obj(raw)
+  if (typeof r.url !== 'string' || typeof r.name !== 'string') return undefined
+  if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/.test(r.url)) return undefined
+  return { url: r.url, name: r.name }
+}
+
 export function normalizeOverviewView(raw: unknown): OverviewView {
   const v = obj(raw)
   return {
     ...(v as unknown as OverviewView),
+    repository: normalizeRepository(v.repository),
     schemaVersion: String(v.schemaVersion ?? ''),
     snapshot: normalizeSnapshot(v.snapshot),
     sections: arr(v.sections).map(normalizeSection),
@@ -178,5 +187,54 @@ export function normalizeContextView(raw: unknown): ContextView {
     target: text(v.target),
     ...(typeof v.startupWordBudget === 'number' && v.startupWordBudget > 0 ? { startupWordBudget: v.startupWordBudget } : {}),
     ...(v.report ? { report: normalizeContextReport(v.report) } : {}),
+  }
+}
+
+const WITHHELD_FIELDS = ['title', 'opening', 'prompt'] as const
+
+function isWithheldField(value: unknown): value is NonNullable<Conversation['withheld']>[number] {
+  return (WITHHELD_FIELDS as readonly unknown[]).includes(value)
+}
+
+const ACTIVITIES = ['working', 'waiting', 'idle'] as const
+
+function isActivity(value: unknown): value is NonNullable<Conversation['activity']> {
+  return (ACTIVITIES as readonly unknown[]).includes(value)
+}
+
+// An activity this client does not know is left out, so the row shows Open now.
+function normalizeConversation(raw: unknown): Conversation {
+  const c = obj(raw)
+  const route = obj(c.open)
+  return {
+    ...(c as unknown as Conversation),
+    activity: isActivity(c.activity) ? c.activity : undefined,
+    id: text(c.id),
+    title: text(c.title),
+    updatedAt: text(c.updatedAt),
+    opening: arr<unknown>(c.opening).filter((line): line is string => typeof line === 'string'),
+    withheld: arr<unknown>(c.withheld).filter(isWithheldField),
+    live: c.live === true,
+    open: { ...(route as unknown as ConversationRoute), label: text(route.label) },
+  }
+}
+
+function normalizeConversationSource(raw: unknown): ConversationSource {
+  const s = obj(raw)
+  return { ...(s as unknown as ConversationSource), label: text(s.label), found: s.found === true, count: count(s.count), shown: count(s.shown) }
+}
+
+export function normalizeConversationsView(raw: unknown): ConversationsView {
+  const v = obj(raw)
+  return {
+    // Another version still renders; loadConversations reports it as a schema warning.
+    schemaVersion: text(v.schemaVersion) as ConversationsView['schemaVersion'],
+    generatedAt: text(v.generatedAt),
+    from: text(v.from),
+    to: text(v.to),
+    // A missing or empty next means no older conversation remains.
+    ...(typeof v.next === 'string' && v.next !== '' ? { next: v.next } : {}),
+    tools: arr(v.tools).map(normalizeConversationSource),
+    conversations: arr(v.conversations).map(normalizeConversation),
   }
 }

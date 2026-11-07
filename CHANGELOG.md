@@ -8,6 +8,18 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
+
+- In the web interface, **Context size** starts with the startup and on-demand word counts, then one line on the startup budget with **Change budget**, then three **Next** steps. The ranked sources are always shown and replace **Start here**; duplicated passages show only when there are any; the load explanation and the model line moved into **How this is counted**; coding tools show by name (#3121).
+
+- In the web interface, a snapshot or the mock fixture says once under each page title that it is read-only, instead of a sentence on every finding and path, and a snapshot that does not load shows **Could not load the snapshot** with the raw error under **Details** and **Retry**.
+
+- In the web interface, labels use plain words: Settings asks "How are your tools set up?", its kinds are **Preferences** and **Config files** as their tabs say, on Tools the configured servers tab reads **MCP servers** and the native servers heading reads **Found in tools**, each matching its tab or heading, and Lifecycle stage descriptions say "A hook here can block the prompt" instead of naming exit codes. `view --json` carries the new labels and descriptions; ids and keys are unchanged.
+
+- The web interface links to the agnostic-ai repository at the foot of the sidebar, and to the project's own GitHub repository in the top bar when the project's `origin` remote is on GitHub; `/api/views/overview` adds `repository` with `url` and `name` (#3111).
+
+- In the web interface, **Context size** no longer scrolls sideways on a phone while its report loads.
+
 - In the web interface, each **Reach the best setup** row on **Setup health** is shorter: what is missing, the first three tools that support it, and **Copy prompt**.
 
 - In the web interface, Lifecycle numbers its stages in monospace beside square markers on a ruled line, filled for stages with hooks, and the Lifecycle, Settings and change preview disclosures draw their own chevron (#3026).

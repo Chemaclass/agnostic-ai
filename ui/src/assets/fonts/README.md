@@ -67,7 +67,7 @@ Run it from the repository root in `sh` or `bash`; zsh does not split `$py` and 
 
 ## Fallback faces
 
-`src/styles.css` declares a fallback face for each font on the local Arial, scaled so text keeps its width while the real font loads. The numbers compare the average advance of `The quick brown fox jumps over the lazy dog 0123456789` with Arial (Arial Bold for 600 and 700); ascent and descent come from the font's typographic metrics divided by the size adjustment.
+`src/styles/tokens.css` declares a fallback face for each font on the local Arial, scaled so text keeps its width while the real font loads. The numbers compare the average advance of `The quick brown fox jumps over the lazy dog 0123456789` with Arial (Arial Bold for 600 and 700); ascent and descent come from the font's typographic metrics divided by the size adjustment.
 
 | Fallback | Local font | size-adjust | ascent-override | descent-override |
 | --- | --- | --- | --- | --- |

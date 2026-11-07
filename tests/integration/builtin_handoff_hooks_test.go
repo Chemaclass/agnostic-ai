@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -34,26 +36,18 @@ type handoffNativeGroup struct {
 }
 
 func TestBuiltinHandoffHooks(t *testing.T) {
+	t.Parallel()
 	packageDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	repoRoot := filepath.Clean(filepath.Join(packageDir, "..", ".."))
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-ldflags", "-X main.version=0.80.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=0.80.0", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repoRoot
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := builtCandidateBinary(t, "0.80.0")
 	fixture := handoffRead(t, filepath.Join(packageDir, "fixtures", "builtin-handoff-hook", "agnostic-ai.yaml"))
 	run := func(t *testing.T, dir string, args ...string) string {
 		t.Helper()
 		cmd := exec.Command(binary, args...)
 		cmd.Dir = dir
+		cmd.Env = handoffEnviron(t)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, out)
@@ -62,7 +56,7 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 	}
 	project := func(t *testing.T) string {
 		t.Helper()
-		t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+		handoffSetenv(t, "AGNOSTIC_AI_HOME", t.TempDir())
 		dir := filepath.Join(t.TempDir(), "checkout with ' apostrophe 雪")
 		handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), fixture)
 		return dir
@@ -74,6 +68,7 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 	}
 
 	t.Run("claude-command-source-and-native-input", func(t *testing.T) {
+		t.Parallel()
 		payload := `{"cwd":"C:\\checkout\\雪"}`
 		handler := handoffNativeHandler{Command: `IFS= read -r payload
 printf '%s\n' "$payload"
@@ -85,6 +80,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("shared-auto-snapshots-survive-worktrees", func(t *testing.T) {
+		t.Parallel()
 		main := project(t)
 		handoffInitGit(t, main)
 		handoffGit(t, main, "branch", "-M", "auto-main")
@@ -129,6 +125,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("automatic-snapshots-preserve-repository-boundaries", func(t *testing.T) {
+		t.Parallel()
 		const protected = "# Automatic handoff\ntool: codex | branch: feat/probe | head: abc1234\nworktree: protected | detached: false\n\nPROTECTED_SENTINEL\n"
 		cases := []struct {
 			name        string
@@ -203,6 +200,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("detached-snapshots-have-distinct-task-identities", func(t *testing.T) {
+		t.Parallel()
 		main := project(t)
 		handoffInitGit(t, main)
 		handoffGit(t, main, "branch", "-M", "detached-main")
@@ -227,6 +225,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("named-detached-path-marker-remains-path-text", func(t *testing.T) {
+		t.Parallel()
 		if runtime.GOOS == "windows" {
 			t.Skip("Windows paths cannot contain the colon in the literal marker")
 		}
@@ -249,6 +248,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("named-detached-branch-keeps-its-auto-file", func(t *testing.T) {
+		t.Parallel()
 		dir := project(t)
 		handoffInitGit(t, dir)
 		handoffGit(t, dir, "branch", "-M", "detached")
@@ -261,7 +261,8 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("shared-auto-unignored-store-falls-back", func(t *testing.T) {
-		t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+		t.Parallel()
+		handoffSetenv(t, "GIT_CONFIG_GLOBAL", os.DevNull)
 		main := project(t)
 		handoffInitGit(t, main)
 		handlers := syncHooks(t, main)
@@ -282,6 +283,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("task-handoff-count-wording", func(t *testing.T) {
+		t.Parallel()
 		main := project(t)
 		handoffInitGit(t, main)
 		handoffGit(t, main, "branch", "-M", "count-main")
@@ -309,6 +311,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("task-handoffs-across-worktrees", func(t *testing.T) {
+		t.Parallel()
 		main := project(t)
 		handoffInitGit(t, main)
 		handoffGit(t, main, "branch", "-M", "task-main")
@@ -374,6 +377,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 	}
 	t.Run("task-handoff-external-shared-store-rejected", func(t *testing.T) {
+		t.Parallel()
 		assertSharedStoreFallback(t, func(main, store string) {
 			external := t.TempDir()
 			handoffGit(t, external, "init")
@@ -388,6 +392,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		})
 	})
 	t.Run("task-handoff-shared-store-nested-git-preserves-tracked-guard", func(t *testing.T) {
+		t.Parallel()
 		assertSharedStoreFallback(t, func(main, store string) {
 			handoffWrite(t, filepath.Join(store, "feat-private.md"), "# Handoff\ntool: codex | branch: feat/private | head: abc1234\n")
 			handoffGit(t, main, "add", "-f", "--", ".agnostic-ai/local/handoffs/feat-private.md")
@@ -397,6 +402,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("task-handoff-unreadable-shared-store-falls-back", func(t *testing.T) {
+		t.Parallel()
 		main := project(t)
 		handoffInitGit(t, main)
 		handlers := syncHooks(t, main)
@@ -423,6 +429,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("task-handoff-local-fallback", func(t *testing.T) {
+		t.Parallel()
 		main := project(t)
 		handoffInitGit(t, main)
 		handlers := syncHooks(t, main)
@@ -440,6 +447,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("task-handoff-slug-collision-and-bare-fallback", func(t *testing.T) {
+		t.Parallel()
 		source := project(t)
 		handlers := syncHooks(t, source)
 		main := project(t)
@@ -470,6 +478,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("claude-native-worktree-directory", func(t *testing.T) {
+		t.Parallel()
 		for _, layout := range []string{"external-with-config", "nested-without-config"} {
 			t.Run(layout, func(t *testing.T) {
 				main := project(t)
@@ -506,7 +515,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 				if err := os.MkdirAll(cwd, 0o755); err != nil {
 					t.Fatal(err)
 				}
-				t.Setenv("CLAUDE_PROJECT_DIR", main)
+				handoffSetenv(t, "CLAUDE_PROJECT_DIR", main)
 				payload := func(event string) string {
 					data, err := json.Marshal(map[string]string{"cwd": cwd, "hook_event_name": event, "session_id": "PAYLOAD_PRIVATE_SENTINEL"})
 					if err != nil {
@@ -550,6 +559,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("claude-native-input-validation", func(t *testing.T) {
+		t.Parallel()
 		main := project(t)
 		handoffInitGit(t, main)
 		handlers := syncHooks(t, main)["claude"]
@@ -660,6 +670,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("emission-and-golden", func(t *testing.T) {
+		t.Parallel()
 		dir := project(t)
 		handlers := syncHooks(t, dir)
 		output := map[string]string{}
@@ -727,6 +738,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			name = "direct-native-input-claude"
 		}
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			transports := []string{"command"}
 			if target == "codex" && runtime.GOOS != "windows" {
 				transports = append(transports, "commandWindows")
@@ -797,6 +809,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		})
 
 		t.Run("snapshot-and-notice-"+target, func(t *testing.T) {
+			t.Parallel()
 			dir := project(t)
 			handlers := syncHooks(t, dir)[target]
 			subjects := handoffInitGit(t, dir)
@@ -904,6 +917,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	}
 
 	t.Run("root-choice-and-detached", func(t *testing.T) {
+		t.Parallel()
 		dir := project(t)
 		handlers := syncHooks(t, dir)["claude"]
 		handoffInitGit(t, dir)
@@ -934,6 +948,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("unavailable-git-preserves-snapshots", func(t *testing.T) {
+		t.Parallel()
 		source := project(t)
 		h := syncHooks(t, source)["claude"]["PreCompact"]
 		for _, mode := range []string{"non-git", "unborn", "bare"} {
@@ -955,6 +970,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("startup-outside-config-and-git-skips-notice", func(t *testing.T) {
+		t.Parallel()
 		source := project(t)
 		handlers := syncHooks(t, source)
 		dir := t.TempDir()
@@ -966,6 +982,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("metadata-and-replacement-failures-preserve-files", func(t *testing.T) {
+		t.Parallel()
 		dir := project(t)
 		handlers := syncHooks(t, dir)
 		handoffInitGit(t, dir)
@@ -1016,10 +1033,11 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("global-fallback-keeps-ignore-files", func(t *testing.T) {
+		t.Parallel()
 		home := t.TempDir()
-		t.Setenv("HOME", home)
-		t.Setenv("USERPROFILE", home)
-		t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, ".agnostic-ai"))
+		handoffSetenv(t, "HOME", home)
+		handoffSetenv(t, "USERPROFILE", home)
+		handoffSetenv(t, "AGNOSTIC_AI_HOME", filepath.Join(home, ".agnostic-ai"))
 		handoffWrite(t, filepath.Join(home, ".agnostic-ai", "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nbuiltins: [handoff-hook]\n")
 		dir := t.TempDir()
 		handoffInitGit(t, dir)
@@ -1047,12 +1065,13 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("global-source-at-home-keeps-checkout-root", func(t *testing.T) {
+		t.Parallel()
 		source := project(t)
 		handlers := syncHooks(t, source)
 		home := t.TempDir()
-		t.Setenv("HOME", home)
-		t.Setenv("USERPROFILE", home)
-		t.Setenv("AGNOSTIC_AI_HOME", home)
+		handoffSetenv(t, "HOME", home)
+		handoffSetenv(t, "USERPROFILE", home)
+		handoffSetenv(t, "AGNOSTIC_AI_HOME", home)
 		handoffWrite(t, filepath.Join(home, "agnostic-ai.yaml"), fixture)
 		handoffWrite(t, filepath.Join(home, ".gitignore"), "HOME_IGNORE_SENTINEL\n")
 		dir := filepath.Join(home, "repos", "example checkout 雪 ' apostrophe")
@@ -1078,7 +1097,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 		for _, globalRoot := range globalRoots {
 			t.Run(globalRoot.name, func(t *testing.T) {
-				t.Setenv("AGNOSTIC_AI_HOME", globalRoot.path)
+				handoffSetenv(t, "AGNOSTIC_AI_HOME", globalRoot.path)
 				for _, target := range handoffHookTargets {
 					t.Run(target, func(t *testing.T) {
 						event := "PreCompact"
@@ -1116,6 +1135,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 	})
 
 	t.Run("factory-display-setting-is-user-owned", func(t *testing.T) {
+		t.Parallel()
 		dir := project(t)
 		handoffWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "handoff-notices.yaml"), "name: handoff-notices\ntargets: [factory]\nx-factory:\n  showHookOutput: true\n")
 		syncHooks(t, dir)
@@ -1130,6 +1150,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 
 	for _, target := range handoffHookTargets {
 		t.Run("import-opt-out-and-override-"+target, func(t *testing.T) {
+			t.Parallel()
 			dir := project(t)
 			handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\nbuiltins: [handoff-hook]\n")
 			run(t, dir, "sync", "--gitignore=off")
@@ -1328,7 +1349,7 @@ func handoffRunInput(t *testing.T, target string, h handoffNativeHandler, dir st
 	defer cancel()
 	cmd := exec.CommandContext(ctx, shell, args...)
 	cmd.Dir = dir
-	env := os.Environ()
+	env := handoffEnviron(t)
 	env = slices.DeleteFunc(env, func(value string) bool {
 		key, _, _ := strings.Cut(value, "=")
 		if strings.EqualFold(key, "AGNOSTIC_AI_TARGET") || strings.EqualFold(key, "PATH") {
@@ -1407,6 +1428,7 @@ func handoffGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
+	cmd.Env = handoffEnviron(t)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
@@ -1489,4 +1511,55 @@ func handoffRemoveTaskSnapshot(t *testing.T, dir string) {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		t.Fatalf("remove task snapshot for legacy notice case: %v", err)
 	}
+}
+
+var handoffEnvs sync.Map
+
+// handoffSetenv sets key for the processes that t and its subtests start.
+// Unlike t.Setenv it leaves the test process alone, so subtests can run in
+// parallel.
+func handoffSetenv(t *testing.T, key, value string) {
+	t.Helper()
+	name := t.Name()
+	next := map[string]string{key: value}
+	if previous, ok := handoffEnvs.Load(name); ok {
+		next = maps.Clone(previous.(map[string]string))
+		next[key] = value
+	} else {
+		t.Cleanup(func() { handoffEnvs.Delete(name) })
+	}
+	handoffEnvs.Store(name, next)
+}
+
+// handoffEnviron returns the process environment with the values that t
+// and its parent tests set through handoffSetenv; the innermost test wins.
+func handoffEnviron(t *testing.T) []string {
+	var scopes []string
+	for name := t.Name(); ; {
+		scopes = append(scopes, name)
+		i := strings.LastIndex(name, "/")
+		if i < 0 {
+			break
+		}
+		name = name[:i]
+	}
+	overlay := map[string]string{}
+	for _, scope := range slices.Backward(scopes) {
+		if values, ok := handoffEnvs.Load(scope); ok {
+			maps.Copy(overlay, values.(map[string]string))
+		}
+	}
+	env := slices.DeleteFunc(os.Environ(), func(entry string) bool {
+		key, _, _ := strings.Cut(entry, "=")
+		for name := range overlay {
+			if strings.EqualFold(key, name) {
+				return true
+			}
+		}
+		return false
+	})
+	for key, value := range overlay {
+		env = append(env, key+"="+value)
+	}
+	return env
 }

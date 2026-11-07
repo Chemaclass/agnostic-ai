@@ -7,28 +7,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestProjectSkillPriority_ReportsNativeLimitWithoutChangingHome(t *testing.T) {
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	binary := filepath.Join(t.TempDir(), "agnostic-ai")
-	if runtime.GOOS == "windows" {
-		binary += ".exe"
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	build := exec.CommandContext(ctx, "go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v: %s", err, out)
-	}
+	binary := builtBinary(t)
 	home, project := t.TempDir(), t.TempDir()
 	source := filepath.Join(home, "source")
 	for key, value := range map[string]string{

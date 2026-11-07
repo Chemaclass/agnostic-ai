@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "copilot" {
-		t.Errorf("Name() = %q, want %q", got, "copilot")
-	}
-}
-
 // Rule with globs frontmatter must emit a separate per-file
 // instructions file with applyTo derived from the globs.
 func TestEmit_RuleWithGlobs_WritesScopedInstruction(t *testing.T) {

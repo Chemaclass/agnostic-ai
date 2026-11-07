@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "kiro" {
-		t.Errorf("expected kiro, got %s", got)
-	}
-}
-
 func TestEmit_RuleUnscoped_InclusionAlways(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

@@ -10,7 +10,7 @@ import (
 )
 
 func TestDoctor_SharedSettingsAfterTargetRemoval(t *testing.T) {
-	bin := handoffBuildCLI(t)
+	bin := builtBinary(t)
 	dir := t.TempDir()
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	write := func(path, content string) {

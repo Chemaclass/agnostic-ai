@@ -66,7 +66,7 @@ tar xzf zola-v0.23.6-aarch64-apple-darwin.tar.gz
 PATH="$PWD:$PATH" make site-serve   # http://127.0.0.1:1111
 ```
 
-**A mismatched Zola does not fail `go test ./...`; it skips the three site build tests.** Run `make site-test` with the pinned binary before trusting a change under `docs/site/`.
+**A mismatched Zola does not fail `go test ./...` locally; it skips the seven site build tests.** Run `make site-test` with the pinned binary before trusting a change under `docs/site/`. Pull request CI installs the pinned Zola in the `integration i-z` shard and sets `AGNOSTIC_AI_REQUIRE_ZOLA=1`, which turns those skips into failures.
 
 `make site-serve` and `make site-build` generate current target counts from `adapters.Names()` and `config.DefaultTargets()`. The generated `docs/site/data/targets.toml` supplies the landing page counts; `docs/site/static/llms.txt` comes from `docs/site/llms.txt.tmpl`. After changing registered targets, defaults, or the text template, run `make site-generate` and commit the generated files. `make site-check` and `make site-test` reject missing or stale output without rewriting it.
 
@@ -74,7 +74,7 @@ The social preview image is rendered from `docs/site/og/card.html`. After editin
 
 A long reference page can be split into a topic index (a hub): a folder with an `_index.md` (`template = "docs/hub.html"`, `hub = true`) and one page per topic, such as `cli-reference/` and `spec-format/`. Link to a topic page as `@/docs/<hub>/<page>.md#anchor`. The hub redirects old `#anchor` links from before the split to the topic page that now holds them. Add new hubs to the sitemap and `llms-full.txt` lists in `scripts/`.
 
-Never edit `docs/site/templates/` just to satisfy a newer Zola. Moving versions is its own change: bump `ZOLA_VERSION` in the Makefile and `.github/workflows/playground.yml` with the template edits, and compare `_site/` built on both versions.
+Never edit `docs/site/templates/` just to satisfy a newer Zola. Moving versions is its own change: bump `ZOLA_VERSION` in the Makefile, `.github/workflows/playground.yml` and `.github/workflows/ci.yml` with the template edits, and compare `_site/` built on both versions.
 
 ## Conventions
 

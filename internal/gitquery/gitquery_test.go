@@ -164,3 +164,19 @@ func TestTrackedAndIgnored_HandlePathsStartingWithDash(t *testing.T) {
 		t.Error("ignored path starting with dash was not matched")
 	}
 }
+
+func TestOriginURL_ReadsTheOriginRemoteOrNothing(t *testing.T) {
+	if got := OriginURL(t.TempDir()); got != "" {
+		t.Errorf("outside a repository OriginURL = %q, want empty", got)
+	}
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	if got := OriginURL(dir); got != "" {
+		t.Errorf("without an origin OriginURL = %q, want empty", got)
+	}
+	git(t, dir, "remote", "add", "origin", "git@github.com:octo/hello.git")
+	must(t, os.MkdirAll(filepath.Join(dir, "sub"), 0o755))
+	if got := OriginURL(filepath.Join(dir, "sub")); got != "git@github.com:octo/hello.git" {
+		t.Errorf("OriginURL = %q, want the origin remote", got)
+	}
+}

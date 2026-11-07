@@ -1,6 +1,6 @@
 import type { ContextContribution, ContextLoad, ContextReport, ContextSize } from '../contract'
 import { isBuiltin, sharePercent } from './context-breakdown'
-import { startupVerdict } from './context-verdict'
+import { startupBudgetLine } from './context-verdict'
 import { LOAD_CONDITIONS, LOAD_LABELS, sizeText } from './context-prompt'
 
 export interface ContextAdvice {
@@ -312,7 +312,7 @@ export function contextStartupPrompt(report: ContextReport, root?: string, budge
     `Review everything ${report.target} loads at the start of every session, as ranked by agnostic-ai explain --context:`,
     '',
     `Target: ${report.target}`,
-    startupVerdict(report.startup, budget).text,
+    startupBudgetLine(report.startup, budget),
     `Startup size: ${sizeText(report.startup)}`,
   ]
   if (root) lines.push(`Configuration root: ${root}`)
@@ -346,7 +346,7 @@ export function contextAllAdvicePrompt(report: AdviceReport & Pick<ContextReport
     `Review the advice for every source of instruction text that agnostic-ai explain --context ranked for ${report.target}, startup first and largest first within each load, and propose one change set:`,
     '',
     `Target: ${report.target}`,
-    startupVerdict(report.startup, budget).text,
+    startupBudgetLine(report.startup, budget),
     `Startup size: ${sizeText(report.startup)}`,
   ]
   if (file) lines.push(`File: ${file}`)

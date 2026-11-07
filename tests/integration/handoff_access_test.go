@@ -12,11 +12,13 @@ import (
 )
 
 func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"codex", "qoder", "claude", "factory"} {
 		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config", "adopted missing symlink config", "adopted directory symlink config", "tracked MCP without handoff", "committed MCP without handoff", "handoff off"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
-				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+				t.Parallel()
+				home := t.TempDir()
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 				physicalMain, err := filepath.EvalSymlinks(main)
 				if err != nil {
@@ -47,7 +49,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
 					spec := filepath.Join(linked, ".agnostic-ai/mcps/service.yaml")
 					handoffWrite(t, spec, "name: service\ncommand: original-server\n")
-					first := exec.Command(binary, "sync")
+					first := handoffCommand(home, binary, "sync")
 					first.Dir = linked
 					if output, err := first.CombinedOutput(); err != nil {
 						t.Fatalf("create tracked MCP config: %v\n%s", err, output)
@@ -58,7 +60,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					}
 					handoffGit(t, linked, "add", "-f", file)
 					handoffWrite(t, spec, "name: service\ncommand: updated-server\n")
-					second := exec.Command(binary, "sync")
+					second := handoffCommand(home, binary, "sync")
 					second.Dir = linked
 					if output, err := second.CombinedOutput(); err != nil {
 						t.Fatalf("update tracked MCP config: %v\n%s", err, output)
@@ -74,7 +76,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						if unavailable {
 							handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n.factory/\n")
 						}
-						cmd := exec.Command(binary, "sync")
+						cmd := handoffCommand(home, binary, "sync")
 						cmd.Dir = linked
 						if output, err := cmd.CombinedOutput(); err != nil {
 							t.Fatalf("sync with unavailable=%v: %v\n%s", unavailable, err, output)
@@ -91,7 +93,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					return
 				}
 				if strings.HasPrefix(mode, "adopted ") {
-					first := exec.Command(binary, "sync")
+					first := handoffCommand(home, binary, "sync")
 					first.Dir = linked
 					if output, err := first.CombinedOutput(); err != nil {
 						t.Fatalf("create owned handoff access: %v\n%s", err, output)
@@ -150,7 +152,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						if strings.HasPrefix(transition, "check") {
 							args = append(args, "--check")
 						}
-						cmd := exec.Command(binary, args...)
+						cmd := handoffCommand(home, binary, args...)
 						cmd.Dir = linked
 						output, err := cmd.CombinedOutput()
 						if !strings.HasPrefix(transition, "check") && err != nil {
@@ -190,7 +192,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						if step == "check" {
 							args = append(args, "--check")
 						}
-						cmd := exec.Command(binary, args...)
+						cmd := handoffCommand(home, binary, args...)
 						cmd.Dir = linked
 						if output, err := cmd.CombinedOutput(); err != nil {
 							t.Fatalf("%s: %v\n%s", step, err, output)
@@ -222,7 +224,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 				if mode == "preview" {
 					args = append(args, "--dry-run")
 				}
-				cmd := exec.Command(binary, args...)
+				cmd := handoffCommand(home, binary, args...)
 				cmd.Dir = linked
 				output, err := cmd.CombinedOutput()
 				if err != nil {
@@ -237,7 +239,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					if readErr != nil || !strings.Contains(string(content), root) {
 						t.Errorf("native settings do not grant shared handoff store %s: %v\n%s", root, readErr, content)
 					}
-					check := exec.Command(binary, "sync", "--check")
+					check := handoffCommand(home, binary, "sync", "--check")
 					check.Dir = linked
 					if output, err := check.CombinedOutput(); err != nil {
 						t.Fatalf("second sync differs: %v\n%s", err, output)
@@ -271,7 +273,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						}
 						handoffWrite(t, filepath.Join(linked, file), string(changed))
 						handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "builtins: [handoff]", "builtins: []", 1))
-						remove := exec.Command(binary, "sync")
+						remove := handoffCommand(home, binary, "sync")
 						remove.Dir = linked
 						if output, err := remove.CombinedOutput(); err != nil {
 							t.Fatalf("drop handoff access: %v\n%s", err, output)
@@ -301,8 +303,9 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 }
 
 func TestHandoffAccess_QoderHandoffOffWithoutMemoryRemovesSettings(t *testing.T) {
-	binary := handoffBuildCLI(t)
-	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	t.Parallel()
+	binary := builtBinary(t)
+	home := t.TempDir()
 	main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 	physicalMain, err := filepath.EvalSymlinks(main)
 	if err != nil {
@@ -317,7 +320,7 @@ func TestHandoffAccess_QoderHandoffOffWithoutMemoryRemovesSettings(t *testing.T)
 	path := filepath.Join(linked, ".qoder/settings.json")
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(binary, args...)
+		cmd := handoffCommand(home, binary, args...)
 		cmd.Dir = linked
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, output)
@@ -336,11 +339,13 @@ func TestHandoffAccess_QoderHandoffOffWithoutMemoryRemovesSettings(t *testing.T)
 }
 
 func TestHandoffAccess_OpenCodeAndDevinKeepMemoryAndUserPermissions(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, builtin := range []string{"handoff", "handoff-hook"} {
 			t.Run(target+"/"+builtin, func(t *testing.T) {
-				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+				t.Parallel()
+				home := t.TempDir()
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 				handoffInitGit(t, main)
 				handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -359,7 +364,7 @@ func TestHandoffAccess_OpenCodeAndDevinKeepMemoryAndUserPermissions(t *testing.T
 					if check {
 						args = append(args, "--check")
 					}
-					cmd := exec.Command(binary, args...)
+					cmd := handoffCommand(home, binary, args...)
 					cmd.Dir = linked
 					if output, err := cmd.CombinedOutput(); err != nil {
 						t.Fatalf("%v: %v\n%s", args, err, output)
@@ -436,15 +441,17 @@ func TestHandoffAccess_OpenCodeAndDevinKeepMemoryAndUserPermissions(t *testing.T
 }
 
 func TestHandoffAccess_OpenCodeAndDevinProtectNativeConfig(t *testing.T) {
+	t.Parallel()
 	repository, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, mode := range []string{"shared", "handwritten", "tracked", "unmanaged", "unignored", "dry run", "adopted tracked"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
-				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+				t.Parallel()
+				home := t.TempDir()
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 				handoffInitGit(t, main)
 				if mode == "unignored" {
@@ -473,7 +480,7 @@ func TestHandoffAccess_OpenCodeAndDevinProtectNativeConfig(t *testing.T) {
 				}
 				run := func(args ...string) {
 					t.Helper()
-					cmd := exec.Command(binary, args...)
+					cmd := handoffCommand(home, binary, args...)
 					cmd.Dir = linked
 					if output, err := cmd.CombinedOutput(); err != nil {
 						t.Fatalf("%v: %v\n%s", args, err, output)
@@ -523,10 +530,12 @@ func TestHandoffAccess_OpenCodeAndDevinProtectNativeConfig(t *testing.T) {
 }
 
 func TestHandoffAccess_OpenCodePreservesEditedGrant(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, action := range []string{"deny", "ask"} {
 		t.Run(action, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 			handoffInitGit(t, main)
 			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -539,7 +548,7 @@ func TestHandoffAccess_OpenCodePreservesEditedGrant(t *testing.T) {
 			handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
 			run := func(args ...string) {
 				t.Helper()
-				cmd := exec.Command(binary, args...)
+				cmd := handoffCommand(home, binary, args...)
 				cmd.Dir = linked
 				if output, err := cmd.CombinedOutput(); err != nil {
 					t.Fatalf("%v: %v\n%s", args, err, output)
@@ -595,10 +604,12 @@ func TestHandoffAccess_OpenCodePreservesEditedGrant(t *testing.T) {
 }
 
 func TestHandoffAccess_OpenCodePreservesSpecRestriction(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, action := range []string{"deny", "ask"} {
 		t.Run(action, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 			handoffInitGit(t, main)
 			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -621,7 +632,7 @@ func TestHandoffAccess_OpenCodePreservesSpecRestriction(t *testing.T) {
 				}
 				handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), next)
 				for _, args := range [][]string{{"sync"}, {"sync", "--check"}} {
-					cmd := exec.Command(binary, args...)
+					cmd := handoffCommand(home, binary, args...)
 					cmd.Dir = linked
 					if output, err := cmd.CombinedOutput(); err != nil {
 						t.Fatalf("%v: %v\n%s", args, err, output)
@@ -655,13 +666,15 @@ func TestHandoffAccess_OpenCodePreservesSpecRestriction(t *testing.T) {
 }
 
 func TestHandoffAccess_RefusesWildcardMainCheckoutGrant(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows filenames cannot contain literal wildcard characters")
 	}
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main, linked := filepath.Join(t.TempDir(), "main*"), filepath.Join(t.TempDir(), "linked")
 			if err := os.Mkdir(main, 0o700); err != nil {
 				t.Fatal(err)
@@ -669,7 +682,7 @@ func TestHandoffAccess_RefusesWildcardMainCheckoutGrant(t *testing.T) {
 			handoffInitGit(t, main)
 			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
 			handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), "version: 1\nbuiltins: [handoff]\ntargets: ["+target+"]\ngitignore:\n  enabled: true\n")
-			cmd := exec.Command(binary, "sync")
+			cmd := handoffCommand(home, binary, "sync")
 			cmd.Dir = linked
 			output, err := cmd.CombinedOutput()
 			if err != nil {
@@ -693,32 +706,15 @@ func TestHandoffAccess_RefusesWildcardMainCheckoutGrant(t *testing.T) {
 	}
 }
 
-func handoffBuildCLI(t *testing.T) string {
-	t.Helper()
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, output)
-	}
-	return binary
-}
-
 func TestHandoffAccess_OpenCodeAndDevinStillMergeSpecsIntoProtectedConfig(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, place := range []string{"main checkout", "linked worktree"} {
 			for _, mode := range []string{"handwritten", "tracked"} {
 				t.Run(target+"/"+place+"/"+mode, func(t *testing.T) {
-					t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+					t.Parallel()
+					home := t.TempDir()
 					main := t.TempDir()
 					handoffInitGit(t, main)
 					dir := main
@@ -735,7 +731,7 @@ func TestHandoffAccess_OpenCodeAndDevinStillMergeSpecsIntoProtectedConfig(t *tes
 					if mode == "tracked" {
 						handoffGit(t, dir, "add", "-f", file)
 					}
-					cmd := exec.Command(binary, "sync")
+					cmd := handoffCommand(home, binary, "sync")
 					cmd.Dir = dir
 					if output, err := cmd.CombinedOutput(); err != nil {
 						t.Fatalf("sync: %v\n%s", err, output)
@@ -760,15 +756,16 @@ func TestHandoffAccess_OpenCodeAndDevinStillMergeSpecsIntoProtectedConfig(t *tes
 }
 
 func TestHandoffAccess_OpenCodeKeepsLaterUserRuleAfterMemoryGrant(t *testing.T) {
-	binary := handoffBuildCLI(t)
-	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	t.Parallel()
+	binary := builtBinary(t)
+	home := t.TempDir()
 	dir := t.TempDir()
 	handoffInitGit(t, dir)
 	handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nbuiltins: [memory]\ntargets: [opencode]\ngitignore:\n  enabled: true\n")
 	handoffWrite(t, filepath.Join(dir, "agnostic-ai.local.yaml"), "memory:\n  personal: repo\n")
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(binary, args...)
+		cmd := handoffCommand(home, binary, args...)
 		cmd.Dir = dir
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, output)
@@ -812,20 +809,22 @@ func TestHandoffAccess_OpenCodeKeepsLaterUserRuleAfterMemoryGrant(t *testing.T) 
 }
 
 func TestHandoffAccess_UnwritableConfigNoteNamesNativeEntry(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for target, want := range map[string]string{
 		"opencode": `/.agnostic-ai/local/handoffs/**": "allow" to permission.external_directory`,
 		"windsurf": `Write(`,
 	} {
 		t.Run(target, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 			handoffInitGit(t, main)
 			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
 			file := map[string]string{"opencode": "opencode.json", "windsurf": ".devin/config.json"}[target]
 			handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), "version: 1\nbuiltins: [handoff]\ntargets: ["+target+"]\ngitignore:\n  enabled: true\n")
 			handoffWrite(t, filepath.Join(linked, file), "{\"user_option\":true}\n")
-			cmd := exec.Command(binary, "sync")
+			cmd := handoffCommand(home, binary, "sync")
 			cmd.Dir = linked
 			output, err := cmd.CombinedOutput()
 			if err != nil {
@@ -839,8 +838,9 @@ func TestHandoffAccess_UnwritableConfigNoteNamesNativeEntry(t *testing.T) {
 }
 
 func TestHandoffAccess_RefusesParenthesisInDevinCheckoutPath(t *testing.T) {
-	binary := handoffBuildCLI(t)
-	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	t.Parallel()
+	binary := builtBinary(t)
+	home := t.TempDir()
 	main, linked := filepath.Join(t.TempDir(), "main(1)"), filepath.Join(t.TempDir(), "linked")
 	if err := os.Mkdir(main, 0o700); err != nil {
 		t.Fatal(err)
@@ -848,7 +848,7 @@ func TestHandoffAccess_RefusesParenthesisInDevinCheckoutPath(t *testing.T) {
 	handoffInitGit(t, main)
 	handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
 	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), "version: 1\nbuiltins: [handoff]\ntargets: [windsurf]\ngitignore:\n  enabled: true\n")
-	cmd := exec.Command(binary, "sync")
+	cmd := handoffCommand(home, binary, "sync")
 	cmd.Dir = linked
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -878,10 +878,12 @@ func handoffLinkedSpecs(t *testing.T, dir, target, url, deny string) string {
 }
 
 func TestHandoffAccess_HandwrittenConfigConvergesInLinkedWorktree(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 			handoffInitGit(t, main)
 			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -890,7 +892,7 @@ func TestHandoffAccess_HandwrittenConfigConvergesInLinkedWorktree(t *testing.T) 
 			handoffWrite(t, filepath.Join(linked, file), "{\"user_option\":true}\n")
 			run := func(args ...string) {
 				t.Helper()
-				cmd := exec.Command(binary, args...)
+				cmd := handoffCommand(home, binary, args...)
 				cmd.Dir = linked
 				if output, err := cmd.CombinedOutput(); err != nil {
 					t.Fatalf("%v: %v\n%s", args, err, output)
@@ -908,10 +910,12 @@ func TestHandoffAccess_HandwrittenConfigConvergesInLinkedWorktree(t *testing.T) 
 }
 
 func TestHandoffAccess_CommittedGrantStillTakesSpecChanges(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 			handoffInitGit(t, main)
 			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -920,7 +924,7 @@ func TestHandoffAccess_CommittedGrantStillTakesSpecChanges(t *testing.T) {
 			file := handoffLinkedSpecs(t, linked, target, "https://example.com/one/", "Read(.env)")
 			run := func(args ...string) {
 				t.Helper()
-				cmd := exec.Command(binary, args...)
+				cmd := handoffCommand(home, binary, args...)
 				cmd.Dir = linked
 				if output, err := cmd.CombinedOutput(); err != nil {
 					t.Fatalf("%v: %v\n%s", args, err, output)
@@ -988,11 +992,13 @@ func handoffUserGrant(t *testing.T, path, target, store string) {
 }
 
 func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, mode := range []string{"handwritten", "committed"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
-				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+				t.Parallel()
+				home := t.TempDir()
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 				handoffInitGit(t, main)
 				handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -1007,7 +1013,7 @@ func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
 				path := filepath.Join(linked, file)
 				run := func(args ...string) string {
 					t.Helper()
-					cmd := exec.Command(binary, args...)
+					cmd := handoffCommand(home, binary, args...)
 					cmd.Dir = linked
 					output, err := cmd.CombinedOutput()
 					if err != nil {
@@ -1043,7 +1049,8 @@ func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
 }
 
 func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, spec := range []bool{false, true} {
 			name := target + "/no permissions spec"
@@ -1051,7 +1058,8 @@ func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) 
 				name = target + "/permissions spec"
 			}
 			t.Run(name, func(t *testing.T) {
-				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+				t.Parallel()
+				home := t.TempDir()
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 				handoffInitGit(t, main)
 				handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -1069,7 +1077,7 @@ func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) 
 				path := filepath.Join(linked, file)
 				run := func(args ...string) string {
 					t.Helper()
-					cmd := exec.Command(binary, args...)
+					cmd := handoffCommand(home, binary, args...)
 					cmd.Dir = linked
 					output, _ := cmd.CombinedOutput()
 					return string(output)
@@ -1107,12 +1115,14 @@ func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) 
 }
 
 func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, spec := range []bool{false, true} {
 			for _, state := range []string{"handoff on", "handoff off", "main checkout"} {
 				t.Run(target+"/spec="+strconv.FormatBool(spec)+"/"+state, func(t *testing.T) {
-					t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+					t.Parallel()
+					home := t.TempDir()
 					main := t.TempDir()
 					handoffInitGit(t, main)
 					dir := main
@@ -1137,7 +1147,7 @@ func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
 					path := filepath.Join(dir, file)
 					run := func(args ...string) {
 						t.Helper()
-						cmd := exec.Command(binary, args...)
+						cmd := handoffCommand(home, binary, args...)
 						cmd.Dir = dir
 						if output, err := cmd.CombinedOutput(); err != nil && args[len(args)-1] != "--check" {
 							t.Fatalf("%v: %v\n%s", args, err, output)
@@ -1193,10 +1203,12 @@ func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
 }
 
 func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 			handoffInitGit(t, main)
 			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -1205,7 +1217,7 @@ func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testi
 			file := handoffLinkedSpecs(t, linked, target, "https://example.com/mcp/", "Read(.env)")
 			run := func(args ...string) {
 				t.Helper()
-				cmd := exec.Command(binary, args...)
+				cmd := handoffCommand(home, binary, args...)
 				cmd.Dir = linked
 				if output, err := cmd.CombinedOutput(); err != nil {
 					t.Fatalf("%v: %v\n%s", args, err, output)
@@ -1241,10 +1253,12 @@ func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testi
 }
 
 func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 			handoffInitGit(t, main)
 			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
@@ -1252,7 +1266,7 @@ func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
 			handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), "version: 1\nbuiltins: [handoff]\ntargets: ["+target+"]\ngitignore:\n  enabled: true\n")
 			handoffWrite(t, filepath.Join(linked, file), "{\"user_option\":true}\n")
 			handoffGit(t, linked, "add", "-f", file)
-			cmd := exec.Command(binary, "sync")
+			cmd := handoffCommand(home, binary, "sync")
 			cmd.Dir = linked
 			output, err := cmd.CombinedOutput()
 			if err != nil {
@@ -1266,10 +1280,12 @@ func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
 }
 
 func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	t.Parallel()
+	binary := builtBinary(t)
 	for _, place := range []string{"main checkout", "linked worktree"} {
 		t.Run(place, func(t *testing.T) {
-			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			t.Parallel()
+			home := t.TempDir()
 			main := t.TempDir()
 			handoffInitGit(t, main)
 			dir := main
@@ -1289,7 +1305,7 @@ func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
 			handoffWrite(t, path, "{\"permissions\":{\"deny\":[\"Exec(curl)\",\"Write("+store+")\"]}}\n")
 			run := func(args ...string) {
 				t.Helper()
-				cmd := exec.Command(binary, args...)
+				cmd := handoffCommand(home, binary, args...)
 				cmd.Dir = dir
 				if output, err := cmd.CombinedOutput(); err != nil {
 					t.Fatalf("%v: %v\n%s", args, err, output)
@@ -1334,8 +1350,9 @@ func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
 }
 
 func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
-	binary := handoffBuildCLI(t)
-	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	t.Parallel()
+	binary := builtBinary(t)
+	home := t.TempDir()
 	main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 	physicalMain, err := filepath.EvalSymlinks(main)
 	if err != nil {
@@ -1349,7 +1366,7 @@ func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
 	path := filepath.Join(linked, ".factory/settings.local.json")
 	run := func(args ...string) string {
 		t.Helper()
-		cmd := exec.Command(binary, args...)
+		cmd := handoffCommand(home, binary, args...)
 		cmd.Dir = linked
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -1419,4 +1436,12 @@ func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
 		t.Errorf("a file that held only the grant stays: %v", err)
 	}
 	run("sync", "--check")
+}
+
+// handoffCommand runs the CLI with its own store, so tests need not set the
+// process environment and can run in parallel.
+func handoffCommand(home, binary string, args ...string) *exec.Cmd {
+	cmd := exec.Command(binary, args...)
+	cmd.Env = append(os.Environ(), "AGNOSTIC_AI_HOME="+home)
+	return cmd
 }

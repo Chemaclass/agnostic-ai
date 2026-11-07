@@ -24,6 +24,7 @@ const DEFAULT_SECTION_LABELS: Record<string, string> = {
 }
 
 const SECTION_DESCRIPTIONS: Record<string, string> = {
+  conversations: 'Chats across your tools',
   context: 'Instructions, rules & skills',
   authority: 'Permissions & boundaries',
   tools: 'Servers & available tools',
@@ -32,7 +33,15 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   health: 'Findings to fix, errors first',
 }
 
+// Conversations and Setup health are not configuration sections: each
+// sits apart from the numbered sections, under or over a hairline.
+const NAV_ITEM_CLASSES: Partial<Record<ViewId, string>> = {
+  conversations: 'nav-item-conversations',
+  health: 'nav-item-health',
+}
+
 const PRODUCT_NAME = 'agnostic-ai'
+const PRODUCT_REPOSITORY = 'https://github.com/Chemaclass/agnostic-ai'
 
 // The header and the navigation stick over the scrolling document; their
 // heights wrap with the window, so the layout reads them from these variables.
@@ -125,6 +134,7 @@ export function Header({
   const headerRef = useRef<HTMLElement>(null)
   useHeightVariable(headerRef, '--topbar-offset')
   const snapshot = overview.loaded?.data.snapshot
+  const repository = overview.loaded?.data.repository
   const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
   const projectName = app.source.kind === 'api' ? apiProjectName(snapshot, served) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
 
@@ -162,6 +172,12 @@ export function Header({
           <span className="button-search-label">Search</span>
           <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
         </button>
+        {repository && (
+          <a className="button button-quiet button-icon" href={repository.url} target="_blank" rel="noopener noreferrer" title={`${repository.name} on GitHub`}>
+            <Icon name="github" />
+            <span className="sr-only">{repository.name} on GitHub (opens in a new tab)</span>
+          </a>
+        )}
         <button
           type="button"
           className="button button-quiet button-icon"
@@ -234,7 +250,7 @@ export function Nav({
 
   const item = (id: ViewId, label: string, index?: number) => {
     return (
-      <li key={id} className={id === 'health' ? 'nav-item-health' : undefined}>
+      <li key={id} className={NAV_ITEM_CLASSES[id]}>
         <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined}>
           {index !== undefined && <span className="nav-index" aria-hidden="true">{String(index).padStart(2, '0')}</span>}
           <Icon name={id} />
@@ -247,11 +263,16 @@ export function Nav({
   return (
     <aside className="sidenav" ref={asideRef}>
       <nav className="section-nav" aria-label="Configuration sections">
-        <ul className="nav-list">{ordered.map((s, index) => item(s.id, s.label, index + 1))}{item('health', 'Setup health')}</ul>
+        <ul className="nav-list">{item('conversations', 'Conversations')}{ordered.map((s, index) => item(s.id, s.label, index + 1))}{item('health', 'Setup health')}</ul>
       </nav>
       <footer className="sidenav-footer">
         {served && <ConfigSwitch served={served} />}
         {served?.version && <ReleaseBadge served={served} version={served.version} />}
+        <a className="sidenav-github" href={PRODUCT_REPOSITORY} target="_blank" rel="noopener noreferrer" title={`${PRODUCT_NAME} on GitHub`}>
+          <Icon name="github" />
+          <span className="sidenav-github-label">{PRODUCT_NAME} on GitHub</span>
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
         <button type="button" className="sidenav-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
           Overview JSON
         </button>

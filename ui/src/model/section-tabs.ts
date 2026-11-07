@@ -16,7 +16,7 @@ const contextTabs: SectionTab[] = [
   { id: 'skills', label: 'Skills', kinds: ['skill'] },
 ]
 const toolsTabs: SectionTab[] = [
-  { id: 'servers', label: 'Configured servers', kinds: ['mcp'] },
+  { id: 'servers', label: 'MCP servers', kinds: ['mcp'] },
   { id: 'native', label: 'Found in tools', kinds: [], extra: 'native' },
   { id: 'environment', label: 'Environments', kinds: ['environment'] },
 ]
