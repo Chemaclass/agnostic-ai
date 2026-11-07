@@ -1,5 +1,5 @@
-// Built-in hooks run agnostic-ai through a launcher that finds the project
-// root and its pinned binary first. The part a reader needs is the final call.
+// Built-in hooks run agnostic-ai through a launcher that finds the pinned
+// binary first. The part a reader needs is the final call.
 
 const SH_CALL = /exec "\$bin" (.+)'$/
 const POWERSHELL_CALL = /& \$bin ([^;]+); exit \$LASTEXITCODE$/

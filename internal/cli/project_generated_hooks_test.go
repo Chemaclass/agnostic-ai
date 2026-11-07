@@ -13,7 +13,7 @@ import (
 )
 
 func TestProjectGeneratedMemory_AncestorLocalAndUpgradeBoundary(t *testing.T) {
-	for _, scenario := range []string{"non-git", "nested-git", "old-local"} {
+	for _, scenario := range []string{"non-git", "nested-git", "old-local", "missing"} {
 		t.Run(scenario, func(t *testing.T) {
 			outer := t.TempDir()
 			if scenario == "nested-git" {
@@ -54,27 +54,43 @@ func TestProjectGeneratedMemory_AncestorLocalAndUpgradeBoundary(t *testing.T) {
 			if scenario == "old-local" {
 				body = oldBody
 			}
-			mustWriteFile(t, bin, body)
-			if err := os.Chmod(bin, 0o755); err != nil {
+			shell := "sh"
+			if runtime.GOOS == "windows" {
+				shell = "powershell.exe"
+			}
+			shell, err = exec.LookPath(shell)
+			if err != nil {
 				t.Fatal(err)
 			}
-			global := filepath.Join(t.TempDir(), oldName)
-			mustWriteFile(t, global, oldBody)
-			if err := os.Chmod(global, 0o755); err != nil {
-				t.Fatal(err)
+			if scenario == "missing" {
+				t.Setenv("PATH", missingAgnosticPath(t))
+			} else {
+				mustWriteFile(t, bin, body)
+				if err := os.Chmod(bin, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				global := filepath.Join(t.TempDir(), oldName)
+				mustWriteFile(t, global, oldBody)
+				if err := os.Chmod(global, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				t.Setenv("PATH", filepath.Dir(global)+string(os.PathListSeparator)+os.Getenv("PATH"))
 			}
-			t.Setenv("PATH", filepath.Dir(global)+string(os.PathListSeparator)+os.Getenv("PATH"))
 			child := filepath.Join(root, "src", "nested")
 			if err := os.MkdirAll(child, 0o755); err != nil {
 				t.Fatal(err)
 			}
-			command := exec.Command("sh", "-c", handler.Bash)
+			command := exec.Command(shell, "-c", handler.Bash)
 			if runtime.GOOS == "windows" {
-				command = exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", handler.Powershell)
+				command = exec.Command(shell, "-NoProfile", "-NonInteractive", "-Command", handler.Powershell)
 			}
 			command.Dir = child
 			out, err := command.CombinedOutput()
-			if scenario == "old-local" {
+			if scenario == "missing" {
+				if err != nil || strings.TrimSpace(string(out)) != "" {
+					t.Errorf("missing agnostic-ai must fail open quietly: %v\n%s", err, out)
+				}
+			} else if scenario == "old-local" {
 				if err == nil || !strings.Contains(string(out), "upgrade") || !strings.Contains(string(out), "project") {
 					t.Errorf("old local lacks controlled recovery: %v\n%s", err, out)
 				}
@@ -83,6 +99,25 @@ func TestProjectGeneratedMemory_AncestorLocalAndUpgradeBoundary(t *testing.T) {
 			}
 		})
 	}
+}
+
+// missingAgnosticPath keeps the shell's own tools on PATH but drops every
+// directory that holds an agnostic-ai binary.
+func missingAgnosticPath(t *testing.T) string {
+	t.Helper()
+	var kept []string
+	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+		found := false
+		for _, name := range []string{"agnostic-ai", "agnostic-ai.cmd", "agnostic-ai.exe"} {
+			if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
+				found = true
+			}
+		}
+		if !found {
+			kept = append(kept, dir)
+		}
+	}
+	return strings.Join(kept, string(os.PathListSeparator))
 }
 
 func TestProjectGeneratedGit_OldLocalReportsUpgrade(t *testing.T) {

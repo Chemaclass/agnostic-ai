@@ -20,7 +20,7 @@ describe('launcherCall', () => {
   it('reads the agnostic-ai call at the end of every shipped launcher, in sh and PowerShell', () => {
     const launchers = shippedCommands().filter((command) => command.includes('node_modules/.bin/agnostic-ai'))
     expect(launchers.some((command) => command.startsWith('sh -c'))).toBe(true)
-    expect(launchers.some((command) => command.startsWith('$root'))).toBe(true)
+    expect(launchers.some((command) => command.startsWith('$d = (Get-Location)'))).toBe(true)
     for (const command of launchers) expect(launcherCall(command)).toMatch(/^agnostic-ai project -- hook memory --target [a-z]+$/)
   })
 
