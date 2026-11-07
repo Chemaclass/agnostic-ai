@@ -200,7 +200,7 @@ test.describe('search across sections', () => {
   test('links findings and unconfigured settings, and opens results with the mouse', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('./?view=tools')
-    await expect(page.getByRole('tab', { name: /^Configured servers/ })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /^MCP servers/ })).toBeVisible()
     await page.getByRole('button', { name: 'Search', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
     await dialog.getByRole('combobox').fill('lint038')

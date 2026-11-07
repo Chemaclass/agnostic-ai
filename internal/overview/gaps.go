@@ -76,7 +76,7 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 			ID: "stage:" + st.id, Section: SectionLifecycle, Label: st.label, Supported: supported,
 			Missing: "no hook yet",
 			Fix: fmt.Sprintf("In this agnostic-ai project, %s can run a hook at the %q stage and no hook runs there. %s Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: %s`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing.",
-				strings.Join(supported, ", "), st.label, st.description, st.id),
+				strings.Join(supported, ", "), st.label, strings.TrimSpace(st.description+" "+st.contract), st.id),
 		})
 	}
 	var enabled []string

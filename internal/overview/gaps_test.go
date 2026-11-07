@@ -70,7 +70,7 @@ func TestBuild_ListsAStageWithHookSupportAndNoHook(t *testing.T) {
 	if !ok {
 		t.Fatalf("no before-tool gap in %+v", empty)
 	}
-	if stage.Section != SectionLifecycle || !slices.Equal(stage.Supported, []string{"claude"}) || !strings.Contains(stage.Fix, "on: before-tool") {
+	if stage.Section != SectionLifecycle || !slices.Equal(stage.Supported, []string{"claude"}) || !strings.Contains(stage.Fix, "on: before-tool") || !strings.Contains(stage.Fix, "Exit 2 blocks the call.") {
 		t.Errorf("before-tool gap: %+v", stage)
 	}
 
