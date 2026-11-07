@@ -64,7 +64,7 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
 
   return (
     <>
-      <PageHeader title={section.label} subtitle={section.question}>
+      <PageHeader eyebrow={<span aria-hidden="true">{String(section.order).padStart(2, '0')} / {section.label}</span>} title={section.label} subtitle={section.question}>
         <SectionWarningsLine section={section} />
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>

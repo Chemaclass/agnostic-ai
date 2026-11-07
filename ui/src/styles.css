@@ -724,12 +724,15 @@ a.release-badge:focus-visible .release-arrow {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--rule);
 }
 
 .page-header h1 {
-  font-size: 28px;
+  font-size: var(--text-2xl);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
 }
 
 /* The title takes focus only from script after a navigation, so screen
@@ -891,15 +894,14 @@ a.release-badge:focus-visible .release-arrow {
 
 .page-subtitle {
   font-size: 15px;
-  color: var(--text-muted);
+  color: var(--text-soft);
 }
 
 .eyebrow {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
 }
 
 .lede {
@@ -915,8 +917,9 @@ a.release-badge:focus-visible .release-arrow {
 
 .block > h2,
 .section-head h2 {
-  font-size: 17px;
+  font-size: var(--text-xl);
   font-weight: 700;
+  line-height: 1.15;
 }
 
 .section-head {
@@ -938,7 +941,8 @@ a.release-badge:focus-visible .release-arrow {
   flex-shrink: 0;
   min-height: 32px;
   padding: 4px;
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--text-muted);
   text-underline-offset: 3px;
@@ -997,8 +1001,9 @@ a.release-badge:focus-visible .release-arrow {
 }
 
 .support-summary h2 {
-  font-size: 17px;
-  font-weight: 650;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.15;
 }
 
 .support-summary:hover h2 {
@@ -1417,8 +1422,9 @@ a.release-badge:focus-visible .release-arrow {
 
 .kind-count {
   margin-left: 6px;
+  font-family: var(--font-mono);
   font-size: 0.8em;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .item-groups {
@@ -3140,7 +3146,13 @@ tr.is-advised > td {
   min-width: 0;
   min-height: 40px;
   padding-left: 38px;
-  background: var(--panel);
+  border-color: var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--field);
+}
+
+.section-search input:focus {
+  border-color: var(--accent);
 }
 
 .section-search input::placeholder {
@@ -3178,13 +3190,12 @@ tr.is-advised > td {
   background: transparent;
   color: var(--text-muted);
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .section-tabs [role="tab"]:hover {
-  background: var(--panel-raised);
   color: var(--text);
 }
 
@@ -3198,14 +3209,26 @@ tr.is-advised > td {
   padding: 1px 5px;
   border-radius: var(--radius-sm);
   background: var(--panel-raised);
+  font-family: var(--font-mono);
   font-size: 11px;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 
 .section-tab-findings {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--approval);
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
+}
+
+/* A border, not a background, so the mark keeps its color in forced colors. */
+.section-tab-findings::before {
+  content: '';
+  border: 3px solid currentColor;
 }
 
 .section-panel { min-width: 0; }
@@ -3216,6 +3239,7 @@ tr.is-advised > td {
   padding: 2px 7px;
   border-radius: var(--radius-sm);
   background: var(--panel-raised);
+  font-family: var(--font-mono);
   font-size: 12px;
   vertical-align: middle;
 }
@@ -3641,7 +3665,7 @@ tr.is-advised > td {
   }
 
   .page-header h1 {
-    font-size: 26px;
+    font-size: 28px;
   }
 
   .inspector {
