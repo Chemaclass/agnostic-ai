@@ -107,6 +107,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `lint` warns (LINT059) when an MCP `timeout` under 1000 reaches Crush, Pi or Junie; it most likely holds seconds.
 
+- On Windows, `sync -t <tool> --allow-empty-targets --dry-run` no longer names that tool's own files and skill links as removals, and `sync --check` with an empty targets list passes once every generated file is gone (#3142).
+
 ### By tool
 
 #### Codex
