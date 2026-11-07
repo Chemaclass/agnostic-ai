@@ -74,7 +74,7 @@ Permission proposals are preview-only (`supportedActions` lists apply as unsuppo
 | Authority | What may the agent do? | Settings specs with permission rules or protected paths |
 | Tools | What can the agent use? | MCP servers, each with `tools` from the cache `mcp tools` fills: `listed`, `stale` when the spec changed after the listing, `failed` with the reason, or `not-listed`; environments only when present |
 | Lifecycle | What runs around the agent, and when? | Hooks, each with `group` set to its stage; `stages` lists every portable event in session order, with the configured tools that run it and their event names, even when no hook runs there, then one stage per native event a hook names |
-| Settings | How is the harness configured? | Every shipped built-in with `enabled`, the config files read, and every other settings spec |
+| Settings | How are your tools set up? | Every shipped built-in with `enabled`, the config files read, and every other settings spec |
 
 Settings specs and config files carry `values`: one entry per dotted key, typed `list`, `bool`, or `text`, so a client can render chips, a switch, or text. A value whose key names a credential, or that looks like a known token format or a 32-character key run, shows as `<redacted>`; a `${VAR}` reference shows as written.
 

@@ -158,7 +158,7 @@ Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built
 - **Selects:** same as fields, with a chevron.
 - **Finding details:** the finding code (`LINT038`) is a chip inside Details, with the explanation and the exact prompt. Long messages show three lines and Show full message. Copy all fixes is an ink pill beside the Fix first heading. Recheck shows its result as a `Notice` under the card (fixed, still there, not confirmed).
 - **Change previews and diffs:** a `surface` overlay panel; file diffs in monospace on `sunken`, added lines with a `permitted` left rule, removed lines with a `blocked` left rule, each line also prefixed + or -.
-- **Saved and error states:** one `Notice` (from #3124): state rail, a plain title, the raw text under Details.
+- **Saved and error states:** one `Notice` (`Banner.tsx`): a tone (info, success, warning, error) shown as a 4px left rail in the state color on `surface`, a plain title, a body, actions and **Dismiss**. An error keeps the raw message under **Details** with **Copy details**.
 - **Add hook form, field resolution, global setup panel:** forms and disclosures as above inside a `surface` card.
 - **Tool logos:** 18px, in a fixed 24px lane, with the tool name beside them, never logos alone.
 - **Focus ring:** 2px `focus` outline with 2px offset on every focusable element (4.8:1 on canvas); on the rail it uses `rail-ink`.

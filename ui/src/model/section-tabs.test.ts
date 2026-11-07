@@ -26,7 +26,7 @@ describe('section tabs', () => {
     expect(entryTab(context, tabs, itemEntryId(item))).toBe('agents')
     expect(entryTab(context, tabs, findingEntryIds(item.findings, itemEntryId(item))[0])).toBe('agents')
     const field = { key: 'model', label: 'Model', description: '', set: [] }
-    const settings = section({ id: 'settings', kinds: [{ kind: 'settings', label: 'Other settings', count: 1 }], fields: [field] })
+    const settings = section({ id: 'settings', kinds: [{ kind: 'settings', label: 'Preferences', count: 1 }], fields: [field] })
     expect(entryTab(settings, sectionTabs(settings), fieldEntryId(field))).toBe('preferences')
     expect(entryTab(settings, sectionTabs(settings), 'unknown')).toBeUndefined()
   })

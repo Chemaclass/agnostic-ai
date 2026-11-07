@@ -30,8 +30,8 @@ test('links each source section to its documentation, including empty sections',
     ['tools', 'environment', 'Environments', 'spec-format/environments/'],
     ['lifecycle', '', 'Hooks', 'spec-format/hooks/#a-typical-session'],
     ['settings', 'builtins', 'Built-ins', 'configuration/#built-ins'],
-    ['settings', 'preferences', 'Other settings', 'spec-format/settings/'],
-    ['settings', 'configuration', 'Config', 'configuration/'],
+    ['settings', 'preferences', 'Preferences', 'spec-format/settings/'],
+    ['settings', 'configuration', 'Config files', 'configuration/'],
   ]
   for (const [view, tab, heading, path] of cases) {
     await page.goto(`/?view=${view}${tab ? `&tab=${tab}` : ''}`)

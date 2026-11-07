@@ -89,3 +89,41 @@ test('keeps warnings open and focus visible after dismissing a recheck result', 
   await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
   await expect(page.getByText('Another warning still applies.', { exact: true })).toBeVisible()
 })
+
+test('says once per page that a snapshot is read-only', async ({ page }) => {
+  for (const view of ['health', 'authority', 'context', 'settings&tab=targets']) {
+    await page.goto(`/?view=${view}&mock=1`)
+    await expect(page.locator('.page-header .page-note')).toHaveText('Read-only snapshot: open files, rechecks and switches need agnostic-ai view.')
+    await expect(page.getByText(/needs? a running agnostic-ai serve|only from a running agnostic-ai serve/)).toHaveCount(0)
+  }
+  await overview(page)
+  await page.goto('/?view=settings')
+  await expect(page.locator('.page-note')).toHaveCount(0)
+})
+
+test('explains a snapshot that does not load and retries it', async ({ page }) => {
+  let requests = 0
+  await page.route('**/nope/overview.json', (route) => {
+    requests++
+    return route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' })
+  })
+  await page.goto('/?view=settings&source=./nope')
+  const alert = page.getByRole('alert')
+  await expect(alert.locator('.banner-title')).toHaveText('Could not load the snapshot')
+  await expect(alert.getByText(/nope\/overview\.json answered 404: Not Found/)).toBeHidden()
+  await alert.getByText('Details', { exact: true }).click()
+  await expect(alert.getByText(/nope\/overview\.json answered 404: Not Found/)).toBeVisible()
+  await expect(alert.getByRole('button', { name: 'Copy details' })).toBeVisible()
+  const before = requests
+  await alert.getByRole('button', { name: 'Retry', exact: true }).click()
+  await expect.poll(() => requests).toBeGreaterThan(before)
+})
+
+test('names a refused snapshot source once, without a retry', async ({ page }) => {
+  await page.goto('/?view=settings&source=ftp://example.com/snap')
+  const alert = page.getByRole('alert')
+  await expect(alert).toHaveCount(1)
+  await expect(alert.locator('.banner-title')).toHaveText('A snapshot source must be a relative directory or an http(s) URL.')
+  await expect(alert.getByRole('button', { name: 'Retry' })).toHaveCount(0)
+  await expect(page.locator('.page-note')).toHaveCount(0)
+})

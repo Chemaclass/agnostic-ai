@@ -100,7 +100,7 @@ test('keeps the compact audience control inside the section it edits', async ({ 
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 })
-    for (const [view, tab, title] of [['authority', '', 'Permissions'], ['settings', 'builtins', 'Built-ins'], ['settings', 'preferences', 'Other settings']]) {
+    for (const [view, tab, title] of [['authority', '', 'Permissions'], ['settings', 'builtins', 'Built-ins'], ['settings', 'preferences', 'Preferences']]) {
       await page.goto(`/?view=${view}${tab ? `&tab=${tab}` : ''}`)
       const section = page.getByRole('region', { name: new RegExp(`^${title}`) })
       const scope = section.locator('.edit-scope')

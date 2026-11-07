@@ -92,7 +92,7 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 		SectionAuthority: {"Permissions": 2},
 		SectionTools:     {"MCP servers": 1, "Environments": 1},
 		SectionLifecycle: {"Hooks": 1},
-		SectionSettings:  {"Built-ins": 1, "Config": 1, "Other settings": 1},
+		SectionSettings:  {"Built-ins": 1, "Config files": 1, "Preferences": 1},
 	}
 	for id, wantCounts := range want {
 		s := sectionByID(t, v, id)
@@ -227,6 +227,9 @@ func TestBuild_ListsEveryLifecycleStageWithTheToolsThatRunIt(t *testing.T) {
 		if st.Label == "" || st.Description == "" {
 			t.Errorf("stage %s lacks a label or description", st.ID)
 		}
+		if strings.Contains(st.Description, "exit 2") {
+			t.Errorf("stage %s description %q names an exit code; the reader needs plain words", st.ID, st.Description)
+		}
 	}
 	if !slices.Equal(ids, spec.PortableHookEvents) {
 		t.Fatalf("stages = %v, want every portable event in session order", ids)
@@ -343,7 +346,7 @@ func TestBuild_ShowsProjectOnlyKindsOnlyWhenPresent(t *testing.T) {
 		SectionAuthority: {"Permissions"},
 		SectionTools:     {"MCP servers"},
 		SectionLifecycle: {"Hooks"},
-		SectionSettings:  {"Built-ins", "Config", "Other settings"},
+		SectionSettings:  {"Built-ins", "Config files", "Preferences"},
 	} {
 		var labels []string
 		for _, k := range sectionByID(t, v, id).Kinds {
