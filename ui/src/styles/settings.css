@@ -291,12 +291,15 @@
 .field-edit input,
 .field-edit select {
   min-height: 40px;
-  padding: 8px 12px;
   color: var(--text);
   background: var(--field);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   font-size: var(--text-md);
+}
+
+.field-edit input {
+  padding: 8px 12px;
 }
 
 .field-edit input:hover,
