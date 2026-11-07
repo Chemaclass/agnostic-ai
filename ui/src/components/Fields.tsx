@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { API, type SectionItem, type SettingField, type TargetValue } from '../contract'
 import { EditError, postEdit } from '../api'
 import { useApp } from './app-context'
+import { Notice } from './Banner'
 import { ChangeError, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { ViewPersonalButton, useEditAudience, useLevelName, useViewAudience, type EditAudience } from './EditAudience'
 import { PermissionEditor, useSavedEditNotice } from './PermissionEditor'
@@ -202,6 +203,19 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const latest = useRef(basis.current)
   latest.current = { current, local: localCurrent, team: teamCurrent }
   const conflict = useRef(false)
+  const settleFrom = useRef<object | null>(null)
+  const [settling, setSettling] = useState(false)
+  useEffect(() => {
+    if (settleFrom.current && app.overviewRevision !== settleFrom.current) {
+      settleFrom.current = null
+      setSettling(false)
+    }
+  }, [app.overviewRevision])
+  const reloadOverview = (saved = false) => {
+    settleFrom.current = app.overviewRevision ?? null
+    setSettling(true)
+    app.reload(saved)
+  }
   useEffect(() => {
     const clean = draft.current === basis.current.current || draft.current === current
     if (conflict.current) {
@@ -234,7 +248,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
       const next = body.audience === 'personal' ? { ...basis.current, local: saved } : { ...basis.current, team: saved }
       basis.current = { ...next, current: (audience === 'personal' ? next.local ?? next.team : next.team) ?? '' }
       setValue(basis.current.current)
-      app.reload(true)
+      reloadOverview(true)
     } catch (err) {
       const failure = err instanceof EditError ? err : new EditError(String(err))
       const now = latest.current
@@ -243,7 +257,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
         basis.current = now
         setReloaded(true)
         conflict.current = true
-        app.reload()
+        reloadOverview()
         return
       }
       conflict.current = failure.status === 409
@@ -259,9 +273,9 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const configured = audience === 'personal' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
   // A shown preview keeps its draft, so the applied value becomes the new basis.
-  const locked = pending || !!transaction.proposal
+  const locked = pending || settling || !!transaction.proposal
   const resetButton = audience === 'personal' && !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>{resetLabel}</button>
-  const previewing = pending || !transaction.ready
+  const previewing = pending || settling || !transaction.ready
   const preview = async (next: string | null, where: EditAudience) => {
     setError(undefined)
     setReloaded(false)
@@ -294,21 +308,23 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
             {allowed.map((option) => <option key={option} value={option}>{option}</option>)}
           </Select>
           : <input aria-label={valueLabel} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={selectedCurrent === 'null' ? 'Cleared for you' : field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
-        {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>}
+        {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>Apply</button>}
         {!transaction.supported && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>{target ? resetLabel : 'Clear'}</button>}
         {resetButton}
       </div>}
     {paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}
-    {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
-      {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => app.reload()}>Reload saved values</button></>}</span>}
+    {error && <Notice tone="error" title="Could not apply the change" actions={error.status === 409 && <button type="button" className="button" disabled={settling} onClick={() => reloadOverview()}>Reload</button>} onDismiss={() => setError(undefined)}>
+      <p>{error.message}</p>
+      {error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
+    </Notice>}
     {transaction.supported && <div className="field-edit-row field-edit-apply">
       <span className="muted">Apply to your tools now:</span>
-      {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, audience) }}>Preview and apply</button>}
+      {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, audience) }}>Preview</button>}
       {!overridden && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'shared') }}>{target ? 'Preview using the value for every tool' : 'Preview removal'}</button>}
       {audience === 'personal' && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'personal') }}>Preview local reset</button>}
       {transaction.preparing && <span className="muted">Preparing preview…</span>}
     </div>}
-    {transaction.error && <ChangeError reloadLabel="Reload saved values" />}
+    {transaction.error && <ChangeError />}
     {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={toolLabel ? `${field.label} for ${toolLabel}` : field.label} />}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">

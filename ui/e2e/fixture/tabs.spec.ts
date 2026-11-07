@@ -183,7 +183,7 @@ test('keeps a built-in proposal mounted without cancellation when changing tabs'
   await expect(preview).not.toBeVisible()
   await selectTab(page, 'Built-ins')
   await expect(preview).toBeVisible()
-  await expect(preview.getByRole('button', { name: 'Apply change', exact: true })).toBeEnabled()
+  await expect(preview.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled()
   expect(reads).toBe(1)
   expect(cancelled).toEqual([])
 })

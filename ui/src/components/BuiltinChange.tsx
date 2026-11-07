@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { builtinChange, BuiltinChangeError, type BuiltinChange as Change, type BuiltinChangeAction as Action } from '../builtin-change'
 import { useApp } from './app-context'
+import { Notice } from './Banner'
+import { FileDiff } from './PermissionEditor'
 import { useEditAudience, useGlobalLevel, useLevelName, type EditAudience } from './EditAudience'
 import { addressKey } from '../model/field-address'
-import { Code, CopyButton, Switch, Toggle, ToolAvatar } from './ui'
+import { Code, CopyButton, Switch, Toggle, ToolAvatar, toolName } from './ui'
 
 type Pending = 'loading' | 'preparing' | 'applying' | 'undoing' | 'cancelling'
 /** A model or effort edit, sent as /api/edit/field takes it. */
@@ -11,6 +13,8 @@ export interface SettingPreview { path?: string; key: 'model' | 'effort'; target
 interface Controller {
   change?: Change
   pending?: Pending
+  /** A change was applied and the overview it reloads has not arrived yet. */
+  settling: boolean
   pendingName?: string
   error?: { message: string; conflict: boolean; field?: string; setting?: boolean; action?: Action; title?: string; retryCancel?: boolean }
   proposal: boolean
@@ -43,10 +47,25 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   const [error, setError] = useState<Controller['error']>()
   const [cancelledId, setCancelledId] = useState<string>()
   const [notice, setNotice] = useState<string>()
+  const [settling, setSettling] = useState(false)
+  const settleFrom = useRef<object | null>(null)
   const busy = useRef(false)
   const api = app.source.kind === 'api'
   const pageAudience = useEditAudience()
   const shownAudience = useRef(pageAudience)
+
+  // Controls read the overview, so they stay off until the reload a change started arrives.
+  useEffect(() => {
+    if (settleFrom.current && app.overviewRevision !== settleFrom.current) {
+      settleFrom.current = null
+      setSettling(false)
+    }
+  }, [app.overviewRevision])
+  const reloadOverview = (saved: boolean) => {
+    settleFrom.current = app.overviewRevision ?? null
+    setSettling(true)
+    app.reload(saved)
+  }
 
   const discard = async (id?: string) => {
     if (!id) return
@@ -91,7 +110,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   const proposal = change?.status === 'proposed' && change.id !== cancelledId && !error
   // Resolves true when the server refused the request as a conflict.
   const request = async (action?: Action, name?: string, enabled?: boolean, audience: EditAudience = pageAudience, reset = false, setting?: SettingPreview) => {
-    if (busy.current) return false
+    if (busy.current || settleFrom.current) return false
     busy.current = true
     setPending(action === 'preview' ? 'preparing' : action === 'apply' ? 'applying' : action === 'undo' ? 'undoing' : action === 'cancel' ? 'cancelling' : 'loading')
     setPendingName(name)
@@ -106,7 +125,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       setCancelledId(stale ? value.id : undefined)
       if (stale && action === 'preview') await discard(value.id)
       if (action === 'cancel') setNotice('Preview discarded.')
-      if (action === 'apply' || action === 'undo' || !action) app.reload(!!action)
+      if (action === 'apply' || action === 'undo' || !action) reloadOverview(!!action)
       return false
     } catch (err) {
       const conflict = err instanceof BuiltinChangeError && err.conflict
@@ -116,7 +135,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
         if (now) {
           const applied = now.status === 'applied' && now.id === change?.id
           setChange(now)
-          app.reload(applied)
+          reloadOverview(applied)
           if (now.status === 'proposed') setError({ ...owner, title: 'Another tab opened a newer preview.', message: 'Reload the change state to review it.', conflict })
           else setNotice(applied ? 'Another tab applied this preview.' : 'Preview discarded.')
           return conflict
@@ -133,7 +152,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
 
   const resetList = () => request('preview', undefined, undefined, 'personal', true)
   const previewSetting = (setting: SettingPreview, audience: EditAudience) => request('preview', addressKey(setting.key, setting.target), undefined, audience, false, setting)
-  return <BuiltinChanges.Provider value={{ change, pending, pendingName, error, proposal, notice, request, resetList, previewSetting, cancel: () => request('cancel') }}>{children}</BuiltinChanges.Provider>
+  return <BuiltinChanges.Provider value={{ change, pending, settling, pendingName, error, proposal, notice, request, resetList, previewSetting, cancel: () => request('cancel') }}>{children}</BuiltinChanges.Provider>
 }
 
 function capitalized(text: string) {
@@ -144,7 +163,7 @@ function capitalized(text: string) {
 // A section with built-ins shows the status there, unless the latest change is a setting.
 export function ChangeStatus({ labels, settings, builtins }: { labels: { name: string; label: string }[]; settings: boolean; builtins: boolean }) {
   const app = useApp()
-  const { change, pending, error: anyError, proposal, notice, request } = useBuiltinChanges()
+  const { change, pending, settling, error: anyError, proposal, notice, request } = useBuiltinChanges()
   if (app.source.kind !== 'api' || (change && !change.supported)) return null
   const settingChange = anyError && !anyError.field ? !!anyError.setting : !!change?.key
   if (settings ? builtins && !settingChange : settingChange) return null
@@ -153,7 +172,7 @@ export function ChangeStatus({ labels, settings, builtins }: { labels: { name: s
   const undoTitle = change?.undoTitle ?? (change?.undoName ? label(change.undoName) : undefined)
   return <div className="builtin-change change-status">
     {change?.undoAvailable && !error && <div className="builtin-change-controls">
-      <button className="button button-quiet" type="button" disabled={!!pending} onClick={() => { void request('undo') }}>Undo last change</button>
+      <button className="button button-quiet" type="button" disabled={!!pending || settling} onClick={() => { void request('undo') }}>Undo last change</button>
       {undoTitle && <span className="muted">Last applied: {undoTitle}.</span>}
     </div>}
     <div className="builtin-change-status" role="status" aria-live="polite">
@@ -171,27 +190,34 @@ export function ChangeStatus({ labels, settings, builtins }: { labels: { name: s
   </div>
 }
 
-export function ChangeError({ reloadLabel = 'Reload change state' }: { reloadLabel?: string }) {
-  const { pending, error, request } = useBuiltinChanges()
+export function ChangeError() {
+  const { pending, settling, error, request } = useBuiltinChanges()
   if (!error) return null
-  return <div className="builtin-change-error" role="alert">
-    <strong>{error.title ?? (error.action === 'cancel' ? 'Preview could not be cancelled.' : error.conflict ? 'Files changed. Review a fresh preview.' : 'Change could not be completed.')}</strong>
-    <p>{error.message}</p>
-    {error.retryCancel && <button className="button" type="button" disabled={!!pending} onClick={() => { void request('cancel') }}>Retry cancellation</button>}
-    <button className="button" type="button" disabled={!!pending} onClick={() => { void request() }}>{reloadLabel}</button>
+  const busy = !!pending || settling
+  return <div className="builtin-change-error">
+    <Notice
+      tone="error"
+      title={error.title ?? (error.action === 'cancel' ? 'Preview could not be cancelled.' : error.conflict ? 'Files changed. Review a fresh preview.' : 'Change could not be completed.')}
+      actions={<>
+        {error.retryCancel && <button className="button" type="button" disabled={busy} onClick={() => { void request('cancel') }}>Retry</button>}
+        <button className="button" type="button" disabled={busy} onClick={() => { void request() }}>Reload</button>
+      </>}
+    >
+      <p>{error.message}</p>
+    </Notice>
   </div>
 }
 
 export function BuiltinChangeControls({ local, resetSource }: { local: boolean; resetSource: ReactNode }) {
   const app = useApp()
   const level = useLevelName()
-  const { change, pending, proposal, resetList } = useBuiltinChanges()
+  const { change, pending, settling, proposal, resetList } = useBuiltinChanges()
   if (app.source.kind !== 'api') return null
   if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --global</Code> to apply them to your tools.</p>{local && resetSource}</>
   return <div className="builtin-change">
     <div className="builtin-change-controls">
       {!proposal && <span className="muted">Preview before applying to your tools.</span>}
-      {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || proposal} onClick={() => { void resetList() }}>Reset built-ins to the {level} list</button>}
+      {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || settling || proposal} onClick={() => { void resetList() }}>Reset built-ins to the {level} list</button>}
     </div>
     {proposal && change?.reset && <Preview change={change} title="Built-in list reset" heading={`Reset the built-in list to the ${level} list`} />}
   </div>
@@ -204,11 +230,11 @@ export function BuiltinChangeControls({ local, resetSource }: { local: boolean; 
  */
 export function useSettingChange(key: string, target?: string) {
   const app = useApp()
-  const { change, pending, pendingName, error, proposal, previewSetting } = useBuiltinChanges()
+  const { change, pending, settling, pendingName, error, proposal, previewSetting } = useBuiltinChanges()
   const address = addressKey(key, target)
   return {
     supported: app.source.kind === 'api' && (key === 'model' || key === 'effort') && change?.supported !== false,
-    ready: !!change && !pending && !proposal,
+    ready: !!change && !pending && !settling && !proposal,
     preparing: pending === 'preparing' && pendingName === address,
     proposal: proposal && change?.key === key && change.target === target ? change : undefined,
     error: error?.field === address,
@@ -230,23 +256,23 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
     <div className="builtin-change-preview-head">
       <h3>{heading}</h3>
       <div className="builtin-change-actions">
-        <button className="button button-primary" type="button" disabled={!!pending} onClick={() => { void request('apply') }}>Apply change</button>
+        <button className="button button-primary" type="button" disabled={!!pending} onClick={() => { void request('apply') }}>Apply</button>
         <button className="button" type="button" disabled={!!pending} onClick={() => { void cancel() }}>Cancel</button>
       </div>
     </div>
     <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
-    {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> Applying writes source changes that were not synced yet, too. Every affected file is listed below.</p>}
+    {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> They were not synced yet; the changed files list them.</p>}
     <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
     {change.targets.length > 0 && <details className="preview-disclosure">
       <summary>Applies to {change.targets.length} coding tool{change.targets.length === 1 ? '' : 's'}</summary>
-      <ul className="preview-targets">{change.targets.map((target) => <li key={target}><ToolAvatar target={target} /><code>{target}</code></li>)}</ul>
+      <ul className="preview-targets">{change.targets.map((target) => <li key={target}><ToolAvatar target={target} /><span>{toolName(target)}</span></li>)}</ul>
     </details>}
     {change.changes.length > 0 && <details className="preview-disclosure">
       <summary>Changed files ({change.changes.length})</summary>
       <div className="builtin-change-files" role="region" aria-label="Changed files" tabIndex={0}>
         {change.changes.map((file) => <details key={file.path}>
           <summary><span className="builtin-change-action">{file.action}</span> <Code>{file.path}</Code></summary>
-          <pre tabIndex={0} aria-label={`Diff for ${file.path}`}>{file.diff || 'File permissions will change.'}</pre>
+          {file.diff ? <FileDiff label={`Diff for ${file.path}`} diff={file.diff} /> : <p className="muted">File permissions will change.</p>}
         </details>)}
       </div>
     </details>}
@@ -267,7 +293,7 @@ function PreviewNotes({ findings, targets }: { findings: string[]; targets: stri
     <div className="preview-notes-toolbar"><span className="muted">Grouped by coding tool.</span><CopyButton text={findings.join('\n')} label="Copy notes" copiedLabel="Notes copied" /></div>
     <div className="preview-notes-body" role="region" aria-label="Review notes" tabIndex={0}>
       {[...groups].map(([target, notes]) => <details className="preview-note-group" key={target}>
-        <summary><span className="preview-note-heading">{target ? <><ToolAvatar target={target} /><code>{target}</code></> : <span>Other notes</span>}<span className="muted">{notes.length} note{notes.length === 1 ? '' : 's'}</span></span></summary>
+        <summary><span className="preview-note-heading">{target ? <><ToolAvatar target={target} /><span>{toolName(target)}</span></> : <span>Other notes</span>}<span className="muted">{notes.length} note{notes.length === 1 ? '' : 's'}</span></span></summary>
         <ul className="builtin-change-findings">{notes.map((finding, index) => <li key={index}>{finding}</li>)}</ul>
       </details>)}
     </div>
@@ -284,7 +310,7 @@ export function BuiltinChange({ name, label, on, local, fallback, renderHeading 
 }) {
   const app = useApp()
   const level = useLevelName()
-  const { change, pending, pendingName, error, proposal, request } = useBuiltinChanges()
+  const { change, pending, settling, pendingName, error, proposal, request } = useBuiltinChanges()
   const blocked = !!error && !error.field && !error.setting
   if (app.source.kind !== 'api') return renderHeading(<Switch on={on} />)
   if (change && !change.supported) return renderHeading(fallback)
@@ -292,8 +318,8 @@ export function BuiltinChange({ name, label, on, local, fallback, renderHeading 
   const title = label.charAt(0).toUpperCase() + label.slice(1)
   return <>
     {renderHeading(<>
-      <Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || proposal || blocked} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />
-      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to the ${level} value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'personal') }}>Reset to the {level} value</button>}
+      <Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || settling || proposal || blocked} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />
+      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to the ${level} value`} disabled={!change || !!pending || settling || proposal} onClick={() => { void request('preview', name, !on, 'personal') }}>Reset to the {level} value</button>}
     </>)}
     {selected && change && <Preview change={change} title={`${title} change`} heading={`${change.enabled ? 'Enable' : 'Disable'} ${title}`} />}
   </>

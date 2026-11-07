@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, **Settings** shows preferences and coding tools as plain rows, and a built-in or model change preview as a card whose diff marks added and removed lines. Actions use one label each: **Preview**, **Apply**, **Cancel** and **Reload**. Switches and edit buttons stay off until the page has the saved values, so a quick second click no longer sends a stale change (#3120).
+
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
 
 - In the web interface, the search dialog and the JSON inspector take the Mineral look: a surface panel with a soft ring, and a full-screen sheet on phones (#3120).
