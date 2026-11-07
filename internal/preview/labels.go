@@ -60,6 +60,39 @@ func passesMySQLPassword(text string) bool {
 	return false
 }
 
+// curlInText is curl named in prose with the rest of its line.
+var curlInText = regexp.MustCompile(`(?:^|[\s` + "`" + `(])(curl\s[^\n` + "`" + `]*)`)
+
+// passesCurlCredential reports whether text runs curl with a user and
+// password, as -u user:pass, --user user:pass or their proxy forms -U
+// and --proxy-user. A user alone makes curl ask for the password.
+func passesCurlCredential(text string) bool {
+	for _, m := range curlInText.FindAllStringSubmatch(text, -1) {
+		args := strings.Fields(m[1])[1:]
+		for i, arg := range args {
+			value, glued := "", false
+			for _, flag := range []string{"--user=", "--proxy-user=", "-u", "-U"} {
+				if rest, ok := strings.CutPrefix(arg, flag); ok && rest != "" {
+					value, glued = rest, true
+					break
+				}
+			}
+			if !glued {
+				switch arg {
+				case "-u", "-U", "--user", "--proxy-user":
+					if i+1 < len(args) {
+						value = args[i+1]
+					}
+				}
+			}
+			if _, password, ok := strings.Cut(strings.Trim(value, `"'`), ":"); ok && password != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // assignsCredential reports whether a credential-named key is given a
 // value other than a plain one, such as `"input_tokens":null`.
 func assignsCredential(text string) bool {
@@ -75,12 +108,14 @@ func assignsCredential(text string) bool {
 // labelsCredential reports whether prose text shows a sign of a
 // credential: a credential-named key with a value, a strong credential
 // word stated with a value, a weaker one labeling a table cell or a tag,
-// a private key block, or a recognizable token or credential. A secret
-// written as free prose with no label or shape is not detectable.
+// a private key block, a recognizable token or credential, or one passed
+// to mysql or curl on its command line. A secret written as free prose
+// with no label or shape is not detectable.
 func labelsCredential(text string) bool {
 	return assignsCredential(text) || credentialStatement.MatchString(text) ||
 		credentialLabel.MatchString(text) || privateKeyBlock.MatchString(text) ||
-		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text)
+		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text) ||
+		passesCurlCredential(text)
 }
 
 // ProseSensitive is Sensitive for prose that is not a file, such as a

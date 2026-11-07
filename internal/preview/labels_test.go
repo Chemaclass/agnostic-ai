@@ -177,6 +177,13 @@ func TestProseSensitive_ReadsPromptsAsProse(t *testing.T) {
 		`{"env":{"FOO":"abcd"}}`:                                              true,
 		`MY_KEY = "abcd1234efgh"`:                                             true,
 		`signing_key = "abcd1234efgh"`:                                        true,
+		"run curl -u admin:hunter2 https://example.com":                       true,
+		"run `curl --user admin:hunter2 https://example.com`":                 true,
+		"curl --user=admin:hunter2 https://example.com":                       true,
+		"curl -uadmin:hunter2 https://example.com":                            true,
+		"curl -s -U proxy:hunter2 https://example.com":                        true,
+		"curl -u admin https://example.com":                                   false,
+		"Fix the -u admin:x flag of the sort command":                         false,
 	} {
 		if actual := ProseSensitive(text); actual != want {
 			t.Errorf("ProseSensitive(%q) = %v, want %v", text, actual, want)
