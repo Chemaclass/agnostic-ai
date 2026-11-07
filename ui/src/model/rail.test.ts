@@ -1,19 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { healthTone, sectionSummary } from './rail'
+import { readFileSync } from 'node:fs'
+import { authoritySummary, healthTone, sectionSummary } from './rail'
 
 const kind = (kind: string, label: string, count: number) => ({ kind, label, count })
+const counted = (label: string, kinds: ReturnType<typeof kind>[]) => ({ id: 'context' as const, label, kinds, items: [] })
+const fixture = JSON.parse(readFileSync(new URL('../fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 describe('section summary', () => {
   it('counts each type above zero, singular for one', () => {
-    expect(sectionSummary({ label: 'Context', kinds: [kind('instructions', 'Instructions', 0), kind('rule', 'Rules', 1), kind('agent', 'Agents', 3)] })).toBe('Context: 1 rule, 3 agents')
-    expect(sectionSummary({ label: 'Tools', kinds: [kind('mcp', 'MCP servers', 1)] })).toBe('Tools: 1 MCP server')
-    expect(sectionSummary({ label: 'Context', kinds: [kind('instructions', 'Instructions', 2)] })).toBe('Context: 2 instructions files')
-    expect(sectionSummary({ label: 'Settings', kinds: [kind('builtin', 'Built-ins', 1), kind('settings', 'Preferences', 4)] })).toBe('Settings: 1 built-in, 4 preferences')
+    expect(sectionSummary(counted('Context', [kind('instructions', 'Instructions', 0), kind('rule', 'Rules', 1), kind('agent', 'Agents', 3)]))).toBe('Context: 1 rule, 3 agents')
+    expect(sectionSummary(counted('Tools', [kind('mcp', 'MCP servers', 1)]))).toBe('Tools: 1 MCP server')
+    expect(sectionSummary(counted('Context', [kind('instructions', 'Instructions', 2)]))).toBe('Context: 2 instructions files')
+    expect(sectionSummary(counted('Settings', [kind('builtin', 'Built-ins', 1), kind('settings', 'Preferences', 4)]))).toBe('Settings: 1 built-in, 4 preferences')
   })
 
   it('says what is missing when nothing is counted', () => {
-    expect(sectionSummary({ label: 'Lifecycle', kinds: [kind('hook', 'Hooks', 0)] })).toBe('Lifecycle: no hooks yet')
-    expect(sectionSummary({ label: 'Context', kinds: [kind('rule', 'Rules', 0), kind('agent', 'Agents', 0)] })).toBe('Context: nothing set up yet')
+    expect(sectionSummary(counted('Lifecycle', [kind('hook', 'Hooks', 0)]))).toBe('Lifecycle: no hooks yet')
+    expect(sectionSummary(counted('Context', [kind('rule', 'Rules', 0), kind('agent', 'Agents', 0)]))).toBe('Context: nothing set up yet')
+  })
+})
+
+describe('authority summary', () => {
+  it('counts the rules in every permission list', () => {
+    const authority = fixture.sections.find((section: { id: string }) => section.id === 'authority')
+    expect(sectionSummary(authority)).toBe('Authority: 11 allowed, 3 ask, 4 denied')
+  })
+
+  it('says so when no list holds a rule', () => {
+    const value = (key: string, list: string[]) => ({ key, type: 'list', list })
+    const item = { values: [value('permissions.allow', []), value('permissions.deny', [])] }
+    expect(authoritySummary({ label: 'Authority', items: [item] as never })).toBe('Authority: no permissions yet')
   })
 })
 
