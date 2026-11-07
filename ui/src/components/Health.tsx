@@ -132,7 +132,7 @@ function HealthPlace({ entry }: { entry: HealthEntry }) {
         {entry.entry ? <AppLink to={{ view: entry.section.id as ViewId, entry: entry.entry }}>{label}</AppLink> : <span>{label}</span>}
         {kind && <span className="muted"> · {kind}</span>}
       </p>
-      <Findings findings={entry.findings} ids={entry.ids} owner={entry.owner} place={entry.place} />
+      <Findings findings={entry.findings} ids={entry.ids} owner={entry.owner} place={entry.place} sectionNamed />
     </div>
   )
 }

@@ -58,6 +58,7 @@ test.describe('setup health', () => {
     await expect(warnings.getByRole('heading', { level: 3, name: 'Context' })).toBeVisible()
     const finding = errors.locator('.finding', { hasText: 'LINT001' })
     await expect(finding.getByRole('button', { name: 'Copy prompt' })).toBeVisible()
+    await expect(finding.locator('.finding-label')).toHaveText('Needs a fix')
     await expect(finding.getByText('Details', { exact: true })).toBeVisible()
     await saveScreenshot(page, 'setup-health.png', { fullPage: true })
 
@@ -71,7 +72,7 @@ test.describe('setup health', () => {
     await page.locator('.health-group .finding', { hasText: 'LINT001' }).getByRole('button', { name: 'Recheck', exact: true }).click()
     const feedback = page.locator('.finding-rechecked')
     await expect(feedback).toHaveCount(1)
-    await expect(feedback).toContainText('This lint finding no longer appears.')
+    await expect(feedback).toContainText('This finding no longer appears.')
     await expect(healthRow(page, '3 warnings')).toBeVisible()
   })
 
@@ -169,7 +170,7 @@ test.describe('setup health', () => {
     await expect(recheck).toBeVisible()
     hook.findings = []
     await recheck.click()
-    await expect(page.locator('.finding-rechecked')).toContainText('This lint finding no longer appears.')
+    await expect(page.locator('.finding-rechecked')).toContainText('This finding no longer appears.')
     await page.locator('.health-group .finding-rechecked').locator('xpath=ancestor::div[contains(@class,"health-place")]').getByRole('link', { name: 'Prepare session' }).click()
     await expect(page).toHaveURL(/view=lifecycle/)
     await expect(page.locator(`[data-entry="${itemEntryId(hook)}"]`)).toBeFocused()
