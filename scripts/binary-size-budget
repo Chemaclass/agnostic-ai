@@ -811,5 +811,6 @@
 # plus 8192, rounded up to a multiple of 4096.
 # The Conversations page and its store readers measured 25309344 bytes,
 # up 180224 from main 366005e4; the budget is that plus 8192, rounded
-# up to a multiple of 4096.
-25321472
+# up to a multiple of 4096. After merging main at 0823bad4 it measured
+# 25321632 on CI, 160 bytes over, so the budget follows the same rule.
+25333760
