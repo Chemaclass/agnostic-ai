@@ -111,3 +111,21 @@ test('opens the global setup panel from the rail above the page and returns focu
     await expect(configuration).toBeFocused()
   }
 })
+
+test('closes only the global setup panel on Escape inside the phone Menu', async ({ page }) => {
+  const root = '/tmp/missing-global-home'
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true } }))
+  await page.route('**/api/switch', (route) => route.fulfill({ status: 409, json: { error: `no global setup at ${root}`, missing: true, root } }))
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/?view=settings')
+  const menu = await openMenu(page)
+  const configuration = menu.getByRole('button', { name: 'Open global settings' })
+  await configuration.click()
+  const panel = page.getByRole('dialog', { name: 'No global setup yet' })
+  await expect(panel).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(panel).toHaveCount(0)
+  await expect(menu).toBeVisible()
+  await expect(configuration).toBeFocused()
+})

@@ -115,12 +115,14 @@ function ProjectName({ overview, served }: { overview: Remote<OverviewView>; ser
 export function Header({
   overview,
   served,
+  menuButton,
   menuOpen,
   onOpenMenu,
   onOpenSearch,
 }: {
   overview: Remote<OverviewView>
   served: ServedConfig | undefined
+  menuButton: RefObject<HTMLButtonElement | null>
   menuOpen: boolean
   onOpenMenu: () => void
   onOpenSearch: () => void
@@ -138,7 +140,7 @@ export function Header({
         <button type="button" className="button button-icon" aria-label="Search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} title={`Search (${SEARCH_SHORTCUT})`} onClick={onOpenSearch}>
           <Icon name="search" />
         </button>
-        <button type="button" className="button button-icon" aria-label="Menu" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={onOpenMenu}>
+        <button ref={menuButton} type="button" className="button button-icon" aria-label="Menu" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={onOpenMenu}>
           <Icon name="menu" />
         </button>
       </div>

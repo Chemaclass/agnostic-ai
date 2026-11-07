@@ -367,3 +367,48 @@ test('keeps the JSON inspector and search results scrolling their own content', 
   await expect(dialog).toHaveCount(0)
   await expect(inspectorButton).toBeFocused()
 })
+
+test('lands a linked row below the sticky phone link row', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=tools')
+  await expect(page.getByRole('heading', { level: 1, name: 'Tools', exact: true })).toBeVisible()
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+  const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
+  await dialog.getByRole('combobox', { name: 'Search all configuration' }).fill('railway')
+  await dialog.getByRole('option').first().click()
+  const linked = page.locator('.is-linked').first()
+  await expect(linked).toBeFocused()
+  await expect.poll(async () => {
+    const row = (await page.locator('.sidenav').boundingBox())!
+    return (await linked.boundingBox())!.y >= row.y + row.height
+  }).toBe(true)
+})
+
+test('closes the phone Menu before search opens, and follows a result', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=context')
+  const menu = await openMenu(page)
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+  await expect(menu).toBeHidden()
+  const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
+  const input = dialog.getByRole('combobox', { name: 'Search all configuration' })
+  await expect(input).toBeFocused()
+  await page.keyboard.type('github')
+  await expect(dialog.getByRole('option').first()).toContainText('github')
+  await page.keyboard.press('Enter')
+  await expect(dialog).toHaveCount(0)
+  await expect(page).toHaveURL(/view=tools&entry=/)
+  await expect(page.locator('.item-row.is-linked')).toBeFocused()
+})
+
+test('scrolls only the Menu while it is open', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=settings')
+  await openMenu(page)
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).toBe('hidden')
+  await page.keyboard.press('Escape')
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe('hidden')
+})

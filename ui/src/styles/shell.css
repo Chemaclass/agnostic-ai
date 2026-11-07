@@ -664,7 +664,15 @@ a.release-badge:hover .release-arrow {
   width: 44px;
 }
 
+html:has(.menu-sheet[open]) {
+  overflow: hidden;
+}
+
 @media (max-width: 900px) {
+  html {
+    scroll-padding-top: calc(var(--topbar-offset, var(--topbar-height)) + var(--nav-offset, 56px) + 16px);
+  }
+
   .app {
     display: block;
   }

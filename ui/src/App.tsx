@@ -123,10 +123,13 @@ export default function App() {
   const closeMenu = useCallback(() => setMenuOpen(false), [])
   const [searchOpen, setSearchOpen] = useState(false)
   const searchOpener = useRef<HTMLElement | null>(null)
+  const menuButton = useRef<HTMLButtonElement>(null)
+  // The Menu sheet is a modal dialog, so search opens only after it closes.
   const openSearch = useCallback(() => {
-    searchOpener.current = document.activeElement as HTMLElement | null
+    searchOpener.current = menuOpen ? menuButton.current : document.activeElement as HTMLElement | null
+    setMenuOpen(false)
     setSearchOpen(true)
-  }, [])
+  }, [menuOpen])
   const closeSearch = useCallback((navigated: boolean) => {
     setSearchOpen(false)
     if (!navigated) searchOpener.current?.focus?.()
@@ -210,7 +213,7 @@ export default function App() {
             Skip to content
           </a>
           <div className="rail">
-            <Header overview={overview} served={served} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} onOpenSearch={openSearch} />
+            <Header overview={overview} served={served} menuButton={menuButton} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} onOpenSearch={openSearch} />
             <Nav {...rail} />
           </div>
           <main id="main" className="main" tabIndex={-1}>
