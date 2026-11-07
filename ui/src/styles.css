@@ -495,9 +495,9 @@ html {
 
 select,
 input {
-  background: var(--panel-sunken);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
   padding: 7px 10px;
   min-height: 36px;
 }
@@ -508,7 +508,13 @@ select {
 
 select:hover,
 input:hover {
-  border-color: var(--line-strong);
+  border-color: var(--text-muted);
+}
+
+select:focus,
+input:focus,
+textarea:focus {
+  border-color: var(--accent);
 }
 
 .shell {
@@ -1442,9 +1448,16 @@ a.release-badge:focus-visible .release-arrow {
 }
 
 .segmented button[aria-pressed='true'] {
-  background: var(--accent-wash-strong);
-  border-color: var(--accent);
-  color: var(--accent-strong);
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--panel);
+}
+
+@media (forced-colors: active) {
+  .segmented button[aria-pressed='true'] {
+    background: Highlight;
+    color: HighlightText;
+  }
 }
 
 .segmented button:disabled {
@@ -1864,6 +1877,14 @@ a.release-badge:focus-visible .release-arrow {
   white-space: pre-wrap;
 }
 
+.finding-prompt textarea:hover {
+  border-color: var(--text-muted);
+}
+
+.finding-prompt textarea:focus {
+  border-color: var(--accent);
+}
+
 .tool-list {
   display: inline-flex;
   flex-wrap: wrap;
@@ -1932,8 +1953,9 @@ a.release-badge:focus-visible .release-arrow {
   width: 34px;
   height: 20px;
   border-radius: var(--radius-pill);
-  background: var(--panel-sunken);
+  background: var(--field);
   border: 1px solid var(--line-strong);
+  transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
 }
 
 .switch-thumb {
@@ -1944,21 +1966,21 @@ a.release-badge:focus-visible .release-arrow {
   height: 14px;
   border-radius: 50%;
   background: var(--text-muted);
-  transition: transform 0.15s ease-out;
+  transition: transform var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
 }
 
 .switch.is-on {
-  color: var(--permitted);
+  color: var(--accent-strong);
 }
 
 .switch.is-on .switch-track {
-  background: var(--permitted-wash);
-  border-color: var(--permitted);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .switch.is-on .switch-thumb {
   transform: translateX(14px);
-  background: var(--permitted);
+  background: var(--on-accent);
 }
 
 .switch-control {
@@ -3345,6 +3367,22 @@ tr.is-advised > td {
   grid-column: 2;
 }
 
+/* A dotted leader runs from a set field's name toward its value. */
+@media (min-width: 761px) {
+  .field-row.is-set .field-head > strong {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .field-row.is-set .field-head > strong::after {
+    content: '';
+    flex: 1;
+    min-width: 16px;
+    border-bottom: 1px dotted var(--line-strong);
+  }
+}
+
 .field-head p {
   font-size: 13px;
   line-height: 1.55;
@@ -3989,9 +4027,19 @@ tr.is-advised > td {
   min-height: 36px;
   padding: 6px 9px;
   color: var(--text);
-  background: var(--panel);
+  background: var(--field);
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
+}
+
+.field-edit input:hover,
+.field-edit select:hover {
+  border-color: var(--text-muted);
+}
+
+.field-edit input:focus,
+.field-edit select:focus {
+  border-color: var(--accent);
 }
 
 .field-edit-target {
@@ -4066,10 +4114,18 @@ tr.is-advised > td {
   resize: vertical;
   padding: 10px 12px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
+  border-radius: var(--radius);
+  background: var(--field);
   color: var(--text);
   font: 13px/1.65 var(--font-mono);
+}
+
+.permission-form textarea:hover {
+  border-color: var(--text-muted);
+}
+
+.permission-form textarea:focus {
+  border-color: var(--accent);
 }
 
 .permission-destination { font-size: 12px; }
@@ -4099,10 +4155,18 @@ tr.is-advised > td {
   resize: vertical;
   padding: 10px 12px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
+  border-radius: var(--radius);
+  background: var(--field);
   color: var(--text);
   font: 13px/1.65 var(--font-mono);
+}
+
+.hook-form textarea:hover {
+  border-color: var(--text-muted);
+}
+
+.hook-form textarea:focus {
+  border-color: var(--accent);
 }
 
 .hook-form-hint { margin: -6px 0 0; font-size: 12px; }
