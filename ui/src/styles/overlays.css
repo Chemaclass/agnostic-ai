@@ -15,6 +15,17 @@
   animation: overlay-in var(--dur-1) ease-out;
 }
 
+/* The drawer is not modal on wide screens, so its backdrop only dims the page and lets clicks through. */
+
+.inspector-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  background: var(--backdrop);
+  pointer-events: none;
+  animation: overlay-in var(--dur-1) ease-out;
+}
+
 @keyframes overlay-in {
   from {
     opacity: 0;

@@ -42,7 +42,7 @@ export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSav
       } else if (revision.current === current) setPreview(value)
     } catch (failure) {
       if (revision.current === current) {
-        setError(failure instanceof Error ? failure.message : 'Could not make this server a spec. Try again.')
+        setError(failure instanceof Error ? failure.message : 'Could not add this server to your setup. Try again.')
         setPreview(undefined)
       }
     } finally {
@@ -56,14 +56,14 @@ export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSav
       {server.holders.length > 1 && <label className="field-edit-target">Copy from <Select aria-label={`Source for ${server.name}`} value={selected} disabled={!!pending} onChange={(event) => setSelected(Number(event.target.value))}>
         {server.holders.map((source, index) => <option key={`${source.target}:${source.path}:${source.scope}`} value={index}>{source.label}: {source.path} ({source.scope})</option>)}
       </Select></label>}
-      {!preview && <button className="button" type="button" disabled={!!pending} onClick={() => { void request('preview') }}>Make it a spec</button>}
-      <span role="status" aria-live="polite">{pending === 'preview' ? 'Preparing preview…' : pending === 'apply' ? 'Saving spec…' : ''}</span>
+      {!preview && <button className="button" type="button" disabled={!!pending} onClick={() => { void request('preview') }}>Add to your setup</button>}
+      <span role="status" aria-live="polite">{pending === 'preview' ? 'Preparing preview…' : pending === 'apply' ? 'Saving…' : ''}</span>
     </div>
     {error && <Notice tone="error" title={error} />}
-    {preview && <section className="mcp-spec-preview" aria-label={`${server.name} spec preview`} aria-busy={!!pending}>
-      <h3>Make {server.name} a spec</h3>
+    {preview && <section className="mcp-spec-preview" aria-label={`${server.name} preview`} aria-busy={!!pending}>
+      <h3>Add {server.name} to your setup</h3>
       <p>Create <Code>{preview.file}</Code> {audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
-      <div className="mcp-spec-files"><pre tabIndex={0} aria-label={`Spec for ${server.name}`}>{preview.spec}</pre></div>
+      <div className="mcp-spec-files"><pre tabIndex={0} aria-label={`File for ${server.name}`}>{preview.spec}</pre></div>
       {preview.variables.length > 0 && <p>Set these environment variables before syncing: {preview.variables.map((variable, index) => <span key={variable}>{index > 0 && ', '}<Code>{variable}</Code></span>)}.</p>}
       <p>{preview.targets.length > 0 ? <>After sync, this server reaches <span className="tool-list">{preview.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</> : 'No configured tool accepts this server.'}</p>
       <p className="muted">Run <Code>{preview.syncCommand}</Code> after saving to share the server with your tools.</p>

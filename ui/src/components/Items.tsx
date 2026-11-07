@@ -106,6 +106,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
     <div className="item-heading">
       <div className="item-main">
         <strong>{item.label}</strong>
+        {item.kind === 'builtin' && item.name !== item.label && <code className="muted item-key">{item.name}</code>}
         {item.description && <span className="muted item-description">{item.description}</span>}
         {item.kind === 'builtin' && item.local && audience && <OverrideComparison shared={builtinEnabled(item, 'shared') ? 'On' : 'Off'} personal={item.enabled ? 'On' : 'Off'} />}
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}

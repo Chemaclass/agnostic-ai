@@ -243,7 +243,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		c := Conversation{
 			Tool: ToolCursor, App: AppCLI, ID: meta.AgentID, Folder: folder,
 			StartedAt: timeFromMillis(meta.CreatedAt), UpdatedAt: updated,
-			Open: Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
+			Open: Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
 		}
 		c.fill(texts{title: title, firstPrompt: first, lastPrompt: last})
 		chats = append(chats, c)

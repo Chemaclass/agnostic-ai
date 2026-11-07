@@ -204,7 +204,7 @@ func TestScan_ListsClaudeSessionsWithTitlesPromptsAndRoutes(t *testing.T) {
   "live": true,
   "open": {
     "kind": "focus",
-    "label": "Switch to its terminal",
+    "label": "Open in Terminal",
     "command": "cd '/tmp/app' && claude --resume `+idSafari+`"
   }
 }` {
@@ -318,7 +318,7 @@ func TestScan_ListsCodexThreadsFromTheNewestIndex(t *testing.T) {
   },
   {
     "kind": "terminal",
-    "label": "Resume in Terminal",
+    "label": "Open in Terminal",
     "command": "cd '/tmp/it'\\''s' && codex resume `+terminal+`"
   }
 ]` {
@@ -662,7 +662,7 @@ func TestScan_LeavesCodexExecRunsOutAndMarksLoadedThreadsLive(t *testing.T) {
 	if len(view.Conversations) != 2 || !byID(t, view, loaded).Live || byID(t, view, idle).Live {
 		t.Errorf("want two threads, only the loaded one live: %s", asJSON(t, view.Conversations))
 	}
-	if open := byID(t, view, loaded).Open; open.Kind != RouteFocus || open.Label != "Switch to its terminal" {
+	if open := byID(t, view, loaded).Open; open.Kind != RouteFocus || open.Label != "Open in Terminal" {
 		t.Errorf("an open CLI thread switches to its terminal, actual %s", asJSON(t, open))
 	}
 	launcher := &fakeLauncher{focusOK: true}

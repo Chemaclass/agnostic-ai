@@ -14,7 +14,7 @@ const conversation = (over: Partial<Conversation>): Conversation => ({
   id: 'a',
   title: 'A chat',
   updatedAt: NOW.toISOString(),
-  open: { kind: 'terminal', label: 'Resume in Terminal', command: 'claude --resume a' },
+  open: { kind: 'terminal', label: 'Open in Terminal', command: 'claude --resume a' },
   ...over,
 })
 
@@ -168,7 +168,7 @@ describe('conversation words', () => {
   })
 
   it('offers the reply command only when opening failed and the row does not offer the same one', () => {
-    const terminal = { kind: 'terminal', label: 'Resume in Terminal', command: 'claude --resume a' } as const
+    const terminal = { kind: 'terminal', label: 'Open in Terminal', command: 'claude --resume a' } as const
     const link = { kind: 'link', label: 'Open in Claude app', link: 'claude://resume?session=a' } as const
     expect(replyCommand({ opened: false, message: 'No terminal app found.', command: 'claude --resume a' }, link)).toBe('claude --resume a')
     expect(replyCommand({ opened: false, message: 'No terminal app found.', command: 'claude --resume a' }, terminal)).toBeUndefined()
@@ -183,14 +183,14 @@ describe('conversations normalization', () => {
       schemaVersion: 'conversations/v1',
       generatedAt: '2026-11-07T15:30:00Z',
       tools: null,
-      conversations: [{ tool: 'codex', app: 'cli', id: 'x', title: null, updatedAt: '2026-11-07T15:00:00Z', opening: null, withheld: ['prompt', 'transcript'], live: true, activity: 'compacting', open: { kind: 'terminal', label: 'Resume in Terminal' } }],
+      conversations: [{ tool: 'codex', app: 'cli', id: 'x', title: null, updatedAt: '2026-11-07T15:00:00Z', opening: null, withheld: ['prompt', 'transcript'], live: true, activity: 'compacting', open: { kind: 'terminal', label: 'Open in Terminal' } }],
     })
     expect(view.tools).toEqual([])
     expect(view).toMatchObject({ from: '', to: '' })
     expect(view.next).toBeUndefined()
     expect(normalizeConversationsView({ from: '2026-10-31T15:30:00Z', to: '2026-11-07T15:30:00Z', next: '2026-10-31T15:30:00Z' })).toMatchObject({ from: '2026-10-31T15:30:00Z', to: '2026-11-07T15:30:00Z', next: '2026-10-31T15:30:00Z' })
     expect(normalizeConversationsView({ next: '' }).next).toBeUndefined()
-    expect(view.conversations[0]).toMatchObject({ title: '', opening: [], withheld: ['prompt'], live: true, activity: undefined, open: { label: 'Resume in Terminal' } })
+    expect(view.conversations[0]).toMatchObject({ title: '', opening: [], withheld: ['prompt'], live: true, activity: undefined, open: { label: 'Open in Terminal' } })
   })
 
   it('reads the mock fixture with every app, route kind, live state, withheld field, and tool', () => {

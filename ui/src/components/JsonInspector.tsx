@@ -97,6 +97,8 @@ export function JsonInspector({ onClose, overview, global }: { onClose: () => vo
   const nodes = useMemo(() => highlight(json), [json])
 
   return (
+    <>
+    <div className="inspector-backdrop" aria-hidden="true" />
     <aside ref={panel} id="json-inspector" className="inspector" role="dialog" aria-modal={sheet} aria-labelledby="inspector-title">
       <div className="inspector-head">
         <h2 id="inspector-title">JSON inspector</h2>
@@ -145,5 +147,6 @@ export function JsonInspector({ onClose, overview, global }: { onClose: () => vo
         <p className="muted inspector-empty">The overview has not loaded.</p>
       )}
     </aside>
+    </>
   )
 }

@@ -40,7 +40,7 @@ function toolsVerdict(section: VerdictSection): string {
 
 function lifecycleVerdict(section: VerdictSection): string {
   const all = section.items.filter((item) => item.kind === 'hook')
-  if (!all.length) return 'No hooks are set yet.'
+  if (!all.length) return 'Nothing runs around the agent yet.'
   const hooks = all.filter((item) => !isTurnedOff(item))
   if (!hooks.length) return 'No hooks are set to run.'
   const verb = hooks.length === 1 ? 'is' : 'are'

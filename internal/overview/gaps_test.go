@@ -89,7 +89,7 @@ func TestBuild_ListsTheRecommendedBuiltInWhenItIsOff(t *testing.T) {
 	if !ok {
 		t.Fatal("no handoff gap")
 	}
-	if gap.Section != SectionSettings || gap.Label != "handoff" || !strings.Contains(gap.Fix, "builtins") {
+	if gap.Section != SectionSettings || gap.Label != "Handoff" || !strings.Contains(gap.Fix, "builtins") {
 		t.Errorf("handoff gap: %+v", gap)
 	}
 }

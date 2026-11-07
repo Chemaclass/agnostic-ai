@@ -28,7 +28,7 @@
       "activity": "working",
       "open": {
         "kind": "focus",
-        "label": "Switch to its terminal",
+        "label": "Open in Terminal",
         "command": "cd '/Users/you/Products/agnostic-ai' && claude --resume 6f1c2a4e-8b3d-4c1e-9a7f-2d5e8b1c4a90"
       }
     },
@@ -50,7 +50,7 @@
       "activity": "waiting",
       "open": {
         "kind": "focus",
-        "label": "Switch to its terminal",
+        "label": "Open in Terminal",
         "command": "cd '/Users/you/Products/agnostic-ai/.worktrees/sync-global' && claude --resume c3b8e0d2-61f4-4a9e-8d27-5e0f9a1b7c64"
       }
     },
@@ -90,7 +90,7 @@
       "prompt": "Try a read-only connection with immutable=1 and measure again.",
       "open": {
         "kind": "terminal",
-        "label": "Resume in Terminal",
+        "label": "Open in Terminal",
         "command": "cd '/Users/you/Products/agnostic-ai' && codex resume 0199f3a2-7c41-7d20-b8e5-3a9c1f0e6d27"
       }
     },
@@ -152,7 +152,7 @@
       "prompt": "Open an issue for each advisory you cannot fix with a patch release.",
       "open": {
         "kind": "terminal",
-        "label": "Attach in Terminal",
+        "label": "Open in Terminal",
         "command": "claude attach job_01JC8Q4M2V7R"
       }
     },
@@ -171,7 +171,7 @@
       "prompt": "List the jobs that failed twice in a row this week.",
       "open": {
         "kind": "terminal",
-        "label": "Resume in Terminal",
+        "label": "Open in Terminal",
         "command": "cd '/Users/you/Products/agnostic-ai' && cursor-agent --resume 4e9a7c21-0b6d-4f38-a1e5-c8d2f7b30e96"
       }
     },
