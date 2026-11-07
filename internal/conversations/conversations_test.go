@@ -103,6 +103,13 @@ func asJSON(t *testing.T, value any) string {
 	return strings.TrimSuffix(b.String(), "\n")
 }
 
+// inJSON writes value as asJSON does inside a string, so a Windows
+// path's backslashes come out escaped.
+func inJSON(t *testing.T, value string) string {
+	t.Helper()
+	return strings.Trim(asJSON(t, value), `"`)
+}
+
 func byID(t *testing.T, view View, id string) Conversation {
 	t.Helper()
 	for _, c := range view.Conversations {
@@ -166,7 +173,7 @@ func TestScan_ListsClaudeSessionsWithTitlesPromptsAndRoutes(t *testing.T) {
     "found": false,
     "count": 0,
     "shown": 0,
-    "note": "No Codex thread index in `+stores.CodexDir+`"
+    "note": "No Codex thread index in `+inJSON(t, stores.CodexDir)+`"
   },
   {
     "tool": "cursor",
@@ -174,7 +181,7 @@ func TestScan_ListsClaudeSessionsWithTitlesPromptsAndRoutes(t *testing.T) {
     "found": false,
     "count": 0,
     "shown": 0,
-    "note": "No Cursor chat index at `+stores.CursorDB+`"
+    "note": "No Cursor chat index at `+inJSON(t, stores.CursorDB)+`"
   }
 ]` {
 		t.Errorf("tools =\n%s", actual)
