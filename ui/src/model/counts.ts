@@ -6,6 +6,7 @@ import { isPermissionKey } from './permission-edit'
 /** A type's label as a noun in a sentence, singular for one: "1 rule", "2 instructions files". */
 export function kindNoun(kind: Pick<KindCount, 'kind' | 'label'>, count: number): string {
   if (kind.kind === 'instructions') return count === 1 ? 'instructions file' : 'instructions files'
+  if (kind.kind === 'review') return 'review instructions'
   const label = /^[A-Z]{2}/.test(kind.label) ? kind.label : kind.label.charAt(0).toLowerCase() + kind.label.slice(1)
   if (count !== 1) return label
   if (label.endsWith('ies')) return `${label.slice(0, -3)}y`

@@ -6,45 +6,41 @@ import type { ItemFinding, KindCount, KindSupport, Section } from '../contract'
 import { builtinEnabled } from './audience-view'
 import { joinAnd, kindNoun, permissionCounts, plural } from './counts'
 
-type VerdictSection = Pick<Section, 'id' | 'kinds' | 'items'> & Partial<Pick<Section, 'fields' | 'native' | 'stages'>>
+type VerdictSection = Pick<Section, 'id' | 'kinds' | 'items'> & Partial<Pick<Section, 'fields' | 'native' | 'stages' | 'support'>>
 
-const CONTEXT_VERBS: Record<string, (count: number, noun: string) => string> = {
-  instructions: (count, noun) => `read ${count} ${noun}`,
-  rule: (count, noun) => `follow ${count} ${noun}`,
-  agent: (count, noun) => `can hand work to ${count} ${noun}`,
-  skill: (count, noun) => `can run ${count} ${noun}`,
-  command: (count, noun) => `offer ${count} ${noun}`,
-}
+// Verdicts describe what the setup configures, never what an agent will do:
+// a tool that does not support a type ignores it, and the facts line says so.
 
-function counted(kinds: KindCount[], verb: (kind: KindCount) => (count: number, noun: string) => string): string[] {
-  return kinds.filter((kind) => kind.count > 0).map((kind) => verb(kind)(kind.count, kindNoun(kind, kind.count)))
+function counted(kinds: KindCount[]): string[] {
+  return kinds.filter((kind) => kind.count > 0).map((kind) => `${kind.count} ${kindNoun(kind, kind.count)}`)
 }
 
 function contextVerdict(section: VerdictSection): string {
-  const parts = counted(section.kinds, (kind) => CONTEXT_VERBS[kind.kind] ?? ((count, noun) => `get ${count} ${noun}`))
-  return parts.length ? `Agents ${joinAnd(parts)}.` : 'This project tells agents nothing yet.'
+  const parts = counted(section.kinds)
+  return parts.length ? `Your setup gives agents ${joinAnd(parts)}.` : 'Your setup gives agents no instructions yet.'
 }
 
 function authorityVerdict(section: VerdictSection): string {
   const counts = permissionCounts(section)
   const parts: string[] = []
   const actions = (count: number) => (parts.length ? `${count}` : plural(count, 'action'))
-  if (counts['permissions.allow']) parts.push(`run ${actions(counts['permissions.allow'])} freely`)
+  if (counts['permissions.allow']) parts.push(`allow ${actions(counts['permissions.allow'])}`)
   if (counts['permissions.ask']) parts.push(`ask before ${actions(counts['permissions.ask'])}`)
-  if (counts['permissions.deny']) parts.push(`never do ${actions(counts['permissions.deny'])}`)
-  return parts.length ? `Agents ${joinAnd(parts)}.` : 'No permission rules yet, so each tool asks as it normally does.'
+  if (counts['permissions.deny']) parts.push(`block ${actions(counts['permissions.deny'])}`)
+  return parts.length ? `Your rules ${joinAnd(parts)}.` : 'No permission rules yet, so each tool asks as it normally does.'
 }
 
 function toolsVerdict(section: VerdictSection): string {
-  const parts = counted(section.kinds, () => (count, noun) => `${count} ${noun}`)
-  return parts.length ? `Agents can use ${joinAnd(parts)}.` : 'Agents get no extra tools from this project yet.'
+  const parts = counted(section.kinds)
+  return parts.length ? `Your setup gives agents ${joinAnd(parts)}.` : 'Your setup gives agents no extra tools yet.'
 }
 
 function lifecycleVerdict(section: VerdictSection): string {
   const hooks = section.items.filter((item) => item.kind === 'hook')
-  if (!hooks.length) return 'No hooks run around the agent yet.'
+  if (!hooks.length) return 'No hooks are set yet.'
+  const verb = hooks.length === 1 ? 'is' : 'are'
   const stages = new Set(hooks.map((hook) => hook.group).filter(Boolean)).size
-  return stages ? `${plural(hooks.length, 'hook')} run at ${plural(stages, 'stage')} of a session.` : `${plural(hooks.length, 'hook')} run around the agent.`
+  return stages ? `${plural(hooks.length, 'hook')} ${verb} set to run at ${plural(stages, 'stage')} of a session.` : `${plural(hooks.length, 'hook')} ${verb} set.`
 }
 
 function settingsVerdict(section: VerdictSection): string {
@@ -67,11 +63,10 @@ export function sectionVerdict(section: VerdictSection): string {
   return (VERDICTS[section.id] ?? contextVerdict)(section)
 }
 
-/** Facts beside the verdict that it does not already say. */
-export function sectionFacts(section: VerdictSection): string[] {
+function sectionOwnFacts(section: VerdictSection): string[] {
   if (section.id === 'authority') {
     const paths = section.items.flatMap((item) => item.values).filter((value) => value.key === 'protected.paths').reduce((sum, value) => sum + (value.list?.length ?? 0), 0)
-    return paths ? [`${plural(paths, 'protected path')}`] : []
+    return paths ? [plural(paths, 'protected path')] : []
   }
   if (section.id === 'tools' && section.native?.length) return [`${plural(section.native.length, 'more server')} found in your tools`]
   if (section.id === 'lifecycle' && section.stages?.length) return [`${plural(section.stages.length, 'stage')} in a session`]
@@ -80,6 +75,22 @@ export function sectionFacts(section: VerdictSection): string[] {
     return files ? [plural(files, 'config file')] : []
   }
   return []
+}
+
+/** "Kiro ignores permissions": configured types that some set-up tools do not apply. */
+export function ignoredFacts(section: VerdictSection, toolName: (target: string) => string): string[] {
+  return (section.support ?? []).flatMap((support) => {
+    const kind = section.kinds.find((k) => k.kind === support.kind)
+    if (!kind?.count || !support.unsupported.length) return []
+    const total = support.supported.length + support.unsupported.length
+    const who = support.unsupported.length <= 3 ? joinAnd(support.unsupported.map(toolName)) : `${support.unsupported.length} of ${total} tools`
+    return [`${who} ${support.unsupported.length === 1 ? 'ignores' : 'ignore'} ${kindNoun(support, 2)}`]
+  })
+}
+
+/** Facts beside the verdict that it does not already say. */
+export function sectionFacts(section: VerdictSection, toolName: (target: string) => string = (target) => target): string[] {
+  return [...sectionOwnFacts(section), ...ignoredFacts(section, toolName)]
 }
 
 export interface FindingTally {

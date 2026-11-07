@@ -15,13 +15,13 @@ import { SectionTabs } from './SectionTabs'
 import { DocLink, SectionHeading } from './SectionHeading'
 import { RecheckSection, RecheckSectionEntries, useRechecks } from './Recheck'
 import { builtinEnabled, sourcesForAudience } from '../model/audience-view'
-import { fieldEntryId, itemEntryId, kindEntryId, sectionEntryIds } from '../model/identity'
+import { fieldEntryId, findingEntryIds, itemEntryId, kindEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText, matchesSearch } from '../model/search'
 import { filterTools, toolCount } from '../model/coding-tools'
 import { entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
-import { Badge, Code, Icon } from './ui'
+import { Badge, Code, Icon, toolName } from './ui'
 import { EmptyState } from './EmptyState'
 import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings } from '../model/verdict'
 import { ConfigurationRoot, ConfiguredTools, PersonalBuiltins } from './section-context'
@@ -83,19 +83,27 @@ export function revealFindings(findingsId: string) {
 }
 
 function SectionFacts({ section }: { section: Section }) {
+  const app = useApp()
   const tally = tallyFindings(sectionFindings(section))
   const findings = findingTallyText(tally)
-  const own = section.findings.length
-  const facts = sectionFacts(section)
+  const total = tally.errors + tally.warnings
+  const facts = sectionFacts(section, toolName)
   const tone = tally.errors ? 'is-error' : tally.warnings ? 'is-warning' : 'is-clean'
+  const shownAbove = section.findings.some((finding) => finding.severity === 'error')
+  // Review leads to the first finding: the section's own list, else the first row that has one.
+  const review = () => {
+    if (section.findings.length) return revealFindings(`${section.id}-findings`)
+    const item = section.items.find((entry) => entry.findings.length)
+    if (item) app.navigate({ view: section.id, tab: undefined, q: undefined, entry: findingEntryIds(item.findings, itemEntryId(item))[0] })
+  }
   return (
     <p className="page-facts">
       {facts.map((fact) => <span key={fact} className="page-fact">{fact}</span>)}
-      <span className={`page-fact page-fact-findings ${tone}`} role={tally.errors ? 'alert' : undefined}>
+      <span className={`page-fact page-fact-findings ${tone}`} role={shownAbove ? 'alert' : undefined}>
         {findings && <Icon name="warning" />}
         {findings ?? 'No findings'}
       </span>
-      {own > 0 && <button type="button" className="button page-facts-review" onClick={() => revealFindings(`${section.id}-findings`)}>Review {own} finding{own === 1 ? '' : 's'}</button>}
+      {total > 0 && <button type="button" className="button page-facts-review" onClick={review}>Review {total} finding{total === 1 ? '' : 's'}</button>}
     </p>
   )
 }

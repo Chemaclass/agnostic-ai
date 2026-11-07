@@ -43,6 +43,26 @@ test('keeps section errors visible without opening a disclosure', async ({ page 
   })).toBe(true)
 })
 
+test('counts row findings in the facts line and Review moves to the first one', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.goto('/?view=authority')
+  await expect(page.locator('.page-header .page-fact-findings')).toHaveText('1 warning')
+  await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
+  const finding = page.locator('.item-row .finding', { hasText: 'bare read now covers' })
+  await expect(finding).toBeFocused()
+  await expect(page).toHaveURL(/entry=finding/)
+})
+
+test('raises an alert only for errors shown as cards above the tabs', async ({ page }) => {
+  const data = structuredClone(fixture)
+  const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+  authority.items.find((item: { findings: unknown[] }) => item.findings.length).findings[0].severity = 'error'
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+  await page.goto('/?view=authority')
+  await expect(page.locator('.page-header .page-fact-findings')).toHaveText('1 error')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
 test('shows the effective configuration once beside its source file links', async ({ page }) => {
   const settings = await overview(page)
   const config = settings.items.find((item: { kind: string }) => item.kind === 'config')

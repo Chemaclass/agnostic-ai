@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import type { OverviewView, Section } from '../contract'
-import { emptyState, findingTallyText, sectionFacts, sectionFindings, sectionVerdict, supportSummary, tallyFindings } from './verdict'
+import { emptyState, findingTallyText, ignoredFacts, sectionFacts, sectionFindings, sectionVerdict, supportSummary, tallyFindings } from './verdict'
 
 const fixture: OverviewView = JSON.parse(readFileSync(new URL('../fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const section = (id: string) => fixture.sections.find((s) => s.id === id)!
@@ -12,32 +12,54 @@ const empty = (id: Section['id'], kinds = [] as ReturnType<typeof kind>[]) => ({
 
 describe('section verdict', () => {
   it('reads every section of the mock overview in plain words', () => {
-    expect(sectionVerdict(section('context'))).toBe('Agents follow 1 rule and can hand work to 3 agents.')
-    expect(sectionVerdict(section('authority'))).toBe('Agents run 11 actions freely, ask before 3, and never do 4.')
-    expect(sectionVerdict(section('tools'))).toBe('Agents can use 4 MCP servers.')
-    expect(sectionVerdict(section('lifecycle'))).toBe('No hooks run around the agent yet.')
+    expect(sectionVerdict(section('context'))).toBe('Your setup gives agents 1 rule and 3 agents.')
+    expect(sectionVerdict(section('authority'))).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
+    expect(sectionVerdict(section('tools'))).toBe('Your setup gives agents 4 MCP servers.')
+    expect(sectionVerdict(section('lifecycle'))).toBe('No hooks are set yet.')
   })
 
   it('names the first count and skips empty permission lists', () => {
-    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.ask', 1), list('permissions.deny', 2)])] })).toBe('Agents ask before 1 action and never do 2.')
-    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.deny', 1)])] })).toBe('Agents never do 1 action.')
+    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.ask', 1), list('permissions.deny', 2)])] })).toBe('Your rules ask before 1 action and block 2.')
+    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.deny', 1)])] })).toBe('Your rules block 1 action.')
     expect(sectionVerdict(empty('authority'))).toBe('No permission rules yet, so each tool asks as it normally does.')
   })
 
   it('says what is missing when a section is empty', () => {
-    expect(sectionVerdict(empty('context', [kind('rule', 'Rules', 0)]))).toBe('This project tells agents nothing yet.')
-    expect(sectionVerdict(empty('tools', [kind('mcp', 'MCP servers', 0)]))).toBe('Agents get no extra tools from this project yet.')
+    expect(sectionVerdict(empty('context', [kind('rule', 'Rules', 0)]))).toBe('Your setup gives agents no instructions yet.')
+    expect(sectionVerdict(empty('tools', [kind('mcp', 'MCP servers', 0)]))).toBe('Your setup gives agents no extra tools yet.')
     expect(sectionVerdict(empty('settings'))).toBe('Your tools run on their own defaults.')
-    expect(sectionVerdict(empty('context', [kind('instructions', 'Instructions', 1), kind('skill', 'Skills', 2)]))).toBe('Agents read 1 instructions file and can run 2 skills.')
+    expect(sectionVerdict(empty('context', [kind('instructions', 'Instructions', 1), kind('skill', 'Skills', 2)]))).toBe('Your setup gives agents 1 instructions file and 2 skills.')
   })
 
   it('counts hooks and the stages they run at', () => {
     const hook = (group: string) => ({ ...item([]), kind: 'hook', group })
-    expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('pre-tool'), hook('pre-tool'), hook('session-start')] })).toBe('3 hooks run at 2 stages of a session.')
+    expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('pre-tool'), hook('pre-tool'), hook('session-start')] })).toBe('3 hooks are set to run at 2 stages of a session.')
+    expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('pre-tool')] })).toBe('1 hook is set to run at 1 stage of a session.')
   })
 })
 
 describe('section facts', () => {
+  const name = (target: string) => ({ claude: 'Claude Code', kiro: 'Kiro', codex: 'Codex' })[target] ?? target
+  const permissions = (supported: string[], unsupported: string[]) => ({ ...section('authority'), support: [{ kind: 'settings', label: 'Permissions', supported, unsupported }] })
+
+  it('says nothing about support when every tool applies the rules', () => {
+    expect(ignoredFacts(permissions(['claude', 'codex'], []), name)).toEqual([])
+  })
+
+  it('names the tools that ignore a configured type', () => {
+    expect(ignoredFacts(permissions(['claude'], ['kiro']), name)).toEqual(['Kiro ignores permissions'])
+    expect(sectionFacts(permissions(['claude'], ['kiro', 'codex']), name)).toEqual(['2 protected paths', 'Kiro and Codex ignore permissions'])
+    expect(ignoredFacts(permissions(['claude'], ['a', 'b', 'c', 'd']), name)).toEqual(['4 of 5 tools ignore permissions'])
+  })
+
+  it('skips types with nothing configured', () => {
+    expect(ignoredFacts({ ...empty('context', [kind('skill', 'Skills', 0)]), support: [{ kind: 'skill', label: 'Skills', supported: [], unsupported: ['kiro'] }] }, name)).toEqual([])
+  })
+
+  it('keeps review instructions whole', () => {
+    expect(sectionVerdict(empty('context', [kind('review', 'Review instructions', 1)]))).toBe('Your setup gives agents 1 review instructions.')
+  })
+
   it('adds what the verdict leaves out', () => {
     expect(sectionFacts(section('authority'))).toEqual(['2 protected paths'])
     expect(sectionFacts(section('tools'))).toEqual(['1 more server found in your tools'])

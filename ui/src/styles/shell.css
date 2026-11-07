@@ -546,6 +546,10 @@ a.release-badge:hover .release-arrow {
   font-weight: 600;
 }
 
+.banner code {
+  white-space: nowrap;
+}
+
 .banner-error { border-inline-start-color: var(--blocked); }
 .banner-info { border-inline-start-color: var(--info); }
 .banner-warning { border-inline-start-color: var(--approval); }

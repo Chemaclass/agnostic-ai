@@ -90,7 +90,7 @@ test.describe('section search', () => {
     await expect(page.locator('.item-row .finding')).toContainText('LINT038')
     await expect(page.getByText('A configured tool could not be checked.', { exact: true })).toBeVisible()
     await expect(page.locator('.section-search-status')).toHaveText('No matches. Items with findings stay visible.')
-    await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
+    await page.getByRole('button', { name: 'Review 2 findings', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
   })
 
