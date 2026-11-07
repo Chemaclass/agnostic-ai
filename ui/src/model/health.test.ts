@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
-import { countFindings, gapTools, healthFixPrompt, healthGroups, healthPlace, healthSummary, improvementsLine, placeLabel } from './health'
+import { countFindings, gapTools, healthFixPrompt, healthGroups, healthPlace, healthSummary, healthVerdict, improvementsLine, placeLabel } from './health'
 import { findingEntryIds, itemEntryId } from './identity'
 import { overviewFindings } from './recheck'
 import { normalizeOverviewView } from './normalize'
@@ -127,9 +127,10 @@ describe('setup health', () => {
 
   it('shows a gap as the tools that support it and what is missing, never as a finding', () => {
     const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix: 'Add a skill.' }
-    expect(gapTools(skills)).toBe('claude, codex')
-    expect(gapTools({ ...skills, supported: ['a', 'b', 'c', 'd'] })).toBe('a, b, c, d')
-    expect(gapTools({ ...skills, supported: ['a', 'b', 'c', 'd', 'e', 'f'] })).toBe('a, b, c and 3 more')
+    expect(gapTools(skills)).toBe('claude and codex')
+    expect(gapTools(skills, (target) => target.toUpperCase())).toBe('CLAUDE and CODEX')
+    expect(gapTools({ ...skills, supported: ['a', 'b', 'c', 'd'] })).toBe('a, b, c, and d')
+    expect(gapTools({ ...skills, supported: ['a', 'b', 'c', 'd', 'e', 'f'] })).toBe('a, b, c, and 3 more')
     const withGap = { ...scenario(), health: { gaps: [skills] } }
     expect(countFindings(withGap)).toMatchObject({ errors: 1, warnings: 3 })
     expect(healthFixPrompt(withGap)).not.toContain('Add a skill.')
@@ -154,13 +155,22 @@ describe('setup health', () => {
     expect(partial.health.gaps.map((gap) => gap.id)).toEqual(['kind:skill'])
   })
 
-  it('counts the improvements applied, and says so when every one is', () => {
-    expect(improvementsLine({ applied: 7, total: 9 })).toBe('7 of 9 improvements applied')
-    expect(improvementsLine({ applied: 0, total: 1 })).toBe('0 of 1 improvement applied')
-    expect(improvementsLine({ applied: 9, total: 9 })).toBe('All 9 improvements applied')
-    expect(improvementsLine({ applied: 1, total: 1 })).toBe('The one improvement is applied')
+  it('counts the features in use, and says so when every one is', () => {
+    expect(improvementsLine({ applied: 7, total: 9 })).toBe('7 of 9 features your tools support are in use')
+    expect(improvementsLine({ applied: 0, total: 1 })).toBe('0 of 1 feature your tools support is in use')
+    expect(improvementsLine({ applied: 9, total: 9 })).toBe('All 9 features your tools support are in use')
+    expect(improvementsLine({ applied: 1, total: 1 })).toBe('The one feature your tools support is in use')
     expect(improvementsLine({ applied: 0, total: 0 })).toBeUndefined()
     expect(improvementsLine(undefined)).toBeUndefined()
+  })
+
+  it('answers with what needs a fix first, then what is worth a look', () => {
+    expect(healthVerdict({ errors: 1, warnings: 3 })).toEqual({ key: '1 thing', rest: ' needs a fix, and 3 more are worth a look.' })
+    expect(healthVerdict({ errors: 2, warnings: 1 })).toEqual({ key: '2 things', rest: ' need a fix, and 1 more is worth a look.' })
+    expect(healthVerdict({ errors: 1, warnings: 0 })).toEqual({ key: '1 thing', rest: ' needs a fix.' })
+    expect(healthVerdict({ errors: 0, warnings: 1 })).toEqual({ key: '1 thing', rest: ' is worth a look.' })
+    expect(healthVerdict({ errors: 0, warnings: 4 })).toEqual({ key: '4 things', rest: ' are worth a look.' })
+    expect(healthVerdict({ errors: 0, warnings: 0 })).toEqual({ rest: 'Nothing needs a fix.' })
   })
 
   it('reads the improvements count from the overview, and none from an older one or a bad count', () => {
