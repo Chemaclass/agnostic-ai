@@ -152,9 +152,13 @@ export function healthFixPrompt(overview: OverviewView, root?: string): string {
   return lines.join('\n')
 }
 
-/** One gap as the list shows it, such as "Skills: supported by claude, codex; no skill yet". */
-export function gapLine(gap: Gap): string {
-  return `${gap.label}: supported by ${gap.supported.join(', ')}; ${gap.missing}`
+const GAP_TOOLS_SHOWN = 3
+
+/** The tools that support a gap, cut to the first few, such as "claude, codex, gemini and 9 more". */
+export function gapTools(gap: Gap): string {
+  const { supported } = gap
+  if (supported.length <= GAP_TOOLS_SHOWN + 1) return supported.join(', ')
+  return `${supported.slice(0, GAP_TOOLS_SHOWN).join(', ')} and ${supported.length - GAP_TOOLS_SHOWN} more`
 }
 
 /** How many improvements the enabled tools support are in place; nothing when they support none. */

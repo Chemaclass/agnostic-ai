@@ -3,7 +3,7 @@
 
 import type { OverviewView } from '../contract'
 import { recheckAllMessage } from '../model/recheck'
-import { countFindings, gapLine, healthFixPrompt, healthGroups, healthSummary, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
+import { countFindings, gapTools, healthFixPrompt, healthGroups, healthSummary, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
 import { sectionEntryIds } from '../model/identity'
 import { AppLink, PageHeader } from './app-context'
 import { ErrorPanel } from './Banner'
@@ -107,17 +107,22 @@ function Gaps({ health, sections }: { health: OverviewView['health']; sections: 
         Reach the best setup {gaps.length > 0 && <span className="muted kind-count">{gaps.length}</span>}
       </SectionHeading>
       {applied && <p>{applied}</p>}
-      {gaps.length > 0 && <p className="muted">What the enabled tools support and this project does not use yet. These are suggestions, not findings.</p>}
+      {gaps.length > 0 && <p className="muted">Features your tools support that this project does not use yet. Suggestions, not findings.</p>}
       {gaps.length > 0 && <ul className="health-gap-list">
         {gaps.map((gap) => {
           const section = sections.find((s) => s.id === gap.section)
           return (
             <li key={gap.id} className="health-gap">
-              <span>
-                {gapLine(gap)}
-                {section && <span className="muted"> · <AppLink to={{ view: section.id as ViewId }}>{section.label}</AppLink></span>}
-              </span>
-              <CopyButton text={gap.fix} label="Copy fix prompt" copiedLabel="Copied" ariaLabel={`Copy the fix prompt for ${gap.label}`} />
+              <p className="health-gap-text">
+                <strong>{gap.label}</strong>
+                <span className="muted">
+                  {' · '}{gap.missing.charAt(0).toUpperCase() + gap.missing.slice(1)}
+                  {' · '}<span title={gap.supported.join(', ')} aria-hidden="true">Supported by {gapTools(gap)}</span>
+                  <span className="sr-only">Supported by {gap.supported.join(', ')}</span>
+                  {section && <>{' · '}<AppLink to={{ view: section.id as ViewId }}>{section.label}</AppLink></>}
+                </span>
+              </p>
+              <CopyButton text={gap.fix} label="Copy prompt" copiedLabel="Copied" ariaLabel={`Copy prompt for ${gap.label}`} />
             </li>
           )
         })}

@@ -968,13 +968,15 @@ a.release-badge:focus-visible .release-arrow {
 }
 
 .health-gap {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
   gap: 6px 12px;
-  min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.health-gap-text {
+  margin: 0;
 }
 
 .section-warnings-line {
