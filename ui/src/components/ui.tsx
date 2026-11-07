@@ -93,6 +93,10 @@ const TOOL_ICONS: Record<string, { icon: string; name: string }> = {
   codebuddy: { icon: codebuddyIcon, name: 'CodeBuddy Code' },
 }
 
+export function toolName(target: string): string {
+  return Object.hasOwn(TOOL_ICONS, target) ? TOOL_ICONS[target].name : target
+}
+
 export function ToolAvatar({ target, label }: { target: string; label?: string }) {
   const tool = Object.hasOwn(TOOL_ICONS, target) ? TOOL_ICONS[target] : undefined
   const name = label ?? tool?.name ?? target
