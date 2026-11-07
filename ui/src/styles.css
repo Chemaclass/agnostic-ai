@@ -801,6 +801,14 @@ a.release-badge:focus-visible .release-arrow {
   gap: 8px 12px;
 }
 
+.health-recheck-result {
+  margin: 8px 0 0;
+}
+
+.health-recheck-result:empty {
+  margin: 0;
+}
+
 .health-total {
   display: flex;
   align-items: center;

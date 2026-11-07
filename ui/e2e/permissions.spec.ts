@@ -226,3 +226,37 @@ test('edits a personal-only list in the selected spec when multiple shared files
   await row.getByRole('button', { name: 'Preview changes' }).click()
   expect(requests.at(-1)).toMatchObject({ path: shared, before: ['shell(git push origin main)'], audience: 'personal' })
 })
+
+test('shows a local protected: null as protection turned off and resets it to the project paths', async ({ page }) => {
+  const { authority } = await setup(page)
+  const field = authority.fields!.find((field) => field.key === 'protected')!
+  field.editable = { kind: 'protected-list', path: shared, localPath: personal }
+  field.set = [
+    { spec: 'permissions', path: personal, local: true, values: [{ key: 'protected', type: 'text', value: 'null' }] },
+    { spec: 'permissions', path: shared, values: [{ key: 'protected.paths', type: 'list', list: ['.github/**'] }, { key: 'protected.decision', type: 'text', value: 'deny' }] },
+  ]
+  const requests: Record<string, unknown>[] = []
+  await page.route('**/api/edit/protected', (route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown>
+    requests.push(body)
+    if (body.action === 'apply') field.set = field.set.filter((source) => !source.local)
+    return route.fulfill({ json: {
+      schemaVersion: 'protected-edit/v1', file: personal, audience: 'personal', before: null, protected: null, cleared: true,
+      diff: `--- ${personal}\n+++ ${personal}\n-protected: null`, expected: 'preview-token', syncCommand: 'agnostic-ai sync', ...(body.action === 'apply' ? { ok: true } : {}),
+    } })
+  })
+  await page.reload()
+  const row = page.locator('.field-row').filter({ has: page.getByText('Protected paths', { exact: true }) })
+  await expect(row).toContainText('turns these protected paths off for you')
+  await row.getByRole('button', { name: 'View local settings' }).click()
+  await expect(row).toContainText('so sync does not protect the project paths for you')
+  await row.getByRole('button', { name: 'Reset to project paths', exact: true }).click()
+  expect(requests.at(-1)).toMatchObject({ action: 'preview', audience: 'personal', path: shared, protected: null, before: null })
+  const preview = row.getByRole('region', { name: 'Protected paths change preview' })
+  await expect(preview).toContainText('Use project paths')
+  await expect(preview).toContainText('-protected: null')
+  await preview.getByRole('button', { name: 'Save paths', exact: true }).click()
+  expect(requests.at(-1)).toMatchObject({ action: 'apply', expected: 'preview-token' })
+  await expect(row).not.toContainText('so sync does not protect')
+  await expect(row.getByRole('button', { name: 'Reset to project paths', exact: true })).toHaveCount(0)
+})

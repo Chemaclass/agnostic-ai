@@ -32,8 +32,10 @@ export function protectedSelection(field: SettingField, files: SectionItem[], pa
   const local = field.set.find((source) => source.local && (spec ? source.spec === spec : source.path === localPath))
   const project = fieldsFrom(team?.values)
   const own = fieldsFrom(local?.values)
+  // A local `protected: null` turns the project block off for you.
+  const personalCleared = local?.values.some((value) => value.key === 'protected' && value.value === 'null') ?? false
   // A local block merges over the project block key by key, as sync reads it.
-  return { shared: blockOf(project), personal: blockOf(own), merged: blockOf({ ...project, ...own }), personalSet: local !== undefined, personalPath: local?.path ?? localPath }
+  return { shared: blockOf(project), personal: blockOf(own), merged: personalCleared ? null : blockOf({ ...project, ...own }), personalSet: local !== undefined, personalCleared, personalPath: local?.path ?? localPath }
 }
 
 function isBlock(value: unknown): value is ProtectedBlock | null {
@@ -53,6 +55,9 @@ export function parseProtectedPreview(value: unknown): ProtectedEditPreview {
     || !isBlock(reply.before) || !isBlock(reply.protected)
     || typeof reply.diff !== 'string'
     || typeof reply.expected !== 'string' || !reply.expected.trim()
-    || typeof reply.syncCommand !== 'string' || !reply.syncCommand.trim()) throw invalid()
-  return { schemaVersion: reply.schemaVersion, file: reply.file, audience: reply.audience, before: reply.before, protected: reply.protected, diff: reply.diff, expected: reply.expected, syncCommand: reply.syncCommand }
+    || typeof reply.syncCommand !== 'string' || !reply.syncCommand.trim()
+    || reply.cleared !== undefined && typeof reply.cleared !== 'boolean') throw invalid()
+  const preview: ProtectedEditPreview = { schemaVersion: reply.schemaVersion, file: reply.file, audience: reply.audience, before: reply.before, protected: reply.protected, diff: reply.diff, expected: reply.expected, syncCommand: reply.syncCommand }
+  if (typeof reply.cleared === 'boolean') preview.cleared = reply.cleared
+  return preview
 }

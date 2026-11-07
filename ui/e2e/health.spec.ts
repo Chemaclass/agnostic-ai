@@ -72,6 +72,25 @@ test.describe('setup health', () => {
     await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 3 warnings' })).toBeVisible()
   })
 
+  test('rechecks every section at once and says how many findings remain', async ({ page }) => {
+    const { data, hook } = scenario()
+    let loads = 0
+    await page.route('**/api/views/overview', (route) => {
+      loads++
+      return route.fulfill({ json: data })
+    })
+    await page.goto('/?view=health')
+    const recheckAll = page.getByRole('button', { name: 'Recheck all' })
+    await expect(recheckAll).toBeVisible()
+    const before = loads
+    hook.findings = []
+    await recheckAll.click()
+    await expect(page.locator('.health-recheck-result')).toHaveText('Rechecked every finding. 1 finding no longer appears. 3 findings remain.')
+    expect(loads - before).toBe(1)
+    await expect(page.locator('.health-group .finding', { hasText: 'LINT001' })).toHaveCount(0)
+    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 3 warnings' })).toBeVisible()
+  })
+
   test('shows one recheck result when an item has an error and a warning', async ({ page }) => {
     const { data, hook } = scenario()
     const warning: ItemFinding = { source: 'lint', code: 'LINT002', severity: 'warning', message: 'The hook has no timeout.', path: hook.path }

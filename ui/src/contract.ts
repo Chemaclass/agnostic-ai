@@ -639,6 +639,8 @@ export interface ProtectedEditPreview {
   audience: 'shared' | 'personal'
   before: ProtectedBlock | null
   protected: ProtectedBlock | null
+  /** The file writes `protected: null`, which turns the inherited paths off. */
+  cleared?: boolean
   diff: string
   expected: string
   syncCommand: string
