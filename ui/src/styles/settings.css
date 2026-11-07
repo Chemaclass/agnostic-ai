@@ -339,13 +339,22 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  font-size: 12px;
   color: var(--text-muted);
-  font-size: var(--text-sm);
 }
 
 .field-edit-target select {
-  min-height: 36px;
+  min-height: 30px;
   max-width: 100%;
+  font-size: 12px;
+}
+
+.field-edit .field-edit-target {
+  font-size: var(--text-sm);
+}
+
+.field-edit .field-edit-target select {
+  min-height: 36px;
   font-size: var(--text-sm);
 }
 

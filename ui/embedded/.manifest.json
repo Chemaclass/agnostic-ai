@@ -166,7 +166,7 @@
     "src/styles/index.css": "23852380a2899a77237fe416a089ccae54821bbe405205f30ed654b6c62fb334",
     "src/styles/lifecycle.css": "c075c1f5eabdfd8b3d1cb27263c5f83f9cc69306a2c1835ccf45eefabce94693",
     "src/styles/overlays.css": "9657559ce4783051b1dee81fd14c2b93999b40b4228b477eda219eb2a8d9d160",
-    "src/styles/settings.css": "72a88861b5a63b6ea2c9c9e0a77c6e5c0bb22c5292c0a6cdd2f51f45b4c80b30",
+    "src/styles/settings.css": "685df028548424ac5c0bb54b64007b740c65dc2d09c272767c01c212932a40ac",
     "src/styles/shell.css": "d35267950bc8205c90f9a05ed8aca49e85be5d1ddbf61e35d6e60d1099a5d3bd",
     "src/styles/tokens.css": "18a7ead7d5143c98f9c9c4d5b159ecbc7394d46aaca72169185d2d524822dd01",
     "src/styles/tokens.test.ts": "01f232165f87c9188925afcc37d808f0b36d4ed633e13ea7af3d1a66eda17a42",
@@ -184,12 +184,12 @@
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
-    "assets/index-CdjwdDwh.css": "016a4438d91c8a47e156d1b10e909015e7174bf1b72cb4baa3d54a4010232643",
-    "assets/index-msTUntxO.js": "e8e3faf6433daaff16b01aca5bc5f27db459b99dc92cbb16c23be03d5d347cd9",
+    "assets/index-CPXdIiM7.js": "e8e3faf6433daaff16b01aca5bc5f27db459b99dc92cbb16c23be03d5d347cd9",
+    "assets/index-DJYeQRR-.css": "fe6d3384718c80a3d3c362cd30789edda0cc803e7b15ff6bf77170eccdad5b18",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-DgDL9iRC.js": "001b2de10ad4086f4366a0c53aa9bc56aa691c724f02f15af5e8a5c3c0766ee1",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "e82ada0669df46cebb2311a1bf9040f9c519dad990d1ea7efd0774d33340e212",
+    "index.html": "d8b627aa1e95e0870a342f88c562f9763e3bb8b4654723611f84c818375e859d",
     "third-party-notices.txt": "c1a1591ee63d396db2899a42b979e5167f8dc028808662c86d7b0bcdbf98dc84"
   }
 }
