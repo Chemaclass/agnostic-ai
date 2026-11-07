@@ -382,7 +382,7 @@ In the browser:
 - A source from a built-in names the built-in and links to **Settings**, Built-ins.
 - Each duplicate has edit links to its sources and **Copy prompt**.
 - **Read again** reads your setup files again and shows the change against the previous counts under **Before**. The tool and file stay in the page address.
-- Each finding has **Copy fix prompt**. **Details** shows the suggested fix, explanation, and full prompt.
+- Each finding has **Copy prompt**. **Details** shows the suggested fix, explanation, and full prompt.
 - After you fix the source, **Recheck** runs the checks again with the same refresh and keeps your page, search, and unsaved input. It says whether that finding still appears and marks new findings from the same check on the same file. A failed refresh or a lint run that stopped early shows as unknown, never as fixed.
 - A setup check finding (from `doctor`) that disappears is shown as not confirmed, because the setup check skips files it cannot read. Snapshots cannot recheck.
 - The rail's **Setup health** row counts every finding by severity, such as **1 error, 3 warnings**, or shows **No findings**; on phones the top bar shows the counts as a chip, such as **1E 3W**. Click either to open **Setup health** (`?view=health`), which opens with one sentence on what needs a fix and what is worth a look, and lists all findings errors first (**Needs a fix**, then **Worth a look**), then by section and item, with the same rows and actions. The item name opens it in its section. **Copy all fixes** copies one prompt for every finding, errors first. **Recheck all** runs the checks again once for every section and says how many findings no longer appear, which are new, and how many remain; doctor and stopped-lint results are reported as in **Recheck**. Below the findings, **Reach the best setup** lists what the enabled tools support and the project does not use yet, each with **Copy prompt** and the first few tools that support it: a context kind with no spec of the project's own, a hook stage with no hook, and the `handoff` built-in when it is off. Under the opening sentence, a row of bars shows the features your tools support, filled for those in use, with one line such as **7 of 9 features your tools support are in use**; with all of them in use it says so and lists nothing. These are suggestions: they never count in the badge, and findings never lower the count. User configuration lists none.
@@ -455,7 +455,7 @@ If a local spec clears the whole group with `permissions: null`, individual list
 
 When several settings files are editable, choose one explicitly; lists from other specs still contribute their rules. With no settings spec, the editor creates `settings/permissions.yaml` under the configured source root, or `local/settings/permissions.yaml` for Local. Pack-only sources remain read-only.
 
-Invalid rules, unsafe file paths, and credentials are refused. A changed file stops saving and offers **Reload saved values**, which keeps your draft for a fresh preview. Permission saves have no browser undo.
+Invalid rules, unsafe file paths, and credentials are refused. A changed file stops saving and offers **Reload**, which keeps your draft for a fresh preview. Permission saves have no browser undo.
 
 ### API
 
