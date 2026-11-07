@@ -481,7 +481,7 @@ func TestOpen_FollowsEachRoute(t *testing.T) {
 		"live in an unknown terminal": {
 			conversation: live,
 			processes:    fakeProcesses{alive: map[int]bool{42: true}},
-			reply:        OpenReply{Message: "It is open in another terminal (process 42). Switch to it there.", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "It is open in another app (process 42). Switch to it there.", Command: "claude --resume x"},
 		},
 		"ended since the scan": {
 			conversation: live,
@@ -925,15 +925,17 @@ func TestScan_ReadsACursorAgentChatAgainOnlyWhenItChanges(t *testing.T) {
 
 func TestEnclosingWindowFolder_PrefersTheEditorWindowAroundTheFolder(t *testing.T) {
 	storage := filepath.Join(t.TempDir(), "storage.json")
-	write(t, storage, `{"windowsState":{"openedWindows":[{"folder":"file:///repo"},{"folder":"file:///repo/pkg/api"}]}}`)
+	write(t, storage, `{"windowsState":{"openedWindows":[{"folder":"file:///repo"},{"folder":"file:///repo/pkg/api"},{"folder":"file:///"},{"folder":"file:///home/me"}]}}`)
 	for folder, want := range map[string]string{
 		"/repo/pkg":         "/repo",
 		"/repo/pkg/api/v1":  "/repo/pkg/api",
 		"/repo":             "/repo",
 		"/elsewhere/repo":   "",
 		"/repository/thing": "",
+		"/home/me/app/src":  "",
+		"/home/me":          "/home/me",
 	} {
-		if actual, _ := enclosingWindowFolder(storage, folder); actual != want {
+		if actual, _ := enclosingWindowFolder(storage, folder, "/home/me"); actual != want {
 			t.Errorf("enclosingWindowFolder(%q) = %q, want %q", folder, actual, want)
 		}
 	}

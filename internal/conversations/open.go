@@ -111,16 +111,21 @@ func windowPath(path string) string {
 // enclosingWindowFolder returns the nearest folder, folder itself or
 // one above it, that the editor state at storagePath lists a window on.
 // Opening that folder brings its window forward; opening a subfolder of
-// it would open a new window.
-func enclosingWindowFolder(storagePath, folder string) (string, bool) {
+// it would open a new window. A window on home or the root holds no
+// project, so the search stops below them.
+func enclosingWindowFolder(storagePath, folder, home string) (string, bool) {
 	windows := openWindowFolders(storagePath)
-	for dir := filepath.Clean(folder); ; {
-		if windows[folderKey(dir)] {
-			return dir, true
-		}
+	dir := filepath.Clean(folder)
+	if windows[folderKey(dir)] {
+		return dir, true
+	}
+	for {
 		parent := filepath.Dir(dir)
-		if parent == dir {
+		if parent == dir || parent == filepath.Dir(parent) || parent == filepath.Clean(home) {
 			return "", false
+		}
+		if windows[folderKey(parent)] {
+			return parent, true
 		}
 		dir = parent
 	}
@@ -235,7 +240,7 @@ var terminalHosts = map[string]struct {
 func bringHostForward(ctx context.Context, c Conversation, app string, launcher Launcher) OpenReply {
 	host, known := terminalHosts[app]
 	if !known {
-		return OpenReply{Message: fmt.Sprintf("It is open in another terminal (process %d). Switch to it there.", c.process.PID), Command: c.Open.Command}
+		return OpenReply{Message: fmt.Sprintf("It is open in another app (process %d). Switch to it there.", c.process.PID), Command: c.Open.Command}
 	}
 	if host.folders && c.Folder != "" {
 		if err := launcher.OpenFolder(ctx, host.app, c.Folder); err != nil {
@@ -288,7 +293,7 @@ func (macLauncher) OpenFolder(ctx context.Context, app, folder string) error {
 	delay := editorOpenDelay
 	home, _ := os.UserHomeDir()
 	if userDir, ok := editorUserDirs[app]; ok {
-		if window, open := enclosingWindowFolder(filepath.Join(home, "Library", "Application Support", userDir, "User", "globalStorage", "storage.json"), folder); open {
+		if window, open := enclosingWindowFolder(filepath.Join(home, "Library", "Application Support", userDir, "User", "globalStorage", "storage.json"), folder, home); open {
 			folder, delay = window, editorFocusDelay
 		}
 	}
