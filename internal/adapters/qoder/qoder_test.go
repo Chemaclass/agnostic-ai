@@ -13,12 +13,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "qoder" {
-		t.Errorf("expected qoder, got %s", got)
-	}
-}
-
 // swapNoteWarner redirects emit.Warner to a buffer for the duration of
 // the test and clears any buffered coverage notes before and after.
 // Mirrors the identical helper in the claude package; adapter test

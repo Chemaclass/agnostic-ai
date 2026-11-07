@@ -13,6 +13,8 @@ func TestRegistry_HasAllExpectedTargets(t *testing.T) {
 		"claude", "codex", "gemini", "qwen", "cursor", "codebuddy",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"amp", "zed", "warp", "opencode", "pi", "grok", "vibe", "kimi",
+		"antigravity", "junie", "kiro", "crush", "trae", "jules", "goose",
+		"augment", "qoder", "openhands", "factory", "kilo",
 	}
 	for _, name := range expected {
 		a, ok := Get(name)
@@ -22,6 +24,15 @@ func TestRegistry_HasAllExpectedTargets(t *testing.T) {
 		}
 		if a.Name() != name {
 			t.Errorf("adapter %q reports name %q", name, a.Name())
+		}
+	}
+}
+
+func TestRegistry_EveryAdapterReportsItsRegisteredName(t *testing.T) {
+	for _, name := range Names() {
+		a, _ := Get(name)
+		if got := a.Name(); got != name {
+			t.Errorf("adapter registered as %q reports name %q", name, got)
 		}
 	}
 }

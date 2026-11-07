@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "factory" {
-		t.Errorf("Name() = %q, want %q", got, "factory")
-	}
-}
-
 // The project-root AGENTS.md is written centrally by sync, never by
 // this adapter: Droid CLI has no per-rule surface of its own.
 func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {

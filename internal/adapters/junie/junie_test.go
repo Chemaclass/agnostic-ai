@@ -13,12 +13,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "junie" {
-		t.Errorf("expected junie, got %s", got)
-	}
-}
-
 // TestEmit_WritesRulesInlineAndAgentsNatively confirms rule bodies
 // inline into .junie/AGENTS.md, the only file Junie's strict-precedence
 // guidelines lookup ever opens in a synced project (#552), rather than
