@@ -44,6 +44,13 @@ export function entryTab(section: Section, tabs: SectionTab[], entry?: string): 
   return tabs.find((tab) => tab.kinds.some((kind) => kindEntryId(kind) === entry))?.id
 }
 
+const SECTION_DOCS: Record<string, string> = { context: 'instructions', authority: 'permissions', tools: 'mcp', lifecycle: 'hook', settings: 'config' }
+
+/** The docs topic of the filter row's one Docs link: the open tab's, or the section's when it has no tabs. */
+export function docsTopic(section: Pick<Section, 'id'>, tab?: SectionTab): string {
+  return tab?.extra ?? tab?.kinds[0] ?? SECTION_DOCS[section.id] ?? section.id
+}
+
 /** The kinds a tab holds, for its hover text: "Instructions, review instructions, ignore files". */
 export function tabTitle(section: Section, tab: SectionTab): string | undefined {
   const labels = section.kinds.filter((kind) => tab.kinds.includes(kind.kind)).map((kind, index) => index === 0 || /^.[A-Z]/.test(kind.label) ? kind.label : kind.label.charAt(0).toLowerCase() + kind.label.slice(1))

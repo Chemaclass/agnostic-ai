@@ -118,7 +118,7 @@ export function ContextUsage() {
     setNonce((n) => n + 1)
   }
 
-  const heading = <SectionHeading topic="usage" id={titleId}>Context size</SectionHeading>
+  const heading = <SectionHeading id={titleId}>Context size</SectionHeading>
   if (!reachable) {
     return (
       <section className="block context-usage" aria-labelledby={titleId}>

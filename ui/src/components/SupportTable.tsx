@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { Section } from '../contract'
 import { AppLink } from './app-context'
-import { DocLink } from './SectionHeading'
 import { kindEntryId } from '../model/identity'
 import { entryTab, sectionTabs } from '../model/section-tabs'
 import { ToolAvatar } from './ui'
@@ -82,7 +81,6 @@ export function SupportTable({ section, toolLabel }: { section: Section; toolLab
         </table>
       </div>
     </details>
-    <DocLink topic="support" />
     </div>
   )
 }

@@ -9,7 +9,7 @@ import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
 import { requiredRelease, servingRelease } from '../model/release'
 import { countFindings, healthSummary } from '../model/health'
-import { HEALTH_STATUS, healthTone, sectionSummary } from '../model/rail'
+import { healthRow, healthTone, sectionSummary } from '../model/rail'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -198,12 +198,13 @@ function sectionLinks(overview: OverviewView | undefined): SectionLink[] {
   }))
 }
 
-/** Conversations, Setup health as a status row, then each section as its question over its live summary.
+/** Setup health as a status row, Conversations, then each section as its question over its live summary.
     The summary comes first in the markup, so each link's name starts with the page name. */
 function PageLinks({ overview, onNavigate }: { overview: OverviewView | undefined; onNavigate?: () => void }) {
   const app = useApp()
   const count = overview ? countFindings(overview) : undefined
   const tone = count ? healthTone(count) : undefined
+  const health = count && overview ? healthRow(count, overview.health.gaps.length) : undefined
   const link = (id: ViewId, className: string | undefined, label: string, question: string, summary: string | undefined, dot?: string) => (
     <li key={id} className={className}>
       <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate}>
@@ -219,8 +220,8 @@ function PageLinks({ overview, onNavigate }: { overview: OverviewView | undefine
   )
   return (
     <ul className="nav-list">
+      {link('health', 'nav-item-health', 'Health', health?.status ?? 'Setup health', health?.summary, tone ?? 'loading')}
       {link('conversations', 'nav-item-conversations', 'Conversations', 'Where did you leave off?', 'Conversations: chats across your tools')}
-      {link('health', 'nav-item-health', 'Health', tone ? HEALTH_STATUS[tone] : 'Setup health', count ? `Setup health: ${healthSummary(count)}` : undefined, tone ?? 'loading')}
       {sectionLinks(overview).map((section) => link(section.id, undefined, section.label, section.question, section.summary))}
     </ul>
   )

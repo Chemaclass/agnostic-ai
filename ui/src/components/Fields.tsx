@@ -23,7 +23,7 @@ function fieldsHeadingId(title: string) {
   return `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
 }
 
-export function SettingsFields({ title, topic, headingEntry, audienceControl, fields, files, filtering, status }: { title: string; topic: string; headingEntry?: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
+export function SettingsFields({ title, headingEntry, audienceControl, fields, files, filtering, status }: { title: string; headingEntry?: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
   const entry = useApp().state.entry
   const audience = useViewAudience()
   const id = fieldsHeadingId(title)
@@ -34,7 +34,7 @@ export function SettingsFields({ title, topic, headingEntry, audienceControl, fi
   const visibleFields = fields.filter((field) => configured.includes(field) || editablePermissions.includes(field))
   return (
     <section className="block" aria-labelledby={id}>
-      <SectionHeading topic={topic} id={id} focusable entry={headingEntry}>{title}</SectionHeading>
+      <SectionHeading id={id} focusable entry={headingEntry}>{title}</SectionHeading>
       {audienceControl}
       {status}
       {configured.length === 0 && <p className="muted">{filtering ? 'No matching configured settings.' : editablePermissions.length ? 'No permission rules configured. Add rules below.' : 'No settings configured.'}</p>}

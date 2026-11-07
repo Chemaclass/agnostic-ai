@@ -43,14 +43,12 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
     <>
       <PageHeader title={TITLE} verdict={<>{verdict.key && <span className="health-verdict-key">{verdict.key}</span>}{verdict.rest}</>}>
         <HealthFacts errors={count.errors} warnings={count.warnings} gaps={data.health.gaps.length} stale={stale} />
-        {(total > 0 || recheck.live) && (
+        <FeatureTrack improvements={data.health.improvements} />
+        {recheck.live && (total > 0 || recheck.all) && (
           <div className="health-actions">
-            {total > 0 && <CopyButton text={healthFixPrompt(data, data.snapshot.project.root)} label="Copy all fixes" copiedLabel="Copied" className="button-primary" ariaLabel={total === 1 ? 'Copy the fix prompt for the one finding' : `Copy one fix prompt for all ${total} findings`} />}
-            {recheck.live && (total > 0 || recheck.all) && (
-              <button type="button" className="button health-recheck-all" aria-disabled={recheck.pending !== undefined || undefined} onClick={() => recheck.pending === undefined && recheck.startAll()}>
-                {recheck.pendingAll ? 'Rechecking…' : 'Recheck all'}
-              </button>
-            )}
+            <button type="button" className="button health-recheck-all" aria-disabled={recheck.pending !== undefined || undefined} onClick={() => recheck.pending === undefined && recheck.startAll()}>
+              {recheck.pendingAll ? 'Rechecking…' : 'Recheck all'}
+            </button>
           </div>
         )}
         {recheck.live && (
@@ -59,23 +57,25 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
             {recheck.pendingAll ? <Notice><p>Running the checks again…</p></Notice> : recheck.all && <Notice tone={recheckAllTone(recheck.all)}><p>{recheckAllMessage(recheck.all)}</p></Notice>}
           </div>
         )}
-        <FeatureTrack improvements={data.health.improvements} />
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
-          {groups.map((group) => {
+          {groups.map((group, index) => {
             const headingId = `health-${group.severity}`
             const shown = group.sections.reduce((sum, s) => sum + s.entries.reduce((n, entry) => n + entry.findings.length, 0), 0)
             return (
               <section className="block health-group" aria-labelledby={headingId} key={group.severity}>
-                <SectionHeading topic="findings" id={headingId} focusable>
+                <SectionHeading id={headingId} focusable docs={index === 0 ? 'findings' : undefined} actions={index === 0 && total > 0 && (
+                  <div className="health-actions">
+                    <CopyButton text={healthFixPrompt(data, data.snapshot.project.root)} label="Copy all fixes" copiedLabel="Copied" className="button-primary" ariaLabel={total === 1 ? 'Copy the fix prompt for the one finding' : `Copy one fix prompt for all ${total} findings`} />
+                  </div>
+                )}>
                   {SEVERITY_TITLES[group.severity]} {shown > 0 && <span className="kind-count">{shown}</span>}
                 </SectionHeading>
                 {group.sections.map(({ section, entries }) => (
                   <RecheckSection.Provider value={section.id} key={section.id}>
                     <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
                       <div className="health-section">
-                        <h3 className="health-section-title">{section.label}</h3>
                         {entries.map((entry) => <HealthPlace key={entry.place} entry={entry} />)}
                       </div>
                     </RecheckSectionEntries.Provider>
@@ -84,7 +84,7 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
               </section>
             )
           })}
-          <Gaps gaps={data.health.gaps} sections={data.sections} />
+          <Gaps gaps={data.health.gaps} sections={data.sections} docs={groups.length === 0} />
         </ConfigurationRoot.Provider>
       </fieldset>
     </>
@@ -137,16 +137,16 @@ function HealthPlace({ entry }: { entry: HealthEntry }) {
         {entry.entry ? <AppLink to={{ view: entry.section.id as ViewId, entry: entry.entry }}>{label}</AppLink> : <span>{label}</span>}
         {kind && <span className="muted"> · {kind}</span>}
       </p>
-      <Findings findings={entry.findings} ids={entry.ids} owner={entry.owner} place={entry.place} sectionNamed />
+      <Findings findings={entry.findings} ids={entry.ids} owner={entry.owner} place={entry.place} />
     </div>
   )
 }
 
-function Gaps({ gaps, sections }: { gaps: OverviewView['health']['gaps']; sections: OverviewView['sections'] }) {
+function Gaps({ gaps, sections, docs }: { gaps: OverviewView['health']['gaps']; sections: OverviewView['sections']; docs: boolean }) {
   if (gaps.length === 0) return null
   return (
     <section className="block health-gaps" aria-labelledby="health-gaps">
-      <SectionHeading topic="support" id="health-gaps">
+      <SectionHeading id="health-gaps" docs={docs ? 'support' : undefined}>
         Reach the best setup <span className="kind-count">{gaps.length}</span>
       </SectionHeading>
       <p className="health-gaps-intro">Features your tools support that this project does not use yet. Suggestions, not findings.</p>

@@ -31,7 +31,7 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
   const command = global ? 'agnostic-ai sync --global' : 'agnostic-ai sync'
   return (
     <section className="block coding-tools" aria-labelledby="settings-targets">
-      <SectionHeading topic="targets" id="settings-targets" focusable>
+      <SectionHeading id="settings-targets" focusable>
         Coding tools
         {catalog.source === 'personal' && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
       </SectionHeading>
@@ -64,14 +64,13 @@ function ToolRow({ tool, on, audience, global, live, onSaved }: { tool: ToolChoi
     <li className="coding-tool" data-target={tool.target}>
       <ToolAvatar target={tool.target} label={tool.label} />
       <div className="coding-tool-text">
-        <span className="coding-tool-name">{tool.label} <code className="muted">{tool.target}</code></span>
+        <span className="coding-tool-name"><a href={docs} target="_blank" rel="noopener noreferrer" aria-label={`${tool.label} docs (opens in a new tab)`}>{tool.label}</a> <code className="muted">{tool.target}</code></span>
         <span className="muted coding-tool-description">
           {tool.description}
           {tool.detected && !on && <Badge tone="info" muted title="The project already holds this tool's own files">found in project</Badge>}
           {tool.local && audience === 'personal' && <Badge tone="accent" muted title="Your local list decides this tool">local</Badge>}
         </span>
       </div>
-      <a className="coding-tool-docs" href={docs} target="_blank" rel="noopener noreferrer" aria-label={`${tool.label} docs`}>Docs</a>
       {live ? <ToolSwitch tool={tool} on={on} audience={audience} global={global} onSaved={onSaved} /> : <Switch on={on} />}
     </li>
   )

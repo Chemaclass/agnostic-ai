@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { authoritySummary, healthTone, sectionSummary } from './rail'
+import { authoritySummary, healthRow, healthTone, sectionSummary } from './rail'
 
 const kind = (kind: string, label: string, count: number) => ({ kind, label, count })
 const counted = (label: string, kinds: ReturnType<typeof kind>[]) => ({ id: 'context' as const, label, kinds, items: [] })
@@ -39,5 +39,13 @@ describe('health tone', () => {
     expect(healthTone({ errors: 1, warnings: 3 })).toBe('error')
     expect(healthTone({ errors: 0, warnings: 3 })).toBe('warning')
     expect(healthTone({ errors: 0, warnings: 0 })).toBe('clean')
+  })
+})
+
+describe('health row', () => {
+  it('counts findings to fix and features to add', () => {
+    expect(healthRow({ errors: 1, warnings: 3 }, 12)).toEqual({ status: 'Needs attention', summary: 'Setup health: 4 to fix, 12 you could add' })
+    expect(healthRow({ errors: 0, warnings: 0 }, 2)).toEqual({ status: 'All clear', summary: 'Setup health: nothing to fix, 2 you could add' })
+    expect(healthRow({ errors: 0, warnings: 0 }, 0)).toEqual({ status: 'All clear', summary: 'Setup health: nothing to fix' })
   })
 })

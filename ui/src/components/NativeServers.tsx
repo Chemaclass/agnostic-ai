@@ -9,7 +9,7 @@ export function NativeServers({ servers, matches, filtering, onSaved }: { server
   const visible = servers.filter((server) => matches(nativeSearchText(server)))
   return (
     <section className="block" aria-labelledby="tools-native">
-      <SectionHeading topic="native" id="tools-native">
+      <SectionHeading id="tools-native">
         Found in tools <span className="muted kind-count">{filtering ? `${visible.length} of ${servers.length} match` : servers.length}</span>
       </SectionHeading>
       <p className="muted">These servers work only in the tool that holds them. No spec covers them, so sync does not share them with your other tools.</p>

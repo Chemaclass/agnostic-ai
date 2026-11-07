@@ -30,9 +30,15 @@ export function healthTone(count: Pick<FindingCount, 'errors' | 'warnings'>): He
   return count.errors ? 'error' : count.warnings ? 'warning' : 'clean'
 }
 
-/** The status word beside the dot, with the same words as a finding card's severity. */
-export const HEALTH_STATUS: Record<HealthTone, string> = {
+/** A finding's severity in words, on finding cards and the Setup health groups. */
+export const HEALTH_STATUS: Record<Exclude<HealthTone, 'clean'>, string> = {
   error: 'Needs a fix',
   warning: 'Worth a look',
-  clean: 'All clear',
+}
+
+/** The rail's Setup health row: "Needs attention" over "Setup health: 1 to fix, 12 you could add". */
+export function healthRow(count: Pick<FindingCount, 'errors' | 'warnings'>, gaps: number): { status: string; summary: string } {
+  const findings = count.errors + count.warnings
+  const parts = [findings ? `${findings} to fix` : 'nothing to fix', gaps ? `${gaps} you could add` : '']
+  return { status: findings ? 'Needs attention' : 'All clear', summary: `Setup health: ${parts.filter(Boolean).join(', ')}` }
 }
