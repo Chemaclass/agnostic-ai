@@ -79,7 +79,7 @@ test('names the release the config requires beside the serving release', async (
   await expect(requires).toHaveAttribute('title', 'This project needs agnostic-ai >=0.81.0, and v0.80.0 is outside it. Run agnostic-ai sync to see the fix.')
   const muted = await badge.evaluate((element) => getComputedStyle(element).color)
   expect(await requires.evaluate((element) => getComputedStyle(element).color)).not.toBe(muted)
-  expect((await requires.boundingBox())!.y).toBeGreaterThan((await badge.locator('.release-version').boundingBox())!.y)
+  expect(Math.abs((await requires.boundingBox())!.y - (await badge.locator('.release-version').boundingBox())!.y)).toBeLessThan(2)
 
   health = { ...health, version: '0.81.0', requiresMet: true }
   await page.reload()
@@ -106,6 +106,51 @@ test('reads the required release again when the overview refreshes', async ({ pa
   await expect(requires).toHaveText('requires >=0.82.0, not met by this version')
 })
 
+test('keeps every rail row in place while the overview and server details load', async ({ page }) => {
+  const data = { ...structuredClone(fixture), repository: { url: 'https://github.com/octo/demo-project', name: 'octo/demo-project' } }
+  let releaseOverview!: () => void
+  let releaseHealth!: () => void
+  const overviewHeld = new Promise<void>((resolve) => { releaseOverview = resolve })
+  const healthHeld = new Promise<void>((resolve) => { releaseHealth = resolve })
+  await page.route('**/api/views/overview', async (route) => { await overviewHeld; await route.fulfill({ json: data }) })
+  await page.route('**/api/health', async (route) => { await healthHeld; await route.fulfill({ json: { ok: true, root: '/tmp/demo-project', global: false, ui: true, version: '0.91.0', requires: '>=0.91.0', requiresMet: true } }) })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/?view=health')
+  const rows = page.locator('.rail .brand, .sidenav .nav-list > li, .sidenav-footer, .sidenav-footer > *')
+  const boxes = () => rows.evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect()
+    return [x, y, width, height].map(Math.round).join(',')
+  }))
+  await expect(page.locator('.sidenav .skeleton').first()).toBeVisible()
+  const loading = await boxes()
+  releaseOverview()
+  await expect(page.locator('.sidenav .nav-summary').first()).not.toBeEmpty()
+  await expect(page.locator('.sidenav .nav-summary .skeleton')).toHaveCount(0)
+  expect(await boxes()).toEqual(loading)
+  releaseHealth()
+  await expect(page.locator('.release-badge .release-version')).toHaveText('agnostic-ai v0.91.0')
+  await expect(page.locator('.sidenav .skeleton')).toHaveCount(0)
+  await expect(page.locator('.rail .skeleton')).toHaveCount(0)
+  expect(await boxes()).toEqual(loading)
+})
+
+test('keeps each rail summary on one line and its whole text in the link name', async ({ page }) => {
+  const data = structuredClone(fixture)
+  const context = data.sections.find((section: { id: string }) => section.id === 'context')!
+  for (const kind of context.kinds) kind.count = 15
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/?view=context')
+  const summaries = page.locator('.sidenav .nav-summary')
+  await expect(summaries.first()).toBeVisible()
+  for (const height of await summaries.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))) expect(height).toBeLessThanOrEqual(16)
+  const link = page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: /^Context: / })
+  const summary = link.locator('.nav-summary')
+  await expect(summary).toHaveAttribute('title', await summary.textContent() ?? '')
+  expect(await summary.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+})
+
 test('links agnostic-ai and the project repository on GitHub', async ({ page }) => {
   const data = { ...structuredClone(fixture), repository: { url: 'https://github.com/octo/demo-project', name: 'octo/demo-project' } }
   let overview: Record<string, unknown> = data
@@ -114,7 +159,7 @@ test('links agnostic-ai and the project repository on GitHub', async ({ page }) 
   const product = page.locator('.sidenav').getByRole('link', { name: 'agnostic-ai on GitHub (opens in a new tab)' })
   await expect(product).toHaveAttribute('href', 'https://github.com/Chemaclass/agnostic-ai')
   await expect(product).toHaveAttribute('target', '_blank')
-  const project = page.locator('.sidenav').getByRole('link', { name: 'octo/demo-project on GitHub (opens in a new tab)' })
+  const project = page.locator('.rail .brand').getByRole('link', { name: 'octo/demo-project on GitHub (opens in a new tab)' })
   await expect(project).toHaveAttribute('href', 'https://github.com/octo/demo-project')
   await expect(project).toHaveAttribute('target', '_blank')
   await expect(project).toBeInViewport({ ratio: 1 })
