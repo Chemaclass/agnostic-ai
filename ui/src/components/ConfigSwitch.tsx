@@ -118,7 +118,13 @@ export function ConfigSwitch({ served }: { served: ServedConfig }) {
           className="global-onboarding"
           role="dialog"
           aria-labelledby="global-onboarding-title"
-          onKeyDown={(e) => { if (e.key === 'Escape' && !busy) cancel() }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Escape') return
+            // Inside the phone Menu, Escape would also close the whole sheet.
+            e.preventDefault()
+            e.stopPropagation()
+            if (!busy) cancel()
+          }}
         >
           <h2 id="global-onboarding-title">{GLOBAL_SETUP_TITLE}</h2>
           <p>{GLOBAL_SETUP_BODY}</p>

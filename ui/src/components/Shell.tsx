@@ -3,11 +3,13 @@ import { API, type OverviewView } from '../contract'
 import type { Loaded } from '../api'
 import { baseName, parseServedConfig, type ServedConfig } from '../model/config-switch'
 import { ConfigSwitch } from './ConfigSwitch'
+import { Notice } from './Banner'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
 import { requiredRelease, servingRelease } from '../model/release'
 import { countFindings, healthSummary } from '../model/health'
+import { HEALTH_STATUS, healthTone, sectionSummary } from '../model/rail'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -15,45 +17,40 @@ export interface Remote<T> {
   error?: Error
 }
 
-const DEFAULT_SECTION_LABELS: Record<string, string> = {
-  context: 'Context',
-  authority: 'Authority',
-  tools: 'Tools',
-  lifecycle: 'Lifecycle',
-  settings: 'Settings',
-}
-
-const SECTION_DESCRIPTIONS: Record<string, string> = {
-  conversations: 'Chats across your tools',
-  context: 'Instructions, rules & skills',
-  authority: 'Permissions & boundaries',
-  tools: 'Servers & available tools',
-  lifecycle: 'Hooks through a session',
-  settings: 'Built-ins & preferences',
-  health: 'Findings to fix, errors first',
-}
-
-// Conversations and Setup health are not configuration sections: each
-// sits apart from the numbered sections, under or over a hairline.
-const NAV_ITEM_CLASSES: Partial<Record<ViewId, string>> = {
-  conversations: 'nav-item-conversations',
-  health: 'nav-item-health',
+const DEFAULT_SECTIONS: Record<string, { label: string; question: string }> = {
+  context: { label: 'Context', question: 'What is the agent told?' },
+  authority: { label: 'Authority', question: 'What may the agent do?' },
+  tools: { label: 'Tools', question: 'What can the agent use?' },
+  lifecycle: { label: 'Lifecycle', question: 'What runs around the agent, and when?' },
+  settings: { label: 'Settings', question: 'How are your tools set up?' },
 }
 
 const PRODUCT_NAME = 'agnostic-ai'
 const PRODUCT_REPOSITORY = 'https://github.com/Chemaclass/agnostic-ai'
+// At this width and below the rail becomes a top bar and a row of page links.
+const COMPACT_SHELL = '(max-width: 900px)'
+const SEARCH_SHORTCUT = APPLE_PLATFORM ? '⌘K' : 'Ctrl K'
 
-// The header and the navigation stick over the scrolling document; their
-// heights wrap with the window, so the layout reads them from these variables.
+function compactShell(): boolean {
+  return window.matchMedia?.(COMPACT_SHELL).matches ?? false
+}
+
+// The phone top bar and page-link row stick over the scrolling document and
+// their heights wrap, so sticky page parts read them from these variables.
+// On wide screens they sit in the rail and offset nothing.
 function useHeightVariable(ref: RefObject<HTMLElement | null>, name: string) {
   useEffect(() => {
     const element = ref.current
     if (!element || typeof ResizeObserver === 'undefined') return
     const root = document.documentElement.style
-    const observer = new ResizeObserver(() => root.setProperty(name, `${element.getBoundingClientRect().height}px`))
+    const measure = () => root.setProperty(name, compactShell() ? `${element.getBoundingClientRect().height}px` : '0px')
+    const observer = new ResizeObserver(measure)
     observer.observe(element)
+    const query = window.matchMedia?.(COMPACT_SHELL)
+    query?.addEventListener('change', measure)
     return () => {
       observer.disconnect()
+      query?.removeEventListener('change', measure)
       root.removeProperty(name)
     }
   }, [ref, name])
@@ -74,33 +71,15 @@ export function useServedConfig(sourceKind: string, loads: number): ServedConfig
   return served
 }
 
-function LogoMark({ className }: { className: string }) {
-  return (
-    <svg className={className} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <path d="M43 32H50.5M39.78 39.78L45.08 45.08M32 43V50.5M24.22 39.78L18.92 45.08M21 32H13.5M24.22 24.22L18.92 18.92M32 21V13.5M39.78 24.22L45.08 18.92" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-      <circle cx="32" cy="32" r="8" fill="currentColor" />
-      <g fill="currentColor">
-        <circle cx="55" cy="32" r="4.5" /><circle cx="32" cy="55" r="4.5" />
-        <circle cx="9" cy="32" r="4.5" /><circle cx="32" cy="9" r="4.5" />
-      </g>
-      <g fill="var(--text-muted)">
-        <circle cx="48.26" cy="48.26" r="4.5" /><circle cx="15.74" cy="48.26" r="4.5" />
-        <circle cx="15.74" cy="15.74" r="4.5" /><circle cx="48.26" cy="15.74" r="4.5" />
-      </g>
-    </svg>
-  )
-}
-
-// Counts by severity, linking to the Setup health view; nothing shows until the overview loads.
+// Counts by severity for the phone top bar, linking to Setup health; nothing shows until the overview loads.
 function HealthBadge({ overview }: { overview: OverviewView | undefined }) {
   const app = useApp()
   if (!overview) return null
   const count = countFindings(overview)
   const summary = healthSummary(count)
-  const tone = count.errors ? 'is-error' : count.warnings ? 'is-warning' : 'is-clean'
+  const tone = healthTone(count)
   return (
-    <AppLink to={{ view: 'health' }} className={`health-badge ${tone}`} aria-label={`Setup health: ${summary}`} title={`Setup health: ${summary}`} aria-current={app.state.view === 'health' ? 'page' : undefined}>
-      <Icon name={count.errors || count.warnings ? 'warning' : 'health'} />
+    <AppLink to={{ view: 'health' }} className={`health-badge is-${tone}`} aria-label={`Setup health: ${summary}`} title={`Setup health: ${summary}`} aria-current={app.state.view === 'health' ? 'page' : undefined}>
       {count.errors > 0 && <span className="health-count is-error">{count.errors}<span className="health-count-letter" aria-hidden="true">E</span><span className="health-count-word"> {count.errors === 1 ? 'error' : 'errors'}{count.warnings ? ',' : ''}</span></span>}
       {count.errors > 0 && count.warnings > 0 && ' '}
       {count.warnings > 0 && <span className="health-count is-warning">{count.warnings}<span className="health-count-letter" aria-hidden="true">W</span><span className="health-count-word"> {count.warnings === 1 ? 'warning' : 'warnings'}</span></span>}
@@ -117,83 +96,59 @@ function apiProjectName(snapshot: { project: { name?: string } } | undefined, se
   return folder === '' || /^[\\/]+$/.test(folder) ? undefined : folder
 }
 
+function ProjectName({ overview, served }: { overview: Remote<OverviewView>; served: ServedConfig | undefined }) {
+  const app = useApp()
+  const snapshot = overview.loaded?.data.snapshot
+  const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
+  const projectName = app.source.kind === 'api' ? apiProjectName(snapshot, served) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
+  if (!projectName) return null
+  return (
+    <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
+      <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
+      <span className="project-title"><span className="project-label">{projectName}</span>{served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}</span>
+      {root && <code className="project-root"><bdi>{root}</bdi></code>}
+    </span>
+  )
+}
+
+/** Wordmark and project on the rail, or the top bar with the finding chip, Search and Menu on phones. */
 export function Header({
   overview,
   served,
-  theme,
-  onToggleTheme,
+  menuButton,
+  menuOpen,
+  onOpenMenu,
   onOpenSearch,
 }: {
   overview: Remote<OverviewView>
   served: ServedConfig | undefined
-  theme: 'dark' | 'light'
-  onToggleTheme: () => void
+  menuButton: RefObject<HTMLButtonElement | null>
+  menuOpen: boolean
+  onOpenMenu: () => void
   onOpenSearch: () => void
 }) {
-  const app = useApp()
   const headerRef = useRef<HTMLElement>(null)
   useHeightVariable(headerRef, '--topbar-offset')
-  const snapshot = overview.loaded?.data.snapshot
-  const repository = overview.loaded?.data.repository
-  const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
-  const projectName = app.source.kind === 'api' ? apiProjectName(snapshot, served) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
-
   return (
     <header className="topbar" ref={headerRef} data-busy={overview.status === 'loading' || undefined}>
       <div className="brand">
-        <LogoMark className="logo" />
         <span className="brand-name">{PRODUCT_NAME}</span>
+        <ProjectName overview={overview} served={served} />
       </div>
-      {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
-        <div className="topbar-context">
-          {projectName && (
-            <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
-              <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
-              <span className="project-title"><span className="project-label">{projectName}</span>{served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}</span>
-              {root && <code className="project-root"><bdi>{root}</bdi></code>}
-            </span>
-          )}
-          {app.source.kind === 'static' && (
-            <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
-              Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}
-            </span>
-          )}
-          {app.source.kind === 'mock' && (
-            <span className="chip chip-source" title="Handwritten data bundled with the client; not a live configuration scan">
-              Mock fixtures
-            </span>
-          )}
-        </div>
-      )}
       <div className="topbar-actions">
         <HealthBadge overview={overview.loaded?.data} />
-        <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
+        <button type="button" className="button button-icon" aria-label="Search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} title={`Search (${SEARCH_SHORTCUT})`} onClick={onOpenSearch}>
           <Icon name="search" />
-          <span className="button-search-label">Search</span>
-          <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
         </button>
-        {repository && (
-          <a className="button button-quiet button-icon" href={repository.url} target="_blank" rel="noopener noreferrer" title={`${repository.name} on GitHub`}>
-            <Icon name="github" />
-            <span className="sr-only">{repository.name} on GitHub (opens in a new tab)</span>
-          </a>
-        )}
-        <button
-          type="button"
-          className="button button-quiet button-icon"
-          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          onClick={onToggleTheme}
-        >
-          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+        <button ref={menuButton} type="button" className="button button-icon" aria-label="Menu" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={onOpenMenu}>
+          <Icon name="menu" />
         </button>
       </div>
     </header>
   )
 }
 
-// The release badge sits at the bottom of the sidebar. A published
-// release links its notes; a checkout build shows its label as it is.
+// A published release links its notes; a checkout build shows its label as it is.
 function ReleaseBadge({ served, version }: { served: ServedConfig; version: string }) {
   const release = servingRelease(version)
   const required = requiredRelease(served)
@@ -208,75 +163,207 @@ function ReleaseBadge({ served, version }: { served: ServedConfig; version: stri
           </span>{' '}
         </>
       )}
-      <span className="release-caption">{release.kind === 'release' ? 'Release notes' : 'Development build'}</span>
+      <span className="release-caption">
+        {release.kind === 'release' ? 'Release notes' : 'Development build'}
+        {release.kind === 'release' && <Icon name="arrow" className="release-arrow" />}
+      </span>
     </span>
   )
   if (release.kind === 'build') {
-    return (
-      <div className="release-badge release-badge-build" title={`agnostic-ai ${release.label}`}>
-        <LogoMark className="release-mark" />
-        {text}
-      </div>
-    )
+    return <div className="release-badge release-badge-build" title={`agnostic-ai ${release.label}`}>{text}</div>
   }
   return (
     <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`Read the agnostic-ai ${release.label} release notes (opens in a new tab)`}>
-      <LogoMark className="release-mark" />
       {text}
-      <Icon name="arrow" className="release-arrow" />
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
   )
 }
 
-export function Nav({
+interface SectionLink {
+  id: ViewId
+  label: string
+  question: string
+  summary?: string
+}
+
+function sectionLinks(overview: OverviewView | undefined): SectionLink[] {
+  const sections = overview?.sections
+  if (!sections?.length) return SECTION_VIEWS.map((id) => ({ id, ...DEFAULT_SECTIONS[id], summary: DEFAULT_SECTIONS[id].label }))
+  return [...sections].sort((a, b) => a.order - b.order).map((section) => ({
+    id: section.id as ViewId,
+    label: section.label,
+    question: section.question || DEFAULT_SECTIONS[section.id]?.question || section.label,
+    summary: sectionSummary(section),
+  }))
+}
+
+/** Conversations, Setup health as a status row, then each section as its question over its live summary.
+    The summary comes first in the markup, so each link's name starts with the page name. */
+function PageLinks({ overview, onNavigate }: { overview: OverviewView | undefined; onNavigate?: () => void }) {
+  const app = useApp()
+  const count = overview ? countFindings(overview) : undefined
+  const tone = count ? healthTone(count) : undefined
+  const link = (id: ViewId, className: string | undefined, label: string, question: string, summary: string | undefined, dot?: string) => (
+    <li key={id} className={className}>
+      <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate}>
+        {dot && <span className={`nav-dot is-${dot}`} aria-hidden="true" />}
+        <Icon name={id} />
+        <span className="nav-text">
+          {summary && <span className="nav-summary">{summary}</span>}
+          <span className="nav-question">{question}</span>
+          <span className="nav-label">{label}</span>
+        </span>
+      </AppLink>
+    </li>
+  )
+  return (
+    <ul className="nav-list">
+      {link('conversations', 'nav-item-conversations', 'Conversations', 'Where did you leave off?', 'Conversations: chats across your tools')}
+      {link('health', 'nav-item-health', 'Health', tone ? HEALTH_STATUS[tone] : 'Setup health', count ? `Setup health: ${healthSummary(count)}` : undefined, tone ?? 'loading')}
+      {sectionLinks(overview).map((section) => link(section.id, undefined, section.label, section.question, section.summary))}
+    </ul>
+  )
+}
+
+function RailFoot({
   overview,
   served,
+  theme,
+  onToggleTheme,
+  onOpenSearch,
   inspectorOpen,
   onToggleInspector,
 }: {
-  overview: Remote<OverviewView>
+  overview: OverviewView | undefined
   served: ServedConfig | undefined
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
+  onOpenSearch?: () => void
   inspectorOpen: boolean
   onToggleInspector: () => void
 }) {
-  const app = useApp()
-  const asideRef = useRef<HTMLElement>(null)
-  useHeightVariable(asideRef, '--nav-offset')
-  const sections = overview.loaded?.data.sections
-  const ordered = sections?.length
-    ? [...sections].sort((a, b) => a.order - b.order).map((s) => ({ id: s.id as ViewId, label: s.label }))
-    : SECTION_VIEWS.map((id) => ({ id: id as ViewId, label: DEFAULT_SECTION_LABELS[id] }))
-
-  const item = (id: ViewId, label: string, index?: number) => {
-    return (
-      <li key={id} className={NAV_ITEM_CLASSES[id]}>
-        <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined}>
-          {index !== undefined && <span className="nav-index" aria-hidden="true">{String(index).padStart(2, '0')}</span>}
-          <Icon name={id} />
-          <span className="nav-text">{label}<span className="nav-description">{SECTION_DESCRIPTIONS[id]}</span></span>
-        </AppLink>
-      </li>
-    )
-  }
-
+  const repository = overview?.repository
+  const themeLabel = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
   return (
-    <aside className="sidenav" ref={asideRef}>
-      <nav className="section-nav" aria-label="Configuration sections">
-        <ul className="nav-list">{item('conversations', 'Conversations')}{ordered.map((s, index) => item(s.id, s.label, index + 1))}{item('health', 'Setup health')}</ul>
-      </nav>
-      <footer className="sidenav-footer">
-        {served && <ConfigSwitch served={served} />}
+    <footer className="sidenav-footer">
+      {onOpenSearch && (
+        <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
+          <Icon name="search" />
+          <span className="button-search-label">Search</span>
+          <kbd aria-hidden="true">{SEARCH_SHORTCUT}</kbd>
+        </button>
+      )}
+      {served && <ConfigSwitch served={served} />}
+      <div className="sidenav-row">
+        <button type="button" className="button button-quiet sidenav-theme" aria-label={themeLabel} title={themeLabel} onClick={onToggleTheme}>
+          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+          <span aria-hidden="true">{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+        </button>
+        <span className="sidenav-links">
+          {repository && (
+            <a className="button button-quiet button-icon" href={repository.url} target="_blank" rel="noopener noreferrer" title={`${repository.name} on GitHub`}>
+              <Icon name="github" />
+              <span className="sr-only">{repository.name} on GitHub (opens in a new tab)</span>
+            </a>
+          )}
+          <a className="sidenav-github" href={PRODUCT_REPOSITORY} target="_blank" rel="noopener noreferrer" title={`${PRODUCT_NAME} on GitHub`}>
+            <Icon name="github" />
+            <span className="sidenav-github-label">{PRODUCT_NAME} on GitHub</span>
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        </span>
+      </div>
+      <div className="sidenav-row">
         {served?.version && <ReleaseBadge served={served} version={served.version} />}
-        <a className="sidenav-github" href={PRODUCT_REPOSITORY} target="_blank" rel="noopener noreferrer" title={`${PRODUCT_NAME} on GitHub`}>
-          <Icon name="github" />
-          <span className="sidenav-github-label">{PRODUCT_NAME} on GitHub</span>
-          <span className="sr-only"> (opens in a new tab)</span>
-        </a>
         <button type="button" className="sidenav-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
           Overview JSON
         </button>
-      </footer>
+      </div>
+    </footer>
+  )
+}
+
+export interface RailProps {
+  overview: Remote<OverviewView>
+  served: ServedConfig | undefined
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
+  onOpenSearch: () => void
+  inspectorOpen: boolean
+  onToggleInspector: () => void
+}
+
+/** The page links and the rail foot; at 900px and below only the page links show, as one row. */
+export function Nav({ overview, ...foot }: RailProps) {
+  const asideRef = useRef<HTMLElement>(null)
+  useHeightVariable(asideRef, '--nav-offset')
+  return (
+    <aside className="sidenav" ref={asideRef}>
+      <nav className="section-nav" aria-label="Configuration sections">
+        <PageLinks overview={overview.loaded?.data} />
+      </nav>
+      <RailFoot overview={overview.loaded?.data} {...foot} />
     </aside>
   )
+}
+
+/** The phone Menu: the rail's questions, summaries and foot in a sheet from the left. */
+export function MenuSheet({ open, onClose, overview, onOpenSearch: _search, ...foot }: RailProps & { open: boolean; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const element = dialog.current
+    if (!element) return
+    if (open && !element.open) element.showModal()
+    if (!open && element.open) element.close()
+  }, [open])
+  useEffect(() => {
+    if (!open) return
+    const query = window.matchMedia?.(COMPACT_SHELL)
+    const onChange = () => { if (!query?.matches) onClose() }
+    query?.addEventListener('change', onChange)
+    return () => query?.removeEventListener('change', onChange)
+  }, [open, onClose])
+  return (
+    <dialog ref={dialog} className="menu-sheet" aria-label="Menu" onClose={onClose} onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      {open && (
+        <div className="menu-sheet-body">
+          <div className="menu-sheet-head">
+            <div className="brand">
+              <span className="brand-name">{PRODUCT_NAME}</span>
+              <ProjectName overview={overview} served={foot.served} />
+            </div>
+            <button type="button" className="button button-icon menu-sheet-close" aria-label="Close menu" onClick={onClose}>
+              <Icon name="close" />
+            </button>
+          </div>
+          <nav aria-label="Sections">
+            <PageLinks overview={overview.loaded?.data} onNavigate={onClose} />
+          </nav>
+          <RailFoot overview={overview.loaded?.data} {...foot} onToggleInspector={() => { onClose(); foot.onToggleInspector() }} />
+        </div>
+      )}
+    </dialog>
+  )
+}
+
+/** Says once, at the top of the page, that the data is not a live scan. */
+export function SourceNotice({ overview }: { overview: Remote<OverviewView> }) {
+  const app = useApp()
+  if (app.source.kind === 'static') {
+    const revision = overview.loaded?.data.snapshot.revision
+    return (
+      <Notice tone="info">
+        <p><strong>Static snapshot{revision ? ` · revision ${revision}` : ''}.</strong> Read from {app.source.base} with no server.</p>
+      </Notice>
+    )
+  }
+  if (app.source.kind === 'mock') {
+    return (
+      <Notice tone="info">
+        <p><strong>Mock data.</strong> Handwritten data bundled with the page, not a live scan of a configuration.</p>
+      </Notice>
+    )
+  }
+  return null
 }

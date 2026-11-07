@@ -10,7 +10,7 @@ import { SectionPage } from './components/SectionFrame'
 import { HealthPage } from './components/Health'
 import { ConversationsPage } from './components/Conversations'
 import { RefreshFailure } from './components/Banner'
-import { Header, Nav, useServedConfig, type Remote } from './components/Shell'
+import { Header, MenuSheet, Nav, SourceNotice, useServedConfig, type Remote } from './components/Shell'
 import { RecheckProvider, useRecheck } from './components/Recheck'
 import { APPLE_PLATFORM } from './components/ui'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState, type ViewId } from './model/url'
@@ -119,12 +119,17 @@ export default function App() {
   }, [go])
 
   const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const closeMenu = useCallback(() => setMenuOpen(false), [])
   const [searchOpen, setSearchOpen] = useState(false)
   const searchOpener = useRef<HTMLElement | null>(null)
+  const menuButton = useRef<HTMLButtonElement>(null)
+  // The Menu sheet is a modal dialog, so search opens only after it closes.
   const openSearch = useCallback(() => {
-    searchOpener.current = document.activeElement as HTMLElement | null
+    searchOpener.current = menuOpen ? menuButton.current : document.activeElement as HTMLElement | null
+    setMenuOpen(false)
     setSearchOpen(true)
-  }, [])
+  }, [menuOpen])
   const closeSearch = useCallback((navigated: boolean) => {
     setSearchOpen(false)
     if (!navigated) searchOpener.current?.focus?.()
@@ -190,6 +195,16 @@ export default function App() {
     }
   }, [theme])
 
+  const rail = {
+    overview,
+    served,
+    theme,
+    onToggleTheme: toggleTheme,
+    onOpenSearch: openSearch,
+    inspectorOpen,
+    onToggleInspector: () => setInspectorOpen((open) => !open),
+  }
+
   return (
     <AppContext.Provider value={app}>
       <RecheckProvider value={recheck}>
@@ -197,22 +212,18 @@ export default function App() {
           <a className="skip-link" href="#main">
             Skip to content
           </a>
-          <Header
-            overview={overview}
-            served={served}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            onOpenSearch={openSearch}
-          />
-          <div className="shell">
-            <Nav overview={overview} served={served} inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
-            <main id="main" className="main" tabIndex={-1}>
-              <div className="page">
-                {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
-                <Page view={state.view} overview={overview} stale={stale} />
-              </div>
-            </main>
+          <div className="rail">
+            <Header overview={overview} served={served} menuButton={menuButton} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} onOpenSearch={openSearch} />
+            <Nav {...rail} />
           </div>
+          <main id="main" className="main" tabIndex={-1}>
+            <div className="page">
+              <SourceNotice overview={overview} />
+              {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
+              <Page view={state.view} overview={overview} stale={stale} />
+            </div>
+          </main>
+          <MenuSheet {...rail} open={menuOpen} onClose={closeMenu} />
           {searchOpen && <GlobalSearch overview={overview.loaded?.data} onClose={closeSearch} />}
           {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} global={served?.global === true} />}
         </div>
