@@ -3,7 +3,7 @@
 
 import type { Improvements, OverviewView } from '../contract'
 import { recheckAllMessage, type RecheckAllResult } from '../model/recheck'
-import { countFindings, gapTools, healthFixPrompt, healthGroups, healthSummary, healthVerdict, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
+import { countFindings, featureBars, gapTools, healthFixPrompt, healthGroups, healthSummary, healthVerdict, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
 import { HEALTH_STATUS } from '../model/rail'
 import { sectionEntryIds } from '../model/identity'
 import { plural } from '../model/format'
@@ -112,12 +112,15 @@ function HealthFacts({ errors, warnings, gaps }: { errors: number; warnings: num
 /** One bar per feature the configured tools support, filled for those in use. */
 function FeatureTrack({ improvements }: { improvements?: Improvements }) {
   const line = improvementsLine(improvements)
-  if (!improvements || !line) return null
+  const bars = featureBars(improvements)
+  if (!line) return null
   return (
     <div className="health-track">
-      <span className="health-track-bars" aria-hidden="true">
-        {Array.from({ length: improvements.total }, (_, i) => <span key={i} className={`health-track-bar${i < improvements.applied ? ' is-on' : ''}`} />)}
-      </span>
+      {bars && (
+        <span className="health-track-bars" aria-hidden="true">
+          {bars.map((on, i) => <span key={i} className={`health-track-bar${on ? ' is-on' : ''}`} />)}
+        </span>
+      )}
       <p className="health-track-text">{line}</p>
     </div>
   )

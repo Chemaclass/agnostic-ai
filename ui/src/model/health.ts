@@ -170,6 +170,16 @@ export function improvementsLine(improvements: Improvements | undefined): string
   return `${applied} of ${plural(total, 'feature')} your tools support ${total === 1 ? 'is' : 'are'} in use`
 }
 
+const TRACK_BARS_MAX = 40
+
+/** One flag per feature bar, true for those in use; nothing when the counts are too large or do not add up, so the line alone says them. */
+export function featureBars(improvements: Improvements | undefined): boolean[] | undefined {
+  if (!improvements) return undefined
+  const { applied, total } = improvements
+  if (total < 1 || total > TRACK_BARS_MAX || applied < 0 || applied > total) return undefined
+  return Array.from({ length: total }, (_, i) => i < applied)
+}
+
 /** The page's answer: what needs a fix and what is worth a look, with the leading count as its key phrase. */
 export function healthVerdict({ errors, warnings }: Pick<FindingCount, 'errors' | 'warnings'>): { key?: string; rest: string } {
   const things = (n: number) => plural(n, 'thing')

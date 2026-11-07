@@ -246,6 +246,15 @@ test.describe('setup health', () => {
     await expect(page.getByRole('region', { name: /^Reach the best setup/ })).toHaveCount(0)
   })
 
+  test('keeps the exact counts but no bars for an oversized feature total', async ({ page }) => {
+    const data = structuredClone(fixture)
+    data.health = { gaps: [], improvements: { applied: 1, total: 4294967296 } }
+    await serve(page, data)
+    await page.goto('/?view=health')
+    await expect(page.locator('.health-track')).toContainText('1 of 4294967296 features your tools support are in use')
+    await expect(page.locator('.health-track-bar')).toHaveCount(0)
+  })
+
   test('hides the feature track without improvements data', async ({ page }) => {
     const data = structuredClone(fixture)
     data.health = { gaps: [] }

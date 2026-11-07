@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
-import { countFindings, gapTools, healthFixPrompt, healthGroups, healthPlace, healthSummary, healthVerdict, improvementsLine, placeLabel } from './health'
+import { countFindings, gapTools, healthFixPrompt, healthGroups, healthPlace, featureBars, healthSummary, healthVerdict, improvementsLine, placeLabel } from './health'
 import { findingEntryIds, itemEntryId } from './identity'
 import { overviewFindings } from './recheck'
 import { normalizeOverviewView } from './normalize'
@@ -162,6 +162,17 @@ describe('setup health', () => {
     expect(improvementsLine({ applied: 1, total: 1 })).toBe('The one feature your tools support is in use')
     expect(improvementsLine({ applied: 0, total: 0 })).toBeUndefined()
     expect(improvementsLine(undefined)).toBeUndefined()
+  })
+
+  it('draws one bar per feature only for a small, consistent count', () => {
+    expect(featureBars({ applied: 2, total: 4 })).toEqual([true, true, false, false])
+    expect(featureBars({ applied: 0, total: 40 })).toHaveLength(40)
+    expect(featureBars({ applied: 1, total: 41 })).toBeUndefined()
+    expect(featureBars({ applied: 0, total: 4294967296 })).toBeUndefined()
+    expect(featureBars({ applied: 5, total: 4 })).toBeUndefined()
+    expect(featureBars({ applied: 0, total: 0 })).toBeUndefined()
+    expect(featureBars(undefined)).toBeUndefined()
+    expect(improvementsLine({ applied: 1, total: 4294967296 })).toBe('1 of 4294967296 features your tools support are in use')
   })
 
   it('answers with what needs a fix first, then what is worth a look', () => {
