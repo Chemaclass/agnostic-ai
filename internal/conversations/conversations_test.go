@@ -24,15 +24,15 @@ type fakeProcesses struct {
 	alive   map[int]bool
 	app     map[int]string
 	tty     map[int]string
-	held    map[string]bool
+	held    map[string]int
 	running map[string]bool
 }
 
-func (f fakeProcesses) Held(paths []string) map[string]bool {
-	held := map[string]bool{}
+func (f fakeProcesses) Holders(paths []string) map[string]int {
+	held := map[string]int{}
 	for _, path := range paths {
-		if f.held[filepath.Base(path)] {
-			held[path] = true
+		if pid, ok := f.held[filepath.Base(path)]; ok {
+			held[path] = pid
 		}
 	}
 	return held
@@ -574,6 +574,12 @@ func TestRunSQLite_ReadsRowsAsJSON(t *testing.T) {
 	}
 }
 
+// folderOpenIn reports whether the editor state at storagePath lists a
+// window on folder itself.
+func folderOpenIn(storagePath, folder string) bool {
+	return openWindowFolders(storagePath)[folderKey(folder)]
+}
+
 func TestFolderOpenIn_ReadsTheEditorsOpenWindows(t *testing.T) {
 	storage := filepath.Join(t.TempDir(), "storage.json")
 	write(t, storage, `{"windowsState":{"lastActiveWindow":{"folder":"file:///Users/me/Products/kombo"},"openedWindows":[{"folder":"file:///Users/me/Products/agnostic-ai"},{"folder":"file:///Users/me/My%20Code/app"}]}}`)
@@ -644,7 +650,7 @@ func TestScan_LeavesCodexExecRunsOutAndMarksLoadedThreadsLive(t *testing.T) {
 			{"id":"` + idle + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex-tui","source":"cli","name":"Closed"},
 			{"id":"` + exec + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex_exec","source":"exec","name":"Exec run"}
 		]`,
-	}), fakeProcesses{held: map[string]bool{loaded + ".lock": true}})
+	}), fakeProcesses{held: map[string]int{loaded + ".lock": 4242}, alive: map[int]bool{4242: true}, app: map[int]string{4242: "Terminal"}, tty: map[int]string{4242: "/dev/ttys004"}})
 	scanner.Now = func() time.Time { return time.UnixMilli(1762520000000) }
 	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
 	for _, id := range []string{loaded, idle} {
@@ -655,6 +661,14 @@ func TestScan_LeavesCodexExecRunsOutAndMarksLoadedThreadsLive(t *testing.T) {
 
 	if len(view.Conversations) != 2 || !byID(t, view, loaded).Live || byID(t, view, idle).Live {
 		t.Errorf("want two threads, only the loaded one live: %s", asJSON(t, view.Conversations))
+	}
+	if open := byID(t, view, loaded).Open; open.Kind != RouteFocus || open.Label != "Switch to its terminal" {
+		t.Errorf("an open CLI thread switches to its terminal, actual %s", asJSON(t, open))
+	}
+	launcher := &fakeLauncher{focusOK: true}
+	reply := Open(context.Background(), byID(t, view, loaded), scanner.Processes, launcher)
+	if strings.Join(launcher.calls, ";") != "focus /dev/ttys004" || !reply.Opened {
+		t.Errorf("opening it must switch to its tab, not resume it again: calls %v, reply %s", launcher.calls, asJSON(t, reply))
 	}
 }
 
@@ -835,7 +849,7 @@ func TestFolderOpenIn_DecodesTheEditorsFolderURIs(t *testing.T) {
 	}
 }
 
-func TestSystemProcesses_HeldFindsALockUnderASymlinkedFolder(t *testing.T) {
+func TestSystemProcesses_HoldersFindsALockUnderASymlinkedFolder(t *testing.T) {
 	if _, err := exec.LookPath("lsof"); err != nil {
 		t.Skip("lsof is not installed")
 	}
@@ -851,7 +865,7 @@ func TestSystemProcesses_HeldFindsALockUnderASymlinkedFolder(t *testing.T) {
 	}
 	defer func() { _ = f.Close() }()
 
-	if held := (SystemProcesses{}).Held([]string{lock}); !held[lock] {
+	if held := (SystemProcesses{}).Holders([]string{lock}); held[lock] != os.Getpid() {
 		t.Errorf("a lock this process holds through a symlink must be held, actual %v", held)
 	}
 }
@@ -906,5 +920,41 @@ func TestScan_ReadsACursorAgentChatAgainOnlyWhenItChanges(t *testing.T) {
 	write(t, transcript, prompt("Fix the build"))
 	if c := scan(); storeReads != 2 || c.Prompt != "Fix the build" {
 		t.Errorf("a changed chat must be read again: %d store reads, prompt %q", storeReads, c.Prompt)
+	}
+}
+
+func TestEnclosingWindowFolder_PrefersTheEditorWindowAroundTheFolder(t *testing.T) {
+	storage := filepath.Join(t.TempDir(), "storage.json")
+	write(t, storage, `{"windowsState":{"openedWindows":[{"folder":"file:///repo"},{"folder":"file:///repo/pkg/api"}]}}`)
+	for folder, want := range map[string]string{
+		"/repo/pkg":         "/repo",
+		"/repo/pkg/api/v1":  "/repo/pkg/api",
+		"/repo":             "/repo",
+		"/elsewhere/repo":   "",
+		"/repository/thing": "",
+	} {
+		if actual, _ := enclosingWindowFolder(storage, folder); actual != want {
+			t.Errorf("enclosingWindowFolder(%q) = %q, want %q", folder, actual, want)
+		}
+	}
+}
+
+func TestOsascriptArgs_PassTheCommandAndTTYAsArguments(t *testing.T) {
+	hostile := "cd '/tmp/a\"b' && echo \"quoted\"\nrm -rf ~"
+	for name, args := range map[string][]string{
+		"new terminal": newTerminalArgs(hostile),
+		"focus tab":    focusTabArgs(hostile),
+	} {
+		if len(args) < 2 || args[len(args)-1] != hostile || args[len(args)-2] != "end run" {
+			t.Errorf("%s: the value must be the one argument after the script, actual %q", name, args)
+		}
+		for _, arg := range args[:len(args)-1] {
+			if strings.Contains(arg, "echo") {
+				t.Errorf("%s: the value leaked into the script text: %q", name, arg)
+			}
+		}
+		if args[0] != "-e" || args[1] != "on run argv" {
+			t.Errorf("%s: the script must read argv, actual %q", name, args[:2])
+		}
 	}
 }
