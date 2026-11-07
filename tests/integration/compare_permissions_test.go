@@ -7,21 +7,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestComparePermissions_ReportsPolicyWithoutWriting(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), "agnostic-ai")
-	if runtime.GOOS == "windows" {
-		binary += ".exe"
-	}
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = "../.."
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	dir := t.TempDir()
 	files := map[string]string{
 		"agnostic-ai.yaml":                  "targets: [claude, codex]\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n",

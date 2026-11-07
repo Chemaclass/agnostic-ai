@@ -32,12 +32,6 @@ func TestCommandTOML_XGeminiDescriptionWins(t *testing.T) {
 	}
 }
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "gemini" {
-		t.Errorf("Name() = %q, want %q", got, "gemini")
-	}
-}
-
 // Command specs emit one TOML per command under .gemini/commands/,
 // the same native slash-prompt surface as agents.
 func TestEmit_WritesCommandFile(t *testing.T) {

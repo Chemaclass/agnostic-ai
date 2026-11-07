@@ -19,17 +19,7 @@ func TestBuiltinMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repoRoot := filepath.Clean(filepath.Join(packageDir, "..", ".."))
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repoRoot
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	fixture, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-memory", "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatal(err)

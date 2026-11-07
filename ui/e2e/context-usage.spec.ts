@@ -78,6 +78,16 @@ test.describe('context size', () => {
     expect(requests).toEqual(['', '?target=claude'])
   })
 
+  test('keeps the loading placeholder inside a phone viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', () => {})
+    await page.goto('/?view=context')
+    await selectTab(page, 'Context size')
+    await expect(page.locator('.context-usage-placeholder')).toBeAttached()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+  })
+
   test('counts scoped rules for a named file and keeps the file on refresh', async ({ page }) => {
     const scoped = structuredClone(contextView)
     scoped.report.file = 'src/main.go'

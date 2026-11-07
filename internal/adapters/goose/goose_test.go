@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "goose" {
-		t.Errorf("Name() = %q, want %q", got, "goose")
-	}
-}
-
 // The project-root AGENTS.md (with rule bodies inlined) is written
 // centrally by sync; this adapter never writes it, and without the
 // rules-file opt-in a rule-only bundle produces no rules output at

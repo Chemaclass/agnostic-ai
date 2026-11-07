@@ -420,7 +420,7 @@ test.describe('overview', () => {
   })
 
   test('lists every lifecycle stage in session order, even with no hooks', async ({ page }) => {
-    await openApp(page, '?view=lifecycle')
+    await page.goto('./?view=lifecycle&mock=1')
     await expect(page.getByRole('heading', { level: 1, name: 'Lifecycle' })).toBeVisible()
     const stages = page.locator('.stage-title')
     await expect(stages.nth(0)).toHaveText('Session start')
@@ -428,18 +428,16 @@ test.describe('overview', () => {
     await expect(page.locator('.stages > li.stage-step')).toHaveCount(7)
     await expect(page.locator('.stage-description')).toHaveCount(7)
     await expect(page.locator('.stage-description').first()).toBeVisible()
-    if (MOCK) {
-      await expect(page.getByRole('region', { name: /^Hooks/ })).toContainText('None configured.')
-      await expect(page.locator('details.stage')).toHaveCount(0)
-      await expect(page.locator('.stage-count')).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Expand all', exact: true })).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Collapse all', exact: true })).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Add hook', exact: true })).toHaveCount(0)
-      const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
-      await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
-      await expect(avatar.locator('img')).toBeVisible()
-      await saveScreenshot(page, '02-lifecycle-empty.png')
-    }
+    await expect(page.getByRole('region', { name: /^Hooks/ })).toContainText('None configured.')
+    await expect(page.locator('details.stage')).toHaveCount(0)
+    await expect(page.locator('.stage-count')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Expand all', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Collapse all', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Add hook', exact: true })).toHaveCount(0)
+    const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
+    await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
+    await expect(avatar.locator('img')).toBeVisible()
+    await saveScreenshot(page, '02-lifecycle-empty.png')
   })
 
   test('opens lifecycle stages one at a time or all at once when a hook exists', async ({ page }) => {
@@ -667,14 +665,13 @@ test.describe('overview', () => {
   })
 
   test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
-    await openApp(page, '?view=tools')
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('./?view=tools')
     await expect(page.getByRole('heading', { level: 1, name: 'Tools' })).toBeVisible()
     const block = page.getByRole('region', { name: /^MCP servers/ })
     await expect(block.locator('.item-row').first()).toBeVisible()
-    if (MOCK) {
-      await expect(block.locator('.tools-unlisted')).toHaveText('Tools not listed yet. Run agnostic-ai mcp tools to list them.')
-      await expect(block.locator('.item-row .tool-state')).toHaveCount(0)
-    }
+    await expect(block.locator('.tools-unlisted')).toHaveText('Tools not listed yet. Run agnostic-ai mcp tools to list them.')
+    await expect(block.locator('.item-row .tool-state')).toHaveCount(0)
   })
 
   test('says tools are not listed on each server only when others have a list', async ({ page }) => {

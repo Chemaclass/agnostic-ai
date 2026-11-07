@@ -85,7 +85,7 @@ func TestMemoryGrant_RefusesPatternCharactersInTheFolderPath(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows filenames cannot contain these characters")
 	}
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for i, tc := range memoryGrantRefused {
 		t.Run(fmt.Sprintf("%s/%d", tc.target, i), func(t *testing.T) {
 			home := memoryGrantHome(t, tc.home)
@@ -114,7 +114,7 @@ func TestMemoryGrant_OpenCodeKeepsBracketsAndBracesLiteral(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows filenames cannot contain these characters")
 	}
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for i, name := range []string{"home[1]", "home{a,b}"} {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			memoryGrantHome(t, name)
@@ -138,7 +138,7 @@ func TestMemoryGrant_RefusedPathRemovesTheEarlierGrant(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows filenames cannot contain these characters")
 	}
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for i, tc := range memoryGrantRefused {
 		t.Run(fmt.Sprintf("%s/%d", tc.target, i), func(t *testing.T) {
 			safe := memoryGrantHome(t, "home")

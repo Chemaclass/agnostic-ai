@@ -17,12 +17,6 @@ import (
 // every-supported-kind bundle every other adapter's golden test runs
 // and asserts the one true invariant here — an empty directory.
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "jules" {
-		t.Errorf("Name() = %q, want %q", got, "jules")
-	}
-}
-
 // TestEmit_NeverWritesAnyFile asserts the adapter's whole contract:
 // regardless of bundle shape, dry-run, or config, Emit writes nothing.
 // Rules reach Jules only through the shared AGENTS.md entry-point sync

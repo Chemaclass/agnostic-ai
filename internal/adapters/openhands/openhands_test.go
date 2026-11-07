@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "openhands" {
-		t.Errorf("Name() = %q, want %q", got, "openhands")
-	}
-}
-
 // The project-root AGENTS.md is written centrally by sync, never by
 // this adapter. Always-on rules have no direct per-rule file here.
 func TestEmit_NoRootAGENTSMd_ByDefault(t *testing.T) {

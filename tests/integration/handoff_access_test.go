@@ -12,7 +12,7 @@ import (
 )
 
 func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"codex", "qoder", "claude", "factory"} {
 		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config", "adopted missing symlink config", "adopted directory symlink config", "tracked MCP without handoff", "committed MCP without handoff", "handoff off"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
@@ -301,7 +301,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 }
 
 func TestHandoffAccess_QoderHandoffOffWithoutMemoryRemovesSettings(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 	physicalMain, err := filepath.EvalSymlinks(main)
@@ -336,7 +336,7 @@ func TestHandoffAccess_QoderHandoffOffWithoutMemoryRemovesSettings(t *testing.T)
 }
 
 func TestHandoffAccess_OpenCodeAndDevinKeepMemoryAndUserPermissions(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, builtin := range []string{"handoff", "handoff-hook"} {
 			t.Run(target+"/"+builtin, func(t *testing.T) {
@@ -440,7 +440,7 @@ func TestHandoffAccess_OpenCodeAndDevinProtectNativeConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, mode := range []string{"shared", "handwritten", "tracked", "unmanaged", "unignored", "dry run", "adopted tracked"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
@@ -523,7 +523,7 @@ func TestHandoffAccess_OpenCodeAndDevinProtectNativeConfig(t *testing.T) {
 }
 
 func TestHandoffAccess_OpenCodePreservesEditedGrant(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, action := range []string{"deny", "ask"} {
 		t.Run(action, func(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -595,7 +595,7 @@ func TestHandoffAccess_OpenCodePreservesEditedGrant(t *testing.T) {
 }
 
 func TestHandoffAccess_OpenCodePreservesSpecRestriction(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, action := range []string{"deny", "ask"} {
 		t.Run(action, func(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -658,7 +658,7 @@ func TestHandoffAccess_RefusesWildcardMainCheckoutGrant(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows filenames cannot contain literal wildcard characters")
 	}
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -693,27 +693,8 @@ func TestHandoffAccess_RefusesWildcardMainCheckoutGrant(t *testing.T) {
 	}
 }
 
-func handoffBuildCLI(t *testing.T) string {
-	t.Helper()
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, output)
-	}
-	return binary
-}
-
 func TestHandoffAccess_OpenCodeAndDevinStillMergeSpecsIntoProtectedConfig(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, place := range []string{"main checkout", "linked worktree"} {
 			for _, mode := range []string{"handwritten", "tracked"} {
@@ -760,7 +741,7 @@ func TestHandoffAccess_OpenCodeAndDevinStillMergeSpecsIntoProtectedConfig(t *tes
 }
 
 func TestHandoffAccess_OpenCodeKeepsLaterUserRuleAfterMemoryGrant(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := t.TempDir()
 	handoffInitGit(t, dir)
@@ -812,7 +793,7 @@ func TestHandoffAccess_OpenCodeKeepsLaterUserRuleAfterMemoryGrant(t *testing.T) 
 }
 
 func TestHandoffAccess_UnwritableConfigNoteNamesNativeEntry(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for target, want := range map[string]string{
 		"opencode": `/.agnostic-ai/local/handoffs/**": "allow" to permission.external_directory`,
 		"windsurf": `Write(`,
@@ -839,7 +820,7 @@ func TestHandoffAccess_UnwritableConfigNoteNamesNativeEntry(t *testing.T) {
 }
 
 func TestHandoffAccess_RefusesParenthesisInDevinCheckoutPath(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	main, linked := filepath.Join(t.TempDir(), "main(1)"), filepath.Join(t.TempDir(), "linked")
 	if err := os.Mkdir(main, 0o700); err != nil {
@@ -878,7 +859,7 @@ func handoffLinkedSpecs(t *testing.T, dir, target, url, deny string) string {
 }
 
 func TestHandoffAccess_HandwrittenConfigConvergesInLinkedWorktree(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -908,7 +889,7 @@ func TestHandoffAccess_HandwrittenConfigConvergesInLinkedWorktree(t *testing.T) 
 }
 
 func TestHandoffAccess_CommittedGrantStillTakesSpecChanges(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -988,7 +969,7 @@ func handoffUserGrant(t *testing.T, path, target, store string) {
 }
 
 func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, mode := range []string{"handwritten", "committed"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
@@ -1043,7 +1024,7 @@ func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
 }
 
 func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, spec := range []bool{false, true} {
 			name := target + "/no permissions spec"
@@ -1107,7 +1088,7 @@ func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) 
 }
 
 func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		for _, spec := range []bool{false, true} {
 			for _, state := range []string{"handoff on", "handoff off", "main checkout"} {
@@ -1193,7 +1174,7 @@ func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
 }
 
 func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -1241,7 +1222,7 @@ func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testi
 }
 
 func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -1266,7 +1247,7 @@ func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
 }
 
 func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	for _, place := range []string{"main checkout", "linked worktree"} {
 		t.Run(place, func(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -1334,7 +1315,7 @@ func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
 }
 
 func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
-	binary := handoffBuildCLI(t)
+	binary := builtBinary(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 	physicalMain, err := filepath.EvalSymlinks(main)

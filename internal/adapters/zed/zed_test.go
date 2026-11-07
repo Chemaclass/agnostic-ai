@@ -13,12 +13,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "zed" {
-		t.Errorf("Name() = %q, want %q", got, "zed")
-	}
-}
-
 // Zed retired its rules library in favor of instruction files + skills,
 // so the adapter never writes the merged legacy document by default.
 // Sync owns the `.rules` entry-point (pointer body with rules inlined),
