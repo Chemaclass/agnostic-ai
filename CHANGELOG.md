@@ -127,6 +127,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Conversations** lists Codex and Cursor chats on Windows, marks a Codex thread open when `~/.codex` or `CODEX_HOME` is a symlink, marks a Cursor chat open when its folder name has a character such as `@`, rereads a cursor-agent chat only when it changes, and withholds a prompt that passes `curl -u user:password` or `--user` (#3119).
 
+- In **Conversations**, opening a Codex CLI thread that a running `codex` holds switches to its terminal instead of resuming it a second time, and opening a chat from an editor brings forward the window on its enclosing workspace instead of opening a new window on its subfolder (#3134).
+
 - On Windows, `sync -t <tool> --allow-empty-targets --dry-run` no longer names that tool's own files and skill links as removals, and `sync --check` with an empty targets list passes once every generated file is gone (#3142).
 
 ### By tool

@@ -23,7 +23,7 @@ type stillProcesses struct{}
 func (stillProcesses) Alive(int, string) bool          { return false }
 func (stillProcesses) TTY(int) (string, error)         { return "", errors.New("no terminal") }
 func (stillProcesses) TerminalApp(int) (string, error) { return "", nil }
-func (stillProcesses) Held([]string) map[string]bool   { return nil }
+func (stillProcesses) Holders([]string) map[string]int { return nil }
 func (stillProcesses) AppRunning(string) bool          { return false }
 
 type recordingLauncher struct{ calls []string }

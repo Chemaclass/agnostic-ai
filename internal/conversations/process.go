@@ -22,8 +22,9 @@ type Processes interface {
 	// TerminalApp names the app whose window holds pid's terminal, such
 	// as "Terminal" or "Cursor", or "" when no known app is an ancestor.
 	TerminalApp(pid int) (string, error)
-	// Held reports which of paths a running process has open.
-	Held(paths []string) map[string]bool
+	// Holders maps each of paths a running process has open to that
+	// process's pid.
+	Holders(paths []string) map[string]int
 	// AppRunning reports whether the app, such as "Cursor", runs.
 	AppRunning(name string) bool
 }
@@ -112,8 +113,8 @@ func (SystemProcesses) TerminalApp(pid int) (string, error) {
 	return "", nil
 }
 
-func (SystemProcesses) Held(paths []string) map[string]bool {
-	held := map[string]bool{}
+func (SystemProcesses) Holders(paths []string) map[string]int {
+	held := map[string]int{}
 	if len(paths) == 0 {
 		return held
 	}
@@ -130,12 +131,16 @@ func (SystemProcesses) Held(paths []string) map[string]bool {
 	ctx, cancel := context.WithTimeout(context.Background(), psTimeout)
 	defer cancel()
 	// lsof exits 1 when none of the files is open; its output still lists
-	// the ones that are, one "n<path>" line each.
-	out, _ := exec.CommandContext(ctx, "lsof", append([]string{"-F", "n", "--"}, paths...)...).Output()
+	// the ones that are: a "p<pid>" line, then one "n<path>" line for
+	// each file that process has open.
+	out, _ := exec.CommandContext(ctx, "lsof", append([]string{"-F", "pn", "--"}, paths...)...).Output()
+	pid := 0
 	for _, line := range strings.Split(string(out), "\n") {
-		if open, ok := strings.CutPrefix(line, "n"); ok {
-			if path, ok := asked[open]; ok {
-				held[path] = true
+		if field, ok := strings.CutPrefix(line, "p"); ok {
+			pid, _ = strconv.Atoi(field)
+		} else if open, ok := strings.CutPrefix(line, "n"); ok {
+			if path, ok := asked[open]; ok && pid > 0 {
+				held[path] = pid
 			}
 		}
 	}
