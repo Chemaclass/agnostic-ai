@@ -54,27 +54,28 @@ details[open] > .stage-head::before {
   counter-increment: stage;
 }
 
-/* An 8px square on a rail; the stage number sits left of it. */
+/* A 10px dot on a 2px rail; the stage number sits left of it. Filled for a stage with a live hook. */
 
 .stage-step::before {
   content: '';
   position: absolute;
-  inset: 6px auto auto 32px;
-  width: 8px;
-  height: 8px;
+  inset: 5px auto auto 32px;
+  width: 10px;
+  height: 10px;
   box-sizing: border-box;
-  border: 1px solid var(--line-strong);
-  background: var(--panel);
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--canvas);
 }
 
 .stage-step:not(:last-child)::after {
   content: '';
   position: absolute;
-  left: 35.5px;
-  top: 18px;
-  bottom: 4px;
-  width: 1px;
-  background: var(--line-strong);
+  left: 36px;
+  top: 19px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--line);
 }
 
 .stage-summary::before {
@@ -113,6 +114,25 @@ details[open] > .stage-head::before {
 .stage-step.has-hooks::before {
   border-color: var(--accent);
   background: var(--accent);
+}
+
+.stage-step.is-off::before {
+  border-style: dashed;
+}
+
+@media (forced-colors: active) {
+  .stage-step::before {
+    border-color: CanvasText;
+    background: Canvas;
+  }
+
+  .stage-step.has-hooks::before {
+    background: CanvasText;
+  }
+
+  .stage-step:not(:last-child)::after {
+    background: CanvasText;
+  }
 }
 
 .stage-head {
@@ -183,8 +203,31 @@ details[open] > .stage-head::before {
 .stage-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px 16px;
   margin-top: 4px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.stage-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stage-tool .tool-avatar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.stage-tool .tool-avatar img {
+  width: 16px;
+  height: 16px;
+}
+
+.stages-intro {
+  margin: 0 0 16px;
 }
 
 .stage-body .stage-tools {
@@ -205,7 +248,7 @@ details[open] > .stage-head::before {
   }
 
   .stage-step:not(:last-child)::after {
-    left: 25.5px;
+    left: 26px;
   }
 }
 
@@ -250,8 +293,23 @@ details[open] > .stage-head::before {
 
 .hook-form-hint { margin: -6px 0 0; font-size: 12px; }
 
+.hook-form,
+.hook-preview {
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.hook-preview { max-width: 640px; }
+
 .hook-preview,
 .hook-saved { margin-bottom: 16px; }
+
+.hook-form .banner ul,
+.hook-preview .banner ul {
+  margin: 0;
+  padding-inline-start: 20px;
+}
 
 .hook-details {
   display: grid;
@@ -278,4 +336,11 @@ details[open] > .stage-head::before {
   .hook-zoom button {
     min-height: 44px;
   }
+}
+
+.stage-toggle {
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
