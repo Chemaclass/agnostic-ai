@@ -1,10 +1,11 @@
 // URL state. Every navigable choice lives in the query string, so a link
 // reproduces the screen: `?view=lifecycle`. No router library: the app
-// parses location.search and pushes history.
+// parses location.search and pushes history. An address with no `view`
+// opens the default page for its data source (see defaultView).
 
 export const SECTION_VIEWS = ['context', 'authority', 'tools', 'lifecycle', 'settings'] as const
-/** Every page: the sections, then Setup health, which lists their findings together. */
-export const VIEWS = [...SECTION_VIEWS, 'health'] as const
+/** Every page: Conversations, the sections, then Setup health, which lists their findings together. */
+export const VIEWS = ['conversations', ...SECTION_VIEWS, 'health'] as const
 export type ViewId = (typeof VIEWS)[number]
 
 export interface UrlState {
@@ -24,37 +25,48 @@ export interface UrlState {
   source?: string
 }
 
-export const DEFAULT_STATE: UrlState = { view: 'context', mock: false }
-
 function isView(value: string | null): value is ViewId {
   return !!value && (VIEWS as readonly string[]).includes(value)
 }
 
-export function parseUrlState(search: string): UrlState {
+/**
+ * The page an address without `view` opens. Conversations needs a running
+ * server, or the mock fixture, to list chats; a static snapshot has none,
+ * so it opens on Context, as does a source the page refused.
+ */
+function defaultView(source: DataSource): ViewId {
+  if (source.kind === 'api' || source.kind === 'mock') return 'conversations'
+  return 'context'
+}
+
+/** Reads the address; `defaultSource` is the build-time snapshot source, which decides the default page with `mock` and `source`. */
+export function parseUrlState(search: string, defaultSource?: string): UrlState {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
   const view = params.get('view')
-  const source = params.get('source')?.trim()
+  const rawSource = params.get('source')?.trim()
+  const source = rawSource && rawSource.length <= 2048 ? rawSource : undefined
+  const mock = params.get('mock') === '1' || params.get('mock') === 'true'
   const q = params.get('q') ?? ''
   const entry = params.get('entry') ?? ''
   const tab = params.get('tab') ?? ''
   const target = params.get('target') ?? ''
   const file = params.get('file') ?? ''
   return {
-    view: isView(view) ? view : DEFAULT_STATE.view,
+    view: isView(view) ? view : defaultView(resolveDataSource({ mock, source }, defaultSource)),
     tab: /^[a-z][a-z0-9-]{0,47}$/.test(tab) ? tab : undefined,
     q: q && q.length <= 512 ? q : undefined,
     entry: entry && entry.length <= 2048 ? entry : undefined,
     target: /^[a-z][a-z0-9-]{0,47}$/.test(target) ? target : undefined,
     file: file && file.length <= 1024 ? file : undefined,
-    mock: params.get('mock') === '1' || params.get('mock') === 'true',
-    source: source && source.length <= 2048 ? source : undefined,
+    mock,
+    source,
   }
 }
 
-/** Serializes in a fixed order and leaves defaults out, so links stay short and stable. */
-export function serializeUrlState(state: UrlState): string {
+/** Serializes in a fixed order and leaves defaults out, so links stay short and stable; the default page depends on the data source, as in parseUrlState. */
+export function serializeUrlState(state: UrlState, defaultSource?: string): string {
   const params = new URLSearchParams()
-  if (state.view !== DEFAULT_STATE.view) params.set('view', state.view)
+  if (state.view !== defaultView(resolveDataSource(state, defaultSource))) params.set('view', state.view)
   if (state.tab) params.set('tab', state.tab)
   if (state.q) params.set('q', state.q)
   if (state.entry) params.set('entry', state.entry)

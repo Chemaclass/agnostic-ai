@@ -807,4 +807,7 @@
 # Spec copy and move between project and global (#3027), merged with the
 # improvements count, measured 25116832 bytes; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-25128960
+# The Conversations page and its store readers measured 25301152 bytes,
+# up 180224 from main b621c012; the budget is that plus 8192, rounded up
+# to a multiple of 4096.
+25313280

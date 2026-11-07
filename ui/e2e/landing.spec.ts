@@ -13,7 +13,7 @@ async function serve(page: Page, view = contextView, data = overview) {
 test.describe('landing', () => {
   test('opens Context on Context size with a startup check and next steps', async ({ page, context }) => {
     await serve(page)
-    await page.goto('/')
+    await page.goto('/?view=context')
     await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
     expect(new URL(page.url()).searchParams.has('tab')).toBe(false)
     await expect(page.getByRole('searchbox', { name: 'Search context' })).toBeVisible()
@@ -46,7 +46,7 @@ test.describe('landing', () => {
     const model = data.sections.find((s: { id: string }) => s.id === 'settings').fields.find((f: { key: string }) => f.key === 'model')
     model.resolved[0] = { ...model.resolved[0], value: 'sonnet', alias: 'claude-sonnet-4-5' }
     await serve(page, over, data)
-    await page.goto('/')
+    await page.goto('/?view=context')
     const check = page.getByRole('region', { name: 'Startup check' })
     await expect(check.locator('.context-verdict')).toHaveText('Startup is 184 words, 34 words over the 150-word lint budget (lint.instructions-words); agnostic-ai lint reports LINT011.')
     await expect(check.locator('.context-verdict')).toHaveClass(/is-over/)
@@ -61,21 +61,26 @@ test.describe('landing', () => {
     const noBudget = structuredClone(contextView)
     delete noBudget.startupWordBudget
     await serve(page, noBudget)
-    await page.goto('/')
+    await page.goto('/?view=context')
     await expect(page.getByRole('region', { name: 'Startup check' }).locator('.context-verdict')).toHaveText('Startup is 184 words.')
   })
 
-  test('falls back to the first tab with content for a static snapshot and keeps deep links', async ({ page }) => {
+  test('opens a static snapshot on Context, falls back to the first tab with content, and keeps deep links', async ({ page }) => {
     await page.route('**/snap/overview.json', (route) => route.fulfill({ json: overview }))
     await page.goto('/?source=snap/')
+    await expect(page.getByRole('heading', { level: 1, name: 'Context', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: /^Rules/ })).toHaveAttribute('aria-selected', 'true')
+    const nav = page.getByRole('navigation', { name: 'Configuration sections' })
+    await expect(nav.getByRole('link', { name: /^Context/ })).toHaveAttribute('aria-current', 'page')
+    await expect(nav.getByRole('link', { name: /^Context/ })).toHaveAttribute('href', '?source=snap%2F')
+    await expect(nav.getByRole('link', { name: /^Conversations/ })).toHaveAttribute('href', '?view=conversations&source=snap%2F')
     await page.goto('/?source=snap/&tab=usage')
     await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
     await expect(page.locator('section.context-usage')).toContainText('needs a running agnostic-ai serve')
     await serve(page)
-    await page.goto('/?tab=skills')
+    await page.goto('/?view=context&tab=skills')
     await expect(page.getByRole('tab', { name: /^Skills/ })).toHaveAttribute('aria-selected', 'true')
-    await page.goto('/?q=reviewer')
+    await page.goto('/?view=context&q=reviewer')
     await expect(page.getByRole('tab', { name: /^Agents/ })).toHaveAttribute('aria-selected', 'true')
     await page.goto('/?view=context&entry=item%3Amcp%3Agithub%3A.agnostic-ai%2Fmcps%2Fgithub.yaml')
     await expect(page.locator('.entry-missing')).toBeVisible()
@@ -83,7 +88,7 @@ test.describe('landing', () => {
 
   test('lands on Context size in mock mode and on a phone without sideways scroll', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.goto('/?mock=1')
+    await page.goto('/?view=context&mock=1')
     await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
     const check = page.getByRole('region', { name: 'Startup check' })
     await expect(check).toBeVisible()
@@ -101,7 +106,7 @@ test.describe('landing', () => {
       await new Promise((resolve) => setTimeout(resolve, 300))
       await route.fulfill({ json: { ok: true, global: true } })
     })
-    await page.goto('/')
+    await page.goto('/?view=context')
     const rules = page.getByRole('tab', { name: /^Rules/ })
     await expect(rules).toHaveAttribute('aria-selected', 'true')
     await page.waitForTimeout(600)
@@ -112,14 +117,14 @@ test.describe('landing', () => {
   test('opens the first tab with content when the project has no coding tool', async ({ page }) => {
     await serve(page, contextView, { ...structuredClone(overview), targets: [] })
     await page.route('**/api/views/context**', (route) => route.fulfill({ status: 400, json: { error: 'explain --context:  is not a configured target' } }))
-    await page.goto('/')
+    await page.goto('/?view=context')
     await expect(page.getByRole('tab', { name: /^Rules/ })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByText('is not a configured target')).toBeHidden()
   })
 
   test('reaches the first action by keyboard from the tab row', async ({ page }) => {
     await serve(page)
-    await page.goto('/')
+    await page.goto('/?view=context')
     await page.getByRole('tab', { name: /^Context size/ }).focus()
     await page.keyboard.press('ArrowRight')
     await expect(page.getByRole('tab', { name: /^Guidance/ })).toHaveAttribute('aria-selected', 'true')

@@ -24,6 +24,7 @@ const DEFAULT_SECTION_LABELS: Record<string, string> = {
 }
 
 const SECTION_DESCRIPTIONS: Record<string, string> = {
+  conversations: 'Chats across your tools',
   context: 'Instructions, rules & skills',
   authority: 'Permissions & boundaries',
   tools: 'Servers & available tools',
@@ -246,7 +247,7 @@ export function Nav({
   return (
     <aside className="sidenav" ref={asideRef}>
       <nav className="section-nav" aria-label="Configuration sections">
-        <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}{item('health', 'Setup health')}</ul>
+        <ul className="nav-list">{item('conversations', 'Conversations')}{ordered.map((s) => item(s.id, s.label))}{item('health', 'Setup health')}</ul>
       </nav>
       <footer className="sidenav-footer">
         {served && <ConfigSwitch served={served} />}

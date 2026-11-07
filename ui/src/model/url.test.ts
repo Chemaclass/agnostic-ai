@@ -1,20 +1,37 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_STATE, nextState, parseUrlState, resolveDataSource, serializeUrlState, staticOverviewUrl } from './url'
+import { nextState, parseUrlState, resolveDataSource, serializeUrlState, staticOverviewUrl } from './url'
 
 describe('URL state parsing', () => {
-  it('defaults to the Context section', () => {
-    expect(parseUrlState('')).toEqual({ ...DEFAULT_STATE, source: undefined })
-    expect(parseUrlState('?view=nonsense').view).toBe('context')
-    expect(parseUrlState('?view=feed').view).toBe('context')
+  it('opens Conversations by default with a server or the mock fixture', () => {
+    expect(parseUrlState('')).toEqual({ view: 'conversations', mock: false, source: undefined })
+    expect(parseUrlState('?mock=1').view).toBe('conversations')
+    expect(parseUrlState('?view=nonsense').view).toBe('conversations')
+    expect(parseUrlState('?view=feed&mock=1').view).toBe('conversations')
     expect(parseUrlState('?view=lifecycle').view).toBe('lifecycle')
     expect(parseUrlState('?view=health').view).toBe('health')
+    expect(parseUrlState('?view=context').view).toBe('context')
+    expect(serializeUrlState(parseUrlState('?view=conversations&q=sqlite'))).toBe('?q=sqlite')
+    expect(serializeUrlState(parseUrlState('?view=context&mock=1'))).toBe('?view=context&mock=1')
     expect(serializeUrlState(parseUrlState('?view=health&mock=1'))).toBe('?view=health&mock=1')
+  })
+
+  it('opens Context by default for a static snapshot, from the address or the build', () => {
+    expect(parseUrlState('?source=./snapshot').view).toBe('context')
+    expect(parseUrlState('?source=javascript%3Aalert(1)').view).toBe('context')
+    expect(parseUrlState('', './snapshot').view).toBe('context')
+    expect(parseUrlState('?mock=1', './snapshot').view).toBe('conversations')
+    expect(parseUrlState('?view=conversations&source=./snapshot').view).toBe('conversations')
+    expect(serializeUrlState(parseUrlState('?view=context&source=./snapshot'))).toBe('?source=.%2Fsnapshot')
+    expect(serializeUrlState(parseUrlState('?view=conversations&source=./snapshot'))).toBe('?view=conversations&source=.%2Fsnapshot')
+    expect(serializeUrlState({ view: 'context', mock: false }, './snapshot')).toBe('')
+    expect(serializeUrlState({ view: 'conversations', mock: false }, './snapshot')).toBe('?view=conversations')
   })
 
   it('round-trips through serialization, leaving defaults out', () => {
     expect(serializeUrlState(parseUrlState('?view=settings&mock=1'))).toBe('?view=settings&mock=1')
-    expect(serializeUrlState(DEFAULT_STATE)).toBe('')
-    expect(serializeUrlState({ ...DEFAULT_STATE, source: './snapshot', mock: true })).toBe('?source=.%2Fsnapshot')
+    expect(serializeUrlState({ view: 'conversations', mock: false })).toBe('')
+    expect(serializeUrlState({ view: 'conversations', mock: true })).toBe('?mock=1')
+    expect(serializeUrlState({ view: 'context', source: './snapshot', mock: true })).toBe('?source=.%2Fsnapshot')
   })
 
   it('keeps the search and a linked entry, with reserved characters, in the URL', () => {
@@ -47,7 +64,7 @@ describe('URL state parsing', () => {
   it('keeps the Context size tool and file in the URL', () => {
     const state = parseUrlState('?view=context&tab=usage&target=claude&file=src%2Fmain.go')
     expect(state).toMatchObject({ target: 'claude', file: 'src/main.go' })
-    expect(serializeUrlState(state)).toBe('?tab=usage&target=claude&file=src%2Fmain.go')
+    expect(serializeUrlState(state)).toBe('?view=context&tab=usage&target=claude&file=src%2Fmain.go')
     expect(parseUrlState('?target=../bad').target).toBeUndefined()
   })
 

@@ -240,7 +240,7 @@ test.describe('search across sections', () => {
   })
 
   test('keeps mock mode in result links', async ({ page }) => {
-    await page.goto('./?mock=1')
+    await page.goto('./?view=context&mock=1')
     await expect(page.getByRole('tab', { name: /^Guidance/ })).toBeVisible()
     await page.keyboard.press(modK)
     await page.getByRole('combobox', { name: 'Search all configuration' }).fill('github')
@@ -291,7 +291,7 @@ test.describe('search across sections', () => {
     await expect(dialog.getByRole('option')).toHaveCount(50)
     await page.keyboard.press('Escape')
     await page.getByRole('searchbox', { name: 'Search context' }).fill('generated-49')
-    await expect(page).toHaveURL(/\?q=generated-49$/)
+    await expect(page).toHaveURL(/\?view=context&q=generated-49$/)
     await page.reload()
     await expect(page.getByRole('searchbox', { name: 'Search context' })).toHaveValue('generated-49')
     await expect(page.locator('.item-row')).toHaveCount(11)

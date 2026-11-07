@@ -836,6 +836,93 @@ export interface ContextView {
   report?: ContextReport
 }
 
+// ── Conversations ───────────────────────────────────────────────────
+// Recent chats from the coding tools' own stores, newest first. The
+// server reads them; the page never sees a transcript, only a title,
+// the opening lines and the latest prompt, each withheld when it may
+// hold a credential. Mirrors internal/conversations/types.go.
+
+export type ConversationTool = 'claude' | 'codex' | 'cursor'
+
+/** Where the chat lives: a terminal, an editor extension or panel, a desktop app, or a background job. Runs a program started (SDK sessions, Codex exec) are not listed. */
+export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background'
+
+/** What an open conversation is doing, when its tool says: the agent is working, it waits for the person, or it sits idle. */
+export type ConversationActivity = 'working' | 'waiting' | 'idle'
+
+export interface ConversationSource {
+  tool: ConversationTool
+  label: string
+  /** False when the tool's store is missing or unreadable; note says why. */
+  found: boolean
+  /** Conversations the store holds after hiding subagent, review and scripted runs. */
+  count: number
+  /** How many of them this page holds. */
+  shown: number
+  note?: string
+}
+
+/** How the server reopens a conversation. `terminal` runs `command` in a new terminal window, `focus` switches to the terminal tab that already runs it, `link` opens `link` in its app. */
+export interface ConversationRoute {
+  kind: 'focus' | 'terminal' | 'link'
+  /** Button text, such as "Resume in Terminal" or "Open in Cursor". */
+  label: string
+  /** The shell command that resumes it, for copying; set for terminal and focus routes. */
+  command?: string
+  link?: string
+}
+
+export interface Conversation {
+  tool: ConversationTool
+  app: ConversationApp
+  id: string
+  title: string
+  folder?: string
+  branch?: string
+  startedAt?: string
+  /** When the person or the agent last wrote in it; the list is newest first. */
+  updatedAt: string
+  /** Up to three lines from the start of the first prompt. */
+  opening?: string[]
+  /** The latest prompt typed into the conversation. */
+  prompt?: string
+  /** Fields left out because they may hold a credential. */
+  withheld?: Array<'title' | 'opening' | 'prompt'>
+  /** A process or editor window has it open right now. */
+  live?: boolean
+  /** Set for a live conversation whose tool reports it. */
+  activity?: ConversationActivity
+  open: ConversationRoute
+}
+
+/** One page of the list. The first page holds every open conversation and the past week; each later page, asked for with `before`, the week before it, reaching past weeks with no conversation. */
+export interface ConversationsView {
+  schemaVersion: 'conversations/v1'
+  generatedAt: string
+  /** The page covers conversations last written from `from` up to `to`, plus, on the first page, every open one. */
+  from: string
+  to: string
+  /** The `before` value of the next page; absent when no older conversation remains. */
+  next?: string
+  /** count is every conversation the tool holds; shown is how many this page holds. */
+  tools: ConversationSource[]
+  conversations: Conversation[]
+}
+
+export interface ConversationOpenRequest {
+  tool: ConversationTool
+  id: string
+  /** The editor chosen in Settings, so editor links use its scheme. */
+  editor?: string
+}
+
+/** opened is false when the server could not open it here; message says why and command, when set, resumes it by hand. */
+export interface ConversationOpenReply {
+  opened: boolean
+  message: string
+  command?: string
+}
+
 // HTTP API served by `agnostic-ai serve`.
 //
 //   GET  /api/views/authority?agentId=<id>&target=<tool>  → AuthorityView
@@ -844,6 +931,8 @@ export interface ContextView {
 //   GET  /api/views/overview                              → OverviewView
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
 //   GET  /api/views/source?path=<openPath>               → SourceView; 404 for a file the configuration does not list
+//   GET  /api/views/conversations?editor=<id>&before=<time> → ConversationsView, one week per page; a project server lists the project's own conversations
+//   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest)
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })
@@ -864,6 +953,8 @@ export const API = {
   editMCP: '/api/edit/mcp',
   editHook: '/api/edit/hook',
   editSpecMove: '/api/edit/spec/move',
+  conversations: '/api/views/conversations',
+  conversationOpen: '/api/conversations/open',
   health: '/api/health',
   switch: '/api/switch',
   globalCreate: '/api/global/create',

@@ -1961,6 +1961,264 @@ a.release-badge:focus-visible .release-arrow {
   .coding-tool-docs { grid-column: 2; justify-self: start; }
 }
 
+/* Conversations: open chats first, then by day, each row with the button
+   that asks the server to reopen it where it lives. The source chips in
+   the header filter by tool. */
+.conversation-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.conversation-source {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.conversation-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 12px 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.conversation-source-chip .tool-avatar {
+  width: 24px;
+  height: 24px;
+}
+
+.conversation-source-toggle {
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.conversation-source-toggle:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-raised);
+}
+
+.conversation-source-toggle[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-wash-strong);
+  color: var(--accent-strong);
+}
+
+.conversation-source.is-missing .conversation-source-chip {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.conversation-source-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  min-width: 0;
+}
+
+.conversation-source-name {
+  font-weight: 600;
+}
+
+.conversation-source-count {
+  color: var(--text-muted);
+}
+
+.conversation-source-toggle[aria-pressed='true'] .conversation-source-count {
+  color: inherit;
+}
+
+.conversation-source-note {
+  max-width: 48ch;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.conversations-search-note {
+  font-size: 12px;
+}
+
+/* The end of the list: the sentinel that loads the week before as it nears
+   the viewport, then the button that does the same, its error, or the end. */
+.conversations-more {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.conversations-sentinel {
+  height: 1px;
+}
+
+.conversations-more-error {
+  color: var(--blocked);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.conversations-more .button[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.conversations-end {
+  font-size: 13px;
+}
+
+.conversations-end:focus {
+  outline: none;
+}
+
+.conversation-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.conversation {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 4px 12px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.conversation-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.conversation-title {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.conversation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.conversation-folder,
+.conversation-branch {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.conversation-live {
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.conversation-opening {
+  display: grid;
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.conversation-prompt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.conversation-withheld {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.conversation-label {
+  margin-right: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.conversation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.conversation-open[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.conversation-result {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.conversation-status {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.conversation-status.is-opened {
+  color: var(--permitted);
+}
+
+.conversation-status.is-not-opened {
+  color: var(--approval);
+}
+
+.conversation-status.is-failed {
+  color: var(--blocked);
+}
+
+@media (max-width: 760px) {
+  .conversation {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .conversation-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .conversation-source-toggle,
+  .conversations-more .button,
+  .conversation-actions .button,
+  .conversation-result .button {
+    min-height: 44px;
+  }
+}
+
 .stages {
   list-style: none;
   margin: 0;
@@ -3371,7 +3629,9 @@ tr.is-advised > td {
 
   .nav-list {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    /* Equal columns, except that a long label such as Conversations takes
+       the room it needs from the others instead of overflowing. */
+    grid-template-columns: repeat(6, minmax(min-content, 1fr));
     gap: 0;
     margin: 0;
     padding: 0;

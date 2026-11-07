@@ -8,11 +8,15 @@ import { GlobalSearch } from './components/GlobalSearch'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
 import { HealthPage } from './components/Health'
+import { ConversationsPage } from './components/Conversations'
 import { ErrorPanel, RefreshFailure } from './components/Banner'
 import { Header, Nav, useServedConfig, type Remote } from './components/Shell'
 import { RecheckProvider, useRecheck } from './components/Recheck'
 import { APPLE_PLATFORM } from './components/ui'
-import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
+import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState, type ViewId } from './model/url'
+
+// A build for a host with no server can name a snapshot to read by default.
+const DEFAULT_SOURCE = import.meta.env.VITE_DEFAULT_SOURCE
 
 // The theme follows the system until the person picks one with the
 // toggle; only that choice is stored.
@@ -58,18 +62,24 @@ function useRemote<T>(load: (signal: AbortSignal) => Promise<Loaded<T>>, sourceK
   return remote
 }
 
+function Page({ view, overview, stale }: { view: ViewId; overview: Remote<OverviewView>; stale: boolean }) {
+  if (view === 'conversations') return <ConversationsPage />
+  if (view === 'health') return <HealthPage overview={overview} stale={stale} />
+  return <SectionPage sectionId={view} overview={overview} stale={stale} />
+}
+
 export default function App() {
-  const [state, setState] = useState<UrlState>(() => parseUrlState(window.location.search))
+  const [state, setState] = useState<UrlState>(() => parseUrlState(window.location.search, DEFAULT_SOURCE))
   const stateRef = useRef(state)
   stateRef.current = state
 
   useEffect(() => {
-    const onPop = () => setState(parseUrlState(window.location.search))
+    const onPop = () => setState(parseUrlState(window.location.search, DEFAULT_SOURCE))
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  const source = useMemo(() => resolveDataSource(state, import.meta.env.VITE_DEFAULT_SOURCE), [state.mock, state.source])
+  const source = useMemo(() => resolveDataSource(state, DEFAULT_SOURCE), [state.mock, state.source])
   const sourceKey = JSON.stringify(source)
   const [reloads, setReloads] = useState(0)
   const [savedBeforeRefresh, setSavedBeforeRefresh] = useState(false)
@@ -91,7 +101,7 @@ export default function App() {
   }, [overview.status])
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
-    const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`
+    const url = `${window.location.pathname}${serializeUrlState(next, DEFAULT_SOURCE)}${window.location.hash}`
     try {
       if (options?.replace) window.history.replaceState(null, '', url)
       else window.history.pushState(null, '', url)
@@ -135,7 +145,7 @@ export default function App() {
       state,
       source,
       navigate,
-      href: (patch) => serializeUrlState(nextState(state, patch)) || window.location.pathname,
+      href: (patch) => serializeUrlState(nextState(state, patch), DEFAULT_SOURCE) || window.location.pathname,
       reload,
       overviewRevision: overview.loaded,
       overview: overview.loaded?.data,
@@ -202,7 +212,7 @@ export default function App() {
               <div className="page">
                 {sourceError && <ErrorPanel error={sourceError} />}
                 {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
-                {state.view === 'health' ? <HealthPage overview={overview} stale={stale} /> : <SectionPage sectionId={state.view} overview={overview} stale={stale} />}
+                <Page view={state.view} overview={overview} stale={stale} />
               </div>
             </main>
           </div>
