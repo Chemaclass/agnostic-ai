@@ -18,6 +18,7 @@ import (
 )
 
 func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	// High fixture versions identify candidate builds, not published releases.
 	binary := builtCandidateBinary(t, "99.1.0")
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())

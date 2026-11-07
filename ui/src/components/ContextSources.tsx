@@ -15,6 +15,16 @@ import { Code, CopyButton, toolName } from './ui'
 export const LOADS: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
 const ROWS_SHOWN = 10
 
+const TYPE_LABELS: Record<string, string> = {
+  'entry-point layer': 'instructions file',
+  'generated framing': 'tool wrapper text',
+  'skill discovery': 'skill name and description',
+  'agent discovery': 'agent name and description',
+}
+
+/** The plain name of a source's type; prompts keep the raw category. */
+export const typeLabel = (category: string) => TYPE_LABELS[category] ?? (category || 'other')
+
 export const rowKey = (c: ContextContribution) => `${c.load}|${c.source}|${c.category}`
 
 export interface SourcePick {
@@ -79,10 +89,10 @@ function Contributions({ report, root, takesFile, pick, allAdvice }: { report: C
         const total = totals[load].words
         return (
           <div key={load} className="context-contribution-load">
-            <ul className="context-kinds" aria-label={`${LOAD_LABELS[load]} by kind`}>
+            <ul className="context-kinds" aria-label={`${LOAD_LABELS[load]} by type`}>
               {kinds.map((kind) => (
                 <li key={kind.category}>
-                  <strong>{kind.category || 'other'}</strong>
+                  <strong>{typeLabel(kind.category)}</strong>
                   <span className="muted"> {plural(kind.sources, 'source')}, {kind.words.toLocaleString()} words, {sharePercent(kind.words, total)}% of {LOAD_LABELS[load].toLowerCase()}</span>
                 </li>
               ))}
@@ -93,7 +103,7 @@ function Contributions({ report, root, takesFile, pick, allAdvice }: { report: C
                 <thead>
                   <tr>
                     <th scope="col">Source</th>
-                    <th scope="col">Kind</th>
+                    <th scope="col">Type</th>
                     <th scope="col">Words</th>
                     <th scope="col">Share</th>
                     <th scope="col">Bytes</th>
@@ -124,9 +134,9 @@ function Contributions({ report, root, takesFile, pick, allAdvice }: { report: C
                               ? <><span className="muted context-builtin"> Built in. <button type="button" className="button button-quiet" onClick={() => app.navigate({ view: 'settings', tab: 'builtins', entry: undefined })}>Change in Settings</button></span>{toggle}</>
                               : <OpenInEditor path={root ? `${root}/${c.source}` : undefined} label={c.source} shownPath={c.source} compact trailing={toggle} />}
                           </th>
-                          <td>{c.category}</td>
+                          <td className="context-type">{typeLabel(c.category)}</td>
                           <td className="context-number">{c.words.toLocaleString()}</td>
-                          <td className="context-number context-share"><span className="context-share-bar" aria-hidden="true" style={{ width: `${share}%` }} />{share}%</td>
+                          <td className="context-number context-share"><span className="context-share-track" aria-hidden="true"><span className="context-share-bar" style={{ width: `${share}%` }} /></span>{share}%</td>
                           <td className="context-number">{c.bytes.toLocaleString()}</td>
                         </tr>
                         {isOpen && (

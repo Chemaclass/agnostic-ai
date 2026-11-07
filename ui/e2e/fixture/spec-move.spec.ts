@@ -57,4 +57,19 @@ test.describe('copy or move a spec to the other level', () => {
     await page.getByRole('button', { name: 'Copy to global: reviewer' }).click()
     await expect(page.getByRole('alert')).toContainText('Open global settings')
   })
+
+  test('names the failed action in the error', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: idle }))
+    await page.route('**/api/edit/spec/move', async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>
+      if (body.action === 'apply') return route.fulfill({ status: 409, json: { error: 'the destination changed; preview again' } })
+      await route.fulfill({ json: { source: '.agnostic-ai/agents/reviewer.md', destination: '~/.agnostic-ai/agents/reviewer.md', exists: false, files: ['reviewer.md'], syncCommands: ['agnostic-ai sync --global'], expected: 'rev-1' } })
+    })
+    await page.goto('./?view=context&tab=agents')
+    await page.getByRole('button', { name: 'Copy to global: reviewer' }).click()
+    await page.getByRole('region', { name: 'Copy to global: reviewer' }).getByRole('button', { name: 'Move' }).click()
+    await expect(page.getByRole('alert')).toContainText('Could not move to global')
+    await expect(page.getByRole('alert')).toContainText('the destination changed')
+  })
 })

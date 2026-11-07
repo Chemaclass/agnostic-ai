@@ -91,3 +91,10 @@ func copyBuiltBinary(t *testing.T, binary, path string) {
 		t.Fatal(err)
 	}
 }
+
+func skipEndToEndInShortMode(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("end-to-end")
+	}
+}
