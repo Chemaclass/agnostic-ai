@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, no text is smaller than 12px, and links and disclosures in the page are at least 24px tall (44px for buttons, links and disclosures on a phone).
+
 - The web interface links to the agnostic-ai repository at the foot of the sidebar, and to the project's own GitHub repository in the top bar when the project's `origin` remote is on GitHub; `/api/views/overview` adds `repository` with `url` and `name` (#3111).
 
 - In the web interface, **Context size** no longer scrolls sideways on a phone while its report loads.
