@@ -24,11 +24,16 @@ var typedWrappers = regexp.MustCompile(`</?(user_query|command-name|command-args
 
 var spaceRun = regexp.MustCompile(`[ \t]+`)
 
+// typedLayout is what the person typed, without the blocks tools
+// inject, keeping its indentation for the credential check.
+func typedLayout(text string) string {
+	text = injectedBlocks.ReplaceAllString(text, "")
+	return typedWrappers.ReplaceAllString(text, " ")
+}
+
 // typedText is what the person typed, without the blocks tools inject.
 func typedText(text string) string {
-	text = injectedBlocks.ReplaceAllString(text, "")
-	text = typedWrappers.ReplaceAllString(text, " ")
-	lines := strings.Split(text, "\n")
+	lines := strings.Split(typedLayout(text), "\n")
 	for i, line := range lines {
 		lines[i] = strings.TrimSpace(spaceRun.ReplaceAllString(line, " "))
 	}
@@ -86,14 +91,14 @@ func (c *Conversation) fill(t texts) {
 		c.Title = truncate(title, titleRunes)
 	}
 	if first != "" {
-		if mayHoldCredential(first) {
+		if mayHoldCredential(typedLayout(t.firstPrompt)) {
 			c.Withheld = append(c.Withheld, FieldOpening)
 		} else {
 			c.Opening = openingOf(first)
 		}
 	}
 	if last != "" {
-		if mayHoldCredential(last) {
+		if mayHoldCredential(typedLayout(t.lastPrompt)) {
 			c.Withheld = append(c.Withheld, FieldPrompt)
 		} else {
 			c.Prompt = truncate(oneLine(last), promptRunes)

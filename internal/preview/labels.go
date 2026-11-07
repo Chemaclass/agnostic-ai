@@ -100,14 +100,15 @@ func ProseSensitive(text string) bool {
 }
 
 // structuredProseRedacts reports whether prose that parses whole as
-// JSON, TOML or a YAML mapping has a value Display would redact. Prose
-// that does not parse stays shown.
+// JSON, TOML or a multi-line YAML mapping has a value Display would
+// redact. Prose that does not parse stays shown, and so does a one-line
+// title such as "Env: staging is broken".
 func structuredProseRedacts(text string) bool {
 	var parsed map[string]any
 	for path, parses := range map[string]bool{
 		"prose.json": json.Unmarshal([]byte(text), &parsed) == nil,
 		"prose.toml": toml.Unmarshal([]byte(text), &map[string]any{}) == nil,
-		"prose.yaml": yaml.Unmarshal([]byte(text), &map[string]any{}) == nil && yamlMapping.MatchString(text),
+		"prose.yaml": strings.Contains(text, "\n") && yaml.Unmarshal([]byte(text), &map[string]any{}) == nil && yamlMapping.MatchString(text),
 	} {
 		if parses {
 			if shown := Display(path, text); shown.Hidden || shown.Withheld {

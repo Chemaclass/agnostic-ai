@@ -22,8 +22,9 @@ const claudeWindow = 64 << 10
 // liveSessionFile is sessions/<pid>.json; its *.key siblings hold credentials.
 var liveSessionFile = regexp.MustCompile(`^[0-9]+\.json$`)
 
-// claudeJobPattern keeps a job name safe to pass to the shell unquoted.
-var claudeJobPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+// claudeJobPattern keeps a job name safe to pass to the shell unquoted
+// and never read as a flag.
+var claudeJobPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 var sessionIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 

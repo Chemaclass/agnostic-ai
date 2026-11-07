@@ -168,6 +168,8 @@ func TestProseSensitive_ReadsPromptsAsProse(t *testing.T) {
 		"use ghp_0123456789abcdefghijklmnopqrstuvwxyzAB":                      true,
 		"connect to postgres://app:s3cr3t@db/main":                            true,
 		"Fix: login crash":                                                    false,
+		"Env: staging is broken":                                              false,
+		"Headers: missing in the response":                                    false,
 		"set up:\n```json\n{\"env\":{\"AIRTABLE_PAT\":\"pat1234abcd\"}}\n```": true,
 		"```sh\ncurl -H 'X-Api: abc' https://example.com\n```":                true,
 		"```yaml\nheaders:\n  X-Custom: abcd1234\n```":                        true,

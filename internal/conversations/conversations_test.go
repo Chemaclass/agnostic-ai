@@ -769,7 +769,7 @@ func TestScan_LeavesOutAJobWhoseNameIsNotAPlainID(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idCache+".jsonl"), lines(
 		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-06T10:00:00.000Z", "message": obj{"role": "user", "content": "Run the suite"}}))
-	write(t, filepath.Join(stores.ClaudeDir, "jobs", "x;touch pwned", "state.json"), `{"sessionId":"`+idCache+`","state":"running"}`)
+	write(t, filepath.Join(stores.ClaudeDir, "jobs", "-x;touch pwned", "state.json"), `{"sessionId":"`+idCache+`","state":"running"}`)
 
 	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idCache)
 
@@ -791,5 +791,14 @@ func TestScan_KeepsCachedSessionsWhenTheScanIsCancelled(t *testing.T) {
 
 	if cached == 0 || len(scanner.claude) != cached {
 		t.Errorf("cache held %d sessions, then %d after a cancelled scan", cached, len(scanner.claude))
+	}
+}
+
+func TestFill_WithholdsAnIndentedSecretInAPrompt(t *testing.T) {
+	var c Conversation
+	c.fill(texts{title: "Set up the client", firstPrompt: "Please set:\nenv:\n  FOO: abcd1234", lastPrompt: "```yaml\nheaders:\n  X-Custom: abcd1234\n```"})
+
+	if c.Opening != nil || c.Prompt != "" || len(c.Withheld) != 2 {
+		t.Errorf("opening %q, prompt %q, withheld %v", c.Opening, c.Prompt, c.Withheld)
 	}
 }
