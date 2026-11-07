@@ -35,12 +35,16 @@ size-check:
 # e2e_test.sh drives the built binary, so build first. docfetch_test.sh
 # runs alone: its time limits fail under the load of the parallel run.
 test-shell: build
-	bashunit scripts/docfetch_test.sh
-	bashunit --parallel scripts/release-notes_test.sh scripts/target-facts_test.sh \
+	$(run-shell-tests)
+
+define run-shell-tests
+bashunit scripts/docfetch_test.sh
+bashunit --parallel scripts/release-notes_test.sh scripts/target-facts_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh scripts/npm-verify-provenance_test.sh scripts/npm-smoke_test.sh scripts/npm-toolchain_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh scripts/audit-metrics_test.sh \
 		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh \
 		scripts/bench-commands_test.sh scripts/test-go_test.sh
+endef
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
 # of preflight or CI: benchmarks are for local comparison, not pass/fail.
@@ -88,13 +92,15 @@ vet:
 preflight: fmt-check lint test
 	@echo "preflight: ok"
 
-# ci-local runs every CI job that can run on this machine, so a release can
+# ci-local runs the CI checks that can run on this machine, so a release can
 # be cut without waiting on a remote run. It exists because a pull request
 # now tests on Linux only (#982): preflight alone no longer approximates CI.
 #
 # It does not reproduce CI exactly and does not try to. It runs the Go tests
-# with -race on this OS alone, and it cannot run the plugin version-bump job,
-# which compares a pull request against its merge base. Cut a release from a
+# with -race on this OS alone. It skips the Web client job (make ui-check
+# only checks the bundle), govulncheck, the VS Code package step, the
+# JetBrains buildPlugin step, and the plugin version-bump job, which compares
+# a pull request against its merge base. Cut a release from a
 # main commit whose own CI run is green across all three platforms; this
 # target is what you run before you get there.
 #
@@ -109,11 +115,14 @@ preflight: fmt-check lint test
 ci-local: fmt-check test-race build lint
 	$(MAKE) opencode-hooks-test
 	GOOS=js GOARCH=wasm go build -o /tmp/agnostic-ai.wasm ./cmd/agnostic-ai-wasm
+	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/agnostic-ai-wasm
+	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/opencode -run '^TestProjectPermissionBrowserReplaysPlannedRulesWithoutFilesystem$$'
+	GOOS=js GOARCH=wasm go test -timeout=30s -count=1 -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/internal/emit -run '^TestMergeTOMLFileBrowserCapturesWithoutFilesystem$$'
 	go run ./cmd/schemagen
 	git diff --exit-code docs/schemas/config.schema.json
-	$(MAKE) build
 	./$(BIN) lint
-	$(MAKE) test-shell
+	$(run-shell-tests)
+	node --test $(SITE_DIR)/static/assets/scripts/*.test.js
 	$(MAKE) size-check
 	cd editors/vscode && (npm ci || npm install --no-audit --no-fund) && npm test
 ifeq ($(SKIP_JETBRAINS),1)
