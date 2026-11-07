@@ -338,7 +338,7 @@ In the browser:
 - **Docs** beside each section heading opens the matching spec or reference page in a new tab, including empty sections.
 - **Authority** lists permission files and rules. **Add rules** or **Edit rules** opens an editor for Allow, Ask first, or Always blocked; preview the source-file change before saving. Protected paths are editable there too, and the default permission mode in the global view. See [permission editing](#permission-editing).
 - **Tools** lists the MCP server specs.
-  - Under **Found in a tool's own config**, it also lists servers a configured tool keeps in its own MCP file that no spec of the same name covers, such as one you signed in to from inside Claude Code.
+  - Under **Found in tools**, it also lists servers a configured tool keeps in its own MCP file that no spec of the same name covers, such as one you signed in to from inside Claude Code.
   - Each native row names the server, the tool or tools that hold it, the file (`~/.claude.json`, `.mcp.json`), and the transport. It also shows the `agnostic-ai import <tool>` command that turns the server into a spec (`import --global <tool>` for a user file).
   - A project page reads each tool's project and user files, plus Claude Code's servers for this project under `projects` in `~/.claude.json`. `--global` reads user files only.
   - A native row has no command when no import reads its file, such as Claude Code's per-project servers or an `outputs` MCP file path the tool's import does not follow.
@@ -369,7 +369,7 @@ In the browser:
 - Each browser tab edits only the configuration it serves.
 - **Settings > Editor** picks which editor Open links use: Cursor, VS Code, VS Code Insiders, VSCodium, Zed, or a custom link template with `{path}` and `{line}`. The choice is saved in the browser, not in config files. Allow the browser to launch the editor when prompted; if nothing opens, change the editor or copy the path. A finding on a file opens at its line when known. **Copy path** sits beside each link, because the browser cannot tell whether the editor opened.
 - All five page links stay visible on narrow screens.
-- **Context**, **Tools**, and **Settings** use tabs for their source groups. Tools separates configured servers, servers found in native configs, and environments. Settings separates built-ins, coding tools, preferences, config files, and the editor. Config files lists the source files, then shows their combined effective values once.
+- **Context**, **Tools**, and **Settings** use tabs for their source groups. Tools separates MCP servers, servers found in tools, and environments. Settings separates built-ins, coding tools, preferences, config files, and the editor. Config files lists the source files, then shows their combined effective values once.
 - Tabs support arrow, Home, and End keys. On phones, Context and Tools tabs scroll horizontally; Settings keeps its tabs visible: five on a running server, four in a snapshot or the mock, which have no Editor tab.
 - The selected tab survives refresh and browser history. Switching tabs keeps unsaved input and previews.
 - Search covers all source tabs and opens a matching group. Linked results open their owning tab.

@@ -580,7 +580,7 @@
         {
           "id": "prompt-submit",
           "label": "Prompt submit",
-          "description": "Before the agent reads a prompt; exit 2 blocks the prompt.",
+          "description": "Before the agent reads a prompt. A hook here can block the prompt.",
           "targets": [
             {
               "target": "claude",
@@ -602,7 +602,7 @@
         {
           "id": "before-tool",
           "label": "Before a tool runs",
-          "description": "Before each tool call; exit 2 blocks the call. Guards live here.",
+          "description": "Before each tool call. A hook here can block the call, so guards live here.",
           "targets": [
             {
               "target": "claude",
@@ -641,7 +641,7 @@
         {
           "id": "after-edit",
           "label": "After a file edit",
-          "description": "After the agent edits a file: format or lint it.",
+          "description": "After the agent edits a file: format or check it.",
           "targets": [
             {
               "target": "claude",
@@ -658,7 +658,7 @@
         {
           "id": "stop",
           "label": "Stop",
-          "description": "When the agent finishes; exit 2 keeps it working.",
+          "description": "When the agent finishes. A hook here can keep it working.",
           "targets": [
             {
               "target": "claude",
@@ -699,7 +699,7 @@
     {
       "id": "settings",
       "label": "Settings",
-      "question": "How is the harness configured?",
+      "question": "How are your tools set up?",
       "order": 5,
       "kinds": [
         {
@@ -709,12 +709,12 @@
         },
         {
           "kind": "config",
-          "label": "Config",
+          "label": "Config files",
           "count": 1
         },
         {
           "kind": "settings",
-          "label": "Other settings",
+          "label": "Preferences",
           "count": 0
         }
       ],
@@ -804,7 +804,7 @@
       "support": [
         {
           "kind": "settings",
-          "label": "Other settings",
+          "label": "Preferences",
           "supported": [
             "claude",
             "codex",
@@ -1380,7 +1380,7 @@
           "cursor"
         ],
         "missing": "no hook yet",
-        "fix": "In this agnostic-ai project, claude, codex, cursor can run a hook at the \"Prompt submit\" stage and no hook runs there. Before the agent reads a prompt; exit 2 blocks the prompt. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: prompt-submit`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+        "fix": "In this agnostic-ai project, claude, codex, cursor can run a hook at the \"Prompt submit\" stage and no hook runs there. Before the agent reads a prompt. A hook here can block the prompt. Exit 2 blocks the prompt. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: prompt-submit`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
       },
       {
         "id": "stage:before-tool",
@@ -1392,7 +1392,7 @@
           "cursor"
         ],
         "missing": "no hook yet",
-        "fix": "In this agnostic-ai project, claude, codex, cursor can run a hook at the \"Before a tool runs\" stage and no hook runs there. Before each tool call; exit 2 blocks the call. Guards live here. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: before-tool`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+        "fix": "In this agnostic-ai project, claude, codex, cursor can run a hook at the \"Before a tool runs\" stage and no hook runs there. Before each tool call. A hook here can block the call, so guards live here. Exit 2 blocks the call. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: before-tool`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
       },
       {
         "id": "stage:after-tool",
@@ -1414,7 +1414,7 @@
           "codex"
         ],
         "missing": "no hook yet",
-        "fix": "In this agnostic-ai project, claude, codex can run a hook at the \"After a file edit\" stage and no hook runs there. After the agent edits a file: format or lint it. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: after-edit`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+        "fix": "In this agnostic-ai project, claude, codex can run a hook at the \"After a file edit\" stage and no hook runs there. After the agent edits a file: format or check it. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: after-edit`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
       },
       {
         "id": "stage:stop",
@@ -1425,7 +1425,7 @@
           "codex"
         ],
         "missing": "no hook yet",
-        "fix": "In this agnostic-ai project, claude, codex can run a hook at the \"Stop\" stage and no hook runs there. When the agent finishes; exit 2 keeps it working. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: stop`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
+        "fix": "In this agnostic-ai project, claude, codex can run a hook at the \"Stop\" stage and no hook runs there. When the agent finishes. A hook here can keep it working. Exit 2 keeps it working. Read the project and decide whether a hook at this point would help. If one would, create it with `agnostic-ai new hook <name>`, remove its `event` and `matcher` lines, set `on: stop`, write its command, and run `agnostic-ai sync`. If none would, say so and change nothing."
       },
       {
         "id": "stage:session-end",
