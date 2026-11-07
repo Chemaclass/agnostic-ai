@@ -40,7 +40,7 @@ func warnEmptyTargetsIgnoring(w io.Writer) {
 // --check cannot say they are current.
 func generatedFilesKept(cfg *config.Config, ledger ledgerSnapshot) bool {
 	for _, p := range ledger.state.Outputs {
-		if p == ".agnostic-ai" || strings.HasPrefix(p, ".agnostic-ai/") {
+		if slash := filepath.ToSlash(p); slash == ".agnostic-ai" || strings.HasPrefix(slash, ".agnostic-ai/") {
 			continue
 		}
 		if _, err := os.Lstat(p); err == nil {
@@ -67,11 +67,12 @@ func emptyTargetsRemovals(cfg *config.Config, ledger ledgerSnapshot, reports []d
 	if ledger.missing() {
 		return driftReport{Target: ledgerReport}
 	}
+	// Keyed like the ledger, with the OS path separator.
 	emitted := map[string]bool{}
 	for _, r := range reports {
 		for _, list := range [][]adapters.CapturedFile{r.Current, r.Missing, r.Stale, r.Edited} {
 			for _, f := range list {
-				emitted[filepath.ToSlash(f.Path)] = true
+				emitted[f.Path] = true
 			}
 		}
 	}
@@ -112,7 +113,7 @@ func plannedSkillLinks(cfg *config.Config, b spec.Bundle, targets []string) (map
 		return nil, err
 	}
 	for _, l := range shared.links {
-		links[filepath.ToSlash(l.path)] = true
+		links[l.path] = true
 	}
 	return links, nil
 }
