@@ -163,7 +163,10 @@ function ReleaseBadge({ served, version }: { served: ServedConfig; version: stri
           </span>{' '}
         </>
       )}
-      <span className="release-caption">{release.kind === 'release' ? 'Release notes' : 'Development build'}</span>
+      <span className="release-caption">
+        {release.kind === 'release' ? 'Release notes' : 'Development build'}
+        {release.kind === 'release' && <Icon name="arrow" className="release-arrow" />}
+      </span>
     </span>
   )
   if (release.kind === 'build') {
@@ -172,7 +175,6 @@ function ReleaseBadge({ served, version }: { served: ServedConfig; version: stri
   return (
     <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`Read the agnostic-ai ${release.label} release notes (opens in a new tab)`}>
       {text}
-      <Icon name="arrow" className="release-arrow" />
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
   )

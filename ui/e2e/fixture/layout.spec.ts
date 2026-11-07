@@ -412,3 +412,23 @@ test('scrolls only the Menu while it is open', async ({ page }) => {
   await page.keyboard.press('Escape')
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe('hidden')
 })
+
+test('keeps Overview JSON on one line and the release arrow beside its text', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0', notesUrl: 'https://example.com/notes' } }))
+  await page.goto('/?view=context')
+  const json = page.locator('.sidenav-footer .sidenav-json')
+  const lineHeight = await json.evaluate((element) => parseFloat(getComputedStyle(element).lineHeight) || parseFloat(getComputedStyle(element).fontSize) * 1.6)
+  expect((await json.boundingBox())!.height).toBeLessThan(lineHeight * 2)
+  const badge = page.locator('.sidenav-footer .release-badge')
+  await expect(badge.locator('.release-arrow')).toBeVisible()
+  const gap = await badge.evaluate((element) => {
+    const range = document.createRange()
+    range.selectNodeContents(element.querySelector('.release-caption')!.firstChild!)
+    const arrow = element.querySelector('.release-arrow')!.getBoundingClientRect()
+    return arrow.left - range.getBoundingClientRect().right
+  })
+  expect(gap).toBeGreaterThanOrEqual(0)
+  expect(gap).toBeLessThanOrEqual(8)
+})

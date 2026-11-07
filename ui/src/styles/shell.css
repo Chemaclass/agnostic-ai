@@ -340,6 +340,8 @@ html {
   font: inherit;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
 }
 
@@ -386,6 +388,13 @@ html {
   text-decoration: none;
 }
 
+.release-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
 .release-text {
   display: flex;
   flex-wrap: wrap;
@@ -412,6 +421,7 @@ html {
 }
 
 .release-arrow {
+  flex-shrink: 0;
   width: 14px;
   height: 14px;
   transition: transform var(--dur-2) var(--ease-out);
