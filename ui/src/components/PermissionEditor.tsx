@@ -4,6 +4,7 @@ import type { PermissionEditPreview, SectionItem, SettingField } from '../contra
 import { audienceDescription, audienceLabel } from '../model/edit-audience'
 import { isPermissionKey, permissionSelection, rulesFromText } from '../model/permission-edit'
 import { useApp } from './app-context'
+import { Notice } from './Banner'
 import { useEditAudience, useGlobalLevel, ViewPersonalButton } from './EditAudience'
 import { Select, Code } from './ui'
 
@@ -25,9 +26,35 @@ export function PermissionSaveNotice() {
   const { saved, update } = useContext(SavedRules)
   if (!saved) return null
   return <div className="permission-saved" role="status">
-    <p>Saved <Code>{saved.file}</Code>. Run <Code>{saved.syncCommand}</Code> to apply these rules to your tools.</p>
-    <button type="button" className="button button-quiet" onClick={() => update()}>Dismiss</button>
+    <Notice tone="success" title={<>Saved <Code>{saved.file}</Code></>} onDismiss={() => update()}>
+      <p>Run <Code>{saved.syncCommand}</Code> to update your tools.</p>
+    </Notice>
   </div>
+}
+
+export function EditFailure({ error, action, busy, onReload, onDismiss }: { error: EditError; action: 'preview' | 'apply'; busy: boolean; onReload: () => void; onDismiss: () => void }) {
+  return <Notice
+    tone="error"
+    title={action === 'apply' ? 'Could not apply the change' : 'Could not preview the change'}
+    actions={error.status === 409 && <button type="button" className="button" disabled={busy} onClick={onReload}>Reload saved values</button>}
+    onDismiss={onDismiss}
+  >
+    <p>{error.message}</p>
+    {error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
+  </Notice>
+}
+
+export function FileDiff({ label, diff }: { label: string; diff: string }) {
+  return <pre className="file-diff" tabIndex={0} aria-label={label}>
+    {diff ? diff.split('\n').map((line, index) => <span key={index} className={diffLineClass(line)}>{line || ' '}</span>) : 'No file changes.'}
+  </pre>
+}
+
+function diffLineClass(line: string) {
+  if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@')) return 'diff-line diff-meta'
+  if (line.startsWith('+')) return 'diff-line diff-added'
+  if (line.startsWith('-')) return 'diff-line diff-removed'
+  return 'diff-line'
 }
 
 interface PermissionEditorProps {
@@ -74,6 +101,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
   const [preview, setPreview] = useState<PermissionEditPreview>()
   const [pending, setPending] = useState<'preview' | 'apply'>()
   const [error, setError] = useState<EditError>()
+  const [failed, setFailed] = useState<'preview' | 'apply'>('preview')
   const [refreshed, setRefreshed] = useState(false)
   useEffect(() => {
     active.current = true
@@ -136,6 +164,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     } catch (failure) {
       if (active.current) {
         setPreview(undefined)
+        setFailed(action)
         setError(failure instanceof EditError ? failure : new EditError(failure instanceof Error ? failure.message : 'Could not save the rules.'))
       }
     } finally {
@@ -152,12 +181,14 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       </Select>
     </label>}
     {current.personalSet && <div className="permission-override">
-      <p>{differs ? `Local overrides this file’s ${level} rules.` : `Local matches ${Level} and replaces this file’s list.`}</p>
-      {differs && <details><summary>Compare {level} ({current.shared?.length ?? 0}) and local ({current.personal?.length ?? 0})</summary>
-        <RuleComparison label={Level} rules={current.shared} />
-        <RuleComparison label="Local" rules={current.personal} cleared={current.personal === null} />
-      </details>}
-      {overridden && <>{!disabledReason && <p className="muted">Reset this list in Local to edit {Level}.</p>}<ViewPersonalButton /></>}
+      <Notice tone="info" actions={overridden && <ViewPersonalButton />}>
+        <p>{differs ? `Local overrides this file’s ${level} rules.` : `Local matches ${Level} and replaces this file’s list.`}</p>
+        {differs && <details><summary>Compare {level} ({current.shared?.length ?? 0}) and local ({current.personal?.length ?? 0})</summary>
+          <RuleComparison label={Level} rules={current.shared} />
+          <RuleComparison label="Local" rules={current.personal} cleared={current.personal === null} />
+        </details>}
+        {overridden && !disabledReason && <p className="muted">Reset this list in Local to edit {Level}.</p>}
+      </Notice>
     </div>}
     {disabledReason && <p className="muted">{disabledReason}</p>}
     {!disabledReason && !overridden && !preview && !editing && !!own?.length && <ul className="permission-rules" aria-label={`Saved ${field.label} rules`}>
@@ -178,7 +209,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       {inherited && <p className="muted">Starts with the {level} rules. Saving replaces this list for you; other settings keep inheriting.</p>}
       <textarea ref={textarea} id={id} aria-describedby={`${id}-hint`} rows={4} placeholder={RULE_PLACEHOLDER} value={text} disabled={locked} spellCheck={false} onChange={(event) => { setText(event.target.value); setError(undefined) }} />
       <div className="field-edit-row">
-        <button type="submit" className="button button-primary" disabled={locked || unchanged}>{pending === 'preview' ? 'Preparing preview…' : 'Preview changes'}</button>
+        <button type="submit" className="button button-primary" disabled={locked || unchanged}>{pending === 'preview' ? 'Preparing preview…' : 'Preview'}</button>
         <button type="button" className="button button-quiet" disabled={locked} onClick={() => { setEditing(false); setError(undefined); setRefreshed(false) }}>Cancel</button>
         {audience === 'shared' && own !== null && <button type="button" className="button button-quiet" disabled={locked} onClick={() => { void request('preview', null) }}>Remove this list</button>}
       </div>
@@ -188,18 +219,16 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       <div className="permission-preview-head">
         <h3>{preview.rules === null ? audience === 'personal' ? `Use the ${level} rules` : `Remove the ${level} list` : preview.rules.length === 0 && audience === 'personal' ? 'Clear the list for you' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
         <div className="field-edit-row">
-          <button type="button" className="button button-primary" disabled={!!pending || !!disabledReason} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Saving…' : 'Save rules'}</button>
-          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { restoreFocus.current = true; setPreview(undefined); setError(undefined) }}>{editing ? 'Back to editing' : 'Cancel'}</button>
+          <button type="button" className="button button-primary" disabled={!!pending || !!disabledReason} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Applying…' : 'Apply'}</button>
+          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { restoreFocus.current = true; setPreview(undefined); setError(undefined) }}>Cancel</button>
         </div>
       </div>
       <p>{audienceDescription(audience, global)} · <Code>{preview.file}</Code></p>
-      <pre tabIndex={0} aria-label={`${field.label} file changes`}>{preview.diff || 'No file changes.'}</pre>
-      <p className="muted">After saving, run <Code>{preview.syncCommand}</Code> to apply. Tool support varies, see Coding tool support above.</p>
+      <FileDiff label={`${field.label} file changes`} diff={preview.diff} />
+      <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools. Tool support varies; see Coding tool support below.</p>
     </section>}
-    {error && <div className="edit-error" role="alert"><p>{error.message}</p>
-      {error.status === 409 && <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { refreshing.current = true; app.reload() }}>Reload saved values</button>}
-    </div>}
-    {refreshed && <p className="muted" role="status">Saved rules refreshed. Your draft is kept. Preview again to review your changes against the saved list.</p>}
+    {error && <EditFailure error={error} action={failed} busy={!!pending} onReload={() => { refreshing.current = true; app.reload() }} onDismiss={() => setError(undefined)} />}
+    {refreshed && <div role="status"><Notice tone="info" title="Saved rules refreshed" onDismiss={() => setRefreshed(false)}><p>Your draft is kept. Preview again to compare it with the saved list.</p></Notice></div>}
   </div></>
 }
 

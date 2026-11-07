@@ -440,13 +440,13 @@ In **Authority**, select Project or Local, then **Add rules** or **Edit rules** 
 
 Each saved rule also has **Edit**, which opens the editor on that line, and **Remove**, which goes straight to the preview without that rule.
 
-**Preview changes** shows the file, scope, and exact diff. **Save rules** saves only that source file. Run the displayed `agnostic-ai sync` or `agnostic-ai sync --global` command to apply it.
+**Preview** shows the file, scope, and exact diff, with added and removed lines marked. **Apply** saves only that source file. Run the displayed `agnostic-ai sync` or `agnostic-ai sync --global` command to apply it.
 
 The support table names which tools accept permissions.
 
 **Default permission mode** is editable in the global view only, because only `sync --global` writes Claude Code's `defaultMode`. There it offers the mode names Claude Code accepts, and **Save** writes `permissions.default-mode` to the same settings file as the rule lists. A project shows it read-only with **Open global settings**.
 
-**Protected paths** opens an editor with one path per line, a decision (`ask` or `deny`), and a reason. **Preview changes** shows the diff and **Save paths** writes the whole [protected block](@/docs/spec-format/settings.md#protected-paths) to that file, replacing the block already there. **Remove protected paths** previews removing it. A local block starts from the project block merged under it, as sync reads them, and cannot lower a project `deny` to `ask`. A local file that sets `protected: null` turns the project paths off for you; Local says so and **Reset to project paths** removes the key, so the next sync protects them again. The global view keeps it read-only, because `sync --global` does not write protected paths.
+**Protected paths** opens an editor with one path per line, a decision (`ask` or `deny`), and a reason. **Preview** shows the diff and **Apply** writes the whole [protected block](@/docs/spec-format/settings.md#protected-paths) to that file, replacing the block already there. **Remove protected paths** previews removing it. A local block starts from the project block merged under it, as sync reads them, and cannot lower a project `deny` to `ask`. A local file that sets `protected: null` turns the project paths off for you; Local says so and **Reset to project paths** removes the key, so the next sync protects them again. The global view keeps it read-only, because `sync --global` does not write protected paths.
 
 A local edit starts with the project rules and replaces only the selected list for that spec; other settings keep inheriting. A changed local list offers **Compare project and local**. **Reset to the project rules** previews removing the override. An empty list is an explicit override with no rules; resetting removes it and inherits Project again. Project editing stays blocked while a local list replaces it.
 

@@ -5,7 +5,8 @@ import { rulesFromText } from '../model/permission-edit'
 import { hidesValue, PROTECT_DECISIONS, protectedSelection } from '../model/protected-edit'
 import { useApp } from './app-context'
 import { useEditAudience, ViewPersonalButton } from './EditAudience'
-import { useSavedEditNotice } from './PermissionEditor'
+import { Notice } from './Banner'
+import { EditFailure, FileDiff, useSavedEditNotice } from './PermissionEditor'
 import { Code, Select } from './ui'
 
 const PATH_PLACEHOLDER = '.github/**\ncomposer.lock\nmigrations/'
@@ -46,6 +47,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
   const [preview, setPreview] = useState<ProtectedEditPreview>()
   const [pending, setPending] = useState<'preview' | 'apply'>()
   const [error, setError] = useState<EditError>()
+  const [failed, setFailed] = useState<'preview' | 'apply'>('preview')
   const [before, setBefore] = useState(own)
   const [inherited, setInherited] = useState(current.shared)
   const refreshing = useRef(false)
@@ -93,6 +95,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
     } catch (failure) {
       if (active.current) {
         setPreview(undefined)
+        setFailed(action)
         setError(failure instanceof EditError ? failure : new EditError(failure instanceof Error ? failure.message : 'Could not save the protected paths.'))
       }
     } finally {
@@ -110,10 +113,13 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       </Select>
     </label>}
     {overridden && <div className="permission-override">
-      <p>{current.personalCleared ? 'Your local file turns these protected paths off for you. Reset it in Local to protect them again.' : 'Your local file sets protected paths for this spec. Reset them in Local to edit the project paths.'}</p>
-      <ViewPersonalButton />
+      <Notice tone="info" actions={<ViewPersonalButton />}>
+        <p>{current.personalCleared ? 'Your local file turns these protected paths off for you. Reset it in Local to protect them again.' : 'Your local file sets its own protected paths. Reset them in Local to edit the project paths.'}</p>
+      </Notice>
     </div>}
-    {local && current.personalCleared && !preview && !editing && <p className="permission-override">Your local file sets <Code>protected: null</Code>, so sync does not protect the project paths for you.</p>}
+    {local && current.personalCleared && !preview && !editing && <div className="permission-override">
+      <Notice tone="info"><p>Your local file sets <Code>protected: null</Code>, so sync does not protect the project paths for you.</p></Notice>
+    </div>}
     {!overridden && !preview && !editing && <div className="field-edit-row">
       <button type="button" className="button" disabled={!path || !!pending} onClick={begin}>{effective ? 'Edit paths' : 'Add paths'}</button>
       {local && (current.personal || current.personalCleared) && <button type="button" className="button button-quiet" disabled={!path || !!pending} onClick={() => { void request('preview', null) }}>Reset to project paths</button>}
@@ -133,7 +139,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
         <input aria-label="Protected paths reason" value={reason} disabled={locked} placeholder="Shown to the agent when it is blocked" onChange={(event) => setReason(event.target.value)} />
       </label>
       <div className="field-edit-row">
-        <button type="submit" className="button button-primary" disabled={locked || draft.paths.length === 0}>{pending === 'preview' ? 'Preparing preview…' : 'Preview changes'}</button>
+        <button type="submit" className="button button-primary" disabled={locked || draft.paths.length === 0}>{pending === 'preview' ? 'Preparing preview…' : 'Preview'}</button>
         <button type="button" className="button button-quiet" disabled={locked} onClick={() => { setEditing(false); setError(undefined) }}>Cancel</button>
         {!local && own && <button type="button" className="button button-quiet" disabled={locked} onClick={() => { void request('preview', null) }}>Remove protected paths</button>}
       </div>
@@ -143,16 +149,14 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       <div className="permission-preview-head">
         <h3>{preview.protected === null ? local ? 'Use project paths' : 'Remove protected paths' : `Protect ${preview.protected.paths.length} path${preview.protected.paths.length === 1 ? '' : 's'}`}</h3>
         <div className="field-edit-row">
-          <button type="button" className="button button-primary" disabled={!!pending} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Saving…' : 'Save paths'}</button>
-          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { setPreview(undefined); setError(undefined) }}>{editing ? 'Back to editing' : 'Cancel'}</button>
+          <button type="button" className="button button-primary" disabled={!!pending} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Applying…' : 'Apply'}</button>
+          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { setPreview(undefined); setError(undefined) }}>Cancel</button>
         </div>
       </div>
       <p>{local ? 'Local (not committed)' : 'Project (committed)'} · <Code>{preview.file}</Code></p>
-      <pre tabIndex={0} aria-label={`${field.label} file changes`}>{preview.diff || 'No file changes.'}</pre>
-      <p className="muted">After saving, run <Code>{preview.syncCommand}</Code> to apply.</p>
+      <FileDiff label={`${field.label} file changes`} diff={preview.diff} />
+      <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools.</p>
     </section>}
-    {error && <div className="edit-error" role="alert"><p>{error.message}</p>
-      {error.status === 409 && <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { refreshing.current = true; app.reload() }}>Reload saved values</button>}
-    </div>}
+    {error && <EditFailure error={error} action={failed} busy={!!pending} onReload={() => { refreshing.current = true; app.reload() }} onDismiss={() => setError(undefined)} />}
   </div></>
 }
