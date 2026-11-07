@@ -5,6 +5,7 @@ import { audienceDescription, type EditAudience } from '../model/edit-audience'
 import { emptyHookDraft, HOOK_MATCHES, hookDraftProblem, hookRequest, takesMatch, type HookDraft } from '../model/hook-form'
 import { useApp } from './app-context'
 import { useGlobalLevel } from './EditAudience'
+import { Notice } from './Banner'
 import { Code, Select } from './ui'
 
 export type HookSaved = Pick<HookSpecPreview, 'file' | 'syncCommand'>
@@ -32,9 +33,10 @@ export function useHookSaved(): [HookSaved | undefined, (saved?: HookSaved) => v
 }
 
 export function HookSavedNotice({ saved, dismiss }: { saved: HookSaved; dismiss: () => void }) {
-  return <div className="builtin-change builtin-change-controls hook-saved" role="status">
-    <span>Saved <Code>{saved.file}</Code>. Run <Code>{saved.syncCommand}</Code> to write it to your tools.</span>
-    <button className="button button-quiet" type="button" onClick={dismiss}>Dismiss</button>
+  return <div className="hook-saved" role="status">
+    <Notice tone="success" title={<>Saved <Code>{saved.file}</Code>.</>} onDismiss={dismiss}>
+      <p>Run <Code>{saved.syncCommand}</Code> to write it to your tools.</p>
+    </Notice>
   </div>
 }
 
@@ -79,10 +81,9 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
   }
 
   const status = <span role="status" aria-live="polite">{pending === 'preview' ? 'Preparing preview…' : pending === 'apply' ? 'Saving hook…' : ''}</span>
-  const failure = error && <div className="builtin-change-error" role="alert">
-    <p>{error.message}</p>
+  const failure = error && <Notice tone="error" title={error.message}>
     {error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
-  </div>
+  </Notice>
 
   if (preview) {
     return <section ref={previewRegion} tabIndex={-1} className="builtin-change builtin-change-preview hook-preview" aria-label={`${draft.name} hook preview`} aria-busy={!!pending}>

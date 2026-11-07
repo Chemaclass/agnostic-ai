@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { builtinChange, BuiltinChangeError, type BuiltinChange as Change, type BuiltinChangeAction as Action } from '../builtin-change'
 import { useApp } from './app-context'
 import { Notice } from './Banner'
+import { FileDiff } from './PermissionEditor'
 import { useEditAudience, useGlobalLevel, useLevelName, type EditAudience } from './EditAudience'
 import { addressKey } from '../model/field-address'
 import { Code, CopyButton, Switch, Toggle, ToolAvatar, toolName } from './ui'
@@ -271,25 +272,12 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
       <div className="builtin-change-files" role="region" aria-label="Changed files" tabIndex={0}>
         {change.changes.map((file) => <details key={file.path}>
           <summary><span className="builtin-change-action">{file.action}</span> <Code>{file.path}</Code></summary>
-          <ChangeDiff label={`Diff for ${file.path}`} diff={file.diff} />
+          {file.diff ? <FileDiff label={`Diff for ${file.path}`} diff={file.diff} /> : <p className="muted">File permissions will change.</p>}
         </details>)}
       </div>
     </details>}
     {findings.length > 0 && <PreviewNotes findings={findings} targets={change.targets} />}
   </section>
-}
-
-function ChangeDiff({ label, diff }: { label: string; diff: string }) {
-  return <pre className="change-diff" tabIndex={0} aria-label={label}>
-    {diff ? diff.split('\n').map((line, index) => <span key={index} className={diffLineClass(line)}>{line || ' '}</span>) : 'File permissions will change.'}
-  </pre>
-}
-
-function diffLineClass(line: string) {
-  if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@')) return 'diff-line diff-meta'
-  if (line.startsWith('+')) return 'diff-line diff-added'
-  if (line.startsWith('-')) return 'diff-line diff-removed'
-  return 'diff-line'
 }
 
 function PreviewNotes({ findings, targets }: { findings: string[]; targets: string[] }) {

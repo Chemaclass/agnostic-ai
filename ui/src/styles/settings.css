@@ -639,44 +639,9 @@
   color: var(--text-muted);
 }
 
-.change-diff {
-  display: grid;
-  max-width: 100%;
-  margin: 0 0 8px;
-  padding: 8px 0;
-  overflow: auto;
-  border-radius: var(--radius-sm);
-  background: var(--panel-sunken);
-  font: var(--text-xs)/1.6 var(--font-mono);
+.builtin-change-files .file-diff {
+  margin-bottom: 8px;
 }
-
-.change-diff .diff-line {
-  padding-inline: 12px;
-  border-inline-start: 3px solid transparent;
-  white-space: pre;
-}
-
-.change-diff .diff-added {
-  border-inline-start-color: var(--permitted);
-  color: var(--text);
-}
-
-.change-diff .diff-removed {
-  border-inline-start-color: var(--blocked);
-  color: var(--text);
-}
-
-.change-diff .diff-meta {
-  color: var(--text-muted);
-}
-
-@media (forced-colors: active) {
-  .change-diff .diff-added,
-  .change-diff .diff-removed {
-    border-inline-start-color: CanvasText;
-  }
-}
-
 .builtin-change-findings {
   padding-left: 20px;
   overflow-wrap: anywhere;
