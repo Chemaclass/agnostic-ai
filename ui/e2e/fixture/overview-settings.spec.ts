@@ -544,6 +544,7 @@ test.describe('overview', () => {
     await voice.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'shared', path, key: 'voice.enabled', value: false, expected: 'true' })
     const mode = page.locator('.field-row').filter({ has: page.getByText('Voice mode', { exact: true }) })
+    expect(await mode.getByRole('combobox', { name: 'Voice mode value' }).evaluate((element) => getComputedStyle(element).paddingRight)).toBe('36px')
     await mode.getByRole('combobox', { name: 'Voice mode value' }).selectOption('tap')
     await mode.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => posted.at(-1)).toMatchObject({ key: 'voice.mode', value: 'tap' })
