@@ -737,3 +737,59 @@ func TestScan_PagesAndFindsAnyAge(t *testing.T) {
 		t.Error("Find must reach a conversation older than the first page")
 	}
 }
+
+func TestScan_KeepsAChatWrittenInTheSecondOfAPageBoundary(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.Now = func() time.Time { return time.Date(2026, 11, 7, 12, 0, 0, 500_000_000, time.UTC) }
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idCache+".jsonl"), lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-10-31T12:00:00.000Z", "message": obj{"role": "user", "content": "At the boundary"}}))
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl"), lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-06T10:00:00.000Z", "message": obj{"role": "user", "content": "This week"}}))
+
+	shown := 0
+	before := time.Time{}
+	for range 3 {
+		page := scanner.Scan(context.Background(), ScanOptions{Before: before})
+		shown += len(page.Conversations)
+		if page.Next == "" {
+			break
+		}
+		next, err := time.Parse(time.RFC3339, page.Next)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before = next
+	}
+	if shown != 2 {
+		t.Errorf("pages showed %d chats, want 2", shown)
+	}
+}
+
+func TestScan_LeavesOutAJobWhoseNameIsNotAPlainID(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idCache+".jsonl"), lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-06T10:00:00.000Z", "message": obj{"role": "user", "content": "Run the suite"}}))
+	write(t, filepath.Join(stores.ClaudeDir, "jobs", "x;touch pwned", "state.json"), `{"sessionId":"`+idCache+`","state":"running"}`)
+
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idCache)
+
+	if c.App == AppBackground || strings.Contains(c.Open.Command, "pwned") {
+		t.Errorf("unsafe job name reached the route: %s %s", c.App, asJSON(t, c.Open))
+	}
+}
+
+func TestScan_KeepsCachedSessionsWhenTheScanIsCancelled(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idCache+".jsonl"), lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-06T10:00:00.000Z", "message": obj{"role": "user", "content": "Run the suite"}}))
+	scanner.Scan(context.Background(), ScanOptions{})
+	cached := len(scanner.claude)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	scanner.Scan(ctx, ScanOptions{})
+
+	if cached == 0 || len(scanner.claude) != cached {
+		t.Errorf("cache held %d sessions, then %d after a cancelled scan", cached, len(scanner.claude))
+	}
+}

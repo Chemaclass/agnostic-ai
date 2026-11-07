@@ -22,6 +22,9 @@ const claudeWindow = 64 << 10
 // liveSessionFile is sessions/<pid>.json; its *.key siblings hold credentials.
 var liveSessionFile = regexp.MustCompile(`^[0-9]+\.json$`)
 
+// claudeJobPattern keeps a job name safe to pass to the shell unquoted.
+var claudeJobPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
 var sessionIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // claudeActiveJobStates are background job states `claude attach` can open.
@@ -128,7 +131,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		conversations = append(conversations, c)
 	}
 	for file := range s.claude {
-		if !seen[file] {
+		if ctx.Err() == nil && !seen[file] {
 			delete(s.claude, file)
 		}
 	}
@@ -343,6 +346,9 @@ func (s *Scanner) claudeActiveJobs() map[string]string {
 			continue
 		}
 		short := filepath.Base(filepath.Dir(file))
+		if !claudeJobPattern.MatchString(short) {
+			continue
+		}
 		for _, id := range []string{job.SessionID, job.ResumeSessionID} {
 			if id != "" {
 				jobs[id] = short

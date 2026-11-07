@@ -105,7 +105,8 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	first := opts.Before.IsZero()
 	to := opts.Before
 	if first {
-		to = s.Now()
+		// Next is written in whole seconds, so the page boundary must be too.
+		to = s.Now().Truncate(time.Second)
 	}
 	page, from, more := weekPage(all, to, first)
 	s.fillPending(ctx, page)
