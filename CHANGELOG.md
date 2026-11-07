@@ -18,45 +18,45 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
-- `sync --dry-run --diff` prints a diff of each file sync would change and names generated files it would remove, for project and `--global` sync (#2991).
-- `sync --plan --diff` prints the plan, then a diff of each changed file, for project and `--global` sync (#2996).
-- `sync --global --plan --check` previews user-level changes and fails on drift, matching project sync (#2986).
-- `sync --allow-empty-targets --dry-run` names each generated file the real run removes (#2995).
-- `sync` previews and `--check` show a shared settings file that keeps your keys as an update or as kept, not a removal (#3000).
-- On Windows, `sync -t <tool> --allow-empty-targets --dry-run` no longer lists that tool's own files as removals (#3142).
+- `sync --dry-run --diff` and `sync --plan --diff` print a diff of each changed file and name files they would remove, also for `--global` (#2991, #2996).
+- `sync --global --plan --check` previews user-level changes and fails on drift, like project sync (#2986).
+- `sync --allow-empty-targets --dry-run` names each file the real run removes. On Windows it no longer lists a tool's own files (#2995, #3142).
 - `sync --check` with an empty targets list passes once every generated file is gone (#3142).
+- Sync previews and `--check` show a shared settings file that keeps your keys as an update or as kept, not a removal (#3000).
 - Sync notes when a target drops an agent's `hooks` or `permissionMode`, and `sync --global` notes dropped fields such as `maxTurns` (#3052, #3073).
 - **Breaking:** Sync stops on an MCP `roots` item without a `uri` mapping; `lint` (LINT060) flags it. Write `- uri: file:///path` (#3016).
 
 #### Checks and reports
 
 - `lint` warns (LINT059) when an MCP `timeout` under 1000 reaches Crush, Pi or Junie, because it most likely holds seconds.
-- `graph` and `hook run` accept `--json`, the same as `--format json`; `--json` with a different `--format` fails on all three (#2993).
+- `graph` and `hook run` accept `--json`, the same as `--format json`; `--json` with a different `--format` fails (#2993).
 - `hook run` rejects a `--payload` file that is not a JSON object, and `--format json` still prints its result when a target cannot be set up (#2994).
-- `doctor` describes shared settings updates as removing unchanged managed keys and keeping your keys, with JSON action `stale` (#3009).
-- Dry-run, render and other previews withhold prose that labels a credential with a value, such as a `password:` line or a `token` table cell (#3062).
+- `doctor` describes shared settings updates as removing unchanged managed keys and keeping yours, with JSON action `stale` (#3009).
+- Previews withhold prose that labels a credential with a value, such as a `password:` line or a `token` table cell (#3062).
 
 #### Web interface
 
-- Mineral look: bone paper, a slate rail, Fraunces headings, ink pill buttons and verdigris links, with the same style in search and the JSON inspector (#3120).
-- The rail names each page over its live counts, lists **Setup health** first, and keeps its shape with placeholder bars while the page loads (#3120).
+- The web interface takes the Mineral look: bone paper, a slate rail, Fraunces headings and ink pill buttons, also in search and the inspector (#3120).
+- The rail names each page over its live counts, lists **Setup health** first, and shows placeholder bars while the page loads (#3120).
 - The rail foot lists Search and the configuration switch, then the version (linked to release notes) and theme, **Overview JSON** and GitHub buttons (#3120).
 - The rail shows "Update needed" only when the project requires a newer agnostic-ai (#3034).
 - Phones get a top bar with the finding count, Search and **Menu** over one row of page links; search and the inspector open full screen (#3120).
-- Dropdowns open as a panel in the page's colors with a checkmark on the chosen item, in every browser. Forced colors keep the system list.
-- Each section page opens with a verdict sentence and a facts line, then a filter row and **Docs** link. **Coding tool support** folds below (#3120, #3121).
-- Findings are cards with **Copy prompt** and **Details**, and counts show only above zero. Empty types say what they are and which tools support them (#3120).
+- Dropdowns open as a panel with a checkmark on the chosen item in every browser; forced colors keep the system list.
+- Each page opens with a verdict sentence and a facts line, then a filter row and **Docs** link. **Coding tool support** folds below (#3120, #3121).
+- Findings are cards with **Copy prompt** and **Details**. Empty types say which tools support them, and counts show only above zero (#3120).
 - A snapshot or the mock fixture says once, in the top notice, that it is read-only. A snapshot that fails shows **Could not load the snapshot** with **Retry**.
-- Labels use plain words, such as **Preferences**, **Config files** and **MCP servers**. `view --json` carries them; ids and keys stay.
-- Project or Global and Local replace Shared and Personal; API audience values stay `shared` and `personal` (#3033).
+- Labels use plain words, such as **Preferences** and **MCP servers**; `view --json` carries them.
+- Project or Global and Local replace Shared and Personal; API values stay `shared` and `personal` (#3033).
 - Following a link to an entry you already opened scrolls to it and focuses it again (#3076).
-- The note after **Open** shows on its own line without moving other buttons (#3024).
+- **Open global settings** and **Open project** sit at the foot of the sidebar, and the top bar shows the project path (#3035).
+- The web interface links to the agnostic-ai repository and to the project's GitHub repository (#3111).
+- `/api/health` adds `version`, `requires` and `requiresMet`; `/api/views/overview` adds `repository`, `health.gaps` and `health.improvements` (#2974, #3034, #3070, #3079, #3111).
 
 #### Conversations
 
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
-- **Conversations** opens with a sentence on how many chats are open and how many wait for you, and each row names its tool (#3120, #3121).
-- The list shows at once when you return and refreshes in the background, three times faster; the first load shows placeholder bars.
+- It opens with how many chats are open and how many wait for you, and each row names its tool (#3120, #3121).
+- The list shows at once when you return and refreshes in the background, three times faster.
 - A tool's note shows above its chip only on hover or focus; phones show it under the chip.
 - It lists Codex and Cursor chats on Windows, handles a symlinked `~/.codex`, and withholds a prompt with `curl -u user:password` (#3119).
 - Opening a Codex thread that a running `codex` holds switches to its terminal; an editor chat brings forward its workspace window (#3134).
@@ -64,30 +64,25 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Setup health
 
 - **Setup health** opens with one sentence and says whether data is fresh or from a snapshot. Findings sit under **Needs a fix** and **Worth a look** (#3120).
-- It shows **7 of 9 improvements applied** and lists what enabled tools support but the project does not use, each with a fix prompt (#3079, #3070).
-- Each **Reach the best setup** row shows what is missing, the first three tools that support it, and **Copy prompt** (#3120).
-- **Recheck all** runs the checks for every section and says how many findings remain; results say "configuration check" and "setup check" (#3071, #3120).
-- Each finding and suggestion has a checkbox; a bar at the foot copies one prompt for all ticked items with **Copy prompt** (#3127).
-- **Copy all fixes** copies every fix prompt, and the top bar counts findings by severity (#3032).
-- In a project, counts and **Setup health** include `lint --global` findings labelled **global**; `view --json` marks them `"layer": "global"` (#3069).
+- It shows **7 of 9 improvements applied** and lists unused features the enabled tools support, with **Copy prompt** (#3079, #3070).
+- **Recheck all** runs the checks for every section and says how many findings remain (#3071).
+- Tick findings and suggestions, then **Copy prompt** in the bar at the foot copies one prompt for all; **Copy all fixes** copies every fix (#3127, #3032).
+- In a project it includes `lint --global` findings labelled **global**; `view --json` marks them `"layer": "global"` (#3069).
 
 #### Pages and editing
 
-- Lifecycle shows stages as a timeline with a filled dot for each stage that runs a hook, and a turned-off hook shows as off (#3120, #3145).
-- Each Lifecycle hook has **Summary**, **Key fields** and **Full spec**, hidden if the file looks like a credential; search matches commands (#3038, #3062).
+- Lifecycle shows stages as a timeline and a turned-off hook as off (#3120, #3145).
+- Each Lifecycle hook has **Summary**, **Key fields** and **Full spec**, hidden if the file looks like a credential. Search matches hook commands (#3038, #3062).
 - **Add hook** on Lifecycle previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 - Tools counts only MCP servers that are on and shows others as off; `view --json` gives each one `disabled` in `fields` (#3120, #3145).
 - **Context size** starts with word counts, a budget line with **Change budget** and three **Next** steps (#3120, #3121).
+- **Context size** no longer scrolls sideways on a phone (#3059).
 - **Show content** on a Context row shows the file's frontmatter as chips (#3025).
 - **Settings** previews changes as a diff card with **Preview**, **Apply** and **Cancel**. A quick second click sends no stale change (#3120, #3121).
-- **Authority** and **Settings** show **View and edit** (Project or Local) once, beside the filter (#3121).
+- **View and edit** (Project or Local) shows once, beside the filter, on **Authority** and **Settings** (#3121).
 - Authority edits protected paths in project or local scope, and the default permission mode in the global view (#3039).
 - Authority shows a local `protected: null`, and **Reset to project paths** removes it (#3072).
 - **Copy to global** (**Copy to project** in global view) moves a spec across levels; **Replace it** overwrites. `POST /api/edit/spec/move` matches (#3027).
-- **Open global settings** and **Open project** sit at the foot of the sidebar, and the top bar shows the project path (#3035).
-- The web interface links to the agnostic-ai repository and to the project's GitHub repository; `/api/views/overview` adds `repository` (#3111).
-- `/api/health` returns `version` and `requires`/`requiresMet`; `/api/views/overview` adds `health.gaps` and `health.improvements` (#2974, #3034, #3070, #3079).
-- **Context size** no longer scrolls sideways on a phone (#3059).
 
 ### By tool
 
