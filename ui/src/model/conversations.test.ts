@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Conversation, ConversationSource } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, withheldLabel } from './conversations'
+import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Local times, so the day groups hold in any time zone the tests run in.
@@ -202,5 +202,24 @@ describe('conversations normalization', () => {
     expect(new Set(view.conversations.flatMap((c) => c.withheld ?? []))).toEqual(new Set(['title', 'opening', 'prompt']))
     expect(view.tools.map((t) => t.tool)).toEqual(['claude', 'codex', 'cursor'])
     for (const source of view.tools) expect(view.conversations.filter((c) => c.tool === source.tool)).toHaveLength(source.shown)
+  })
+})
+
+describe('conversations verdict', () => {
+  it('counts the open chats and those that wait for you', () => {
+    const open = [conversation({ id: 'a', live: true, activity: 'working' }), conversation({ id: 'b', live: true, activity: 'waiting' }), conversation({ id: 'c', live: true })]
+    expect(conversationsVerdict(open, NOW, false)).toBe('3 chats are open now; 1 waits for you.')
+    expect(conversationsVerdict(open.slice(0, 1), NOW, false)).toBe('One chat is open now.')
+    expect(conversationsVerdict(open.slice(1, 2), NOW, false)).toBe('One chat is open and waits for you.')
+    expect(conversationsVerdict([open[0], conversation({ id: 'd' })], NOW, false)).toBe('One chat is open now.')
+  })
+
+  it('says when the last chat ran when none is open, or that there is none', () => {
+    const rows = [conversation({ id: 'new', updatedAt: local(11, 7, 14, 30).toISOString() }), conversation({ id: 'old', updatedAt: local(11, 5, 9).toISOString() })]
+    expect(conversationsVerdict(rows, NOW, false)).toBe('Your last chat was 2 h ago.')
+    const older = local(10, 25, 9).toISOString()
+    expect(conversationsVerdict([conversation({ updatedAt: older })], NOW, false)).toBe(`Your last chat was on ${relativeTime(older, NOW)}.`)
+    expect(conversationsVerdict([], NOW, true)).toBe('No chat in the past week.')
+    expect(conversationsVerdict([], NOW, false)).toBe('No chats to show.')
   })
 })
