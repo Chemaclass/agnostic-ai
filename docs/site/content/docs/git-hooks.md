@@ -229,7 +229,7 @@ post-rewrite:
 
 When a branch changes the pinned version, `agnostic-ai project --check` reports the installed and required versions without installing anything, and `agnostic-ai project --bootstrap` installs from the lockfile once, then syncs with `--keep-edits --quiet`. Use these instead of comparing manifest text in shell. A hook manager can call `agnostic-ai project --check --against index` for a read-only pre-commit gate. See [`project`](@/docs/cli-reference/project.md#project) for version checks, supported package managers, and the releases that lack the command.
 
-Generated hooks first check that the selected binary supports `project`. When no `agnostic-ai` is on `PATH`, they name the install to run, for example `bun install --frozen-lockfile`. Built-in memory hooks look for the nearest ancestor config before selecting a binary, including projects nested inside another Git checkout.
+Generated hooks first check that the selected binary supports `project`. When no `agnostic-ai` is on `PATH`, they name the install to run, for example `bun install --frozen-lockfile`. Built-in memory hooks look upward for `node_modules/.bin/agnostic-ai` and stop at the nearest config, so a project nested inside another Git checkout uses its own package or the one on `PATH`.
 
 ### New worktrees
 

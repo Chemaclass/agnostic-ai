@@ -1,26 +1,14 @@
 #!/bin/sh
-root=$(pwd -P) || exit 1
-dir=$root
-while :; do
-  if [ -f "$dir/agnostic-ai.yaml" ] || [ -f "$dir/agnostic.config.yaml" ]; then
-    root=$dir
-    break
-  fi
-  parent=$(dirname "$dir")
-  if [ "$parent" = "$dir" ]; then
-    root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-    break
-  fi
-  dir=$parent
+dir=$(pwd)
+until [ -x "$dir/node_modules/.bin/agnostic-ai" ] || [ -f "$dir/agnostic-ai.yaml" ] ||
+  [ -f "$dir/agnostic.config.yaml" ] || [ "$dir" = "$(dirname "$dir")" ]; do
+  dir=$(dirname "$dir")
 done
-bin=agnostic-ai
-if [ -x "$root/node_modules/.bin/agnostic-ai" ]; then
-  bin=$root/node_modules/.bin/agnostic-ai
-else
-  command -v "$bin" >/dev/null 2>&1 || exit 0
-fi
+bin=$dir/node_modules/.bin/agnostic-ai
+[ -x "$bin" ] || bin=agnostic-ai
+command -v "$bin" >/dev/null || exit 0
 AGNOSTIC_AI_NO_UPDATE_CHECK=1 "$bin" project --help >/dev/null 2>&1 || {
-  echo "agnostic-ai: upgrade the selected package to a release supporting project; update its declared version and requires explicitly" >&2
+  echo "agnostic-ai: this version has no project command; upgrade to 0.83.0 or newer" >&2
   exit 1
 }
 exec "$bin" project -- hook memory --target augment
