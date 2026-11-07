@@ -167,7 +167,7 @@ export function ContextUsage() {
       </p>
       <div ref={results} className="context-usage-results" style={{ minHeight: pending && !report ? resultsHeight : undefined }}>
         {pending && !report && <ReportPlaceholder />}
-        {error && <ErrorPanel error={error} />}
+        {error && <ErrorPanel error={error} title="Could not check context size" onRetry={refresh} />}
         {shown && !shown.view.supported && <p>{shown.view.reason || 'Context size is not available for this configuration.'}</p>}
         {report && shown && (
           <>

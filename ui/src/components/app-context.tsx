@@ -52,6 +52,7 @@ export function AppLink({ to, children, onNavigate, ...rest }: { to: Partial<Url
 }
 
 export function PageHeader({ eyebrow, title, subtitle, children }: { eyebrow?: ReactNode; title: ReactNode; subtitle?: ReactNode; children?: ReactNode }) {
+  const app = useApp()
   return (
     <header className="page-header">
       {eyebrow && <div className="eyebrow">{eyebrow}</div>}
@@ -59,6 +60,7 @@ export function PageHeader({ eyebrow, title, subtitle, children }: { eyebrow?: R
         {title}
       </h1>
       {subtitle && <p className="page-subtitle">{subtitle}</p>}
+      {(app.source.kind === 'static' || app.source.kind === 'mock') && <p className="page-note">Read-only snapshot: open files, rechecks and switches need <code>agnostic-ai view</code>.</p>}
       {children}
     </header>
   )
