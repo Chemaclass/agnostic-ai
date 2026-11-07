@@ -174,9 +174,16 @@ textarea:focus {
   gap: 6px;
 }
 
-.page-fact + .page-fact::before {
+/* The separator trails its fact, so a wrapped line never starts with it. */
+
+.page-fact:has(+ .page-fact) {
+  margin-inline-end: 10px;
+}
+
+.page-fact:has(+ .page-fact)::after {
   content: '·';
-  margin-inline: 10px;
+  margin-inline-start: 4px;
+  font-weight: 400;
   color: var(--text-muted);
 }
 
