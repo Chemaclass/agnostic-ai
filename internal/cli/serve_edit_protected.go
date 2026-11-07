@@ -47,10 +47,13 @@ type protectedEditView struct {
 	Audience      string          `json:"audience"`
 	Before        *protectedBlock `json:"before"`
 	Protected     *protectedBlock `json:"protected"`
-	Diff          string          `json:"diff"`
-	Expected      string          `json:"expected"`
-	SyncCommand   string          `json:"syncCommand"`
-	OK            bool            `json:"ok,omitempty"`
+	// Cleared is true when the file writes `protected: null`, which turns
+	// the protected paths it inherits off.
+	Cleared     bool   `json:"cleared,omitempty"`
+	Diff        string `json:"diff"`
+	Expected    string `json:"expected"`
+	SyncCommand string `json:"syncCommand"`
+	OK          bool   `json:"ok,omitempty"`
 }
 
 func (h *editHandler) serveProtected(w http.ResponseWriter, body []byte) {
@@ -131,21 +134,25 @@ func decodeProtectedBlock(raw json.RawMessage) (*protectedBlock, error) {
 }
 
 // protectedBlockAt is the protected block data itself writes, without
-// any value a shared spec under it gives.
-func protectedBlockAt(data []byte) (*protectedBlock, error) {
+// any value a shared spec under it gives. cleared reports `protected:
+// null`, which has no block but turns the inherited one off.
+func protectedBlockAt(data []byte) (block *protectedBlock, cleared bool, err error) {
 	var doc map[string]any
 	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("parse settings: %w", err)
+		return nil, false, fmt.Errorf("parse settings: %w", err)
 	}
 	raw, present := doc[protectedKey]
-	if !present || raw == nil {
-		return nil, nil
+	if !present {
+		return nil, false, nil
+	}
+	if raw == nil {
+		return nil, true, nil
 	}
 	fields, ok := raw.(map[string]any)
 	if !ok {
-		return nil, errors.New("protected is not a mapping; edit the file directly")
+		return nil, false, errors.New("protected is not a mapping; edit the file directly")
 	}
-	return protectedBlockOf(fields), nil
+	return protectedBlockOf(fields), false, nil
 }
 
 func protectedBlockOf(fields map[string]any) *protectedBlock {
@@ -194,7 +201,7 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 	if err != nil {
 		return protectedEditView{}, none, err
 	}
-	before, err := protectedBlockAt(original.data)
+	before, cleared, err := protectedBlockAt(original.data)
 	if err != nil {
 		return protectedEditView{}, none, fmt.Errorf("%s: %w", overviewDisplay(h.root, file), err)
 	}
@@ -210,7 +217,7 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 	if shown := shownProtectedBlock(before); !reflect.DeepEqual(shown, before) {
 		return protectedEditView{}, none, fmt.Errorf("%s: protected paths hold a value the page hides; edit the file directly", overviewDisplay(h.root, file))
 	}
-	if block == nil && before == nil {
+	if block == nil && before == nil && !cleared {
 		scope := h.levelLabel()
 		if where == audiencePersonal {
 			scope = "Local"
@@ -239,7 +246,7 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 	}
 	write := protectedWriteFor(block, inherited)
 	if block != nil && write == nil {
-		if before == nil {
+		if before == nil && !cleared {
 			return protectedEditView{}, none, errors.New("these values match the protected paths this file inherits; there is nothing to save in Local")
 		}
 	}
@@ -252,7 +259,7 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 		return protectedEditView{}, none, fmt.Errorf("%s: %w", overviewDisplay(h.root, file), err)
 	}
 	after = permissionEditRest(after, data, write == nil)
-	view := protectedEditView{SchemaVersion: "protected-edit/v1", File: overviewDisplay(h.root, file), Audience: string(where), Before: before, Protected: block, SyncCommand: "agnostic-ai sync"}
+	view := protectedEditView{SchemaVersion: "protected-edit/v1", File: overviewDisplay(h.root, file), Audience: string(where), Before: before, Protected: block, Cleared: cleared, SyncCommand: "agnostic-ai sync"}
 	view.Diff = previewDiff(view.File, view.File+" (before)", view.File+" (proposed)", string(original.data), string(after), original.info == nil, 2048)
 	sum := sha256.New()
 	fingerprint, err := json.Marshal(struct {
