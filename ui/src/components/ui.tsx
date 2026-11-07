@@ -199,6 +199,7 @@ export function Select({ children, ...props }: SelectHTMLAttributes<HTMLSelectEl
 }
 
 const ICON_PATHS: Record<string, ReactNode> = {
+  conversations: <path d="M15 9V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h1v3l3-3 M11 9h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1v3l-3-3h-4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z" />,
   context: <path d="M12 3 21 12 12 21 3 12Z M12 8 16 12 12 16 8 12Z" />,
   authority: <path d="M12 3 21 12 12 21 3 12Z" />,
   tools: <path d="M9 9h6v6H9Z M9 9V6.5A2.5 2.5 0 1 0 6.5 9H9 M15 9V6.5A2.5 2.5 0 1 1 17.5 9H15 M9 15v2.5A2.5 2.5 0 1 1 6.5 15H9 M15 15v2.5a2.5 2.5 0 1 0 2.5-2.5H15" />,

@@ -7,7 +7,7 @@ const contextView = JSON.parse(readFileSync(new URL('../../src/fixtures/context.
 
 test.describe('context size', () => {
   test('shows the mock duplicate with its sources, review prompt, and refresh', async ({ page, context }) => {
-    await page.goto('/?mock=1')
+    await page.goto('/?view=context&mock=1')
     await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel.getByRole('heading', { name: 'Context size' })).toBeVisible()
@@ -33,7 +33,7 @@ test.describe('context size', () => {
 
   test('keeps the controls readable on a phone and explains the estimate on request', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.goto('/?mock=1&tab=usage')
+    await page.goto('/?view=context&mock=1&tab=usage')
     const panel = page.locator('section.context-usage')
     await expect(panel.getByLabel('Coding tool')).toBeVisible()
     await expect(panel.getByLabel('Check against a file')).toHaveAccessibleDescription('Name a file to add the scoped rules that match it. Results update as you type.')
@@ -243,7 +243,7 @@ test.describe('context size', () => {
   })
 
   test('keeps a search when the Context size tab opens', async ({ page }) => {
-    await page.goto('/?mock=1&q=testing')
+    await page.goto('/?view=context&mock=1&q=testing')
     await selectTab(page, 'Context size')
     await expect(page.locator('section.context-usage')).toBeVisible()
     await expect(page).toHaveURL(/q=testing/)
@@ -375,7 +375,7 @@ test.describe('context size', () => {
   })
 
   test('is the first Context tab, the landing, and keeps the section search', async ({ page }) => {
-    await page.goto('/?mock=1')
+    await page.goto('/?view=context&mock=1')
     const tabs = page.getByRole('tablist').first().getByRole('tab')
     await expect(tabs.first()).toHaveText(/^Context size/)
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
@@ -422,7 +422,7 @@ for (const width of [390, 1000, 1280, 1800]) {
 for (const width of [390, 1280, 1440]) {
   test(`leads with the figures under the controls, then the verdict and Next, at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
-    await page.goto('/?mock=1&tab=usage')
+    await page.goto('/?view=context&mock=1&tab=usage')
     const panel = page.locator('section.context-usage')
     await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
     await expect(panel.getByLabel('Coding tool').locator('option:checked')).toHaveText('Claude Code')

@@ -1,8 +1,12 @@
 package preview
 
 import (
+	"encoding/json"
 	"regexp"
 	"strings"
+
+	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v3"
 )
 
 // Credential words as label text writes them. A multi-word label may be
@@ -77,6 +81,42 @@ func labelsCredential(text string) bool {
 	return assignsCredential(text) || credentialStatement.MatchString(text) ||
 		credentialLabel.MatchString(text) || privateKeyBlock.MatchString(text) ||
 		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text)
+}
+
+// ProseSensitive is Sensitive for prose that is not a file, such as a
+// chat title or prompt: the same signs of a credential, plus one in a
+// URL, without reading the text as YAML, JSON or a shell script. A
+// prompt that only looks structured, such as "[WIP] Fix: login crash",
+// is then not withheld as content that could not be parsed.
+func ProseSensitive(text string) bool {
+	if labelsCredential(text) || credentialWord.MatchString(text) ||
+		anyCredentialKey.MatchString(text) || URLCredentialIn(text) {
+		return true
+	}
+	if shown := markdown(text); shown.Hidden || shown.Withheld {
+		return true
+	}
+	return structuredProseRedacts(text)
+}
+
+// structuredProseRedacts reports whether prose that parses whole as
+// JSON, TOML or a YAML mapping has a value Display would redact. Prose
+// that does not parse stays shown, and so does a one-line title with no
+// nested value, such as "Env: staging is broken".
+func structuredProseRedacts(text string) bool {
+	var parsed map[string]any
+	for path, parses := range map[string]bool{
+		"prose.json": json.Unmarshal([]byte(text), &parsed) == nil,
+		"prose.toml": toml.Unmarshal([]byte(text), &map[string]any{}) == nil,
+		"prose.yaml": strings.ContainsAny(text, "\n{[") && yaml.Unmarshal([]byte(text), &map[string]any{}) == nil && yamlMapping.MatchString(text),
+	} {
+		if parses {
+			if shown := Display(path, text); shown.Hidden || shown.Withheld {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Sensitive reports whether text shows any sign of a credential: Display

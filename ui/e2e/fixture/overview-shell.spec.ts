@@ -72,8 +72,8 @@ test.describe('overview', () => {
     }
   })
 
-  test('opens on Context with five sections, Setup health, and an icon theme toggle', async ({ page }) => {
-    await openApp(page)
+  test('opens Context with Conversations, five sections, Setup health, and an icon theme toggle', async ({ page }) => {
+    await openApp(page, '?view=context')
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
     await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
     for (const [tab, kind] of [['Guidance', 'Instructions'], ['Rules', 'Rules'], ['Agents', 'Agents'], ['Skills', 'Skills']] as const) {
@@ -82,8 +82,9 @@ test.describe('overview', () => {
     }
     await selectTab(page, 'Agents')
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
-    await expect(nav.getByRole('link')).toHaveCount(6)
-    for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings', 'Setup health']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
+    await expect(nav.getByRole('link')).toHaveCount(7)
+    await expect(nav.getByRole('link').first()).toHaveAccessibleName(/^Conversations/)
+    for (const name of ['Conversations', 'Context', 'Authority', 'Tools', 'Lifecycle', 'Settings', 'Setup health']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
     await expect(page.locator('.topbar .chip', { hasText: 'sync' })).toHaveCount(0)
     const theme = page.getByRole('button', { name: /^Switch to (light|dark) theme$/ })
     const before = await theme.getAttribute('aria-label')
