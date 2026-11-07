@@ -22,6 +22,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, **Settings** shows preferences and coding tools as plain rows, and a built-in or model change preview as a card whose diff marks added and removed lines. The permission and protected path editors use the same preview and diff. Actions use one label each: **Preview**, **Apply**, **Cancel** and **Reload**, and saved, failed and overridden states show as one notice with **Dismiss**. Switches and edit buttons stay off until the page has the saved values, and the editors wait for the refreshed rules after **Apply** or **Reload**, so a quick second click no longer sends a stale change or fails as changed after editing began (#3120, #3121).
 
+- In the web interface, **Setup health** has a checkbox on each finding and suggestion. A bar at the foot of the page counts the ticked items and copies one prompt for all of them with **Copy prompt**, errors first, then suggestions, with the shared guidance once (#3127).
+
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
 
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).

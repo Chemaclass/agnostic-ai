@@ -1,6 +1,7 @@
 // Setup health: every finding in the overview on one page, errors first,
 // with the same finding rows, fix prompts, and rechecks as the sections.
 
+import { useState } from 'react'
 import type { Improvements, OverviewView } from '../contract'
 import { recheckAllMessage, type RecheckAllResult } from '../model/recheck'
 import { countFindings, featureBars, gapTools, healthFixPrompt, healthGroups, healthSummary, healthVerdict, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
@@ -17,6 +18,7 @@ import { SectionHeading } from './SectionHeading'
 import type { Remote } from './Shell'
 import type { ViewId } from '../model/url'
 import { CopyButton, Icon, toolName } from './ui'
+import { PickBox, PickTray, PicksContext, type Picks } from './pick'
 
 const TITLE = 'Setup health'
 const SEVERITY_TITLES: Record<HealthSeverity, string> = { error: HEALTH_STATUS.error, warning: HEALTH_STATUS.warning }
@@ -24,6 +26,7 @@ const SEVERITY_TITLES: Record<HealthSeverity, string> = { error: HEALTH_STATUS.e
 export function HealthPage({ overview, stale = false }: { overview: Remote<OverviewView>; stale?: boolean }) {
   const recheck = useRechecks()
   const { rechecked } = recheck
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const data = overview.loaded?.data
   if (!data) {
     return (
@@ -38,6 +41,21 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
   const keep = rechecked?.place.startsWith('health:') ? { place: rechecked.place, before: rechecked.before } : undefined
   const groups = healthGroups(data, keep)
   const verdict = healthVerdict(count)
+  // A pick whose finding a recheck fixed drops out of the count and the prompt.
+  const pick = {
+    findings: new Set(count.byPlace.flatMap((place) => place.ids).filter((id) => picked.has(id))),
+    gaps: new Set(data.health.gaps.map((gap) => gap.id).filter((id) => picked.has(id))),
+  }
+  const pickedCount = pick.findings.size + pick.gaps.size
+  const picks: Picks = {
+    has: (id) => picked.has(id),
+    set: (id, on) => setPicked((now) => {
+      const next = new Set(now)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    }),
+  }
 
   return (
     <>
@@ -60,32 +78,35 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
-          {groups.map((group, index) => {
-            const headingId = `health-${group.severity}`
-            const shown = group.sections.reduce((sum, s) => sum + s.entries.reduce((n, entry) => n + entry.findings.length, 0), 0)
-            return (
-              <section className="block health-group" aria-labelledby={headingId} key={group.severity}>
-                <SectionHeading id={headingId} focusable docs={index === 0 ? 'findings' : undefined} actions={index === 0 && total > 0 && (
-                  <div className="health-actions">
-                    <CopyButton text={healthFixPrompt(data, data.snapshot.project.root)} label="Copy all fixes" copiedLabel="Copied" className="button-primary" ariaLabel={total === 1 ? 'Copy the fix prompt for the one finding' : `Copy one fix prompt for all ${total} findings`} />
-                  </div>
-                )}>
-                  {SEVERITY_TITLES[group.severity]} {shown > 0 && <span className="kind-count">{shown}</span>}
-                </SectionHeading>
-                {group.sections.map(({ section, entries }) => (
-                  <RecheckSection.Provider value={section.id} key={section.id}>
-                    <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
-                      <div className="health-section">
-                        {entries.map((entry) => <HealthPlace key={entry.place} entry={entry} />)}
-                      </div>
-                    </RecheckSectionEntries.Provider>
-                  </RecheckSection.Provider>
-                ))}
-              </section>
-            )
-          })}
-          <Gaps gaps={data.health.gaps} sections={data.sections} docs={groups.length === 0} />
+          <PicksContext.Provider value={picks}>
+            {groups.map((group, index) => {
+              const headingId = `health-${group.severity}`
+              const shown = group.sections.reduce((sum, s) => sum + s.entries.reduce((n, entry) => n + entry.findings.length, 0), 0)
+              return (
+                <section className="block health-group" aria-labelledby={headingId} key={group.severity}>
+                  <SectionHeading id={headingId} focusable docs={index === 0 ? 'findings' : undefined} actions={index === 0 && total > 0 && (
+                    <div className="health-actions">
+                      <CopyButton text={healthFixPrompt(data, data.snapshot.project.root)} label="Copy all fixes" copiedLabel="Copied" className="button-primary" ariaLabel={total === 1 ? 'Copy the fix prompt for the one finding' : `Copy one fix prompt for all ${total} findings`} />
+                    </div>
+                  )}>
+                    {SEVERITY_TITLES[group.severity]} {shown > 0 && <span className="kind-count">{shown}</span>}
+                  </SectionHeading>
+                  {group.sections.map(({ section, entries }) => (
+                    <RecheckSection.Provider value={section.id} key={section.id}>
+                      <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
+                        <div className="health-section">
+                          {entries.map((entry) => <HealthPlace key={entry.place} entry={entry} />)}
+                        </div>
+                      </RecheckSectionEntries.Provider>
+                    </RecheckSection.Provider>
+                  ))}
+                </section>
+              )
+            })}
+            <Gaps gaps={data.health.gaps} sections={data.sections} docs={groups.length === 0} />
+          </PicksContext.Provider>
         </ConfigurationRoot.Provider>
+        <PickTray count={pickedCount} prompt={pickedCount ? healthFixPrompt(data, data.snapshot.project.root, pick) : ''} onClear={() => setPicked(new Set())} />
       </fieldset>
     </>
   )
@@ -156,6 +177,7 @@ function Gaps({ gaps, sections, docs }: { gaps: OverviewView['health']['gaps']; 
           const every = joinAnd(gap.supported.map(toolName))
           return (
             <li key={gap.id} className="health-gap">
+              <PickBox id={gap.id} name={gap.label} className="health-gap-pick" />
               <p className="health-gap-name">{gap.label}</p>
               <p className="health-gap-text">
                 {gap.missing.charAt(0).toUpperCase() + gap.missing.slice(1)}.{' '}

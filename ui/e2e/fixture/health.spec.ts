@@ -137,6 +137,39 @@ test.describe('setup health', () => {
     expect(prompt.indexOf('1. Lifecycle: Prepare session')).toBeLessThan(prompt.indexOf('2. Context: review'))
   })
 
+  test('copies one prompt for the picked findings and suggestions, errors first', async ({ page, context }) => {
+    const { data } = scenario()
+    await serve(page, data)
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.goto('/?view=health')
+    const tray = page.getByRole('region', { name: 'Picked for one prompt' })
+    await expect(tray).toBeHidden()
+
+    const gaps = page.getByRole('region', { name: /^Reach the best setup/ })
+    await gaps.getByRole('checkbox', { name: 'Add to prompt: Commands' }).check()
+    await gaps.getByRole('checkbox', { name: 'Add to prompt: Skills' }).focus()
+    await page.keyboard.press('Space')
+    await expect(gaps.getByRole('checkbox', { name: 'Add to prompt: Skills' })).toBeChecked()
+    await page.locator('.finding-error').getByRole('checkbox', { name: /^Add to prompt: / }).check()
+    await expect(tray).toBeVisible()
+    await expect(tray).toContainText('3 selected')
+    await expect(page.getByRole('status').filter({ hasText: /^3 selected$/ })).toHaveCount(1)
+
+    await tray.getByRole('button', { name: 'Copy prompt' }).click()
+    await expect(tray.getByRole('button', { name: 'Copied' })).toBeVisible()
+    const prompt = await page.evaluate(() => navigator.clipboard.readText())
+    expect(prompt).toMatch(/^Work through these 3 agnostic-ai items in the project or global configuration, errors first, then suggestions:/)
+    expect(prompt.indexOf('1. Lifecycle: Prepare session')).toBeGreaterThan(0)
+    expect(prompt.indexOf('1. Lifecycle: Prepare session')).toBeLessThan(prompt.indexOf('2. Context: Skills'))
+    expect(prompt.indexOf('2. Context: Skills')).toBeLessThan(prompt.indexOf('3. Context: Commands'))
+    expect(prompt).not.toContain('Skill review is not synced.')
+    expect(prompt.match(/canonical specs, not generated files/g)).toHaveLength(1)
+
+    await tray.getByRole('button', { name: 'Clear' }).click()
+    await expect(tray).toBeHidden()
+    await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(0)
+  })
+
   test('links a section finding to its folded list', async ({ page }) => {
     const { data } = scenario()
     section(data, 'settings').findings = [{ source: 'doctor', severity: 'warning', message: 'The configuration file is old.' }]
