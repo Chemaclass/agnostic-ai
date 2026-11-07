@@ -228,6 +228,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 	seen := map[string]bool{}
 	var chats []Conversation
 	for _, store := range stores {
+		seen[store] = true
 		meta, ok := s.cursorAgentMeta(ctx, store)
 		if !ok {
 			continue
@@ -235,7 +236,6 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		folder := byHash[filepath.Base(filepath.Dir(filepath.Dir(store)))]
 		updated := modTime(store)
 		first, last := s.cursorAgentPrompts(meta.AgentID, seen)
-		seen[store] = true
 		title := meta.Name
 		if title == cursorAgentDefaultName {
 			title = ""
@@ -256,29 +256,39 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 }
 
 // cursorAgentMeta reads the chat's metadata from its store.db, or from
-// the cache while the store and its WAL are unchanged.
+// the cache while the store and its WAL are unchanged. A store without
+// usable metadata is cached too, so it is not queried again; a failed
+// query is not, since sqlite3 may fail only for now.
 func (s *Scanner) cursorAgentMeta(ctx context.Context, store string) (cursorAgentMeta, bool) {
 	stamp := fileStamp(store, store+"-wal")
 	if entry, ok := s.cursorAgents[store]; ok && entry.stamp == stamp {
-		return entry.value, true
+		return entry.value, entry.value.AgentID != ""
 	}
-	type metaRow struct {
-		Value string `json:"value"`
-	}
-	rows, err := queryRows[metaRow](ctx, s.SQLite, store, `SELECT value FROM meta WHERE key = '0'`)
-	if err != nil || len(rows) == 0 {
-		return cursorAgentMeta{}, false
-	}
-	decoded, err := hex.DecodeString(rows[0].Value)
+	rows, err := queryRows[cursorAgentMetaRow](ctx, s.SQLite, store, `SELECT value FROM meta WHERE key = '0'`)
 	if err != nil {
 		return cursorAgentMeta{}, false
 	}
-	var meta cursorAgentMeta
-	if json.Unmarshal(decoded, &meta) != nil || !cursorIDPattern.MatchString(meta.AgentID) {
-		return cursorAgentMeta{}, false
-	}
+	meta := decodeCursorAgentMeta(rows)
 	s.cursorAgents[store] = cached[cursorAgentMeta]{stamp: stamp, value: meta}
-	return meta, true
+	return meta, meta.AgentID != ""
+}
+
+type cursorAgentMetaRow struct {
+	Value string `json:"value"`
+}
+
+// decodeCursorAgentMeta returns the metadata in rows, or none when it
+// is missing or its id is not a plain chat id.
+func decodeCursorAgentMeta(rows []cursorAgentMetaRow) cursorAgentMeta {
+	var meta cursorAgentMeta
+	if len(rows) == 0 {
+		return meta
+	}
+	decoded, err := hex.DecodeString(rows[0].Value)
+	if err != nil || json.Unmarshal(decoded, &meta) != nil || !cursorIDPattern.MatchString(meta.AgentID) {
+		return cursorAgentMeta{}
+	}
+	return meta
 }
 
 // cursorAgentPrompts reads the first and last prompt from the chat's

@@ -856,13 +856,18 @@ func TestScan_ReadsACursorAgentChatAgainOnlyWhenItChanges(t *testing.T) {
 		"state.vscdb|FROM composerHeaders": `[]`,
 		"store.db|FROM meta":               `[{"value":"` + meta + `"}]`,
 	})
-	storeReads := 0
+	storeReads, emptyReads := 0, 0
 	scanner, stores := testScanner(t, func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if strings.Contains(path, "empty") {
+			emptyReads++
+			return nil, nil
+		}
 		if filepath.Base(path) == "store.db" {
 			storeReads++
 		}
 		return answer(ctx, path, query)
 	}, fakeProcesses{})
+	write(t, filepath.Join(stores.CursorDir, "chats", md5Hex("/tmp/app"), "empty", "store.db"), "")
 	store := filepath.Join(stores.CursorDir, "chats", md5Hex("/tmp/app"), agent, "store.db")
 	transcript := filepath.Join(stores.CursorDir, "projects", "p1", "agent-transcripts", agent, agent+".jsonl")
 	prompt := func(text string) string {
@@ -886,8 +891,8 @@ func TestScan_ReadsACursorAgentChatAgainOnlyWhenItChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	scan()
-	if c := scan(); storeReads != 1 || c.Prompt != "Ship it" {
-		t.Errorf("an unchanged chat must come from the cache: %d store reads, prompt %q", storeReads, c.Prompt)
+	if c := scan(); storeReads != 1 || emptyReads != 1 || c.Prompt != "Ship it" {
+		t.Errorf("an unchanged chat must come from the cache: %d store reads, %d of a store without metadata, prompt %q", storeReads, emptyReads, c.Prompt)
 	}
 
 	write(t, store, "changed")
