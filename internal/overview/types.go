@@ -273,7 +273,8 @@ type SectionItem struct {
 	// credential is shown as <redacted>.
 	Values []Value `json:"values"`
 	// Fields are a hook's key fields, in a fixed order: when and on what
-	// it runs, the command, its timeout, and whether it is disabled.
+	// it runs, the command, its timeout, and whether it is disabled. An
+	// MCP server's fields hold only whether it is disabled.
 	Fields []Value `json:"fields,omitempty"`
 	// Enabled is set for a built-in: whether the config turns it on.
 	Enabled *bool `json:"enabled,omitempty"`
