@@ -81,6 +81,7 @@ func importFromKiro(root string, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+	projectServers, oauthSkipped := withoutMCPOAuthCredentials(projectServers)
 	agents, err := importKiroAgents(root, importSourcePath(root, src.Agents), projectServers)
 	if err != nil {
 		return err
@@ -97,11 +98,11 @@ func importFromKiro(root string, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	mcps, err := importJSONMCPMap("kiro", filepath.Join(root, kiroMCPFile), kiroMCPKey,
-		importSourcePath(root, src.MCPs))
+	mcps, err := writeMCPYAMLs("kiro", projectServers, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
+	reportMCPLiteralRefs(oauthSkipped)
 	ignores, err := importIgnoreFile(root, "kiro", src)
 	if err != nil {
 		return err

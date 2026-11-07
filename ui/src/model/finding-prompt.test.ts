@@ -54,4 +54,15 @@ describe('finding fix prompts', () => {
     expect(prompt).not.toContain('Source:')
     expect(prompt).not.toContain('Suggested fix:')
   })
+
+  it('points a global finding at the global setup, not the project', () => {
+    const prompt = findingFixPrompt({
+      source: 'lint', code: 'LINT007', severity: 'warn',
+      path: 'agents/helper.md', line: 4, openPath: '/home/u/.agnostic-ai/agents/helper.md',
+      message: 'Unknown key modl.', layer: 'global',
+    }, '/tmp/project')
+    expect(prompt).toContain('Layer: global setup, which reaches every project; edit it there, not in this project')
+    expect(prompt).toContain('Source: /home/u/.agnostic-ai/agents/helper.md:4')
+    expect(prompt).not.toContain('Source: agents/helper.md')
+  })
 })

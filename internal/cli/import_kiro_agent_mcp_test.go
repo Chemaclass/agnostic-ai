@@ -130,3 +130,71 @@ func TestImportKiro_DeletedAgentServersLeaveTheSpec(t *testing.T) {
 		t.Errorf("imported agent kept the deleted servers:\n%s", got)
 	}
 }
+
+func TestImportKiro_MovedAgentServerEnvLiteralBecomesReference(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	log := captureLog(t)
+	const secret = "ghp_AAAAbbbbCCCC7777"
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md"), "---\ndescription: Reviews\nmcpServers:\n  gh:\n    command: gh-mcp\n    env:\n      GITHUB_TOKEN: "+secret+"\n---\n\nReview code.\n")
+
+	execCLI(t, "import", "kiro")
+	got := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md"))
+	if strings.Contains(got, secret) || !strings.Contains(got, "GITHUB_TOKEN: ${GITHUB_TOKEN}") {
+		t.Errorf("imported agent does not reference the env value:\n%s", got)
+	}
+	if out := log.String(); strings.Contains(out, secret) || !strings.Contains(out, "MCP server gh: env GITHUB_TOKEN now reads ${GITHUB_TOKEN}; set GITHUB_TOKEN") {
+		t.Errorf("import output lacks the reference note or prints the value:\n%s", out)
+	}
+
+	execCLI(t, "sync", "-t", "kiro")
+	if agent := readFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md")); !strings.Contains(agent, "GITHUB_TOKEN: ${GITHUB_TOKEN}") {
+		t.Errorf("synced agent does not write the reference:\n%s", agent)
+	}
+}
+
+func TestImportKiro_MovedAgentServerWithOAuthSecretIsLeftOut(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	log := captureLog(t)
+	const secret = "ghp_AAAAbbbbCCCC8888"
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md"), "---\ndescription: Reviews\nmcpServers:\n  gh:\n    url: https://gh.example/mcp\n    oauth:\n      clientId: app\n      clientSecret: "+secret+"\n  local:\n    command: local-mcp\n---\n\nReview code.\n")
+
+	execCLI(t, "import", "kiro")
+	got := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md"))
+	if strings.Contains(got, secret) || strings.Contains(got, "gh:") || !strings.Contains(got, "command: local-mcp") {
+		t.Errorf("imported agent keeps the OAuth secret or loses the other server:\n%s", got)
+	}
+	if out := log.String(); strings.Contains(out, secret) || !strings.Contains(out, "MCP server gh: left out; oauth.clientSecret holds a credential import cannot rewrite") {
+		t.Errorf("import output lacks the left-out note or prints the value:\n%s", out)
+	}
+}
+
+func TestImportKiro_ProjectServerWithOAuthSecretIsLeftOut(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	log := captureLog(t)
+	const secret = "ghp_AAAAbbbbCCCC9999"
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, kiroMCPFile), `{"mcpServers":{"gh":{"url":"https://gh.example/mcp","oauth":{"clientId":"app","clientSecret":"`+secret+`"}},"db":{"command":"db-mcp"}}}`)
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "rev.md"), "---\ndescription: Reviews\nmcpServers:\n  gh:\n    url: https://gh.example/mcp\n    oauth:\n      clientId: app\n      clientSecret: "+secret+"\n---\n\nReview code.\n")
+
+	execCLI(t, "import", "kiro")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/mcps/gh.yaml")); !os.IsNotExist(err) {
+		t.Errorf("a server with an OAuth secret must be left out: %v", err)
+	}
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai/mcps/db.yaml")); !strings.Contains(got, "command: db-mcp") {
+		t.Errorf("the other server did not import:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/rev.md")); strings.Contains(got, secret) || strings.Contains(got, "mcpServers: [gh]") {
+		t.Errorf("imported agent keeps the secret or names the left-out server:\n%s", got)
+	}
+	if out := log.String(); strings.Contains(out, secret) || !strings.Contains(out, "MCP server gh: left out; oauth.clientSecret holds a credential import cannot rewrite") {
+		t.Errorf("import output lacks the left-out note or prints the value:\n%s", out)
+	}
+}

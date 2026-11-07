@@ -276,16 +276,22 @@ func toolCatalog(in ToolCatalog, labels labeler) ToolCatalog {
 
 // placeFindings puts each lint and doctor finding on every item whose
 // file it names, or inside whose skill folder it points. A finding that
-// names no configured item goes to the section it states, else to
-// Settings, which holds the configuration as a whole.
+// names no configured item, or that is on the global setup, goes to the
+// section it states, else to Settings, which holds the configuration as
+// a whole.
 func placeFindings(sections []Section, findings []Finding) {
 	for _, f := range findings {
 		if f.Source == SourceDrift {
 			continue
 		}
-		item := ItemFinding{Source: f.Source, Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, Line: f.Line, OpenPath: f.OpenPath, Fix: f.Fix, Explanation: f.Explanation}
+		item := ItemFinding{Source: f.Source, Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, Line: f.Line, OpenPath: f.OpenPath, Fix: f.Fix, Explanation: f.Explanation, Layer: f.Layer}
 		placed := false
+		// A global finding's path is relative to the global source, so it
+		// never names a project item.
 		for si := range sections {
+			if f.Layer == LayerGlobal {
+				break
+			}
 			for ii := range sections[si].Items {
 				if names(sections[si].Items[ii], f.Path) {
 					sections[si].Items[ii].Findings = append(sections[si].Items[ii].Findings, item)

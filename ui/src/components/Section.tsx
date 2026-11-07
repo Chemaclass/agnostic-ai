@@ -1079,6 +1079,7 @@ function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId
             <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
             {f.code && <Code>{f.code}</Code>}
             <span className="muted">{f.source}</span>
+            {f.layer === 'global' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">global</Badge>}
             {fresh && <Badge tone="accent">New since recheck</Badge>}
           </div>
           <div className="finding-actions">

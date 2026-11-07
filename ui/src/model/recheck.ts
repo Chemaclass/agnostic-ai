@@ -53,7 +53,9 @@ export function recheckResult(target: RecheckTarget, before: OverviewView, after
     const key = findingKey(f.finding)
     counts.set(key, Math.max(0, (counts.get(key) ?? 0) - 1))
   }
-  const sameFile = (f: FoundFinding) => f.finding.source === target.finding.source && (f.finding.path ?? '') === (target.finding.path ?? '')
+  // A global finding's path is relative to the global source, so only the same layer names the same file.
+  const sameLayer = (f: FoundFinding) => f.finding.layer === target.finding.layer
+  const sameFile = (f: FoundFinding) => sameLayer(f) && f.finding.source === target.finding.source && (f.finding.path ?? '') === (target.finding.path ?? '')
   const added = now.filter((f) => {
     if (known.has(f.id)) return false
     const key = findingKey(f.finding)
@@ -75,7 +77,7 @@ export function recheckResult(target: RecheckTarget, before: OverviewView, after
   const key = findingKey(target.finding)
   const moved = now.find((f) => findingKey(f.finding) === key)
   if (moved) return { state: 'remaining', id: moved.id, added: added.filter((f) => f !== moved) }
-  if (target.finding.source === 'lint' && now.some((f) => stopped(f.finding))) return { state: 'incomplete', added: [] }
+  if (target.finding.source === 'lint' && now.some((f) => sameLayer(f) && stopped(f.finding))) return { state: 'incomplete', added: [] }
   return { state: target.finding.source === 'doctor' ? 'unconfirmed' : 'resolved', added }
 }
 
