@@ -50,36 +50,43 @@ func TestGolangciLintPin_MatchesCI(t *testing.T) {
 	}
 }
 
-func TestZolaPin_MatchesPagesWorkflow(t *testing.T) {
+func TestZolaPin_MatchesWorkflows(t *testing.T) {
 	local := pinFrom(t, makefilePath, zolaMakefilePinRE)
-	workflow := pinFrom(t, pagesWorkflowPath, zolaWorkflowPinRE)
-	if local != workflow {
-		t.Errorf("Makefile pins Zola %s but %s pins %s; bump both together so local and Pages builds match",
-			local, pagesWorkflowPath, workflow)
+	for _, path := range []string{pagesWorkflowPath, ciWorkflowPath} {
+		workflow := pinFrom(t, path, zolaWorkflowPinRE)
+		if local != workflow {
+			t.Errorf("Makefile pins Zola %s but %s pins %s; bump them together so local, CI and Pages builds match",
+				local, path, workflow)
+		}
 	}
 }
 
 // lookupPinnedZola returns the zola binary only when it matches the
 // Makefile pin. A missing binary or a different version is a skip, not a
-// fail: CI installs the pinned version, and a contributor with another zola on PATH
-// should still run the rest of the suite. Matching the Makefile gate here
-// stops a newer zola from reporting a template parse error in a file that
-// is valid under the pin.
+// fail, so a contributor with another zola on PATH still runs the rest of
+// the suite. The CI shard that installs the pin sets
+// AGNOSTIC_AI_REQUIRE_ZOLA=1 to turn the skip into a failure. Matching the
+// Makefile gate here stops a newer zola from reporting a template parse
+// error in a file that is valid under the pin.
 func lookupPinnedZola(t *testing.T) string {
 	t.Helper()
+	skip := t.Skipf
+	if os.Getenv("AGNOSTIC_AI_REQUIRE_ZOLA") == "1" {
+		skip = t.Fatalf
+	}
 	zolaPath, err := exec.LookPath("zola")
 	if err != nil {
-		t.Skip("zola is not installed")
+		skip("zola is not installed")
 	}
 	pin := pinFrom(t, makefilePath, zolaMakefilePinRE)
 	out, err := exec.Command(zolaPath, "--version").CombinedOutput()
 	have := strings.TrimSpace(string(out))
 	if err != nil {
-		t.Skipf("zola --version failed: %v\n%s", err, have)
+		skip("zola --version failed: %v\n%s", err, have)
 	}
 	want := "zola " + pin
 	if have != want {
-		t.Skipf("skipping: this test needs zola %s (the Makefile pin), found %s", pin, zolaVersionFromLine(have))
+		skip("this test needs zola %s (the Makefile pin), found %s", pin, zolaVersionFromLine(have))
 	}
 	return zolaPath
 }
