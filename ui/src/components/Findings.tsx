@@ -9,22 +9,22 @@ import { useApp } from './app-context'
 import { HEALTH_STATUS } from '../model/rail'
 import { ConfigurationRoot, useEntry } from './section-context'
 
-/** One owner's findings; pass `ids` when the list is a part of the owner's findings, so each keeps its link id. */
-export function Findings({ findings, owner, place, orphanPlace, ids: givenIds }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string; ids?: string[] }) {
+/** One owner's findings; pass `ids` when the list is a part of the owner's findings, so each keeps its link id, and `sectionNamed` when a heading above already names the section. */
+export function Findings({ findings, owner, place, orphanPlace, ids: givenIds, sectionNamed = false }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string; ids?: string[]; sectionNamed?: boolean }) {
   const ids = givenIds ?? findingEntryIds(findings, owner)
   const gone = useGoneFinding(place, ids, orphanPlace)
   if (!findings.length && !gone) return null
   return (
     <ul className="findings">
       {findings.map((f, i) => (
-        <Finding key={ids[i]} finding={f} entryId={ids[i]} place={place} />
+        <Finding key={ids[i]} finding={f} entryId={ids[i]} place={place} sectionNamed={sectionNamed} />
       ))}
-      {gone && (gone.result.state === 'incomplete' ? <Finding key={gone.id} finding={gone.finding} entryId={gone.id} place={place} /> : <GoneFinding rechecked={gone} />)}
+      {gone && (gone.result.state === 'incomplete' ? <Finding key={gone.id} finding={gone.finding} entryId={gone.id} place={place} sectionNamed={sectionNamed} /> : <GoneFinding rechecked={gone} />)}
     </ul>
   )
 }
 
-function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId: string; place: string }) {
+function Finding({ finding: f, entryId, place, sectionNamed }: { finding: ItemFinding; entryId: string; place: string; sectionNamed: boolean }) {
   const app = useApp()
   const root = useContext(ConfigurationRoot)
   const sectionId = useContext(RecheckSection)
@@ -33,7 +33,7 @@ function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId
   const promptId = useId()
   const { linked, ...entry } = useEntry(entryId)
   const severity = f.severity === 'error' ? 'error' : 'warning'
-  const section = sectionId && sectionId !== app.state.view ? app.overview?.sections.find((s) => s.id === sectionId)?.label : undefined
+  const section = sectionId && !sectionNamed && sectionId !== app.state.view ? app.overview?.sections.find((s) => s.id === sectionId)?.label : undefined
   return (
     <li {...entry} className={`finding finding-${severity === 'error' ? 'error' : 'warn'}${linked ? ' is-linked' : ''}`}>
       <div className="finding-body">

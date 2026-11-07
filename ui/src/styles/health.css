@@ -1,63 +1,85 @@
-.health-summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+.health-verdict-key {
+  color: var(--accent);
 }
 
-.health-recheck-result {
-  margin: 8px 0 0;
+.health-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin-top: 8px;
 }
 
 .health-recheck-result:empty {
-  margin: 0;
+  display: none;
 }
 
-.health-total {
+.health-recheck-result .banner {
+  max-width: var(--measure);
+}
+
+/* The feature track: one bar per feature the tools support; outlined bars are not in use yet. */
+
+.health-track {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
+  gap: 8px 14px;
+  margin-top: 12px;
 }
 
-.health-total .icon {
-  width: 16px;
-  height: 16px;
+.health-track-bars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
-.health-total.is-error {
-  color: var(--blocked);
+.health-track-bar {
+  width: 14px;
+  height: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
 }
 
-.health-total.is-warning {
-  color: var(--approval);
+.health-track-bar.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.health-track-text {
+  font-size: var(--text-sm);
+  color: var(--text-soft);
 }
 
 .health-section + .health-section {
-  margin-top: 20px;
+  margin-top: 28px;
 }
 
 .health-section-title {
-  margin: 0 0 8px;
-  font-size: 15px;
-}
-
-.health-place + .health-place {
-  margin-top: 14px;
-}
-
-.health-place-name {
-  margin: 0 0 6px;
-  font-size: 14px;
+  margin: 0 0 12px;
+  font-size: var(--text-body);
   font-weight: 600;
 }
 
+.health-place + .health-place {
+  margin-top: 20px;
+}
+
+.health-place-name {
+  margin: 0 0 8px;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.health-gaps-intro {
+  max-width: var(--measure);
+  margin-bottom: 8px;
+  color: var(--text-soft);
+}
+
+/* Suggestions use the shared list row: name lane, sentence, and a quiet action in a fixed lane. */
+
 .health-gap-list {
-  display: grid;
-  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -65,12 +87,52 @@
 
 .health-gap {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px 12px;
+  grid-template-columns: 180px minmax(0, 1fr) 7.5rem;
+  align-items: baseline;
+  gap: 4px 20px;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
 
+.health-gap:last-child {
+  border-bottom: 0;
+}
+
+.health-gap-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
 .health-gap-text {
-  margin: 0;
+  color: var(--text-soft);
+}
+
+.health-gap-copy {
+  justify-self: end;
+}
+
+@media (max-width: 760px) {
+  .health-actions > .button-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .health-gap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .health-gap-copy {
+    justify-self: start;
+  }
+}
+
+@media (forced-colors: active) {
+  .health-track-bar {
+    border-color: CanvasText;
+  }
+
+  .health-track-bar.is-on {
+    background: Highlight;
+  }
 }
