@@ -2,7 +2,6 @@ package integration
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -81,23 +80,14 @@ func buildCLI(dir, ldflags string) (string, error) {
 // subject is where the binary lives.
 func copyBuiltBinary(t *testing.T, binary, path string) {
 	t.Helper()
-	source, err := os.Open(binary)
+	data, err := os.ReadFile(binary)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer source.Close()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	target, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := io.Copy(target, source); err != nil {
-		target.Close()
-		t.Fatal(err)
-	}
-	if err := target.Close(); err != nil {
+	if err := os.WriteFile(path, data, 0o755); err != nil {
 		t.Fatal(err)
 	}
 }

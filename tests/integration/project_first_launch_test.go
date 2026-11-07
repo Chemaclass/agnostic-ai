@@ -13,9 +13,8 @@ import (
 
 func TestProjectLifecycle_FirstLaunchAfterFreshInstall(t *testing.T) {
 	skipFlakyWindowsStartup(t)
-	name, installerName := "agnostic-ai", "pnpm"
+	installerName := "pnpm"
 	if runtime.GOOS == "windows" {
-		name += ".exe"
 		installerName += ".cmd"
 	}
 	binary := builtCandidateBinary(t, "99.1.0")
