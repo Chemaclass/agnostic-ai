@@ -17,7 +17,7 @@ function counted(section: VerdictSection): string[] {
 
 function contextVerdict(section: VerdictSection): string {
   const parts = counted(section)
-  return parts.length ? `Your setup gives agents ${joinAnd(parts)}.` : 'Your setup gives agents no instructions yet.'
+  return parts.length ? `Your setup configures ${joinAnd(parts)}.` : 'Your setup configures no instructions yet.'
 }
 
 function authorityVerdict(section: VerdictSection): string {
@@ -27,12 +27,12 @@ function authorityVerdict(section: VerdictSection): string {
   if (counts['permissions.allow']) parts.push(`allow ${actions(counts['permissions.allow'])}`)
   if (counts['permissions.ask']) parts.push(`ask before ${actions(counts['permissions.ask'])}`)
   if (counts['permissions.deny']) parts.push(`block ${actions(counts['permissions.deny'])}`)
-  return parts.length ? `Your rules ${joinAnd(parts)}.` : 'No permission rules yet, so each tool asks as it normally does.'
+  return parts.length ? `Your rules ${joinAnd(parts)}.` : 'No allow, ask or block rules yet.'
 }
 
 function toolsVerdict(section: VerdictSection): string {
   const parts = counted(section)
-  return parts.length ? `Your setup gives agents ${joinAnd(parts)}.` : 'Your setup gives agents no extra tools yet.'
+  return parts.length ? `Your setup configures ${joinAnd(parts)}.` : 'Your setup configures no extra tools yet.'
 }
 
 function lifecycleVerdict(section: VerdictSection): string {
@@ -65,10 +65,18 @@ export function sectionVerdict(section: VerdictSection): string {
   return (VERDICTS[section.id] ?? contextVerdict)(section)
 }
 
+/** The permission mode a settings file already sets, shared before local. */
+function defaultMode(section: VerdictSection): string | undefined {
+  const field = section.fields?.find((f) => f.key === 'permissions.default-mode')
+  const sources = [...(field?.set ?? [])].sort((a, b) => Number(Boolean(a.local)) - Number(Boolean(b.local)))
+  return sources.flatMap((source) => source.values).find((value) => value.key === field?.key && value.value)?.value
+}
+
 function sectionOwnFacts(section: VerdictSection): string[] {
   if (section.id === 'authority') {
     const paths = section.items.flatMap((item) => item.values).filter((value) => value.key === 'protected.paths').reduce((sum, value) => sum + (value.list?.length ?? 0), 0)
-    return paths ? [plural(paths, 'protected path')] : []
+    const mode = defaultMode(section)
+    return [...(mode ? [`Default mode: ${mode}`] : []), ...(paths ? [plural(paths, 'protected path')] : [])]
   }
   if (section.id === 'tools' && section.native?.length) return [`${plural(section.native.length, 'more server')} found in your tools`]
   if (section.id === 'lifecycle' && section.stages?.length) return [`${plural(section.stages.length, 'stage')} in a session`]

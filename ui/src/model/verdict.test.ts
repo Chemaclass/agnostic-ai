@@ -13,23 +13,23 @@ const empty = (id: Section['id'], kinds = [] as ReturnType<typeof kind>[]) => ({
 
 describe('section verdict', () => {
   it('reads every section of the mock overview in plain words', () => {
-    expect(sectionVerdict(section('context'))).toBe('Your setup gives agents 1 rule and 3 agents.')
+    expect(sectionVerdict(section('context'))).toBe('Your setup configures 1 rule and 3 agents.')
     expect(sectionVerdict(section('authority'))).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
-    expect(sectionVerdict(section('tools'))).toBe('Your setup gives agents 4 MCP servers.')
+    expect(sectionVerdict(section('tools'))).toBe('Your setup configures 4 MCP servers.')
     expect(sectionVerdict(section('lifecycle'))).toBe('No hooks are set yet.')
   })
 
   it('names the first count and skips empty permission lists', () => {
     expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.ask', 1), list('permissions.deny', 2)])] })).toBe('Your rules ask before 1 action and block 2.')
     expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.deny', 1)])] })).toBe('Your rules block 1 action.')
-    expect(sectionVerdict(empty('authority'))).toBe('No permission rules yet, so each tool asks as it normally does.')
+    expect(sectionVerdict(empty('authority'))).toBe('No allow, ask or block rules yet.')
   })
 
   it('says what is missing when a section is empty', () => {
-    expect(sectionVerdict(empty('context', [kind('rule', 'Rules', 0)]))).toBe('Your setup gives agents no instructions yet.')
-    expect(sectionVerdict(empty('tools', [kind('mcp', 'MCP servers', 0)]))).toBe('Your setup gives agents no extra tools yet.')
+    expect(sectionVerdict(empty('context', [kind('rule', 'Rules', 0)]))).toBe('Your setup configures no instructions yet.')
+    expect(sectionVerdict(empty('tools', [kind('mcp', 'MCP servers', 0)]))).toBe('Your setup configures no extra tools yet.')
     expect(sectionVerdict(empty('settings'))).toBe('Your tools run on their own defaults.')
-    expect(sectionVerdict(empty('context', [kind('instructions', 'Instructions', 1), kind('skill', 'Skills', 2)]))).toBe('Your setup gives agents 1 instructions file and 2 skills.')
+    expect(sectionVerdict(empty('context', [kind('instructions', 'Instructions', 1), kind('skill', 'Skills', 2)]))).toBe('Your setup configures 1 instructions file and 2 skills.')
   })
 
   it('counts hooks and the stages they run at', () => {
@@ -65,6 +65,28 @@ describe('turned-off hooks', () => {
   })
 })
 
+describe('default permission mode', () => {
+  const mode = (value: string) => ({ key: 'permissions.default-mode', label: 'Default permission mode', description: '', set: [{ spec: 'settings', path: 'settings.yaml', values: [{ key: 'permissions.default-mode', type: 'text' as const, value }] }] })
+
+  it('names a mode set without any rule lists', () => {
+    const section = { ...empty('authority'), fields: [mode('bypassPermissions')] }
+    expect(sectionVerdict(section)).toBe('No allow, ask or block rules yet.')
+    expect(sectionFacts(section)).toEqual(['Default mode: bypassPermissions'])
+  })
+
+  it('adds the mode beside the rule counts', () => {
+    const authority = { ...section('authority'), fields: [mode('acceptEdits')] }
+    expect(sectionVerdict(authority)).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
+    expect(sectionFacts(authority)).toEqual(['Default mode: acceptEdits', '2 protected paths'])
+  })
+
+  it('says nothing about a mode when none is set', () => {
+    expect(sectionVerdict(empty('authority'))).toBe('No allow, ask or block rules yet.')
+    expect(sectionFacts(empty('authority'))).toEqual([])
+    expect(sectionFacts(section('authority'))).toEqual(['2 protected paths'])
+  })
+})
+
 describe('section facts', () => {
   const name = (target: string) => ({ claude: 'Claude Code', kiro: 'Kiro', codex: 'Codex' })[target] ?? target
   const permissions = (supported: string[], unsupported: string[]) => ({ ...section('authority'), support: [{ kind: 'settings', label: 'Permissions', supported, unsupported }] })
@@ -84,8 +106,8 @@ describe('section facts', () => {
   })
 
   it('counts review instructions as files', () => {
-    expect(sectionVerdict(empty('context', [kind('review', 'Review instructions', 1)]))).toBe('Your setup gives agents 1 review instructions file.')
-    expect(sectionVerdict(empty('context', [kind('review', 'Review instructions', 2)]))).toBe('Your setup gives agents 2 review instructions files.')
+    expect(sectionVerdict(empty('context', [kind('review', 'Review instructions', 1)]))).toBe('Your setup configures 1 review instructions file.')
+    expect(sectionVerdict(empty('context', [kind('review', 'Review instructions', 2)]))).toBe('Your setup configures 2 review instructions files.')
   })
 
   it('adds what the verdict leaves out', () => {
