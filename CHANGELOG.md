@@ -43,6 +43,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, form fields, segmented choices and switches on Settings and Authority follow the new style: plain fields with a rust focus border, an ink-filled selected choice, rust switches, and dotted leaders between a setting and its value (#3026).
 
+- In the web interface, the top bar becomes a dark band in both themes with a rust line under it that moves while the page reloads, and the sidebar numbers its sections 01 to 05 (#3026).
+
 - In the web interface, **Add hook** on the Lifecycle page previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 
 - The web interface counts findings by severity in the top bar and lists them on one **Setup health** page with **Copy all fixes** (#3032).

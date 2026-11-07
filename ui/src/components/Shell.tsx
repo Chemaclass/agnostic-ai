@@ -129,7 +129,7 @@ export function Header({
   const projectName = app.source.kind === 'api' ? apiProjectName(snapshot, served) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
 
   return (
-    <header className="topbar" ref={headerRef}>
+    <header className="topbar" ref={headerRef} data-busy={overview.status === 'loading' || undefined}>
       <div className="brand">
         <LogoMark className="logo" />
         <span className="brand-name">{PRODUCT_NAME}</span>
@@ -232,10 +232,11 @@ export function Nav({
     ? [...sections].sort((a, b) => a.order - b.order).map((s) => ({ id: s.id as ViewId, label: s.label }))
     : SECTION_VIEWS.map((id) => ({ id: id as ViewId, label: DEFAULT_SECTION_LABELS[id] }))
 
-  const item = (id: ViewId, label: string) => {
+  const item = (id: ViewId, label: string, index?: number) => {
     return (
       <li key={id} className={id === 'health' ? 'nav-item-health' : undefined}>
         <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined}>
+          {index !== undefined && <span className="nav-index" aria-hidden="true">{String(index).padStart(2, '0')}</span>}
           <Icon name={id} />
           <span className="nav-text">{label}<span className="nav-description">{SECTION_DESCRIPTIONS[id]}</span></span>
         </AppLink>
@@ -246,7 +247,7 @@ export function Nav({
   return (
     <aside className="sidenav" ref={asideRef}>
       <nav className="section-nav" aria-label="Configuration sections">
-        <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}{item('health', 'Setup health')}</ul>
+        <ul className="nav-list">{ordered.map((s, index) => item(s.id, s.label, index + 1))}{item('health', 'Setup health')}</ul>
       </nav>
       <footer className="sidenav-footer">
         {served && <ConfigSwitch served={served} />}
