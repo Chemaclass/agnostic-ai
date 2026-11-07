@@ -877,3 +877,46 @@ func TestView_ScanFastRejectKeepsTheBudgetForASlowMatch(t *testing.T) {
 		t.Errorf("opened %q, output %q, want reuse of %s", opened, out, want)
 	}
 }
+
+// view runs serve as a command of its own, outside the root, so the
+// root's version has to reach /api/health another way.
+func TestView_HealthNamesTheRootVersion(t *testing.T) {
+	globalOverviewHome(t)
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	health := make(chan string, 1)
+	view := newViewCmdWithPorts(func(url string) error {
+		go func() {
+			defer cancel()
+			var got struct {
+				Version string `json:"version"`
+			}
+			resp, err := http.Get(url + "api/health")
+			if err != nil {
+				health <- "error: " + err.Error()
+				return
+			}
+			defer func() { _ = resp.Body.Close() }()
+			if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+				health <- "error: " + err.Error()
+				return
+			}
+			health <- got.Version
+		}()
+		return nil
+	}, func(string, time.Duration) *viewServer { return nil }, freeLoopbackAddrs(t, 1), time.Now)
+	root := &cobra.Command{Use: "agnostic-ai", Version: "0.92.0", SilenceErrors: true, SilenceUsage: true}
+	root.AddCommand(view)
+	root.SetContext(ctx)
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"view", "--dir", project})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-health; got != "0.92.0" {
+		t.Errorf("health version = %q, want 0.92.0", got)
+	}
+}
