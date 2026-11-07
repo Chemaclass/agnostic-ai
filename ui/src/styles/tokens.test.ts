@@ -124,8 +124,11 @@ describe('tokens.css', () => {
     expect(blocks.dark['--backdrop']).toBe(color('backdrop'))
   })
 
-  it('gives the rail the dark state colors in both themes', () => {
-    const rail = cssBlock(tokens, '.menu-sheet')
-    for (const state of STATES) expect(rail[`--${state}`]).toBe(color(`dark-${state}`))
+  it('gives the rail and the Menu sheet the dark state colors and the same inks in both themes', () => {
+    const rail = cssBlock(tokens, '.rail')
+    const sheet = cssBlock(tokens, '.menu-sheet')
+    for (const state of STATES) expect(rail[`--${state}`], `--${state} on .rail`).toBe(color(`dark-${state}`))
+    expect(Object.keys(rail).length).toBeGreaterThan(10)
+    expect(sheet).toEqual(rail)
   })
 })
