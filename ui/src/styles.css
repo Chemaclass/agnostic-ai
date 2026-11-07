@@ -1032,6 +1032,11 @@ a.release-badge:focus-visible .release-arrow {
   color: var(--text-soft);
 }
 
+.page-note {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .eyebrow {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -1186,6 +1191,7 @@ a.release-badge:focus-visible .release-arrow {
 .field-resolution > summary,
 .preview-disclosure > summary,
 .preview-note-group > summary,
+.banner-details > summary,
 .builtin-change-files summary,
 .permission-override summary {
   display: flex;
@@ -1202,6 +1208,7 @@ a.release-badge:focus-visible .release-arrow {
 .field-resolution > summary::-webkit-details-marker,
 .preview-disclosure > summary::-webkit-details-marker,
 .preview-note-group > summary::-webkit-details-marker,
+.banner-details > summary::-webkit-details-marker,
 .builtin-change-files summary::-webkit-details-marker,
 .permission-override summary::-webkit-details-marker {
   display: none;
@@ -1215,6 +1222,7 @@ a.release-badge:focus-visible .release-arrow {
 .field-resolution > summary::before,
 .preview-disclosure > summary::before,
 .preview-note-group > summary::before,
+.banner-details > summary::before,
 .builtin-change-files summary::before,
 .permission-override summary::before {
   content: '';
@@ -1236,6 +1244,7 @@ details[open] > .stage-head::before,
 .field-resolution[open] > summary::before,
 .preview-disclosure[open] > summary::before,
 .preview-note-group[open] > summary::before,
+.banner-details[open] > summary::before,
 .builtin-change-files details[open] > summary::before,
 .permission-override details[open] > summary::before {
   transform: rotate(45deg);
@@ -1264,6 +1273,7 @@ details[open] > .stage-head::before,
   .section-warnings > summary,
   .unconfigured-fields > summary,
   .field-resolution > summary,
+  .banner-details > summary,
   .builtin-change-files summary,
   .permission-override summary {
     min-height: 44px;
@@ -1351,6 +1361,31 @@ details[open] > .stage-head::before,
 .banner-warning {
   border-inline-start-color: var(--approval);
   background: var(--approval-wash);
+}
+
+.banner-success {
+  border-inline-start-color: var(--permitted);
+  background: var(--permitted-wash);
+}
+
+.banner-details summary {
+  cursor: pointer;
+  color: var(--text-soft);
+}
+
+.banner-details pre {
+  margin: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .loading,
@@ -4755,11 +4790,6 @@ tr.is-advised > td {
   .editor-copy {
     min-height: 44px;
   }
-}
-
-.banner .button {
-  justify-self: start;
-  margin-top: 4px;
 }
 
 .stale-guard {

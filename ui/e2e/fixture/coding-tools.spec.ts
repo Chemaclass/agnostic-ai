@@ -103,7 +103,7 @@ test.describe('coding tools', () => {
     await page.goto('/?view=settings&tab=targets&mock=1')
     await expect(page.locator('.coding-tool')).toHaveCount(total)
     await expect(page.getByRole('switch')).toHaveCount(0)
-    await expect(page.getByText('Switches need a running')).toBeVisible()
+    await expect(page.locator('.page-note')).toContainText('switches need agnostic-ai view')
   })
 
   test('fits a phone viewport', async ({ page }) => {

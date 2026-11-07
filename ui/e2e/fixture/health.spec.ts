@@ -145,7 +145,8 @@ test.describe('setup health', () => {
     const finding = page.locator('.health-group .finding', { hasText: 'LINT038' })
     await expect(finding).toBeVisible()
     await expect(finding.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
-    await expect(finding.locator('.finding-recheck-result')).toHaveText('Rechecking a finding needs a running agnostic-ai serve.')
+    await expect(finding.locator('.finding-recheck-result')).toHaveCount(0)
+    await expect(page.locator('.page-header .page-note')).toHaveText('Read-only snapshot: open files, rechecks and switches need agnostic-ai view.')
     await expect(page.getByRole('button', { name: 'Copy the fix prompt for the one finding' })).toBeVisible()
   })
 

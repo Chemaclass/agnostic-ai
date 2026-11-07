@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { OverviewView } from './contract'
-import { LoadError, loadOverview, type Loaded } from './api'
+import { loadOverview, type Loaded } from './api'
 import { AppContext, type AppApi } from './components/app-context'
 import { GlobalSearch } from './components/GlobalSearch'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/SectionFrame'
 import { HealthPage } from './components/Health'
 import { ConversationsPage } from './components/Conversations'
-import { ErrorPanel, RefreshFailure } from './components/Banner'
+import { RefreshFailure } from './components/Banner'
 import { Header, Nav, useServedConfig, type Remote } from './components/Shell'
 import { RecheckProvider, useRecheck } from './components/Recheck'
 import { APPLE_PLATFORM } from './components/ui'
@@ -190,8 +190,6 @@ export default function App() {
     }
   }, [theme])
 
-  const sourceError = source.kind === 'invalid' ? new LoadError(source.reason, `Received: ${source.value}`) : undefined
-
   return (
     <AppContext.Provider value={app}>
       <RecheckProvider value={recheck}>
@@ -210,7 +208,6 @@ export default function App() {
             <Nav overview={overview} served={served} inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
             <main id="main" className="main" tabIndex={-1}>
               <div className="page">
-                {sourceError && <ErrorPanel error={sourceError} />}
                 {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
                 <Page view={state.view} overview={overview} stale={stale} />
               </div>
