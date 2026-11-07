@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The web interface links to the agnostic-ai repository at the foot of the sidebar, and to the project's own GitHub repository in the top bar when the project's `origin` remote is on GitHub; `/api/views/overview` adds `repository` with `url` and `name`.
+
 - In the web interface, Lifecycle numbers its stages in monospace beside square markers on a ruled line, filled for stages with hooks, and the Lifecycle, Settings and change preview disclosures draw their own chevron (#3026).
 
 - In the web interface, **Setup health** lists what the enabled tools support and the project does not use yet (a spec kind, a hook stage, the `handoff` built-in), each with a fix prompt; `/api/views/overview` adds `health.gaps` (#3070).

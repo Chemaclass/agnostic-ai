@@ -99,6 +99,31 @@ test('reads the required release again when the overview refreshes', async ({ pa
   await expect(requires).toHaveText('requires >=0.82.0, not met by this version')
 })
 
+test('links agnostic-ai and the project repository on GitHub', async ({ page }) => {
+  const data = { ...structuredClone(fixture), repository: { url: 'https://github.com/octo/demo-project', name: 'octo/demo-project' } }
+  let overview: Record<string, unknown> = data
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+  await page.goto('/?view=context')
+  const product = page.locator('.sidenav').getByRole('link', { name: 'agnostic-ai on GitHub (opens in a new tab)' })
+  await expect(product).toHaveAttribute('href', 'https://github.com/Chemaclass/agnostic-ai')
+  await expect(product).toHaveAttribute('target', '_blank')
+  const project = page.getByRole('banner').getByRole('link', { name: 'octo/demo-project on GitHub (opens in a new tab)' })
+  await expect(project).toHaveAttribute('href', 'https://github.com/octo/demo-project')
+  await expect(project).toHaveAttribute('target', '_blank')
+  await expect(project).toBeInViewport({ ratio: 1 })
+  await page.setViewportSize({ width: 320, height: 900 })
+  await expect(project).toBeInViewport({ ratio: 1 })
+  await expect(product).toBeInViewport({ ratio: 1 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.setViewportSize({ width: 1280, height: 900 })
+
+  overview = fixture
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 1, name: 'Context', exact: true })).toBeVisible()
+  await expect(page.getByRole('banner').getByRole('link', { name: /on GitHub/ })).toHaveCount(0)
+  await expect(product).toBeVisible()
+})
+
 test('shows a checkout build without a release link', async ({ page }) => {
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: 'main@b434c92e1a2b' } }))

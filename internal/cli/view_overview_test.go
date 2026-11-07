@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -60,6 +61,29 @@ func TestNewViewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
 	}
 	if after, _ := os.Getwd(); after != before {
 		t.Errorf("working directory moved from %s to %s", before, after)
+	}
+}
+
+func TestNewViewCmd_LinksTheProjectGitHubRepositoryWithoutCredentials(t *testing.T) {
+	dir := t.TempDir()
+	writeBareReadProject(t, dir)
+	for _, args := range [][]string{{"init", "-q"}, {"remote", "add", "origin", "https://user:secret-token@github.com/octo/hello.git"}} {
+		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, out)
+		}
+	}
+
+	out := runViewCmd(t, "--dir", dir, "--json")
+
+	var view overview.View
+	if err := json.Unmarshal([]byte(out), &view); err != nil {
+		t.Fatalf("output is not an overview view: %v\n%s", err, out)
+	}
+	if view.Repository == nil || view.Repository.URL != "https://github.com/octo/hello" || view.Repository.Name != "octo/hello" {
+		t.Errorf("repository = %+v, want octo/hello", view.Repository)
+	}
+	if strings.Contains(out, "secret-token") {
+		t.Error("the overview exposes the remote's credentials")
 	}
 }
 

@@ -742,6 +742,15 @@ export interface OverviewView {
   health: Health
   /** True for user configuration, which has no project to size. */
   global?: boolean
+  /** The project's GitHub repository, read from its origin remote. Absent for user configuration and other hosts. */
+  repository?: Repository
+}
+
+export interface Repository {
+  /** The repository's https page, with no credentials. */
+  url: string
+  /** owner/repo */
+  name: string
 }
 
 /** What the page suggests beyond the lint and doctor findings. */
