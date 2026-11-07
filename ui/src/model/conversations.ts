@@ -65,6 +65,12 @@ export function mergePages(pages: Pick<ConversationsView, 'conversations'>[]): C
   return [...rows.values()].sort(newestFirst)
 }
 
+/** Whether two first pages show the same rows, sources and end of list; their times of reading may differ. */
+export function sameFirstPage(a: ConversationsView, b: ConversationsView): boolean {
+  const shown = (view: ConversationsView) => JSON.stringify([view.tools, view.conversations, view.next !== undefined])
+  return shown(a) === shown(b)
+}
+
 export type ToolFilter = ConversationTool | 'all'
 
 function searchParts(conversation: Conversation): string[] {

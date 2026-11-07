@@ -71,6 +71,7 @@ type Scanner struct {
 	claude            map[string]claudeCacheEntry
 	cursorAgents      map[string]cached[cursorAgentMeta]
 	cursorTranscripts map[string]cached[[2]string]
+	shown             shownCache
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
@@ -100,6 +101,8 @@ type ScanOptions struct {
 func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.shown.start()
+	defer s.shown.finish(ctx)
 	results := s.readAll(ctx, opts)
 	var all []Conversation
 	for _, result := range results {

@@ -506,6 +506,39 @@ textarea:focus {
   color: var(--text-muted);
 }
 
+/* Placeholder bars hold the size of text that is still loading. */
+
+.skeleton {
+  display: block;
+  width: 70%;
+  height: 10px;
+  margin-block: 3px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-muted) 28%, transparent);
+  animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes skeleton-pulse {
+  to { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* A bar exactly one line of its parent's text tall, painted thinner, so
+   the box it holds matches the line that replaces it. */
+.skeleton-line {
+  display: inline-block;
+  vertical-align: top;
+  height: 1lh;
+  margin: 0;
+  padding-block: calc((1lh - 0.7em) / 2);
+  background-clip: content-box;
+}
+
 .code-list {
   display: inline-flex;
   flex-wrap: wrap;

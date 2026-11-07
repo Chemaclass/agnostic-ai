@@ -30,6 +30,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
 
+- **Conversations** shows its list at once when you come back to it and refreshes it in the background, updating only rows that changed. The first load shows the page's layout with placeholder bars instead of a loading line, so nothing moves when the list arrives. The server answers a refresh about three times faster by keeping each chat's checked texts until they change.
 - On **Conversations**, a tool's note (such as why its chats could not be read) shows above that chip only while you hover or focus it. Phones still show it under the chip.
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
 

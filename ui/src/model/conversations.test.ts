@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Conversation, ConversationSource } from '../contract'
+import type { Conversation, ConversationSource, ConversationsView } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, withheldLabel } from './conversations'
+import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, sourceLine, toggleTool, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Local times, so the day groups hold in any time zone the tests run in.
@@ -60,6 +60,18 @@ describe('conversation groups', () => {
 })
 
 describe('loaded weeks', () => {
+  it('treats a fresh first page read later as the same when its rows, sources and end match', () => {
+    const page = (overrides: Partial<ConversationsView>): ConversationsView => ({
+      schemaVersion: 'conversations/v1', generatedAt: '2026-11-07T12:00:00Z', from: '2026-10-31T12:00:00Z', to: '2026-11-07T12:00:00Z', next: '2026-10-31T12:00:00Z',
+      tools: [{ tool: 'claude', label: 'Claude Code', found: true, count: 1, shown: 1 }], conversations: [conversation({ id: 'a' })], ...overrides,
+    })
+    const kept = page({})
+    expect(sameFirstPage(kept, page({ generatedAt: '2026-11-07T12:01:00Z', from: '2026-10-31T12:01:00Z', to: '2026-11-07T12:01:00Z', next: '2026-10-31T12:01:00Z' }))).toBe(true)
+    expect(sameFirstPage(kept, page({ conversations: [conversation({ id: 'a', live: true })] }))).toBe(false)
+    expect(sameFirstPage(kept, page({ tools: [{ tool: 'claude', label: 'Claude Code', found: true, count: 2, shown: 1 }] }))).toBe(false)
+    expect(sameFirstPage(kept, page({ next: undefined }))).toBe(false)
+  })
+
   const ids = (list: Conversation[]) => list.map((c) => `${c.tool}:${c.id}`)
 
   it('appends an older week after the newer one', () => {

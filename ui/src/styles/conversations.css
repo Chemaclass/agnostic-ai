@@ -336,6 +336,50 @@
   outline: none;
 }
 
+/* The first load: placeholder bars in the page's own boxes. */
+
+.conversations-skeleton-verdict {
+  width: 14em;
+  padding-block: calc((1lh - 0.5em) / 2);
+}
+
+.conversations-skeleton-facts {
+  width: 28em;
+  max-width: 100%;
+}
+
+.conversations-skeleton-chip .skeleton-line {
+  width: 7em;
+}
+
+.conversations-skeleton-avatar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border-radius: 50%;
+}
+
+.conversations-skeleton-heading {
+  width: 6em;
+}
+
+.conversations-skeleton-title {
+  width: 60%;
+}
+
+.conversations-skeleton-meta {
+  width: 40%;
+}
+
+.conversations-skeleton .conversation-opening .skeleton-line {
+  width: 80%;
+}
+
+.conversations-skeleton-button .skeleton-line {
+  width: 7em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .conversation-source-toggle {
     transition: none;

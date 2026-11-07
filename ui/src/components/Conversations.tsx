@@ -10,7 +10,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationRoute, ConversationSource, ConversationsView, ConversationTool } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
 import { PageHeader, useApp } from './app-context'
@@ -32,11 +33,24 @@ type Older =
 // The next week starts loading this far before the end of the list comes into view.
 const LOAD_AHEAD = '0px 0px 400px 0px'
 
+// The last first page for each source and editor, kept until the page
+// reloads. A return to the page shows it at once while a fresh copy
+// loads, since which chats are open changes from one minute to the next.
+const firstPages = new Map<string, ConversationsView>()
+const firstPageKey = (source: DataSource, editor: string) => `${JSON.stringify(source)} ${editor}`
+
+const SKELETON_SOURCES = 3
+const SKELETON_ROWS = 4
+
 export function ConversationsPage() {
   const app = useApp()
   const { editor: chosen, template } = useEditorChoice()
   const editor = effectiveEditor(chosen, template)
-  const [pages, setPages] = useState<ConversationsView[]>([])
+  const cacheKey = firstPageKey(app.source, editor)
+  const [pages, setPages] = useState<ConversationsView[]>(() => {
+    const cached = firstPages.get(cacheKey)
+    return cached ? [cached] : []
+  })
   const [error, setError] = useState<Error>()
   const [older, setOlder] = useState<Older>({ state: 'idle' })
   const [tool, setTool] = useState<ToolFilter>('all')
@@ -49,6 +63,8 @@ export function ConversationsPage() {
   const next = pages.at(-1)?.next
 
   // The first page. A new editor changes every link, so it starts over.
+  // A kept copy shows until the fresh one lands, which replaces it only
+  // when a row or source changed.
   useEffect(() => {
     if (needsServer) return
     const controller = new AbortController()
@@ -56,16 +72,26 @@ export function ConversationsPage() {
     olderRequest.current = undefined
     setOlder({ state: 'idle' })
     setError(undefined)
+    const cached = firstPages.get(cacheKey)
+    if (cached) setPages((current) => current[0] === cached ? current : [cached])
     loadConversations(app.source, editor, undefined, controller.signal).then(
       (loaded) => {
-        if (!controller.signal.aborted) setPages([loaded.data])
+        if (controller.signal.aborted) return
+        if (cached && sameFirstPage(cached, loaded.data)) return
+        firstPages.set(cacheKey, loaded.data)
+        // A week loaded or loading after the kept page may leave a gap
+        // before the fresh one, so the list starts over from it.
+        olderRequest.current?.abort()
+        olderRequest.current = undefined
+        setOlder({ state: 'idle' })
+        setPages([loaded.data])
       },
       (failure: Error) => {
         if (!controller.signal.aborted && failure.name !== 'AbortError') setError(failure)
       },
     )
     return () => controller.abort()
-  }, [needsServer, app.source, editor])
+  }, [needsServer, app.source, editor, cacheKey])
 
   useEffect(() => () => olderRequest.current?.abort(), [])
 
@@ -124,19 +150,21 @@ export function ConversationsPage() {
       </>
     )
   }
-  if (!loaded) {
+  const query = app.state.q ?? ''
+  const setQuery = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
+  if (!loaded && error) {
     return (
       <>
         <PageHeader title={TITLE} subtitle={INTRO} />
-        {error ? <ErrorPanel error={error} /> : <p className="loading" aria-busy="true">Loading conversations…</p>}
+        <ErrorPanel error={error} />
       </>
     )
   }
 
+  // Until the first page arrives, placeholders hold the places of the
+  // verdict, facts, chips and rows. The heading and search box are the
+  // same elements before and after, so focus and typing carry over.
   const rows = mergePages(pages)
-  const sources = pages.at(-1)!.tools
-  const query = app.state.q ?? ''
-  const setQuery = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
   const now = new Date()
   const matching = filterConversations(rows, query, tool)
   const groups = groupConversations(matching, now)
@@ -146,16 +174,21 @@ export function ConversationsPage() {
 
   return (
     <>
-      <PageHeader title={TITLE} verdict={conversationsVerdict(rows, now, next !== undefined)}>
-        <p className="page-facts">{plural(rows.length, 'conversation')}{next ? ' loaded so far' : ''}. {INTRO}</p>
-        <Sources sources={sources} rows={rows} tool={tool} onToggle={(chosen) => setTool(toggleTool(tool, chosen))} />
+      <PageHeader title={TITLE} verdict={loaded ? conversationsVerdict(rows, now, next !== undefined) : <span aria-hidden="true">{skeletonBar('conversations-skeleton-verdict')}</span>}>
+        {loaded
+          ? <p className="page-facts">{plural(rows.length, 'conversation')}{next ? ' loaded so far' : ''}. {INTRO}</p>
+          : <p className="page-facts" aria-hidden="true">{skeletonBar('conversations-skeleton-facts')}</p>}
+        {loaded
+          ? <Sources sources={pages.at(-1)!.tools} rows={rows} tool={tool} onToggle={(chosen) => setTool(toggleTool(tool, chosen))} />
+          : <SourcesSkeleton />}
       </PageHeader>
       {error && <ErrorPanel error={error} />}
       <Search
         query={query}
         onQuery={setQuery}
-        status={filtering ? `${matching.length} of ${plural(rows.length, 'conversation')} match.` : ''}
+        status={loaded && filtering ? `${matching.length} of ${plural(rows.length, 'conversation')} match.` : ''}
       />
+      {!loaded && <ListSkeleton />}
       {rows.length > 0 && groups.length === 0 && <p className="muted empty-matches">No conversation matches.</p>}
       {groups.map((group) => {
         const headingId = `conversations-${group.id}`
@@ -170,7 +203,7 @@ export function ConversationsPage() {
           </section>
         )
       })}
-      <div className="conversations-more">
+      {loaded && <div className="conversations-more">
         <div ref={sentinel} className="conversations-sentinel" aria-hidden="true" />
         {older.state === 'failed' && <Notice tone="error" title="Could not load the week before." details={older.error.message} />}
         {next ? (
@@ -185,8 +218,50 @@ export function ConversationsPage() {
             {loading ? 'Loading the week before…' : older.state === 'failed' ? 'Try again' : 'Load the week before'}
           </button>
         ) : <p ref={endNote} className="muted conversations-end" tabIndex={-1}>That's every conversation.</p>}
-      </div>
+      </div>}
     </>
+  )
+}
+
+// The first load ever shows placeholder bars, each one line of the text
+// that replaces it, so nothing moves when the list arrives.
+function skeletonBar(className = '') {
+  return <span className={`skeleton skeleton-line ${className}`.trim()} />
+}
+
+const skeletonAvatar = <span className="skeleton conversations-skeleton-avatar" />
+
+function SourcesSkeleton() {
+  return (
+    <ul className="conversation-sources" aria-hidden="true">
+      {Array.from({ length: SKELETON_SOURCES }, (_, index) => (
+        <li key={index} className="conversation-source">
+          <span className="conversation-source-chip conversations-skeleton-chip">{skeletonAvatar}{skeletonBar()}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ListSkeleton() {
+  return (
+    <section className="block conversation-group conversations-skeleton" aria-busy="true" aria-label="Loading conversations">
+      <p className="sr-only">Loading conversations…</p>
+      <h2 aria-hidden="true">{skeletonBar('conversations-skeleton-heading')}</h2>
+      <ul className="conversation-list" aria-hidden="true">
+        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+          <li key={index} className="conversation">
+            {skeletonAvatar}
+            <div className="conversation-body">
+              <p className="conversation-title">{skeletonBar('conversations-skeleton-title')}</p>
+              <p className="conversation-meta">{skeletonBar('conversations-skeleton-meta')}</p>
+              <p className="conversation-opening">{skeletonBar()}</p>
+            </div>
+            <span className="button conversations-skeleton-button">{skeletonBar()}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
