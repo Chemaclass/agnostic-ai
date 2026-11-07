@@ -804,4 +804,7 @@
 # 8192, rounded up to a multiple of 4096.
 # Agent notes on sync --global (#3073), merged with setup gaps, measured 25063584
 # bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
-25075712
+# Spec copy and move between project and global (#3027), merged with the
+# improvements count, measured 25116832 bytes; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+25128960

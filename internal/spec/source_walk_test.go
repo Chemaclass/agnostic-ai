@@ -130,3 +130,25 @@ func TestLoad_LinkedSourceDanglingRootIsEmptyAndCycleReportsPath(t *testing.T) {
 		t.Errorf("cycle error = %v, want configured lexical path", err)
 	}
 }
+
+func TestWalkSourceRoot_SkipsMoveStagingFolders(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "kept", "SKILL.md"), "Kept.\n")
+	mustWrite(t, filepath.Join(root, MoveStagingPrefix+"1", "old", "SKILL.md"), "Old.\n")
+	var seen []string
+	err := WalkSourceRoot(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			seen = append(seen, filepath.Base(filepath.Dir(path)))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 1 || seen[0] != "kept" {
+		t.Errorf("walked %v, want only kept", seen)
+	}
+}

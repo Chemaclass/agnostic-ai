@@ -198,6 +198,15 @@ func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions,
 	mux.Handle(builtinStatusPath+"/", changes)
 	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
 	mux.Handle(sourceViewPath, newSourceHandler(opts.Global))
+	var peer *switchPeer
+	if switches != nil {
+		peer = switches.peer
+	}
+	moveRoot := "."
+	if opts.Global {
+		moveRoot = opts.Root
+	}
+	mux.Handle(editSpecMovePath, newSpecMoveHandler(moveRoot, opts.Global, peer))
 	if switches != nil {
 		mux.Handle(switchPath, switches)
 		if switches.peer != nil && switches.peer.global {
