@@ -4,9 +4,13 @@ import (
 	"errors"
 	"io/fs"
 	"path/filepath"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
+
+// MoveStagingPrefix names the folder a spec move builds in; no walk reads it.
+const MoveStagingPrefix = ".agnostic-ai-move-"
 
 // WalkSourceRoot follows only the root alias and retains lexical callback paths.
 func WalkSourceRoot(root string, fn fs.WalkDirFunc) error {
@@ -37,6 +41,8 @@ func WalkSourceRoot(root string, fn fs.WalkDirFunc) error {
 		}
 		if walkErr != nil {
 			walkErr = sourceWalkError(lexical, walkErr)
+		} else if path != resolved && d.IsDir() && strings.HasPrefix(d.Name(), MoveStagingPrefix) {
+			return fs.SkipDir
 		}
 		return fn(lexical, d, walkErr)
 	})

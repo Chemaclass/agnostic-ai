@@ -7,10 +7,11 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest } from './contract'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
 import { normalizeContextView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
 import { parseProtectedPreview } from './model/protected-edit'
+import { GLOBAL_SETUP_MISSING } from './model/spec-move'
 import { staticOverviewUrl, type DataSource } from './model/url'
 
 export interface Loaded<T> {
@@ -228,4 +229,24 @@ export async function addHookSpec(request: HookSpecRequest): Promise<HookSpecPre
     throw new EditError(reply.error ?? `The server answered ${res.status}.`, reply.problems ?? [], res.status)
   }
   return await res.json() as HookSpecPreview
+}
+
+/** Copies or moves one shared spec to the other level, after a preview. */
+export async function moveSpec(request: SpecMoveRequest): Promise<SpecMovePreview> {
+  let res: Response
+  try {
+    res = await fetch(API.editSpecMove, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request) })
+  } catch {
+    throw new EditError('Could not reach the server. Try again when it is running.')
+  }
+  if (!res.ok) {
+    let reply: { error?: string; missing?: boolean } = {}
+    try {
+      reply = (await res.json()) as typeof reply
+    } catch {
+      // Not JSON; fall back to the status.
+    }
+    throw new EditError(reply.missing === true ? GLOBAL_SETUP_MISSING : reply.error ?? `The server answered ${res.status}.`, [], res.status)
+  }
+  return await res.json() as SpecMovePreview
 }
