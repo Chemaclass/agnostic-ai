@@ -795,10 +795,15 @@ func TestScan_KeepsCachedSessionsWhenTheScanIsCancelled(t *testing.T) {
 }
 
 func TestFill_WithholdsAnIndentedSecretInAPrompt(t *testing.T) {
-	var c Conversation
-	c.fill(texts{title: "Set up the client", firstPrompt: "Please set:\nenv:\n  FOO: abcd1234", lastPrompt: "```yaml\nheaders:\n  X-Custom: abcd1234\n```"})
+	for _, prompts := range [][2]string{
+		{"Please set:\nenv:\n  FOO: abcd1234", "```yaml\nheaders:\n  X-Custom: abcd1234\n```"},
+		{"Config:\n\tenv: {FOO: abcd1234}", "We have:\n  a: 1\n env: {FOO: abcd1234}"},
+	} {
+		var c Conversation
+		c.fill(texts{title: "Set up the client", firstPrompt: prompts[0], lastPrompt: prompts[1]})
 
-	if c.Opening != nil || c.Prompt != "" || len(c.Withheld) != 2 {
-		t.Errorf("opening %q, prompt %q, withheld %v", c.Opening, c.Prompt, c.Withheld)
+		if c.Opening != nil || c.Prompt != "" || len(c.Withheld) != 2 {
+			t.Errorf("%q: opening %q, prompt %q, withheld %v", prompts, c.Opening, c.Prompt, c.Withheld)
+		}
 	}
 }

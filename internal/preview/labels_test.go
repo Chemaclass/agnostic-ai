@@ -169,6 +169,7 @@ func TestProseSensitive_ReadsPromptsAsProse(t *testing.T) {
 		"connect to postgres://app:s3cr3t@db/main":                            true,
 		"Fix: login crash":                                                    false,
 		"Env: staging is broken":                                              false,
+		"env: {FOO: abcd1234}":                                                true,
 		"Headers: missing in the response":                                    false,
 		"set up:\n```json\n{\"env\":{\"AIRTABLE_PAT\":\"pat1234abcd\"}}\n```": true,
 		"```sh\ncurl -H 'X-Api: abc' https://example.com\n```":                true,

@@ -91,14 +91,14 @@ func (c *Conversation) fill(t texts) {
 		c.Title = truncate(title, titleRunes)
 	}
 	if first != "" {
-		if mayHoldCredential(typedLayout(t.firstPrompt)) {
+		if mayHoldCredential(typedLayout(t.firstPrompt)) || mayHoldCredential(first) {
 			c.Withheld = append(c.Withheld, FieldOpening)
 		} else {
 			c.Opening = openingOf(first)
 		}
 	}
 	if last != "" {
-		if mayHoldCredential(typedLayout(t.lastPrompt)) {
+		if mayHoldCredential(typedLayout(t.lastPrompt)) || mayHoldCredential(last) {
 			c.Withheld = append(c.Withheld, FieldPrompt)
 		} else {
 			c.Prompt = truncate(oneLine(last), promptRunes)
