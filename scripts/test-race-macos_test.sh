@@ -71,7 +71,7 @@ function test_termination_stops_worker_process_groups() {
   local launcher result pid running=0
   PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" BLOCK_TEST=1 "$SCRIPT_DIR/test-race-macos.sh" >/dev/null 2>&1 &
   launcher=$!
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
+  for _ in $(seq 100); do
     [[ -f "$dir/calls/other-child" && -f "$dir/calls/first-child" && -f "$dir/calls/second-child" ]] && break
     sleep 0.1
   done
