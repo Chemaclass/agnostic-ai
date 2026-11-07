@@ -60,6 +60,94 @@ func passesMySQLPassword(text string) bool {
 	return false
 }
 
+// curlInText is curl named in prose, also as a path or curl.exe.
+var curlInText = regexp.MustCompile(`(?i)\bcurl(?:\.exe)?[ \t]`)
+
+// lineContinuation is a backslash, or a PowerShell backtick after a
+// space, that carries a command to the next line. A backtick glued to a
+// word ends Markdown inline code instead.
+var lineContinuation = regexp.MustCompile("(?:\\\\|[ \t]`)\r?\n")
+
+// envReference is a PowerShell environment variable, such as $env:API_PASS.
+var envReference = regexp.MustCompile(`(?i)^\$env:[A-Za-z_][A-Za-z0-9_]*$`)
+
+// curlSwitches are curl's short options that take no value, so they may
+// come before -u in a group such as -fsSu.
+const curlSwitches = "sSfLkviIOJgGNnqRjlp0123456aBMVZ#"
+
+// passesCurlCredential reports whether text runs curl with a literal
+// user and password, as -u user:pass, --user user:pass or their proxy
+// forms -U and --proxy-user. A user alone makes curl ask for the
+// password, and a variable holds none. Each curl is read to the end of
+// its line or command. Accepted gaps: a -u of another command later on
+// that line still counts, a quoted user name with a space is not read,
+// an apostrophe in prose upsets the quote count, and a PowerShell
+// backtick glued to a word is not read as a line continuation.
+func passesCurlCredential(text string) bool {
+	text = lineContinuation.ReplaceAllString(text, " ")
+	for _, at := range curlInText.FindAllStringIndex(text, -1) {
+		line, _, _ := strings.Cut(text[at[1]:], "\n")
+		args := strings.Fields(line)
+		doubles, singles := 0, 0
+		for i, arg := range args {
+			if arg == ";" || arg == "|" || arg == "&&" || arg == "||" {
+				break
+			}
+			if value, ok := curlUserValue(strings.Trim(arg, `"'`), args[i+1:]); ok {
+				_, password, found := strings.Cut(strings.Trim(value, "\"'`;,)"), ":")
+				password = strings.Trim(password, `"'`)
+				// Single quotes keep $ literal, so '$ecret' is no variable.
+				variable := !strings.Contains(value, "'") && (PureReference(password) || envReference.MatchString(password))
+				if found && password != "" && !variable {
+					return true
+				}
+			}
+			// A ; inside a quoted header or cookie does not end the command.
+			doubles += strings.Count(arg, `"`)
+			singles += strings.Count(arg, "'")
+			if strings.HasSuffix(arg, ";") && doubles%2 == 0 && singles%2 == 0 {
+				break
+			}
+		}
+	}
+	return false
+}
+
+// curlUserValue returns the value of a curl user option, glued to it or
+// as the next argument.
+func curlUserValue(arg string, next []string) (string, bool) {
+	for _, flag := range []string{"--user", "--proxy-user"} {
+		if arg == flag {
+			return firstArg(next)
+		}
+		if value, ok := strings.CutPrefix(arg, flag+"="); ok {
+			return value, true
+		}
+	}
+	if strings.HasPrefix(arg, "--") || !strings.HasPrefix(arg, "-") {
+		return "", false
+	}
+	for i, c := range arg[1:] {
+		if c == 'u' || c == 'U' {
+			if value := arg[i+2:]; value != "" {
+				return value, true
+			}
+			return firstArg(next)
+		}
+		if !strings.ContainsRune(curlSwitches, c) {
+			return "", false
+		}
+	}
+	return "", false
+}
+
+func firstArg(args []string) (string, bool) {
+	if len(args) == 0 {
+		return "", false
+	}
+	return args[0], true
+}
+
 // assignsCredential reports whether a credential-named key is given a
 // value other than a plain one, such as `"input_tokens":null`.
 func assignsCredential(text string) bool {
@@ -75,12 +163,14 @@ func assignsCredential(text string) bool {
 // labelsCredential reports whether prose text shows a sign of a
 // credential: a credential-named key with a value, a strong credential
 // word stated with a value, a weaker one labeling a table cell or a tag,
-// a private key block, or a recognizable token or credential. A secret
-// written as free prose with no label or shape is not detectable.
+// a private key block, a recognizable token or credential, or one passed
+// to mysql or curl on its command line. A secret written as free prose
+// with no label or shape is not detectable.
 func labelsCredential(text string) bool {
 	return assignsCredential(text) || credentialStatement.MatchString(text) ||
 		credentialLabel.MatchString(text) || privateKeyBlock.MatchString(text) ||
-		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text)
+		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text) ||
+		passesCurlCredential(text)
 }
 
 // ProseSensitive is Sensitive for prose that is not a file, such as a

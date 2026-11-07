@@ -103,7 +103,7 @@ test.describe('coding tools', () => {
     await page.goto('/?view=settings&tab=targets&mock=1')
     await expect(page.locator('.coding-tool')).toHaveCount(total)
     await expect(page.getByRole('switch')).toHaveCount(0)
-    await expect(page.locator('.page-note')).toContainText('switches need agnostic-ai view')
+    await expect(page.locator('.page > .banner-info')).toContainText('switches need agnostic-ai view')
   })
 
   test('fits a phone viewport', async ({ page }) => {
@@ -126,7 +126,7 @@ test.describe('coding tools', () => {
     await settings(page, { query: '/?view=settings&q=windsurf' })
     await expect(page.getByRole('tab', { name: /^Coding tools/ })).toHaveAttribute('aria-selected', 'true')
     await expect(page.locator('.coding-tool')).toHaveCount(1)
-    await expect(page.locator('.section-search-status')).toContainText(/^1 of \d+ items, fields, and tools match\./)
+    await expect(page.locator('.section-search-status')).toHaveText('1 match.')
     await page.locator('.coding-tool[data-target="windsurf"]').getByRole('switch').click()
     await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
     await page.getByLabel('Filter tools').fill('c')

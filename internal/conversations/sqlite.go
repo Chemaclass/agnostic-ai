@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -32,7 +34,18 @@ func sqliteURI(path string) string {
 	if _, err := os.Stat(path + "-wal"); err == nil {
 		query = "mode=ro"
 	}
-	return (&url.URL{Scheme: "file", Path: path, RawQuery: query}).String()
+	return (&url.URL{Scheme: "file", Path: uriPath(path), RawQuery: query}).String()
+}
+
+var windowsVolume = regexp.MustCompile(`^[A-Za-z]:[\\/]`)
+
+// uriPath writes path as the path of a file URI: a Windows path such as
+// C:\Users becomes /C:/Users, or file://C:... would name a host C.
+func uriPath(path string) string {
+	if windowsVolume.MatchString(path) {
+		return "/" + strings.ReplaceAll(path, `\`, "/")
+	}
+	return path
 }
 
 // RunSQLite is the SQLiteQuery that runs the system sqlite3 command.

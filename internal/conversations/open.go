@@ -61,8 +61,8 @@ var editorUserDirs = map[string]string{
 	"VSCodium":                      "VSCodium",
 }
 
-// openWindowFolders lists the folders, as file URIs, of the windows the
-// editor state at storagePath records. The editor saves it as windows
+// openWindowFolders lists the folders of the windows the editor state at
+// storagePath records, as folderKey values. The editor saves it as windows
 // change, so a window opened moments ago may not be listed yet.
 func openWindowFolders(storagePath string) map[string]bool {
 	folders := map[string]bool{}
@@ -84,21 +84,34 @@ func openWindowFolders(storagePath string) map[string]bool {
 		return folders
 	}
 	for _, window := range append(state.WindowsState.OpenedWindows, state.WindowsState.LastActiveWindow) {
-		if window.Folder != "" {
-			folders[strings.TrimSuffix(window.Folder, "/")] = true
+		// The editor percent-encodes every character but letters, digits,
+		// "-._~" and "/", so @scope is written %40scope.
+		if u, err := url.Parse(window.Folder); err == nil && u.Scheme == "file" {
+			folders[windowPath(u.Path)] = true
 		}
 	}
 	return folders
 }
 
-func fileURI(folder string) string {
-	return (&url.URL{Scheme: "file", Path: folder}).String()
+// folderKey is the form a folder takes in openWindowFolders.
+func folderKey(folder string) string {
+	return windowPath(uriPath(folder))
+}
+
+// windowPath drops a trailing slash and writes a Windows drive in lower
+// case, as the editor does: /c:/Users.
+func windowPath(path string) string {
+	path = strings.TrimSuffix(path, "/")
+	if len(path) >= 3 && path[0] == '/' && path[2] == ':' {
+		path = "/" + strings.ToLower(path[1:2]) + path[2:]
+	}
+	return path
 }
 
 // folderOpenIn reports whether the editor state at storagePath lists a
 // window on folder.
 func folderOpenIn(storagePath, folder string) bool {
-	return openWindowFolders(storagePath)[fileURI(folder)]
+	return openWindowFolders(storagePath)[folderKey(folder)]
 }
 
 // SystemLauncher returns the launcher for the running OS.

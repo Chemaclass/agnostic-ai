@@ -1,12 +1,11 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useState } from 'react'
 import type { Section } from '../contract'
 import { AppLink } from './app-context'
 import { DocLink } from './SectionHeading'
 import { kindEntryId } from '../model/identity'
 import { entryTab, sectionTabs } from '../model/section-tabs'
 import { ToolAvatar } from './ui'
-
-const narrowScreen = '(max-width: 760px)'
+import { supportSummary } from '../model/verdict'
 
 function supportOpenKey(section: string) {
   return `agnostic-ai.support-open:${section}`
@@ -21,19 +20,9 @@ function readSupportChoice(section: string): boolean | undefined {
   }
 }
 
-function useNarrowScreen() {
-  return useSyncExternalStore((change) => {
-    const query = window.matchMedia?.(narrowScreen)
-    query?.addEventListener('change', change)
-    return () => query?.removeEventListener('change', change)
-  }, () => window.matchMedia?.(narrowScreen).matches ?? false)
-}
-
 export function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (target: string) => string }) {
   const [choice, setChoice] = useState(() => readSupportChoice(section.id))
-  // On a phone the stacked table would push the tabs below the fold.
-  const narrow = useNarrowScreen()
-  const open = choice ?? !narrow
+  const open = choice ?? false
   if (!section.support.length) return null
   const tabs = sectionTabs(section)
   const toggle = (next: boolean) => {
@@ -44,14 +33,17 @@ export function SupportTable({ section, toolLabel }: { section: Section; toolLab
     } catch { /* The choice lasts until this page reloads. */ }
   }
   return (
+    <div className="support-frame">
     <details className="block support-block" open={open} onToggle={(event) => toggle(event.currentTarget.open)}>
-      <summary className="support-summary"><h2 id="support-title">Coding tool support</h2></summary>
-      <DocLink topic="support" />
+      <summary className="support-summary">
+        <h2 id="support-title">Coding tool support</h2>
+        <span className="support-line">{supportSummary(section.support)}</span>
+      </summary>
       <div className="table-wrap">
         <table className="table support-table" role="table" aria-labelledby="support-title">
           <thead role="rowgroup">
             <tr role="row">
-              <th id="support-kind" scope="col" role="columnheader">Kind</th>
+              <th id="support-kind" scope="col" role="columnheader">Type</th>
               <th id="support-supported" scope="col" role="columnheader">Supported on</th>
               <th id="support-unsupported" scope="col" role="columnheader">Not supported on</th>
             </tr>
@@ -65,7 +57,7 @@ export function SupportTable({ section, toolLabel }: { section: Section; toolLab
                   {k.supported.length ? (
                     <span className="tool-list">
                       {k.supported.map((t) => (
-                        <ToolAvatar key={t} target={t} label={toolLabel(t)} />
+                        <span key={t} className="tool-tag"><ToolAvatar target={t} label={toolLabel(t)} /><span className="tool-tag-name" aria-hidden="true">{toolLabel(t)}</span></span>
                       ))}
                     </span>
                   ) : (
@@ -77,7 +69,7 @@ export function SupportTable({ section, toolLabel }: { section: Section; toolLab
                   {k.unsupported.length ? (
                     <span className="tool-list">
                       {k.unsupported.map((t) => (
-                        <ToolAvatar key={t} target={t} label={toolLabel(t)} />
+                        <span key={t} className="tool-tag"><ToolAvatar target={t} label={toolLabel(t)} /><span className="tool-tag-name" aria-hidden="true">{toolLabel(t)}</span></span>
                       ))}
                     </span>
                   ) : (
@@ -90,5 +82,7 @@ export function SupportTable({ section, toolLabel }: { section: Section; toolLab
         </table>
       </div>
     </details>
+    <DocLink topic="support" />
+    </div>
   )
 }

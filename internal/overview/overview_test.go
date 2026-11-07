@@ -339,6 +339,30 @@ func TestBuild_ShowsEachMCPServersCachedTools(t *testing.T) {
 	}
 }
 
+func TestBuild_GivesEachMCPServerItsDisabledState(t *testing.T) {
+	mcp := func(name string, meta map[string]any) spec.Entry {
+		return entry(spec.KindMCP, name, ".agnostic-ai/mcps/"+name+".yaml", meta)
+	}
+	v := Build(Inputs{Bundle: spec.Bundle{MCPs: []spec.Entry{
+		mcp("off", map[string]any{"name": "off", "command": "off-mcp", "env": map[string]any{"API_TOKEN": "sk-abcdefghijklmnop"}, "disabled": true}),
+		mcp("on", map[string]any{"name": "on", "command": "on-mcp", "disabled": false}),
+		mcp("plain", map[string]any{"name": "plain", "command": "plain-mcp"}),
+	}}})
+	got := map[string][]Value{}
+	for _, it := range sectionByID(t, v, SectionTools).Items {
+		got[it.Name] = it.Fields
+	}
+	for name, want := range map[string][]Value{
+		"off":   {{Key: "disabled", Type: ValueBool, Value: "true"}},
+		"on":    {{Key: "disabled", Type: ValueBool, Value: "false"}},
+		"plain": nil,
+	} {
+		if !reflect.DeepEqual(got[name], want) {
+			t.Errorf("%s fields = %+v, want %+v", name, got[name], want)
+		}
+	}
+}
+
 func TestBuild_ShowsProjectOnlyKindsOnlyWhenPresent(t *testing.T) {
 	v := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}}})
 	for id, want := range map[string][]string{

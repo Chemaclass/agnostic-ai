@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +61,8 @@ func realDir(t *testing.T) string {
 	return dir
 }
 
+var projectFolderName = regexp.MustCompile(`[^A-Za-z0-9]`)
+
 func writeClaudeSession(t *testing.T, claudeDir, id, cwd, prompt string) {
 	t.Helper()
 	line, err := json.Marshal(map[string]any{
@@ -69,7 +72,9 @@ func writeClaudeSession(t *testing.T, claudeDir, id, cwd, prompt string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(claudeDir, "projects", strings.ReplaceAll(cwd, "/", "-"), id+".jsonl")
+	// Claude Code names a project folder after its path, each character
+	// other than a letter or digit written as "-", so C:\ nests nothing.
+	path := filepath.Join(claudeDir, "projects", projectFolderName.ReplaceAllString(cwd, "-"), id+".jsonl")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}

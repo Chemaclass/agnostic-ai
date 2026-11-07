@@ -595,6 +595,11 @@ func sectionItem(root string, e spec.Entry) SectionItem {
 	if e.Kind == spec.KindHook {
 		item.Fields = hookFields(e.Meta)
 	}
+	if e.Kind == spec.KindMCP {
+		if disabled, set := e.Meta["disabled"].(bool); set {
+			item.Fields = specValues(map[string]any{"disabled": disabled})
+		}
+	}
 	if e.Layer != builtinLayer {
 		item.OpenPath = editablePath(e.Path)
 	}

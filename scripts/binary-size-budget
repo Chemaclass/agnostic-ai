@@ -816,4 +816,7 @@
 # The Mineral shell (#3120 slice 2) swaps Archivo Narrow for two Fraunces
 # subsets and measured 25350304 bytes; the budget is that plus 8192, rounded
 # up to a multiple of 4096.
-25362432
+# #3133: curl credential redaction and cursor-agent cache measured 25366688
+# bytes after merging main at 50ed867c; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+25378816
