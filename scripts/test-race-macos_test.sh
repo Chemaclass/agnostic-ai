@@ -85,6 +85,11 @@ function test_termination_stops_worker_process_groups() {
       continue
     fi
     pid=$(cat "$dir/calls/$worker-child")
+    # The signal reaches the child at once, but it may take a moment to exit.
+    for _ in $(seq 50); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.1
+    done
     if kill -0 "$pid" 2>/dev/null; then
       running=1
       kill -TERM "$pid" 2>/dev/null || true
