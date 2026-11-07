@@ -430,6 +430,37 @@ test.describe('conversations by week', () => {
     expect(await search.boundingBox()).toEqual(before)
   })
 
+  test('keeps the heading, chips and search row in place while the overview and the list load', async ({ page }) => {
+    let releaseList!: () => void
+    const list = new Promise<void>((resolve) => { releaseList = resolve })
+    await mockServer(page, opened, async () => {
+      await list
+      return { json: conversations }
+    })
+    let releaseOverview!: () => void
+    const held = new Promise<void>((resolve) => { releaseOverview = resolve })
+    await page.route('**/api/views/overview', async (route) => {
+      await held
+      return route.fulfill({ json: overview })
+    })
+    await page.goto('/')
+    const heading = page.getByRole('heading', { level: 1, name: 'Conversations', exact: true })
+    const parts = [heading, page.locator('.page-header .conversation-sources'), page.getByRole('search', { name: 'Search conversations' })]
+    const boxes = () => Promise.all(parts.map((part) => part.boundingBox()))
+    await expect(page.locator('.page-header.has-verdict')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Loading conversations' })).toBeVisible()
+    const loading = await boxes()
+    expect(loading.every((box) => box !== null)).toBe(true)
+
+    releaseOverview()
+    await expect(page.locator('.rail .skeleton')).toHaveCount(0)
+    expect(await boxes()).toEqual(loading)
+
+    releaseList()
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+    expect(await boxes()).toEqual(loading)
+  })
+
   test('keeps focus on the heading and in the search box when the first load lands', async ({ page }) => {
     let release!: () => void
     const hold = () => new Promise<void>((resolve) => { release = resolve })
