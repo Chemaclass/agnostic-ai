@@ -663,6 +663,16 @@
   background: var(--panel-sunken);
 }
 
+@media (max-width: 760px) {
+  .builtin-change-preview {
+    padding-inline: 16px;
+  }
+
+  .builtin-change-pending {
+    padding-inline: 12px;
+  }
+}
+
 .change-status:not(:has(> *:not(:empty))) {
   display: none;
 }

@@ -261,7 +261,7 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
       </div>
     </div>
     <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
-    {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> Applying writes source changes that were not synced yet, too. Every affected file is listed below.</p>}
+    {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> They were not synced yet; the changed files list them.</p>}
     <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
     {change.targets.length > 0 && <details className="preview-disclosure">
       <summary>Applies to {change.targets.length} coding tool{change.targets.length === 1 ? '' : 's'}</summary>
