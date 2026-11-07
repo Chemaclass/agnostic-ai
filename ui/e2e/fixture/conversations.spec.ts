@@ -193,7 +193,11 @@ test.describe('conversations', () => {
     const [chipBox, noteBox] = [(await chip.boundingBox())!, (await note.boundingBox())!]
     expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(chipBox.y + 1)
     expect(Math.min(Math.abs(noteBox.x - chipBox.x), Math.abs(noteBox.x + noteBox.width - (chipBox.x + chipBox.width)))).toBeLessThanOrEqual(1)
-    await note.hover()
+    // Without the hide delay, only the bridge keeps the note open while the pointer crosses the gap.
+    await page.addStyleTag({ content: '.conversation-source-note { transition: none !important; }' })
+    const [from, to] = [(await chip.boundingBox())!, (await note.boundingBox())!]
+    await page.mouse.move(from.x + 12, from.y + 4)
+    await page.mouse.move(from.x + 12, to.y + to.height - 4, { steps: 20 })
     await expect(note).toBeVisible()
     await page.mouse.move(0, 0)
     await expect(note).toBeHidden()

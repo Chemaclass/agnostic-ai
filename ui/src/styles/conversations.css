@@ -104,7 +104,7 @@
     position: absolute;
     bottom: 100%;
     left: 0;
-    z-index: 10;
+    z-index: 35;
     width: max-content;
     max-width: min(48ch, calc(100vw - 32px));
     margin-bottom: 6px;
@@ -124,6 +124,14 @@
     right: 0;
     left: 0;
     height: 6px;
+  }
+
+  /* Without anchor positioning the note cannot flip, so the list clips
+     its sideways overflow instead of widening the page. */
+  @supports not ((anchor-name: --a) and (anchor-scope: --a)) {
+    .conversation-sources {
+      overflow-x: clip;
+    }
   }
 
   @supports (anchor-name: --a) and (anchor-scope: --a) {
