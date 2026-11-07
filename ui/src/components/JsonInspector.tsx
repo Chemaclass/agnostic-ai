@@ -55,6 +55,7 @@ function sizeLabel(bytes: number): string {
 
 export function JsonInspector({ onClose, overview, global }: { onClose: () => void; overview: Remote<OverviewView>; global: boolean }) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const panel = useRef<HTMLElement>(null)
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     closeRef.current?.focus()
@@ -62,6 +63,11 @@ export function JsonInspector({ onClose, overview, global }: { onClose: () => vo
       if (event.key === 'Escape') {
         event.preventDefault()
         onClose()
+      } else if (event.key === 'Tab' && window.matchMedia('(max-width: 900px)').matches) {
+        const focusable = [...(panel.current?.querySelectorAll<HTMLElement>('button, [tabindex="0"]') ?? [])]
+        const at = focusable.indexOf(document.activeElement as HTMLElement)
+        event.preventDefault()
+        focusable[(at + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length]?.focus()
       }
     }
     document.addEventListener('keydown', onKey)
@@ -77,7 +83,7 @@ export function JsonInspector({ onClose, overview, global }: { onClose: () => vo
   const nodes = useMemo(() => highlight(json), [json])
 
   return (
-    <aside id="json-inspector" className="inspector" role="dialog" aria-modal="false" aria-labelledby="inspector-title">
+    <aside ref={panel} id="json-inspector" className="inspector" role="dialog" aria-modal="true" aria-labelledby="inspector-title">
       <div className="inspector-head">
         <h2 id="inspector-title">JSON inspector</h2>
         <button ref={closeRef} type="button" className="button button-quiet" onClick={onClose}>

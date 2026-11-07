@@ -433,3 +433,27 @@ test('keeps Overview JSON on one line and the release arrow beside its text', as
   expect(gap).toBeGreaterThanOrEqual(0)
   expect(gap).toBeLessThanOrEqual(8)
 })
+
+test('keeps focus inside the JSON inspector sheet on a phone and clear of the top bar at 761px', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  for (const width of [900, 800, 761]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('/?view=settings')
+    await page.getByRole('button', { name: 'Menu' }).click()
+    await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name: 'Overview JSON', exact: true }).click()
+    const box = (await page.getByRole('dialog', { name: 'JSON inspector' }).boundingBox())!
+    expect(box.x).toBe(0)
+    expect(box.y).toBe(0)
+  }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name: 'Overview JSON', exact: true }).click()
+  const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+  const close = drawer.getByRole('button', { name: /Close/ })
+  await expect(close).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(drawer.locator('.json')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(close).toBeFocused()
+})

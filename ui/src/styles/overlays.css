@@ -84,7 +84,7 @@
   padding: 20px 0;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .inspector {
     inset: 0;
     width: 100%;
