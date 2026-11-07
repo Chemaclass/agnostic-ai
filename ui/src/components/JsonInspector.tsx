@@ -1,7 +1,7 @@
 // A drawer with the exact JSON behind the screen: the overview, with its
 // endpoint, the command that prints it, schema version, and revision.
 
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { OverviewView } from '../contract'
 import type { Remote } from './Shell'
 import { CopyButton } from './ui'
@@ -49,12 +49,27 @@ function highlight(json: string): ReactNode[] {
   return out
 }
 
+const SHEET = '(max-width: 900px)'
+
+function useSheet(): boolean {
+  const [sheet, setSheet] = useState(() => window.matchMedia(SHEET).matches)
+  useEffect(() => {
+    const query = window.matchMedia(SHEET)
+    const update = () => setSheet(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  return sheet
+}
+
 function sizeLabel(bytes: number): string {
   return bytes < 1024 ? `${bytes} bytes` : `${(bytes / 1024).toFixed(1)} KB`
 }
 
 export function JsonInspector({ onClose, overview, global }: { onClose: () => void; overview: Remote<OverviewView>; global: boolean }) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const panel = useRef<HTMLElement>(null)
+  const sheet = useSheet()
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     closeRef.current?.focus()
@@ -62,6 +77,11 @@ export function JsonInspector({ onClose, overview, global }: { onClose: () => vo
       if (event.key === 'Escape') {
         event.preventDefault()
         onClose()
+      } else if (event.key === 'Tab' && !event.defaultPrevented && window.matchMedia(SHEET).matches) {
+        const focusable = [...(panel.current?.querySelectorAll<HTMLElement>('button, [tabindex="0"]') ?? [])]
+        const at = focusable.indexOf(document.activeElement as HTMLElement)
+        event.preventDefault()
+        focusable[(at + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length]?.focus()
       }
     }
     document.addEventListener('keydown', onKey)
@@ -77,7 +97,7 @@ export function JsonInspector({ onClose, overview, global }: { onClose: () => vo
   const nodes = useMemo(() => highlight(json), [json])
 
   return (
-    <aside id="json-inspector" className="inspector" role="dialog" aria-modal="false" aria-labelledby="inspector-title">
+    <aside ref={panel} id="json-inspector" className="inspector" role="dialog" aria-modal={sheet} aria-labelledby="inspector-title">
       <div className="inspector-head">
         <h2 id="inspector-title">JSON inspector</h2>
         <button ref={closeRef} type="button" className="button button-quiet" onClick={onClose}>

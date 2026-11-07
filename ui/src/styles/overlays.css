@@ -1,30 +1,23 @@
-/* The drawer opens below the header. */
+/* Overlays: surface, large radius, one ring and shadow; full-screen sheets on phones. */
 
 .inspector {
   position: fixed;
-  top: var(--topbar-offset, var(--topbar-height));
-  right: 0;
-  bottom: 0;
+  inset: 16px 16px 16px auto;
   z-index: 50;
-  width: min(720px, 100vw);
+  width: min(720px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px 20px;
-  background: var(--drawer);
-  border-left: 1px solid var(--line-strong);
+  padding: 20px 24px;
+  background: var(--panel);
+  border-radius: var(--radius-lg);
   box-shadow: var(--overlay-shadow);
-  animation: drawer-in var(--dur-3) var(--ease-out);
+  animation: overlay-in var(--dur-1) ease-out;
 }
 
-@keyframes drawer-in {
+@keyframes overlay-in {
   from {
-    transform: translateX(24px);
     opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
   }
 }
 
@@ -35,7 +28,10 @@
 }
 
 .inspector-head h2 {
-  font-size: 20px;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-xl);
 }
 
 .inspector-meta {
@@ -88,9 +84,13 @@
   padding: 20px 0;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .inspector {
-    padding: 14px 16px;
+    inset: 0;
+    width: 100%;
+    padding: 16px;
+    border-radius: 0;
+    box-shadow: none;
   }
 }
 
@@ -109,6 +109,7 @@ html:has(.search-backdrop) {
   align-items: flex-start;
   padding: 12vh 16px 16px;
   background: var(--backdrop);
+  animation: overlay-in var(--dur-1) ease-out;
 }
 
 .search-dialog {
@@ -118,9 +119,8 @@ html:has(.search-backdrop) {
   width: min(640px, 100%);
   max-height: 76vh;
   padding: 14px;
-  border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
-  background: var(--drawer);
+  background: var(--panel);
   box-shadow: var(--overlay-shadow);
 }
 
@@ -152,14 +152,14 @@ html:has(.search-backdrop) {
 .search-result {
   display: grid;
   gap: 3px;
-  padding: 9px 10px;
-  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border-radius: var(--radius);
   cursor: pointer;
   min-width: 0;
 }
 
 .search-result[aria-selected='true'] {
-  background: var(--accent-wash-strong);
+  background: var(--accent-wash);
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
@@ -187,4 +187,31 @@ html:has(.search-backdrop) {
 
 .search-result-context code {
   font-family: var(--font-mono);
+}
+
+@media (max-width: 760px) {
+  .search-backdrop {
+    padding: 0;
+  }
+
+  .search-dialog {
+    width: 100%;
+    max-height: none;
+    height: 100%;
+    padding: 16px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .inspector,
+  .search-dialog {
+    border: 1px solid CanvasText;
+  }
+
+  .search-result[aria-selected='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
