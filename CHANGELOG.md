@@ -18,6 +18,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, **Context size** shows its totals in the Mineral style, with a share bar beside each percentage. Source types use plain names (instructions file, tool wrapper text, skill name and description) under a **Type** column, **Reread specs** is now **Read again**, and copying or moving a file to the other level reports success or failure in one notice with **Dismiss** (#3120).
 
+- In the web interface, **Setup health** opens with one sentence, such as "1 thing needs a fix, and 3 more are worth a look.", a facts line that says whether the data was checked just now or comes from a saved snapshot, and a row of bars for the features your tools support, filled for those in use. Findings sit under **Needs a fix** and **Worth a look**, suggestions are plain rows that name tools by name, and **Recheck all** reports in a notice. On every page, recheck results say "configuration check" and "setup check" instead of "lint" and "doctor" (#3120).
+
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
 
 - In the web interface, **Context size** starts with the startup and on-demand word counts, then one line on the startup budget with **Change budget**, then three **Next** steps. The ranked sources are always shown and replace **Start here**; duplicated passages show only when there are any; the load explanation and the model line moved into **How this is counted**; coding tools show by name (#3121).
