@@ -61,11 +61,15 @@ func passesMySQLPassword(text string) bool {
 }
 
 // curlInText is curl named in prose, also as a path or curl.exe.
-var curlInText = regexp.MustCompile(`\bcurl(?:\.exe)?[ \t]`)
+var curlInText = regexp.MustCompile(`(?i)\bcurl(?:\.exe)?[ \t]`)
 
-// lineContinuation is a backslash, or a PowerShell backtick, that carries
-// a command to the next line.
-var lineContinuation = regexp.MustCompile("[\\\\`]\r?\n")
+// lineContinuation is a backslash, or a PowerShell backtick after a
+// space, that carries a command to the next line. A backtick glued to a
+// word ends Markdown inline code instead.
+var lineContinuation = regexp.MustCompile("(?:\\\\|[ \t]`)\r?\n")
+
+// envReference is a PowerShell environment variable, such as $env:API_PASS.
+var envReference = regexp.MustCompile(`(?i)^\$env:[A-Za-z_][A-Za-z0-9_]*$`)
 
 // curlSwitches are curl's short options that take no value, so they may
 // come before -u in a group such as -fsSu.
@@ -76,23 +80,27 @@ const curlSwitches = "sSfLkviIOJgGNnqRjlp0123456aBMVZ#"
 // forms -U and --proxy-user. A user alone makes curl ask for the
 // password, and a variable holds none. Each curl is read to the end of
 // its line or command; a -u of another command later on that line can
-// still count.
+// still count, and a quoted user name with a space is not read.
 func passesCurlCredential(text string) bool {
 	text = lineContinuation.ReplaceAllString(text, " ")
 	for _, at := range curlInText.FindAllStringIndex(text, -1) {
 		line, _, _ := strings.Cut(text[at[1]:], "\n")
 		args := strings.Fields(line)
+		quotes := 0
 		for i, arg := range args {
 			if arg == ";" || arg == "|" || arg == "&&" || arg == "||" {
 				break
 			}
-			if value, ok := curlUserValue(arg, args[i+1:]); ok {
-				_, password, found := strings.Cut(strings.Trim(value, `"'`), ":")
-				if found && password != "" && !PureReference(password) {
+			if value, ok := curlUserValue(strings.Trim(arg, `"'`), args[i+1:]); ok {
+				_, password, found := strings.Cut(strings.Trim(value, "\"'`;,)"), ":")
+				password = strings.Trim(password, `"'`)
+				if found && password != "" && !PureReference(password) && !envReference.MatchString(password) {
 					return true
 				}
 			}
-			if strings.HasSuffix(arg, ";") {
+			// A ; inside a quoted header or cookie does not end the command.
+			quotes += strings.Count(arg, `"`) + strings.Count(arg, "'")
+			if strings.HasSuffix(arg, ";") && quotes%2 == 0 {
 				break
 			}
 		}
