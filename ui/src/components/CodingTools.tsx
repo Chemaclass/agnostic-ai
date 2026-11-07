@@ -41,7 +41,6 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
       {live && !sharedBlocked && <p className="muted coding-tools-hint">{saveHint(catalog, audience, global)}</p>}
       {live && audience === 'personal' && catalog.source !== 'personal' && <p className="muted">Inherited from {level}. Changing a tool creates your local list.</p>}
       {live && audience === 'personal' && catalog.source === 'personal' && <ResetTools expected={catalog.items.filter((tool) => tool.enabled).map((tool) => tool.target)} onSaved={setSaved} />}
-      {!live && <p className="muted">Switches need a running <Code>agnostic-ai serve</Code>; this view only shows the list.</p>}
       <div className="coding-tools-filter" role="search" aria-label="Filter coding tools">
         <label htmlFor={filterId}>Filter tools</label>
         <input id={filterId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSaved(undefined) }} placeholder="Name or vendor" />

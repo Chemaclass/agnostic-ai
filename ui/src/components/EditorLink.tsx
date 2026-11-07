@@ -73,11 +73,7 @@ export function OpenInEditor({ path, line, label, compact, shownPath, trailing }
     if (!shownPath) return null
     return (
       <span className="editor-actions">
-        <span className="muted editor-unavailable">
-          {app.source.kind !== 'api'
-            ? 'Files open in an editor only from a running agnostic-ai serve.'
-            : 'This path is not a file on disk, so it cannot be opened in an editor.'}
-        </span>
+        {app.source.kind === 'api' && <span className="muted editor-unavailable">This path is not a file on disk, so it cannot be opened in an editor.</span>}
         {copy(shownPath)}
         {trailing}
       </span>
