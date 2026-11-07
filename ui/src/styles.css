@@ -974,13 +974,15 @@ a.release-badge:focus-visible .release-arrow {
 }
 
 .health-gap {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
   gap: 6px 12px;
-  min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.health-gap-text {
+  margin: 0;
 }
 
 .section-warnings-line {
@@ -3231,6 +3233,8 @@ tr.is-advised > td {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 24px;
+  /* auto-fit sizes its min-content to the 860px cap; let the column shrink it. */
+  min-width: 0;
   max-width: 860px;
   padding-block: 8px;
 }

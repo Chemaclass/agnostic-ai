@@ -19,16 +19,7 @@ func TestSync_NoOpStartsFewGitProcesses(t *testing.T) {
 	if err != nil {
 		t.Skip("git is not installed")
 	}
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	bin := filepath.Join(t.TempDir(), "agnostic-ai")
-	build := exec.Command("go", "build", "-o", bin, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v: %s", err, output)
-	}
+	bin := builtBinary(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))

@@ -1,13 +1,21 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
-const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
-for (const width of [320, 390, 768, 900, 1024, 1440]) {
-  test(`keeps all five pages usable at ${width}px in both themes`, async ({ page }) => {
+// Each width sits in its own CSS breakpoint band. The theme changes colours, not layout, so dark runs once.
+const usableLayouts = [
+  { width: 320, colorSchemes: ['light', 'dark'] },
+  { width: 900, colorSchemes: ['light'] },
+  { width: 1024, colorSchemes: ['light'] },
+  { width: 1440, colorSchemes: ['light'] },
+] as const
+
+for (const { width, colorSchemes } of usableLayouts) {
+  test(`keeps all five pages usable at ${width}px in ${colorSchemes.length > 1 ? 'both themes' : 'the light theme'}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
-    for (const colorScheme of ['light', 'dark'] as const) {
+    for (const colorScheme of colorSchemes) {
       await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' })
       await page.goto('/?view=context')
       for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']) {

@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -25,16 +24,7 @@ func TestBuiltinHandoff(t *testing.T) {
 		t.Fatal(err)
 	}
 	repoRoot := filepath.Clean(filepath.Join(packageDir, "..", ".."))
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-ldflags", "-X main.version=0.80.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=0.80.0", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repoRoot
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := builtCandidateBinary(t, "0.80.0")
 	fixture, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-handoff", "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatal(err)

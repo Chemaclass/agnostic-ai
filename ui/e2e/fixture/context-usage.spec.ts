@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { selectTab } from './helpers'
+import { selectTab } from '../helpers'
 
-const overview = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
-const contextView = JSON.parse(readFileSync(new URL('../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
+const overview = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const contextView = JSON.parse(readFileSync(new URL('../../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
 
 test.describe('context size', () => {
   test('shows the mock duplicate with its sources, review prompt, and refresh', async ({ page, context }) => {
@@ -76,6 +76,16 @@ test.describe('context size', () => {
     await expect(panel.locator('.context-usage-compare')).toContainText('Now166 words, 1,118 bytes at startup, 0 duplicated passages.')
     await expect(panel.locator('.context-usage-compare')).toContainText('ChangeStartup -18 words, File-scoped no change, On demand no change.')
     expect(requests).toEqual(['', '?target=claude'])
+  })
+
+  test('keeps the loading placeholder inside a phone viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', () => {})
+    await page.goto('/?view=context')
+    await selectTab(page, 'Context size')
+    await expect(page.locator('.context-usage-placeholder')).toBeAttached()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   })
 
   test('counts scoped rules for a named file and keeps the file on refresh', async ({ page }) => {

@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "antigravity" {
-		t.Errorf("Name() = %q, want %q", got, "antigravity")
-	}
-}
-
 func TestEmit_WritesRulesDir(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

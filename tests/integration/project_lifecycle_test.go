@@ -14,16 +14,7 @@ func TestProjectLifecycle_BootstrapsOnceAndUsesLocalHooks(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("POSIX package-manager and old-binary fixtures")
 	}
-	packageDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	binary := filepath.Join(t.TempDir(), "agnostic-ai")
-	build := exec.Command("go", "build", "-ldflags", "-X main.version=0.82.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=0.82.0", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := builtCandidateBinary(t, "0.82.0")
 	dir := filepath.Join(t.TempDir(), "project with spaces")
 	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "memory"), 0o755); err != nil {
 		t.Fatal(err)

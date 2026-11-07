@@ -9,7 +9,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(here, "../../..")
 const fixtures = mkdtempSync(join(tmpdir(), "agnostic-opencode-rendered-"))
 try {
-  const env = { ...process.env, AGNOSTIC_AI_OPENCODE_FIXTURE_DIR: fixtures, AGNOSTIC_AI_OPENCODE_NODE: process.execPath }
+  const callerEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGNOSTIC_AI_")))
+  const env = { ...callerEnv, AGNOSTIC_AI_OPENCODE_FIXTURE_DIR: fixtures, AGNOSTIC_AI_OPENCODE_NODE: process.execPath }
   for (const [command, args] of [
     ["go", ["test", "./internal/adapters/opencode", "-run", "^TestEmit_HookV2RuntimeFixtures$", "-count=1"]],
     [process.execPath, [join(here, "runner.mjs")]],

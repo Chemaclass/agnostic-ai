@@ -1,13 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { MOCK } from './helpers'
 
-const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const idle = { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] }
 
 test.describe('copy or move a spec to the other level', () => {
-  test.skip(MOCK, 'the mock has no server to write the spec')
-
   test('previews the destination, moves the agent, and names both sync commands', async ({ page }) => {
     const requests: Record<string, unknown>[] = []
     let moved = false

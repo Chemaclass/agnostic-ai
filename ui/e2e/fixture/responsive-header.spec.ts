@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
-const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 // Reserve the width of a classic scrollbar on the narrowest viewport.
 const narrowContent = '@media (max-width: 320px) { .app { max-width: 305px; } }'
 

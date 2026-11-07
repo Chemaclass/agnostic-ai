@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -13,19 +12,7 @@ import (
 )
 
 func TestQwenNativeProject_BuiltBinaryImportSyncCheck(t *testing.T) {
-	repo, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	binary := filepath.Join(t.TempDir(), "agnostic-ai")
-	if runtime.GOOS == "windows" {
-		binary += ".exe"
-	}
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repo
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, output)
-	}
+	binary := builtBinary(t)
 	dir := testutil.TempCwd(t)
 	files := map[string]string{
 		"agnostic-ai.yaml":                    "version: 1\ntargets: [qwen]\n",

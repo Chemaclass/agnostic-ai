@@ -12,19 +12,7 @@ import (
 )
 
 func TestCompareMCP_ReportsReferencesWithoutWritingOrLaunching(t *testing.T) {
-	packageDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	binary := filepath.Join(t.TempDir(), "agnostic-ai")
-	if runtime.GOOS == "windows" {
-		binary += ".exe"
-	}
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Clean(filepath.Join(packageDir, "..", ".."))
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	dir := t.TempDir()
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_NO_UPDATE_CHECK", "1")

@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { openApp, saveScreenshot } from './helpers'
-import { itemEntryId } from '../src/model/identity'
-import type { ItemFinding, SectionItem } from '../src/contract'
+import { openApp, saveScreenshot } from '../helpers'
+import { itemEntryId } from '../../src/model/identity'
+import type { ItemFinding, SectionItem } from '../../src/contract'
 
-const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 type Overview = typeof fixture
 const section = (data: Overview, id: string) => data.sections.find((s: { id: string }) => s.id === id)
@@ -212,9 +212,10 @@ test.describe('setup health', () => {
     await expect(gaps).toContainText('8 of 9 improvements applied')
     await expect(gaps.getByRole('listitem')).toHaveCount(1)
     const gap = gaps.getByRole('listitem').first()
-    await expect(gap).toContainText('Skills: supported by claude, codex; no skill yet')
+    await expect(gap).toContainText('Skills · No skill yet · Supported by claude, codex')
+    await expect(gap.getByRole('button', { name: 'Copy prompt for Skills' })).toHaveText('Copy prompt')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await gap.getByRole('button', { name: 'Copy the fix prompt for Skills' }).click()
+    await gap.getByRole('button', { name: 'Copy prompt for Skills' }).click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fix)
     await gap.getByRole('link', { name: 'Context' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()

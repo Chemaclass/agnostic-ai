@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -12,21 +11,8 @@ import (
 )
 
 func TestInstallHook_PostMergeRestoresUntrackedOutputsAfterPull(t *testing.T) {
-	repository, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	bin := t.TempDir()
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(bin, name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = repository
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v %s", err, out)
-	}
+	binary := builtBinary(t)
+	bin := filepath.Dir(binary)
 	config := filepath.Join(t.TempDir(), "gitconfig")
 	if err := os.WriteFile(config, []byte("[user]\n name = test\n email = test@example.com\n[commit]\n gpgsign = false\n"), 0o644); err != nil {
 		t.Fatal(err)

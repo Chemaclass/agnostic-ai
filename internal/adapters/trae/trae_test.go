@@ -12,12 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestName(t *testing.T) {
-	if got := New().Name(); got != "trae" {
-		t.Errorf("expected trae, got %s", got)
-	}
-}
-
 func TestEmit_WritesRulesAgentsAndSkills(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -15,16 +14,7 @@ func TestScopedRuleUnion_SyncWritesAndRemovesExtraDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	name := "agnostic-ai"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(t.TempDir(), name)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
-	build.Dir = filepath.Join(packageDir, "..", "..")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build CLI: %v\n%s", err, out)
-	}
+	binary := builtBinary(t)
 	dir := t.TempDir()
 	for name, body := range map[string]string{
 		"agnostic-ai.yaml":               "version: 1\ntargets: [claude, codex, cursor]\non-unsupported: error\n",
