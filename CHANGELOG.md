@@ -25,7 +25,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, **Setup health** has a checkbox on each finding and suggestion. A bar at the foot of the page counts the ticked items and copies one prompt for all of them with **Copy prompt**, errors first, then suggestions, with the shared guidance once (#3127).
 
-- In the web interface, the rail keeps its shape while the page loads: placeholder bars stand where the project, summaries and version will go, so nothing moves when the data arrives. Each summary keeps to one line, the project's GitHub link sits beside the project name, and the foot puts the version, Release notes and Overview JSON on separate lines.
+- In the web interface, the rail keeps its shape while the page loads: placeholder bars stand where the project, summaries and version will go, so nothing moves when the data arrives. Each summary keeps to one line and the project's GitHub link sits beside the project name. The foot lists Search and the configuration switch like the page links, then one quiet line with the version (linked to its release notes) and buttons for the theme, Overview JSON and GitHub. It warns "Update needed" only when the project requires a newer agnostic-ai.
 
 - In the web interface, **Authority** and **Settings** show **View and edit** (Project or Local) once, beside the filter, instead of under each block. The choice applies to every editor on the page (#3121).
 

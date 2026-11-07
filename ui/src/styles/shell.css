@@ -344,101 +344,131 @@ html {
   }
 }
 
-/* The rail foot: Search, the configuration switch, theme, GitHub, version and the overview document. */
+/* The rail foot: Search and the configuration switch as rows like the
+   page links, then a quiet bar with the version and three icon buttons. */
 
 .sidenav-footer {
   display: grid;
-  justify-items: start;
-  gap: 10px;
+  gap: 12px;
   margin-top: auto;
-  padding-inline: 4px;
   font-size: var(--text-sm);
 }
 
+.sidenav-actions {
+  display: grid;
+  gap: 2px;
+}
+
 .sidenav-footer .config-switch {
-  justify-self: stretch;
+  display: grid;
+}
+
+.sidenav-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 14px 8px 22px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+
+.sidenav-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--rail-raised) 55%, transparent);
+}
+
+.sidenav-action:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.sidenav-action > .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.sidenav-action-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidenav-action kbd {
+  margin: 0;
+  border-color: var(--line);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 
 .config-switch.is-pending {
   min-height: 40px;
+  align-content: center;
+  padding-left: 22px;
 }
 
 .config-switch.is-pending .skeleton {
   width: 60%;
-  margin-left: 6px;
 }
 
-/* Version, the required release and the overview document: one item per line. */
-
-.sidenav-meta {
-  display: grid;
-  justify-items: start;
-  gap: 4px;
-  width: 100%;
-}
-
-.sidenav-row {
+.sidenav-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 100%;
   min-width: 0;
+  padding: 12px 4px 0 22px;
+  border-top: 1px solid var(--line);
 }
 
-
-
-.sidenav-theme {
-  gap: 8px;
-}
-
-.sidenav-json {
-  min-height: 28px;
-  padding: 2px 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text-muted);
-  font: inherit;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  white-space: nowrap;
+.sidenav-icons {
+  display: flex;
   flex-shrink: 0;
-  cursor: pointer;
+  margin-left: auto;
+  gap: 2px;
 }
 
-.sidenav-json:hover,
-.sidenav-json[aria-pressed='true'] {
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.sidenav-github {
+.sidenav-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-pill);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
   color: var(--text-muted);
+  cursor: pointer;
 }
 
-.sidenav-github:hover {
+.sidenav-icon:hover,
+.sidenav-icon[aria-pressed='true'] {
+  background: var(--rail-raised);
   color: var(--text);
-  background: var(--panel-raised);
 }
 
-.sidenav-github-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
+@media (forced-colors: active) {
+  .sidenav-icon[aria-pressed='true'] {
+    outline: 1px solid ButtonText;
+  }
+}
+
+.sidenav-icon > .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .release-badge {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -450,13 +480,6 @@ html {
   text-decoration: none;
 }
 
-.release-caption {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-}
-
 .release-text {
   display: grid;
   gap: 2px;
@@ -466,13 +489,13 @@ html {
 
 .release-line {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
 }
 
 .release-badge.is-pending {
-  width: 100%;
+  flex: 1;
 }
 
 .release-badge.is-pending .release-text {
@@ -481,10 +504,6 @@ html {
 
 .release-badge.is-pending .skeleton {
   width: 65%;
-}
-
-.release-badge.is-pending .skeleton + .skeleton {
-  width: 40%;
 }
 
 .release-version {
@@ -497,7 +516,6 @@ html {
 
 .release-requires {
   font-family: var(--font-mono);
-  white-space: nowrap;
 }
 
 .release-requires.is-unmet {
@@ -516,8 +534,9 @@ a.release-badge:hover {
   color: var(--text);
 }
 
-a.release-badge:hover .release-caption {
+a.release-badge:hover .release-version {
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 a.release-badge:hover .release-arrow {
@@ -766,19 +785,14 @@ a.release-badge:hover .release-arrow {
   background: var(--rail-raised);
 }
 
-.menu-sheet .sidenav-footer {
-  padding-inline: 14px;
-}
-
-.menu-sheet .sidenav-footer .button,
-.menu-sheet .sidenav-json,
-.menu-sheet .release-badge,
-.menu-sheet .sidenav-github {
+.menu-sheet .sidenav-action,
+.menu-sheet .release-badge {
   min-height: 44px;
 }
 
-.menu-sheet .sidenav-github {
+.menu-sheet .sidenav-icon {
   width: 44px;
+  height: 44px;
 }
 
 html:has(.menu-sheet[open]) {
