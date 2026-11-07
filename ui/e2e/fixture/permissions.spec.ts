@@ -1,13 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import type { PermissionEditRequest } from '../src/contract'
-import { normalizeOverviewView } from '../src/model/normalize'
+import type { PermissionEditRequest } from '../../src/contract'
+import { normalizeOverviewView } from '../../src/model/normalize'
 
 const shared = '.agnostic-ai/settings/permissions.yaml'
 const personal = '.agnostic-ai/local/settings/permissions.yaml'
 
 async function setup(page: Page, override = false) {
-  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
+  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
   const authority = data.sections.find((section) => section.id === 'authority')!
   authority.items = []
   authority.findings = []

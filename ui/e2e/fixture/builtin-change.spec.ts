@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import type { BuiltinChange } from '../src/builtin-change'
+import type { BuiltinChange } from '../../src/builtin-change'
 
-const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 type State = BuiltinChange & { schemaVersion: string }
 
 async function session(page: Page, details: Partial<Pick<BuiltinChange, 'targets' | 'findings' | 'changes'>> = {}) {
@@ -80,7 +80,7 @@ async function session(page: Page, details: Partial<Pick<BuiltinChange, 'targets
 for (const width of [390, 1440]) {
   test(`keeps a preview with every target compact and its full notes available at ${width}px`, async ({ page, context }) => {
     await page.setViewportSize({ width, height: 900 })
-    const targets = readFileSync(new URL('../../docs/site/data/capabilities.toml', import.meta.url), 'utf8').split('[[targets]]').slice(1).map((block) => block.match(/id = "([^"]+)"/)![1])
+    const targets = readFileSync(new URL('../../../docs/site/data/capabilities.toml', import.meta.url), 'utf8').split('[[targets]]').slice(1).map((block) => block.match(/id = "([^"]+)"/)![1])
     const notes = targets.flatMap((target) => Array.from({ length: 8 }, (_, index) => `${target}: review note ${index + 1} for this tool`))
     notes.push('A note without a tool prefix.')
     const findings = ['This preview also applies pending source changes.', ...notes]

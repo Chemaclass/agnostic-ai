@@ -159,10 +159,10 @@ Overview JSON, at the foot of the sidebar, opens the JSON inspector with the ove
 parsing, and the fixture's conformance to the contract. Point them at
 real server output with `OVERVIEW_FIXTURE` (a path relative to `ui/`).
 
-**Fixture browser tests** exercise rendering, themes, keyboard controls,
+**Fixture browser tests** (`e2e/fixture/`) exercise rendering, themes, keyboard controls,
 and accepted/refused edit responses. The edit responses are mocked.
 
-**Live browser tests** (`e2e/live.spec.ts`) start the built Go server
+**Live browser tests** (`e2e/live/`) start the built Go server
 against temporary project and user sources. They load the embedded client without `--ui`, use real API requests,
 reload persisted edits, enforce browser boundaries, list tools from a
 local fake MCP server, and exercise the Vite proxy. They do not read or

@@ -698,10 +698,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Compile
-        run: npm run compile
-
-      - name: Test
+      # npm test compiles first.
+      - name: Compile and test
         run: npm test
 
       - name: Package
@@ -739,11 +737,9 @@ jobs:
             editors/jetbrains/.gradle
           key: gradle-${{ hashFiles('editors/jetbrains/**/*.gradle*', 'editors/jetbrains/gradle/wrapper/gradle-wrapper.properties') }}
 
-      - name: Test
-        run: ./gradlew --no-daemon test
-
-      - name: Build plugin
-        run: ./gradlew --no-daemon buildPlugin
+      # One Gradle start instead of two cold ones.
+      - name: Test and build plugin
+        run: ./gradlew --no-daemon test buildPlugin
 
   ui:
     name: Web client

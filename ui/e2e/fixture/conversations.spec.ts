@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { saveScreenshot } from './helpers'
+import { saveScreenshot } from '../helpers'
 
-const overview = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
-const conversations = JSON.parse(readFileSync(new URL('../src/fixtures/conversations.mock.json', import.meta.url), 'utf8'))
+const overview = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const conversations = JSON.parse(readFileSync(new URL('../../src/fixtures/conversations.mock.json', import.meta.url), 'utf8'))
 
 // The fixture's rows fall on Open now, Today, Yesterday, This week, and
 // Earlier for this time in Berlin.
