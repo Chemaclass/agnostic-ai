@@ -10,6 +10,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
 
+- The Lifecycle page shows its stages as a timeline with a filled dot for each stage that runs a hook, names each tool next to its logo, and shows a count only above zero instead of "Hooks 0" and "No hooks" on every stage. With no hooks it uses the shared empty state with the tools that support them. A turned-off hook shows as off, and its stage counts it as "turned off". Saving a hook reports through the same notice as the other pages.
+
 - The Tools page says what your agents can use, counts only MCP servers that are turned on, notes how many are turned off, and shows each turned-off server as off. Saving a server as a spec reports through the same notice as the other pages (#3145).
 
 - The web interface takes the Mineral look: bone paper, a slate rail that asks each section's question over a live summary, Fraunces headings (replacing Archivo Narrow), ink pill buttons and verdigris links. Phones get a top bar with the finding count, Search and **Menu** over one row of page links (#3120).
