@@ -8,9 +8,6 @@ import { fileURLToPath } from 'node:url'
 
 const uiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const binary = resolve(process.env.AGNOSTIC_E2E_BIN ?? join(uiRoot, '..', process.platform === 'win32' ? 'agnostic-ai.exe' : 'agnostic-ai'))
-// A private port, away from the default 4310 range and the preview port.
-const PORT = 4274
-const URL = `http://127.0.0.1:${PORT}/`
 
 async function exists(path: string) {
   try {
@@ -31,14 +28,15 @@ async function stop(child: ChildProcess) {
 }
 
 async function waitForServer(child: ChildProcess) {
-  await new Promise<void>((accept, reject) => {
+  return new Promise<string>((accept, reject) => {
     let output = ''
     const timer = setTimeout(() => reject(new Error(`Server did not start: ${output}`)), 15_000)
     child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`Server exited ${code}: ${output}`)) })
     child.stderr?.on('data', (data) => { output += data.toString() })
     child.stdout?.on('data', (data) => {
       output += data.toString()
-      if (output.includes(URL)) { clearTimeout(timer); accept() }
+      const match = output.match(/http:\/\/127\.0\.0\.1:\d+\//)
+      if (match) { clearTimeout(timer); accept(match[0]) }
     })
   })
 }
@@ -53,7 +51,7 @@ test('a project page offers to create the missing global setup and then opens it
     await mkdir(userHome, { recursive: true })
     await mkdir(project, { recursive: true })
     await writeFile(join(project, 'agnostic-ai.yaml'), 'version: 1\ntargets:\n    - claude\nbuiltins: []\n')
-    child = spawn(binary, ['serve', '--addr', `127.0.0.1:${PORT}`, '--dir', project], {
+    child = spawn(binary, ['serve', '--addr', '127.0.0.1:0', '--dir', project], {
       cwd: temporary,
       env: {
         ...process.env,
@@ -68,7 +66,7 @@ test('a project page offers to create the missing global setup and then opens it
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    await waitForServer(child)
+    const url = await waitForServer(child)
 
     // The first switch reaches the real server, which starts nothing for a missing home.
     // The second would start a server on the default range, so the test answers it.
@@ -76,10 +74,10 @@ test('a project page offers to create the missing global setup and then opens it
     await page.route('**/api/switch', async (route) => {
       switches += 1
       if (switches === 1) return route.continue()
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: URL, root: home, global: true, started: false }) })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url, root: home, global: true, started: false }) })
     })
 
-    await page.goto(URL)
+    await page.goto(url)
     await page.getByRole('button', { name: 'Open global settings' }).click()
 
     const panel = page.getByRole('dialog', { name: 'No global setup yet' })
@@ -98,7 +96,7 @@ test('a project page offers to create the missing global setup and then opens it
     const tab = await popup
     await expect(panel).toBeHidden()
     await expect(page.locator('.config-switch').getByRole('status')).toHaveText(`Created ${home}. Add files, then run "agnostic-ai sync --global".`)
-    await expect.poll(() => tab.url()).toBe(URL)
+    await expect.poll(() => tab.url()).toBe(url)
 
     expect(await readFile(join(home, 'agnostic-ai.yaml'), 'utf8')).toBe('version: 1\n')
     expect(await readFile(join(home, '.gitignore'), 'utf8')).toBe('/local/\n')
