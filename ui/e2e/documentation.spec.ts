@@ -41,7 +41,7 @@ test('links each source section to its documentation, including empty sections',
     await expect(link).toHaveAttribute('href', `https://agnostic-ai.org/docs/${path}`)
     await expect(link).toHaveAttribute('target', '_blank')
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
-    await expect(page.getByRole('heading', { name: 'Coding tool support', exact: true }).locator('..').getByRole('link')).toHaveAttribute('href', 'https://agnostic-ai.org/docs/target-behavior/')
+    await expect(page.locator('details.support-block').getByRole('link', { name: /^Documentation for/ })).toHaveAttribute('href', 'https://agnostic-ai.org/docs/target-behavior/')
   }
 })
 

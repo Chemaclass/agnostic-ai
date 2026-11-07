@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { API, type ItemFinding, type NativeServer, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type TargetSupport, type TargetValue, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
@@ -19,7 +19,7 @@ import { useServedConfig } from './Shell'
 import { SectionTabs } from './SectionTabs'
 import { SourceContent } from './SourceContent'
 import { HookDetails } from './HookDetails'
-import { SectionHeading } from './SectionHeading'
+import { DocLink, SectionHeading } from './SectionHeading'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
@@ -71,11 +71,10 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
           <ConfiguredTools.Provider value={data.targets}>
             <EditAudienceProvider key={`${data.snapshot.project.root}:${section.id}`} enabled={section.id === 'settings' || section.id === 'tools' || section.id === 'authority'}>
-              <SectionContents section={section} />
+              <SectionContents section={section} support={<SupportTable key={section.id} section={section} toolLabel={toolLabel} />} />
             </EditAudienceProvider>
           </ConfiguredTools.Provider>
         </ConfigurationRoot.Provider>
-        <SupportTable section={section} toolLabel={toolLabel} />
       </fieldset>
     </>
   )
@@ -109,13 +108,13 @@ function hasChanges(section: Section) {
   return section.items.some((item) => item.kind === 'builtin') || (section.fields ?? []).some((field) => (field.key === 'model' || field.key === 'effort') && field.editable && !field.editable.disabledReason)
 }
 
-export function SectionContents({ section }: { section: Section }) {
+export function SectionContents({ section, support }: { section: Section; support?: ReactNode }) {
   const changes = hasChanges(section)
   const personalBuiltins = section.kinds.some((kind) => kind.kind === 'builtin' && kind.local) || section.items.some((item) => item.kind === 'builtin' && item.local)
-  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
+  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} support={support} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
 }
 
-function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
+function SectionContentsBody({ section, changes, support }: { section: Section; changes: boolean; support?: ReactNode }) {
   const app = useApp()
   const audience = useViewAudience()
   const [warningsExpanded, setWarningsExpanded] = useState(false)
@@ -239,6 +238,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
       </div>
+      {support}
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
       {errors > 0 && (
@@ -1134,11 +1134,46 @@ function FindingMessage({ message }: { message: string }) {
   )
 }
 
+const narrowScreen = '(max-width: 760px)'
+
+function supportOpenKey(section: string) {
+  return `agnostic-ai.support-open:${section}`
+}
+
+function readSupportChoice(section: string): boolean | undefined {
+  try {
+    const value = window.localStorage.getItem(supportOpenKey(section))
+    return value === null ? undefined : value === '1'
+  } catch {
+    return undefined
+  }
+}
+
+function useNarrowScreen() {
+  return useSyncExternalStore((change) => {
+    const query = window.matchMedia?.(narrowScreen)
+    query?.addEventListener('change', change)
+    return () => query?.removeEventListener('change', change)
+  }, () => window.matchMedia?.(narrowScreen).matches ?? false)
+}
+
 function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (target: string) => string }) {
+  const [choice, setChoice] = useState(() => readSupportChoice(section.id))
+  // On a phone the stacked table would push the tabs below the fold.
+  const narrow = useNarrowScreen()
+  const open = choice ?? !narrow
   if (!section.support.length) return null
+  const toggle = (next: boolean) => {
+    if (next === open) return
+    setChoice(next)
+    try {
+      window.localStorage.setItem(supportOpenKey(section.id), next ? '1' : '0')
+    } catch { /* The choice lasts until this page reloads. */ }
+  }
   return (
-    <section className="block" aria-labelledby="support-title">
-      <SectionHeading topic="support" id="support-title">Coding tool support</SectionHeading>
+    <details className="block support-block" open={open} onToggle={(event) => toggle(event.currentTarget.open)}>
+      <summary className="support-summary"><h2 id="support-title">Coding tool support</h2></summary>
+      <DocLink topic="support" />
       <div className="table-wrap">
         <table className="table support-table" role="table" aria-labelledby="support-title">
           <thead role="rowgroup">
@@ -1181,6 +1216,6 @@ function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (ta
           </tbody>
         </table>
       </div>
-    </section>
+    </details>
   )
 }
