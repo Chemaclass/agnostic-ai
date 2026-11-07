@@ -72,7 +72,7 @@ test.describe('overview', () => {
     await page.goto('./?view=tools&tab=native')
     const row = page.getByRole('region', { name: /Found in tools/ }).locator('.item-row', { hasText: native.name })
     const scope = page.getByRole('region', { name: /Found in tools/ }).locator('.edit-scope')
-    await expect(scope.getByRole('group', { name: 'Save new specs for' })).toBeVisible()
+    await expect(scope.getByRole('group', { name: 'Save new servers for' })).toBeVisible()
     await expect(scope).toContainText('Project files, tracked by Git.')
     await expect(scope.getByRole('button', { name: 'Project (committed)', exact: true })).toHaveText('Project')
     const scopeBox = await scope.boundingBox()
@@ -94,7 +94,7 @@ test.describe('overview', () => {
     await expect(saved).toContainText('Run agnostic-ai sync')
     await expect(saved.locator('.banner-success')).toBeVisible()
     await expect(row).toHaveCount(0)
-    await expect(page.getByRole('group', { name: 'Save new specs for' })).toHaveCount(0)
+    await expect(page.getByRole('group', { name: 'Save new servers for' })).toHaveCount(0)
     expect(calls).toEqual([
       { action: 'preview', audience: 'shared', name: native.name, target: native.holders[0].target, path: native.holders[0].path, scope: native.holders[0].scope },
       { action: 'apply', audience: 'shared', name: native.name, target: native.holders[0].target, path: native.holders[0].path, scope: native.holders[0].scope, expected: 'reviewed-server' },
@@ -103,6 +103,22 @@ test.describe('overview', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync')
     await page.getByRole('button', { name: 'Dismiss' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toHaveCount(0)
+  })
+
+  test('keeps a long saved file path inside the page at 390', async ({ page }) => {
+    const name = 'a-server-with-a-very-long-name-that-has-no-break-points-at-all-so-the-path-is-long'
+    const data = structuredClone(fixture)
+    const tools = data.sections.find((section: { id: string }) => section.id === 'tools')!
+    tools.native![0].name = name
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.route('**/api/edit/mcp', (route) => route.fulfill({ json: { file: `.agnostic-ai/mcps/${name}.yaml`, spec: `name: ${name}\n`, variables: [], targets: ['claude'], syncCommand: 'agnostic-ai sync', expected: 'reviewed-server' } }))
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('./?view=tools&tab=native')
+    const row = page.getByRole('region', { name: /Found in tools/ }).locator('.item-row', { hasText: name })
+    await row.getByRole('button', { name: 'Make it a spec' }).click()
+    await row.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 
   test('drops a native server preview when its audience changes and shows import refusals', async ({ page }) => {

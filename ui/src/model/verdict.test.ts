@@ -19,6 +19,14 @@ describe('section verdict', () => {
     expect(sectionVerdict(section('lifecycle'))).toBe('No hooks are set yet.')
   })
 
+  it('says what the setup configures when no set-up tool supports MCP servers', () => {
+    const tools = (supported: string[], unsupported: string[]) => ({ ...section('tools'), support: [{ kind: 'mcp', label: 'MCP servers', supported, unsupported }] })
+    expect(sectionVerdict(tools([], ['kiro']))).toBe('Your setup configures 3 MCP servers.')
+    expect(sectionVerdict(tools([], []))).toBe('Your setup configures 3 MCP servers.')
+    expect(sectionVerdict({ ...section('tools'), support: undefined })).toBe('Your setup configures 3 MCP servers.')
+    expect(sectionVerdict(tools(['claude'], []))).toBe('Your agents can use 3 MCP servers.')
+  })
+
   it('names the first count and skips empty permission lists', () => {
     expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.ask', 1), list('permissions.deny', 2)])] })).toBe('Your rules ask before 1 action and block 2.')
     expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.deny', 1)])] })).toBe('Your rules block 1 action.')

@@ -338,14 +338,14 @@ In the browser:
 - **Docs** beside each section heading opens the matching spec or reference page in a new tab, including empty sections.
 - **Authority** lists permission files and rules. **Add rules** or **Edit rules** opens an editor for Allow, Ask first, or Always blocked; preview the source-file change before saving. Protected paths are editable there too, and the default permission mode in the global view. See [permission editing](#permission-editing).
 - **Tools** lists the MCP server specs.
-  - In `view --json`, each MCP item carries `fields` with only `disabled`; a local override's value wins. A turned-off server is left out of the counts and shown as off.
+  - In `view --json`, an MCP item whose spec sets `disabled` carries it in `fields`, and a local override's value wins. A turned-off server is left out of the verdict and rail counts and shown as off.
   - Under **Found in tools**, it also lists servers a configured tool keeps in its own MCP file that no spec of the same name covers, such as one you signed in to from inside Claude Code.
   - Each native row names the server, the tool or tools that hold it, the file (`~/.claude.json`, `.mcp.json`), and the transport. It also shows the `agnostic-ai import <tool>` command that turns the server into a spec (`import --global <tool>` for a user file).
   - A project page reads each tool's project and user files, plus Claude Code's servers for this project under `projects` in `~/.claude.json`. `--global` reads user files only.
   - A native row has no command when no import reads its file, such as Claude Code's per-project servers or an `outputs` MCP file path the tool's import does not follow.
   - Native rows hide the server's own command, arguments, URL, environment, and header values. A file the page cannot read adds no row.
   - The JSON overview carries these rows as `native` on the Tools section.
-- **View and edit** below the Permissions, Built-ins, or Preferences heading switches between Project (Global in the global view) and Local values. **Save new specs for** above the native server list chooses Project or Local for **Make it a spec**.
+- **View and edit** below the Permissions, Built-ins, or Preferences heading switches between Project (Global in the global view) and Local values. **Save new servers for** above the native server list chooses Project or Local for **Make it a spec**.
 - **Make it a spec** on a native-only server previews one spec file, its contents, the variables you must set, and the tools it will reach after sync.
 - **Apply** saves the spec using the [MCP import rules](@/docs/spec-format/mcp-import.md), then asks you to run `agnostic-ai sync` (or `sync --global`).
 - Project and Global saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the global home. Local saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
