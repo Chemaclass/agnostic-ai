@@ -168,7 +168,7 @@
     "src/styles/overlays.css": "9657559ce4783051b1dee81fd14c2b93999b40b4228b477eda219eb2a8d9d160",
     "src/styles/settings.css": "93a6a60a389133710a643ffec13ab3e739a40e5598eb5e4e0cb1aeb77aab3c2b",
     "src/styles/shell.css": "20a68a2bb3b1beb4ac260ebc26b8669599a4b78b094b73eaeb57821220ad2c79",
-    "src/styles/tokens.css": "18a7ead7d5143c98f9c9c4d5b159ecbc7394d46aaca72169185d2d524822dd01",
+    "src/styles/tokens.css": "75353e7a40955e299243ffeaa41615052eeeb1fe03fbed9571e8fa59da9af0cc",
     "src/styles/tokens.test.ts": "01f232165f87c9188925afcc37d808f0b36d4ed633e13ea7af3d1a66eda17a42",
     "src/styles/tools.css": "187f076e1ff1902454261154ed2a1b340422c6781527731f1382ea1f3bbf0a3b",
     "src/vite-env.d.ts": "2ead27e0f654eb53926df1439827e24aba232f3c3a413847b5862ee447b3f122",
@@ -184,12 +184,12 @@
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
-    "assets/index-By2s_Mwr.css": "23dbbcf5d2f7cbd26d40ec02fb60ccc9835c09edb19806de9eb270ca4814ba3c",
-    "assets/index-DcwDUg96.js": "d5c20258096db15c525678e502af268a9af3cc17de37bbb75fb3608d530b190e",
+    "assets/index-Bt2sV4zo.css": "898dc048c3c417fb758948306661976cde8d18359f1616335f5021e4d47bbfb9",
+    "assets/index-ChJuarQy.js": "d5c20258096db15c525678e502af268a9af3cc17de37bbb75fb3608d530b190e",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-DVgQrhSU.js": "fad0c9bffcea34c944bbd923714674b27452fe0d8b3c909156878c2a08002cdc",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "109feb6df9ac646bb6aee22e51b287a0d740cd08db7fbbcaaa09d7f7f330d234",
+    "index.html": "649f6da8ee1e3f8959bf6877963041b28fcf901e29e3f25cb2931a5edc684d31",
     "third-party-notices.txt": "c1a1591ee63d396db2899a42b979e5167f8dc028808662c86d7b0bcdbf98dc84"
   }
 }
