@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"slices"
-	"strings"
 	"syscall"
 	"time"
 
@@ -171,7 +170,7 @@ func newSyncCmd() *cobra.Command {
 							return err
 						}
 						for _, p := range dropped {
-							if p != ".agnostic-ai" && !strings.HasPrefix(p, ".agnostic-ai/") {
+							if !inSpecsFolder(p) {
 								kept = true
 							}
 						}

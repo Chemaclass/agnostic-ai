@@ -22,6 +22,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, each section page opens with a verdict sentence, such as "Your rules allow 11 actions, ask before 3, and block 4.", and one facts line with the finding count and any tool that ignores what is configured. Then one filter row with **Docs**, the tabs and the content; coding tool support folds closed below it with a summary such as "3 of 3 tools support rules, agents, and skills". Findings are cards with **Copy prompt** and **Details**, an empty type says what it is and which tools support it, and counts show only above zero (#3121).
 
+- In the web interface, **Context size** shows its totals in the Mineral style, with a share bar beside each percentage. Source types use plain names (instructions file, tool wrapper text, skill name and description) under a **Type** column, **Reread specs** is now **Read again**, and copying or moving a file to the other level reports success or failure in one notice with **Dismiss** (#3120).
+
 - In the web interface, the permission and protected path editors use **Preview**, **Apply** and **Cancel**, mark added and removed lines in the diff, and show saved, failed and overridden states as one notice with **Dismiss** (#3121). After **Apply** or **Reload saved values**, they wait for the refreshed rules before offering the next change, so a quick next step no longer fails as changed after editing began.
 
 - In the web interface, **Setup health** opens with one sentence, such as "1 thing needs a fix, and 3 more are worth a look.", a facts line that says whether the data was checked just now or comes from a saved snapshot, and a row of bars for the features your tools support, filled for those in use. Findings sit under **Needs a fix** and **Worth a look**, suggestions are plain rows that name tools by name, and **Recheck all** reports in a notice. On every page, recheck results say "configuration check" and "setup check" instead of "lint" and "doctor" (#3120).
@@ -124,6 +126,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `lint` warns (LINT059) when an MCP `timeout` under 1000 reaches Crush, Pi or Junie; it most likely holds seconds.
 
 - **Conversations** lists Codex and Cursor chats on Windows, marks a Codex thread open when `~/.codex` or `CODEX_HOME` is a symlink, marks a Cursor chat open when its folder name has a character such as `@`, rereads a cursor-agent chat only when it changes, and withholds a prompt that passes `curl -u user:password` or `--user` (#3119).
+
+- On Windows, `sync -t <tool> --allow-empty-targets --dry-run` no longer names that tool's own files and skill links as removals, and `sync --check` with an empty targets list passes once every generated file is gone (#3142).
 
 ### By tool
 

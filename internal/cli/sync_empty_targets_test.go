@@ -372,7 +372,7 @@ func TestSyncCheck_EmptyTargetsReportsUnreadableLedger(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := runCLI(t, "sync", "--check")
-	if err == nil || !strings.Contains(err.Error(), emptyTargetsStatePath) {
+	if err == nil || !strings.Contains(err.Error(), filepath.FromSlash(emptyTargetsStatePath)) {
 		t.Errorf("check did not report unreadable ledger: %v\n%s", err, out)
 	}
 }

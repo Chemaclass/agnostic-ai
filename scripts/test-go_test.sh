@@ -62,6 +62,13 @@ function test_race_flag_adds_race_and_disables_the_cache() {
   assert_equals $'test\n-count=1\n-race\n-timeout=20m\n./internal/cli\n-skip\n^Test([A-L]|Sync)' "$(cat "$dir/calls/rest")"
 }
 
+function test_short_flag_skips_the_slow_tests() {
+  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" "$SCRIPT_DIR/test-go.sh" --short
+  assert_successful_code "$?"
+  assert_equals $'test\n-short\n-timeout=20m\nexample/cmd\nexample/tests/integration' "$(cat "$dir/calls/other")"
+  assert_equals $'test\n-short\n-timeout=20m\n./internal/cli\n-run\n^Test[A-H]' "$(cat "$dir/calls/a-h")"
+}
+
 function test_rejects_unknown_arguments() {
   local result=0
   PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" "$SCRIPT_DIR/test-go.sh" --bogus 2>/dev/null || result=$?

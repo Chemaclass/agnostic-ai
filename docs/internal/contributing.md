@@ -28,6 +28,7 @@ Use this section to choose checks for contributions, audit fixes, and PR review.
 | Change | Checks |
 |---|---|
 | Adapter, shared Go, runtime behavior, or unknown impact | `make ci-local`; focused package and integration tests for the acceptance scenario |
+| Inner edit loop, before the checks above | `make test-short`: skips end-to-end and timing tests, so it never replaces a gate |
 | Concurrency | `make test-race` (included in `make ci-local`) |
 | Dependencies (`go.mod`) or binary size | `make size-check` (included in `make ci-local`); raise [`scripts/binary-size-budget`](../../scripts/binary-size-budget) only when the growth is worth it, and say why in the PR |
 | Shell scripts or CLI end-to-end behavior | `make test-shell` (included in `make ci-local`, requires bashunit on PATH) |

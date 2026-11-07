@@ -35,12 +35,19 @@ func warnEmptyTargetsIgnoring(w io.Writer) {
 	_, _ = fmt.Fprintf(w, "  %s %s; ignoring -t\n", term.Bang(w), emptyTargetsWarning)
 }
 
+// inSpecsFolder reports whether path, with either separator, is the
+// project's .agnostic-ai folder or under it.
+func inSpecsFolder(path string) bool {
+	slash := filepath.ToSlash(path)
+	return slash == ".agnostic-ai" || strings.HasPrefix(slash, ".agnostic-ai/")
+}
+
 // generatedFilesKept reports whether the last sync recorded a file that is
 // still on disk, apart from the project's own .agnostic-ai folder. With an empty targets list sync keeps these files, so
 // --check cannot say they are current.
 func generatedFilesKept(cfg *config.Config, ledger ledgerSnapshot) bool {
 	for _, p := range ledger.state.Outputs {
-		if p == ".agnostic-ai" || strings.HasPrefix(p, ".agnostic-ai/") {
+		if inSpecsFolder(p) {
 			continue
 		}
 		if _, err := os.Lstat(p); err == nil {
@@ -67,11 +74,12 @@ func emptyTargetsRemovals(cfg *config.Config, ledger ledgerSnapshot, reports []d
 	if ledger.missing() {
 		return driftReport{Target: ledgerReport}
 	}
+	// Keyed like the ledger, with the OS path separator.
 	emitted := map[string]bool{}
 	for _, r := range reports {
 		for _, list := range [][]adapters.CapturedFile{r.Current, r.Missing, r.Stale, r.Edited} {
 			for _, f := range list {
-				emitted[filepath.ToSlash(f.Path)] = true
+				emitted[f.Path] = true
 			}
 		}
 	}
@@ -112,7 +120,7 @@ func plannedSkillLinks(cfg *config.Config, b spec.Bundle, targets []string) (map
 		return nil, err
 	}
 	for _, l := range shared.links {
-		links[filepath.ToSlash(l.path)] = true
+		links[l.path] = true
 	}
 	return links, nil
 }
