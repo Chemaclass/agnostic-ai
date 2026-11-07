@@ -59,15 +59,18 @@ func cursorUserDir(home string) string {
 }
 
 // Scanner reads the stores. It keeps what it parsed from each Claude
-// Code file until the file changes, so a refresh rereads only new chats.
+// Code file and cursor-agent chat until the file changes, so a refresh
+// rereads only new chats.
 type Scanner struct {
 	Stores    Stores
 	SQLite    SQLiteQuery
 	Processes Processes
 	Now       func() time.Time
 
-	mu     sync.Mutex
-	claude map[string]claudeCacheEntry
+	mu                sync.Mutex
+	claude            map[string]claudeCacheEntry
+	cursorAgents      map[string]cached[cursorAgentMeta]
+	cursorTranscripts map[string]cached[[2]string]
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
