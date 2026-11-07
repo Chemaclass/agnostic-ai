@@ -56,8 +56,9 @@ describe('section facts', () => {
     expect(ignoredFacts({ ...empty('context', [kind('skill', 'Skills', 0)]), support: [{ kind: 'skill', label: 'Skills', supported: [], unsupported: ['kiro'] }] }, name)).toEqual([])
   })
 
-  it('keeps review instructions whole', () => {
-    expect(sectionVerdict(empty('context', [kind('review', 'Review instructions', 1)]))).toBe('Your setup gives agents 1 review instructions.')
+  it('counts review instructions as files', () => {
+    expect(sectionVerdict(empty('context', [kind('review', 'Review instructions', 1)]))).toBe('Your setup gives agents 1 review instructions file.')
+    expect(sectionVerdict(empty('context', [kind('review', 'Review instructions', 2)]))).toBe('Your setup gives agents 2 review instructions files.')
   })
 
   it('adds what the verdict leaves out', () => {
