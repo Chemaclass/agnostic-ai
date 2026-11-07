@@ -2969,6 +2969,8 @@ tr.is-advised > td {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 24px;
+  /* auto-fit sizes its min-content to the 860px cap; let the column shrink it. */
+  min-width: 0;
   max-width: 860px;
   padding-block: 8px;
 }
