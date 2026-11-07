@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, labels use plain words: Settings asks "How are your tools set up?", its kinds are **Preferences** and **Config files** as their tabs say, the Tools tab for configured servers reads **MCP servers** like its heading, and Lifecycle stage descriptions say "A hook here can block the prompt" instead of naming exit codes. `view --json` carries the new labels and descriptions; ids and keys are unchanged.
+
 - The web interface links to the agnostic-ai repository at the foot of the sidebar, and to the project's own GitHub repository in the top bar when the project's `origin` remote is on GitHub; `/api/views/overview` adds `repository` with `url` and `name` (#3111).
 
 - In the web interface, **Context size** no longer scrolls sideways on a phone while its report loads.

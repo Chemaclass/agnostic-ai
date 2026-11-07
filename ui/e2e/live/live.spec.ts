@@ -1045,7 +1045,7 @@ test('live global Tools makes one native server a spec and refuses credentials i
     await expect(readFile(join(f.root, 'mcps', 'notion.yaml'))).rejects.toThrow()
     await preview.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect(notion).toHaveCount(0)
-    await selectTab(page, 'Configured servers')
+    await selectTab(page, 'MCP servers')
     await expect(page.getByRole('region', { name: /^MCP servers/ }).locator('.item-row', { hasText: 'notion' })).toBeVisible()
     await selectTab(page, 'Found in tools')
     const saved = await readFile(join(f.root, 'mcps', 'notion.yaml'), 'utf8')

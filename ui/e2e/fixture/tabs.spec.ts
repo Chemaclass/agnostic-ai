@@ -33,7 +33,7 @@ async function loadTabs(page: Page) {
 test('switches between configured servers and native servers without mixing their content', async ({ page }) => {
   await loadTabs(page)
   await page.goto('/?view=tools')
-  const configured = page.getByRole('tab', { name: /^Configured servers/ })
+  const configured = page.getByRole('tab', { name: /^MCP servers/ })
   const native = page.getByRole('tab', { name: /^Found in tools/ })
   await expect(configured).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('region', { name: /^MCP servers/ }).getByText('github', { exact: true })).toBeVisible()
@@ -60,19 +60,19 @@ test('keeps the tab in reload and browser history and resets it when changing pa
   await page.goBack()
   await expect(page.getByRole('tab', { name: /^Found in tools/ })).toHaveAttribute('aria-selected', 'true')
   await page.goBack()
-  await expect(page.getByRole('tab', { name: /^Configured servers/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^MCP servers/ })).toHaveAttribute('aria-selected', 'true')
   await selectTab(page, 'Found in tools')
   await page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: /^Context/ }).click()
   expect(new URL(page.url()).searchParams.has('tab')).toBe(false)
   await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
   await page.goto('/?view=tools&tab=unknown-panel')
-  await expect(page.getByRole('tab', { name: /^Configured servers/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^MCP servers/ })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('activates tabs with arrow, Home and End keys and connects each tab to its panel', async ({ page }) => {
   await loadTabs(page)
   await page.goto('/?view=tools')
-  const configured = page.getByRole('tab', { name: /^Configured servers/ })
+  const configured = page.getByRole('tab', { name: /^MCP servers/ })
   const native = page.getByRole('tab', { name: /^Found in tools/ })
   const environment = page.getByRole('tab', { name: /^Environments/ })
   await configured.focus()
@@ -100,9 +100,9 @@ test('search selects matching tabs and clearing search keeps the current panel',
   await loadTabs(page)
   await page.goto('/?view=tools&q=notion')
   await expect(page.getByRole('tab', { name: /^Found in tools/ })).toHaveAttribute('aria-selected', 'true')
-  await selectTab(page, 'Configured servers')
+  await selectTab(page, 'MCP servers')
   await expect(page.getByRole('searchbox', { name: 'Search tools' })).toHaveValue('notion')
-  await expect(page.getByRole('tab', { name: /^Configured servers/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^MCP servers/ })).toHaveAttribute('aria-selected', 'true')
   await page.getByRole('searchbox', { name: 'Search tools' }).fill('environment-bootstrap')
   expect(new URL(page.url()).searchParams.has('tab')).toBe(false)
   await expect(page.getByRole('tab', { name: /^Environments/ })).toHaveAttribute('aria-selected', 'true')
@@ -127,7 +127,7 @@ test('opens the owning tab for a deep entry and clears that entry on manual tab 
   const data = await loadTabs(page)
   const github = data.sections.find((section) => section.id === 'tools')!.items.find((item) => item.name === 'github')!
   await page.goto(`/?view=tools&tab=native&q=notion&entry=${encodeURIComponent(itemEntryId(github))}`)
-  await expect(page.getByRole('tab', { name: /^Configured servers/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^MCP servers/ })).toHaveAttribute('aria-selected', 'true')
   await expect(page.locator('.item-row.is-linked')).toBeFocused()
   await expect(page.locator('.item-row.is-linked')).toContainText('github')
   await selectTab(page, 'Found in tools')
@@ -192,7 +192,7 @@ test('keeps support and section findings available outside panels and leaves Aut
   const data = await loadTabs(page)
   data.sections.find((section) => section.id === 'tools')!.findings = [{ source: 'doctor', severity: 'warn', message: 'Tools configuration warning.' }]
   await page.goto('/?view=tools')
-  for (const tab of ['Configured servers', 'Found in tools', 'Environments']) {
+  for (const tab of ['MCP servers', 'Found in tools', 'Environments']) {
     await selectTab(page, tab)
     await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
     const finding = page.getByText('Tools configuration warning.', { exact: true })
@@ -214,7 +214,7 @@ test('keeps every selected panel within a phone viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   for (const [view, tabs] of [
     ['context', ['Context size', 'Guidance', 'Rules', 'Agents', 'Skills']],
-    ['tools', ['Configured servers', 'Found in tools', 'Environments']],
+    ['tools', ['MCP servers', 'Found in tools', 'Environments']],
     ['settings', ['Built-ins', 'Coding tools', 'Preferences', 'Config files', 'Editor']],
   ] as const) {
     await page.goto(`/?view=${view}`)

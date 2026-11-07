@@ -41,7 +41,7 @@ test('opens the tab that holds a kind from its support row and moves to its head
   await expect(page.getByRole('heading', { level: 2, name: /^Agents/ })).toBeFocused()
 })
 
-for (const [view, kind, heading] of [['tools', 'MCP servers', /^MCP servers/], ['lifecycle', 'Hooks', /^Hooks/], ['authority', 'Permissions', /^Permissions/], ['settings', 'Other settings', /^Other settings/]] as const) {
+for (const [view, kind, heading] of [['tools', 'MCP servers', /^MCP servers/], ['lifecycle', 'Hooks', /^Hooks/], ['authority', 'Permissions', /^Permissions/], ['settings', 'Preferences', /^Preferences/]] as const) {
   test(`links the ${kind} support row to its heading on ${view}`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 700 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
