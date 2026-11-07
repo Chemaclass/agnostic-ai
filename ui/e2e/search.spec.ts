@@ -183,6 +183,22 @@ test.describe('search across sections', () => {
     await expect(page.locator('.item-row.is-linked .item-main strong')).toHaveText('github')
   })
 
+  test('reveals the same entry again when it is opened a second time', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('./?view=tools')
+    const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
+    const linked = page.locator('.item-row.is-linked')
+    for (let pass = 0; pass < 2; pass++) {
+      await page.getByRole('button', { name: 'Search', exact: true }).click()
+      await dialog.getByRole('combobox').fill('github')
+      await page.keyboard.press('Enter')
+      await expect(linked).toBeFocused()
+      await expect(linked).toBeInViewport()
+      await page.getByRole('heading', { level: 1 }).focus()
+      await page.evaluate(() => window.scrollTo(0, 0))
+    }
+  })
+
   test('links findings and unconfigured settings, and opens results with the mouse', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('./?view=tools')

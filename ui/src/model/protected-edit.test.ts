@@ -17,13 +17,25 @@ describe('protected paths editing', () => {
   it('reads the block each file writes and leaves an absent decision empty', () => {
     expect(protectedSelection(field, [], project)).toEqual({
       shared: { paths: ['.github/**', 'composer.lock'], decision: '', reason: 'CI only.' },
-      personal: null, merged: { paths: ['.github/**', 'composer.lock'], decision: '', reason: 'CI only.' }, personalSet: false, personalPath: local,
+      personal: null, merged: { paths: ['.github/**', 'composer.lock'], decision: '', reason: 'CI only.' }, personalSet: false, personalCleared: false, personalPath: local,
     })
   })
 
   it('reads a local block separately from the project block', () => {
     const withLocal = { ...field, set: [...field.set, { spec: 'permissions', path: local, local: true, values: [{ key: 'protected.paths', type: 'list' as const, list: ['notes/'] }, { key: 'protected.decision', type: 'text' as const, value: 'deny' }] }] }
     expect(protectedSelection(withLocal, [], project)).toMatchObject({ personal: { paths: ['notes/'], decision: 'deny', reason: '' }, personalSet: true, personalPath: local })
+  })
+
+  it('reads a local protected: null as protection turned off for you', () => {
+    const cleared = { ...field, set: [{ spec: 'permissions', path: local, local: true, values: [{ key: 'protected', type: 'text' as const, value: 'null' }] }, ...field.set] }
+    expect(protectedSelection(cleared, [], project)).toMatchObject({ personal: null, merged: null, personalSet: true, personalCleared: true, shared: { paths: ['.github/**', 'composer.lock'] } })
+  })
+
+  it('keeps the cleared flag of a reset preview', () => {
+    const reset = { schemaVersion: 'protected-edit/v1', file: local, audience: 'personal', before: null, protected: null, cleared: true, diff: '-protected: null', expected: 'x', syncCommand: 'agnostic-ai sync' }
+    expect(parseProtectedPreview(reset)).toEqual(reset)
+    expect(parseProtectedPreview({ ...reset, cleared: undefined })).not.toHaveProperty('cleared')
+    expect(() => parseProtectedPreview({ ...reset, cleared: 'yes' })).toThrow('invalid protected paths preview')
   })
 
   it('refuses a preview without the protected block shape', () => {

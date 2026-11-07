@@ -67,6 +67,11 @@ func Display(path, body string) Result {
 	if filepath.Ext(path) == ".md" || strings.Contains(body, "```") || strings.Contains(body, "~~~") {
 		return markdown(body)
 	}
+	// Text read as TOML or YAML only by its shape may be prose, so a
+	// credential label withholds it as it does in Markdown.
+	if (tomlAssignment.MatchString(body) || yamlMapping.MatchString(body)) && labelsCredential(body) {
+		return withheld()
+	}
 	if tomlAssignment.MatchString(body) {
 		return structured("toml", body)
 	}

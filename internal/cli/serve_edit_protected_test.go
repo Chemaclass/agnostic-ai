@@ -289,3 +289,60 @@ func TestProtectedEdit_LocalDraftConflictsWhenTheProjectBlockChanges(t *testing.
 		}
 	}
 }
+
+// A local `protected: null` turns the project's protected paths off for
+// you; the page resets it by removing the key, and sync protects the
+// project paths again (#3072).
+func TestProtectedEdit_ResetsALocalNullSoSyncProtectsAgain(t *testing.T) {
+	h := targetProject(t, "name: defaults\nprotected:\n  paths: [.github/**]\n  decision: deny\n")
+	isolateGit(t)
+	git(t, h.root, "init", "-q")
+	local := ".agnostic-ai/local/settings/defaults.yaml"
+	mustWrite(t, local, "name: defaults\nmodel: haiku\nprotected: null\n")
+	denies := func() bool {
+		t.Helper()
+		if out, err := runCLI(t, "sync", "--only", "claude"); err != nil {
+			t.Fatalf("sync: %v\n%s", err, out)
+		}
+		var native struct {
+			Permissions struct{ Deny []string } `json:"permissions"`
+		}
+		if err := json.Unmarshal([]byte(readProjectFile(t, ".claude/settings.json")), &native); err != nil {
+			t.Fatal(err)
+		}
+		return slices.Contains(native.Permissions.Deny, "Edit(/.github/**)")
+	}
+	if denies() {
+		t.Fatal("a local protected: null must turn the project paths off")
+	}
+	reset := map[string]any{"audience": "personal", "protected": nil, "before": nil}
+	preview := protectedPreview(t, h, reset)
+	if preview["cleared"] != true || preview["before"] != nil || !strings.Contains(preview["diff"].(string), "-protected: null") {
+		t.Fatalf("preview = %v", preview)
+	}
+	if rec := protectedApply(t, h, reset, preview); rec.Code != http.StatusOK {
+		t.Fatalf("apply = %d %s", rec.Code, rec.Body)
+	}
+	if got := readProjectFile(t, local); got != "name: defaults\nmodel: haiku\n" {
+		t.Fatalf("local file = %q", got)
+	}
+	if !denies() {
+		t.Fatal("after the reset sync must protect the project paths again")
+	}
+}
+
+// Saving paths in Local over a protected: null replaces the null.
+func TestProtectedEdit_LocalSaveReplacesANull(t *testing.T) {
+	h := targetProject(t, "name: defaults\nprotected:\n  paths: [.github/**]\n  decision: deny\n")
+	isolateGit(t)
+	git(t, h.root, "init", "-q")
+	local := ".agnostic-ai/local/settings/defaults.yaml"
+	mustWrite(t, local, "name: defaults\nprotected: null\n")
+	same := map[string]any{"audience": "personal", "protected": map[string]any{"paths": []string{".github/**"}, "decision": "deny", "reason": ""}, "before": nil}
+	if rec := protectedApply(t, h, same, protectedPreview(t, h, same)); rec.Code != http.StatusOK {
+		t.Fatalf("same as project = %d %s", rec.Code, rec.Body)
+	}
+	if got := readProjectFile(t, local); strings.Contains(got, "protected") {
+		t.Fatalf("matching the project removes the null: %q", got)
+	}
+}

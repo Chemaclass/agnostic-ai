@@ -2,6 +2,7 @@
 // with the same finding rows, fix prompts, and rechecks as the sections.
 
 import type { OverviewView } from '../contract'
+import { recheckAllMessage } from '../model/recheck'
 import { countFindings, gapLine, healthFixPrompt, healthGroups, healthSummary, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
 import { sectionEntryIds } from '../model/identity'
 import { AppLink, PageHeader } from './app-context'
@@ -17,7 +18,8 @@ const TITLE = 'Setup health'
 const SEVERITY_TITLES: Record<HealthSeverity, string> = { error: 'Errors', warning: 'Warnings' }
 
 export function HealthPage({ overview, stale = false }: { overview: Remote<OverviewView>; stale?: boolean }) {
-  const { rechecked } = useRechecks()
+  const recheck = useRechecks()
+  const { rechecked } = recheck
   const data = overview.loaded?.data
   if (!data) {
     return (
@@ -42,7 +44,13 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
             <span>{healthSummary(count)}</span>
           </p>
           {total > 0 && <CopyButton text={healthFixPrompt(data, data.snapshot.project.root)} label="Copy all fixes" copiedLabel="Copied" ariaLabel={total === 1 ? 'Copy the fix prompt for the one finding' : `Copy one fix prompt for all ${total} findings`} />}
+          {recheck.live && (total > 0 || recheck.all) && (
+            <button type="button" className="button health-recheck-all" aria-disabled={recheck.pending !== undefined || undefined} onClick={() => recheck.pending === undefined && recheck.startAll()}>
+              {recheck.pendingAll ? 'Rechecking…' : 'Recheck all'}
+            </button>
+          )}
         </div>
+        {recheck.live && <p className="health-recheck-result" role="status">{recheck.pendingAll ? 'Running the checks again…' : recheck.all ? recheckAllMessage(recheck.all) : ''}</p>}
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
