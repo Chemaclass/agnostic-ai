@@ -24,7 +24,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `sync --check` with an empty targets list passes once every generated file is gone (#3142).
 - Sync previews and `--check` show a shared settings file that keeps your keys as an update or as kept, not a removal (#3000).
 - Sync notes when a target drops an agent's `hooks` or `permissionMode`, and `sync --global` notes dropped fields such as `maxTurns` (#3052, #3073).
-- Built-in memory hooks write a shorter command. It runs the project's `node_modules/.bin/agnostic-ai` or the one on PATH, and `agnostic-ai project` finds the project and its pinned version.
+- Built-in memory hooks write a shorter command. It runs the project's `node_modules/.bin/agnostic-ai` or the one on PATH, and `agnostic-ai project` finds the project and its pinned version (#3173).
 - **Breaking:** Sync stops on an MCP `roots` item without a `uri` mapping; `lint` (LINT060) flags it. Write `- uri: file:///path` (#3016).
 
 #### Checks and reports
