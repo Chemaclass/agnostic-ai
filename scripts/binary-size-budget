@@ -807,4 +807,6 @@
 # Spec copy and move between project and global (#3027), merged with the
 # improvements count, measured 25116832 bytes; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-25128960
+# The Field Ledger chrome (#3026 slice 8) measured 25129120 bytes; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+25141248
