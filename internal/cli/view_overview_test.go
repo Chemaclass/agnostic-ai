@@ -193,7 +193,7 @@ func TestView_RejectsInvalidSourcesBeforeOpeningBrowser(t *testing.T) {
 				cmd := newViewCmdWithBrowser(func(string) error { opened = true; return nil })
 				cmd.SetOut(io.Discard)
 				cmd.SetErr(io.Discard)
-				args := slices.Clone(tc.args)
+				args := append([]string{}, tc.args...)
 				if asJSON {
 					args = append(args, "--json")
 				}

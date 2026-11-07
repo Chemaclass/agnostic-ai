@@ -29,7 +29,7 @@ import { addressKey, configOverride, originLabel, personalSetsWhole, personalVal
 import { builtinEnabled, comparisonValue, sourcesForAudience } from '../model/audience-view'
 import { audienceLabel, layerLabel } from '../model/edit-audience'
 import { fieldEntryId, findingEntryIds, itemEntryId, kindEntryId, sectionEntryIds } from '../model/identity'
-import { fieldSearchText, itemSearchText } from '../model/search'
+import { fieldSearchText, itemSearchText, matchesSearch } from '../model/search'
 import { filterTools, toolCount } from '../model/coding-tools'
 import { entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
@@ -147,7 +147,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const query = search.trim().toLowerCase()
-  const matches = (parts: (string | undefined)[]) => parts.some((part) => part?.toLowerCase().includes(query))
+  const matches = (parts: (string | undefined)[]) => matchesSearch(parts, query)
   const matchingItems = new Set(section.items.filter((item) => matches(itemSearchText(item))))
   const fieldMatches = section.fields?.filter((field) => matches(fieldSearchText(field)))
   const matchingFields = section.fields?.filter((field) => fieldMatches?.includes(field) || fieldEntryId(field) === entry)
