@@ -6,6 +6,17 @@ import type { SectionItem } from '../../src/contract'
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('overview', () => {
+  test('says what agents can use and shows a turned-off server as off', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('./?view=tools')
+    await expect(page.locator('.page-verdict')).toHaveText('Your agents can use 3 MCP servers.')
+    await expect(page.locator('.page-facts, .page-verdict + *').first()).toContainText('1 MCP server turned off')
+    const row = page.getByRole('region', { name: /^MCP servers/ }).locator('.item-row', { hasText: 'railway' })
+    await expect(row).toHaveClass(/is-off/)
+    await expect(row.getByText('Turned off', { exact: true })).toBeVisible()
+    await expect(page.getByText('Turned off', { exact: true })).toHaveCount(1)
+  })
+
   test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('./?view=tools')

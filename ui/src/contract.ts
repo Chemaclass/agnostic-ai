@@ -490,7 +490,7 @@ export interface SectionItem {
   group?: string
   /** What the item sets, key by key. */
   values: Value[]
-  /** For a hook: its key fields, such as the command and what it matches. */
+  /** For a hook: its key fields, such as the command and what it matches. For an MCP server: only `disabled`. */
   fields?: Value[]
   /** For a built-in: whether the config turns it on. */
   enabled?: boolean

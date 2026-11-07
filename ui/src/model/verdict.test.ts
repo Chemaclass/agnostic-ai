@@ -15,7 +15,7 @@ describe('section verdict', () => {
   it('reads every section of the mock overview in plain words', () => {
     expect(sectionVerdict(section('context'))).toBe('Your setup configures 1 rule and 3 agents.')
     expect(sectionVerdict(section('authority'))).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
-    expect(sectionVerdict(section('tools'))).toBe('Your setup configures 4 MCP servers.')
+    expect(sectionVerdict(section('tools'))).toBe('Your agents can use 3 MCP servers.')
     expect(sectionVerdict(section('lifecycle'))).toBe('No hooks are set yet.')
   })
 
@@ -124,7 +124,7 @@ describe('section facts', () => {
 
   it('adds what the verdict leaves out', () => {
     expect(sectionFacts(section('authority'))).toEqual(['2 protected paths'])
-    expect(sectionFacts(section('tools'))).toEqual(['1 more server found in your tools'])
+    expect(sectionFacts(section('tools'))).toEqual(['1 more server found in your tools', '1 MCP server turned off'])
     expect(sectionFacts(section('settings'))).toEqual(['1 config file'])
     expect(sectionFacts(section('context'))).toEqual([])
   })

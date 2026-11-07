@@ -338,6 +338,7 @@ In the browser:
 - **Docs** beside each section heading opens the matching spec or reference page in a new tab, including empty sections.
 - **Authority** lists permission files and rules. **Add rules** or **Edit rules** opens an editor for Allow, Ask first, or Always blocked; preview the source-file change before saving. Protected paths are editable there too, and the default permission mode in the global view. See [permission editing](#permission-editing).
 - **Tools** lists the MCP server specs.
+  - In `view --json`, each MCP item carries `fields` with only `disabled`; a local override's value wins. A turned-off server is left out of the counts and shown as off.
   - Under **Found in tools**, it also lists servers a configured tool keeps in its own MCP file that no spec of the same name covers, such as one you signed in to from inside Claude Code.
   - Each native row names the server, the tool or tools that hold it, the file (`~/.claude.json`, `.mcp.json`), and the transport. It also shows the `agnostic-ai import <tool>` command that turns the server into a spec (`import --global <tool>` for a user file).
   - A project page reads each tool's project and user files, plus Claude Code's servers for this project under `projects` in `~/.claude.json`. `--global` reads user files only.

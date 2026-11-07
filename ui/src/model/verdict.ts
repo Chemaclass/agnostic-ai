@@ -32,7 +32,8 @@ function authorityVerdict(section: VerdictSection): string {
 
 function toolsVerdict(section: VerdictSection): string {
   const parts = counted(section)
-  return parts.length ? `Your setup configures ${joinAnd(parts)}.` : 'Your setup configures no extra tools yet.'
+  if (parts.length) return `Your agents can use ${joinAnd(parts)}.`
+  return turnedOff(section).length ? 'No MCP servers are turned on.' : 'Your setup configures no extra tools yet.'
 }
 
 function lifecycleVerdict(section: VerdictSection): string {
