@@ -39,7 +39,7 @@ export function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { 
     return (
       <section className="block" aria-labelledby="lifecycle-hooks">
         <div className="section-head lifecycle-head">
-          <SectionHeading topic="hook" id="lifecycle-hooks" entry={kindEntryId('hook')}>Hooks</SectionHeading>
+          <SectionHeading id="lifecycle-hooks" entry={kindEntryId('hook')}>Hooks</SectionHeading>
           {addButton && <div className="lifecycle-actions">{addButton}</div>}
         </div>
         {addHook}
@@ -64,7 +64,7 @@ export function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { 
   return (
     <section ref={root} className="block" aria-labelledby="lifecycle-hooks">
       <div className="section-head lifecycle-head">
-        <SectionHeading topic="hook" id="lifecycle-hooks" entry={kindEntryId('hook')}>Hooks <span className="muted kind-count">{count}</span></SectionHeading>
+        <SectionHeading id="lifecycle-hooks" entry={kindEntryId('hook')}>Hooks <span className="muted kind-count">{count}</span></SectionHeading>
         <div className="lifecycle-actions">
           <button type="button" className="button button-quiet stage-toggle" onClick={() => setExpanded(true)}>Expand all</button>
           <button type="button" className="button button-quiet stage-toggle" onClick={() => setExpanded(false)}>Collapse all</button>

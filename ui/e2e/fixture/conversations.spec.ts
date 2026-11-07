@@ -51,14 +51,15 @@ const chips = (page: Page) => page.getByRole('list', { name: 'Sources' }).getByR
 const chip = (page: Page, label: string) => chips(page).filter({ hasText: label })
 
 test.describe('conversations', () => {
-  test('opens at the root address, first in the navigation, with open chats above the days', async ({ page }) => {
+  test('opens at the root address, right after Setup health in the navigation, with open chats above the days', async ({ page }) => {
     const mocks = await mockServer(page)
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1, name: 'Conversations', exact: true })).toBeVisible()
     await expect(page.locator('.page-verdict')).toHaveText('3 chats are open now; 1 waits for you.')
     await expect(page.locator('.page-facts')).toHaveText('9 conversations. Pick up a chat where you left it, in the tool where it lives.')
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
-    const conversationsLink = nav.getByRole('link').first()
+    await expect(nav.getByRole('link').first()).toHaveAccessibleName(/^Setup health/)
+    const conversationsLink = nav.getByRole('link').nth(1)
     await expect(conversationsLink).toHaveAccessibleName(/^Conversations/)
     await expect(conversationsLink).toHaveAttribute('aria-current', 'page')
     await expect(conversationsLink).toHaveAttribute('href', '/')

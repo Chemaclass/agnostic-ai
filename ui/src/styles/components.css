@@ -356,15 +356,15 @@ textarea:focus {
   flex-shrink: 0;
   min-height: 32px;
   padding: 4px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--text-muted);
-  text-underline-offset: 3px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-strong);
+  text-decoration: none;
 }
 
 .section-doc-link:hover {
-  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .section-doc-link .icon {
@@ -929,11 +929,27 @@ textarea:focus {
   border-inline-start-color: var(--blocked);
 }
 
+/* Above 760px the actions sit in a right column beside the text. */
 .finding-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 24px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.finding-body > * {
+  grid-column: 1 / -1;
+}
+
+.finding-text {
   display: grid;
   gap: 10px;
   min-width: 0;
-  overflow-wrap: anywhere;
+}
+
+.finding-body > .finding-text {
+  grid-column: 1;
 }
 
 .finding-label {
@@ -1013,6 +1029,17 @@ textarea:focus {
   align-items: center;
   gap: 8px 16px;
   margin-top: 4px;
+}
+
+.finding-body > .finding-actions {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  align-self: start;
+  gap: 8px;
+  margin-top: 0;
 }
 
 /* A recheck result reads as a Notice under the card's actions. */
@@ -1154,9 +1181,21 @@ textarea:focus {
     padding: 16px;
   }
 
-  .finding-actions {
+  .finding-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finding-body > .finding-actions {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .finding-actions,
+  .finding-body > .finding-actions {
     display: grid;
+    align-items: stretch;
     gap: 4px;
+    margin-top: 4px;
   }
 
   .finding-actions .finding-copy {
@@ -1236,12 +1275,6 @@ textarea:focus {
 
 .support-summary:hover h2 {
   color: var(--accent-strong);
-}
-
-.support-frame > .section-doc-link {
-  position: absolute;
-  top: 16px;
-  right: 0;
 }
 
 .support-block > .table-wrap {

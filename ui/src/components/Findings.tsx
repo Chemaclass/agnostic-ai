@@ -10,22 +10,22 @@ import { useApp } from './app-context'
 import { HEALTH_STATUS } from '../model/rail'
 import { ConfigurationRoot, useEntry } from './section-context'
 
-/** One owner's findings; pass `ids` when the list is a part of the owner's findings, so each keeps its link id, and `sectionNamed` when a heading above already names the section. */
-export function Findings({ findings, owner, place, orphanPlace, ids: givenIds, sectionNamed = false }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string; ids?: string[]; sectionNamed?: boolean }) {
+/** One owner's findings; pass `ids` when the list is a part of the owner's findings, so each keeps its link id. */
+export function Findings({ findings, owner, place, orphanPlace, ids: givenIds }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string; ids?: string[] }) {
   const ids = givenIds ?? findingEntryIds(findings, owner)
   const gone = useGoneFinding(place, ids, orphanPlace)
   if (!findings.length && !gone) return null
   return (
     <ul className="findings">
       {findings.map((f, i) => (
-        <Finding key={ids[i]} finding={f} entryId={ids[i]} place={place} sectionNamed={sectionNamed} />
+        <Finding key={ids[i]} finding={f} entryId={ids[i]} place={place} />
       ))}
-      {gone && (gone.result.state === 'incomplete' ? <Finding key={gone.id} finding={gone.finding} entryId={gone.id} place={place} sectionNamed={sectionNamed} /> : <GoneFinding rechecked={gone} />)}
+      {gone && (gone.result.state === 'incomplete' ? <Finding key={gone.id} finding={gone.finding} entryId={gone.id} place={place} /> : <GoneFinding rechecked={gone} />)}
     </ul>
   )
 }
 
-function Finding({ finding: f, entryId, place, sectionNamed }: { finding: ItemFinding; entryId: string; place: string; sectionNamed: boolean }) {
+function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId: string; place: string }) {
   const app = useApp()
   const root = useContext(ConfigurationRoot)
   const sectionId = useContext(RecheckSection)
@@ -34,23 +34,26 @@ function Finding({ finding: f, entryId, place, sectionNamed }: { finding: ItemFi
   const promptId = useId()
   const { linked, ...entry } = useEntry(entryId)
   const severity = f.severity === 'error' ? 'error' : 'warning'
-  const section = sectionId && !sectionNamed && sectionId !== app.state.view ? app.overview?.sections.find((s) => s.id === sectionId)?.label : undefined
+  const owner = sectionId && sectionId !== app.state.view ? app.overview?.sections.find((s) => s.id === sectionId) : undefined
+  const section = owner && (owner.question.replace(/\?$/, '') || owner.label)
   return (
     <li {...entry} className={`finding finding-${severity === 'error' ? 'error' : 'warn'}${linked ? ' is-linked' : ''}`}>
       <div className="finding-body">
-        <p className="finding-label">
-          <span>{section ? `${HEALTH_STATUS[severity]} · ${section}` : HEALTH_STATUS[severity]}</span>
-          {f.layer === 'global' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">global</Badge>}
-          {fresh && <Badge tone="accent">New since recheck</Badge>}
-        </p>
-        <FindingMessage message={findingTitle(f)} />
-        {f.fix && <p className="finding-fix">{f.fix}</p>}
-        {f.path ? (
-          <div className="finding-source">
-            <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
-            <OpenInEditor path={f.openPath} line={f.line} label={f.path} shownPath={f.path} />
-          </div>
-        ) : f.line ? <p className="finding-source">Line {f.line}</p> : null}
+        <div className="finding-text">
+          <p className="finding-label">
+            <span>{section ? `${HEALTH_STATUS[severity]} · ${section}` : HEALTH_STATUS[severity]}</span>
+            {f.layer === 'global' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">global</Badge>}
+            {fresh && <Badge tone="accent">New since recheck</Badge>}
+          </p>
+          <FindingMessage message={findingTitle(f)} />
+          {f.fix && <p className="finding-fix">{f.fix}</p>}
+          {f.path ? (
+            <div className="finding-source">
+              <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
+              <OpenInEditor path={f.openPath} line={f.line} label={f.path} shownPath={f.path} />
+            </div>
+          ) : f.line ? <p className="finding-source">Line {f.line}</p> : null}
+        </div>
         <div className="finding-actions">
           <CopyButton text={prompt} label="Copy prompt" copiedLabel="Copied" className="button-primary finding-copy" />
           <RecheckAction id={entryId} finding={f} place={place} />
