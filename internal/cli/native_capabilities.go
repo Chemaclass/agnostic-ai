@@ -72,9 +72,10 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	// added for V3 sessions (kiro.dev/docs/hooks/types/). `AgentSpawn`
 	// stays out: V3 accepts it only as a compatibility alias of
 	// `SessionStart` (hookEventAliases). `Manual` is documented and was
-	// missing.
+	// missing. `PreCompact` and `PostCompact` need Kiro CLI 3.1.0.
 	"kiro": setOf(
 		"SessionStart", "SessionEnd", "Stop",
+		"PreCompact", "PostCompact",
 		"PreToolUse", "PostToolUse",
 		"PreTaskExec", "PostTaskExec",
 		"UserPromptSubmit",
