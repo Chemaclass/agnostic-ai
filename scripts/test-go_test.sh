@@ -19,8 +19,10 @@ fi
 kind=other
 for arg in "$@"; do
   case "$arg" in
-    -run) kind=first ;;
-    -skip) kind=second ;;
+    '^Test[A-H]') kind=a-h ;;
+    '^Test[I-L]') kind=i-l ;;
+    '^TestSync') kind=sync ;;
+    -skip) kind=rest ;;
   esac
 done
 printf '%s\n' "$@" > "$CALLS_DIR/$kind"
@@ -44,42 +46,58 @@ function tear_down() {
 }
 
 function test_runs_all_packages_and_complementary_cli_shards() {
-  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" "$SCRIPT_DIR/test-race-macos.sh"
+  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" "$SCRIPT_DIR/test-go.sh"
+  assert_successful_code "$?"
+  assert_equals $'test\n-timeout=20m\nexample/cmd\nexample/tests/integration' "$(cat "$dir/calls/other")"
+  assert_equals $'test\n-timeout=20m\n./internal/cli\n-run\n^Test[A-H]' "$(cat "$dir/calls/a-h")"
+  assert_equals $'test\n-timeout=20m\n./internal/cli\n-run\n^Test[I-L]' "$(cat "$dir/calls/i-l")"
+  assert_equals $'test\n-timeout=20m\n./internal/cli\n-run\n^TestSync' "$(cat "$dir/calls/sync")"
+  assert_equals $'test\n-timeout=20m\n./internal/cli\n-skip\n^Test([A-L]|Sync)' "$(cat "$dir/calls/rest")"
+}
+
+function test_race_flag_adds_race_and_disables_the_cache() {
+  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" "$SCRIPT_DIR/test-go.sh" --race
   assert_successful_code "$?"
   assert_equals $'test\n-count=1\n-race\n-timeout=20m\nexample/cmd\nexample/tests/integration' "$(cat "$dir/calls/other")"
-  assert_equals $'test\n-count=1\n-race\n-timeout=20m\n./internal/cli\n-run\n^Test[A-L]' "$(cat "$dir/calls/first")"
-  assert_equals $'test\n-count=1\n-race\n-timeout=20m\n./internal/cli\n-skip\n^Test[A-L]' "$(cat "$dir/calls/second")"
+  assert_equals $'test\n-count=1\n-race\n-timeout=20m\n./internal/cli\n-skip\n^Test([A-L]|Sync)' "$(cat "$dir/calls/rest")"
+}
+
+function test_rejects_unknown_arguments() {
+  local result=0
+  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" "$SCRIPT_DIR/test-go.sh" --bogus 2>/dev/null || result=$?
+  assert_equals 2 "$result"
+  assert_equals 0 "$(find "$dir/calls" -type f | wc -l | tr -d ' ')"
 }
 
 function test_reports_failure_from_each_worker() {
   local worker result
-  for worker in other first second; do
+  for worker in other a-h i-l sync rest; do
     result=0
-    PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" FAIL_TEST="$worker" "$SCRIPT_DIR/test-race-macos.sh" || result=$?
+    PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" FAIL_TEST="$worker" "$SCRIPT_DIR/test-go.sh" || result=$?
     assert_equals 1 "$result"
   done
 }
 
 function test_fails_before_running_tests_if_package_listing_fails() {
   local result=0
-  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" FAIL_LIST=1 "$SCRIPT_DIR/test-race-macos.sh" || result=$?
+  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" FAIL_LIST=1 "$SCRIPT_DIR/test-go.sh" || result=$?
   assert_equals 1 "$result"
   assert_equals 0 "$(find "$dir/calls" -type f | wc -l | tr -d ' ')"
 }
 
 function test_termination_stops_worker_process_groups() {
   local launcher result pid running=0
-  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" BLOCK_TEST=1 "$SCRIPT_DIR/test-race-macos.sh" >/dev/null 2>&1 &
+  PATH="$dir/bin:$PATH" CALLS_DIR="$dir/calls" BLOCK_TEST=1 "$SCRIPT_DIR/test-go.sh" >/dev/null 2>&1 &
   launcher=$!
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    [[ -f "$dir/calls/other-child" && -f "$dir/calls/first-child" && -f "$dir/calls/second-child" ]] && break
+    [[ $(find "$dir/calls" -name '*-child' | wc -l | tr -d ' ') == 5 ]] && break
     sleep 0.1
   done
   kill -TERM "$launcher"
   result=0
   wait "$launcher" || result=$?
   assert_equals 143 "$result"
-  for worker in other first second; do
+  for worker in other a-h i-l sync rest; do
     if [[ ! -f "$dir/calls/$worker-child" ]]; then
       running=1
       continue
