@@ -35,6 +35,11 @@ export function fieldSearchText(field: SettingField): (string | undefined)[] {
   ]
 }
 
+export function matchesSearch(parts: (string | undefined)[], query: string): boolean {
+  const normalized = query.trim().toLowerCase()
+  return parts.some((part) => part?.toLowerCase().includes(normalized))
+}
+
 function findingSearchText(finding: ItemFinding): (string | undefined)[] {
   return [finding.message, finding.code, finding.source, finding.path, finding.fix]
 }
