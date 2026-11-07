@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { EditError, postEdit } from '../api'
 import { API, type ToolCatalog, type ToolChoice } from '../contract'
 import { filterTools, offConsequence, saveHint, toolCount, toolOn } from '../model/coding-tools'
@@ -12,7 +12,7 @@ interface Saved { file?: string }
 
 const emptyCatalog: ToolCatalog = { source: 'default', items: [] }
 
-export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }) {
+export function CodingTools() {
   const app = useApp()
   const catalog = app.overview?.tools ?? emptyCatalog
   const global = app.overview?.global === true
@@ -32,7 +32,6 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
         {catalog.source === 'personal' && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
       </SectionHeading>
       <p className="muted">Each tool you turn on gets its own files from sync. Turn one off and the next sync stops writing for it.</p>
-      {live && audienceControl}
       {live && sharedBlocked && <div className="audience-notice"><p>These are the {level} defaults. Your local list of coding tools replaces them for you. Reset that list before changing the {level} one.</p><ViewPersonalButton /></div>}
       {live && !sharedBlocked && <p className="muted coding-tools-hint">{saveHint(catalog, audience, global)}</p>}
       {live && audience === 'personal' && catalog.source !== 'personal' && <p className="muted">Inherited from {level}. Changing a tool creates your local list.</p>}

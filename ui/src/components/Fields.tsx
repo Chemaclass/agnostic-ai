@@ -24,7 +24,7 @@ function fieldsHeadingId(title: string) {
   return `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
 }
 
-export function SettingsFields({ title, headingEntry, audienceControl, fields, files, filtering, status, support }: { title: string; headingEntry?: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode; support?: KindSupport }) {
+export function SettingsFields({ title, headingEntry, fields, files, filtering, status, support }: { title: string; headingEntry?: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode; support?: KindSupport }) {
   const entry = useApp().state.entry
   const audience = useViewAudience()
   const id = fieldsHeadingId(title)
@@ -36,7 +36,6 @@ export function SettingsFields({ title, headingEntry, audienceControl, fields, f
   return (
     <section className="block" aria-labelledby={id}>
       <SectionHeading id={id} focusable entry={headingEntry}>{title}</SectionHeading>
-      {audienceControl}
       {status}
       {configured.length === 0 && (filtering || editablePermissions.length
         ? <p className="muted">{filtering ? 'No matching configured settings.' : 'No permission rules configured. Add rules below.'}</p>
