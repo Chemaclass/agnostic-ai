@@ -282,8 +282,7 @@ html {
   background: var(--rail-raised);
 }
 
-.nav-link > .icon,
-.nav-label {
+.nav-link > .icon {
   display: none;
 }
 
@@ -294,9 +293,9 @@ html {
   min-width: 0;
 }
 
-.nav-question {
-  order: -1;
+.nav-label {
   font-size: var(--text-body);
+  font-weight: 500;
   line-height: 18px;
 }
 
@@ -311,10 +310,6 @@ html {
 
 .nav-list > li:nth-child(3n) .nav-summary .skeleton { width: 55%; }
 .nav-list > li:nth-child(3n + 1) .nav-summary .skeleton { width: 82%; }
-
-.nav-item-health .nav-question {
-  font-weight: 600;
-}
 
 /* A border, not a background, so the dot keeps its shape in forced colors.
    It sits in the row's left padding, so every row's text starts at one edge. */
@@ -917,13 +912,12 @@ html:has(.menu-sheet[open]) {
     height: 18px;
   }
 
-  .sidenav .nav-question,
   .sidenav .nav-summary {
     display: none;
   }
 
   .sidenav .nav-label {
-    display: block;
+    font: inherit;
   }
 
   .global-onboarding {

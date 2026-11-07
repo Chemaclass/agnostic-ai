@@ -55,14 +55,14 @@ describe('turned-off hooks', () => {
     const section = lifecycle([hook('pre-tool'), hook('session-start')])
     expect(sectionVerdict(section)).toBe('2 hooks are set to run at 2 stages of a session.')
     expect(sectionFacts(section)).toEqual([])
-    expect(sectionSummary({ ...section, label: 'Lifecycle' })).toBe('Lifecycle: 2 hooks')
+    expect(sectionSummary(section)).toBe('2 hooks')
   })
 
   it('leaves turned-off hooks and their stages out of the verdict and names them in the facts', () => {
     const section = lifecycle([hook('pre-tool'), hook('session-start', true)])
     expect(sectionVerdict(section)).toBe('1 hook is set to run at 1 stage of a session.')
     expect(sectionFacts(section)).toEqual(['1 hook turned off'])
-    expect(sectionSummary({ ...section, label: 'Lifecycle' })).toBe('Lifecycle: 1 hook')
+    expect(sectionSummary(section)).toBe('1 hook')
   })
 
   it('says none are set to run when every hook is turned off', () => {
@@ -71,7 +71,7 @@ describe('turned-off hooks', () => {
     expect(sectionFacts(section)).toEqual(['2 hooks turned off'])
     const support = [{ kind: 'hook', label: 'Hooks', supported: ['claude'], unsupported: ['kiro'] }]
     expect(sectionFacts({ ...section, support }, (target) => (target === 'kiro' ? 'Kiro' : target))).toEqual(['2 hooks turned off'])
-    expect(sectionSummary({ ...section, label: 'Lifecycle' })).toBe('Lifecycle: 2 hooks turned off')
+    expect(sectionSummary(section)).toBe('2 hooks turned off')
   })
 })
 

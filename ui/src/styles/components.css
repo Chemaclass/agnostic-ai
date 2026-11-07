@@ -1986,8 +1986,10 @@ textarea:focus {
       appearance: base-select;
     }
 
+    /* Clip at the content edge so long paths stop before the chevron. */
     .select-control > select {
-      overflow: hidden;
+      overflow: clip;
+      overflow-clip-margin: content-box;
       white-space: nowrap;
     }
 
@@ -2028,10 +2030,12 @@ textarea:focus {
       visibility: hidden;
     }
 
-    .select-control > select option:hover,
-    .select-control > select option:focus-visible {
-      outline: none;
+    .select-control > select option:hover {
       background: var(--accent-wash);
+    }
+
+    .select-control > select option:focus-visible {
+      outline-offset: -2px;
     }
 
     .select-control > select option:checked {

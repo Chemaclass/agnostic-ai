@@ -17,12 +17,12 @@ export interface Remote<T> {
   error?: Error
 }
 
-const DEFAULT_SECTIONS: Record<string, { label: string; question: string }> = {
-  context: { label: 'Context', question: 'What is the agent told?' },
-  authority: { label: 'Authority', question: 'What may the agent do?' },
-  tools: { label: 'Tools', question: 'What can the agent use?' },
-  lifecycle: { label: 'Lifecycle', question: 'What runs around the agent, and when?' },
-  settings: { label: 'Settings', question: 'How are your tools set up?' },
+const DEFAULT_LABELS: Record<string, string> = {
+  context: 'Context',
+  authority: 'Authority',
+  tools: 'Tools',
+  lifecycle: 'Lifecycle',
+  settings: 'Settings',
 }
 
 const PRODUCT_NAME = 'agnostic-ai'
@@ -220,51 +220,49 @@ function ReleaseBadge({ served, version }: { served: ServedConfig; version: stri
 interface SectionLink {
   id: ViewId
   label: string
-  question: string
   summary?: string
 }
 
 function sectionLinks(overview: OverviewView | undefined): SectionLink[] {
   const sections = overview?.sections
-  if (!sections?.length) return SECTION_VIEWS.map((id) => ({ id, ...DEFAULT_SECTIONS[id], summary: DEFAULT_SECTIONS[id].label }))
+  if (!sections?.length) return SECTION_VIEWS.map((id) => ({ id, label: DEFAULT_LABELS[id] }))
   return [...sections].sort((a, b) => a.order - b.order).map((section) => ({
     id: section.id as ViewId,
     label: section.label,
-    question: section.question || DEFAULT_SECTIONS[section.id]?.question || section.label,
     summary: sectionSummary(section),
   }))
 }
 
-/** Setup health as a status row, Conversations, then each section as its question over its live summary.
-    The summary comes first in the markup, so each link's name starts with the page name. */
+/** Setup health, Conversations, then each section: the page name over its live counts.
+    Once counts load, each link's name reads as one phrase: "Context: 1 rule, 3 agents". */
 function PageLinks({ overview, pending, onNavigate }: { overview: OverviewView | undefined; pending: boolean; onNavigate?: () => void }) {
   const app = useApp()
   const count = overview ? countFindings(overview) : undefined
   const tone = count ? healthTone(count) : undefined
   const health = count && overview ? healthRow(count, overview.health.gaps.length) : undefined
   // One line each, cut with an ellipsis; the link's name and the tooltip keep the whole summary.
-  const summaryLine = (label: string, summary: string | undefined) => {
-    if (pending) return <span className="nav-summary">{label && <span className="sr-only">{label}</span>}<Placeholder /></span>
+  const summaryLine = (id: ViewId, summary: string | undefined) => {
+    if (id === 'conversations') return undefined
+    if (pending) return <span className="nav-summary"><Placeholder /></span>
     return summary && <span className="nav-summary" title={summary}>{summary}</span>
   }
-  const link = (id: ViewId, className: string | undefined, label: string, question: string, summary: string | undefined, dot?: string) => (
+  const link = (id: ViewId, className: string | undefined, label: string, summary: string | undefined, status?: string, dot?: string) => (
     <li key={id} className={className}>
-      <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate}>
+      <AppLink to={{ view: id }} className="nav-link" aria-label={summary && !pending ? `${label}: ${summary}${status ? ` ${status}` : ''}` : undefined} aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate}>
         {dot && <span className={`nav-dot is-${dot}`} aria-hidden="true" />}
         <Icon name={id} />
         <span className="nav-text">
-          {summaryLine(id === 'health' ? '' : label, summary)}
-          <span className="nav-question">{question}</span>
           <span className="nav-label">{label}</span>
+          {summaryLine(id, summary)}
         </span>
       </AppLink>
     </li>
   )
   return (
     <ul className="nav-list">
-      {link('health', 'nav-item-health', 'Health', health?.status ?? 'Setup health', health?.summary, tone ?? 'loading')}
-      {link('conversations', 'nav-item-conversations', 'Conversations', 'Where did you leave off?', 'Conversations: chats across your tools')}
-      {sectionLinks(overview).map((section) => link(section.id, undefined, section.label, section.question, section.summary))}
+      {link('health', 'nav-item-health', 'Setup health', health?.summary, health?.status, tone ?? 'loading')}
+      {link('conversations', 'nav-item-conversations', 'Conversations', undefined)}
+      {sectionLinks(overview).map((section) => link(section.id, undefined, section.label, section.summary))}
     </ul>
   )
 }
