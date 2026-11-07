@@ -4,6 +4,7 @@
 
 import type { Gap, Improvements, ItemFinding, OverviewView, Section, SectionItem } from '../contract'
 import { FIX_GUIDANCE, findingFacts } from './finding-prompt'
+import { joinAnd } from './counts'
 import { plural } from './format'
 import { findingEntryIds, itemEntryId } from './identity'
 
@@ -154,17 +155,36 @@ export function healthFixPrompt(overview: OverviewView, root?: string): string {
 
 const GAP_TOOLS_SHOWN = 3
 
-/** The tools that support a gap, cut to the first few, such as "claude, codex, gemini and 9 more". */
-export function gapTools(gap: Gap): string {
-  const { supported } = gap
-  if (supported.length <= GAP_TOOLS_SHOWN + 1) return supported.join(', ')
-  return `${supported.slice(0, GAP_TOOLS_SHOWN).join(', ')} and ${supported.length - GAP_TOOLS_SHOWN} more`
+/** The tools that support a gap, by name and cut to the first few, such as "Claude Code, Codex, Cursor, and 9 more". */
+export function gapTools(gap: Gap, name: (target: string) => string = (target) => target): string {
+  const names = gap.supported.map(name)
+  if (names.length <= GAP_TOOLS_SHOWN + 1) return joinAnd(names)
+  return joinAnd([...names.slice(0, GAP_TOOLS_SHOWN), `${names.length - GAP_TOOLS_SHOWN} more`])
 }
 
-/** How many improvements the enabled tools support are in place; nothing when they support none. */
+/** How many features the enabled tools support are in use; nothing when they support none. */
 export function improvementsLine(improvements: Improvements | undefined): string | undefined {
   if (!improvements || improvements.total === 0) return undefined
   const { applied, total } = improvements
-  if (applied === total) return total === 1 ? 'The one improvement is applied' : `All ${total} improvements applied`
-  return `${applied} of ${total} ${total === 1 ? 'improvement' : 'improvements'} applied`
+  if (applied === total) return total === 1 ? 'The one feature your tools support is in use' : `All ${total} features your tools support are in use`
+  return `${applied} of ${plural(total, 'feature')} your tools support ${total === 1 ? 'is' : 'are'} in use`
+}
+
+const TRACK_BARS_MAX = 40
+
+/** One flag per feature bar, true for those in use; nothing when the counts are too large or do not add up, so the line alone says them. */
+export function featureBars(improvements: Improvements | undefined): boolean[] | undefined {
+  if (!improvements) return undefined
+  const { applied, total } = improvements
+  if (total < 1 || total > TRACK_BARS_MAX || applied < 0 || applied > total) return undefined
+  return Array.from({ length: total }, (_, i) => i < applied)
+}
+
+/** The page's answer: what needs a fix and what is worth a look, with the leading count as its key phrase. */
+export function healthVerdict({ errors, warnings }: Pick<FindingCount, 'errors' | 'warnings'>): { key?: string; rest: string } {
+  const things = (n: number) => plural(n, 'thing')
+  if (errors && warnings) return { key: things(errors), rest: ` ${errors === 1 ? 'needs' : 'need'} a fix, and ${warnings} more ${warnings === 1 ? 'is' : 'are'} worth a look.` }
+  if (errors) return { key: things(errors), rest: ` ${errors === 1 ? 'needs' : 'need'} a fix.` }
+  if (warnings) return { key: things(warnings), rest: ` ${warnings === 1 ? 'is' : 'are'} worth a look.` }
+  return { rest: 'Nothing needs a fix.' }
 }

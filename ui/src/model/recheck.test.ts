@@ -32,7 +32,7 @@ describe('recheck', () => {
     const result = recheckResult(target(read, [read, edit]), view([read, edit]), view([edit, shell], [{ ...shell, source: 'doctor' }]))
     expect(result.state).toBe('resolved')
     expect(result.added.map((a) => a.finding)).toEqual([shell])
-    expect(recheckMessage(result, read)).toBe('This lint finding no longer appears. 1 new lint finding appears in permissions.yaml.')
+    expect(recheckMessage(result, read)).toBe('This finding no longer appears. 1 new finding appears in permissions.yaml.')
   })
 
   it('does not call existing findings new when their spec is renamed', () => {
@@ -61,7 +61,7 @@ describe('recheck', () => {
     const stopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'Lint stopped before it finished: bad config', path: 'agnostic-ai.yaml' }
     const result = recheckResult(target(read, [read]), view([read]), view([], [stopped]))
     expect(result).toEqual({ state: 'incomplete', added: [] })
-    expect(recheckMessage(result, read)).toBe('Lint stopped before it finished, so this recheck cannot tell whether the finding is fixed. The last known finding is shown.')
+    expect(recheckMessage(result, read)).toBe('The configuration check stopped before it finished, so this recheck cannot tell whether the finding is fixed. The last known finding is shown.')
   })
 
   it('does not report a stopped lint finding as fixed when lint stops for another reason', () => {
@@ -99,7 +99,7 @@ describe('recheck', () => {
     const trust: ItemFinding = { source: 'doctor', code: 'codex-hook-trust', severity: 'error', message: 'Codex hook is untrusted.', path: '.codex/hooks.json' }
     const result = recheckResult(target(trust, [trust]), view([trust]), view([]))
     expect(result.state).toBe('unconfirmed')
-    expect(recheckMessage(result, trust)).toBe('This doctor finding no longer appears, but this check skips files it cannot read, so this does not confirm a fix.')
+    expect(recheckMessage(result, trust)).toBe('This finding no longer appears, but the setup check skips files it cannot read, so this does not confirm a fix.')
   })
 
   it('says a failed refresh proves nothing', () => {
@@ -119,14 +119,14 @@ describe('recheck all', () => {
   it('names new findings and doctor findings it cannot confirm', () => {
     const result = recheckAllResult(view([read], [doctor]), view([read, shell]))
     expect(result).toMatchObject({ resolved: 0, unconfirmed: 1, added: 1, remaining: 2 })
-    expect(recheckAllMessage(result)).toBe('Rechecked every finding. 1 doctor finding no longer appears, but doctor skips files it cannot read, so this does not confirm a fix. 1 new finding appears. 2 findings remain.')
+    expect(recheckAllMessage(result)).toBe('Rechecked every finding. 1 finding from the setup check no longer appears, but the setup check skips files it cannot read, so this does not confirm a fix. 1 new finding appears. 2 findings remain.')
   })
 
   it('does not count lint findings as fixed when lint stopped', () => {
     const stopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'Lint stopped before it finished: bad config', path: 'agnostic-ai.yaml' }
     const result = recheckAllResult(view([read, edit]), view([], [stopped]))
     expect(result).toMatchObject({ resolved: 0, unknown: 2, added: 0, remaining: 1 })
-    expect(recheckAllMessage(result)).toBe('Rechecked every finding. Lint stopped before it finished, so 2 lint findings that no longer appear may still apply. 1 finding remains.')
+    expect(recheckAllMessage(result)).toBe('Rechecked every finding. The configuration check stopped before it finished, so 2 findings that no longer appear may still apply. 1 finding remains.')
   })
 
   it('judges a gone lint finding by the lint run of its own layer', () => {
