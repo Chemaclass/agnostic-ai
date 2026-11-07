@@ -457,3 +457,21 @@ test('keeps focus inside the JSON inspector sheet on a phone and clear of the to
   await page.keyboard.press('Tab')
   await expect(close).toBeFocused()
 })
+
+test('keeps Tab inside search opened over the JSON inspector, and modal only as a sheet', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.setViewportSize({ width: 1440, height: 844 })
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Overview JSON', exact: true }).click()
+  const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+  await expect(drawer).toHaveAttribute('aria-modal', 'false')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(drawer).toHaveAttribute('aria-modal', 'true')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+  const search = page.getByRole('dialog', { name: 'Search all configuration' })
+  await expect(search.getByRole('combobox')).toBeFocused()
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press('Tab')
+    await expect(search.locator(':focus')).toHaveCount(1)
+  }
+})

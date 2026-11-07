@@ -72,7 +72,7 @@
     "src/components/Health.tsx": "b2ac90d1726b852d16530fa4bf7462d26362fdfa984e66b0310fd632615dd7f7",
     "src/components/HookDetails.tsx": "a27ca2f4822790ae9cd63029f51c69b25284036bd518c9c5c2f19c8c765aff67",
     "src/components/Items.tsx": "178b811f5c40edaa5c69926c2407856b7ff84367510082dfee84e581119f0f30",
-    "src/components/JsonInspector.tsx": "021facd9fb82847d3573bf804b5d50b06aede073f593f9dfaea361fbebbfccbc",
+    "src/components/JsonInspector.tsx": "9acee7cb4a16c456926f72d89fc12c6ec0796127a14dd36d71c8bc9221174981",
     "src/components/Lifecycle.tsx": "af037d4869dada3f512bf816462c9fa28f5dce71d01a434cca37ec771d5ead87",
     "src/components/MCPSpecAction.tsx": "ae1187bae523a8dcb79e2892695fa140600f8a31241bbbacf38b7637d525ea19",
     "src/components/NativeServers.tsx": "322c8f5e5b319495f9ef7b03a0f20546392672f000c10ee1cef45f1d7bf52c34",
@@ -184,12 +184,12 @@
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
-    "assets/index-6nN2iIY_.js": "b7dbd3f50e293aa8d974ff146b38581808f49cfd7bcb3f6f44c73434f040f8d8",
+    "assets/index-C3CIKc1b.js": "4e0820e983f4b1c4535b88aaeb29ad39adf7a25d74f7aafe39385c84c1a1bbe3",
     "assets/index-D0ZLjmj9.css": "8fe0e4b1a34b5f6f5a2957eed510251c2324a1ea7be5b201f05018540c10c8ad",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-DgDL9iRC.js": "001b2de10ad4086f4366a0c53aa9bc56aa691c724f02f15af5e8a5c3c0766ee1",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "b3208104f5c342124df7cba91d9b714e24b89ec170162679caa865ce2bf57e1a",
+    "index.html": "9df8cedc85e0553f325e9d807bbe9db8576ebe7f2aba09c0c5f0be90c038855b",
     "third-party-notices.txt": "c1a1591ee63d396db2899a42b979e5167f8dc028808662c86d7b0bcdbf98dc84"
   }
 }
