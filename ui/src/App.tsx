@@ -92,7 +92,7 @@ export default function App() {
   const retry = useCallback(() => setReloads((n) => n + 1), [])
   const refresh = retry
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
-  const served = useServedConfig(source.kind, reloads)
+  const { served, pending: servedPending } = useServedConfig(source.kind, reloads)
   const stale = overview.loaded !== undefined && overview.error !== undefined
   const recheck = useRecheck(overview, refresh, source.kind === 'api', sourceKey)
   useEffect(() => {
@@ -198,6 +198,7 @@ export default function App() {
   const rail = {
     overview,
     served,
+    servedPending,
     theme,
     onToggleTheme: toggleTheme,
     onOpenSearch: openSearch,
@@ -213,7 +214,7 @@ export default function App() {
             Skip to content
           </a>
           <div className="rail">
-            <Header overview={overview} served={served} menuButton={menuButton} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} onOpenSearch={openSearch} />
+            <Header overview={overview} served={served} servedPending={servedPending} menuButton={menuButton} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} onOpenSearch={openSearch} />
             <Nav {...rail} />
           </div>
           <main id="main" className="main" tabIndex={-1}>

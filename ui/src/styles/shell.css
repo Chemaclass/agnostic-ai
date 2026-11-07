@@ -170,11 +170,14 @@ html {
   line-height: 18px;
 }
 
+/* The same height with or without the chip and GitHub link, so nothing moves when they load. */
+
 .project-title {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  min-height: 24px;
 }
 
 .project-label {
@@ -185,6 +188,43 @@ html {
 
 .project-title .chip {
   flex: none;
+}
+
+.project-repo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.project-repo:hover {
+  color: var(--text);
+  background: var(--rail-raised);
+}
+
+.project-repo .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Rail placeholder sizes; the base .skeleton bar is in components.css. */
+
+.project-title .skeleton {
+  width: 55%;
+  height: 12px;
+}
+
+.project-name.is-pending .project-root {
+  direction: ltr;
+}
+
+.project-root .skeleton {
+  width: 80%;
 }
 
 /* Long paths lose their start, not the folder name. */
@@ -222,11 +262,12 @@ html {
 }
 
 .nav-link {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
   min-height: 44px;
-  padding: 10px 14px;
+  padding: 10px 14px 10px 22px;
   border-radius: var(--radius);
   color: var(--text);
   text-decoration: none;
@@ -248,6 +289,7 @@ html {
 
 .nav-text {
   display: grid;
+  flex: 1 1 auto;
   gap: 2px;
   min-width: 0;
 }
@@ -259,22 +301,30 @@ html {
 }
 
 .nav-summary {
+  overflow: hidden;
   color: var(--text-muted);
   font-size: var(--text-xs);
   line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
+
+.nav-list > li:nth-child(3n) .nav-summary .skeleton { width: 55%; }
+.nav-list > li:nth-child(3n + 1) .nav-summary .skeleton { width: 82%; }
 
 .nav-item-health .nav-question {
   font-weight: 600;
 }
 
-/* A border, not a background, so the dot keeps its shape in forced colors. */
+/* A border, not a background, so the dot keeps its shape in forced colors.
+   It sits in the row's left padding, so every row's text starts at one edge. */
 
 .nav-dot {
-  flex: none;
+  position: absolute;
+  top: 15px;
+  left: 8px;
   width: 8px;
   height: 8px;
-  margin-top: 5px;
   border: 4px solid var(--text-muted);
   border-radius: 50%;
 }
@@ -314,6 +364,24 @@ html {
   justify-self: stretch;
 }
 
+.config-switch.is-pending {
+  min-height: 40px;
+}
+
+.config-switch.is-pending .skeleton {
+  width: 60%;
+  margin-left: 6px;
+}
+
+/* Version, the required release and the overview document: one item per line. */
+
+.sidenav-meta {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  width: 100%;
+}
+
 .sidenav-row {
   display: flex;
   align-items: center;
@@ -323,19 +391,15 @@ html {
   min-width: 0;
 }
 
-.sidenav-links {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
+
 
 .sidenav-theme {
   gap: 8px;
 }
 
 .sidenav-json {
-  min-height: 32px;
-  padding: 2px 4px;
+  min-height: 28px;
+  padding: 2px 0;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
@@ -384,7 +448,7 @@ html {
   align-items: center;
   gap: 6px;
   min-width: 0;
-  min-height: 32px;
+  min-height: 28px;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: var(--text-xs);
@@ -399,14 +463,37 @@ html {
 }
 
 .release-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  line-height: 16px;
+}
+
+.release-line {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0 6px;
+  gap: 8px;
   min-width: 0;
 }
 
+.release-badge.is-pending {
+  width: 100%;
+}
+
+.release-badge.is-pending .release-text {
+  flex: 1;
+}
+
+.release-badge.is-pending .skeleton {
+  width: 65%;
+}
+
+.release-badge.is-pending .skeleton + .skeleton {
+  width: 40%;
+}
+
 .release-version {
+  min-width: 0;
   overflow: hidden;
   font-family: var(--font-mono);
   text-overflow: ellipsis;
@@ -747,8 +834,13 @@ html:has(.menu-sheet[open]) {
     line-height: 16px;
   }
 
-  .topbar .project-root {
+  .topbar .project-root,
+  .topbar .project-repo {
     display: none;
+  }
+
+  .topbar .project-title {
+    min-height: 0;
   }
 
   .topbar-actions {
@@ -784,6 +876,10 @@ html:has(.menu-sheet[open]) {
 
   /* Equal cells, except that a long label such as Conversations takes the
      room it needs from the others instead of overflowing. */
+
+  .sidenav .nav-text {
+    flex: none;
+  }
 
   .sidenav .nav-list {
     grid-template-columns: repeat(6, minmax(min-content, 1fr));
