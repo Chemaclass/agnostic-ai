@@ -11,6 +11,7 @@ import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useEditAu
 import { OpenInEditor } from './EditorLink'
 import { AddHookForm, HookSavedNotice, useHookSaved } from './AddHook'
 import { MCPSpecAction, MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
+import { SpecMoveAction, SpecMovedNotice, SpecMovedSaver, useSpecMovedNotice } from './SpecMoveAction'
 import { PermissionEditProvider, PermissionEditor, PermissionSaveNotice, useSavedEditNotice } from './PermissionEditor'
 import { ProtectedEditor } from './ProtectedEditor'
 import { ConfigSwitch } from './ConfigSwitch'
@@ -137,6 +138,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     } catch { /* Keep the notice until this page reloads. */ }
     if (saved) app.reload(true)
   }
+  const [specMoved, saveSpecMoved] = useSpecMovedNotice(root)
   const search = app.state.q ?? ''
   const entry = app.state.entry
   const { rechecked, pendingPlace } = useRechecks()
@@ -212,6 +214,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   return (
     <RecheckSection.Provider value={section.id}>
       <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
+      <SpecMovedSaver.Provider value={saveSpecMoved}>
+      {app.source.kind === 'api' && specMoved && <SpecMovedNotice moved={specMoved} dismiss={() => saveSpecMoved()} />}
       {entryMissing && (
         <div className="entry-missing" role="status">
           <p>The linked {entry.startsWith('finding:') ? 'finding' : entry.startsWith('field:') ? 'setting' : 'item'} is not in this {section.label.toLowerCase()} section. It may have been removed, renamed, or fixed, or the link may come from another configuration.</p>
@@ -292,6 +296,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
+      </SpecMovedSaver.Provider>
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>
   )
@@ -760,6 +765,7 @@ function ItemList({ items, hideValues, sharedUnlisted }: { items: SectionItem[];
             {item.kind === 'builtin' && item.enabled !== undefined && !sharedBlocked
               ? <BuiltinChange name={item.name} label={item.label} on={on} local={viewAudience === 'personal' && (item.local ?? false)} fallback={control} renderHeading={heading} />
               : heading(control)}
+            <SpecMoveAction item={item} />
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
             {item.kind === 'hook' ? <HookDetails item={item} /> : <SourceContent item={item} />}
