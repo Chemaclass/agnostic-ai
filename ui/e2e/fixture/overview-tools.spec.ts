@@ -79,7 +79,9 @@ test.describe('overview', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await saveScreenshot(page, 'mcp-spec-preview-mobile.png')
     await preview.getByRole('button', { name: 'Apply', exact: true }).click()
-    await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync')
+    const saved = page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })
+    await expect(saved).toContainText('Run agnostic-ai sync')
+    await expect(saved.locator('.banner-success')).toBeVisible()
     await expect(row).toHaveCount(0)
     await expect(page.getByRole('group', { name: 'Save new specs for' })).toHaveCount(0)
     expect(calls).toEqual([
@@ -88,6 +90,8 @@ test.describe('overview', () => {
     ])
     await page.reload()
     await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync')
+    await page.getByRole('button', { name: 'Dismiss' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Saved .agnostic-ai/mcps/notion.yaml.' })).toHaveCount(0)
   })
 
   test('drops a native server preview when its audience changes and shows import refusals', async ({ page }) => {
@@ -107,6 +111,7 @@ test.describe('overview', () => {
     await expect(row.getByRole('region', { name: 'notion spec preview' })).toHaveCount(0)
     await row.getByRole('button', { name: 'Make it a spec' }).click()
     await expect(row.getByRole('alert')).toContainText('args holds a credential import cannot rewrite')
+    await expect(row.locator('.banner-error')).toBeVisible()
     await expect(row.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0)
   })
 })
