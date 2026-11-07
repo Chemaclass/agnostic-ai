@@ -61,6 +61,8 @@ describe('turned-off hooks', () => {
     const section = lifecycle([hook('pre-tool', true), hook('stop', true)])
     expect(sectionVerdict(section)).toBe('No hooks are set to run.')
     expect(sectionFacts(section)).toEqual(['2 hooks turned off'])
+    const support = [{ kind: 'hook', label: 'Hooks', supported: ['claude'], unsupported: ['kiro'] }]
+    expect(sectionFacts({ ...section, support }, (target) => (target === 'kiro' ? 'Kiro' : target))).toEqual(['2 hooks turned off'])
     expect(sectionSummary({ ...section, label: 'Lifecycle' })).toBe('Lifecycle: 2 hooks turned off')
   })
 })
@@ -71,13 +73,23 @@ describe('default permission mode', () => {
   it('names a mode set without any rule lists', () => {
     const section = { ...empty('authority'), fields: [mode('bypassPermissions')] }
     expect(sectionVerdict(section)).toBe('No allow, ask or block rules yet.')
-    expect(sectionFacts(section)).toEqual(['Default mode: bypassPermissions'])
+    expect(sectionFacts(section, undefined, true)).toEqual(['Default mode: bypassPermissions'])
   })
 
   it('adds the mode beside the rule counts', () => {
     const authority = { ...section('authority'), fields: [mode('acceptEdits')] }
     expect(sectionVerdict(authority)).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
-    expect(sectionFacts(authority)).toEqual(['Default mode: acceptEdits', '2 protected paths'])
+    expect(sectionFacts(authority, undefined, true)).toEqual(['Default mode: acceptEdits', '2 protected paths'])
+  })
+
+  it('leaves the mode out of a project view, where it applies only through global sync', () => {
+    expect(sectionFacts({ ...empty('authority'), fields: [mode('bypassPermissions')] })).toEqual([])
+  })
+
+  it('prefers the mode a local file sets', () => {
+    const field = mode('acceptEdits')
+    field.set.push({ ...field.set[0], path: 'local/settings.yaml', local: true, values: [{ ...field.set[0].values[0], value: 'plan' }] } as typeof field.set[0])
+    expect(sectionFacts({ ...empty('authority'), fields: [field] }, undefined, true)).toEqual(['Default mode: plan'])
   })
 
   it('says nothing about a mode when none is set', () => {

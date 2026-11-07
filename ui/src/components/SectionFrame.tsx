@@ -87,7 +87,7 @@ function SectionFacts({ section }: { section: Section }) {
   const tally = tallyFindings(sectionFindings(section))
   const findings = findingTallyText(tally)
   const total = tally.errors + tally.warnings
-  const facts = sectionFacts(section, toolName)
+  const facts = sectionFacts(section, toolName, app.overview?.global === true)
   const tone = tally.errors ? 'is-error' : tally.warnings ? 'is-warning' : 'is-clean'
   const shownAbove = section.findings.some((finding) => finding.severity === 'error')
   // Review leads to the first finding: the section's own list, else the first row that has one.

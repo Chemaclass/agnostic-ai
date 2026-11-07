@@ -65,17 +65,18 @@ export function sectionVerdict(section: VerdictSection): string {
   return (VERDICTS[section.id] ?? contextVerdict)(section)
 }
 
-/** The permission mode a settings file already sets, shared before local. */
+/** The permission mode a settings file already sets; a local file overrides the shared one. */
 function defaultMode(section: VerdictSection): string | undefined {
   const field = section.fields?.find((f) => f.key === 'permissions.default-mode')
-  const sources = [...(field?.set ?? [])].sort((a, b) => Number(Boolean(a.local)) - Number(Boolean(b.local)))
+  const sources = [...(field?.set ?? [])].sort((a, b) => Number(Boolean(b.local)) - Number(Boolean(a.local)))
   return sources.flatMap((source) => source.values).find((value) => value.key === field?.key && value.value)?.value
 }
 
-function sectionOwnFacts(section: VerdictSection): string[] {
+function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
   if (section.id === 'authority') {
     const paths = section.items.flatMap((item) => item.values).filter((value) => value.key === 'protected.paths').reduce((sum, value) => sum + (value.list?.length ?? 0), 0)
-    const mode = defaultMode(section)
+    // Outside the global view the default mode applies only through global sync.
+    const mode = global ? defaultMode(section) : undefined
     return [...(mode ? [`Default mode: ${mode}`] : []), ...(paths ? [plural(paths, 'protected path')] : [])]
   }
   if (section.id === 'tools' && section.native?.length) return [`${plural(section.native.length, 'more server')} found in your tools`]
@@ -91,7 +92,7 @@ function sectionOwnFacts(section: VerdictSection): string[] {
 export function ignoredFacts(section: VerdictSection, toolName: (target: string) => string): string[] {
   return (section.support ?? []).flatMap((support) => {
     const kind = section.kinds.find((k) => k.kind === support.kind)
-    if (!kind?.count || !support.unsupported.length) return []
+    if (!kind || !liveCount(section, kind) || !support.unsupported.length) return []
     const total = support.supported.length + support.unsupported.length
     const who = support.unsupported.length <= 3 ? joinAnd(support.unsupported.map(toolName)) : `${support.unsupported.length} of ${total} tools`
     return [`${who} ${support.unsupported.length === 1 ? 'ignores' : 'ignore'} ${kindNoun(support, 2)}`]
@@ -99,9 +100,9 @@ export function ignoredFacts(section: VerdictSection, toolName: (target: string)
 }
 
 /** Facts beside the verdict that it does not already say. */
-export function sectionFacts(section: VerdictSection, toolName: (target: string) => string = (target) => target): string[] {
+export function sectionFacts(section: VerdictSection, toolName: (target: string) => string = (target) => target, global = false): string[] {
   const off = turnedOff(section)
-  return [...sectionOwnFacts(section), ...(off.length ? [`${joinAnd(off)} turned off`] : []), ...ignoredFacts(section, toolName)]
+  return [...sectionOwnFacts(section, global), ...(off.length ? [`${joinAnd(off)} turned off`] : []), ...ignoredFacts(section, toolName)]
 }
 
 export interface FindingTally {

@@ -36,7 +36,7 @@ export function permissionCounts(section: Pick<Section, 'items'>): PermissionCou
   return counts
 }
 
-/** A hook or server whose spec sets `disabled: true`; sync skips it. */
+/** A hook or server whose spec sets `disabled: true`; it is written but does not run. */
 export function isTurnedOff(item: Pick<SectionItem, 'values' | 'fields'>): boolean {
   const off = (value: Value) => value.key === 'disabled' && value.type === 'bool' && value.value === 'true'
   return item.values.some(off) || (item.fields ?? []).some(off)
