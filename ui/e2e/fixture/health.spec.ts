@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { openApp, saveScreenshot } from './helpers'
-import { itemEntryId } from '../src/model/identity'
-import type { ItemFinding, SectionItem } from '../src/contract'
+import { openApp, saveScreenshot } from '../helpers'
+import { itemEntryId } from '../../src/model/identity'
+import type { ItemFinding, SectionItem } from '../../src/contract'
 
-const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 type Overview = typeof fixture
 const section = (data: Overview, id: string) => data.sections.find((s: { id: string }) => s.id === id)

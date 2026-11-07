@@ -119,7 +119,7 @@ ci-local: fmt-check test-race build lint
 	./$(BIN) lint
 	$(MAKE) test-shell
 	$(MAKE) size-check
-	cd editors/vscode && (npm ci || npm install --no-audit --no-fund) && npm run compile && npm test
+	cd editors/vscode && (npm ci || npm install --no-audit --no-fund) && npm test
 ifeq ($(SKIP_JETBRAINS),1)
 	@echo "ci-local: SKIPPED the JetBrains plugin. This run did NOT gate it."
 else

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
-const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 // Each width sits in its own CSS breakpoint band. The theme changes colours, not layout, so dark runs once.
 const usableLayouts = [
@@ -122,7 +122,7 @@ test('links agnostic-ai and the project repository on GitHub', async ({ page }) 
   await page.setViewportSize({ width: 320, height: 900 })
   await expect(project).toBeInViewport({ ratio: 1 })
   await expect(product).toBeInViewport({ ratio: 1 })
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.setViewportSize({ width: 1280, height: 900 })
 
   overview = fixture

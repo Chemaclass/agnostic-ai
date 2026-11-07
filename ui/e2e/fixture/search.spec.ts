@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import type { OverviewView } from '../src/contract'
+import type { OverviewView } from '../../src/contract'
 
-const fixture: OverviewView = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const fixture: OverviewView = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('section search', () => {
   test('searches item names, labels, paths, descriptions, and values, then clears on navigation', async ({ page }) => {
