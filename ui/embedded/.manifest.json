@@ -170,7 +170,7 @@
     "src/styles/lifecycle.css": "c075c1f5eabdfd8b3d1cb27263c5f83f9cc69306a2c1835ccf45eefabce94693",
     "src/styles/overlays.css": "784ab94f44bc1b35514e60a1d0fd107fb953b3703da20fa20be5b167f1fecbc1",
     "src/styles/settings.css": "d6765fe5dc13261f532c6d508d4c25c31380cb551cea2a7852aac9b5f778056a",
-    "src/styles/shell.css": "ec0c527fd79ad41336de007aca881d1af57358b6f6f2f45a7cba96f1dfd5c6a4",
+    "src/styles/shell.css": "b98ebd5d932e45ce80c5a920cc79f49931feecab312b29eac8d55616f4d0f73f",
     "src/styles/tokens.css": "75353e7a40955e299243ffeaa41615052eeeb1fe03fbed9571e8fa59da9af0cc",
     "src/styles/tokens.test.ts": "01f232165f87c9188925afcc37d808f0b36d4ed633e13ea7af3d1a66eda17a42",
     "src/styles/tools.css": "d3961b93f15397842d5d2616c8b540a1e55d02caafc73efc1dcd36a02f994fad",
@@ -187,12 +187,12 @@
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
-    "assets/index-BxHzPf3d.css": "0a0675bd4dcc16fb25759d47a42e6fffaf5bad23d33a1e86ab957a6e0ce72d96",
-    "assets/index-D3UOF92K.js": "56992ba66ba0f8cd289c20e3f62e6117f18314cc1f4b0b1bdda535d2d425b34f",
+    "assets/index-DF9wwwJ3.js": "56992ba66ba0f8cd289c20e3f62e6117f18314cc1f4b0b1bdda535d2d425b34f",
+    "assets/index-DUuwbc_h.css": "4160b9f9b4ab6cc20b63e45ed759603516ffb5e368dff45f5d7f6ba72297d4ae",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-DwEBecHy.js": "98658a6c48ca33213ab61208b2ad3948a962dc9853e2215e09aff24855c0a8fe",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "d981174a43df087ca6fe88054ea220a4cd5eb5b6ff9039383d34f02318c14320",
+    "index.html": "38b7945f43ee299c7f7454a235d2c0a9bd614e9fd85e330149b3a95925cedad0",
     "third-party-notices.txt": "c1a1591ee63d396db2899a42b979e5167f8dc028808662c86d7b0bcdbf98dc84"
   }
 }

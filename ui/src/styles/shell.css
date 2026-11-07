@@ -491,9 +491,8 @@ html {
 
 .release-line {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0 8px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -514,6 +513,7 @@ html {
 }
 
 .release-version {
+  min-width: 0;
   overflow: hidden;
   font-family: var(--font-mono);
   text-overflow: ellipsis;
@@ -859,6 +859,10 @@ html:has(.menu-sheet[open]) {
     display: none;
   }
 
+  .topbar .project-title {
+    min-height: 0;
+  }
+
   .topbar-actions {
     display: flex;
     flex: none;
@@ -892,6 +896,10 @@ html:has(.menu-sheet[open]) {
 
   /* Equal cells, except that a long label such as Conversations takes the
      room it needs from the others instead of overflowing. */
+
+  .sidenav .nav-text {
+    flex: none;
+  }
 
   .sidenav .nav-list {
     grid-template-columns: repeat(6, minmax(min-content, 1fr));

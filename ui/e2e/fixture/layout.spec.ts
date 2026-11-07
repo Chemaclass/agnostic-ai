@@ -108,10 +108,12 @@ test('reads the required release again when the overview refreshes', async ({ pa
 
 test('keeps every rail row in place while the overview and server details load', async ({ page }) => {
   const data = { ...structuredClone(fixture), repository: { url: 'https://github.com/octo/demo-project', name: 'octo/demo-project' } }
-  let release!: () => void
-  const held = new Promise<void>((resolve) => { release = resolve })
-  await page.route('**/api/views/overview', async (route) => { await held; await route.fulfill({ json: data }) })
-  await page.route('**/api/health', async (route) => { await held; await route.fulfill({ json: { ok: true, root: '/tmp/demo-project', global: false, ui: true, version: '0.91.0', requires: '>=0.91.0', requiresMet: true } }) })
+  let releaseOverview!: () => void
+  let releaseHealth!: () => void
+  const overviewHeld = new Promise<void>((resolve) => { releaseOverview = resolve })
+  const healthHeld = new Promise<void>((resolve) => { releaseHealth = resolve })
+  await page.route('**/api/views/overview', async (route) => { await overviewHeld; await route.fulfill({ json: data }) })
+  await page.route('**/api/health', async (route) => { await healthHeld; await route.fulfill({ json: { ok: true, root: '/tmp/demo-project', global: false, ui: true, version: '0.91.0', requires: '>=0.91.0', requiresMet: true } }) })
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/?view=health')
@@ -122,7 +124,11 @@ test('keeps every rail row in place while the overview and server details load',
   }))
   await expect(page.locator('.sidenav .skeleton').first()).toBeVisible()
   const loading = await boxes()
-  release()
+  releaseOverview()
+  await expect(page.locator('.sidenav .nav-summary').first()).not.toBeEmpty()
+  await expect(page.locator('.sidenav .nav-summary .skeleton')).toHaveCount(0)
+  expect(await boxes()).toEqual(loading)
+  releaseHealth()
   await expect(page.locator('.release-badge .release-version')).toHaveText('agnostic-ai v0.91.0')
   await expect(page.locator('.sidenav .skeleton')).toHaveCount(0)
   await expect(page.locator('.rail .skeleton')).toHaveCount(0)
