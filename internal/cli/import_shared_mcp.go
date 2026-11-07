@@ -698,6 +698,26 @@ func walkMCPStrings(path, key string, value any, visit func(path, key, value str
 	}
 }
 
+// withoutMCPOAuthCredentials returns servers without each one whose
+// `oauth` holds a credential, which has no reference form, with a
+// left-out note for each. A server that is not an object is dropped.
+func withoutMCPOAuthCredentials(servers map[string]any) (map[string]any, []mcpLiteralRef) {
+	clean := make(map[string]any, len(servers))
+	var skipped []mcpLiteralRef
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		server, ok := servers[name].(map[string]any)
+		if !ok {
+			continue
+		}
+		if field := mcpOAuthCredential(server["oauth"]); field != "" {
+			skipped = append(skipped, mcpLiteralRef{server: name, field: field, leftOut: true})
+			continue
+		}
+		clean[name] = server
+	}
+	return clean, skipped
+}
+
 func mcpOAuthCredential(oauth any) string {
 	field := ""
 	walkMCPStrings("oauth", "oauth", oauth, func(path, key, value string) {
