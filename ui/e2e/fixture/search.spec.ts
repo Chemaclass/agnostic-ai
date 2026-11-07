@@ -206,7 +206,7 @@ test.describe('search across sections', () => {
     await page.getByRole('button', { name: 'Search', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
     await dialog.getByRole('combobox').fill('lint038')
-    await dialog.getByRole('option', { name: /bare read/ }).click()
+    await dialog.getByRole('option', { name: /every use of a tool/ }).click()
     await expect(page).toHaveURL(/view=authority&entry=finding%3ALINT038%3A/)
     await expect(page.locator('.finding.is-linked')).toContainText('LINT038')
     await expect(page.locator('.finding.is-linked')).toBeFocused()

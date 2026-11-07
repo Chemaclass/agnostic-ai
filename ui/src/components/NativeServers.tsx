@@ -12,7 +12,7 @@ export function NativeServers({ servers, matches, filtering, onSaved }: { server
       <SectionHeading topic="native" id="tools-native">
         Found in tools <span className="muted kind-count">{filtering ? `${visible.length} of ${servers.length} match` : servers.length}</span>
       </SectionHeading>
-      <p className="muted">These servers work only in the tool that holds them. No spec covers them, so sync does not share them with your other tools.</p>
+      <p className="muted">These servers work only in the tool that holds them. agnostic-ai has no file for them, so it does not share them with your other tools.</p>
       {visible.some((server) => server.holders.length > 0) && <EditAudienceSwitch />}
       {visible.length === 0 && filtering ? <p className="muted">No matches.</p> : (
         <ul className="item-list native-list">
@@ -35,7 +35,7 @@ export function NativeServers({ servers, matches, filtering, onSaved }: { server
                 </div>
                 {s.import && (
                   <p className="muted tool-state">
-                    Run <Code>{s.import}</Code> to make it a spec.
+                    Run <Code>{s.import}</Code> to add it to your shared setup.
                   </p>
                 )}
                 <MCPSpecAction server={s} onSaved={onSaved} />

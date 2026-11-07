@@ -32,7 +32,7 @@ test('folds section warnings while Review and finding links reveal them', async 
 test('keeps section errors visible without opening a disclosure', async ({ page }) => {
   await overview(page, 'error')
   await page.goto('/?view=settings&tab=preferences')
-  await expect(page.getByText('The session context exceeds its budget.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Your tools load more text at startup than the startup budget allows.', { exact: true })).toBeVisible()
   await expect(page.locator('.section-warnings')).toHaveCount(0)
   await expect(page.getByRole('alert')).toContainText('1 error')
   await expect(page.locator('.page-header .page-fact-findings')).toHaveText('1 error')
@@ -111,7 +111,7 @@ test('keeps warnings open and focus visible after dismissing a recheck result', 
   await result.getByRole('button', { name: 'Dismiss', exact: true }).click()
   await expect(page.locator('.section-warnings')).toHaveAttribute('open', '')
   await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
-  await expect(page.getByText('Another warning still applies.', { exact: true })).toBeVisible()
+  await expect(page.getByText('A description is longer than the description budget.', { exact: true })).toBeVisible()
 })
 
 test('says once per page that a snapshot is read-only', async ({ page }) => {

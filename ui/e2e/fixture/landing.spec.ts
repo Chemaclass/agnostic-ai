@@ -91,7 +91,7 @@ test.describe('landing', () => {
     await expect(nav.getByRole('link', { name: /^Conversations/ })).toHaveAttribute('href', '?view=conversations&source=snap%2F')
     await page.goto('/?source=snap/&tab=usage')
     await expect(page.getByRole('tab', { name: /^Context size/ })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.locator('section.context-usage')).toContainText('needs a running agnostic-ai serve')
+    await expect(page.locator('section.context-usage')).toContainText('needs agnostic-ai view running')
     await serve(page)
     await page.goto('/?view=context&tab=skills')
     await expect(page.getByRole('tab', { name: /^Skills/ })).toHaveAttribute('aria-selected', 'true')
