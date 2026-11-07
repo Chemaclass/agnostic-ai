@@ -1,164 +1,179 @@
 ---
 name: agnostic-ai local configuration UI
-description: A ruled ledger of what your agents receive, with findings and controls in plain view.
+description: A calm report on what your agents receive, written for people who do not read config files.
 colors:
-  light-canvas: "#f3f1ec"
-  light-sidebar: "#eceae4"
-  light-surface: "#fbfaf8"
-  light-raised: "#e9e6df"
-  light-sunken: "#f0ede7"
+  light-canvas: "#eeebe3"
+  light-surface: "#f8f6f1"
+  light-sunken: "#e6e2d8"
   light-field: "#ffffff"
-  light-slab: "#16130f"
-  light-line: "#d8d4ca"
-  light-control: "#7f776c"
-  light-rule: "#1a1714"
-  light-ink: "#1a1714"
-  light-soft: "#45403a"
-  light-muted: "#675f56"
-  light-faint: "#857d72"
-  light-rust: "#a8481a"
-  light-rust-strong: "#8c3912"
-  light-permitted: "#2f6a2a"
-  light-approval: "#875800"
-  light-blocked: "#ad2f1f"
-  light-info: "#2c5c93"
-  dark-canvas: "#121110"
-  dark-sidebar: "#171513"
-  dark-surface: "#1b1917"
-  dark-raised: "#25221e"
-  dark-sunken: "#0f0e0d"
-  dark-field: "#0e0d0c"
-  dark-slab: "#0c0b0a"
-  dark-line: "#34302a"
-  dark-control: "#766d60"
-  dark-rule: "#cfc7bb"
-  dark-ink: "#f2ede5"
-  dark-soft: "#cfc7bb"
-  dark-muted: "#a59a8b"
-  dark-faint: "#7f766a"
-  dark-rust: "#f0a35e"
-  dark-rust-strong: "#f7b97f"
-  dark-permitted: "#9fcf8a"
-  dark-approval: "#e6bb67"
-  dark-blocked: "#f39689"
-  dark-info: "#9dbde4"
-  slab-ink: "#f0eae0"
-  slab-dim: "#a99f91"
-  slab-accent: "#f0a35e"
-  backdrop: "rgba(0, 0, 0, 0.45)"
+  light-line: "#d6d2c7"
+  light-control: "#6e7672"
+  light-ink: "#22282a"
+  light-soft: "#3f4846"
+  light-muted: "#4c5654"
+  light-faint: "#6f7976"
+  light-accent: "#256f61"
+  light-accent-strong: "#1f5e52"
+  light-accent-wash: "#dbe6df"
+  light-focus: "#2f5fd0"
+  light-permitted: "#2f6b3a"
+  light-approval: "#7f560c"
+  light-blocked: "#a8382a"
+  light-info: "#2d5d86"
+  dark-canvas: "#161b1c"
+  dark-surface: "#202728"
+  dark-sunken: "#121617"
+  dark-field: "#0f1314"
+  dark-line: "#2e3738"
+  dark-control: "#75807d"
+  dark-ink: "#ece8df"
+  dark-soft: "#cfd3cd"
+  dark-muted: "#b3beb9"
+  dark-faint: "#8a9692"
+  dark-accent: "#7cc4b2"
+  dark-accent-strong: "#9ad6c7"
+  dark-accent-wash: "#1f3330"
+  dark-focus: "#8fb0ff"
+  dark-permitted: "#93cf9b"
+  dark-approval: "#e0b252"
+  dark-blocked: "#f2998c"
+  dark-info: "#9cc1e6"
+  rail: "#22282a"
+  rail-dark: "#101415"
+  rail-raised: "#2f3739"
+  rail-raised-dark: "#232a2b"
+  rail-ink: "#eeebe3"
+  rail-dim: "#a9b4b0"
+  backdrop: "rgba(16, 20, 21, 0.5)"
 typography:
-  display:
-    fontFamily: "Archivo Narrow, Arial Narrow, sans-serif"
-    fontSize: "34px"
-    fontWeight: 700
-    lineHeight: 1.05
-    letterSpacing: "-0.01em"
+  verdict:
+    fontFamily: "Fraunces, Georgia, serif"
+    fontSize: "52px"
+    fontWeight: 500
+    lineHeight: 1.12
+    letterSpacing: "-0.02em"
   headline:
-    fontFamily: "Archivo Narrow, Arial Narrow, sans-serif"
-    fontSize: "20px"
-    fontWeight: 700
-    lineHeight: 1.15
-  stat:
-    fontFamily: "Archivo Narrow, Arial Narrow, sans-serif"
-    fontSize: "40px"
-    fontWeight: 700
-    lineHeight: 1
+    fontFamily: "Fraunces, Georgia, serif"
+    fontSize: "22px"
+    fontWeight: 600
+    lineHeight: 1.3
   title:
     fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "16px"
+    fontSize: "15px"
     fontWeight: 600
-    lineHeight: 1.35
+    lineHeight: 1.4
   body:
     fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "14px"
+    fontSize: "15px"
     fontWeight: 400
-    lineHeight: 1.5
+    lineHeight: 1.55
   small:
     fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
     fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.45
   label:
-    fontFamily: "ui-monospace, SFMono-Regular, JetBrains Mono, Menlo, Consolas, monospace"
-    fontSize: "11px"
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    fontSize: "12px"
     fontWeight: 400
     lineHeight: 1.3
+    letterSpacing: "0.08em"
 rounded:
-  small: "2px"
-  medium: "4px"
-  large: "6px"
+  small: "3px"
+  medium: "8px"
+  large: "14px"
   pill: "999px"
 spacing:
-  0_5: "2px"
   1: "4px"
-  1_5: "6px"
   2: "8px"
   3: "12px"
   4: "16px"
   5: "20px"
   6: "24px"
-  8: "32px"
+  7: "28px"
   10: "40px"
   14: "56px"
+  18: "72px"
 ---
 
 # Design System: agnostic-ai local UI
 
 ## Overview
 
-**Direction: "Field Ledger"**
+**Direction: "Mineral"**
 
-The interface reads like a ruled ledger of what your agents receive. Each page is a numbered section of a manual: a condensed heading over a 2px ink rule, then full-width rows separated by hairlines. A row that needs attention carries a 3px rail on its left edge: rust when it is linked, amber when it has findings, red when it fails. Color appears only where it means something.
+The interface reads like a calm report on your setup. Every page opens with a sentence that answers its question in plain words, set large in a soft serif, before any list or control. A dark slate rail holds the navigation; the page itself is bone paper with verdigris for links and progress. Color marks state only: ochre for what needs a look, brick red for what is broken, green for allowed, blue for notes. Nothing decorative carries color.
 
-The direction was worked out in code, not in a design tool. The frontmatter above holds the target tokens. The interface lives in `src/styles.css`, `src/components/Shell.tsx` and `src/components/SectionFrame.tsx` (with the files it composes), and moves to them one slice at a time (#3026), so some sections below still describe the current interface.
+The Paper file "agnostic-ai UI redesign (#3120)" holds the source frames: page **Directions** has the three explored directions, page **Mineral** has every page and state. When code and Paper disagree, this file wins. The Paper file lives on the maintainer's machine, so each build PR attaches screenshots of the frames it follows.
 
-**From the docs site** (the [Toolchain Field Briefing](../DESIGN.md)) it takes the rust signal, warm ink on warm paper, hairline rules, monospace metadata for paths, counts and versions, the dark slab block, and no shadows. The top bar becomes a slab in both themes, with a thin rust signal rule on its bottom edge that moves only while a request is in flight. Sidebar sections carry a monospace index, 01 Context to 05 Settings, as Lifecycle already numbers its stages.
+**Audience.** Someone who installed agnostic-ai for their team and has never opened a settings file. Section names stay (Context, Authority, Tools, Lifecycle, Settings), because docs and links use them, but the rail leads with each section's question: *What is the agent told?*, *What may it do?*, *What can it use?*, *What runs around it?*, *How is it set up?*, with a live summary under it, such as "Authority: 11 allowed, 3 ask, 4 denied". Words and labels follow the vocabulary in #3121: one label per action (Copy prompt, Preview, Apply, Cancel, Docs), "check" for lint and doctor, tool names instead of ids, and technical codes only under Details.
 
-**It drops** rounded card boxes, pill badges, full-row tints, gradients, glass, emoji and centered empty states. Corners stay between 0 and 4px; dialogs and the drawer use 6px, and the switch track is the only pill.
-
-**Type:** Archivo Narrow 700 sets page and section headings; Atkinson Hyperlegible Next (400 and 600) sets body text at 14px and controls at 13px. Both ship inside the binary as small subsets under the SIL Open Font License; the interface loads no network font. System monospace keeps paths, keys and counts aligned.
+**It drops** the ruled-ledger look: condensed headings, 2px ink rules, monospace section indexes, the dark top-bar slab, and the rust accent. It keeps hairline rows for lists, monospace for paths and keys, and no shadows on surfaces.
 
 ## Colors
 
-Paper forms the canvas; the sidebar sits one step darker, and surfaces hold grouped content. Ink carries names and values; muted ink carries descriptions and source paths. Faint ink is for disabled controls and decoration only, never for text a reader needs. Rust marks active navigation, focus, and configured lifecycle markers. Separate green, blue, amber, and red tokens communicate permission, information, approval, and blocked states, each with a solid wash for its background. Severity also has a visible text label. The top bar is a dark slab in both themes: inside it the slab tokens stand in for ink, muted ink, lines and surfaces, and state colors use their dark-theme values. A 2px rust signal rule runs along its bottom edge; while the overview loads, a lighter segment sweeps along it (a steady light line with reduced motion).
+Bone (`canvas`) is the page; `surface` holds one grouped thing, such as a finding card or an editor; `sunken` sits behind code and chips. The rail is dark slate in both themes. Ink carries names and values, soft ink carries sentences, muted ink carries paths and secondary lines. Faint ink is for disabled controls only.
+
+Verdigris (`accent`) marks links, the current page, switches that are on, and progress. Keyboard focus has its own blue `focus` token, so a focused link or current row never hides its ring in the accent color. `accent-wash` fills the selected rail row's dot area and hover states. State colors: `permitted` (green) for allowed, `approval` (ochre) for warnings and ask-first, `blocked` (brick) for errors and always-blocked, `info` (blue) for notes. Each state also has a text label or glyph; color never stands alone.
+
+Contrast: every text token passes 4.5:1 on `canvas`, `surface` and `sunken` in its theme, except `faint`, which is never used for text a reader needs. On the rail, text uses only `rail-ink` and `rail-dim`, and state colors use their dark-theme values in both themes; all of those pass 4.5:1 on `rail` and `rail-raised`. Field borders and other controls use `control`, which passes 3:1 on `canvas`, `surface` and `field`. The tokens slice adds a unit test that reads these frontmatter tokens and checks every pair.
 
 ## Typography
 
-Atkinson Hyperlegible Next serves body text and controls (14px, 1.5 line height) in two weights, 400 and 600; the browser never fakes a bold, and heavier weights resolve to 600. Archivo Narrow 700 sets page and section headings. Page titles use 34px (28px at 760px and below) over a 2px ink rule, under a monospace index such as `02 / Authority` that screen readers skip; section headings use 20px, with a monospace Docs link. Controls use 13px. System monospace distinguishes keys, paths, code, and JSON controls. Descriptions use 13px; source paths use 12px and wrap within their row. Both faces load from the binary with a local Arial fallback scaled to their widths, so the swap does not reflow the page; `src/assets/fonts/README.md` shows how to rebuild them.
+- **Fraunces** (SIL OFL) sets the verdict sentence (52px, 34px at 760px and below), and section headings (22px, weight 600). The verdict may set its key phrase in the accent color, such as "**One rule** needs a closer look".
+- **Atkinson Hyperlegible Next** (SIL OFL, already bundled) sets everything else: body 15px, controls 14px, small text 13px, in 400 and 600.
+- **System monospace** sets paths, keys, rule values, counts and the small uppercase labels (12px, 0.08em tracking).
+
+Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built from the variable font at optical size 72 from a pinned google/fonts commit with the same rebuild steps as the other faces (`src/assets/fonts/README.md`). Archivo Narrow is removed. Expect the binary to grow 30 to 50 KB; the fonts slice raises `scripts/binary-size-budget` with a measurement.
 
 ## Layout
 
-The page scrolls as one document, so a wheel over the sidebar moves the content too; the 64px header and a 228px sidebar stick in place beside it. A sidebar taller than the window scrolls on its own. Pages have a 1240px maximum width. The sidebar, one step darker than the canvas, lists the five sections, each with a monospace index (01 to 05) and a short description; the current section has a 3px rust rail on its left edge and the surface fill. Setup health sits under a hairline and keeps its icon. At 760px and below the indexes hide and the icons return. The sidebar ends with the configuration switch (**Open global settings**, or **Open project** on a global page), the release badge, and a quiet **Overview JSON** link that opens the JSON inspector. The sidebar ends its list with **Setup health**. The top bar holds the brand, the project name with its path on the same line in muted monospace (truncated from the left), then the health badge, search, and the theme button. At 900px and below, all five section links share one equal-width navigation row, Setup health leaves it because the badge opens it, and the footer becomes a short row under it that keeps the switch and the link. Descriptions hide. At 760px and below, icons sit above navigation labels, the health badge drops its words and shows each count with a letter, such as 1E 3W, and content uses 16px side gutters. Fields, values, metadata, and support groups stack. Built-in switches stay beside their names; rows with reset buttons place their controls below the description.
-
-## Elevation & Depth
-
-One-pixel borders, warm surface tones, and whitespace define groups. The interface uses no shadows on surfaces. Overlays (the JSON inspector, the search dialog and the floating global setup panel) carry a 1px ring and a soft drop shadow.
-
-## Shapes
-
-Corners stay small: 2px on metadata, 4px on controls and grouped content, and 6px on dialogs and the drawer. Only the switch track is a pill; badges and chips use 2px corners. Source rows stay aligned within their containing list.
+- **Rail** (280px, dark slate, sticky, full height): wordmark and project name, then Setup health as a status row (dot in the state color, "Needs attention" or "All clear", and "1 to fix, 12 you could add"), then the five sections (plus Conversations once #3109 adds it), each as its question over its live summary in small dim text (Conversations: *Where did you leave off?*, with the open chat count). The current row fills `rail-raised` with an 8px radius. The foot holds Search with its shortcut, Open global settings or Open project, the version badge, and Overview JSON.
+- **No top bar on wide screens.** What the top bar held moves into the rail or the page:
+  - Finding counts by severity: the rail's Setup health row shows them as words ("1 error, 3 warnings", or "No findings" in `rail-dim`). On phones the top bar shows them as a chip ("1E 3W").
+  - Project path: under the project name in the rail, monospace in `rail-dim`, truncated from the left, with the full path on hover.
+  - Project GitHub link and agnostic-ai on GitHub: icon links in the rail foot.
+  - Search, theme button and the configuration switch: the rail foot.
+  - Mock and snapshot notice: one `Notice` strip at the top of the page content, above the verdict, once per page.
+- **Page**: 72px side padding, 56px top, content width up to 1080px. Each page starts with the verdict block: the section name as the page `h1`, styled as the small monospace label; the verdict sentence as a paragraph; and one line of supporting facts. On Setup health the facts line ends with "Checked just now" after a live server fetch, or "From a saved snapshot" for snapshots and mock data, once per page.
+- **At 900px and below** the rail collapses to a 60px top bar on canvas: wordmark and project on the left; the finding chip ("1E 3W"), Search and Menu as 44px buttons on the right. Under it, one row of equal-width cells holds every page link, with the icon over a short label (the section name) at 760px and below, and never scrolls, so every page link stays fully visible down to 320px as today. Menu opens a sheet from the left with the questions and summaries, the configuration switch, theme, version and Overview JSON.
+- **At 760px and below** side padding is 16px, verdicts drop to 34px, finding cards stack their actions under the text as one full-width pill button.
 
 ## Components
 
-- **Change previews:** keep Apply and Cancel in a sticky heading below the application navigation. Tools, changed files, and review notes use native disclosures that start closed. Notes group by tool in a bounded scrolling region; Copy notes preserves every message. Pending source changes remain visible above the disclosures. Opening a proposal scrolls its summary into view.
-- **Source rows:** full-width ruled rows, not boxed cards: a control-colored rule above the list and hairlines between rows. Each shows name, description in soft text, then muted monospace path; the layer tag is monospace on the sunken tone. A 3px rail on the left edge marks state: amber for findings, red when one is an error, rust for a linked row. Rows carry no full-row tint. Layer, scope, edit action, and switches stay alongside the row on wide screens and below its text on narrow screens.
-- **Badges and chips:** 2px corners and a 1px border; badges use monospace at 11.5px in the state color on its wash, and keep their glyph.
-- **Notices:** banners, callouts and the missing-entry note use a 3px rail in the state color on its wash, with no full border. `Notice` in `Banner.tsx` takes a tone (info, success, warning, error), a title, a body, actions and **Dismiss**; an error gets a plain title and keeps the raw message under **Details** with **Copy details**. Empty states sit left-aligned in a dashed box.
-- **Disclosures:** stay native and draw their own chevron, which turns a quarter in 160ms when open: Show content, finding Details, folded warnings, Lifecycle stages, unconfigured fields, tool resolution, change previews and their notes, changed files, and the local comparison. On narrow screens their summaries are at least 44px tall.
-- **Tables:** a 1px border with 4px corners; the head has no fill, uses monospace at 11px in muted ink, and sits on a 2px ink rule. Numbers align right in monospace. Coding tool support marks supported tools with a filled green square and unsupported ones with an outlined square, beside the same words.
-- **Context size:** the startup total uses the 40px condensed figure, with bytes in monospace. Each source's share is a 6px bar in the meter color with 2px corners, under its percentage. The figures lead the page in one row; a startup verdict over its word budget carries a 3px amber rail, the color of the lint warning it raises.
-- **Section tabs:** Context, Tools, and Settings show sibling source groups in an underlined tab row, with counts and finding indicators. Tab labels use 13px at 600 and change color on hover; counts use monospace chips with 2px corners, and finding counts are amber with a small square mark. Default to the first populated group. Tabs use roving keyboard focus, Left/Right, Home, and End keys, and linked tab panels. Inactive panels stay mounted and hidden to preserve drafts and previews. Search selects a matching group, and deep links select their owning group; manual tab changes keep the query and clear the linked entry. The URL preserves the selected tab. Mobile tab rows scroll horizontally. Authority and Lifecycle retain continuous task views. Support and page findings stay outside panels.
-- **Coding tool support:** a native disclosure between the page search and the tab row, titled Coding tool support, with its Docs link at the right while it is open. It starts open above 760px and folded at 760px and below, so the tab row stays on a phone's first screen. Opening or folding it is remembered per section in `localStorage` and wins on every width. Each kind name links to its heading, selecting the tab that holds it; each tab's hover text lists its kinds.
-- **Forms:** inputs, selects and textareas use the field color, a 1px control border and 4px corners at 36px tall; focus turns the border rust beside the focus outline. Textareas use monospace. The selected segment of a segmented control fills with ink and paper text (the system highlight in forced colors). Switches fill rust when on, moving in 160ms. On wide screens a dotted leader runs from a set field's name toward its value.
-- **Settings:** Project and Local (Global and Local in the global view) select both the displayed values and the save destination. Project shows the level's built-in states and settings; Local shows overrides with project values inherited where no override exists. The selector explains that local values win. Different values appear together as Project and Local; the local value uses the accent color. Local resets appear in Local. A project value blocked by an override stays visible, disabled, with a route to Local. Built-in counts follow the selected view. The config snapshot and tool resolution explicitly describe the combined configuration. Configured fields place label and description beside values and their source path. Lists use chips, booleans use switches, and other values use text. Native values group by tool. Unconfigured fields live in a disclosure.
-- **Permissions:** Authority keeps the three editable lists visible even when unset. Each opens a labeled multiline editor and previews a bounded file diff before Save rules. Scope and destination stay beside the preview. Local replacements offer a project/local comparison and reset; inherited lists start with the project rules. A saved notice shows the sync command. Drafts survive a conflicting refresh, while switching scope or file starts a new draft. The default permission mode and protected paths also stay visible when unset: the mode is a select with Save in the global view and read-only with Open global settings in a project, and protected paths use the same editor, preview, and saved notice as the lists, with one path per line, a decision, and a reason.
-- **Lifecycle:** an ordered list forms a numbered vertical timeline: a two-digit monospace number, then an 8px square marker on a control-colored rail. Each stage has a native disclosure that starts closed, with its title, monospace hook count, and description visible. Stages with hooks get a filled rust marker; the others stay hollow. Expand all and Collapse all sit beside Hooks. Search opens matching stages; linked hooks and findings open their stage. Tool icons identify stage support inside each disclosure. With no hooks at all, the stages render as a plain numbered list with their descriptions and tool icons, without disclosures, counts, or Expand all and Collapse all.
-- **Search:** each page has a labeled search input with an icon and live result count. Search matches names, paths, descriptions, and values across source tabs; matching unconfigured fields open automatically. Tab badges show matching counts while searching, with separate finding counts. Items with findings remain available in their group. Clearing search restores focus to the input and keeps the active tab; changing pages resets search and tab selection.
-- **Setup health:** a compact badge in the top bar counts findings by severity, red for errors and amber for warnings, and reads a muted **No findings** when clean. Its page groups every finding by severity, then section, then item, with the item name linking to its row, and reuses the section finding rows. **Copy all fixes** sits beside the total.
-- **Findings:** flat rows use fine separators, quiet metadata, and plain source paths. Warning icons align vertically with their severity labels. Long messages preview three lines and expand on demand; copy actions always include the complete message. The summary scrolls the page to the findings heading, below the sticky header and navigation, and focuses it. Section errors appear before configuration controls. Individual findings retain severity, source, copy action, and a Details disclosure.
-- **Release badge:** the foot of the sidebar shows the serving version in monospace beside the logo mark. A release links its notes in a new tab; on hover the border and arrow turn rust and the mark turns a quarter, landing on its own shape. A checkout build uses a dashed border and no link. When the config sets `requires`, a monospace line under the version names it: muted when the version meets it, in the warning color when it does not, with a title that says what to run. It renders only when `/api/health` names a version and hides with the descriptions at 900px and below.
-- **Accessible states:** current navigation uses `aria-current`; controls have visible focus outlines. Loading announces busy state, failed edits use alerts, and pending switches prevent repeat actions. Narrow-screen navigation, edit controls, and switches have 44px minimum touch targets. Reduced-motion styles remove animations and transitions.
+- **Verdict block:** label, sentence, facts line. Setup health adds the feature track: one small bar (14x22px, 3px radius) per improvement the configured tools support (`health.improvements`), filled accent for those in use, outlined for the rest, with a line such as "2 of 14 features your tools support are in use". With no improvements data (the global view), the track hides.
+- **Finding card:** `surface`, 14px radius, 4px left border in the state color. Severity and section in 13px 600 state color ("Worth a look · What agents may do", "Needs a fix · ..."), the message as a Fraunces 22px sentence, the fix and the source path in body text, then actions: **Copy prompt** as a dark ink pill and **Details** as a disclosure link (#3121 labels). Recheck sits beside them when a server is running.
+- **List rows:** hairline (`line`) between rows, no boxes. Name (title, 180px lane), sentence (soft, grows), trailing action as an accent text link in a fixed lane. Paths go on a second line in muted monospace.
+- **Buttons:** primary is an ink pill (`ink` fill, `canvas` text, 999px radius, 40px tall, 44px on touch). Secondary is a text link in accent, 600. Destructive confirms use `blocked`. No bordered box buttons.
+- **Chips and badges:** `sunken` fill, 3px radius, monospace 12px. Counts in the rail and tabs use the same chip.
+- **Tabs:** plain text tabs with a 2px accent underline on the current one; counts as chips.
+- **Disclosures:** native `details`, chevron turns a quarter in 160ms. Summaries are at least 44px tall on touch.
+- **Forms:** fields use `field`, 1px `control` border, 8px radius, 40px tall; focus turns the border accent and shows the focus ring. Switches are pills that fill accent when on.
+- **Tables** (coding tool support, context size): no outer border, hairline rows, monospace head in muted ink at 12px uppercase. Numbers right-aligned in monospace. Share bars are 6px accent bars with 3px radius.
+- **Lifecycle:** a vertical timeline. Stage numbers in monospace, a 10px dot on a 2px `line` rail; stages with hooks get a filled accent dot, the rest hollow. Expand all and Collapse all are accent text links beside the Hooks heading. Counts show only above zero (#3121).
+- **Overlays** (search, JSON inspector, change previews, rail sheet): `surface`, 14px radius, 1px `line` ring, one soft shadow, `backdrop` behind.
+- **Empty states:** a sentence in Fraunces 22px plus one line of what to do, left-aligned, no box.
+- **Page frame:** verdict block; then the section's findings slot: errors as finding cards before the tabs, warnings counted in the facts line with a **Review** link that scrolls to the folded warnings list and focuses its heading; then a compact filter row (the section search: one field with an icon, a match count only while filtering) and the Docs link at its right, then the tabs, then the content. Coding tool support folds below the content as a closed disclosure with a one-line summary ("3 of 3 tools support rules").
+- **Segmented control** (Project | Local, Global | Local): once per page beside the filter row; the selected segment fills `ink` with `canvas` text.
+- **Selects:** same as fields, with a chevron.
+- **Finding details:** the finding code (`LINT038`) is a chip inside Details, with the explanation and the exact prompt. Long messages show three lines and Show full message. Copy all fixes is an ink pill beside the Fix first heading. Recheck shows its result as a `Notice` under the card (fixed, still there, not confirmed).
+- **Change previews and diffs:** a `surface` overlay panel; file diffs in monospace on `sunken`, added lines with a `permitted` left rule, removed lines with a `blocked` left rule, each line also prefixed + or -.
+- **Saved and error states:** one `Notice` (`Banner.tsx`): a tone (info, success, warning, error) shown as a 4px left rail in the state color on `surface`, a plain title, a body, actions and **Dismiss**. An error keeps the raw message under **Details** with **Copy details**.
+- **Add hook form, field resolution, global setup panel:** forms and disclosures as above inside a `surface` card.
+- **Tool logos:** 18px, in a fixed 24px lane, with the tool name beside them, never logos alone.
+- **Focus ring:** 2px `focus` outline with 2px offset on every focusable element (4.8:1 on canvas); on the rail it uses `rail-ink`.
+- **Forced colors:** borders on cards, chips, pills and the feature track bars; the current rail row uses `Highlight`; state rails keep their width with `CanvasText`.
+- **Loading:** a 2px accent line sweeps under the verdict label; reduced motion shows a steady line.
+
+## Motion
+
+Only state changes move: disclosure chevrons and switches in 160ms ease-out, the rail sheet slides in 200ms, overlays fade in 120ms. No motion on page load beyond the loading line. `prefers-reduced-motion` removes all transitions.
 
 ## Do's and Don'ts
 
-Preserve source paths, findings, native disclosures, and keyboard focus when changing layout. Keep status text alongside color. Do not hide findings to produce an empty search result or replace the lifecycle sequence with unrelated cards.
+- Do lead every page with its verdict sentence; it is the page's answer.
+- Do keep source paths, finding ids, native disclosures and keyboard focus.
+- Do keep status words beside color.
+- Don't add boxes around lists; cards are for one finding or one editor.
+- Don't use the accent for decoration. One color moment per screen.
+- Don't use jargon in verdicts or row sentences ("lint", "spec", "serve"); keep it in paths and Details.
