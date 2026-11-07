@@ -5026,3 +5026,10 @@ html:has(.search-backdrop) {
     min-height: 44px;
   }
 }
+
+/* Six labels share a 320px row; wider system fonts need the room. */
+@media (max-width: 360px) {
+  .nav-link {
+    font-size: 10px;
+  }
+}
