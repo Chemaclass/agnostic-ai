@@ -38,7 +38,7 @@ export function SpecMoveAction({ item }: { item: SectionItem }) {
   const [preview, setPreview] = useState<SpecMovePreview>()
   const [overwrite, setOverwrite] = useState(false)
   const [pending, setPending] = useState<'preview' | SpecMoveMode>()
-  const [error, setError] = useState<string>()
+  const [error, setError] = useState<{ action: 'preview' | SpecMoveMode; message: string }>()
   const busy = useRef(false)
 
   if (app.source.kind !== 'api' || !saved || !canMoveSpec(item, level)) return null
@@ -58,7 +58,7 @@ export function SpecMoveAction({ item }: { item: SectionItem }) {
       setPreview(undefined)
       saved({ name: item.name, mode: action, destination: done.destination, syncCommands: done.syncCommands, warning: done.warning })
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Could not copy this spec. Try again.')
+      setError({ action, message: failure instanceof Error ? failure.message : 'Could not copy this spec. Try again.' })
     } finally {
       busy.current = false
       setPending(undefined)
@@ -71,7 +71,7 @@ export function SpecMoveAction({ item }: { item: SectionItem }) {
       <button className="button button-quiet" type="button" disabled={!!pending} aria-label={`${label}: ${item.label}`} onClick={() => { void run('preview') }}>{label}</button>
       <span role="status" aria-live="polite">{pending === 'preview' ? 'Checking the destination…' : ''}</span>
     </div>}
-    {error && <Notice tone="error" title={`Could not ${label.toLowerCase()}`} onDismiss={() => setError(undefined)}><p>{error}</p></Notice>}
+    {error && <Notice tone="error" title={`Could not ${(error.action === 'move' ? label.replace(/^Copy/, 'Move') : label).toLowerCase()}`} onDismiss={() => setError(undefined)}><p>{error.message}</p></Notice>}
     {preview && <section className="builtin-change-preview" aria-label={`${label}: ${item.label}`} aria-busy={!!pending}>
       <h3>{label}: {item.label}</h3>
       <p>Write <Code>{preview.destination}</Code>. {destinationNote(preview)}</p>
