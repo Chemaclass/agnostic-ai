@@ -192,6 +192,7 @@ export function ConversationsPage() {
 
 // Each found source is a toggle that shows only its tool; a source that was
 // not found has nothing to show, so it is plain text with the server's note.
+// The note shows while its chip is hovered or focused, so a missing chip takes focus too.
 function Sources({ sources, rows, tool, onToggle }: { sources: ConversationSource[]; rows: Conversation[]; tool: ToolFilter; onToggle: (tool: ConversationTool) => void }) {
   if (sources.length === 0) return null
   return (
@@ -206,11 +207,13 @@ function Sources({ sources, rows, tool, onToggle }: { sources: ConversationSourc
             </span>
           </>
         )
+        const noteId = source.note ? `conversation-source-note-${source.tool}` : undefined
+        const note = source.note && <span id={noteId} className="muted conversation-source-note">{source.note}</span>
         if (!source.found) {
           return (
             <li key={source.tool} className="conversation-source is-missing">
-              <span className="conversation-source-chip">{text}</span>
-              {source.note && <span className="muted conversation-source-note">{source.note}</span>}
+              <span className="conversation-source-chip" tabIndex={noteId ? 0 : undefined} aria-describedby={noteId}>{text}</span>
+              {note}
             </li>
           )
         }
@@ -221,12 +224,13 @@ function Sources({ sources, rows, tool, onToggle }: { sources: ConversationSourc
               type="button"
               className="conversation-source-chip conversation-source-toggle"
               aria-pressed={pressed}
+              aria-describedby={noteId}
               title={pressed ? 'Show every tool' : `Show only ${source.label}`}
               onClick={() => onToggle(source.tool)}
             >
               {text}
             </button>
-            {source.note && <span className="muted conversation-source-note">{source.note}</span>}
+            {note}
           </li>
         )
       })}

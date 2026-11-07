@@ -30,6 +30,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
 
+- On **Conversations**, a tool's note (such as why its chats could not be read) shows only while you hover or focus its chip. Phones still show it under the chip.
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
 
 - In the web interface, **Context size** starts with the startup and on-demand word counts, then one line on the startup budget with **Change budget**, then three **Next** steps. The ranked sources are always shown and replace **Start here**; duplicated passages show only when there are any; the load explanation and the model line moved into **How this is counted**; coding tools show by name (#3121).

@@ -3,6 +3,7 @@
    button that asks the server to reopen the chat where it lives. */
 
 .conversation-sources {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -88,6 +89,36 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
   overflow-wrap: anywhere;
+}
+
+/* With a pointer, the note floats under the chips only while its chip is
+   hovered or keyboard-focused. It is anchored to the list so it never runs
+   past the page edge, and its transparent top border keeps the pointer on
+   it while crossing from the chip. */
+@media (hover: hover) {
+  .conversation-source-note {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 10;
+    width: max-content;
+    max-width: min(48ch, 100%);
+    padding: 8px 12px;
+    border-top: 6px solid transparent;
+    border-radius: var(--radius);
+    background: var(--panel) padding-box;
+    box-shadow: var(--overlay-shadow);
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity var(--dur-1) var(--ease-out), visibility 0s var(--dur-2);
+  }
+
+  .conversation-source:hover .conversation-source-note,
+  .conversation-source:has(:focus-visible) .conversation-source-note {
+    visibility: visible;
+    opacity: 1;
+    transition-delay: 0s;
+  }
 }
 
 .conversations-search-note {
