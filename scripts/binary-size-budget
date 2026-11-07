@@ -797,4 +797,7 @@
 # plus 8192, rounded up to a multiple of 4096.
 # The Kiro agent MCP import (#3051) measured 24993952 bytes in CI; the budget is
 # that plus 8192, rounded up to a multiple of 4096.
-25006080
+# Global findings in setup health (#3069) and the Kiro env references (#3067)
+# measured 25006240 bytes in CI; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+25018368

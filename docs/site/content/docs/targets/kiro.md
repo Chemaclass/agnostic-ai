@@ -161,7 +161,7 @@ Sync removes only recorded files after their specs are removed. A conflicting or
 | `.kiro/steering/agent-<name>.md` (legacy, pre-native sync) | `<agents>/<name>.md`, body only |
 | `.kiro/steering/skill-<name>.md` (legacy, pre-native sync) | `<skills>/<name>/SKILL.md`, body only |
 | `.kiro/hooks/<id>.json` (`hooks[]`) | one hook spec per group of entries that differ only in `action.command` |
-| `.kiro/settings/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
+| `.kiro/settings/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml`. A server whose `oauth` holds a credential is left out with a note |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 Native files win over old steering files with the same name.
