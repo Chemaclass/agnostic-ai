@@ -13,7 +13,7 @@ import { ErrorPanel, Notice, type NoticeTone } from './Banner'
 import { RecheckSection, RecheckSectionEntries, useRechecks } from './Recheck'
 import { ConfigurationRoot } from './section-context'
 import { Findings } from './Findings'
-import { SectionHeading } from './SectionHeading'
+import { DocLink, SectionHeading } from './SectionHeading'
 import type { Remote } from './Shell'
 import type { ViewId } from '../model/url'
 import { CopyButton, Icon, toolName } from './ui'
@@ -85,6 +85,7 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
             )
           })}
           <Gaps gaps={data.health.gaps} sections={data.sections} docs={groups.length === 0} />
+          {groups.length === 0 && data.health.gaps.length === 0 && <p className="health-docs"><DocLink topic="findings" /></p>}
         </ConfigurationRoot.Provider>
       </fieldset>
     </>

@@ -528,6 +528,23 @@ var builtinDescriptions = map[string]string{
 	"caveman":      "Terse replies to cut output tokens.",
 }
 
+// builtinLabels names each built-in for people; the id stays the key
+// written in the builtins list.
+var builtinLabels = map[string]string{
+	"memory":       "Shared memory",
+	"handoff":      "Handoff",
+	"handoff-hook": "Handoff on start",
+	"rtk":          "RTK",
+	"caveman":      "Caveman",
+}
+
+func builtinLabel(name string) string {
+	if label := builtinLabels[name]; label != "" {
+		return label
+	}
+	return name
+}
+
 // builtinItems lists every built-in agnostic-ai ships, each marked on
 // when the config enables it and local when the personal config's list
 // decides it differently from the team's.
@@ -550,7 +567,7 @@ func builtinItems(in Inputs) []SectionItem {
 		}
 		on := slices.Contains(enabled, name)
 		local := in.BuiltinsLocal && on != slices.Contains(in.BuiltinsTeam, name)
-		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: name, Description: description, Path: "builtin:" + name, Layer: builtinLayer, Enabled: &on, Local: local})
+		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: builtinLabel(name), Description: description, Path: "builtin:" + name, Layer: builtinLayer, Enabled: &on, Local: local})
 	}
 	return items
 }

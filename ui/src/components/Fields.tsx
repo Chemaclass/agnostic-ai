@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { API, type SectionItem, type SettingField, type TargetValue } from '../contract'
+import { API, type KindSupport, type SectionItem, type SettingField, type TargetValue } from '../contract'
 import { EditError, postEdit } from '../api'
 import { useApp } from './app-context'
 import { Notice } from './Banner'
@@ -18,12 +18,13 @@ import { fieldEntryId } from '../model/identity'
 import { Select, Badge, Code, Toggle } from './ui'
 import { ConfiguredTools, useEntry } from './section-context'
 import { ItemList, NativeValues, OverrideComparison, Values } from './Items'
+import { EmptyState } from './EmptyState'
 
 function fieldsHeadingId(title: string) {
   return `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
 }
 
-export function SettingsFields({ title, headingEntry, audienceControl, fields, files, filtering, status }: { title: string; headingEntry?: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
+export function SettingsFields({ title, headingEntry, audienceControl, fields, files, filtering, status, support }: { title: string; headingEntry?: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode; support?: KindSupport }) {
   const entry = useApp().state.entry
   const audience = useViewAudience()
   const id = fieldsHeadingId(title)
@@ -37,11 +38,13 @@ export function SettingsFields({ title, headingEntry, audienceControl, fields, f
       <SectionHeading id={id} focusable entry={headingEntry}>{title}</SectionHeading>
       {audienceControl}
       {status}
-      {configured.length === 0 && <p className="muted">{filtering ? 'No matching configured settings.' : editablePermissions.length ? 'No permission rules configured. Add rules below.' : 'No settings configured.'}</p>}
+      {configured.length === 0 && (filtering || editablePermissions.length
+        ? <p className="muted">{filtering ? 'No matching configured settings.' : 'No permission rules configured. Add rules below.'}</p>
+        : <EmptyState kind={{ kind: 'settings', label: title }} support={support} />)}
       {visibleFields.length > 0 && <FieldList fields={visibleFields} files={files} />}
       {remaining.length > 0 && (
         <details className="unconfigured-fields" open={filtering || remaining.some((field) => fieldEntryId(field) === entry) || undefined}>
-          <summary>Unconfigured fields ({remaining.length})</summary>
+          <summary>Unconfigured fields <span className="kind-count">{remaining.length}</span></summary>
           <FieldList fields={remaining} files={files} />
         </details>
       )}
@@ -78,7 +81,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
                 localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined}
                 overrides={viewAudience === 'shared' ? f.set.filter((other) => other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
                 baseline={viewAudience === 'personal' && src.local ? f.set.filter((other) => !other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
-              /> : <Values values={src.values} file={f.key.startsWith('voice.') ? undefined : src.path} fieldKey={f.key} />}
+              /> : <Values values={src.values} file={f.key.startsWith('voice.') ? undefined : src.path} prefix={f.key} fieldKey={f.key} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>

@@ -393,7 +393,8 @@ textarea:focus {
 .finding-details summary,
 .item-source > summary,
 .unconfigured-fields > summary,
-.field-resolution > summary {
+.field-resolution > summary,
+.context-usage-method > summary {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -404,7 +405,8 @@ textarea:focus {
 .finding-details summary::-webkit-details-marker,
 .item-source > summary::-webkit-details-marker,
 .unconfigured-fields > summary::-webkit-details-marker,
-.field-resolution > summary::-webkit-details-marker {
+.field-resolution > summary::-webkit-details-marker,
+.context-usage-method > summary::-webkit-details-marker {
   display: none;
 }
 
@@ -412,7 +414,8 @@ textarea:focus {
 .finding-details summary::before,
 .item-source > summary::before,
 .unconfigured-fields > summary::before,
-.field-resolution > summary::before {
+.field-resolution > summary::before,
+.context-usage-method > summary::before {
   content: '';
   flex: none;
   width: 5px;
@@ -428,7 +431,8 @@ textarea:focus {
 .finding-details[open] summary::before,
 .item-source[open] > summary::before,
 .unconfigured-fields[open] > summary::before,
-.field-resolution[open] > summary::before {
+.field-resolution[open] > summary::before,
+.context-usage-method[open] > summary::before {
   transform: rotate(45deg);
 }
 
@@ -454,25 +458,10 @@ textarea:focus {
 @media (max-width: 760px) {
   .section-warnings > summary,
   .unconfigured-fields > summary,
-  .field-resolution > summary {
+  .field-resolution > summary,
+  .context-usage-method > summary {
     min-height: 44px;
     align-content: center;
-  }
-
-  .section-tabs[data-section='settings'] {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-  }
-
-  .section-tabs[data-section='settings'] [role='tab'] {
-    min-width: 0;
-    padding-inline: 6px;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 2px 4px;
-    white-space: normal;
-    font-size: 12px;
   }
 }
 
@@ -685,11 +674,7 @@ textarea:focus {
 }
 
 .badge-muted {
-  border-color: currentColor;
-  border-style: dashed;
-  border-width: 1px;
-  background: transparent;
-  font-weight: 600;
+  background: var(--panel-sunken);
 }
 
 .transition {
@@ -844,6 +829,11 @@ textarea:focus {
 .item-main > strong {
   font-size: 15px;
   font-weight: 600;
+}
+
+.item-key {
+  margin-left: 8px;
+  font-size: var(--text-xs);
 }
 
 .item-description {
@@ -1002,9 +992,11 @@ textarea:focus {
   text-underline-offset: 3px;
 }
 
-.finding-fix {
+.finding-variant {
   max-width: var(--measure);
   color: var(--text-soft);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
 
 .finding-source {
@@ -1396,6 +1388,21 @@ textarea:focus {
   font-size: 13px;
 }
 
+/* A key that only repeats the field's own key above it would read twice. */
+
+.value-row.repeats-field-key {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.value-row.repeats-field-key dt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .value-row dd {
   margin: 0;
   min-width: 0;
@@ -1628,6 +1635,20 @@ textarea:focus {
   border-bottom: 1px solid var(--line);
 }
 
+/* Every page keeps its tabs on one line and scrolls the row; a faded edge shows more tabs that way. */
+
+.section-tabs[data-more-end] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.section-tabs[data-more-start] {
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+
+.section-tabs[data-more-start][data-more-end] {
+  mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+}
+
 .section-tabs [role="tab"] {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1657,6 +1678,7 @@ textarea:focus {
 }
 
 .section-tab-count {
+  white-space: nowrap;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   background: var(--panel-sunken);
@@ -1745,17 +1767,6 @@ textarea:focus {
   .value-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
-  }
-
-  /* Stacked, a key that only repeats the field's own key above it reads twice. */
-
-  .value-row.repeats-field-key dt {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
   }
 
   .item-heading {

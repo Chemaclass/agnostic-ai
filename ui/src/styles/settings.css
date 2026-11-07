@@ -2,41 +2,18 @@
 
 .coding-tools-filter {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: 12px;
+  min-height: 44px;
   margin-block: 12px 4px;
 }
 
-.coding-tools-filter > label:first-child {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-
-.coding-tools-filter input[type='search'] {
-  flex: 0 1 320px;
-  min-width: 0;
-  min-height: 40px;
-  padding: 8px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--field);
-  color: var(--text);
-}
-
-.coding-tools-filter input[type='search']:focus {
-  border-color: var(--accent);
-}
-
 .coding-tools-status {
-  min-height: 2lh;
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: var(--text-sm);
-}
-
-@media (max-width: 759px) {
-  .coding-tools-status { min-height: 3lh; }
+  overflow-wrap: anywhere;
 }
 
 .coding-tools-only-on {

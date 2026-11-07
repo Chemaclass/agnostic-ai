@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { EditError, postEdit } from '../api'
 import { API, type ToolCatalog, type ToolChoice } from '../contract'
 import { filterTools, offConsequence, saveHint, toolCount, toolOn } from '../model/coding-tools'
@@ -18,17 +18,13 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
   const global = app.overview?.global === true
   const level = useLevelName()
   const audience = useViewAudience() ?? 'shared'
-  const pageQuery = app.state.q ?? ''
-  const [query, setQuery] = useState(pageQuery)
-  useEffect(() => setQuery(pageQuery), [pageQuery])
+  const query = app.state.q ?? ''
   const [onlyOn, setOnlyOn] = useState(false)
   const [saved, setSaved] = useState<Saved | undefined>()
-  const filterId = useId()
   const live = app.source.kind === 'api'
   const sharedBlocked = catalog.source === 'personal' && audience === 'shared'
   const visible = filterTools(catalog.items, query, onlyOn, audience)
   const count = toolCount(catalog.items, audience)
-  const command = global ? 'agnostic-ai sync --global' : 'agnostic-ai sync'
   return (
     <section className="block coding-tools" aria-labelledby="settings-targets">
       <SectionHeading id="settings-targets" focusable>
@@ -41,14 +37,13 @@ export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }
       {live && !sharedBlocked && <p className="muted coding-tools-hint">{saveHint(catalog, audience, global)}</p>}
       {live && audience === 'personal' && catalog.source !== 'personal' && <p className="muted">Inherited from {level}. Changing a tool creates your local list.</p>}
       {live && audience === 'personal' && catalog.source === 'personal' && <ResetTools expected={catalog.items.filter((tool) => tool.enabled).map((tool) => tool.target)} onSaved={setSaved} />}
-      <div className="coding-tools-filter" role="search" aria-label="Filter coding tools">
-        <label htmlFor={filterId}>Filter tools</label>
-        <input id={filterId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSaved(undefined) }} placeholder="Name or vendor" />
+      {/* The status shares the checkbox row, so a save never moves the list. */}
+      <div className="coding-tools-filter">
         <label className="coding-tools-only-on"><input type="checkbox" checked={onlyOn} onChange={(event) => { setOnlyOn(event.target.checked); setSaved(undefined) }} /> On only</label>
+        <p className="muted coding-tools-status" role="status" aria-live="polite">
+          {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}.</> : onlyOn ? `${visible.length} of ${count.total} tools shown.` : ''}
+        </p>
       </div>
-      <p className="muted coding-tools-status" role="status" aria-live="polite">
-        {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}. Run <Code>{command}</Code> to apply the change.</> : query.trim() || onlyOn ? `${visible.length} of ${count.total} tools shown.` : ''}
-      </p>
       {catalog.items.length === 0 ? <p className="muted">No coding tools listed.</p> : visible.length === 0 ? <p className="muted">No tool matches.</p> : (
         <ul className="coding-tools-list">
           {visible.map((tool) => <ToolRow key={tool.target} tool={tool} on={toolOn(tool, audience)} audience={audience} global={global} live={live && !sharedBlocked} onSaved={setSaved} />)}

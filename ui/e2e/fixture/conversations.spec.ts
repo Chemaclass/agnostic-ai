@@ -85,7 +85,7 @@ test.describe('conversations', () => {
     await expect(working.locator('.conversation-opening p')).toHaveCount(3)
     await expect(working.locator('.conversation-prompt')).toHaveText('Last prompt Run the e2e suite again and tell me which tests still fail.')
     await expect(working.locator('.conversation-tool')).toHaveText('Claude Code')
-    await expect(working.getByRole('button', { name: 'Switch to its terminal: Add a Conversations page to the local UI' })).toBeVisible()
+    await expect(working.getByRole('button', { name: 'Open in Terminal: Add a Conversations page to the local UI' })).toBeVisible()
     await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toBeVisible()
 
     const waiting = row(page, 'Plan the sync --global dry run').locator('.conversation-live')
@@ -198,7 +198,7 @@ test.describe('conversations', () => {
     })
     await page.goto('/?view=conversations')
     const live = row(page, 'Add a Conversations page to the local UI')
-    const open = live.getByRole('button', { name: /^Switch to its terminal/ })
+    const open = live.getByRole('button', { name: /^Open in Terminal/ })
     await open.click()
     await expect(open).toBeDisabled()
     await expect(live.getByRole('status')).toHaveText('Opening…')
@@ -231,7 +231,7 @@ test.describe('conversations', () => {
     await mockServer(page, () => ({ status: 500, json: { error: 'scan failed' } }))
     await page.goto('/?view=conversations')
     const sqlite = row(page, 'Speed up the sqlite reader')
-    await sqlite.getByRole('button', { name: /^Resume in Terminal/ }).click()
+    await sqlite.getByRole('button', { name: /^Open in Terminal/ }).click()
     await expect(sqlite.getByRole('status')).toHaveText('The server answered 500: scan failed')
     await expect(page.getByRole('heading', { level: 1, name: 'Conversations', exact: true })).toBeVisible()
   })
@@ -294,12 +294,12 @@ const weekBefore = {
       tool: 'codex', app: 'cli', id: '0199b0d4-6e21-7a58-9c03-2f7d1e8b4a65', title: 'Port the docs search to Pagefind',
       folder: '/Users/you/Products/website', branch: 'docs/pagefind', updatedAt: '2026-10-29T11:20:00Z',
       opening: ['Replace the docs search index with Pagefind.'], prompt: 'Keep the old index until the new one ships.',
-      open: { kind: 'terminal', label: 'Resume in Terminal', command: "cd '/Users/you/Products/website' && codex resume 0199b0d4-6e21-7a58-9c03-2f7d1e8b4a65" },
+      open: { kind: 'terminal', label: 'Open in Terminal', command: "cd '/Users/you/Products/website' && codex resume 0199b0d4-6e21-7a58-9c03-2f7d1e8b4a65" },
     },
     {
       tool: 'claude', app: 'cli', id: '5a0e3f8c-9d21-4b7a-8c64-e2f1a7d09b38', title: '', updatedAt: '2026-10-27T19:34:00Z',
       prompt: 'What does the --global flag change for sync?',
-      open: { kind: 'terminal', label: 'Resume in Terminal', command: 'claude --resume 5a0e3f8c-9d21-4b7a-8c64-e2f1a7d09b38' },
+      open: { kind: 'terminal', label: 'Open in Terminal', command: 'claude --resume 5a0e3f8c-9d21-4b7a-8c64-e2f1a7d09b38' },
     },
   ],
 }

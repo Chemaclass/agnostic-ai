@@ -255,7 +255,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
         const items = visibleItems.filter((it) => it.kind === k.kind)
         const audienceControl = (section.id === 'settings' || section.id === 'authority') && (k.kind === 'settings' || k.kind === 'builtin') && (tabs.length < 2 || panel.id === active) ? <EditAudienceSwitch /> : undefined
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} support={section.support.find((entry) => entry.kind === k.kind)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
         const sharedBlocked = k.kind === 'builtin' && audience === 'shared' && personalBuiltins

@@ -16,7 +16,7 @@ describe('section verdict', () => {
     expect(sectionVerdict(section('context'))).toBe('Your setup configures 1 rule and 3 agents.')
     expect(sectionVerdict(section('authority'))).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
     expect(sectionVerdict(section('tools'))).toBe('Your agents can use 3 MCP servers.')
-    expect(sectionVerdict(section('lifecycle'))).toBe('No hooks are set yet.')
+    expect(sectionVerdict(section('lifecycle'))).toBe('Nothing runs around the agent yet.')
   })
 
   it('says what the setup configures when no set-up tool supports MCP servers', () => {

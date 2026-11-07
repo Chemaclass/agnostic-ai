@@ -42,10 +42,11 @@ test.describe('coding tools', () => {
 
   test('filters by name and by on state', async ({ page }) => {
     await settings(page)
-    await page.getByLabel('Filter tools').fill('curs')
+    await expect(page.getByLabel('Filter tools')).toHaveCount(0)
+    await page.getByRole('searchbox', { name: 'Search settings' }).fill('curs')
     await expect(page.locator('.coding-tool')).toHaveCount(1)
     await expect(page.locator('.coding-tool')).toHaveAttribute('data-target', 'cursor')
-    await page.getByLabel('Filter tools').fill('')
+    await page.getByRole('searchbox', { name: 'Search settings' }).fill('')
     await page.getByLabel('On only').check()
     await expect(page.locator('.coding-tool')).toHaveCount(on)
     await expect(page.getByRole('status').filter({ hasText: 'tools shown' })).toContainText(`${on} of ${total} tools shown`)
@@ -58,7 +59,7 @@ test.describe('coding tools', () => {
     expect(sent[0]).toEqual({ audience: 'shared', name: 'amp', enabled: true, expected: false })
     const status = page.getByRole('status').filter({ hasText: 'Saved' })
     await expect(status).toContainText('agnostic-ai.yaml')
-    await expect(status).toContainText('agnostic-ai sync')
+    await expect(page.locator('.coding-tools-hint')).toContainText('agnostic-ai sync')
     await page.locator('.coding-tool[data-target="cursor"]').getByRole('switch').click()
     const confirm = page.getByRole('group', { name: 'Turn off Cursor' })
     await expect(confirm).toContainText('removes the files it wrote for Cursor')
@@ -129,7 +130,7 @@ test.describe('coding tools', () => {
     await expect(page.locator('.section-search-status')).toHaveText('1 match.')
     await page.locator('.coding-tool[data-target="windsurf"]').getByRole('switch').click()
     await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
-    await page.getByLabel('Filter tools').fill('c')
+    await page.getByLabel('On only').check()
     await expect(page.getByRole('status').filter({ hasText: 'tools shown' })).toContainText(`of ${total} tools shown`)
   })
 

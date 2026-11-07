@@ -63,6 +63,9 @@ html {
   left: -9999px;
   top: 8px;
   z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
   background: var(--text);
@@ -544,6 +547,19 @@ a.release-badge:hover .release-arrow {
 
 .banner p > code {
   white-space: nowrap;
+}
+
+/* On phones the data source notice keeps only what it blocks, so the verdict starts higher. */
+
+@media (max-width: 760px) {
+  .source-notice-detail {
+    display: none;
+  }
+
+  .page > .banner-info {
+    padding: 10px 14px;
+    font-size: var(--text-sm);
+  }
 }
 
 .banner .banner-title > code {

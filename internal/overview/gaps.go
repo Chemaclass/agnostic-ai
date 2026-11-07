@@ -99,7 +99,7 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 		}
 		name := b.name
 		gaps = append(gaps, Gap{
-			ID: "builtin:" + name, Section: SectionSettings, Label: name, Supported: supported,
+			ID: "builtin:" + name, Section: SectionSettings, Label: builtinLabel(name), Supported: supported,
 			Missing: "built-in is off",
 			Fix: fmt.Sprintf("The %s built-in of this agnostic-ai project is off. %s To turn it on, add `%s` to the `builtins` list in %s and run `agnostic-ai sync`.",
 				name, builtinDescriptions[name], name, listFile),

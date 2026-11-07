@@ -8,23 +8,36 @@ export interface SectionTabLabel {
   findings: number
 }
 
+// Matches the faded edge in components.css, so the selected tab never sits under it.
+const EDGE = 32
+
 export function SectionTabs({ section, label, tabs, active, select }: { section: string; label: string; tabs: SectionTabLabel[]; active: string; select: (id: string) => void }) {
   const list = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const container = list.current
     const tab = document.getElementById(`tab-${section}-${active}`)
     if (!container || !tab) return
+    // A faded edge hints that more tabs scroll into view on that side.
+    const fade = () => {
+      container.toggleAttribute('data-more-start', container.scrollLeft > 1)
+      container.toggleAttribute('data-more-end', container.scrollLeft + container.clientWidth < container.scrollWidth - 1)
+    }
     const reveal = () => {
       const viewport = container.getBoundingClientRect()
       const selected = tab.getBoundingClientRect()
-      if (selected.left < viewport.left + 8) container.scrollLeft -= Math.ceil(viewport.left + 8 - selected.left)
-      else if (selected.right > viewport.right - 8) container.scrollLeft += Math.ceil(selected.right - viewport.right + 8)
+      if (selected.left < viewport.left + EDGE) container.scrollLeft -= Math.ceil(viewport.left + EDGE - selected.left)
+      else if (selected.right > viewport.right - EDGE) container.scrollLeft += Math.ceil(selected.right - viewport.right + EDGE)
+      fade()
     }
     reveal()
     const observer = new ResizeObserver(reveal)
     observer.observe(container)
     for (const child of container.children) observer.observe(child)
-    return () => observer.disconnect()
+    container.addEventListener('scroll', fade, { passive: true })
+    return () => {
+      observer.disconnect()
+      container.removeEventListener('scroll', fade)
+    }
   }, [active, section, tabs])
   const keyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let next: number

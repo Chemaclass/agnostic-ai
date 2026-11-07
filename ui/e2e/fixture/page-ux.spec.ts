@@ -78,23 +78,27 @@ test('shows the effective configuration once beside its source file links', asyn
   await expect(panel.getByRole('button', { name: 'Copy path of agnostic-ai.local.yaml', exact: true })).toBeVisible()
 })
 
-test('fits all Settings tabs and their counts within narrow screens', async ({ page }) => {
+test('keeps Settings tabs and their counts on one line and scrolls the row on narrow screens', async ({ page }) => {
   await overview(page)
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
     await page.goto('/?view=settings&tab=preferences')
-    const tabs = page.getByRole('tablist', { name: 'Settings views' }).getByRole('tab')
+    const list = page.getByRole('tablist', { name: 'Settings views' })
+    const tabs = list.getByRole('tab')
     for (const tab of await tabs.all()) {
-      const box = await tab.boundingBox()
-      expect(box!.x).toBeGreaterThanOrEqual(0)
-      expect(box!.x + box!.width).toBeLessThanOrEqual(width)
-      if (await tab.locator('.section-tab-count').count() === 0) continue
-      const count = await tab.locator('.section-tab-count').boundingBox()
-      expect(count!.x + count!.width).toBeLessThanOrEqual(width)
+      await tab.click()
+      await expect(tab).toHaveAttribute('aria-selected', 'true')
+      await expect(tab).toBeInViewport({ ratio: 1 })
+      const box = (await tab.boundingBox())!
+      expect(box.height).toBeLessThanOrEqual(48)
+      const count = tab.locator('.section-tab-count')
+      if (await count.count()) expect((await count.boundingBox())!.height).toBeLessThanOrEqual(24)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
     }
-    await tabs.last().click()
-    await expect(tabs.last()).toHaveAttribute('aria-selected', 'true')
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    await expect(list).toHaveAttribute('data-more-start', '')
+    await tabs.first().click()
+    await expect(list).toHaveAttribute('data-more-end', '')
+    await expect(list).not.toHaveAttribute('data-more-start')
   }
 })
 

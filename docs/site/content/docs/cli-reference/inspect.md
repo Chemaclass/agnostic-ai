@@ -345,12 +345,12 @@ In the browser:
   - A native row has no command when no import reads its file, such as Claude Code's per-project servers or an `outputs` MCP file path the tool's import does not follow.
   - Native rows hide the server's own command, arguments, URL, environment, and header values. A file the page cannot read adds no row.
   - The JSON overview carries these rows as `native` on the Tools section.
-- **View and edit** below the Permissions, Built-ins, or Preferences heading switches between Project (Global in the global view) and Local values. **Save new servers for** above the native server list chooses Project or Local for **Make it a spec**.
-- **Make it a spec** on a native-only server previews one spec file, its contents, the variables you must set, and the tools it will reach after sync.
+- **View and edit** below the Permissions, Built-ins, or Preferences heading switches between Project (Global in the global view) and Local values. **Save new servers for** above the native server list chooses Project or Local for **Add to your setup**.
+- **Add to your setup** on a native-only server previews one spec file, its contents, the variables you must set, and the tools it will reach after sync.
 - **Apply** saves the spec using the [MCP import rules](@/docs/spec-format/mcp-import.md), then asks you to run `agnostic-ai sync` (or `sync --global`).
 - Project and Global saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the global home. Local saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
 - An existing spec name or a credential import cannot rewrite stops the save.
-- Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Make it a spec** action.
+- Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Add to your setup** action.
 - **Add hook** on the Lifecycle page opens a form: name, stage, tool match (for Before a tool runs and After a tool runs only), command, timeout in seconds, description, and **Save for** (Project or Global, or Local). **Preview** shows the one hook file it writes, in the [portable form](@/docs/spec-format/hook-reference.md#portable-events) with only the fields you filled. **Apply** saves it and asks you to run `agnostic-ai sync` (or `sync --global`).
   - Project and Global saves use the project's configured hook source folder (`.agnostic-ai/hooks/` by default), or `hooks/` in the global home. Local saves use `.agnostic-ai/local/hooks/`, or `local/hooks/` in the home, with the same Git-ignore check as other local saves.
   - A name that is taken, in any layer and in any letter case, stops the save, and so does a hook that `validate` would report, such as a tool match a configured tool lacks.
