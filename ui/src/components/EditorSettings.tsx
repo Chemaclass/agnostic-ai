@@ -22,7 +22,7 @@ export function EditorSettings() {
   const errorId = `${id}-error`
   return (
     <section className="block editor-settings" aria-labelledby="settings-editor">
-      <SectionHeading topic="editor" id="settings-editor" focusable>Editor</SectionHeading>
+      <SectionHeading id="settings-editor" focusable>Editor</SectionHeading>
       <p className="muted">Open links use this editor. Saved in this browser only, not in your config files.</p>
       <label htmlFor={`${id}-select`}>Open files in</label>
       <Select id={`${id}-select`} value={editor} onChange={(event) => { setAnnounced(''); chooseEditor(parseEditor(event.target.value)) }}>

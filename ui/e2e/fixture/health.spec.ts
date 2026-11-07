@@ -8,7 +8,7 @@ const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.moc
 
 type Overview = typeof fixture
 // The rail row names the counts first, then the status word.
-const healthRow = (page: Page, summary: string) => page.locator('.sidenav').getByRole('link', { name: new RegExp(`^Setup health: ${summary} `) })
+const healthRow = (page: Page, summary: string) => page.locator('.sidenav').getByRole('link', { name: new RegExp(`^Setup health: ${summary}[, ]`) })
 const section = (data: Overview, id: string) => data.sections.find((s: { id: string }) => s.id === id)
 
 // One lint error on a hook and three doctor warnings on skills; the fixture's own finding is removed.
@@ -40,8 +40,8 @@ test.describe('setup health', () => {
     const { data, hook } = scenario()
     await serve(page, data)
     await page.goto('/?view=settings')
-    const badge = healthRow(page, '1 error, 3 warnings')
-    await expect(badge).toHaveAccessibleName('Setup health: 1 error, 3 warnings Needs a fix')
+    const badge = healthRow(page, '4 to fix')
+    await expect(badge).toHaveAccessibleName('Setup health: 4 to fix, 12 you could add Needs attention')
     await expect(badge.locator('.nav-dot')).toHaveClass(/is-error/)
     await badge.click()
     await expect(page).toHaveURL(/[?&]view=health(&|$)/)
@@ -53,12 +53,11 @@ test.describe('setup health', () => {
     const errors = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Needs a fix 1' }) })
     const warnings = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Worth a look 3' }) })
     await expect(errors.locator('.finding')).toHaveCount(1)
-    await expect(errors.getByRole('heading', { level: 3, name: 'Lifecycle' })).toBeVisible()
     await expect(warnings.locator('.finding')).toHaveCount(3)
-    await expect(warnings.getByRole('heading', { level: 3, name: 'Context' })).toBeVisible()
+    await expect(warnings.locator('.finding-label').first()).toHaveText('Worth a look · What is the agent told')
     const finding = errors.locator('.finding', { hasText: 'LINT001' })
     await expect(finding.getByRole('button', { name: 'Copy prompt' })).toBeVisible()
-    await expect(finding.locator('.finding-label')).toHaveText('Needs a fix')
+    await expect(finding.locator('.finding-label')).toHaveText('Needs a fix · What runs around the agent, and when')
     await expect(finding.getByText('Details', { exact: true })).toBeVisible()
     await saveScreenshot(page, 'setup-health.png', { fullPage: true })
 
@@ -73,7 +72,7 @@ test.describe('setup health', () => {
     const feedback = page.locator('.finding-rechecked')
     await expect(feedback).toHaveCount(1)
     await expect(feedback).toContainText('This finding no longer appears.')
-    await expect(healthRow(page, '3 warnings')).toBeVisible()
+    await expect(healthRow(page, '3 to fix')).toBeVisible()
   })
 
   test('rechecks every section at once and says how many findings remain', async ({ page }) => {
@@ -94,7 +93,7 @@ test.describe('setup health', () => {
     await expect(result.locator('.banner')).toHaveClass(/banner-warning/)
     expect(loads - before).toBe(1)
     await expect(page.locator('.health-group .finding', { hasText: 'LINT001' })).toHaveCount(0)
-    await expect(healthRow(page, '3 warnings')).toBeVisible()
+    await expect(healthRow(page, '3 to fix')).toBeVisible()
   })
 
   test('says the last check failed when a recheck cannot refresh', async ({ page }) => {
@@ -118,13 +117,13 @@ test.describe('setup health', () => {
     section(data, 'lifecycle').items[0].findings.push(warning)
     await serve(page, data)
     await page.goto('/?view=health')
-    await expect(healthRow(page, '1 error, 4 warnings')).toBeVisible()
+    await expect(healthRow(page, '5 to fix')).toBeVisible()
     section(data, 'lifecycle').items[0].findings = [warning]
     await page.locator('.finding', { hasText: 'LINT001' }).getByRole('button', { name: 'Recheck', exact: true }).click()
     await expect(page.locator('.finding-rechecked')).toHaveCount(1)
     await expect(page.locator('.health-group', { has: page.getByRole('heading', { name: /^Needs a fix/ }) }).locator('.finding-rechecked')).toHaveCount(1)
     await expect(page.locator('.finding', { hasText: 'LINT002' })).toHaveCount(1)
-    await expect(healthRow(page, '4 warnings')).toBeVisible()
+    await expect(healthRow(page, '4 to fix')).toBeVisible()
   })
 
   test('copies one prompt for every finding, errors first', async ({ page, context }) => {
@@ -154,7 +153,7 @@ test.describe('setup health', () => {
     for (const item of section(data, 'context').items) item.findings = []
     await serve(page, data)
     await page.goto('/?view=health')
-    const badge = healthRow(page, 'No findings')
+    const badge = healthRow(page, 'nothing to fix')
     await expect(badge).toContainText('All clear')
     await expect(badge.locator('.nav-dot')).toHaveClass(/is-clean/)
     await expect(page.locator('.page-verdict')).toHaveText('Nothing needs a fix.')
@@ -164,7 +163,7 @@ test.describe('setup health', () => {
 
   test('works from data with no server, without Recheck', async ({ page }) => {
     await openApp(page, '?view=health&mock=1')
-    await expect(healthRow(page, '1 warning')).toBeVisible()
+    await expect(healthRow(page, '1 to fix')).toBeVisible()
     const finding = page.locator('.health-group .finding', { hasText: 'LINT038' })
     await expect(finding).toBeVisible()
     await expect(finding.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
@@ -216,7 +215,7 @@ test.describe('setup health', () => {
     settings.findings = [{ source: 'lint', code: 'LINT007', severity: 'warn', message: 'Unknown key modl.', path: 'agents/helper.md', openPath: '/home/u/.agnostic-ai/agents/helper.md', layer: 'global' }]
     await serve(page, data)
     await page.goto('/?view=health')
-    await expect(healthRow(page, '1 error, 4 warnings')).toBeVisible()
+    await expect(healthRow(page, '5 to fix')).toBeVisible()
     const warnings = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Worth a look 4' }) })
     const place = warnings.locator('.health-place', { hasText: 'Global setup' })
     await expect(place.locator('.finding')).toHaveCount(1)
@@ -235,7 +234,7 @@ test.describe('setup health', () => {
     data.health = { gaps: [{ id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix }], improvements: { applied: 8, total: 9 } }
     await serve(page, data)
     await page.goto('/?view=health')
-    await expect(healthRow(page, 'No findings')).toBeVisible()
+    await expect(healthRow(page, 'nothing to fix, 1 you could add')).toBeVisible()
     await expect(page.locator('.health-track')).toContainText('8 of 9 features your tools support are in use')
     await expect(page.locator('.page-facts')).toContainText('1 feature you could add')
     const gaps = page.getByRole('region', { name: /^Reach the best setup/ })

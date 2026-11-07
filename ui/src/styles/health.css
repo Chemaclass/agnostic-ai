@@ -7,7 +7,11 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 20px;
-  margin-top: 8px;
+  margin-inline-end: auto;
+}
+
+.page-header > .health-actions {
+  margin-top: 12px;
 }
 
 .health-recheck-result:empty {
@@ -53,12 +57,6 @@
 
 .health-section + .health-section {
   margin-top: 28px;
-}
-
-.health-section-title {
-  margin: 0 0 12px;
-  font-size: var(--text-body);
-  font-weight: 600;
 }
 
 .health-place + .health-place {
@@ -113,6 +111,11 @@
 }
 
 @media (max-width: 760px) {
+  .health-actions {
+    flex-basis: 100%;
+    order: 1;
+  }
+
   .health-actions > .button-primary {
     width: 100%;
     justify-content: center;

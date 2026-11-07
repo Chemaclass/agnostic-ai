@@ -58,7 +58,7 @@
 
 .coding-tool {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto 96px;
+  grid-template-columns: 30px minmax(0, 1fr) 96px;
   align-items: center;
   gap: 4px 16px;
   min-height: 60px;
@@ -93,14 +93,14 @@
   font-size: var(--text-sm);
 }
 
-.coding-tool-docs {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
+.coding-tool-name a {
   color: var(--accent-strong);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  white-space: nowrap;
+  text-decoration: none;
+}
+
+.coding-tool-name a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .coding-tool-switch { display: contents; }
@@ -129,8 +129,6 @@
 
 @media (max-width: 759px) {
   .coding-tool { grid-template-columns: 30px minmax(0, 1fr) auto; }
-
-  .coding-tool-docs { grid-column: 2; justify-self: start; }
 }
 
 /* Fields use the shared list row: hairlines between rows, no boxes. */

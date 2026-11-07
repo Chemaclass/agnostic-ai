@@ -18,7 +18,7 @@ import { builtinEnabled, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, findingEntryIds, itemEntryId, kindEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText, matchesSearch } from '../model/search'
 import { filterTools, toolCount } from '../model/coding-tools'
-import { entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '../model/section-tabs'
+import { docsTopic, entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
 import { Badge, Code, Icon, toolName } from './ui'
@@ -107,8 +107,6 @@ function SectionFacts({ section }: { section: Section }) {
     </p>
   )
 }
-
-const SECTION_DOCS: Record<string, string> = { context: 'instructions', authority: 'permissions', tools: 'mcp', lifecycle: 'hook', settings: 'config' }
 
 // Built-ins and model or effort fields share one preview, apply, and undo flow.
 function hasChanges(section: Section) {
@@ -204,7 +202,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
   const findingsId = `${section.id}-findings`
   const otherFindings = (section.findings.length > 0 || rechecked?.place === sectionPlace || orphan !== undefined) && (
     <section className="block" aria-labelledby={findingsId}>
-      <SectionHeading topic="findings" id={findingsId} focusable>Other findings</SectionHeading>
+      <SectionHeading id={findingsId} focusable>Other findings</SectionHeading>
       <Findings findings={section.findings} place={sectionPlace} orphanPlace={orphan} />
     </section>
   )
@@ -240,7 +238,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
           {query ? (matchCount ? `${matchCount} ${matchCount === 1 ? 'match' : 'matches'}.` : 'No matches.') : ''}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
-        <DocLink topic={SECTION_DOCS[section.id] ?? section.id} />
+        <DocLink topic={docsTopic(section, tabs.find((tab) => tab.id === active))} />
       </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
@@ -257,14 +255,14 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
         const items = visibleItems.filter((it) => it.kind === k.kind)
         const audienceControl = (section.id === 'settings' || section.id === 'authority') && (k.kind === 'settings' || k.kind === 'builtin') && (tabs.length < 2 || panel.id === active) ? <EditAudienceSwitch /> : undefined
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} topic={section.id === 'authority' ? 'permissions' : 'settings'} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
         const sharedBlocked = k.kind === 'builtin' && audience === 'shared' && personalBuiltins
         const count = k.kind === 'builtin' ? section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, audience)).length : k.count
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
-            <SectionHeading topic={k.kind} id={titleId} focusable entry={kindEntryId(k.kind)}>
+            <SectionHeading id={titleId} focusable entry={kindEntryId(k.kind)}>
               {k.label}{tabs.length < 2 && count > 0 && <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>}
               {k.local && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
             </SectionHeading>
@@ -284,7 +282,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
       })}
       {panel.extra === 'native' && (section.native?.length
         ? <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />
-        : <section className="block"><SectionHeading topic="native">Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
+        : <section className="block"><SectionHeading>Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
       {panel.extra === 'usage' && <ContextUsage />}
       {panel.extra === 'targets' && <CodingTools audienceControl={tabs.length < 2 || panel.id === active ? <EditAudienceSwitch /> : undefined} />}
       {panel.extra === 'editor' && <EditorSettings />}
