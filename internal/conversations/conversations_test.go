@@ -815,16 +815,65 @@ func TestScan_KeepsCachedSessionsWhenTheScanIsCanceled(t *testing.T) {
 	}
 }
 
+func TestScan_ReusesShownTextsAndDropsThoseOfGoneSessions(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{4242: true}})
+	writeClaudeSessions(t, stores)
+	first := asJSON(t, scanner.Scan(context.Background(), ScanOptions{}))
+	if again := asJSON(t, scanner.Scan(context.Background(), ScanOptions{})); again != first {
+		t.Errorf("a second scan of unchanged sessions must show the same rows, withheld texts included\nfirst: %s\nagain: %s", first, again)
+	}
+	markKept(t, scanner, "Safari login bug")
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.Title != "Kept" {
+		t.Errorf("an unchanged session must reuse its checked texts, title = %q", c.Title)
+	}
+
+	held := len(scanner.shown.last)
+	if err := os.Remove(filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSecret+".jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	scanner.Scan(context.Background(), ScanOptions{})
+	if len(scanner.shown.last) != held-1 {
+		t.Errorf("held the texts of %d rows, then %d after one session went away", held, len(scanner.shown.last))
+	}
+}
+
+func TestScan_KeepsShownTextsWhenTheScanIsCanceled(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	writeClaudeSessions(t, stores)
+	scanner.Scan(context.Background(), ScanOptions{})
+	held := len(scanner.shown.last)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	scanner.Scan(ctx, ScanOptions{})
+
+	if held == 0 || len(scanner.shown.last) != held {
+		t.Errorf("held the texts of %d rows, then %d after a canceled scan", held, len(scanner.shown.last))
+	}
+}
+
+// markKept changes the cached title of the row titled title, so a scan
+// that shows "Kept" reused the cache instead of checking again.
+func markKept(t *testing.T, scanner *Scanner, title string) {
+	t.Helper()
+	for key, shown := range scanner.shown.last {
+		if shown.title == title {
+			shown.title = "Kept"
+			scanner.shown.last[key] = shown
+			return
+		}
+	}
+	t.Fatalf("no cached texts titled %q", title)
+}
+
 func TestFill_WithholdsAnIndentedSecretInAPrompt(t *testing.T) {
 	for _, prompts := range [][2]string{
 		{"Please set:\nenv:\n  FOO: abcd1234", "```yaml\nheaders:\n  X-Custom: abcd1234\n```"},
 		{"Config:\n\tenv: {FOO: abcd1234}", "We have:\n  a: 1\n env: {FOO: abcd1234}"},
 	} {
-		var c Conversation
-		c.fill(texts{title: "Set up the client", firstPrompt: prompts[0], lastPrompt: prompts[1]})
+		shown := showTexts(texts{title: "Set up the client", firstPrompt: prompts[0], lastPrompt: prompts[1]})
 
-		if c.Opening != nil || c.Prompt != "" || len(c.Withheld) != 2 {
-			t.Errorf("%q: opening %q, prompt %q, withheld %v", prompts, c.Opening, c.Prompt, c.Withheld)
+		if shown.opening != nil || shown.prompt != "" || len(shown.withheld) != 2 {
+			t.Errorf("%q: opening %q, prompt %q, withheld %v", prompts, shown.opening, shown.prompt, shown.withheld)
 		}
 	}
 }

@@ -1,6 +1,8 @@
 package conversations
 
 import (
+	"context"
+	"maps"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -74,10 +76,19 @@ type texts struct {
 	lastPrompt  string
 }
 
-// fill sets the row's title, opening and prompt, withholding any of them
-// that may hold a credential. A row with no title takes the first line
-// of its first prompt.
-func (c *Conversation) fill(t texts) {
+// shownTexts are what a row shows of its texts once any that may hold a
+// credential are withheld.
+type shownTexts struct {
+	title    string
+	opening  []string
+	prompt   string
+	withheld []string
+}
+
+// showTexts withholds any text that may hold a credential. A row with no
+// title takes the first line of its first prompt.
+func showTexts(t texts) shownTexts {
+	var shown shownTexts
 	first := typedText(t.firstPrompt)
 	last := typedText(t.lastPrompt)
 	title := oneLine(t.title)
@@ -86,24 +97,65 @@ func (c *Conversation) fill(t texts) {
 	}
 
 	if mayHoldCredential(title) {
-		c.Withheld = append(c.Withheld, FieldTitle)
+		shown.withheld = append(shown.withheld, FieldTitle)
 	} else {
-		c.Title = truncate(title, titleRunes)
+		shown.title = truncate(title, titleRunes)
 	}
 	if first != "" {
 		if mayHoldCredential(typedLayout(t.firstPrompt)) || mayHoldCredential(first) {
-			c.Withheld = append(c.Withheld, FieldOpening)
+			shown.withheld = append(shown.withheld, FieldOpening)
 		} else {
-			c.Opening = openingOf(first)
+			shown.opening = openingOf(first)
 		}
 	}
 	if last != "" {
 		if mayHoldCredential(typedLayout(t.lastPrompt)) || mayHoldCredential(last) {
-			c.Withheld = append(c.Withheld, FieldPrompt)
+			shown.withheld = append(shown.withheld, FieldPrompt)
 		} else {
-			c.Prompt = truncate(oneLine(last), promptRunes)
+			shown.prompt = truncate(oneLine(last), promptRunes)
 		}
 	}
+	return shown
+}
+
+// shownCache keeps each row's shown texts from one scan to the next,
+// since the credential check costs more than the rest of a warm scan.
+// Texts no scan asked for since the previous one are dropped.
+type shownCache struct {
+	last, next map[texts]shownTexts
+}
+
+func (c *shownCache) start() { c.next = map[texts]shownTexts{} }
+
+// finish keeps what this scan asked for. A canceled scan stopped before
+// it reached every row, so it adds to what the cache held instead.
+func (c *shownCache) finish(ctx context.Context) {
+	if ctx.Err() == nil || c.last == nil {
+		c.last, c.next = c.next, nil
+		return
+	}
+	maps.Copy(c.last, c.next)
+	c.next = nil
+}
+
+func (c *shownCache) get(t texts) shownTexts {
+	if shown, ok := c.next[t]; ok {
+		return shown
+	}
+	shown, ok := c.last[t]
+	if !ok {
+		shown = showTexts(t)
+	}
+	if c.next != nil {
+		c.next[t] = shown
+	}
+	return shown
+}
+
+// fill sets the row's title, opening and prompt from t.
+func (s *Scanner) fill(c *Conversation, t texts) {
+	shown := s.shown.get(t)
+	c.Title, c.Opening, c.Prompt, c.Withheld = shown.title, shown.opening, shown.prompt, shown.withheld
 }
 
 // mayHoldCredential withholds a whole text on any sign of a credential,

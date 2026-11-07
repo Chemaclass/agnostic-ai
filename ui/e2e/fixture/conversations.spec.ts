@@ -407,6 +407,86 @@ test.describe('conversations by week', () => {
     await expect(failure).toHaveCount(0)
     expect(mocks.views).toEqual([FIRST_REQUEST, OLDER_REQUEST, OLDER_REQUEST])
   })
+
+  test('holds the page layout with placeholders on the first load, so the search row stays put', async ({ page }) => {
+    let release!: () => void
+    const released = new Promise<void>((resolve) => { release = resolve })
+    await mockServer(page, opened, async () => {
+      await released
+      return { json: conversations }
+    })
+    await page.goto('/')
+    const loading = page.getByRole('region', { name: 'Loading conversations' })
+    await expect(loading).toHaveAttribute('aria-busy', 'true')
+    await expect(page.locator('.page-verdict .skeleton')).toBeVisible()
+    await expect(page.locator('.conversation-sources .skeleton-line')).toHaveCount(3)
+    const search = page.getByRole('search', { name: 'Search conversations' })
+    await expect(search.getByRole('searchbox', { name: 'Search conversations' })).toBeEditable()
+    const before = await search.boundingBox()
+
+    release()
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+    await expect(loading).toHaveCount(0)
+    expect(await search.boundingBox()).toEqual(before)
+  })
+
+  test('keeps focus on the heading and in the search box when the first load lands', async ({ page }) => {
+    let release!: () => void
+    const hold = () => new Promise<void>((resolve) => { release = resolve })
+    let gate = hold()
+    await mockServer(page, opened, async () => {
+      await gate
+      return { json: conversations }
+    })
+    await page.goto('/?view=context')
+    await page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: /^Conversations/ }).click()
+    const heading = page.getByRole('heading', { level: 1, name: 'Conversations', exact: true })
+    await expect(heading).toBeFocused()
+    await expect(page.getByRole('region', { name: 'Loading conversations' })).toBeVisible()
+    release()
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+    await expect(heading).toBeFocused()
+
+    // A full reload empties the kept list, so the placeholders show again.
+    gate = hold()
+    await page.reload()
+    const search = page.getByRole('searchbox', { name: 'Search conversations' })
+    await expect(page.getByRole('region', { name: 'Loading conversations' })).toBeVisible()
+    await search.fill('sync')
+    release()
+    await expect(page.locator('.section-search-status')).toHaveText(/ of 9 conversations match\.$/)
+    await expect(search).toBeFocused()
+    await page.keyboard.type(' --')
+    await expect(search).toHaveValue('sync --')
+  })
+
+  test('shows the kept list at once on a return, then the fresh copy when it differs', async ({ page }) => {
+    let released = Promise.resolve()
+    let answer = conversations
+    const mocks = await mockServer(page, opened, async () => {
+      await released
+      return { json: answer }
+    })
+    await page.goto('/')
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+    const nav = page.getByRole('navigation', { name: 'Configuration sections' })
+    await nav.getByRole('link', { name: /^Context/ }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Context', exact: true })).toBeFocused()
+
+    let release!: () => void
+    released = new Promise<void>((resolve) => { release = resolve })
+    answer = structuredClone(conversations)
+    answer.conversations[0].title = 'Renamed while away'
+    await nav.getByRole('link', { name: /^Conversations/ }).click()
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+    await expect(row(page, 'Add a Conversations page to the local UI')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Loading conversations' })).toHaveCount(0)
+    await expect.poll(() => mocks.views.length).toBe(2)
+
+    release()
+    await expect(row(page, 'Renamed while away')).toBeVisible()
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+  })
 })
 
 test.describe('conversations on a touch screen', () => {
