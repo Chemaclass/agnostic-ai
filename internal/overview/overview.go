@@ -592,9 +592,14 @@ var hookFieldKeys = []string{"on", "event", "match", "matcher", "type", "command
 
 // hookFields are the hook's key fields. A field is redacted whole when
 // its text holds a value the hook keeps in env or in a field a view
-// redacts, since a command often repeats its own token.
+// redacts, since a command often repeats its own token, or when the file
+// content view would withhold that text, so the key fields never show
+// what the full spec hides.
 func hookFields(meta map[string]any) []Value {
 	secrets := hookCredentials(meta)
+	hidden := func(text string) bool {
+		return preview.Sensitive("hook.sh", text) || slices.ContainsFunc(secrets, func(s string) bool { return strings.Contains(text, s) })
+	}
 	var fields []Value
 	for _, key := range hookFieldKeys {
 		if v, set := meta[key]; set {
@@ -602,11 +607,11 @@ func hookFields(meta map[string]any) []Value {
 		}
 	}
 	for i := range fields {
-		if slices.ContainsFunc(secrets, func(s string) bool { return strings.Contains(fields[i].Value, s) }) {
+		if hidden(fields[i].Value) {
 			fields[i].Value = redacted
 		}
 		for j, item := range fields[i].List {
-			if slices.ContainsFunc(secrets, func(s string) bool { return strings.Contains(item, s) }) {
+			if hidden(item) {
 				fields[i].List[j] = redacted
 			}
 		}

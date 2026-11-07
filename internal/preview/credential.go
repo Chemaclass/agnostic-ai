@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -368,6 +369,10 @@ func commandCredentialDetected(command string, depth int) bool {
 			args[i] = unescapedWord(word)
 		}
 		if nestedShellCredential(args, depth) {
+			credential = true
+			return false
+		}
+		if len(args) > 0 && mysqlClient(args[0]) && slices.ContainsFunc(args[1:], mysqlPasswordArg) {
 			credential = true
 			return false
 		}
