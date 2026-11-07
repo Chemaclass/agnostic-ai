@@ -1976,6 +1976,79 @@ textarea:focus {
   opacity: 0.5;
 }
 
+/* Browsers that can style the open list draw it as a panel; others keep
+   their native list. Forced colors keep the system control. */
+
+@supports (appearance: base-select) {
+  @media not (forced-colors: active) {
+    .select-control > select,
+    .select-control > select::picker(select) {
+      appearance: base-select;
+    }
+
+    /* Clip at the content edge so long paths stop before the chevron. */
+    .select-control > select {
+      overflow: clip;
+      overflow-clip-margin: content-box;
+      white-space: nowrap;
+    }
+
+    .select-control > select::picker-icon {
+      display: none;
+    }
+
+    .select-control > select::picker(select) {
+      min-width: anchor-size(width);
+      max-height: min(320px, 50vh);
+      margin-block: 4px;
+      padding: 4px;
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--overlay-shadow);
+      color: var(--text);
+    }
+
+    .select-control > select option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 6px 12px 6px 8px;
+      border-radius: var(--radius-sm);
+      font-size: var(--text-md);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .select-control > select option::checkmark {
+      width: 16px;
+      color: var(--accent);
+    }
+
+    .select-control > select option:not(:checked)::checkmark {
+      visibility: hidden;
+    }
+
+    .select-control > select option:hover {
+      background: var(--accent-wash);
+    }
+
+    .select-control > select option:focus-visible {
+      outline-offset: -2px;
+    }
+
+    .select-control > select option:checked {
+      font-weight: 600;
+    }
+
+    .select-control > select option:disabled {
+      color: var(--text-faint);
+      cursor: default;
+    }
+  }
+}
+
 @media (forced-colors: active) {
   .select-control > select {
     appearance: auto;
