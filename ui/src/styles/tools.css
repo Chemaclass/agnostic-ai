@@ -122,3 +122,68 @@
   padding-top: 12px;
   margin-top: 4px;
 }
+
+/* Servers found in a tool's own config: hairline rows, the action in its own lane. */
+
+.native-row .item-main > strong {
+  font-size: 15px;
+}
+
+.native-row .tool-state {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.mcp-spec {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.mcp-spec-controls,
+.mcp-spec-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.mcp-spec-controls > [role='status']:empty {
+  display: none;
+}
+
+.mcp-spec > .banner,
+.mcp-spec-preview {
+  margin-top: 12px;
+}
+
+.mcp-spec-preview {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.mcp-spec-preview h3,
+.mcp-spec-preview p {
+  margin: 0 0 8px;
+}
+
+.mcp-spec-files {
+  max-height: 360px;
+  overflow: auto;
+  margin: 12px 0;
+}
+
+.mcp-spec-files pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: 12px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  background: var(--panel-sunken);
+  font-size: 12px;
+}
+
+.item-row.is-off .item-main > strong {
+  color: var(--text-muted);
+}
