@@ -29,7 +29,13 @@ func frontmatter(path, body string) Result {
 	return Result{Text: lines[0] + front.Text + lines[end] + tail.Text, Hidden: true}
 }
 
+// markdown withholds prose that labels a credential, since a value in a
+// table, a tag, or a sentence has no structure to redact it from. Fenced
+// structured blocks are otherwise redacted in place.
 func markdown(body string) Result {
+	if labelsCredential(body) {
+		return withheld()
+	}
 	lines := strings.SplitAfter(body, "\n")
 	hidden := false
 	for i := 0; i < len(lines); i++ {
