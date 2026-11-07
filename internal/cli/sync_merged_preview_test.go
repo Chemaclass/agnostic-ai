@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"maps"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -210,7 +211,7 @@ func TestSync_PlainDryRunPrintsAStrippedSettingsFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	head := strings.Index(out, "--- .claude/settings.json ---")
+	head := strings.Index(out, "--- "+filepath.FromSlash(".claude/settings.json")+" ---")
 	if head < 0 || !strings.Contains(out[head:], "myKey") || strings.Contains(out[head:], "SessionStart") {
 		t.Errorf("plain --dry-run prints the stripped file as sync writes it:\n%s", out)
 	}
@@ -257,7 +258,7 @@ func markMergedUnrecorded(t *testing.T, path string) {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	doc["merged"].(map[string]any)[path] = map[string]any{"unrecorded": true}
+	doc["merged"].(map[string]any)[filepath.FromSlash(path)] = map[string]any{"unrecorded": true}
 	out, err := json.Marshal(doc)
 	if err != nil {
 		t.Fatal(err)
