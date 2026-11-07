@@ -40,18 +40,6 @@
   }
 }
 
-.finding-recheck-result.is-empty {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-.finding-rechecked.is-resolved .finding-recheck-result {
-  color: var(--permitted);
-}
-
 .editor-settings {
   display: grid;
   gap: 8px;

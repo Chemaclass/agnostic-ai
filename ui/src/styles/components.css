@@ -875,6 +875,18 @@ textarea:focus {
   font-weight: 600;
 }
 
+.finding-recheck-result.is-empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.finding-rechecked.is-resolved .finding-recheck-result {
+  color: var(--permitted);
+}
+
 .finding-rechecked .button {
   justify-self: start;
 }
