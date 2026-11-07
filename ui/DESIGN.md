@@ -7,7 +7,7 @@ colors:
   light-sunken: "#e6e2d8"
   light-field: "#ffffff"
   light-line: "#d6d2c7"
-  light-control: "#8a928e"
+  light-control: "#6e7672"
   light-ink: "#22282a"
   light-soft: "#3f4846"
   light-muted: "#4c5654"
@@ -25,7 +25,7 @@ colors:
   dark-sunken: "#121617"
   dark-field: "#0f1314"
   dark-line: "#2e3738"
-  dark-control: "#5e6967"
+  dark-control: "#75807d"
   dark-ink: "#ece8df"
   dark-soft: "#cfd3cd"
   dark-muted: "#b3beb9"
@@ -108,9 +108,9 @@ spacing:
 
 **Direction: "Mineral"**
 
-The interface reads like a calm report on your setup. Every page opens with a sentence that answers its question in plain words, set large in a soft serif, before any list or control. A dark slate rail holds the navigation; the page itself is bone paper with verdigris for links and progress. Ochre marks what needs a look and brick red marks what is broken. Nothing else carries color.
+The interface reads like a calm report on your setup. Every page opens with a sentence that answers its question in plain words, set large in a soft serif, before any list or control. A dark slate rail holds the navigation; the page itself is bone paper with verdigris for links and progress. Color marks state only: ochre for what needs a look, brick red for what is broken, green for allowed, blue for notes. Nothing decorative carries color.
 
-The Paper file "agnostic-ai UI redesign (#3120)" holds the source frames: page **Directions** has the three explored directions, page **Mineral** has every page and state. When code and Paper disagree, Paper wins until this file says otherwise.
+The Paper file "agnostic-ai UI redesign (#3120)" holds the source frames: page **Directions** has the three explored directions, page **Mineral** has every page and state. When code and Paper disagree, this file wins. The Paper file lives on the maintainer's machine, so each build PR attaches screenshots of the frames it follows.
 
 **Audience.** Someone who installed agnostic-ai for their team and has never opened a settings file. Section names stay (Context, Authority, Tools, Lifecycle, Settings), because docs and links use them, but the rail leads with each section's question: *What is the agent told?*, *What may it do?*, *What can it use?*, *What runs around it?*, *How is it set up?*, with a live summary under it, such as "Authority: 11 allowed, 3 ask, 4 denied". Words and labels follow the vocabulary in #3121: one label per action (Copy prompt, Preview, Apply, Cancel, Docs), "check" for lint and doctor, tool names instead of ids, and technical codes only under Details.
 
@@ -122,11 +122,11 @@ Bone (`canvas`) is the page; `surface` holds one grouped thing, such as a findin
 
 Verdigris (`accent`) marks links, the current page, switches that are on, and progress. Keyboard focus has its own blue `focus` token, so a focused link or current row never hides its ring in the accent color. `accent-wash` fills the selected rail row's dot area and hover states. State colors: `permitted` (green) for allowed, `approval` (ochre) for warnings and ask-first, `blocked` (brick) for errors and always-blocked, `info` (blue) for notes. Each state also has a text label or glyph; color never stands alone.
 
-Contrast: every text token passes 4.5:1 on `canvas`, `surface` and `sunken` in its theme, except `faint`, which is never used for text a reader needs. A unit test reads the frontmatter tokens and checks these pairs.
+Contrast: every text token passes 4.5:1 on `canvas`, `surface` and `sunken` in its theme, except `faint`, which is never used for text a reader needs. On the rail, text uses only `rail-ink` and `rail-dim`, and state colors use their dark-theme values in both themes; all of those pass 4.5:1 on `rail` and `rail-raised`. Field borders and other controls use `control`, which passes 3:1 on `canvas`, `surface` and `field`. The tokens slice adds a unit test that reads these frontmatter tokens and checks every pair.
 
 ## Typography
 
-- **Fraunces** (SIL OFL) sets the verdict sentence (52px, 34px at 760px and below), page titles (36px), and section headings (22px, weight 600). The verdict may set its key phrase in the accent color, such as "**One rule** needs a closer look".
+- **Fraunces** (SIL OFL) sets the verdict sentence (52px, 34px at 760px and below), and section headings (22px, weight 600). The verdict may set its key phrase in the accent color, such as "**One rule** needs a closer look".
 - **Atkinson Hyperlegible Next** (SIL OFL, already bundled) sets everything else: body 15px, controls 14px, small text 13px, in 400 and 600.
 - **System monospace** sets paths, keys, rule values, counts and the small uppercase labels (12px, 0.08em tracking).
 
@@ -136,19 +136,19 @@ Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built
 
 - **Rail** (280px, dark slate, sticky, full height): wordmark and project name, then Setup health as a status row (dot in the state color, "Needs attention" or "All clear", and "1 to fix, 12 you could add"), then the five sections and Conversations, each as its question over its live summary in small dim text (Conversations: *Where did you leave off?*, with the open chat count). The current row fills `rail-raised` with an 8px radius. The foot holds Search with its shortcut, Open global settings or Open project, the version badge, and Overview JSON.
 - **No top bar on wide screens.** What the top bar held moves into the rail or the page:
-  - Finding counts by severity: the rail's Setup health row shows them as words ("1 error, 3 warnings", or "No findings" in muted ink). On phones the top bar shows them as a chip ("1E 3W").
-  - Project path: under the project name in the rail, muted monospace, truncated from the left, with the full path on hover.
+  - Finding counts by severity: the rail's Setup health row shows them as words ("1 error, 3 warnings", or "No findings" in `rail-dim`). On phones the top bar shows them as a chip ("1E 3W").
+  - Project path: under the project name in the rail, monospace in `rail-dim`, truncated from the left, with the full path on hover.
   - Project GitHub link and agnostic-ai on GitHub: icon links in the rail foot.
   - Search, theme button and the configuration switch: the rail foot.
   - Mock and snapshot notice: one `Notice` strip at the top of the page content, above the verdict, once per page.
-- **Page**: 72px side padding, 56px top, content width up to 1080px. Each page starts with the verdict block: a monospace label (date and check time on Setup health; the section name elsewhere), the verdict sentence, and one line of supporting facts.
-- **At 900px and below** the rail collapses to a 60px top bar on canvas: wordmark and project on the left, Search and Menu as 44px round buttons on the right. Menu opens the rail as a sheet from the left.
+- **Page**: 72px side padding, 56px top, content width up to 1080px. Each page starts with the verdict block: the section name as the page `h1`, styled as the small monospace label; the verdict sentence as a paragraph; and one line of supporting facts. On Setup health the facts line ends with "Checked just now" after a live server fetch, or "From a saved snapshot" for snapshots and mock data, once per page.
+- **At 900px and below** the rail collapses to a 60px top bar on canvas: wordmark and project on the left; the finding chip ("1E 3W"), Search and Menu as 44px buttons on the right. Under it, one row holds every page link by its section name (Conversations, Context, Authority, Tools, Lifecycle, Settings), scrolling sideways when it does not fit, so all page links stay visible as today. Menu opens a sheet from the left with the questions and summaries, the configuration switch, theme, version and Overview JSON.
 - **At 760px and below** side padding is 16px, verdicts drop to 34px, finding cards stack their actions under the text as one full-width pill button.
 
 ## Components
 
-- **Verdict block:** label, sentence, facts line. Setup health adds the feature track: 14 small bars (14x22px, 3px radius), filled accent for features in use, outlined for the rest, with "2 of 14 features your tools support are in use".
-- **Finding card:** `surface`, 14px radius, 4px left border in the state color. Severity and section in 13px 600 state color ("Worth a look · What agents may do", "Needs a fix · ..."), the message as a Fraunces 22px sentence, the fix and the source path in body text, then actions: **Copy fix for my agent** as a dark ink pill, **Why this matters** (the Details disclosure) as a text link. Recheck sits beside them when a server is running.
+- **Verdict block:** label, sentence, facts line. Setup health adds the feature track: one small bar (14x22px, 3px radius) per improvement the configured tools support (`health.improvements`), filled accent for those in use, outlined for the rest, with a line such as "2 of 14 features your tools support are in use". With no improvements data (the global view), the track hides.
+- **Finding card:** `surface`, 14px radius, 4px left border in the state color. Severity and section in 13px 600 state color ("Worth a look · What agents may do", "Needs a fix · ..."), the message as a Fraunces 22px sentence, the fix and the source path in body text, then actions: **Copy prompt** as a dark ink pill and **Details** as a disclosure link (#3121 labels). Recheck sits beside them when a server is running.
 - **List rows:** hairline (`line`) between rows, no boxes. Name (title, 180px lane), sentence (soft, grows), trailing action as an accent text link in a fixed lane. Paths go on a second line in muted monospace.
 - **Buttons:** primary is an ink pill (`ink` fill, `canvas` text, 999px radius, 40px tall, 44px on touch). Secondary is a text link in accent, 600. Destructive confirms use `blocked`. No bordered box buttons.
 - **Chips and badges:** `sunken` fill, 3px radius, monospace 12px. Counts in the rail and tabs use the same chip.
@@ -159,10 +159,10 @@ Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built
 - **Lifecycle:** a vertical timeline. Stage numbers in monospace, a 10px dot on a 2px `line` rail; stages with hooks get a filled accent dot, the rest hollow. Expand all and Collapse all are accent text links beside the Hooks heading. Counts show only above zero (#3121).
 - **Overlays** (search, JSON inspector, change previews, rail sheet): `surface`, 14px radius, 1px `line` ring, one soft shadow, `backdrop` behind.
 - **Empty states:** a sentence in Fraunces 22px plus one line of what to do, left-aligned, no box.
-- **Page frame:** verdict block, then a compact filter row (the section search: one field with an icon, a match count only while filtering) and the Docs link at its right, then the tabs, then the content. Coding tool support folds below the content as a closed disclosure with a one-line summary ("3 of 3 tools support rules").
+- **Page frame:** verdict block; then the section's findings slot: errors as finding cards before the tabs, warnings counted in the facts line with a **Review** link that scrolls to the folded warnings list and focuses its heading; then a compact filter row (the section search: one field with an icon, a match count only while filtering) and the Docs link at its right, then the tabs, then the content. Coding tool support folds below the content as a closed disclosure with a one-line summary ("3 of 3 tools support rules").
 - **Segmented control** (Project | Local, Global | Local): once per page beside the filter row; the selected segment fills `ink` with `canvas` text.
 - **Selects:** same as fields, with a chevron.
-- **Finding details:** the finding code (`LINT038`) is a chip inside Why this matters, with the explanation and the exact prompt. Long messages show three lines and Show full message. Copy all fixes is an ink pill beside the Fix first heading. Recheck shows its result as a `Notice` under the card (fixed, still there, not confirmed).
+- **Finding details:** the finding code (`LINT038`) is a chip inside Details, with the explanation and the exact prompt. Long messages show three lines and Show full message. Copy all fixes is an ink pill beside the Fix first heading. Recheck shows its result as a `Notice` under the card (fixed, still there, not confirmed).
 - **Change previews and diffs:** a `surface` overlay panel; file diffs in monospace on `sunken`, added lines with a `permitted` left rule, removed lines with a `blocked` left rule, each line also prefixed + or -.
 - **Saved and error states:** one `Notice` (from #3124): state rail, a plain title, the raw text under Details.
 - **Add hook form, field resolution, global setup panel:** forms and disclosures as above inside a `surface` card.
