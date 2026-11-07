@@ -1,6 +1,6 @@
 // Small presentational pieces shared by every screen.
 
-import { useEffect, useRef, useState, type ReactNode, type Ref, type SelectHTMLAttributes } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref, type SelectHTMLAttributes } from 'react'
 import claudeIcon from '../assets/tools/claude.svg'
 import codexIcon from '../assets/tools/codex.svg'
 import cursorIcon from '../assets/tools/cursor.svg'
@@ -189,11 +189,246 @@ export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, clas
   )
 }
 
-export function Select({ children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+type SelectProps = SelectHTMLAttributes<HTMLSelectElement>
+
+// Chromium styles the open list itself (base-select). Other browsers get a
+// listbox drawn here; forced colors keep the system control.
+const pickerKind: 'base' | 'custom' | 'native' = (() => {
+  if (typeof window === 'undefined' || typeof CSS === 'undefined' || typeof CSS.supports !== 'function' || typeof window.matchMedia !== 'function') return 'native'
+  if (window.matchMedia('(forced-colors: active)').matches) return 'native'
+  return CSS.supports('appearance', 'base-select') ? 'base' : 'custom'
+})()
+
+export function Select({ children, ...props }: SelectProps) {
+  if (pickerKind === 'custom') return <SelectPicker {...props}>{children}</SelectPicker>
   return (
-    <span className="select-control">
+    <span className="select-control" data-picker={pickerKind === 'base' ? 'panel' : undefined}>
       <select {...props}>{children}</select>
       <Icon name="chevron" className="select-chevron" />
+    </span>
+  )
+}
+
+interface PickerOption { value: string; text: string; disabled: boolean }
+
+function readOptions(select: HTMLSelectElement): { options: PickerOption[]; selected: number } {
+  return {
+    options: Array.from(select.options, (option) => ({ value: option.value, text: option.text, disabled: option.disabled })),
+    selected: select.selectedIndex,
+  }
+}
+
+// The text of the button's label, without the picker a wrapping label holds.
+function labelText(button: HTMLButtonElement | null): string | undefined {
+  const label = button?.labels?.[0]?.cloneNode(true) as HTMLElement | undefined
+  label?.querySelectorAll('.select-control').forEach((control) => control.remove())
+  return label?.textContent?.trim() || undefined
+}
+
+const PAGE_STEP = 10
+const VIEWPORT_GAP = 8
+const PANEL_GAP = 4
+
+// The APG select-only combobox. The hidden native select stays the source of
+// truth: choosing sets it and dispatches a real change event, so callers keep
+// reading event.target.value.
+function SelectPicker({ children, id, className, disabled, 'aria-label': ariaLabel, 'aria-labelledby': ariaLabelledBy, 'aria-describedby': ariaDescribedBy, ...props }: SelectProps) {
+  const selectRef = useRef<HTMLSelectElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const typed = useRef({ text: '', at: 0 })
+  const listId = useId()
+  const [state, setState] = useState<{ options: PickerOption[]; selected: number }>({ options: [], selected: -1 })
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(-1)
+  const [keyboard, setKeyboard] = useState(false)
+  const { options, selected } = state
+
+  useLayoutEffect(() => {
+    const select = selectRef.current
+    if (!select) return
+    const next = readOptions(select)
+    setState((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next)
+  })
+
+  useLayoutEffect(() => {
+    const list = listRef.current
+    const button = buttonRef.current
+    if (!open || !list || !button) return
+    const place = () => {
+      const anchor = button.getBoundingClientRect()
+      const below = window.innerHeight - anchor.bottom - PANEL_GAP - VIEWPORT_GAP
+      const above = anchor.top - PANEL_GAP - VIEWPORT_GAP
+      list.style.minWidth = `${anchor.width}px`
+      list.style.maxWidth = `${window.innerWidth - 2 * VIEWPORT_GAP}px`
+      list.style.maxHeight = ''
+      const wanted = list.offsetHeight
+      const up = wanted > below && above > below
+      list.style.maxHeight = `${Math.min(wanted, up ? above : below)}px`
+      const height = list.offsetHeight
+      list.style.top = `${up ? anchor.top - PANEL_GAP - height : anchor.bottom + PANEL_GAP}px`
+      list.style.left = `${Math.max(VIEWPORT_GAP, Math.min(anchor.left, window.innerWidth - VIEWPORT_GAP - list.offsetWidth))}px`
+    }
+    place()
+    const labels = Array.from(button.labels ?? [])
+    const onLabel = (target: Node) => !list.contains(target) && !button.contains(target) && labels.some((label) => label.contains(target))
+    const close = (event: Event) => {
+      const target = event.target as Node
+      if (!list.contains(target) && !button.contains(target) && !onLabel(target)) setOpen(false)
+    }
+    // A label click reaches the button, which toggles; keep focus so blur does not close first.
+    const keepFocus = (event: MouseEvent) => { if (onLabel(event.target as Node)) event.preventDefault() }
+    const follow = (event: Event) => { if (event.target !== list) place() }
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', follow, true)
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('mousedown', keepFocus)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', follow, true)
+      document.removeEventListener('pointerdown', close)
+      document.removeEventListener('mousedown', keepFocus)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (open && active >= 0) listRef.current?.children[active]?.scrollIntoView({ block: 'nearest' })
+  }, [open, active])
+
+  const show = (index = selected) => {
+    setActive(index >= 0 ? index : step(0, 1))
+    setOpen(true)
+  }
+
+  const choose = (index: number) => {
+    setOpen(false)
+    const select = selectRef.current
+    if (!select || index < 0 || options[index]?.disabled || select.selectedIndex === index) return
+    select.selectedIndex = index
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+
+  // The nearest enabled option from start, walking by direction; start itself counts.
+  const step = (start: number, direction: 1 | -1) => {
+    for (let index = start; index >= 0 && index < options.length; index += direction) {
+      if (!options[index].disabled) return index
+    }
+    return -1
+  }
+  const move = (target: number, direction: 1 | -1) => {
+    const clamped = Math.max(0, Math.min(options.length - 1, target))
+    const found = step(clamped, direction)
+    return found >= 0 ? found : step(clamped, direction === 1 ? -1 : 1)
+  }
+
+  const typeahead = (key: string) => {
+    const now = Date.now()
+    const text = now - typed.current.at > 500 ? key : typed.current.text + key
+    typed.current = { text, at: now }
+    const from = open ? active : selected
+    const repeat = text.length > 1 && [...text].every((char) => char === text[0])
+    const needle = (repeat ? text[0] : text).toLowerCase()
+    const offset = text.length === 1 || repeat ? 1 : 0
+    for (let n = 0; n < options.length; n++) {
+      const index = (Math.max(from, 0) + offset + n) % options.length
+      if (!options[index].disabled && options[index].text.trim().toLowerCase().startsWith(needle)) return index
+    }
+    return -1
+  }
+
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const { key, altKey } = event
+    setKeyboard(true)
+    if (key.length === 1 && key !== ' ' && !event.ctrlKey && !event.metaKey && !altKey) {
+      const index = typeahead(key)
+      if (index >= 0) open ? setActive(index) : show(index)
+      else if (!open) show()
+      event.preventDefault()
+      return
+    }
+    if (!open) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(key)) show()
+      else if (key === 'Home') show(step(0, 1))
+      else if (key === 'End') show(step(options.length - 1, -1))
+      else return
+      event.preventDefault()
+      return
+    }
+    switch (key) {
+      case 'ArrowDown': setActive(move(active + 1, 1)); break
+      case 'ArrowUp': if (altKey) choose(active); else setActive(move(active - 1, -1)); break
+      case 'Home': setActive(step(0, 1)); break
+      case 'End': setActive(step(options.length - 1, -1)); break
+      case 'PageDown': setActive(move(active + PAGE_STEP, 1)); break
+      case 'PageUp': setActive(move(active - PAGE_STEP, -1)); break
+      case 'Enter': case ' ': choose(active); break
+      case 'Escape': setOpen(false); break
+      case 'Tab': choose(active); return
+      default: return
+    }
+    event.preventDefault()
+  }
+
+  return (
+    <span className="select-control" data-picker="custom">
+      <button
+        ref={buttonRef}
+        type="button"
+        id={id}
+        className={className ? `select-button ${className}` : 'select-button'}
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
+        disabled={disabled}
+        onClick={(event) => {
+          event.currentTarget.focus()
+          setKeyboard(event.detail === 0)
+          if (open) setOpen(false)
+          else show()
+        }}
+        onKeyDown={onKeyDown}
+        onBlur={(event) => { if (!listRef.current?.contains(event.relatedTarget)) setOpen(false) }}
+      >
+        <span className="select-value">{options[selected]?.text ?? ''}</span>
+      </button>
+      <Icon name="chevron" className="select-chevron" />
+      <select ref={selectRef} {...props} disabled={disabled} hidden aria-hidden="true" tabIndex={-1}>{children}</select>
+      {open && (
+        <div
+          ref={listRef}
+          id={listId}
+          className="select-listbox"
+          role="listbox"
+          aria-label={ariaLabel ?? (ariaLabelledBy ? undefined : labelText(buttonRef.current))}
+          aria-labelledby={ariaLabelledBy}
+          data-keyboard={keyboard || undefined}
+          tabIndex={-1}
+          onMouseDown={(event) => event.preventDefault()}
+          // A wrapping label would otherwise forward clicks in here to the button.
+          onClick={(event) => event.preventDefault()}
+        >
+          {options.map((option, index) => (
+            <div
+              key={index}
+              id={`${listId}-${index}`}
+              role="option"
+              className={`select-option${index === active ? ' is-active' : ''}`}
+              aria-selected={index === active}
+              aria-disabled={option.disabled || undefined}
+              data-current={index === selected || undefined}
+              onClick={() => { if (!option.disabled) choose(index) }}
+            >
+              <Icon name="check" className="select-check" />
+              {option.text}
+            </div>
+          ))}
+        </div>
+      )}
     </span>
   )
 }
@@ -211,6 +446,7 @@ const ICON_PATHS: Record<string, ReactNode> = {
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />,
   edit: <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z M13.5 6.5l4 4" />,
   chevron: <path d="m6 9 6 6 6-6" />,
+  check: <path d="m5 12 5 5 9-10" />,
   arrow: <path d="M7 17 17 7 M9 7h8v8" />,
   search: <path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Z M15.3 15.3 20 20" />,
   menu: <path d="M4 7h16 M4 12h16 M4 17h16" />,

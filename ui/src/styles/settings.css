@@ -300,12 +300,14 @@
 }
 
 .field-edit input:hover,
-.field-edit select:hover {
+.field-edit select:hover,
+.field-edit .select-button:hover:where(:not(:disabled)) {
   border-color: var(--text-muted);
 }
 
 .field-edit input:focus,
-.field-edit select:focus {
+.field-edit select:focus,
+.field-edit .select-button:focus {
   border-color: var(--accent);
 }
 
@@ -318,7 +320,8 @@
   color: var(--text-muted);
 }
 
-.field-edit-target select {
+.field-edit-target select,
+.field-edit-target .select-button {
   min-height: 30px;
   max-width: 100%;
   font-size: 12px;
@@ -328,7 +331,8 @@
   font-size: var(--text-sm);
 }
 
-.field-edit .field-edit-target select {
+.field-edit .field-edit-target select,
+.field-edit .field-edit-target .select-button {
   min-height: 36px;
   font-size: var(--text-sm);
 }
@@ -359,7 +363,8 @@
   .field-edit { grid-column: 1; }
 
   .field-edit input,
-  .field-edit select {
+  .field-edit select,
+  .field-edit .select-button {
     min-height: 44px;
   }
 }
@@ -453,6 +458,7 @@
 
 @media (max-width: 760px) {
   .editor-settings select,
+  .editor-settings .select-button,
   .editor-settings-input {
     min-height: 44px;
     font-size: 16px;

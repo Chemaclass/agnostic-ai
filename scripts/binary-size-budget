@@ -828,4 +828,6 @@
 # The Conversations skeleton, kept first page and shown-text cache
 # measured 25403552 bytes locally; the budget is that plus 8192, rounded
 # up to a multiple of 4096.
-25415680
+# The dropdown panel for Safari and Firefox measured 25415840 bytes
+# locally; the budget is that plus 8192, rounded up to a multiple of 4096.
+25427968
