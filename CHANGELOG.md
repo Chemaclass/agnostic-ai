@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
+
 - In the web interface, **Context size** starts with the startup and on-demand word counts, then one line on the startup budget with **Change budget**, then three **Next** steps. The ranked sources are always shown and replace **Start here**; duplicated passages show only when there are any; the load explanation and the model line moved into **How this is counted**; coding tools show by name (#3121).
 
 - In the web interface, a snapshot or the mock fixture says once under each page title that it is read-only, instead of a sentence on every finding and path, and a snapshot that does not load shows **Could not load the snapshot** with the raw error under **Details** and **Retry**.

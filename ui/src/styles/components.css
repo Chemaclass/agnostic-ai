@@ -59,6 +59,14 @@ kbd {
   flex-direction: column;
 }
 
+.config-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .global-onboarding-git {
   display: flex;
   align-items: center;
@@ -1722,6 +1730,20 @@ textarea:focus {
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+  }
+
+  .config-switch {
+    max-width: 100%;
+  }
+
+  .config-switch .button {
+    max-width: 100%;
+    min-height: 44px;
+    padding: 5px 8px;
+    font-size: 12px;
+    line-height: 15px;
+    white-space: normal;
+    text-align: left;
   }
 
   .page {

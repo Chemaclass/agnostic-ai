@@ -9,7 +9,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const views = ['context', 'authority', 'tools', 'lifecycle', 'settings', 'health']
+const views = ['conversations', 'context', 'authority', 'tools', 'lifecycle', 'settings', 'health']
 const widths = [1440, 900, 760, 390]
 const schemes = ['light', 'dark']
 const port = Number(process.env.PORT ?? 5199)

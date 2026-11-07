@@ -7,8 +7,8 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
-import { normalizeContextView, normalizeOverviewView } from './model/normalize'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type ConversationOpenReply, type ConversationOpenRequest, type ConversationsView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
+import { normalizeContextView, normalizeConversationsView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
 import { parseProtectedPreview } from './model/protected-edit'
 import { GLOBAL_SETUP_MISSING } from './model/spec-move'
@@ -117,6 +117,69 @@ export async function loadContext(source: DataSource, target: string | undefined
   const path = query ? `${API.context}?${query}` : API.context
   const data = normalizeContextView(await getJson(path, signal, SERVER_HINT))
   return { data, endpoint: `GET ${path}`, schemaWarning: schemaWarning(data.schemaVersion, CONTEXT_SCHEMA_VERSION) }
+}
+
+const CONVERSATIONS_SCHEMA_VERSION: ConversationsView['schemaVersion'] = 'conversations/v1'
+
+export const CONVERSATIONS_NEED_SERVER = 'Conversations need a running agnostic-ai serve.'
+
+/**
+ * One week of chats from the server, with routes for the editor chosen in
+ * Settings: without `before` the first page (every open chat and the past
+ * week), with it the week before that time. The mock fixture is a single
+ * page with no next; a static snapshot has none.
+ */
+export async function loadConversations(source: DataSource, editor: string, before: string | undefined, signal?: AbortSignal): Promise<Loaded<ConversationsView>> {
+  switch (source.kind) {
+    case 'invalid':
+      throw new LoadError(source.reason, `Received: ${source.value}`)
+    case 'static':
+      throw new LoadError(CONVERSATIONS_NEED_SERVER)
+    case 'mock': {
+      const module = await import('./fixtures/conversations.mock.json')
+      const data = normalizeConversationsView(module.default)
+      return { data, endpoint: 'Mock fixture src/fixtures/conversations.mock.json', schemaWarning: schemaWarning(data.schemaVersion, CONVERSATIONS_SCHEMA_VERSION) }
+    }
+    case 'api': {
+      const params = new URLSearchParams({ editor })
+      if (before) params.set('before', before)
+      const path = `${API.conversations}?${params}`
+      const data = normalizeConversationsView(await getJson(path, signal, SERVER_HINT))
+      return { data, endpoint: `GET ${path}`, schemaWarning: schemaWarning(data.schemaVersion, CONVERSATIONS_SCHEMA_VERSION) }
+    }
+  }
+}
+
+/** The server's answer to an open request, or why the request got no answer. */
+export type ConversationOpenOutcome =
+  | { kind: 'reply'; reply: ConversationOpenReply }
+  | { kind: 'failed'; message: string }
+
+function parseOpenReply(raw: unknown): ConversationOpenReply | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const reply = raw as Record<string, unknown>
+  if (typeof reply.opened !== 'boolean' || typeof reply.message !== 'string') return undefined
+  return { opened: reply.opened, message: reply.message, ...(typeof reply.command === 'string' && reply.command ? { command: reply.command } : {}) }
+}
+
+/** Asks the server to open one conversation where it lives. A failed request resolves with its reason, never throws. */
+export async function openConversation(request: ConversationOpenRequest): Promise<ConversationOpenOutcome> {
+  let res: Response
+  try {
+    res = await fetch(API.conversationOpen, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request) })
+  } catch {
+    return { kind: 'failed', message: 'Could not reach the server to open the conversation.' }
+  }
+  if (!res.ok) return { kind: 'failed', message: `The server answered ${res.status}: ${await readError(res)}` }
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { kind: 'failed', message: 'The server did not answer with JSON.' }
+  }
+  const reply = parseOpenReply(body)
+  if (!reply) return { kind: 'failed', message: 'The server answered without an opened flag and a message.' }
+  return { kind: 'reply', reply }
 }
 
 /** One listed file's content from the running server. */

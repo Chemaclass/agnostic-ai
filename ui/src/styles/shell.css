@@ -215,14 +215,6 @@ html {
   text-overflow: ellipsis;
 }
 
-.config-switch {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
 .config-switch-note {
   color: var(--text-muted);
   font-size: 12px;
@@ -360,6 +352,12 @@ html {
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--line);
+}
+
+.nav-item-conversations {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
 }
 
 .nav-link > .icon {
@@ -764,7 +762,9 @@ a.release-badge:focus-visible .release-arrow {
 
   .nav-list {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    /* Equal columns, except that a long label such as Conversations takes
+       the room it needs from the others instead of overflowing. */
+    grid-template-columns: repeat(6, minmax(min-content, 1fr));
     gap: 0;
     margin: 0;
     padding: 0;
@@ -773,6 +773,12 @@ a.release-badge:focus-visible .release-arrow {
 
   .nav-item-health {
     display: none;
+  }
+
+  .nav-item-conversations {
+    margin: 0;
+    padding: 0;
+    border: 0;
   }
 
   .nav-link {
@@ -887,20 +893,6 @@ a.release-badge:focus-visible .release-arrow {
     line-height: 14px;
   }
 
-  .config-switch {
-    max-width: 100%;
-  }
-
-  .config-switch .button {
-    max-width: 100%;
-    min-height: 44px;
-    padding: 5px 8px;
-    font-size: 12px;
-    line-height: 15px;
-    white-space: normal;
-    text-align: left;
-  }
-
   .sidenav {
     padding-inline: 8px;
   }
@@ -943,4 +935,12 @@ a.release-badge:focus-visible .release-arrow {
 
 .topbar .button:not([aria-pressed='true']) {
   background: var(--topbar);
+}
+
+/* Six labels share a 320px row; wider system fonts need the room. */
+
+@media (max-width: 360px) {
+  .nav-link {
+    font-size: 10px;
+  }
 }
