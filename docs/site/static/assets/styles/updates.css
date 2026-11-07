@@ -579,6 +579,14 @@
   margin-top: 0.75rem;
 }
 
+.article-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.4rem 0;
+  border: 1px solid var(--line);
+}
+
 .article-body > h3 + ul {
   margin-top: 1rem;
 }

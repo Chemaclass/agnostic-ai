@@ -52,10 +52,10 @@ Use this workflow when the user asks to publish a new version. A request to prep
    disagree with the latest dated changelog section.
 5. After finalizing the changelog, create exactly one
    `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing. Read and
-   follow [references/release-briefing.md](references/release-briefing.md).
-   Open with Highlights. Add upgrade steps only when a reader must act; name the main shipped
-   value with a few useful examples, and select consequential target changes. Keep
-   agnostic-ai support separate from upstream availability.
+   follow [references/release-briefing.md](references/release-briefing.md):
+   a short title that names the user value, Highlights first, required
+   upgrade actions only, at most four "What changed" groups, one target line
+   per tool with the verification method stated once, and about 600 words.
 6. Validate the completed release tree before committing. Follow the generation
    checks for project source specs in repository-root `docs/internal/contributing.md`,
    section "Choose checks for your change", then run `make ci-local` and
@@ -112,7 +112,8 @@ Use this workflow when the user asks to publish a new version. A request to prep
 - The briefing orders breaking behavior, default changes, removals, and
   deprecations before additions. It never presents upstream news as shipped
   agnostic-ai support.
-- Cover every substantial feature and migration. A fixed bullet count must
-  never hide a change a reader needs to use the release.
+- Every required migration appears in the briefing's actions section. Smaller
+  fixes stay in the linked release notes; the briefing is a summary, not a
+  second changelog.
 - Tag format `vX.Y.Z` (lowercase `v`). GoReleaser matches this prefix.
 - Commit message follows Conventional Commits. Never mention AI in the message.
