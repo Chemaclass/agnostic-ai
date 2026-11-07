@@ -30,7 +30,7 @@ describe('authority summary', () => {
   it('says so when no list holds a rule', () => {
     const value = (key: string, list: string[]) => ({ key, type: 'list', list })
     const item = { values: [value('permissions.allow', []), value('permissions.deny', [])] }
-    expect(authoritySummary({ label: 'Authority', items: [item] as never })).toBe('no permissions yet')
+    expect(authoritySummary({ items: [item] as never })).toBe('no permissions yet')
   })
 })
 
