@@ -1,11 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { itemEntryId } from '../src/model/identity'
-import { normalizeOverviewView } from '../src/model/normalize'
-import { selectTab } from './helpers'
+import { itemEntryId } from '../../src/model/identity'
+import { normalizeOverviewView } from '../../src/model/normalize'
+import { selectTab } from '../helpers'
 
 function tabFixture() {
-  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
+  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
   const tools = data.sections.find((section) => section.id === 'tools')!
   tools.native = [{ name: 'notion', holders: [{ target: 'claude', label: 'Claude Code', path: '~/.claude.json', scope: 'user', transport: 'http' }] }]
   tools.kinds.push({ kind: 'environment', label: 'Environments', count: 1 })
@@ -24,7 +24,7 @@ function tabFixture() {
 async function loadTabs(page: Page) {
   const data = tabFixture()
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
-  await page.route('**/api/views/context**', (route) => route.fulfill({ json: JSON.parse(readFileSync(new URL('../src/fixtures/context.mock.json', import.meta.url), 'utf8')) }))
+  await page.route('**/api/views/context**', (route) => route.fulfill({ json: JSON.parse(readFileSync(new URL('../../src/fixtures/context.mock.json', import.meta.url), 'utf8')) }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true } }))
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
   return data
@@ -271,3 +271,30 @@ test('reveals the Skills tab on a phone when global search focuses a skill', asy
   await expect(skill).toBeFocused()
   await expect(skill).toBeInViewport()
 })
+
+function withContextFindings() {
+  const data = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+  const context = data.sections.find((section: { id: string }) => section.id === 'context')
+  const finding = { source: 'lint', code: 'LINT001', severity: 'warn', message: 'A finding', path: '.agnostic-ai/agents/reviewer.md' }
+  for (const item of context.items) item.findings = [finding, finding, finding, finding, finding, finding, finding, finding, finding, finding, finding, finding]
+  return data
+}
+
+for (const width of [320, 390]) {
+  test(`keeps the Context tab row inside the page at ${width}px when items have findings`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: withContextFindings() }))
+    await page.goto('/?view=context')
+    const tablist = page.getByRole('tablist', { name: 'Context views' })
+    await expect(tablist).toBeVisible()
+    await expect(tablist.locator('.section-tab-findings').first()).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    for (const tab of await tablist.getByRole('tab').all()) {
+      await tab.click()
+      await expect(tab).toHaveAttribute('aria-selected', 'true')
+      await expect(tab).toBeInViewport({ ratio: 1 })
+      for (const part of await tab.locator('.section-tab-count, .section-tab-findings').all()) await expect(part).toBeInViewport({ ratio: 1 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    }
+  })
+}

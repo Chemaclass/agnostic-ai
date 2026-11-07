@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { saveScreenshot, selectTab } from './helpers'
+import { saveScreenshot, selectTab } from '../helpers'
 
-const overview = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
-const contextView = JSON.parse(readFileSync(new URL('../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
+const overview = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const contextView = JSON.parse(readFileSync(new URL('../../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
 const rulePath = '/path/to/agnostic-ai/.agnostic-ai/rules/testing.md'
 
 test.describe('row content', () => {

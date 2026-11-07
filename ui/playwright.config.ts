@@ -12,8 +12,7 @@ const baseURL = process.env.E2E_BASE_URL ?? (preview ? 'http://127.0.0.1:4173' :
 const executablePath = process.env.E2E_CHROMIUM_PATH
 
 export default defineConfig({
-  testDir: './e2e',
-  testIgnore: ['**/live.spec.ts', '**/global-onboarding.spec.ts'],
+  testDir: './e2e/fixture',
   timeout: 45_000,
   expect: { timeout: 8_000 },
   fullyParallel: true,

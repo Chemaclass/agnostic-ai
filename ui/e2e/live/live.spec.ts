@@ -7,10 +7,10 @@ import { createServer } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { selectTab } from './helpers'
+import { selectTab } from '../helpers'
 
 const run = promisify(execFile)
-const uiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const uiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const binary = resolve(process.env.AGNOSTIC_E2E_BIN ?? join(uiRoot, '..', process.platform === 'win32' ? 'agnostic-ai.exe' : 'agnostic-ai'))
 
 async function put(file: string, body: string) {
