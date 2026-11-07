@@ -28,12 +28,6 @@ export function GlobalSearch({ overview, onClose }: { overview?: OverviewView; o
 
   const open = (result: SearchResult) => {
     onClose(true)
-    if (app.state.view === result.view && app.state.entry === result.entry) {
-      const target = document.querySelector<HTMLElement>(`[data-entry="${CSS.escape(result.entry)}"]`)
-      target?.scrollIntoView({ block: 'center' })
-      target?.focus({ preventScroll: true })
-      return
-    }
     app.navigate({ view: result.view, q: undefined, entry: result.entry })
   }
 
