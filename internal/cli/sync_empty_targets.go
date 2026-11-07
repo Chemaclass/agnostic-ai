@@ -35,12 +35,19 @@ func warnEmptyTargetsIgnoring(w io.Writer) {
 	_, _ = fmt.Fprintf(w, "  %s %s; ignoring -t\n", term.Bang(w), emptyTargetsWarning)
 }
 
+// inSpecsFolder reports whether path, with either separator, is the
+// project's .agnostic-ai folder or under it.
+func inSpecsFolder(path string) bool {
+	slash := filepath.ToSlash(path)
+	return slash == ".agnostic-ai" || strings.HasPrefix(slash, ".agnostic-ai/")
+}
+
 // generatedFilesKept reports whether the last sync recorded a file that is
 // still on disk, apart from the project's own .agnostic-ai folder. With an empty targets list sync keeps these files, so
 // --check cannot say they are current.
 func generatedFilesKept(cfg *config.Config, ledger ledgerSnapshot) bool {
 	for _, p := range ledger.state.Outputs {
-		if slash := filepath.ToSlash(p); slash == ".agnostic-ai" || strings.HasPrefix(slash, ".agnostic-ai/") {
+		if inSpecsFolder(p) {
 			continue
 		}
 		if _, err := os.Lstat(p); err == nil {
