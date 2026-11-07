@@ -132,5 +132,5 @@ test('names a refused snapshot source once, without a retry', async ({ page }) =
   await expect(alert).toHaveCount(1)
   await expect(alert.locator('.banner-title')).toHaveText('A snapshot source must be a relative directory or an http(s) URL.')
   await expect(alert.getByRole('button', { name: 'Retry' })).toHaveCount(0)
-  await expect(page.locator('.page-note')).toHaveCount(0)
+  await expect(page.getByText(/switches need agnostic-ai view/)).toHaveCount(0)
 })

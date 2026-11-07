@@ -12,6 +12,8 @@ test.describe('overview', () => {
     await page.goto('/?view=context&source=./snapshot')
     await expect(page.locator('.brand-name')).toHaveText('agnostic-ai')
     await expect(page.locator('.page > .banner-info', { hasText: 'Static snapshot' })).toBeVisible()
+    await expect(page.locator('.page > .banner-info', { hasText: 'Static snapshot' })).toContainText('Opening files, rechecks and switches need agnostic-ai view.')
+    await expect(page.getByText(/switches need agnostic-ai view/)).toHaveCount(1)
     await expect(page.locator('.project-name')).toHaveCount(0)
     data.snapshot.project.name = 'billing-service'
     data.snapshot.project.root = '/work/clients/billing-service'
