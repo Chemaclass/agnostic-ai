@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, Section } from '../contract'
-import { fieldEntryId, findingEntryIds, findingKey, itemEntryId, sectionEntryIds } from './identity'
+import { fieldEntryId, findingEntryIds, findingKey, itemEntryId, kindEntryId, sectionEntryIds } from './identity'
 
 const finding: ItemFinding = { source: 'lint', code: 'LINT038', severity: 'warning', message: 'Bare read covers every file.', path: '.agnostic-ai/settings/permissions.yaml', line: 3 }
 
@@ -10,6 +10,7 @@ describe('entry identity', () => {
     expect(itemEntryId({ kind: 'mcp', name: 'github', path: '~/.agnostic-ai/mcps/github.yaml' })).not.toBe(itemEntryId({ kind: 'mcp', name: 'github', path: '.agnostic-ai/mcps/github.yaml' }))
     expect(itemEntryId({ kind: 'rule', name: 'a:b', path: 'c' })).not.toBe(itemEntryId({ kind: 'rule', name: 'a', path: 'b:c' }))
     expect(fieldEntryId({ key: 'default-model' })).toBe('field:default-model')
+    expect(kindEntryId('review')).toBe('kind:review')
   })
 
   it('keeps a finding when only its line moves, and tells apart different problems', () => {
@@ -43,6 +44,7 @@ describe('entry identity', () => {
 
   it('lists every entry a section can link to, whatever the order', () => {
     const section = {
+      kinds: [{ kind: 'settings', label: 'Permissions', count: 1 }],
       items: [{ kind: 'settings', name: 'permissions', path: 'p.yaml', findings: [finding] }],
       fields: [{ key: 'default-model' }],
       findings: [{ source: 'doctor', severity: 'error', message: 'Not checked.' }],
@@ -53,6 +55,7 @@ describe('entry identity', () => {
       ...findingEntryIds([finding], 'item:settings:permissions:p.yaml'),
       'field:default-model',
       ...findingEntryIds(section.findings),
+      'kind:settings',
     ])
     expect(sectionEntryIds({ ...section, items: [...section.items].reverse() })).toEqual(ids)
   })

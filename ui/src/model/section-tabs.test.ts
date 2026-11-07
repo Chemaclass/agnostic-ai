@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Section, SectionItem } from '../contract'
-import { fieldEntryId, findingEntryIds, itemEntryId } from './identity'
-import { entryTab, landingTab, sectionTabs } from './section-tabs'
+import { fieldEntryId, findingEntryIds, itemEntryId, kindEntryId } from './identity'
+import { entryTab, landingTab, sectionTabs, tabTitle } from './section-tabs'
 
 const section = (over: Partial<Section>): Section => ({ id: 'context', label: 'Context', question: '', order: 0, kinds: [], items: [], findings: [], support: [], ...over })
 
@@ -29,6 +29,27 @@ describe('section tabs', () => {
     const settings = section({ id: 'settings', kinds: [{ kind: 'settings', label: 'Other settings', count: 1 }], fields: [field] })
     expect(entryTab(settings, sectionTabs(settings), fieldEntryId(field))).toBe('preferences')
     expect(entryTab(settings, sectionTabs(settings), 'unknown')).toBeUndefined()
+  })
+
+  it('finds the tab that holds a linked kind', () => {
+    const context = section({ kinds: [{ kind: 'instructions', label: 'Instructions', count: 1 }, { kind: 'review', label: 'Review instructions', count: 1 }, { kind: 'command', label: 'Commands', count: 1 }] })
+    const tabs = sectionTabs(context)
+    expect(entryTab(context, tabs, kindEntryId('review'))).toBe('guidance')
+    expect(entryTab(context, tabs, kindEntryId('command'))).toBe('command')
+    expect(entryTab(context, tabs, kindEntryId('skill'))).toBeUndefined()
+  })
+
+  it('names the kinds a tab holds in its title, only those the section has', () => {
+    const context = section({ kinds: [{ kind: 'instructions', label: 'Instructions', count: 1 }, { kind: 'review', label: 'Review instructions', count: 1 }, { kind: 'ignore', label: 'Ignore files', count: 1 }, { kind: 'rule', label: 'Rules', count: 1 }] })
+    const [, guidance, rules] = sectionTabs(context)
+    expect(tabTitle(context, guidance)).toBe('Instructions, review instructions, ignore files')
+    expect(tabTitle(context, rules)).toBe('Rules')
+    const partial = section({ kinds: [{ kind: 'instructions', label: 'Instructions', count: 1 }] })
+    expect(tabTitle(partial, sectionTabs(partial)[1])).toBe('Instructions')
+    const tools = section({ id: 'tools', kinds: [{ kind: 'mcp', label: 'MCP servers', count: 1 }] })
+    const [servers, native] = sectionTabs(tools)
+    expect(tabTitle(tools, servers)).toBe('MCP servers')
+    expect(tabTitle(tools, native)).toBeUndefined()
   })
 
   it('lands on Context size only when it can load, else on the first tab with content', () => {

@@ -2,10 +2,10 @@ import type { ReactNode } from 'react'
 import { Icon } from './ui'
 import { DOC_FALLBACK, DOC_TOPICS, documentationUrl } from '../model/documentation'
 
-export function SectionHeading({ topic, id, focusable, children }: { topic: string; id?: string; focusable?: boolean; children: ReactNode }) {
+export function SectionHeading({ topic, id, focusable, entry, children }: { topic: string; id?: string; focusable?: boolean; entry?: string; children: ReactNode }) {
   return (
     <div className="section-head section-help-heading">
-      <h2 id={id} tabIndex={focusable ? -1 : undefined}>{children}</h2>
+      <h2 id={id} tabIndex={focusable || entry ? -1 : undefined} data-entry={entry}>{children}</h2>
       <DocLink topic={topic} />
     </div>
   )
