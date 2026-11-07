@@ -36,7 +36,7 @@ export function EditFailure({ error, action, busy, onReload, onDismiss }: { erro
   return <Notice
     tone="error"
     title={action === 'apply' ? 'Could not apply the change' : 'Could not preview the change'}
-    actions={error.status === 409 && <button type="button" className="button" disabled={busy} onClick={onReload}>Reload saved values</button>}
+    actions={error.status === 409 && <button type="button" className="button" disabled={busy} onClick={onReload}>Reload</button>}
     onDismiss={onDismiss}
   >
     <p>{error.message}</p>
@@ -153,6 +153,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
     setRefreshed(false)
     setEditing(true)
   }
+  const refocus = () => (editing ? textarea.current : editButton.current)?.focus()
   const awaitRefresh = () => {
     settleFrom.current = app.overviewRevision ?? null
     setSettling(true)
@@ -232,15 +233,15 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
         <h3>{preview.rules === null ? audience === 'personal' ? `Use the ${level} rules` : `Remove the ${level} list` : preview.rules.length === 0 && audience === 'personal' ? 'Clear the list for you' : `Save ${preview.rules.length} rule${preview.rules.length === 1 ? '' : 's'}`}</h3>
         <div className="field-edit-row">
           <button type="button" className="button button-primary" disabled={!!pending || !!disabledReason} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Applying…' : 'Apply'}</button>
-          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { restoreFocus.current = true; setPreview(undefined); setError(undefined) }}>Cancel</button>
+          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { restoreFocus.current = true; setPreview(undefined); setError(undefined) }}>{editing ? 'Edit' : 'Cancel'}</button>
         </div>
       </div>
       <p>{audienceDescription(audience, global)} · <Code>{preview.file}</Code></p>
       <FileDiff label={`${field.label} file changes`} diff={preview.diff} />
       <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools. Tool support varies; see Coding tool support below.</p>
     </section>}
-    {error && <EditFailure error={error} action={failed} busy={waiting} onReload={() => { refreshing.current = true; awaitRefresh(); app.reload() }} onDismiss={() => setError(undefined)} />}
-    {refreshed && <div role="status"><Notice tone="info" title="Saved rules refreshed" onDismiss={() => setRefreshed(false)}><p>Your draft is kept. Preview again to compare it with the saved list.</p></Notice></div>}
+    {error && <EditFailure error={error} action={failed} busy={waiting} onReload={() => { refreshing.current = true; awaitRefresh(); app.reload() }} onDismiss={() => { setError(undefined); refocus() }} />}
+    {refreshed && <div role="status"><Notice tone="info" title="Saved rules refreshed" onDismiss={() => { setRefreshed(false); refocus() }}><p>Your draft is kept. Preview again to compare it with the saved list.</p></Notice></div>}
   </div></>
 }
 

@@ -51,6 +51,8 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
   const [before, setBefore] = useState(own)
   const [inherited, setInherited] = useState(current.shared)
   const refreshing = useRef(false)
+  const textarea = useRef<HTMLTextAreaElement>(null)
+  const editButton = useRef<HTMLButtonElement>(null)
   const settleFrom = useRef<object | null>(null)
   const [settling, setSettling] = useState(false)
   useEffect(() => {
@@ -84,6 +86,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
     setError(undefined)
     setEditing(true)
   }
+  const refocus = () => (editing ? textarea.current : editButton.current)?.focus()
   const awaitRefresh = () => {
     settleFrom.current = app.overviewRevision ?? null
     setSettling(true)
@@ -133,7 +136,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       <Notice tone="info"><p>Your local file sets <Code>protected: null</Code>, so sync does not protect the project paths for you.</p></Notice>
     </div>}
     {!overridden && !preview && !editing && <div className="field-edit-row">
-      <button type="button" className="button" disabled={!path || waiting} onClick={begin}>{effective ? 'Edit paths' : 'Add paths'}</button>
+      <button ref={editButton} type="button" className="button" disabled={!path || waiting} onClick={begin}>{effective ? 'Edit paths' : 'Add paths'}</button>
       {local && (current.personal || current.personalCleared) && <button type="button" className="button button-quiet" disabled={!path || waiting} onClick={() => { void request('preview', null) }}>Reset to project paths</button>}
       {!path && <span className="muted">Choose the file whose protected paths you want to change.</span>}
     </div>}
@@ -141,7 +144,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
       <label htmlFor={id}>Paths to protect</label>
       <p id={`${id}-hint`} className="muted">One path per line from the project root, for example <Code>.github/**</Code> or <Code>composer.lock</Code>. Blank lines are ignored.</p>
       {local && !current.personalSet && current.shared && <p className="muted">Starts with the project paths. Saving replaces them for you only.</p>}
-      <textarea id={id} aria-describedby={`${id}-hint`} rows={4} placeholder={PATH_PLACEHOLDER} value={text} disabled={locked} spellCheck={false} onChange={(event) => { setText(event.target.value); setError(undefined) }} />
+      <textarea ref={textarea} id={id} aria-describedby={`${id}-hint`} rows={4} placeholder={PATH_PLACEHOLDER} value={text} disabled={locked} spellCheck={false} onChange={(event) => { setText(event.target.value); setError(undefined) }} />
       <label className="field-edit-target">Decision
         <Select aria-label="Protected paths decision" value={decision} disabled={locked} onChange={(event) => setDecision(event.target.value)}>
           {PROTECT_DECISIONS.map((option) => <option key={option} value={option}>{option === 'ask' ? 'ask: the agent asks first' : 'deny: the edit is blocked'}</option>)}
@@ -162,13 +165,13 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
         <h3>{preview.protected === null ? local ? 'Use project paths' : 'Remove protected paths' : `Protect ${preview.protected.paths.length} path${preview.protected.paths.length === 1 ? '' : 's'}`}</h3>
         <div className="field-edit-row">
           <button type="button" className="button button-primary" disabled={!!pending} onClick={() => { void request('apply') }}>{pending === 'apply' ? 'Applying…' : 'Apply'}</button>
-          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { setPreview(undefined); setError(undefined) }}>Cancel</button>
+          <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { setPreview(undefined); setError(undefined) }}>{editing ? 'Edit' : 'Cancel'}</button>
         </div>
       </div>
       <p>{local ? 'Local (not committed)' : 'Project (committed)'} · <Code>{preview.file}</Code></p>
       <FileDiff label={`${field.label} file changes`} diff={preview.diff} />
       <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools.</p>
     </section>}
-    {error && <EditFailure error={error} action={failed} busy={waiting} onReload={() => { refreshing.current = true; awaitRefresh(); app.reload() }} onDismiss={() => setError(undefined)} />}
+    {error && <EditFailure error={error} action={failed} busy={waiting} onReload={() => { refreshing.current = true; awaitRefresh(); app.reload() }} onDismiss={() => { setError(undefined); refocus() }} />}
   </div></>
 }

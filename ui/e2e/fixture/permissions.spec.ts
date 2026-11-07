@@ -59,6 +59,8 @@ for (const width of [390, 1440]) {
     await expect(preview.locator('.diff-added')).toHaveText(['+permissions:', '+  ask: ["shell(git push *)","read(private/**)"]'])
     await expect(preview.locator('.diff-meta')).toHaveCount(2)
     await expect(preview).toContainText('Apply saves this file. Then run agnostic-ai sync to update your tools.')
+    await expect(preview.getByRole('button', { name: 'Edit', exact: true })).toBeVisible()
+    await expect(preview.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0)
     expect(requests).toEqual([{ action: 'preview', audience: 'shared', path: shared, key: 'permissions.ask', rules: ['shell(git push *)', 'read(private/**)'], before: null }])
     await preview.getByRole('button', { name: 'Apply', exact: true }).click()
     const saved = page.getByRole('status').filter({ hasText: /^Saved / })
@@ -125,7 +127,7 @@ test('keeps a draft through a conflict and discards previews when the scope chan
   }, { times: 1 })
   await row.getByRole('button', { name: 'Preview', exact: true }).click()
   await expect(row.getByRole('alert')).toContainText('Saved rules changed')
-  await row.getByRole('button', { name: 'Reload saved values' }).click()
+  await row.getByRole('button', { name: 'Reload', exact: true }).click()
   await expect(row.getByRole('textbox', { name: 'Ask first rules' })).toHaveValue('shell(git push *)')
   await expect(row.getByRole('status')).toContainText('Your draft is kept')
   await row.getByRole('button', { name: 'Preview', exact: true }).click()
@@ -156,6 +158,20 @@ test('shows a rejected rule as a readable message under the editor', async ({ pa
   await alert.getByRole('button', { name: 'Dismiss', exact: true }).click()
   await expect(row.getByRole('alert')).toHaveCount(0)
   await expect(row.getByRole('textbox', { name: 'Ask first rules', exact: true })).toHaveValue('test')
+  await expect(row.getByRole('textbox', { name: 'Ask first rules', exact: true })).toBeFocused()
+})
+
+test('returns focus to Edit rules when a failed rule removal is dismissed', async ({ page }) => {
+  const { authority } = await setup(page)
+  authority.fields!.find((field) => field.key === 'permissions.ask')!.set = [{ spec: 'permissions', path: shared, values: [{ key: 'permissions.ask', type: 'list', list: ['shell(git push *)', 'read(private/**)'] }] }]
+  await page.reload()
+  await page.route('**/api/edit/permissions', (route) => route.fulfill({ status: 409, json: { error: 'Saved rules changed. Reload the saved values.' } }))
+  const row = page.locator('.field-row').filter({ has: page.getByText('Ask first', { exact: true }) })
+  await row.getByRole('button', { name: 'Remove rule shell(git push *)' }).click()
+  await expect(row.getByRole('alert').locator('.banner-title')).toHaveText('Could not preview the change')
+  await expect(row.getByRole('button', { name: 'Reload', exact: true })).toBeVisible()
+  await row.getByRole('alert').getByRole('button', { name: 'Dismiss', exact: true }).click()
+  await expect(row.getByRole('button', { name: 'Edit rules', exact: true })).toBeFocused()
 })
 
 test('removes or edits one saved rule through the same preview and save', async ({ page }) => {

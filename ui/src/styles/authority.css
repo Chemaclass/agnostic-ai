@@ -196,6 +196,10 @@
 }
 
 @media (forced-colors: active) {
+  .file-diff .diff-line {
+    border-inline-start-color: Canvas;
+  }
+
   .file-diff .diff-added,
   .file-diff .diff-removed {
     border-inline-start-color: CanvasText;
