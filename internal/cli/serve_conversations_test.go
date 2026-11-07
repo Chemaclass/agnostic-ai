@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -224,5 +225,22 @@ func TestConversationsHandler_PagesByWeek(t *testing.T) {
 	}
 	if rec := get("?before=last-week"); rec.Code != http.StatusBadRequest || strings.TrimSpace(rec.Body.String()) != `{"error":"before must be a time such as 2026-11-01T12:00:00Z, the next value of the previous page"}` {
 		t.Errorf("a bad before = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestGitWorktrees_KeepsAProjectInASubfolderToItsOwnFolder(t *testing.T) {
+	repo := realDir(t)
+	project := filepath.Join(repo, "pkg-a")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", repo, "init", "-q").CombinedOutput(); err != nil {
+		t.Skipf("git init: %v %s", err, out)
+	}
+
+	got := gitWorktrees(project)
+
+	if len(got) != 1 || got[0] != project {
+		t.Errorf("worktrees of %s = %v, want only the project folder", project, got)
 	}
 }

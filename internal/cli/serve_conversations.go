@@ -134,20 +134,26 @@ func (h *conversationsHandler) scanOptions(editor string) conversations.ScanOpti
 
 const worktreeTimeout = 3 * time.Second
 
-// gitWorktrees lists the worktrees of the repository that holds root,
-// so a project's conversations include those started in its worktrees.
-// A folder outside Git has none.
+// gitWorktrees lists root's folder in each worktree of the repository
+// that holds it, so a project's conversations include those started in
+// its worktrees but not in sibling folders of a larger repository. A
+// folder outside Git has none.
 func gitWorktrees(root string) []string {
 	ctx, cancel := context.WithTimeout(context.Background(), worktreeTimeout)
 	defer cancel()
+	prefix, err := exec.CommandContext(ctx, "git", "-C", root, "rev-parse", "--show-prefix").Output()
+	if err != nil {
+		return nil
+	}
 	out, err := exec.CommandContext(ctx, "git", "-C", root, "worktree", "list", "--porcelain").Output()
 	if err != nil {
 		return nil
 	}
+	inside := filepath.FromSlash(strings.TrimSpace(string(prefix)))
 	var paths []string
 	for _, line := range strings.Split(string(out), "\n") {
 		if path, ok := strings.CutPrefix(line, "worktree "); ok {
-			paths = append(paths, path)
+			paths = append(paths, filepath.Join(path, inside))
 		}
 	}
 	return paths
