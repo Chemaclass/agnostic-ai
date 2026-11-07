@@ -15,6 +15,8 @@ export interface AppApi {
   overviewRevision?: object
   /** The loaded overview, for pages that read another section's data. */
   overview?: OverviewView
+  /** Counts navigations that name an entry, so following the same link again reveals it again. */
+  reveals?: number
 }
 
 export const AppContext = createContext<AppApi | null>(null)

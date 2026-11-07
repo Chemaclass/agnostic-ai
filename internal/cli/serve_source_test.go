@@ -531,6 +531,8 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 		"table":              "| field | value |\n| --- | --- |\n| password | hunter2short |\n",
 		"xml":                "<password>hunter2short</password>\n",
 		"label":              "| token | hunter2short |\n",
+		"api key cell":       "| API key | hunter2short |\n",
+		"client secret tag":  "<client-secret>hunter2short</client-secret>\n",
 		"session":            "session: hunter2short\n",
 		"session cell":       "| session | hunter2short |\n",
 		"session tag":        "<session>hunter2short</session>\n",
@@ -538,6 +540,11 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 		"code label":         "| `auth` | hunter2short |\n",
 		"code cookie":        "| _cookie_ | hunter2short |\n",
 		"prose":              "The password is hunter2short.\n",
+		"named cell":         "| Production password | hunter2short |\n",
+		"qualified cell":     "| API key (production) | hunter2short |\n",
+		"qualified prose":    "The password for production is hunter2short.\n",
+		"heading":            "## Password\nhunter2short\n",
+		"guidance":           "Root.\n\nNever commit secrets or API keys.\n",
 		"repeated":           "Root.\n\n```yaml\nurl: https://user:hunter2short@example.com/\n```\n\nhunter2short\n",
 		"frontmatter repeat": "---\nurl: https://user:hunter2short@example.com/\nnote: hunter2short\n---\nBody.\n",
 		"indented end":       "---\nname: x\n  ---\n```yaml\nurl: https://user:hunter2short@example.com/\n```\n---\nhunter2short\n",
@@ -548,9 +555,11 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 			t.Errorf("%s: withheld %v, body %q", name, view.Withheld, view.Body)
 		}
 	}
-	mustWriteFile(t, instructions, "Root.\n\nKeep the token budget small.\n")
-	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Withheld || view.Body != "Root.\n\nKeep the token budget small.\n" {
-		t.Errorf("plain text must show: %+v", view)
+	for _, text := range []string{"Root.\n\nKeep the token budget small.\n"} {
+		mustWriteFile(t, instructions, text)
+		if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Withheld || view.Body != text {
+			t.Errorf("plain text must show: %+v", view)
+		}
 	}
 }
 

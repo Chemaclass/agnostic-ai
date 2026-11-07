@@ -201,17 +201,7 @@ func importQoderMCP(root, dstDir string) (int, error) {
 	if len(servers) == 0 {
 		return 0, nil
 	}
-	clean := make(map[string]any, len(servers))
-	var skipped []mcpLiteralRef
-	for name, raw := range servers {
-		if server, ok := raw.(map[string]any); ok {
-			if field := mcpOAuthCredential(server["oauth"]); field != "" {
-				skipped = append(skipped, mcpLiteralRef{server: name, field: field, leftOut: true})
-				continue
-			}
-			clean[name] = server
-		}
-	}
+	clean, skipped := withoutMCPOAuthCredentials(servers)
 	count, err := writeMCPYAMLs("qoder", clean, dstDir)
 	if err != nil {
 		return count, err
