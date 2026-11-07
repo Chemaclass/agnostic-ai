@@ -60,37 +60,74 @@ func passesMySQLPassword(text string) bool {
 	return false
 }
 
-// curlInText is curl named in prose with the rest of its line.
-var curlInText = regexp.MustCompile(`(?:^|[\s` + "`" + `(])(curl\s[^\n` + "`" + `]*)`)
+// curlInText is curl named in prose, also as a path or curl.exe, with
+// the rest of its line.
+var curlInText = regexp.MustCompile(`\bcurl(?:\.exe)?[ \t]([^\n` + "`" + `]*)`)
 
-// passesCurlCredential reports whether text runs curl with a user and
-// password, as -u user:pass, --user user:pass or their proxy forms -U
-// and --proxy-user. A user alone makes curl ask for the password.
+// lineContinuation is a backslash that carries a command to the next line.
+var lineContinuation = regexp.MustCompile(`\\\r?\n`)
+
+// curlSwitches are curl's short options that take no value, so they may
+// come before -u in a group such as -fsSu.
+const curlSwitches = "sSfLkviIOJgGNnqRjlp0123456aBMVZ#"
+
+// passesCurlCredential reports whether text runs curl with a literal
+// user and password, as -u user:pass, --user user:pass or their proxy
+// forms -U and --proxy-user. A user alone makes curl ask for the
+// password, and a variable holds none.
 func passesCurlCredential(text string) bool {
+	text = lineContinuation.ReplaceAllString(text, " ")
 	for _, m := range curlInText.FindAllStringSubmatch(text, -1) {
-		args := strings.Fields(m[1])[1:]
+		args := strings.Fields(m[1])
 		for i, arg := range args {
-			value, glued := "", false
-			for _, flag := range []string{"--user=", "--proxy-user=", "-u", "-U"} {
-				if rest, ok := strings.CutPrefix(arg, flag); ok && rest != "" {
-					value, glued = rest, true
-					break
+			if value, ok := curlUserValue(arg, args[i+1:]); ok {
+				_, password, found := strings.Cut(strings.Trim(value, `"'`), ":")
+				if found && password != "" && !PureReference(password) {
+					return true
 				}
 			}
-			if !glued {
-				switch arg {
-				case "-u", "-U", "--user", "--proxy-user":
-					if i+1 < len(args) {
-						value = args[i+1]
-					}
-				}
-			}
-			if _, password, ok := strings.Cut(strings.Trim(value, `"'`), ":"); ok && password != "" {
-				return true
+			// The command or the sentence ends here.
+			if strings.ContainsAny(arg, ";|&") || strings.ContainsAny(arg[len(arg)-1:], ".,?!") {
+				break
 			}
 		}
 	}
 	return false
+}
+
+// curlUserValue returns the value of a curl user option, glued to it or
+// as the next argument.
+func curlUserValue(arg string, next []string) (string, bool) {
+	for _, flag := range []string{"--user", "--proxy-user"} {
+		if arg == flag {
+			return firstArg(next)
+		}
+		if value, ok := strings.CutPrefix(arg, flag+"="); ok {
+			return value, true
+		}
+	}
+	if strings.HasPrefix(arg, "--") || !strings.HasPrefix(arg, "-") {
+		return "", false
+	}
+	for i, c := range arg[1:] {
+		if c == 'u' || c == 'U' {
+			if value := arg[i+2:]; value != "" {
+				return value, true
+			}
+			return firstArg(next)
+		}
+		if !strings.ContainsRune(curlSwitches, c) {
+			return "", false
+		}
+	}
+	return "", false
+}
+
+func firstArg(args []string) (string, bool) {
+	if len(args) == 0 {
+		return "", false
+	}
+	return args[0], true
 }
 
 // assignsCredential reports whether a credential-named key is given a

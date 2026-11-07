@@ -184,6 +184,17 @@ func TestProseSensitive_ReadsPromptsAsProse(t *testing.T) {
 		"curl -s -U proxy:hunter2 https://example.com":                        true,
 		"curl -u admin https://example.com":                                   false,
 		"Fix the -u admin:x flag of the sort command":                         false,
+		"curl -su admin:hunter2 https://example.com":                          true,
+		"curl -fsSu admin:hunter2 https://example.com":                        true,
+		"```sh\ncurl \\\n  -u admin:hunter2 https://example.com\n```":         true,
+		"cd app&&curl -u admin:hunter2 https://example.com":                   true,
+		"echo hi|/usr/bin/curl -u admin:hunter2 https://example.com":          true,
+		"curl.exe -u admin:hunter2 https://example.com":                       true,
+		`curl -u "$USER:$PASS" https://example.com`:                           false,
+		"curl --user admin:${PASS} https://example.com":                       false,
+		"curl -o out:file -H X:y https://example.com":                         false,
+		"I tried curl but it failed. Then use -u a:b in sort":                 false,
+		"run curl\n-u a:b is the sort flag":                                   false,
 	} {
 		if actual := ProseSensitive(text); actual != want {
 			t.Errorf("ProseSensitive(%q) = %v, want %v", text, actual, want)
