@@ -801,6 +801,14 @@ a.release-badge:focus-visible .release-arrow {
   gap: 8px 12px;
 }
 
+.health-recheck-result {
+  margin: 8px 0 0;
+}
+
+.health-recheck-result:empty {
+  margin: 0;
+}
+
 .health-total {
   display: flex;
   align-items: center;
@@ -841,6 +849,24 @@ a.release-badge:focus-visible .release-arrow {
   margin: 0 0 6px;
   font-size: 14px;
   font-weight: 600;
+}
+
+.health-gap-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-gap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .section-warnings-line {

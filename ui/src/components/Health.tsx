@@ -1,8 +1,9 @@
 // Setup health: every finding in the overview on one page, errors first,
 // with the same finding rows, fix prompts, and rechecks as the sections.
 
-import type { OverviewView } from '../contract'
-import { countFindings, healthFixPrompt, healthGroups, healthSummary, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
+import type { Gap, OverviewView } from '../contract'
+import { recheckAllMessage } from '../model/recheck'
+import { countFindings, gapLine, healthFixPrompt, healthGroups, healthSummary, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
 import { sectionEntryIds } from '../model/identity'
 import { AppLink, PageHeader } from './app-context'
 import { ErrorPanel } from './Banner'
@@ -17,7 +18,8 @@ const TITLE = 'Setup health'
 const SEVERITY_TITLES: Record<HealthSeverity, string> = { error: 'Errors', warning: 'Warnings' }
 
 export function HealthPage({ overview, stale = false }: { overview: Remote<OverviewView>; stale?: boolean }) {
-  const { rechecked } = useRechecks()
+  const recheck = useRechecks()
+  const { rechecked } = recheck
   const data = overview.loaded?.data
   if (!data) {
     return (
@@ -42,7 +44,13 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
             <span>{healthSummary(count)}</span>
           </p>
           {total > 0 && <CopyButton text={healthFixPrompt(data, data.snapshot.project.root)} label="Copy all fixes" copiedLabel="Copied" ariaLabel={total === 1 ? 'Copy the fix prompt for the one finding' : `Copy one fix prompt for all ${total} findings`} />}
+          {recheck.live && (total > 0 || recheck.all) && (
+            <button type="button" className="button health-recheck-all" aria-disabled={recheck.pending !== undefined || undefined} onClick={() => recheck.pending === undefined && recheck.startAll()}>
+              {recheck.pendingAll ? 'Rechecking…' : 'Recheck all'}
+            </button>
+          )}
         </div>
+        {recheck.live && <p className="health-recheck-result" role="status">{recheck.pendingAll ? 'Running the checks again…' : recheck.all ? recheckAllMessage(recheck.all) : ''}</p>}
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
@@ -68,6 +76,7 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
               </section>
             )
           })}
+          {data.health.gaps.length > 0 && <Gaps gaps={data.health.gaps} sections={data.sections} />}
         </ConfigurationRoot.Provider>
       </fieldset>
     </>
@@ -85,5 +94,30 @@ function HealthPlace({ entry }: { entry: HealthEntry }) {
       </p>
       <Findings findings={entry.findings} ids={entry.ids} owner={entry.owner} place={entry.place} />
     </div>
+  )
+}
+
+function Gaps({ gaps, sections }: { gaps: Gap[]; sections: OverviewView['sections'] }) {
+  return (
+    <section className="block health-gaps" aria-labelledby="health-gaps">
+      <SectionHeading topic="support" id="health-gaps">
+        Reach the best setup <span className="muted kind-count">{gaps.length}</span>
+      </SectionHeading>
+      <p className="muted">What the enabled tools support and this project does not use yet. These are suggestions, not findings.</p>
+      <ul className="health-gap-list">
+        {gaps.map((gap) => {
+          const section = sections.find((s) => s.id === gap.section)
+          return (
+            <li key={gap.id} className="health-gap">
+              <span>
+                {gapLine(gap)}
+                {section && <span className="muted"> · <AppLink to={{ view: section.id as ViewId }}>{section.label}</AppLink></span>}
+              </span>
+              <CopyButton text={gap.fix} label="Copy fix prompt" copiedLabel="Copied" ariaLabel={`Copy the fix prompt for ${gap.label}`} />
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }

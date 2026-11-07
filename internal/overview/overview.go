@@ -162,9 +162,10 @@ var sectionDefs = []sectionDef{
 	},
 }
 
-// grantsAuthority keeps authority specs, including a personal permissions clear.
+// grantsAuthority keeps authority specs, including a personal clear of
+// the permissions or the protected paths.
 func grantsAuthority(e spec.Entry) bool {
-	return hasField(e, "permissions") || hasField(e, "protected") || personalPermissionsCleared(e)
+	return hasField(e, "permissions") || hasField(e, ProtectedKey) || personalPermissionsCleared(e) || personalFieldCleared(e, ProtectedKey)
 }
 
 // shapesExecution keeps every settings spec that sets no permission
@@ -248,6 +249,7 @@ func Build(in Inputs) *View {
 	sections := buildSections(in, caps)
 	placeFindings(sections, in.Findings)
 	targets := targetSupport(targetsOf(in.Cfg), caps, newLabeler())
+	gaps := buildGaps(in, targetsOf(in.Cfg), caps)
 	syncStates(targets, in.Findings, in.Compared)
 	return &View{
 		SchemaVersion: SchemaVersion,
@@ -255,6 +257,7 @@ func Build(in Inputs) *View {
 		Sections:      sections,
 		Targets:       targets,
 		Tools:         toolCatalog(in.Tools, newLabeler()),
+		Health:        Health{Gaps: gaps},
 		Global:        in.Global,
 	}
 }

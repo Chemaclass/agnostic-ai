@@ -4,7 +4,7 @@
 // Normalizing never invents a decision: a missing effect stays missing
 // and renders as its raw value, a missing list becomes an empty list.
 
-import type { ContextLoad, ContextReport, ContextSize, ContextView, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
+import type { ContextLoad, ContextReport, ContextSize, ContextView, Gap, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
 
 type Loose = Record<string, unknown>
 
@@ -85,7 +85,13 @@ export function normalizeOverviewView(raw: unknown): OverviewView {
       }
     }),
     tools: normalizeToolCatalog(v.tools),
+    health: { gaps: arr(obj(v.health).gaps).map(normalizeGap).filter((gap) => gap.id && gap.fix) },
   }
+}
+
+function normalizeGap(raw: unknown): Gap {
+  const v = obj(raw)
+  return { id: String(v.id ?? ''), section: String(v.section ?? ''), label: String(v.label ?? ''), supported: arr(v.supported).map(String), missing: String(v.missing ?? ''), fix: String(v.fix ?? '') }
 }
 
 function normalizeToolCatalog(raw: unknown): ToolCatalog {

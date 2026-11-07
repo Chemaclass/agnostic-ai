@@ -72,6 +72,25 @@ test.describe('setup health', () => {
     await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 3 warnings' })).toBeVisible()
   })
 
+  test('rechecks every section at once and says how many findings remain', async ({ page }) => {
+    const { data, hook } = scenario()
+    let loads = 0
+    await page.route('**/api/views/overview', (route) => {
+      loads++
+      return route.fulfill({ json: data })
+    })
+    await page.goto('/?view=health')
+    const recheckAll = page.getByRole('button', { name: 'Recheck all' })
+    await expect(recheckAll).toBeVisible()
+    const before = loads
+    hook.findings = []
+    await recheckAll.click()
+    await expect(page.locator('.health-recheck-result')).toHaveText('Rechecked every finding. 1 finding no longer appears. 3 findings remain.')
+    expect(loads - before).toBe(1)
+    await expect(page.locator('.health-group .finding', { hasText: 'LINT001' })).toHaveCount(0)
+    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: 3 warnings' })).toBeVisible()
+  })
+
   test('shows one recheck result when an item has an error and a warning', async ({ page }) => {
     const { data, hook } = scenario()
     const warning: ItemFinding = { source: 'lint', code: 'LINT002', severity: 'warning', message: 'The hook has no timeout.', path: hook.path }
@@ -176,6 +195,28 @@ test.describe('setup health', () => {
     await expect(place.locator('.finding .badge', { hasText: 'global' })).toBeVisible()
     await place.getByText('Details', { exact: true }).click()
     await expect(place.locator('textarea')).toHaveValue(/Source: \/home\/u\/\.agnostic-ai\/agents\/helper\.md/)
+  })
+
+  test('lists what the enabled tools could get below the findings, without counting it', async ({ page, context }) => {
+    const data = structuredClone(fixture)
+    for (const s of data.sections) {
+      s.findings = []
+      for (const item of s.items) item.findings = []
+    }
+    const fix = 'This agnostic-ai project has no skills, and claude, codex support them.'
+    data.health = { gaps: [{ id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix }] }
+    await serve(page, data)
+    await page.goto('/?view=health')
+    await expect(page.locator('.topbar').getByRole('link', { name: 'Setup health: No findings' })).toBeVisible()
+    const gaps = page.getByRole('region', { name: /^Reach the best setup/ })
+    await expect(gaps.getByRole('listitem')).toHaveCount(1)
+    const gap = gaps.getByRole('listitem').first()
+    await expect(gap).toContainText('Skills: supported by claude, codex; no skill yet')
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await gap.getByRole('button', { name: 'Copy the fix prompt for Skills' }).click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fix)
+    await gap.getByRole('link', { name: 'Context' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
   })
 })
 
