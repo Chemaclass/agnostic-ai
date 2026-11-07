@@ -66,7 +66,8 @@ kbd {
 }
 
 select,
-input {
+input,
+.select-button {
   background: var(--field);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
@@ -75,17 +76,20 @@ input {
   font-size: var(--text-md);
 }
 
-select {
+select,
+.select-button {
   min-width: 150px;
 }
 
 select:hover,
-input:hover {
+input:hover,
+.select-button:hover:where(:not(:disabled)) {
   border-color: var(--text-soft);
 }
 
 select:focus,
 input:focus,
+.select-button:focus,
 textarea:focus {
   border-color: var(--accent);
 }
@@ -1953,12 +1957,25 @@ textarea:focus {
   vertical-align: middle;
 }
 
-.select-control > select {
+.select-control > select,
+.select-button {
   width: 100%;
   min-width: 0;
   appearance: none;
   padding-inline-end: 36px;
   text-overflow: ellipsis;
+}
+
+.select-button {
+  display: flex;
+  align-items: center;
+  text-align: start;
+}
+
+.select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .select-control > .select-chevron {
@@ -1976,8 +1993,9 @@ textarea:focus {
   opacity: 0.5;
 }
 
-/* Browsers that can style the open list draw it as a panel; others keep
-   their native list. Forced colors keep the system control. */
+/* Every dropdown opens as a panel: Chromium styles the select's own list
+   (data-picker="panel"), other browsers get the listbox Select draws.
+   Forced colors keep the system control. */
 
 @supports (appearance: base-select) {
   @media not (forced-colors: active) {
@@ -2009,18 +2027,6 @@ textarea:focus {
       color: var(--text);
     }
 
-    .select-control > select option {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 36px;
-      padding: 6px 12px 6px 8px;
-      border-radius: var(--radius-sm);
-      font-size: var(--text-md);
-      white-space: nowrap;
-      cursor: pointer;
-    }
-
     .select-control > select option::checkmark {
       width: 16px;
       color: var(--accent);
@@ -2029,23 +2035,71 @@ textarea:focus {
     .select-control > select option:not(:checked)::checkmark {
       visibility: hidden;
     }
+  }
+}
 
-    .select-control > select option:hover {
-      background: var(--accent-wash);
-    }
+/* Keep in step with select::picker(select) above. */
+.select-listbox {
+  position: fixed;
+  z-index: 70;
+  box-sizing: border-box;
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--overlay-shadow);
+  color: var(--text);
+}
 
-    .select-control > select option:focus-visible {
-      outline-offset: -2px;
-    }
+.select-check {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  visibility: hidden;
+}
 
-    .select-control > select option:checked {
-      font-weight: 600;
-    }
+.select-option[data-current] > .select-check {
+  visibility: visible;
+}
 
-    .select-control > select option:disabled {
-      color: var(--text-faint);
-      cursor: default;
-    }
+.select-listbox[data-keyboard] > .select-option.is-active {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+@media not (forced-colors: active) {
+  .select-control[data-picker='panel'] > select option,
+  .select-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 6px 12px 6px 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-md);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .select-control[data-picker='panel'] > select option:hover,
+  .select-option:hover {
+    background: var(--accent-wash);
+  }
+
+  .select-control[data-picker='panel'] > select option:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .select-control[data-picker='panel'] > select option:checked,
+  .select-option[data-current] {
+    font-weight: 600;
+  }
+
+  .select-control[data-picker='panel'] > select option:disabled,
+  .select-option[aria-disabled] {
+    color: var(--text-faint);
+    cursor: default;
   }
 }
 

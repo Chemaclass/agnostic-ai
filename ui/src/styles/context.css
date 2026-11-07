@@ -112,7 +112,8 @@
 }
 
 .context-usage-field input,
-.context-usage-field select {
+.context-usage-field select,
+.context-usage-field .select-button {
   width: 100%;
   min-width: 0;
   min-height: 40px;
@@ -483,6 +484,7 @@ tr.is-advised > td {
 
   .context-usage-field input,
   .context-usage-field select,
+  .context-usage-field .select-button,
   .context-usage-controls > .button {
     min-height: 44px;
   }
