@@ -2790,12 +2790,10 @@ details[open] > .stage-head::before,
   font-size: 13px;
 }
 
-.context-check {
+.context-summary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
   min-width: 0;
-  gap: 8px;
-  max-width: var(--measure);
 }
 
 .context-verdict {
@@ -2823,11 +2821,8 @@ details[open] > .stage-head::before,
   color: inherit;
 }
 
-.context-check-heading {
-  margin: 4px 0 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
+.context-next-part {
+  max-width: var(--measure);
 }
 
 .context-next {
@@ -2928,36 +2923,6 @@ details[open] > .stage-head::before,
   font-size: 12px;
 }
 
-.context-start-list {
-  display: grid;
-  gap: 6px;
-  margin: 8px 0 0;
-  padding-inline-start: 20px;
-}
-
-.context-start-pick {
-  display: inline-grid;
-  gap: 2px;
-  justify-items: start;
-  text-align: left;
-  padding: 6px 10px;
-  max-width: 100%;
-  white-space: normal;
-}
-
-.context-start {
-  min-width: 0;
-}
-
-.context-all-advice {
-  align-items: center;
-  font-size: 13px;
-}
-
-.context-start-pick .muted {
-  font-size: 12px;
-}
-
 .context-advice-toggle {
   margin-inline-start: 8px;
   font-size: 12px;
@@ -3007,7 +2972,7 @@ tr.is-advised > td {
 
 @media (max-width: 760px) {
   .context-advice-toggle,
-  .context-start-pick {
+  .context-all-advice {
     min-height: 44px;
   }
 
@@ -3039,7 +3004,7 @@ tr.is-advised > td {
 
 .context-usage-placeholder > .context-placeholder-check {
   grid-column: 1 / -1;
-  min-height: 120px;
+  min-height: 160px;
 }
 
 .context-usage-placeholder span {
@@ -3072,10 +3037,10 @@ tr.is-advised > td {
 }
 
 .context-usage-totals {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: 24px;
-  max-width: 860px;
-  padding-block: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 56px;
+  padding-block: 4px;
 }
 
 .context-usage-totals dt {
@@ -3115,12 +3080,17 @@ tr.is-advised > td {
 }
 
 .context-total-description {
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
 .context-usage-method {
   max-width: 75ch;
   font-size: 13px;
+}
+
+.context-usage-method-body {
+  display: grid;
+  gap: 8px;
 }
 
 .context-usage-method summary {
@@ -3214,14 +3184,17 @@ tr.is-advised > td {
 }
 
 .context-contributions {
-  gap: 12px;
-  border-block: 1px solid var(--line);
-  padding-block: 14px;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
 }
 
-.context-contributions > summary {
-  cursor: pointer;
-  font-weight: 600;
+.context-contributions-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
 }
 
 .context-contributions caption {
@@ -3235,50 +3208,6 @@ tr.is-advised > td {
   text-align: right;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-}
-
-/* Wide screens: the prose keeps its line length and the figures sit beside it. */
-@media (min-width: 1280px) {
-  .context-usage-results {
-    grid-template-columns: minmax(0, var(--measure)) minmax(240px, 1fr);
-    column-gap: 48px;
-  }
-
-  .context-usage-results > * {
-    grid-column: 1 / -1;
-  }
-
-  .context-usage-results > .context-check {
-    grid-column: 1;
-    grid-row: 1 / span 3;
-  }
-
-  .context-usage-results > .context-usage-totals,
-  .context-usage-results > .context-usage-note {
-    grid-column: 2;
-    max-width: none;
-  }
-
-  .context-usage-results > .context-usage-totals {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-    align-self: start;
-  }
-
-  .context-usage-placeholder {
-    grid-template-columns: minmax(0, var(--measure)) minmax(240px, 1fr);
-    column-gap: 48px;
-    max-width: none;
-  }
-
-  .context-usage-placeholder > .context-placeholder-check {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-  }
-
-  .context-usage-placeholder > div:not(.context-placeholder-check) {
-    grid-column: 2;
-  }
 }
 
 @media (max-width: 760px) {
