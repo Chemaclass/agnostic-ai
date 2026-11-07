@@ -12,6 +12,8 @@ test.describe('overview', () => {
     await page.goto('/?view=context&source=./snapshot')
     await expect(page.locator('.brand-name')).toHaveText('agnostic-ai')
     await expect(page.locator('.page > .banner-info', { hasText: 'Static snapshot' })).toBeVisible()
+    await expect(page.locator('.page > .banner-info', { hasText: 'Static snapshot' })).toContainText('Opening files, rechecks and switches need agnostic-ai view.')
+    await expect(page.getByText(/switches need agnostic-ai view/)).toHaveCount(1)
     await expect(page.locator('.project-name')).toHaveCount(0)
     data.snapshot.project.name = 'billing-service'
     data.snapshot.project.root = '/work/clients/billing-service'
@@ -75,7 +77,7 @@ test.describe('overview', () => {
   test('opens Context with Conversations, five sections, Setup health, and an icon theme toggle', async ({ page }) => {
     await openApp(page, '?view=context')
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
-    await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
+    await expect(page.locator('.page-verdict')).toHaveText('Your setup configures 1 rule and 3 agents.')
     for (const [tab, kind] of [['Guidance', 'Instructions'], ['Rules', 'Rules'], ['Agents', 'Agents'], ['Skills', 'Skills']] as const) {
       await selectTab(page, tab)
       await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${kind}`) })).toBeVisible()

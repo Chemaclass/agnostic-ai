@@ -1644,7 +1644,7 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     const finding = (word: string) => page.locator('.finding:not(.finding-rechecked)', { hasText: `bare ${word} now covers` })
     const read = finding('read')
     await expect(read.getByRole('link', { name: /^Open .+ in Cursor$/ })).toBeVisible()
-    await expect(read.getByRole('button', { name: 'Copy fix prompt' })).toBeVisible()
+    await expect(read.getByRole('button', { name: 'Copy prompt' })).toBeVisible()
     await page.getByRole('searchbox').fill('permissions')
     const url = page.url()
 

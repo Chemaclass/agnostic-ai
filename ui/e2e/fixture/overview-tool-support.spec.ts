@@ -9,11 +9,13 @@ test.describe('overview', () => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     for (const view of ['context', 'authority', 'tools', 'lifecycle', 'settings']) {
       await page.goto(`/?view=${view}`)
+      await page.locator('details.support-block > summary').click()
       const tools = page.locator('.support-table .tool-avatar')
       await expect(tools.first()).toBeVisible()
       for (const avatar of await tools.all()) {
         await expect(avatar).toHaveAttribute('title', /Claude Code|Codex|Cursor/)
         await expect(avatar.locator('img')).toBeVisible()
+        await expect(avatar.locator('xpath=following-sibling::*[1]')).toHaveText(await avatar.getAttribute('title') ?? '')
       }
     }
     await selectTab(page, 'Config files')
@@ -22,50 +24,43 @@ test.describe('overview', () => {
     await expect(targets.first()).toHaveAttribute('title', 'Claude Code')
   })
 
-  test('shows coding tool support open between the search and the tabs, and remembers folding per page', async ({ page }) => {
+  test('folds coding tool support closed below the content with a summary, and remembers opening per page', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     for (const view of ['context', 'authority', 'tools', 'lifecycle', 'settings']) {
       await page.goto(`/?view=${view}`)
       const support = page.locator('details.support-block')
-      await expect(support).toHaveAttribute('open', '')
-      await expect(support.getByRole('table', { name: 'Coding tool support' })).toBeVisible()
+      await expect(support).not.toHaveAttribute('open', '')
+      await expect(support.getByRole('table', { name: 'Coding tool support' })).toBeHidden()
+      await expect(support.locator('.support-line')).toHaveText(/^3 of 3 tools support /)
       const order = await support.evaluate((element) => {
         const follows = (a: Element | null, b: Element | null) => Boolean(a && b && a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-        const panel = document.querySelector('.section-panel')
-        return { afterSearch: follows(document.querySelector('.section-search'), element), beforeTabs: !document.querySelector('[role="tablist"]') || follows(element, document.querySelector('[role="tablist"]')), beforePanel: follows(element, panel), outsidePanel: element.closest('[role="tabpanel"]') === null }
+        const panels = document.querySelectorAll('.section-panel')
+        return { afterPanels: follows(panels[panels.length - 1], element), afterSearch: follows(document.querySelector('.section-search'), element), outsidePanel: element.closest('[role="tabpanel"]') === null }
       })
-      expect(order).toEqual({ afterSearch: true, beforeTabs: true, beforePanel: true, outsidePanel: true })
+      expect(order).toEqual({ afterPanels: true, afterSearch: true, outsidePanel: true })
     }
+    await expect(page.locator('details.support-block .support-line')).toHaveText('3 of 3 tools support preferences')
     await page.goto('/?view=tools')
     await page.locator('details.support-block > summary').click()
-    await expect(page.getByRole('table', { name: 'Coding tool support' })).toBeHidden()
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('agnostic-ai.support-open:tools'))).toBe('0')
-    await page.reload()
-    await expect(page.locator('details.support-block')).not.toHaveAttribute('open', '')
-    await page.goto('/?view=context')
-    await expect(page.locator('details.support-block')).toHaveAttribute('open', '')
-    await page.goto('/?view=tools')
-    await page.locator('details.support-block > summary').click()
+    await expect(page.getByRole('table', { name: 'Coding tool support' })).toBeVisible()
     await expect.poll(() => page.evaluate(() => localStorage.getItem('agnostic-ai.support-open:tools'))).toBe('1')
     await page.reload()
     await expect(page.locator('details.support-block')).toHaveAttribute('open', '')
+    await page.goto('/?view=context')
+    await expect(page.locator('details.support-block')).not.toHaveAttribute('open', '')
+    await page.goto('/?view=tools')
+    await page.locator('details.support-block > summary').click()
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('agnostic-ai.support-open:tools'))).toBe('0')
+    await page.reload()
+    await expect(page.locator('details.support-block')).not.toHaveAttribute('open', '')
   })
 
-  test('folds coding tool support on a phone until opened, then remembers it', async ({ page }) => {
+  test('keeps the tabs in view on a phone with support folded', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/?view=context')
-    const support = page.locator('details.support-block')
-    await expect(support).not.toHaveAttribute('open', '')
+    await expect(page.locator('details.support-block')).not.toHaveAttribute('open', '')
     await expect(page.getByRole('tablist', { name: 'Context views' })).toBeInViewport()
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await expect(support).toHaveAttribute('open', '')
-    await page.setViewportSize({ width: 390, height: 844 })
-    await support.locator('> summary').click()
-    await expect(support.getByRole('table', { name: 'Coding tool support' })).toBeVisible()
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('agnostic-ai.support-open:context'))).toBe('1')
-    await page.reload()
-    await expect(support).toHaveAttribute('open', '')
   })
 
   test('stacks mobile tool support groups without losing table labels', async ({ page }) => {

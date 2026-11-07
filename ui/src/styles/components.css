@@ -132,46 +132,189 @@ textarea:focus {
   outline: none;
 }
 
-.section-warnings-line {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  margin: 0;
-  color: var(--approval);
-  font-size: 13px;
+/* Page frame: the section name as a label, the verdict sentence, then one facts line. */
+
+.page-header.has-verdict {
+  gap: 12px;
 }
 
-.section-warnings-line .icon {
+.page-header.has-verdict h1 {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: var(--leading-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.page-verdict {
+  max-width: 22em;
+  font-family: var(--font-display);
+  font-size: var(--text-verdict);
+  font-weight: 500;
+  line-height: var(--leading-2xl);
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.page-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+  font-size: var(--text-md);
+  color: var(--text-soft);
+}
+
+.page-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-fact + .page-fact::before {
+  content: '·';
+  margin-inline: 10px;
+  color: var(--text-muted);
+}
+
+.page-fact-findings .icon {
   width: 16px;
   height: 16px;
 }
 
-.section-warnings-line .button {
-  padding: 3px 8px;
-  font-size: 12px;
+.page-fact-findings.is-warning {
+  color: var(--approval);
+  font-weight: 600;
+}
+
+.page-fact-findings.is-error {
+  color: var(--blocked);
+  font-weight: 600;
+}
+
+.page-facts-review {
+  min-height: 32px;
+  margin-inline-start: 12px;
+  padding-block: 4px;
+}
+
+/* The filter row: one field, a count only while filtering, Docs at its right. */
+
+.section-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  min-width: 0;
+}
+
+.section-search-input {
+  position: relative;
+  flex: 0 1 360px;
+  min-width: 0;
+}
+
+.section-search-input > .icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.section-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding-left: 38px;
+  border-color: var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--field);
+}
+
+.section-search input:focus {
+  border-color: var(--accent);
+}
+
+.section-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.section-search-status {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.section-search-status:empty {
+  display: none;
+}
+
+.section-search > .section-doc-link {
+  margin-inline-start: auto;
+}
+
+/* Empty states: what the type is, who uses it, and the next step. No box. */
+
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding-block: 8px;
+}
+
+.empty-state-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-xl);
+  color: var(--text);
+}
+
+.empty-state-text {
+  max-width: var(--measure);
+  color: var(--text-soft);
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+.empty-matches {
+  padding-block: 8px;
+}
+
+@media (max-width: 760px) {
+  .page-verdict {
+    font-size: var(--text-2xl);
+  }
+
+  .section-search-input {
+    flex: 1 1 200px;
+  }
+
+  .section-search input {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .page-facts-review {
+    min-height: 44px;
+  }
 }
 
 .page-subtitle {
   font-size: 15px;
   color: var(--text-soft);
-}
-
-.page-note {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.eyebrow {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-}
-
-.lede {
-  font-size: 16px;
-  max-width: 70ch;
 }
 
 .block {
@@ -365,25 +508,6 @@ textarea:focus {
 .loading,
 .loading-inline {
   color: var(--text-muted);
-}
-
-.empty {
-  padding: 20px 24px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius);
-  display: grid;
-  justify-items: start;
-  gap: 6px;
-  text-align: start;
-}
-
-.empty-title {
-  font-size: var(--text-lg);
-  font-weight: 600;
-}
-
-.facts-inline {
-  margin-top: 12px;
 }
 
 .code-list {
@@ -678,7 +802,7 @@ textarea:focus {
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 1px solid var(--line-strong);
+  border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   overflow: clip;
 }
@@ -688,7 +812,7 @@ textarea:focus {
 .item-row {
   display: grid;
   gap: 8px;
-  padding: 14px 16px 14px 15px;
+  padding: 16px 8px 16px 12px;
   border-bottom: 1px solid var(--line);
   border-inline-start: var(--state-rail) solid transparent;
   min-width: 0;
@@ -755,13 +879,6 @@ textarea:focus {
   white-space: nowrap;
 }
 
-.item-row.has-findings {
-  border-inline-start-color: var(--approval);
-}
-
-.item-row.has-findings:has(.finding-error) {
-  border-inline-start-color: var(--blocked);
-}
 
 .item-row.is-linked {
   outline: 0;
@@ -776,153 +893,54 @@ textarea:focus {
     outline-offset: -2px;
   }
 
-  .item-row:not(.has-findings, .is-linked) {
+  .item-row:not(.is-linked) {
     border-inline-start-color: Canvas;
   }
 }
 
-.section-findings-summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  color: var(--approval);
-  font-size: 14px;
-}
-
-.section-findings-summary.has-errors {
-  color: var(--blocked);
-}
-
-.section-findings-summary .button {
-  padding: 5px 8px;
-  font-size: 12px;
-}
+/* Finding card: one finding on the surface with a state rail. */
 
 .findings {
   flex-basis: 100%;
   list-style: none;
   margin: 0;
   padding: 0;
-  border-block: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
 }
 
 .finding {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 20px 0;
-  font-size: 14px;
+  padding: 20px 24px;
+  border: 0;
+  border-inline-start: var(--state-rail) solid var(--approval);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  font-size: var(--text-body);
 }
 
-.finding + .finding {
-  border-top: 1px solid var(--line);
-}
-
-.finding-icon {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  color: var(--approval);
-}
-
-.finding-error .finding-icon {
-  color: var(--blocked);
+.finding-error {
+  border-inline-start-color: var(--blocked);
 }
 
 .finding-body {
   display: grid;
   gap: 10px;
-  width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.finding-head,
-.finding-meta {
+.finding-label {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
-}
-
-.finding-head {
-  justify-content: space-between;
-}
-
-.finding-meta,
-.finding-source {
-  font-size: 12px;
-}
-
-.finding-meta .badge {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  font-size: 12px;
+  gap: 4px 8px;
+  font-size: var(--text-sm);
   font-weight: 600;
+  color: var(--approval);
 }
 
-.finding-meta .code,
-.finding-source .code {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.finding .finding-source {
-  max-width: none;
-}
-
-.finding-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.finding-recheck-result {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.finding-recheck-result.is-empty {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-.finding-rechecked.is-resolved .finding-recheck-result {
-  color: var(--permitted);
-}
-
-.finding-rechecked .button {
-  justify-self: start;
-}
-
-.finding-copy,
-.refine-copy,
-.finding-recheck {
-  min-height: 32px;
-  padding: 4px 8px;
-  border-color: transparent;
-  background: transparent;
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.finding-copy:hover,
-.refine-copy:hover,
-.finding-recheck:not(:disabled, [aria-disabled]):hover {
-  border-color: var(--line);
-  background: var(--panel);
+.finding-error .finding-label {
+  color: var(--blocked);
 }
 
 .finding-message-wrap {
@@ -930,7 +948,11 @@ textarea:focus {
 }
 
 .finding-message {
-  line-height: 1.6;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  line-height: var(--leading-xl);
+  color: var(--text);
 }
 
 .finding-message.is-collapsed {
@@ -947,7 +969,7 @@ textarea:focus {
   border: 0;
   background: none;
   color: var(--accent-strong);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -957,66 +979,130 @@ textarea:focus {
   text-underline-offset: 3px;
 }
 
+.finding-fix {
+  max-width: var(--measure);
+  color: var(--text-soft);
+}
+
+.finding-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.finding-source .code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.finding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+/* A recheck result reads as a Notice under the card's actions. */
+
+.finding-recheck-result {
+  padding: 10px 14px;
+  border-inline-start: var(--state-rail) solid var(--approval);
+  border-radius: var(--radius);
+  background: var(--canvas);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.finding-recheck-result.is-empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.finding-rechecked {
+  border-inline-start-color: var(--approval);
+}
+
+.finding-rechecked.is-resolved {
+  border-inline-start-color: var(--permitted);
+}
+
+.finding-rechecked.is-resolved .finding-recheck-result {
+  border-inline-start-color: var(--permitted);
+  color: var(--permitted);
+}
+
+.finding-rechecked .finding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: var(--text-sm);
+}
+
+.finding-rechecked .finding-message {
+  font-size: var(--text-lg);
+  color: var(--text-muted);
+}
+
+.finding-rechecked .button {
+  justify-self: start;
+}
+
+.refine-copy {
+  min-height: 32px;
+  padding: 4px 0;
+  font-size: var(--text-sm);
+}
+
 .finding-details summary {
-  min-height: 28px;
+  min-height: 32px;
   width: fit-content;
   padding: 4px 0;
-  color: var(--text-muted);
-  font-size: 12px;
+  color: var(--accent-strong);
+  font-size: var(--text-md);
+  font-weight: 600;
   cursor: pointer;
 }
 
 .finding-details summary:hover {
-  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .finding-details[open] summary {
   margin-bottom: 12px;
 }
 
-.finding-details[open] {
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-
-@media (max-width: 760px) {
-  .finding {
-    gap: 8px;
-    padding-block: 16px;
-  }
-
-  .finding-head {
-    align-items: flex-start;
-  }
-
-  .finding-meta {
-    min-height: 32px;
-    gap: 6px 8px;
-  }
-
-  .finding-copy,
-  .refine-copy,
-  .finding-recheck {
-    min-height: 44px;
-    padding-inline: 0;
-  }
-
-  .finding-expand,
-  .finding-details summary {
-    min-height: 44px;
-    align-content: center;
-  }
-}
-
 .finding-evidence {
   display: grid;
   gap: 12px;
-  font-size: 13px;
+  font-size: var(--text-sm);
+  color: var(--text-soft);
 }
 
 .finding-evidence strong,
 .finding-evidence span {
   display: block;
+}
+
+.finding-evidence .finding-code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.finding-evidence .finding-code span {
+  display: inline;
 }
 
 .finding-evidence strong,
@@ -1038,22 +1124,217 @@ textarea:focus {
   padding: 12px;
   resize: vertical;
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--panel-sunken);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.5;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.finding-prompt textarea:hover {
-  border-color: var(--text-muted);
-}
-
 .finding-prompt textarea:focus {
   border-color: var(--accent);
+}
+
+.item-row .findings {
+  margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+  .finding {
+    padding: 16px;
+  }
+
+  .finding-actions {
+    display: grid;
+    gap: 4px;
+  }
+
+  .finding-actions .finding-copy {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .finding-expand,
+  .finding-details summary,
+  .refine-copy {
+    min-height: 44px;
+    align-content: center;
+  }
+}
+
+@media (forced-colors: active) {
+  .finding,
+  .finding-recheck-result {
+    border-inline-start-color: CanvasText;
+    outline: 1px solid CanvasText;
+  }
+}
+
+/* Coding tool support folds below the content, with a one-line summary. */
+
+.support-frame {
+  position: relative;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.support-block {
+  display: block;
+}
+
+.support-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 10px;
+  min-height: 40px;
+  padding-right: 72px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.support-summary::-webkit-details-marker {
+  display: none;
+}
+
+.support-summary::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-muted);
+  border-bottom: 1.5px solid var(--text-muted);
+  transform: rotate(-45deg);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.support-block[open] > .support-summary::before {
+  transform: rotate(45deg);
+}
+
+.support-summary h2 {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.support-line {
+  grid-column: 2;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.support-summary:hover h2 {
+  color: var(--accent-strong);
+}
+
+.support-frame > .section-doc-link {
+  position: absolute;
+  top: 16px;
+  right: 0;
+}
+
+.support-block > .table-wrap {
+  margin-top: 12px;
+}
+
+.tool-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+}
+
+.tool-tag-name {
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .support-summary::before {
+    transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .support-summary {
+    min-height: 44px;
+  }
+}
+.support-status-label {
+  display: none;
+}
+
+/* A filled square for tools that support the kind, an outline for those that do not; the text says the same. */
+
+.support-table #support-supported::before,
+.support-table #support-unsupported::before,
+.support-table td:nth-child(2) .support-status-label::before,
+.support-table td:nth-child(3) .support-status-label::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  vertical-align: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--line-strong);
+}
+
+.support-table #support-supported::before,
+.support-table td:nth-child(2) .support-status-label::before {
+  border: 4px solid var(--permitted);
+}
+
+@media (max-width: 760px) {
+  .support-table,
+  .support-table tbody,
+  .support-table tr {
+    display: block;
+  }
+
+  .support-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .support-table tbody tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .support-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .support-table tbody th,
+  .support-table tbody td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .support-table tbody th {
+    font-size: 14px;
+  }
+
+  .support-table tbody td {
+    margin-top: 8px;
+  }
+
+  .support-status-label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
 }
 
 .values {
@@ -1243,13 +1524,6 @@ textarea:focus {
   clip-path: inset(50%);
 }
 
-.finding .finding-source {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-}
-
 .fields {
   list-style: none;
   margin: 0 0 8px;
@@ -1422,65 +1696,6 @@ textarea:focus {
   line-height: 1.5;
 }
 
-.section-search {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  padding-bottom: 0;
-}
-
-.section-search > label {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.section-search-controls {
-  display: flex;
-  gap: 8px;
-  min-width: 0;
-}
-
-.section-search-input {
-  position: relative;
-  width: 100%;
-  max-width: 560px;
-  min-width: 0;
-}
-
-.section-search-input > .icon {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  width: 16px;
-  height: 16px;
-  color: var(--text-muted);
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.section-search input {
-  width: 100%;
-  min-width: 0;
-  min-height: 40px;
-  padding-left: 38px;
-  border-color: var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--field);
-}
-
-.section-search input:focus {
-  border-color: var(--accent);
-}
-
-.section-search input::placeholder {
-  color: var(--text-muted);
-}
-
-.section-search-status {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 .section-tabs {
   position: relative;
   display: flex;
@@ -1602,33 +1817,12 @@ textarea:focus {
   margin-top: 4px;
 }
 
-.section-findings-summary {
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--approval-wash);
-}
-
-.section-findings-summary.has-errors {
-  background: var(--blocked-wash);
-}
-
 .button:active:not(:disabled),
 .editor-open:active {
   transform: translateY(1px);
 }
 
 @media (max-width: 760px) {
-  .section-search-input {
-    max-width: none;
-  }
-
-  .section-search input {
-    max-width: none;
-    font-size: 16px;
-    min-height: 44px;
-  }
-
   .section-tabs [role="tab"] { padding-inline: 11px; }
 
   .field-row.is-set,
@@ -1637,7 +1831,10 @@ textarea:focus {
     grid-column: auto;
   }
 
-  .item-row,
+  .item-row {
+    padding: 14px 4px 14px 12px;
+  }
+
   .field-row.is-set {
     padding: 14px;
   }

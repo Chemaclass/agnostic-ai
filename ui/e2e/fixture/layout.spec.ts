@@ -42,18 +42,16 @@ for (const { width, colorSchemes } of usableLayouts) {
 }
 
 for (const width of [320, 390, 1440]) {
-  test(`puts coding tool support above the tab row at ${width}px`, async ({ page }) => {
+  test(`puts coding tool support below the tab panels at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
-    await page.goto('/?view=context')
-    if (width <= 760) await page.locator('details.support-block > summary').click()
+    await page.goto('/?view=context&tab=rules')
+    await page.locator('details.support-block > summary').click()
     const support = page.getByRole('table', { name: 'Coding tool support' })
     await expect(support).toBeVisible()
-    const search = (await page.getByRole('searchbox', { name: 'Search context' }).boundingBox())!
+    const panel = (await page.getByRole('tabpanel', { name: /^Rules/ }).boundingBox())!
     const table = (await support.boundingBox())!
-    const tabs = (await page.getByRole('tablist', { name: 'Context views' }).boundingBox())!
-    expect(table.y).toBeGreaterThan(search.y + search.height)
-    expect(table.y + table.height).toBeLessThanOrEqual(tabs.y)
+    expect(table.y).toBeGreaterThanOrEqual(panel.y + panel.height)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }
@@ -208,14 +206,17 @@ test('moves focus to the page title after keyboard navigation without drawing a 
 })
 
 for (const width of [1440, 390]) {
-  test(`puts the search result count under the search field at ${width}px`, async ({ page }) => {
+  test(`shows the search result count beside the search field only while filtering at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=tools')
-    const input = (await page.getByRole('searchbox', { name: 'Search tools' }).boundingBox())!
+    const search = page.getByRole('searchbox', { name: 'Search tools' })
+    await expect(page.locator('.section-search-status')).toBeHidden()
+    await search.fill('notion')
+    const input = (await search.boundingBox())!
     const status = (await page.locator('.section-search-status').boundingBox())!
-    expect(status.y).toBeGreaterThanOrEqual(input.y + input.height)
-    expect(status.x).toBeCloseTo(input.x, 0)
+    expect(status.x >= input.x + input.width || status.y >= input.y + input.height).toBe(true)
+    expect(status.x + status.width).toBeLessThanOrEqual(width)
   })
 }
 

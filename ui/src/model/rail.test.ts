@@ -11,6 +11,7 @@ describe('section summary', () => {
     expect(sectionSummary(counted('Context', [kind('instructions', 'Instructions', 0), kind('rule', 'Rules', 1), kind('agent', 'Agents', 3)]))).toBe('Context: 1 rule, 3 agents')
     expect(sectionSummary(counted('Tools', [kind('mcp', 'MCP servers', 1)]))).toBe('Tools: 1 MCP server')
     expect(sectionSummary(counted('Context', [kind('instructions', 'Instructions', 2)]))).toBe('Context: 2 instructions files')
+    expect(sectionSummary(counted('Context', [kind('review', 'Review instructions', 1)]))).toBe('Context: 1 review instructions file')
     expect(sectionSummary(counted('Settings', [kind('builtin', 'Built-ins', 1), kind('settings', 'Preferences', 4)]))).toBe('Settings: 1 built-in, 4 preferences')
   })
 
