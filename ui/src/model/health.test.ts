@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
-import { countFindings, gapLine, healthFixPrompt, healthGroups, healthPlace, healthSummary, improvementsLine, placeLabel } from './health'
+import { countFindings, gapTools, healthFixPrompt, healthGroups, healthPlace, healthSummary, improvementsLine, placeLabel } from './health'
 import { findingEntryIds, itemEntryId } from './identity'
 import { overviewFindings } from './recheck'
 import { normalizeOverviewView } from './normalize'
@@ -127,7 +127,9 @@ describe('setup health', () => {
 
   it('shows a gap as the tools that support it and what is missing, never as a finding', () => {
     const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix: 'Add a skill.' }
-    expect(gapLine(skills)).toBe('Skills: supported by claude, codex; no skill yet')
+    expect(gapTools(skills)).toBe('claude, codex')
+    expect(gapTools({ ...skills, supported: ['a', 'b', 'c', 'd'] })).toBe('a, b, c, d')
+    expect(gapTools({ ...skills, supported: ['a', 'b', 'c', 'd', 'e', 'f'] })).toBe('a, b, c and 3 more')
     const withGap = { ...scenario(), health: { gaps: [skills] } }
     expect(countFindings(withGap)).toMatchObject({ errors: 1, warnings: 3 })
     expect(healthFixPrompt(withGap)).not.toContain('Add a skill.')
