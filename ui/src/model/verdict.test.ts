@@ -14,7 +14,7 @@ const empty = (id: Section['id'], kinds = [] as ReturnType<typeof kind>[]) => ({
 describe('section verdict', () => {
   it('reads every section of the mock overview in plain words', () => {
     expect(sectionVerdict(section('context'))).toBe('Your setup configures 1 rule and 3 agents.')
-    expect(sectionVerdict(section('authority'))).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
+    expect(sectionVerdict(section('authority'))).toBe('4 actions are blocked and agents ask before 3.')
     expect(sectionVerdict(section('tools'))).toBe('Your agents can use 3 MCP servers.')
     expect(sectionVerdict(section('lifecycle'))).toBe('Nothing runs around the agent yet.')
   })
@@ -27,10 +27,12 @@ describe('section verdict', () => {
     expect(sectionVerdict(tools(['claude'], []))).toBe('Your agents can use 3 MCP servers.')
   })
 
-  it('names the first count and skips empty permission lists', () => {
-    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.ask', 1), list('permissions.deny', 2)])] })).toBe('Your rules ask before 1 action and block 2.')
-    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.deny', 1)])] })).toBe('Your rules block 1 action.')
-    expect(sectionVerdict(empty('authority'))).toBe('No allow, ask or block rules yet.')
+  it('leads with blocked rules, then ask, then allowed', () => {
+    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.ask', 1), list('permissions.deny', 2)])] })).toBe('2 actions are blocked and agents ask before 1.')
+    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.deny', 1)])] })).toBe('1 action is blocked.')
+    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.ask', 2), list('permissions.allow', 3)])] })).toBe('Agents ask before 2 actions.')
+    expect(sectionVerdict({ ...empty('authority'), items: [item([list('permissions.allow', 1)])] })).toBe('Agents run 1 action without asking.')
+    expect(sectionVerdict(empty('authority'))).toBe('Each tool decides when to ask.')
   })
 
   it('says what is missing when a section is empty', () => {
@@ -87,35 +89,19 @@ describe('turned-off hooks', () => {
   })
 })
 
-describe('default permission mode', () => {
-  const mode = (value: string) => ({ key: 'permissions.default-mode', label: 'Default permission mode', description: '', set: [{ spec: 'settings', path: 'settings.yaml', values: [{ key: 'permissions.default-mode', type: 'text' as const, value }] }] })
-
-  it('names a mode set without any rule lists', () => {
-    const section = { ...empty('authority'), fields: [mode('bypassPermissions')] }
-    expect(sectionVerdict(section)).toBe('No allow, ask or block rules yet.')
-    expect(sectionFacts(section, true)).toEqual(['Default mode: bypassPermissions'])
+describe('authority facts', () => {
+  it('says no rules exist yet', () => {
+    expect(sectionFacts(empty('authority'))).toEqual(['No allow, ask or block rules yet'])
   })
 
-  it('adds the mode beside the rule counts', () => {
-    const authority = { ...section('authority'), fields: [mode('acceptEdits')] }
-    expect(sectionVerdict(authority)).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
-    expect(sectionFacts(authority, true)).toEqual(['Default mode: acceptEdits', '2 protected paths'])
+  it('gives the allowed count the verdict leaves out', () => {
+    expect(sectionFacts(section('authority'))).toEqual(['11 run without asking'])
+    expect(sectionFacts({ ...empty('authority'), items: [item([list('permissions.deny', 1), list('permissions.allow', 1)])] })).toEqual(['1 runs without asking'])
   })
 
-  it('leaves the mode out of a project view, where it applies only through global sync', () => {
-    expect(sectionFacts({ ...empty('authority'), fields: [mode('bypassPermissions')] })).toEqual([])
-  })
-
-  it('prefers the mode a local file sets', () => {
-    const field = mode('acceptEdits')
-    field.set.push({ ...field.set[0], path: 'local/settings.yaml', local: true, values: [{ ...field.set[0].values[0], value: 'plan' }] } as typeof field.set[0])
-    expect(sectionFacts({ ...empty('authority'), fields: [field] }, true)).toEqual(['Default mode: plan'])
-  })
-
-  it('says nothing about a mode when none is set', () => {
-    expect(sectionVerdict(empty('authority'))).toBe('No allow, ask or block rules yet.')
-    expect(sectionFacts(empty('authority'))).toEqual([])
-    expect(sectionFacts(section('authority'))).toEqual(['2 protected paths'])
+  it('adds nothing when the verdict already counts every rule', () => {
+    expect(sectionFacts({ ...empty('authority'), items: [item([list('permissions.allow', 3)])] })).toEqual([])
+    expect(sectionFacts({ ...empty('authority'), items: [item([list('permissions.deny', 3)])] })).toEqual([])
   })
 })
 
@@ -123,7 +109,7 @@ describe('section facts', () => {
   const permissions = (supported: string[], unsupported: string[]) => ({ ...section('authority'), support: [{ kind: 'settings', label: 'Permissions', supported, unsupported }] })
 
   it('leaves tool support to the Tool support link', () => {
-    expect(sectionFacts(permissions(['claude'], ['kiro', 'codex']))).toEqual(['2 protected paths'])
+    expect(sectionFacts(permissions(['claude'], ['kiro', 'codex']))).toEqual(['11 run without asking'])
   })
 
   it('counts review instructions as files', () => {
@@ -132,7 +118,7 @@ describe('section facts', () => {
   })
 
   it('adds what the verdict leaves out', () => {
-    expect(sectionFacts(section('authority'))).toEqual(['2 protected paths'])
+    expect(sectionFacts(section('authority'))).toEqual(['11 run without asking'])
     expect(sectionFacts(section('tools'))).toEqual(['1 more server found in your tools', '1 MCP server turned off'])
     expect(sectionFacts(section('settings'))).toEqual(['1 config file'])
     expect(sectionFacts(section('context'))).toEqual([])

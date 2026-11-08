@@ -27,6 +27,7 @@ import { EmptyState } from './EmptyState'
 import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings } from '../model/verdict'
 import { ConfigurationRoot, ConfiguredTools, PersonalBuiltins } from './section-context'
 import { SettingsFields } from './Fields'
+import { AuthorityFields, AuthorityToolbarAction } from './Authority'
 import { ConfigurationFiles, GroupedItems, sharedUnlistedCommand } from './Items'
 import { NativeServers } from './NativeServers'
 import { Lifecycle } from './Lifecycle'
@@ -99,7 +100,7 @@ function SectionFacts({ section, docs, lead, support }: { section: Section; docs
   const tally = tallyFindings(sectionFindings(section))
   const findings = findingTallyText(tally)
   const total = tally.errors + tally.warnings
-  const facts = sectionFacts(section, app.overview?.global === true)
+  const facts = sectionFacts(section)
   const tone = tally.errors ? 'is-error' : 'is-warning'
   const shownAbove = section.findings.some((finding) => finding.severity === 'error')
   // Review leads to the first finding: the section's own list, else the first row that has one.
@@ -265,6 +266,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
         {scoped && <EditAudienceSwitch />}
+        {section.id === 'authority' && section.fields && <AuthorityToolbarAction fields={section.fields} />}
       </div>
       <span ref={setToolbarAction} className="section-toolbar-action" />
       </div>
@@ -282,6 +284,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       {section.kinds.filter((kind) => panel.kinds.includes(kind.kind)).map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
+        if (k.kind === 'settings' && section.id === 'authority' && section.fields) return <AuthorityFields key={k.kind} title={k.label} headingEntry={kindEntryId(k.kind)} fields={section.fields} files={items} query={query} />
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} support={section.support.find((entry) => entry.kind === k.kind)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))

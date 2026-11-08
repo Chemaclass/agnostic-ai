@@ -23,12 +23,13 @@ function contextVerdict(section: VerdictSection): string {
 
 function authorityVerdict(section: VerdictSection): string {
   const counts = permissionCounts(section)
-  const parts: string[] = []
-  const actions = (count: number) => (parts.length ? `${count}` : plural(count, 'action'))
-  if (counts['permissions.allow']) parts.push(`allow ${actions(counts['permissions.allow'])}`)
-  if (counts['permissions.ask']) parts.push(`ask before ${actions(counts['permissions.ask'])}`)
-  if (counts['permissions.deny']) parts.push(`block ${actions(counts['permissions.deny'])}`)
-  return parts.length ? `Your rules ${joinAnd(parts)}.` : 'No allow, ask or block rules yet.'
+  const blocked = counts['permissions.deny']
+  const ask = counts['permissions.ask']
+  const allowed = counts['permissions.allow']
+  if (blocked) return `${plural(blocked, 'action')} ${blocked === 1 ? 'is' : 'are'} blocked${ask ? ` and agents ask before ${ask}` : ''}.`
+  if (ask) return `Agents ask before ${plural(ask, 'action')}.`
+  if (allowed) return `Agents run ${plural(allowed, 'action')} without asking.`
+  return 'Each tool decides when to ask.'
 }
 
 function toolsVerdict(section: VerdictSection): string {
@@ -82,19 +83,13 @@ export function sectionVerdict(section: VerdictSection): string {
   return (VERDICTS[section.id] ?? contextVerdict)(section)
 }
 
-/** The permission mode a settings file already sets; a local file overrides the shared one. */
-function defaultMode(section: VerdictSection): string | undefined {
-  const field = section.fields?.find((f) => f.key === 'permissions.default-mode')
-  const sources = [...(field?.set ?? [])].sort((a, b) => Number(Boolean(b.local)) - Number(Boolean(a.local)))
-  return sources.flatMap((source) => source.values).find((value) => value.key === field?.key && value.value)?.value
-}
-
-function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
+function sectionOwnFacts(section: VerdictSection): string[] {
   if (section.id === 'authority') {
-    const paths = section.items.flatMap((item) => item.values).filter((value) => value.key === 'protected.paths').reduce((sum, value) => sum + (value.list?.length ?? 0), 0)
-    // Outside the global view the default mode applies only through global sync.
-    const mode = global ? defaultMode(section) : undefined
-    return [...(mode ? [`Default mode: ${mode}`] : []), ...(paths ? [plural(paths, 'protected path')] : [])]
+    const counts = permissionCounts(section)
+    const allowed = counts['permissions.allow']
+    // The verdict leads with blocked and ask rules; the allowed count is the fact it leaves out.
+    if (!allowed && !counts['permissions.ask'] && !counts['permissions.deny']) return ['No allow, ask or block rules yet']
+    return allowed && (counts['permissions.ask'] || counts['permissions.deny']) ? [`${allowed} run${allowed === 1 ? 's' : ''} without asking`] : []
   }
   if (section.id === 'tools' && section.native?.length) return [`${plural(section.native.length, 'more server')} found in your tools`]
   if (section.id === 'lifecycle' && section.stages?.length) {
@@ -112,9 +107,9 @@ function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
 const MAX_FACTS = 3
 
 /** Facts beside the verdict that it does not already say. */
-export function sectionFacts(section: VerdictSection, global = false): string[] {
+export function sectionFacts(section: VerdictSection): string[] {
   const off = turnedOff(section)
-  return [...sectionOwnFacts(section, global), ...(off.length ? [`${joinAnd(off)} turned off`] : [])].slice(0, MAX_FACTS)
+  return [...sectionOwnFacts(section), ...(off.length ? [`${joinAnd(off)} turned off`] : [])].slice(0, MAX_FACTS)
 }
 
 export interface FindingTally {

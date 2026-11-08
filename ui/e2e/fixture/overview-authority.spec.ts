@@ -49,15 +49,12 @@ test.describe('overview', () => {
     await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
   })
 
-  test('keeps configured settings visible and reveals unset fields on demand', async ({ page }) => {
+  test('shows the rules table and the settings beside it without folding unset ones away', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=authority')
-    const unset = page.locator('.field-row', { hasText: 'Default permission mode' })
-    await expect(unset).not.toBeVisible()
-    await expect(page.locator('.field-row.is-set').first()).toBeVisible()
-    await page.locator('.unconfigured-fields > summary').click()
-    await expect(unset).toBeVisible()
-    await expect(unset).toContainText('Not set')
+    await expect(page.locator('.authority-rule').first()).toBeVisible()
+    await expect(page.locator('.unconfigured-fields')).toHaveCount(0)
+    await expect(page.locator('.authority-also-row', { hasText: 'Default permission mode' })).toContainText('Not set')
   })
 
   test('shows a check finding on the item it names', async ({ page }) => {
@@ -71,8 +68,8 @@ test.describe('overview', () => {
     await expect(permissions.getByRole('button', { name: 'Copy path of .agnostic-ai/settings/permissions.yaml' })).toBeVisible()
     await expect(permissions.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
     await expect(permissions.locator('.finding-recheck-result')).toHaveCount(0)
-    await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
-    await expect(page.locator('.field-row', { hasText: 'Default permission mode' })).toContainText('Not set')
+    await expect(page.getByRole('list', { name: 'Saved Allowed without asking rules' }).getByRole('listitem').first()).toContainText('Allowed')
+    await expect(page.locator('.authority-also-row', { hasText: 'Default permission mode' })).toContainText('Not set')
     await expect(page.getByText('Capability domains')).toHaveCount(0)
     await expect(page.getByText('Uncertainties')).toHaveCount(0)
     await saveScreenshot(page, '04-authority.png')
