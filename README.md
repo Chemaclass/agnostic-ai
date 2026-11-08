@@ -39,17 +39,9 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-For user-level configuration, `agnostic-ai sync --global --plan --check` previews changes and exits non-zero on drift. `agnostic-ai doctor` explains drift, including when a shared settings file keeps your keys after sync removes its own.
-
-Use `sync -v` for a concise report of changes and `sync -vv` for full details. Both commands write generated files. Sync saves hand edits as `.bak` before replacing or removing a generated file; `revert` restores them.
-
-Changing only the capitalization of a rule, skill, or agent name needs one sync, including on macOS and Windows.
-
-With Claude Code and Codex selected, your note is now in `AGENTS.md`, and `CLAUDE.md` points to it. To change what both tools read, edit `.agnostic-ai/AGNOSTIC_AI.md` and sync again. Do not edit the generated files: sync replaces them.
+With Claude Code and Codex selected, your note is now in `AGENTS.md`, and `CLAUDE.md` points to it. To change what both tools read, edit `.agnostic-ai/AGNOSTIC_AI.md` and sync again. Sync replaces generated files, so edit the source instead. It saves a hand edit as `.bak` first, and `agnostic-ai revert` restores it.
 
 Homebrew, the install script, Windows, and Go are on the [installation page](https://agnostic-ai.org/docs/installation/).
-
-When a project version requirement blocks a command, the terminal offers a fix, a configured AI CLI, or a prompt to copy. See [version mismatch help](https://agnostic-ai.org/docs/errors/#aai-005-installed-version-outside-requires).
 
 ## Set up with a coding agent
 
@@ -62,17 +54,13 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 ## Next steps
 
 - [Set up your project](https://agnostic-ai.org/docs/getting-started/): the full walkthrough, Git choices, and everyday commands.
-- [Import an existing setup](https://agnostic-ai.org/docs/migration/): review your current tool files before the first sync. Grok MCP imports leave out ignored descriptions.
+- [Import an existing setup](https://agnostic-ai.org/docs/migration/): review your current tool files before the first sync.
 - [What you can share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when): rules, skills, agents, hooks, MCP servers, settings, and memory.
 - [Supported tools](https://agnostic-ai.org/docs/targets/): what each tool receives, and where.
-- [Inspect lifecycle hooks](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): scan stage counts, then expand a stage or all stages to see hooks.
-- [Share an MCP server only one tool has](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): **Tools** previews and saves one server as a spec, ready for your next sync.
-- [Find a global hook's files](https://agnostic-ai.org/docs/cli-reference/inspect/#explain): `agnostic-ai explain --global hooks/guard.yaml` lists where sync places the hook; directory-based hooks also list copied scripts.
-- [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` finds its source even when an unselected tool rejects your setup.
-- [Voice dictation](https://agnostic-ai.org/docs/spec-format/settings/#voice-dictation): keep personal voice settings in your home specs, import existing values, and apply them with `sync --global`, including Warp dictation.
-- [Inspect context size](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): compare startup and on-demand text, filter by file, and open sources in your chosen editor. The report stays in place while a new tool loads.
-- [Edit settings in the browser](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): browse source groups in tabs, compare Project and Local values, preview permission rules, and edit global voice dictation settings. Section headings link to the relevant reference docs.
-- [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails.
+- [Open the web interface](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): `agnostic-ai ui` shows context size, hooks, MCP servers, and settings, and edits them in the browser.
+- [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` names its source.
+- [Personal settings](https://agnostic-ai.org/docs/global-configuration/): keep them in `~/.agnostic-ai` and apply them with `agnostic-ai sync --global`.
+- [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails. `agnostic-ai doctor` explains drift.
 
 ## Contribute
 
