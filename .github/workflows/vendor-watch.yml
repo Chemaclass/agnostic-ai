@@ -8,8 +8,8 @@ name: Vendor watch
 
 on:
   schedule:
-    # 05:43 UTC daily, after CI's 04:17 run. An odd minute keeps it off the hour.
-    - cron: "43 5 * * *"
+    # 05:43 UTC every Saturday, after CI's 04:17 run. An odd minute keeps it off the hour.
+    - cron: "43 5 * * 6"
   workflow_dispatch:
 
 permissions:
