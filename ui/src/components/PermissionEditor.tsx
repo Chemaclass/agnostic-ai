@@ -171,8 +171,15 @@ function PermissionForm({ field, files, decision, shows, path, select }: Permiss
   useEffect(() => {
     if (!asked || waiting) return
     receipt.ask()
-    if (canEdit && !preview) begin(undefined, true)
-    else if (!editing) panel.current?.focus()
+    if (preview) previewRegion.current?.focus()
+    else if (editing) {
+      // Keep the draft; start a new line at its end.
+      const next = text && !text.endsWith('\n') ? `${text}\n` : text
+      setText(next)
+      setFocusLine(next.split('\n').length - 1)
+      textarea.current?.focus()
+    } else if (canEdit) begin(undefined, true)
+    else panel.current?.focus()
   }, [asked, waiting])
   const refocus = () => (editing ? textarea.current : savedList.current ?? addRuleButton())?.focus()
   const awaitRefresh = () => {
@@ -218,7 +225,7 @@ function PermissionForm({ field, files, decision, shows, path, select }: Permiss
   const choosing = editable && (paths.length > 1 || !path && paths.length > 0)
   const resettable = editable && audience === 'personal' && current.personalSet && !disabledReason && !preview && !editing
   const differs = JSON.stringify(current.shared ?? []) !== JSON.stringify(current.personal ?? [])
-  const showsPanel = choosing || (editable && current.personalSet) || !!disabledReason || !!edit?.disabledReason && app.source.kind === 'api' || resettable || editing || !!preview || !!error || refreshed
+  const showsPanel = linked && !rows.length || choosing || (editable && current.personalSet) || !!disabledReason || !!edit?.disabledReason && app.source.kind === 'api' || resettable || editing || !!preview || !!error || refreshed
   return <div {...entry} className={`authority-group${linked ? ' is-linked' : ''}`} role={rows.length || showsPanel ? 'group' : undefined} aria-label={rows.length || showsPanel ? field.label : undefined}>
     {rows.length > 0 && <ul ref={savedList} tabIndex={-1} className="authority-rule-list" aria-label={`Saved ${field.label} rules`}>
       {rows.map((row) => <li key={`${row.path}:${row.index}:${row.rule}`} className="authority-rule row-hover">
@@ -232,6 +239,7 @@ function PermissionForm({ field, files, decision, shows, path, select }: Permiss
       </li>)}
     </ul>}
     {showsPanel && <div ref={panel} tabIndex={-1} className="permission-editor">
+      {linked && !rows.length && !editing && <p className="muted">{field.label}: no rules yet.</p>}
       {edit?.disabledReason && <p className="muted">{edit.disabledReason}</p>}
       {choosing && <label className="field-edit-target">Settings file
         <Select aria-label={`Settings file for ${field.label}`} value={path} disabled={!!pending} onChange={(event) => select(event.target.value)}>
@@ -324,9 +332,10 @@ export function AddRule({ fields }: { fields: SettingField[] }) {
     event.preventDefault()
     const items = [...(root.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])]
     const at = items.indexOf(document.activeElement as HTMLButtonElement)
-    items[(at + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus()
+    const next = at < 0 ? (event.key === 'ArrowDown' ? 0 : items.length - 1) : (at + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length
+    items[next]?.focus()
   }
-  return <div ref={root} className="add-rule" onKeyDown={onKeyDown}>
+  return <div ref={root} className="add-rule" onKeyDown={onKeyDown} onBlur={(event) => { if (event.relatedTarget && !root.current?.contains(event.relatedTarget)) setOpen(false) }}>
     <button ref={button} data-add-rule type="button" className="button button-primary" aria-haspopup="menu" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen(!open)}>Add a rule</button>
     <div id={menuId} role="menu" aria-label="Add a rule to" className="add-rule-menu" hidden={!open}>
       {lists.map(({ decision, field }) => <button key={field.key} type="button" role="menuitem" className="button button-quiet" onClick={() => { setOpen(false); ask(field.key) }}>

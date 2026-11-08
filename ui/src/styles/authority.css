@@ -195,10 +195,6 @@
   justify-self: end;
 }
 
-.authority-also-edit > .field-disabled-reason:has(+ .field-edit-row) {
-  display: none;
-}
-
 .authority-also-edit > .permission-editor > :not(.field-edit-row):first-child,
 .authority-also-edit > .permission-editor > .field-edit-row + * {
   margin-top: 8px;

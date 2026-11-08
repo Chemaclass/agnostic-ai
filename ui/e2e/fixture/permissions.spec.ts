@@ -253,7 +253,7 @@ test('removes or edits one saved rule through the same preview and save', async 
   expect(await box.evaluate((element: HTMLTextAreaElement) => element.value.slice(element.selectionStart, element.selectionEnd))).toBe('read(private/**)')
 })
 
-test('adds a rule to a list that has rules on a new line', async ({ page }) => {
+test('adds a rule on a new line and keeps a draft already open', async ({ page }) => {
   const { authority } = await setup(page)
   authority.fields!.find((field) => field.key === 'permissions.ask')!.set = [{ spec: 'permissions', path: shared, values: [{ key: 'permissions.ask', type: 'list', list: ['shell(git push *)'] }] }]
   await page.reload()
@@ -262,12 +262,27 @@ test('adds a rule to a list that has rules on a new line', async ({ page }) => {
   await expect(box).toBeFocused()
   await expect(box).toHaveValue('shell(git push *)\n')
   expect(await box.evaluate((element: HTMLTextAreaElement) => element.selectionStart)).toBe('shell(git push *)\n'.length)
-  await page.keyboard.press('Escape')
+  await box.fill('shell(git push *)\nread(private/**)')
+  await addRule(page)
+  await expect(box).toHaveValue('shell(git push *)\nread(private/**)\n')
+  await expect(box).toBeFocused()
   await page.getByRole('button', { name: 'Add a rule', exact: true }).click()
   await expect(page.getByRole('menuitem', { name: 'Always blocked' })).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(page.getByRole('menuitem', { name: 'Allowed without asking' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('menu', { name: 'Add a rule to' })).toBeHidden()
+  await page.getByRole('button', { name: 'Add a rule', exact: true }).click()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('menu', { name: 'Add a rule to' })).toBeHidden()
   await expect(page.getByRole('button', { name: 'Add a rule', exact: true })).toBeFocused()
+})
+
+test('a link to an empty list says it has no rules yet', async ({ page }) => {
+  await setup(page)
+  await page.goto('/?view=authority&entry=field%3Apermissions.ask')
+  await expect(ask(page)).toBeFocused()
+  await expect(ask(page)).toContainText('Ask first: no rules yet.')
 })
 
 test('removing the last saved rule previews clearing the list, not an empty list', async ({ page }) => {

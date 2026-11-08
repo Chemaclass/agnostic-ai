@@ -234,7 +234,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     if (clean) setValue(current)
   }, [current, localCurrent, teamCurrent])
   if (!edit) return sources()
-  if (edit.disabledReason) return <>{sources()}<p className="muted field-disabled-reason">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p>{field.key === 'permissions.default-mode' && <GlobalSettingsAction />}</>
+  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p>{field.key === 'permissions.default-mode' && <GlobalSettingsAction />}</>
   const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
   if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override file'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
   if (app.source.kind !== 'api') return sources()
