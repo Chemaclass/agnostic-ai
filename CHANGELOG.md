@@ -6,6 +6,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.92.0 - 2026-11-08
+
 ### Highlights
 
 - **Breaking:** Sync stops on an MCP `roots` item that is not a `{uri, name}` mapping, and Pi MCP `timeout` is now milliseconds (#3016, #3002).
@@ -18,90 +20,83 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync and configuration
 
-- `sync --dry-run --diff` and `sync --plan --diff` print a diff of each changed file and name files they would remove, also for `--global` (#2991, #2996).
-- `sync --global --plan --check` previews user-level changes and fails on drift, like project sync (#2986).
-- `sync --allow-empty-targets --dry-run` names each file the real run removes. On Windows it no longer lists a tool's own files (#2995, #3142).
-- `sync --check` with an empty targets list passes once every generated file is gone (#3142).
-- Sync previews and `--check` show a shared settings file that keeps your keys as an update or as kept, not a removal (#3000).
-- Sync notes when a target drops an agent's `hooks` or `permissionMode`, and `sync --global` notes dropped fields such as `maxTurns` (#3052, #3073).
-- Built-in memory hooks write a shorter command. It runs the project's `node_modules/.bin/agnostic-ai` or the one on PATH, and `agnostic-ai project` finds the project and its pinned version (#3173).
 - **Breaking:** Sync stops on an MCP `roots` item without a `uri` mapping; `lint` (LINT060) flags it. Write `- uri: file:///path` (#3016).
+- `sync --dry-run` and `--plan` accept `--diff`, also with `--global`, and `sync --global --plan --check` fails on drift (#2991, #2996, #2986).
+- Sync previews name the files `--allow-empty-targets` removes and show a settings file that keeps your keys as an update (#2995, #3000, #3142).
+- Sync notes when a target drops an agent's `hooks` or `permissionMode`, and `sync --global` notes dropped fields such as `maxTurns` (#3052, #3073).
+- Built-in memory hooks write a shorter command, and `agnostic-ai project` finds the project and its pinned version (#3173).
 
 #### Checks and reports
 
-- `lint` warns (LINT059) when an MCP `timeout` under 1000 reaches Crush, Pi or Junie, because it most likely holds seconds.
+- `lint` warns (LINT059) when an MCP `timeout` under 1000 reaches Crush, Pi or Junie, because it most likely holds seconds (#3008).
 - `graph` and `hook run` accept `--json`, the same as `--format json`; `--json` with a different `--format` fails (#2993).
 - `hook run` rejects a `--payload` file that is not a JSON object, and `--format json` still prints its result when a target cannot be set up (#2994).
 - `doctor` describes shared settings updates as removing unchanged managed keys and keeping yours, with JSON action `stale` (#3009).
 - Previews withhold prose that labels a credential with a value, such as a `password:` line or a `token` table cell (#3062).
 
+#### Commands and install
+
+- `agnostic-ai --help` ends with "Made by Chemaclass", `--version` only in a terminal; the web tooltip and console greeting say "by Chemaclass" (#3185, #3186).
+- Check, warning and cross marks print no color codes when `TERM=dumb` (#3190).
+- The install scripts retry the latest release lookup twice when GitHub times out or answers 429 or a server error (#3188).
+
 #### Web interface
 
-- The web interface takes the Mineral look: bone paper, a slate rail, Fraunces headings and ink pill buttons, also in search and the inspector (#3120).
-- The rail names each page over its live counts, lists **Setup health** first, and shows placeholder bars while the page loads (#3120).
-- The rail foot lists Search and the configuration switch, then the version (linked to release notes) and theme, **Overview JSON** and GitHub buttons (#3120).
-- The rail shows "Update needed" only when the project requires a newer agnostic-ai (#3034).
-- agnostic-ai is signed "by Chemaclass": in the version's shorter tooltip, a browser console greeting, the end of `agnostic-ai --help`, and `--version` in a terminal. Piped `--version` output stays one line.
+- **Removed:** Context drops **Bytes**, **Show the largest source**, **Copy all prompts** and **Next** steps; Conversations drops **Not found** (#3180, #3181).
+- The web interface takes the Mineral look: bone paper, a slate rail, Fraunces headings and ink pill buttons, also in search and the inspector (#3120, #3132).
+- The rail names each page over its live counts, lists **Setup health** first, and says "Update needed" only for a newer required version (#3120, #3034, #3167).
 - Phones get a top bar with the finding count, Search and **Menu** over one row of page links; search and the inspector open full screen (#3120).
-- Dropdowns open as a panel with a checkmark on the chosen item in every browser; forced colors keep the system list.
-- Each page opens with a smaller verdict sentence and one facts line that ends with **Tool support**, which opens the coding tool support table, and **Docs** (#3120, #3121).
-- **Authority** shows every allow, ask and block rule in one table, blocked first, with Edit and Remove on each row. **Add a rule** asks which list, and protected paths and the default permission mode sit in two rows below (#3120).
-- The Project | Local explanation moves into the switch's tooltip. Rows show actions such as **Open** and **Copy path** on hover or keyboard focus, and phones keep them behind a ⋯ menu. Rail summaries read as short sentences, such as "4 blocked, 3 ask, 11 allowed" or "2 built-ins on".
-- **Lifecycle** shows only the stages that have hooks, with **Show all stages** for the rest, and groups events only one tool uses under their own heading. Each hook says what it does and where it comes from, with its command behind **Command** and **Copy command**. **Add hook** sits at the end of the toolbar.
-- **Context** says how many words agents read when a session starts. It shows the start and on-demand counts with a budget bar, then **Read at every start** and **Read on demand** tables, each with **Copy prompt**. Checking one file and how words are counted fold away at the end. The **Bytes** column (bytes show on hover), **Show the largest source**, **Copy all prompts** and the **Next** steps are gone.
-- Findings are cards with **Copy prompt** and **Details**. Empty types say which tools support them, and counts show only above zero (#3120).
-- **Setup health** reads calmer: **Recheck** sits after "Checked just now", errors list under **Fix first**, and **Copy all fixes** shows only for two or more. Each finding card keeps **Copy prompt** and **Details**, which now holds **Open**, **Copy path** and **Recheck**. **You could add** says how many of your tools support each feature, and a stage where an enabled built-in hook runs for your tools no longer counts as missing.
-- **Tools** shows each server found in your tools as one row with an **Import** button; its files, source choice and terminal command sit under **Details**, and empty tabs move to the end. **Settings** shows each built-in as a name, one line and a switch, with its config name under **Details**.
-- A snapshot or the mock fixture says once, in the top notice, that it is read-only. A snapshot that fails shows **Could not load the snapshot** with **Retry**.
-- Labels use plain words, such as **Preferences** and **MCP servers**; `view --json` carries them.
-- Project or Global and Local replace Shared and Personal; API values stay `shared` and `personal` (#3033).
-- Following a link to an entry you already opened scrolls to it and focuses it again (#3076).
-- **Open global settings** and **Open project** sit at the foot of the sidebar, and the top bar shows the project path (#3035).
-- The web interface links to the agnostic-ai repository and to the project's GitHub repository (#3111).
-- `/api/health` adds `version`, `requires` and `requiresMet`; `/api/views/overview` adds `repository`, `health.gaps` and `health.improvements` (#2974, #3034, #3070, #3079, #3111).
+- Each page opens with a short verdict and a facts line ending in **Tool support** and **Docs**; findings are cards (#3120, #3121, #3143, #3177).
+
+#### Web interface details
+
+- Labels use plain words, such as **Preferences**; Project or Global and Local replace Shared and Personal, and API values stay the same (#3033, #3123).
+- Dropdowns open as a panel in every browser, and row actions such as **Open** show on hover or focus, behind a ⋯ menu on phones (#3168, #3170, #3177).
+- **Open global settings** and **Open project** sit at the foot of the rail, with links to the agnostic-ai and project repositories (#3035, #3111).
+- Following a link to an entry you already opened scrolls to it and focuses it again (#3076, #3080).
+- `/api/health` adds `version`, `requires`, `requiresMet`; the overview adds `repository`, `health.gaps` and `health.improvements` (#2974, #3034, #3070, #3111).
 
 #### Conversations
 
-- The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
-- It opens with how many chats are open and how many wait for you, and each row names its tool (#3120, #3121).
-- The list shows at once when you return and refreshes in the background, three times faster.
-- Rows are calmer: one meta line and a one-line last prompt, a status chip only while the agent works or waits, and a typed shell command shows as `! gl`. **Open in Terminal** turns into a button on hover or focus, with **Copy command** beside it, and a tool filter sits next to the search. The **Not found** chip for a tool with no chats is gone.
-- It lists Codex and Cursor chats on Windows, handles a symlinked `~/.codex`, and withholds a prompt with `curl -u user:password` (#3119).
-- Opening a Codex thread that a running `codex` holds switches to its terminal; an editor chat brings forward its workspace window (#3134).
+- The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109, #3120, #3121).
+- The list shows at once when you return and refreshes in the background, three times faster (#3166).
+- Rows are calmer: one meta line, a one-line last prompt, a status chip only while the agent works or waits, and **Open in Terminal** on hover (#3163, #3181).
+- It lists Codex and Cursor chats on Windows, handles a symlinked `~/.codex`, and withholds a prompt with `curl -u user:password` (#3119, #3133).
+- Opening a Codex thread that a running `codex` holds switches to its terminal; an editor chat brings forward its workspace window (#3134, #3147).
 
 #### Setup health
 
-- **Setup health** opens with one sentence and says whether data is fresh or from a snapshot. Findings sit under **Needs a fix** and **Worth a look** (#3120).
-- It shows **7 of 9 improvements applied** and lists unused features the enabled tools support, with **Copy prompt** (#3079, #3070).
-- **Recheck all** runs the checks for every section and says how many findings remain (#3071).
-- Tick findings and suggestions, then **Copy prompt** in the bar at the foot copies one prompt for all; **Copy all fixes** copies every fix (#3127, #3032).
-- In a project it includes `lint --global` findings labelled **global**; `view --json` marks them `"layer": "global"` (#3069).
+- **Setup health** opens with one sentence; errors list under **Fix first** and the rest under **Worth a look** (#3120, #3183).
+- **Recheck** runs the checks for every section and says how many findings remain (#3071, #3086).
+- It shows **7 of 9 improvements applied** and lists unused features your tools support under **You could add** (#3079, #3070, #3087, #3088).
+- Tick findings and suggestions, then **Copy prompt** at the foot copies one prompt; **Copy all fixes** shows for two or more (#3127, #3032, #3160, #3183).
+- In a project it includes `lint --global` findings labelled **global**; `view --json` marks them `"layer": "global"` (#3069, #3081).
 
-#### Pages and editing
+#### Context and Lifecycle
 
-- Lifecycle shows stages as a timeline and a turned-off hook as off (#3120, #3145).
-- Each Lifecycle hook has **Summary**, **Key fields** and **Full spec**, hidden if the file looks like a credential. Search matches hook commands (#3038, #3062).
-- A built-in hook's command shows only the agnostic-ai call it makes, such as `agnostic-ai project -- hook memory --target codex`; **Full command** shows the whole launcher script.
-- **Add hook** on Lifecycle previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
-- Tools counts only MCP servers that are on and shows others as off; `view --json` gives each one `disabled` in `fields` (#3120, #3145).
-- **Context size** starts with word counts and a budget line with **Change budget** (#3120, #3121).
-- **Context size** no longer scrolls sideways on a phone (#3059).
-- **Show content** on a Context row shows the file's frontmatter as chips (#3025).
-- **Settings** previews changes as a diff card with **Preview**, **Apply** and **Cancel**. A quick second click sends no stale change (#3120, #3121).
-- **View and edit** (Project or Local) shows once, beside the filter, on **Authority** and **Settings** (#3121).
-- Authority edits protected paths in project or local scope, and the default permission mode in the global view (#3039).
-- Authority shows a local `protected: null`, and **Reset to project paths** removes it (#3072).
-- **Copy to global** (**Copy to project** in global view) moves a spec across levels; **Replace it** overwrites. `POST /api/edit/spec/move` matches (#3027).
+- **Context** says how many words agents read at session start, with a budget bar and tables of what loads at start and on demand (#3120, #3121, #3128, #3180).
+- **Show content** on a Context row shows the file's frontmatter as chips, and Context size no longer scrolls sideways on a phone (#3025, #3059, #3063, #3110).
+- **Lifecycle** shows a timeline of stages that have hooks, with **Show all stages** for the rest, and a turned-off hook as off (#3120, #3145, #3154, #3179).
+- Each hook says what it does and where it comes from; a built-in shows only its agnostic-ai call (#3038, #3062, #3065, #3172, #3179).
 
-#### Install
+#### Tools, Settings and Authority
 
-- The install scripts retry the latest release lookup twice when GitHub times out or answers 429 or a server error, instead of failing on the first try.
+- **Authority** shows every allow, ask and block rule in one table, blocked first, with Edit and Remove on each row (#3120, #3151, #3182).
+- **Tools** shows each server found in your tools as one row with a button that makes it a spec, and turned-off servers as off (#3120, #3146, #3148, #3178).
+- **Settings** shows each built-in as a name, one line and a switch, and previews changes as a diff card (#3120, #3121, #3156, #3178).
+
+#### Editing in the web interface
+
+- **Add hook** on Lifecycle previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037, #3061).
+- **Copy to global** (**Copy to project** in global view) moves a spec across levels; **Replace it** overwrites (#3027, #3090).
+- **View and edit** (Project or Local) shows once, beside the filter, on **Authority** and **Settings** (#3121, #3162).
+- Authority edits protected paths and, globally, the default permission mode; **Reset to project paths** clears a local `protected: null` (#3039, #3072, #3084).
 
 ### By tool
 
 #### Kiro
 
-- `import kiro` keeps an agent's inline `mcpServers`: ones in `.kiro/settings/mcp.json` become spec names, others move to `x-kiro.mcpServers` (#3051).
+- `import kiro` keeps an agent's inline `mcpServers`: ones in `.kiro/settings/mcp.json` become spec names, others move to `x-kiro.mcpServers` (#3051, #3075).
 - `import kiro` replaces literal credentials with `${NAME}` references and leaves out a server whose `oauth` holds a credential, with a note (#3067, #3074).
 - Agent files write an MCP server's `x-kiro.timeout` and `x-kiro.requestTimeout`; a portable `timeout` is left out with a note naming both keys (#3041).
 - `validate` accepts the `PreCompact` and `PostCompact` hook triggers from Kiro CLI 3.1.0 (#3136).
@@ -109,9 +104,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Qwen Code
 
 - Skills keep `disable-model-invocation`, `user-invocable` and `paths`, so a manual-only skill stays out of the model's reach; import reads them back (#3042).
-- Agents keep `background` and `hooks`, and a shared `Stop` hook becomes `SubagentStop`. Agent hooks used to be dropped with no note (#3043).
-- The target page says project hooks need folder trust or hook approval: from 0.26.7 interactive, from 0.26.8 headless too (#2978, #3015).
-- Hooks with `event: FileChanged` reach `.qwen/settings.json`, so a hook can run when a watched file such as `.envrc` changes (Qwen Code 0.27.0). Sync used to drop them with a note (#3189).
+- Agents keep `background` and `hooks`, and a shared `Stop` hook becomes `SubagentStop`; agent hooks used to be dropped with no note (#3043).
+- Hooks with `event: FileChanged` reach `.qwen/settings.json` and run when a watched file such as `.envrc` changes, on Qwen Code 0.27.0 (#3189, #3193).
 
 #### Codex
 
@@ -134,29 +128,25 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - An agent with `x-codebuddy.tools: []` gets `tools: []`, read as no tools by CodeBuddy 2.179.0 and later; sync used to write `tools: ""`, every tool (#2983).
 
-#### Copilot
+#### Kimi Code CLI
 
-- The sync note for an agent's `hooks` names `x-copilot.hooks`, which Copilot CLI reads (#3137).
-
-#### Ellipsis
-
-- Sync and import accept `compute.idle` in an environment; it used to stop sync from writing the environment file (#2998).
+- Sync and import keep a stdio MCP server's `x-kimi.environment_id`, which Kimi Code 2.5.0 reads in place of `runtime_id` (#2980).
 
 #### Grok
 
 - Project and global import keep MCP servers with an ignored `description`; global sync preserves the native file (#3006).
 
-#### Kimi Code CLI
+#### Ellipsis
 
-- Sync and import keep a stdio MCP server's `x-kimi.environment_id`, which Kimi Code 2.5.0 reads in place of `runtime_id` (#2980).
+- Sync and import accept `compute.idle` in an environment; it used to stop sync from writing the environment file (#2998).
 
-#### Qoder
+#### Copilot
 
-- The target page says only the Qoder IDE documents that rule files win over `AGENTS.md`; the CLI documents no order (#2984).
+- The sync note for an agent's `hooks` names `x-copilot.hooks`, which Copilot CLI reads (#3137).
 
-#### Trae
+### Site
 
-- The Trae page says the Build step under Settings > Indexing & Docs applies only to clients released before October 22, 2026 (#3044).
+- Target pages note Qwen Code hook folder trust, Qoder IDE rule order, and the Trae Build step for clients before October 22, 2026 (#2978, #3015, #2984, #3044).
 
 ## v0.91.0 - 2026-11-01
 
