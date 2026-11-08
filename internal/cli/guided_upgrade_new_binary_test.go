@@ -61,8 +61,9 @@ func TestUpgradeRequiresGuided_RewritesWithoutSync(t *testing.T) {
 	setRunningVersion(t, "v0.77.0")
 	captureLogOut(t)
 	cli := NewRootCmd("9.9.9")
-	// Older binaries send exactly guidedRequiresArgs, so test those.
-	cli.SetArgs(guidedRequiresArgs)
+	// Released binaries send these literal arguments, so they must keep
+	// working in every later release. Do not replace them with the constant.
+	cli.SetArgs([]string{"upgrade", "--requires", "--guided"})
 	cli.SetIn(strings.NewReader(""))
 	cli.SetOut(io.Discard)
 	cli.SetErr(io.Discard)
@@ -82,5 +83,20 @@ func TestUpgradeGuided_NeedsRequires(t *testing.T) {
 	root.SetErr(io.Discard)
 	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "--guided needs --requires") {
 		t.Errorf("--guided without --requires: %v", err)
+	}
+}
+
+// Released binaries already send guidedRequiresArgs to newer ones, so a
+// rename here would break their upgrades.
+func TestGuidedRequiresArgs_StayFixedAndHidden(t *testing.T) {
+	if want := []string{"upgrade", "--requires", "--guided"}; !reflect.DeepEqual(guidedRequiresArgs, want) {
+		t.Errorf("guidedRequiresArgs = %q, want %q", guidedRequiresArgs, want)
+	}
+	flag := newUpgradeCmd().Flags().Lookup("guided")
+	if flag == nil {
+		t.Fatal("upgrade has no --guided flag")
+	}
+	if !flag.Hidden {
+		t.Error("--guided is internal and must stay hidden")
 	}
 }
