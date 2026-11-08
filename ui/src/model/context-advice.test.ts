@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ContextContribution } from '../contract'
-import { builtinOwner, contextAdvice, contextAllAdvicePrompt, contextStartupPrompt, explainCommand, shellQuote, startHere } from './context-advice'
+import { builtinOwner, contextAdvice, contextAllAdvicePrompt, contextStartupPrompt, explainCommand, shellQuote } from './context-advice'
 
 const report = { target: 'claude', startup: { words: 872, bytes: 5400 }, file_scope: { words: 46, bytes: 301 }, on_demand: { words: 316, bytes: 2084 } }
 const row = (source: string, category: string, load: ContextContribution['load'], words = 50): ContextContribution => ({ source, category, load, words, bytes: words * 6 })
@@ -79,12 +79,6 @@ describe('context advice', () => {
     expect(unknown.builtin).toBeUndefined()
     expect(unknown.what).toContain('part of a built-in')
     expect(unknown.prompt).toContain('Built-in: unknown')
-  })
-
-  it('picks the three largest startup sources and skips framing', () => {
-    const rows = [row('CLAUDE.md', 'generated framing', 'startup', 900), row('a.md', 'always-on rule', 'startup', 10), row('b.md', 'entry-point layer', 'startup', 120), row('c.md', 'skill discovery', 'startup', 30), row('d.md', 'skill discovery', 'startup', 30), row('e.md', 'skill body', 'on-demand', 500)]
-    expect(startHere(rows).map((c) => c.source)).toEqual(['b.md', 'c.md', 'd.md'])
-    expect(startHere([])).toEqual([])
   })
 
   it('names the rules-file cause for other tools and none for copilot', () => {
@@ -251,6 +245,13 @@ describe('context advice', () => {
     it('returns no prompt when no source has anything to do', () => {
       expect(contextAllAdvicePrompt({ ...full, contributions: [contributions[2]] })).toBe('')
       expect(contextAllAdvicePrompt({ ...full, contributions: [] })).toBe('')
+    })
+
+    it('names the load when it covers one table', () => {
+      const onDemand = contributions.filter((c) => c.load === 'on-demand')
+      const prompt = contextAllAdvicePrompt({ ...full, contributions: onDemand }, undefined, undefined, 'on-demand')
+      expect(prompt).toContain('Review the advice for every on demand source of instruction text')
+      expect(prompt).not.toContain('startup first')
     })
   })
 })

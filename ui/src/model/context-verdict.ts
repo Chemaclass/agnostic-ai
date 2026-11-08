@@ -25,3 +25,11 @@ export function startupBudgetLine(startup: ContextSize, budget: number | undefin
   if (startup.words <= budget) return `${size}, within ${limit}.`
   return `${size}, ${words(startup.words - budget)} over ${limit}; agnostic-ai lint reports LINT011.`
 }
+
+/** The budget as a fact beside the page verdict; undefined without a budget. */
+export function budgetFact(startup: ContextSize, budget: number | undefined): { over: boolean; text: string } | undefined {
+  if (!budget || budget <= 0) return undefined
+  const limit = `the ${budget.toLocaleString('en-US')}-word budget`
+  if (startup.words <= budget) return { over: false, text: `Within ${limit}` }
+  return { over: true, text: `${words(startup.words - budget)} over ${limit}` }
+}

@@ -93,14 +93,15 @@ test.describe('dropdown without base-select', () => {
     await page.goto('/?view=context')
     await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
-    const picker = panel.getByRole('combobox', { name: 'Coding tool' })
+    const picker = panel.getByRole('combobox', { name: 'Counted for' })
     await expect(picker).toHaveText('Claude Code')
     await picker.click()
     await page.getByRole('option', { name: 'GitHub Copilot' }).click()
     await expect(page.getByRole('listbox')).toBeHidden()
     await expect(picker).toHaveText('GitHub Copilot')
     await expect.poll(() => requests.at(-1)).toBe('?target=copilot')
-    await expect(panel.getByLabel('Check against a file')).toBeDisabled()
+    await panel.getByText('Check one file against these rules').click()
+    await expect(panel.getByLabel('File path')).toBeDisabled()
   })
 
   test('chooses inside a wrapping label without opening again', async ({ page }) => {
