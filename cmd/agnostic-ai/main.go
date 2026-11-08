@@ -23,4 +23,5 @@ func main() {
 		}
 		os.Exit(1)
 	}
+	cli.SignVersion(cmd)
 }

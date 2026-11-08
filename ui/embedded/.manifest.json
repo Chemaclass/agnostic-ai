@@ -83,7 +83,7 @@
     "src/components/SectionFrame.tsx": "c5ccf3b0b7bce4fb68adbcd52e1487afb4d22f7fc836324823afb923767d39f7",
     "src/components/SectionHeading.tsx": "aff8133c1b7acdf35ff4cd2144ce9ef779e28b7930309c6f0752e09b5f4f470a",
     "src/components/SectionTabs.tsx": "b965708c84b8eba8a179300850a7551dd46216bdb0a98a9910b8984826885c59",
-    "src/components/Shell.tsx": "dce37b5bda13e0a25c1e2500933f5c107838d607d15639368c6b3fbdb7968c3a",
+    "src/components/Shell.tsx": "7d36e13087753c7ed71272c7449d6d19a2d85d0f77a72da96e1ef5e63655fad2",
     "src/components/SourceContent.tsx": "1fb35c8485fda68cac73c2d703e5f52fd129f5449f46bd431460e460b4a0e37f",
     "src/components/SpecMoveAction.tsx": "aa7f3d3cfce2a0ca896f2e1da5faa9e6f4ff37e9c130e508f15fdc05e39f9e69",
     "src/components/SupportTable.tsx": "938d17185638a5c42f7c42d0d335d21ffda0bdb4775c7875a3e3eb6e44eba08c",
@@ -194,12 +194,12 @@
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
+    "assets/index-BgjTMDc_.js": "8c762deb55a8a20869b4576b03fdac9bb707786cbc6d3bb71dc1583c37d486ff",
     "assets/index-Dq4P0Pdv.css": "bd8b829d2cf75080eb9ad77cbdb2cab34a9b1e660c40acb76e79109482280586",
-    "assets/index-yQofWZTK.js": "a33a94a360971594a7bf35f9925e04520c48bb4b37186b8d4e4d919445ebb834",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-DwEBecHy.js": "98658a6c48ca33213ab61208b2ad3948a962dc9853e2215e09aff24855c0a8fe",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "f92c7ad0ed9dd55870677598bf3be015e047e9e38df9c3b92bc073e1704cbbbe",
+    "index.html": "05fb07c34d0cdb8604c66d0e3fd6cede6314d23e138d4e506246998cc9de9fc4",
     "third-party-notices.txt": "c1a1591ee63d396db2899a42b979e5167f8dc028808662c86d7b0bcdbf98dc84"
   }
 }
