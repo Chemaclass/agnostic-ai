@@ -34,7 +34,7 @@ func TestGuidedUpgrade_UpdatedBinaryReconcilesRequires(t *testing.T) {
 		if path != "/updated/tool" {
 			t.Errorf("ran %q, want the updated binary", path)
 		}
-		if resolved, _ := filepath.EvalSymlinks(dir); len(args) > 1 && resolved != root {
+		if resolved, _ := filepath.EvalSymlinks(dir); args[0] != "--version" && resolved != root {
 			t.Errorf("%v ran in %q, want %q", args, dir, root)
 		}
 		commands = append(commands, strings.Join(args, " "))
@@ -58,7 +58,15 @@ func TestGuidedUpgrade_UpdatedBinaryReconcilesRequires(t *testing.T) {
 
 func TestUpgradeRequiresGuided_RewritesWithoutSync(t *testing.T) {
 	requiresProject(t, ">=0.76.0")
-	if err := executeUpgradeRequiresForTest(t, "v0.77.0", "--guided"); err != nil {
+	setRunningVersion(t, "v0.77.0")
+	captureLogOut(t)
+	cli := NewRootCmd("9.9.9")
+	// Older binaries send exactly guidedRequiresArgs, so test those.
+	cli.SetArgs(guidedRequiresArgs)
+	cli.SetIn(strings.NewReader(""))
+	cli.SetOut(io.Discard)
+	cli.SetErr(io.Discard)
+	if err := cli.Execute(); err != nil {
 		t.Fatalf("upgrade --requires --guided: %v", err)
 	}
 	if got := string(readUpgradeRequiresFile(t, "agnostic-ai.yaml")); !strings.Contains(got, "requires: \">=0.77.0\"") {
@@ -68,9 +76,6 @@ func TestUpgradeRequiresGuided_RewritesWithoutSync(t *testing.T) {
 }
 
 func TestUpgradeGuided_NeedsRequires(t *testing.T) {
-	requiresProject(t, "0.76.0")
-	setRunningVersion(t, "v0.77.0")
-	captureLogOut(t)
 	root := NewRootCmd("9.9.9")
 	root.SetArgs([]string{"upgrade", "--guided"})
 	root.SetOut(io.Discard)

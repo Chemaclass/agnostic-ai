@@ -36,7 +36,7 @@ Update now? [Y/n]
 Enter or `y` accepts. `n` runs your original command and silences the offer for the day. In a project, accepting:
 
 1. Installs the new release and checks the new executable's version.
-2. Has the new release raise `requires` to itself, keeping its form, and update the editor schema link, as [`--requires`](#upgrade-options) does.
+2. The new release raises `requires` to its own version, keeping its form, and updates the editor schema link, as [`--requires`](#upgrade-options) does.
 3. Previews and applies the [migrations](#migrate) to old spec files.
 4. Runs `sync`, then `sync --check`.
 

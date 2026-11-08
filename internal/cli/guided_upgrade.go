@@ -33,7 +33,8 @@ type guidedUpgradeDeps struct {
 
 // guidedRequiresArgs make the updated binary raise requires and the
 // schema URL, so a fix to that rewrite applies in the upgrade that
-// ships it rather than one upgrade later.
+// ships it rather than one upgrade later. Older binaries send these
+// exact arguments to newer ones, so never rename or remove them.
 var guidedRequiresArgs = []string{"upgrade", "--requires", "--guided"}
 
 func guidedUpgradeEachRun(cmd *cobra.Command) {
@@ -172,6 +173,7 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 		return true, fmt.Errorf("verify updated executable; project changes did not start. Check agnostic-ai upgrade --check: %w", err)
 	}
 	if root != "" {
+		_, _ = fmt.Fprintf(out, "\nRunning: agnostic-ai %s\n", strings.Join(guidedRequiresArgs, " "))
 		if _, err := deps.run(path, root, guidedRequiresArgs, out); err != nil {
 			return true, fmt.Errorf("agnostic-ai %s is installed, but this project's requires and schema could not be updated; project migrations did not start. Resolve the reported project or config problem, then run agnostic-ai upgrade --requires, agnostic-ai migrate --dry-run, agnostic-ai migrate, agnostic-ai sync, and agnostic-ai sync --check in %s: %w", offer.Latest, root, err)
 		}

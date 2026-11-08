@@ -200,7 +200,7 @@ is still accepted for compatibility.`,
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Print detection details and exit without running")
 	cmd.Flags().StringVar(&targetVersion, "version", "", "Install this release instead of the latest (e.g. v0.56.1)")
 	cmd.Flags().BoolVar(&reconcile, "requires", false, "Raise project requires to the installed stable release, keeping its form, update the schema URL, then sync")
-	cmd.Flags().BoolVar(&guided, "guided", false, "With --requires, skip sync; the guided upgrade runs this step in the updated binary")
+	cmd.Flags().BoolVar(&guided, "guided", false, "Internal: with --requires, raise requires only and skip sync, for the guided upgrade")
 	_ = cmd.Flags().MarkHidden("guided")
 	return cmd
 }
