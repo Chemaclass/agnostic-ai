@@ -413,7 +413,7 @@ textarea:focus {
 .item-source > summary,
 .unconfigured-fields > summary,
 .field-resolution > summary,
-.context-usage-method > summary {
+.context-usage-more > summary {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -425,7 +425,7 @@ textarea:focus {
 .item-source > summary::-webkit-details-marker,
 .unconfigured-fields > summary::-webkit-details-marker,
 .field-resolution > summary::-webkit-details-marker,
-.context-usage-method > summary::-webkit-details-marker {
+.context-usage-more > summary::-webkit-details-marker {
   display: none;
 }
 
@@ -434,7 +434,7 @@ textarea:focus {
 .item-source > summary::before,
 .unconfigured-fields > summary::before,
 .field-resolution > summary::before,
-.context-usage-method > summary::before {
+.context-usage-more > summary::before {
   content: '';
   flex: none;
   width: 5px;
@@ -451,7 +451,7 @@ textarea:focus {
 .item-source[open] > summary::before,
 .unconfigured-fields[open] > summary::before,
 .field-resolution[open] > summary::before,
-.context-usage-method[open] > summary::before {
+.context-usage-more[open] > summary::before {
   transform: rotate(45deg);
 }
 
@@ -478,7 +478,7 @@ textarea:focus {
   .section-warnings > summary,
   .unconfigured-fields > summary,
   .field-resolution > summary,
-  .context-usage-method > summary {
+  .context-usage-more > summary {
     min-height: 44px;
     align-content: center;
   }

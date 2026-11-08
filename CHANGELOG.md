@@ -45,6 +45,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Dropdowns open as a panel with a checkmark on the chosen item in every browser; forced colors keep the system list.
 - Each page opens with a smaller verdict sentence and one facts line that ends with **Tool support**, which opens the coding tool support table, and **Docs** (#3120, #3121).
 - The Project | Local explanation moves into the switch's tooltip. Rows show actions such as **Open** and **Copy path** on hover or keyboard focus, and phones keep them behind a ⋯ menu. Rail summaries read as short sentences, such as "4 blocked, 3 ask, 11 allowed" or "2 built-ins on".
+- **Context** says how many words agents read when a session starts. It shows the start and on-demand counts with a budget bar, then **Read at every start** and **Read on demand** tables, each with **Copy prompt**. Checking one file and how words are counted fold away at the end.
 - Findings are cards with **Copy prompt** and **Details**. Empty types say which tools support them, and counts show only above zero (#3120).
 - **Tools** shows each server found in your tools as one row with an **Import** button; its files, source choice and terminal command sit under **Details**, and empty tabs move to the end. **Settings** shows each built-in as a name, one line and a switch, with its config name under **Details**.
 - A snapshot or the mock fixture says once, in the top notice, that it is read-only. A snapshot that fails shows **Could not load the snapshot** with **Retry**.

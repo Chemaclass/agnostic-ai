@@ -6,6 +6,7 @@ import { ErrorPanel } from './Banner'
 import { CodingTools } from './CodingTools'
 import { EditorSettings } from './EditorSettings'
 import { ContextUsage } from './ContextUsage'
+import { ContextFacts, ContextReportProvider, ContextVerdict } from './context-report'
 import { BuiltinChangeControls, BuiltinChangeProvider, ChangeStatus } from './BuiltinChange'
 import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useLevelName, useViewAudience } from './EditAudience'
 import { MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
@@ -58,10 +59,11 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
 
   const topic = docs?.section === section.id ? docs.topic : docsTopic(section, undefined)
 
-  return (
+  const isContext = section.id === 'context'
+  const page = (
     <DocsTopic.Provider value={reportDocs}>
-      <PageHeader title={section.label} verdict={<Verdict text={sectionVerdict(section)} accent={verdictKey(section)} />}>
-        <SectionFacts key={section.id} section={section} docs={topic} support={<SupportLink key={section.id} section={section} toolLabel={toolLabel} />} />
+      <PageHeader title={section.label} verdict={isContext ? <ContextVerdict fallback={sectionVerdict(section)} /> : <Verdict text={sectionVerdict(section)} accent={verdictKey(section)} />}>
+        <SectionFacts key={section.id} section={section} docs={topic} lead={isContext && <ContextFacts />} support={<SupportLink key={section.id} section={section} toolLabel={toolLabel} />} />
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
@@ -74,6 +76,8 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
       </fieldset>
     </DocsTopic.Provider>
   )
+  // The Context verdict and its Context size tab share one report.
+  return isContext ? <ContextReportProvider>{page}</ContextReportProvider> : page
 }
 
 /** The verdict sentence with its leading count in the accent. */
@@ -96,7 +100,7 @@ export function revealFindings(findingsId: string) {
 // The Docs link in the facts line follows the open tab, which the page body works out.
 const DocsTopic = createContext<(section: string, topic: string) => void>(() => {})
 
-function SectionFacts({ section, docs, support }: { section: Section; docs: string; support: ReactNode }) {
+function SectionFacts({ section, docs, lead, support }: { section: Section; docs: string; lead?: ReactNode; support: ReactNode }) {
   const app = useApp()
   const tally = tallyFindings(sectionFindings(section))
   const findings = findingTallyText(tally)
@@ -112,6 +116,7 @@ function SectionFacts({ section, docs, support }: { section: Section; docs: stri
   }
   return (
       <div className="page-facts">
+        {lead}
         {facts.map((fact) => <span key={fact} className="page-fact">{fact}</span>)}
         {findings && (
           <span className={`page-fact page-fact-findings ${tone}`} role={shownAbove ? 'alert' : undefined}>
