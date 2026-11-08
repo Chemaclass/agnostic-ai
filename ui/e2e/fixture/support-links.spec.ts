@@ -53,7 +53,8 @@ for (const [view, kind, heading] of [['tools', 'MCP servers', /^MCP servers/], [
     await page.getByRole('table', { name: 'Coding tool support' }).getByRole('link', { name: kind, exact: true }).click()
     const target = page.getByRole('heading', { level: 2, name: heading })
     await expect(target).toBeFocused()
-    await expect(target).toBeInViewport()
+    // Authority names its rules table for screen readers only, so the table itself must scroll into view.
+    await expect(view === 'authority' ? page.locator('.authority-rule').first() : target).toBeInViewport()
     await expect(page.locator('.entry-missing')).toHaveCount(0)
   })
 }

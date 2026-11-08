@@ -1,3 +1,281 @@
+/* The rules table: one row per rule, blocked first. Each list renders its own
+   rows and, while it edits, its editor under them, so the columns live on
+   the rows rather than on one grid. */
+
+.authority-rules {
+  display: grid;
+  min-width: 0;
+}
+
+.authority-rules-head,
+.authority-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 176px 140px minmax(132px, auto);
+  align-items: center;
+  column-gap: 16px;
+  padding-inline: 12px;
+}
+
+.authority-rules-head {
+  padding-block: 10px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.authority-rule-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.authority-rule {
+  min-height: 46px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-md);
+}
+
+.authority-rule > code {
+  overflow-wrap: anywhere;
+  padding: 0;
+  background: none;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.authority-decision {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.authority-decision .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.authority-glyph {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  font-weight: 700;
+}
+
+.authority-decision.is-blocked { color: var(--blocked); }
+
+.authority-decision.is-approval { color: var(--approval); }
+
+.authority-decision.is-permitted { color: var(--permitted); }
+
+.authority-scope {
+  color: var(--text-soft);
+}
+
+.authority-rule-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.authority-empty {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding-top: 32px;
+}
+
+.authority-empty > .empty-state-title {
+  margin: 0;
+}
+
+.authority-empty .empty-state-actions {
+  margin-top: 10px;
+  gap: 8px 20px;
+}
+
+/* Add a rule: an ink pill that asks which list. */
+
+.add-rule {
+  position: relative;
+  display: inline-flex;
+}
+
+.add-rule-menu:not([hidden]) {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 240px;
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--overlay-shadow);
+}
+
+.section-search-primary .add-rule-menu:not([hidden]) {
+  right: 0;
+  left: auto;
+}
+
+.add-rule-menu .button {
+  justify-content: flex-start;
+  min-height: 40px;
+  padding-inline: 10px;
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+
+.add-rule-menu .button:hover {
+  background: var(--canvas);
+}
+
+.section-search-primary {
+  margin-inline-start: auto;
+}
+
+/* Also on this page: protected paths and the default mode, one quiet row each.
+   Each editor lays its own parts out: its buttons take the action column and
+   anything it opens takes the full width under the row. */
+
+.block > .authority-also-title {
+  margin: 0;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.authority-also-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.authority-also-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 140px minmax(132px, auto);
+  align-items: center;
+  column-gap: 16px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-md);
+}
+
+.authority-also-text { color: var(--text-soft); }
+
+.authority-also-value { color: var(--text-muted); }
+
+.authority-also-edit,
+.authority-also-edit > .permission-editor {
+  display: contents;
+}
+
+.authority-also-edit > .permission-editor > *,
+.authority-also-edit > .field-edit,
+.authority-also-edit > p,
+.authority-also-more {
+  grid-column: 1 / -1;
+}
+
+.authority-also-edit > .permission-editor > .field-edit-row,
+.authority-also-edit > .field-edit-row {
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.authority-also-edit > .field-disabled-reason:has(+ .field-edit-row) {
+  display: none;
+}
+
+.authority-also-edit > .permission-editor > :not(.field-edit-row):first-child,
+.authority-also-edit > .permission-editor > .field-edit-row + * {
+  margin-top: 8px;
+}
+
+.authority-also-edit .permission-form,
+.authority-also-edit .permission-preview,
+.authority-also-edit .permission-override,
+.authority-also-edit > .field-edit {
+  margin-block: 12px 8px;
+}
+
+@media (max-width: 760px) {
+  .authority-rules-head {
+    display: none;
+  }
+
+  .authority-rule {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'rule rule actions' 'decision scope actions';
+    row-gap: 4px;
+    padding-block: 10px;
+    padding-inline: 0;
+  }
+
+  .authority-rule > code { grid-area: rule; }
+
+  .authority-decision { grid-area: decision; }
+
+  .authority-scope {
+    grid-area: scope;
+    font-size: var(--text-sm);
+  }
+
+  .authority-rule-actions { grid-area: actions; }
+
+  .block > .authority-also-title { padding-inline: 0; }
+
+  .authority-also-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-inline: 0;
+    row-gap: 2px;
+  }
+
+  .authority-also-name { grid-column: 1; }
+
+  .authority-also-text {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    padding-top: 4px;
+  }
+
+  .authority-also-text:not(:has(.authority-also-paths)) { display: none; }
+
+  .authority-also-value {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: var(--text-sm);
+  }
+
+  .authority-also-edit > .permission-editor > .field-edit-row,
+  .authority-also-edit > .field-edit-row {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .authority-empty .add-rule,
+  .authority-empty .add-rule > .button-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .authority-empty .empty-state-actions {
+    width: 100%;
+  }
+}
+
 .permission-editor,
 .permission-saved {
   grid-column: 1 / -1;
@@ -10,9 +288,11 @@
 }
 
 .permission-editor {
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  padding-block: 14px;
+  border-bottom: 1px solid var(--line);
 }
+
+
 
 .permission-editor p,
 .permission-saved p { margin: 0; }
@@ -62,28 +342,6 @@
 .permission-comparison { padding-top: 8px; overflow-wrap: anywhere; }
 
 .permission-comparison ul { margin: 4px 0; padding-left: 20px; }
-
-.permission-rules {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--line);
-}
-
-.permission-rules li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 16px;
-  min-height: 44px;
-  border-bottom: 1px solid var(--line);
-}
-
-.permission-rules li > code {
-  margin-inline-end: auto;
-  overflow-wrap: anywhere;
-}
 
 .permission-form {
   display: grid;
@@ -204,4 +462,50 @@
   .file-diff .diff-removed {
     border-inline-start-color: CanvasText;
   }
+}
+
+.authority-also {
+  gap: 0;
+}
+
+@media (max-width: 760px) {
+  .section-search-primary {
+    flex: 1 1 100%;
+  }
+
+  .section-search-primary .add-rule,
+  .section-search-primary .add-rule > .button-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .section-search-primary .add-rule-menu:not([hidden]) {
+    left: 0;
+  }
+}
+
+.authority-also-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.authority-also-paths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.authority-also-paths code {
+  overflow-wrap: anywhere;
+}
+
+.authority-also-reason {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* The table's heading is for screen readers; it sits at the table's top so a link to it scrolls there. */
+.authority-rules-block {
+  position: relative;
 }

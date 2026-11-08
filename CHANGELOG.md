@@ -44,6 +44,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Phones get a top bar with the finding count, Search and **Menu** over one row of page links; search and the inspector open full screen (#3120).
 - Dropdowns open as a panel with a checkmark on the chosen item in every browser; forced colors keep the system list.
 - Each page opens with a smaller verdict sentence and one facts line that ends with **Tool support**, which opens the coding tool support table, and **Docs** (#3120, #3121).
+- **Authority** shows every allow, ask and block rule in one table, blocked first, with Edit and Remove on each row. **Add a rule** asks which list, and protected paths and the default permission mode sit in two rows below (#3120).
 - The Project | Local explanation moves into the switch's tooltip. Rows show actions such as **Open** and **Copy path** on hover or keyboard focus, and phones keep them behind a ⋯ menu. Rail summaries read as short sentences, such as "4 blocked, 3 ask, 11 allowed" or "2 built-ins on".
 - Findings are cards with **Copy prompt** and **Details**. Empty types say which tools support them, and counts show only above zero (#3120).
 - A snapshot or the mock fixture says once, in the top notice, that it is read-only. A snapshot that fails shows **Could not load the snapshot** with **Retry**.
