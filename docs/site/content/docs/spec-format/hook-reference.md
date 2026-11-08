@@ -25,7 +25,7 @@ command: .agnostic-ai/scripts/no-force-push.sh
 
 `match` takes a tool kind: `shell`, `edit`, `read`, `web`, `any`, or `mcp:<server>`. It applies only to `before-tool` and `after-tool`. Leave it out, or write `any`, to run on every tool. `edit` covers every edit tool, including ones some versions lack, so a guard misses none.
 
-A tool gets only the events where exit codes work as in Claude Code: exit 0 goes on, and exit 2 blocks with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's after-tool event, and `any` writes no matcher. Copilot only warns on exit 2 outside `before-tool`, so it gets the session events and `before-tool`.
+Portable mappings require Claude Code exit behavior: exit 0 continues, and exit 2 blocks with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's after-tool event, and `any` writes no matcher. Copilot only warns on exit 2 outside `before-tool`, so it gets the session events and `before-tool`.
 
 | Tool | `on` | `match` |
 |---|---|---|
@@ -52,7 +52,7 @@ On Cursor, the deny reply carries stderr as `user_message` and `agent_message`, 
 
 A spec sets `on` or `event`, never both; `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, both forms mixed, an event that a reached tool reads differently (such as `on: stop` on Crush), and a tool kind a reached tool lacks (such as `match: read` on Codex).
 
-Sync reports missing mappings. For a tool with no mapping, write `event` for the hook, or limit it with `targets`. Trae has no portable hook mapping yet.
+Sync reports missing mappings. When a tool has no mapping, use its native `event` name or exclude it with `targets`. Trae has no portable hook mapping yet.
 
 Kiro maps only `on: before-tool`: CLI V3 cannot block on `after-tool` or `prompt-submit`, and its `stop` uses exit 1 to keep the agent running. `decision: stdout` has no Kiro mapping. The `edit` matcher leaves out `code`, which Kiro's own `write` category includes. See [Kiro](@/docs/targets/kiro.md) for how tool IDs and `mcp:<server>` map.
 

@@ -16,20 +16,26 @@ Update agnostic-ai using the method you installed it with. `update` is an alias.
 ```bash
 agnostic-ai upgrade
 agnostic-ai upgrade --check              # show install details without updating
-agnostic-ai upgrade --version v0.81.0    # install a specific release
+agnostic-ai upgrade --version v0.92.0    # install a specific release
 ```
 
 `upgrade` updates the installed tool. If the latest release is already installed but the project still requires an older one, the message points to `agnostic-ai upgrade --requires`. That command updates the project requirement and schema URL, then runs sync.
 
-Stop any running `agnostic-ai sync --watch` before you upgrade, then install the new release. A release's migrations ship with it, so the old version cannot run them. In each project, run `agnostic-ai upgrade --requires`, which syncs and names the migrations that apply. Old spec forms keep working, so that sync is safe. Then run `agnostic-ai migrate --dry-run` and `agnostic-ai migrate`, make any manual spec edits the release page lists, run `agnostic-ai sync`, review the generated diff, and run `agnostic-ai sync --check` before starting watch again.
+Stop `agnostic-ai sync --watch` before upgrading. Install the new release first, since it contains the migrations. Then, in each project:
+
+1. Run `agnostic-ai upgrade --requires`. It syncs and lists applicable migrations. Old spec forms still work.
+2. Run `agnostic-ai migrate --dry-run`, review the changes, then run `agnostic-ai migrate`.
+3. Make any manual spec edits listed on the release page.
+4. Run `agnostic-ai sync`, review the generated diff, then run `agnostic-ai sync --check`.
+5. Restart watch.
 
 ### Automatic upgrade offers
 
 In a terminal, a stable release build checks for updates at most once a day, with a five-second network limit, and offers:
 
 ```text
-Update available: 0.83.0 -> 0.85.0
-Release guidance: https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.85.0
+Update available: <installed> -> <latest>
+Release guidance: https://github.com/Chemaclass/agnostic-ai/releases/tag/v<latest>
 Update now? [Y/n]
 ```
 
@@ -58,17 +64,21 @@ Outside a project, it updates only the tool. Then rerun your command; the releas
 
 After updating through a package manager, run its installed CLI from the project root, as in `pnpm exec agnostic-ai upgrade --requires`.
 
-`--requires` changes the base config and any existing local `requires`, keeping comments and other settings. With 0.91.0 installed:
+`--requires` changes the base config and any existing local `requires`, keeping comments and other settings. With 0.92.0 installed:
 
 | Current value | New value |
 |---------------|-----------|
-| missing, empty, or `null` | `">=0.91.0"` |
-| `">=0.90.0"` | `">=0.91.0"` |
-| `"0.90.0"` | `"0.91.0"` |
-| `"=0.90.0"` | `"=0.91.0"` |
-| a range or upper bound, such as `">=0.90.0 <0.91.0"` or `"<0.91.0"` | `">=0.91.0"` |
+| missing, empty, or `null` | `">=0.92.0"` |
+| a minimum (`>=X.Y.Z`) | `">=0.92.0"` |
+| an exact pin (`X.Y.Z`) | `"0.92.0"` |
+| an exact pin with `=` (`=X.Y.Z`) | `"=0.92.0"` |
+| a range or upper bound | `">=0.92.0"` |
 
-A missing key is added only to the base config. When a range becomes a minimum, the command prints the value it replaced. If sync fails, the version changes stay: fix the problem and run `sync` again. It needs a stable release build, also reads `agnostic.config.yaml`, and does not combine with `--check`, `--version`, or `--run`. The global config and package-manager files are left to their own commands. The config needs one root setting per line and a single-line `requires`; rewrite a root `{...}`, YAML `<<` merges, or a `requires` shared through `&`/`*` or split across lines first.
+A missing key is added only to the base config. When a range becomes a minimum, the command prints the value it replaced. If sync fails, the version changes stay: fix the problem and run `sync` again.
+
+`--requires` needs a stable release build. It also reads `agnostic.config.yaml` and cannot combine with `--check`, `--version`, or `--run`. Update global config and package-manager files with their own commands.
+
+The config needs one root setting per line and a single-line `requires`. Before upgrading, expand a root `{...}`, YAML `<<` merges, or a `requires` shared through `&`/`*` or split across lines.
 
 | Binary location | Upgrade |
 |-----------------|---------|
@@ -106,10 +116,10 @@ agnostic-ai migrate --global    # rewrite the global specs
 - A migration that cannot plan, such as on a spec that does not parse, prints `cannot plan` with the reason; the others run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip needs you, such as a spec setting both old and new forms. `--dry-run` and `--list` show every skip.
 
-| Migration | Release | Rewrites |
-|-----------|---------|----------|
-| `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`, in a project only. When both exist with the same content, it removes the old file; it skips when they differ or Git ignores `agnostic-ai.yaml`. |
-| `hooks-portable-events` | 0.79.0 | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hook-reference.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would change a tool's event or matcher (such as `matcher: Read` on Codex, or `matcher: Edit\|Write` on Claude Code, since `match: edit` also covers `MultiEdit` and `NotebookEdit`), when a `local/` spec extends the hook, and for a pack's hook. |
-| `capabilities-agent-tools`, `capabilities-settings-permissions`, `capabilities-skill-tools` | 0.79.0 | Agent `tools` to `can`, and Claude Code names in permissions and skill `allowed-tools` to names shared across tools. An adjacent `WebFetch, WebSearch` pair becomes `web`; names without a shared form stay. Run with `--only capabilities`. |
-| `secrets-mcp-literals` | 0.79.0 | Plain MCP `env` and `headers` values: credentials become `${NAME}` references, named as `import` names them, and other values get [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Skips keys with credential names whose values do not look like credentials, credentials mixed with a reference, and pack specs. Run with `--only secrets`. |
-| `mcps-codex-environment-id` | 0.92.0 | The Codex MCP field `experimental_environment: local` to `environment_id: local`. Skips `remote` and other values, which name no executor, a spec that sets both fields, a spec a `local/` spec extends, and pack specs. Run with `--only mcps`. |
+| Migration | Rewrites |
+|-----------|----------|
+| `config-file-name` | `agnostic.config.yaml` to `agnostic-ai.yaml`, in a project only. When both exist with the same content, it removes the old file; it skips when they differ or Git ignores `agnostic-ai.yaml`. |
+| `hooks-portable-events` | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hook-reference.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would change a tool's event or matcher (such as `matcher: Read` on Codex, or `matcher: Edit\|Write` on Claude Code, since `match: edit` also covers `MultiEdit` and `NotebookEdit`), when a `local/` spec extends the hook, and for a pack's hook. |
+| `capabilities-agent-tools`, `capabilities-settings-permissions`, `capabilities-skill-tools` | Agent `tools` to `can`, and Claude Code names in permissions and skill `allowed-tools` to names shared across tools. An adjacent `WebFetch, WebSearch` pair becomes `web`; names without a shared form stay. Run with `--only capabilities`. |
+| `secrets-mcp-literals` | Plain MCP `env` and `headers` values: credentials become `${NAME}` references, named as `import` names them, and other values get [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Skips keys with credential names whose values do not look like credentials, credentials mixed with a reference, and pack specs. Run with `--only secrets`. |
+| `mcps-codex-environment-id` | The Codex MCP field `experimental_environment: local` to `environment_id: local`. Skips `remote` and other values, which name no executor, a spec that sets both fields, a spec a `local/` spec extends, and pack specs. Run with `--only mcps`. |

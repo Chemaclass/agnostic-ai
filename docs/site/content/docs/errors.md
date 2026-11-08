@@ -51,20 +51,20 @@ Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the p
 
 ### AAI-004: Config decode failed
 
-The config file is not valid YAML, has keys the config does not accept, or holds a value of the wrong shape. Each finding names its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)` or `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`. A mistake in `agnostic-ai.local.yaml` names that file and its own line. A `version` other than `1` fails here too, as does a [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`.
+The config has invalid YAML, an unknown key, or a value of the wrong type. Each finding names its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)` or `agnostic-ai.yaml:2: gitignore: expected a map, got the string "yes-please"`. A mistake in `agnostic-ai.local.yaml` names that file and its own line. A `version` other than `1` fails here too, as does a [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.92.0,<0.93.0`.
 
-**Fix:** go to the file and line the message names. Give the key the shape it expects, rename or remove an unknown key (using its did-you-mean suggestion when there is one), or set `version: 1`. Check indentation, or check the file against `docs/schemas/config.schema.json`. Run `agnostic-ai doctor` for a full diagnosis.
+**Fix:** open the reported file and line. Correct the value type, rename or remove an unknown key using the suggested name, or set `version: 1`. Check indentation, or check the file against `docs/schemas/config.schema.json`. Run `agnostic-ai doctor` for a full diagnosis.
 
 ### AAI-005: Installed version outside requires
 
-The installed binary is outside the releases the config's [`requires`](@/docs/configuration.md#requires) key allows. An exact pin blocks newer releases too. Every command that reads the specs stops before it reads them or writes files, including `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the config files, the required version, and the installed one:
+The installed release does not satisfy the config's [`requires`](@/docs/configuration.md#requires) value. An exact pin blocks newer releases too. Every command that reads the specs stops before it reads them or writes files, including `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the config files, the required version, and the installed one (shown as placeholders below):
 
 ```
-[AAI-005] agnostic-ai.yaml + agnostic-ai.local.yaml requires agnostic-ai 0.88.0, but 0.89.0 is installed.
+[AAI-005] agnostic-ai.yaml + agnostic-ai.local.yaml requires agnostic-ai <required>, but <installed> is installed.
   The installed release is newer than this project allows.
-  fix: run `agnostic-ai upgrade --requires` to adopt installed agnostic-ai 0.89.0
+  fix: run `agnostic-ai upgrade --requires` to adopt installed agnostic-ai <installed>
        This updates requires and the schema URL, then runs sync.
-  To accept newer releases when generated files are git-ignored, set `requires: ">=0.88.0"` in the file that pins it.
+  To accept newer releases when generated files are git-ignored, set `requires: ">=<required>"` in the file that pins it.
 ```
 
 **Fix:** to adopt a newer installed release, run `agnostic-ai upgrade --requires` from the project root (through your package manager for a project install, such as `pnpm exec agnostic-ai upgrade --requires`). It raises `requires` to the installed release and keeps its form, so a minimum stays a minimum and an exact release stays exact. A range becomes a minimum. It also updates the schema tag, then syncs.

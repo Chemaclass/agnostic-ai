@@ -1,6 +1,6 @@
 +++
 title = "Shared memory"
-description = "One project memory that every AI tool reads and writes, so what one tool learns the others know next session."
+description = "Save project facts and personal preferences for your coding tools to read next session."
 weight = 72
 
 [extra]
@@ -16,7 +16,7 @@ Shared memory lets one coding tool save a project fact that every other tool rea
 Add `memory` to `agnostic-ai.yaml` and sync once:
 
 ```yaml
-requires: ">=0.81.0"
+requires: ">=0.92.0"
 builtins: [memory]
 ```
 
@@ -49,13 +49,13 @@ Each folder has one file per fact and a `MEMORY.md` list. Tools read the list wh
 
 Ask your coding tool: “Remember that this project's integration tests need the local database running.” It proposes the team fact for your approval. A personal preference, such as shorter answers, it can save without asking. Then start another tool in the project and ask what it knows about integration tests.
 
-Keep your coding tool's own memory on: shared memory adds a layer every tool reads. Your request wins over saved facts. See [Gemini CLI](@/docs/targets/gemini.md#shared-memory) for how it keeps its own memory alongside these facts.
+Keep your coding tool's own memory on. Shared memory also makes saved facts available to other tools. Your request wins over saved facts. See [Gemini CLI](@/docs/targets/gemini.md#shared-memory) for how it keeps its own memory alongside these facts.
 
 Ask for the `shared-memory` skill to recall a topic or clean up stale facts. Cleanup needs your confirmation.
 
 ## Check and repair
 
-`agnostic-ai lint` and `doctor` flag a `MEMORY.md` over 100 lines, two `MEMORY.md` files over 6,000 bytes together, a broken link, a fact the list leaves out, text that looks like a secret, and hidden characters a reviewer cannot see. They skip personal memory when its folder is missing, so CI never checks it.
+`agnostic-ai lint` and `doctor` check for oversized lists (over 100 lines each or 6,000 bytes combined), broken links, unlisted facts, possible secrets, and hidden characters. Personal memory is skipped when its folder is missing, including in CI.
 
 `agnostic-ai memory lint` runs only these checks, and `agnostic-ai memory index` rebuilds each `MEMORY.md` after a merge conflict. See [memory commands](@/docs/cli-reference/memory.md#memory) for every subcommand.
 
@@ -112,7 +112,7 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 
 On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, Devin CLI, and Auggie CLI on Unix, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
 
-- Looking upward from the folder the tool starts in, it runs the first `node_modules/.bin/agnostic-ai` it finds up to the project's config, and otherwise the `agnostic-ai` on your PATH. [`agnostic-ai project`](@/docs/cli-reference/project.md) then finds the project and runs its pinned version. Trae runs the PATH one only. Keep the one it picks at 0.83.0 or newer with [`agnostic-ai upgrade`](@/docs/cli-reference/upgrades.md#upgrade); an older one prints an upgrade message, and with none found nothing loads.
+- Looking upward from the folder the tool starts in, it runs the first `node_modules/.bin/agnostic-ai` it finds up to the project's config, and otherwise the `agnostic-ai` on your PATH. [`agnostic-ai project`](@/docs/cli-reference/project.md) then finds the project and runs its pinned version. Trae runs the PATH one only. Keep the one it picks up to date with [`agnostic-ai upgrade`](@/docs/cli-reference/upgrades.md#upgrade); an older one prints an upgrade message, and with none found nothing loads.
 - Codex, Cursor, Gemini CLI, and Qoder run it only in a folder you trust.
 - On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash. The Claude Code subagent hook needs it too.
 - Hooks you wrote yourself stay.

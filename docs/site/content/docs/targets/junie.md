@@ -1,6 +1,6 @@
 +++
 title = "Junie"
-description = "What agnostic-ai writes for Junie: file paths, what Junie cannot do, and output options."
+description = "Junie: generated files, supported features, and output settings."
 weight = 150
 
 [extra]
@@ -19,9 +19,9 @@ JetBrains Junie reads `.junie/AGENTS.md` (instructions that point to source spec
 
 ## First rule
 
-Install the client using the [official setup guide](https://junie.jetbrains.com/docs/), then open your project in it.
+Follow the [official setup guide](https://junie.jetbrains.com/docs/), then open your project in the tool.
 
-Select `junie` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.junie/AGENTS.md`.
+Select `junie` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.junie/AGENTS.md`.
 
 Instructions apply to the IDE and CLI. Native subagents and slash commands on this page are CLI features.
 
@@ -152,4 +152,4 @@ Older layouts still import:
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

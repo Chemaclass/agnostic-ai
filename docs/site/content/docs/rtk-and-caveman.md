@@ -1,6 +1,6 @@
 +++
 title = "Use RTK and Caveman with agnostic-ai"
-description = "Turn on RTK for shorter command output and Caveman for shorter answers, and what each one costs."
+description = "Set up RTK for shorter command output or Caveman for shorter answers, and compare their costs."
 weight = 78
 
 [extra]
@@ -10,7 +10,7 @@ group = "Workflows"
 
 # Use RTK and Caveman with agnostic-ai
 
-[RTK](https://github.com/rtk-ai/rtk) shortens the output of common terminal commands before the coding agent reads it. [Caveman](https://github.com/JuliusBrussee/caveman/tree/main/skills/caveman) is a skill that asks the agent to answer in fewer words. agnostic-ai can set up either one. Use RTK to shorten command output, or Caveman for shorter answers; our small test found no extra cost saving from combining them (see [test results](#test-results)).
+[RTK](https://github.com/rtk-ai/rtk) shortens common terminal commands' output before the coding agent reads it. [Caveman](https://github.com/JuliusBrussee/caveman/tree/main/skills/caveman) asks the agent to answer in fewer words. agnostic-ai can set up either. Our small test found no extra cost saving from combining them; see [test results](#test-results).
 
 ## Turn them on
 

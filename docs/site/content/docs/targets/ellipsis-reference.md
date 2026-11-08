@@ -26,7 +26,7 @@ Start with [one Ellipsis review](@/docs/targets/ellipsis.md). This reference cov
 
 The reviewer needs a `name`, one engine block (`claude_code`, `codex`, or `gemini`), and that block's `model`. Ellipsis names the model for every session, so none is guessed. Other native reviewer keys, such as `paths`, `environment`, `skills`, `permissions`, `budget`, and `comments`, pass through. A later settings spec replaces each top-level `x-ellipsis` block it sets (`ellipsis`, `pull_requests`, `reviewer`, `output`, `budget`) as a whole.
 
-Nothing is added for you. With no `output` block, Ellipsis stays silent on a pass and comments on a failure, and never approves. Automatic approval needs `output.on_pass: approve` in your settings.
+With no `output` block, Ellipsis stays silent on a pass and comments on a failure. It never approves. Automatic approval needs `output.on_pass: approve` in your settings.
 
 The prompt comes only from review specs. A `prompt` inside `x-ellipsis.reviewer` is an error, because the file would then have two sources for it. Agent specs never become a reviewer.
 
@@ -139,7 +139,7 @@ x-ellipsis:
   args: [/sandbox/api-repo/scripts/mcp-server.js]
 ```
 
-A stdio server runs in the sandbox, so install what it needs in `install`. Sync cannot check that a command exists there. On a Codex reviewer, a server that fails to start fails the whole turn, not just that server's tools.
+Install a stdio server's dependencies in `install`, since it runs in the sandbox. Sync cannot check whether the command exists there. With a Codex reviewer, a server startup failure stops the whole turn.
 
 ## Config keys
 

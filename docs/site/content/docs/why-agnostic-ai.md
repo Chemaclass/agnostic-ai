@@ -13,7 +13,7 @@ next_label = "Install agnostic-ai"
 
 # Why agnostic-ai? {#why-agnostic-ai}
 
-Each coding tool reads its instructions and settings from its own files. With several tools, you keep several copies current. agnostic-ai lets you edit one source and generates the files each tool reads.
+Each coding tool has its own instruction and settings files. agnostic-ai generates them from one set of sources, so you update shared instructions once.
 
 ## A small useful setup
 
@@ -29,7 +29,7 @@ Run `agnostic-ai sync`. Claude Code gets `CLAUDE.md`, Codex gets `AGENTS.md`, an
 
 ## What agnostic-ai does
 
-Your source files live in `.agnostic-ai/`, in plain Markdown and YAML. They are called **specs**. The coding tools you use are called **targets**; you choose them in `agnostic-ai.yaml`.
+Source files, called **specs**, live in `.agnostic-ai/` as Markdown and YAML. Choose the coding tools, called **targets**, in `agnostic-ai.yaml`.
 
 Sync translates the specs into each tool's paths, formats, and setting names, and reports features a tool cannot use. `agnostic-ai sync --check` tells you whether the generated files still match the specs.
 

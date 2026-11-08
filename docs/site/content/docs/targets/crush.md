@@ -1,6 +1,6 @@
 +++
 title = "Crush"
-description = "What agnostic-ai writes for Crush: file paths, what it supports, and output settings."
+description = "Crush: generated files, supported features, and output settings."
 weight = 170
 
 [extra]
@@ -21,7 +21,7 @@ Set `outputs.crush.agents: skill` to write agents as on-demand skills; see [agen
 
 ## First rule
 
-Select `crush` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
+Select `crush` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
 Crush has no native custom-agent profiles.
 
@@ -47,10 +47,9 @@ crush.json                         # when MCP or hook entries exist (merged with
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
-
 - **Rules**: Crush has no per-rule directory, so rule bodies are included in `AGENTS.md`.
-- **Skills**: `.agents/skills/` is the first project path Crush scans. While another target writes that folder, the files are identical to those the other `.agents/skills/` tools get, so it is written once. `x-crush.user-invocable: true` also adds a skill to the command palette (ctrl+p).
-  - `disable-model-invocation: true` is written with `user-invocable: true`. Crush then leaves the skill out of the model's list and keeps it in the command palette ([Crush README](https://github.com/charmbracelet/crush/blob/v0.98.1/README.md), since v0.71.0). So each command reaches Crush as a skill the user runs by name ([tools without commands](@/docs/spec-format/commands.md#tools-without-commands)). When another target, including Goose, also writes the skills folder, the files must match, so both fields are dropped with a note and commands are skipped; set `outputs.crush.skills-dir: .crush/skills` to keep them. An `x-crush` value for either field wins. Import reads the pair back as `disable-model-invocation: true`, so after import every selected tool treats that skill as user-only. A native file that keeps `user-invocable` but drops `disable-model-invocation` imports as `x-crush.disable-model-invocation: false`, so Crush's model can start the skill again while other tools keep it user-only.
+- **Skills**: `.agents/skills/` is the first project path Crush scans. Targets that share this folder get identical files, written once. `x-crush.user-invocable: true` also adds a skill to the command palette (ctrl+p).
+  - `disable-model-invocation: true` is written with `user-invocable: true`. Crush then leaves the skill out of the model's list and keeps it in the command palette ([Crush README](https://github.com/charmbracelet/crush/blob/v0.98.1/README.md), since v0.71.0). Commands become skills you run by name ([tools without commands](@/docs/spec-format/commands.md#tools-without-commands)). When another target, including Goose, shares the skills folder, sync drops both fields with a note and skips commands to keep the files identical. Set `outputs.crush.skills-dir: .crush/skills` to retain these fields and commands. An `x-crush` value for either field wins. Import restores the pair as `disable-model-invocation: true`, making the skill user-only for every selected tool. A native file that keeps `user-invocable` but drops `disable-model-invocation` imports as `x-crush.disable-model-invocation: false`, so Crush's model can start the skill again while other tools keep it user-only.
 - **Agents**: Crush has no native agent profiles. By default, agents are skipped with a warning; `outputs.crush.agents: skill` converts them to skills.
 - **`crush.json`**: sync keeps your `models`, `providers`, `lsp`, and `options` keys. Crush now prefers `crushrc`, a Bash script it runs on startup, and adds new options only there. JSON is deprecated but still works, so sync writes `crush.json` and never `crushrc`. An MCP field that exists only in `crushrc` cannot be set here.
 - **Ignore**: `.crushignore` uses gitignore syntax, supported since [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). The usual protection for hand-written files applies.
@@ -143,4 +142,4 @@ Crush has no documented directory scope. Sync skips scoped rules, and import can
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

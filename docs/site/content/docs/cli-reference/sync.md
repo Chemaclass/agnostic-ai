@@ -59,7 +59,7 @@ agnostic-ai sync --only claude,cursor
 - `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. Add `--check` to exit non-zero on drift. `--json` adds a `keys` list per settings or MCP file.
 - Files per tool: [global output](@/docs/global-configuration.md#global-output), [MCP servers](@/docs/global-configuration.md#global-mcp-servers), and [model, effort, and permissions](@/docs/global-configuration.md#global-default-model-and-effort).
 
-**Summary.** With nothing to do, `sync` prints `✓ 26 targets up to date · 49ms`. After an edit it names the changed specs, then the files created (`+`), updated (`~`), and removed (`-`):
+**Output.** With nothing to do, `sync` prints `✓ 26 targets up to date · 49ms`. After an edit it names the changed specs, then the files created (`+`), updated (`~`), and removed (`-`):
 
 ```
   ~ rule testing → 9 files in 9 targets
@@ -71,7 +71,7 @@ agnostic-ai sync --only claude,cursor
 
 Each list shows three paths (`-vv` lists all). A `config` spec means `agnostic-ai.yaml` changed. The `!` line, absent outside a git repository, lists changed files git tracks or does not ignore.
 
-**Tracked despite ignored.** For a generated path git both tracks and ignores (usually committed before the managed `.gitignore` block), `sync` prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` reports it but never fails on it alone.
+**Tracked files that match ignore rules.** For a generated path git both tracks and ignores (usually committed before the managed `.gitignore` block), `sync` prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` reports it but never fails on it alone.
 
 **Hand edits.** `sync` saves an output edited by hand since the last sync as `<path>.bak` before overwriting or removing it. For an overwrite it prints `! overwrote a hand edit to <path> (saved as <path>.bak)` (on stderr under `--quiet`). `revert` puts the edit back; move it into `.agnostic-ai/` to keep it. With the [`memory` built-in](@/docs/memory.md), the line for an instructions file such as `GEMINI.md` also suggests saving a fact in `.agnostic-ai/memory/`, since a tool's own memory may have written the edit. `--keep-edits` leaves the edit in place instead.
 
@@ -87,7 +87,13 @@ Each list shows three paths (`-vv` lists all). A `config` spec means `agnostic-a
 
 **Hand-written instructions.** `sync`, `--check`, `--plan`, and `--json --dry-run` stop when an instructions file such as `CLAUDE.md` or `AGENTS.md` holds text agnostic-ai did not write and neither `.agnostic-ai/AGNOSTIC_AI.md` nor `.agnostic-ai/local/` has, and name the `import` that keeps it. `sync --backup` replaces the file and keeps the old one as `<path>.bak`, unless that `.bak` exists. A file an earlier sync wrote, or with the generated header, never stops it, nor does a tracked file under `--keep-edits`.
 
-**Remove leftover files.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files, and then empty directories, it no longer writes, if it can prove it wrote them (generated-file header or recorded hash). A generated file edited since sync is saved as `<path>.bak` before removal. A headerless file edited since sync, or written by a sync that recorded no checksum, is kept as `~ kept orphan <path>` with the reason. While `targets` is empty, `sync` (also with `-t`, which it ignores), `status` and `doctor --fix` warn and keep every file; `sync --allow-empty-targets` removes them. `sync --check` fails with AAI-303 while generated files remain, since it cannot check them. Kept orphans stay in the managed `.gitignore` block and count as drift until removed or listed under `sync.unmanaged`. In a terminal, `doctor --fix` offers to remove them, defaulting to no. When a configured target's external adapter is not on PATH, sync keeps that target's files and shared skill links and prints `~ skipped removing stale files: <target> did not load; a sync that loads every target removes them`.
+**Remove leftover files.** `sync` records output paths and checksums in `.agnostic-ai/.sync-state`. A full run deletes files it no longer writes, then empty directories, when a generated-file header or recorded hash proves ownership. A generated file edited since sync is backed up as `<path>.bak` before removal. A headerless file edited since sync, or one with no recorded checksum, stays with `~ kept orphan <path>` and a reason.
+
+While `targets` is empty, `sync`, `status`, and `doctor --fix` warn and keep every file. This also applies to `sync -t`, which ignores that filter while `targets` is empty. Use `sync --allow-empty-targets` to remove the files. `sync --check` fails with AAI-303 while generated files remain, since it cannot check them.
+
+Kept orphans stay in the managed `.gitignore` block and count as drift. Remove them or add them to `sync.unmanaged`. In a terminal, `doctor --fix` offers removal, defaulting to no.
+
+When an external adapter is missing from PATH, sync keeps that target's files and shared skill links. It prints `~ skipped removing stale files: <target> did not load; a sync that loads every target removes them`.
 
 Changing only a rule, skill, or agent name's capitalization keeps the newly written outputs on case-insensitive disks. Hand-edit backups and `--keep-edits` still apply. On case-sensitive disks, sync removes the old spelling's files.
 
@@ -156,7 +162,13 @@ Dry-run, render, import, and migration previews hide literal values in known cre
 
 ### Watch mode
 
-`sync --watch` watches `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, `.agnostic-ai/AGNOSTIC_AI.md`, `.agnostic-ai/local/`, `.agnostic-ai/overlays/`, and every `sources.*` directory (absolute paths outside the project and linked roots included), even ones that appear later. It groups changes within 50 ms and exits on Ctrl+C. A spec change re-syncs only the targets that write that kind; config and overlay edits, deletes, and renames re-sync everything and update the watched paths. It polls every 200 ms where notifications fail or a missing external source has no safe parent to watch (never a parent holding the project), catching edits made during a re-sync on the next tick. Without `--target`, `--only`, or `--except`, each re-sync reads `targets` again: a tool you add gets its files, and sync removes the files it wrote for a tool you remove. With those flags (`--all` is not one of them), watch keeps the list it started with. While `targets` is empty, such as `targets:` saved mid-edit, watch warns and keeps every file from the first pass, also with `--target`; a missing `targets` key means the default list, as in plain `sync`.
+`sync --watch` watches `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, `.agnostic-ai/AGNOSTIC_AI.md`, `.agnostic-ai/local/`, `.agnostic-ai/overlays/`, and every `sources.*` directory. This includes absolute paths outside the project, linked roots, and directories created later. It groups changes within 50 ms and exits on Ctrl+C.
+
+A spec edit re-syncs only targets that write that kind. Config edits, overlay edits, deletions, and renames re-sync all targets and update watched paths. Where notifications fail, watch polls every 200 ms. It also polls a missing external source when there is no safe parent to watch (a parent holding the project is never watched). Edits during a re-sync are caught on the next tick.
+
+Without `--target`, `--only`, or `--except`, each re-sync reads `targets` again. Added tools get their files; removed tools lose the files sync wrote for them. With those flags, watch keeps its initial list. `--all` does not fix the list.
+
+An empty `targets`, such as `targets:` saved mid-edit, makes watch warn and keep every file from the first pass, even with `--target`. A missing key uses the default targets, as plain `sync` does.
 
 ### Parallel emission {#parallel-emission}
 

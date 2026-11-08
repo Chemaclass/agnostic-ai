@@ -1,6 +1,6 @@
 +++
 title = "OpenCode"
-description = "What agnostic-ai writes for OpenCode: file paths, what OpenCode cannot do, and output options."
+description = "OpenCode: generated files, supported features, and output settings."
 weight = 130
 
 [extra]
@@ -19,9 +19,9 @@ OpenCode reads the root `AGENTS.md`, `.opencode/`, and `opencode.json`.
 
 ## First rule
 
-Install the client using the [official setup guide](https://opencode.ai/docs/), then open your project in it.
+Follow the [official setup guide](https://opencode.ai/docs/), then open your project in the tool.
 
-Select `opencode` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
+Select `opencode` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
 Generated hooks use the V1 plugin API by default. Select [V2 hooks](#opencode-v2-hooks) explicitly for OpenCode V2.
 
@@ -60,7 +60,11 @@ opencode.json                             # when MCP entries exist (merged with 
 
 - In legacy agent files, a `can` or `tools` list becomes the agent [`permission`](https://docs.opencode.ai/docs/agents/#permissions) map: `can: [read]` writes `permission: {"*": deny, doom_loop: ask, external_directory: ask, read: {"*": allow, "*.env": ask, "*.env.*": ask, "*.env.example": allow}}`. Every tool not listed is denied. The catch-all comes first because the last matching rule wins.
 - Restricted agents keep project permission decisions for their allowed tools, including `.env` prompts, and deny other tools. Sync reads root `opencode.json`, including native V2 `permissions` in order. It does not read `opencode.jsonc`, `.opencode/opencode.json`, or global user policy, so agent rules can override restrictions kept only there.
-- Files with `permissions`, `request`, `system`, or `disabled` use V2 rules, including `disabled: false`. Sync writes generated restrictions as an ordered `permissions` array and appends explicit native array rules in their source order. These explicit rules can override generated restrictions. OpenCode 2 ignores a top-level `temperature` in such a file, so sync writes it as `request: {body: {temperature: ...}}`, merged with any `request` you set; a `temperature` already in `request.body` wins. OpenCode 2.2.0 keeps request values but does not yet send them with model requests ([agents](https://opencode.ai/v2/docs/agents#request)); this also applies to `temperature` in a V1 file. Import preserves the V2 fields and rebuilds the agent without its original native file.
+- Files with `permissions`, `request`, `system`, or `disabled` use V2 rules, including `disabled: false`. Sync writes generated restrictions as an ordered `permissions` array and appends explicit native array rules in their source order. These explicit rules can override generated restrictions.
+
+  OpenCode 2 ignores a top-level `temperature` in such a file, so sync writes it as `request: {body: {temperature: ...}}`, merged with any `request` you set; a `temperature` already in `request.body` wins.
+
+  OpenCode 2.2.0 keeps request values but does not yet send them with model requests ([agents](https://opencode.ai/v2/docs/agents#request)); this also applies to `temperature` in a V1 file. Import preserves the V2 fields and rebuilds the agent without its original native file.
 - Native `permission` keys retain source order because the last matching rule wins. `x-opencode.permission` overrides the keys it names; an explicit native action wins outright. Malformed project rules or resource rules that cannot fit the agent format fail sync with the affected paths.
 - V2 home-relative resources and Windows case differences can make restrictions stricter. Use absolute resources for scoped filesystem grants. Sync rejects grants whose intersection depends on the runtime home. See [native permissions](https://opencode.ai/v2/docs/permissions) for matching semantics.
 - These names translate: `Read`, `Edit` and `Write` (both `edit`), `Bash`, `Glob`, `Grep`, `Task`, `Skill`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>` as `<server>_<tool>`, and a whole server (`mcp:<server>` or `mcp__<server>`) as `<server>_*`. Other names drop with a sync note. If nothing translates, no map is written, because `{"*": deny}` alone would lock the agent out. `x-opencode: {permission: {...}}` wins for each key it names; a single action such as `permission: ask` wins outright.
@@ -200,11 +204,15 @@ Sync writes `.opencode/plugins/<name>.ts`. The type-only `@opencode/plugin` impo
 | `outputs.opencode.hooks-dir` | `.opencode/plugins` | OpenCode only loads plugins from its own directory, so moving this stops the hooks loading |
 | `outputs.opencode.mcp-file` | `opencode.json` | |
 | `outputs.opencode.emit-skills-as-commands` | `false` | |
-| `outputs.opencode.rules-file` | unset | writes legacy joined rules and skips the write of instructions that point to source specs |
+| `outputs.opencode.rules-file` | unset | writes legacy joined rules and skips instructions that point to source specs |
 
 With `builtins: [memory]`, sync adds both [shared memory](@/docs/memory.md) indexes to `instructions` and keeps your own entries. Dropping the built-in removes only those two.
 
-With `memory.personal: repo`, sync also adds `"<folder>/**": "allow"` to `permission.external_directory`, so OpenCode saves to the [personal memory folder](@/docs/memory.md#one-store-per-repository) without asking. Your own entries stay in the order you wrote them, and the folder entry goes last when sync first adds it, since OpenCode applies the last rule that matches. A bare action you set there, such as `"deny"`, becomes the `"*"` entry. A bare `"permission": "deny"` becomes `{"*": "deny"}`, which means the same and stays after repo mode ends. Once sync has added the folder entry it stays where it is, so a broader rule you put after it keeps winning, and an entry you edit stays yours. A folder path with `*` or `?`, which OpenCode reads as wildcards, gets no `external_directory` entry and a note; move `AGNOSTIC_AI_HOME` or set `memory.personal: checkout`.
+With `memory.personal: repo`, sync also adds `"<folder>/**": "allow"` to `permission.external_directory`, so OpenCode can save to the [personal memory folder](@/docs/memory.md#one-store-per-repository) without asking. Sync keeps your entries in order and adds the folder entry last. OpenCode uses the last matching rule.
+
+A bare action you set there, such as `"deny"`, becomes the `"*"` entry. A bare `"permission": "deny"` becomes `{"*": "deny"}`, which means the same and stays after repo mode ends. Once sync has added the folder entry it stays where it is, so a broader rule you put after it keeps winning, and an entry you edit stays yours.
+
+A folder path with `*` or `?`, which OpenCode reads as wildcards, gets no `external_directory` entry and a note; move `AGNOSTIC_AI_HOME` or set `memory.personal: checkout`.
 
 With `handoff` or `handoff-hook` enabled in a linked worktree, sync also allows the main checkout's ignored [handoff store](@/docs/handoff.md#write-from-a-linked-worktree) under `permission.external_directory`. Existing memory and user permission rules stay, and a rule you or a spec wrote for that path, such as `deny` or `ask`, is never replaced. A main checkout path with `*` or `?` gets no grant. For a tracked, hand-written, or unmanaged file sync skips only this grant and reports the permission to add by hand (once you add it, it stays); the rest of its output is unchanged.
 
@@ -223,4 +231,4 @@ Plugin hooks in `.opencode/plugins/` are not imported.
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

@@ -166,7 +166,7 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 
 ### What import writes
 
-`import` turns native references and literal credentials into `${NAME}` references, and lists each variable to set. [MCP import credentials](@/docs/spec-format/mcp-import.md) owns the rewrite rules, [credential names](@/docs/spec-format/mcp-import.md#credential-names), and detection limits.
+`import` turns native references and literal credentials into `${NAME}` references, and lists each variable to set. [MCP import credentials](@/docs/spec-format/mcp-import.md) describes the rewrite rules, [credential names](@/docs/spec-format/mcp-import.md#credential-names), and detection limits.
 
 ## Credential names {#credential-names .legacy-anchor}
 

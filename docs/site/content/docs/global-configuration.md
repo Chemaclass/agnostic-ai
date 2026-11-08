@@ -9,7 +9,7 @@ group = "Reference"
 
 # Global configuration
 
-Keep personal instructions, rules, hooks, skills, agents, settings, and MCP servers in one home folder, and run `agnostic-ai sync --global` to install them into each tool's user-level files, so they apply in every project. Use it for what you want everywhere; put team defaults in a project or a pack.
+Keep instructions, rules, hooks, skills, agents, settings, and MCP servers for all your projects in one home folder. Run `agnostic-ai sync --global` to install them in each tool's user files. Put team defaults in a project or pack.
 
 ## Source and targets
 
@@ -41,7 +41,7 @@ targets: [claude, codex, cursor]
 - `sync --global`, `lint --global`, and `validate --global` then use only those targets. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one.
 - `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`.
 - A target with no user-level files, such as `aider` or `continue`, is skipped with one warning. An unknown name stops the run.
-- [`builtins`](@/docs/configuration.md#built-ins), [`requires`](@/docs/configuration.md#requires), `lint`, and [`models`](@/docs/configuration.md#models) work as in a project. For each key, `local/agnostic-ai.yaml` replaces the shared value, and a `models` tier replaces the same-name tier whole.
+- [`builtins`](@/docs/configuration.md#built-ins), [`requires`](@/docs/configuration.md#requires), `lint`, and [`models`](@/docs/configuration.md#models) work as in a project. For each key, `local/agnostic-ai.yaml` replaces the shared value, and a `models` tier replaces the entire shared tier of the same name.
 - When a file's tiers do not load, `sync --global` stops. With `-t`, it warns, skips that file's tiers, and omits the `model` of any spec that names one.
 - [`on-unsupported`](@/docs/configuration.md#on-unsupported) (`warn`, `error`, or `silent`) sets what `sync --global` does with a skill line that Claude Code expands and other targets read as plain text. See [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax).
 - Other keys except `version` print a warning and are ignored.
@@ -149,7 +149,7 @@ permissions:
 
 `sync --global --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json`, or under `CLAUDE_CONFIG_DIR`. It accepts `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, and `bypassPermissions`. A later settings spec wins. Removing the field removes the managed mode, unless you changed it by hand. Claude's `auto` and `bypassPermissions` need user, managed, or session settings; see [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
 
-Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule (v0.86.0 or later):
+Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule:
 
 - Sync appends each missing rule after the rules already there, and adopts a rule already there.
 - Sync records added and adopted rules in `state/global.json`. Dropping a rule from the specs removes it, including a rule you wrote before adoption. Other rules keep their order.
@@ -193,7 +193,7 @@ Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`. 
 
 ### MCP servers {#global-mcp-servers}
 
-MCP specs in the home's `mcps/` install each server in the user MCP file of every target that has one, rendered as the target's project MCP file renders it:
+MCP specs in the home's `mcps/` install servers in each supported tool's user MCP file, using the same format as project servers:
 
 | Target | File | Where |
 |---|---|---|
@@ -210,7 +210,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
 
-`serve --global` lists, on its **Tools** page, the servers in these files that no home spec covers and sync did not write, with the `import --global <target>` command that makes each one a spec. See [serve](@/docs/cli-reference/inspect.md#serve).
+The **Tools** page in `serve --global` lists servers that have no home spec and were not written by sync. Each includes the `import --global <target>` command to create its spec. See [serve](@/docs/cli-reference/inspect.md#serve).
 
 OpenHands has no user MCP file sync can write. Sync prints a note that points at Agent Canvas **Customize > MCP Servers**, and removes the servers an earlier sync recorded as its own in `~/.openhands/mcp.json`. See [OpenHands MCP](@/docs/targets/openhands.md#mcp).
 

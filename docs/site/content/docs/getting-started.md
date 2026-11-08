@@ -31,7 +31,7 @@ in-your-terminal = "@/docs/getting-started.md#install-agnostic-ai"
 
 # Set up your project {#getting-started}
 
-This walkthrough writes one project note, generates the files Claude Code and Codex read, then changes the note and updates both. It takes a few minutes. Run each step from your project folder, with the tools you use.
+Write one project note, generate the files Claude Code and Codex read, then update the note for both tools. Run each step from your project folder. You can select other tools you use.
 
 Prefer to have your coding agent do the setup? [Paste this prompt](@/docs/agent-setup.md) instead, then come back for [the daily loop](#daily-use).
 
@@ -113,7 +113,7 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Open `AGENTS.md` to find the new sentence. `CLAUDE.md` still points to it, so both tools read the update. This is the daily loop: edit the source, review the plan, sync. Never edit the generated files; sync replaces them.
+Check the new sentence in `AGENTS.md`. `CLAUDE.md` still points to it, so both tools receive the update. For each change, edit the source, review the plan, and sync. Sync replaces edits to generated files.
 
 After cloning, install agnostic-ai the way the project documents, then run `sync`. If the project lists agnostic-ai as a dependency, install its locked dependencies and use the local command, such as `pnpm exec agnostic-ai`.
 
@@ -186,7 +186,7 @@ Run `agnostic-ai sync --plan`, review the changes, then run `agnostic-ai sync` a
 
 ## Next steps
 
-Add more only when a task needs it:
+Choose the spec for your next task:
 
 - Repeat a task with several steps: write a [skill](@/docs/spec-format/skills.md), such as a release checklist.
 - Run a command at a tool event: add a [hook](@/docs/spec-format/hooks.md).

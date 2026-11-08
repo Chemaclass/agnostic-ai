@@ -9,7 +9,7 @@ group = "Reference"
 
 # Verify a release
 
-The install scripts and `agnostic-ai upgrade` already check each download against the release checksum, and against its [build provenance](#build-provenance) when the GitHub CLI is installed and logged in. Use the checks below for a manual download, or for proof of where a release came from. Replace `vX.Y.Z` and the archive filename with your release and platform.
+The install scripts and `agnostic-ai upgrade` check download checksums. When the GitHub CLI is installed and logged in, they also check [where the archive was built](#build-provenance). To verify a manual download or inspect release evidence, use the checks below. Replace `vX.Y.Z` and the archive filename with your release and platform.
 
 | Check | Proves | Command |
 |---|---|---|

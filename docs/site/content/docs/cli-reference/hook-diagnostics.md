@@ -12,7 +12,7 @@ group = "Reference"
 
 ## Test a hook {#hook-run}
 
-`agnostic-ai hook run <hook>` runs a hook spec the way each tool would, before a session fires it. A hook that blocks on Claude Code and does nothing on Codex shows up here, not in a live session:
+`agnostic-ai hook run <hook>` tests a hook spec using each tool's behavior. Use it before a session to find differences, such as a hook that blocks on Claude Code but does nothing on Codex:
 
 ```text
 $ agnostic-ai hook run protect-files --edit .github/workflows/tests.yml
@@ -59,7 +59,7 @@ Commands come from the spec, so a command that calls a hook script needs a `sync
 <details>
 <summary>Environment variables per tool</summary>
 
-`hook run` clears these variables from the calling shell's env, then sets them per tool. Other variables pass through.
+`hook run` clears these variables from the calling shell's environment, then sets them for each tool. Other variables pass through.
 
 | Target | Variables set |
 |--------|---------------|

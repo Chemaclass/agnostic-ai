@@ -10,7 +10,7 @@ group = "Start"
 
 # Import existing tool configuration
 
-Import moves your current tool setup into editable sources in `.agnostic-ai/`, so you keep your current instructions. [Install agnostic-ai](@/docs/installation.md) first, then start from the project root with a clean Git working tree so you can review and undo the import.
+Import copies your tool setup into editable sources in `.agnostic-ai/`. [Install agnostic-ai](@/docs/installation.md), then start from the project root with a clean Git working tree so you can review and undo changes.
 
 ## Import the existing setup {#1-import}
 
@@ -27,7 +27,7 @@ agnostic-ai import claude --dry-run --diff
 agnostic-ai import claude
 ```
 
-Import writes source specs and does not sync. The `import` command does not change selected targets.
+Import writes source specs. It leaves generated files and selected targets unchanged.
 
 ## Review what was imported {#review-what-was-imported}
 

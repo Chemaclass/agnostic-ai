@@ -9,7 +9,7 @@ group = "Reference"
 
 # Start a project
 
-`use <tool>` adds a tool and generates its files in one step; `init` and `import` let you review existing instructions first. `new` creates a spec, and `list` shows what loads. Run these from the project root, naming tools in agents and scripts to skip the interactive choice.
+`use <tool>` adds a tool and generates its files in one step; `init` and `import` let you review existing instructions first. `new` creates a spec, and `list` shows what loads. Run these commands from the project root. In scripts or agent instructions, name the tools to skip interactive selection.
 
 ## use
 
@@ -67,7 +67,7 @@ agnostic-ai sync
 | `--from <cli>` | Then import existing config from this [import source](#import), or `all`. |
 | `--dry-run` | List the files it, and with `--from` the import, would write. |
 
-Without `--all`, `init` takes targets from a terminal prompt or a comma-separated list on stdin. Unknown names error and write nothing. The prompt ticks a default set (Enter accepts it), the first of these that has any tools:
+Without `--all`, `init` takes targets from a terminal prompt or a comma-separated list on stdin. Unknown names error and write nothing. The prompt preselects the first nonempty set below. Press Enter to accept it:
 
 1. Tools the project uses, by a marker such as `.claude/`, a root `CLAUDE.md`, `.codex/`, `.gemini/`, `.cursor/`, or `.github/copilot-instructions.md`. A root `AGENTS.md` is not a marker, since most tools read it.
 2. Tools whose CLI is on `PATH`, as [`doctor install`](@/docs/cli-reference/check.md#doctor) reports.
@@ -176,7 +176,7 @@ agnostic-ai import reconcile \
 | `--map <native>=<source>` | A native skill directory and `sources.skills`, separate and relative to the project directory, even when nested in a larger repository. Repeat per native directory. |
 | `--json` | Print the four resolved commit IDs and an `entries` array of `action`, `source`, and `destination`. |
 
-Each row reports `add`, `remove`, `update`, or `conflict`, then the tool and source paths, assets and executable modes included. Matching final files get no row. A conflict is a concurrent source edit, deletion, or addition at an occupied destination; a proposed file clashing with a surviving file above or below it (planned removals can allow a file-to-directory swap); or a change to a destination several mapped sources own. Conflicts do not change the exit status.
+Each row reports `add`, `remove`, `update`, or `conflict`, followed by the tool and source paths. Assets and executable modes are included. Matching files are omitted. A conflict is a concurrent source edit, deletion, or addition at an occupied destination; a proposed file clashing with a surviving file above or below it (planned removals can allow a file-to-directory swap); or a change to a destination several mapped sources own. Conflicts do not change the exit status.
 
 It compares file contents stored in Git without merging text. Only direct skill folders with `SKILL.md` and regular files are supported; symlinks and special files stop planning, and every base file needs a source counterpart at `--migrated`. Commit changes in mapped trees first; other uncommitted changes are fine. It only reports a plan for you to apply: it copies no files, restores no skills, and leaves the index alone.
 

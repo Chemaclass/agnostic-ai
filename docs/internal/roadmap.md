@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md)
 
-Shipped features and planned work are listed below. Track specific changes in [issues](https://github.com/Chemaclass/agnostic-ai/issues).
+Track individual changes in [issues](https://github.com/Chemaclass/agnostic-ai/issues).
 
 ## Layered configuration (shipped)
 

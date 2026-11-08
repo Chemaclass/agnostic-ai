@@ -1,6 +1,6 @@
 +++
 title = "Qoder"
-description = "What agnostic-ai writes for Qoder: file paths, what Qoder supports, and config options."
+description = "Qoder: generated files, supported features, and output settings."
 weight = 190
 
 [extra]
@@ -19,11 +19,11 @@ agnostic-ai writes Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) rule
 
 ## First rule
 
-Install the client using the [official setup guide](https://qoder.com), then open your project in it.
+Follow the [official setup guide](https://qoder.com), then open your project in the tool.
 
-Select `qoder` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.qoder/rules/conventional-commits.md`, or shared `AGENTS.md` when another selected target already puts the rule there.
+Select `qoder` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.qoder/rules/conventional-commits.md`, or shared `AGENTS.md` when another selected target already puts the rule there.
 
-When another target includes the rule in `AGENTS.md`, Qoder uses that copy. Keep `AGENTS.md` in the CLI context file list.
+Keep `AGENTS.md` in the CLI context file list so Qoder can read the shared copy.
 
 For existing files, check [what `import qoder` reads](#import) before syncing.
 
@@ -53,7 +53,11 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
 
 ### Rules
 
-Qoder reads `.qoder/rules/` and the root `AGENTS.md`. The Qoder IDE documents that per-rule files win a conflict, so rules go there instead of including them in that file. The Qoder CLI loads both and documents no order between them. When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, an always-on rule gets no file and loads once. A rule whose text differs for Qoder keeps its file. The Qoder CLI reads `AGENTS.md` unless `context.fileName` names other files. Keep it listed there, or the CLI misses the rules that have no file. See [Rule activation](#rule-activation) and [target behavior](@/docs/target-behavior.md#entry-point-files).
+Qoder reads `.qoder/rules/` and the root `AGENTS.md`. In the Qoder IDE, per-rule files win conflicts, so sync writes rules there rather than adding them to `AGENTS.md`. The Qoder CLI loads both and documents no order between them.
+
+When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, an always-on rule gets no file and loads once. A rule whose text differs for Qoder keeps its file.
+
+The Qoder CLI reads `AGENTS.md` unless `context.fileName` names other files. Keep it listed there, or the CLI misses the rules that have no file. See [Rule activation](#rule-activation) and [target behavior](@/docs/target-behavior.md#entry-point-files).
 
 ### Agents
 
@@ -173,4 +177,4 @@ Hooks, personal settings, and the separate project `.mcp.json` are not imported.
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

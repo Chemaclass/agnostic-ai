@@ -12,7 +12,9 @@ group = "Start"
 
 {{ <agent_setup_prompt /> }}
 
-Open your coding agent in the project folder. It asks which tools the project uses and whether Git should track the generated files. Setup is done when `agnostic-ai sync --check` passes. Then [try a first session](@/docs/getting-started.md#sync) and learn [the daily loop](@/docs/getting-started.md#daily-use). To set up by hand instead, follow the [manual walkthrough](@/docs/getting-started.md).
+Open your coding agent in the project folder and paste the prompt above. It asks which tools the project uses and whether Git should track generated files. Setup ends with a passing `agnostic-ai sync --check`.
+
+Then [try a first session](@/docs/getting-started.md#sync) and follow [daily use](@/docs/getting-started.md#daily-use). To set up by hand, use the [manual walkthrough](@/docs/getting-started.md).
 
 <details>
 <summary>Read the full checklist your coding agent follows</summary>
@@ -97,7 +99,7 @@ agnostic-ai lint
 agnostic-ai sync --dry-run
 ```
 
-Check that the targets, output paths, and kept instructions match the project. Fix errors in the specs. Read warnings about instructions or fields a tool cannot use. A passing sync check means files match their sources; it does not mean every tool can enforce every rule. See [Tool behavior](@/docs/target-behavior.md) before changing restrictions or hiding warnings.
+Check the targets, output paths, and imported instructions. Fix spec errors and review warnings about unsupported instructions or fields. `sync --check` checks file contents; enforcement depends on the tool. See [Tool behavior](@/docs/target-behavior.md) before changing restrictions or hiding warnings.
 
 ### 5. Sync and prove the result
 

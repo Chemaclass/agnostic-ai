@@ -1,6 +1,6 @@
 +++
 title = "Continue"
-description = "What agnostic-ai writes for Continue: file paths, what it supports, and output settings."
+description = "Continue: generated files, supported features, and output settings."
 weight = 90
 
 [extra]
@@ -19,9 +19,9 @@ Continue is [no longer actively maintained](https://github.com/continuedev/conti
 
 ## First rule
 
-Install the client using the [official setup guide](https://marketplace.visualstudio.com/items?itemName=Continue.continue), then open your project in it.
+Follow the [official setup guide](https://marketplace.visualstudio.com/items?itemName=Continue.continue), then open your project in the tool.
 
-Select `continue` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.continue/rules/conventional-commits.md`.
+Select `continue` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.continue/rules/conventional-commits.md`.
 
 Agents become rule content by default. Optional assistant files are standalone configs, not automatically discovered subagents.
 
@@ -46,7 +46,6 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
-
 
 - **Rule activation**: a scoped rule matches its scope directory plus its `globs` or `paths`, and gets no `alwaysApply`. A rule with no directory scope keeps `globs`, `alwaysApply`, and `description`. A comma-separated `globs` string becomes an array, because Continue reads a string as one pattern. `x-continue.regex` works only without `scope`. See [file-pattern limits for directory rules](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
 - **Skills**: `.continue/skills/<name>/SKILL.md` and bundled files are copied unchanged. The IDE extension and `cn` read this folder and `.claude/skills/`. Continue requires `name` and `description`, and offers the other files on demand ([`loadMarkdownSkills.ts`](https://github.com/continuedev/continue/blob/main/core/config/markdown/loadMarkdownSkills.ts)). It does not merge names across the two folders, so with the `claude` target each skill shows up twice.
@@ -92,4 +91,4 @@ Sync removes the `.continue/rules/skill-<name>.md` files it wrote in older versi
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

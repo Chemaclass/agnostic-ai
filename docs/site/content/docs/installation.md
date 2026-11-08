@@ -19,7 +19,7 @@ npm needs Node 18 or newer. The other methods install a ready-made binary that n
 
 {{ <install_picker /> }}
 
-The browser interface (`agnostic-ai ui`) ships inside the binary, so it needs no extra download. See [the view reference](@/docs/cli-reference/inspect.md#view).
+The binary includes the browser interface (`agnostic-ai ui`). See [the view reference](@/docs/cli-reference/inspect.md#view).
 
 ## Verify the install
 
@@ -108,7 +108,7 @@ Drop `-g` for a project install. `--include=optional` also overrides an `omit=op
 <details>
 <summary>How the npm package works</summary>
 
-[`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It's a wrapper, and its optional dependencies are six platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the one matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). npm obtains the wrapper and matching platform package from its registry or cache. No install script makes a separate binary download, so `--ignore-scripts` does not block installation. Offline installs need both packages in the cache or mirror.
+[`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It is a wrapper with six optional platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the one matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). npm obtains the wrapper and matching platform package from its registry or cache. No install script makes a separate binary download, so `--ignore-scripts` does not block installation. Offline installs need both packages in the cache or mirror.
 
 Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary the package does not ship.
 

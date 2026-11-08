@@ -9,7 +9,7 @@ group = "Reference"
 
 # Skills
 
-`skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, investigate a bug report. The tool keeps each skill's `description` in view and reads the body and bundled files only when the skill applies. Use a [rule](@/docs/spec-format/rules.md) for what applies to every task.
+`skills/` holds procedures for tasks such as releasing a version, writing a migration, or investigating a bug report. The agent loads a procedure when it needs it. The tool keeps each skill's `description` in view and reads the body and bundled files only when the skill applies. Use a [rule](@/docs/spec-format/rules.md) for what applies to every task.
 
 ## Write one
 

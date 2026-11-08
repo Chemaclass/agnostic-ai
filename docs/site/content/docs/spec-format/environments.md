@@ -9,7 +9,7 @@ group = "Reference"
 
 # Environments
 
-`environments/` defines project setup for a new Git worktree (a separate checkout of the same repository), cloud sandbox, or preview. It covers installing dependencies, copying local config, starting the dev server, and stopping it afterwards. Sync writes each tool's native file, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
+`environments/` defines project setup for a new Git worktree (a separate checkout of the same repository), cloud sandbox, or preview. Use it to install dependencies, copy local config, start a dev server, and stop it afterwards. Sync writes each tool's native file, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
 
 ## Write one
 
@@ -64,7 +64,7 @@ Fields a tool does not use get a no-effect note. Other tools report the spec as 
 | [Amp](@/docs/targets/amp.md) | `install` (a setup script), `terminals` (services) | `.agents/setup`, `.amp/services.yaml` |
 | [Ellipsis](@/docs/targets/ellipsis.md) | `install` as `hooks.build_base`, `setup` as `hooks.after_checkout`, each after `cd /sandbox/<repository>`, only for the environment `x-ellipsis.environment` selects | `.ellipsis/environments/<name>.yaml` |
 
-`import cursor`, `import codex`, and `import ellipsis` read their files back. A successful install does not check the generated files: run the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) after installation and sync, before starting a cached environment.
+`import cursor`, `import codex`, and `import ellipsis` read their files back. After installation and sync, run the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) before starting a cached environment. Installation alone does not check generated files.
 
 ## Claude Code worktree setup {#claude-code-worktree-setup}
 

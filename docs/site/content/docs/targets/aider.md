@@ -1,6 +1,6 @@
 +++
 title = "Aider"
-description = "What agnostic-ai writes for Aider: file paths, what it supports, and output settings."
+description = "Aider: generated files, supported features, and output settings."
 weight = 60
 
 [extra]
@@ -19,9 +19,9 @@ set-up-this-tool = "@/docs/targets/aider.md#first-rule"
 
 ## First rule
 
-Install the client using the [official setup guide](https://aider.chat/docs/install.html), then open your project in it.
+Follow the [official setup guide](https://aider.chat/docs/install.html), then open your project in the tool.
 
-Select `aider` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `CONVENTIONS.md`.
+Select `aider` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `CONVENTIONS.md`.
 
 Aider does not load this file automatically unless you enable the [project config](#output).
 
@@ -59,11 +59,11 @@ When aider leaves `targets` or `conf-file` is unset, sync removes only `model`, 
 | `outputs.aider.conf-file` | empty, opt-in | |
 | `outputs.aider.model` | | |
 | `outputs.aider.weak-model` | | |
-| `outputs.aider.rules-file` | unset | writes all rules into one legacy file and skips the write of instructions that point to source specs |
+| `outputs.aider.rules-file` | unset | writes all rules into one legacy file and skips instructions that point to source specs |
 | `outputs.aider.ignore-file` | `.aiderignore` | |
 
 With [`builtins: [handoff]`](@/docs/handoff.md), a configured `rules-file` includes the handoff instructions.
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

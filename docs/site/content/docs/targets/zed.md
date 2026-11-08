@@ -1,6 +1,6 @@
 +++
 title = "Zed"
-description = "What agnostic-ai writes for Zed: file paths, what it supports, and output settings."
+description = "Zed: generated files, supported features, and output settings."
 weight = 110
 
 [extra]
@@ -21,9 +21,9 @@ Set `outputs.zed.agents: skill` to write agents as on-demand skills; see [agents
 
 ## First rule
 
-Install the client using the [official setup guide](https://zed.dev), then open your project in it.
+Follow the [official setup guide](https://zed.dev), then open your project in the tool.
 
-Select `zed` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.rules`.
+Select `zed` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.rules`.
 
 Hooks become optional Zed Tasks. They do not provide general before-tool enforcement.
 
@@ -49,13 +49,12 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
-
 - **Rules**: Zed 1.4.2 retired its rules library, so `sync` writes the instructions that point to source specs and a marked `## Rules` block to `.rules`.
   - Zed reads [the first matching file](https://zed.dev/docs/ai/instructions) of `.rules`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.github/copilot-instructions.md`, `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`. Nothing agnostic-ai writes ranks above `.rules`. `AGENTS.md` ranks below Copilot's file that only points to source specs. With copilot enabled, rules in `AGENTS.md` never reach Zed.
   - Zed calls `AGENTS.md` primary and `.rules` a compatibility file. If Zed drops `.rules`, the rules move back to `AGENTS.md`.
   - For older Zed, `outputs.zed.rules-file: .rules` replaces the instructions that point to source specs with the legacy single document (agent bodies included).
 - **Skills**: [Zed skills](https://zed.dev/docs/ai/skills). Identical files are written once. Sync reports `x-zed` overrides that make two copies differ.
-  - `disable-model-invocation: true` is written to `SKILL.md`. Zed then hides the skill from the agent's catalog, and it still runs as a slash command or @-mention ([Zed skills](https://zed.dev/docs/ai/skills#disable-model-invocation)). So each command reaches Zed as a skill the user runs by name ([tools without commands](@/docs/spec-format/commands.md#tools-without-commands)). When another target also writes the skills folder, the files must match, so the field is dropped with a note and commands are skipped. An `x-zed.disable-model-invocation` value wins.
+  - `disable-model-invocation: true` is written to `SKILL.md`. Zed then hides the skill from the agent's catalog, and it still runs as a slash command or @-mention ([Zed skills](https://zed.dev/docs/ai/skills#disable-model-invocation)). Commands become skills you run by name ([tools without commands](@/docs/spec-format/commands.md#tools-without-commands)). When another target also writes the skills folder, the files must match, so the field is dropped with a note and commands are skipped. An `x-zed.disable-model-invocation` value wins.
   - A separate `outputs.zed.skills-dir` keeps the output apart during sync, but does not add a native search path. [Zed loads skills](https://zed.dev/docs/ai/skills#limitations) only as direct children of `~/.agents/skills/` or `<worktree>/.agents/skills/`. To use another backing folder, expose it through a symlink at a documented root; sync does not create the link.
   - Names must be 1-64 lowercase letters or digits, with single hyphens between segments. Sync fails on names such as `Deploy`, `my_skill`, and `my--skill` and states the format. It does not rename them.
 - **Agents**: Zed has no per-agent support. Sync reports this unless `outputs.zed.rules-file` is set (the single document includes agent sections).
@@ -83,7 +82,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 | `outputs.zed.agents` | unset (agents are dropped) | `skill` writes each agent as an on-demand skill. Sync keeps it off with a note while another tool with subagents writes the same skills folder; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills) |
 | `outputs.zed.mcp-file` | `.zed/settings.json` | |
 | `outputs.zed.tasks-file` | empty | opt-in |
-| `outputs.zed.rules-file` | unset | writes the legacy single document and skips the write of instructions that point to source specs, so pointing it at `.rules` replaces the pointer file instead of clashing with it |
+| `outputs.zed.rules-file` | unset | writes the legacy single document and skips instructions that point to source specs, so pointing it at `.rules` replaces the pointer file instead of clashing with it |
 
 ## Global instructions
 
@@ -91,7 +90,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 Zed uses `~/.config/zed/AGENTS.md` on macOS, ignoring `XDG_CONFIG_HOME`. On Linux and FreeBSD, it uses `$FLATPAK_XDG_CONFIG_HOME/zed/AGENTS.md` when that variable is present, then `$XDG_CONFIG_HOME/zed/AGENTS.md` or `~/.config/zed/AGENTS.md`. Windows uses `%APPDATA%\Zed\AGENTS.md`. These roots follow [Zed's native path selection](https://github.com/zed-industries/zed/blob/ba63a022c9a22ca66d68ef2a8f0bb9b5b0a9984d/crates/paths/src/paths.rs). An empty or relative Flatpak root is rejected to avoid writing under the working directory.
 
-The first sync after a path correction clears the managed block from the old XDG file only when the ledger records it. Personal text and private permissions remain. A link to the active file is retained. An old file not recorded by sync stays untouched. `explain --global rules/<name>.md` shows the current native file. Global instruction import is not supported; project `import zed` keeps its existing paths below.
+The first sync after a path correction clears the managed block from the old XDG file only when the ledger records it. Personal text and private permissions remain. A link to the active file is retained. Sync leaves old files it has not recorded unchanged. `explain --global rules/<name>.md` shows the current native file. Global instruction import is not supported; project `import zed` keeps its existing paths below.
 
 ## Import
 
@@ -99,4 +98,4 @@ The first sync after a path correction clears the managed block from the old XDG
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

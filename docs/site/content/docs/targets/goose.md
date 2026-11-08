@@ -1,6 +1,6 @@
 +++
 title = "Goose"
-description = "What agnostic-ai writes for Goose: file paths, what it supports, and output settings."
+description = "Goose: generated files, supported features, and output settings."
 weight = 240
 
 [extra]
@@ -19,7 +19,7 @@ Block [Goose](https://goose-docs.ai) reads the root `AGENTS.md` and a `.goosehin
 
 ## First rule
 
-Select `goose` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
+Select `goose` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
 Project MCP specs have no output for Goose. Configure servers in Goose itself.
 
@@ -49,7 +49,6 @@ AGENTS.md                          # entry-point pointer body + inlined rules (s
 
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
-
 
 - **Rules**: are included in the `## Rules` block of `AGENTS.md`. `outputs.goose.rules-file: .goosehints` also writes all rules into one `.goosehints`, which Goose reads only with the `Developer` extension enabled ([using goosehints](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md)).
 - **Scoped rules**: Goose reads context files (`CONTEXT_FILE_NAMES`, default `AGENTS.md` and `.goosehints`) in the subdirectories it works in. Scoped rules go to a nested `AGENTS.md`, or with `rules-file` set, to `backend/.goosehints` for a `backend/` scope. Rules with the same scope share one file.
@@ -113,4 +112,4 @@ See [scoped context](@/docs/scoped-context.md).
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

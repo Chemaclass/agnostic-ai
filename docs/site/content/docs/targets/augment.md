@@ -1,6 +1,6 @@
 +++
 title = "Augment"
-description = "What agnostic-ai writes for Augment: file paths, what Augment cannot do, and output options."
+description = "Augment: generated files, supported features, and output settings."
 weight = 250
 
 [extra]
@@ -19,11 +19,11 @@ set-up-this-tool = "@/docs/targets/augment.md#first-rule"
 
 ## First rule
 
-Select `augment` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
+Select `augment` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
 MCP and permission settings on this page apply to Auggie CLI. The IDE reads the project rules and skills, and runs project hooks from `.augment/settings.json` once you trust the workspace ([Augment changelog](https://www.augmentcode.com/changelog)).
 
-Already configured? [Import](#import) reads ignore patterns and selected permission rules only. Review the remaining native files before syncing.
+For an existing setup, [import](#import) reads ignore patterns and selected permission rules only. Review the remaining native files before syncing.
 
 ## Verify
 
@@ -50,7 +50,6 @@ AGENTS.md                     # entry-point pointer body + rules (written by syn
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
-
 - **Rules**: rule bodies go into the shared `## Rules` block of `AGENTS.md`. Augment also loads `.augment/rules/`.
   - An always-applied rule that is already in the block gets no `.augment/rules/` file. See [target behavior](@/docs/target-behavior.md#entry-point-files).
   - A spec with `alwaysApply: false` gets `type: agent_requested` and a `description` (falling back to the rule name). Rules have no `name` key.
@@ -73,7 +72,7 @@ Moving the entry point off root `AGENTS.md` with a `file` override, or listing i
 Servers merge into `.augment/settings.json` under `mcpServers`. Stdio uses `command`, `args`, and `env` with no `type`. Remote uses `type: http` or `type: sse` plus `url` and `headers`. This is the Auggie CLI project file Augment recommends for team-shared servers ([config docs](https://docs.augmentcode.com/cli/config)), not the IDE Settings Panel.
 
 - Sync changes only its own keys. `shell`, `startupScript`, `theme`, plugin keys, and tool permissions stay.
-- If the file is JSONC, sync drops comments and trailing commas and prints a one-line warning. Keys stay, comments do not.
+- If the file is JSONC, sync keeps its keys but drops comments and trailing commas, with a one-line warning.
 - Augment documents no per-server `disabled` key, so `disabled: true` is dropped with a sync note. Use `auggie mcp remove`.
 - Transports are `stdio`, `sse`, and `http` only ([integrations docs](https://docs.augmentcode.com/cli/integrations)). A `type: ws` spec writes no server and raises a sync note.
 
@@ -129,4 +128,4 @@ These are not written and raise a sync note:
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

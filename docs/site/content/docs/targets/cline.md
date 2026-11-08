@@ -1,6 +1,6 @@
 +++
 title = "Cline"
-description = "What agnostic-ai writes for Cline: file paths, what Cline supports, and config options."
+description = "Cline: generated files, supported features, and output settings."
 weight = 70
 
 [extra]
@@ -19,11 +19,11 @@ Cline gets `AGENTS.md`, rules, agents, skills, and hook scripts. Workflows are o
 
 ## First rule
 
-Install the client using the [official setup guide](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev), then open your project in it.
+Follow the [official setup guide](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev), then open your project in the tool.
 
-Select `cline` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.clinerules/conventional-commits.md`, or shared `AGENTS.md` when another selected target already puts the rule there.
+Select `cline` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.clinerules/conventional-commits.md`, or shared `AGENTS.md` when another selected target already puts the rule there.
 
-When another target includes this rule in `AGENTS.md`, Cline uses that shared copy instead. Keep `AGENTS.md` enabled in the Rules panel.
+Keep `AGENTS.md` enabled in the Rules panel so Cline can read the shared copy.
 
 For existing files, check [what `import cline` reads](#import) before syncing.
 
@@ -48,7 +48,6 @@ AGENTS.md                            # pointer body, plus the rules block when a
 
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
-
 
 - **Rules**: one file each under `.clinerules/`.
   - When Codex or another tool that copies rules into `AGENTS.md` writes that file, its `## Rules` block holds every rule without a scope. Cline loads that file by default, so an always-on rule gets no `.clinerules/` file and loads once.
@@ -81,7 +80,7 @@ Cline finds a hook script by file name only, and it has two hook runtimes.
 
 So sync writes one file per event to `.clinerules/hooks/<Event>`, the only layout both run, once each. The next sync removes an older `.cline/hooks/<Event>.sh` that sync wrote. Sync overwrites a hand-written `.clinerules/hooks/<Event>` for an event a spec uses. List it under `sync.unmanaged` to keep your own. A single-file `.clinerules` blocks `.clinerules/hooks/`. Sync replaces it only when a rule spec holds its content. So run `agnostic-ai import cline` first, or set `outputs.cline.hooks-dir: .cline/hooks`, which only the Cline CLI reads.
 
-Cline's docs barely cover this. The [hooks page](https://docs.cline.bot/customization/hooks) is a stub that points to SDK Plugins (a TypeScript API). Only the [config reference](https://docs.cline.bot/getting-started/config) lists hooks, under `.cline/hooks/` and in the older `.clinerules/hooks/` folder.
+The [hooks page](https://docs.cline.bot/customization/hooks) points to SDK Plugins, a TypeScript API. The [config reference](https://docs.cline.bot/getting-started/config) lists file hooks under `.cline/hooks/` and the older `.clinerules/hooks/` folder.
 
 - Each script starts with `#!/usr/bin/env bash`, and the generated-file comment follows it. The extension runs the file through its shebang, and the SDK reads the shebang to pick bash.
 - **`matcher` and `timeout` do nothing**, and sync says so. A hook runs on every occurrence of its event and must filter itself. Cline uses its own timeout. A [portable](@/docs/spec-format/hook-reference.md#portable-events) `match` kind is the exception: the script runs the command only when the event data names one of the kind's tools, such as `run_commands` (Cline CLI) or `execute_command` (VS Code extension) for `shell`. Tool names in target overrides are matched as literal JSON values, including quotes, backslashes, and newlines. They cannot add shell commands.

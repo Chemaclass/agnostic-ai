@@ -23,6 +23,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - When an ignore file hides a Grok rule, the error names that file and pattern, and offers removing grok from targets as a fix (#3198).
 
+### Site
+
+- Guides and references use plainer language, shorter explanations, supported model aliases, and current release examples.
+
 ## v0.92.0 - 2026-11-08
 
 ### Highlights

@@ -15,7 +15,7 @@ Run `doctor` from the directory that holds `agnostic-ai.yaml` first:
 agnostic-ai doctor
 ```
 
-Follow its final **Next step**. Doctor is read-only by default; [`doctor --fix`](@/docs/cli-reference/check.md#doctor) applies its repairs, after which you rerun `doctor`. When a finding needs more detail or `doctor` cannot start, find the symptom below.
+Follow its final **Next step**. Doctor reads files without changing them; [`doctor --fix`](@/docs/cli-reference/check.md#doctor) applies repairs. Rerun `doctor` afterward. Use the symptoms below if you need more detail or `doctor` cannot start.
 
 | Symptom | Next step |
 |---|---|

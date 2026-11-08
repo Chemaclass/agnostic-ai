@@ -1,6 +1,6 @@
 +++
 title = "Gemini CLI"
-description = "What agnostic-ai writes for Gemini CLI: file paths, what Gemini CLI cannot do, and output options."
+description = "Gemini CLI: generated files, supported features, and output settings."
 weight = 30
 
 [extra]
@@ -21,9 +21,9 @@ Gemini CLI's own docs say Antigravity CLI replaced it for unpaid-tier and Google
 
 ## First rule
 
-Install the client using the [official setup guide](https://geminicli.com/docs/), then open your project in it.
+Follow the [official setup guide](https://geminicli.com/docs/), then open your project in the tool.
 
-Select `gemini` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `GEMINI.md`.
+Select `gemini` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `GEMINI.md`.
 
 Directory-specific rules use nested `GEMINI.md` files. See [scoped context](@/docs/scoped-context.md) before sharing file-pattern rules.
 
@@ -123,7 +123,7 @@ Gemini CLI saves facts by editing its memory files itself, and has no setting to
 | Private project memory: your machine and local setup | its own private memory (`~/.gemini/tmp/<project>/memory/`), plus a copy in your personal memory folder |
 | Global personal memory: preferences for every project | `~/.gemini/GEMINI.md`, outside the block `sync --global` writes, plus a copy in your personal memory folder |
 
-The copies are how other tools read what Gemini CLI learns. If it edits `GEMINI.md` anyway, the next sync keeps the edit in `GEMINI.md.bak` and suggests saving it as a fact in `.agnostic-ai/memory/`.
+The copies let other tools read facts Gemini CLI saves. If it edits `GEMINI.md` anyway, the next sync keeps the edit in `GEMINI.md.bak` and suggests saving it as a fact in `.agnostic-ai/memory/`.
 
 When Gemini CLI's instructions file is one another target also reads, such as `AGENTS.md`, sync leaves the rule out of that file and prints a note. `sync --global` leaves it out too, because the global block reaches every tool. See [shared memory](@/docs/memory.md).
 
@@ -139,7 +139,7 @@ When Gemini CLI's instructions file is one another target also reads, such as `A
 | `outputs.gemini.mcp-file` | `.gemini/settings.json` | also holds hooks and settings |
 | `outputs.gemini.emit-skills-as-commands` | `false` | |
 | `outputs.gemini.emit-agents-as-commands` | `false` | |
-| `outputs.gemini.rules-file` | unset | writes legacy joined rules and skips the write of instructions that point to source specs |
+| `outputs.gemini.rules-file` | unset | writes legacy joined rules and skips instructions that point to source specs |
 | `outputs.gemini.ignore-file` | `.geminiignore` | |
 
 ## Import

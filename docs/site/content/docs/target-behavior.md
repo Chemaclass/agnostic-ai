@@ -21,7 +21,7 @@ targets-left-out = "@/docs/global-configuration.md#targets-left-out"
 
 ## Global output {#global-output .legacy-anchor}
 
-One spec can become different files for each tool. A rule becomes `.claude/rules/<name>.md` for Claude Code and a section of `AGENTS.md` for Codex. Tools also differ in how they find files, in permissions, and in the fields they support. [Compare targets](@/docs/compare.md) shows sample output; `agnostic-ai compare` checks your own specs.
+One spec can become different files for each tool. A rule becomes `.claude/rules/<name>.md` for Claude Code and a section of `AGENTS.md` for Codex. Tools also have different file discovery rules, permissions, and supported fields. [Compare targets](@/docs/compare.md) shows sample output; `agnostic-ai compare` checks your own specs.
 
 ## Directory-specific instructions
 
@@ -74,7 +74,7 @@ A partial sync still refreshes shared instruction files for all configured reade
 
 ## Spec kind behavior
 
-The [tool support table](@/docs/targets/_index.md#capability-matrix) shows what sync writes, not that the native feature matches in full. Sync can still leave out native fields, a client can require trust, and a shared prompt does not always enforce a restriction.
+The [tool support table](@/docs/targets/_index.md#capability-matrix) lists generated output. Check each target's field support, trust requirements, and permission enforcement before relying on it.
 
 | State | What to do |
 |---|---|
