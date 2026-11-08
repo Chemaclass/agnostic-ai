@@ -19,6 +19,14 @@ describe('section tabs', () => {
     expect(sectionTabs(section({ id: 'lifecycle' }))).toEqual([])
   })
 
+  it('puts Tools tabs with content first and empty ones last', () => {
+    const env: SectionItem = { kind: 'environment', name: 'setup', label: 'setup', path: 'environments/setup.yaml', layer: 'project', description: '', values: [], findings: [] }
+    const kinds = [{ kind: 'mcp', label: 'MCP servers', count: 0 }, { kind: 'environment', label: 'Environments', count: 1 }]
+    const native = [{ name: 'paper', holders: [{ target: 'claude', label: 'Claude Code', path: '~/.claude.json', scope: 'user' as const }] }]
+    expect(sectionTabs(section({ id: 'tools', kinds, items: [env], native })).map((tab) => tab.id)).toEqual(['native', 'environment', 'servers'])
+    expect(sectionTabs(section({ id: 'tools', kinds, items: [env] })).map((tab) => tab.id)).toEqual(['environment', 'servers', 'native'])
+  })
+
   it('finds the tab for a linked item, finding, or field', () => {
     const item: SectionItem = { kind: 'agent', name: 'reviewer', label: 'reviewer', path: 'agents/reviewer.md', layer: 'project', description: '', values: [], findings: [{ source: 'lint', severity: 'warning', code: 'LINT', message: 'Check the source.' }] }
     const context = section({ kinds: [{ kind: 'agent', label: 'Agents', count: 1 }], items: [item] })

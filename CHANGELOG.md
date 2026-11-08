@@ -49,6 +49,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - **Lifecycle** shows only the stages that have hooks, with **Show all stages** for the rest, and groups events only one tool uses under their own heading. Each hook says what it does and where it comes from, with its command behind **Command** and **Copy command**. **Add hook** sits at the end of the toolbar.
 - **Context** says how many words agents read when a session starts. It shows the start and on-demand counts with a budget bar, then **Read at every start** and **Read on demand** tables, each with **Copy prompt**. Checking one file and how words are counted fold away at the end.
 - Findings are cards with **Copy prompt** and **Details**. Empty types say which tools support them, and counts show only above zero (#3120).
+- **Tools** shows each server found in your tools as one row with an **Import** button; its files, source choice and terminal command sit under **Details**, and empty tabs move to the end. **Settings** shows each built-in as a name, one line and a switch, with its config name under **Details**.
 - A snapshot or the mock fixture says once, in the top notice, that it is read-only. A snapshot that fails shows **Could not load the snapshot** with **Retry**.
 - Labels use plain words, such as **Preferences** and **MCP servers**; `view --json` carries them.
 - Project or Global and Local replace Shared and Personal; API values stay `shared` and `personal` (#3033).

@@ -1,24 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
 import { importMCPSpec } from '../api'
-import type { MCPSpecPreview, NativeServer } from '../contract'
+import type { MCPSpecPreview, NativeHolder, NativeServer } from '../contract'
 import { useApp } from './app-context'
 import { Notice } from './Banner'
 import { useEditAudience, useGlobalLevel } from './EditAudience'
-import { Select, Code, ToolAvatar } from './ui'
+import { Code, ToolAvatar } from './ui'
 
 export type MCPSpecSaved = Pick<MCPSpecPreview, 'file' | 'syncCommand'>
 
-export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSaved: (saved: MCPSpecSaved) => void }) {
+export interface MCPSpecImport {
+  preview?: MCPSpecPreview
+  pending?: 'preview' | 'apply'
+  error?: string
+  request: (action: 'preview' | 'apply') => Promise<void>
+  cancel: () => void
+}
+
+/** Imports one native server from the chosen holder: a preview first, then apply. Undefined when the server cannot write. */
+export function useMCPSpecImport(server: NativeServer, holder: NativeHolder | undefined, onSaved: (saved: MCPSpecSaved) => void): MCPSpecImport | undefined {
   const app = useApp()
   const audience = useEditAudience()
-  const global = useGlobalLevel()
-  const [selected, setSelected] = useState(0)
   const [preview, setPreview] = useState<MCPSpecPreview>()
   const [pending, setPending] = useState<'preview' | 'apply'>()
   const [error, setError] = useState<string>()
   const revision = useRef(0)
   const busy = useRef(false)
-  const holder = server.holders[selected] ?? server.holders[0]
 
   useEffect(() => {
     revision.current++
@@ -26,7 +32,7 @@ export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSav
     setError(undefined)
   }, [audience, holder?.target, holder?.path, holder?.scope])
 
-  if (app.source.kind !== 'api' || !holder) return null
+  if (app.source.kind !== 'api' || !holder) return undefined
 
   const request = async (action: 'preview' | 'apply') => {
     if (busy.current) return
@@ -50,15 +56,24 @@ export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSav
       setPending(undefined)
     }
   }
+  return { preview, pending, error, request, cancel: () => { setPreview(undefined); setError(undefined) } }
+}
 
+/** The row's one action: Import starts the preview. */
+export function MCPSpecImportButton({ server, flow }: { server: NativeServer; flow: MCPSpecImport }) {
+  return <>
+    <span className="mcp-spec-status" role="status" aria-live="polite">{flow.pending === 'preview' ? 'Preparing preview…' : flow.pending === 'apply' ? 'Saving…' : ''}</span>
+    {!flow.preview && <button className="button button-primary" type="button" aria-label={`Import ${server.name}`} disabled={!!flow.pending} onClick={() => { void flow.request('preview') }}>Import</button>}
+  </>
+}
+
+/** The import's error or its preview, under the row. */
+export function MCPSpecPreviewPanel({ server, flow }: { server: NativeServer; flow: MCPSpecImport }) {
+  const audience = useEditAudience()
+  const global = useGlobalLevel()
+  const { preview, pending, error } = flow
+  if (!error && !preview) return null
   return <div className="mcp-spec">
-    <div className="mcp-spec-controls">
-      {server.holders.length > 1 && <label className="field-edit-target">Copy from <Select aria-label={`Source for ${server.name}`} value={selected} disabled={!!pending} onChange={(event) => setSelected(Number(event.target.value))}>
-        {server.holders.map((source, index) => <option key={`${source.target}:${source.path}:${source.scope}`} value={index}>{source.label}: {source.path} ({source.scope})</option>)}
-      </Select></label>}
-      {!preview && <button className="button" type="button" disabled={!!pending} onClick={() => { void request('preview') }}>Add to your setup</button>}
-      <span role="status" aria-live="polite">{pending === 'preview' ? 'Preparing preview…' : pending === 'apply' ? 'Saving…' : ''}</span>
-    </div>
     {error && <Notice tone="error" title={error} />}
     {preview && <section className="mcp-spec-preview" aria-label={`${server.name} preview`} aria-busy={!!pending}>
       <h3>Add {server.name} to your setup</h3>
@@ -68,8 +83,8 @@ export function MCPSpecAction({ server, onSaved }: { server: NativeServer; onSav
       <p>{preview.targets.length > 0 ? <>After sync, this server reaches <span className="tool-list">{preview.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</> : 'No configured tool accepts this server.'}</p>
       <p className="muted">Run <Code>{preview.syncCommand}</Code> after saving to share the server with your tools.</p>
       <div className="mcp-spec-actions">
-        <button className="button button-primary" type="button" disabled={!!pending} onClick={() => { void request('apply') }}>Apply</button>
-        <button className="button" type="button" disabled={!!pending} onClick={() => { setPreview(undefined); setError(undefined) }}>Cancel</button>
+        <button className="button button-primary" type="button" disabled={!!pending} onClick={() => { void flow.request('apply') }}>Apply</button>
+        <button className="button" type="button" disabled={!!pending} onClick={flow.cancel}>Cancel</button>
       </div>
     </section>}
   </div>
