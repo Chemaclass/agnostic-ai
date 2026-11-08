@@ -158,8 +158,11 @@ test.describe('editor settings', () => {
         if ((event.target as Element).closest('a[href^="cursor:"]')) event.preventDefault()
       }, true))
       const actions = page.locator('th[scope="row"]').filter({ has: page.locator('a[href^="cursor:"]') }).first()
+      // Phones keep a row's actions behind its menu.
+      if (width < 760) await actions.getByRole('button', { name: /^More actions for/ }).click()
+      else await actions.hover()
       const open = actions.locator('a[href^="cursor:"]')
-      const name = await actions.locator('code').first().boundingBox()
+      const name = await actions.locator('.context-source-path').first().boundingBox()
       const start = await open.boundingBox()
       if (width >= 1280) expect(start!.y).toBeLessThan(name!.y + name!.height)
       const parts = [open, actions.getByRole('button', { name: /^Copy path/ }), actions.getByRole('button', { name: 'What can I do?' })]

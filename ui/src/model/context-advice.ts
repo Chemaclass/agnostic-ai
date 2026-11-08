@@ -297,14 +297,6 @@ export function contextAdvice(c: ContextContribution, report: AdviceReport, root
   return { ...text, prompt: lines.join('\n'), builtin: owner }
 }
 
-/** The startup sources worth reading first: largest by words, skipping generated framing. */
-export function startHere(contributions: ContextContribution[], limit = 3): ContextContribution[] {
-  return contributions
-    .filter((c) => c.load === 'startup' && c.category !== 'generated framing')
-    .sort((a, b) => b.words - a.words || a.source.localeCompare(b.source))
-    .slice(0, limit)
-}
-
 /** A prompt that asks a coding agent to review every startup source for one tool. */
 export function contextStartupPrompt(report: ContextReport, root?: string, budget?: number): string {
   const startup = report.contributions.filter((c) => c.load === 'startup')
