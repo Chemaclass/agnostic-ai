@@ -388,6 +388,17 @@ function test_latest_version_retries_server_errors_then_succeeds() {
   assert_same "$(printf '2\n4')" "$(cat "$CALLS/sleep")"
 }
 
+function test_latest_version_names_each_retry_on_stderr() {
+  local err
+  curl_answers '504 ' fail '302 https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.62.0'
+  err="$(latest_version 2>&1 >/dev/null)"
+  unset -f curl
+
+  assert_contains "HTTP 504 from https://github.com/Chemaclass/agnostic-ai/releases/latest, retrying in 2s" "$err"
+  assert_contains "no answer from https://github.com/Chemaclass/agnostic-ai/releases/latest, retrying in 4s" "$err"
+  assert_not_contains "504504" "$err"
+}
+
 function test_latest_version_retries_a_timeout_then_succeeds() {
   curl_answers fail '302 https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.62.0'
   assert_equals "v0.62.0" "$(latest_version 2>/dev/null)"

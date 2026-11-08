@@ -82,7 +82,7 @@ download_url() {
 # still dies depending on who finished writing first. Nothing below pipes
 # curl into anything.
 latest_version() {
-  local url="https://github.com/$REPO/releases/latest" response status location tag delay retries=0
+  local url="https://github.com/$REPO/releases/latest" response status location tag delay reason retries=0
 
   # Timeouts, dropped connections, 429 and 5xx are GitHub-side blips that
   # pass in seconds; any other answer is final.
@@ -91,7 +91,8 @@ latest_version() {
     location=""
     # No -L: the tag is the redirect target, and following it would fetch a
     # few hundred kilobytes of HTML to learn what the header already said.
-    if response="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' "$url")"; then
+    # The time limits turn a stalled connection into a failure worth retrying.
+    if response="$(curl -sS --connect-timeout 10 --max-time 15 -o /dev/null -w '%{http_code} %{redirect_url}' "$url")"; then
       # "<status> <redirect_url>", with the URL empty when there was no redirect.
       status="${response%% *}"
       location="${response#* }"
@@ -103,7 +104,9 @@ latest_version() {
     (( retries < ${#LOOKUP_RETRY_DELAYS[@]} )) || break
     delay="${LOOKUP_RETRY_DELAYS[retries]}"
     retries=$((retries + 1))
-    printf '→ %s from %s, retrying in %ss\n' "${status:+HTTP $status}${status:-no answer}" "$url" "$delay" >&2
+    reason="no answer"
+    [[ -z "$status" ]] || reason="HTTP $status"
+    printf '→ %s from %s, retrying in %ss\n' "$reason" "$url" "$delay" >&2
     sleep "$delay"
   done
   [[ -n "$status" ]] || { die "could not reach $url"; return 1; }
