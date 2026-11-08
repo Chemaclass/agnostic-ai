@@ -115,6 +115,22 @@ func TestReconcileGuidedRequires_PrintsTheNewRequires(t *testing.T) {
 	}
 }
 
+func TestReconcileGuidedRequires_ReportsACollapsedRangeOnce(t *testing.T) {
+	root := testutil.TempCwd(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \">=0.80.0 <0.90.0\"\n")
+	out := captureLogOut(t)
+	if err := reconcileGuidedRequires(root, "0.82.0"); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(out.String(), "requires"); got != 1 {
+		t.Errorf("want one requires line, got %d:\n%s", got, out.String())
+	}
+	if want := `agnostic-ai.yaml: requires ">=0.80.0 <0.90.0" became ">=0.82.0"`; !strings.HasPrefix(strings.TrimLeft(out.String(), "!✓ "), want) && !strings.Contains(out.String(), " "+want) {
+		t.Errorf("output lacks relative %q:\n%s", want, out.String())
+	}
+}
+
 func TestGuidedUpgrade_StopAfterRequiresSaysWhereToSeeIt(t *testing.T) {
 	cmd := &cobra.Command{Use: "status"}
 	cmd.SetIn(strings.NewReader("\n"))
@@ -131,7 +147,7 @@ func TestGuidedUpgrade_StopAfterRequiresSaysWhereToSeeIt(t *testing.T) {
 		},
 	}
 	_, err := runGuidedUpgrade(cmd, "0.81.0", deps)
-	for _, want := range []string{"agnostic-ai 0.82.0 is installed", "requires line above", "migrate, sync, and sync --check"} {
+	for _, want := range []string{"agnostic-ai 0.82.0 is installed", "requires change was printed above", "migrate, sync, and sync --check"} {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("error lacks %q: %v", want, err)
 		}

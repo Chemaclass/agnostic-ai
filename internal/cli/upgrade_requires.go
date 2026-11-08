@@ -122,18 +122,19 @@ func reconcileGuidedRequires(root, version string) error {
 	if err != nil {
 		return fmt.Errorf("reconcile requires and schema: %w", err)
 	}
-	for _, c := range changed {
-		if c.From == c.To {
-			continue
-		}
-		path := c.Path
+	for i, c := range changed {
 		if rel, err := filepath.Rel(root, c.Path); err == nil && !strings.HasPrefix(rel, "..") {
-			path = rel
+			changed[i].Path = rel
 		}
-		if c.From == "" {
-			summaryf("%s %s: requires is now %q\n", tick(), path, c.To)
-		} else {
-			summaryf("%s %s: requires %q is now %q\n", tick(), path, c.From, c.To)
+	}
+	for _, c := range changed {
+		switch {
+		case c.From == c.To || c.Collapsed():
+			// noteCollapsedRequires reports a collapsed range.
+		case c.From == "":
+			summaryf("%s %s: requires is now %q\n", tick(), c.Path, c.To)
+		default:
+			summaryf("%s %s: requires %q is now %q\n", tick(), c.Path, c.From, c.To)
 		}
 	}
 	noteCollapsedRequires(changed)

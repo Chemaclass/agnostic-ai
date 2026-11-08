@@ -21,6 +21,8 @@ func visibilityRepo(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
 	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
 		t.Fatalf("git init: %s: %v", out, err)
 	}
@@ -116,21 +118,34 @@ func TestVisibility_NamesTheIgnoreFileAndPattern(t *testing.T) {
 			t.Fatal(err)
 		}
 		err := validateRulesVisible(rules, visibleConfig(), rulesOpts(visibleConfig()))
-		for _, want := range []string{filepath.Join(".grok", "rules", "policy.md"), `.gitignore ignores it with "/.grok/"`, "remove grok from targets"} {
+		for _, want := range []string{filepath.Join(".grok", "rules", "policy.md"), `the root .gitignore ignores it with "/.grok/"`, "remove grok from targets"} {
 			if err == nil || !strings.Contains(err.Error(), want) {
 				t.Errorf("error lacks %q: %v", want, err)
 			}
 		}
 	})
-	t.Run("global", func(t *testing.T) {
-		visibilityRepo(t)
-		global := filepath.Join(os.Getenv("HOME"), ".gitignore")
-		if err := os.WriteFile(global, []byte(".grok/\n"), 0600); err != nil {
-			t.Fatal(err)
-		}
-		err := validateRulesVisible(rules, visibleConfig(), rulesOpts(visibleConfig()))
-		if want := global + ` ignores it with ".grok/"`; err == nil || !strings.Contains(err.Error(), want) {
-			t.Errorf("error lacks %q: %v", want, err)
-		}
-	})
+	// The root file shapes where global lines start, so cover the ones
+	// that change its line count.
+	for name, root := range map[string]string{
+		"global":                         "",
+		"global after unterminated root": "/build/",
+		"global after managed block":     "/build/\n# >>> agnostic-ai (managed) >>>\n/CLAUDE.md\n# <<< agnostic-ai (managed) <<<\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			visibilityRepo(t)
+			if root != "" {
+				if err := os.WriteFile(".gitignore", []byte(root), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			global := filepath.Join(os.Getenv("HOME"), ".gitignore")
+			if err := os.WriteFile(global, []byte(".grok/\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			err := validateRulesVisible(rules, visibleConfig(), rulesOpts(visibleConfig()))
+			if want := global + ` ignores it with ".grok/"`; err == nil || !strings.Contains(err.Error(), want) {
+				t.Errorf("error lacks %q: %v", want, err)
+			}
+		})
+	}
 }

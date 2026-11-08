@@ -180,7 +180,7 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 		for _, args := range [][]string{{"migrate", "--dry-run"}, {"migrate"}, {"sync"}, {"sync", "--check"}} {
 			_, _ = fmt.Fprintf(out, "\nRunning: agnostic-ai %s\n", strings.Join(args, " "))
 			if _, err := deps.run(path, root, args, out); err != nil {
-				return true, fmt.Errorf("guided upgrade stopped at %s. agnostic-ai %s is installed and this project accepts it; a requires line above shows any change. Resolve the reported problem, then run migrate, sync, and sync --check in %s: %w", strings.Join(args, " "), offer.Latest, root, err)
+				return true, fmt.Errorf("guided upgrade stopped at %s. agnostic-ai %s is installed and this project accepts it, and any requires change was printed above. Resolve the reported problem, then run migrate, sync, and sync --check in %s: %w", strings.Join(args, " "), offer.Latest, root, err)
 			}
 		}
 	}

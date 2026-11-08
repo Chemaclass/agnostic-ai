@@ -200,3 +200,27 @@ func TestIgnoreMatches_NamesThePatternAndLine(t *testing.T) {
 		}
 	}
 }
+
+// Git reports the last matching line, so a negation is skipped only when
+// it is the deciding match.
+func TestIgnoreMatches_ReportsTheDecidingPattern(t *testing.T) {
+	Reset()
+	for name, tc := range map[string]struct {
+		patterns string
+		want     IgnoreMatch
+	}{
+		"re-ignored after a negation":       {"/out/*\n!out/keep.md\n*.md\n", IgnoreMatch{Line: 3, Pattern: "*.md"}},
+		"negation under an ignored folder":  {"out/\n!out/keep.md\n", IgnoreMatch{Line: 1, Pattern: "out/"}},
+		"escaped bang is a literal pattern": {"\\!keep.md\nout/keep.md\n", IgnoreMatch{Line: 2, Pattern: "out/keep.md"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := IgnoreMatches([]byte(tc.patterns), []string{"out/keep.md"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got["out/keep.md"] != tc.want {
+				t.Errorf("got %+v, want %+v", got["out/keep.md"], tc.want)
+			}
+		})
+	}
+}
