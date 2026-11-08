@@ -91,4 +91,4 @@ Sync removes the `.continue/rules/skill-<name>.md` files it wrote in older versi
 
 ## Protected paths
 
-Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

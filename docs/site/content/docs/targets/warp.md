@@ -122,4 +122,4 @@ Skills import, with all bundled files, from `<root>/skills/` for each root Warp 
 
 ## Protected paths
 
-Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

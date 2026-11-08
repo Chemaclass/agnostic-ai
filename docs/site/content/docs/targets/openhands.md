@@ -144,4 +144,4 @@ Import loses these details (none change what OpenHands loads):
 
 ## Protected paths
 
-Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

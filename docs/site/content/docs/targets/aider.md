@@ -66,4 +66,4 @@ With [`builtins: [handoff]`](@/docs/handoff.md), a configured `rules-file` inclu
 
 ## Protected paths
 
-Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

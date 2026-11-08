@@ -142,4 +142,4 @@ Crush has no documented directory scope. Sync skips scoped rules, and import can
 
 ## Protected paths
 
-Not enforced. This target does not support settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
