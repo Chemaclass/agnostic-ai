@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -88,7 +89,7 @@ type filesResult struct {
 }
 
 type matchResult struct {
-	matched map[string]bool
+	matched map[string]IgnoreMatch
 	err     error
 }
 
@@ -265,11 +266,18 @@ func Ignored(root, path string) bool {
 	})
 }
 
-// IgnoredBy reports which of paths, slash paths from a work tree root,
-// the gitignore patterns match on their own, without the index or any
-// other ignore file. One Git check answers every path, once per run for
-// the same patterns and paths.
-func IgnoredBy(patterns []byte, paths []string) (map[string]bool, error) {
+// IgnoreMatch is the gitignore line that ignores a path: its 1-based
+// line number in the patterns and the pattern text.
+type IgnoreMatch struct {
+	Line    int
+	Pattern string
+}
+
+// IgnoreMatches reports which of paths, slash paths from a work tree
+// root, the gitignore patterns ignore on their own, without the index or
+// any other ignore file, and the line that ignores each. One Git check
+// answers every path, once per run for the same patterns and paths.
+func IgnoreMatches(patterns []byte, paths []string) (map[string]IgnoreMatch, error) {
 	key := string(patterns) + "\x00" + strings.Join(paths, "\x00")
 	r := ignoredBy.get(key, func() matchResult {
 		matched, err := ignoredByFresh(patterns, paths)
@@ -278,8 +286,8 @@ func IgnoredBy(patterns []byte, paths []string) (map[string]bool, error) {
 	return r.matched, r.err
 }
 
-func ignoredByFresh(patterns []byte, paths []string) (map[string]bool, error) {
-	matched := map[string]bool{}
+func ignoredByFresh(patterns []byte, paths []string) (map[string]IgnoreMatch, error) {
+	matched := map[string]IgnoreMatch{}
 	if len(paths) == 0 {
 		return matched, nil
 	}
@@ -299,7 +307,7 @@ func ignoredByFresh(patterns []byte, paths []string) (map[string]bool, error) {
 		stdin.WriteString(p)
 		stdin.WriteByte(0)
 	}
-	cmd := isolateGitCommand(exec.Command("git", "-C", scratch, "-c", "core.excludesFile=", "check-ignore", "--no-index", "-z", "--stdin"))
+	cmd := isolateGitCommand(exec.Command("git", "-C", scratch, "-c", "core.excludesFile=", "check-ignore", "--no-index", "-v", "-z", "--stdin"))
 	cmd.Stdin = &stdin
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -311,10 +319,19 @@ func ignoredByFresh(patterns []byte, paths []string) (map[string]bool, error) {
 			return nil, fmt.Errorf("%w (%s)", err, bytes.TrimSpace(stderr.Bytes()))
 		}
 	}
-	for _, p := range strings.Split(stdout.String(), "\x00") {
-		if p != "" {
-			matched[p] = true
+	// -v -z prints source, line, pattern and path for each path, and also
+	// names a negated pattern that re-includes a path.
+	fields := strings.Split(stdout.String(), "\x00")
+	for i := 0; i+3 < len(fields); i += 4 {
+		pattern := fields[i+2]
+		if strings.HasPrefix(pattern, "!") {
+			continue
 		}
+		line, err := strconv.Atoi(fields[i+1])
+		if err != nil {
+			return nil, fmt.Errorf("parse git check-ignore line %q: %w", fields[i+1], err)
+		}
+		matched[fields[i+3]] = IgnoreMatch{Line: line, Pattern: pattern}
 	}
 	return matched, nil
 }

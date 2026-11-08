@@ -88,16 +88,19 @@ func must(t *testing.T, err error) {
 	}
 }
 
-func TestIgnoredBy_MatchesOnlyThePatternsGiven(t *testing.T) {
+func TestIgnoreMatches_MatchesOnlyThePatternsGiven(t *testing.T) {
 	Reset()
-	got, err := IgnoredBy([]byte("/out/*\n!out/keep.md\n*.log\n"), []string{"out/a.md", "out/keep.md", "src/a.md", "src/x.log"})
+	got, err := IgnoreMatches([]byte("/out/*\n!out/keep.md\n*.log\n"), []string{"out/a.md", "out/keep.md", "src/a.md", "src/x.log"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got["out/a.md"] || got["out/keep.md"] || got["src/a.md"] || !got["src/x.log"] {
-		t.Errorf("IgnoredBy = %v", got)
+	if _, ok := got["out/a.md"]; !ok || len(got) != 2 {
+		t.Errorf("IgnoreMatches = %v", got)
 	}
-	if got, err := IgnoredBy(nil, []string{"a.md"}); err != nil || len(got) != 0 {
+	if _, ok := got["src/x.log"]; !ok {
+		t.Errorf("IgnoreMatches = %v", got)
+	}
+	if got, err := IgnoreMatches(nil, []string{"a.md"}); err != nil || len(got) != 0 {
 		t.Errorf("no patterns: %v, %v", got, err)
 	}
 }
@@ -139,11 +142,11 @@ func TestQueriesIgnoreHookRepositoryEnvironment(t *testing.T) {
 	if !Ignored(repo, "ignored.local") {
 		t.Error("repository ignore not applied")
 	}
-	matched, err := IgnoredBy([]byte("foo\n"), []string{"foo", "a.md"})
+	matched, err := IgnoreMatches([]byte("foo\n"), []string{"foo", "a.md"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !matched["foo"] || matched["a.md"] {
+	if _, ok := matched["foo"]; !ok || len(matched) != 1 {
 		t.Errorf("matched = %v", matched)
 	}
 }
@@ -178,5 +181,22 @@ func TestOriginURL_ReadsTheOriginRemoteOrNothing(t *testing.T) {
 	must(t, os.MkdirAll(filepath.Join(dir, "sub"), 0o755))
 	if got := OriginURL(filepath.Join(dir, "sub")); got != "git@github.com:octo/hello.git" {
 		t.Errorf("OriginURL = %q, want the origin remote", got)
+	}
+}
+
+func TestIgnoreMatches_NamesThePatternAndLine(t *testing.T) {
+	Reset()
+	got, err := IgnoreMatches([]byte("# out\n/out/*\n!out/keep.md\n*.log\n"), []string{"out/a.md", "out/keep.md", "src/a.md", "src/x.log"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]IgnoreMatch{"out/a.md": {Line: 2, Pattern: "/out/*"}, "src/x.log": {Line: 4, Pattern: "*.log"}}
+	if len(got) != len(want) {
+		t.Errorf("IgnoreMatches = %v, want %v", got, want)
+	}
+	for path, m := range want {
+		if got[path] != m {
+			t.Errorf("%s: got %+v, want %+v", path, got[path], m)
+		}
 	}
 }
