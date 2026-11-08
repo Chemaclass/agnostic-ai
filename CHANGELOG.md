@@ -111,6 +111,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Skills keep `disable-model-invocation`, `user-invocable` and `paths`, so a manual-only skill stays out of the model's reach; import reads them back (#3042).
 - Agents keep `background` and `hooks`, and a shared `Stop` hook becomes `SubagentStop`. Agent hooks used to be dropped with no note (#3043).
 - The target page says project hooks need folder trust or hook approval: from 0.26.7 interactive, from 0.26.8 headless too (#2978, #3015).
+- Hooks with `event: FileChanged` reach `.qwen/settings.json`, so a hook can run when a watched file such as `.envrc` changes (Qwen Code 0.27.0). Sync used to drop them with a note (#3189).
 
 #### Codex
 

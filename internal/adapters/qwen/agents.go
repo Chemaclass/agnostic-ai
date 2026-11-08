@@ -50,7 +50,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 				hooks = agentStopAsSubagentStop(hooks)
 				meta["hooks"] = hooks
 				for event := range hooks {
-					if !slices.Contains(HookEvents(), event) {
+					if !slices.Contains(agentHookEvents(), event) {
 						emit.NoteFieldNoOp(target, spec.KindAgent, "hooks", 1, "Qwen skips agent hook event "+event)
 					}
 				}
