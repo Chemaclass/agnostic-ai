@@ -675,31 +675,6 @@
   font-size: var(--text-sm);
 }
 
-.edit-scope-label {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.edit-scope-hint {
-  flex-basis: auto;
-  margin: 0;
-  font-size: var(--text-sm);
-}
-
-/* In the filter row the hint wraps, so Docs stays at the row's right. */
-.section-search > .edit-scope {
-  flex: 1 1 320px;
-  min-width: 0;
-}
-
-.section-search .edit-scope-hint {
-  flex: 1 1 180px;
-  min-width: 0;
-}
-
 @media (max-width: 760px) {
   .edit-scope .segmented button {
     min-height: 44px;

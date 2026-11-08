@@ -12,25 +12,31 @@ describe('section summary', () => {
     expect(sectionSummary(counted('Tools', [kind('mcp', 'MCP servers', 1)]))).toBe('1 MCP server')
     expect(sectionSummary(counted('Context', [kind('instructions', 'Instructions', 2)]))).toBe('2 instructions files')
     expect(sectionSummary(counted('Context', [kind('review', 'Review instructions', 1)]))).toBe('1 review instructions file')
-    expect(sectionSummary(counted('Settings', [kind('builtin', 'Built-ins', 1), kind('settings', 'Preferences', 4)]))).toBe('1 built-in, 4 preferences')
+  })
+
+  it('counts the built-ins on, else the preferences set, on Settings', () => {
+    const settings = (items: { kind: string; enabled?: boolean }[], preferences: number) => ({ id: 'settings' as const, kinds: [kind('builtin', 'Built-ins', items.length), kind('settings', 'Preferences', preferences)], items: items as never })
+    expect(sectionSummary(settings([{ kind: 'builtin', enabled: true }, { kind: 'builtin', enabled: true }, { kind: 'builtin', enabled: false }], 1))).toBe('2 built-ins on')
+    expect(sectionSummary(settings([{ kind: 'builtin', enabled: false }], 1))).toBe('1 preference set')
+    expect(sectionSummary(settings([], 0))).toBe('Nothing set up yet')
   })
 
   it('says what is missing when nothing is counted', () => {
-    expect(sectionSummary(counted('Lifecycle', [kind('hook', 'Hooks', 0)]))).toBe('no hooks yet')
-    expect(sectionSummary(counted('Context', [kind('rule', 'Rules', 0), kind('agent', 'Agents', 0)]))).toBe('nothing set up yet')
+    expect(sectionSummary(counted('Lifecycle', [kind('hook', 'Hooks', 0)]))).toBe('No hooks yet')
+    expect(sectionSummary(counted('Context', [kind('rule', 'Rules', 0), kind('agent', 'Agents', 0)]))).toBe('Nothing set up yet')
   })
 })
 
 describe('authority summary', () => {
   it('counts the rules in every permission list', () => {
     const authority = fixture.sections.find((section: { id: string }) => section.id === 'authority')
-    expect(sectionSummary(authority)).toBe('11 allowed, 3 ask, 4 denied')
+    expect(sectionSummary(authority)).toBe('4 blocked, 3 ask, 11 allowed')
   })
 
   it('says so when no list holds a rule', () => {
     const value = (key: string, list: string[]) => ({ key, type: 'list', list })
     const item = { values: [value('permissions.allow', []), value('permissions.deny', [])] }
-    expect(authoritySummary({ items: [item] as never })).toBe('no permissions yet')
+    expect(authoritySummary({ items: [item] as never })).toBe('No rules yet')
   })
 })
 
@@ -45,7 +51,7 @@ describe('health tone', () => {
 describe('health row', () => {
   it('counts findings to fix and features to add', () => {
     expect(healthRow({ errors: 1, warnings: 3 }, 12)).toEqual({ status: 'Needs attention', summary: '4 to fix, 12 you could add' })
-    expect(healthRow({ errors: 0, warnings: 0 }, 2)).toEqual({ status: 'All clear', summary: 'nothing to fix, 2 you could add' })
-    expect(healthRow({ errors: 0, warnings: 0 }, 0)).toEqual({ status: 'All clear', summary: 'nothing to fix' })
+    expect(healthRow({ errors: 0, warnings: 0 }, 2)).toEqual({ status: 'All clear', summary: 'Nothing to fix, 2 you could add' })
+    expect(healthRow({ errors: 0, warnings: 0 }, 0)).toEqual({ status: 'All clear', summary: 'Nothing to fix' })
   })
 })

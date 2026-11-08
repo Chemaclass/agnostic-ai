@@ -1,6 +1,6 @@
 // Small presentational pieces shared by every screen.
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref, type SelectHTMLAttributes } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode, type Ref, type SelectHTMLAttributes } from 'react'
 import claudeIcon from '../assets/tools/claude.svg'
 import codexIcon from '../assets/tools/codex.svg'
 import cursorIcon from '../assets/tools/cursor.svg'
@@ -453,6 +453,7 @@ const ICON_PATHS: Record<string, ReactNode> = {
   search: <path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Z M15.3 15.3 20 20" />,
   menu: <path d="M4 7h16 M4 12h16 M4 17h16" />,
   close: <path d="M6 6l12 12 M18 6 6 18" />,
+  more: <path strokeWidth="2.6" d="M5.5 12h.01 M12 12h.01 M18.5 12h.01" />,
   github: <path transform="translate(2 2) scale(1.25)" fill="currentColor" stroke="none" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" />,
 }
 
@@ -463,5 +464,69 @@ export function Icon({ name, className }: { name: string; className?: string }) 
         {ICON_PATHS[name] ?? ICON_PATHS.authority}
       </g>
     </svg>
+  )
+}
+
+// Touch screens have no hover, and phones have no room, so both put a row's secondary actions behind a menu.
+const ROW_MENU = '(hover: none), (max-width: 760px)'
+
+function subscribeRowMenu(listener: () => void) {
+  const query = window.matchMedia?.(ROW_MENU)
+  query?.addEventListener('change', listener)
+  return () => query?.removeEventListener('change', listener)
+}
+
+function rowMenuWanted() {
+  return window.matchMedia?.(ROW_MENU).matches ?? false
+}
+
+/** A row's secondary actions. They show on row hover and keyboard focus, in a parent marked
+    `row-hover`; on touch screens and phones they sit behind a ⋯ menu instead. */
+export function RowActions({ label, children }: { label: string; children: ReactNode }) {
+  const menu = useSyncExternalStore(subscribeRowMenu, rowMenuWanted, () => false)
+  if (!menu) return <span className="row-actions">{children}</span>
+  return <RowMenu label={label}>{children}</RowMenu>
+}
+
+function RowMenu({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState({ start: false, up: false })
+  const root = useRef<HTMLSpanElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
+  const panel = useRef<HTMLSpanElement>(null)
+  const panelId = useId()
+  // The menu opens under its button, right-aligned. Near the left edge it aligns left, and
+  // above a clipping list's end or the window's bottom it opens upward.
+  useLayoutEffect(() => {
+    if (!open || !button.current || !panel.current) return
+    const rect = button.current.getBoundingClientRect()
+    let floor = window.innerHeight
+    for (let node = root.current?.parentElement; node; node = node.parentElement) {
+      if (getComputedStyle(node).overflowY !== 'visible') floor = Math.min(floor, node.getBoundingClientRect().bottom)
+    }
+    const height = panel.current.offsetHeight + 8
+    setPlace({ start: rect.right < panel.current.offsetWidth + 8, up: rect.bottom + height > floor && rect.top - height >= 0 })
+  }, [open])
+  useEffect(() => {
+    if (!open) return
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', outside)
+    return () => document.removeEventListener('pointerdown', outside)
+  }, [open])
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || !open) return
+    event.stopPropagation()
+    setOpen(false)
+    button.current?.focus()
+  }
+  return (
+    <span ref={root} className="row-menu" onKeyDown={onKeyDown}>
+      <button ref={button} type="button" className="button button-icon row-menu-button" aria-label={`More actions for ${label}`} aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)}>
+        <Icon name="more" />
+      </button>
+      <span ref={panel} id={panelId} className={`row-menu-panel${place.start ? ' is-start' : ''}${place.up ? ' is-up' : ''}`} hidden={!open}>{children}</span>
+    </span>
   )
 }

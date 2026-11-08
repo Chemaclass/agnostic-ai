@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { openMenu } from '../helpers'
+import { openMenu, openToolSupport, pageHeader } from '../helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -28,7 +28,7 @@ for (const { width, colorSchemes } of usableLayouts) {
             await expect(sectionLink).toBeInViewport({ ratio: 1 })
           }
         }
-        await expect(page.getByRole('heading', { level: 1, name, exact: true })).toBeInViewport()
+        await expect(pageHeader(page, name)).toBeInViewport()
         const search = page.getByRole('searchbox', { name: `Search ${name.toLowerCase()}` })
         await expect(search).toBeInViewport()
         await search.fill('no-matching-configuration')
@@ -42,16 +42,15 @@ for (const { width, colorSchemes } of usableLayouts) {
 }
 
 for (const width of [320, 390, 1440]) {
-  test(`puts coding tool support below the tab panels at ${width}px`, async ({ page }) => {
+  test(`fits the coding tool support dialog in the window at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=context&tab=rules')
-    await page.locator('details.support-block > summary').click()
-    const support = page.getByRole('table', { name: 'Coding tool support' })
-    await expect(support).toBeVisible()
-    const panel = (await page.getByRole('tabpanel', { name: /^Rules/ }).boundingBox())!
-    const table = (await support.boundingBox())!
-    expect(table.y).toBeGreaterThanOrEqual(panel.y + panel.height)
+    const dialog = await openToolSupport(page)
+    await expect(dialog.getByRole('table', { name: 'Coding tool support' })).toBeVisible()
+    const box = (await dialog.boundingBox())!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(width)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }
@@ -324,7 +323,7 @@ for (const width of [320, 900]) {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=lifecycle')
-    await expect(page.getByRole('heading', { level: 1, name: 'Lifecycle', exact: true })).toBeInViewport()
+    await expect(pageHeader(page, 'Lifecycle')).toBeInViewport()
     expect(await page.locator('.section-nav').evaluate((nav) => {
       const current = nav.querySelector('[aria-current="page"]')!.getBoundingClientRect()
       const bounds = nav.getBoundingClientRect()
@@ -345,7 +344,7 @@ for (const width of [1440, 390]) {
     const views = ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']
     for (const [index, name] of views.entries()) {
       await page.goto(`/?view=${name.toLowerCase()}${name === 'Context' ? '&tab=agents' : ''}`)
-      const heading = page.getByRole('heading', { level: 1, name, exact: true })
+      const heading = pageHeader(page, name)
       await expect(heading).toBeInViewport()
       const headingTop = () => heading.evaluate((element) => element.getBoundingClientRect().top)
       // The sticky offsets are measured after the first paint, so wait for
@@ -379,7 +378,7 @@ for (const width of [1440, 390]) {
       const link = nav.getByRole('link', { name: new RegExp(`^${next}`) })
       await link.click()
       await expect(link).toHaveAttribute('aria-current', 'page')
-      await expect(page.getByRole('heading', { level: 1, name: next, exact: true })).toBeInViewport()
+      await expect(pageHeader(page, next)).toBeInViewport()
     }
   })
 }
@@ -388,7 +387,7 @@ test('keeps the JSON inspector and search results scrolling their own content', 
   await page.setViewportSize({ width: 1440, height: 600 })
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.goto('/?view=settings')
-  await expect(page.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toBeInViewport()
+  await expect(pageHeader(page, 'Settings')).toBeInViewport()
   const pageScroll = () => page.evaluate(() => window.scrollY)
 
   const inspectorButton = page.getByRole('button', { name: 'Overview JSON', exact: true })

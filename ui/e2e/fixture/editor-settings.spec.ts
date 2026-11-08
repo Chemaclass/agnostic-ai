@@ -133,6 +133,8 @@ test.describe('editor settings', () => {
       await page.evaluate(() => document.addEventListener('click', (event) => {
         if ((event.target as Element).closest('a[href^="cursor:"]')) event.preventDefault()
       }, true))
+      // Phones keep a row's secondary actions behind its ⋯ menu.
+      if (width <= 760) await page.getByRole('button', { name: 'More actions for testing' }).click()
       const open = openLink(page, 'Cursor')
       const meta = page.locator('.item-meta').filter({ has: open })
       const parts = [open, meta.getByRole('button', { name: 'Copy path of testing' }), meta.locator('.item-layer')]

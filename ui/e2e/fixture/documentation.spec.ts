@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
-test('shows one Docs link per page, for the open tab, including empty sections', async ({ page }) => {
+test('shows one Docs link per page at the end of the facts line, for the open tab, including empty sections', async ({ page }) => {
   const data = structuredClone(fixture)
   data.sections.find((section: { id: string }) => section.id === 'context').kinds.push(
     { kind: 'review', label: 'Reviews', count: 0 },
@@ -36,7 +36,7 @@ test('shows one Docs link per page, for the open tab, including empty sections',
     await page.goto(`/?view=${view}${tab ? `&tab=${tab}` : ''}`)
     const links = page.getByRole('link', { name: /^Documentation for/ })
     await expect(links).toHaveCount(1)
-    const link = page.locator('.section-search').getByRole('link', { name: /^Documentation for/ })
+    const link = page.locator('.page-facts').getByRole('link', { name: /^Documentation for/ })
     await expect(link).toHaveAttribute('href', `https://agnostic-ai.org/docs/${path}`)
     await expect(link).toHaveAttribute('target', '_blank')
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
@@ -48,7 +48,7 @@ test('keeps help reachable on a phone and opens it without losing the selected t
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await context.route('https://agnostic-ai.org/docs/spec-format/skills/', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Skill documentation</title>' }))
   await page.goto('/?view=context&tab=skills')
-  const help = page.locator('.section-search').getByRole('link', { name: 'Documentation for skills (opens in a new tab)' })
+  const help = page.locator('.page-facts').getByRole('link', { name: 'Documentation for skills (opens in a new tab)' })
   await expect(page.locator('.empty-state').filter({ hasText: 'No skills yet.' })).toBeVisible()
   await expect(page.locator('.empty-state').getByRole('link', { name: /^Documentation for/ })).toHaveCount(0)
   await expect(help).toBeVisible()

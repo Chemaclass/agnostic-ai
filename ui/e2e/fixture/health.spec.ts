@@ -186,7 +186,7 @@ test.describe('setup health', () => {
     for (const item of section(data, 'context').items) item.findings = []
     await serve(page, data)
     await page.goto('/?view=health')
-    const badge = healthRow(page, 'nothing to fix')
+    const badge = healthRow(page, 'Nothing to fix')
     await expect(badge).toHaveAccessibleName(/ All clear$/)
     await expect(badge.locator('.nav-dot')).toHaveClass(/is-clean/)
     await expect(page.locator('.page-verdict')).toHaveText('Nothing needs a fix.')
@@ -267,7 +267,7 @@ test.describe('setup health', () => {
     data.health = { gaps: [{ id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix }], improvements: { applied: 8, total: 9 } }
     await serve(page, data)
     await page.goto('/?view=health')
-    await expect(healthRow(page, 'nothing to fix, 1 you could add')).toBeVisible()
+    await expect(healthRow(page, 'Nothing to fix, 1 you could add')).toBeVisible()
     await expect(page.locator('.health-track')).toContainText('8 of 9 features your tools support are in use')
     await expect(page.locator('.page-facts')).toContainText('1 feature you could add')
     const gaps = page.getByRole('region', { name: /^Reach the best setup/ })

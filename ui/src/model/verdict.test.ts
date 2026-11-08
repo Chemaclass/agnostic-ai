@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import type { OverviewView, Section } from '../contract'
 import { sectionSummary } from './rail'
-import { emptyState, findingTallyText, ignoredFacts, sectionFacts, sectionFindings, sectionVerdict, supportSummary, tallyFindings } from './verdict'
+import { emptyState, findingTallyText, sectionFacts, sectionFindings, sectionVerdict, supportSummary, tallyFindings } from './verdict'
 
 const fixture: OverviewView = JSON.parse(readFileSync(new URL('../fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const section = (id: string) => fixture.sections.find((s) => s.id === id)!
@@ -70,7 +70,7 @@ describe('turned-off hooks', () => {
     expect(sectionVerdict(section)).toBe('No hooks are set to run.')
     expect(sectionFacts(section)).toEqual(['2 hooks turned off'])
     const support = [{ kind: 'hook', label: 'Hooks', supported: ['claude'], unsupported: ['kiro'] }]
-    expect(sectionFacts({ ...section, support }, (target) => (target === 'kiro' ? 'Kiro' : target))).toEqual(['2 hooks turned off'])
+    expect(sectionFacts({ ...section, support })).toEqual(['2 hooks turned off'])
     expect(sectionSummary(section)).toBe('2 hooks turned off')
   })
 })
@@ -81,13 +81,13 @@ describe('default permission mode', () => {
   it('names a mode set without any rule lists', () => {
     const section = { ...empty('authority'), fields: [mode('bypassPermissions')] }
     expect(sectionVerdict(section)).toBe('No allow, ask or block rules yet.')
-    expect(sectionFacts(section, undefined, true)).toEqual(['Default mode: bypassPermissions'])
+    expect(sectionFacts(section, true)).toEqual(['Default mode: bypassPermissions'])
   })
 
   it('adds the mode beside the rule counts', () => {
     const authority = { ...section('authority'), fields: [mode('acceptEdits')] }
     expect(sectionVerdict(authority)).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
-    expect(sectionFacts(authority, undefined, true)).toEqual(['Default mode: acceptEdits', '2 protected paths'])
+    expect(sectionFacts(authority, true)).toEqual(['Default mode: acceptEdits', '2 protected paths'])
   })
 
   it('leaves the mode out of a project view, where it applies only through global sync', () => {
@@ -97,7 +97,7 @@ describe('default permission mode', () => {
   it('prefers the mode a local file sets', () => {
     const field = mode('acceptEdits')
     field.set.push({ ...field.set[0], path: 'local/settings.yaml', local: true, values: [{ ...field.set[0].values[0], value: 'plan' }] } as typeof field.set[0])
-    expect(sectionFacts({ ...empty('authority'), fields: [field] }, undefined, true)).toEqual(['Default mode: plan'])
+    expect(sectionFacts({ ...empty('authority'), fields: [field] }, true)).toEqual(['Default mode: plan'])
   })
 
   it('says nothing about a mode when none is set', () => {
@@ -108,21 +108,10 @@ describe('default permission mode', () => {
 })
 
 describe('section facts', () => {
-  const name = (target: string) => ({ claude: 'Claude Code', kiro: 'Kiro', codex: 'Codex' })[target] ?? target
   const permissions = (supported: string[], unsupported: string[]) => ({ ...section('authority'), support: [{ kind: 'settings', label: 'Permissions', supported, unsupported }] })
 
-  it('says nothing about support when every tool applies the rules', () => {
-    expect(ignoredFacts(permissions(['claude', 'codex'], []), name)).toEqual([])
-  })
-
-  it('names the tools that ignore a configured type', () => {
-    expect(ignoredFacts(permissions(['claude'], ['kiro']), name)).toEqual(['Kiro ignores permissions'])
-    expect(sectionFacts(permissions(['claude'], ['kiro', 'codex']), name)).toEqual(['2 protected paths', 'Kiro and Codex ignore permissions'])
-    expect(ignoredFacts(permissions(['claude'], ['a', 'b', 'c', 'd']), name)).toEqual(['4 of 5 tools ignore permissions'])
-  })
-
-  it('skips types with nothing configured', () => {
-    expect(ignoredFacts({ ...empty('context', [kind('skill', 'Skills', 0)]), support: [{ kind: 'skill', label: 'Skills', supported: [], unsupported: ['kiro'] }] }, name)).toEqual([])
+  it('leaves tool support to the Tool support link', () => {
+    expect(sectionFacts(permissions(['claude'], ['kiro', 'codex']))).toEqual(['2 protected paths'])
   })
 
   it('counts review instructions as files', () => {

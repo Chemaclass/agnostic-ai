@@ -91,21 +91,13 @@ function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
   return []
 }
 
-/** "Kiro ignores permissions": configured types that some set-up tools do not apply. */
-export function ignoredFacts(section: VerdictSection, toolName: (target: string) => string): string[] {
-  return (section.support ?? []).flatMap((support) => {
-    const kind = section.kinds.find((k) => k.kind === support.kind)
-    if (!kind || !liveCount(section, kind) || !support.unsupported.length) return []
-    const total = support.supported.length + support.unsupported.length
-    const who = support.unsupported.length <= 3 ? joinAnd(support.unsupported.map(toolName)) : `${support.unsupported.length} of ${total} tools`
-    return [`${who} ${support.unsupported.length === 1 ? 'ignores' : 'ignore'} ${kindNoun(support, 2)}`]
-  })
-}
+// More facts than this crowd the line; tool support has its own link.
+const MAX_FACTS = 3
 
 /** Facts beside the verdict that it does not already say. */
-export function sectionFacts(section: VerdictSection, toolName: (target: string) => string = (target) => target, global = false): string[] {
+export function sectionFacts(section: VerdictSection, global = false): string[] {
   const off = turnedOff(section)
-  return [...sectionOwnFacts(section, global), ...(off.length ? [`${joinAnd(off)} turned off`] : []), ...ignoredFacts(section, toolName)]
+  return [...sectionOwnFacts(section, global), ...(off.length ? [`${joinAnd(off)} turned off`] : [])].slice(0, MAX_FACTS)
 }
 
 export interface FindingTally {

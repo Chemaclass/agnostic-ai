@@ -4,6 +4,7 @@ import { postEdit } from '../api'
 import { BuiltinChange } from './BuiltinChange'
 import { ViewPersonalButton, useEditAudience, useLevelName, usePageAudience, useViewAudience } from './EditAudience'
 import { OpenInEditor } from './EditorLink'
+import { useApp } from './app-context'
 import { SpecMoveAction } from './SpecMoveAction'
 import { SourceContent } from './SourceContent'
 import { HookDetails } from './HookDetails'
@@ -12,7 +13,7 @@ import { builtinEnabled, comparisonValue } from '../model/audience-view'
 import { audienceLabel, layerLabel } from '../model/edit-audience'
 import { itemEntryId } from '../model/identity'
 import { isTurnedOff } from '../model/counts'
-import { Badge, Chip, Code, CopyButton, Switch, Toggle, ToolAvatar } from './ui'
+import { Badge, Chip, Code, CopyButton, RowActions, Switch, Toggle, ToolAvatar } from './ui'
 import { ConfigurationRoot, PersonalBuiltins, useEntry } from './section-context'
 import { Findings } from './Findings'
 import { EditSwitch, ResetAction } from './EditSwitch'
@@ -95,13 +96,15 @@ export function ItemList({ items, hideValues, sharedUnlisted }: { items: Section
 
 function ItemRow({ item, children }: { item: SectionItem; children: ReactNode }) {
   const { linked, ...entry } = useEntry(itemEntryId(item))
-  return <li {...entry} className={`item-row${isTurnedOff(item) ? ' is-off' : ''}${item.findings.length ? ' has-findings' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
+  return <li {...entry} className={`item-row row-hover${isTurnedOff(item) ? ' is-off' : ''}${item.findings.length ? ' has-findings' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
 }
 
 function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
   const root = useContext(ConfigurationRoot)
   const audience = useViewAudience()
+  const app = useApp()
   const refinable = item.kind === 'instructions' && item.layer === 'global'
+  const openable = app.source.kind === 'api' && item.openPath !== undefined
   return (
     <div className="item-heading">
       <div className="item-main">
@@ -117,8 +120,12 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{layerLabel(item.layer)}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
-        {refinable && <CopyButton text={instructionsRefinePrompt(item.openPath ?? (root ? `${root}/${item.path}` : item.path))} label="Copy refine prompt" ariaLabel={`Copy refine prompt for ${item.label}`} className="refine-copy" />}
-        <OpenInEditor path={item.openPath} label={item.label} compact />
+        {(refinable || openable) && (
+          <RowActions label={item.label}>
+            {refinable && <CopyButton text={instructionsRefinePrompt(item.openPath ?? (root ? `${root}/${item.path}` : item.path))} label="Copy refine prompt" ariaLabel={`Copy refine prompt for ${item.label}`} className="refine-copy" />}
+            <OpenInEditor path={item.openPath} label={item.label} compact />
+          </RowActions>
+        )}
       </div>
     </div>
   )

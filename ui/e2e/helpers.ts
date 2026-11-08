@@ -43,3 +43,14 @@ export async function openMenu(page: Page): Promise<Locator> {
   await menu.waitFor()
   return menu
 }
+
+/** The page header that a hidden section-name h1 labels; the verdict is what shows. */
+export function pageHeader(page: Page, name: string) {
+  return page.locator('.page-header').filter({ has: page.getByRole('heading', { level: 1, name, exact: true }) })
+}
+
+/** Opens the Coding tool support dialog from the facts line's Tool support link. */
+export async function openToolSupport(page: Page) {
+  await page.locator('.page-facts').getByRole('button', { name: 'Tool support', exact: true }).click()
+  return page.getByRole('dialog', { name: 'Coding tool support' })
+}
