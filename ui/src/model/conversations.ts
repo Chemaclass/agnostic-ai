@@ -32,11 +32,45 @@ export function withheldLabel(field: WithheldField): string {
 
 export const WITHHELD_NOTE = 'Hidden: may hold a credential'
 
-/** A chip's count: the tool's rows loaded so far, of every conversation it holds; or that its store was not found. */
-export function sourceLine(source: ConversationSource, loaded: Conversation[]): string {
-  if (!source.found) return 'Not found'
-  const rows = loaded.filter((conversation) => conversation.tool === source.tool).length
-  return `${rows} of ${source.count}`
+/** One button of the tool filter: a tool whose store was found, with its rows loaded so far. */
+interface ToolChoice {
+  tool: ConversationTool
+  label: string
+  loaded: number
+  /** How many rows are loaded of every conversation it holds, and the server's note. */
+  description: string
+}
+
+/** The tool filter's buttons. A tool whose store was not found has nothing to filter, so it is left out. */
+export function toolChoices(sources: ConversationSource[], loaded: Conversation[]): ToolChoice[] {
+  return sources.filter((source) => source.found).map((source) => {
+    const rows = loaded.filter((conversation) => conversation.tool === source.tool).length
+    const description = `${rows} of ${plural(source.count, `${source.label} chat`)} loaded.${source.note ? ` ${source.note}` : ''}`
+    return { tool: source.tool, label: source.label, loaded: rows, description }
+  })
+}
+
+// The server cuts long titles and prompts, so the closing tag may be gone.
+const SHELL_INPUT = /^\s*<bash-input>([\s\S]*?)(?:<\/bash-input>\s*)?$/
+
+/** A title or prompt as the row shows it: a shell command the person typed reads as "! command". */
+export interface ChatText {
+  text: string
+  shell: boolean
+}
+
+export function chatText(raw: string): ChatText {
+  const shell = SHELL_INPUT.exec(raw)
+  if (shell) return { text: `! ${shell[1].trim()}`, shell: true }
+  return { text: raw.trim(), shell: raw.trim().startsWith('! ') }
+}
+
+/** The last prompt to show under the title, unless it says the same thing. */
+export function shownPrompt(title: ChatText, prompt: string | undefined): ChatText | undefined {
+  if (!prompt) return undefined
+  const shown = chatText(prompt)
+  if (shown.text === '' || shown.text === title.text) return undefined
+  return shown
 }
 
 function conversationKey(conversation: Conversation): string {
@@ -74,10 +108,10 @@ export function sameFirstPage(a: ConversationsView, b: ConversationsView): boole
 export type ToolFilter = ConversationTool | 'all'
 
 function searchParts(conversation: Conversation): string[] {
-  return [conversation.title, conversation.folder ?? '', conversation.branch ?? '', ...(conversation.opening ?? []), conversation.prompt ?? '']
+  return [chatText(conversation.title).text, conversation.folder ?? '', conversation.branch ?? '', chatText(conversation.prompt ?? '').text]
 }
 
-/** Rows from the chosen tool whose title, folder, branch, opening, or last prompt holds the query, ignoring case. */
+/** Rows from the chosen tool whose title, folder, branch, or last prompt, as the row shows them, holds the query, ignoring case. */
 export function filterConversations(conversations: Conversation[], query: string, tool: ToolFilter): Conversation[] {
   const needle = query.trim().toLowerCase()
   return conversations.filter((conversation) => {
@@ -87,7 +121,7 @@ export function filterConversations(conversations: Conversation[], query: string
   })
 }
 
-/** A source chip toggles its tool: pressing the chosen one again shows every tool. */
+/** A tool button toggles its tool: pressing the chosen one again shows every tool. */
 export function toggleTool(current: ToolFilter, tool: ConversationTool): ToolFilter {
   return current === tool ? 'all' : tool
 }
@@ -153,7 +187,7 @@ export function groupConversations(conversations: Conversation[], now: Date): Co
 interface LiveBadge {
   label: string
   /** The badge tone: amber when the agent waits for the person. */
-  tone: 'permitted' | 'approval' | 'neutral'
+  tone: 'permitted' | 'approval'
   /** The full sentence, for the title and screen readers. */
   description: string
 }
@@ -161,15 +195,12 @@ interface LiveBadge {
 const ACTIVITY_BADGES = {
   working: { label: 'Working', tone: 'permitted', description: 'Open now: the agent is working' },
   waiting: { label: 'Waiting for you', tone: 'approval', description: 'Open now: the agent is waiting for you' },
-  idle: { label: 'Idle', tone: 'neutral', description: 'Open now: the agent is idle' },
-} satisfies Record<ConversationActivity, LiveBadge>
+} satisfies Partial<Record<ConversationActivity, LiveBadge>>
 
-const OPEN_BADGE: LiveBadge = { label: 'Open now', tone: 'permitted', description: 'Open now' }
-
-/** What a live conversation is doing, when its tool says; a tool that does not say shows Open now. */
-export function liveBadge(activity: ConversationActivity | undefined): LiveBadge {
-  if (activity === undefined) return OPEN_BADGE
-  return ACTIVITY_BADGES[activity]
+/** The status chip of an open chat: only Working or Waiting, since the Open now group already says it is open. */
+export function liveBadge(activity: ConversationActivity | undefined): LiveBadge | undefined {
+  if (activity === 'working' || activity === 'waiting') return ACTIVITY_BADGES[activity]
+  return undefined
 }
 
 /** "just now", "12 min ago", "3 h ago", "2 days ago", then the date. */

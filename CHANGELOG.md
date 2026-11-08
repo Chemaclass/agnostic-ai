@@ -60,7 +60,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
 - It opens with how many chats are open and how many wait for you, and each row names its tool (#3120, #3121).
 - The list shows at once when you return and refreshes in the background, three times faster.
-- A tool's note shows above its chip only on hover or focus; phones show it under the chip.
+- Rows are calmer: one meta line and a one-line last prompt, a status chip only while the agent works or waits, and a typed shell command shows as `! gl`. **Open in Terminal** turns into a button on hover or focus, with **Copy command** beside it, and a tool filter sits next to the search.
 - It lists Codex and Cursor chats on Windows, handles a symlinked `~/.codex`, and withholds a prompt with `curl -u user:password` (#3119).
 - Opening a Codex thread that a running `codex` holds switches to its terminal; an editor chat brings forward its workspace window (#3134).
 

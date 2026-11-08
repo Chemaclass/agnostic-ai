@@ -47,7 +47,7 @@ async function mockServer(page: Page, reply: Reply = opened, week: Week = () => 
 }
 
 const row = (page: Page, title: string) => page.locator('li.conversation', { has: page.getByRole('heading', { level: 3, name: title, exact: true }) })
-const chips = (page: Page) => page.getByRole('list', { name: 'Sources' }).getByRole('button')
+const chips = (page: Page) => page.getByRole('group', { name: 'Filter by tool' }).getByRole('button')
 const chip = (page: Page, label: string) => chips(page).filter({ hasText: label })
 
 test.describe('conversations', () => {
@@ -56,7 +56,7 @@ test.describe('conversations', () => {
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1, name: 'Conversations', exact: true })).toBeVisible()
     await expect(page.locator('.page-verdict')).toHaveText('3 chats are open now; 1 waits for you.')
-    await expect(page.locator('.page-facts')).toHaveText('9 conversations. Pick up a chat where you left it, in the tool where it lives.')
+    await expect(page.locator('.page-facts .page-fact')).toHaveText(['9 conversations loaded', 'Pick up where you left off, in the tool where it lives.'])
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
     await expect(nav.getByRole('link').first()).toHaveAccessibleName(/^Setup health/)
     const conversationsLink = nav.getByRole('link').nth(1)
@@ -65,13 +65,16 @@ test.describe('conversations', () => {
     await expect(conversationsLink).toHaveAttribute('href', '/')
     await expect(nav.getByRole('link', { name: /^Context/ })).toHaveAttribute('href', '?view=context')
 
-    await expect(chips(page)).toHaveText(['Claude Code5 of 37', 'Codex2 of 14', 'Cursor2 of 5'])
-    for (const button of await chips(page).all()) await expect(button).toHaveAttribute('aria-pressed', 'false')
+    await expect(chips(page)).toHaveText(['All 9', 'Claude Code 5', 'Codex 2', 'Cursor 2'])
+    await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'true')
+    for (const button of await chips(page).all()) if (!(await button.textContent())?.startsWith('All')) await expect(button).toHaveAttribute('aria-pressed', 'false')
+    await expect(chip(page, 'Claude Code')).toHaveAttribute('title', '5 of 37 Claude Code chats loaded.')
 
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 3', 'Today 2', 'Yesterday 2', 'This week 2'])
     await expect(page.locator('li.conversation')).toHaveCount(9)
     await expect(page.locator('.section-search-status')).toBeEmpty()
-    await expect(page.getByText('Search covers the weeks loaded so far.')).toBeVisible()
+    await expect(page.getByRole('searchbox', { name: 'Search conversations' })).toHaveAttribute('title', 'Search covers the weeks loaded so far.')
+    await expect(page.getByRole('searchbox', { name: 'Search conversations' })).toHaveAccessibleDescription('Search covers the weeks loaded so far.')
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
     const open = page.getByRole('region', { name: /^Open now/ })
@@ -79,30 +82,33 @@ test.describe('conversations', () => {
     await expect(page.getByRole('region', { name: /^Today/ }).getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader', 'Explain the sync --watch debounce'])
 
     const working = row(page, 'Add a Conversations page to the local UI')
-    await expect(working.locator('.conversation-meta')).toHaveText('Claude CodeTerminalWorkingOpen now: the agent is workingagnostic-aimotechfr/conversations-tab6 min ago')
+    await expect(working.locator('.conversation-meta')).toHaveText('WorkingOpen now: the agent is workingClaude Code, Terminalagnostic-aimotechfr/conversations-tab6 min ago')
     await expect(working.locator('.conversation-live')).toHaveAttribute('title', 'Open now: the agent is working')
     await expect(working.locator('.conversation-folder')).toHaveAttribute('title', '/Users/you/Products/agnostic-ai')
-    await expect(working.locator('.conversation-opening p')).toHaveCount(3)
-    await expect(working.locator('.conversation-prompt')).toHaveText('Last prompt Run the e2e suite again and tell me which tests still fail.')
-    await expect(working.locator('.conversation-tool')).toHaveText('Claude Code')
+    await expect(working.locator('.conversation-prompt')).toHaveText('Last prompt: Run the e2e suite again and tell me which tests still fail.')
+    await expect(working.getByRole('button', { name: /^Open in Terminal/ })).toHaveClass(/button-primary/)
+    await expect(working.locator('.conversation-tool')).toHaveText('Claude Code, Terminal')
     await expect(working.getByRole('button', { name: 'Open in Terminal: Add a Conversations page to the local UI' })).toBeVisible()
     await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toBeVisible()
 
     const waiting = row(page, 'Plan the sync --global dry run').locator('.conversation-live')
     await expect(waiting).toHaveText('Waiting for youOpen now: the agent is waiting for you')
     await expect(waiting).toHaveClass(/badge-approval/)
+    // An open chat whose tool does not say what it does shows no status chip: the group says it is open.
     const plain = row(page, 'Tighten the nav labels on phones')
-    await expect(plain.locator('.conversation-live')).toHaveText('Open nowOpen now')
-    await expect(plain.locator('.conversation-tool')).toHaveText('Cursor')
-    await expect(plain.locator('.conversation-withheld')).toHaveText('Opening Hidden: may hold a credential')
+    await expect(plain.locator('.conversation-live')).toHaveCount(0)
+    await expect(plain.locator('.conversation-tool')).toHaveText('Cursor, Editor')
+    await expect(plain.locator('.conversation-tool')).toHaveAttribute('title', 'Cursor, Editor')
+    await expect(plain.locator('.conversation-withheld')).toHaveCount(0)
 
     await expect(row(page, 'Explain the sync --watch debounce').locator('.conversation-withheld')).toHaveText('Last prompt Hidden: may hold a credential')
-    const desktop = page.locator('li.conversation', { hasText: 'Desktop app' })
+    const desktop = page.locator('li.conversation', { has: page.locator('.conversation-tool[title="Claude Code, Desktop app"]') })
     await expect(desktop.getByRole('heading', { level: 3 })).toHaveText('Untitled')
     await expect(desktop.locator('.conversation-withheld')).toHaveText('Title Hidden: may hold a credential')
     await expect(desktop.getByRole('button', { name: /^Copy/ })).toHaveCount(0)
-    for (const app of ['Editor', 'Background']) await expect(page.locator('.conversation-meta', { hasText: app }).first()).toBeVisible()
-    await expect(page.locator('.conversation-live')).toHaveCount(3)
+    for (const app of ['Editor', 'Background']) await expect(page.locator(`.conversation-tool[title$=", ${app}"]`).first()).toBeAttached()
+    await expect(page.locator('.conversation-live')).toHaveCount(2)
+    await expect(row(page, 'Speed up the sqlite reader').getByRole('button', { name: /^Open in/ })).not.toHaveClass(/button-primary/)
 
     await nav.getByRole('link', { name: /^Context/ }).click()
     await expect(page).toHaveURL(/\?view=context$/)
@@ -124,6 +130,7 @@ test.describe('conversations', () => {
     await expect(page.locator('li.conversation[data-tool="codex"]')).toHaveCount(2)
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Today 1', 'This week 1'])
     await expect(status).toHaveText('2 of 9 conversations match.')
+    await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'false')
 
     const cursor = chip(page, 'Cursor')
     await cursor.click()
@@ -134,6 +141,10 @@ test.describe('conversations', () => {
     await expect(cursor).toHaveAttribute('aria-pressed', 'false')
     await expect(page.locator('li.conversation')).toHaveCount(9)
     await expect(status).toBeEmpty()
+    await codex.click()
+    await chip(page, 'All').click()
+    await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('li.conversation')).toHaveCount(9)
 
     const claude = chip(page, 'Claude Code')
     await claude.focus()
@@ -157,60 +168,74 @@ test.describe('conversations', () => {
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Summarize failing CI jobs'])
     await search.fill('immutable=1')
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader'])
-    await search.fill('Group the changes by section')
+    await search.fill('Move the Settings changes')
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Untitled'])
+    await search.fill('Group the changes by section')
+    await expect(page.getByRole('heading', { level: 3 })).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Clear search', exact: true }).click()
     await expect(search).toBeFocused()
     await expect(page.locator('li.conversation')).toHaveCount(9)
 
     await search.fill('release')
-    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Untitled', 'Nightly dependency audit', 'Draft the release notes for v0.92'])
+    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Nightly dependency audit', 'Draft the release notes for v0.92'])
     await claude.click()
-    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Untitled', 'Nightly dependency audit'])
-    await expect(status).toHaveText('2 of 9 conversations match.')
+    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Nightly dependency audit'])
+    await expect(status).toHaveText('1 of 9 conversations match.')
     await cursor.click()
     await expect(page.locator('li.conversation')).toHaveCount(0)
     await expect(page.getByText('No conversation matches.')).toBeVisible()
   })
 
-  test('shows a source the server did not find as text with its note', async ({ page }) => {
+  test('leaves a tool the server did not find out of the filter', async ({ page }) => {
     const missing = structuredClone(conversations)
     missing.tools[2] = { tool: 'cursor', label: 'Cursor', found: false, count: 0, shown: 0, note: "No Cursor chats in /Users/you/.cursor/chats or Cursor's state.vscdb." }
     missing.conversations = missing.conversations.filter((conversation: { tool: string }) => conversation.tool !== 'cursor')
     await mockServer(page, opened, () => ({ json: missing }))
     await page.goto('/')
-    await expect(chips(page)).toHaveText(['Claude Code5 of 37', 'Codex2 of 14'])
-    const cursor = page.getByRole('list', { name: 'Sources' }).getByRole('listitem').filter({ hasText: 'Cursor' })
-    await expect(cursor).toHaveText("CursorNot foundNo Cursor chats in /Users/you/.cursor/chats or Cursor's state.vscdb.")
-    await expect(cursor.getByRole('button')).toHaveCount(0)
-    const note = cursor.locator('.conversation-source-note')
-    const chip = cursor.locator('.conversation-source-chip')
-    await expect(chip).toHaveAccessibleDescription("No Cursor chats in /Users/you/.cursor/chats or Cursor's state.vscdb.")
-    await expect(note).toBeHidden()
-    await chip.hover()
-    await expect(note).toBeVisible()
-    const [chipBox, noteBox] = [(await chip.boundingBox())!, (await note.boundingBox())!]
-    expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(chipBox.y + 1)
-    expect(Math.min(Math.abs(noteBox.x - chipBox.x), Math.abs(noteBox.x + noteBox.width - (chipBox.x + chipBox.width)))).toBeLessThanOrEqual(1)
-    // Without the hide delay, only the bridge keeps the note open while the pointer crosses the gap.
-    await page.addStyleTag({ content: '.conversation-source-note { transition: none !important; }' })
-    const [from, to] = [(await chip.boundingBox())!, (await note.boundingBox())!]
-    await page.mouse.move(from.x + 12, from.y + 4)
-    await page.mouse.move(from.x + 12, to.y + to.height - 4, { steps: 20 })
-    await expect(note).toBeVisible()
-    await page.mouse.move(0, 0)
-    await expect(note).toBeHidden()
-    await chip.click()
-    await page.mouse.move(0, 0)
-    await expect(note).toBeHidden()
-    await page.getByRole('button', { name: /Codex/ }).focus()
-    await page.keyboard.press('Tab')
-    await expect(chip).toBeFocused()
-    await expect(note).toBeVisible()
+    await expect(chips(page)).toHaveText(['All 7', 'Claude Code 5', 'Codex 2'])
     await expect(page.locator('li.conversation')).toHaveCount(7)
     await expect(page.locator('.section-search-status')).toBeEmpty()
-    await expect(page.locator('.page-facts')).toHaveText(/^7 conversations\./)
+    await expect(page.locator('.page-facts')).toHaveText(/^7 conversations loaded/)
+  })
+
+  test('shows a typed shell command as "! command" and hides a last prompt that repeats the title', async ({ page }) => {
+    const shell = structuredClone(conversations)
+    shell.conversations[3] = { ...shell.conversations[3], title: '<bash-input>gl</bash-input>', prompt: '! gl' }
+    shell.conversations[4] = { ...shell.conversations[4], title: '/mcp', prompt: '/mcp', withheld: undefined }
+    await mockServer(page, opened, () => ({ json: shell }))
+    await page.goto('/')
+    const typed = row(page, '! gl')
+    await expect(typed.locator('.conversation-title code')).toHaveText('! gl')
+    await expect(typed.locator('.conversation-prompt')).toHaveCount(0)
+    await expect(row(page, '/mcp').locator('.conversation-prompt')).toHaveCount(0)
+    await page.getByRole('searchbox', { name: 'Search conversations' }).fill('! gl')
+    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['! gl'])
+    await page.getByRole('searchbox', { name: 'Search conversations' }).fill('bash-input')
+    await expect(page.getByRole('heading', { level: 3 })).toHaveCount(0)
+  })
+
+  test('turns the row link into the ink pill and shows Copy command on hover and keyboard focus', async ({ page }) => {
+    await mockServer(page)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/')
+    const sqlite = row(page, 'Speed up the sqlite reader')
+    const open = sqlite.getByRole('button', { name: /^Open in Terminal/ })
+    const copy = sqlite.getByRole('button', { name: /^Copy the command that resumes/ })
+    const look = async () => [await sqlite.evaluate((element) => getComputedStyle(element).backgroundColor), await open.evaluate((element) => getComputedStyle(element).backgroundColor), await copy.evaluate((element) => getComputedStyle(element).opacity)]
+    const [restRow, restOpen, restCopy] = await look()
+    expect(restCopy).toBe('0')
+    await sqlite.hover()
+    const [hoverRow, hoverOpen, hoverCopy] = await look()
+    expect(hoverRow).not.toBe(restRow)
+    expect(hoverOpen).not.toBe(restOpen)
+    expect(hoverCopy).toBe('1')
+    await page.mouse.move(0, 0)
+    await expect.poll(async () => (await look())[2]).toBe('0')
+    await open.focus()
+    await expect.poll(look).toEqual([hoverRow, hoverOpen, '1'])
+    await page.keyboard.press('Tab')
+    await expect(copy).toBeFocused()
   })
 
   test('asks the server to open a conversation and shows its reply', async ({ page }) => {
@@ -240,7 +265,7 @@ test.describe('conversations', () => {
     const mocks = await mockServer(page, () => ({ json: { opened: false, message: 'The Claude app is not installed. Resume it in a terminal instead.', command } }))
     await page.addInitScript(() => window.localStorage.setItem('agnostic-ai.editor', 'zed'))
     await page.goto('/?view=conversations')
-    const desktop = page.locator('li.conversation', { hasText: 'Desktop app' })
+    const desktop = page.locator('li.conversation', { has: page.locator('.conversation-tool[title="Claude Code, Desktop app"]') })
     await desktop.getByRole('button', { name: 'Open in Claude app: Untitled' }).click()
     await expect(desktop.getByRole('status')).toHaveText('The Claude app is not installed. Resume it in a terminal instead.')
     const copy = desktop.getByRole('button', { name: 'Copy the command the server suggests for Untitled' })
@@ -280,7 +305,7 @@ test.describe('conversations', () => {
       const nav = page.getByRole('navigation', { name: 'Configuration sections' })
       for (const link of await nav.getByRole('link').all()) await expect(link).toBeInViewport({ ratio: 1 })
       await expect(nav.getByRole('link', { name: /^Conversations/ })).toHaveAttribute('aria-current', 'page')
-      for (const control of [...await chips(page).all(), ...await page.locator('li.conversation .button').all()]) {
+      for (const control of [...await chips(page).all(), ...await page.locator('li.conversation .button:visible').all()]) {
         const box = (await control.boundingBox())!
         expect(box.height).toBeGreaterThanOrEqual(44)
         expect(box.x + box.width).toBeLessThanOrEqual(390)
@@ -342,7 +367,7 @@ test.describe('conversations by week', () => {
     await page.goto('/')
     await expect(page.locator('li.conversation')).toHaveCount(9)
     await expect(page.getByRole('button', { name: 'Load the week before' })).toBeVisible()
-    await expect(page.locator('.page-facts')).toHaveText(/^9 conversations loaded so far\./)
+    await expect(page.locator('.page-facts')).toHaveText(/^9 conversations loaded so far/)
     expect(mocks.views).toEqual([FIRST_REQUEST])
 
     await scrollToEnd(page)
@@ -352,8 +377,8 @@ test.describe('conversations by week', () => {
     await expect(page.getByRole('region', { name: /^Earlier/ }).getByRole('heading', { level: 3 })).toHaveText(['Port the docs search to Pagefind', 'Untitled'])
     await expect(row(page, 'Speed up the sqlite reader')).toHaveCount(0)
     await expect(page.getByRole('region', { name: /^Today/ }).getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader, measured', 'Explain the sync --watch debounce'])
-    await expect(chips(page)).toHaveText(['Claude Code6 of 37', 'Codex3 of 14', 'Cursor2 of 5'])
-    await expect(page.locator('.page-facts')).toHaveText(/^11 conversations\./)
+    await expect(chips(page)).toHaveText(['All 11', 'Claude Code 6', 'Codex 3', 'Cursor 2'])
+    await expect(page.locator('.page-facts')).toHaveText(/^11 conversations loaded(?! so far)/)
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
 
@@ -428,7 +453,7 @@ test.describe('conversations by week', () => {
     const loading = page.getByRole('region', { name: 'Loading conversations' })
     await expect(loading).toHaveAttribute('aria-busy', 'true')
     await expect(page.locator('.page-verdict .skeleton')).toBeVisible()
-    await expect(page.locator('.conversation-sources .skeleton-line')).toHaveCount(3)
+    await expect(page.locator('.conversation-tools .skeleton-line')).toHaveCount(3)
     const search = page.getByRole('search', { name: 'Search conversations' })
     await expect(search.getByRole('searchbox', { name: 'Search conversations' })).toBeEditable()
     const before = await search.boundingBox()
@@ -454,8 +479,9 @@ test.describe('conversations by week', () => {
     })
     await page.goto('/')
     const heading = page.getByRole('heading', { level: 1, name: 'Conversations', exact: true })
-    const parts = [heading, page.locator('.page-header .conversation-sources'), page.getByRole('search', { name: 'Search conversations' })]
-    const boxes = () => Promise.all(parts.map((part) => part.boundingBox()))
+    // The tool filter's width follows its labels, so only where it starts and its height must hold.
+    const parts = [heading, page.locator('.conversation-tools'), page.getByRole('search', { name: 'Search conversations' })]
+    const boxes = async () => (await Promise.all(parts.map((part) => part.boundingBox()))).map((box, index) => box && index === 1 ? { ...box, width: 0 } : box)
     await expect(page.locator('.page-header.has-verdict')).toBeVisible()
     await expect(page.getByRole('region', { name: 'Loading conversations' })).toBeVisible()
     const loading = await boxes()
@@ -532,12 +558,17 @@ test.describe('conversations by week', () => {
 test.describe('conversations on a touch screen', () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } })
 
-  test('shows a missing source\'s note under its chip without a hover', async ({ page }) => {
-    const missing = structuredClone(conversations)
-    missing.tools[2] = { tool: 'cursor', label: 'Cursor', found: false, count: 0, shown: 0, note: "No Cursor chats in /Users/you/.cursor/chats or Cursor's state.vscdb." }
-    await mockServer(page, opened, () => ({ json: missing }))
+  test('puts Copy command behind the row menu', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await mockServer(page)
     await page.goto('/')
-    await expect(page.locator('.conversation-source-note')).toBeVisible()
+    const sqlite = row(page, 'Speed up the sqlite reader')
+    await expect(sqlite.getByRole('button', { name: /^Copy the command/ })).toBeHidden()
+    await sqlite.getByRole('button', { name: 'More actions for Speed up the sqlite reader' }).click()
+    await sqlite.getByRole('button', { name: /^Copy the command that resumes/ }).click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/resume/)
+    const live = row(page, 'Add a Conversations page to the local UI').getByRole('button', { name: /^Open in Terminal/ })
+    expect((await live.boundingBox())!.width).toBeGreaterThan(200)
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true)
   })
 })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Conversation, ConversationSource, ConversationsView } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, sourceLine, toggleTool, withheldLabel } from './conversations'
+import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Local times, so the day groups hold in any time zone the tests run in.
@@ -109,12 +109,13 @@ describe('conversation search', () => {
   ]
   const ids = (list: Conversation[]) => list.map((c) => c.id)
 
-  it('matches title, folder, branch, opening, and prompt, ignoring case and outer spaces', () => {
+  it('matches title, folder, branch, and prompt as the row shows them, ignoring case and outer spaces', () => {
     expect(ids(filterConversations(rows, 'CONVERSATIONS', 'all'))).toEqual(['ui'])
     expect(ids(filterConversations(rows, 'website', 'all'))).toEqual(['site'])
     expect(ids(filterConversations(rows, 'motechfr/', 'all'))).toEqual(['ui'])
-    expect(ids(filterConversations(rows, ' 900 ms ', 'all'))).toEqual(['sqlite'])
-    expect(ids(filterConversations(rows, 'immutable', 'all'))).toEqual(['sqlite'])
+    expect(ids(filterConversations(rows, ' Immutable=1 ', 'all'))).toEqual(['sqlite'])
+    expect(ids(filterConversations(rows, '900 ms', 'all'))).toEqual([])
+    expect(ids(filterConversations([conversation({ id: 'gl', title: '<bash-input>gl</bash-input>' })], '! gl', 'all'))).toEqual(['gl'])
     expect(ids(filterConversations(rows, 'products', 'all'))).toEqual(['ui', 'site'])
     expect(ids(filterConversations(rows, 'nothing like this', 'all'))).toEqual([])
   })
@@ -143,25 +144,36 @@ describe('conversation words', () => {
     expect(appLabel('watch' as Conversation['app'])).toBe('watch')
   })
 
-  it('says what a live conversation is doing, in amber when it waits for the person', () => {
+  it('shows a status chip only while the agent works or waits, in amber when it waits for the person', () => {
     expect(liveBadge('working')).toEqual({ label: 'Working', tone: 'permitted', description: 'Open now: the agent is working' })
     expect(liveBadge('waiting')).toEqual({ label: 'Waiting for you', tone: 'approval', description: 'Open now: the agent is waiting for you' })
-    expect(liveBadge('idle')).toEqual({ label: 'Idle', tone: 'neutral', description: 'Open now: the agent is idle' })
-    expect(liveBadge(undefined)).toEqual({ label: 'Open now', tone: 'permitted', description: 'Open now' })
+    expect(liveBadge('idle')).toBeUndefined()
+    expect(liveBadge(undefined)).toBeUndefined()
+  })
+
+  it('shows a typed shell command as "! command" and hides a last prompt that repeats the title', () => {
+    expect(chatText('<bash-input>gl</bash-input>')).toEqual({ text: '! gl', shell: true })
+    expect(chatText(' Plan the release ')).toEqual({ text: 'Plan the release', shell: false })
+    expect(chatText('<bash-input>docker compose up --build web…')).toEqual({ text: '! docker compose up --build web…', shell: true })
+    expect(shownPrompt(chatText('<bash-input>gl</bash-input>'), '! gl')).toBeUndefined()
+    expect(shownPrompt(chatText('/mcp'), '/mcp')).toBeUndefined()
+    expect(shownPrompt(chatText('Plan'), undefined)).toBeUndefined()
+    expect(shownPrompt(chatText('Plan'), '<bash-input>make test</bash-input>')).toEqual({ text: '! make test', shell: true })
+    expect(shownPrompt(chatText('Plan'), 'Go on')).toEqual({ text: 'Go on', shell: false })
   })
 
   it('names every withheld field', () => {
     expect([withheldLabel('title'), withheldLabel('opening'), withheldLabel('prompt')]).toEqual(['Title', 'Opening', 'Last prompt'])
   })
 
-  it('counts each tool\'s rows across the loaded weeks against everything it holds, or says it was not found', () => {
+  it('counts each found tool\'s rows across the loaded weeks against everything it holds, and leaves out a tool not found', () => {
     const source = (over: Partial<ConversationSource>): ConversationSource => ({ tool: 'codex', label: 'Codex', found: true, count: 66, shown: 2, ...over })
     const firstWeek = { conversations: [conversation({ id: 'a', tool: 'codex' }), conversation({ id: 'b', tool: 'codex' }), conversation({ id: 'c' })] }
     const weekBefore = { conversations: [conversation({ id: 'b', tool: 'codex' }), conversation({ id: 'd', tool: 'codex' })] }
-    expect(sourceLine(source({}), mergePages([firstWeek]))).toBe('2 of 66')
-    expect(sourceLine(source({}), mergePages([firstWeek, weekBefore]))).toBe('3 of 66')
-    expect(sourceLine(source({ tool: 'cursor', count: 0 }), mergePages([firstWeek]))).toBe('0 of 0')
-    expect(sourceLine(source({ found: false, count: 0, note: 'No store' }), mergePages([firstWeek]))).toBe('Not found')
+    expect(toolChoices([source({})], mergePages([firstWeek]))).toEqual([{ tool: 'codex', label: 'Codex', loaded: 2, description: '2 of 66 Codex chats loaded.' }])
+    expect(toolChoices([source({})], mergePages([firstWeek, weekBefore]))[0].loaded).toBe(3)
+    expect(toolChoices([source({ tool: 'cursor', label: 'Cursor', count: 1, note: 'Read from the state file.' })], mergePages([firstWeek]))[0].description).toBe('0 of 1 Cursor chat loaded. Read from the state file.')
+    expect(toolChoices([source({ found: false, count: 0, note: 'No store' })], mergePages([firstWeek]))).toEqual([])
   })
 
   it('says how long ago, then the date', () => {
