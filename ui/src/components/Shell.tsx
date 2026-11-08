@@ -8,8 +8,8 @@ import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
 import { requiredRelease, servingRelease } from '../model/release'
-import { countFindings, healthSummary } from '../model/health'
-import { HEALTH_STATUS, healthTone, sectionSummary } from '../model/rail'
+import { countFindings, healthSummary, type FindingCount } from '../model/health'
+import { HEALTH_STATUS, healthTone, sectionSummary, type HealthTone } from '../model/rail'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -189,7 +189,7 @@ interface SectionLink {
 
 function sectionLinks(overview: OverviewView | undefined): SectionLink[] {
   const sections = overview?.sections
-  if (!sections?.length) return SECTION_VIEWS.map((id) => ({ id, ...DEFAULT_SECTIONS[id], summary: DEFAULT_SECTIONS[id].label }))
+  if (!sections?.length) return SECTION_VIEWS.map((id) => ({ id, ...DEFAULT_SECTIONS[id] }))
   return [...sections].sort((a, b) => a.order - b.order).map((section) => ({
     id: section.id as ViewId,
     label: section.label,
@@ -198,32 +198,37 @@ function sectionLinks(overview: OverviewView | undefined): SectionLink[] {
   }))
 }
 
-/** Conversations, Setup health as a status row, then each section as its question over its live summary.
-    The summary comes first in the markup, so each link's name starts with the page name. */
+/** Conversations, Setup health as a status row, then each section: its name over its question. A section's live summary, such as "1 rule, 3 agents", is its tooltip; Setup health shows its count in its question. */
 function PageLinks({ overview, onNavigate }: { overview: OverviewView | undefined; onNavigate?: () => void }) {
   const app = useApp()
   const count = overview ? countFindings(overview) : undefined
   const tone = count ? healthTone(count) : undefined
   const link = (id: ViewId, className: string | undefined, label: string, question: string, summary: string | undefined, dot?: string) => (
     <li key={id} className={className}>
-      <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate}>
+      <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate} title={summary}>
         {dot && <span className={`nav-dot is-${dot}`} aria-hidden="true" />}
         <Icon name={id} />
         <span className="nav-text">
-          {summary && <span className="nav-summary">{summary}</span>}
-          <span className="nav-question">{question}</span>
           <span className="nav-label">{label}</span>
+          <span className="nav-question">{question}</span>
         </span>
       </AppLink>
     </li>
   )
   return (
     <ul className="nav-list">
-      {link('conversations', 'nav-item-conversations', 'Conversations', 'Where did you leave off?', 'Conversations: chats across your tools')}
-      {link('health', 'nav-item-health', 'Health', tone ? HEALTH_STATUS[tone] : 'Setup health', count ? `Setup health: ${healthSummary(count)}` : undefined, tone ?? 'loading')}
+      {link('conversations', 'nav-item-conversations', 'Conversations', 'Where did you leave off?', undefined)}
+      {link('health', 'nav-item-health', 'Setup health', healthQuestion(tone, count), undefined, tone ?? 'loading')}
       {sectionLinks(overview).map((section) => link(section.id, undefined, section.label, section.question, section.summary))}
     </ul>
   )
+}
+
+/** Setup health's line under its name: the status, and what it counts unless all is clear. */
+function healthQuestion(tone: HealthTone | undefined, count: FindingCount | undefined): string {
+  if (!tone || !count) return 'Checking your setup'
+  if (tone === 'clean') return HEALTH_STATUS.clean
+  return `${HEALTH_STATUS[tone]}: ${healthSummary(count)}`
 }
 
 function RailFoot({

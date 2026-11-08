@@ -128,7 +128,7 @@ Fraunces ships as two subset woff2 files, weights 500 and 600, roman only, built
 
 ## Layout
 
-- **Rail** (280px, dark slate, sticky, full height): wordmark and project name, then Setup health as a status row (dot in the state color, "Needs attention" or "All clear", and "1 to fix, 12 you could add"), then the five sections (plus Conversations once #3109 adds it), each as its question over its live summary in small dim text (Conversations: *Where did you leave off?*, with the open chat count). The current row fills `rail-raised` with an 8px radius. The foot holds Search with its shortcut, Open global settings or Open project, the version badge, and Overview JSON.
+- **Rail** (280px, dark slate, sticky, full height): wordmark and project name, then Conversations, Setup health as a status row (dot in the state color), and the five sections. Each row shows the section's name (Conversations, Setup health, Context, Authority, Tools, Lifecycle, Settings), its question under it in dim text (*Where did you leave off?*, *Worth a look*, *What is the agent told?*), and its live summary in small dim text ("1 rule, 3 agents", "9 warnings"). The current row fills `rail-raised` with an 8px radius. The foot holds Search with its shortcut, Open global settings or Open project, the version badge, and Overview JSON.
 - **No top bar on wide screens.** What the top bar held moves into the rail or the page:
   - Finding counts by severity: the rail's Setup health row shows them as words ("1 error, 3 warnings", or "No findings" in `rail-dim`). On phones the top bar shows them as a chip ("1E 3W").
   - Project path: under the project name in the rail, monospace in `rail-dim`, truncated from the left, with the full path on hover.

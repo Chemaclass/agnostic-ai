@@ -8,7 +8,8 @@ const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.moc
 
 type Overview = typeof fixture
 // The rail row names the counts first, then the status word.
-const healthRow = (page: Page, summary: string) => page.locator('.sidenav').getByRole('link', { name: new RegExp(`^Setup health: ${summary} `) })
+// The rail row reads its name, then its status with what it counts, such as "Setup health Worth a look: 3 warnings", or "Setup health All clear".
+const healthRow = (page: Page, counted: string) => page.locator('.sidenav').getByRole('link', { name: new RegExp(`^Setup health .*${counted}$`) })
 const section = (data: Overview, id: string) => data.sections.find((s: { id: string }) => s.id === id)
 
 // One lint error on a hook and three doctor warnings on skills; the fixture's own finding is removed.
@@ -41,7 +42,7 @@ test.describe('setup health', () => {
     await serve(page, data)
     await page.goto('/?view=settings')
     const badge = healthRow(page, '1 error, 3 warnings')
-    await expect(badge).toHaveAccessibleName('Setup health: 1 error, 3 warnings Needs a fix')
+    await expect(badge).toHaveAccessibleName('Setup health Needs a fix: 1 error, 3 warnings')
     await expect(badge.locator('.nav-dot')).toHaveClass(/is-error/)
     await badge.click()
     await expect(page).toHaveURL(/[?&]view=health(&|$)/)
@@ -154,7 +155,7 @@ test.describe('setup health', () => {
     for (const item of section(data, 'context').items) item.findings = []
     await serve(page, data)
     await page.goto('/?view=health')
-    const badge = healthRow(page, 'No findings')
+    const badge = healthRow(page, 'All clear')
     await expect(badge).toContainText('All clear')
     await expect(badge.locator('.nav-dot')).toHaveClass(/is-clean/)
     await expect(page.locator('.page-verdict')).toHaveText('Nothing needs a fix.')
@@ -235,7 +236,7 @@ test.describe('setup health', () => {
     data.health = { gaps: [{ id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix }], improvements: { applied: 8, total: 9 } }
     await serve(page, data)
     await page.goto('/?view=health')
-    await expect(healthRow(page, 'No findings')).toBeVisible()
+    await expect(healthRow(page, 'All clear')).toBeVisible()
     await expect(page.locator('.health-track')).toContainText('8 of 9 features your tools support are in use')
     await expect(page.locator('.page-facts')).toContainText('1 feature you could add')
     const gaps = page.getByRole('region', { name: /^Reach the best setup/ })

@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The web interface's rail names each page first, with its question under the name and its counts as a tooltip.
+
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).
 
 - The Lifecycle page shows its stages as a timeline with a filled dot for each stage that runs a hook, names each tool next to its logo, and shows a count only above zero instead of "Hooks 0" and "No hooks" on every stage. With no hooks it uses the shared empty state with the tools that support them. A turned-off hook shows as off, and its stage counts it as "turned off". Saving a hook reports through the same notice as the other pages.

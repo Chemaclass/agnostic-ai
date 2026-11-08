@@ -238,32 +238,29 @@ html {
   background: var(--rail-raised);
 }
 
-.nav-link > .icon,
-.nav-label {
+.nav-link > .icon {
   display: none;
 }
 
+/* Each row: the section's name over its question; the live summary is the link's tooltip. */
 .nav-text {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.nav-question {
-  order: -1;
+.nav-label {
   font-size: var(--text-body);
+  font-weight: 600;
   line-height: 18px;
 }
 
-.nav-summary {
+.nav-question {
   color: var(--text-muted);
-  font-size: var(--text-xs);
-  line-height: 16px;
+  font-size: var(--text-sm);
+  line-height: 17px;
 }
 
-.nav-item-health .nav-question {
-  font-weight: 600;
-}
 
 /* A border, not a background, so the dot keeps its shape in forced colors. */
 
@@ -291,7 +288,7 @@ html {
     color: HighlightText;
   }
 
-  .nav-link[aria-current='page'] .nav-summary {
+  .nav-link[aria-current='page'] .nav-question {
     color: HighlightText;
   }
 }
@@ -805,13 +802,16 @@ html:has(.menu-sheet[open]) {
     height: 18px;
   }
 
-  .sidenav .nav-question,
-  .sidenav .nav-summary {
+  .sidenav .nav-question {
     display: none;
   }
 
+  /* The narrow row shows only each name, in the row's own type. */
   .sidenav .nav-label {
     display: block;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
   }
 
   .global-onboarding {
