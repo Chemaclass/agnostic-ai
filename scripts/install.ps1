@@ -74,25 +74,44 @@ function Get-LatestVersion {
     # Windows PowerShell 5.1 raises a terminating WebException on the 3xx,
     # PowerShell 7 hands back the 3xx response instead. This works the same
     # on both, and 5.1 is what ships with Windows.
-    $request = [Net.WebRequest]::Create($url)
-    $request.AllowAutoRedirect = $false
-    $request.UserAgent = 'agnostic-ai-install'
-    $request.Timeout = 15000
+    #
+    # Timeouts, dropped connections, 429 and 5xx are GitHub-side blips that
+    # pass in seconds; any other answer is final.
+    $retryDelays = @(2, 4)
+    for ($retries = 0; ; $retries++) {
+        $request = [Net.WebRequest]::Create($url)
+        $request.AllowAutoRedirect = $false
+        $request.UserAgent = 'agnostic-ai-install'
+        $request.Timeout = 15000
 
-    try {
-        $response = $request.GetResponse()
-    } catch [Net.WebException] {
-        # 4xx and 5xx arrive as an exception; the response rides along.
-        $response = $_.Exception.Response
-        if (-not $response) { throw "could not reach ${url}: $($_.Exception.Message)" }
+        $unreachable = $null
+        $status = 0
+        $location = $null
+        try {
+            $response = $request.GetResponse()
+        } catch [Net.WebException] {
+            # 4xx and 5xx arrive as an exception; the response rides along.
+            $response = $_.Exception.Response
+            if (-not $response) { $unreachable = $_.Exception.Message }
+        }
+
+        if ($response) {
+            try {
+                $status = [int]$response.StatusCode
+                $location = $response.Headers['Location']
+            } finally {
+                $response.Close()
+            }
+        }
+
+        $transient = $unreachable -or $status -eq 429 -or $status -ge 500
+        if (-not $transient -or $retries -ge $retryDelays.Count) { break }
+        $reason = if ($unreachable) { 'no answer' } else { "HTTP $status" }
+        Write-Step "$reason from $url, retrying in $($retryDelays[$retries])s"
+        Start-Sleep -Seconds $retryDelays[$retries]
     }
 
-    try {
-        $status = [int]$response.StatusCode
-        $location = $response.Headers['Location']
-    } finally {
-        $response.Close()
-    }
+    if ($unreachable) { throw "could not reach ${url}: $unreachable" }
 
     if ($status -eq 403 -or $status -eq 429) {
         throw ("github rate limited this network while resolving the latest release. " +

@@ -35,6 +35,8 @@ VERSION_RE='^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
 FIRST_ATTESTED_MINOR=75
 # gh exits 4 when a command needs a login it does not have.
 GH_AUTH_REQUIRED=4
+# Seconds to wait before each retry of the release lookup.
+LOOKUP_RETRY_DELAYS=(2 4)
 
 die()  { printf 'error: %s\n' "$*" >&2; return 1; }
 note() { printf '→ %s\n' "$*"; }
@@ -80,15 +82,31 @@ download_url() {
 # still dies depending on who finished writing first. Nothing below pipes
 # curl into anything.
 latest_version() {
-  local url="https://github.com/$REPO/releases/latest" response status location tag
+  local url="https://github.com/$REPO/releases/latest" response status location tag delay retries=0
 
-  # No -L: the tag is the redirect target, and following it would fetch a
-  # few hundred kilobytes of HTML to learn what the header already said.
-  response="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' "$url")" \
-    || { die "could not reach $url"; return 1; }
-  # "<status> <redirect_url>", with the URL empty when there was no redirect.
-  status="${response%% *}"
-  location="${response#* }"
+  # Timeouts, dropped connections, 429 and 5xx are GitHub-side blips that
+  # pass in seconds; any other answer is final.
+  while :; do
+    status=""
+    location=""
+    # No -L: the tag is the redirect target, and following it would fetch a
+    # few hundred kilobytes of HTML to learn what the header already said.
+    if response="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' "$url")"; then
+      # "<status> <redirect_url>", with the URL empty when there was no redirect.
+      status="${response%% *}"
+      location="${response#* }"
+    fi
+    case "$status" in
+      "" | 429 | 5??) ;;
+      *) break ;;
+    esac
+    (( retries < ${#LOOKUP_RETRY_DELAYS[@]} )) || break
+    delay="${LOOKUP_RETRY_DELAYS[retries]}"
+    retries=$((retries + 1))
+    printf '→ %s from %s, retrying in %ss\n' "${status:+HTTP $status}${status:-no answer}" "$url" "$delay" >&2
+    sleep "$delay"
+  done
+  [[ -n "$status" ]] || { die "could not reach $url"; return 1; }
 
   # `die` returns instead of exiting, so a sourced copy stays testable; every
   # branch has to stop the function itself. `esac || return 1` does that for

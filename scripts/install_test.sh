@@ -23,6 +23,33 @@ source "$SCRIPT_DIR/install.sh"
 # A value exported in the developer's shell would change what these check.
 function set_up() {
   unset AGNOSTIC_AI_VERIFY_ATTESTATION AGNOSTIC_AI_VERSION
+  CALLS="$(mktemp -d)"
+  # Retries wait between lookups; record the waits instead of taking them.
+  function sleep() { printf '%s\n' "$1" >> "$CALLS/sleep"; }
+}
+
+function tear_down() {
+  unset -f sleep
+  rm -rf "$CALLS"
+}
+
+# curl_answers stubs curl to print one canned response per call, in order,
+# and to repeat the last one. "fail" makes that call a transport failure.
+function curl_answers() {
+  printf '%s\n' "$@" > "$CALLS/answers"
+  function curl() {
+    local n answer
+    printf 'x\n' >> "$CALLS/curl"
+    n="$(wc -l < "$CALLS/curl")"
+    answer="$(sed -n "${n}p" "$CALLS/answers")"
+    [[ -n "$answer" ]] || answer="$(tail -n 1 "$CALLS/answers")"
+    [[ "$answer" == fail ]] && return 28
+    printf '%s' "$answer"
+  }
+}
+
+function count_lines() {
+  if [[ -f "$1" ]]; then wc -l < "$1" | tr -d ' '; else printf '0'; fi
 }
 
 # ---- asset_name / download_url -----------------------------------------------
@@ -352,6 +379,63 @@ function test_latest_version_reports_a_transport_failure() {
   unset -f curl
 }
 
+function test_latest_version_retries_server_errors_then_succeeds() {
+  curl_answers '504 ' '502 ' '302 https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.62.0'
+  assert_equals "v0.62.0" "$(latest_version 2>/dev/null)"
+  unset -f curl
+
+  assert_same "3" "$(count_lines "$CALLS/curl")"
+  assert_same "$(printf '2\n4')" "$(cat "$CALLS/sleep")"
+}
+
+function test_latest_version_retries_a_timeout_then_succeeds() {
+  curl_answers fail '302 https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.62.0'
+  assert_equals "v0.62.0" "$(latest_version 2>/dev/null)"
+  unset -f curl
+
+  assert_same "2" "$(count_lines "$CALLS/curl")"
+}
+
+function test_latest_version_gives_up_after_three_server_errors() {
+  local out
+  curl_answers '504 '
+  out="$(latest_version 2>&1)" && fail "a 504 resolved a version"
+  unset -f curl
+
+  assert_contains "unexpected HTTP 504" "$out"
+  assert_same "3" "$(count_lines "$CALLS/curl")"
+}
+
+function test_latest_version_gives_up_after_three_transport_failures() {
+  local out
+  curl_answers fail
+  out="$(latest_version 2>&1)" && fail "an unreachable host resolved a version"
+  unset -f curl
+
+  assert_contains "could not reach" "$out"
+  assert_same "3" "$(count_lines "$CALLS/curl")"
+}
+
+function test_latest_version_retries_429_then_names_rate_limiting() {
+  curl_answers '429 '
+  assert_contains "rate limit" "$(latest_version 2>&1)"
+  unset -f curl
+
+  assert_same "3" "$(count_lines "$CALLS/curl")"
+}
+
+function test_latest_version_does_not_retry_other_client_errors() {
+  local status
+  for status in 403 404; do
+    rm -f "$CALLS/curl"
+    curl_answers "$status "
+    latest_version >/dev/null 2>&1
+    unset -f curl
+    assert_same "1" "$(count_lines "$CALLS/curl")"
+  done
+  assert_same "0" "$(count_lines "$CALLS/sleep")"
+}
+
 # The API endpoint is the bug: 60 unauthenticated requests per hour per IP.
 function test_latest_version_never_touches_the_github_api() {
   assert_not_contains "api.github.com" "$(declare -f latest_version)"
@@ -384,6 +468,14 @@ function test_ps1_disables_redirect_following_so_the_location_survives() {
 function test_ps1_names_rate_limiting_rather_than_printing_a_status() {
   assert_contains "rate limited" "$(ps1_code)"
   assert_contains "no published release" "$(ps1_code)"
+}
+
+function test_ps1_retries_the_release_lookup_on_server_errors_only() {
+  local code
+  code="$(ps1_code)"
+  assert_contains '$retryDelays = @(2, 4)' "$code"
+  assert_contains '$transient = $unreachable -or $status -eq 429 -or $status -ge 500' "$code"
+  assert_contains 'Start-Sleep -Seconds $retryDelays[$retries]' "$code"
 }
 
 function test_ps1_validates_the_version_before_any_download() {

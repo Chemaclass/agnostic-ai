@@ -93,6 +93,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Authority shows a local `protected: null`, and **Reset to project paths** removes it (#3072).
 - **Copy to global** (**Copy to project** in global view) moves a spec across levels; **Replace it** overwrites. `POST /api/edit/spec/move` matches (#3027).
 
+#### Install
+
+- The install scripts retry the latest release lookup twice when GitHub times out or answers 429 or a server error, instead of failing on the first try.
+
 ### By tool
 
 #### Kiro
