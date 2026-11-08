@@ -395,7 +395,6 @@ textarea:focus {
 }
 
 .section-warnings > summary,
-.finding-details summary,
 .item-source > summary,
 .unconfigured-fields > summary,
 .field-resolution > summary,
@@ -407,7 +406,6 @@ textarea:focus {
 }
 
 .section-warnings > summary::-webkit-details-marker,
-.finding-details summary::-webkit-details-marker,
 .item-source > summary::-webkit-details-marker,
 .unconfigured-fields > summary::-webkit-details-marker,
 .field-resolution > summary::-webkit-details-marker,
@@ -416,7 +414,7 @@ textarea:focus {
 }
 
 .section-warnings > summary::before,
-.finding-details summary::before,
+.finding-details-toggle::before,
 .item-source > summary::before,
 .unconfigured-fields > summary::before,
 .field-resolution > summary::before,
@@ -433,7 +431,7 @@ textarea:focus {
 }
 
 .section-warnings[open] > summary::before,
-.finding-details[open] summary::before,
+.finding-details-toggle[aria-expanded='true']::before,
 .item-source[open] > summary::before,
 .unconfigured-fields[open] > summary::before,
 .field-resolution[open] > summary::before,
@@ -957,17 +955,12 @@ textarea:focus {
   border-inline-start-color: var(--blocked);
 }
 
-/* Above 760px the actions sit in a right column beside the text. */
+/* Label, sentence and path, then Copy prompt and Details on one row. */
 .finding-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px 24px;
+  gap: 10px;
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-.finding-body > * {
-  grid-column: 1 / -1;
 }
 
 .finding-text {
@@ -976,8 +969,16 @@ textarea:focus {
   min-width: 0;
 }
 
-.finding-body > .finding-text {
-  grid-column: 1;
+/* Above 760px the pick box sits in a gutter, so the text lines up under the label. */
+@media (min-width: 761px) {
+  .finding:has(.finding-label > .pick-box) {
+    padding-inline-start: 60px;
+  }
+
+  .finding-label > .pick-box {
+    margin-inline-start: -36px;
+    margin-inline-end: 8px;
+  }
 }
 
 .finding-label {
@@ -992,6 +993,16 @@ textarea:focus {
 
 .finding-error .finding-label {
   color: var(--blocked);
+}
+
+.finding-label .finding-section {
+  color: inherit;
+  text-decoration: none;
+}
+
+.finding-label .finding-section:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .finding-message-wrap {
@@ -1062,14 +1073,8 @@ textarea:focus {
 }
 
 .finding-body > .finding-actions {
-  grid-column: 2;
-  grid-row: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  align-self: start;
-  gap: 8px;
-  margin-top: 0;
+  gap: 8px 24px;
+  margin-top: 6px;
 }
 
 /* A recheck result reads as a Notice under the card's actions. */
@@ -1127,23 +1132,40 @@ textarea:focus {
   font-size: var(--text-sm);
 }
 
-.finding-details summary {
+.finding-details-toggle {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 32px;
-  width: fit-content;
   padding: 4px 0;
-  color: var(--accent-strong);
   font-size: var(--text-md);
-  font-weight: 600;
-  cursor: pointer;
+  text-decoration: none;
 }
 
-.finding-details summary:hover {
+.finding-details-toggle:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.finding-details[open] summary {
-  margin-bottom: 12px;
+.finding-details:not([hidden]) {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.finding-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  font-size: var(--text-sm);
+}
+
+.finding-detail-actions .finding-recheck {
+  min-height: 32px;
+  padding-block: 4px;
+  font-size: var(--text-sm);
 }
 
 .finding-evidence {
@@ -1211,15 +1233,6 @@ textarea:focus {
     padding: 16px;
   }
 
-  .finding-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .finding-body > .finding-actions {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
   .finding-actions,
   .finding-body > .finding-actions {
     display: grid;
@@ -1234,7 +1247,7 @@ textarea:focus {
   }
 
   .finding-expand,
-  .finding-details summary,
+  .finding-details-toggle,
   .refine-copy {
     min-height: 44px;
     align-content: center;

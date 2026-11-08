@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { openApp, saveScreenshot } from '../helpers'
+import { findingDetails, openApp, saveScreenshot } from '../helpers'
 import { itemEntryId } from '../../src/model/identity'
 import type { ItemFinding, SectionItem } from '../../src/contract'
 
@@ -48,17 +48,23 @@ test.describe('setup health', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Setup health' })).toBeFocused()
     await expect(page.locator('.page-verdict')).toHaveText('1 thing needs a fix, and 3 more are worth a look.')
     await expect(page.locator('.page-facts')).toContainText('Checked just now')
+    await expect(page.locator('.page-facts')).toContainText('12 features you could add')
+    await expect(page.locator('.page-facts').getByRole('link', { name: /^Documentation for/ })).toBeVisible()
     await expect(badge).toHaveAttribute('aria-current', 'page')
 
-    const errors = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Needs a fix 1' }) })
+    const errors = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Fix first 1' }) })
     const warnings = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Worth a look 3' }) })
     await expect(errors.locator('.finding')).toHaveCount(1)
     await expect(warnings.locator('.finding')).toHaveCount(3)
-    await expect(warnings.locator('.finding-label').first()).toHaveText('Worth a look · What is the agent told')
+    await expect(warnings.locator('.finding-label').first()).toHaveText('Worth a look · Context')
     const finding = errors.locator('.finding', { hasText: 'LINT001' })
     await expect(finding.getByRole('button', { name: 'Copy prompt' })).toBeVisible()
-    await expect(finding.locator('.finding-label')).toHaveText('Needs a fix · What runs around the agent, and when')
-    await expect(finding.getByText('Details', { exact: true })).toBeVisible()
+    await expect(finding.locator('.finding-label')).toHaveText('Needs a fix · Lifecycle')
+    await expect(finding.getByRole('button', { name: 'Recheck', exact: true })).toBeHidden()
+    await expect(finding.getByRole('link', { name: /^Open / })).toBeHidden()
+    const details = await findingDetails(finding)
+    await expect(details.getByRole('button', { name: 'Recheck', exact: true })).toBeVisible()
+    await expect(details.getByRole('button', { name: /^Copy path of / })).toBeVisible()
     await saveScreenshot(page, 'setup-health.png', { fullPage: true })
 
     await errors.getByRole('link', { name: 'Prepare session' }).click()
@@ -68,7 +74,7 @@ test.describe('setup health', () => {
     await expect(page).toHaveURL(/view=health/)
 
     hook.findings = []
-    await page.locator('.health-group .finding', { hasText: 'LINT001' }).getByRole('button', { name: 'Recheck', exact: true }).click()
+    await (await findingDetails(page.locator('.health-group .finding', { hasText: 'LINT001' }))).getByRole('button', { name: 'Recheck', exact: true }).click()
     const feedback = page.locator('.finding-rechecked')
     await expect(feedback).toHaveCount(1)
     await expect(feedback).toContainText('This finding no longer appears.')
@@ -83,7 +89,7 @@ test.describe('setup health', () => {
       return route.fulfill({ json: data })
     })
     await page.goto('/?view=health')
-    const recheckAll = page.getByRole('button', { name: 'Recheck all' })
+    const recheckAll = page.locator('.page-facts').getByRole('button', { name: 'Recheck', exact: true })
     await expect(recheckAll).toBeVisible()
     const before = loads
     hook.findings = []
@@ -103,7 +109,7 @@ test.describe('setup health', () => {
     await page.goto('/?view=health')
     await expect(page.locator('.page-facts')).toContainText('Checked just now')
     fail = true
-    await page.getByRole('button', { name: 'Recheck all' }).click()
+    await page.locator('.page-facts').getByRole('button', { name: 'Recheck', exact: true }).click()
     const result = page.locator('.health-recheck-result')
     await expect(result.locator('.banner-error')).toContainText('The recheck did not finish')
     await expect(result).not.toHaveAttribute('role', 'status')
@@ -119,9 +125,9 @@ test.describe('setup health', () => {
     await page.goto('/?view=health')
     await expect(healthRow(page, '5 to fix')).toBeVisible()
     section(data, 'lifecycle').items[0].findings = [warning]
-    await page.locator('.finding', { hasText: 'LINT001' }).getByRole('button', { name: 'Recheck', exact: true }).click()
+    await (await findingDetails(page.locator('.finding', { hasText: 'LINT001' }))).getByRole('button', { name: 'Recheck', exact: true }).click()
     await expect(page.locator('.finding-rechecked')).toHaveCount(1)
-    await expect(page.locator('.health-group', { has: page.getByRole('heading', { name: /^Needs a fix/ }) }).locator('.finding-rechecked')).toHaveCount(1)
+    await expect(page.locator('.health-group', { has: page.getByRole('heading', { name: /^Fix first/ }) }).locator('.finding-rechecked')).toHaveCount(1)
     await expect(page.locator('.finding', { hasText: 'LINT002' })).toHaveCount(1)
     await expect(healthRow(page, '4 to fix')).toBeVisible()
   })
@@ -145,7 +151,7 @@ test.describe('setup health', () => {
     const tray = page.getByRole('region', { name: 'Picked for one prompt' })
     await expect(tray).toBeHidden()
 
-    const gaps = page.getByRole('region', { name: /^Reach the best setup/ })
+    const gaps = page.getByRole('region', { name: /^You could add/ })
     await gaps.getByRole('checkbox', { name: 'Add to prompt: Commands' }).check()
     await gaps.getByRole('checkbox', { name: 'Add to prompt: Skills' }).focus()
     await page.keyboard.press('Space')
@@ -175,7 +181,9 @@ test.describe('setup health', () => {
     section(data, 'settings').findings = [{ source: 'doctor', severity: 'warning', message: 'The configuration file is old.' }]
     await serve(page, data)
     await page.goto('/?view=health')
-    await page.locator('.health-place', { hasText: 'The configuration file is old.' }).getByRole('link', { name: 'Other findings' }).click()
+    const place = page.locator('.health-place', { hasText: 'The configuration file is old.' })
+    await expect(place.locator('.health-place-name')).toHaveCount(0)
+    await place.locator('.finding-label').getByRole('link', { name: 'Settings' }).click()
     await expect(page).toHaveURL(/view=settings/)
     await expect(page.locator('.finding', { hasText: 'The configuration file is old.' })).toBeFocused()
   })
@@ -206,14 +214,14 @@ test.describe('setup health', () => {
     await expect(page.locator('.health-track-bar.is-on')).toHaveCount(2)
     await expect(page.locator('.health-track')).toContainText('2 of 14 features your tools support are in use')
     await expect(page.locator('.page > .banner-info')).toContainText('Opening files, rechecks and switches need agnostic-ai view.')
-    await expect(page.getByRole('button', { name: 'Copy the fix prompt for the one finding' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Copy (the|one) fix prompt/ })).toHaveCount(0)
   })
 
   test('leaves a recheck result from this page off the section page', async ({ page }) => {
     const { data, hook } = scenario()
     await serve(page, data)
     await page.goto('/?view=health')
-    const recheck = page.locator('.finding', { hasText: 'LINT001' }).getByRole('button', { name: 'Recheck', exact: true })
+    const recheck = (await findingDetails(page.locator('.finding', { hasText: 'LINT001' }))).getByRole('button', { name: 'Recheck', exact: true })
     await expect(recheck).toBeVisible()
     hook.findings = []
     await recheck.click()
@@ -270,18 +278,42 @@ test.describe('setup health', () => {
     await expect(healthRow(page, 'Nothing to fix, 1 you could add')).toBeVisible()
     await expect(page.locator('.health-track')).toContainText('8 of 9 features your tools support are in use')
     await expect(page.locator('.page-facts')).toContainText('1 feature you could add')
-    const gaps = page.getByRole('region', { name: /^Reach the best setup/ })
+    await expect(page.locator('.page-facts')).not.toContainText('No findings')
+    const gaps = page.getByRole('region', { name: /^You could add/ })
     await expect(gaps.getByRole('listitem')).toHaveCount(1)
     const gap = gaps.getByRole('listitem').first()
     await expect(gap.locator('.health-gap-name')).toHaveText('Skills')
-    await expect(gap.locator('.health-gap-text')).toContainText('No skill yet. Supported by Claude Code and Codex.')
+    await expect(gap.locator('.health-gap-text')).toContainText('No skill yet. 2 of your tools can use one.')
     await expect(gap.locator('.health-gap-text .sr-only')).toHaveText('Supported by Claude Code and Codex.')
     await expect(gap.getByRole('button', { name: 'Copy prompt for Skills' })).toHaveText('Copy prompt')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await gap.getByRole('button', { name: 'Copy prompt for Skills' }).click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fix)
-    await gap.getByRole('link', { name: 'Context' }).click()
+    await gap.getByRole('link', { name: 'Skills' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
+  })
+
+  test('shows the suggestion Copy prompt on hover, and behind a menu on phones after the first four', async ({ page }) => {
+    const { data } = scenario()
+    await serve(page, data)
+    await page.goto('/?view=health')
+    const gaps = page.getByRole('region', { name: /^You could add/ })
+    const row = gaps.getByRole('listitem').filter({ hasText: 'Session start' })
+    await expect(row.locator('.health-gap-text')).toHaveText(/^No hook yet\. \d+ of your tools can run one\./)
+    const copy = row.getByRole('button', { name: 'Copy prompt for Session start' })
+    await expect(copy).toHaveCSS('opacity', '0')
+    await row.hover()
+    await expect(copy).toHaveCSS('opacity', '1')
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const total = data.health.gaps.length
+    await expect(gaps.locator('.health-gap:visible')).toHaveCount(4)
+    await gaps.getByRole('button', { name: `Show ${total - 4} more` }).click()
+    await expect(gaps.locator('.health-gap:visible')).toHaveCount(total)
+    const first = gaps.getByRole('listitem').first()
+    await first.getByRole('button', { name: /^More actions for / }).click()
+    await expect(first.getByRole('button', { name: /^Copy prompt for / })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   })
 
   test('says every feature is in use and lists none', async ({ page }) => {
@@ -291,7 +323,7 @@ test.describe('setup health', () => {
     await page.goto('/?view=health')
     await expect(page.locator('.health-track')).toContainText('All 9 features your tools support are in use')
     await expect(page.locator('.health-track-bar:not(.is-on)')).toHaveCount(0)
-    await expect(page.getByRole('region', { name: /^Reach the best setup/ })).toHaveCount(0)
+    await expect(page.getByRole('region', { name: /^You could add/ })).toHaveCount(0)
   })
 
   test('keeps the exact counts but no bars for an oversized feature total', async ({ page }) => {

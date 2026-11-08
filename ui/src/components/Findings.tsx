@@ -6,7 +6,8 @@ import { findingFixPrompt } from '../model/finding-prompt'
 import { findingHasRawMessage, findingTitle } from '../model/finding-title'
 import { findingEntryIds } from '../model/identity'
 import { Badge, Code, CopyButton } from './ui'
-import { useApp } from './app-context'
+import { AppLink, useApp } from './app-context'
+import type { ViewId } from '../model/url'
 import { HEALTH_STATUS } from '../model/rail'
 import { ConfigurationRoot, useEntry } from './section-context'
 import { PickBox } from './pick'
@@ -38,33 +39,34 @@ function Finding({ finding: f, entryId, place, pickable = true, sharesTitle = fa
   const { linked, ...entry } = useEntry(entryId)
   const severity = f.severity === 'error' ? 'error' : 'warning'
   const owner = sectionId && sectionId !== app.state.view ? app.overview?.sections.find((s) => s.id === sectionId) : undefined
-  const section = owner && (owner.question.replace(/\?$/, '') || owner.label)
+  const [open, setOpen] = useState(false)
+  const detailsId = useId()
   return (
     <li {...entry} className={`finding finding-${severity === 'error' ? 'error' : 'warn'}${linked ? ' is-linked' : ''}`}>
       <div className="finding-body">
         <div className="finding-text">
           <p className="finding-label">
             {pickable && <PickBox id={entryId} name={findingTitle(f)} />}
-            <span>{section ? `${HEALTH_STATUS[severity]} · ${section}` : HEALTH_STATUS[severity]}</span>
+            <span>{HEALTH_STATUS[severity]}{owner && <> · <AppLink className="finding-section" to={{ view: owner.id as ViewId, entry: entryId }}>{owner.label}</AppLink></>}</span>
             {f.layer === 'global' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">global</Badge>}
             {fresh && <Badge tone="accent">New since recheck</Badge>}
           </p>
           <FindingMessage message={findingTitle(f)} />
           {sharesTitle && findingHasRawMessage(f) && <p className="finding-variant">{f.message}</p>}
-          {f.path ? (
-            <div className="finding-source">
-              <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
-              <OpenInEditor path={f.openPath} line={f.line} label={f.path} shownPath={f.path} />
-            </div>
-          ) : f.line ? <p className="finding-source">Line {f.line}</p> : null}
+          {f.path ? <p className="finding-source"><Code>{f.path}{f.line ? `:${f.line}` : ''}</Code></p> : f.line ? <p className="finding-source">Line {f.line}</p> : null}
         </div>
         <div className="finding-actions">
           <CopyButton text={prompt} label="Copy prompt" copiedLabel="Copied" className="button-primary finding-copy" />
-          <RecheckAction id={entryId} finding={f} place={place} />
+          <button type="button" className="link-button finding-details-toggle" aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen(!open)}>Details</button>
         </div>
         <RecheckNote id={entryId} finding={f} />
-        <details className="finding-details">
-          <summary>Details</summary>
+        <div id={detailsId} className="finding-details" hidden={!open}>
+          {(f.path || app.source.kind === 'api') && (
+            <div className="finding-detail-actions">
+              {f.path && <OpenInEditor path={f.openPath} line={f.line} label={f.path} shownPath={f.path} />}
+              <RecheckAction id={entryId} finding={f} place={place} />
+            </div>
+          )}
           <div className="finding-evidence">
             {f.code && <p className="finding-code"><Code>{f.code}</Code><span>{f.source === 'doctor' ? 'Found by the setup check' : 'Found by the configuration check'}</span></p>}
             {findingHasRawMessage(f) && <p><strong>Check message</strong><span className="finding-raw">{f.message}</span></p>}
@@ -76,7 +78,7 @@ function Finding({ finding: f, entryId, place, pickable = true, sharesTitle = fa
               <textarea id={promptId} aria-describedby={`${promptId}-hint`} value={prompt} readOnly rows={12} spellCheck={false} />
             </div>
           </div>
-        </details>
+        </div>
       </div>
     </li>
   )
