@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { startupBudgetLine, startupVerdict } from './context-verdict'
+import { budgetFact, startupBudgetLine, startupVerdict } from './context-verdict'
 
 describe('startup verdict', () => {
   it('says within, over, or nothing without a budget', () => {
@@ -19,5 +19,13 @@ describe('startup verdict', () => {
     expect(startupBudgetLine({ words: 184, bytes: 1212 }, 2000)).toBe('Startup is 184 words, within the 2,000-word lint budget (lint.instructions-words).')
     expect(startupBudgetLine({ words: 2396, bytes: 1 }, 2000)).toBe('Startup is 2,396 words, 396 words over the 2,000-word lint budget (lint.instructions-words); agnostic-ai lint reports LINT011.')
     expect(startupBudgetLine({ words: 184, bytes: 1 }, undefined)).toBe('Startup is 184 words.')
+  })
+})
+
+describe('budget fact', () => {
+  it('says within or how far over, and nothing without a budget', () => {
+    expect(budgetFact({ words: 684, bytes: 1 }, 2000)).toEqual({ over: false, text: 'Within the 2,000-word budget' })
+    expect(budgetFact({ words: 2396, bytes: 1 }, 2000)).toEqual({ over: true, text: '396 words over the 2,000-word budget' })
+    expect(budgetFact({ words: 684, bytes: 1 }, undefined)).toBeUndefined()
   })
 })
