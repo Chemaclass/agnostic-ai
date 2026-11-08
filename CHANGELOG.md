@@ -11,6 +11,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Upgrades
 
 - The automatic upgrade has the new release update `requires`, so fixes to that step apply in the same upgrade. This takes effect for upgrades started from this release onward (#3196).
+- The automatic upgrade prints the new `requires` value, and a stopped upgrade says which release is installed instead of "pins are updated" (#3198).
+
+### By tool
+
+#### Grok
+
+- When an ignore file hides a Grok rule, the error names that file and pattern, and offers removing grok from targets as a fix (#3198).
 
 ## v0.92.0 - 2026-11-08
 

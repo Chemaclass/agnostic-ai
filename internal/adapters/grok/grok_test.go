@@ -372,7 +372,7 @@ func TestVisibility_RejectsIgnoredLexicalPathThroughInsideLink(t *testing.T) {
 	rules := []spec.Entry{{Kind: spec.KindRule, Name: "policy", Body: "Keep it local."}}
 	for _, dir := range []string{".grok/rules", filepath.Join(root, ".grok/rules")} {
 		err := validateRulesVisible(rules, visibleConfig(), emit.RulesDirOpts{Dir: dir})
-		if err == nil || !strings.Contains(err.Error(), "rejects ignored output") {
+		if err == nil || !strings.Contains(err.Error(), "Grok skips ignored rule files") {
 			t.Errorf("ignored native .grok path %s was not refused: %v", dir, err)
 		}
 	}

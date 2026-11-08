@@ -49,6 +49,8 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 			data = append(data, []byte("\n!"+pattern)...)
 		}
 	}
+	// Lines after the root file's come from the global ignore file.
+	rootLines := len(strings.Split(string(data), "\n"))
 	globalPath := grokGlobalIgnorePath()
 	if globalPath != "" {
 		global, err := os.ReadFile(globalPath)
@@ -75,13 +77,17 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 		}
 		paths[i], queries[i] = path, filepath.ToSlash(nativeRel)
 	}
-	ignored, err := gitquery.IgnoredBy(data, queries)
+	ignored, err := gitquery.IgnoreMatches(data, queries)
 	if err != nil {
 		return fmt.Errorf("grok check instruction visibility: %w", err)
 	}
 	for i, path := range paths {
-		if ignored[queries[i]] {
-			return fmt.Errorf("%s: grok instruction visibility check rejects ignored output; remove the matching root or global ignore pattern, or re-include its parent directories and file, then sync again", path)
+		if match, ok := ignored[queries[i]]; ok {
+			source := "the root .gitignore"
+			if match.Line > rootLines {
+				source = globalPath
+			}
+			return fmt.Errorf("%s: Grok skips ignored rule files, and %s ignores it with %q; remove grok from targets, remove that pattern, or re-include the file and its parent folders, then sync again", path, source, match.Pattern)
 		}
 	}
 	return nil
