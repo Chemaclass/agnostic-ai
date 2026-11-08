@@ -204,12 +204,11 @@ function ReleaseBadge({ served, version }: { served: ServedConfig; version: stri
       <span className="sr-only">{release.kind === 'release' ? 'Release notes' : 'Development build'}</span>
     </span>
   )
-  const requirement = required && required.state !== 'unmet' ? ` (${required.label}: ${required.title})` : ''
   if (release.kind === 'build') {
-    return <div className="release-badge release-badge-build" title={`agnostic-ai ${release.label}, a development build${requirement}. Made by Chemaclass.`}>{text}</div>
+    return <div className="release-badge release-badge-build" title={`${release.label} development build · by Chemaclass`}>{text}</div>
   }
   return (
-    <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`Read the agnostic-ai ${release.label} release notes${requirement}. Made by Chemaclass.`}>
+    <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`${release.label} release notes · by Chemaclass`}>
       {text}
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
