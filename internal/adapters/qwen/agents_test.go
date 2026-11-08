@@ -80,13 +80,15 @@ func TestEmitAgents_NotesAgentHookEventQwenSkips(t *testing.T) {
 	group := []any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "./x.sh"}}}}
 	err := New().EmitAgents(emit.NewSession(), []spec.Entry{{
 		Kind: spec.KindAgent, Name: "rev",
-		Meta: map[string]any{"description": "d", "hooks": map[string]any{"TaskCompleted": group}},
+		Meta: map[string]any{"description": "d", "hooks": map[string]any{"TaskCompleted": group, "FileChanged": group}},
 	}}, ".qwen/agents", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	emit.FlushCoverageNotes()
-	if !strings.Contains(notes.String(), "TaskCompleted") {
-		t.Errorf("note must name the skipped event: %q", notes.String())
+	for _, event := range []string{"TaskCompleted", "FileChanged"} {
+		if !strings.Contains(notes.String(), event) {
+			t.Errorf("note must name the skipped event %s: %q", event, notes.String())
+		}
 	}
 }

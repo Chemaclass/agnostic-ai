@@ -154,3 +154,9 @@ func HookTimeout(meta map[string]any) (any, bool) {
 func HookEvents() []string {
 	return []string{"PreToolUse", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "UserPromptSubmit", "UserPromptExpansion", "SessionStart", "Stop", "MessageDisplay", "SubagentStart", "SubagentStop", "PreCompact", "PostCompact", "SessionEnd", "SessionDelete", "PermissionRequest", "PermissionDenied", "StopFailure", "TodoCreated", "TodoCompleted", "InstructionsLoaded", "FileChanged"}
 }
+
+// agentHookEvents leaves out FileChanged: Qwen registers watch paths only
+// for hooks without an agent scope, so an agent's FileChanged hook never runs.
+func agentHookEvents() []string {
+	return slices.DeleteFunc(HookEvents(), func(event string) bool { return event == "FileChanged" })
+}
