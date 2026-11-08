@@ -1149,7 +1149,7 @@ test('live Lifecycle adds a hook that validate accepts and refuses its name agai
     await page.reload()
     const stage = page.locator('.stage-step').filter({ hasText: 'After a file edit' })
     await expect(stage).toContainText('1 hook')
-    await stage.locator('summary').click()
+    await stage.locator('.stage-head').click()
     await expect(stage).toContainText('format-on-save')
     const validated = await run(binary, ['validate'], { cwd: f.root, env: f.env })
     expect(validated.stdout).not.toContain('issue(s) found')
