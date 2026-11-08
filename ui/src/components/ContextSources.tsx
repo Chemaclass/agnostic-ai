@@ -56,7 +56,7 @@ export function ContextSources({ report, root, takesFile, budget, pick }: { repo
         const rows = report.contributions.filter((c) => c.load === load)
         if (rows.length === 0) return null
         // Startup asks for a review of everything that loads at start; the other loads ask for the advice on each source.
-        const prompt = load === 'startup' ? contextStartupPrompt(report, root, budget) : contextAllAdvicePrompt({ ...report, takesFile, contributions: rows }, root, budget)
+        const prompt = load === 'startup' ? contextStartupPrompt(report, root, budget) : contextAllAdvicePrompt({ ...report, takesFile, contributions: rows }, root, budget, load)
         return <SourceTable key={load} load={load} rows={rows} total={totals[load].words} report={report} root={root} takesFile={takesFile} pick={pick} prompt={prompt} tool={tool} />
       })}
     </>
@@ -117,13 +117,15 @@ function SourceTable({ load, rows, total, report, root, takesFile, pick, prompt,
                           : <span className="context-source-path">{c.source}</span>}
                         <RowActions label={name}>
                           {builtin
-                            ? <span className="editor-actions"><button type="button" className="button button-quiet" onClick={() => app.navigate({ view: 'settings', tab: 'builtins', entry: undefined })}>Change in Settings</button>{toggle}</span>
-                            : <OpenInEditor path={root ? `${root}/${c.source}` : undefined} label={c.source} shownPath={c.source} compact trailing={toggle} />}
+                            ? <span className="editor-actions"><button type="button" className="button button-quiet" onClick={() => app.navigate({ view: 'settings', tab: 'builtins', entry: undefined })}>Change in Settings</button>{!isOpen && toggle}</span>
+                            : <OpenInEditor path={root ? `${root}/${c.source}` : undefined} label={c.source} shownPath={c.source} compact trailing={!isOpen && toggle} />}
                         </RowActions>
+                        {/* Open advice keeps its toggle in view, outside the phone menu. */}
+                        {isOpen && toggle}
                       </span>
                     </th>
                     <td className="context-type">{typeLabel(c.category)}</td>
-                    <td className="context-number" title={`${c.bytes.toLocaleString()} bytes`}>{c.words.toLocaleString()}</td>
+                    <td className="context-number" title={`${c.bytes.toLocaleString()} bytes`}>{c.words.toLocaleString()}<span className="sr-only">, {c.bytes.toLocaleString()} bytes</span></td>
                     <td className="context-number context-share"><span className="context-share-track" aria-hidden="true"><span className="context-share-bar" style={{ width: `${share}%` }} /></span>{share}%</td>
                   </tr>
                   {isOpen && (

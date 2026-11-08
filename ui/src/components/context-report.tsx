@@ -81,18 +81,19 @@ function useShownReport() {
   const { current, error, loading } = useContextReport()
   if (error || !current?.view.supported || !current.view.report) return undefined
   const target = app.state.target
-  // While another tool loads, the last figures stay so the header does not jump.
-  if (target && current.view.target !== target && !loading) return undefined
-  return current.view
+  const stale = !!target && current.view.target !== target
+  if (stale && !loading) return undefined
+  return { view: current.view, stale }
 }
 
 /** The Context page verdict: what agents read at the start, or the setup counts without a report. */
 export function ContextVerdict({ fallback }: { fallback: string }) {
   const { reachable, error, current } = useContextReport()
-  const view = useShownReport()
-  if (view?.report) {
-    const words = view.report.startup.words
-    return <>Agents read <span className="context-verdict-key">{words.toLocaleString('en-US')} {words === 1 ? 'word' : 'words'}</span> when a session starts.</>
+  const shown = useShownReport()
+  if (shown?.view.report) {
+    const words = shown.view.report.startup.words
+    // While another tool loads, the last figures stay, dimmed, so the header does not jump.
+    return <span className={shown.stale ? 'context-header-stale' : undefined}>Agents read <span className="context-verdict-key">{words.toLocaleString('en-US')} {words === 1 ? 'word' : 'words'}</span> when a session starts.</span>
   }
   if (reachable && !error && (!current || current.view.supported)) return <>Counting what agents read when a session starts.</>
   return <>{fallback}</>
@@ -100,14 +101,15 @@ export function ContextVerdict({ fallback }: { fallback: string }) {
 
 /** On-demand words and the budget, beside the verdict. */
 export function ContextFacts() {
-  const view = useShownReport()
-  const report = view?.report
-  if (!report) return null
-  const budget = budgetFact(report.startup, view.startupWordBudget)
+  const shown = useShownReport()
+  const report = shown?.view.report
+  if (!shown || !report) return null
+  const budget = budgetFact(report.startup, shown.view.startupWordBudget)
+  const stale = shown.stale ? ' context-header-stale' : ''
   return (
     <>
-      <span className="page-fact">{report.on_demand.words.toLocaleString('en-US')} more on demand</span>
-      {budget && <span className={`page-fact${budget.over ? ' page-fact-findings is-warning' : ''}`}>{budget.text}</span>}
+      <span className={`page-fact${stale}`}>{report.on_demand.words.toLocaleString('en-US')} more on demand</span>
+      {budget && <span className={`page-fact${budget.over ? ' page-fact-findings is-warning' : ''}${stale}`}>{budget.text}</span>}
     </>
   )
 }

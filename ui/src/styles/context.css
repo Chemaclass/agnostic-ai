@@ -322,6 +322,11 @@ tr.is-advised > td {
   color: var(--accent);
 }
 
+.context-header-stale {
+  opacity: 0.55;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
 /* The figures and budget on the left, the tool picker on the right. */
 .context-usage-top {
   display: grid;

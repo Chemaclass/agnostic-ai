@@ -246,5 +246,12 @@ describe('context advice', () => {
       expect(contextAllAdvicePrompt({ ...full, contributions: [contributions[2]] })).toBe('')
       expect(contextAllAdvicePrompt({ ...full, contributions: [] })).toBe('')
     })
+
+    it('names the load when it covers one table', () => {
+      const onDemand = contributions.filter((c) => c.load === 'on-demand')
+      const prompt = contextAllAdvicePrompt({ ...full, contributions: onDemand }, undefined, undefined, 'on-demand')
+      expect(prompt).toContain('Review the advice for every on demand source of instruction text')
+      expect(prompt).not.toContain('startup first')
+    })
   })
 })

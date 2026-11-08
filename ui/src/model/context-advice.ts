@@ -322,8 +322,8 @@ export function contextStartupPrompt(report: ContextReport, root?: string, budge
 const RANK_ORDER: ContextLoad[] = ['startup', 'file-scope', 'on-demand']
 const NOTHING_TO_DO = new Set(['generated framing'])
 
-/** One prompt that asks a coding agent to apply the advice for every source that has something to change, startup first. */
-export function contextAllAdvicePrompt(report: AdviceReport & Pick<ContextReport, 'contributions'>, root?: string, budget?: number): string {
+/** One prompt that asks a coding agent to apply the advice for every source that has something to change, startup first; with a load, for that load's sources only. */
+export function contextAllAdvicePrompt(report: AdviceReport & Pick<ContextReport, 'contributions'>, root?: string, budget?: number, load?: ContextLoad): string {
   const seen = new Set<string>()
   const byLoad = (load: ContextLoad) => report.contributions.filter((c) => c.load === load).sort((a, b) => b.words - a.words || b.bytes - a.bytes || a.source.localeCompare(b.source) || a.category.localeCompare(b.category))
   const sources = RANK_ORDER.flatMap(byLoad).filter((c) => {
@@ -335,7 +335,9 @@ export function contextAllAdvicePrompt(report: AdviceReport & Pick<ContextReport
   if (sources.length === 0) return ''
   const file = report.takesFile === false ? undefined : report.file
   const lines = [
-    `Review the advice for every source of instruction text that agnostic-ai explain --context ranked for ${report.target}, startup first and largest first within each load, and propose one change set:`,
+    load
+      ? `Review the advice for every ${LOAD_LABELS[load].toLowerCase()} source of instruction text that agnostic-ai explain --context ranked for ${report.target}, largest first, and propose one change set:`
+      : `Review the advice for every source of instruction text that agnostic-ai explain --context ranked for ${report.target}, startup first and largest first within each load, and propose one change set:`,
     '',
     `Target: ${report.target}`,
     startupBudgetLine(report.startup, budget),
