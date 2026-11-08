@@ -63,6 +63,9 @@ html {
   left: -9999px;
   top: 8px;
   z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
   background: var(--text);
@@ -167,11 +170,14 @@ html {
   line-height: 18px;
 }
 
+/* The same height with or without the chip and GitHub link, so nothing moves when they load. */
+
 .project-title {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  min-height: 24px;
 }
 
 .project-label {
@@ -182,6 +188,43 @@ html {
 
 .project-title .chip {
   flex: none;
+}
+
+.project-repo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.project-repo:hover {
+  color: var(--text);
+  background: var(--rail-raised);
+}
+
+.project-repo .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Rail placeholder sizes; the base .skeleton bar is in components.css. */
+
+.project-title .skeleton {
+  width: 55%;
+  height: 12px;
+}
+
+.project-name.is-pending .project-root {
+  direction: ltr;
+}
+
+.project-root .skeleton {
+  width: 80%;
 }
 
 /* Long paths lose their start, not the folder name. */
@@ -219,11 +262,12 @@ html {
 }
 
 .nav-link {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
   min-height: 44px;
-  padding: 10px 14px;
+  padding: 10px 14px 10px 22px;
   border-radius: var(--radius);
   color: var(--text);
   text-decoration: none;
@@ -242,33 +286,38 @@ html {
   display: none;
 }
 
-/* Each row: the section's name over its question; the live summary is the link's tooltip. */
 .nav-text {
   display: grid;
+  flex: 1 1 auto;
   gap: 2px;
   min-width: 0;
 }
 
 .nav-label {
   font-size: var(--text-body);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 18px;
 }
 
+/* The question the page answers, one line under its name; the live counts are the link's tooltip. */
 .nav-question {
+  overflow: hidden;
   color: var(--text-muted);
-  font-size: var(--text-sm);
-  line-height: 17px;
+  font-size: var(--text-xs);
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-
-/* A border, not a background, so the dot keeps its shape in forced colors. */
+/* A border, not a background, so the dot keeps its shape in forced colors.
+   It sits in the row's left padding, so every row's text starts at one edge. */
 
 .nav-dot {
-  flex: none;
+  position: absolute;
+  top: 15px;
+  left: 8px;
   width: 8px;
   height: 8px;
-  margin-top: 5px;
   border: 4px solid var(--text-muted);
   border-radius: 50%;
 }
@@ -293,114 +342,170 @@ html {
   }
 }
 
-/* The rail foot: Search, the configuration switch, theme, GitHub, version and the overview document. */
+/* The rail foot: Search and the configuration switch as rows like the
+   page links, then a quiet bar with the version and three icon buttons. */
 
 .sidenav-footer {
   display: grid;
-  justify-items: start;
-  gap: 10px;
+  gap: 12px;
   margin-top: auto;
-  padding-inline: 4px;
   font-size: var(--text-sm);
 }
 
-.sidenav-footer .config-switch {
-  justify-self: stretch;
+.sidenav-actions {
+  display: grid;
+  gap: 2px;
 }
 
-.sidenav-row {
+.sidenav-footer .config-switch {
+  display: grid;
+}
+
+.sidenav-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 14px 8px 22px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+
+.sidenav-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--rail-raised) 55%, transparent);
+}
+
+.sidenav-action:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.sidenav-action > .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.sidenav-action-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidenav-action kbd {
+  margin: 0;
+  border-color: var(--line);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.config-switch.is-pending {
+  min-height: 40px;
+  align-content: center;
+  padding-left: 22px;
+}
+
+.config-switch.is-pending .skeleton {
+  width: 60%;
+}
+
+.sidenav-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 100%;
   min-width: 0;
+  padding: 12px 4px 0 22px;
+  border-top: 1px solid var(--line);
 }
 
-.sidenav-links {
+.sidenav-icons {
   display: flex;
-  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
   gap: 2px;
 }
 
-.sidenav-theme {
-  gap: 8px;
-}
-
-.sidenav-json {
-  min-height: 32px;
-  padding: 2px 4px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text-muted);
-  font: inherit;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-.sidenav-json:hover,
-.sidenav-json[aria-pressed='true'] {
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.sidenav-github {
+.sidenav-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-pill);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
   color: var(--text-muted);
+  cursor: pointer;
 }
 
-.sidenav-github:hover {
+.sidenav-icon:hover,
+.sidenav-icon[aria-pressed='true'] {
+  background: var(--rail-raised);
   color: var(--text);
-  background: var(--panel-raised);
 }
 
-.sidenav-github-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
+@media (forced-colors: active) {
+  .sidenav-icon[aria-pressed='true'] {
+    outline: 1px solid ButtonText;
+  }
+}
+
+.sidenav-icon > .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .release-badge {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  min-height: 32px;
+  min-height: 28px;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: var(--text-xs);
   text-decoration: none;
 }
 
-.release-caption {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
+.release-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  line-height: 16px;
 }
 
-.release-text {
+.release-line {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 6px;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
 }
 
+.release-badge.is-pending {
+  flex: 1;
+}
+
+.release-badge.is-pending .release-text {
+  flex: 1;
+}
+
+.release-badge.is-pending .skeleton {
+  width: 65%;
+}
+
 .release-version {
+  min-width: 0;
   overflow: hidden;
   font-family: var(--font-mono);
   text-overflow: ellipsis;
@@ -409,7 +514,6 @@ html {
 
 .release-requires {
   font-family: var(--font-mono);
-  white-space: nowrap;
 }
 
 .release-requires.is-unmet {
@@ -428,8 +532,9 @@ a.release-badge:hover {
   color: var(--text);
 }
 
-a.release-badge:hover .release-caption {
+a.release-badge:hover .release-version {
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 a.release-badge:hover .release-arrow {
@@ -541,6 +646,19 @@ a.release-badge:hover .release-arrow {
 
 .banner p > code {
   white-space: nowrap;
+}
+
+/* On phones the data source notice keeps only what it blocks, so the verdict starts higher. */
+
+@media (max-width: 760px) {
+  .source-notice-detail {
+    display: none;
+  }
+
+  .page > .banner-info {
+    padding: 10px 14px;
+    font-size: var(--text-sm);
+  }
 }
 
 .banner .banner-title > code {
@@ -665,19 +783,14 @@ a.release-badge:hover .release-arrow {
   background: var(--rail-raised);
 }
 
-.menu-sheet .sidenav-footer {
-  padding-inline: 14px;
-}
-
-.menu-sheet .sidenav-footer .button,
-.menu-sheet .sidenav-json,
-.menu-sheet .release-badge,
-.menu-sheet .sidenav-github {
+.menu-sheet .sidenav-action,
+.menu-sheet .release-badge {
   min-height: 44px;
 }
 
-.menu-sheet .sidenav-github {
+.menu-sheet .sidenav-icon {
   width: 44px;
+  height: 44px;
 }
 
 html:has(.menu-sheet[open]) {
@@ -728,8 +841,13 @@ html:has(.menu-sheet[open]) {
     line-height: 16px;
   }
 
-  .topbar .project-root {
+  .topbar .project-root,
+  .topbar .project-repo {
     display: none;
+  }
+
+  .topbar .project-title {
+    min-height: 0;
   }
 
   .topbar-actions {
@@ -765,6 +883,10 @@ html:has(.menu-sheet[open]) {
 
   /* Equal cells, except that a long label such as Conversations takes the
      room it needs from the others instead of overflowing. */
+
+  .sidenav .nav-text {
+    flex: none;
+  }
 
   .sidenav .nav-list {
     grid-template-columns: repeat(6, minmax(min-content, 1fr));
@@ -806,12 +928,8 @@ html:has(.menu-sheet[open]) {
     display: none;
   }
 
-  /* The narrow row shows only each name, in the row's own type. */
   .sidenav .nav-label {
-    display: block;
-    font-size: inherit;
-    font-weight: inherit;
-    line-height: inherit;
+    font: inherit;
   }
 
   .global-onboarding {

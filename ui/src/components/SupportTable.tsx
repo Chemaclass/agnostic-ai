@@ -1,46 +1,34 @@
-import { useState } from 'react'
+import { useId, useRef } from 'react'
 import type { Section } from '../contract'
 import { AppLink } from './app-context'
-import { DocLink } from './SectionHeading'
 import { kindEntryId } from '../model/identity'
 import { entryTab, sectionTabs } from '../model/section-tabs'
 import { ToolAvatar } from './ui'
 import { supportSummary } from '../model/verdict'
 
-function supportOpenKey(section: string) {
-  return `agnostic-ai.support-open:${section}`
-}
-
-function readSupportChoice(section: string): boolean | undefined {
-  try {
-    const value = window.localStorage.getItem(supportOpenKey(section))
-    return value === null ? undefined : value === '1'
-  } catch {
-    return undefined
-  }
-}
-
-export function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (target: string) => string }) {
-  const [choice, setChoice] = useState(() => readSupportChoice(section.id))
-  const open = choice ?? false
+/** The facts line's Tool support link: it opens the support table in a dialog. */
+export function SupportLink({ section, toolLabel }: { section: Section; toolLabel: (target: string) => string }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  // A press that starts inside the panel, such as a text selection, never closes it.
+  const pressedBackdrop = useRef(false)
   if (!section.support.length) return null
   const tabs = sectionTabs(section)
-  const toggle = (next: boolean) => {
-    if (next === open) return
-    setChoice(next)
-    try {
-      window.localStorage.setItem(supportOpenKey(section.id), next ? '1' : '0')
-    } catch { /* The choice lasts until this page reloads. */ }
-  }
+  const close = () => dialog.current?.close()
   return (
-    <div className="support-frame">
-    <details className="block support-block" open={open} onToggle={(event) => toggle(event.currentTarget.open)}>
-      <summary className="support-summary">
-        <h2 id="support-title">Coding tool support</h2>
-        <span className="support-line">{supportSummary(section.support)}</span>
-      </summary>
+    <>
+      <button type="button" className="link-button page-facts-support" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>Tool support</button>
+      <dialog ref={dialog} className="support-dialog" aria-labelledby={titleId} onPointerDown={(event) => { pressedBackdrop.current = event.target === event.currentTarget }} onClick={(event) => { if (pressedBackdrop.current && event.target === event.currentTarget) close() }}>
+      <div className="support-dialog-body">
+      <div className="support-dialog-head">
+        <div>
+          <h2 id={titleId}>Coding tool support</h2>
+          <p className="support-line">{supportSummary(section.support)}</p>
+        </div>
+        <button type="button" className="button button-quiet" onClick={close}>Close</button>
+      </div>
       <div className="table-wrap">
-        <table className="table support-table" role="table" aria-labelledby="support-title">
+        <table className="table support-table" role="table" aria-labelledby={titleId}>
           <thead role="rowgroup">
             <tr role="row">
               <th id="support-kind" scope="col" role="columnheader">Type</th>
@@ -51,7 +39,7 @@ export function SupportTable({ section, toolLabel }: { section: Section; toolLab
           <tbody role="rowgroup">
             {section.support.map((k) => (
               <tr key={k.kind} role="row">
-                <th id={`${section.id}-${k.kind}-support`} scope="row" role="rowheader">{section.kinds.some((kind) => kind.kind === k.kind) ? <AppLink to={{ tab: entryTab(section, tabs, kindEntryId(k.kind)), entry: kindEntryId(k.kind) }}>{k.label}</AppLink> : k.label}</th>
+                <th id={`${section.id}-${k.kind}-support`} scope="row" role="rowheader">{section.kinds.some((kind) => kind.kind === k.kind) ? <AppLink to={{ tab: entryTab(section, tabs, kindEntryId(k.kind)), entry: kindEntryId(k.kind) }} onNavigate={close}>{k.label}</AppLink> : k.label}</th>
                 <td role="cell" headers={`${section.id}-${k.kind}-support support-supported`}>
                   <span className="support-status-label" aria-hidden="true">Supported on</span>
                   {k.supported.length ? (
@@ -81,8 +69,8 @@ export function SupportTable({ section, toolLabel }: { section: Section; toolLab
           </tbody>
         </table>
       </div>
-    </details>
-    <DocLink topic="support" />
-    </div>
+      </div>
+      </dialog>
+    </>
   )
 }

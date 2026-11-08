@@ -148,7 +148,7 @@ func claudeRoute(c *Conversation, entrypoint, jobID string, process liveProcess,
 	switch {
 	case jobID != "":
 		c.App = AppBackground
-		c.Open = Route{Kind: RouteTerminal, Label: "Attach in Terminal", Command: "claude attach " + jobID}
+		c.Open = Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: "claude attach " + jobID}
 	case entrypoint == "claude-vscode":
 		c.App = AppIDE
 		c.editor = &editor
@@ -158,9 +158,9 @@ func claudeRoute(c *Conversation, entrypoint, jobID string, process liveProcess,
 		c.Open = Route{Kind: RouteLink, Label: "Open in Claude app", Link: "claude://resume?session=" + c.ID}
 	case isLive:
 		c.process = &process
-		c.Open = Route{Kind: RouteFocus, Label: "Switch to its terminal", Command: resume}
+		c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: resume}
 	default:
-		c.Open = Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resume}
+		c.Open = Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resume}
 	}
 }
 

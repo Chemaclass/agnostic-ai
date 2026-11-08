@@ -76,7 +76,7 @@ func TestSync_AllowEmptyTargetsDryRunNamesEachRemoval(t *testing.T) {
 	var removed []string
 	for p := range before {
 		if _, ok := after[p]; !ok {
-			removed = append(removed, p)
+			removed = append(removed, filepath.ToSlash(p))
 		}
 	}
 	slices.Sort(removed)

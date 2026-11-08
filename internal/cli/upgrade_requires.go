@@ -86,3 +86,41 @@ func installedReleaseVersion() (string, error) {
 	}
 	return "", fmt.Errorf("upgrade --requires needs a stable installed release; this build is %q", runningVersion)
 }
+
+// runUpgradeRequiresGuided is the guided upgrade's requires step, run by
+// the updated binary in the project root. It only raises requires and
+// the schema URL; the guided upgrade migrates and syncs afterwards.
+func runUpgradeRequiresGuided() error {
+	version, err := installedReleaseVersion()
+	if err != nil {
+		return err
+	}
+	root, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve project root: %w", err)
+	}
+	return reconcileGuidedRequires(root, version)
+}
+
+// reconcileGuidedRequires raises requires and the schema URL in root
+// under the project lock, after checking that every config layer stays
+// inside the project.
+func reconcileGuidedRequires(root, version string) error {
+	if err := validateGuidedProjectConfigs(root); err != nil {
+		return err
+	}
+	lock, err := acquireProjectLock(root, "guided upgrade")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = lock.Close() }()
+	if err := validateGuidedProjectConfigs(root); err != nil {
+		return err
+	}
+	changed, err := config.PersistRequires(root, version, schemaURL(version))
+	if err != nil {
+		return fmt.Errorf("reconcile requires and schema: %w", err)
+	}
+	noteCollapsedRequires(changed)
+	return nil
+}

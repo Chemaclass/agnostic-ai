@@ -4,7 +4,6 @@
 
 import type { Gap, Improvements, ItemFinding, OverviewView, Section, SectionItem } from '../contract'
 import { FIX_GUIDANCE, findingFacts } from './finding-prompt'
-import { joinAnd } from './counts'
 import { plural } from './format'
 import { findingEntryIds, itemEntryId } from './identity'
 
@@ -133,33 +132,46 @@ export function placeLabel(place: Pick<FindingPlace, 'item' | 'global'>): string
   return place.global ? 'Global setup' : 'Other findings'
 }
 
-/** One prompt for every finding, errors first, with the shared guidance once at the end. */
-export function healthFixPrompt(overview: OverviewView, root?: string): string {
-  const count = countFindings(overview)
-  const total = count.errors + count.warnings
-  const lines = [total === 1 ? 'Fix this agnostic-ai finding in the project or global configuration:' : `Fix these ${total} agnostic-ai findings in the project or global configuration, errors first:`]
-  if (root) lines.push(`Configuration root: ${root}`)
-  let n = 0
+/** The findings and suggestions picked on Setup health, by finding entry id and gap id. */
+export interface HealthPick {
+  findings: ReadonlySet<string>
+  gaps: ReadonlySet<string>
+}
+
+/** One prompt for every finding, or for the picked findings and suggestions: errors first, then suggestions, with the shared guidance once at the end. */
+export function healthFixPrompt(overview: OverviewView, root?: string, pick?: HealthPick): string {
+  const places = countFindings(overview).byPlace
+  const findings: { place: FindingPlace; finding: ItemFinding }[] = []
   for (const severity of HEALTH_SEVERITIES) {
-    for (const place of count.byPlace) {
-      for (const finding of place.findings) {
-        if (healthSeverity(finding) !== severity) continue
-        n++
-        lines.push('', `${n}. ${place.section.label}: ${placeLabel(place)}`, ...findingFacts(finding))
-      }
+    for (const place of places) {
+      place.findings.forEach((finding, i) => {
+        if (healthSeverity(finding) === severity && (!pick || pick.findings.has(place.ids[i]))) findings.push({ place, finding })
+      })
     }
   }
-  lines.push('', 'Work through them in this order.', '', ...FIX_GUIDANCE)
+  const gaps = pick ? overview.health.gaps.filter((gap) => pick.gaps.has(gap.id)) : []
+  const total = findings.length + gaps.length
+  const lines = [gaps.length
+    ? `Work through ${total === 1 ? 'this agnostic-ai item' : `these ${total} agnostic-ai items`} in the project or global configuration${findings.length ? ', errors first, then suggestions' : ''}:`
+    : total === 1 ? 'Fix this agnostic-ai finding in the project or global configuration:' : `Fix these ${total} agnostic-ai findings in the project or global configuration, errors first:`]
+  if (root) lines.push(`Configuration root: ${root}`)
+  let n = 0
+  for (const { place, finding } of findings) lines.push('', `${++n}. ${place.section.label}: ${placeLabel(place)}`, ...findingFacts(finding))
+  for (const gap of gaps) {
+    const section = overview.sections.find((s) => s.id === gap.section)
+    lines.push('', `${++n}. ${section ? `${section.label}: ` : ''}${gap.label} (suggestion)`, gap.fix)
+  }
+  lines.push('', 'Work through them in this order.')
+  if (findings.length) lines.push('', ...FIX_GUIDANCE)
   return lines.join('\n')
 }
 
-const GAP_TOOLS_SHOWN = 3
-
-/** The tools that support a gap, by name and cut to the first few, such as "Claude Code, Codex, Cursor, and 9 more". */
-export function gapTools(gap: Gap, name: (target: string) => string = (target) => target): string {
-  const names = gap.supported.map(name)
-  if (names.length <= GAP_TOOLS_SHOWN + 1) return joinAnd(names)
-  return joinAnd([...names.slice(0, GAP_TOOLS_SHOWN), `${names.length - GAP_TOOLS_SHOWN} more`])
+/** A suggestion in one line, such as "No hook yet. 12 of your tools can run one." */
+export function gapLine(gap: Gap): string {
+  const n = gap.supported.length
+  const who = n === 1 ? 'One of your tools' : `${n} of your tools`
+  const can = gap.id.startsWith('stage:') ? 'can run one' : gap.id.startsWith('builtin:') ? 'can use it' : 'can use one'
+  return `${gap.missing.charAt(0).toUpperCase()}${gap.missing.slice(1)}. ${who} ${can}.`
 }
 
 /** How many features the enabled tools support are in use; nothing when they support none. */

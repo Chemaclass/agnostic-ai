@@ -117,7 +117,9 @@ func (s *Scanner) fillPending(ctx context.Context, page []Conversation) {
 	for i := range page {
 		c := &page[i]
 		if c.pending != nil {
-			s.fill(c, withPrompts(*c.pending, prompts[c.ID]))
+			t := withPrompts(*c.pending, prompts[c.ID])
+			c.pending = nil
+			s.fill(c, t)
 		}
 	}
 }
@@ -135,6 +137,7 @@ func (s *Scanner) searchAll(ctx context.Context, all []Conversation, words []str
 			if !holdsAll(strings.Join([]string{t.title, t.firstPrompt, t.lastPrompt, c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
 				continue
 			}
+			c.pending = nil
 			s.fill(&c, t)
 		}
 		maybe = append(maybe, c)
@@ -295,7 +298,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		c := Conversation{
 			Tool: ToolCursor, App: AppCLI, ID: meta.AgentID, Folder: folder,
 			StartedAt: timeFromMillis(meta.CreatedAt), UpdatedAt: updated,
-			Open: Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
+			Open: Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
 		}
 		s.fill(&c, texts{title: title, firstPrompt: first, lastPrompt: last})
 		chats = append(chats, c)

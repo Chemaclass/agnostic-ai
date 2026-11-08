@@ -80,7 +80,8 @@ for (const width of [320, 390, 1440]) {
     await expect(verboseRow.locator('.override-comparison')).toContainText('Local: On')
     await expect(page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })).toContainText('light')
     await selectTab(page, 'Built-ins')
-    await expect(builtins.getByRole('heading', { level: 2 })).toContainText('local')
+    await expect(builtins.locator('p .badge', { hasText: 'local' })).toBeVisible()
+    await expect(builtins).toContainText('Your local config replaces the project list.')
     await selectTab(page, 'Preferences')
     expect(edits).toEqual([])
 
@@ -94,29 +95,54 @@ for (const width of [320, 390, 1440]) {
   })
 }
 
-test('keeps the compact audience control inside the section it edits', async ({ page }) => {
+test('shows one scope selector beside the filter row for every block on the page', async ({ page }) => {
   const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+  await page.addInitScript(() => window.localStorage.setItem('agnostic-ai.edit-scope', 'shared'))
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 })
-    for (const [view, tab, title] of [['authority', '', 'Permissions'], ['settings', 'builtins', 'Built-ins'], ['settings', 'preferences', 'Preferences']]) {
+    for (const [view, tab, label] of [['authority', '', 'Authority'], ['settings', 'builtins', 'Settings'], ['settings', 'targets', 'Settings'], ['settings', 'preferences', 'Settings']]) {
       await page.goto(`/?view=${view}${tab ? `&tab=${tab}` : ''}`)
-      const section = page.getByRole('region', { name: new RegExp(`^${title}`) })
-      const scope = section.locator('.edit-scope')
+      const filterRow = page.getByRole('search', { name: `Search ${label}` })
+      const scope = filterRow.locator('.edit-scope')
       await expect(scope.getByRole('group', { name: 'View and edit' })).toBeVisible()
       await expect(page.locator('.edit-scope')).toHaveCount(1)
-      await expect(scope.getByRole('button', { name: 'Project (committed)', exact: true })).toHaveText('Project')
+      await expect(page.locator('.block .edit-scope')).toHaveCount(0)
+      const project = scope.getByRole('button', { name: 'Project (committed)', exact: true })
+      await expect(project).toHaveText('Project')
       await expect(scope.getByRole('button', { name: 'Local (not committed)', exact: true })).toHaveText('Local')
-      const heading = await section.getByRole('heading', { level: 2 }).boundingBox()
+      await filterRow.getByRole('searchbox').focus()
+      await page.keyboard.press('Tab')
+      await expect(project).toBeFocused()
+      const search = await filterRow.getByRole('searchbox').boundingBox()
       const control = await scope.boundingBox()
-      expect(control!.y).toBeGreaterThanOrEqual(heading!.y + heading!.height)
       expect(control!.x).toBeGreaterThanOrEqual(0)
       expect(control!.x + control!.width).toBeLessThanOrEqual(width)
+      if (width === 1440) expect(control!.x).toBeGreaterThan(search!.x + search!.width)
+      else expect(control!.y).toBeGreaterThanOrEqual(search!.y + search!.height)
     }
     await page.goto('/?view=settings&tab=configuration')
     await expect(page.locator('.edit-scope')).toHaveCount(0)
   }
+})
+
+test('one scope choice changes every editor on the page', async ({ page }) => {
+  const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+  await page.goto('/?view=settings&tab=builtins')
+  await page.getByRole('button', { name: 'Local (not committed)', exact: true }).click()
+  await expect(page.getByText('Inherited from project. Changing a built-in creates your local list.')).toBeVisible()
+  for (const tab of ['Coding tools', 'Preferences']) {
+    await selectTab(page, tab)
+    await expect(page.getByRole('button', { name: 'Local (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.edit-scope-hint')).toContainText('Local files in .agnostic-ai/local')
+  }
+  await selectTab(page, 'Coding tools')
+  await expect(page.locator('.coding-tools-hint')).toContainText('Changes save to agnostic-ai.local.yaml.')
+  await page.goto('/?view=authority')
+  await expect(page.getByRole('button', { name: 'Local (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('names the global level and its local layer in the global view', async ({ page }) => {

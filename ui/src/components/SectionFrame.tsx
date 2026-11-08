@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { API, type OverviewView, type Section } from '../contract'
 import { postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
@@ -6,6 +6,7 @@ import { ErrorPanel } from './Banner'
 import { CodingTools } from './CodingTools'
 import { EditorSettings } from './EditorSettings'
 import { ContextUsage } from './ContextUsage'
+import { ContextFacts, ContextReportProvider, ContextVerdict } from './context-report'
 import { BuiltinChangeControls, BuiltinChangeProvider, ChangeStatus } from './BuiltinChange'
 import { EditAudienceProvider, EditAudienceSwitch, ViewPersonalButton, useLevelName, useViewAudience } from './EditAudience'
 import { MCPSpecNotice, type MCPSpecSaved } from './MCPSpecAction'
@@ -18,23 +19,27 @@ import { builtinEnabled, sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId, findingEntryIds, itemEntryId, kindEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText, matchesSearch } from '../model/search'
 import { filterTools, toolCount } from '../model/coding-tools'
-import { entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '../model/section-tabs'
+import { docsTopic, entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
-import { Badge, Code, Icon, toolName } from './ui'
+import { Badge, Code, Icon } from './ui'
 import { EmptyState } from './EmptyState'
-import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings } from '../model/verdict'
+import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings, verdictKey } from '../model/verdict'
 import { ConfigurationRoot, ConfiguredTools, PersonalBuiltins } from './section-context'
 import { SettingsFields } from './Fields'
+import { AuthorityFields, AuthorityToolbarAction } from './Authority'
 import { ConfigurationFiles, GroupedItems, sharedUnlistedCommand } from './Items'
 import { NativeServers } from './NativeServers'
 import { Lifecycle } from './Lifecycle'
 import { Findings } from './Findings'
-import { SupportTable } from './SupportTable'
+import { SupportLink } from './SupportTable'
+import { ToolbarActionSlot } from './ToolbarAction'
 import { ResetAction } from './EditSwitch'
 
 export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
   const data = overview.loaded?.data
+  const [docs, setDocs] = useState<{ section: string; topic: string }>()
+  const reportDocs = useCallback((section: string, topic: string) => setDocs((shown) => (shown?.section === section && shown.topic === topic ? shown : { section, topic })), [])
   if (!data) {
     return (
       <>
@@ -54,22 +59,34 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
   }
   const toolLabel = (target: string) => data.targets.find((t) => t.target === target)?.label ?? target
 
-  return (
-    <>
-      <PageHeader title={section.label} verdict={sectionVerdict(section)}>
-        <SectionFacts section={section} />
+  const topic = docs?.section === section.id ? docs.topic : docsTopic(section, undefined)
+
+  const isContext = section.id === 'context'
+  const page = (
+    <DocsTopic.Provider value={reportDocs}>
+      <PageHeader title={section.label} verdict={isContext ? <ContextVerdict fallback={sectionVerdict(section)} /> : <Verdict text={sectionVerdict(section)} accent={verdictKey(section)} />}>
+        <SectionFacts key={section.id} section={section} docs={topic} lead={isContext && <ContextFacts />} support={<SupportLink key={section.id} section={section} toolLabel={toolLabel} />} />
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
           <ConfiguredTools.Provider value={data.targets}>
             <EditAudienceProvider key={`${data.snapshot.project.root}:${section.id}`} enabled={section.id === 'settings' || section.id === 'tools' || section.id === 'authority'}>
-              <SectionContents section={section} support={<SupportTable key={section.id} section={section} toolLabel={toolLabel} />} />
+              <SectionContents section={section} />
             </EditAudienceProvider>
           </ConfiguredTools.Provider>
         </ConfigurationRoot.Provider>
       </fieldset>
-    </>
+    </DocsTopic.Provider>
   )
+  // The Context verdict and its Context size tab share one report.
+  return isContext ? <ContextReportProvider>{page}</ContextReportProvider> : page
+}
+
+/** The verdict sentence with its leading count in the accent. */
+function Verdict({ text, accent }: { text: string; accent?: string }) {
+  const at = accent ? text.indexOf(accent) : -1
+  if (!accent || at < 0) return text
+  return <>{text.slice(0, at)}<span className="page-verdict-key">{accent}</span>{text.slice(at + accent.length)}</>
 }
 
 /** Opens the folded findings list that holds this heading, then moves focus to it. */
@@ -82,13 +99,16 @@ export function revealFindings(findingsId: string) {
   heading.focus({ preventScroll: true })
 }
 
-function SectionFacts({ section }: { section: Section }) {
+// The Docs link in the facts line follows the open tab, which the page body works out.
+const DocsTopic = createContext<(section: string, topic: string) => void>(() => {})
+
+function SectionFacts({ section, docs, lead, support }: { section: Section; docs: string; lead?: ReactNode; support: ReactNode }) {
   const app = useApp()
   const tally = tallyFindings(sectionFindings(section))
   const findings = findingTallyText(tally)
   const total = tally.errors + tally.warnings
-  const facts = sectionFacts(section, toolName, app.overview?.global === true)
-  const tone = tally.errors ? 'is-error' : tally.warnings ? 'is-warning' : 'is-clean'
+  const facts = sectionFacts(section, section.id === 'settings' && app.overview?.tools.items.length ? toolCount(app.overview.tools.items, 'shared') : undefined)
+  const tone = tally.errors ? 'is-error' : 'is-warning'
   const shownAbove = section.findings.some((finding) => finding.severity === 'error')
   // Review leads to the first finding: the section's own list, else the first row that has one.
   const review = () => {
@@ -97,34 +117,38 @@ function SectionFacts({ section }: { section: Section }) {
     if (item) app.navigate({ view: section.id, tab: undefined, q: undefined, entry: findingEntryIds(item.findings, itemEntryId(item))[0] })
   }
   return (
-    <p className="page-facts">
-      {facts.map((fact) => <span key={fact} className="page-fact">{fact}</span>)}
-      <span className={`page-fact page-fact-findings ${tone}`} role={shownAbove ? 'alert' : undefined}>
-        {findings && <Icon name="warning" />}
-        {findings ?? 'No findings'}
-      </span>
-      {total > 0 && <button type="button" className="button page-facts-review" onClick={review}>Review {total} finding{total === 1 ? '' : 's'}</button>}
-    </p>
+      <div className="page-facts">
+        {lead}
+        {facts.map((fact) => <span key={fact} className="page-fact">{fact}</span>)}
+        {findings && (
+          <span className={`page-fact page-fact-findings ${tone}`} role={shownAbove ? 'alert' : undefined}>
+            <Icon name="warning" />
+            {findings}
+          </span>
+        )}
+        {total > 0 && <button type="button" className="button page-facts-review" onClick={review}>Review {total} finding{total === 1 ? '' : 's'}</button>}
+        {support}
+        <span className="page-facts-end"><DocLink topic={docs} /></span>
+      </div>
   )
 }
-
-const SECTION_DOCS: Record<string, string> = { context: 'instructions', authority: 'permissions', tools: 'mcp', lifecycle: 'hook', settings: 'config' }
 
 // Built-ins and model or effort fields share one preview, apply, and undo flow.
 function hasChanges(section: Section) {
   return section.items.some((item) => item.kind === 'builtin') || (section.fields ?? []).some((field) => (field.key === 'model' || field.key === 'effort') && field.editable && !field.editable.disabledReason)
 }
 
-export function SectionContents({ section, support }: { section: Section; support?: ReactNode }) {
+export function SectionContents({ section }: { section: Section }) {
   const changes = hasChanges(section)
   const personalBuiltins = section.kinds.some((kind) => kind.kind === 'builtin' && kind.local) || section.items.some((item) => item.kind === 'builtin' && item.local)
-  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} support={support} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
+  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
 }
 
-function SectionContentsBody({ section, changes, support }: { section: Section; changes: boolean; support?: ReactNode }) {
+function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
   const app = useApp()
   const audience = useViewAudience()
   const [warningsExpanded, setWarningsExpanded] = useState(false)
+  const [toolbarAction, setToolbarAction] = useState<HTMLElement | null>(null)
   const personalBuiltins = useContext(PersonalBuiltins)
   const level = useLevelName()
   const root = useContext(ConfigurationRoot)
@@ -169,6 +193,12 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
     ?? landingTab(section, tabs, contextLanding(app.source, app.overview))
   const setSearch = (value: string) => app.navigate({ q: value || undefined, tab: value.trim() ? undefined : active }, { replace: true })
   const selectTab = (tab: string) => app.navigate({ tab, entry: undefined, q: app.state.q })
+  const activePanel = tabs.find((tab) => tab.id === active)
+  // One selector serves every block on the page; Config files and Editor show the combined setup.
+  const scoped = (section.id === 'settings' || section.id === 'authority') && (activePanel ? activePanel.extra === 'targets' || activePanel.kinds.some((kind) => kind === 'settings' || kind === 'builtin') : section.kinds.some((k) => k.kind === 'settings' || k.kind === 'builtin'))
+    || section.id === 'tools' && activePanel?.extra === 'native' && nativeMatches.some((server) => server.holders.length > 0)
+  // The tab already names its list on Tools and Settings, so the list heading stays for screen readers.
+  const quietHeadings = tabs.length > 1 && (section.id === 'tools' || section.id === 'settings')
   const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]
   const tabLabels = tabs.map((tab) => {
     const items = section.items.filter((item) => tab.kinds.includes(item.kind))
@@ -187,6 +217,9 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
     if (count === 0) count = undefined
     return { id: tab.id, label: tab.label, title: tabTitle(section, tab), count, findings: items.reduce((sum, item) => sum + item.findings.length, 0) }
   })
+  const setDocsTopic = useContext(DocsTopic)
+  const topic = docsTopic(section, activePanel)
+  useLayoutEffect(() => setDocsTopic(section.id, topic), [setDocsTopic, section.id, topic])
   const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
   useEffect(() => {
     if (!entry) return
@@ -204,7 +237,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
   const findingsId = `${section.id}-findings`
   const otherFindings = (section.findings.length > 0 || rechecked?.place === sectionPlace || orphan !== undefined) && (
     <section className="block" aria-labelledby={findingsId}>
-      <SectionHeading topic="findings" id={findingsId} focusable>Other findings</SectionHeading>
+      <SectionHeading id={findingsId} focusable>Other findings</SectionHeading>
       <Findings findings={section.findings} place={sectionPlace} orphanPlace={orphan} />
     </section>
   )
@@ -218,6 +251,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
     <RecheckSection.Provider value={section.id}>
       <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
       <SpecMovedSaver.Provider value={saveSpecMoved}>
+      <ToolbarActionSlot.Provider value={toolbarAction}>
       {app.source.kind === 'api' && specMoved && <SpecMovedNotice moved={specMoved} dismiss={() => saveSpecMoved()} />}
       {entryMissing && (
         <div className="entry-missing" role="status">
@@ -226,6 +260,7 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
         </div>
       )}
       {errors > 0 && otherFindings}
+      <div className="section-toolbar">
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId} className="sr-only">Search {section.label.toLowerCase()}</label>
         <div className="section-search-input">
@@ -240,7 +275,10 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
           {query ? (matchCount ? `${matchCount} ${matchCount === 1 ? 'match' : 'matches'}.` : 'No matches.') : ''}
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
-        <DocLink topic={SECTION_DOCS[section.id] ?? section.id} />
+        {scoped && <EditAudienceSwitch />}
+        {section.id === 'authority' && section.fields && <AuthorityToolbarAction fields={section.fields} />}
+      </div>
+      <span ref={setToolbarAction} className="section-toolbar-action" />
       </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
@@ -255,20 +293,20 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
       >
       {section.kinds.filter((kind) => panel.kinds.includes(kind.kind)).map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
-        const audienceControl = (section.id === 'settings' || section.id === 'authority') && (k.kind === 'settings' || k.kind === 'builtin') && (tabs.length < 2 || panel.id === active) ? <EditAudienceSwitch /> : undefined
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} topic={section.id === 'authority' ? 'permissions' : 'settings'} title={k.label} audienceControl={audienceControl} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
+        if (k.kind === 'settings' && section.id === 'authority' && section.fields) return <AuthorityFields key={k.kind} title={k.label} headingEntry={kindEntryId(k.kind)} fields={section.fields} files={items} query={query} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} support={section.support.find((entry) => entry.kind === k.kind)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
         const sharedBlocked = k.kind === 'builtin' && audience === 'shared' && personalBuiltins
         const count = k.kind === 'builtin' ? section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, audience)).length : k.count
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
-            <SectionHeading topic={k.kind} id={titleId} focusable entry={kindEntryId(k.kind)}>
+            <SectionHeading id={titleId} focusable entry={kindEntryId(k.kind)} hidden={quietHeadings}>
               {k.label}{tabs.length < 2 && count > 0 && <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>}
-              {k.local && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
+              {k.local && audience !== 'shared' && !quietHeadings && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
             </SectionHeading>
-            {audienceControl}
+            {quietHeadings && k.local && audience !== 'shared' && <p className="muted"><Badge tone="accent">local</Badge> Your local config replaces the {level} list.</p>}
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
             {sharedBlocked && <div className="audience-notice"><p>These are the {level} defaults. Your local built-in list replaces them for you. Reset that list before changing {level} built-ins.</p><ViewPersonalButton /></div>}
             {k.kind === 'builtin' && audience === 'personal' && !personalBuiltins && <p className="muted">Inherited from {level}. Changing a built-in creates your local list.</p>}
@@ -284,14 +322,14 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
       })}
       {panel.extra === 'native' && (section.native?.length
         ? <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />
-        : <section className="block"><SectionHeading topic="native">Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
+        : <section className="block"><SectionHeading hidden={quietHeadings}>Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
       {panel.extra === 'usage' && <ContextUsage />}
-      {panel.extra === 'targets' && <CodingTools audienceControl={tabs.length < 2 || panel.id === active ? <EditAudienceSwitch /> : undefined} />}
+      {panel.extra === 'targets' && <CodingTools />}
       {panel.extra === 'editor' && <EditorSettings />}
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
-      {support}
+      </ToolbarActionSlot.Provider>
       </SpecMovedSaver.Provider>
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>

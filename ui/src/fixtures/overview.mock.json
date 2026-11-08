@@ -729,7 +729,7 @@
         {
           "kind": "builtin",
           "name": "caveman",
-          "label": "caveman",
+          "label": "Caveman",
           "description": "Terse replies to cut output tokens.",
           "path": "builtin:caveman",
           "layer": "builtin",
@@ -740,7 +740,7 @@
         {
           "kind": "builtin",
           "name": "handoff",
-          "label": "handoff",
+          "label": "Handoff",
           "description": "Saves a task so the next session, in this or another tool, can resume it.",
           "path": "builtin:handoff",
           "layer": "builtin",
@@ -751,7 +751,7 @@
         {
           "kind": "builtin",
           "name": "handoff-hook",
-          "label": "handoff-hook",
+          "label": "Handoff on start",
           "description": "Offers a saved handoff when a session starts.",
           "path": "builtin:handoff-hook",
           "layer": "builtin",
@@ -762,7 +762,7 @@
         {
           "kind": "builtin",
           "name": "memory",
-          "label": "memory",
+          "label": "Shared memory",
           "description": "Shared memory every coding tool reads and saves facts to.",
           "path": "builtin:memory",
           "layer": "builtin",
@@ -773,7 +773,7 @@
         {
           "kind": "builtin",
           "name": "rtk",
-          "label": "rtk",
+          "label": "RTK",
           "description": "Routes shell commands through rtk to cut output tokens.",
           "path": "builtin:rtk",
           "layer": "builtin",
@@ -1449,7 +1449,7 @@
       {
         "id": "builtin:handoff",
         "section": "settings",
-        "label": "handoff",
+        "label": "Handoff",
         "supported": [
           "claude",
           "codex",

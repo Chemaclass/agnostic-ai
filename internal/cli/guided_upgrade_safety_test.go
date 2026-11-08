@@ -74,7 +74,7 @@ func TestGuidedUpgrade_RejectsExternalOrGlobalConfigAliases(t *testing.T) {
 			if _, err := deps.project(); err == nil {
 				t.Error("offered project reconciliation for outside alias")
 			}
-			if err := deps.reconcile(root, "0.82.0"); err == nil {
+			if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
 				t.Error("reconciled outside alias")
 			}
 			data, err := os.ReadFile(target)
@@ -113,7 +113,7 @@ func TestGuidedUpgrade_RechecksRetargetedInternalConfigAlias(t *testing.T) {
 	if err := os.Symlink(outside, alias); err != nil {
 		t.Fatal(err)
 	}
-	if err := deps.reconcile(root, "0.82.0"); err == nil {
+	if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
 		t.Error("retargeted alias reconciled")
 	}
 	data, err := os.ReadFile(outside)
@@ -140,8 +140,7 @@ func TestGuidedUpgrade_LocalPackageGuidanceDoesNotRunGlobalInstaller(t *testing.
 			t.Error("local installation ran global updater")
 			return "", nil
 		},
-		run:       func(string, string, []string, io.Writer) (string, error) { return "agnostic-ai version 0.82.0", nil },
-		reconcile: func(string, string) error { t.Error("local installation changed project"); return nil },
+		run: func(string, string, []string, io.Writer) (string, error) { return "agnostic-ai version 0.82.0", nil },
 	}
 	handled, err := runGuidedUpgrade(cmd, "0.81.0", deps)
 	if handled || err != nil {
@@ -166,7 +165,7 @@ func TestGuidedUpgrade_InternalAliasCanReconcile(t *testing.T) {
 	if got, err := deps.project(); err != nil || got == "" {
 		t.Fatalf("internal alias rejected: %s, %v", got, err)
 	}
-	if err := deps.reconcile(root, "0.82.0"); err != nil {
+	if err := reconcileGuidedRequires(root, "0.82.0"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(target)

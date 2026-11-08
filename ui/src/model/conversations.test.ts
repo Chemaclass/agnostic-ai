@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Conversation, ConversationSource } from '../contract'
+import type { Conversation, ConversationSource, ConversationsView } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, withheldLabel } from './conversations'
+import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Local times, so the day groups hold in any time zone the tests run in.
@@ -14,7 +14,7 @@ const conversation = (over: Partial<Conversation>): Conversation => ({
   id: 'a',
   title: 'A chat',
   updatedAt: NOW.toISOString(),
-  open: { kind: 'terminal', label: 'Resume in Terminal', command: 'claude --resume a' },
+  open: { kind: 'terminal', label: 'Open in Terminal', command: 'claude --resume a' },
   ...over,
 })
 
@@ -60,6 +60,18 @@ describe('conversation groups', () => {
 })
 
 describe('loaded weeks', () => {
+  it('treats a fresh first page read later as the same when its rows, sources and end match', () => {
+    const page = (overrides: Partial<ConversationsView>): ConversationsView => ({
+      schemaVersion: 'conversations/v1', generatedAt: '2026-11-07T12:00:00Z', from: '2026-10-31T12:00:00Z', to: '2026-11-07T12:00:00Z', next: '2026-10-31T12:00:00Z',
+      tools: [{ tool: 'claude', label: 'Claude Code', found: true, count: 1, shown: 1 }], conversations: [conversation({ id: 'a' })], ...overrides,
+    })
+    const kept = page({})
+    expect(sameFirstPage(kept, page({ generatedAt: '2026-11-07T12:01:00Z', from: '2026-10-31T12:01:00Z', to: '2026-11-07T12:01:00Z', next: '2026-10-31T12:01:00Z' }))).toBe(true)
+    expect(sameFirstPage(kept, page({ conversations: [conversation({ id: 'a', live: true })] }))).toBe(false)
+    expect(sameFirstPage(kept, page({ tools: [{ tool: 'claude', label: 'Claude Code', found: true, count: 2, shown: 1 }] }))).toBe(false)
+    expect(sameFirstPage(kept, page({ next: undefined }))).toBe(false)
+  })
+
   const ids = (list: Conversation[]) => list.map((c) => `${c.tool}:${c.id}`)
 
   it('appends an older week after the newer one', () => {
@@ -97,12 +109,13 @@ describe('conversation search', () => {
   ]
   const ids = (list: Conversation[]) => list.map((c) => c.id)
 
-  it('matches title, folder, branch, opening, and prompt, ignoring case and outer spaces', () => {
+  it('matches title, folder, branch, and prompt as the row shows them, ignoring case and outer spaces', () => {
     expect(ids(filterConversations(rows, 'CONVERSATIONS', 'all'))).toEqual(['ui'])
     expect(ids(filterConversations(rows, 'website', 'all'))).toEqual(['site'])
     expect(ids(filterConversations(rows, 'motechfr/', 'all'))).toEqual(['ui'])
-    expect(ids(filterConversations(rows, ' 900 ms ', 'all'))).toEqual(['sqlite'])
-    expect(ids(filterConversations(rows, 'immutable', 'all'))).toEqual(['sqlite'])
+    expect(ids(filterConversations(rows, ' Immutable=1 ', 'all'))).toEqual(['sqlite'])
+    expect(ids(filterConversations(rows, '900 ms', 'all'))).toEqual([])
+    expect(ids(filterConversations([conversation({ id: 'gl', title: '<bash-input>gl</bash-input>' })], '! gl', 'all'))).toEqual(['gl'])
     expect(ids(filterConversations(rows, 'products', 'all'))).toEqual(['ui', 'site'])
     expect(ids(filterConversations(rows, 'nothing like this', 'all'))).toEqual([])
   })
@@ -131,25 +144,36 @@ describe('conversation words', () => {
     expect(appLabel('watch' as Conversation['app'])).toBe('watch')
   })
 
-  it('says what a live conversation is doing, in amber when it waits for the person', () => {
+  it('shows a status chip only while the agent works or waits, in amber when it waits for the person', () => {
     expect(liveBadge('working')).toEqual({ label: 'Working', tone: 'permitted', description: 'Open now: the agent is working' })
     expect(liveBadge('waiting')).toEqual({ label: 'Waiting for you', tone: 'approval', description: 'Open now: the agent is waiting for you' })
-    expect(liveBadge('idle')).toEqual({ label: 'Idle', tone: 'neutral', description: 'Open now: the agent is idle' })
-    expect(liveBadge(undefined)).toEqual({ label: 'Open now', tone: 'permitted', description: 'Open now' })
+    expect(liveBadge('idle')).toBeUndefined()
+    expect(liveBadge(undefined)).toBeUndefined()
+  })
+
+  it('shows a typed shell command as "! command" and hides a last prompt that repeats the title', () => {
+    expect(chatText('<bash-input>gl</bash-input>')).toEqual({ text: '! gl', shell: true })
+    expect(chatText(' Plan the release ')).toEqual({ text: 'Plan the release', shell: false })
+    expect(chatText('<bash-input>docker compose up --build web…')).toEqual({ text: '! docker compose up --build web…', shell: true })
+    expect(shownPrompt(chatText('<bash-input>gl</bash-input>'), '! gl')).toBeUndefined()
+    expect(shownPrompt(chatText('/mcp'), '/mcp')).toBeUndefined()
+    expect(shownPrompt(chatText('Plan'), undefined)).toBeUndefined()
+    expect(shownPrompt(chatText('Plan'), '<bash-input>make test</bash-input>')).toEqual({ text: '! make test', shell: true })
+    expect(shownPrompt(chatText('Plan'), 'Go on')).toEqual({ text: 'Go on', shell: false })
   })
 
   it('names every withheld field', () => {
     expect([withheldLabel('title'), withheldLabel('opening'), withheldLabel('prompt')]).toEqual(['Title', 'Opening', 'Last prompt'])
   })
 
-  it('counts each tool\'s rows across the loaded weeks against everything it holds, or says it was not found', () => {
+  it('counts each found tool\'s rows across the loaded weeks against everything it holds, and leaves out a tool not found', () => {
     const source = (over: Partial<ConversationSource>): ConversationSource => ({ tool: 'codex', label: 'Codex', found: true, count: 66, shown: 2, ...over })
     const firstWeek = { conversations: [conversation({ id: 'a', tool: 'codex' }), conversation({ id: 'b', tool: 'codex' }), conversation({ id: 'c' })] }
     const weekBefore = { conversations: [conversation({ id: 'b', tool: 'codex' }), conversation({ id: 'd', tool: 'codex' })] }
-    expect(sourceLine(source({}), mergePages([firstWeek]))).toBe('2 of 66')
-    expect(sourceLine(source({}), mergePages([firstWeek, weekBefore]))).toBe('3 of 66')
-    expect(sourceLine(source({ tool: 'cursor', count: 0 }), mergePages([firstWeek]))).toBe('0 of 0')
-    expect(sourceLine(source({ found: false, count: 0, note: 'No store' }), mergePages([firstWeek]))).toBe('Not found')
+    expect(toolChoices([source({})], mergePages([firstWeek]))).toEqual([{ tool: 'codex', label: 'Codex', loaded: 2, description: '2 of 66 Codex chats loaded.' }])
+    expect(toolChoices([source({})], mergePages([firstWeek, weekBefore]))[0].loaded).toBe(3)
+    expect(toolChoices([source({ tool: 'cursor', label: 'Cursor', count: 1, note: 'Read from the state file.' })], mergePages([firstWeek]))[0].description).toBe('0 of 1 Cursor chat loaded. Read from the state file.')
+    expect(toolChoices([source({ found: false, count: 0, note: 'No store' })], mergePages([firstWeek]))).toEqual([])
   })
 
   it('says how long ago, then the date', () => {
@@ -168,7 +192,7 @@ describe('conversation words', () => {
   })
 
   it('offers the reply command only when opening failed and the row does not offer the same one', () => {
-    const terminal = { kind: 'terminal', label: 'Resume in Terminal', command: 'claude --resume a' } as const
+    const terminal = { kind: 'terminal', label: 'Open in Terminal', command: 'claude --resume a' } as const
     const link = { kind: 'link', label: 'Open in Claude app', link: 'claude://resume?session=a' } as const
     expect(replyCommand({ opened: false, message: 'No terminal app found.', command: 'claude --resume a' }, link)).toBe('claude --resume a')
     expect(replyCommand({ opened: false, message: 'No terminal app found.', command: 'claude --resume a' }, terminal)).toBeUndefined()
@@ -183,14 +207,14 @@ describe('conversations normalization', () => {
       schemaVersion: 'conversations/v1',
       generatedAt: '2026-11-07T15:30:00Z',
       tools: null,
-      conversations: [{ tool: 'codex', app: 'cli', id: 'x', title: null, updatedAt: '2026-11-07T15:00:00Z', opening: null, withheld: ['prompt', 'transcript'], live: true, activity: 'compacting', open: { kind: 'terminal', label: 'Resume in Terminal' } }],
+      conversations: [{ tool: 'codex', app: 'cli', id: 'x', title: null, updatedAt: '2026-11-07T15:00:00Z', opening: null, withheld: ['prompt', 'transcript'], live: true, activity: 'compacting', open: { kind: 'terminal', label: 'Open in Terminal' } }],
     })
     expect(view.tools).toEqual([])
     expect(view).toMatchObject({ from: '', to: '' })
     expect(view.next).toBeUndefined()
     expect(normalizeConversationsView({ from: '2026-10-31T15:30:00Z', to: '2026-11-07T15:30:00Z', next: '2026-10-31T15:30:00Z' })).toMatchObject({ from: '2026-10-31T15:30:00Z', to: '2026-11-07T15:30:00Z', next: '2026-10-31T15:30:00Z' })
     expect(normalizeConversationsView({ next: '' }).next).toBeUndefined()
-    expect(view.conversations[0]).toMatchObject({ title: '', opening: [], withheld: ['prompt'], live: true, activity: undefined, open: { label: 'Resume in Terminal' } })
+    expect(view.conversations[0]).toMatchObject({ title: '', opening: [], withheld: ['prompt'], live: true, activity: undefined, open: { label: 'Open in Terminal' } })
   })
 
   it('reads the mock fixture with every app, route kind, live state, withheld field, and tool', () => {
@@ -202,5 +226,24 @@ describe('conversations normalization', () => {
     expect(new Set(view.conversations.flatMap((c) => c.withheld ?? []))).toEqual(new Set(['title', 'opening', 'prompt']))
     expect(view.tools.map((t) => t.tool)).toEqual(['claude', 'codex', 'cursor'])
     for (const source of view.tools) expect(view.conversations.filter((c) => c.tool === source.tool)).toHaveLength(source.shown)
+  })
+})
+
+describe('conversations verdict', () => {
+  it('counts the open chats and those that wait for you', () => {
+    const open = [conversation({ id: 'a', live: true, activity: 'working' }), conversation({ id: 'b', live: true, activity: 'waiting' }), conversation({ id: 'c', live: true })]
+    expect(conversationsVerdict(open, NOW, false)).toBe('3 chats are open now; 1 waits for you.')
+    expect(conversationsVerdict(open.slice(0, 1), NOW, false)).toBe('One chat is open now.')
+    expect(conversationsVerdict(open.slice(1, 2), NOW, false)).toBe('One chat is open and waits for you.')
+    expect(conversationsVerdict([open[0], conversation({ id: 'd' })], NOW, false)).toBe('One chat is open now.')
+  })
+
+  it('says when the last chat ran when none is open, or that there is none', () => {
+    const rows = [conversation({ id: 'new', updatedAt: local(11, 7, 14, 30).toISOString() }), conversation({ id: 'old', updatedAt: local(11, 5, 9).toISOString() })]
+    expect(conversationsVerdict(rows, NOW, false)).toBe('Your last chat was 2 h ago.')
+    const older = local(10, 25, 9).toISOString()
+    expect(conversationsVerdict([conversation({ updatedAt: older })], NOW, false)).toBe(`Your last chat was on ${relativeTime(older, NOW)}.`)
+    expect(conversationsVerdict([], NOW, true)).toBe('No chat in the past week.')
+    expect(conversationsVerdict([], NOW, false)).toBe('No chats to show.')
   })
 })

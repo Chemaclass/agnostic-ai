@@ -97,7 +97,7 @@ func codexRoute(c *Conversation, thread codexThread, editor editorApp) {
 		c.Open = Route{Kind: RouteLink, Label: "Open in " + editor.label, Link: editor.id + "://openai.chatgpt/local/" + c.ID}
 	default:
 		c.App = AppCLI
-		c.Open = Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resumeIn(c.Folder, "codex resume "+c.ID)}
+		c.Open = Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(c.Folder, "codex resume "+c.ID)}
 	}
 }
 
@@ -114,7 +114,8 @@ const codexLiveWindow = 7 * 24 * time.Hour
 // markLiveCodexThreads marks the threads a running Codex process has
 // loaded. Codex keeps thread-writer-locks/<id>.lock open while a process
 // holds the thread; the files stay after it exits, so the test is
-// whether a process still has one open.
+// whether a process still has one open. An open CLI thread switches to
+// the terminal that runs it, since a second resume would compete with it.
 func (s *Scanner) markLiveCodexThreads(conversations []Conversation) {
 	cutoff := s.Now().Add(-codexLiveWindow).UTC().Format(time.RFC3339)
 	lockOf := map[string]int{}
@@ -129,9 +130,16 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation) {
 			locks = append(locks, lock)
 		}
 	}
-	for lock := range s.Processes.Held(locks) {
-		if i, ok := lockOf[lock]; ok {
-			conversations[i].Live = true
+	for lock, pid := range s.Processes.Holders(locks) {
+		i, ok := lockOf[lock]
+		if !ok {
+			continue
+		}
+		c := &conversations[i]
+		c.Live = true
+		if c.App == AppCLI {
+			c.process = &liveProcess{PID: pid}
+			c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: c.Open.Command}
 		}
 	}
 }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { MOCK, openApp, saveScreenshot, selectTab } from '../helpers'
+import { MOCK, openApp, saveScreenshot, selectTab, findingDetails } from '../helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -15,7 +15,7 @@ test.describe('overview', () => {
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
     const index = authority.items.findIndex((item: { name: string }) => item.name === 'permissions')
     settings.items.push(authority.items.splice(index, 1)[0])
-    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await (await findingDetails(finding)).getByRole('button', { name: 'Recheck' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
   })
 
@@ -29,7 +29,7 @@ test.describe('overview', () => {
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
     const item = authority.items.find((entry: { name: string }) => entry.name === 'permissions')
     settings.findings.push(item.findings.pop())
-    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await (await findingDetails(finding)).getByRole('button', { name: 'Recheck' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
   })
 
@@ -45,19 +45,16 @@ test.describe('overview', () => {
     const finding = page.locator('.finding', { hasText: 'LINT038' })
     await expect(finding).toBeVisible()
     settings.items.push({ ...item, findings: [authority.findings.pop()] })
-    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await (await findingDetails(finding)).getByRole('button', { name: 'Recheck' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
   })
 
-  test('keeps configured settings visible and reveals unset fields on demand', async ({ page }) => {
+  test('shows the rules table and the settings beside it without folding unset ones away', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=authority')
-    const unset = page.locator('.field-row', { hasText: 'Default permission mode' })
-    await expect(unset).not.toBeVisible()
-    await expect(page.locator('.field-row.is-set').first()).toBeVisible()
-    await page.locator('.unconfigured-fields > summary').click()
-    await expect(unset).toBeVisible()
-    await expect(unset).toContainText('Not set')
+    await expect(page.locator('.authority-rule').first()).toBeVisible()
+    await expect(page.locator('.unconfigured-fields')).toHaveCount(0)
+    await expect(page.locator('.authority-also-row', { hasText: 'Default permission mode' })).toContainText('Not set')
   })
 
   test('shows a check finding on the item it names', async ({ page }) => {
@@ -68,11 +65,12 @@ test.describe('overview', () => {
     await expect(permissions).toHaveClass(/has-findings/)
     await expect(permissions.locator('.finding')).toContainText('LINT038')
     await expect(permissions.locator('.finding-source')).not.toContainText('running agnostic-ai')
+    await findingDetails(permissions.locator('.finding'))
     await expect(permissions.getByRole('button', { name: 'Copy path of .agnostic-ai/settings/permissions.yaml' })).toBeVisible()
     await expect(permissions.getByRole('button', { name: 'Recheck' })).toHaveCount(0)
     await expect(permissions.locator('.finding-recheck-result')).toHaveCount(0)
-    await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
-    await expect(page.locator('.field-row', { hasText: 'Default permission mode' })).toContainText('Not set')
+    await expect(page.getByRole('list', { name: 'Saved Allowed without asking rules' }).getByRole('listitem').first()).toContainText('Allowed')
+    await expect(page.locator('.authority-also-row', { hasText: 'Default permission mode' })).toContainText('Not set')
     await expect(page.getByText('Capability domains')).toHaveCount(0)
     await expect(page.getByText('Uncertainties')).toHaveCount(0)
     await saveScreenshot(page, '04-authority.png')
@@ -92,6 +90,7 @@ test.describe('overview', () => {
     await page.goto('/?view=authority')
     const finding = page.locator('.finding', { hasText: 'LINT038' })
     await expect(finding.locator('.finding-source')).toContainText(`${path}:7`)
+    await findingDetails(finding)
     const open = finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` })
     await expect(open).toHaveAttribute('href', 'cursor://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
 
@@ -103,6 +102,7 @@ test.describe('overview', () => {
       await nav.getByRole('link', { name: /^Authority/ }).click()
     }
     await chooseInSettings('VS Code')
+    await findingDetails(finding)
     const vscode = finding.getByRole('link', { name: `Open ${path} in VS Code at line 7` })
     await expect(vscode).toHaveAttribute('href', 'vscode://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
     await expect(page.locator('.item-row', { hasText: 'protected' }).first().getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', /^vscode:\/\/file\/.+protected\.yaml$/)
@@ -121,7 +121,7 @@ test.describe('overview', () => {
 
     const gone = page.locator('.finding', { hasText: 'Names a file that is not on disk' })
     await expect(gone.locator('.finding-source')).toContainText('missing.yaml')
-    await expect(gone.locator('.finding-source')).toContainText('This path is not a file on disk, so it cannot be opened in an editor.')
+    await expect(await findingDetails(gone)).toContainText('This path is not a file on disk, so it cannot be opened in an editor.')
     await expect(gone.getByRole('button', { name: 'Copy path of missing.yaml' })).toBeVisible()
     await expect(gone.getByRole('link')).toHaveCount(0)
     await saveScreenshot(page, '04b-finding-editor.png')
@@ -130,15 +130,18 @@ test.describe('overview', () => {
     await expect(page.getByRole('combobox', { name: 'Open files in' })).toHaveValue('vscode')
     await page.getByRole('combobox', { name: 'Open files in' }).selectOption({ label: 'Cursor' })
     await nav.getByRole('link', { name: /^Authority/ }).click()
+    await findingDetails(finding)
     await finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` }).click()
     await expect(finding.locator('.editor-hint')).toHaveText('Allow your browser to open Cursor. If nothing opens, change the editor in Settings or copy the path.')
 
     await chooseInSettings('VS Code')
     await page.reload()
+    await findingDetails(finding)
     await expect(page.locator('.finding', { hasText: 'LINT038' }).getByRole('link', { name: `Open ${path} in VS Code at line 7` })).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await page.evaluate(() => window.scrollTo(0, 0))
     await chooseInSettings('Cursor')
+    await findingDetails(finding)
     await expect(finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` })).toHaveAttribute('href', 'cursor://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
   })
 })

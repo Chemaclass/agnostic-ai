@@ -23,6 +23,16 @@ table,
   border: 0;
 }
 
+.section-head.is-quiet:not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .muted {
   color: var(--text-muted);
 }
@@ -66,7 +76,8 @@ kbd {
 }
 
 select,
-input {
+input,
+.select-button {
   background: var(--field);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
@@ -75,17 +86,20 @@ input {
   font-size: var(--text-md);
 }
 
-select {
+select,
+.select-button {
   min-width: 150px;
 }
 
 select:hover,
-input:hover {
+input:hover,
+.select-button:hover:where(:not(:disabled)) {
   border-color: var(--text-soft);
 }
 
 select:focus,
 input:focus,
+.select-button:focus,
 textarea:focus {
   border-color: var(--accent);
 }
@@ -132,20 +146,15 @@ textarea:focus {
   outline: none;
 }
 
-/* Page frame: the section name as a label, the verdict sentence, then one facts line. */
+/* Page frame: the verdict sentence, then one facts line. The section name
+   stays as a hidden h1, since the rail already names the page. */
 
 .page-header.has-verdict {
   gap: 12px;
 }
 
-.page-header.has-verdict h1 {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  line-height: var(--leading-2xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+.page-verdict-key {
+  color: var(--accent-strong);
 }
 
 .page-verdict {
@@ -176,11 +185,11 @@ textarea:focus {
 
 /* The separator trails its fact, so a wrapped line never starts with it. */
 
-.page-fact:has(+ .page-fact) {
+.page-fact:has(+ .page-fact, + .page-facts-support) {
   margin-inline-end: 10px;
 }
 
-.page-fact:has(+ .page-fact)::after {
+.page-fact:has(+ .page-fact, + .page-facts-support)::after {
   content: '·';
   margin-inline-start: 4px;
   font-weight: 400;
@@ -205,10 +214,27 @@ textarea:focus {
 .page-facts-review {
   min-height: 32px;
   margin-inline-start: 12px;
+  margin-inline-end: 16px;
   padding-block: 4px;
 }
 
-/* The filter row: one field, a count only while filtering, Docs at its right. */
+.page-facts .page-facts-support {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  text-decoration: none;
+}
+
+.page-facts .page-facts-support:hover {
+  text-decoration: underline;
+}
+
+.page-facts-end {
+  margin-inline-start: auto;
+  padding-inline-start: 16px;
+}
+
+/* The toolbar: one field, a count only while filtering, then the Project | Local switch. */
 
 .section-search {
   display: flex;
@@ -262,8 +288,26 @@ textarea:focus {
   display: none;
 }
 
-.section-search > .section-doc-link {
+/* The page's one primary action sits at the toolbar's end, outside the search landmark. */
+
+.section-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.section-toolbar > .section-search {
+  flex: 1 1 auto;
+}
+
+.section-toolbar-action {
+  display: flex;
   margin-inline-start: auto;
+}
+
+.section-toolbar-action:empty {
+  display: none;
 }
 
 /* Empty states: what the type is, who uses it, and the next step. No box. */
@@ -301,10 +345,6 @@ textarea:focus {
 }
 
 @media (max-width: 760px) {
-  .page-verdict {
-    font-size: var(--text-2xl);
-  }
-
   .section-search-input {
     flex: 1 1 200px;
   }
@@ -314,7 +354,17 @@ textarea:focus {
     min-height: 44px;
   }
 
-  .page-facts-review {
+  .section-toolbar-action,
+  .section-toolbar-action > .button {
+    flex: 1 1 100%;
+  }
+
+  .section-toolbar-action > .button {
+    justify-content: center;
+  }
+
+  .page-facts-review,
+  .page-facts .page-facts-support {
     min-height: 44px;
   }
 }
@@ -356,15 +406,15 @@ textarea:focus {
   flex-shrink: 0;
   min-height: 32px;
   padding: 4px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--text-muted);
-  text-underline-offset: 3px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-strong);
+  text-decoration: none;
 }
 
 .section-doc-link:hover {
-  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .section-doc-link .icon {
@@ -390,10 +440,10 @@ textarea:focus {
 }
 
 .section-warnings > summary,
-.finding-details summary,
 .item-source > summary,
 .unconfigured-fields > summary,
-.field-resolution > summary {
+.field-resolution > summary,
+.context-usage-more > summary {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -401,18 +451,19 @@ textarea:focus {
 }
 
 .section-warnings > summary::-webkit-details-marker,
-.finding-details summary::-webkit-details-marker,
 .item-source > summary::-webkit-details-marker,
 .unconfigured-fields > summary::-webkit-details-marker,
-.field-resolution > summary::-webkit-details-marker {
+.field-resolution > summary::-webkit-details-marker,
+.context-usage-more > summary::-webkit-details-marker {
   display: none;
 }
 
 .section-warnings > summary::before,
-.finding-details summary::before,
+.finding-details-toggle::before,
 .item-source > summary::before,
 .unconfigured-fields > summary::before,
-.field-resolution > summary::before {
+.field-resolution > summary::before,
+.context-usage-more > summary::before {
   content: '';
   flex: none;
   width: 5px;
@@ -425,10 +476,11 @@ textarea:focus {
 }
 
 .section-warnings[open] > summary::before,
-.finding-details[open] summary::before,
+.finding-details-toggle[aria-expanded='true']::before,
 .item-source[open] > summary::before,
 .unconfigured-fields[open] > summary::before,
-.field-resolution[open] > summary::before {
+.field-resolution[open] > summary::before,
+.context-usage-more[open] > summary::before {
   transform: rotate(45deg);
 }
 
@@ -454,25 +506,10 @@ textarea:focus {
 @media (max-width: 760px) {
   .section-warnings > summary,
   .unconfigured-fields > summary,
-  .field-resolution > summary {
+  .field-resolution > summary,
+  .context-usage-more > summary {
     min-height: 44px;
     align-content: center;
-  }
-
-  .section-tabs[data-section='settings'] {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-  }
-
-  .section-tabs[data-section='settings'] [role='tab'] {
-    min-width: 0;
-    padding-inline: 6px;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 2px 4px;
-    white-space: normal;
-    font-size: 12px;
   }
 }
 
@@ -515,6 +552,39 @@ textarea:focus {
 .loading,
 .loading-inline {
   color: var(--text-muted);
+}
+
+/* Placeholder bars hold the size of text that is still loading. */
+
+.skeleton {
+  display: block;
+  width: 70%;
+  height: 10px;
+  margin-block: 3px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-muted) 28%, transparent);
+  animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes skeleton-pulse {
+  to { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* A bar exactly one line of its parent's text tall, painted thinner, so
+   the box it holds matches the line that replaces it. */
+.skeleton-line {
+  display: inline-block;
+  vertical-align: top;
+  height: 1lh;
+  margin: 0;
+  padding-block: calc((1lh - 0.7em) / 2);
+  background-clip: content-box;
 }
 
 .code-list {
@@ -685,11 +755,7 @@ textarea:focus {
 }
 
 .badge-muted {
-  border-color: currentColor;
-  border-style: dashed;
-  border-width: 1px;
-  background: transparent;
-  font-weight: 600;
+  background: var(--panel-sunken);
 }
 
 .transition {
@@ -846,6 +912,11 @@ textarea:focus {
   font-weight: 600;
 }
 
+.item-key {
+  margin-left: 8px;
+  font-size: var(--text-xs);
+}
+
 .item-description {
   display: block;
   margin-top: 3px;
@@ -929,11 +1000,30 @@ textarea:focus {
   border-inline-start-color: var(--blocked);
 }
 
+/* Label, sentence and path, then Copy prompt and Details on one row. */
 .finding-body {
   display: grid;
   gap: 10px;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.finding-text {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Above 760px the pick box sits in a gutter, so the text lines up under the label. */
+@media (min-width: 761px) {
+  .finding:has(.finding-label > .pick-box) {
+    padding-inline-start: 60px;
+  }
+
+  .finding-label > .pick-box {
+    margin-inline-start: -36px;
+    margin-inline-end: 8px;
+  }
 }
 
 .finding-label {
@@ -948,6 +1038,16 @@ textarea:focus {
 
 .finding-error .finding-label {
   color: var(--blocked);
+}
+
+.finding-label .finding-section {
+  color: inherit;
+  text-decoration: none;
+}
+
+.finding-label .finding-section:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .finding-message-wrap {
@@ -986,9 +1086,11 @@ textarea:focus {
   text-underline-offset: 3px;
 }
 
-.finding-fix {
+.finding-variant {
   max-width: var(--measure);
   color: var(--text-soft);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
 
 .finding-source {
@@ -1013,6 +1115,11 @@ textarea:focus {
   align-items: center;
   gap: 8px 16px;
   margin-top: 4px;
+}
+
+.finding-body > .finding-actions {
+  gap: 8px 24px;
+  margin-top: 6px;
 }
 
 /* A recheck result reads as a Notice under the card's actions. */
@@ -1070,23 +1177,40 @@ textarea:focus {
   font-size: var(--text-sm);
 }
 
-.finding-details summary {
+.finding-details-toggle {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 32px;
-  width: fit-content;
   padding: 4px 0;
-  color: var(--accent-strong);
   font-size: var(--text-md);
-  font-weight: 600;
-  cursor: pointer;
+  text-decoration: none;
 }
 
-.finding-details summary:hover {
+.finding-details-toggle:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.finding-details[open] summary {
-  margin-bottom: 12px;
+.finding-details:not([hidden]) {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.finding-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  font-size: var(--text-sm);
+}
+
+.finding-detail-actions .finding-recheck {
+  min-height: 32px;
+  padding-block: 4px;
+  font-size: var(--text-sm);
 }
 
 .finding-evidence {
@@ -1154,9 +1278,12 @@ textarea:focus {
     padding: 16px;
   }
 
-  .finding-actions {
+  .finding-actions,
+  .finding-body > .finding-actions {
     display: grid;
+    align-items: stretch;
     gap: 4px;
+    margin-top: 4px;
   }
 
   .finding-actions .finding-copy {
@@ -1165,7 +1292,7 @@ textarea:focus {
   }
 
   .finding-expand,
-  .finding-details summary,
+  .finding-details-toggle,
   .refine-copy {
     min-height: 44px;
     align-content: center;
@@ -1180,72 +1307,49 @@ textarea:focus {
   }
 }
 
-/* Coding tool support folds below the content, with a one-line summary. */
+/* Coding tool support opens from the facts line as an overlay. */
 
-.support-frame {
-  position: relative;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+.support-dialog {
+  width: min(960px, calc(100vw - 48px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--overlay-shadow);
 }
 
-.support-block {
-  display: block;
+.support-dialog::backdrop {
+  background: var(--backdrop);
 }
 
-.support-summary {
+.support-dialog-body {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 2px 10px;
-  min-height: 40px;
-  padding-right: 72px;
-  cursor: pointer;
-  list-style: none;
+  gap: 16px;
+  padding: 24px;
 }
 
-.support-summary::-webkit-details-marker {
-  display: none;
+.support-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.support-summary::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-right: 1.5px solid var(--text-muted);
-  border-bottom: 1.5px solid var(--text-muted);
-  transform: rotate(-45deg);
-  transition: transform var(--dur-2) var(--ease-out);
-}
-
-.support-block[open] > .support-summary::before {
-  transform: rotate(45deg);
-}
-
-.support-summary h2 {
-  font-family: var(--font-body);
-  font-size: var(--text-body);
+.support-dialog-head h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: var(--leading-xl);
 }
 
 .support-line {
-  grid-column: 2;
+  margin-top: 4px;
   font-size: var(--text-sm);
   color: var(--text-muted);
-}
-
-.support-summary:hover h2 {
-  color: var(--accent-strong);
-}
-
-.support-frame > .section-doc-link {
-  position: absolute;
-  top: 16px;
-  right: 0;
-}
-
-.support-block > .table-wrap {
-  margin-top: 12px;
 }
 
 .tool-tag {
@@ -1259,17 +1363,17 @@ textarea:focus {
   white-space: nowrap;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .support-summary::before {
-    transition: none;
+@media (max-width: 760px) {
+  .support-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .support-dialog-body {
+    padding: 16px;
   }
 }
 
-@media (max-width: 760px) {
-  .support-summary {
-    min-height: 44px;
-  }
-}
 .support-status-label {
   display: none;
 }
@@ -1361,6 +1465,21 @@ textarea:focus {
 .value-row dt {
   color: var(--text-muted);
   font-size: 13px;
+}
+
+/* A key that only repeats the field's own key above it would read twice. */
+
+.value-row.repeats-field-key {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.value-row.repeats-field-key dt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .value-row dd {
@@ -1531,127 +1650,6 @@ textarea:focus {
   clip-path: inset(50%);
 }
 
-.fields {
-  list-style: none;
-  margin: 0 0 8px;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.field-row {
-  display: grid;
-  gap: 8px;
-  padding: 14px 18px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius);
-}
-
-.unconfigured-fields {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.unconfigured-fields > summary {
-  width: fit-content;
-  padding: 6px 0;
-  cursor: pointer;
-}
-
-.unconfigured-fields .fields {
-  gap: 0;
-  margin-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-.unconfigured-fields .field-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 6px 16px;
-  padding: 10px 0;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-}
-
-.unconfigured-fields .field-head strong {
-  color: var(--text);
-}
-
-.unconfigured-fields .field-unset {
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.field-row.is-set {
-  border-style: solid;
-  border-color: var(--line);
-  background: var(--panel);
-}
-
-.field-head {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-}
-
-.field-head code {
-  font-size: 12px;
-}
-
-.field-unset {
-  font-size: 14px;
-}
-
-.field-source {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  min-width: 0;
-}
-
-.field-from {
-  font-size: 12px;
-}
-
-.field-resolution {
-  font-size: 13px;
-}
-
-.field-resolution > summary {
-  width: fit-content;
-  cursor: pointer;
-}
-
-.field-resolution-groups,
-.field-resolution-others {
-  margin: 6px 0;
-  padding-left: 18px;
-}
-
-.field-resolution-tool {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.field-resolution-detail {
-  display: grid;
-  gap: 4px;
-  margin-top: 6px;
-  overflow-wrap: anywhere;
-}
-
-.field-tool-edit {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-.field-tool-edit .field-edit { grid-column: 1 / -1; }
-
 .table-wrap {
   overflow-x: auto;
 }
@@ -1716,6 +1714,20 @@ textarea:focus {
   border-bottom: 1px solid var(--line);
 }
 
+/* Every page keeps its tabs on one line and scrolls the row; a faded edge shows more tabs that way. */
+
+.section-tabs[data-more-end] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.section-tabs[data-more-start] {
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+
+.section-tabs[data-more-start][data-more-end] {
+  mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+}
+
 .section-tabs [role="tab"] {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1745,6 +1757,7 @@ textarea:focus {
 }
 
 .section-tab-count {
+  white-space: nowrap;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   background: var(--panel-sunken);
@@ -1785,39 +1798,6 @@ textarea:focus {
   vertical-align: middle;
 }
 
-.field-row.is-set {
-  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
-  gap: 12px 28px;
-  padding: 18px;
-}
-
-.field-row.is-set .field-source {
-  grid-column: 2;
-}
-
-/* A dotted leader runs from a set field's name toward its value. */
-
-@media (min-width: 761px) {
-  .field-row.is-set .field-head > strong {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  .field-row.is-set .field-head > strong::after {
-    content: '';
-    flex: 1;
-    min-width: 16px;
-    border-bottom: 1px dotted var(--line-strong);
-  }
-}
-
-.field-head p {
-  font-size: 13px;
-  line-height: 1.55;
-  margin-top: 4px;
-}
-
 .item-row > .values {
   border-top: 1px solid var(--line);
   padding-top: 12px;
@@ -1832,18 +1812,8 @@ textarea:focus {
 @media (max-width: 760px) {
   .section-tabs [role="tab"] { padding-inline: 11px; }
 
-  .field-row.is-set,
-  .field-row.is-set .field-source {
-    grid-template-columns: minmax(0, 1fr);
-    grid-column: auto;
-  }
-
   .item-row {
     padding: 14px 4px 14px 12px;
-  }
-
-  .field-row.is-set {
-    padding: 14px;
   }
 
   .switch-control {
@@ -1876,17 +1846,6 @@ textarea:focus {
   .value-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
-  }
-
-  /* Stacked, a key that only repeats the field's own key above it reads twice. */
-
-  .value-row.repeats-field-key dt {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
   }
 
   .item-heading {
@@ -1934,81 +1893,6 @@ textarea:focus {
   .page-header h1 {
     font-size: 28px;
   }
-}
-
-.field-edit-apply {
-  font-size: 13px;
-}
-
-.field-edit {
-  grid-column: 2;
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  min-width: 0;
-}
-
-.field-edit-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.field-edit-row > input,
-.field-edit-row > .select-control {
-  flex: 1 1 200px;
-  max-width: 320px;
-}
-
-.field-edit input,
-.field-edit select {
-  min-height: 36px;
-  padding: 6px 9px;
-  color: var(--text);
-  background: var(--field);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-}
-
-.field-edit input:hover,
-.field-edit select:hover {
-  border-color: var(--text-muted);
-}
-
-.field-edit input:focus,
-.field-edit select:focus {
-  border-color: var(--accent);
-}
-
-.field-edit-target {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.field-edit-target select {
-  min-height: 30px;
-  max-width: 100%;
-  font-size: 12px;
-}
-
-.field-edit > p,
-.field-edit > .edit-error {
-  margin: 0;
-}
-
-.field-edit-hint {
-  font-size: 12px;
-}
-
-.unconfigured-fields .field-edit { grid-column: 1 / -1; }
-
-@media (max-width: 760px) {
-  .field-edit { grid-column: 1; }
 }
 
 .audience-notice {
@@ -2115,12 +1999,25 @@ textarea:focus {
   vertical-align: middle;
 }
 
-.select-control > select {
+.select-control > select,
+.select-button {
   width: 100%;
   min-width: 0;
   appearance: none;
   padding-inline-end: 36px;
   text-overflow: ellipsis;
+}
+
+.select-button {
+  display: flex;
+  align-items: center;
+  text-align: start;
+}
+
+.select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .select-control > .select-chevron {
@@ -2136,6 +2033,116 @@ textarea:focus {
 
 .select-control:has(select:disabled) > .select-chevron {
   opacity: 0.5;
+}
+
+/* Every dropdown opens as a panel: Chromium styles the select's own list
+   (data-picker="panel"), other browsers get the listbox Select draws.
+   Forced colors keep the system control. */
+
+@supports (appearance: base-select) {
+  @media not (forced-colors: active) {
+    .select-control > select,
+    .select-control > select::picker(select) {
+      appearance: base-select;
+    }
+
+    /* Clip at the content edge so long paths stop before the chevron. */
+    .select-control > select {
+      overflow: clip;
+      overflow-clip-margin: content-box;
+      white-space: nowrap;
+    }
+
+    .select-control > select::picker-icon {
+      display: none;
+    }
+
+    .select-control > select::picker(select) {
+      min-width: anchor-size(width);
+      max-height: min(320px, 50vh);
+      margin-block: 4px;
+      padding: 4px;
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--overlay-shadow);
+      color: var(--text);
+    }
+
+    .select-control > select option::checkmark {
+      width: 16px;
+      color: var(--accent);
+    }
+
+    .select-control > select option:not(:checked)::checkmark {
+      visibility: hidden;
+    }
+  }
+}
+
+/* Keep in step with select::picker(select) above. */
+.select-listbox {
+  position: fixed;
+  z-index: 70;
+  box-sizing: border-box;
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--overlay-shadow);
+  color: var(--text);
+}
+
+.select-check {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  visibility: hidden;
+}
+
+.select-option[data-current] > .select-check {
+  visibility: visible;
+}
+
+.select-listbox[data-keyboard] > .select-option.is-active {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+@media not (forced-colors: active) {
+  .select-control[data-picker='panel'] > select option,
+  .select-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 6px 12px 6px 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-md);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .select-control[data-picker='panel'] > select option:hover,
+  .select-option:hover {
+    background: var(--accent-wash);
+  }
+
+  .select-control[data-picker='panel'] > select option:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .select-control[data-picker='panel'] > select option:checked,
+  .select-option[data-current] {
+    font-weight: 600;
+  }
+
+  .select-control[data-picker='panel'] > select option:disabled,
+  .select-option[aria-disabled] {
+    color: var(--text-faint);
+    cursor: default;
+  }
 }
 
 @media (forced-colors: active) {
@@ -2192,5 +2199,146 @@ textarea:focus {
   .item-source > summary {
     min-height: 44px;
     align-content: center;
+  }
+}
+
+/* Row actions: one primary action stays; the rest show on row hover or
+   keyboard focus, with the row filled `surface`. They stay in the layout
+   and in the tab order while faded, so the row never jumps. The wrapper
+   adds no box, so its actions lay out as the row's own; a status line,
+   such as the editor hint, never fades. */
+
+.row-hover {
+  border-radius: var(--radius);
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+
+.row-hover:hover,
+.row-hover:focus-within {
+  background: var(--panel);
+}
+
+.row-actions {
+  display: contents;
+}
+
+.row-actions > :not([role='status']) {
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
+.row-hover:hover .row-actions > *,
+.row-hover:focus-within .row-actions > *,
+.row-actions:focus-within > *,
+.row-actions > [aria-expanded='true'] {
+  opacity: 1;
+}
+
+.details-toggle {
+  gap: 4px;
+}
+
+.details-toggle .icon {
+  width: 14px;
+  height: 14px;
+  transform: rotate(-90deg);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.details-toggle[aria-expanded='true'] .icon {
+  transform: none;
+}
+
+/* Technical names under a row: a sunken block of label and value pairs. */
+
+.row-details:not([hidden]) {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: var(--panel-sunken);
+  font-size: var(--text-sm);
+}
+
+.row-details > div {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 16px;
+}
+
+.row-details dt {
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.row-details dd {
+  min-width: 0;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .row-details > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* On touch screens and phones the same actions sit behind a ⋯ menu. */
+
+.row-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.row-menu-button {
+  min-height: 44px;
+  width: 44px;
+}
+
+.row-menu-panel:not([hidden]) {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 200px;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--overlay-shadow);
+}
+
+.row-menu-panel.is-start {
+  right: auto;
+  left: 0;
+}
+
+.row-menu-panel.is-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.row-menu-panel .button {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-hover,
+  .row-actions > *,
+  .details-toggle .icon {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .row-actions > :not([role='status']) {
+    opacity: 1;
+  }
+
+  .row-menu-panel:not([hidden]) {
+    border: 1px solid CanvasText;
   }
 }

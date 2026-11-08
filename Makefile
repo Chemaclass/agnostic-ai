@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check build test test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check build test test-short test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -24,6 +24,10 @@ test:
 
 test-race:
 	scripts/test-go.sh --race
+
+# Skips end-to-end and timing tests for a fast edit loop. CI never uses it.
+test-short:
+	scripts/test-go.sh --short
 
 # Same target and flags as the linux/amd64 build in .goreleaser.yml, so the
 # number matches the published binary.

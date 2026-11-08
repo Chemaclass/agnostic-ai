@@ -125,6 +125,7 @@ func NewRootCmd(version string) *cobra.Command {
 	root.SetHelpCommandGroupID("maintenance")
 	root.SetCompletionCommandGroupID("maintenance")
 	root.InitDefaultCompletionCmd()
+	signRootHelp(root)
 	profileEachRun(root, &profilePath)
 	guidedUpgradeEachRun(root)
 	return root

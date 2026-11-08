@@ -33,7 +33,11 @@ export function sectionTabs(section: Section): SectionTab[] {
   if (configured.length === 0) return []
   const tabs = configured.filter((tab) => tab.extra || section.kinds.some((kind) => tab.kinds.includes(kind.kind)))
   const remaining = section.kinds.filter((kind) => !tabs.some((tab) => tab.kinds.includes(kind.kind)))
-  return [...tabs, ...remaining.map((kind) => ({ id: kind.kind, label: kind.label, kinds: [kind.kind] }))]
+  const all = [...tabs, ...remaining.map((kind) => ({ id: kind.kind, label: kind.label, kinds: [kind.kind] }))]
+  // Tools leads with the tabs that hold something; empty ones keep their order at the end.
+  if (section.id !== 'tools') return all
+  const filled = (tab: SectionTab) => tab.extra === 'native' ? (section.native?.length ?? 0) > 0 : section.items.some((item) => tab.kinds.includes(item.kind))
+  return [...all.filter(filled), ...all.filter((tab) => !filled(tab))]
 }
 
 export function entryTab(section: Section, tabs: SectionTab[], entry?: string): string | undefined {
@@ -42,6 +46,13 @@ export function entryTab(section: Section, tabs: SectionTab[], entry?: string): 
   if (item) return tabs.find((tab) => tab.kinds.includes(item.kind))?.id
   if (section.fields?.some((field) => fieldEntryId(field) === entry)) return tabs.find((tab) => tab.kinds.includes('settings'))?.id
   return tabs.find((tab) => tab.kinds.some((kind) => kindEntryId(kind) === entry))?.id
+}
+
+const SECTION_DOCS: Record<string, string> = { context: 'instructions', authority: 'permissions', tools: 'mcp', lifecycle: 'hook', settings: 'config' }
+
+/** The docs topic of the filter row's one Docs link: the open tab's, or the section's when it has no tabs. */
+export function docsTopic(section: Pick<Section, 'id'>, tab?: SectionTab): string {
+  return tab?.extra ?? tab?.kinds[0] ?? SECTION_DOCS[section.id] ?? section.id
 }
 
 /** The kinds a tab holds, for its hover text: "Instructions, review instructions, ignore files". */

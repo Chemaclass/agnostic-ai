@@ -31,6 +31,9 @@ export function EditSwitch({ on, label, save }: { on: boolean; label: string; sa
     const selected = !(choice ?? on)
     try {
       await save(selected)
+      reloadBasis.current = app.overviewRevision
+      waitingForReload.current = true
+      setChoice(selected)
       app.reload(true)
     } catch (err) {
       const failure = err instanceof EditError ? err : new EditError(String(err))
@@ -46,7 +49,7 @@ export function EditSwitch({ on, label, save }: { on: boolean; label: string; sa
       {error && (
         <span className="edit-error" role="alert">
           {error.message}
-          {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}
+          {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload</button></>}
           {error.problems.length > 0 && (
             <ul>
               {error.problems.map((p) => (
@@ -66,11 +69,13 @@ export function ResetAction({ label, reset }: { label: string; reset: () => Prom
   const level = useLevelName()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
+  const [settling, setSettling] = useState(false)
   const reloadBasis = useRef<object | undefined>(undefined)
   const waitingForReload = useRef(false)
   useEffect(() => {
     if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
       waitingForReload.current = false
+      setSettling(false)
       setError(undefined)
     }
   }, [app.overviewRevision])
@@ -80,6 +85,9 @@ export function ResetAction({ label, reset }: { label: string; reset: () => Prom
     setError(undefined)
     try {
       await reset()
+      reloadBasis.current = app.overviewRevision
+      waitingForReload.current = true
+      setSettling(true)
       app.reload(true)
     } catch (err) {
       setError(err instanceof EditError ? err : new EditError(String(err)))
@@ -89,8 +97,8 @@ export function ResetAction({ label, reset }: { label: string; reset: () => Prom
   }
   return (
     <span className="edit-switch">
-      <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to the {level} value</button>
-      {error && <span className="edit-error" role="alert">{error.message}{error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}</span>}
+      <button type="button" className="button button-quiet" aria-label={label} disabled={pending || settling} onClick={() => { void run() }}>Reset to the {level} value</button>
+      {error && <span className="edit-error" role="alert">{error.message}{error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload</button></>}</span>}
     </span>
   )
 }

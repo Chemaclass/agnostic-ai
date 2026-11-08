@@ -10,7 +10,7 @@ group = "Reference"
 
 # MCP import credentials
 
-The [Tools page's **Make it a spec** action](@/docs/cli-reference/inspect.md#serve) uses these rewrite and refusal rules for one server, including on the global page.
+The [Tools page's **Add to your setup** action](@/docs/cli-reference/inspect.md#serve) uses these rewrite and refusal rules for one server, including on the global page.
 
 ## What import writes
 

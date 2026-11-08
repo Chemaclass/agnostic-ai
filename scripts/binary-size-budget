@@ -822,7 +822,19 @@
 # The Authority editor restyle (#3151: FileDiff and the refresh guard in the
 # embedded bundle) measured 25378976 bytes on CI; the budget is that plus
 # 8192, rounded up to a multiple of 4096.
-# Server-side Conversations search measured 25391264 bytes, up
-# 12288 from main 4108f429; the budget is that plus 8192, rounded up
-# to a multiple of 4096.
-25403392
+# Plain finding titles (#3120 H1: a title per finding code in the embedded
+# bundle) measured 25391264 bytes locally; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+# The Conversations skeleton, kept first page and shown-text cache
+# measured 25403552 bytes locally; the budget is that plus 8192, rounded
+# up to a multiple of 4096.
+# The dropdown panel for Safari and Firefox measured 25415840 bytes
+# locally; the budget is that plus 8192, rounded up to a multiple of 4096.
+# The Authority rules table and Add a rule menu measured 25428128 bytes
+# locally; the budget is that plus 8192, rounded up to a multiple of 4096.
+# The Tools and Settings calm rows measured 25440416 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# Server-side Conversations search and the rail questions measured
+# 25460896 bytes locally; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+25473024

@@ -1,122 +1,38 @@
-/* Conversations: open chats first, then by day, each row with the button
-   that asks the server to reopen it where it lives. The source chips in
-   the header filter by tool. */
+/* Conversations: the verdict and facts, one toolbar with the search and the
+   tool filter, then open chats first and each day after, as hairline rows
+   with the link that asks the server to reopen the chat where it lives. */
 
-.conversation-sources {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 10px 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
+.conversations-search {
+  gap: 8px 16px;
 }
 
-.conversation-source {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
+.conversation-tools {
+  align-self: center;
 }
 
-.conversation-source-chip {
+.conversation-tools button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 4px 12px 4px 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
-  color: var(--text);
-  font: inherit;
-  text-align: left;
+  gap: 6px;
 }
 
-.conversation-source-chip .tool-avatar {
-  width: 24px;
-  height: 24px;
+.conversation-tool-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
-.conversation-source-toggle {
-  cursor: pointer;
-  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+/* The same box as a filter button, so the toolbar keeps its height when the tools land. */
+
+.conversations-skeleton-tool {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
 }
 
-.conversation-source-toggle:hover {
-  border-color: var(--line-strong);
-  background: var(--panel-raised);
-}
-
-.conversation-source-toggle[aria-pressed='true'] {
-  border-color: var(--accent);
-  background: var(--accent-wash-strong);
-  color: var(--accent-strong);
-}
-
-.conversation-source.is-missing .conversation-source-chip {
-  border-style: dashed;
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.conversation-source-text {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 8px;
-  min-width: 0;
-}
-
-.conversation-source-name {
-  font-weight: 600;
-}
-
-.conversation-source-count {
-  color: var(--text-muted);
-}
-
-.conversation-source-toggle[aria-pressed='true'] .conversation-source-count {
-  color: inherit;
-}
-
-.conversation-source-note {
-  max-width: 48ch;
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-
-/* The end of the list: the sentinel that loads the week before as it nears
-   the viewport, then the button that does the same, its error, or the end. */
-
-.conversations-more {
-  display: grid;
-  justify-items: start;
-  gap: 8px;
-}
-
-.conversations-sentinel {
-  height: 1px;
-}
-
-.conversations-more-error {
-  color: var(--blocked);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.conversations-more .button[aria-disabled='true'] {
-  opacity: 0.55;
-  cursor: progress;
-}
-
-.conversations-end {
-  font-size: 13px;
-}
-
-.conversations-end:focus {
-  outline: none;
+.conversations-skeleton-tool .skeleton-line {
+  width: 5em;
 }
 
 .conversation-list {
@@ -124,16 +40,35 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid var(--line);
 }
 
 .conversation {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 4px 12px;
-  padding: 14px 4px;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 16px 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.conversation:last-child {
+  border-bottom-color: transparent;
+}
+
+/* A row that holds keyboard focus rings as a whole, like the hover fill. */
+
+.conversation:has(:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+.conversation > :first-child {
+  align-self: start;
+}
+
+.conversation .tool-avatar {
+  width: 24px;
+  height: 24px;
 }
 
 .conversation-body {
@@ -143,67 +78,96 @@
 }
 
 .conversation-title {
-  font-size: 15px;
+  font-size: var(--text-body);
   font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
   overflow-wrap: anywhere;
+}
+
+.conversation-title code,
+.conversation-prompt code {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
 }
 
 .conversation-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 12px;
+  gap: 2px 0;
+  font-size: var(--text-sm);
   color: var(--text-muted);
-  font-size: 12px;
+}
+
+/* The separator trails its part, so a wrapped line never starts with it. */
+
+.conversation-meta > :not(:last-child, .conversation-live)::after {
+  content: '·' / '';
+  margin-inline: 6px;
+}
+
+.conversation-live {
+  margin-inline-end: 8px;
+  padding: 0 8px;
+  font-size: var(--text-xs);
 }
 
 .conversation-folder,
 .conversation-branch {
-  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 
-.conversation-live {
-  padding: 0 8px;
-  font-size: 12px;
-}
+/* One line; `.block p` sets text-wrap, so this needs the extra class to win. */
 
-.conversation-opening {
-  display: grid;
-  color: var(--text-muted);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.conversation-prompt {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+.conversation-body .conversation-prompt {
   overflow: hidden;
-  font-size: 13px;
-  overflow-wrap: anywhere;
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+  color: var(--text-soft);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .conversation-withheld {
+  font-size: var(--text-sm);
   color: var(--text-muted);
-  font-size: 13px;
-}
-
-.conversation-label {
-  margin-right: 4px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .conversation-actions {
   display: flex;
-  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+/* Copy command comes after the link for keyboard and screen readers, and
+   shows before it, as the lane ends with the primary action. */
+
+.conversation-actions > .row-actions > * {
+  order: -1;
+}
+
+/* The primary action is a link at rest and the ink pill on hover, on
+   keyboard focus, and on an open chat. The pill's padding stays at rest,
+   so the lane keeps its width. */
+
+.conversation-open {
+  padding-inline: 18px;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out);
+}
+
+.conversation:hover .conversation-open,
+.conversation:focus-within .conversation-open {
+  background: var(--text);
+  color: var(--canvas);
+  text-decoration: none;
+}
+
+.conversation:hover .conversation-open:hover,
+.conversation:focus-within .conversation-open:hover {
+  background: var(--text-soft);
 }
 
 .conversation-open[aria-disabled='true'] {
@@ -221,8 +185,17 @@
 }
 
 .conversation-status {
-  font-size: 13px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
+}
+
+.conversation-status:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .conversation-status.is-opened {
@@ -237,18 +210,124 @@
   color: var(--blocked);
 }
 
+/* The end of the list: the sentinel that loads the week before as it nears
+   the viewport, then the link that does the same, its error, or the end. */
+
+.conversations-more {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.conversations-more > .banner {
+  justify-self: stretch;
+}
+
+.conversations-sentinel {
+  height: 1px;
+}
+
+.conversations-more .button[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.conversations-end {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.conversations-end:focus {
+  outline: none;
+}
+
+/* The first load: placeholder bars in the page's own boxes. */
+
+.conversations-skeleton-verdict {
+  width: 14em;
+  padding-block: calc((1lh - 0.5em) / 2);
+}
+
+.conversations-skeleton-facts {
+  width: 28em;
+  max-width: 100%;
+}
+
+.conversations-skeleton-avatar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border-radius: 50%;
+}
+
+.conversations-skeleton-heading {
+  width: 6em;
+}
+
+.conversations-skeleton-title {
+  width: 60%;
+}
+
+.conversations-skeleton-meta {
+  width: 40%;
+}
+
+
+.conversations-skeleton .conversation-prompt .skeleton-line {
+  width: 80%;
+}
+
+.conversations-skeleton-button .skeleton-line {
+  width: 7em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-open {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .conversation:hover .conversation-open,
+  .conversation:focus-within .conversation-open {
+    border-color: ButtonText;
+  }
+}
+
+/* Phones: the link sits under the text with the row menu at the far end;
+   an open chat's pill spans the row. */
+
 @media (max-width: 760px) {
   .conversation {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: 24px minmax(0, 1fr);
+    padding-inline: 8px;
   }
 
   .conversation-actions {
-    grid-column: 2;
-    justify-content: flex-start;
+    grid-column: 2 / -1;
+    justify-content: space-between;
   }
 
-  .conversation-source-toggle,
+  .conversation-actions .conversation-open {
+    padding-inline: 0;
+  }
+
+  .conversation-actions .conversation-open.button-primary {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding-inline: 18px;
+  }
+
+  .conversation:hover .conversation-open:not(.button-primary),
+  .conversation:focus-within .conversation-open:not(.button-primary) {
+    background: transparent;
+    color: var(--accent-strong);
+  }
+
   .conversations-more .button,
+  .conversation-tools button,
+  .conversations-skeleton-tool,
   .conversation-actions .button,
   .conversation-result .button {
     min-height: 44px;

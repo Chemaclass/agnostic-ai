@@ -1,19 +1,27 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { selectTab } from '../helpers'
+import type { Locator } from '@playwright/test'
 
 const overview = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const contextView = JSON.parse(readFileSync(new URL('../../src/fixtures/context.mock.json', import.meta.url), 'utf8'))
+
+/** The file field sits in a disclosure at the end of the panel. */
+async function fileField(panel: Locator) {
+  const disclosure = panel.locator('details.context-usage-file')
+  if (await disclosure.getAttribute('open') === null) await disclosure.locator('summary').click()
+  return panel.getByLabel('File path')
+}
 
 test.describe('context size', () => {
   test('shows the mock duplicate with its sources, review prompt, and refresh', async ({ page, context }) => {
     await page.goto('/?view=context&mock=1')
     await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
-    await expect(panel.getByRole('heading', { name: 'Context size' })).toBeVisible()
-    await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
+    await expect(panel.getByRole('heading', { name: 'Context size' })).toBeAttached()
+    await expect(panel.getByLabel('Counted for')).toHaveValue('claude')
     await expect(panel.locator('.context-usage-totals')).toContainText('184 words, 1,212 bytes')
-    await expect(panel.getByRole('table', { name: /^Startup/ })).toBeVisible()
+    await expect(panel.getByRole('table', { name: 'Read at every start' })).toBeVisible()
     const duplicate = panel.locator('.context-opportunity')
     await expect(duplicate).toHaveCount(1)
     await expect(duplicate).toContainText('Run the full test suite before you push.')
@@ -25,8 +33,13 @@ test.describe('context size', () => {
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
     expect(prompt).toContain('Target: claude')
     expect(prompt).toContain('Do not apply any change until I agree.')
-    await panel.getByRole('button', { name: 'Reread specs' }).click()
-    await expect(panel.locator('.context-usage-compare')).toContainText('Before reread')
+    expect(prompt).toContain('- .agnostic-ai/AGNOSTIC_AI.md (entry-point layer)')
+    const startup = panel.getByRole('table', { name: 'Read at every start' })
+    await expect(startup.getByRole('row', { name: /AGNOSTIC_AI\.md/ })).toContainText('instructions file')
+    await expect(startup.getByRole('row', { name: /skills\/release/ })).toContainText('skill name and description')
+    await expect(startup).not.toContainText('entry-point layer')
+    await panel.getByRole('button', { name: 'Read again' }).click()
+    await expect(panel.locator('.context-usage-compare')).toContainText('Before')
     await expect(panel.locator('.context-usage-compare')).toContainText('Now')
     await expect(panel).not.toContainText(/tokens? saved|faster/i)
   })
@@ -35,8 +48,8 @@ test.describe('context size', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/?view=context&mock=1&tab=usage')
     const panel = page.locator('section.context-usage')
-    await expect(panel.getByLabel('Coding tool')).toBeVisible()
-    await expect(panel.getByLabel('Check against a file')).toHaveAccessibleDescription('Name a file to add the scoped rules that match it. Results update as you type.')
+    await expect(panel.getByLabel('Counted for')).toBeVisible()
+    await expect(await fileField(panel)).toHaveAccessibleDescription('Name a file to add the scoped rules that match it. Results update as you type.')
     await expect(panel.locator('.context-total-words').first()).toHaveText('184 words')
     const method = panel.locator('.context-usage-method')
     const body = method.locator('.context-usage-method-body')
@@ -50,6 +63,7 @@ test.describe('context size', () => {
       expect(box!.x + box!.width).toBeLessThanOrEqual(390)
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+    await panel.getByRole('button', { name: /^More actions for/ }).first().click()
     await panel.getByRole('button', { name: 'What can I do?' }).first().click()
     await expect(panel.locator('.context-advice')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
@@ -69,10 +83,10 @@ test.describe('context size', () => {
     await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
-    await panel.getByRole('button', { name: 'Reread specs' }).click()
+    await panel.getByRole('button', { name: 'Read again' }).click()
     await expect(panel.locator('.context-opportunity')).toHaveCount(0)
     await expect(panel.getByRole('heading', { name: 'Duplicated passages' })).toHaveCount(0)
-    await expect(panel.locator('.context-usage-compare')).toContainText('Before reread184 words, 1,212 bytes at startup, 1 duplicated passage.')
+    await expect(panel.locator('.context-usage-compare')).toContainText('Before184 words, 1,212 bytes at startup, 1 duplicated passage.')
     await expect(panel.locator('.context-usage-compare')).toContainText('Now166 words, 1,118 bytes at startup, 0 duplicated passages.')
     await expect(panel.locator('.context-usage-compare')).toContainText('ChangeStartup -18 words, File-scoped no change, On demand no change.')
     expect(requests).toEqual(['', '?target=claude'])
@@ -105,13 +119,13 @@ test.describe('context size', () => {
     await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel).toContainText('Scoped rules count as on demand until you name a file.')
-    await expect(panel.locator('.context-usage-totals')).not.toContainText('File-scoped')
-    await panel.getByLabel('Check against a file').fill('src/main.go')
-    await panel.getByRole('button', { name: 'Reread specs' }).click()
-    await expect(panel.locator('.context-usage-totals')).toContainText('File-scoped, additional46 words, 301 bytes')
+    await expect(panel.locator('.context-usage-totals')).not.toContainText('For this file')
+    await (await fileField(panel)).fill('src/main.go')
+    await panel.getByRole('button', { name: 'Read again' }).click()
+    await expect(panel.locator('.context-usage-totals')).toContainText('For this file46 words, 301 bytes')
     await expect(panel).not.toContainText('Scoped rules count as on demand')
-    await expect(panel.getByRole('table', { name: /^File-scoped/ })).toContainText('scoped rule')
-    await panel.getByRole('button', { name: 'Reread specs' }).click()
+    await expect(panel.getByRole('table', { name: 'Read for the named file' })).toContainText('scoped rule')
+    await panel.getByRole('button', { name: 'Read again' }).click()
     await expect.poll(() => requests.length).toBe(3)
     expect(requests.slice(1)).toEqual(['?target=claude&file=src%2Fmain.go', '?target=claude&file=src%2Fmain.go'])
   })
@@ -127,11 +141,11 @@ test.describe('context size', () => {
     await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
-    await panel.getByLabel('Coding tool').selectOption('gemini')
+    await panel.getByLabel('Counted for').selectOption('gemini')
     await expect(panel.getByRole('alert')).toContainText('gemini is not a configured target')
     await expect(panel.locator('.context-opportunity')).toHaveCount(0)
     await expect(panel.locator('.context-usage-totals')).toHaveCount(0)
-    await panel.getByLabel('Coding tool').selectOption('claude')
+    await panel.getByLabel('Counted for').selectOption('claude')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
   })
 
@@ -148,12 +162,12 @@ test.describe('context size', () => {
     await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
-    await panel.getByLabel('Check against a file').fill('src/main.go')
-    await panel.getByRole('button', { name: 'Reread specs' }).click()
+    await (await fileField(panel)).fill('src/main.go')
+    await panel.getByRole('button', { name: 'Read again' }).click()
     await expect.poll(() => requests.at(-1)).toBe('?target=claude&file=src%2Fmain.go')
-    await panel.getByLabel('Coding tool').selectOption('copilot')
+    await panel.getByLabel('Counted for').selectOption('copilot')
     await expect.poll(() => requests.at(-1)).toBe('?target=copilot')
-    await expect(panel.getByLabel('Check against a file')).toBeDisabled()
+    await expect(panel.getByLabel('File path')).toBeDisabled()
     await expect(panel.locator('.context-usage-file-hint')).toHaveText('This page cannot check a single file for GitHub Copilot.')
   })
 
@@ -164,7 +178,7 @@ test.describe('context size', () => {
     await selectTab(page, 'Context size')
     const panel = page.locator('section.context-usage')
     await expect(panel).toContainText('Open a project to see it.')
-    await expect(panel.getByLabel('Coding tool')).toHaveCount(0)
+    await expect(panel.getByLabel('Counted for')).toHaveCount(0)
   })
 
   test('applies a typed file after a pause and keeps tool and file in the URL', async ({ page }) => {
@@ -180,7 +194,7 @@ test.describe('context size', () => {
     const before = requests.length
     await page.clock.install()
     await page.clock.pauseAt(Date.now() + 60_000)
-    const input = panel.getByLabel('Check against a file')
+    const input = await fileField(panel)
     await input.pressSequentially('src/main.go', { delay: 40 })
     await page.clock.runFor(499)
     expect(requests.slice(before)).toEqual([])
@@ -188,8 +202,8 @@ test.describe('context size', () => {
     await expect.poll(() => requests.slice(before)).toEqual(['?target=claude&file=src%2Fmain.go'])
     await expect(page).toHaveURL(/tab=usage&target=claude&file=src%2Fmain\.go/)
     await page.reload()
-    await expect(panel.getByLabel('Check against a file')).toHaveValue('src/main.go')
-    await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
+    await expect(panel.getByLabel('File path')).toHaveValue('src/main.go')
+    await expect(panel.getByLabel('Counted for')).toHaveValue('claude')
   })
 
   test('loads the default tool when the address names one that is gone', async ({ page }) => {
@@ -205,7 +219,7 @@ test.describe('context size', () => {
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
     await expect(panel.getByRole('alert')).toHaveCount(0)
-    await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
+    await expect(panel.getByLabel('Counted for')).toHaveValue('claude')
     await expect(page).not.toHaveURL(/target=|file=/)
     expect(requests).toEqual(['?target=gemini&file=src%2Fmain.go', ''])
   })
@@ -234,7 +248,7 @@ test.describe('context size', () => {
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-usage-totals')).toBeVisible()
-    const input = panel.getByLabel('Check against a file')
+    const input = await fileField(panel)
     await input.pressSequentially('src/main.go ')
     await expect.poll(() => requests.at(-1)).toBe('?target=claude&file=src%2Fmain.go')
     await expect(page).toHaveURL(/file=src%2Fmain\.go(&|$)/)
@@ -257,7 +271,7 @@ test.describe('context size', () => {
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: noDuplicates }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
-    await expect(panel.getByRole('table', { name: /^Startup/ })).toBeVisible()
+    await expect(panel.getByRole('table', { name: 'Read at every start' })).toBeVisible()
     const row = panel.getByRole('row', { name: /\.agnostic-ai\/rules\/testing\.md/ })
     const toggle = row.getByRole('button', { name: /^(What can I do\?|Hide advice)$/ })
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
@@ -280,27 +294,25 @@ test.describe('context size', () => {
     await expect(advice).toHaveCount(0)
   })
 
-  test('copies all prompts in one, with the advice for every source', async ({ page, context }) => {
+  test('copies one prompt per table: a startup review and the advice for each on-demand source', async ({ page, context }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: contextView }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await panel.getByRole('button', { name: 'Copy all prompts for Claude Code' }).click()
-    await expect(panel.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
-    const prompt = await page.evaluate(() => navigator.clipboard.readText())
-    expect(prompt).toContain('Target: claude')
-    for (const c of contextView.report.contributions.filter((c: { category: string }) => c.category !== 'generated framing')) {
-      expect(prompt).toContain(`. ${c.source} (${c.category})`)
-    }
-    expect(prompt.split('Do not apply any change until I agree.')).toHaveLength(2)
-    expect(prompt).toContain('agnostic-ai explain --context --target claude')
-    expect(prompt).not.toContain('CLAUDE.md (generated framing)')
-    expect(prompt).not.toContain('Nothing to edit here')
-    expect(prompt).not.toMatch(/[\u2013\u2014]/)
+    await panel.getByRole('button', { name: 'Copy prompt to review what Claude Code reads at every start' }).click()
+    const startup = await page.evaluate(() => navigator.clipboard.readText())
+    expect(startup).toContain('Review everything claude loads at the start of every session')
+    for (const c of contextView.report.contributions.filter((c: { load: string }) => c.load === 'startup')) expect(startup).toContain(`- ${c.source} (${c.category})`)
+    await panel.getByRole('button', { name: 'Copy prompt to review what Claude Code reads on demand' }).click()
+    const onDemand = await page.evaluate(() => navigator.clipboard.readText())
+    for (const c of contextView.report.contributions.filter((c: { load: string }) => c.load === 'on-demand')) expect(onDemand).toContain(`. ${c.source} (${c.category})`)
+    expect(onDemand).not.toContain('(entry-point layer)')
+    expect(onDemand.split('Do not apply any change until I agree.')).toHaveLength(2)
+    for (const prompt of [startup, onDemand]) expect(prompt).not.toMatch(/[\u2013\u2014]/)
   })
 
-  test('hides Copy all prompts when no source has anything to change', async ({ page }) => {
+  test('shows only the tables that have sources', async ({ page }) => {
     const framingOnly = structuredClone(contextView)
     framingOnly.report.contributions = framingOnly.report.contributions.filter((c: { category: string }) => c.category === 'generated framing')
     framingOnly.report.opportunities = []
@@ -308,12 +320,12 @@ test.describe('context size', () => {
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: framingOnly }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
-    await expect(panel.getByRole('heading', { name: '1 source, largest first' })).toBeVisible()
-    await expect(panel.locator('.context-all-advice')).toHaveCount(0)
-    await expect(panel.getByRole('button', { name: /Copy all prompts/ })).toHaveCount(0)
+    await expect(panel.getByRole('heading', { name: 'Read at every start' })).toBeVisible()
+    await expect(panel.getByText('1 source, largest first')).toBeVisible()
+    await expect(panel.getByRole('heading', { name: 'Read on demand' })).toHaveCount(0)
   })
 
-  test('Next opens the largest startup source and a built-in links to Settings', async ({ page }) => {
+  test('names a built-in by its title and links it to Settings', async ({ page }) => {
     const data = structuredClone(contextView)
     data.report.opportunities = []
     data.report.contributions = [
@@ -325,10 +337,11 @@ test.describe('context size', () => {
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
-    await expect(panel.getByRole('heading', { name: 'Start here' })).toHaveCount(0)
-    await page.getByRole('region', { name: 'Next' }).getByRole('button', { name: 'Show builtin:shared-memory-policy' }).click()
-    const row = panel.getByRole('row', { name: /builtin:shared-memory-policy/ })
-    await expect(row.getByRole('button', { name: 'Hide advice' })).toBeFocused()
+    await expect(panel.getByRole('region', { name: 'Next' })).toHaveCount(0)
+    const row = panel.getByRole('row', { name: /Shared memory policy/ })
+    await expect(row.getByRole('rowheader')).toContainText('Shared memory policy Built in')
+    await expect(row.getByTitle('builtin:shared-memory-policy')).toBeVisible()
+    await row.getByRole('button', { name: 'What can I do?' }).click()
     const advice = panel.locator('.context-advice')
     await expect(advice).toContainText('part of the memory built-in')
     await expect(advice).toContainText('removes shared memory for every tool')
@@ -337,7 +350,23 @@ test.describe('context size', () => {
     await expect(page.getByRole('tab', { name: /^Built-ins/ })).toHaveAttribute('aria-selected', 'true')
   })
 
-  test('shows the top ten sources per load with Show all', async ({ page }) => {
+  test('shows secondary row actions on hover and keyboard focus', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => route.fulfill({ json: contextView }))
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/?view=context&tab=usage')
+    const row = page.getByRole('row', { name: /\.agnostic-ai\/rules\/testing\.md/ })
+    const actions = row.locator('.editor-actions')
+    await expect(actions).toHaveCSS('opacity', '0')
+    await row.hover()
+    await expect(actions).toHaveCSS('opacity', '1')
+    await page.mouse.move(0, 0)
+    await expect(actions).toHaveCSS('opacity', '0')
+    await row.getByRole('button', { name: /^Copy path/ }).focus()
+    await expect(actions).toHaveCSS('opacity', '1')
+  })
+
+  test('shows the top five startup sources with Show all', async ({ page }) => {
     const data = structuredClone(contextView)
     data.report.opportunities = []
     data.report.contributions = Array.from({ length: 12 }, (_, i) => ({ source: `.agnostic-ai/rules/rule-${String(i).padStart(2, '0')}.md`, category: 'always-on rule', load: 'startup', words: 100 - i, bytes: 600 - i }))
@@ -346,15 +375,13 @@ test.describe('context size', () => {
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
-    const table = panel.getByRole('table', { name: /^Startup/ })
-    await expect(table.locator('tbody tr')).toHaveCount(10)
-    await expect(panel.getByText('1 kind')).toHaveCount(0)
-    await expect(panel.locator('.context-kinds')).toContainText('always-on rule')
-    await expect(panel.locator('.context-kinds')).toContainText('12 sources')
+    const table = panel.getByRole('table', { name: 'Read at every start' })
+    await expect(table.locator('tbody tr')).toHaveCount(5)
+    await expect(panel.getByText('12 sources, largest first')).toBeVisible()
     await panel.getByRole('button', { name: 'Show all 12' }).click()
     await expect(table.locator('tbody tr')).toHaveCount(12)
-    await panel.getByRole('button', { name: 'Show top 10' }).click()
-    await expect(table.locator('tbody tr')).toHaveCount(10)
+    await panel.getByRole('button', { name: 'Show top 5' }).click()
+    await expect(table.locator('tbody tr')).toHaveCount(5)
   })
 
   test('opens the source list by default and shows duplicated passages only when there are any', async ({ page }) => {
@@ -365,13 +392,13 @@ test.describe('context size', () => {
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: withDuplicates ? contextView : noDuplicates }))
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
-    await expect(panel.getByRole('table', { name: /^Startup/ })).toBeVisible()
+    await expect(panel.getByRole('table', { name: 'Read at every start' })).toBeVisible()
     await expect(panel.getByRole('heading', { name: 'Duplicated passages' })).toBeVisible()
     withDuplicates = false
-    await panel.getByRole('button', { name: 'Reread specs' }).click()
+    await panel.getByRole('button', { name: 'Read again' }).click()
     await expect(panel.locator('.context-usage-compare')).toBeVisible()
     await expect(panel.getByRole('heading', { name: 'Duplicated passages' })).toHaveCount(0)
-    await expect(panel.getByRole('table', { name: /^Startup/ })).toBeVisible()
+    await expect(panel.getByRole('table', { name: 'Read at every start' })).toBeVisible()
   })
 
   test('is the first Context tab, the landing, and keeps the section search', async ({ page }) => {
@@ -401,12 +428,12 @@ for (const width of [390, 1000, 1280, 1800]) {
     await page.goto('/?view=context&tab=usage')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-usage-totals')).toBeVisible()
-    await panel.getByLabel('Check against a file').fill('src/features/context/components/a-long-directory-name/a-long-component-name.tsx')
-    await panel.getByRole('button', { name: 'Reread specs' }).click()
+    await (await fileField(panel)).fill('src/features/context/components/a-long-directory-name/a-long-component-name.tsx')
+    await panel.getByRole('button', { name: 'Read again' }).click()
     await expect(panel.locator('.context-usage-status')).toContainText('a-long-component-name.tsx')
     const position = async () => { const box = (await panel.boundingBox())!; return box.y + box.height + await page.evaluate(() => window.scrollY) }
     const before = await position()
-    await panel.getByLabel('Coding tool').selectOption('gemini')
+    await panel.getByLabel('Counted for').selectOption('gemini')
     await expect(panel).toHaveAttribute('aria-busy', 'true')
     await expect(panel.locator('.context-usage-totals')).toHaveCount(0)
     expect(Math.abs(await position() - before)).toBeLessThanOrEqual(1)
@@ -414,27 +441,29 @@ for (const width of [390, 1000, 1280, 1800]) {
     finish!()
     await expect(panel).not.toHaveAttribute('aria-busy', 'true')
     await expect(panel.locator('.context-usage-totals')).toBeVisible()
-    await expect(panel.getByLabel('Coding tool')).toHaveValue('gemini')
+    await expect(panel.getByLabel('Counted for')).toHaveValue('gemini')
     await expect(panel.locator('.context-total-words').first()).toHaveText('97 words')
   })
 }
 
 for (const width of [390, 1280, 1440]) {
-  test(`leads with the figures under the controls, then the verdict and Next, at ${width}px`, async ({ page }) => {
+  test(`leads with the figures and the budget, then the tables, at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto('/?view=context&mock=1&tab=usage')
     const panel = page.locator('section.context-usage')
-    await expect(panel.getByLabel('Coding tool')).toHaveValue('claude')
-    await expect(panel.getByLabel('Coding tool').locator('option:checked')).toHaveText('Claude Code')
-    const results = (await panel.locator('.context-usage-results').boundingBox())!
+    await expect(panel.getByLabel('Counted for')).toHaveValue('claude')
+    await expect(panel.getByLabel('Counted for').locator('option:checked')).toHaveText('Claude Code')
     const figures = (await panel.locator('.context-usage-totals').boundingBox())!
-    const verdict = (await panel.locator('.context-verdict').boundingBox())!
-    const next = (await page.getByRole('region', { name: 'Next' }).boundingBox())!
-    expect(figures.y).toBeLessThanOrEqual(results.y + 1)
-    expect(verdict.y).toBeGreaterThanOrEqual(figures.y + figures.height)
-    expect(verdict.height).toBeLessThan(width < 760 ? 60 : 32)
-    expect(next.y).toBeGreaterThanOrEqual(verdict.y + verdict.height)
-    if (width >= 1280) expect(figures.y).toBeLessThan(1000)
+    const budget = (await panel.locator('.context-budget').boundingBox())!
+    const picker = (await panel.getByLabel('Counted for').boundingBox())!
+    const table = (await panel.getByRole('table', { name: 'Read at every start' }).boundingBox())!
+    await expect(panel.locator('.context-budget')).toContainText('184 of 2,000 words at startup')
+    expect(budget.y).toBeGreaterThanOrEqual(figures.y + figures.height)
+    expect(table.y).toBeGreaterThan(budget.y + budget.height)
+    if (width >= 1280) {
+      expect(picker.x).toBeGreaterThan(figures.x + figures.width)
+      expect(picker.y).toBeLessThan(budget.y)
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
   })
 }

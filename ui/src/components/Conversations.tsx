@@ -1,26 +1,42 @@
 // Conversations: recent chats from Claude Code, Codex and Cursor, the open
 // ones first, then by day. The server sends one week per page; the next
 // loads when the list nears its end or from the button below it. The
-// source chips in the header filter by tool.
+// tool buttons beside the search filter by tool.
 // Each row asks the server to reopen the chat where it lives; the page
 // only posts which one and shows the reply. A static snapshot has no
 // server to read the chats, so it only says what it needs.
 
-import { useEffect, useId, useRef, useState } from 'react'
-import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome, type ConversationsPage } from '../api'
-import type { Conversation, ConversationRoute, ConversationSource, ConversationsView, ConversationTool } from '../contract'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
+import type { Conversation, ConversationRoute, ConversationSource, ConversationsView } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
 import { PageHeader, useApp } from './app-context'
-import { ErrorPanel } from './Banner'
+import { ErrorPanel, Notice } from './Banner'
 import { useEditorChoice } from './EditorLink'
-import { Badge, CopyButton, Icon, ToolAvatar } from './ui'
+import { Badge, CopyButton, Icon, RowActions, ToolAvatar, toolName } from './ui'
 
 const TITLE = 'Conversations'
-const INTRO = 'Pick up a chat where you left it, in the tool where it lives.'
-const MOCK_OPEN_MESSAGE = 'Mock data: opening a conversation needs a running agnostic-ai serve.'
+const NEEDS_SERVER = CONVERSATIONS_NEED_SERVER
+const INTRO = 'Pick up where you left off, in the tool where it lives.'
+const SEARCH_NOTE = 'Search covers every conversation, loaded or not.'
+
+// How long typing pauses before the search goes to the server.
+const SEARCH_PAUSE_MS = 300
+
+/** The line under the search box: a search on its way, its matches across every week, or what a tool button kept. */
+function searchStatus(searching: boolean, matches: number | undefined, kept: number, loaded: number, toolChosen: boolean): string {
+  if (searching) return 'Searching…'
+  if (matches !== undefined && toolChosen) return `${kept} of ${plural(matches, 'conversation')} match.`
+  if (matches !== undefined) return `${plural(matches, 'conversation')} ${matches === 1 ? 'matches' : 'match'}.`
+  if (toolChosen) return `${kept} of ${plural(loaded, 'conversation')} match.`
+  return ''
+}
+
+const MOCK_OPEN_MESSAGE = 'Mock data: opening a conversation needs agnostic-ai view running.'
 
 /** Where loading the week before stands. */
 type Older =
@@ -28,34 +44,32 @@ type Older =
   | { state: 'loading'; before: string }
   | { state: 'failed'; before: string; error: Error }
 
-// How long typing pauses before the search goes to the server.
-const SEARCH_PAUSE_MS = 300
-
-/** The line under the search box: what the list holds, or that a search is on its way. */
-function searchStatus(searching: boolean, matches: number | undefined, loaded: number): string {
-  if (searching) return 'Searching…'
-  if (matches !== undefined) return `${plural(matches, 'conversation')} ${matches === 1 ? 'matches' : 'match'}.`
-  return plural(loaded, 'conversation')
-}
-
-function emptyNote(matches: number | undefined, next: string | undefined): string {
-  if (matches === 0) return 'No conversation matches.'
-  return next ? 'No conversation in the past week.' : 'No conversations to show.'
-}
-
 // The next week starts loading this far before the end of the list comes into view.
 const LOAD_AHEAD = '0px 0px 400px 0px'
+
+// The last first page for each source and editor, kept until the page
+// reloads. A return to the page shows it at once while a fresh copy
+// loads, since which chats are open changes from one minute to the next.
+const firstPages = new Map<string, ConversationsView>()
+const firstPageKey = (source: DataSource, editor: string) => `${JSON.stringify(source)} ${editor}`
+
+const SKELETON_TOOLS = 3
+const SKELETON_ROWS = 4
 
 export function ConversationsPage() {
   const app = useApp()
   const { editor: chosen, template } = useEditorChoice()
   const editor = effectiveEditor(chosen, template)
-  const [pages, setPages] = useState<ConversationsView[]>([])
+  const cacheKey = firstPageKey(app.source, editor)
+  const [pages, setPages] = useState<ConversationsView[]>(() => {
+    const cached = firstPages.get(cacheKey)
+    return cached ? [cached] : []
+  })
   const [error, setError] = useState<Error>()
   const [older, setOlder] = useState<Older>({ state: 'idle' })
   const [tool, setTool] = useState<ToolFilter>('all')
   const query = app.state.q ?? ''
-  // The search box asks the server once typing pauses.
+  // The search goes to the server, which searches every conversation, once typing pauses.
   const [searched, setSearched] = useState(query.trim())
   const [searching, setSearching] = useState(false)
   const olderRequest = useRef<AbortController | undefined>(undefined)
@@ -71,10 +85,9 @@ export function ConversationsPage() {
     return () => window.clearTimeout(timer)
   }, [query])
 
-  // Which pages to load: every search, tool and editor starts over from the first page.
-  const filter: ConversationsPage = { query: searched || undefined, tool: tool === 'all' ? undefined : tool }
-
-  // The first page. The previous rows stay on screen until it arrives.
+  // The first page. A new editor or search changes every row, so it starts over.
+  // A kept copy shows until the fresh one lands, which replaces it only
+  // when a row or source changed.
   useEffect(() => {
     if (needsServer) return
     const controller = new AbortController()
@@ -82,21 +95,31 @@ export function ConversationsPage() {
     olderRequest.current = undefined
     setOlder({ state: 'idle' })
     setError(undefined)
-    setSearching(true)
-    loadConversations(app.source, editor, { query: searched || undefined, tool: tool === 'all' ? undefined : tool }, controller.signal).then(
+    // Only the list without a search is kept for a quick return.
+    const cached = searched ? undefined : firstPages.get(cacheKey)
+    if (cached) setPages((current) => current[0] === cached ? current : [cached])
+    setSearching(searched !== '')
+    loadConversations(app.source, editor, { query: searched || undefined }, controller.signal).then(
       (loaded) => {
         if (controller.signal.aborted) return
-        setPages([loaded.data])
         setSearching(false)
+        if (cached && sameFirstPage(cached, loaded.data)) return
+        if (!searched) firstPages.set(cacheKey, loaded.data)
+        // A week loaded or loading after the kept page may leave a gap
+        // before the fresh one, so the list starts over from it.
+        olderRequest.current?.abort()
+        olderRequest.current = undefined
+        setOlder({ state: 'idle' })
+        setPages([loaded.data])
       },
       (failure: Error) => {
         if (controller.signal.aborted || failure.name === 'AbortError') return
-        setError(failure)
         setSearching(false)
+        setError(failure)
       },
     )
     return () => controller.abort()
-  }, [needsServer, app.source, editor, searched, tool])
+  }, [needsServer, app.source, editor, cacheKey, searched])
 
   useEffect(() => () => olderRequest.current?.abort(), [])
 
@@ -106,7 +129,7 @@ export function ConversationsPage() {
     const controller = new AbortController()
     olderRequest.current = controller
     setOlder({ state: 'loading', before })
-    loadConversations(app.source, editor, { ...filter, before }, controller.signal).then(
+    loadConversations(app.source, editor, { query: searched || undefined, before }, controller.signal).then(
       (loaded) => {
         if (controller.signal.aborted) return
         olderRequest.current = undefined
@@ -149,37 +172,52 @@ export function ConversationsPage() {
   if (needsServer) {
     return (
       <>
-        <PageHeader title={TITLE} subtitle={INTRO} />
-        <p className="muted">{CONVERSATIONS_NEED_SERVER} A static snapshot has no chats to list.</p>
+        <PageHeader title={TITLE} verdict={NEEDS_SERVER}>
+          <p className="page-facts">A static snapshot has no chats to list.</p>
+        </PageHeader>
       </>
     )
   }
-  if (!loaded) {
+  const setQuery = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
+  if (!loaded && error) {
     return (
       <>
         <PageHeader title={TITLE} subtitle={INTRO} />
-        {error ? <ErrorPanel error={error} /> : <p className="loading" aria-busy="true">Loading conversations…</p>}
+        <ErrorPanel error={error} />
       </>
     )
   }
 
+  // Until the first page arrives, placeholders hold the places of the
+  // verdict, facts, chips and rows. The heading and search box are the
+  // same elements before and after, so focus and typing carry over.
   const rows = mergePages(pages)
-  const sources = pages.at(-1)!.tools
-  const setQuery = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
-  const matches = pages[0].matches
   const now = new Date()
-  const groups = groupConversations(rows, now)
+  // The server already searched; the tool buttons narrow what it sent.
+  const matching = filterConversations(rows, '', tool)
+  const groups = groupConversations(matching, now)
+  const matches = pages[0]?.matches
   const canOpen = app.source.kind === 'api'
   const loading = older.state === 'loading'
 
   return (
     <>
-      <PageHeader title={TITLE} subtitle={INTRO}>
-        <Sources sources={sources} rows={rows} tool={tool} onToggle={(chosen) => setTool(toggleTool(tool, chosen))} />
+      <PageHeader title={TITLE} verdict={loaded ? conversationsVerdict(rows, now, next !== undefined) : <span aria-hidden="true">{skeletonBar('conversations-skeleton-verdict')}</span>}>
+        {loaded
+          ? <p className="page-facts"><span className="page-fact">{plural(rows.length, 'conversation')} loaded{next ? ' so far' : ''}</span><span className="page-fact">{INTRO}</span></p>
+          : <p className="page-facts" aria-hidden="true">{skeletonBar('conversations-skeleton-facts')}</p>}
       </PageHeader>
       {error && <ErrorPanel error={error} />}
-      <Search query={query} onQuery={setQuery} status={searchStatus(searching, matches, rows.length)} />
-      {rows.length === 0 && <p className="muted">{emptyNote(matches, next)}</p>}
+      <Search
+        query={query}
+        onQuery={setQuery}
+        status={loaded ? searchStatus(searching, matches, matching.length, rows.length, tool !== 'all') : ''}
+        tools={loaded
+          ? <ToolFilterButtons sources={pages.at(-1)!.tools} rows={rows} tool={tool} onChoose={setTool} />
+          : <ToolFilterSkeleton />}
+      />
+      {!loaded && <ListSkeleton />}
+      {loaded && groups.length === 0 && (matches === 0 || rows.length > 0) && <p className="muted empty-matches">No conversation matches.</p>}
       {groups.map((group) => {
         const headingId = `conversations-${group.id}`
         return (
@@ -193,9 +231,9 @@ export function ConversationsPage() {
           </section>
         )
       })}
-      <div className="conversations-more">
+      {loaded && <div className="conversations-more">
         <div ref={sentinel} className="conversations-sentinel" aria-hidden="true" />
-        {older.state === 'failed' && <p className="conversations-more-error" role="alert">Could not load the week before. {older.error.message}</p>}
+        {older.state === 'failed' && <Notice tone="error" title="Could not load the week before." details={older.error.message} />}
         {next ? (
           <button
             ref={olderButton}
@@ -208,75 +246,88 @@ export function ConversationsPage() {
             {loading ? 'Loading the week before…' : older.state === 'failed' ? 'Try again' : 'Load the week before'}
           </button>
         ) : <p ref={endNote} className="muted conversations-end" tabIndex={-1}>That's every conversation.</p>}
-      </div>
+      </div>}
     </>
   )
 }
 
-// Each found source is a toggle that shows only its tool; a source that was
-// not found has nothing to show, so it is plain text with the server's note.
-function Sources({ sources, rows, tool, onToggle }: { sources: ConversationSource[]; rows: Conversation[]; tool: ToolFilter; onToggle: (tool: ConversationTool) => void }) {
-  if (sources.length === 0) return null
+// The first load ever shows placeholder bars, each one line of the text
+// that replaces it, so nothing moves when the list arrives.
+function skeletonBar(className = '') {
+  return <span className={`skeleton skeleton-line ${className}`.trim()} />
+}
+
+const skeletonAvatar = <span className="skeleton conversations-skeleton-avatar" />
+
+function ToolFilterSkeleton() {
   return (
-    <ul className="conversation-sources" aria-label="Sources">
-      {sources.map((source) => {
-        const text = (
-          <>
-            <span aria-hidden="true"><ToolAvatar target={source.tool} label={source.label} /></span>
-            <span className="conversation-source-text">
-              <span className="conversation-source-name">{source.label}</span>
-              <span className="conversation-source-count">{sourceLine(source, rows)}</span>
-            </span>
-          </>
-        )
-        if (!source.found) {
-          return (
-            <li key={source.tool} className="conversation-source is-missing">
-              <span className="conversation-source-chip">{text}</span>
-              {source.note && <span className="muted conversation-source-note">{source.note}</span>}
-            </li>
-          )
-        }
-        const pressed = tool === source.tool
-        return (
-          <li key={source.tool} className="conversation-source">
-            <button
-              type="button"
-              className="conversation-source-chip conversation-source-toggle"
-              aria-pressed={pressed}
-              title={pressed ? 'Show every tool' : `Show only ${source.label}`}
-              onClick={() => onToggle(source.tool)}
-            >
-              {text}
-            </button>
-            {source.note && <span className="muted conversation-source-note">{source.note}</span>}
-          </li>
-        )
-      })}
-    </ul>
+    <div className="segmented conversation-tools" aria-hidden="true">
+      {Array.from({ length: SKELETON_TOOLS }, (_, index) => <span key={index} className="conversations-skeleton-tool">{skeletonBar()}</span>)}
+    </div>
   )
 }
 
-function Search({ query, onQuery, status }: { query: string; onQuery: (value: string) => void; status: string }) {
+function ListSkeleton() {
+  return (
+    <section className="block conversation-group conversations-skeleton" aria-busy="true" aria-label="Loading conversations">
+      <p className="sr-only">Loading conversations…</p>
+      <h2 aria-hidden="true">{skeletonBar('conversations-skeleton-heading')}</h2>
+      <ul className="conversation-list" aria-hidden="true">
+        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+          <li key={index} className="conversation">
+            {skeletonAvatar}
+            <div className="conversation-body">
+              <p className="conversation-title">{skeletonBar('conversations-skeleton-title')}</p>
+              <p className="conversation-meta">{skeletonBar('conversations-skeleton-meta')}</p>
+              <p className="conversation-prompt">{skeletonBar()}</p>
+            </div>
+            <span className="button conversations-skeleton-button">{skeletonBar()}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+// One button per tool whose store was found, after All. Pressing the chosen
+// tool again shows every tool. Each button's title says how many of the
+// tool's chats are loaded, since a week loads at a time.
+function ToolFilterButtons({ sources, rows, tool, onChoose }: { sources: ConversationSource[]; rows: Conversation[]; tool: ToolFilter; onChoose: (tool: ToolFilter) => void }) {
+  const choices = toolChoices(sources, rows)
+  if (choices.length === 0) return null
+  return (
+    <div className="segmented conversation-tools" role="group" aria-label="Filter by tool">
+      <button type="button" aria-pressed={tool === 'all'} onClick={() => onChoose('all')}>
+        All <span className="conversation-tool-count">{rows.length}</span>
+      </button>
+      {choices.map((choice) => (
+        <button key={choice.tool} type="button" data-tool={choice.tool} aria-pressed={tool === choice.tool} title={choice.description} onClick={() => onChoose(toggleTool(tool, choice.tool))}>
+          {choice.label} <span className="conversation-tool-count">{choice.loaded}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function Search({ query, onQuery, status, tools }: { query: string; onQuery: (value: string) => void; status: string; tools: ReactNode }) {
   const searchId = useId()
   const input = useRef<HTMLInputElement>(null)
-  const describedBy = `${searchId}-status`
   return (
     <div className="section-search conversations-search" role="search" aria-label="Search conversations">
-      <label htmlFor={searchId}>Search conversations</label>
-      <div className="section-search-controls">
-        <div className="section-search-input">
-          <Icon name="search" />
-          <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search every conversation: title, folder, branch, or prompt" aria-describedby={describedBy} />
-        </div>
-        {query && (
-          <button type="button" className="button button-quiet" onClick={() => {
-            onQuery('')
-            input.current?.focus()
-          }}>Clear search</button>
-        )}
+      <label htmlFor={searchId} className="sr-only">Search conversations</label>
+      <div className="section-search-input">
+        <Icon name="search" />
+        <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Title, folder, branch, or prompt" title={SEARCH_NOTE} aria-describedby={`${searchId}-status ${searchId}-note`} />
       </div>
-      <p id={`${searchId}-status`} className="muted section-search-status" role="status">{status}</p>
+      {tools}
+      {query && (
+        <button type="button" className="button" onClick={() => {
+          onQuery('')
+          input.current?.focus()
+        }}>Clear search</button>
+      )}
+      <p id={`${searchId}-status`} className="section-search-status" role="status">{status}</p>
+      <p id={`${searchId}-note`} className="sr-only">{SEARCH_NOTE}</p>
     </div>
   )
 }
@@ -297,9 +348,9 @@ function openStatus(outcome: ConversationOpenOutcome, route: ConversationRoute):
 function ConversationRow({ conversation, now, editor, canOpen }: { conversation: Conversation; now: Date; editor: string; canOpen: boolean }) {
   const [pending, setPending] = useState(false)
   const [status, setStatus] = useState<OpenStatus>()
-  const title = conversation.title || 'Untitled'
+  const title = chatText(conversation.title || 'Untitled')
   const withheld = conversation.withheld ?? []
-  const opening = (conversation.opening ?? []).slice(0, 3)
+  const prompt = withheld.includes('prompt') ? undefined : shownPrompt(title, conversation.prompt)
   const route = conversation.open
 
   const open = async () => {
@@ -315,35 +366,37 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
     setPending(false)
   }
 
+  // Open now rows always show the ink pill; the others turn their link into it on hover and focus.
   return (
-    <li className={`conversation${conversation.live ? ' is-live' : ''}`} data-tool={conversation.tool}>
-      <ToolAvatar target={conversation.tool} />
+    <li className={`conversation row-hover${conversation.live ? ' is-live' : ''}`} data-tool={conversation.tool}>
+      <span aria-hidden="true"><ToolAvatar target={conversation.tool} /></span>
       <div className="conversation-body">
-        <h3 className="conversation-title">{title}</h3>
+        <h3 className="conversation-title">{title.shell ? <code>{title.text}</code> : title.text}</h3>
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
         <p className="conversation-meta">
-          <span>{appLabel(conversation.app)}</span>
           {conversation.live && <LiveBadge conversation={conversation} />}
+          <span className="conversation-tool" title={`${toolName(conversation.tool)}, ${appLabel(conversation.app)}`}>{toolName(conversation.tool)}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}
           {conversation.branch && <span className="conversation-branch">{conversation.branch}</span>}
           <time dateTime={conversation.updatedAt} title={formatTime(conversation.updatedAt)}>{relativeTime(conversation.updatedAt, now)}</time>
         </p>
-        {withheld.includes('opening')
-          ? <Withheld label={withheldLabel('opening')} />
-          : opening.length > 0 && <div className="conversation-opening">{opening.map((line, index) => <p key={index}>{line}</p>)}</div>}
         {withheld.includes('prompt')
           ? <Withheld label={withheldLabel('prompt')} />
-          : conversation.prompt && <p className="conversation-prompt"><span className="conversation-label">Last prompt</span> {conversation.prompt}</p>}
+          : prompt && <p className="conversation-prompt" title={prompt.text}><span className="conversation-label">Last prompt:</span> {prompt.shell ? <code>{prompt.text}</code> : prompt.text}</p>}
       </div>
       <div className="conversation-actions">
-        <button type="button" className="button button-primary conversation-open" aria-disabled={pending || undefined} aria-label={`${route.label}: ${title}`} onClick={open}>
+        <button type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={open}>
           {route.label}
         </button>
-        {route.command && <CopyButton text={route.command} label="Copy command" ariaLabel={`Copy the command that resumes ${title}`} />}
+        {route.command && (
+          <RowActions label={title.text}>
+            <CopyButton text={route.command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />
+          </RowActions>
+        )}
       </div>
       <div className="conversation-result">
         <p className={`conversation-status${status ? ` is-${status.tone}` : ''}`} role="status">{pending ? 'Opening…' : status?.message ?? ''}</p>
-        {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${title}`} />}
+        {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${title.text}`} />}
       </div>
     </li>
   )
@@ -351,6 +404,7 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
 
 function LiveBadge({ conversation }: { conversation: Conversation }) {
   const badge = liveBadge(conversation.activity)
+  if (!badge) return null
   return (
     <Badge tone={badge.tone} className="conversation-live" title={badge.description}>
       <span aria-hidden="true">{badge.label}</span>

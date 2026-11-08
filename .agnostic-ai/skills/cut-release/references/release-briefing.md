@@ -1,132 +1,96 @@
 # Release briefing
 
-Create one release briefing immediately before the release commit. The file,
-version bump, and final dated changelog section must land in the same commit
-and receive the same signed tag.
+One post per release at `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md`, in
+the release commit with the version bump and the dated changelog section. A
+reader learns in one minute what they gain, what they must do, and what changed
+in their tools. Aim for about 600 words; a post over 800 is too long.
+
+Follow the `plain-english` rule in `.agnostic-ai/rules/`. Use "you" for what
+the reader does. No preamble, project introduction, metaphor, audit count, or
+closing line. State each caveat once. Never guess migration time.
 
 ## Title and dek
 
-Start the title with `agnostic-ai vX.Y.Z:` and name the main user-visible
-outcome. Use concrete nouns, commands, or workflows. A maintenance release
-should say what it fixes; do not inflate it into a new feature.
+The title is `agnostic-ai vX.Y.Z: <what you can now do>`, at most eight plain
+words after the colon. Name the value, not the mechanism: "pick up your chats
+where you left them", not "keep files safe when targets are empty". A fix-only
+release says what it fixes.
 
-The dek (the short summary under the title) is one or two sentences and at most 220 characters. Name the main
-new capabilities and their value. Keep migration details in the upgrade steps.
+`description` and `dek` are one sentence each, at most 220 characters, naming
+the main capabilities. Migration details belong in the actions section.
 
-| Layer | Purpose |
-|---|---|
-| Title and dek | Why the reader should look at this release |
-| `Highlights` | The few changes most readers care about, scannable in seconds |
-| `Upgrading from vX.Y.Z` | Only when a reader must act: migrations and checks after upgrading |
-| `What agnostic-ai changed` | Shipped features, before/after behavior, and examples |
-| `What changed in the targets` | Verified vendor changes and their support here |
+## Sections, in order
 
-Make the main value visible in the headings and first sentence of each item.
-Do not repeat a claim in several sections. Avoid announcement
-preambles, metaphors, rhetorical questions, and a project introduction.
-Use "you" for what the reader does and plain words for what the software does.
+1. `## Highlights {#highlights}`: three to five one-sentence bullets that match
+   the changelog `### Highlights`, breaking changes first, each linking its
+   reference page where one exists.
+2. `## Upgrading from vPREV {#actions}`: only when a reader must act. One
+   bullet per required action: who it affects, what to change, where it is
+   documented. A `migrate` step runs after installing the new release and
+   running `upgrade --requires`, since the old release does not have its
+   migrations. Close with one line that links the
+   [upgrade page](@/docs/cli-reference/upgrades.md#upgrade) for stopping
+   watch, installing, `upgrade --requires`, and migrating. Do not repeat
+   those steps.
+   Skip the section when nothing is required.
+3. `## What changed`: at most four `###` subsections, grouped by reader
+   outcome, not by module. Each holds a short paragraph or two to three
+   bullets: the benefit, the entry point, and a link to the reference. Use at
+   most one small example. End with a link to the GitHub release notes for the
+   remaining fixes.
+4. `## What changed in the targets`: one bullet per target, ordered by
+   consequence (breaking, defaults, removals, deprecations, safety, additions).
+   Each bullet links its vendor source next to the claim and says what this
+   release does about it: shipped mapping, `x-<target>` extension, native-only
+   setup, or open gap. End with one sentence that states the verification
+   method and date once, such as "Checked on <date> against the linked vendor
+   docs and releases; native behavior was not run unless a bullet says so."
+   Skip the section when no verified item meets the bar.
 
-## Curation
+Upstream availability is not agnostic-ai support; say which one each claim is.
 
-A release briefing answers three questions: how do I move from the previous
-version (only when that needs action), what can I do now, and what changed
-in the tools I use? Lead with upgrade blockers when there are any, then group substantial features into a few reader outcomes.
-Name the important capabilities without explaining their full contracts.
-Keep smaller fixes and secondary details in the linked release notes.
+## Screenshots
 
-- Mention site work only when it changes how a reader uses the site. Omit
-  internal design and visual polish. If most work was on the site, say so.
-- Each feature gets a short paragraph or bullet: the benefit, entry point,
-  and a limit only when it changes the reader's decision. Link the reference
-  for settings, edge cases, and the full contract.
-- Never cap a release briefing at a fixed number of bullets or characters.
-  Group related fixes into a reader outcome without deleting substantial work.
-- Keep examples for the main features readers can adopt. Use the smallest
-  working command or config; link optional examples instead of adding another
-  block. Avoid turning every fix or vendor setting into a subsection.
-- State the win concretely. "Rules land under the configured dir" is a win a
-  reader can check; "improved path resolution" is not.
-- No audit counts or closing pleasantry. Do not claim that nothing else needs
-  action unless all upgrade paths in the release were checked.
-- Name who is affected and the actual migration unit, such as one field per
-  rule or one hook per project. Never guess elapsed migration time.
+Add up to two when the release changes the web interface. Save the file as
+`docs/site/static/assets/images/updates/vX.Y.Z-<what>.png` (or `.webp`),
+cropped to the relevant panel, at most 1400 px wide and 300 KB. Zola serves
+`static/` at the site root, so reference it as:
 
-## Research inputs
+```markdown
+![Conversations page listing recent chats, open ones first](/assets/images/updates/v0.92.0-conversations.png)
+```
 
-Start with the exact `CHANGELOG.md` section being released and the commits
-since the previous tag. Verify feature syntax and limits against the shipped
-implementation and reference pages. When revising a historical post, inspect
-that release tag so later features do not appear as shipped in it.
+The alt text says what the picture shows. Take it with any screenshot tool or
+the e2e helper `saveScreenshot` in `ui/e2e/helpers.ts`, which writes to
+`ui/test-results/screenshots/`. Commit the image with the post; there is no
+build step.
 
-Then inspect target audit reports and issues created since the previous
-release. Treat them as research leads. Reopen every cited primary vendor
-source and verify its date, availability, affected CLI or model, and current
-wording. Use vendor documentation, release notes, model-provider announcements,
-or released vendor code. Do not use model output, summaries, social posts, or
-another vendor's behavior as evidence.
+## Research
 
-Select target news that changes project setup, safety, portability, model
-availability, or a workflow users depend on. Include important target-specific
-additions even when no adapter change was needed. Order by consequence:
+Start from the dated `CHANGELOG.md` section and `git log <prev-tag>..HEAD`.
+Verify every command, flag, and limit against the shipped code or reference
+page. For target news, open the primary vendor source (docs, release notes,
+released code) and keep its date and scope; model output, summaries, and
+social posts are not evidence. For a historical post, inspect that release
+tag so later features do not appear as shipped in it.
 
-1. breaking behavior;
-2. changed defaults;
-3. removals;
-4. deprecations;
-5. safety or permission changes;
-6. substantial additions;
-7. routine improvements.
+## Front matter
 
-If no verified upstream item meets that bar, say so. Do not invent filler.
-Do not label a documentation discovery as a feature launched that day, or
-move a later announcement into an earlier release's news.
+`tests/integration/target_updates_test.go` requires `kind`, `rss_guid`,
+`aliases`, `archive_stats`, `targets`, and at least one `[[extra.signals]]`.
+Release posts never use `audit_marker`, `report_digest`, `targets_checked`,
+`finding_count`, or `clean_count`. `extra.targets` lists the registered IDs
+from `docs/site/data/updates.toml` that the post covers substantively; a
+target only checked or unaffected does not count, and a general release uses
+`[]`. The `.html` alias is the permanent RSS GUID; never change a published
+one.
 
-## Article contract
+## Skeleton
 
-Open with `## Highlights {#highlights}`: up to five bullets that match the
-changelog's `### Highlights`, breaking changes first, each linking its
-reference page where one exists. Then use these sections, with feature or
-target subsections when useful:
-
-1. `## Upgrading from vX.Y.Z {#actions}` only when a reader must act: a
-   breaking change, a required migration, or a config or pin change. Skip the
-   section otherwise; most releases have none. Name the immediately previous
-   release. Explain installation, required migrations, and regeneration.
-   Separate required migrations from optional adoption. Include any
-   `requires` or schema update, and put required rule/config migrations
-   and watcher shutdown before package install hooks can run sync. Say that
-   `upgrade --requires` raises `requires` and keeps its form: a minimum
-   stays a minimum, an exact release stays exact, and a range becomes a
-   minimum. Do not tell every project to use an exact pin.
-2. `## What agnostic-ai changed` makes the main shipped value easy to scan.
-   Use brief feature groups and a few adoption examples. End with a link to
-   the GitHub release notes. Do not copy the changelog or group changes by
-   internal modules.
-3. `## What changed in the targets` selects important external changes and
-   their practical consequences. Use short bullets or paragraphs. Name the
-   affected product and version when
-   known, the announcement date or explicitly the documentation discovery
-   date, and what this agnostic-ai release can express.
-
-For target news, explain support in plain language: shipped mapping, existing
-`x-<target>` extension, native-only setup, unresolved adapter gap, or
-experimental feature. A status label alone does not tell a reader what to do.
-Use the smallest working example when it helps adoption, and link the primary
-source next to its claim. Group tools by theme when they share a consequence.
-
-Never imply that upstream availability means agnostic-ai support. If shipped
-work responds to a target change, connect the two without repeating its whole
-feature explanation. An announcement date, availability gate, or native-only
-limit must be explicit when it affects whether a reader can use the feature.
-
-## File and metadata contract
-
-Use `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md`:
-
-```toml
+```markdown
 +++
-title = "agnostic-ai vX.Y.Z: <reader consequence>"
-description = "<plain summary of shipped work and selected upstream news>"
+title = "agnostic-ai vX.Y.Z: <what you can now do>"
+description = "<one sentence>"
 date = YYYY-MM-DDT00:00:00+HH:MM
 slug = "YYYY-MM-DD-vX.Y.Z"
 aliases = ["updates/YYYY-MM-DD-vX.Y.Z.html"]
@@ -134,60 +98,59 @@ aliases = ["updates/YYYY-MM-DD-vX.Y.Z.html"]
 [extra]
 kind = "release"
 version = "vX.Y.Z"
-dek = "<one-paragraph editorial summary>"
+dek = "<one sentence>"
 rss_guid = "https://agnostic-ai.org/updates/YYYY-MM-DD-vX.Y.Z.html"
-archive_stats = "<main upgrade and feature themes>"
-targets = ["claude", "codex"]
+archive_stats = "<theme> · <theme> · <theme>"
+targets = ["codex", "pi"]
 
 [[extra.signals]]
 status = "shipped"
 targets = ["agnostic-ai"]
-title = "<highest-consequence shipped change>"
-summary = "<specific reader outcome>"
+title = "<highest-consequence change>"
+summary = "<what the reader gets>"
 +++
+
+## Highlights {#highlights}
+
+- **Breaking:** <change>. See [<page>](@/docs/...).
+- <three to five bullets>
+
+## Upgrading from vPREV {#actions}
+
+- **<Who>:** <change this>. See [<page>](@/docs/...).
+
+Then follow the [upgrade page](@/docs/cli-reference/upgrades.md#upgrade).
+
+## What changed
+
+### <Reader outcome>
+
+![<what it shows>](/assets/images/updates/vX.Y.Z-<what>.png)
+
+<Benefit, entry point, link.>
+
+See the [release notes](https://github.com/Chemaclass/agnostic-ai/releases/tag/vX.Y.Z) for the remaining fixes.
+
+## What changed in the targets
+
+- **<Tool> <version>** <changed what> ([source](https://...)). This release <does what>.
+
+Checked on <date> against the linked vendor docs and releases; native behavior was not run.
 ```
 
-Add one or two signals that summarize the highest-consequence items. Signals
-can point to shipped work or upstream news, but their status and summary must
-make the distinction explicit. Release posts do not use `audit_marker`,
-`report_digest`, `targets_checked`, `finding_count`, or `clean_count`.
+## Before committing
 
-Set article-level `targets` to the exact registered target IDs covered
-substantively by the briefing. A target mentioned only as checked, clean, or
-unaffected does not count as coverage. Use an empty list when the edition is
-general to agnostic-ai. Do not derive these IDs from the display labels in
-signals. Before publishing, confirm every ID exists in
-`docs/site/data/updates.toml`, with no duplicates.
+1. Every shipped claim matches the dated changelog and the release tree, with
+   syntax a reader can run. No unreleased work.
+2. Every target bullet claims no more than its source.
+3. Breaking changes, changed defaults, and removals come before additions.
+4. `extra.targets` holds every covered ID and nothing else; every link and
+   image path resolves.
+5. `make site-build site-test` passed on the completed release tree, and the
+   built output has the canonical page, the `.html` alias, the archive row,
+   and the RSS item.
+6. The post is staged with the version bump and changelog; the tag will point
+   at that commit.
 
-The canonical URL is `/updates/YYYY-MM-DD-vX.Y.Z/`. The `.html` alias is the
-permanent RSS GUID. Never reuse or change a published GUID. Zola generates the
-article, archive row, RSS item, alias, and sitemap route from this one Markdown
-file.
-
-Legacy audit articles have a different contract. Never change their paths,
-aliases, GUIDs, audit markers, report digests, counts, or capability markers.
-
-## Pre-commit checks
-
-Before committing:
-
-1. Check every shipped claim against the exact dated changelog and prepared
-   release tree. For an already published release, use its tag. Cover every substantial feature and migration, with
-   syntax a reader can use. Do not include unreleased work.
-2. Open every upstream source and confirm that the article makes no broader
-   claim than the source.
-3. Confirm high-impact changes appear before additions in both the changelog
-   and article narrative.
-4. Confirm `extra.targets` names every substantively covered target and no
-   target mentioned only as checked or clean.
-5. Use the `make site-build site-test` result for the completed release tree
-   from the parent workflow. If article inputs changed since that check, rerun it.
-6. Check that the new canonical article, `.html` alias, archive entry, and RSS
-   GUID exist in the built output.
-7. Stage the briefing with the version and changelog. Confirm the release tag
-   will point at that exact commit.
-
-After pushing, watch both the `Release` and `Pages` workflows. Pages runs
-automatically when the release commit reaches `main`. The workflow also keeps
-`workflow_dispatch` for a manual recovery run on `main` if the automatic run
-is absent or needs a safe retry.
+After pushing, watch the `Release` and `Pages` workflows. Pages runs when the
+release commit reaches `main`; `workflow_dispatch` is the manual retry.

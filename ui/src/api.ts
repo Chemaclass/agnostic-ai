@@ -122,7 +122,7 @@ export async function loadContext(source: DataSource, target: string | undefined
 
 const CONVERSATIONS_SCHEMA_VERSION: ConversationsView['schemaVersion'] = 'conversations/v1'
 
-export const CONVERSATIONS_NEED_SERVER = 'Conversations need a running agnostic-ai serve.'
+export const CONVERSATIONS_NEED_SERVER = 'Conversations need agnostic-ai running on your computer.'
 
 /**
  * One week of chats from the server, with routes for the editor chosen in

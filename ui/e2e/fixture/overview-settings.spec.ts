@@ -30,10 +30,10 @@ test.describe('overview', () => {
     const toggle = page.getByRole('switch', { name: 'x-claude.verbose' })
     await toggle.click()
     await expect(page.getByRole('alert')).toContainText('The value changed. Git protection was kept.')
-    await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(sent).toEqual({ audience: 'shared', path: '.agnostic-ai/settings/native.yaml', key: 'x-claude.verbose', value: true, expected: false })
-    await page.getByRole('button', { name: 'Reload saved values' }).click()
+    await page.getByRole('button', { name: 'Reload' }).click()
     await expect(page.getByText('The overview could not be refreshed.')).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByText('The value changed. Git protection was kept.')).toBeVisible()
@@ -56,7 +56,7 @@ test.describe('overview', () => {
     const before = await toggle.getAttribute('aria-checked')
     await toggle.click()
     await expect(page.getByRole('alert')).toContainText('The built-in changed.')
-    await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
     expect(sent).toEqual({ audience: 'shared', name: 'memory', enabled: before !== 'true', expected: before === 'true' })
   })
@@ -126,13 +126,14 @@ test.describe('overview', () => {
     const message = 'The session-start hook keeps the first 6000 bytes of the memory indexes. ' +
       'These entries exceed the current budget: ' + Array.from({ length: 24 }, (_, i) => `project-learning-${i + 1}.md`).join(', ') + '. Shorten the index to include these entries.'
     data.sections.find((section: { id: string }) => section.id === 'settings').findings = [
-      { source: 'lint', severity: 'warn', code: 'LINT039', message, path: '.agnostic-ai/local/memory/MEMORY.md' },
+      // A code the UI has no plain title for shows its raw message, collapsed when long.
+      { source: 'lint', severity: 'warn', code: 'LINT099', message, path: '.agnostic-ai/local/memory/MEMORY.md' },
       { source: 'doctor', severity: 'error', message: 'The configuration file cannot be read.' },
     ]
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await page.goto('/?view=settings')
-    const finding = page.locator('.finding', { hasText: 'LINT039' })
+    const finding = page.locator('.finding', { hasText: 'LINT099' })
     const text = finding.locator('.finding-message')
     const expand = finding.getByRole('button', { name: 'Show full message', exact: true })
     await expect(expand).toHaveAttribute('aria-expanded', 'false')
@@ -163,10 +164,10 @@ test.describe('overview', () => {
     await page.goto('/?view=settings')
     const review = page.getByRole('button', { name: 'Review 1 finding', exact: true })
     await expect(review).toBeInViewport()
-    await expect(page.getByRole('heading', { name: /^Built-ins/, level: 2 })).toBeInViewport()
+    await expect(page.getByRole('tab', { name: /^Built-ins/ })).toBeInViewport()
     await review.click()
     await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
-    await expect(page.getByText('The session context exceeds its budget.', { exact: true })).toBeInViewport()
+    await expect(page.getByText('Your tools load more text at startup than the startup budget allows.', { exact: true })).toBeInViewport()
     await expect(page.locator('.topbar')).toBeInViewport({ ratio: 1 })
     await expect(page.locator('.sidenav')).toBeInViewport({ ratio: 1 })
   })
@@ -200,7 +201,8 @@ test.describe('overview', () => {
     const toggle = row.locator('.item-heading').getByRole('switch', { name: 'caveman built-in', exact: true })
     await expect(toggle).toBeEnabled()
     const memory = page.getByRole('switch', { name: 'memory built-in', exact: true })
-    const aligned = async () => {
+    // The row menu swaps in after a resize re-renders, so the check retries until layout settles.
+    const aligned = () => expect(async () => {
       const first = await toggle.boundingBox()
       const other = await memory.boundingBox()
       expect(first).not.toBeNull()
@@ -208,7 +210,7 @@ test.describe('overview', () => {
       const desktop = page.viewportSize()!.width > 760
       const edge = (box: NonNullable<typeof first>) => box.x + (desktop ? box.width : 0)
       expect(Math.abs(edge(first!) - edge(other!))).toBeLessThan(1)
-    }
+    }).toPass()
     await aligned()
     await toggle.click()
     const preview = row.getByRole('region', { name: 'Caveman change preview' })
@@ -322,7 +324,7 @@ test.describe('overview', () => {
     await expect(effort.locator('.badge', { hasText: 'local' })).toHaveCount(0)
     await expect(effort).toContainText(`Saves to ${local}`)
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
-    await effort.getByRole('button', { name: 'Save' }).click()
+    await effort.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'effort', value: 'low', expected: null })
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('sonnet')
     await selectTab(page, 'Built-ins')
@@ -368,12 +370,12 @@ test.describe('overview', () => {
 
       failing = true
       await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
-      await effort.getByRole('button', { name: 'Update' }).click()
+      await effort.getByRole('button', { name: 'Apply', exact: true }).click()
       const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
       await expect(alert).toContainText('Your change was saved, but the overview could not be refreshed.')
       await expect(alert).toContainText(failure.message)
       await expect(alert).toContainText('previous overview')
-      await expect(effort.getByRole('button', { name: 'Update' })).toBeDisabled()
+      await expect(effort.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled()
       await expect(model.getByRole('textbox', { name: 'Default model value' })).toBeDisabled()
       await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('draft-model')
       await expect(page).toHaveURL(/view=settings/)
@@ -415,7 +417,7 @@ test.describe('overview', () => {
 
     failing = true
     await effortRow.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
-    await effortRow.getByRole('button', { name: 'Update' }).click()
+    await effortRow.getByRole('button', { name: 'Apply', exact: true }).click()
     const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
     await expect(alert).toBeVisible()
     await page.getByRole('button', { name: 'Overview JSON', exact: true }).click()
@@ -536,19 +538,20 @@ test.describe('overview', () => {
     await page.getByText('Unconfigured fields', { exact: false }).click()
     const voice = page.locator('.field-row').filter({ has: page.getByText('Voice dictation', { exact: true }) })
     await voice.getByRole('switch', { name: 'Voice dictation value' }).click()
-    await voice.getByRole('button', { name: 'Save', exact: true }).click()
+    await voice.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'shared', path, key: 'voice.enabled', value: true, expected: null })
     await expect(voice.getByRole('switch')).toBeChecked()
     await voice.getByRole('switch').click()
-    await voice.getByRole('button', { name: 'Update', exact: true }).click()
+    await voice.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'shared', path, key: 'voice.enabled', value: false, expected: 'true' })
     const mode = page.locator('.field-row').filter({ has: page.getByText('Voice mode', { exact: true }) })
+    expect(await mode.getByRole('combobox', { name: 'Voice mode value' }).evaluate((element) => getComputedStyle(element).paddingRight)).toBe('36px')
     await mode.getByRole('combobox', { name: 'Voice mode value' }).selectOption('tap')
-    await mode.getByRole('button', { name: 'Save', exact: true }).click()
+    await mode.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => posted.at(-1)).toMatchObject({ key: 'voice.mode', value: 'tap' })
     const language = page.locator('.field-row').filter({ has: page.getByText('Voice language', { exact: true }) })
     await language.getByRole('textbox', { name: 'Voice language value' }).fill('es')
-    await language.getByRole('button', { name: 'Save', exact: true }).click()
+    await language.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => posted.at(-1)).toMatchObject({ key: 'voice.language', value: 'es' })
     for (const field of [voice, mode, language]) {
       await expect(field).toContainText('Run agnostic-ai sync --global to apply.')
@@ -607,7 +610,7 @@ test.describe('overview', () => {
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
     await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
-    await model.getByRole('button', { name: 'Update' }).click()
+    await model.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => edit).toEqual({ audience: 'shared', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort).toContainText('edit the spec directly')

@@ -1,3 +1,377 @@
+/* Coding tools: one shared list row per tool, the switch in a fixed trailing lane. */
+
+.coding-tools-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin-block: 12px 4px;
+}
+
+.coding-tools-status {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.coding-tools-only-on {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: var(--text-sm);
+}
+
+.coding-tools-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.coding-tool {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: 4px 16px;
+  min-height: 60px;
+  padding: 10px 8px 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.coding-tool-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.coding-tool-name {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.coding-tool-name code {
+  margin-inline-start: 6px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.coding-tool-description {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: var(--text-soft);
+  font-size: var(--text-sm);
+}
+
+.coding-tool-name a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.coding-tool-name a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.coding-tool-switch { display: contents; }
+
+.coding-tool-switch > .switch {
+  justify-self: end;
+}
+
+.coding-tool-confirm {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  border-inline-start: var(--state-rail) solid var(--approval);
+  border-radius: var(--radius-sm);
+  background: var(--panel-sunken);
+}
+
+.coding-tool .edit-error {
+  grid-column: 1 / -1;
+  max-width: none;
+  text-align: left;
+}
+
+@media (max-width: 759px) {
+  .coding-tool { grid-template-columns: 30px minmax(0, 1fr) auto; }
+}
+
+/* Fields use the shared list row: hairlines between rows, no boxes. */
+
+.fields {
+  display: grid;
+  gap: 0;
+  margin: 0 0 8px;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.field-row {
+  display: grid;
+  gap: 10px 28px;
+  padding: 16px 8px 16px 12px;
+  border-bottom: 1px solid var(--line);
+  border-inline-start: var(--state-rail) solid transparent;
+}
+
+.field-row.is-set {
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
+}
+
+.field-row.is-set .field-source {
+  grid-column: 2;
+}
+
+.field-row.is-linked {
+  outline: 0;
+  border-inline-start-color: var(--accent);
+}
+
+@media (forced-colors: active) {
+  .field-row.is-linked {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .field-row:not(.is-linked) {
+    border-inline-start-color: Canvas;
+  }
+}
+
+.unconfigured-fields {
+  color: var(--text-muted);
+  font-size: var(--text-md);
+}
+
+.unconfigured-fields > summary {
+  width: fit-content;
+  min-height: 44px;
+  padding: 6px 0;
+  color: var(--accent-strong);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.unconfigured-fields .fields {
+  margin-top: 8px;
+}
+
+.unconfigured-fields .field-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.unconfigured-fields .field-head strong {
+  color: var(--text);
+}
+
+.unconfigured-fields .field-unset {
+  white-space: nowrap;
+}
+
+.field-head {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+
+.field-head strong {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.field-head code {
+  font-size: 12px;
+}
+
+.field-head p {
+  margin-top: 4px;
+  color: var(--text-soft);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.field-unset {
+  font-size: 14px;
+}
+
+.field-source {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.unconfigured-fields .field-unset,
+.field-from,
+.field-edit-hint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.field-resolution {
+  font-size: var(--text-sm);
+}
+
+.field-resolution > summary {
+  width: fit-content;
+  min-height: 36px;
+  color: var(--accent-strong);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.field-resolution-groups,
+.field-resolution-others {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.field-resolution-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-resolution-detail {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.field-tool-edit {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.field-tool-edit .field-edit { grid-column: 1 / -1; }
+
+.field-edit-apply {
+  font-size: var(--text-sm);
+}
+
+.field-edit {
+  grid-column: 2;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.field-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-edit-row > input,
+.field-edit-row > .select-control {
+  flex: 1 1 200px;
+  max-width: 320px;
+}
+
+.field-edit input,
+.field-edit select {
+  min-height: 40px;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  font-size: var(--text-md);
+}
+
+.field-edit input {
+  padding: 8px 12px;
+}
+
+.field-edit input:hover,
+.field-edit select:hover,
+.field-edit .select-button:hover:where(:not(:disabled)) {
+  border-color: var(--text-muted);
+}
+
+.field-edit input:focus,
+.field-edit select:focus,
+.field-edit .select-button:focus {
+  border-color: var(--accent);
+}
+
+.field-edit-target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field-edit-target select,
+.field-edit-target .select-button {
+  min-height: 30px;
+  max-width: 100%;
+  font-size: 12px;
+}
+
+.field-edit .field-edit-target {
+  font-size: var(--text-sm);
+}
+
+.field-edit .field-edit-target select,
+.field-edit .field-edit-target .select-button {
+  min-height: 36px;
+  font-size: var(--text-sm);
+}
+
+.field-edit > p,
+.field-edit > .edit-error {
+  margin: 0;
+}
+
+.field-edit .banner ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.unconfigured-fields .field-edit { grid-column: 1 / -1; }
+
+@media (max-width: 760px) {
+  .field-row {
+    padding: 14px 4px 14px 12px;
+  }
+
+  .field-row.is-set,
+  .field-row.is-set .field-source {
+    grid-template-columns: minmax(0, 1fr);
+    grid-column: auto;
+  }
+
+  .field-edit { grid-column: 1; }
+
+  .field-edit input,
+  .field-edit select,
+  .field-edit .select-button {
+    min-height: 44px;
+  }
+}
+
 .preview-disclosure > summary,
 .preview-note-group > summary,
 .builtin-change-files summary {
@@ -62,8 +436,18 @@
 
 .editor-settings-input {
   width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--text);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-sm);
+}
+
+.editor-settings-input:focus {
+  border-color: var(--accent);
 }
 
 .editor-settings .editor-settings-error {
@@ -77,6 +461,7 @@
 
 @media (max-width: 760px) {
   .editor-settings select,
+  .editor-settings .select-button,
   .editor-settings-input {
     min-height: 44px;
     font-size: 16px;
@@ -85,7 +470,7 @@
 
 .builtin-change {
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 .builtin-change-controls,
@@ -115,12 +500,16 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px 16px;
-  padding-block: 8px 12px;
+  padding-block: 14px 10px;
   background: var(--panel);
 }
 
 .builtin-change-preview .builtin-change-preview-head h3 {
   margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .preview-disclosure {
@@ -204,13 +593,18 @@
 }
 
 .builtin-change-error {
-  color: var(--blocked);
   overflow-wrap: anywhere;
 }
 
 .builtin-change-preview {
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 20px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
 }
 
 .builtin-change-preview h3,
@@ -238,25 +632,29 @@
   color: var(--text-muted);
 }
 
-.builtin-change-files pre {
-  max-width: 100%;
-  overflow: auto;
-  padding: 12px;
-  margin: 0 0 8px;
-  background: var(--panel-sunken);
-  font-size: 12px;
+.builtin-change-files .file-diff {
+  margin-bottom: 8px;
 }
-
 .builtin-change-findings {
   padding-left: 20px;
   overflow-wrap: anywhere;
 }
 
 .builtin-change-pending {
-  padding: 8px 12px;
-  border: 1px solid var(--approval);
+  padding: 10px 14px;
+  border-inline-start: var(--state-rail) solid var(--approval);
   border-radius: var(--radius-sm);
-  background: var(--approval-wash);
+  background: var(--panel-sunken);
+}
+
+@media (max-width: 760px) {
+  .builtin-change-preview {
+    padding-inline: 16px;
+  }
+
+  .builtin-change-pending {
+    padding-inline: 12px;
+  }
 }
 
 .change-status:not(:has(> *:not(:empty))) {
@@ -272,20 +670,9 @@
 }
 
 .edit-scope .segmented button {
-  min-height: 32px;
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.edit-scope-label {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.edit-scope-hint {
-  flex-basis: auto;
-  margin: 0;
-  font-size: 12px;
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: var(--text-sm);
 }
 
 @media (max-width: 760px) {
@@ -295,5 +682,75 @@
 
   .edit-scope .segmented {
     flex-wrap: nowrap;
+  }
+}
+
+/* A built-in reads as one line: name, what it does, then Details on hover and its switch. */
+
+.builtin-heading {
+  align-items: center;
+}
+
+.builtin-heading .item-main {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 16px;
+}
+
+.builtin-heading .item-description {
+  margin-top: 0;
+  font-size: var(--text-md);
+}
+
+.builtin-heading .item-meta {
+  flex-wrap: nowrap;
+  gap: 16px;
+}
+
+.builtin-heading .switch {
+  flex-direction: row-reverse;
+}
+
+@media (min-width: 761px) {
+  .item-row:has(> .builtin-heading) {
+    padding-block: 8px;
+  }
+
+  .builtin-heading .override-comparison {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 760px) {
+  .builtin-heading .item-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .builtin-heading .item-description {
+    font-size: var(--text-sm);
+  }
+
+  /* The switch stays beside the name; the ⋯ menu follows it. A reset button needs the full row. */
+  .item-heading.builtin-heading:not(:has(.item-meta .button:not(.row-menu-button, .details-toggle))) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .item-heading.builtin-heading:not(:has(.item-meta .button:not(.row-menu-button, .details-toggle))) .item-meta {
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .builtin-heading .item-meta > .row-menu {
+    order: 1;
+  }
+
+  .builtin-heading .switch-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }

@@ -95,7 +95,7 @@ func openWindowFolders(storagePath string) map[string]bool {
 
 // folderKey is the form a folder takes in openWindowFolders.
 func folderKey(folder string) string {
-	return windowPath(uriPath(folder))
+	return windowPath(uriPath(filepath.ToSlash(folder)))
 }
 
 // windowPath drops a trailing slash and writes a Windows drive in lower
@@ -108,10 +108,27 @@ func windowPath(path string) string {
 	return path
 }
 
-// folderOpenIn reports whether the editor state at storagePath lists a
-// window on folder.
-func folderOpenIn(storagePath, folder string) bool {
-	return openWindowFolders(storagePath)[folderKey(folder)]
+// enclosingWindowFolder returns the nearest folder, folder itself or
+// one above it, that the editor state at storagePath lists a window on.
+// Opening that folder brings its window forward; opening a subfolder of
+// it would open a new window. A window on home or the root holds no
+// project, so the search stops below them.
+func enclosingWindowFolder(storagePath, folder, home string) (string, bool) {
+	windows := openWindowFolders(storagePath)
+	dir := filepath.Clean(folder)
+	if windows[folderKey(dir)] {
+		return dir, true
+	}
+	for {
+		parent := filepath.Dir(dir)
+		if parent == dir || parent == filepath.Dir(parent) || parent == filepath.Clean(home) {
+			return "", false
+		}
+		if windows[folderKey(parent)] {
+			return parent, true
+		}
+		dir = parent
+	}
 }
 
 // SystemLauncher returns the launcher for the running OS.
@@ -223,7 +240,7 @@ var terminalHosts = map[string]struct {
 func bringHostForward(ctx context.Context, c Conversation, app string, launcher Launcher) OpenReply {
 	host, known := terminalHosts[app]
 	if !known {
-		return OpenReply{Message: fmt.Sprintf("It is open in another terminal (process %d). Switch to it there.", c.process.PID), Command: c.Open.Command}
+		return OpenReply{Message: fmt.Sprintf("It is open in another app (process %d). Switch to it there.", c.process.PID), Command: c.Open.Command}
 	}
 	if host.folders && c.Folder != "" {
 		if err := launcher.OpenFolder(ctx, host.app, c.Folder); err != nil {
@@ -275,8 +292,10 @@ func (macLauncher) OpenLink(ctx context.Context, link string) error {
 func (macLauncher) OpenFolder(ctx context.Context, app, folder string) error {
 	delay := editorOpenDelay
 	home, _ := os.UserHomeDir()
-	if userDir, ok := editorUserDirs[app]; ok && folderOpenIn(filepath.Join(home, "Library", "Application Support", userDir, "User", "globalStorage", "storage.json"), folder) {
-		delay = editorFocusDelay
+	if userDir, ok := editorUserDirs[app]; ok {
+		if window, open := enclosingWindowFolder(filepath.Join(home, "Library", "Application Support", userDir, "User", "globalStorage", "storage.json"), folder, home); open {
+			folder, delay = window, editorFocusDelay
+		}
 	}
 	if _, err := run(ctx, "open", "-a", app, folder); err != nil {
 		return err
@@ -322,13 +341,21 @@ var focusTabScript = []string{
 	"-e", "end run",
 }
 
+func newTerminalArgs(command string) []string {
+	return append(append([]string{}, newTerminalScript...), command)
+}
+
+func focusTabArgs(tty string) []string {
+	return append(append([]string{}, focusTabScript...), tty)
+}
+
 func (macLauncher) RunInNewTerminal(ctx context.Context, command string) error {
-	_, err := run(ctx, "osascript", append(append([]string{}, newTerminalScript...), command)...)
+	_, err := run(ctx, "osascript", newTerminalArgs(command)...)
 	return err
 }
 
 func (macLauncher) FocusTerminalTab(ctx context.Context, tty string) (bool, error) {
-	out, err := run(ctx, "osascript", append(append([]string{}, focusTabScript...), tty)...)
+	out, err := run(ctx, "osascript", focusTabArgs(tty)...)
 	if err != nil {
 		return false, err
 	}

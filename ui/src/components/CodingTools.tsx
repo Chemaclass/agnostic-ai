@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { EditError, postEdit } from '../api'
 import { API, type ToolCatalog, type ToolChoice } from '../contract'
 import { filterTools, offConsequence, saveHint, toolCount, toolOn } from '../model/coding-tools'
@@ -12,43 +12,37 @@ interface Saved { file?: string }
 
 const emptyCatalog: ToolCatalog = { source: 'default', items: [] }
 
-export function CodingTools({ audienceControl }: { audienceControl?: ReactNode }) {
+export function CodingTools() {
   const app = useApp()
   const catalog = app.overview?.tools ?? emptyCatalog
   const global = app.overview?.global === true
   const level = useLevelName()
   const audience = useViewAudience() ?? 'shared'
-  const pageQuery = app.state.q ?? ''
-  const [query, setQuery] = useState(pageQuery)
-  useEffect(() => setQuery(pageQuery), [pageQuery])
+  const query = app.state.q ?? ''
   const [onlyOn, setOnlyOn] = useState(false)
   const [saved, setSaved] = useState<Saved | undefined>()
-  const filterId = useId()
   const live = app.source.kind === 'api'
   const sharedBlocked = catalog.source === 'personal' && audience === 'shared'
   const visible = filterTools(catalog.items, query, onlyOn, audience)
   const count = toolCount(catalog.items, audience)
-  const command = global ? 'agnostic-ai sync --global' : 'agnostic-ai sync'
   return (
     <section className="block coding-tools" aria-labelledby="settings-targets">
-      <SectionHeading topic="targets" id="settings-targets" focusable>
-        Coding tools <span className="muted kind-count">{count.on} of {count.total} on</span>
+      <SectionHeading id="settings-targets" focusable>
+        Coding tools
         {catalog.source === 'personal' && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
       </SectionHeading>
       <p className="muted">Each tool you turn on gets its own files from sync. Turn one off and the next sync stops writing for it.</p>
-      {live && audienceControl}
       {live && sharedBlocked && <div className="audience-notice"><p>These are the {level} defaults. Your local list of coding tools replaces them for you. Reset that list before changing the {level} one.</p><ViewPersonalButton /></div>}
       {live && !sharedBlocked && <p className="muted coding-tools-hint">{saveHint(catalog, audience, global)}</p>}
       {live && audience === 'personal' && catalog.source !== 'personal' && <p className="muted">Inherited from {level}. Changing a tool creates your local list.</p>}
       {live && audience === 'personal' && catalog.source === 'personal' && <ResetTools expected={catalog.items.filter((tool) => tool.enabled).map((tool) => tool.target)} onSaved={setSaved} />}
-      <div className="coding-tools-filter" role="search" aria-label="Filter coding tools">
-        <label htmlFor={filterId}>Filter tools</label>
-        <input id={filterId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSaved(undefined) }} placeholder="Name or vendor" />
+      {/* The status shares the checkbox row, so a save never moves the list. */}
+      <div className="coding-tools-filter">
         <label className="coding-tools-only-on"><input type="checkbox" checked={onlyOn} onChange={(event) => { setOnlyOn(event.target.checked); setSaved(undefined) }} /> On only</label>
+        <p className="muted coding-tools-status" role="status" aria-live="polite">
+          {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}.</> : onlyOn ? `${visible.length} of ${count.total} tools shown.` : ''}
+        </p>
       </div>
-      <p className="muted coding-tools-status" role="status" aria-live="polite">
-        {saved ? <>Saved{saved.file ? <> to <Code>{saved.file}</Code></> : ''}. Run <Code>{command}</Code> to apply the change.</> : `${visible.length} of ${count.total} tools shown.`}
-      </p>
       {catalog.items.length === 0 ? <p className="muted">No coding tools listed.</p> : visible.length === 0 ? <p className="muted">No tool matches.</p> : (
         <ul className="coding-tools-list">
           {visible.map((tool) => <ToolRow key={tool.target} tool={tool} on={toolOn(tool, audience)} audience={audience} global={global} live={live && !sharedBlocked} onSaved={setSaved} />)}
@@ -64,14 +58,13 @@ function ToolRow({ tool, on, audience, global, live, onSaved }: { tool: ToolChoi
     <li className="coding-tool" data-target={tool.target}>
       <ToolAvatar target={tool.target} label={tool.label} />
       <div className="coding-tool-text">
-        <span className="coding-tool-name">{tool.label} <code className="muted">{tool.target}</code></span>
+        <span className="coding-tool-name"><a href={docs} target="_blank" rel="noopener noreferrer" aria-label={`${tool.label} docs (opens in a new tab)`}>{tool.label}</a> <code className="muted">{tool.target}</code></span>
         <span className="muted coding-tool-description">
           {tool.description}
           {tool.detected && !on && <Badge tone="info" muted title="The project already holds this tool's own files">found in project</Badge>}
           {tool.local && audience === 'personal' && <Badge tone="accent" muted title="Your local list decides this tool">local</Badge>}
         </span>
       </div>
-      <a className="coding-tool-docs" href={docs} target="_blank" rel="noopener noreferrer" aria-label={`${tool.label} docs`}>Docs</a>
       {live ? <ToolSwitch tool={tool} on={on} audience={audience} global={global} onSaved={onSaved} /> : <Switch on={on} />}
     </li>
   )
@@ -84,6 +77,7 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
   const [choice, setChoice] = useState<boolean | undefined>()
+  const [settling, setSettling] = useState(false)
   const reloadBasis = useRef<object | undefined>(undefined)
   const waitingForReload = useRef(false)
   const confirmButton = useRef<HTMLButtonElement>(null)
@@ -94,16 +88,17 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
     if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
       waitingForReload.current = false
       setChoice(undefined)
+      setSettling(false)
       setError(undefined)
     }
   }, [app.overviewRevision])
   useEffect(() => {
     if (confirming) confirmButton.current?.focus()
-    else if (refocus.current && !pending) {
+    else if (refocus.current && !pending && !settling) {
       refocus.current = false
       toggleButton.current?.focus()
     }
-  }, [confirming, pending])
+  }, [confirming, pending, settling])
   useEffect(() => {
     if (error?.status === 409) reloadButton.current?.focus()
   }, [error])
@@ -119,6 +114,11 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
     try {
       const reply = await postEdit(API.editTargets, { audience, name: tool.target, enabled, expected: on })
       onSaved(reply)
+      // The switch shows the saved state and stays off until the reloaded overview arrives.
+      reloadBasis.current = app.overviewRevision
+      waitingForReload.current = true
+      setChoice(enabled)
+      setSettling(true)
       app.reload(true)
     } catch (err) {
       const failure = err instanceof EditError ? err : new EditError(String(err))
@@ -139,13 +139,13 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
         <span className="coding-tool-confirm" role="group" aria-label={`Turn off ${tool.label}`} onKeyDown={(event: KeyboardEvent) => { if (event.key === 'Escape') cancel() }}>
           <span>{offConsequence(tool.label, global)}</span>
           <button ref={confirmButton} type="button" className="button button-quiet" onClick={() => { void save(false) }}>Turn off</button>
-          <button type="button" className="button button-quiet" onClick={cancel}>Keep on</button>
+          <button type="button" className="button button-quiet" onClick={cancel}>Cancel</button>
         </span>
       )}
       {error && (
         <span className="edit-error" role="alert">
           {error.message}
-          {error.status === 409 && <> <button ref={reloadButton} type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}
+          {error.status === 409 && <> <button ref={reloadButton} type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload</button></>}
           {error.problems.length > 0 && <ul>{error.problems.map((p) => <li key={p}>{p}</li>)}</ul>}
         </span>
       )}

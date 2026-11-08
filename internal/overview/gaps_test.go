@@ -89,7 +89,7 @@ func TestBuild_ListsTheRecommendedBuiltInWhenItIsOff(t *testing.T) {
 	if !ok {
 		t.Fatal("no handoff gap")
 	}
-	if gap.Section != SectionSettings || gap.Label != "handoff" || !strings.Contains(gap.Fix, "builtins") {
+	if gap.Section != SectionSettings || gap.Label != "Handoff" || !strings.Contains(gap.Fix, "builtins") {
 		t.Errorf("handoff gap: %+v", gap)
 	}
 }
@@ -105,16 +105,40 @@ func TestBuild_ListsNoGapsForTheUserConfiguration(t *testing.T) {
 	}
 }
 
-func TestBuild_CountsOnlyTheProjectsOwnSpecs(t *testing.T) {
+func TestBuild_ABuiltInSpecFillsNoKindGap(t *testing.T) {
 	skill := entry(spec.KindSkill, "handoff", "/cache/builtins/handoff/skills/handoff/SKILL.md", nil)
 	skill.Layer = builtinLayer
-	hook := entry(spec.KindHook, "memory", "/cache/builtins/memory/hooks/memory.yaml", map[string]any{"on": "session-start"})
-	hook.Layer = builtinLayer
-	gaps := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}, Builtins: []string{"handoff", "memory"}}, Bundle: spec.Bundle{Skills: []spec.Entry{skill}, Hooks: []spec.Entry{hook}}}).Health.Gaps
-	for _, id := range []string{"kind:skill", "stage:session-start"} {
-		if _, ok := gapByID(gaps, id); !ok {
-			t.Errorf("a built-in spec filled %s", id)
-		}
+	gaps := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}, Builtins: []string{"handoff"}}, Bundle: spec.Bundle{Skills: []spec.Entry{skill}}}).Health.Gaps
+	if _, ok := gapByID(gaps, "kind:skill"); !ok {
+		t.Error("a built-in skill filled kind:skill")
+	}
+}
+
+// The hooks mirror the memory built-in's session-start hooks, which each emit to a few tools only.
+func memorySessionStartHooks() []spec.Entry {
+	portable := entry(spec.KindHook, "memory-session-start", "/cache/builtins/memory/hooks/memory-session-start.yaml", map[string]any{"on": "session-start", "targets": []any{"codex", "copilot", "cursor"}})
+	native := entry(spec.KindHook, "memory-trae-session-start", "/cache/builtins/memory/hooks/memory-trae-session-start.yaml", map[string]any{"event": "SessionStart", "targets": []any{"trae"}})
+	portable.Layer, native.Layer = builtinLayer, builtinLayer
+	return []spec.Entry{portable, native}
+}
+
+func TestBuild_AnEnabledBuiltInHookFillsItsStage(t *testing.T) {
+	h := Build(Inputs{Cfg: &config.Config{Targets: []string{"codex"}, Builtins: []string{"memory"}}, Bundle: spec.Bundle{Hooks: memorySessionStartHooks()}}).Health
+	if _, ok := gapByID(h.Gaps, "stage:session-start"); ok {
+		t.Error("session start is reported as having no hook while the memory built-in runs one there")
+	}
+	if _, ok := gapByID(h.Gaps, "stage:stop"); !ok {
+		t.Error("the session-start built-in filled another stage")
+	}
+	if h.Improvements.Applied != h.Improvements.Total-len(h.Gaps) {
+		t.Errorf("improvements %+v with %d gaps", *h.Improvements, len(h.Gaps))
+	}
+}
+
+func TestBuild_AHookForOtherToolsFillsNoStage(t *testing.T) {
+	gaps := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}, Bundle: spec.Bundle{Hooks: memorySessionStartHooks()}}).Health.Gaps
+	if _, ok := gapByID(gaps, "stage:session-start"); !ok {
+		t.Error("a hook that emits only to other tools filled session start for claude")
 	}
 }
 

@@ -874,7 +874,7 @@ export interface ConversationSource {
 /** How the server reopens a conversation. `terminal` runs `command` in a new terminal window, `focus` switches to the terminal tab that already runs it, `link` opens `link` in its app. */
 export interface ConversationRoute {
   kind: 'focus' | 'terminal' | 'link'
-  /** Button text, such as "Resume in Terminal" or "Open in Cursor". */
+  /** Button text, such as "Open in Terminal" or "Open in Cursor". */
   label: string
   /** The shell command that resumes it, for copying; set for terminal and focus routes. */
   command?: string

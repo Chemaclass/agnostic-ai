@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { openMenu } from '../helpers'
+import { openMenu, openToolSupport, pageHeader, findingDetails } from '../helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -28,7 +28,7 @@ for (const { width, colorSchemes } of usableLayouts) {
             await expect(sectionLink).toBeInViewport({ ratio: 1 })
           }
         }
-        await expect(page.getByRole('heading', { level: 1, name, exact: true })).toBeInViewport()
+        await expect(pageHeader(page, name)).toBeInViewport()
         const search = page.getByRole('searchbox', { name: `Search ${name.toLowerCase()}` })
         await expect(search).toBeInViewport()
         await search.fill('no-matching-configuration')
@@ -42,16 +42,15 @@ for (const { width, colorSchemes } of usableLayouts) {
 }
 
 for (const width of [320, 390, 1440]) {
-  test(`puts coding tool support below the tab panels at ${width}px`, async ({ page }) => {
+  test(`fits the coding tool support dialog in the window at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=context&tab=rules')
-    await page.locator('details.support-block > summary').click()
-    const support = page.getByRole('table', { name: 'Coding tool support' })
-    await expect(support).toBeVisible()
-    const panel = (await page.getByRole('tabpanel', { name: /^Rules/ }).boundingBox())!
-    const table = (await support.boundingBox())!
-    expect(table.y).toBeGreaterThanOrEqual(panel.y + panel.height)
+    const dialog = await openToolSupport(page)
+    await expect(dialog.getByRole('table', { name: 'Coding tool support' })).toBeVisible()
+    const box = (await dialog.boundingBox())!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(width)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }
@@ -62,12 +61,13 @@ test('names the serving release at the foot of the sidebar', async ({ page }) =>
   await page.goto('/?view=context')
   const badge = page.getByRole('link', { name: 'agnostic-ai v0.91.0 Release notes (opens in a new tab)' })
   await expect(badge).toHaveAttribute('href', 'https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.91.0')
+  await expect(badge).toHaveAttribute('title', 'v0.91.0 release notes · by Chemaclass')
   await expect(badge).toBeInViewport({ ratio: 1 })
   await page.setViewportSize({ width: 900, height: 900 })
   await expect(badge).toBeHidden()
 })
 
-test('names the release the config requires beside the serving release', async ({ page }) => {
+test('warns under the serving release only when the config requires a newer one', async ({ page }) => {
   let health: Record<string, unknown> = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0', requires: '>=0.81.0', requiresMet: false }
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: health }))
@@ -75,16 +75,24 @@ test('names the release the config requires beside the serving release', async (
   const badge = page.locator('.release-badge')
   const requires = badge.locator('.release-requires')
   await expect(badge.locator('.release-version')).toHaveText('agnostic-ai v0.80.0')
-  await expect(requires).toHaveText('requires >=0.81.0, not met by this version')
+  await expect(requires).toHaveText('Update needed: requires >=0.81.0, not met by this version')
   await expect(requires).toHaveAttribute('title', 'This project needs agnostic-ai >=0.81.0, and v0.80.0 is outside it. Run agnostic-ai sync to see the fix.')
   const muted = await badge.evaluate((element) => getComputedStyle(element).color)
   expect(await requires.evaluate((element) => getComputedStyle(element).color)).not.toBe(muted)
-  expect((await requires.boundingBox())!.y).toBeGreaterThan((await badge.locator('.release-version').boundingBox())!.y)
+  await expect(requires).toBeInViewport({ ratio: 1 })
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.getByRole('button', { name: 'Menu', exact: true }).click()
+  const sheetRequires = page.getByRole('dialog', { name: 'Menu' }).locator('.release-requires')
+  await expect(sheetRequires).toBeInViewport({ ratio: 1 })
+  expect(await sheetRequires.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await page.keyboard.press('Escape')
+  await page.setViewportSize({ width: 1280, height: 720 })
 
   health = { ...health, version: '0.81.0', requiresMet: true }
   await page.reload()
-  await expect(requires).toHaveText('requires >=0.81.0')
-  expect(await requires.evaluate((element) => getComputedStyle(element).color)).toBe(muted)
+  await expect(badge.locator('.release-version')).toHaveText('agnostic-ai v0.81.0')
+  await expect(requires).toHaveCount(0)
+  await expect(badge).toHaveAttribute('title', 'v0.81.0 release notes · by Chemaclass')
 
   health = { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.81.0' }
   await page.reload()
@@ -100,10 +108,58 @@ test('reads the required release again when the overview refreshes', async ({ pa
   await page.route('**/api/health', (route) => route.fulfill({ json: health }))
   await page.goto('/?view=authority')
   const requires = page.locator('.release-badge .release-requires')
-  await expect(requires).toHaveText('requires >=0.81.0')
+  await expect(page.locator('.release-badge .release-version')).toHaveText('agnostic-ai v0.81.0')
+  await expect(requires).toHaveCount(0)
   health = { ...health, requires: '>=0.82.0', requiresMet: false }
-  await page.locator('.finding', { hasText: 'LINT038' }).getByRole('button', { name: 'Recheck' }).click()
-  await expect(requires).toHaveText('requires >=0.82.0, not met by this version')
+  await (await findingDetails(page.locator('.finding', { hasText: 'LINT038' }))).getByRole('button', { name: 'Recheck' }).click()
+  await expect(requires).toHaveText('Update needed: requires >=0.82.0, not met by this version')
+})
+
+test('keeps every rail row in place while the overview and server details load', async ({ page }) => {
+  const data = { ...structuredClone(fixture), repository: { url: 'https://github.com/octo/demo-project', name: 'octo/demo-project' } }
+  let releaseOverview!: () => void
+  let releaseHealth!: () => void
+  const overviewHeld = new Promise<void>((resolve) => { releaseOverview = resolve })
+  const healthHeld = new Promise<void>((resolve) => { releaseHealth = resolve })
+  await page.route('**/api/views/overview', async (route) => { await overviewHeld; await route.fulfill({ json: data }) })
+  await page.route('**/api/health', async (route) => { await healthHeld; await route.fulfill({ json: { ok: true, root: '/tmp/demo-project', global: false, ui: true, version: '0.91.0', requires: '>=0.91.0', requiresMet: true } }) })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/?view=health')
+  const rows = page.locator('.rail .brand, .sidenav .nav-list > li, .sidenav-footer, .sidenav-footer > *')
+  const boxes = () => rows.evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect()
+    return [x, y, width, height].map(Math.round).join(',')
+  }))
+  await expect(page.locator('.sidenav .skeleton').first()).toBeVisible()
+  const loading = await boxes()
+  releaseOverview()
+  await expect(page.locator('.sidenav .nav-question').first()).not.toBeEmpty()
+  await expect(page.locator('.sidenav .nav-question .skeleton')).toHaveCount(0)
+  expect(await boxes()).toEqual(loading)
+  releaseHealth()
+  await expect(page.locator('.release-badge .release-version')).toHaveText('agnostic-ai v0.91.0')
+  await expect(page.locator('.sidenav .skeleton')).toHaveCount(0)
+  await expect(page.locator('.rail .skeleton')).toHaveCount(0)
+  expect(await boxes()).toEqual(loading)
+})
+
+test('keeps each rail question on one line, with the live counts in the link name and tooltip', async ({ page }) => {
+  const data = structuredClone(fixture)
+  const context = data.sections.find((section: { id: string }) => section.id === 'context')!
+  for (const kind of context.kinds) kind.count = 15
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/?view=context')
+  const questions = page.locator('.sidenav .nav-question')
+  await expect(questions.first()).toBeVisible()
+  for (const height of await questions.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))) expect(height).toBeLessThanOrEqual(16)
+  const link = page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: /^Context: / })
+  await expect(link.locator('.nav-label')).toHaveText('Context')
+  await expect(link.locator('.nav-question')).toHaveText('What is the agent told?')
+  const counts = (await link.getAttribute('aria-label'))!.replace(/^Context: /, '')
+  await expect(link).toHaveAttribute('title', counts)
+  expect(counts).toMatch(/^15 /)
 })
 
 test('links agnostic-ai and the project repository on GitHub', async ({ page }) => {
@@ -114,7 +170,7 @@ test('links agnostic-ai and the project repository on GitHub', async ({ page }) 
   const product = page.locator('.sidenav').getByRole('link', { name: 'agnostic-ai on GitHub (opens in a new tab)' })
   await expect(product).toHaveAttribute('href', 'https://github.com/Chemaclass/agnostic-ai')
   await expect(product).toHaveAttribute('target', '_blank')
-  const project = page.locator('.sidenav').getByRole('link', { name: 'octo/demo-project on GitHub (opens in a new tab)' })
+  const project = page.locator('.rail .brand').getByRole('link', { name: 'octo/demo-project on GitHub (opens in a new tab)' })
   await expect(project).toHaveAttribute('href', 'https://github.com/octo/demo-project')
   await expect(project).toHaveAttribute('target', '_blank')
   await expect(project).toBeInViewport({ ratio: 1 })
@@ -140,6 +196,7 @@ test('shows a checkout build without a release link', async ({ page }) => {
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: 'main@b434c92e1a2b' } }))
   await page.goto('/?view=context')
   await expect(page.locator('.release-badge')).toContainText('main@b434c92e1a2b Development build')
+  await expect(page.locator('.release-badge')).toHaveAttribute('title', 'main@b434c92e1a2b development build · by Chemaclass')
   await expect(page.locator('.sidenav').getByRole('link', { name: /Release notes/ })).toHaveCount(0)
 })
 
@@ -220,16 +277,16 @@ for (const width of [1440, 390]) {
   })
 }
 
-test('shows a permission key once in the narrow Authority layout', async ({ page }) => {
+test('stacks each Authority rule on a phone with its actions behind a menu', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.goto('/?view=authority')
-  const row = page.locator('.field-row', { hasText: 'Allowed without asking' })
-  await expect(row.getByText('permissions.allow', { exact: true })).toHaveCount(2)
-  const visible = await row.locator('code').evaluateAll((codes) => codes.filter((code) => code.textContent === 'permissions.allow' && (code.closest('dt') ?? code).getBoundingClientRect().width > 1).length)
-  expect(visible).toBe(1)
-  await page.setViewportSize({ width: 1440, height: 900 })
-  await expect(row.locator('.value-row dt').first()).toBeVisible()
+  const row = page.locator('.authority-rule').first()
+  await expect(row).toContainText('Blocked')
+  await expect(row.locator('.authority-scope')).toBeVisible()
+  await expect(page.locator('.authority-rules-head')).toBeHidden()
+  await expect(page.getByText('permissions.allow', { exact: true })).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
 test('keeps the rail slate and its buttons unboxed in the light theme', async ({ page }) => {
@@ -270,7 +327,7 @@ for (const width of [320, 900]) {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=lifecycle')
-    await expect(page.getByRole('heading', { level: 1, name: 'Lifecycle', exact: true })).toBeInViewport()
+    await expect(pageHeader(page, 'Lifecycle')).toBeInViewport()
     expect(await page.locator('.section-nav').evaluate((nav) => {
       const current = nav.querySelector('[aria-current="page"]')!.getBoundingClientRect()
       const bounds = nav.getBoundingClientRect()
@@ -291,7 +348,7 @@ for (const width of [1440, 390]) {
     const views = ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']
     for (const [index, name] of views.entries()) {
       await page.goto(`/?view=${name.toLowerCase()}${name === 'Context' ? '&tab=agents' : ''}`)
-      const heading = page.getByRole('heading', { level: 1, name, exact: true })
+      const heading = pageHeader(page, name)
       await expect(heading).toBeInViewport()
       const headingTop = () => heading.evaluate((element) => element.getBoundingClientRect().top)
       // The sticky offsets are measured after the first paint, so wait for
@@ -325,7 +382,7 @@ for (const width of [1440, 390]) {
       const link = nav.getByRole('link', { name: new RegExp(`^${next}`) })
       await link.click()
       await expect(link).toHaveAttribute('aria-current', 'page')
-      await expect(page.getByRole('heading', { level: 1, name: next, exact: true })).toBeInViewport()
+      await expect(pageHeader(page, next)).toBeInViewport()
     }
   })
 }
@@ -334,7 +391,7 @@ test('keeps the JSON inspector and search results scrolling their own content', 
   await page.setViewportSize({ width: 1440, height: 600 })
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.goto('/?view=settings')
-  await expect(page.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toBeInViewport()
+  await expect(pageHeader(page, 'Settings')).toBeInViewport()
   const pageScroll = () => page.evaluate(() => window.scrollY)
 
   const inspectorButton = page.getByRole('button', { name: 'Overview JSON', exact: true })
@@ -414,22 +471,76 @@ test('scrolls only the Menu while it is open', async ({ page }) => {
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe('hidden')
 })
 
-test('keeps Overview JSON on one line and the release arrow beside its text', async ({ page }) => {
+test('lines the version and the theme, Overview JSON and GitHub buttons up at the foot of the rail', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
-  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0', notesUrl: 'https://example.com/notes' } }))
+  await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: '0.80.0' } }))
   await page.goto('/?view=context')
-  const json = page.locator('.sidenav-footer .sidenav-json')
-  const lineHeight = await json.evaluate((element) => parseFloat(getComputedStyle(element).lineHeight) || parseFloat(getComputedStyle(element).fontSize) * 1.6)
-  expect((await json.boundingBox())!.height).toBeLessThan(lineHeight * 2)
-  const badge = page.locator('.sidenav-footer .release-badge')
-  await expect(badge.locator('.release-arrow')).toBeVisible()
-  const gap = await badge.evaluate((element) => {
-    const range = document.createRange()
-    range.selectNodeContents(element.querySelector('.release-caption')!.firstChild!)
-    const arrow = element.querySelector('.release-arrow')!.getBoundingClientRect()
-    return arrow.left - range.getBoundingClientRect().right
-  })
-  expect(gap).toBeGreaterThanOrEqual(0)
-  expect(gap).toBeLessThanOrEqual(8)
+  const foot = page.locator('.sidenav-footer')
+  const version = foot.locator('.release-version')
+  const icons = [
+    foot.getByRole('button', { name: 'Switch to dark theme' }),
+    foot.getByRole('button', { name: 'Overview JSON', exact: true }),
+    foot.getByRole('link', { name: 'agnostic-ai on GitHub (opens in a new tab)' }),
+  ]
+  const middle = async (locator: typeof version) => { const box = (await locator.boundingBox())!; return box.y + box.height / 2 }
+  const line = await middle(version)
+  for (const icon of icons) expect(Math.abs((await middle(icon)) - line)).toBeLessThan(4)
+  const arrow = (await foot.locator('.release-arrow').boundingBox())!
+  const text = (await version.boundingBox())!
+  expect(arrow.x - (text.x + text.width)).toBeGreaterThanOrEqual(0)
+  expect(arrow.x - (text.x + text.width)).toBeLessThanOrEqual(8)
+})
+
+test('keeps focus inside the JSON inspector sheet on a phone and clear of the top bar at 761px', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  for (const width of [900, 800, 761]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('/?view=settings')
+    await page.getByRole('button', { name: 'Menu' }).click()
+    await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name: 'Overview JSON', exact: true }).click()
+    const box = (await page.getByRole('dialog', { name: 'JSON inspector' }).boundingBox())!
+    expect(box.x).toBe(0)
+    expect(box.y).toBe(0)
+  }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name: 'Overview JSON', exact: true }).click()
+  const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+  const close = drawer.getByRole('button', { name: /Close/ })
+  await expect(close).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(drawer.locator('.json')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(close).toBeFocused()
+})
+
+test('keeps Tab inside search opened over the JSON inspector, and modal only as a sheet', async ({ page }) => {
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+  await page.setViewportSize({ width: 1440, height: 844 })
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Overview JSON', exact: true }).click()
+  const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+  await expect(drawer).toHaveAttribute('aria-modal', 'false')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(drawer).toHaveAttribute('aria-modal', 'true')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+  const search = page.getByRole('dialog', { name: 'Search all configuration' })
+  await expect(search.getByRole('combobox')).toBeFocused()
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press('Tab')
+    await expect(search.locator(':focus')).toHaveCount(1)
+  }
+})
+
+test('draws dropdowns as a styled panel instead of the native list', async ({ page }) => {
+  await page.goto('/?view=context&mock=1')
+  const select = page.locator('.select-control select').first()
+  await expect(select).toBeVisible()
+  expect(await select.evaluate((element) => getComputedStyle(element).appearance)).toBe('base-select')
+  expect(await select.evaluate((element) => getComputedStyle(element, '::picker(select)').borderRadius)).toBe('8px')
+  await select.click()
+  await expect.poll(() => select.evaluate((element) => element.matches(':open'))).toBe(true)
+  await expect(select.locator('option').first()).toBeVisible()
 })

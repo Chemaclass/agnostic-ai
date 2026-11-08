@@ -9,6 +9,7 @@ import {
   switchOffer,
   type ServedConfig,
 } from '../model/config-switch'
+import { Icon } from './ui'
 
 // Opened inside a click handler so the browser treats it as a click, not a pop-up.
 function openBlankTab(): Window | null {
@@ -21,7 +22,8 @@ function closeTab(tab: Window | null) {
   if (tab && !tab.closed) tab.close()
 }
 
-export function ConfigSwitch({ served }: { served: ServedConfig }) {
+/** `inRail` draws the switch as a rail row with an icon; elsewhere it is a quiet button. */
+export function ConfigSwitch({ served, inRail = false }: { served: ServedConfig; inRail?: boolean }) {
   const offer = switchOffer(served)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -110,8 +112,9 @@ export function ConfigSwitch({ served }: { served: ServedConfig }) {
 
   return (
     <span className="config-switch">
-      <button ref={switchButton} type="button" className="button button-quiet" title={offer.title} disabled={busy || missingRoot !== undefined} onClick={() => { void open() }}>
-        {busy ? 'Opening…' : offer.label}
+      <button ref={switchButton} type="button" className={inRail ? 'sidenav-action' : 'button button-quiet'} title={offer.title} disabled={busy || missingRoot !== undefined} onClick={() => { void open() }}>
+        {inRail && <Icon name="swap" />}
+        {inRail ? <span className="sidenav-action-label">{busy ? 'Opening…' : offer.label}</span> : busy ? 'Opening…' : offer.label}
       </button>
       {missingRoot !== undefined && (
         <section

@@ -9,7 +9,7 @@ import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
 import { requiredRelease, servingRelease } from '../model/release'
 import { countFindings, healthSummary, type FindingCount } from '../model/health'
-import { HEALTH_STATUS, healthTone, sectionSummary, type HealthTone } from '../model/rail'
+import { healthRow, healthTone, sectionSummary } from '../model/rail'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -17,6 +17,7 @@ export interface Remote<T> {
   error?: Error
 }
 
+// Each page's name, and the question it answers, which the rail shows under the name.
 const DEFAULT_SECTIONS: Record<string, { label: string; question: string }> = {
   context: { label: 'Context', question: 'What is the agent told?' },
   authority: { label: 'Authority', question: 'What may the agent do?' },
@@ -56,19 +57,32 @@ function useHeightVariable(ref: RefObject<HTMLElement | null>, name: string) {
   }, [ref, name])
 }
 
-/** Reads `/api/health` for an API source with each overview load, so an edited `requires` shows; other sources have no server to ask. */
-export function useServedConfig(sourceKind: string, loads: number): ServedConfig | undefined {
+/** Reads `/api/health` for an API source with each overview load, so an edited `requires` shows; other sources have no server to ask.
+    `pending` holds until the first answer, so the rail can keep room for what it brings. */
+export function useServedConfig(sourceKind: string, loads: number): { served?: ServedConfig; pending: boolean } {
   const [served, setServed] = useState<ServedConfig>()
+  const [answered, setAnswered] = useState(false)
   useEffect(() => {
     if (sourceKind !== 'api') return
     let live = true
     fetch(API.health).then((response) => response.ok ? response.json() : undefined).then((health) => {
       const config = parseServedConfig(health)
       if (live && config) setServed(config)
-    }).catch(() => undefined)
+    }).catch(() => undefined).finally(() => {
+      if (live) setAnswered(true)
+    })
     return () => { live = false }
   }, [sourceKind, loads])
-  return served
+  return { served, pending: sourceKind === 'api' && !answered }
+}
+
+function overviewPending(overview: Remote<OverviewView>): boolean {
+  return !overview.loaded && overview.status === 'loading'
+}
+
+// A placeholder bar that holds the size of text still loading.
+function Placeholder() {
+  return <span className="skeleton" aria-hidden="true" />
 }
 
 // Counts by severity for the phone top bar, linking to Setup health; nothing shows until the overview loads.
@@ -96,16 +110,35 @@ function apiProjectName(snapshot: { project: { name?: string } } | undefined, se
   return folder === '' || /^[\\/]+$/.test(folder) ? undefined : folder
 }
 
-function ProjectName({ overview, served }: { overview: Remote<OverviewView>; served: ServedConfig | undefined }) {
+/** The project's name, source chip, GitHub link and root, or placeholders of the same size while they load. */
+function ProjectName({ overview, served, servedPending }: { overview: Remote<OverviewView>; served: ServedConfig | undefined; servedPending: boolean }) {
   const app = useApp()
+  if (overviewPending(overview) || servedPending) {
+    return (
+      <span className="project-name is-pending" aria-hidden="true">
+        <span className="project-title"><Placeholder /></span>
+        {app.source.kind === 'api' && <span className="project-root"><Placeholder /></span>}
+      </span>
+    )
+  }
   const snapshot = overview.loaded?.data.snapshot
+  const repository = overview.loaded?.data.repository
   const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
   const projectName = app.source.kind === 'api' ? apiProjectName(snapshot, served) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
   if (!projectName) return null
   return (
     <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
       <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
-      <span className="project-title"><span className="project-label">{projectName}</span>{served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}</span>
+      <span className="project-title">
+        <span className="project-label">{projectName}</span>
+        {served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}
+        {repository && (
+          <a className="project-repo" href={repository.url} target="_blank" rel="noopener noreferrer" title={`${repository.name} on GitHub`}>
+            <Icon name="github" />
+            <span className="sr-only">{repository.name} on GitHub (opens in a new tab)</span>
+          </a>
+        )}
+      </span>
       {root && <code className="project-root"><bdi>{root}</bdi></code>}
     </span>
   )
@@ -115,6 +148,7 @@ function ProjectName({ overview, served }: { overview: Remote<OverviewView>; ser
 export function Header({
   overview,
   served,
+  servedPending,
   menuButton,
   menuOpen,
   onOpenMenu,
@@ -122,6 +156,7 @@ export function Header({
 }: {
   overview: Remote<OverviewView>
   served: ServedConfig | undefined
+  servedPending: boolean
   menuButton: RefObject<HTMLButtonElement | null>
   menuOpen: boolean
   onOpenMenu: () => void
@@ -133,7 +168,7 @@ export function Header({
     <header className="topbar" ref={headerRef} data-busy={overview.status === 'loading' || undefined}>
       <div className="brand">
         <span className="brand-name">{PRODUCT_NAME}</span>
-        <ProjectName overview={overview} served={served} />
+        <ProjectName overview={overview} served={served} servedPending={servedPending} />
       </div>
       <div className="topbar-actions">
         <HealthBadge overview={overview.loaded?.data} />
@@ -154,26 +189,27 @@ function ReleaseBadge({ served, version }: { served: ServedConfig; version: stri
   const required = requiredRelease(served)
   const text = (
     <span className="release-text">
-      <span className="release-version"><span className="sr-only">agnostic-ai </span>{release.label}</span>{' '}
-      {required && (
-        <>
-          <span className={`release-requires is-${required.state}`} title={required.title}>
-            {required.label}
-            {required.state === 'unmet' && <span className="sr-only">, not met by this version</span>}
-          </span>{' '}
-        </>
-      )}
-      <span className="release-caption">
-        {release.kind === 'release' ? 'Release notes' : 'Development build'}
+      <span className="release-line">
+        <span className="release-version"><span className="sr-only">agnostic-ai </span>{release.label}</span>
         {release.kind === 'release' && <Icon name="arrow" className="release-arrow" />}
       </span>
+      {required?.state === 'unmet' && (
+        <>
+          {' '}
+          <span className="release-requires is-unmet" title={required.title}>
+            Update needed
+            <span className="sr-only">: {required.label}, not met by this version</span>
+          </span>
+        </>
+      )}{' '}
+      <span className="sr-only">{release.kind === 'release' ? 'Release notes' : 'Development build'}</span>
     </span>
   )
   if (release.kind === 'build') {
-    return <div className="release-badge release-badge-build" title={`agnostic-ai ${release.label}`}>{text}</div>
+    return <div className="release-badge release-badge-build" title={`${release.label} development build · by Chemaclass`}>{text}</div>
   }
   return (
-    <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`Read the agnostic-ai ${release.label} release notes (opens in a new tab)`}>
+    <a className="release-badge" href={release.notesUrl} target="_blank" rel="noopener noreferrer" title={`${release.label} release notes · by Chemaclass`}>
       {text}
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
@@ -193,97 +229,95 @@ function sectionLinks(overview: OverviewView | undefined): SectionLink[] {
   return [...sections].sort((a, b) => a.order - b.order).map((section) => ({
     id: section.id as ViewId,
     label: section.label,
-    question: section.question || DEFAULT_SECTIONS[section.id]?.question || section.label,
+    question: section.question || DEFAULT_SECTIONS[section.id]?.question || '',
     summary: sectionSummary(section),
   }))
 }
 
-/** Conversations, Setup health as a status row, then each section: its name over its question. A section's live summary, such as "1 rule, 3 agents", is its tooltip; Setup health shows its count in its question. */
-function PageLinks({ overview, onNavigate }: { overview: OverviewView | undefined; onNavigate?: () => void }) {
+/** Setup health, Conversations, then each section: the page name over the question it answers.
+    The live counts are each link's tooltip, and its name reads as one phrase: "Context: 1 rule, 3 agents". */
+function PageLinks({ overview, pending, onNavigate }: { overview: OverviewView | undefined; pending: boolean; onNavigate?: () => void }) {
   const app = useApp()
   const count = overview ? countFindings(overview) : undefined
   const tone = count ? healthTone(count) : undefined
-  const link = (id: ViewId, className: string | undefined, label: string, question: string, summary: string | undefined, dot?: string) => (
-    <li key={id} className={className}>
-      <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate} title={summary}>
-        {dot && <span className={`nav-dot is-${dot}`} aria-hidden="true" />}
-        <Icon name={id} />
-        <span className="nav-text">
-          <span className="nav-label">{label}</span>
-          <span className="nav-question">{question}</span>
-        </span>
-      </AppLink>
-    </li>
-  )
+  const health = count && overview ? healthRow(count, overview.health.gaps.length) : undefined
+  const link = (id: ViewId, className: string | undefined, label: string, question: string, summary: string | undefined, status?: string, dot?: string) => {
+    const counted = summary && !pending ? summary : undefined
+    return (
+      <li key={id} className={className}>
+        <AppLink to={{ view: id }} className="nav-link" aria-label={counted ? `${label}: ${counted}${status ? ` ${status}` : ''}` : undefined} title={counted} aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate}>
+          {dot && <span className={`nav-dot is-${dot}`} aria-hidden="true" />}
+          <Icon name={id} />
+          <span className="nav-text">
+            <span className="nav-label">{label}</span>
+            <span className="nav-question">{question}</span>
+          </span>
+        </AppLink>
+      </li>
+    )
+  }
   return (
     <ul className="nav-list">
+      {link('health', 'nav-item-health', 'Setup health', healthQuestion(count, health?.status), health?.summary, health?.status, tone ?? 'loading')}
       {link('conversations', 'nav-item-conversations', 'Conversations', 'Where did you leave off?', undefined)}
-      {link('health', 'nav-item-health', 'Setup health', healthQuestion(tone, count), undefined, tone ?? 'loading')}
       {sectionLinks(overview).map((section) => link(section.id, undefined, section.label, section.question, section.summary))}
     </ul>
   )
 }
 
-/** Setup health's line under its name: the status, and what it counts unless all is clear. */
-function healthQuestion(tone: HealthTone | undefined, count: FindingCount | undefined): string {
-  if (!tone || !count) return 'Checking your setup'
-  if (tone === 'clean') return HEALTH_STATUS.clean
-  return `${HEALTH_STATUS[tone]}: ${healthSummary(count)}`
+/** Setup health's line under its name: its status, with how many findings to fix. */
+function healthQuestion(count: FindingCount | undefined, status: string | undefined): string {
+  if (!count || !status) return 'Checking your setup'
+  const findings = count.errors + count.warnings
+  return findings ? `${status}: ${findings} to fix` : status
 }
 
 function RailFoot({
-  overview,
   served,
+  servedPending,
   theme,
   onToggleTheme,
   onOpenSearch,
   inspectorOpen,
   onToggleInspector,
 }: {
-  overview: OverviewView | undefined
   served: ServedConfig | undefined
+  servedPending: boolean
   theme: 'dark' | 'light'
   onToggleTheme: () => void
   onOpenSearch?: () => void
   inspectorOpen: boolean
   onToggleInspector: () => void
 }) {
-  const repository = overview?.repository
   const themeLabel = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
   return (
     <footer className="sidenav-footer">
-      {onOpenSearch && (
-        <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
-          <Icon name="search" />
-          <span className="button-search-label">Search</span>
-          <kbd aria-hidden="true">{SEARCH_SHORTCUT}</kbd>
-        </button>
-      )}
-      {served && <ConfigSwitch served={served} />}
-      <div className="sidenav-row">
-        <button type="button" className="button button-quiet sidenav-theme" aria-label={themeLabel} title={themeLabel} onClick={onToggleTheme}>
-          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-          <span aria-hidden="true">{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
-        </button>
-        <span className="sidenav-links">
-          {repository && (
-            <a className="button button-quiet button-icon" href={repository.url} target="_blank" rel="noopener noreferrer" title={`${repository.name} on GitHub`}>
-              <Icon name="github" />
-              <span className="sr-only">{repository.name} on GitHub (opens in a new tab)</span>
-            </a>
-          )}
-          <a className="sidenav-github" href={PRODUCT_REPOSITORY} target="_blank" rel="noopener noreferrer" title={`${PRODUCT_NAME} on GitHub`}>
-            <Icon name="github" />
-            <span className="sidenav-github-label">{PRODUCT_NAME} on GitHub</span>
-            <span className="sr-only"> (opens in a new tab)</span>
-          </a>
-        </span>
+      <div className="sidenav-actions">
+        {onOpenSearch && (
+          <button type="button" className="sidenav-action button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
+            <Icon name="search" />
+            <span className="sidenav-action-label">Search</span>
+            <kbd aria-hidden="true">{SEARCH_SHORTCUT}</kbd>
+          </button>
+        )}
+        {served ? <ConfigSwitch served={served} inRail /> : servedPending && <span className="config-switch is-pending"><Placeholder /></span>}
       </div>
-      <div className="sidenav-row">
-        {served?.version && <ReleaseBadge served={served} version={served.version} />}
-        <button type="button" className="sidenav-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
-          Overview JSON
-        </button>
+      <div className="sidenav-bar">
+        {served?.version
+          ? <ReleaseBadge served={served} version={served.version} />
+          : servedPending && <span className="release-badge is-pending"><span className="release-text"><Placeholder /></span></span>}
+        <div className="sidenav-icons">
+          <button type="button" className="sidenav-icon" aria-label={themeLabel} title={themeLabel} onClick={onToggleTheme}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+          </button>
+          <button type="button" className="sidenav-icon sidenav-json" aria-label="Overview JSON" title="Overview JSON: the data behind this page" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
+            <Icon name="code" />
+          </button>
+          <a className="sidenav-icon sidenav-github" href={PRODUCT_REPOSITORY} target="_blank" rel="noopener noreferrer" title={`${PRODUCT_NAME} on GitHub`}>
+            <Icon name="github" />
+            <span className="sr-only">{PRODUCT_NAME} on GitHub (opens in a new tab)</span>
+          </a>
+        </div>
       </div>
     </footer>
   )
@@ -292,6 +326,7 @@ function RailFoot({
 export interface RailProps {
   overview: Remote<OverviewView>
   served: ServedConfig | undefined
+  servedPending: boolean
   theme: 'dark' | 'light'
   onToggleTheme: () => void
   onOpenSearch: () => void
@@ -306,9 +341,9 @@ export function Nav({ overview, ...foot }: RailProps) {
   return (
     <aside className="sidenav" ref={asideRef}>
       <nav className="section-nav" aria-label="Configuration sections">
-        <PageLinks overview={overview.loaded?.data} />
+        <PageLinks overview={overview.loaded?.data} pending={overviewPending(overview)} />
       </nav>
-      <RailFoot overview={overview.loaded?.data} {...foot} />
+      <RailFoot {...foot} />
     </aside>
   )
 }
@@ -336,16 +371,16 @@ export function MenuSheet({ open, onClose, overview, onOpenSearch: _search, ...f
           <div className="menu-sheet-head">
             <div className="brand">
               <span className="brand-name">{PRODUCT_NAME}</span>
-              <ProjectName overview={overview} served={foot.served} />
+              <ProjectName overview={overview} served={foot.served} servedPending={foot.servedPending} />
             </div>
             <button type="button" className="button button-icon menu-sheet-close" aria-label="Close menu" onClick={onClose}>
               <Icon name="close" />
             </button>
           </div>
           <nav aria-label="Sections">
-            <PageLinks overview={overview.loaded?.data} onNavigate={onClose} />
+            <PageLinks overview={overview.loaded?.data} pending={overviewPending(overview)} onNavigate={onClose} />
           </nav>
-          <RailFoot overview={overview.loaded?.data} {...foot} onToggleInspector={() => { onClose(); foot.onToggleInspector() }} />
+          <RailFoot {...foot} onToggleInspector={() => { onClose(); foot.onToggleInspector() }} />
         </div>
       )}
     </dialog>
@@ -359,14 +394,14 @@ export function SourceNotice({ overview }: { overview: Remote<OverviewView> }) {
     const revision = overview.loaded?.data.snapshot.revision
     return (
       <Notice tone="info">
-        <p><strong>Static snapshot{revision ? ` · revision ${revision}` : ''}.</strong> Read from {app.source.base} with no server. Opening files, rechecks and switches need <code>agnostic-ai view</code>.</p>
+        <p><strong>Static snapshot{revision ? ` · revision ${revision}` : ''}.</strong> <span className="source-notice-detail">Read from {app.source.base} with no server.</span> Opening files, rechecks and switches need <code>agnostic-ai view</code>.</p>
       </Notice>
     )
   }
   if (app.source.kind === 'mock') {
     return (
       <Notice tone="info">
-        <p><strong>Mock data.</strong> Handwritten data bundled with the page, not a live scan of a configuration. Opening files, rechecks and switches need <code>agnostic-ai view</code>.</p>
+        <p><strong>Mock data.</strong> <span className="source-notice-detail">Handwritten data bundled with the page, not a live scan of a configuration.</span> Opening files, rechecks and switches need <code>agnostic-ai view</code>.</p>
       </Notice>
     )
   }

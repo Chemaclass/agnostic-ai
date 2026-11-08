@@ -24,15 +24,15 @@ type fakeProcesses struct {
 	alive   map[int]bool
 	app     map[int]string
 	tty     map[int]string
-	held    map[string]bool
+	held    map[string]int
 	running map[string]bool
 }
 
-func (f fakeProcesses) Held(paths []string) map[string]bool {
-	held := map[string]bool{}
+func (f fakeProcesses) Holders(paths []string) map[string]int {
+	held := map[string]int{}
 	for _, path := range paths {
-		if f.held[filepath.Base(path)] {
-			held[path] = true
+		if pid, ok := f.held[filepath.Base(path)]; ok {
+			held[path] = pid
 		}
 	}
 	return held
@@ -204,7 +204,7 @@ func TestScan_ListsClaudeSessionsWithTitlesPromptsAndRoutes(t *testing.T) {
   "live": true,
   "open": {
     "kind": "focus",
-    "label": "Switch to its terminal",
+    "label": "Open in Terminal",
     "command": "cd '/tmp/app' && claude --resume `+idSafari+`"
   }
 }` {
@@ -318,7 +318,7 @@ func TestScan_ListsCodexThreadsFromTheNewestIndex(t *testing.T) {
   },
   {
     "kind": "terminal",
-    "label": "Resume in Terminal",
+    "label": "Open in Terminal",
     "command": "cd '/tmp/it'\\''s' && codex resume `+terminal+`"
   }
 ]` {
@@ -481,7 +481,7 @@ func TestOpen_FollowsEachRoute(t *testing.T) {
 		"live in an unknown terminal": {
 			conversation: live,
 			processes:    fakeProcesses{alive: map[int]bool{42: true}},
-			reply:        OpenReply{Message: "It is open in another terminal (process 42). Switch to it there.", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "It is open in another app (process 42). Switch to it there.", Command: "claude --resume x"},
 		},
 		"ended since the scan": {
 			conversation: live,
@@ -574,6 +574,12 @@ func TestRunSQLite_ReadsRowsAsJSON(t *testing.T) {
 	}
 }
 
+// folderOpenIn reports whether the editor state at storagePath lists a
+// window on folder itself.
+func folderOpenIn(storagePath, folder string) bool {
+	return openWindowFolders(storagePath)[folderKey(folder)]
+}
+
 func TestFolderOpenIn_ReadsTheEditorsOpenWindows(t *testing.T) {
 	storage := filepath.Join(t.TempDir(), "storage.json")
 	write(t, storage, `{"windowsState":{"lastActiveWindow":{"folder":"file:///Users/me/Products/kombo"},"openedWindows":[{"folder":"file:///Users/me/Products/agnostic-ai"},{"folder":"file:///Users/me/My%20Code/app"}]}}`)
@@ -644,7 +650,7 @@ func TestScan_LeavesCodexExecRunsOutAndMarksLoadedThreadsLive(t *testing.T) {
 			{"id":"` + idle + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex-tui","source":"cli","name":"Closed"},
 			{"id":"` + exec + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex_exec","source":"exec","name":"Exec run"}
 		]`,
-	}), fakeProcesses{held: map[string]bool{loaded + ".lock": true}})
+	}), fakeProcesses{held: map[string]int{loaded + ".lock": 4242}, alive: map[int]bool{4242: true}, app: map[int]string{4242: "Terminal"}, tty: map[int]string{4242: "/dev/ttys004"}})
 	scanner.Now = func() time.Time { return time.UnixMilli(1762520000000) }
 	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
 	for _, id := range []string{loaded, idle} {
@@ -655,6 +661,14 @@ func TestScan_LeavesCodexExecRunsOutAndMarksLoadedThreadsLive(t *testing.T) {
 
 	if len(view.Conversations) != 2 || !byID(t, view, loaded).Live || byID(t, view, idle).Live {
 		t.Errorf("want two threads, only the loaded one live: %s", asJSON(t, view.Conversations))
+	}
+	if open := byID(t, view, loaded).Open; open.Kind != RouteFocus || open.Label != "Open in Terminal" {
+		t.Errorf("an open CLI thread switches to its terminal, actual %s", asJSON(t, open))
+	}
+	launcher := &fakeLauncher{focusOK: true}
+	reply := Open(context.Background(), byID(t, view, loaded), scanner.Processes, launcher)
+	if strings.Join(launcher.calls, ";") != "focus /dev/ttys004" || !reply.Opened {
+		t.Errorf("opening it must switch to its tab, not resume it again: calls %v, reply %s", launcher.calls, asJSON(t, reply))
 	}
 }
 
@@ -801,16 +815,65 @@ func TestScan_KeepsCachedSessionsWhenTheScanIsCanceled(t *testing.T) {
 	}
 }
 
+func TestScan_ReusesShownTextsAndDropsThoseOfGoneSessions(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{4242: true}})
+	writeClaudeSessions(t, stores)
+	first := asJSON(t, scanner.Scan(context.Background(), ScanOptions{}))
+	if again := asJSON(t, scanner.Scan(context.Background(), ScanOptions{})); again != first {
+		t.Errorf("a second scan of unchanged sessions must show the same rows, withheld texts included\nfirst: %s\nagain: %s", first, again)
+	}
+	markKept(t, scanner, "Safari login bug")
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.Title != "Kept" {
+		t.Errorf("an unchanged session must reuse its checked texts, title = %q", c.Title)
+	}
+
+	held := len(scanner.shown.last)
+	if err := os.Remove(filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSecret+".jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	scanner.Scan(context.Background(), ScanOptions{})
+	if len(scanner.shown.last) != held-1 {
+		t.Errorf("held the texts of %d rows, then %d after one session went away", held, len(scanner.shown.last))
+	}
+}
+
+func TestScan_KeepsShownTextsWhenTheScanIsCanceled(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	writeClaudeSessions(t, stores)
+	scanner.Scan(context.Background(), ScanOptions{})
+	held := len(scanner.shown.last)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	scanner.Scan(ctx, ScanOptions{})
+
+	if held == 0 || len(scanner.shown.last) != held {
+		t.Errorf("held the texts of %d rows, then %d after a canceled scan", held, len(scanner.shown.last))
+	}
+}
+
+// markKept changes the cached title of the row titled title, so a scan
+// that shows "Kept" reused the cache instead of checking again.
+func markKept(t *testing.T, scanner *Scanner, title string) {
+	t.Helper()
+	for key, shown := range scanner.shown.last {
+		if shown.title == title {
+			shown.title = "Kept"
+			scanner.shown.last[key] = shown
+			return
+		}
+	}
+	t.Fatalf("no cached texts titled %q", title)
+}
+
 func TestFill_WithholdsAnIndentedSecretInAPrompt(t *testing.T) {
 	for _, prompts := range [][2]string{
 		{"Please set:\nenv:\n  FOO: abcd1234", "```yaml\nheaders:\n  X-Custom: abcd1234\n```"},
 		{"Config:\n\tenv: {FOO: abcd1234}", "We have:\n  a: 1\n env: {FOO: abcd1234}"},
 	} {
-		var c Conversation
-		c.fill(texts{title: "Set up the client", firstPrompt: prompts[0], lastPrompt: prompts[1]})
+		shown := showTexts(texts{title: "Set up the client", firstPrompt: prompts[0], lastPrompt: prompts[1]})
 
-		if c.Opening != nil || c.Prompt != "" || len(c.Withheld) != 2 {
-			t.Errorf("%q: opening %q, prompt %q, withheld %v", prompts, c.Opening, c.Prompt, c.Withheld)
+		if shown.opening != nil || shown.prompt != "" || len(shown.withheld) != 2 {
+			t.Errorf("%q: opening %q, prompt %q, withheld %v", prompts, shown.opening, shown.prompt, shown.withheld)
 		}
 	}
 }
@@ -835,7 +898,7 @@ func TestFolderOpenIn_DecodesTheEditorsFolderURIs(t *testing.T) {
 	}
 }
 
-func TestSystemProcesses_HeldFindsALockUnderASymlinkedFolder(t *testing.T) {
+func TestSystemProcesses_HoldersFindsALockUnderASymlinkedFolder(t *testing.T) {
 	if _, err := exec.LookPath("lsof"); err != nil {
 		t.Skip("lsof is not installed")
 	}
@@ -851,7 +914,7 @@ func TestSystemProcesses_HeldFindsALockUnderASymlinkedFolder(t *testing.T) {
 	}
 	defer func() { _ = f.Close() }()
 
-	if held := (SystemProcesses{}).Held([]string{lock}); !held[lock] {
+	if held := (SystemProcesses{}).Holders([]string{lock}); held[lock] != os.Getpid() {
 		t.Errorf("a lock this process holds through a symlink must be held, actual %v", held)
 	}
 }
@@ -951,7 +1014,7 @@ func TestScan_SearchReadsEveryCursorChatOnceUntilItChanges(t *testing.T) {
 	queries := 0
 	stores := fakeStores(t, map[string]string{
 		"state.vscdb|FROM composerHeaders": `[{"id":"88888888-8888-4888-8888-888888888888","workspace_id":"ws1","created_at":1700000000000,"recency":1700000000000,"name":"Old chat","folder":"/tmp/app","branch":""}]`,
-		"state.vscdb|chosen(composerId)":   `[{"id":"88888888-8888-4888-8888-888888888888","first_text":"Migrate the billing webhooks","last_text":"Ship it"}]`,
+		"state.vscdb|chosen(composerId)":   `[{"id":"88888888-8888-4888-8888-888888888888","first_text":"Start here","last_text":"Migrate the billing webhooks"}]`,
 	})
 	counting := func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
 		if strings.Contains(query, "chosen(composerId)") {
@@ -970,5 +1033,53 @@ func TestScan_SearchReadsEveryCursorChatOnceUntilItChanges(t *testing.T) {
 	}
 	if queries != 1 {
 		t.Errorf("an unchanged chat's prompts are read once, read %d times", queries)
+	}
+}
+
+func TestEnclosingWindowFolder_PrefersTheEditorWindowAroundTheFolder(t *testing.T) {
+	storage := filepath.Join(t.TempDir(), "storage.json")
+	write(t, storage, `{"windowsState":{"openedWindows":[{"folder":"file:///repo"},{"folder":"file:///repo/pkg/api"},{"folder":"file:///"},{"folder":"file:///home/me"}]}}`)
+	for folder, want := range map[string]string{
+		"/repo/pkg":         "/repo",
+		"/repo/pkg/api/v1":  "/repo/pkg/api",
+		"/repo":             "/repo",
+		"/elsewhere/repo":   "",
+		"/repository/thing": "",
+		"/home/me/app/src":  "",
+		"/home/me":          "/home/me",
+	} {
+		if actual, _ := enclosingWindowFolder(storage, folder, "/home/me"); filepath.ToSlash(actual) != want {
+			t.Errorf("enclosingWindowFolder(%q) = %q, want %q", folder, actual, want)
+		}
+	}
+}
+
+func TestOsascriptArgs_PassTheCommandAndTTYAsArguments(t *testing.T) {
+	hostile := "cd '/tmp/a\"b' && echo \"quoted\"\nrm -rf ~"
+	for name, args := range map[string][]string{
+		"new terminal": newTerminalArgs(hostile),
+		"focus tab":    focusTabArgs(hostile),
+	} {
+		if len(args) < 2 || args[len(args)-1] != hostile || args[len(args)-2] != "end run" {
+			t.Errorf("%s: the value must be the one argument after the script, actual %q", name, args)
+		}
+		for _, arg := range args[:len(args)-1] {
+			if strings.Contains(arg, "echo") {
+				t.Errorf("%s: the value leaked into the script text: %q", name, arg)
+			}
+		}
+		if args[0] != "-e" || args[1] != "on run argv" {
+			t.Errorf("%s: the script must read argv, actual %q", name, args[:2])
+		}
+	}
+}
+
+func TestMatching_SearchesTheTextAPersonSees(t *testing.T) {
+	rows := []Conversation{{Tool: ToolClaude, App: AppCLI, ID: "a", Title: "<bash-input>gl</bash-input>"}}
+	if len(matching(rows, queryWords("! gl"))) != 1 {
+		t.Error("a typed shell command matches as the page shows it")
+	}
+	if len(matching(rows, queryWords("bash-input"))) != 0 {
+		t.Error("the markup around a typed shell command never matches")
 	}
 }

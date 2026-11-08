@@ -12,6 +12,7 @@ import (
 )
 
 func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"codex", "qoder", "claude", "factory"} {
@@ -303,6 +304,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 }
 
 func TestHandoffAccess_QoderHandoffOffWithoutMemoryRemovesSettings(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	home := t.TempDir()
@@ -339,6 +341,7 @@ func TestHandoffAccess_QoderHandoffOffWithoutMemoryRemovesSettings(t *testing.T)
 }
 
 func TestHandoffAccess_OpenCodeAndDevinKeepMemoryAndUserPermissions(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -441,6 +444,7 @@ func TestHandoffAccess_OpenCodeAndDevinKeepMemoryAndUserPermissions(t *testing.T
 }
 
 func TestHandoffAccess_OpenCodeAndDevinProtectNativeConfig(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	repository, err := filepath.Abs("../..")
 	if err != nil {
@@ -530,6 +534,7 @@ func TestHandoffAccess_OpenCodeAndDevinProtectNativeConfig(t *testing.T) {
 }
 
 func TestHandoffAccess_OpenCodePreservesEditedGrant(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, action := range []string{"deny", "ask"} {
@@ -604,6 +609,7 @@ func TestHandoffAccess_OpenCodePreservesEditedGrant(t *testing.T) {
 }
 
 func TestHandoffAccess_OpenCodePreservesSpecRestriction(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, action := range []string{"deny", "ask"} {
@@ -666,6 +672,7 @@ func TestHandoffAccess_OpenCodePreservesSpecRestriction(t *testing.T) {
 }
 
 func TestHandoffAccess_RefusesWildcardMainCheckoutGrant(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows filenames cannot contain literal wildcard characters")
@@ -707,6 +714,7 @@ func TestHandoffAccess_RefusesWildcardMainCheckoutGrant(t *testing.T) {
 }
 
 func TestHandoffAccess_OpenCodeAndDevinStillMergeSpecsIntoProtectedConfig(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -756,6 +764,7 @@ func TestHandoffAccess_OpenCodeAndDevinStillMergeSpecsIntoProtectedConfig(t *tes
 }
 
 func TestHandoffAccess_OpenCodeKeepsLaterUserRuleAfterMemoryGrant(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	home := t.TempDir()
@@ -809,6 +818,7 @@ func TestHandoffAccess_OpenCodeKeepsLaterUserRuleAfterMemoryGrant(t *testing.T) 
 }
 
 func TestHandoffAccess_UnwritableConfigNoteNamesNativeEntry(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for target, want := range map[string]string{
@@ -838,6 +848,7 @@ func TestHandoffAccess_UnwritableConfigNoteNamesNativeEntry(t *testing.T) {
 }
 
 func TestHandoffAccess_RefusesParenthesisInDevinCheckoutPath(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	home := t.TempDir()
@@ -878,6 +889,7 @@ func handoffLinkedSpecs(t *testing.T, dir, target, url, deny string) string {
 }
 
 func TestHandoffAccess_HandwrittenConfigConvergesInLinkedWorktree(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -910,6 +922,7 @@ func TestHandoffAccess_HandwrittenConfigConvergesInLinkedWorktree(t *testing.T) 
 }
 
 func TestHandoffAccess_CommittedGrantStillTakesSpecChanges(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -992,6 +1005,7 @@ func handoffUserGrant(t *testing.T, path, target, store string) {
 }
 
 func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -1049,6 +1063,7 @@ func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
 }
 
 func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -1115,6 +1130,7 @@ func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) 
 }
 
 func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -1203,6 +1219,7 @@ func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
 }
 
 func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -1253,6 +1270,7 @@ func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testi
 }
 
 func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, target := range []string{"opencode", "windsurf"} {
@@ -1280,6 +1298,7 @@ func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
 }
 
 func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	for _, place := range []string{"main checkout", "linked worktree"} {
@@ -1350,6 +1369,7 @@ func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
 }
 
 func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
+	skipEndToEndInShortMode(t)
 	t.Parallel()
 	binary := builtBinary(t)
 	home := t.TempDir()

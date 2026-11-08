@@ -1,3 +1,4 @@
+import { findingTitle } from './finding-title'
 import { describe, expect, it } from 'vitest'
 import type { OverviewView, SectionItem } from '../contract'
 import { fieldEntryId, findingEntryIds, itemEntryId } from './identity'
@@ -28,6 +29,10 @@ describe('overview search', () => {
     const finding = owner.findings[0]
     const results = search(fixture, finding.code!)
     expect(results).toContainEqual(expect.objectContaining({ kind: 'finding', view: 'authority', entry: findingEntryIds(owner.findings, itemEntryId(owner))[0] }))
+    const result = results.find((r) => r.kind === 'finding')!
+    expect(result.title).toBe(findingTitle(finding))
+    expect(result.detail).toBe(finding.path)
+    expect(search(fixture, finding.message.slice(0, 30))).toContainEqual(expect.objectContaining({ kind: 'finding', entry: result.entry }))
   })
 
   it('finds a hook by the command it runs', () => {

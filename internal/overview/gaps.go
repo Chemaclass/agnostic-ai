@@ -69,7 +69,10 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 			continue
 		}
 		total++
-		if slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool { return ownSpec(e) && runsAt(e, st.id, targets) }) {
+		// Any hook that runs at the stage for a tool that has it fills the stage, an enabled built-in's included.
+		if slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool {
+			return slices.ContainsFunc(supported, func(t string) bool { return e.EmitsTo(t) && runsAt(e, st.id, []string{t}) })
+		}) {
 			continue
 		}
 		gaps = append(gaps, Gap{
@@ -99,7 +102,7 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 		}
 		name := b.name
 		gaps = append(gaps, Gap{
-			ID: "builtin:" + name, Section: SectionSettings, Label: name, Supported: supported,
+			ID: "builtin:" + name, Section: SectionSettings, Label: builtinLabel(name), Supported: supported,
 			Missing: "built-in is off",
 			Fix: fmt.Sprintf("The %s built-in of this agnostic-ai project is off. %s To turn it on, add `%s` to the `builtins` list in %s and run `agnostic-ai sync`.",
 				name, builtinDescriptions[name], name, listFile),
@@ -109,7 +112,7 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 }
 
 // ownSpec reports whether the project wrote e. A built-in ships a fixed
-// spec, so it fills no gap.
+// spec, so it fills no kind gap.
 func ownSpec(e spec.Entry) bool {
 	return e.Layer != builtinLayer
 }

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { itemEntryId } from '../../src/model/identity'
 import { normalizeOverviewView } from '../../src/model/normalize'
-import { selectTab } from '../helpers'
+import { openToolSupport, pageHeader, selectTab } from '../helpers'
 
 function tabFixture() {
   const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
@@ -183,7 +183,7 @@ test('keeps a built-in proposal mounted without cancellation when changing tabs'
   await expect(preview).not.toBeVisible()
   await selectTab(page, 'Built-ins')
   await expect(preview).toBeVisible()
-  await expect(preview.getByRole('button', { name: 'Apply change', exact: true })).toBeEnabled()
+  await expect(preview.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled()
   expect(reads).toBe(1)
   expect(cancelled).toEqual([])
 })
@@ -192,16 +192,16 @@ test('keeps support and section findings available outside panels and leaves Aut
   const data = await loadTabs(page)
   data.sections.find((section) => section.id === 'tools')!.findings = [{ source: 'doctor', severity: 'warn', message: 'Tools configuration warning.' }]
   await page.goto('/?view=tools')
-  await page.locator('details.support-block > summary').click()
   for (const tab of ['MCP servers', 'Found in tools', 'Environments']) {
     await selectTab(page, tab)
     await page.getByRole('button', { name: 'Review 1 finding', exact: true }).click()
     const finding = page.getByText('Tools configuration warning.', { exact: true })
     await expect(finding).toBeVisible()
     expect(await finding.evaluate((element) => element.closest('[role="tabpanel"]') === null)).toBe(true)
-    const support = page.getByRole('table', { name: 'Coding tool support' })
+    const support = (await openToolSupport(page)).getByRole('table', { name: 'Coding tool support' })
     await expect(support).toBeVisible()
     expect(await support.evaluate((element) => element.closest('[role="tabpanel"]') === null)).toBe(true)
+    await page.keyboard.press('Escape')
   }
   for (const view of ['Authority', 'Lifecycle']) {
     await page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: new RegExp(`^${view}`) }).click()
@@ -236,7 +236,7 @@ test('keeps a directly linked Context size tab fully visible on a phone without 
   await expect(tab).toHaveAttribute('aria-selected', 'true')
   await expect(tab).toBeInViewport({ ratio: 1 })
   await expect(page.locator('body')).toBeFocused()
-  await expect(page.getByRole('heading', { level: 1, name: 'Context', exact: true })).toBeInViewport()
+  await expect(pageHeader(page, 'Context')).toBeInViewport()
 })
 
 test('reveals the active desktop tab after resizing to a phone without moving focus', async ({ page }) => {
@@ -250,7 +250,7 @@ test('reveals the active desktop tab after resizing to a phone without moving fo
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(tab).toBeInViewport({ ratio: 1 })
   await expect(page.locator('body')).toBeFocused()
-  await expect(page.getByRole('heading', { level: 1, name: 'Context', exact: true })).toBeInViewport()
+  await expect(pageHeader(page, 'Context')).toBeInViewport()
 })
 
 test('reveals the Skills tab on a phone when global search focuses a skill', async ({ page }) => {

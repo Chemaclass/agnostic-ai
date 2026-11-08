@@ -1,10 +1,11 @@
 import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { API, type SectionItem, type SettingField, type TargetValue } from '../contract'
+import { API, type KindSupport, type SectionItem, type SettingField, type TargetValue } from '../contract'
 import { EditError, postEdit } from '../api'
 import { useApp } from './app-context'
+import { Notice } from './Banner'
 import { ChangeError, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { ViewPersonalButton, useEditAudience, useLevelName, useViewAudience, type EditAudience } from './EditAudience'
-import { PermissionEditor, useSavedEditNotice } from './PermissionEditor'
+import { useSavedEditNotice } from './PermissionEditor'
 import { ProtectedEditor } from './ProtectedEditor'
 import { ConfigSwitch } from './ConfigSwitch'
 import { useServedConfig } from './Shell'
@@ -17,12 +18,13 @@ import { fieldEntryId } from '../model/identity'
 import { Select, Badge, Code, Toggle } from './ui'
 import { ConfiguredTools, useEntry } from './section-context'
 import { ItemList, NativeValues, OverrideComparison, Values } from './Items'
+import { EmptyState } from './EmptyState'
 
 function fieldsHeadingId(title: string) {
   return `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
 }
 
-export function SettingsFields({ title, topic, headingEntry, audienceControl, fields, files, filtering, status }: { title: string; topic: string; headingEntry?: string; audienceControl?: ReactNode; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
+export function SettingsFields({ title, headingEntry, fields, files, filtering, status, support }: { title: string; headingEntry?: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode; support?: KindSupport }) {
   const entry = useApp().state.entry
   const audience = useViewAudience()
   const id = fieldsHeadingId(title)
@@ -33,14 +35,15 @@ export function SettingsFields({ title, topic, headingEntry, audienceControl, fi
   const visibleFields = fields.filter((field) => configured.includes(field) || editablePermissions.includes(field))
   return (
     <section className="block" aria-labelledby={id}>
-      <SectionHeading topic={topic} id={id} focusable entry={headingEntry}>{title}</SectionHeading>
-      {audienceControl}
+      <SectionHeading id={id} focusable entry={headingEntry}>{title}</SectionHeading>
       {status}
-      {configured.length === 0 && <p className="muted">{filtering ? 'No matching configured settings.' : editablePermissions.length ? 'No permission rules configured. Add rules below.' : 'No settings configured.'}</p>}
+      {configured.length === 0 && (filtering || editablePermissions.length
+        ? <p className="muted">{filtering ? 'No matching configured settings.' : 'No permission rules configured. Add rules below.'}</p>
+        : <EmptyState kind={{ kind: 'settings', label: title }} support={support} />)}
       {visibleFields.length > 0 && <FieldList fields={visibleFields} files={files} />}
       {remaining.length > 0 && (
         <details className="unconfigured-fields" open={filtering || remaining.some((field) => fieldEntryId(field) === entry) || undefined}>
-          <summary>Unconfigured fields ({remaining.length})</summary>
+          <summary>Unconfigured fields <span className="kind-count">{remaining.length}</span></summary>
           <FieldList fields={remaining} files={files} />
         </details>
       )}
@@ -77,7 +80,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
                 localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined}
                 overrides={viewAudience === 'shared' ? f.set.filter((other) => other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
                 baseline={viewAudience === 'personal' && src.local ? f.set.filter((other) => !other.local && other.spec === src.spec).flatMap((other) => other.values) : undefined}
-              /> : <Values values={src.values} file={f.key.startsWith('voice.') ? undefined : src.path} fieldKey={f.key} />}
+              /> : <Values values={src.values} file={f.key.startsWith('voice.') ? undefined : src.path} prefix={f.key} fieldKey={f.key} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
@@ -90,7 +93,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
   )
 }
 
-function FieldResolution({ field, files, resolved }: { field: SettingField; files: SectionItem[]; resolved: TargetValue[] }) {
+export function FieldResolution({ field, files, resolved }: { field: SettingField; files: SectionItem[]; resolved: TargetValue[] }) {
   const app = useApp()
   const label = field.label
   const level = useLevelName()
@@ -113,7 +116,7 @@ function FieldResolution({ field, files, resolved }: { field: SettingField; file
       <div className="field-resolution-detail" aria-live="polite">
         <p>{generatedAnswer(current)}</p>
         {current.from && <p className="muted">From <Code>{current.from.path}</Code>{origin ? <>, {origin}</> : ' in the config'}</p>}
-        {override && <p className="muted"><Code>{override}</Code> in the config replaces every spec value for {current.label}. An edit below changes the spec only; remove that key for {current.label} to get it.</p>}
+        {override && <p className="muted"><Code>{override}</Code> in the configuration replaces every value from your files for {current.label}. An edit below changes the file only; remove that key for {current.label} to get it.</p>}
         {current.others.length > 0 && <>
           <p className="muted">Values that do not win:</p>
           <ul className="field-resolution-others">
@@ -146,13 +149,14 @@ interface FieldEditControlProps {
   toolLabel?: string
 }
 
-function FieldEditor(props: FieldEditControlProps) {
+// Permission lists edit in the Authority rules table, not as a field row.
+export function FieldEditor(props: FieldEditControlProps) {
   if (props.field.editable?.kind === 'protected-list') return <ProtectedEditor {...props} />
-  return props.field.editable?.kind === 'permission-list' ? <PermissionEditor {...props} /> : <FieldEditControl {...props} />
+  return props.field.editable?.kind === 'permission-list' ? props.sources() : <FieldEditControl {...props} />
 }
 
 function GlobalSettingsAction() {
-  const served = useServedConfig(useApp().source.kind, 0)
+  const { served } = useServedConfig(useApp().source.kind, 0)
   return served && !served.global ? <div className="field-edit-row"><ConfigSwitch served={served} /></div> : null
 }
 
@@ -202,6 +206,19 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const latest = useRef(basis.current)
   latest.current = { current, local: localCurrent, team: teamCurrent }
   const conflict = useRef(false)
+  const settleFrom = useRef<object | null>(null)
+  const [settling, setSettling] = useState(false)
+  useEffect(() => {
+    if (settleFrom.current && app.overviewRevision !== settleFrom.current) {
+      settleFrom.current = null
+      setSettling(false)
+    }
+  }, [app.overviewRevision])
+  const reloadOverview = (saved = false) => {
+    settleFrom.current = app.overviewRevision ?? null
+    setSettling(true)
+    app.reload(saved)
+  }
   useEffect(() => {
     const clean = draft.current === basis.current.current || draft.current === current
     if (conflict.current) {
@@ -219,7 +236,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   if (!edit) return sources()
   if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/inspect/#serve')}>Global view instructions</a></>}</p>{field.key === 'permissions.default-mode' && <GlobalSettingsAction />}</>
   const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
-  if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
+  if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override file'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
   if (app.source.kind !== 'api') return sources()
   const specFile = specPath
   const post = async (body: Record<string, unknown>, expected: string | undefined) => {
@@ -234,7 +251,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
       const next = body.audience === 'personal' ? { ...basis.current, local: saved } : { ...basis.current, team: saved }
       basis.current = { ...next, current: (audience === 'personal' ? next.local ?? next.team : next.team) ?? '' }
       setValue(basis.current.current)
-      app.reload(true)
+      reloadOverview(true)
     } catch (err) {
       const failure = err instanceof EditError ? err : new EditError(String(err))
       const now = latest.current
@@ -243,7 +260,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
         basis.current = now
         setReloaded(true)
         conflict.current = true
-        app.reload()
+        reloadOverview()
         return
       }
       conflict.current = failure.status === 409
@@ -259,9 +276,9 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const configured = audience === 'personal' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
   // A shown preview keeps its draft, so the applied value becomes the new basis.
-  const locked = pending || !!transaction.proposal
+  const locked = pending || settling || !!transaction.proposal
   const resetButton = audience === 'personal' && !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>{resetLabel}</button>
-  const previewing = pending || !transaction.ready
+  const previewing = pending || settling || !transaction.ready
   const preview = async (next: string | null, where: EditAudience) => {
     setError(undefined)
     setReloaded(false)
@@ -294,21 +311,23 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
             {allowed.map((option) => <option key={option} value={option}>{option}</option>)}
           </Select>
           : <input aria-label={valueLabel} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={selectedCurrent === 'null' ? 'Cleared for you' : field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
-        {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>}
+        {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>Apply</button>}
         {!transaction.supported && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>{target ? resetLabel : 'Clear'}</button>}
         {resetButton}
       </div>}
-    {paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override spec'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}
-    {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
-      {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => app.reload()}>Reload saved values</button></>}</span>}
+    {paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override file'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}
+    {error && <Notice tone="error" title="Could not apply the change" actions={error.status === 409 && <button type="button" className="button" disabled={settling} onClick={() => reloadOverview()}>Reload</button>} onDismiss={() => setError(undefined)}>
+      <p>{error.message}</p>
+      {error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
+    </Notice>}
     {transaction.supported && <div className="field-edit-row field-edit-apply">
       <span className="muted">Apply to your tools now:</span>
-      {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, audience) }}>Preview and apply</button>}
+      {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, audience) }}>Preview</button>}
       {!overridden && audience === 'shared' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'shared') }}>{target ? 'Preview using the value for every tool' : 'Preview removal'}</button>}
       {audience === 'personal' && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'personal') }}>Preview local reset</button>}
       {transaction.preparing && <span className="muted">Preparing preview…</span>}
     </div>}
-    {transaction.error && <ChangeError reloadLabel="Reload saved values" />}
+    {transaction.error && <ChangeError />}
     {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={toolLabel ? `${field.label} for ${toolLabel}` : field.label} />}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">

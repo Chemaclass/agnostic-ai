@@ -6,7 +6,8 @@ flags=()
 case "${1:-}" in
   "") ;;
   --race) flags=(-count=1 -race) ;;
-  *) printf 'usage: %s [--race]\n' "$0" >&2; exit 2 ;;
+  --short) flags=(-short) ;;
+  *) printf 'usage: %s [--race|--short]\n' "$0" >&2; exit 2 ;;
 esac
 
 cli_package=$(go list ./internal/cli)

@@ -1,6 +1,8 @@
 package conversations
 
 import (
+	"context"
+	"maps"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -74,10 +76,19 @@ type texts struct {
 	lastPrompt  string
 }
 
-// fill sets the row's title, opening and prompt, withholding any of them
-// that may hold a credential. A row with no title takes the first line
-// of its first prompt.
-func (c *Conversation) fill(t texts) {
+// shownTexts are what a row shows of its texts once any that may hold a
+// credential are withheld.
+type shownTexts struct {
+	title    string
+	opening  []string
+	prompt   string
+	withheld []string
+}
+
+// showTexts withholds any text that may hold a credential. A row with no
+// title takes the first line of its first prompt.
+func showTexts(t texts) shownTexts {
+	var shown shownTexts
 	first := typedText(t.firstPrompt)
 	last := typedText(t.lastPrompt)
 	title := oneLine(t.title)
@@ -86,24 +97,65 @@ func (c *Conversation) fill(t texts) {
 	}
 
 	if mayHoldCredential(title) {
-		c.Withheld = append(c.Withheld, FieldTitle)
+		shown.withheld = append(shown.withheld, FieldTitle)
 	} else {
-		c.Title = truncate(title, titleRunes)
+		shown.title = truncate(title, titleRunes)
 	}
 	if first != "" {
 		if mayHoldCredential(typedLayout(t.firstPrompt)) || mayHoldCredential(first) {
-			c.Withheld = append(c.Withheld, FieldOpening)
+			shown.withheld = append(shown.withheld, FieldOpening)
 		} else {
-			c.Opening = openingOf(first)
+			shown.opening = openingOf(first)
 		}
 	}
 	if last != "" {
 		if mayHoldCredential(typedLayout(t.lastPrompt)) || mayHoldCredential(last) {
-			c.Withheld = append(c.Withheld, FieldPrompt)
+			shown.withheld = append(shown.withheld, FieldPrompt)
 		} else {
-			c.Prompt = truncate(oneLine(last), promptRunes)
+			shown.prompt = truncate(oneLine(last), promptRunes)
 		}
 	}
+	return shown
+}
+
+// shownCache keeps each row's shown texts from one scan to the next,
+// since the credential check costs more than the rest of a warm scan.
+// Texts no scan asked for since the previous one are dropped.
+type shownCache struct {
+	last, next map[texts]shownTexts
+}
+
+func (c *shownCache) start() { c.next = map[texts]shownTexts{} }
+
+// finish keeps what this scan asked for. A canceled scan stopped before
+// it reached every row, so it adds to what the cache held instead.
+func (c *shownCache) finish(ctx context.Context) {
+	if ctx.Err() == nil || c.last == nil {
+		c.last, c.next = c.next, nil
+		return
+	}
+	maps.Copy(c.last, c.next)
+	c.next = nil
+}
+
+func (c *shownCache) get(t texts) shownTexts {
+	if shown, ok := c.next[t]; ok {
+		return shown
+	}
+	shown, ok := c.last[t]
+	if !ok {
+		shown = showTexts(t)
+	}
+	if c.next != nil {
+		c.next[t] = shown
+	}
+	return shown
+}
+
+// fill sets the row's title, opening and prompt from t.
+func (s *Scanner) fill(c *Conversation, t texts) {
+	shown := s.shown.get(t)
+	c.Title, c.Opening, c.Prompt, c.Withheld = shown.title, shown.opening, shown.prompt, shown.withheld
 }
 
 // mayHoldCredential withholds a whole text on any sign of a credential,
@@ -117,17 +169,30 @@ func queryWords(query string) []string {
 	return strings.Fields(strings.ToLower(query))
 }
 
-// matching keeps the conversations whose shown text holds every word:
-// title, folder, branch, opening lines, latest prompt, tool and app. A
-// withheld field is not shown, so it does not match either.
+// matching keeps the conversations whose row text holds every word:
+// title, folder, branch, latest prompt, tool and app, the fields a row
+// shows. A withheld field is not shown, so it does not match either.
 func matching(list []Conversation, words []string) []Conversation {
 	var kept []Conversation
 	for _, c := range list {
-		if holdsAll(strings.Join(append([]string{c.Title, c.Folder, c.Branch, c.Prompt, toolLabels[c.Tool], string(c.App)}, c.Opening...), "\n"), words) {
+		if holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), toolLabels[c.Tool], string(c.App)}, "\n"), words) {
 			kept = append(kept, c)
 		}
 	}
 	return kept
+}
+
+// typedShell is a command typed with Claude Code's ! prefix, which the
+// page shows as "! command"; the tool may cut the closing tag.
+var typedShell = regexp.MustCompile(`^\s*<bash-input>((?s).*?)(?:</bash-input>\s*)?$`)
+
+// asShown reads a title or prompt the way the page shows it, so a search
+// matches the text a person sees and never the markup around it.
+func asShown(text string) string {
+	if match := typedShell.FindStringSubmatch(text); match != nil {
+		return "! " + match[1]
+	}
+	return text
 }
 
 // holdsAll reports whether text holds each lowercase word, ignoring case.
@@ -139,32 +204,4 @@ func holdsAll(text string, words []string) bool {
 		}
 	}
 	return true
-}
-
-// filled is what fill wrote for one set of raw texts.
-type filled struct {
-	texts    texts
-	title    string
-	opening  []string
-	prompt   string
-	withheld []string
-}
-
-// fill sets a row's shown text from its raw texts, reusing the last
-// result while the texts are the same: the credential check is the
-// costly part of a scan.
-func (s *Scanner) fill(c *Conversation, t texts) {
-	if s.filled == nil {
-		s.filled = map[string]filled{}
-	}
-	key := string(c.Tool) + ":" + c.ID
-	if hit, ok := s.filled[key]; ok && hit.texts == t {
-		c.Title, c.Opening, c.Prompt, c.Withheld = hit.title, hit.opening, hit.prompt, hit.withheld
-		c.pending = nil
-		return
-	}
-	c.Title, c.Opening, c.Prompt, c.Withheld = "", nil, "", nil
-	c.fill(t)
-	c.pending = nil
-	s.filled[key] = filled{texts: t, title: c.Title, opening: c.Opening, prompt: c.Prompt, withheld: c.Withheld}
 }

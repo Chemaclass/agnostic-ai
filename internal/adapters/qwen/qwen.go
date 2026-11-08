@@ -1,9 +1,9 @@
-// Package qwen emits native Qwen Code configuration for released CLI v0.26.0.
+// Package qwen emits native Qwen Code configuration for released CLI v0.27.0.
 //
 // Unscoped rules are inlined into QWEN.md. A rule with file globs goes to
 // `.qwen/rules/<name>.md` with `paths:` frontmatter, which Qwen keeps out of
 // the prompt until a tool reads or edits a matching file
-// (packages/core/src/config/rulesDiscovery.ts at v0.26.0).
+// (packages/core/src/config/rulesDiscovery.ts at v0.27.0).
 package qwen
 
 import (
