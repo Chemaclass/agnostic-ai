@@ -16,10 +16,10 @@ const (
 )
 
 // ColorEnabled reports whether ANSI sequences should be emitted to w.
-// True only when w refers to a character device (tty) and NO_COLOR is
-// unset. https://no-color.org governs the env opt-out.
+// True only when w refers to a character device (tty), NO_COLOR is unset
+// (https://no-color.org) and TERM is not "dumb".
 func ColorEnabled(w io.Writer) bool {
-	if os.Getenv("NO_COLOR") != "" {
+	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" {
 		return false
 	}
 	f, ok := w.(*os.File)
