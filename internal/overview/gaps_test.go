@@ -105,16 +105,27 @@ func TestBuild_ListsNoGapsForTheUserConfiguration(t *testing.T) {
 	}
 }
 
-func TestBuild_CountsOnlyTheProjectsOwnSpecs(t *testing.T) {
+func TestBuild_ABuiltInSpecFillsNoKindGap(t *testing.T) {
 	skill := entry(spec.KindSkill, "handoff", "/cache/builtins/handoff/skills/handoff/SKILL.md", nil)
 	skill.Layer = builtinLayer
-	hook := entry(spec.KindHook, "memory", "/cache/builtins/memory/hooks/memory.yaml", map[string]any{"on": "session-start"})
+	gaps := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}, Builtins: []string{"handoff"}}, Bundle: spec.Bundle{Skills: []spec.Entry{skill}}}).Health.Gaps
+	if _, ok := gapByID(gaps, "kind:skill"); !ok {
+		t.Error("a built-in skill filled kind:skill")
+	}
+}
+
+func TestBuild_AnEnabledBuiltInHookFillsItsStage(t *testing.T) {
+	hook := entry(spec.KindHook, "memory-session-start", "/cache/builtins/memory/hooks/memory-session-start.yaml", map[string]any{"on": "session-start"})
 	hook.Layer = builtinLayer
-	gaps := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}, Builtins: []string{"handoff", "memory"}}, Bundle: spec.Bundle{Skills: []spec.Entry{skill}, Hooks: []spec.Entry{hook}}}).Health.Gaps
-	for _, id := range []string{"kind:skill", "stage:session-start"} {
-		if _, ok := gapByID(gaps, id); !ok {
-			t.Errorf("a built-in spec filled %s", id)
-		}
+	h := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}, Bundle: spec.Bundle{Hooks: []spec.Entry{hook}}}).Health
+	if _, ok := gapByID(h.Gaps, "stage:session-start"); ok {
+		t.Error("session start is reported as having no hook while the memory built-in runs one there")
+	}
+	if _, ok := gapByID(h.Gaps, "stage:stop"); !ok {
+		t.Error("the session-start built-in filled another stage")
+	}
+	if h.Improvements.Applied != h.Improvements.Total-len(h.Gaps) {
+		t.Errorf("improvements %+v with %d gaps", *h.Improvements, len(h.Gaps))
 	}
 }
 

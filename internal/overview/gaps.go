@@ -69,7 +69,8 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 			continue
 		}
 		total++
-		if slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool { return ownSpec(e) && runsAt(e, st.id, targets) }) {
+		// Any hook that runs at the stage fills it, an enabled built-in's included.
+		if slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool { return runsAt(e, st.id, targets) }) {
 			continue
 		}
 		gaps = append(gaps, Gap{
@@ -109,7 +110,7 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 }
 
 // ownSpec reports whether the project wrote e. A built-in ships a fixed
-// spec, so it fills no gap.
+// spec, so it fills no kind gap.
 func ownSpec(e spec.Entry) bool {
 	return e.Layer != builtinLayer
 }
