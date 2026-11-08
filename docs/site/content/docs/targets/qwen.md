@@ -10,7 +10,7 @@ target_id = "qwen"
 
 # Qwen Code (`qwen`)
 
-agnostic-ai writes Qwen Code's native project files and imports existing ones. This target follows [Qwen Code v0.26.0](https://github.com/QwenLM/qwen-code/releases/tag/v0.26.0).
+agnostic-ai writes Qwen Code's native project files and imports existing ones. This target follows [Qwen Code v0.27.0](https://github.com/QwenLM/qwen-code/releases/tag/v0.27.0).
 
 ## First rule
 
@@ -62,7 +62,7 @@ Skills keep their bundled files. Qwen Code also reads `.agents/skills/`, and its
 
 MCP servers share `settings.json` under `mcpServers`. Stdio uses `command`, `args`, `env`, and optional `cwd`; HTTP uses `httpUrl`, and SSE uses `url`. MCP timeouts are milliseconds. Servers marked `disabled: true` are omitted from this output because Qwen ignores that per-server field. A same-name server in existing or inherited configuration can still load; use native `mcp.excluded` to block it. Environment placeholders stay literal until Qwen resolves them. See the [native MCP reference](https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/).
 
-Hooks share `settings.json` under `hooks`. Portable `on`, `match`, and `decision: stdout` map to Qwen events, tool names, and blocking decisions. Hook timeouts are seconds. Sync quotes portable arguments into the shell command because Qwen has no separate `args` field. Portable hooks that exit 2 block pre-tool, prompt-submit, and stop events; after-tool and after-edit stop further execution. Session-start and session-end keep their native lifecycle behavior. Project import preserves native command, HTTP, and prompt handlers and their metadata.
+Hooks share `settings.json` under `hooks`. Portable `on`, `match`, and `decision: stdout` map to Qwen events, tool names, and blocking decisions. Hook timeouts are seconds. Sync quotes portable arguments into the shell command because Qwen has no separate `args` field. Portable hooks that exit 2 block pre-tool, prompt-submit, and stop events; after-tool and after-edit stop further execution. Session-start and session-end keep their native lifecycle behavior. Native `FileChanged` hooks (Qwen Code 0.27.0) take literal filenames or a basename pattern in `matcher`. Project import preserves native command, HTTP, and prompt handlers and their metadata.
 
 Settings map portable `model` to `model.name` and permission lists to `permissions.allow`, `permissions.ask`, and `permissions.deny`. Keys under `x-qwen` keep their native spelling. Native `x-qwen.mcpServers` records override portable servers with the same name. Native and portable hook entries are combined. Sync preserves unrelated settings, including the active `disableAllHooks` setting. Legacy `hooks.enabled`, `hooks.disabled`, and `hooks.notifications` metadata is preserved but does not disable hooks in this release. See [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/).
 

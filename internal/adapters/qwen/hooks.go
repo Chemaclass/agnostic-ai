@@ -152,5 +152,5 @@ func HookTimeout(meta map[string]any) (any, bool) {
 }
 
 func HookEvents() []string {
-	return []string{"PreToolUse", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "UserPromptSubmit", "UserPromptExpansion", "SessionStart", "Stop", "MessageDisplay", "SubagentStart", "SubagentStop", "PreCompact", "PostCompact", "SessionEnd", "SessionDelete", "PermissionRequest", "PermissionDenied", "StopFailure", "TodoCreated", "TodoCompleted", "InstructionsLoaded"}
+	return []string{"PreToolUse", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "UserPromptSubmit", "UserPromptExpansion", "SessionStart", "Stop", "MessageDisplay", "SubagentStart", "SubagentStop", "PreCompact", "PostCompact", "SessionEnd", "SessionDelete", "PermissionRequest", "PermissionDenied", "StopFailure", "TodoCreated", "TodoCompleted", "InstructionsLoaded", "FileChanged"}
 }

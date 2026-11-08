@@ -288,8 +288,8 @@ qoder	docs	https://docs.qoder.com/user-guide/chat/model-context-protocol.md	200	
 qoder	docs	https://docs.qoder.com/user-guide/commands.md	200	markdown-mirror	4dc0b6b7f45bebbc0004c542da409a78c76179d0c77a0d8532e53f42f61fc0bf	2026-09-25
 qoder	docs	https://docs.qoder.com/user-guide/rules.md	200	markdown-mirror	4df775be049af460957dc18aa8978673cff96f28db6755c7e234fab723e29fc7	2026-09-25
 qwen	changelog	https://github.com/QwenLM/qwen-code/releases	200	github-api	7021581218322339c89f1769a7a4449804f78c410ff34ced0a64af61df4610fd	2026-11-08
-qwen	code	https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/config/storage.ts	200	raw-github	21bcd472463f36f7a7083df19c446e0d9a59c66c6e41c48422c05ebfaf7e8ad8	2026-10-23
-qwen	code	https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/hooks/types.ts	200	raw-github	458fdd1292ce1494b442b3afe05566ccf4b28868f4d6bf19ead81c358ba3a0aa	2026-10-23
+qwen	code	https://github.com/QwenLM/qwen-code/blob/v0.27.0/packages/core/src/config/storage.ts	200	raw-github	21bcd472463f36f7a7083df19c446e0d9a59c66c6e41c48422c05ebfaf7e8ad8	2026-11-08
+qwen	code	https://github.com/QwenLM/qwen-code/blob/v0.27.0/packages/core/src/hooks/types.ts	200	raw-github	b0127c3dc5939e9f797a93eba6d75465fbc59630a8264f79ae2aff8c53e1e719	2026-11-08
 qwen	docs	https://qwenlm.github.io/qwen-code-docs/en/users/configuration/qwen-ignore/	200	html	a29e865bb906b8c814941e8508bfcf209c3dda6af3132a2430537b661d7a071c	2026-11-06
 qwen	docs	https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/	200	html	f34327e38f897370a7ba851357d33d9efe4b464a0cbdf3afb8a232941af57022	2026-11-06
 qwen	docs	https://qwenlm.github.io/qwen-code-docs/en/users/features/commands/	200	html	4d82b0246bdc72c88eb7b096cfa7eb03cdd97ecbfd687035c741cc3ceaeee9c5	2026-11-06

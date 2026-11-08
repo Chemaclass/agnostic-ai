@@ -254,6 +254,25 @@ func TestEmit_NativeHookHandlersAndUnknownEvents(t *testing.T) {
 	}
 }
 
+func TestEmit_FileChangedHookReachesSettings(t *testing.T) {
+	testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "envrc", Meta: map[string]any{"event": "FileChanged", "matcher": ".envrc", "command": "direnv reload"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(".qwen/settings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"FileChanged"`, `".envrc"`, "direnv reload"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("missing %s: %s", want, data)
+		}
+	}
+}
+
 func TestEmit_RejectsCommandNamespaceTraversal(t *testing.T) {
 	testutil.TempCwd(t)
 	for _, name := range []string{"..:..:escape", ":deploy", "safe::deploy"} {
