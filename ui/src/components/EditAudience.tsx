@@ -69,28 +69,27 @@ export function ViewPersonalButton() {
 export function EditAudienceSwitch() {
   const app = useApp()
   const state = useContext(Audience)
-  const labelId = useId()
+  const hintId = useId()
   if (!state || app.source.kind !== 'api') return null
   const viewing = app.state.view === 'settings' || app.state.view === 'authority'
   const global = app.overview?.global === true
   const localFolder = global ? '~/.agnostic-ai/local' : '.agnostic-ai/local'
+  const hint = state.audience === 'shared'
+    ? `${global ? 'Global files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
+    : `Local files in ${localFolder}, ignored by Git.${viewing ? ' Local values win.' : ''}`
   const option = (value: EditAudience) => (
     <button type="button" aria-label={audienceDescription(value, global)} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>
       {audienceLabel(value, global)}
     </button>
   )
+  // The hint is the switch's tooltip; screen readers hear it as a status when the choice changes.
   return (
-    <div className="edit-scope">
-      <span id={labelId} className="edit-scope-label">{viewing ? 'View and edit' : 'Save new servers for'}</span>
-      <div className="segmented" role="group" aria-labelledby={labelId}>
+    <div className="edit-scope" title={hint}>
+      <div className="segmented" role="group" aria-label={viewing ? 'View and edit' : 'Save new servers for'} aria-describedby={hintId}>
         {option('shared')}
         {option('personal')}
       </div>
-      <p className="muted edit-scope-hint" role="status">
-        {state.audience === 'shared'
-          ? `${global ? 'Global files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
-          : `Local files in ${localFolder}, ignored by Git.${viewing ? ' Local values win.' : ''}`}
-      </p>
+      <p id={hintId} className="sr-only edit-scope-hint" role="status">{hint}</p>
     </div>
   )
 }

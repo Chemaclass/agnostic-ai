@@ -136,20 +136,11 @@ textarea:focus {
   outline: none;
 }
 
-/* Page frame: the section name as a label, the verdict sentence, then one facts line. */
+/* Page frame: the verdict sentence, then one facts line. The section name
+   stays as a hidden h1, since the rail already names the page. */
 
 .page-header.has-verdict {
   gap: 12px;
-}
-
-.page-header.has-verdict h1 {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  line-height: var(--leading-2xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
 }
 
 .page-verdict {
@@ -180,11 +171,11 @@ textarea:focus {
 
 /* The separator trails its fact, so a wrapped line never starts with it. */
 
-.page-fact:has(+ .page-fact) {
+.page-fact:has(+ .page-fact, + .page-facts-support) {
   margin-inline-end: 10px;
 }
 
-.page-fact:has(+ .page-fact)::after {
+.page-fact:has(+ .page-fact, + .page-facts-support)::after {
   content: '·';
   margin-inline-start: 4px;
   font-weight: 400;
@@ -209,10 +200,27 @@ textarea:focus {
 .page-facts-review {
   min-height: 32px;
   margin-inline-start: 12px;
+  margin-inline-end: 16px;
   padding-block: 4px;
 }
 
-/* The filter row: one field, a count only while filtering, Docs at its right. */
+.page-facts .page-facts-support {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  text-decoration: none;
+}
+
+.page-facts .page-facts-support:hover {
+  text-decoration: underline;
+}
+
+.page-facts-end {
+  margin-inline-start: auto;
+  padding-inline-start: 16px;
+}
+
+/* The toolbar: one field, a count only while filtering, then the Project | Local switch. */
 
 .section-search {
   display: flex;
@@ -266,10 +274,6 @@ textarea:focus {
   display: none;
 }
 
-.section-search > .section-doc-link {
-  margin-inline-start: auto;
-}
-
 /* Empty states: what the type is, who uses it, and the next step. No box. */
 
 .empty-state {
@@ -305,10 +309,6 @@ textarea:focus {
 }
 
 @media (max-width: 760px) {
-  .page-verdict {
-    font-size: var(--text-2xl);
-  }
-
   .section-search-input {
     flex: 1 1 200px;
   }
@@ -318,7 +318,8 @@ textarea:focus {
     min-height: 44px;
   }
 
-  .page-facts-review {
+  .page-facts-review,
+  .page-facts .page-facts-support {
     min-height: 44px;
   }
 }
@@ -1248,66 +1249,49 @@ textarea:focus {
   }
 }
 
-/* Coding tool support folds below the content, with a one-line summary. */
+/* Coding tool support opens from the facts line as an overlay. */
 
-.support-frame {
-  position: relative;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+.support-dialog {
+  width: min(960px, calc(100vw - 48px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--overlay-shadow);
 }
 
-.support-block {
-  display: block;
+.support-dialog::backdrop {
+  background: var(--backdrop);
 }
 
-.support-summary {
+.support-dialog-body {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 2px 10px;
-  min-height: 40px;
-  padding-right: 72px;
-  cursor: pointer;
-  list-style: none;
+  gap: 16px;
+  padding: 24px;
 }
 
-.support-summary::-webkit-details-marker {
-  display: none;
+.support-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.support-summary::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-right: 1.5px solid var(--text-muted);
-  border-bottom: 1.5px solid var(--text-muted);
-  transform: rotate(-45deg);
-  transition: transform var(--dur-2) var(--ease-out);
-}
-
-.support-block[open] > .support-summary::before {
-  transform: rotate(45deg);
-}
-
-.support-summary h2 {
-  font-family: var(--font-body);
-  font-size: var(--text-body);
+.support-dialog-head h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: var(--leading-xl);
 }
 
 .support-line {
-  grid-column: 2;
+  margin-top: 4px;
   font-size: var(--text-sm);
   color: var(--text-muted);
-}
-
-.support-summary:hover h2 {
-  color: var(--accent-strong);
-}
-
-.support-block > .table-wrap {
-  margin-top: 12px;
 }
 
 .tool-tag {
@@ -1321,17 +1305,17 @@ textarea:focus {
   white-space: nowrap;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .support-summary::before {
-    transition: none;
+@media (max-width: 760px) {
+  .support-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .support-dialog-body {
+    padding: 16px;
   }
 }
 
-@media (max-width: 760px) {
-  .support-summary {
-    min-height: 44px;
-  }
-}
 .support-status-label {
   display: none;
 }
@@ -2157,5 +2141,94 @@ textarea:focus {
   .item-source > summary {
     min-height: 44px;
     align-content: center;
+  }
+}
+
+/* Row actions: one primary action stays; the rest show on row hover or
+   keyboard focus, with the row filled `surface`. They stay in the layout
+   and in the tab order while faded, so the row never jumps. The wrapper
+   adds no box, so its actions lay out as the row's own; a status line,
+   such as the editor hint, never fades. */
+
+.row-hover {
+  border-radius: var(--radius);
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+
+.row-hover:hover,
+.row-hover:focus-within {
+  background: var(--panel);
+}
+
+.row-actions {
+  display: contents;
+}
+
+.row-actions > :not([role='status']) {
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
+.row-hover:hover .row-actions > *,
+.row-hover:focus-within .row-actions > *,
+.row-actions:focus-within > * {
+  opacity: 1;
+}
+
+/* On touch screens and phones the same actions sit behind a ⋯ menu. */
+
+.row-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.row-menu-button {
+  min-height: 44px;
+  width: 44px;
+}
+
+.row-menu-panel:not([hidden]) {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 200px;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--overlay-shadow);
+}
+
+.row-menu-panel.is-start {
+  right: auto;
+  left: 0;
+}
+
+.row-menu-panel.is-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.row-menu-panel .button {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-hover,
+  .row-actions > * {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .row-actions > :not([role='status']) {
+    opacity: 1;
+  }
+
+  .row-menu-panel:not([hidden]) {
+    border: 1px solid CanvasText;
   }
 }

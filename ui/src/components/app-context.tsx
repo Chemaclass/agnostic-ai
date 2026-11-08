@@ -55,7 +55,8 @@ export function AppLink({ to, children, onNavigate, ...rest }: { to: Partial<Url
 export function PageHeader({ title, verdict, subtitle, children }: { title: ReactNode; verdict?: ReactNode; subtitle?: ReactNode; children?: ReactNode }) {
   return (
     <header className={`page-header${verdict ? ' has-verdict' : ''}`}>
-      <h1 id="page-title" tabIndex={-1}>
+      {/* With a verdict the rail already names the page, so the name stays for screen readers only. */}
+      <h1 id="page-title" tabIndex={-1} className={verdict ? 'sr-only' : undefined}>
         {title}
       </h1>
       {verdict && <p className="page-verdict">{verdict}</p>}

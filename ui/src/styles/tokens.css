@@ -135,7 +135,7 @@
   --text-lg: 16px;
   --text-xl: 22px;
   --text-2xl: 34px;
-  --text-verdict: 52px;
+  --text-verdict: 40px;
   --text-stat: 40px;
   --leading-2xs: 1.3;
   --leading-xs: 1.4;
@@ -199,6 +199,14 @@
   --overlay-shadow: 0 0 0 1px var(--line), 0 16px 40px -12px rgb(16 20 21 / 0.25);
   --rail: #22282a;
   --rail-raised: #2f3739;
+}
+
+/* Phones set the verdict smaller so one sentence fits in three lines. */
+
+@media (max-width: 760px) {
+  :root {
+    --text-verdict: 30px;
+  }
 }
 
 /* The rail is dark slate in both themes, so everything on it reads the

@@ -238,7 +238,7 @@ function PermissionForm({ field, files, sources, path, select }: PermissionEdito
       </div>
       <p>{audienceDescription(audience, global)} · <Code>{preview.file}</Code></p>
       <FileDiff label={`${field.label} file changes`} diff={preview.diff} />
-      <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools. Tool support varies; see Coding tool support below.</p>
+      <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools. Tool support varies; see Tool support at the top of the page.</p>
     </section>}
     {error && <EditFailure error={error} action={failed} busy={waiting} onReload={() => { refreshing.current = true; awaitRefresh(); app.reload() }} onDismiss={() => { setError(undefined); refocus() }} />}
     {refreshed && <div role="status"><Notice tone="info" title="Saved rules refreshed" onDismiss={() => { setRefreshed(false); refocus() }}><p>Your draft is kept. Preview again to compare it with the saved list.</p></Notice></div>}

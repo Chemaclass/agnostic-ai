@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { API, type OverviewView, type Section } from '../contract'
 import { postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
@@ -21,7 +21,7 @@ import { filterTools, toolCount } from '../model/coding-tools'
 import { docsTopic, entryTab, landingTab, nativeSearchText, sectionTabs, tabTitle } from '../model/section-tabs'
 import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
-import { Badge, Code, Icon, toolName } from './ui'
+import { Badge, Code, Icon } from './ui'
 import { EmptyState } from './EmptyState'
 import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings } from '../model/verdict'
 import { ConfigurationRoot, ConfiguredTools, PersonalBuiltins } from './section-context'
@@ -30,11 +30,13 @@ import { ConfigurationFiles, GroupedItems, sharedUnlistedCommand } from './Items
 import { NativeServers } from './NativeServers'
 import { Lifecycle } from './Lifecycle'
 import { Findings } from './Findings'
-import { SupportTable } from './SupportTable'
+import { SupportLink } from './SupportTable'
 import { ResetAction } from './EditSwitch'
 
 export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
   const data = overview.loaded?.data
+  const [docs, setDocs] = useState<{ section: string; topic: string }>()
+  const reportDocs = useCallback((section: string, topic: string) => setDocs((shown) => (shown?.section === section && shown.topic === topic ? shown : { section, topic })), [])
   if (!data) {
     return (
       <>
@@ -54,21 +56,23 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
   }
   const toolLabel = (target: string) => data.targets.find((t) => t.target === target)?.label ?? target
 
+  const topic = docs?.section === section.id ? docs.topic : docsTopic(section, undefined)
+
   return (
-    <>
+    <DocsTopic.Provider value={reportDocs}>
       <PageHeader title={section.label} verdict={sectionVerdict(section)}>
-        <SectionFacts section={section} />
+        <SectionFacts key={section.id} section={section} docs={topic} support={<SupportLink key={section.id} section={section} toolLabel={toolLabel} />} />
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
           <ConfiguredTools.Provider value={data.targets}>
             <EditAudienceProvider key={`${data.snapshot.project.root}:${section.id}`} enabled={section.id === 'settings' || section.id === 'tools' || section.id === 'authority'}>
-              <SectionContents section={section} support={<SupportTable key={section.id} section={section} toolLabel={toolLabel} />} />
+              <SectionContents section={section} />
             </EditAudienceProvider>
           </ConfiguredTools.Provider>
         </ConfigurationRoot.Provider>
       </fieldset>
-    </>
+    </DocsTopic.Provider>
   )
 }
 
@@ -82,13 +86,16 @@ export function revealFindings(findingsId: string) {
   heading.focus({ preventScroll: true })
 }
 
-function SectionFacts({ section }: { section: Section }) {
+// The Docs link in the facts line follows the open tab, which the page body works out.
+const DocsTopic = createContext<(section: string, topic: string) => void>(() => {})
+
+function SectionFacts({ section, docs, support }: { section: Section; docs: string; support: ReactNode }) {
   const app = useApp()
   const tally = tallyFindings(sectionFindings(section))
   const findings = findingTallyText(tally)
   const total = tally.errors + tally.warnings
-  const facts = sectionFacts(section, toolName, app.overview?.global === true)
-  const tone = tally.errors ? 'is-error' : tally.warnings ? 'is-warning' : 'is-clean'
+  const facts = sectionFacts(section, app.overview?.global === true)
+  const tone = tally.errors ? 'is-error' : 'is-warning'
   const shownAbove = section.findings.some((finding) => finding.severity === 'error')
   // Review leads to the first finding: the section's own list, else the first row that has one.
   const review = () => {
@@ -97,14 +104,18 @@ function SectionFacts({ section }: { section: Section }) {
     if (item) app.navigate({ view: section.id, tab: undefined, q: undefined, entry: findingEntryIds(item.findings, itemEntryId(item))[0] })
   }
   return (
-    <p className="page-facts">
-      {facts.map((fact) => <span key={fact} className="page-fact">{fact}</span>)}
-      <span className={`page-fact page-fact-findings ${tone}`} role={shownAbove ? 'alert' : undefined}>
-        {findings && <Icon name="warning" />}
-        {findings ?? 'No findings'}
-      </span>
-      {total > 0 && <button type="button" className="button page-facts-review" onClick={review}>Review {total} finding{total === 1 ? '' : 's'}</button>}
-    </p>
+      <div className="page-facts">
+        {facts.map((fact) => <span key={fact} className="page-fact">{fact}</span>)}
+        {findings && (
+          <span className={`page-fact page-fact-findings ${tone}`} role={shownAbove ? 'alert' : undefined}>
+            <Icon name="warning" />
+            {findings}
+          </span>
+        )}
+        {total > 0 && <button type="button" className="button page-facts-review" onClick={review}>Review {total} finding{total === 1 ? '' : 's'}</button>}
+        {support}
+        <span className="page-facts-end"><DocLink topic={docs} /></span>
+      </div>
   )
 }
 
@@ -113,13 +124,13 @@ function hasChanges(section: Section) {
   return section.items.some((item) => item.kind === 'builtin') || (section.fields ?? []).some((field) => (field.key === 'model' || field.key === 'effort') && field.editable && !field.editable.disabledReason)
 }
 
-export function SectionContents({ section, support }: { section: Section; support?: ReactNode }) {
+export function SectionContents({ section }: { section: Section }) {
   const changes = hasChanges(section)
   const personalBuiltins = section.kinds.some((kind) => kind.kind === 'builtin' && kind.local) || section.items.some((item) => item.kind === 'builtin' && item.local)
-  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} support={support} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
+  return <PersonalBuiltins.Provider value={personalBuiltins}><BuiltinChangeProvider active={changes}><PermissionEditProvider><SectionContentsBody section={section} changes={changes} /></PermissionEditProvider></BuiltinChangeProvider></PersonalBuiltins.Provider>
 }
 
-function SectionContentsBody({ section, changes, support }: { section: Section; changes: boolean; support?: ReactNode }) {
+function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
   const app = useApp()
   const audience = useViewAudience()
   const [warningsExpanded, setWarningsExpanded] = useState(false)
@@ -188,6 +199,9 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
     if (count === 0) count = undefined
     return { id: tab.id, label: tab.label, title: tabTitle(section, tab), count, findings: items.reduce((sum, item) => sum + item.findings.length, 0) }
   })
+  const setDocsTopic = useContext(DocsTopic)
+  const topic = docsTopic(section, activePanel)
+  useLayoutEffect(() => setDocsTopic(section.id, topic), [setDocsTopic, section.id, topic])
   const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
   useEffect(() => {
     if (!entry) return
@@ -242,7 +256,6 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
         {scoped && <EditAudienceSwitch />}
-        <DocLink topic={docsTopic(section, activePanel)} />
       </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
@@ -291,7 +304,6 @@ function SectionContentsBody({ section, changes, support }: { section: Section; 
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
-      {support}
       </SpecMovedSaver.Provider>
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>
