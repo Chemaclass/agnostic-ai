@@ -141,7 +141,7 @@ vendor_watch_report() {
         suppressed = suppressed "- " $3 " (`" tag[rowkey] "`); raw delta: `" delta[rowkey] "`\n"
         next
       }
-      label = ($8 == "failed") ? "failed (HTTP " $4 ")" : $8
+      label = ($8 == "failed") ? "failed (HTTP " $4 ($4 == "200" ? ", " $5 : "") ")" : $8
       if ($8 != "failed" && tag[rowkey] == "historical-additions:v1") label = "historical additions (unreviewed)"
       if (!($1 in rows)) order[++n] = $1
       rows[$1] = rows[$1] "- " label ": " $3 ((rowkey in tag) ? " (`" tag[rowkey] "`)" : "") ((rowkey in delta) && delta[rowkey] != "" ? "; raw delta: `" delta[rowkey] "`" : "") "\n"

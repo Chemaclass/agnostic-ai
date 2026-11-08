@@ -158,7 +158,7 @@ function test_record_keeps_a_failure_for_30_days_after_its_last_run() {
 function test_report_names_a_content_failure_again_when_its_mode_changes() {
   printf 'cursor\tdocs\thttps://cursor.com/docs/rules\t200\tsoft-404\t-\t2026-11-08\tfailed\thttps://cursor.com/docs/rules\t\n' >"$FIXTURES/removed.tsv"
   printf 'https://cursor.com/docs/rules\tfailed-200-app-shell\n' >"$FIXTURES/known"
-  assert_contains "- failed (HTTP 200): https://cursor.com/docs/rules" \
+  assert_contains "- failed (HTTP 200, soft-404): https://cursor.com/docs/rules" \
     "$(vendor_watch_report "$FIXTURES/removed.tsv" /dev/null "$FIXTURES/known")"
   assert_contains "failed-200-soft-404" "$(vendor_watch_keys "$FIXTURES/removed.tsv")"
 }
