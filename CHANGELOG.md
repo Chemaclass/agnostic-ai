@@ -10,7 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Upgrades
 
-- The automatic upgrade has the new release update `requires`, so fixes to that step apply in the same upgrade. This takes effect for upgrades started from this release onward.
+- The automatic upgrade has the new release update `requires`, so fixes to that step apply in the same upgrade. This takes effect for upgrades started from this release onward (#3196).
 
 ## v0.92.0 - 2026-11-08
 
