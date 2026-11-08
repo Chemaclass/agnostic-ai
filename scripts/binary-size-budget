@@ -830,4 +830,8 @@
 # up to a multiple of 4096.
 # The dropdown panel for Safari and Firefox measured 25415840 bytes
 # locally; the budget is that plus 8192, rounded up to a multiple of 4096.
-25427968
+# The Authority rules table and Add a rule menu measured 25428128 bytes
+# locally; the budget is that plus 8192, rounded up to a multiple of 4096.
+# The Tools and Settings calm rows measured 25440416 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+25452544

@@ -27,11 +27,13 @@ import { EmptyState } from './EmptyState'
 import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings, verdictKey } from '../model/verdict'
 import { ConfigurationRoot, ConfiguredTools, PersonalBuiltins } from './section-context'
 import { SettingsFields } from './Fields'
+import { AuthorityFields, AuthorityToolbarAction } from './Authority'
 import { ConfigurationFiles, GroupedItems, sharedUnlistedCommand } from './Items'
 import { NativeServers } from './NativeServers'
 import { Lifecycle } from './Lifecycle'
 import { Findings } from './Findings'
 import { SupportLink } from './SupportTable'
+import { ToolbarActionSlot } from './ToolbarAction'
 import { ResetAction } from './EditSwitch'
 
 export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
@@ -105,7 +107,7 @@ function SectionFacts({ section, docs, lead, support }: { section: Section; docs
   const tally = tallyFindings(sectionFindings(section))
   const findings = findingTallyText(tally)
   const total = tally.errors + tally.warnings
-  const facts = sectionFacts(section, app.overview?.global === true, section.id === 'settings' && app.overview?.tools.items.length ? toolCount(app.overview.tools.items, 'shared') : undefined)
+  const facts = sectionFacts(section, section.id === 'settings' && app.overview?.tools.items.length ? toolCount(app.overview.tools.items, 'shared') : undefined)
   const tone = tally.errors ? 'is-error' : 'is-warning'
   const shownAbove = section.findings.some((finding) => finding.severity === 'error')
   // Review leads to the first finding: the section's own list, else the first row that has one.
@@ -146,6 +148,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const app = useApp()
   const audience = useViewAudience()
   const [warningsExpanded, setWarningsExpanded] = useState(false)
+  const [toolbarAction, setToolbarAction] = useState<HTMLElement | null>(null)
   const personalBuiltins = useContext(PersonalBuiltins)
   const level = useLevelName()
   const root = useContext(ConfigurationRoot)
@@ -248,6 +251,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     <RecheckSection.Provider value={section.id}>
       <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
       <SpecMovedSaver.Provider value={saveSpecMoved}>
+      <ToolbarActionSlot.Provider value={toolbarAction}>
       {app.source.kind === 'api' && specMoved && <SpecMovedNotice moved={specMoved} dismiss={() => saveSpecMoved()} />}
       {entryMissing && (
         <div className="entry-missing" role="status">
@@ -256,6 +260,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         </div>
       )}
       {errors > 0 && otherFindings}
+      <div className="section-toolbar">
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId} className="sr-only">Search {section.label.toLowerCase()}</label>
         <div className="section-search-input">
@@ -271,6 +276,9 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
         {scoped && <EditAudienceSwitch />}
+        {section.id === 'authority' && section.fields && <AuthorityToolbarAction fields={section.fields} />}
+      </div>
+      <span ref={setToolbarAction} className="section-toolbar-action" />
       </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
@@ -286,6 +294,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       {section.kinds.filter((kind) => panel.kinds.includes(kind.kind)).map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
+        if (k.kind === 'settings' && section.id === 'authority' && section.fields) return <AuthorityFields key={k.kind} title={k.label} headingEntry={kindEntryId(k.kind)} fields={section.fields} files={items} query={query} />
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} support={section.support.find((entry) => entry.kind === k.kind)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
@@ -320,6 +329,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
+      </ToolbarActionSlot.Provider>
       </SpecMovedSaver.Provider>
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>

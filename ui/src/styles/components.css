@@ -288,6 +288,28 @@ textarea:focus {
   display: none;
 }
 
+/* The page's one primary action sits at the toolbar's end, outside the search landmark. */
+
+.section-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.section-toolbar > .section-search {
+  flex: 1 1 auto;
+}
+
+.section-toolbar-action {
+  display: flex;
+  margin-inline-start: auto;
+}
+
+.section-toolbar-action:empty {
+  display: none;
+}
+
 /* Empty states: what the type is, who uses it, and the next step. No box. */
 
 .empty-state {
@@ -330,6 +352,15 @@ textarea:focus {
   .section-search input {
     font-size: 16px;
     min-height: 44px;
+  }
+
+  .section-toolbar-action,
+  .section-toolbar-action > .button {
+    flex: 1 1 100%;
+  }
+
+  .section-toolbar-action > .button {
+    justify-content: center;
   }
 
   .page-facts-review,
