@@ -126,6 +126,7 @@ func newUpgradeCmdWithDeps(deps upgradeDeps) *cobra.Command {
 		checkOnly     bool
 		targetVersion string
 		reconcile     bool
+		guided        bool
 	)
 	cmd := &cobra.Command{
 		Use:     "upgrade",
@@ -170,11 +171,17 @@ is still accepted for compatibility.`,
   # Diagnose install location + PATH shadowing
   agnostic-ai upgrade --check`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if guided && !reconcile {
+				return errs.Coded(errs.CodeFlagConflict, "--guided needs --requires")
+			}
 			if reconcile {
 				for _, flag := range []string{"version", "check", "run"} {
 					if cmd.Flags().Changed(flag) {
 						return errs.Coded(errs.CodeFlagConflict, "--requires cannot be combined with --%s", flag)
 					}
+				}
+				if guided {
+					return runUpgradeRequiresGuided()
 				}
 				return runUpgradeRequires()
 			}
@@ -193,6 +200,8 @@ is still accepted for compatibility.`,
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Print detection details and exit without running")
 	cmd.Flags().StringVar(&targetVersion, "version", "", "Install this release instead of the latest (e.g. v0.56.1)")
 	cmd.Flags().BoolVar(&reconcile, "requires", false, "Raise project requires to the installed stable release, keeping its form, update the schema URL, then sync")
+	cmd.Flags().BoolVar(&guided, "guided", false, "Internal: with --requires, raise requires only and skip sync, for the guided upgrade")
+	_ = cmd.Flags().MarkHidden("guided")
 	return cmd
 }
 

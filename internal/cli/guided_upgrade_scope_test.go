@@ -76,7 +76,7 @@ func TestGuidedUpgrade_RejectsLinkedWritableSpecLayersBeforeOfferAndLock(t *test
 			if len(calls) != 0 || input.reads != 0 || strings.Contains(out.String(), "[Y/n]") {
 				t.Errorf("unsafe upgrade calls=%v reads=%d output=%s", calls, input.reads, out.String())
 			}
-			if err := deps.reconcile(root, "0.82.0"); err == nil {
+			if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
 				t.Error("unsafe layer reconciled")
 			}
 			for _, path := range []string{filepath.Join(root, ".agnostic-ai", projectLockName), filepath.Join(outside, projectLockName)} {
@@ -119,7 +119,7 @@ func TestGuidedUpgrade_InternalSpecDirectoryAliasesCanReconcile(t *testing.T) {
 	if project, err := deps.project(); err != nil || project == "" {
 		t.Fatalf("internal source aliases rejected: %s, %v", project, err)
 	}
-	if err := deps.reconcile(root, "0.82.0"); err != nil {
+	if err := reconcileGuidedRequires(root, "0.82.0"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile("agnostic-ai.yaml")
@@ -155,7 +155,7 @@ func TestGuidedUpgrade_RechecksRetargetedSpecDirectoryBeforeLock(t *testing.T) {
 	if err := os.Symlink(outside, alias); err != nil {
 		t.Fatal(err)
 	}
-	if err := deps.reconcile(root, "0.82.0"); err == nil {
+	if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
 		t.Error("retargeted directory reconciled")
 	}
 	if _, err := os.Stat(filepath.Join(outside, projectLockName)); !os.IsNotExist(err) {
@@ -216,7 +216,7 @@ func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedGlobalHome(t *testing.T) {
 			if !strings.Contains(out.String(), "global") || strings.Contains(out.String(), "[Y/n]") {
 				t.Errorf("unsafe offer: %s", out.String())
 			}
-			if err := deps.reconcile(root, "0.82.0"); err == nil {
+			if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
 				t.Error("global entry reconciled")
 			}
 			if _, err := os.Stat(filepath.Join(root, ".agnostic-ai", projectLockName)); !os.IsNotExist(err) {
@@ -284,7 +284,7 @@ func TestGuidedUpgrade_NestedGlobalHomeKeepsBenignSourceAliases(t *testing.T) {
 			if got, err := deps.project(); err != nil || got == "" {
 				t.Fatalf("benign source refused: %s, %v", got, err)
 			}
-			if err := deps.reconcile(root, "0.82.0"); err != nil {
+			if err := reconcileGuidedRequires(root, "0.82.0"); err != nil {
 				t.Fatal(err)
 			}
 			data, err := os.ReadFile(target)
@@ -326,7 +326,7 @@ func TestGuidedUpgrade_RechecksEntryAliasIntoNestedGlobalBeforeLock(t *testing.T
 	if err := os.Symlink(outside, alias); err != nil {
 		t.Fatal(err)
 	}
-	if err := deps.reconcile(root, "0.82.0"); err == nil {
+	if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
 		t.Error("global retargeted entry reconciled")
 	}
 	if _, err := os.Stat(filepath.Join(root, ".agnostic-ai", projectLockName)); !os.IsNotExist(err) {
@@ -421,7 +421,7 @@ func TestGuidedUpgrade_ShadowedGlobalMCPRemainsWritableToRawPlanner(t *testing.T
 	if _, err := deps.project(); err == nil {
 		t.Error("shadowed global base MCP passed preflight")
 	}
-	if err := deps.reconcile(root, "0.82.0"); err == nil {
+	if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
 		t.Error("shadowed global base MCP reconciled")
 	}
 	if _, err := os.Stat(filepath.Join(root, ".agnostic-ai", projectLockName)); !os.IsNotExist(err) {
@@ -458,7 +458,7 @@ func TestGuidedUpgrade_InternalDirectoryAliasUsesPhysicalProjectIdentity(t *test
 	if project, err := deps.project(); err != nil || project == "" {
 		t.Fatalf("physical internal alias rejected: %s, %v", project, err)
 	}
-	if err := deps.reconcile(root, "0.82.0"); err != nil {
+	if err := reconcileGuidedRequires(root, "0.82.0"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile("agnostic-ai.yaml")

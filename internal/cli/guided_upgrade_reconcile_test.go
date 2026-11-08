@@ -2,8 +2,11 @@ package cli
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -27,24 +30,36 @@ func TestGuidedUpgrade_ReconcileFailureReportsInstalledVersionAndRecovery(t *tes
 	installed := false
 	deps.install = func(io.Writer, string, string) (string, error) { installed = true; return "/updated/tool", nil }
 	var commands []string
-	deps.run = func(_, _ string, args []string, _ io.Writer) (string, error) {
+	deps.run = func(_, dir string, args []string, w io.Writer) (string, error) {
 		commands = append(commands, strings.Join(args, " "))
+		if reflect.DeepEqual(args, guidedRequiresArgs) {
+			// The updated binary prints its error, and the parent sees only the exit status.
+			if err := reconcileGuidedRequires(dir, "0.82.0"); err != nil {
+				_, _ = fmt.Fprintln(w, err)
+				return "", errors.New("exit status 1")
+			}
+			return "", nil
+		}
 		return "agnostic-ai version 0.82.0", nil
 	}
 	cmd := &cobra.Command{Use: "status"}
 	cmd.SetIn(strings.NewReader("\n"))
-	cmd.SetOut(&bytes.Buffer{})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
 	handled, err := runGuidedUpgrade(cmd, "0.81.0", deps)
 	if !handled || !installed || err == nil {
 		t.Fatalf("handled=%v installed=%v err=%v", handled, installed, err)
 	}
-	if len(commands) != 1 || commands[0] != "--version" {
+	if want := []string{"--version", "upgrade --requires --guided"}; !reflect.DeepEqual(commands, want) {
 		t.Errorf("commands after reconciliation failed: %v", commands)
 	}
-	for _, want := range []string{"0.82.0", "installed", "requires", "schema", "migrations did not start", "flow-style", "Resolve", "upgrade --requires", "migrate --dry-run", "migrate", "sync --check", root} {
+	for _, want := range []string{"0.82.0", "installed", "requires", "schema", "migrations did not start", "Resolve", "upgrade --requires", "migrate --dry-run", "migrate", "sync --check", root} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("recovery error lacks %q: %v", want, err)
 		}
+	}
+	if !strings.Contains(out.String(), "flow-style") {
+		t.Errorf("output lacks the updated binary's reason: %s", out.String())
 	}
 	data, err := os.ReadFile("agnostic-ai.yaml")
 	if err != nil {

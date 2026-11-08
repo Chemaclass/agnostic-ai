@@ -43,9 +43,8 @@ func TestGuidedUpgrade_SyncPlanRunsWithoutUpgradeSideEffects(t *testing.T) {
 					calls = append(calls, "network")
 					return upgradeOffer{Latest: "0.82.0"}, nil
 				},
-				project:   func() (string, error) { calls = append(calls, "project"); return dir, nil },
-				install:   func(io.Writer, string, string) (string, error) { calls = append(calls, "install"); return "/tool", nil },
-				reconcile: func(string, string) error { calls = append(calls, "config"); return nil },
+				project: func() (string, error) { calls = append(calls, "project"); return dir, nil },
+				install: func(io.Writer, string, string) (string, error) { calls = append(calls, "install"); return "/tool", nil },
 				run: func(_, _ string, _ []string, _ io.Writer) (string, error) {
 					calls = append(calls, "updated command")
 					return "agnostic-ai version 0.82.0", nil

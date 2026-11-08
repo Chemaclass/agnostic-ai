@@ -36,7 +36,6 @@ func TestGuidedUpgrade_AcceptUsesVerifiedBinaryBeforeProjectChanges(t *testing.T
 			}
 			return "", nil
 		},
-		reconcile: func(root, version string) error { calls = append(calls, "pin "+version); return nil },
 	}
 	handled, err := runGuidedUpgrade(cmd, "0.81.0", deps)
 	if err != nil {
@@ -45,7 +44,7 @@ func TestGuidedUpgrade_AcceptUsesVerifiedBinaryBeforeProjectChanges(t *testing.T
 	if !handled {
 		t.Error("accepted upgrade did not handle invocation")
 	}
-	want := []string{"install", "--version", "pin 0.82.0", "migrate --dry-run", "migrate", "sync", "sync --check"}
+	want := []string{"install", "--version", "upgrade --requires --guided", "migrate --dry-run", "migrate", "sync", "sync --check"}
 	if !reflect.DeepEqual(calls, want) {
 		t.Errorf("calls = %v, want %v", calls, want)
 	}
@@ -85,18 +84,13 @@ func TestGuidedUpgrade_DeclineAndOfflineContinueOriginalCommand(t *testing.T) {
 }
 
 func TestGuidedUpgrade_FailureStopsLaterSteps(t *testing.T) {
-	for _, fail := range []string{"install", "--version", "migrate --dry-run", "migrate", "sync", "sync --check"} {
+	for _, fail := range []string{"install", "--version", "upgrade --requires --guided", "migrate --dry-run", "migrate", "sync", "sync --check"} {
 		t.Run(fail, func(t *testing.T) {
 			cmd := &cobra.Command{Use: "status"}
 			cmd.SetIn(strings.NewReader("y\n"))
 			cmd.SetOut(io.Discard)
 			reached := false
-			deps := guidedUpgradeDeps{check: func(string) (upgradeOffer, error) { return upgradeOffer{Latest: "0.82.0"}, nil }, project: func() (string, error) { return "/project", nil }, reconcile: func(string, string) error {
-				if reached {
-					t.Error("reconciled after failure")
-				}
-				return nil
-			}}
+			deps := guidedUpgradeDeps{check: func(string) (upgradeOffer, error) { return upgradeOffer{Latest: "0.82.0"}, nil }, project: func() (string, error) { return "/project", nil }}
 			deps.install = func(io.Writer, string, string) (string, error) {
 				if fail == "install" {
 					reached = true
@@ -126,7 +120,12 @@ func TestGuidedUpgrade_InstalledVersionMismatchDoesNotChangeProject(t *testing.T
 	cmd := &cobra.Command{Use: "status"}
 	cmd.SetIn(strings.NewReader("\n"))
 	cmd.SetOut(io.Discard)
-	deps := guidedUpgradeDeps{check: func(string) (upgradeOffer, error) { return upgradeOffer{Latest: "0.82.0"}, nil }, project: func() (string, error) { return "/project", nil }, install: func(io.Writer, string, string) (string, error) { return "/tool", nil }, run: func(_, _ string, _ []string, _ io.Writer) (string, error) { return "agnostic-ai version 0.81.0", nil }, reconcile: func(string, string) error { t.Error("must not change pins"); return nil }}
+	deps := guidedUpgradeDeps{check: func(string) (upgradeOffer, error) { return upgradeOffer{Latest: "0.82.0"}, nil }, project: func() (string, error) { return "/project", nil }, install: func(io.Writer, string, string) (string, error) { return "/tool", nil }, run: func(_, _ string, args []string, _ io.Writer) (string, error) {
+		if args[0] != "--version" {
+			t.Errorf("must not change the project: ran %v", args)
+		}
+		return "agnostic-ai version 0.81.0", nil
+	}}
 	handled, err := runGuidedUpgrade(cmd, "0.81.0", deps)
 	if !handled || err == nil || !strings.Contains(err.Error(), "project changes did not start") {
 		t.Errorf("handled %v, err %v", handled, err)
@@ -145,7 +144,7 @@ func TestGuidedUpgrade_OutsideProjectUpdatesToolOnly(t *testing.T) {
 			t.Errorf("unexpected %v", args)
 		}
 		return "agnostic-ai version 0.82.0", nil
-	}, reconcile: func(string, string) error { t.Error("must not reconcile"); return nil }}
+	}}
 	handled, err := runGuidedUpgrade(cmd, "0.81.0", deps)
 	if !handled || err != nil {
 		t.Errorf("handled %v, err %v", handled, err)
