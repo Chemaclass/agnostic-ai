@@ -9,7 +9,7 @@ group = "Workflows"
 
 # CI
 
-CI (continuous integration) checks on each change that the generated files match your specs. Pick the recipe for how your team stores them, committed in Git or ignored and generated during setup, and run it from the project root after [installing the CLI](#install-the-cli-in-ci).
+CI (continuous integration) checks generated files on each change. Choose a recipe for committed or ignored files, [install the CLI](#install-the-cli-in-ci), and run it from the project root.
 
 ## Committed outputs
 
@@ -19,7 +19,7 @@ Fail when the committed tool files no longer match the specs:
 agnostic-ai sync --check
 ```
 
-`--check` compares the files sync would write with the files on disk, writes nothing, and exits non-zero on a missing or changed file. To fix it, run `agnostic-ai sync` locally and commit the result. Never run `sync` right before this check in CI, because it hides the problem you are testing for.
+`--check` compares planned output with files on disk. It writes nothing and exits non-zero if a file is missing or differs. To fix it, run `agnostic-ai sync` locally and commit the result. Never run `sync` right before this check in CI, because it hides the problem you are testing for.
 
 On a Windows runner, Git writes CRLF line endings on checkout, and the check reports those files as `line endings only`. Add a `.gitattributes` rule such as `* text eol=lf`, or use `--against HEAD`, which reads the line endings Git stores.
 
@@ -49,7 +49,7 @@ agnostic-ai sync
 
 Add `agnostic-ai lint` to check spec quality. Do not add `sync --check` after `sync`: the files were just written. In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync` (see [Node monorepos](@/docs/git-hooks.md#node-monorepos)).
 
-For a cached environment that must stop before startup when project configuration is missing or stale, use the [project readiness checks](@/docs/cli-reference/project.md#project-readiness). They check every configured tool without approving local hooks.
+Use [project readiness checks](@/docs/cli-reference/project.md#project-readiness) to stop a cached environment from starting with missing or stale configuration. They check every configured tool without approving local hooks.
 
 <details>
 <summary>Install a pinned CLI in your CI job</summary>

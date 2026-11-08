@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Local overrides
 
-Put personal specs and instructions in `.agnostic-ai/local/` to layer them on top of the team's shared setup. Git ignores the folder, so your preferences and experiments stay on your machine. For example, create `.agnostic-ai/local/AGNOSTIC_AI.md`:
+Put personal specs and instructions in `.agnostic-ai/local/` to extend or override the team's setup. Git ignores the folder. For example, create `.agnostic-ai/local/AGNOSTIC_AI.md`:
 
 ```markdown
 Answer in Spanish.
@@ -69,7 +69,7 @@ name: custom
 description: Draft the release notes.
 model:
   claude: sonnet
-  codex: gpt-5.6-terra
+  codex: terra
 ---
 Read the merged PRs since the last tag.
 ```
@@ -95,7 +95,11 @@ Frontmatter (the YAML fields between `---` lines) merges key by key, the same wa
 | `null` | removes the key |
 | missing | keeps the shared value |
 
-So `tools: [Read]` replaces the whole shared list, and `tools: null` drops it. In a settings spec, a local per-tool `model` or `effort` map merges over a shared single value as if it were the map's `default`: shared `model: sonnet` with local `model: {codex: gpt-5.5}` gives Codex `gpt-5.5` and every other tool `sonnet`. A local `default` still wins. Inside an `x-<target>` map, `null` removes one key: `x-codex.model: null` drops `model` for Codex only.
+For example, `tools: [Read]` replaces the shared list, and `tools: null` removes it.
+
+For settings, a local per-tool `model` or `effort` map treats a shared single value as its `default`. Shared `model: sonnet` with local `model: {codex: sol}` gives Codex `sol` and every other tool `sonnet`. A local `default` overrides that shared value.
+
+Inside an `x-<target>` map, `null` removes one key: `x-codex.model: null` drops `model` for Codex only.
 
 The local file's location sets its scope. `local/rules/style.md` applies to the whole project even when the shared `rules/backend/style.md` applies to `backend/` only.
 

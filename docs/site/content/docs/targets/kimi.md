@@ -12,7 +12,7 @@ target_id = "kimi"
 
 Sync generates native files for [Kimi Code CLI 2.5.1](https://github.com/MoonshotAI/kimi-code/releases/tag/%40moonshot-ai/kimi-code%402.5.1), the maintained `@moonshot-ai/kimi-code` package. Run Kimi from your synced Git project root. Its own workspace trust choice controls project MCP loading.
 
-Select `kimi` explicitly. It is excluded from the default targets because its native agent tool lists cannot express scoped shell restrictions such as `Bash(git diff *)`. This keeps existing projects working with the default targets.
+Select `kimi` explicitly. It is excluded from the default targets because its native agent tool lists cannot express scoped shell restrictions such as `Bash(git diff *)`.
 
 ## Set up this tool
 
@@ -91,7 +91,7 @@ Kimi merges the user MCP file, repository-root `.mcp.json`, then working-directo
 
 ## Selected settings and hooks {#selected-profile}
 
-Global sync maps `model` to an existing native `default_model` alias and accepts boolean `x-kimi.default_plan_mode` and `x-kimi.telemetry`. It edits only those owned scalar keys and native hook records, preserving other user text and tables. Global effort is unsupported because `[thinking].effort` needs separate leaf ownership; it is available in an explicit profile export.
+Global sync maps `model` to an existing native `default_model` alias and accepts boolean `x-kimi.default_plan_mode` and `x-kimi.telemetry`. It edits only those owned scalar keys and native hook records, preserving other user text and tables. Global effort is unsupported because sync does not track ownership of `[thinking].effort` separately. Set it in an explicit profile export instead.
 
 To export settings and hooks, opt into a separate Kimi data root:
 
@@ -106,7 +106,7 @@ agnostic-ai sync -t kimi
 KIMI_CODE_HOME="$PWD/kimi-profile" kimi
 ```
 
-This selects the entire separate data root, including its agents, skills, connections, and credentials. It is not a project settings layer. Configure that root's native model/provider settings yourself. To place the other generated resources there too, set their output paths explicitly.
+This selects a separate data root for agents, skills, connections, and credentials, rather than adding project settings. Configure its native model and provider settings yourself. To place the other generated resources there too, set their output paths explicitly.
 
 In this export, `model` writes `default_model`, `effort` writes `[thinking].effort`, and native tables pass through `x-kimi`, including `permission` and `secondary_model`. Portable permission and protected-path fields are unsupported.
 

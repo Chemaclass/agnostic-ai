@@ -40,7 +40,7 @@ Using this provider through Composer? Follow the [Composer setup guide](@/docs/c
 
 ## First rule
 
-Install the client using the [official setup guide](https://learn.chatgpt.com/docs/codex/cli), then open your project in it.
+Follow the [official setup guide](https://learn.chatgpt.com/docs/codex/cli), then open your project in the tool.
 
 Select `codex` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). The shared commit-prefix rule becomes a section in root `AGENTS.md`. With Claude Code also selected, the same source becomes `.claude/rules/conventional-commits.md`.
 

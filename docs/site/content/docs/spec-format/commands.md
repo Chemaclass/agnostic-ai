@@ -37,7 +37,7 @@ Diff the branch against `main` and report bugs with `file:line`, most severe fir
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | no | filename | Command identifier and slash name, such as `/deploy`. |
-| `description` | no | empty | One-liner shown in slash-command pickers. |
+| `description` | no | empty | Short description shown in slash-command pickers. |
 | `argument-hint` | no | empty | Hint shown after the command in Claude Code, Augment, and Factory. |
 
 Other frontmatter is kept. Put keys for one tool under `x-<target>`, like `x-claude.allowed-tools` above.
@@ -48,7 +48,7 @@ Each target page lists the exact directory. Gemini writes each command as a `.to
 
 ## Tools without commands {#tools-without-commands}
 
-A tool that has skills but no commands gets each command as a skill only the user starts, when the tool can keep the model from starting it: [Codex](@/docs/targets/codex.md), [Copilot](@/docs/targets/copilot.md), [Zed](@/docs/targets/zed.md), [Windsurf](@/docs/targets/windsurf.md), and [Crush](@/docs/targets/crush.md). All but Codex qualify only while no other tool writes their skills folder, since a shared `SKILL.md` cannot keep the field. Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands document no such switch, so they skip commands. The skill:
+Tools with skills but no commands can receive commands as skills. The tool must support preventing the model from starting them: [Codex](@/docs/targets/codex.md), [Copilot](@/docs/targets/copilot.md), [Zed](@/docs/targets/zed.md), [Windsurf](@/docs/targets/windsurf.md), and [Crush](@/docs/targets/crush.md). All but Codex qualify only while no other tool writes their skills folder, since a shared `SKILL.md` cannot keep the field. Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands document no such switch, so they skip commands. The skill:
 
 - is written at the top level of the skills folder, whatever folder the command sits in under `commands/`;
 - sets `disable-model-invocation: true`, which Codex reads as `allow_implicit_invocation: false` in `agents/openai.yaml`, Copilot and Zed keep in `SKILL.md`, Windsurf writes as `triggers: [user]`, and Crush writes with `user-invocable: true`;

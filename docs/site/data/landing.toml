@@ -27,7 +27,7 @@ drift = "model: haiku"
 path = ".codex/agents/reviewer.toml"
 tools = "Codex"
 line = 'model = "gpt-6-luna"'
-drift = 'model = "gpt-5.4-mini"'
+drift = 'model = "gpt-6.1-terra"'
 [[hero.fanout.outputs]]
 path = ".gemini/agents/reviewer.md"
 tools = "Gemini CLI"

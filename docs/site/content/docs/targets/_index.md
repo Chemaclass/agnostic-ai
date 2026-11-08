@@ -16,7 +16,7 @@ scripts = ["assets/scripts/capability-matrix.js"]
 # Targets
 
 
-A target writes configuration for one coding tool. Filter the table, then open a tool for its paths, import coverage, and native limits. New here? [Create one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule).
+A target writes configuration for one coding tool. Filter the table, then open a tool to see its paths, import support, and limits. Start with [one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule).
 
 ## Tool support {#capability-matrix}
 
@@ -26,7 +26,7 @@ Some tools are left out of the default target list and must be named in `targets
 
 ## Tools without a target
 
-Many tools read the root `AGENTS.md` and `.agents/skills/`. Enable a target that writes both, such as [codex](@/docs/targets/codex.md) with its default output paths. Those tools then get your project-wide rules and skills. Codex includes project-wide rules in `AGENTS.md`; see [cross-target behavior](@/docs/target-behavior.md#entry-point-files).
+Many tools read the root `AGENTS.md` and `.agents/skills/`. Enable a target that writes both, such as [codex](@/docs/targets/codex.md) with its default output paths. Those tools can then read your project-wide rules from `AGENTS.md` and your skills from `.agents/skills/`. See [cross-target behavior](@/docs/target-behavior.md#entry-point-files).
 
 Check the tool's own discovery rules before relying on those shared paths. MCP servers, commands, and permissions need its native configuration; enabling a compatible target does not translate them for an unknown tool.
 

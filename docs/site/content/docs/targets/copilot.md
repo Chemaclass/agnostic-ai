@@ -1,6 +1,6 @@
 +++
 title = "GitHub Copilot"
-description = "What agnostic-ai writes for GitHub Copilot: file paths, what Copilot supports, and config options."
+description = "GitHub Copilot: generated files, supported features, and output settings."
 weight = 50
 
 [extra]
@@ -19,9 +19,9 @@ GitHub Copilot reads most project configuration from `.github/`, and VS Code rea
 
 ## First rule
 
-Install the client using the [official setup guide](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot), then open your project in it.
+Follow the [official setup guide](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot), then open your project in the tool.
 
-Select `copilot` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.github/instructions/conventional-commits.instructions.md`.
+Select `copilot` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.github/instructions/conventional-commits.instructions.md`.
 
 VS Code, Copilot CLI, and the cloud agent read different settings and MCP files. The reference below names the surface for each output.
 

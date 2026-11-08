@@ -4,7 +4,7 @@
 
 Add support for a coding tool by writing an adapter, the code that turns portable specs into that tool's configuration. This guide uses `foo` as the target name.
 
-Before writing code, identify the files and fields the tool reads in its current official documentation. A working adapter must generate those files, pass its tests, and document the supported spec kinds.
+Before writing code, check the tool's official documentation for the files and fields it reads. Generate those files, test the output, and document the supported spec kinds.
 
 ## 1. Create the package
 
@@ -169,7 +169,7 @@ Emit alongside MCPs in the target's project configuration file (Codex: `.codex/h
 
 ## 10. Keeping the adapter true
 
-An adapter follows the vendor's configuration format at the time it is written. Vendors can move paths or rename keys. Sync can still succeed while writing files the tool no longer reads. Check both sources below:
+Vendors can move paths or rename keys, leaving sync writing files the tool no longer reads. Check both sources below:
 
 - Add the target's doc and changelog URLs to `.agnostic-ai/skills/target-audit/references/sources.md`, with a `watch:` line naming the parts most likely to change. `tests/integration/target_audit_sources_test.go` requires this section before the adapter can merge. Follow the required URL line format: `scripts/docfetch.sh` parses those two lines, and `scripts/docfetch_test.sh` fails when either URL is missing. Run `scripts/docfetch.sh <target>` once and commit its new rows in `scripts/target-audit/sources.lock`.
 - Run `scripts/target-facts.sh <target>` and compare its capabilities, default paths, package comments, and target guidance with the vendor documentation. It reads compact and multiline capability declarations, plus output constants and inline calls across non-test files in the adapter package.

@@ -10,7 +10,7 @@ group = "Workflows"
 
 # Use Composer with Claude Code and Codex
 
-[Composer](https://getcomposer.dev/) runs coding sessions through Claude Code or Codex. Select both as targets in agnostic-ai so both providers share one set of project instructions, rules, and skills. Composer passes the project directory to the provider, which loads its native files.
+[Composer](https://getcomposer.dev/) runs sessions through Claude Code or Codex. Select both targets in agnostic-ai to share project instructions, rules, and skills. Composer passes the project directory to the provider, which loads its native files.
 
 This guide was checked against the [Composer CLI 0.1.12 source](https://github.com/atemaguer/composer/tree/cli-v0.1.12). Release downloads were unavailable, so packaged runtime behavior and signed-in sessions were not tested.
 
@@ -97,7 +97,7 @@ agnostic-ai sync --check
 
 The note appears in both `CLAUDE.md` and `AGENTS.md`. Codex gets the rule inside `AGENTS.md`.
 
-For later changes, edit `.agnostic-ai/` and sync again. Home instructions and skills use [global configuration](@/docs/global-configuration.md). Additional settings, hooks, agents, and MCP servers keep their [Claude Code](@/docs/targets/claude-reference.md) or [Codex](@/docs/targets/codex-reference.md) mappings.
+Edit `.agnostic-ai/` and sync for later changes. Home instructions and skills use [global configuration](@/docs/global-configuration.md). Additional settings, hooks, agents, and MCP servers keep their [Claude Code](@/docs/targets/claude-reference.md) or [Codex](@/docs/targets/codex-reference.md) mappings.
 
 ## Check each provider in Composer
 

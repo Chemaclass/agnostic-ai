@@ -1,6 +1,6 @@
 # Recorded configuration and hook checks
 
-Captured 2026-10-10 using `agnostic-ai version 0.81.0`, `rtk 0.51.0`. The final check script passed 56 checks. 4 sync checks exited 0. The script ran seven separate Claude-only test projects. The pack then held five more upstream files (license, notices, and README) beside `SKILL.md`; they were removed later, so a new run emits `SKILL.md` alone.
+Captured 2026-10-10 using `agnostic-ai version 0.81.0`, `rtk 0.51.0`. The script passed 56 checks across seven Claude-only test projects. Four sync checks also exited 0. The pack then held five more upstream files (license, notices, and README) beside `SKILL.md`; they were removed later, so a new run emits `SKILL.md` alone.
 
 ## Captured sync output
 

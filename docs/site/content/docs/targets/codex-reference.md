@@ -10,7 +10,7 @@ group = "Reference"
 
 # Codex native reference
 
-Start with the [Codex setup](@/docs/targets/codex.md). This page covers native mappings and overrides. For shared home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
+Start with the [Codex setup](@/docs/targets/codex.md). For home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
 
 ## Rule placement and discovery
 
@@ -90,7 +90,7 @@ Sync rebuilds project `config.toml`. Import existing keys into the overlay befor
 | `outputs.codex.mcp-file` | `.codex/config.toml` | |
 | `outputs.codex.hooks-file` | `.codex/hooks.json` | |
 | `outputs.codex.environment-file` | `.codex/environments/environment.toml` | |
-| `outputs.codex.rules-file` | unset | writes legacy concatenated rules and skips the write of instructions that point to source specs |
+| `outputs.codex.rules-file` | unset | writes legacy concatenated rules and skips instructions that point to source specs |
 | `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` | unset | write `.codex/rules/default.rules` |
 | `outputs.codex.exec-policies-from-permissions` | `false` | translate simple Bash permission rules when no native policy source is set |
 

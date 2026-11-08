@@ -9,7 +9,7 @@ group = "Reference"
 
 # Rules
 
-`rules/` holds the conventions an agent follows without being asked, such as commit format or test style. Sync writes each rule in every tool's own format: Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections. Keep a rule short and write it as an instruction; put a multi-step procedure in a [skill](@/docs/spec-format/skills.md).
+`rules/` holds the conventions an agent follows without being asked, such as commit format or test style. Sync writes each rule in every tool's own format: Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections. Write short instructions. Put multi-step procedures in a [skill](@/docs/spec-format/skills.md).
 
 ## Write one
 

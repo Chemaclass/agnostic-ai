@@ -1,6 +1,6 @@
 +++
 title = "Factory"
-description = "What agnostic-ai writes for Factory: file paths, what Factory cannot do, and output options."
+description = "Factory: generated files, supported features, and output settings."
 weight = 210
 
 [extra]
@@ -19,7 +19,7 @@ Factory [Droid](https://docs.factory.com/harness/subagents) reads the root `AGEN
 
 ## First rule
 
-Select `factory` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
+Select `factory` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
 Custom droids come from agent specs. A read-only droid also needs its MCP access restricted; sync supplies an empty server list unless you set one.
 
@@ -163,4 +163,4 @@ A `tools: read-only` that came from a portable `readonly: true` also goes under 
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

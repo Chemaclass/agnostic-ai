@@ -1,6 +1,6 @@
 +++
 title = "OpenHands"
-description = "What agnostic-ai writes for OpenHands: file paths, what it supports, and output settings."
+description = "OpenHands: generated files, supported features, and output settings."
 weight = 200
 
 [extra]
@@ -19,7 +19,7 @@ set-up-this-tool = "@/docs/targets/openhands.md#first-rule"
 
 ## First rule
 
-Select `openhands` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
+Select `openhands` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
 MCP servers have no output. Add them in Agent Canvas, as [MCP](#mcp) describes.
 
@@ -54,7 +54,7 @@ The [OpenHands skills docs](https://docs.openhands.dev/overview/skills) document
 
 ### Agents
 
-OpenHands loads `.agents/agents/<name>.md` in local conversations. The writer is shared with Goose and writes `name`, `description`, an optional free-form `model`, and the prompt body.
+OpenHands loads `.agents/agents/<name>.md` in local conversations. The files share Goose's format: `name`, `description`, an optional free-form `model`, and the prompt body.
 
 - Each server an agent names in `mcpServers` is written in full under `mcp_servers`, the only form OpenHands takes. Goose has no such key, so while Goose writes the same folder sync writes no servers and prints a note; set `outputs.openhands.agents-dir` to `.openhands/agents`. `x-openhands.mcp_servers` replaces the list.
 - A generic `tools` list is dropped with a sync note, because OpenHands uses its own tool names (`file_editor`, `terminal`). Set `x-openhands.tools` with those names instead. For an OpenHands profile that differs from Goose's, point `outputs.openhands.agents-dir` at `.openhands/agents`.
@@ -144,4 +144,4 @@ Import loses these details (none change what OpenHands loads):
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

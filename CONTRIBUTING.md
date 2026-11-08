@@ -16,7 +16,7 @@ make build
 
 The web interface is embedded from tracked assets, so Go-only builds need no Node.js. After changing `ui/src/`, its build inputs, or dependencies, use Node.js 22 and run `make ui-build`, then commit the updated `ui/embedded/` files. `make build` checks that those assets match their sources.
 
-Setup is complete when the build succeeds and `sync` generates this repository's tool configuration. Run `./agnostic-ai` or `go run ./cmd/agnostic-ai` so you use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked to set up new checkouts. Edit the specs, then sync.
+After building and syncing, run `./agnostic-ai` or `go run ./cmd/agnostic-ai` to use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked to set up new checkouts. Edit the specs, then sync.
 
 ## Make a change
 
@@ -33,7 +33,7 @@ Create a branch, keep the change to one outcome, and add tests for behavior you 
 
 ## Check
 
-Follow [checks by change type](docs/internal/contributing.md#choose-checks-for-your-change) to select the required local checks and remote CI. That policy covers focused documentation checks, the full gate for runtime changes, and evidence to record in the PR. `make hooks` installs quick formatting and commit-message checks.
+Choose local checks and remote CI from [checks by change type](docs/internal/contributing.md#choose-checks-for-your-change). Record their results in the PR. `make hooks` installs quick formatting and commit-message checks.
 
 ## Submit
 

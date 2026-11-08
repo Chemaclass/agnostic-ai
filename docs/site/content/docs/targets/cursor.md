@@ -1,6 +1,6 @@
 +++
 title = "Cursor"
-description = "How agnostic-ai writes Cursor configuration: file paths, what Cursor cannot hold, and output options."
+description = "Cursor: generated files, supported features, and output settings."
 weight = 40
 
 [extra]
@@ -19,9 +19,9 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
 
 ## First rule
 
-Install the client using the [official setup guide](https://cursor.com), then open your project in it.
+Follow the [official setup guide](https://cursor.com), then open your project in the tool.
 
-Select `cursor` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.cursor/rules/conventional-commits.mdc`.
+Select `cursor` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.cursor/rules/conventional-commits.mdc`.
 
 The IDE and CLI share rules, but the permission settings below guard only the Cursor CLI.
 
@@ -174,7 +174,7 @@ A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `
 | `WebFetch(domain:<host>)` | `WebFetch(<host>)` | An exact host, `*.host`, or `*`. |
 | `mcp__<server>__<tool>` | `Mcp(<server>:<tool>)` | `mcp__<server>` becomes `Mcp(<server>:*)`. On `deny` only, `mcp__*` becomes `Mcp(*:*)` and `mcp__*__<tool>` becomes `Mcp(*:<tool>)`. |
 
-These stay out:
+Sync omits these rules:
 
 - A multi-word command such as `Bash(go test:*)` or `Bash(git push:*)`. `Shell` takes one command word, and `Shell(go)` would cover every `go` command.
 - An exact command such as `Bash(ls)` or `Bash(rm)`, since `Shell(rm)` also matches `rm` with arguments.

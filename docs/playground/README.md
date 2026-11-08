@@ -4,7 +4,7 @@
 
 Edit a spec and see the configuration for five coding tools as you type. Tabs are disabled when a tool does not support the selected spec kind. Follow the link to see other supported tools.
 
-The playground runs the compiled Go code in your browser through WebAssembly. Any static website host can serve it; no server computes the output.
+The playground runs compiled Go code in your browser through WebAssembly. It needs only a static website host.
 
 ## Try it
 
@@ -37,8 +37,8 @@ Open http://127.0.0.1:8080/playground/. This serves the playground with the Zola
 - `agnosticAITargets()` returns the list of every adapter included in
   the executable, so the page can build the target picker from that list.
 - `agnosticAICapabilities()` returns each target's supported spec kinds
-  from its adapter declaration. The Pages build therefore picks up a
-  `caps.Supports` change without a separate playground data edit.
+  from its adapter declaration. The Pages build picks up
+  `caps.Supports` changes without a separate playground data edit.
 
 The code that writes each tool's configuration records output in memory for the browser instead of writing files.
 

@@ -34,7 +34,7 @@ Using this provider through Composer? Follow the [Composer setup guide](@/docs/c
 
 ## First rule
 
-Install the client using the [official setup guide](https://code.claude.com/docs/en/quickstart), then open your project in it.
+Follow the [official setup guide](https://code.claude.com/docs/en/quickstart), then open your project in the tool.
 
 Select `claude` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). The shared commit-prefix rule becomes `.claude/rules/conventional-commits.md`. If you also select Codex, the same source becomes a section in `AGENTS.md`.
 

@@ -1,6 +1,6 @@
 +++
 title = "Kiro"
-description = "What agnostic-ai writes for Kiro: file paths, what Kiro supports, and config options."
+description = "Kiro: generated files, supported features, and output settings."
 weight = 160
 
 [extra]
@@ -19,9 +19,9 @@ agnostic-ai writes AWS Kiro steering files, native skills, agents, commands, and
 
 ## First rule
 
-Install the client using the [official setup guide](https://kiro.dev), then open your project in it.
+Follow the [official setup guide](https://kiro.dev), then open your project in the tool.
 
-Select `kiro` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.kiro/steering/conventional-commits.md`, or shared `AGENTS.md` when another selected target already puts the rule there.
+Select `kiro` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.kiro/steering/conventional-commits.md`, or shared `AGENTS.md` when another selected target already puts the rule there.
 
 File-matching steering rules need the IDE or CLI V3. Earlier CLI versions load only always-on rules.
 
@@ -52,13 +52,18 @@ AGENTS.md                          # entry-point pointer body, plus the rules bl
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
-
 - **Rules**: [steering files](https://kiro.dev/docs/steering/) must start with their YAML frontmatter. Rules without globs use `inclusion: always`. Rules with globs use `fileMatch` with `fileMatchPattern`, a string for one pattern and a list for several. Rules with globs need the Kiro IDE or Kiro CLI V3. CLI V1 and V2 load only `always` files. Sync never writes Kiro's `auto` and `manual` modes.
 - **`AGENTS.md`**: Kiro includes it in default resources. When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, always-on rules normally get no steering file. `fileMatch` rules keep theirs. [Custom agents inherit default resources](https://kiro.dev/docs/custom-agents/configuration-reference/) alongside their own list unless `chat.disableInheritingDefaultResources` is on. Setting `x-kiro.resources` on an agent does not change this. If you turn that setting on, add `file://AGENTS.md` to each agent's `x-kiro.resources`. `agnostic-ai lint` warns (LINT029) when an agent with resources leaves it out. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 - **Memory**: with `builtins: [memory]`, `.kiro/steering/kiro-memory-index.md` includes `.agnostic-ai/memory/MEMORY.md` and `.agnostic-ai/local/memory/MEMORY.md` with `#[[file:...]]`, so Kiro loads both [shared memory](@/docs/memory.md) lists every session. No other tool gets the file, and `sync --global` leaves it out. Kiro resolves each path from the workspace root and shows a marker for a list that does not exist yet. It applies its file read permissions and ignore rules to a reference, so a list they block does not load. With `memory.personal: repo`, the file includes only the project list. The shared policy tells Kiro to find personal memory with `agnostic-ai memory path`.
 - **Skills**: [native](https://kiro.dev/docs/skills/) at `.kiro/skills/<name>/SKILL.md`, read by the skill picker. The file (`name` and `description` frontmatter) is identical to the shared `.agents/skills/` one. Bundled `scripts/`, `references/`, and `assets/` are copied with it.
 - **Agents**: [native custom agents](https://kiro.dev/docs/custom-agents/) in YAML-frontmatter Markdown, read by the agent picker. `description` (default: the agent name) and `model` are copied as written. The spec name stays the file name. `x-kiro.name` sets Kiro's optional display name and survives import.
-- **Settings**: the settings `model` goes to `chat.defaultModel` in `.kiro/settings/cli.json`, as written, and every other key in the file stays. Kiro CLI uses a workspace value over the global one in `~/.kiro/settings/cli.json` in its terminal UI sessions. Kiro ids use dots (`claude-sonnet-4.6`), so set `model: {default: ..., kiro: claude-sonnet-4.6}` when the shared value is a Claude Code id. A Claude alias such as `sonnet` raises a note and writes nothing. `permissions` raise a note, because the file has no allow, deny, or ask list. Sync replaces a `chat.defaultModel` you set by hand while a settings spec sets `model`, and removing the model later deletes the key without restoring your earlier value; set `model: {claude: ...}` to keep Kiro out. `x-kiro` in a settings spec raises a note and is not written, because `cli.json` takes flat dotted keys. Sync rewrites the file in its own two-space format, and comments in it are not kept.
+- **Settings**: `model` writes `chat.defaultModel` in `.kiro/settings/cli.json`, keeping every other key. In terminal UI sessions, Kiro CLI uses this workspace value over the global one in `~/.kiro/settings/cli.json`.
+
+  Kiro ids use dots (`claude-sonnet-4.6`), so set `model: {default: ..., kiro: claude-sonnet-4.6}` when the shared value is a Claude Code id. A Claude alias such as `sonnet` raises a note and writes nothing. `permissions` raise a note, because the file has no allow, deny, or ask list.
+
+  While a spec sets `model`, sync replaces any hand-written `chat.defaultModel`. Removing the model later deletes the key without restoring its earlier value. Set `model: {claude: ...}` to leave Kiro out.
+
+  Settings `x-kiro` raises a note and writes nothing because `cli.json` takes flat dotted keys. Sync rewrites the file with two-space indentation and drops comments.
 - **Agent MCP servers**: each server an agent names in `mcpServers` is written in full under the agent's `mcpServers`, the only form Kiro takes. An [agent-only server](@/docs/spec-format/mcps.md#agent-only) stays out of `.kiro/settings/mcp.json`. Set `x-kiro.timeout` (connection handshake) or `x-kiro.requestTimeout` (each call) in milliseconds on the MCP spec to write them in agent files; Kiro's defaults are 60000 and 120000. The portable `timeout` is not written there, with a note, since it does not say which limit it means. `x-kiro.mcpServers` replaces the list.
 
 ## Commands
@@ -128,7 +133,9 @@ Sync removes only recorded files after their specs are removed. A conflicting or
 
 `agnostic-ai import --global kiro` imports hook files that one spec can reproduce at the same filename. Files with mixed triggers, names that differ from their filename, or other content the spec cannot preserve are skipped with a warning. Existing specs stay. After importing, run the sync and check commands above.
 
-**MCP** servers go to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). Local servers have `command` plus optional `args` and `env`. Remote ones have `url` plus optional `headers` and `env`. Kiro expands a `${NAME}` reference only after you approve the variable under **Mcp Approved Env Vars** in its settings. See [environment references](@/docs/spec-format/mcps.md#environment-references). `disabled` is copied as written (default `false`). Kiro also accepts `autoApprove` (tools approved without prompting, `"*"` for all) and `disabledTools` (tools hidden from the agent). A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`) and a top-level `oauthScopes` fallback; `oauth.oauthScopes` wins. An empty `oauthScopes: []` is written as is, which is Kiro's documented fix for scope errors. Kiro's `oauth` differs from Claude Code's, so each tool maps only its own sub-keys. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+**MCP** servers go to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). Local servers have `command` plus optional `args` and `env`. Remote ones have `url` plus optional `headers` and `env`. Kiro expands a `${NAME}` reference only after you approve the variable under **Mcp Approved Env Vars** in its settings. See [environment references](@/docs/spec-format/mcps.md#environment-references). `disabled` is copied as written (default `false`). Kiro also accepts `autoApprove` (tools approved without prompting, `"*"` for all) and `disabledTools` (tools hidden from the agent).
+
+A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`) and a top-level `oauthScopes` fallback; `oauth.oauthScopes` wins. An empty `oauthScopes: []` is written as is, which is Kiro's documented fix for scope errors. Kiro's `oauth` differs from Claude Code's, so each tool maps only its own sub-keys. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 **Ignore** specs are joined into the project `.kiroignore` in gitignore syntax ([Kiro ignore](https://kiro.dev/docs/kiroignore/)); override with `outputs.kiro.ignore-file`. The IDE honors the file only when it is listed in `kiroAgent.agentIgnoreFiles` (Kiro suggests `[".gitignore", ".kiroignore"]`). CLI V3 honors workspace `.kiroignore`, `~/.kiro/settings/kiroignore`, and Git's global ignore file (`core.excludesfile`, only in Git repositories). Matching files are blocked from direct reads and hidden from content and filename search.
 

@@ -42,7 +42,7 @@ Reviews follow `scope` and the folder layout like [rules](@/docs/spec-format/rul
 
 ## Include a file
 
-A line holding only `@path` includes that file, read from the project root, so a folder's `README.md` can be its review:
+Use a line containing only `@path` to include a project file. Paths start at the project root. For example, a folder's `README.md` can supply its review guidance:
 
 ```markdown
 ---

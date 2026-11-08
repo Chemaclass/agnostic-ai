@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md)
 
-Use this map to find where a behavior starts before editing it. An adapter writes configuration for one coding tool.
+Use this map to find the code behind a behavior. An adapter writes configuration for one coding tool.
 
 ## Code layout
 
@@ -57,11 +57,11 @@ mcps/*.yaml   ─┘
 (Session, Config, spec.Bundle) ──► adapter.Emit(session, bundle, config, dryRun)
 ```
 
-Outputs for each target are documented in [docs/site/content/docs/targets/](../site/content/docs/targets/_index.md), one page per target.
+Each [target page](../site/content/docs/targets/_index.md) lists its outputs.
 
 ## Emit modes
 
-The shared `emit` package keeps each output run's flags and buffers in a `Session`. A mutex protects concurrent operations on the session. Common modes include:
+The shared `emit` package stores each run's flags and buffers in a `Session`. A mutex protects concurrent operations. Its modes include:
 
 | Mode | Effect | Used by |
 |------|--------|---------|

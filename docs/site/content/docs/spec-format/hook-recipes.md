@@ -370,14 +370,14 @@ esac
 
 </details>
 
-Check it before a session does:
+Test the guard before using it in a session:
 
 ```sh
 agnostic-ai hook run no-force-push --bash 'git push --force origin main' --expect block
 agnostic-ai hook run no-force-push --bash 'git status' --expect allow
 ```
 
-A guard like this catches a mistake but is not a sandbox: a push from a script file or an alias gets through. To block a command for good, use [`permissions.deny`](@/docs/spec-format/settings.md#permission-rules) and each tool's own sandbox: [Claude Code](https://code.claude.com/docs/en/sandboxing), [Codex](https://learn.chatgpt.com/docs/sandboxing).
+This guard misses pushes from script files and aliases. For stronger restrictions, use [`permissions.deny`](@/docs/spec-format/settings.md#permission-rules) and each tool's own sandbox: [Claude Code](https://code.claude.com/docs/en/sandboxing), [Codex](https://learn.chatgpt.com/docs/sandboxing).
 
 `sync` copies the script, with its permissions and subdirectories under `scripts/`, into each tool's script directory and changes the command to run that copy. A missing script fails sync. Make the source executable when the command runs it directly. A file at `.agnostic-ai/scripts/<target>/guard.sh` replaces the shared script for that tool.
 

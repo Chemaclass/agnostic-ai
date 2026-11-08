@@ -9,7 +9,7 @@ group = "Reference"
 
 # Ignore
 
-`ignore/` lists paths supported tools leave out of context or indexing, such as generated code or large fixtures. An ignore spec writes the same patterns into each tool's own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. Claude Code and Codex get none; the [target support table](@/docs/targets/_index.md#capability-matrix) lists who does.
+`ignore/` lists paths supported tools leave out of context or indexing, such as generated code or large fixtures. An ignore spec writes the same patterns into each tool's own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. Claude Code and Codex get none; the [target support table](@/docs/targets/_index.md#capability-matrix) lists supported tools.
 
 Depending on the tool, an ignore file covers reads, indexing, or shell commands. It does not block access on its own; use [permissions](@/docs/spec-format/settings.md#support-by-target) for that.
 
@@ -31,7 +31,7 @@ dist/
 ```
 ````
 
-With fenced code blocks, only the lines inside them are patterns, and the text around them is prose. A body without a fence is read whole. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`. Comment and blank lines exclude nothing; `#` starts a comment only at the start of a line.
+With fenced code blocks, only the lines inside them are patterns, and the text around them is prose. Without a fence, the whole body is read as patterns. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`. Comment and blank lines exclude nothing; `#` starts a comment only at the start of a line.
 
 ## Output
 
