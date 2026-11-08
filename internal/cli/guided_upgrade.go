@@ -29,8 +29,12 @@ type guidedUpgradeDeps struct {
 	project       func() (string, error)
 	install       func(io.Writer, string, string) (string, error)
 	run           func(string, string, []string, io.Writer) (string, error)
-	reconcile     func(string, string) error
 }
+
+// guidedRequiresArgs make the updated binary raise requires and the
+// schema URL, so a fix to that rewrite applies in the upgrade that
+// ships it rather than one upgrade later.
+var guidedRequiresArgs = []string{"upgrade", "--requires", "--guided"}
 
 func guidedUpgradeEachRun(cmd *cobra.Command) {
 	if run := cmd.RunE; run != nil {
@@ -111,25 +115,6 @@ func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 			return info.LinkPath, nil
 		},
 		run: runUpdatedBinary,
-		reconcile: func(root, version string) error {
-			if err := validateGuidedProjectConfigs(root); err != nil {
-				return err
-			}
-			lock, err := acquireProjectLock(root, "guided upgrade")
-			if err != nil {
-				return err
-			}
-			defer func() { _ = lock.Close() }()
-			if err := validateGuidedProjectConfigs(root); err != nil {
-				return err
-			}
-			changed, err := config.PersistRequires(root, version, schemaURL(version))
-			if err != nil {
-				return fmt.Errorf("reconcile requires and schema: %w", err)
-			}
-			noteCollapsedRequires(changed)
-			return nil
-		},
 	}
 }
 
@@ -187,7 +172,7 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 		return true, fmt.Errorf("verify updated executable; project changes did not start. Check agnostic-ai upgrade --check: %w", err)
 	}
 	if root != "" {
-		if err := deps.reconcile(root, offer.Latest); err != nil {
+		if _, err := deps.run(path, root, guidedRequiresArgs, out); err != nil {
 			return true, fmt.Errorf("agnostic-ai %s is installed, but this project's requires and schema could not be updated; project migrations did not start. Resolve the reported project or config problem, then run agnostic-ai upgrade --requires, agnostic-ai migrate --dry-run, agnostic-ai migrate, agnostic-ai sync, and agnostic-ai sync --check in %s: %w", offer.Latest, root, err)
 		}
 		for _, args := range [][]string{{"migrate", "--dry-run"}, {"migrate"}, {"sync"}, {"sync", "--check"}} {

@@ -6,6 +6,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### General
+
+#### Upgrades
+
+- The automatic upgrade has the new release update `requires`, so fixes to that step apply in the same upgrade, not the next one.
+
 ## v0.92.0 - 2026-11-08
 
 ### Highlights
