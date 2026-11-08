@@ -2,145 +2,10 @@
   margin-top: 12px;
 }
 
-.facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px 24px;
-  margin: 0;
-}
-
-.facts dt {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.facts dd {
-  margin: 2px 0 0;
-}
-
-.context-usage-head {
-  display: grid;
-  gap: 4px;
-}
-
-.context-usage-head p {
-  font-size: var(--text-sm);
-  max-width: var(--measure);
-}
-
 .context-summary {
   display: grid;
   gap: 10px;
   min-width: 0;
-}
-
-.context-verdict {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 0;
-  font-weight: 600;
-}
-
-.context-verdict .icon {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-}
-
-.context-verdict.is-over {
-  padding-left: 10px;
-  border-left: var(--state-rail) solid currentColor;
-  color: var(--approval);
-}
-
-.context-verdict.is-over a {
-  color: inherit;
-}
-
-.context-next-part {
-  max-width: var(--measure);
-}
-
-.context-next {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding-inline-start: 20px;
-}
-
-.context-next li {
-  overflow-wrap: anywhere;
-}
-
-.context-next .button {
-  margin-inline-start: 4px;
-  vertical-align: baseline;
-  white-space: normal;
-  text-align: start;
-}
-
-@media (max-width: 760px) {
-  .context-next .button {
-    min-height: 44px;
-  }
-}
-
-.context-usage-controls {
-  display: grid;
-  grid-template-columns: minmax(140px, 220px) minmax(180px, 420px) auto;
-  align-items: end;
-  gap: 8px 16px;
-  max-width: 860px;
-  padding: 16px 0;
-  border-block: 1px solid var(--line);
-  font-size: 13px;
-}
-
-.context-usage-field {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.context-usage-field label {
-  font-weight: 600;
-}
-
-.context-usage-field input,
-.context-usage-field select,
-.context-usage-field .select-button {
-  width: 100%;
-  min-width: 0;
-  min-height: 40px;
-}
-
-.context-usage-controls > .button {
-  min-height: 40px;
-}
-
-.context-usage-file-hint {
-  grid-column: 1 / -1;
-  font-size: var(--text-sm);
-}
-
-.context-contribution-load {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.context-kinds {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
 }
 
 .table .context-share {
@@ -164,11 +29,6 @@
   max-width: 100%;
   border-radius: var(--radius-sm);
   background: var(--meter);
-}
-
-.context-builtin {
-  margin-inline-start: 8px;
-  font-size: var(--text-sm);
 }
 
 .context-advice-toggle {
@@ -223,7 +83,8 @@ tr.is-advised > td {
 
 @media (max-width: 760px) {
   .context-advice-toggle,
-  .context-all-advice {
+  .context-table-prompt,
+  .context-show-all {
     min-height: 44px;
   }
 
@@ -289,6 +150,7 @@ tr.is-advised > td {
 
 .context-usage-totals {
   display: flex;
+  margin: 0;
   flex-wrap: wrap;
   gap: 16px 56px;
   padding-block: 4px;
@@ -299,10 +161,12 @@ tr.is-advised > td {
   font-size: var(--text-xs);
   font-weight: 400;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .context-usage-totals dd {
-  margin-top: 6px;
+  margin: 6px 0 0;
 }
 
 .context-total-words {
@@ -321,7 +185,6 @@ tr.is-advised > td {
   color: var(--text-soft);
 }
 
-.context-total-bytes,
 .context-total-description {
   display: block;
   margin-top: 4px;
@@ -334,26 +197,14 @@ tr.is-advised > td {
 }
 
 .context-total-description {
+  display: block;
   margin-top: 6px;
-}
-
-.context-usage-method {
-  max-width: var(--measure);
   font-size: var(--text-sm);
 }
 
 .context-usage-method-body {
   display: grid;
   gap: 8px;
-}
-
-.context-usage-method summary {
-  cursor: pointer;
-  color: var(--text-muted);
-}
-
-.context-usage-method[open] summary {
-  margin-bottom: 8px;
 }
 
 .context-usage-note {
@@ -437,29 +288,12 @@ tr.is-advised > td {
   gap: 4px 8px;
 }
 
-.context-contributions {
-  gap: 4px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-
-.context-contributions-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-}
-
-.context-contributions caption {
-  padding: 12px 14px 8px;
-  text-align: left;
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-
 .table .context-type {
-  width: 11ch;
+  width: 18ch;
+}
+
+.table .context-type::first-letter {
+  text-transform: uppercase;
 }
 
 .table .context-number {
@@ -467,27 +301,6 @@ tr.is-advised > td {
   text-align: right;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 760px) {
-  .context-usage-file-hint {
-    min-height: 2lh;
-  }
-
-  .context-usage-controls {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .context-usage-controls > .button {
-    justify-self: start;
-  }
-
-  .context-usage-field input,
-  .context-usage-field select,
-  .context-usage-field .select-button,
-  .context-usage-controls > .button {
-    min-height: 44px;
-  }
 }
 
 @media (forced-colors: active) {
@@ -503,4 +316,293 @@ tr.is-advised > td {
     forced-color-adjust: none;
     background: CanvasText;
   }
+}
+
+.context-verdict-key {
+  color: var(--accent);
+}
+
+.context-header-stale {
+  opacity: 0.55;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
+/* The figures and budget on the left, the tool picker on the right. */
+.context-usage-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 220px);
+  align-items: start;
+  gap: 16px 40px;
+}
+
+.context-usage-controls {
+  display: grid;
+  gap: 6px;
+  padding-top: 20px;
+  font-size: var(--text-sm);
+}
+
+.context-usage-controls label {
+  font-weight: 600;
+}
+
+.context-usage-controls select,
+.context-usage-controls .select-button {
+  width: 100%;
+  min-height: 40px;
+}
+
+.context-usage-refresh {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  margin: 0;
+}
+
+.context-budget {
+  display: grid;
+  gap: 8px;
+  max-width: 640px;
+  margin-top: 8px;
+}
+
+.context-budget-track {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-sunken);
+  overflow: hidden;
+}
+
+.context-budget-bar {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--meter);
+}
+
+.context-budget.is-over .context-budget-bar {
+  background: var(--approval);
+}
+
+.context-budget-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-soft);
+}
+
+.context-budget-line > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.context-budget.is-over .context-budget-line > span {
+  color: var(--approval);
+  font-weight: 600;
+}
+
+.context-budget-line .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.context-contributions {
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.context-contributions-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.context-contributions-head h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.context-contributions-head p {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+}
+
+.context-show-all {
+  justify-self: start;
+}
+
+.context-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 24px;
+}
+
+.context-source-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.context-builtin {
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.context-source .editor-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+tr.is-advised .row-actions > * {
+  opacity: 1;
+}
+
+.context-usage-more {
+  max-width: var(--measure);
+  font-size: var(--text-sm);
+}
+
+.context-usage-more:first-of-type {
+  margin-top: 16px;
+}
+
+.context-usage-more summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+.context-usage-more[open] summary {
+  margin-bottom: 8px;
+}
+
+.context-usage-file-form {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+}
+
+.context-usage-file-form label {
+  font-weight: 600;
+}
+
+.context-usage-file-form input {
+  min-height: 40px;
+}
+
+/* Both hints take two lines, so switching tools does not move the page. */
+.context-usage-file-hint {
+  min-height: 2lh;
+  font-size: var(--text-sm);
+}
+
+.context-usage-command {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .context-usage-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .context-usage-controls {
+    padding-top: 0;
+  }
+
+  .context-usage-totals {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  /* Each source becomes a block: its name, then type, words and share on one line. */
+  .context-contributions .table,
+  .context-contributions .table tbody {
+    display: block;
+  }
+
+  .context-contributions .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .context-contributions .table tr:not(.context-advice-row) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .context-contributions .table tr:not(.context-advice-row) > th,
+  .context-contributions .table tr:not(.context-advice-row) > td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .context-contributions .table tr > th {
+    grid-column: 1 / -1;
+  }
+
+  .context-contributions .table .context-number:not(.context-share)::after {
+    content: ' words';
+  }
+
+  .context-contributions .table .context-advice-row {
+    display: block;
+  }
+
+  .context-contributions .table .context-advice-row > td {
+    display: block;
+  }
+
+  .context-usage-controls select,
+  .context-usage-controls .select-button,
+  .context-usage-file-form input {
+    min-height: 44px;
+  }
+
+  .table .context-type {
+    width: auto;
+  }
+}
+
+.context-contributions .table th,
+.context-contributions .table td {
+  vertical-align: middle;
+}
+
+@media (min-width: 761px) and (hover: hover) {
+  .context-source .button {
+    min-height: 28px;
+    padding-block: 2px;
+  }
+}
+
+.context-budget-line a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.context-budget-line a:hover {
+  text-decoration: underline;
 }

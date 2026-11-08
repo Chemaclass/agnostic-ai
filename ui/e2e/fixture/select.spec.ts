@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('keeps select arrows inset and leaves room for labels in both themes', async ({ page }) => {
   await page.goto('/?view=context&mock=1&tab=usage')
-  const select = page.getByRole('combobox', { name: 'Coding tool' })
+  const select = page.getByRole('combobox', { name: 'Counted for' })
   const arrow = select.locator('..').locator('.select-chevron')
   await expect(select).toBeVisible()
   for (const width of [390, 1280]) {
@@ -24,7 +24,7 @@ test('keeps select arrows inset and leaves room for labels in both themes', asyn
 test('uses the system select arrow in forced colors', async ({ page }) => {
   await page.emulateMedia({ forcedColors: 'active' })
   await page.goto('/?view=context&mock=1&tab=usage')
-  const select = page.getByRole('combobox', { name: 'Coding tool' })
+  const select = page.getByRole('combobox', { name: 'Counted for' })
   await expect(select).toBeVisible()
   await expect(select.locator('..').locator('.select-chevron')).toBeHidden()
   expect(await select.evaluate((element) => getComputedStyle(element).appearance)).toBe('auto')
