@@ -139,16 +139,28 @@ function test_report_names_a_known_block_again_when_its_code_changes() {
     "$(vendor_watch_report "$(run_tsv)" /dev/null "$FIXTURES/known")"
 }
 
-function test_record_keeps_only_this_runs_failures() {
+function test_record_keeps_a_failure_for_30_days_after_its_last_run() {
   mkdir -p "$FIXTURES/snapshots"
   : >"$FIXTURES/snapshots/aaa.txt"
-  printf 'https://recovered.example/page\tfailed-403\n' >"$FIXTURES/snapshots/seen-pages.tsv"
-  vendor_watch_record "$(run_tsv)" "$FIXTURES/snapshots"
+  local now=2000000000
+  printf 'https://recovered.example/page\tfailed-403\t%s\nhttps://old.example/page\tfailed-403\t%s\nhttps://zed.dev/docs/ai/mcp\tfailed-404\t%s\n' \
+    $((now - 10 * 86400)) $((now - 40 * 86400)) $((now - 40 * 86400)) >"$FIXTURES/snapshots/seen-pages.tsv"
+  VENDOR_WATCH_NOW=$now vendor_watch_record "$(run_tsv)" "$FIXTURES/snapshots"
   local seen
-  seen=$(vendor_watch_seen "$FIXTURES/snapshots")
+  seen=$(VENDOR_WATCH_NOW=$now vendor_watch_seen "$FIXTURES/snapshots")
+  assert_contains "$(printf 'https://recovered.example/page\tfailed-403')" "$seen"
   assert_contains "$(printf 'https://zed.dev/docs/ai/mcp\tfailed-404')" "$seen"
   assert_contains "$(printf 'https://kiro.dev/docs/steering/\taaa')" "$seen"
-  assert_not_contains "recovered.example" "$seen"
+  assert_not_contains "old.example" "$seen"
+  assert_not_contains "$now" "$seen"
+}
+
+function test_report_names_a_content_failure_again_when_its_mode_changes() {
+  printf 'cursor\tdocs\thttps://cursor.com/docs/rules\t200\tsoft-404\t-\t2026-11-08\tfailed\thttps://cursor.com/docs/rules\t\n' >"$FIXTURES/removed.tsv"
+  printf 'https://cursor.com/docs/rules\tfailed-200-app-shell\n' >"$FIXTURES/known"
+  assert_contains "- failed (HTTP 200): https://cursor.com/docs/rules" \
+    "$(vendor_watch_report "$FIXTURES/removed.tsv" /dev/null "$FIXTURES/known")"
+  assert_contains "failed-200-soft-404" "$(vendor_watch_keys "$FIXTURES/removed.tsv")"
 }
 
 function test_publish_stays_quiet_when_every_failure_is_a_known_block() {

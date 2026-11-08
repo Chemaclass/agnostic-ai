@@ -4,7 +4,7 @@
 #
 # Reads the docfetch.tsv a `scripts/docfetch.sh` run writes and lists every
 # row whose status is new, changed, or failed against the committed lock.
-# The daily vendor-watch workflow publishes that list to one rolling GitHub
+# The weekly vendor-watch workflow publishes that list to one rolling GitHub
 # issue labeled `vendor-watch`, so a human decides when a `/target-audit`
 # run is worth its tokens. The lock is never written here: it moves only
 # after an audit reads the pages, as before.
@@ -18,11 +18,12 @@
 # otherwise report daily (#1167). The runner keeps those URL and hash pairs
 # beside its snapshots, for as long as each snapshot lives.
 #
-# A page that fails with the same HTTP code on two runs in a row is a known
-# block, such as a vendor gateway refusing the runner's address (#3191). It
-# is reported once, then stays quiet until its code changes or it recovers.
-# The runner keeps only the latest run's failures, so a page that recovers
-# and later fails again is reported again.
+# A page that fails the same way it failed on a run in the last 30 days is a
+# known block, such as a vendor gateway refusing the runner's address
+# (#3191). It is reported once, then stays quiet while it keeps failing that
+# way, even when it loads on some runs in between. A new HTTP code, or for a
+# page that loads but fails on content, a new fetch mode (app-shell,
+# soft-404, ...), is reported again.
 #
 # Usage:
 #   scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file] [known-pages-file]
@@ -35,18 +36,24 @@ set -euo pipefail
 VENDOR_WATCH_LABEL="vendor-watch"
 VENDOR_WATCH_TITLE="Vendor docs changed since the last target audit"
 VENDOR_WATCH_MARKER="<!-- vendor-watch:keys"
+VENDOR_WATCH_BLOCK_DAYS=30
+
+# The failure key for awk: an HTTP 200 row failed on content, so its fetch
+# mode tells an app shell from a removed page.
+# shellcheck disable=SC2016 # awk fields, not shell expansions
+VENDOR_WATCH_FAILKEY='function failkey() { return "failed-" $4 ($4 == "200" ? "-" $5 : "") }'
 
 # vendor_watch_keys <tsv> [known-pages-file] prints one "<url>\t<hash>" key
 # per moved row the report names, leaving out a changed row or a known block
 # whose pair is known. A failed row has no hash, so its key carries the HTTP
 # code instead.
 vendor_watch_keys() {
-  awk -F '\t' -v known="${2:-/dev/null}" '
+  awk -F '\t' -v known="${2:-/dev/null}" "$VENDOR_WATCH_FAILKEY"'
     BEGIN { while ((getline line < known) > 0) fetched[line] = 1 }
     $8 == "changed" && (($3 "\t" $6) in fetched) { next }
-    $8 == "failed" && (($3 "\tfailed-" $4) in fetched) { next }
+    $8 == "failed" && (($3 "\t" failkey()) in fetched) { next }
     $8 == "new" || $8 == "changed" { print $3 "\t" $6 }
-    $8 == "failed" { print $3 "\tfailed-" $4 }
+    $8 == "failed" { print $3 "\t" failkey() }
   ' "$1" | sort -u
 }
 
@@ -54,32 +61,48 @@ VENDOR_WATCH_SEEN_FILE="seen-pages.tsv"
 
 # vendor_watch_seen <snapshot dir> prints each "<url>\t<hash>" pair the runner
 # fetched on an earlier run and still holds the snapshot for, and each
-# "<url>\tfailed-<code>" pair that failed on the last run.
+# "<url>\t<failure key>" pair that failed within VENDOR_WATCH_BLOCK_DAYS.
 vendor_watch_seen() {
   [ -r "$1/$VENDOR_WATCH_SEEN_FILE" ] || return 0
-  while IFS=$'\t' read -r url sha; do
-    if [ "${sha#failed-}" != "$sha" ] || { [ -n "$sha" ] && [ -f "$1/$sha.txt" ]; }; then
+  local cutoff
+  cutoff=$((${VENDOR_WATCH_NOW:-$(date +%s)} - VENDOR_WATCH_BLOCK_DAYS * 86400))
+  while IFS=$'\t' read -r url sha at; do
+    if [ "${sha#failed-}" != "$sha" ]; then
+      if [ "${at:-0}" -ge "$cutoff" ] 2>/dev/null; then
+        printf '%s\t%s\n' "$url" "$sha"
+      fi
+    elif [ -n "$sha" ] && [ -f "$1/$sha.txt" ]; then
       printf '%s\t%s\n' "$url" "$sha"
     fi
   done <"$1/$VENDOR_WATCH_SEEN_FILE" | sort -u
 }
 
 # vendor_watch_record <tsv> <snapshot dir> adds the run's fetched pages to the
-# seen pairs, dropping pairs whose snapshot was pruned, and replaces the
-# earlier failures with this run's.
+# seen pairs, dropping pairs whose snapshot was pruned. Each failure keeps
+# the time it last failed, so it expires VENDOR_WATCH_BLOCK_DAYS later.
 vendor_watch_record() {
-  local tmp
+  local tmp now
   tmp=$(mktemp)
+  now=${VENDOR_WATCH_NOW:-$(date +%s)}
+  {
+    awk -F '\t' -v now="$now" "$VENDOR_WATCH_FAILKEY"'
+      $8 == "failed" { print $3 "\t" failkey() "\t" now }
+    ' "$1"
+    if [ -r "$2/$VENDOR_WATCH_SEEN_FILE" ]; then
+      awk -F '\t' 'index($2, "failed-") == 1' "$2/$VENDOR_WATCH_SEEN_FILE"
+    fi
+  } | awk -F '\t' -v cutoff=$((now - VENDOR_WATCH_BLOCK_DAYS * 86400)) '
+    $3 + 0 >= cutoff && !(($1 "\t" $2) in kept) { kept[$1 "\t" $2] = 1; print }
+  ' >"$tmp"
   {
     vendor_watch_seen "$2" | awk -F '\t' 'index($2, "failed-") != 1'
-    awk -F '\t' '$8 == "failed" { print $3 "\tfailed-" $4 }' "$1"
     awk -F '\t' '$8 != "failed" && $6 != "" && $6 != "-" { print $3 "\t" $6 }' "$1" |
       while IFS=$'\t' read -r url sha; do
         if [ -f "$2/$sha.txt" ]; then
           printf '%s\t%s\n' "$url" "$sha"
         fi
       done
-  } | sort -u >"$tmp"
+  } | sort -u >>"$tmp"
   mkdir -p "$2"
   mv "$tmp" "$2/$VENDOR_WATCH_SEEN_FILE"
 }
@@ -95,7 +118,7 @@ vendor_watch_report() {
   local deltas
   deltas="$(dirname "$1")/deltas.tsv"
   [ -r "$deltas" ] || deltas=/dev/null
-  awk -F '\t' -v seen="$2" -v known="${3:-/dev/null}" -v deltas="$deltas" '
+  awk -F '\t' -v seen="$2" -v known="${3:-/dev/null}" -v deltas="$deltas" "$VENDOR_WATCH_FAILKEY"'
     BEGIN {
       while ((getline line < seen) > 0) done[line] = 1
       while ((getline line < known) > 0) fetched[line] = 1
@@ -109,7 +132,7 @@ vendor_watch_report() {
     }
     $8 != "new" && $8 != "changed" && $8 != "failed" { next }
     {
-      key = $3 "\t" ($8 == "failed" ? "failed-" $4 : $6)
+      key = $3 "\t" ($8 == "failed" ? failkey() : $6)
       if (key in done) next
       if ($8 == "changed" && (($3 "\t" $6) in fetched)) next
       if ($8 == "failed" && (key in fetched)) next
@@ -179,7 +202,7 @@ vendor_watch_publish() {
     # shellcheck disable=SC2016 # the backticks are Markdown, not a command
     gh issue create --title "$VENDOR_WATCH_TITLE" --label "$VENDOR_WATCH_LABEL" \
       --body "$(printf '%s\n\n%s\n\n%s' \
-        'The daily `scripts/docfetch.sh` run found vendor pages whose text moved since the last audit (`scripts/target-audit/sources.lock`). No AI read them yet.' \
+        'The weekly `scripts/docfetch.sh` run found vendor pages whose text moved since the last audit (`scripts/target-audit/sources.lock`). No AI read them yet.' \
         "$report" "$(vendor_watch_marker "$keys")")"
     return 0
   fi
