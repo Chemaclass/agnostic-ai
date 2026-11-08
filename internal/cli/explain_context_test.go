@@ -343,3 +343,30 @@ func TestExplainContext_CursorWithAlwaysOnRuleMatchesWhatSyncWrites(t *testing.T
 		t.Errorf("cursor startup %d words, want AGENTS.md + rule body + skill description = %d", got, want)
 	}
 }
+
+func TestExplainContext_ManualOnlySkillLoadsOnDemandForClaude(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "manual", "SKILL.md"), "---\nname: manual\ndisable-model-invocation: true\ndescription: "+words(8)+"\n---\nBody.\n")
+	for target, want := range map[string]string{"claude": "on-demand", "codex": "startup"} {
+		out, err := runCLI(t, "explain", "--context", "--target", target, "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var report explainContextOutput
+		if err := json.Unmarshal([]byte(out), &report); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, c := range report.Contributions {
+			if c.Source == ".agnostic-ai/skills/manual/SKILL.md" && c.Category == "skill discovery" {
+				found = true
+				if c.Load != want {
+					t.Errorf("%s: discovery loads %q, want %q", target, c.Load, want)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("%s: no skill discovery row:\n%s", target, out)
+		}
+	}
+}
