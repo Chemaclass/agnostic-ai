@@ -15,6 +15,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Claude Code
+
+- `lint` (LINT011) and `explain --context` no longer count a manual-only skill's description toward Claude's startup words, since Claude Code loads it only when you invoke the skill.
+
 #### Grok
 
 - When an ignore file hides a Grok rule, the error names that file and pattern, and offers removing grok from targets as a fix (#3198).

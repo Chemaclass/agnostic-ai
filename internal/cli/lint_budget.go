@@ -285,10 +285,26 @@ func addDescriptions(load *sessionLoad, support kindSupport, b spec.Bundle) {
 func descriptionWords(entries []spec.Entry, target string) int {
 	n := 0
 	for _, e := range entries {
-		desc, _ := adapters.ResolveMeta(e.Meta, target)["description"].(string)
+		meta := adapters.ResolveMeta(e.Meta, target)
+		if !listedAtStartup(meta, target) {
+			continue
+		}
+		desc, _ := meta["description"].(string)
 		n += wordsIn(desc)
 	}
 	return n
+}
+
+// manualOnlyUnlisted names the targets that keep a disable-model-invocation
+// entry's description out of context until the user invokes it. Claude
+// Code documents this; Codex still lists every skill's description.
+var manualOnlyUnlisted = map[string]bool{"claude": true}
+
+// listedAtStartup reports whether target puts the entry's description
+// in context at session start.
+func listedAtStartup(meta map[string]any, target string) bool {
+	manual, _ := meta["disable-model-invocation"].(bool)
+	return !manual || !manualOnlyUnlisted[target]
 }
 
 func descriptionChars(entries []spec.Entry, target string) int {
