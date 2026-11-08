@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
-import { countFindings, gapTools, healthFixPrompt, healthGroups, healthPlace, featureBars, healthSummary, healthVerdict, improvementsLine, placeLabel } from './health'
+import { countFindings, gapLine, healthFixPrompt, healthGroups, healthPlace, featureBars, healthSummary, healthVerdict, improvementsLine, placeLabel } from './health'
 import { findingEntryIds, itemEntryId } from './identity'
 import { overviewFindings } from './recheck'
 import { normalizeOverviewView } from './normalize'
@@ -148,12 +148,11 @@ describe('setup health', () => {
     expect(prompt).toContain('Source: /home/u/.agnostic-ai/agents/helper.md')
   })
 
-  it('shows a gap as the tools that support it and what is missing, never as a finding', () => {
+  it('shows a gap as what is missing and how many tools support it, never as a finding', () => {
     const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude', 'codex'], missing: 'no skill yet', fix: 'Add a skill.' }
-    expect(gapTools(skills)).toBe('claude and codex')
-    expect(gapTools(skills, (target) => target.toUpperCase())).toBe('CLAUDE and CODEX')
-    expect(gapTools({ ...skills, supported: ['a', 'b', 'c', 'd'] })).toBe('a, b, c, and d')
-    expect(gapTools({ ...skills, supported: ['a', 'b', 'c', 'd', 'e', 'f'] })).toBe('a, b, c, and 3 more')
+    expect(gapLine(skills)).toBe('No skill yet. 2 of your tools can use one.')
+    expect(gapLine({ ...skills, id: 'stage:stop', missing: 'no hook yet', supported: ['claude'] })).toBe('No hook yet. One of your tools can run one.')
+    expect(gapLine({ ...skills, id: 'builtin:handoff', missing: 'built-in is off' })).toBe('Built-in is off. 2 of your tools can use it.')
     const withGap = { ...scenario(), health: { gaps: [skills] } }
     expect(countFindings(withGap)).toMatchObject({ errors: 1, warnings: 3 })
     expect(healthFixPrompt(withGap)).not.toContain('Add a skill.')

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { saveScreenshot } from '../helpers'
+import { saveScreenshot, findingDetails } from '../helpers'
 import { findingEntryIds, itemEntryId } from '../../src/model/identity'
 import type { SectionItem } from '../../src/contract'
 
@@ -195,7 +195,7 @@ test.describe('overview', () => {
     const finding = stage.locator('.finding')
     await expect(finding).toBeFocused()
     refreshing = true
-    await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+    await (await findingDetails(finding)).getByRole('button', { name: 'Recheck', exact: true }).click()
     await expect(finding.getByRole('button', { name: 'Rechecking…', exact: true })).toBeFocused()
     await expect(stage).toHaveAttribute('open', '')
     hook.findings = []
@@ -234,7 +234,7 @@ test.describe('overview', () => {
     await expect(finding).toBeFocused()
     hook.findings = []
     lifecycle.findings.push({ source: 'lint', code: 'lint-incomplete', severity: 'warning', message: 'Lint stopped.' })
-    await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+    await (await findingDetails(finding)).getByRole('button', { name: 'Recheck', exact: true }).click()
     const feedback = stage.locator('.finding-recheck-result')
     await expect(feedback).toBeVisible()
     await expect(feedback).toBeFocused()

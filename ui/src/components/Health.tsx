@@ -1,13 +1,13 @@
 // Setup health: every finding in the overview on one page, errors first,
 // with the same finding rows, fix prompts, and rechecks as the sections.
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Improvements, OverviewView } from '../contract'
 import { recheckAllMessage, type RecheckAllResult } from '../model/recheck'
-import { countFindings, featureBars, gapTools, healthFixPrompt, healthGroups, healthSummary, healthVerdict, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
+import { countFindings, featureBars, gapLine, healthFixPrompt, healthGroups, healthSummary, healthVerdict, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
 import { HEALTH_STATUS } from '../model/rail'
 import { sectionEntryIds } from '../model/identity'
-import { plural } from '../model/format'
 import { joinAnd } from '../model/counts'
 import { AppLink, PageHeader, useApp } from './app-context'
 import { ErrorPanel, Notice, type NoticeTone } from './Banner'
@@ -17,11 +17,13 @@ import { Findings } from './Findings'
 import { DocLink, SectionHeading } from './SectionHeading'
 import type { Remote } from './Shell'
 import type { ViewId } from '../model/url'
-import { CopyButton, Icon, toolName } from './ui'
+import { CopyButton, Icon, RowActions, toolName } from './ui'
 import { PickBox, PickTray, PicksContext, type Picks } from './pick'
 
 const TITLE = 'Setup health'
-const SEVERITY_TITLES: Record<HealthSeverity, string> = { error: HEALTH_STATUS.error, warning: HEALTH_STATUS.warning }
+const SEVERITY_TITLES: Record<HealthSeverity, string> = { error: 'Fix first', warning: HEALTH_STATUS.warning }
+// Phones show this many suggestions until the person asks for the rest.
+const GAPS_SHOWN_ON_PHONE = 4
 
 export function HealthPage({ overview, stale = false }: { overview: Remote<OverviewView>; stale?: boolean }) {
   const recheck = useRechecks()
@@ -60,15 +62,8 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
   return (
     <>
       <PageHeader title={TITLE} verdict={<>{verdict.key && <span className="health-verdict-key">{verdict.key}</span>}{verdict.rest}</>}>
-        <HealthFacts errors={count.errors} warnings={count.warnings} gaps={data.health.gaps.length} stale={stale} />
+        <HealthFacts errors={count.errors} warnings={count.warnings} gaps={data.health.gaps.length} stale={stale} recheck={recheck.live && (total > 0 || recheck.all !== undefined)} />
         <FeatureTrack improvements={data.health.improvements} />
-        {recheck.live && (total > 0 || recheck.all) && (
-          <div className="health-actions">
-            <button type="button" className="button health-recheck-all" aria-disabled={recheck.pending !== undefined || undefined} onClick={() => recheck.pending === undefined && recheck.startAll()}>
-              {recheck.pendingAll ? 'Rechecking…' : 'Recheck all'}
-            </button>
-          </div>
-        )}
         {recheck.live && (
           // A failed result is an error Notice, which announces itself as an alert.
           <div className="health-recheck-result" role={recheck.all?.state === 'failed' ? undefined : 'status'}>
@@ -84,7 +79,7 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
               const shown = group.sections.reduce((sum, s) => sum + s.entries.reduce((n, entry) => n + entry.findings.length, 0), 0)
               return (
                 <section className="block health-group" aria-labelledby={headingId} key={group.severity}>
-                  <SectionHeading id={headingId} focusable docs={index === 0 ? 'findings' : undefined} actions={index === 0 && total > 0 && (
+                  <SectionHeading id={headingId} focusable actions={index === 0 && total > 1 && (
                     <div className="health-actions">
                       <CopyButton text={healthFixPrompt(data, data.snapshot.project.root)} label="Copy all fixes" copiedLabel="Copied" className="button-primary" ariaLabel={total === 1 ? 'Copy the fix prompt for the one finding' : `Copy one fix prompt for all ${total} findings`} />
                     </div>
@@ -103,8 +98,7 @@ export function HealthPage({ overview, stale = false }: { overview: Remote<Overv
                 </section>
               )
             })}
-            <Gaps gaps={data.health.gaps} sections={data.sections} docs={groups.length === 0} />
-            {groups.length === 0 && data.health.gaps.length === 0 && <p className="health-docs"><DocLink topic="findings" /></p>}
+            <Gaps gaps={data.health.gaps} sections={data.sections} />
           </PicksContext.Provider>
         </ConfigurationRoot.Provider>
         <PickTray count={pickedCount} prompt={pickedCount ? healthFixPrompt(data, data.snapshot.project.root, pick) : ''} onClear={() => setPicked(new Set())} />
@@ -118,18 +112,30 @@ function recheckAllTone(result: RecheckAllResult): NoticeTone {
   return result.remaining || result.unconfirmed || result.unknown ? 'warning' : 'success'
 }
 
-function HealthFacts({ errors, warnings, gaps, stale }: { errors: number; warnings: number; gaps: number; stale: boolean }) {
+// The verdict already says when nothing needs a fix, so the facts skip "No findings".
+function HealthFacts({ errors, warnings, gaps, stale, recheck }: { errors: number; warnings: number; gaps: number; stale: boolean; recheck: boolean }) {
   const app = useApp()
-  const tone = errors ? 'is-error' : warnings ? 'is-warning' : 'is-clean'
+  const rechecks = useRechecks()
+  const tone = errors ? 'is-error' : 'is-warning'
   return (
-    <p className="page-facts">
-      <span className={`page-fact page-fact-findings ${tone}`}>
-        {errors + warnings > 0 && <Icon name="warning" />}
-        {healthSummary({ errors, warnings })}
+    <div className="page-facts health-facts">
+      {errors + warnings > 0 && (
+        <span className={`page-fact page-fact-findings ${tone}`}>
+          <Icon name="warning" />
+          {healthSummary({ errors, warnings })}
+        </span>
+      )}
+      {gaps > 0 && <span className="page-fact"><span>{gaps} <span className="health-fact-long">{gaps === 1 ? 'feature ' : 'features '}</span>you could add</span></span>}
+      <span className="page-fact">
+        {stale ? 'Last check failed; showing earlier results' : app.source.kind === 'api' ? 'Checked just now' : 'From a saved snapshot'}
+        {recheck && (
+          <button type="button" className="link-button health-recheck-all" aria-disabled={rechecks.pending !== undefined || undefined} onClick={() => rechecks.pending === undefined && rechecks.startAll()}>
+            {rechecks.pendingAll ? 'Rechecking…' : 'Recheck'}
+          </button>
+        )}
       </span>
-      {gaps > 0 && <span className="page-fact">{plural(gaps, 'feature')} you could add</span>}
-      <span className="page-fact">{stale ? 'Last check failed; showing earlier results' : app.source.kind === 'api' ? 'Checked just now' : 'From a saved snapshot'}</span>
-    </p>
+      <span className="page-facts-end"><DocLink topic="findings" /></span>
+    </div>
   )
 }
 
@@ -150,47 +156,58 @@ function FeatureTrack({ improvements }: { improvements?: Improvements }) {
   )
 }
 
+// Section findings name their section on the card, so only items and the global setup get a name above.
 function HealthPlace({ entry }: { entry: HealthEntry }) {
   const label = placeLabel(entry)
   const kind = entry.item ? entry.section.kinds.find((k) => k.kind === entry.item!.kind)?.label ?? entry.item.kind : undefined
   return (
     <div className="health-place">
-      <p className="health-place-name">
-        {entry.entry ? <AppLink to={{ view: entry.section.id as ViewId, entry: entry.entry }}>{label}</AppLink> : <span>{label}</span>}
-        {kind && <span className="muted"> · {kind}</span>}
-      </p>
+      {(entry.item || entry.global) && (
+        <p className="health-place-name">
+          {entry.entry ? <AppLink to={{ view: entry.section.id as ViewId, entry: entry.entry }}>{label}</AppLink> : <span>{label}</span>}
+          {kind && <span className="muted"> · {kind}</span>}
+        </p>
+      )}
       <Findings findings={entry.findings} ids={entry.ids} owner={entry.owner} place={entry.place} />
     </div>
   )
 }
 
-function Gaps({ gaps, sections, docs }: { gaps: OverviewView['health']['gaps']; sections: OverviewView['sections']; docs: boolean }) {
+function Gaps({ gaps, sections }: { gaps: OverviewView['health']['gaps']; sections: OverviewView['sections'] }) {
+  const [all, setAll] = useState(false)
+  const list = useRef<HTMLUListElement>(null)
+  // The button leaves once pressed, so focus moves to the first row it revealed.
+  const showAll = () => {
+    flushSync(() => setAll(true))
+    list.current?.children[GAPS_SHOWN_ON_PHONE]?.querySelector<HTMLElement>('input, a, button')?.focus()
+  }
   if (gaps.length === 0) return null
+  const hidden = gaps.length - GAPS_SHOWN_ON_PHONE
   return (
     <section className="block health-gaps" aria-labelledby="health-gaps">
-      <SectionHeading id="health-gaps" docs={docs ? 'support' : undefined}>
-        Reach the best setup <span className="kind-count">{gaps.length}</span>
+      <SectionHeading id="health-gaps">
+        You could add <span className="kind-count">{gaps.length}</span>
       </SectionHeading>
-      <p className="health-gaps-intro">Features your tools support that this project does not use yet. Suggestions, not findings.</p>
-      <ul className="health-gap-list">
+      <p className="health-gaps-intro">Features your tools support that this project does not use yet.</p>
+      <ul ref={list} className={`health-gap-list${all ? ' is-all' : ''}`}>
         {gaps.map((gap) => {
           const section = sections.find((s) => s.id === gap.section)
-          const every = joinAnd(gap.supported.map(toolName))
           return (
-            <li key={gap.id} className="health-gap">
+            <li key={gap.id} className="health-gap row-hover">
               <PickBox id={gap.id} name={gap.label} className="health-gap-pick" />
-              <p className="health-gap-name">{gap.label}</p>
+              <p className="health-gap-name">{section ? <AppLink to={{ view: section.id as ViewId }} title={`Open ${section.label}`}>{gap.label}</AppLink> : gap.label}</p>
               <p className="health-gap-text">
-                {gap.missing.charAt(0).toUpperCase() + gap.missing.slice(1)}.{' '}
-                <span title={every} aria-hidden="true">Supported by {gapTools(gap, toolName)}.</span>
-                <span className="sr-only">Supported by {every}.</span>
-                {section && <>{' '}<AppLink to={{ view: section.id as ViewId }}>{section.label}</AppLink></>}
+                {gapLine(gap)}
+                <span className="sr-only"> Supported by {joinAnd(gap.supported.map(toolName))}.</span>
               </p>
-              <CopyButton text={gap.fix} label="Copy prompt" copiedLabel="Copied" className="health-gap-copy" ariaLabel={`Copy prompt for ${gap.label}`} />
+              <RowActions label={gap.label}>
+                <CopyButton text={gap.fix} label="Copy prompt" copiedLabel="Copied" className="health-gap-copy" ariaLabel={`Copy prompt for ${gap.label}`} />
+              </RowActions>
             </li>
           )
         })}
       </ul>
+      {hidden > 0 && !all && <button type="button" className="button health-gaps-more" onClick={showAll}>Show {hidden} more</button>}
     </section>
   )
 }

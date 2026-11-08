@@ -1,3 +1,4 @@
+import { findingDetails } from '../helpers'
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
@@ -109,7 +110,7 @@ test('keeps warnings open and focus visible after dismissing a recheck result', 
   await page.getByRole('button', { name: 'Review 2 findings', exact: true }).click()
   const finding = page.locator('.finding', { hasText: 'LINT011' })
   settings.findings.shift()
-  await finding.getByRole('button', { name: 'Recheck', exact: true }).click()
+  await (await findingDetails(finding)).getByRole('button', { name: 'Recheck', exact: true }).click()
   const result = page.locator('.finding-rechecked')
   await expect(result).toBeVisible()
   await result.getByRole('button', { name: 'Dismiss', exact: true }).click()

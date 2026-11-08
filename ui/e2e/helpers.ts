@@ -54,3 +54,10 @@ export async function openToolSupport(page: Page) {
   await page.locator('.page-facts').getByRole('button', { name: 'Tool support', exact: true }).click()
   return page.getByRole('dialog', { name: 'Coding tool support' })
 }
+
+/** Opens a finding card's Details, where Open, Copy path and Recheck sit, and returns that panel. */
+export async function findingDetails(finding: Locator): Promise<Locator> {
+  const toggle = finding.getByRole('button', { name: 'Details', exact: true })
+  if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click()
+  return finding.locator('.finding-details')
+}

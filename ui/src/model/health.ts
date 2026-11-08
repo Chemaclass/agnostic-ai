@@ -4,7 +4,6 @@
 
 import type { Gap, Improvements, ItemFinding, OverviewView, Section, SectionItem } from '../contract'
 import { FIX_GUIDANCE, findingFacts } from './finding-prompt'
-import { joinAnd } from './counts'
 import { plural } from './format'
 import { findingEntryIds, itemEntryId } from './identity'
 
@@ -167,13 +166,12 @@ export function healthFixPrompt(overview: OverviewView, root?: string, pick?: He
   return lines.join('\n')
 }
 
-const GAP_TOOLS_SHOWN = 3
-
-/** The tools that support a gap, by name and cut to the first few, such as "Claude Code, Codex, Cursor, and 9 more". */
-export function gapTools(gap: Gap, name: (target: string) => string = (target) => target): string {
-  const names = gap.supported.map(name)
-  if (names.length <= GAP_TOOLS_SHOWN + 1) return joinAnd(names)
-  return joinAnd([...names.slice(0, GAP_TOOLS_SHOWN), `${names.length - GAP_TOOLS_SHOWN} more`])
+/** A suggestion in one line, such as "No hook yet. 12 of your tools can run one." */
+export function gapLine(gap: Gap): string {
+  const n = gap.supported.length
+  const who = n === 1 ? 'One of your tools' : `${n} of your tools`
+  const can = gap.id.startsWith('stage:') ? 'can run one' : gap.id.startsWith('builtin:') ? 'can use it' : 'can use one'
+  return `${gap.missing.charAt(0).toUpperCase()}${gap.missing.slice(1)}. ${who} ${can}.`
 }
 
 /** How many features the enabled tools support are in use; nothing when they support none. */

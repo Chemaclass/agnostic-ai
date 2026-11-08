@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { openMenu, openToolSupport, pageHeader } from '../helpers'
+import { openMenu, openToolSupport, pageHeader, findingDetails } from '../helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
@@ -110,7 +110,7 @@ test('reads the required release again when the overview refreshes', async ({ pa
   await expect(page.locator('.release-badge .release-version')).toHaveText('agnostic-ai v0.81.0')
   await expect(requires).toHaveCount(0)
   health = { ...health, requires: '>=0.82.0', requiresMet: false }
-  await page.locator('.finding', { hasText: 'LINT038' }).getByRole('button', { name: 'Recheck' }).click()
+  await (await findingDetails(page.locator('.finding', { hasText: 'LINT038' }))).getByRole('button', { name: 'Recheck' }).click()
   await expect(requires).toHaveText('Update needed: requires >=0.82.0, not met by this version')
 })
 
