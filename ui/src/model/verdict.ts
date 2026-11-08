@@ -38,14 +38,28 @@ function toolsVerdict(section: VerdictSection): string {
   return turnedOff(section).length ? 'No MCP servers are turned on.' : 'Your setup configures no extra tools yet.'
 }
 
+// One stage names its moment; several stages give the count.
+const STAGE_MOMENTS: Record<string, string> = {
+  'session-start': 'when a session starts',
+  'prompt-submit': 'when a prompt is sent',
+  'before-tool': 'before a tool runs',
+  'after-tool': 'after a tool runs',
+  'after-edit': 'after a file edit',
+  stop: 'when the agent stops',
+  'session-end': 'when a session ends',
+}
+
 function lifecycleVerdict(section: VerdictSection): string {
   const all = section.items.filter((item) => item.kind === 'hook')
   if (!all.length) return 'Nothing runs around the agent yet.'
   const hooks = all.filter((item) => !isTurnedOff(item))
   if (!hooks.length) return 'No hooks are set to run.'
-  const verb = hooks.length === 1 ? 'is' : 'are'
-  const stages = new Set(hooks.map((hook) => hook.group).filter(Boolean)).size
-  return stages ? `${plural(hooks.length, 'hook')} ${verb} set to run at ${plural(stages, 'stage')} of a session.` : `${plural(hooks.length, 'hook')} ${verb} set.`
+  const verb = hooks.length === 1 ? 'runs' : 'run'
+  const stages = [...new Set(hooks.map((hook) => hook.group).filter((group): group is string => Boolean(group)))]
+  if (!stages.length) return `${plural(hooks.length, 'hook')} ${hooks.length === 1 ? 'is' : 'are'} set.`
+  if (stages.length > 1) return `${plural(hooks.length, 'hook')} ${verb} at ${plural(stages.length, 'stage')}.`
+  const stage = section.stages?.find((entry) => entry.id === stages[0])
+  return `${plural(hooks.length, 'hook')} ${verb} ${STAGE_MOMENTS[stages[0]] ?? `at ${stage?.label ?? stages[0]}`}.`
 }
 
 function settingsVerdict(section: VerdictSection): string {
@@ -83,7 +97,10 @@ function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
     return [...(mode ? [`Default mode: ${mode}`] : []), ...(paths ? [plural(paths, 'protected path')] : [])]
   }
   if (section.id === 'tools' && section.native?.length) return [`${plural(section.native.length, 'more server')} found in your tools`]
-  if (section.id === 'lifecycle' && section.stages?.length) return [`${plural(section.stages.length, 'stage')} in a session`]
+  if (section.id === 'lifecycle' && section.stages?.length) {
+    const empty = section.stages.filter((stage) => !section.items.some((item) => item.kind === 'hook' && item.group === stage.id && !isTurnedOff(item))).length
+    return empty ? [`${plural(empty, 'stage')} ${empty === 1 ? 'has' : 'have'} no hook`] : []
+  }
   if (section.id === 'settings') {
     const files = section.items.filter((item) => item.kind === 'config').length
     return files ? [plural(files, 'config file')] : []

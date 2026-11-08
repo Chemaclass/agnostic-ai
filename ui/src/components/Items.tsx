@@ -7,7 +7,7 @@ import { OpenInEditor } from './EditorLink'
 import { useApp } from './app-context'
 import { SpecMoveAction } from './SpecMoveAction'
 import { SourceContent } from './SourceContent'
-import { HookDetails } from './HookDetails'
+import { HookCommand } from './HookDetails'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
 import { builtinEnabled, comparisonValue } from '../model/audience-view'
 import { audienceLabel, layerLabel } from '../model/edit-audience'
@@ -85,7 +85,7 @@ export function ItemList({ items, hideValues, sharedUnlisted }: { items: Section
             <SpecMoveAction item={item} />
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
-            {item.kind === 'hook' ? <HookDetails item={item} /> : <SourceContent item={item} />}
+            {item.kind === 'hook' ? <HookCommand item={item} /> : <SourceContent item={item} />}
             <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
           </ItemRow>
         )
