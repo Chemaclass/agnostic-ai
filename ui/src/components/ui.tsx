@@ -530,3 +530,12 @@ function RowMenu({ label, children }: { label: string; children: ReactNode }) {
     </span>
   )
 }
+
+/** A row's Details button: it folds open the row's technical names, paths and commands. */
+export function DetailsToggle({ open, controls, label, onToggle }: { open: boolean; controls: string; label: string; onToggle: () => void }) {
+  return (
+    <button type="button" className="button details-toggle" aria-expanded={open} aria-controls={controls} aria-label={`Details for ${label}`} onClick={onToggle}>
+      <Icon name="chevron" />Details
+    </button>
+  )
+}

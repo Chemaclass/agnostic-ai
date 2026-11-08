@@ -34,7 +34,7 @@ function authorityVerdict(section: VerdictSection): string {
 function toolsVerdict(section: VerdictSection): string {
   const parts = counted(section)
   const usable = section.support?.find((support) => support.kind === 'mcp')?.supported.length
-  if (parts.length) return `Your ${usable ? 'agents can use' : 'setup configures'} ${joinAnd(parts)}.`
+  if (parts.length) return `${usable ? 'Agents can use' : 'Your setup configures'} ${joinAnd(parts)}.`
   return turnedOff(section).length ? 'No MCP servers are turned on.' : 'Your setup configures no extra tools yet.'
 }
 
@@ -48,11 +48,20 @@ function lifecycleVerdict(section: VerdictSection): string {
   return stages ? `${plural(hooks.length, 'hook')} ${verb} set to run at ${plural(stages, 'stage')} of a session.` : `${plural(hooks.length, 'hook')} ${verb} set.`
 }
 
+function builtinsOn(section: VerdictSection): number {
+  return section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, 'shared')).length
+}
+
+function preferencesSet(section: VerdictSection): number {
+  return (section.fields ?? []).filter((field) => field.set.some((source) => !source.local)).length
+}
+
 function settingsVerdict(section: VerdictSection): string {
-  const builtins = section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, 'shared')).length
-  const preferences = (section.fields ?? []).filter((field) => field.set.some((source) => !source.local)).length
-  const parts = [builtins ? `${plural(builtins, 'built-in')} on` : '', preferences ? `${plural(preferences, 'preference')} set` : ''].filter(Boolean)
-  return parts.length ? `Your tools have ${joinAnd(parts)}.` : 'Your tools run on their own defaults.'
+  const builtins = builtinsOn(section)
+  if (builtins) return `${plural(builtins, 'built-in')} ${builtins === 1 ? 'is' : 'are'} on.`
+  const preferences = preferencesSet(section)
+  if (preferences) return `${plural(preferences, 'preference')} ${preferences === 1 ? 'is' : 'are'} set.`
+  return 'Your tools run on their own defaults.'
 }
 
 const VERDICTS: Record<string, (section: VerdictSection) => string> = {
@@ -68,6 +77,27 @@ export function sectionVerdict(section: VerdictSection): string {
   return (VERDICTS[section.id] ?? contextVerdict)(section)
 }
 
+/** The count the verdict leads with, which the page sets in the accent: "1 environment", "2 built-ins". */
+export function verdictKey(section: VerdictSection): string | undefined {
+  if (section.id === 'tools') {
+    const parts = counted(section)
+    return parts.length ? joinAnd(parts) : undefined
+  }
+  if (section.id === 'settings') {
+    const builtins = builtinsOn(section)
+    if (builtins) return plural(builtins, 'built-in')
+    const preferences = preferencesSet(section)
+    return preferences ? plural(preferences, 'preference') : undefined
+  }
+  return undefined
+}
+
+/** "Claude Code and Codex", or "4 of your tools" when naming them would crowd the line. */
+function toolNames(labels: string[]): string {
+  const unique = [...new Set(labels)]
+  return unique.length > 3 ? `${unique.length} of your tools` : joinAnd(unique)
+}
+
 /** The permission mode a settings file already sets; a local file overrides the shared one. */
 function defaultMode(section: VerdictSection): string | undefined {
   const field = section.fields?.find((f) => f.key === 'permissions.default-mode')
@@ -75,18 +105,22 @@ function defaultMode(section: VerdictSection): string | undefined {
   return sources.flatMap((source) => source.values).find((value) => value.key === field?.key && value.value)?.value
 }
 
-function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
+function sectionOwnFacts(section: VerdictSection, global: boolean, tools?: ToolTally): string[] {
   if (section.id === 'authority') {
     const paths = section.items.flatMap((item) => item.values).filter((value) => value.key === 'protected.paths').reduce((sum, value) => sum + (value.list?.length ?? 0), 0)
     // Outside the global view the default mode applies only through global sync.
     const mode = global ? defaultMode(section) : undefined
     return [...(mode ? [`Default mode: ${mode}`] : []), ...(paths ? [plural(paths, 'protected path')] : [])]
   }
-  if (section.id === 'tools' && section.native?.length) return [`${plural(section.native.length, 'more server')} found in your tools`]
+  if (section.id === 'tools' && section.native?.length) {
+    const labels = section.native.flatMap((server) => server.holders.map((holder) => holder.label))
+    return [`${plural(section.native.length, 'more server')} found in ${labels.length ? toolNames(labels) : 'your tools'}`]
+  }
   if (section.id === 'lifecycle' && section.stages?.length) return [`${plural(section.stages.length, 'stage')} in a session`]
   if (section.id === 'settings') {
-    const files = section.items.filter((item) => item.kind === 'config').length
-    return files ? [plural(files, 'config file')] : []
+    // The verdict names built-ins first; preferences become a fact only beside them.
+    const preferences = builtinsOn(section) ? preferencesSet(section) : 0
+    return [...(preferences ? [`${plural(preferences, 'preference')} set`] : []), ...(tools ? [`${tools.on} of ${tools.total} tools on`] : [])]
   }
   return []
 }
@@ -94,10 +128,15 @@ function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
 // More facts than this crowd the line; tool support has its own link.
 const MAX_FACTS = 3
 
-/** Facts beside the verdict that it does not already say. */
-export function sectionFacts(section: VerdictSection, global = false): string[] {
+export interface ToolTally {
+  on: number
+  total: number
+}
+
+/** Facts beside the verdict that it does not already say. Settings counts the coding tools that are on. */
+export function sectionFacts(section: VerdictSection, global = false, tools?: ToolTally): string[] {
   const off = turnedOff(section)
-  return [...sectionOwnFacts(section, global), ...(off.length ? [`${joinAnd(off)} turned off`] : [])].slice(0, MAX_FACTS)
+  return [...sectionOwnFacts(section, global, tools), ...(off.length ? [`${joinAnd(off)} turned off`] : [])].slice(0, MAX_FACTS)
 }
 
 export interface FindingTally {

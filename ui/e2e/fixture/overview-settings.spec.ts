@@ -164,7 +164,7 @@ test.describe('overview', () => {
     await page.goto('/?view=settings')
     const review = page.getByRole('button', { name: 'Review 1 finding', exact: true })
     await expect(review).toBeInViewport()
-    await expect(page.getByRole('heading', { name: /^Built-ins/, level: 2 })).toBeInViewport()
+    await expect(page.getByRole('tab', { name: /^Built-ins/ })).toBeInViewport()
     await review.click()
     await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
     await expect(page.getByText('Your tools load more text at startup than the startup budget allows.', { exact: true })).toBeInViewport()
@@ -201,7 +201,8 @@ test.describe('overview', () => {
     const toggle = row.locator('.item-heading').getByRole('switch', { name: 'caveman built-in', exact: true })
     await expect(toggle).toBeEnabled()
     const memory = page.getByRole('switch', { name: 'memory built-in', exact: true })
-    const aligned = async () => {
+    // The row menu swaps in after a resize re-renders, so the check retries until layout settles.
+    const aligned = () => expect(async () => {
       const first = await toggle.boundingBox()
       const other = await memory.boundingBox()
       expect(first).not.toBeNull()
@@ -209,7 +210,7 @@ test.describe('overview', () => {
       const desktop = page.viewportSize()!.width > 760
       const edge = (box: NonNullable<typeof first>) => box.x + (desktop ? box.width : 0)
       expect(Math.abs(edge(first!) - edge(other!))).toBeLessThan(1)
-    }
+    }).toPass()
     await aligned()
     await toggle.click()
     const preview = row.getByRole('region', { name: 'Caveman change preview' })

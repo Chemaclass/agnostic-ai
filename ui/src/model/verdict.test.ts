@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import type { OverviewView, Section } from '../contract'
 import { sectionSummary } from './rail'
-import { emptyState, findingTallyText, sectionFacts, sectionFindings, sectionVerdict, supportSummary, tallyFindings } from './verdict'
+import { emptyState, findingTallyText, sectionFacts, sectionFindings, sectionVerdict, supportSummary, tallyFindings, verdictKey } from './verdict'
 
 const fixture: OverviewView = JSON.parse(readFileSync(new URL('../fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const section = (id: string) => fixture.sections.find((s) => s.id === id)!
@@ -15,7 +15,7 @@ describe('section verdict', () => {
   it('reads every section of the mock overview in plain words', () => {
     expect(sectionVerdict(section('context'))).toBe('Your setup configures 1 rule and 3 agents.')
     expect(sectionVerdict(section('authority'))).toBe('Your rules allow 11 actions, ask before 3, and block 4.')
-    expect(sectionVerdict(section('tools'))).toBe('Your agents can use 3 MCP servers.')
+    expect(sectionVerdict(section('tools'))).toBe('Agents can use 3 MCP servers.')
     expect(sectionVerdict(section('lifecycle'))).toBe('Nothing runs around the agent yet.')
   })
 
@@ -24,7 +24,7 @@ describe('section verdict', () => {
     expect(sectionVerdict(tools([], ['kiro']))).toBe('Your setup configures 3 MCP servers.')
     expect(sectionVerdict(tools([], []))).toBe('Your setup configures 3 MCP servers.')
     expect(sectionVerdict({ ...section('tools'), support: undefined })).toBe('Your setup configures 3 MCP servers.')
-    expect(sectionVerdict(tools(['claude'], []))).toBe('Your agents can use 3 MCP servers.')
+    expect(sectionVerdict(tools(['claude'], []))).toBe('Agents can use 3 MCP servers.')
   })
 
   it('names the first count and skips empty permission lists', () => {
@@ -38,6 +38,28 @@ describe('section verdict', () => {
     expect(sectionVerdict(empty('tools', [kind('mcp', 'MCP servers', 0)]))).toBe('Your setup configures no extra tools yet.')
     expect(sectionVerdict(empty('settings'))).toBe('Your tools run on their own defaults.')
     expect(sectionVerdict(empty('context', [kind('instructions', 'Instructions', 1), kind('skill', 'Skills', 2)]))).toBe('Your setup configures 1 instructions file and 2 skills.')
+  })
+
+  it('leads Settings with the built-ins that are on, then the preferences set', () => {
+    const builtin = (name: string, enabled: boolean) => ({ ...item([]), kind: 'builtin', name, enabled })
+    const field = { key: 'model', label: 'Model', description: '', set: [{ spec: 'settings', path: 'settings.yaml', values: [{ key: 'model', type: 'text' as const, value: 'opus' }] }] }
+    const settings = { ...empty('settings'), items: [builtin('handoff', true), builtin('memory', true), builtin('rtk', false)], fields: [field] }
+    expect(sectionVerdict(settings)).toBe('2 built-ins are on.')
+    expect(verdictKey(settings)).toBe('2 built-ins')
+    expect(sectionFacts(settings, false, { on: 31, total: 32 })).toEqual(['1 preference set', '31 of 32 tools on'])
+    const preferences = { ...empty('settings'), fields: [field] }
+    expect(sectionVerdict(preferences)).toBe('1 preference is set.')
+    expect(verdictKey(preferences)).toBe('1 preference')
+    expect(sectionFacts(preferences)).toEqual([])
+  })
+
+  it('names the tools that hold servers agnostic-ai does not share yet', () => {
+    const holder = (label: string) => ({ target: label.toLowerCase(), label, path: '~/.x', scope: 'user' as const })
+    const tools = { ...section('tools'), native: [{ name: 'paper', holders: [holder('Claude Code'), holder('Codex')] }] }
+    expect(sectionFacts(tools)[0]).toBe('1 more server found in Claude Code and Codex')
+    expect(verdictKey(section('tools'))).toBe('3 MCP servers')
+    const many = { ...tools, native: [{ name: 'paper', holders: ['A', 'B', 'C', 'D'].map(holder) }] }
+    expect(sectionFacts(many)[0]).toBe('1 more server found in 4 of your tools')
   })
 
   it('counts hooks and the stages they run at', () => {
@@ -121,8 +143,9 @@ describe('section facts', () => {
 
   it('adds what the verdict leaves out', () => {
     expect(sectionFacts(section('authority'))).toEqual(['2 protected paths'])
-    expect(sectionFacts(section('tools'))).toEqual(['1 more server found in your tools', '1 MCP server turned off'])
-    expect(sectionFacts(section('settings'))).toEqual(['1 config file'])
+    expect(sectionFacts(section('tools'))).toEqual(['1 more server found in Claude Code', '1 MCP server turned off'])
+    expect(sectionFacts(section('settings'))).toEqual([])
+    expect(sectionFacts(section('settings'), false, { on: 31, total: 32 })).toEqual(['31 of 32 tools on'])
     expect(sectionFacts(section('context'))).toEqual([])
   })
 

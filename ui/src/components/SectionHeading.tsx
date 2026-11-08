@@ -2,10 +2,11 @@ import type { ReactNode } from 'react'
 import { Icon } from './ui'
 import { DOC_FALLBACK, DOC_TOPICS, documentationUrl } from '../model/documentation'
 
+// A quiet heading is for screen readers until a link focuses it, since the tab already names the list.
 // A page shows one Docs link: section pages put it in the filter row, so their headings pass no `docs`.
-export function SectionHeading({ docs, id, focusable, entry, actions, children }: { docs?: string; id?: string; focusable?: boolean; entry?: string; actions?: ReactNode; children: ReactNode }) {
+export function SectionHeading({ docs, id, focusable, entry, actions, hidden, children }: { docs?: string; id?: string; focusable?: boolean; entry?: string; actions?: ReactNode; hidden?: boolean; children: ReactNode }) {
   return (
-    <div className="section-head section-help-heading">
+    <div className={`section-head section-help-heading${hidden ? ' is-quiet' : ''}`}>
       <h2 id={id} tabIndex={focusable || entry ? -1 : undefined} data-entry={entry}>{children}</h2>
       {actions}
       {docs && <DocLink topic={docs} />}
