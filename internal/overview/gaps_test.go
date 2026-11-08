@@ -114,10 +114,16 @@ func TestBuild_ABuiltInSpecFillsNoKindGap(t *testing.T) {
 	}
 }
 
+// The hooks mirror the memory built-in's session-start hooks, which each emit to a few tools only.
+func memorySessionStartHooks() []spec.Entry {
+	portable := entry(spec.KindHook, "memory-session-start", "/cache/builtins/memory/hooks/memory-session-start.yaml", map[string]any{"on": "session-start", "targets": []any{"codex", "copilot", "cursor"}})
+	native := entry(spec.KindHook, "memory-trae-session-start", "/cache/builtins/memory/hooks/memory-trae-session-start.yaml", map[string]any{"event": "SessionStart", "targets": []any{"trae"}})
+	portable.Layer, native.Layer = builtinLayer, builtinLayer
+	return []spec.Entry{portable, native}
+}
+
 func TestBuild_AnEnabledBuiltInHookFillsItsStage(t *testing.T) {
-	hook := entry(spec.KindHook, "memory-session-start", "/cache/builtins/memory/hooks/memory-session-start.yaml", map[string]any{"on": "session-start"})
-	hook.Layer = builtinLayer
-	h := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}, Bundle: spec.Bundle{Hooks: []spec.Entry{hook}}}).Health
+	h := Build(Inputs{Cfg: &config.Config{Targets: []string{"codex"}, Builtins: []string{"memory"}}, Bundle: spec.Bundle{Hooks: memorySessionStartHooks()}}).Health
 	if _, ok := gapByID(h.Gaps, "stage:session-start"); ok {
 		t.Error("session start is reported as having no hook while the memory built-in runs one there")
 	}
@@ -126,6 +132,13 @@ func TestBuild_AnEnabledBuiltInHookFillsItsStage(t *testing.T) {
 	}
 	if h.Improvements.Applied != h.Improvements.Total-len(h.Gaps) {
 		t.Errorf("improvements %+v with %d gaps", *h.Improvements, len(h.Gaps))
+	}
+}
+
+func TestBuild_AHookForOtherToolsFillsNoStage(t *testing.T) {
+	gaps := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}, Bundle: spec.Bundle{Hooks: memorySessionStartHooks()}}).Health.Gaps
+	if _, ok := gapByID(gaps, "stage:session-start"); !ok {
+		t.Error("a hook that emits only to other tools filled session start for claude")
 	}
 }
 

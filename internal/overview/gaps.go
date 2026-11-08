@@ -69,8 +69,10 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 			continue
 		}
 		total++
-		// Any hook that runs at the stage fills it, an enabled built-in's included.
-		if slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool { return runsAt(e, st.id, targets) }) {
+		// Any hook that runs at the stage for a tool that has it fills the stage, an enabled built-in's included.
+		if slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool {
+			return slices.ContainsFunc(supported, func(t string) bool { return e.EmitsTo(t) && runsAt(e, st.id, []string{t}) })
+		}) {
 			continue
 		}
 		gaps = append(gaps, Gap{
