@@ -29,7 +29,7 @@ export interface RecheckApi {
   rechecked?: Rechecked
   /** True while one refresh rechecks every finding. */
   pendingAll?: boolean
-  /** What the last Recheck all found, until the next refresh. */
+  /** What the last recheck of every finding found, until the next refresh. */
   all?: RecheckAllResult
   start(id: string, finding: ItemFinding, section: string, place: string): void
   startAll(): void
