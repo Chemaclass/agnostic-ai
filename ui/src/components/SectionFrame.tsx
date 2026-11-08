@@ -33,6 +33,7 @@ import { NativeServers } from './NativeServers'
 import { Lifecycle } from './Lifecycle'
 import { Findings } from './Findings'
 import { SupportLink } from './SupportTable'
+import { ToolbarActionSlot } from './ToolbarAction'
 import { ResetAction } from './EditSwitch'
 
 export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
@@ -140,6 +141,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const app = useApp()
   const audience = useViewAudience()
   const [warningsExpanded, setWarningsExpanded] = useState(false)
+  const [toolbarAction, setToolbarAction] = useState<HTMLElement | null>(null)
   const personalBuiltins = useContext(PersonalBuiltins)
   const level = useLevelName()
   const root = useContext(ConfigurationRoot)
@@ -239,6 +241,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     <RecheckSection.Provider value={section.id}>
       <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
       <SpecMovedSaver.Provider value={saveSpecMoved}>
+      <ToolbarActionSlot.Provider value={toolbarAction}>
       {app.source.kind === 'api' && specMoved && <SpecMovedNotice moved={specMoved} dismiss={() => saveSpecMoved()} />}
       {entryMissing && (
         <div className="entry-missing" role="status">
@@ -247,6 +250,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         </div>
       )}
       {errors > 0 && otherFindings}
+      <div className="section-toolbar">
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId} className="sr-only">Search {section.label.toLowerCase()}</label>
         <div className="section-search-input">
@@ -263,6 +267,8 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         </p>
         {scoped && <EditAudienceSwitch />}
         {section.id === 'authority' && section.fields && <AuthorityToolbarAction fields={section.fields} />}
+      </div>
+      <span ref={setToolbarAction} className="section-toolbar-action" />
       </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
@@ -312,6 +318,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
+      </ToolbarActionSlot.Provider>
       </SpecMovedSaver.Provider>
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>

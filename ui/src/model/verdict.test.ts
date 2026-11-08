@@ -44,8 +44,20 @@ describe('section verdict', () => {
 
   it('counts hooks and the stages they run at', () => {
     const hook = (group: string) => ({ ...item([]), kind: 'hook', group })
-    expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('pre-tool'), hook('pre-tool'), hook('session-start')] })).toBe('3 hooks are set to run at 2 stages of a session.')
-    expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('pre-tool')] })).toBe('1 hook is set to run at 1 stage of a session.')
+    expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('before-tool'), hook('before-tool'), hook('session-start')] })).toBe('3 hooks run at 2 stages.')
+    expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('session-start'), hook('session-start')] })).toBe('2 hooks run when a session starts.')
+    expect(sectionVerdict({ ...empty('lifecycle'), items: [hook('before-tool')] })).toBe('1 hook runs before a tool runs.')
+    const native = { ...empty('lifecycle'), stages: [{ id: 'native:TaskStart', label: 'TaskStart', description: '', targets: [] }], items: [hook('native:TaskStart')] }
+    expect(sectionVerdict(native)).toBe('1 hook runs at TaskStart.')
+  })
+
+  it('counts the stages no live hook uses in the facts', () => {
+    const hook = (group: string) => ({ ...item([]), kind: 'hook', group })
+    const stage = (id: string) => ({ id, label: id, description: '', targets: [] })
+    const stages = [stage('session-start'), stage('stop'), stage('session-end')]
+    expect(sectionFacts({ ...empty('lifecycle'), stages, items: [hook('session-start')] })).toEqual(['2 stages have no hook'])
+    expect(sectionFacts({ ...empty('lifecycle'), stages: stages.slice(0, 2), items: [hook('session-start')] })).toEqual(['1 stage has no hook'])
+    expect(sectionFacts({ ...empty('lifecycle'), stages: stages.slice(0, 1), items: [hook('session-start')] })).toEqual([])
   })
 })
 
@@ -54,15 +66,15 @@ describe('turned-off hooks', () => {
   const lifecycle = (hooks: ReturnType<typeof hook>[]) => ({ ...empty('lifecycle', [kind('hook', 'Hooks', hooks.length)]), items: hooks })
 
   it('counts every hook when all run', () => {
-    const section = lifecycle([hook('pre-tool'), hook('session-start')])
-    expect(sectionVerdict(section)).toBe('2 hooks are set to run at 2 stages of a session.')
+    const section = lifecycle([hook('before-tool'), hook('session-start')])
+    expect(sectionVerdict(section)).toBe('2 hooks run at 2 stages.')
     expect(sectionFacts(section)).toEqual([])
     expect(sectionSummary(section)).toBe('2 hooks')
   })
 
   it('leaves turned-off hooks and their stages out of the verdict and names them in the facts', () => {
-    const section = lifecycle([hook('pre-tool'), hook('session-start', true)])
-    expect(sectionVerdict(section)).toBe('1 hook is set to run at 1 stage of a session.')
+    const section = lifecycle([hook('before-tool'), hook('session-start', true)])
+    expect(sectionVerdict(section)).toBe('1 hook runs before a tool runs.')
     expect(sectionFacts(section)).toEqual(['1 hook turned off'])
     expect(sectionSummary(section)).toBe('1 hook')
   })
