@@ -249,3 +249,25 @@ func TestGitWorktrees_KeepsAProjectInASubfolderToItsOwnFolder(t *testing.T) {
 		t.Errorf("worktrees of %s = %v, want only the project folder", project, got)
 	}
 }
+
+func TestConversationsHandler_SearchesAndFiltersByTool(t *testing.T) {
+	h, _, _ := conversationsFixture(t, true)
+	get := func(query string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+query, nil))
+		return rec
+	}
+	var view conversations.View
+	rec := get("?q=parser&tool=claude")
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil || rec.Code != http.StatusOK || view.Matches == nil || *view.Matches != 1 || ids(view) != inProject {
+		t.Errorf("search = %d %s", rec.Code, rec.Body)
+	}
+	for query, reply := range map[string]string{
+		"?tool=gemini":                   `{"error":"tool must be claude, codex or cursor"}`,
+		"?q=" + strings.Repeat("a", 201): `{"error":"q is longer than 200 characters"}`,
+	} {
+		if rec := get(query); rec.Code != http.StatusBadRequest || strings.TrimSpace(rec.Body.String()) != reply {
+			t.Errorf("%.20s = %d %s", query, rec.Code, rec.Body)
+		}
+	}
+}

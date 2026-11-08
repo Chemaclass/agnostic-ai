@@ -71,6 +71,8 @@ type Scanner struct {
 	claude            map[string]claudeCacheEntry
 	cursorAgents      map[string]cached[cursorAgentMeta]
 	cursorTranscripts map[string]cached[[2]string]
+	cursorPrompts     map[string]cached[cursorPrompts]
+	filled            map[string]filled
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
@@ -90,6 +92,11 @@ type ScanOptions struct {
 	// this time. Zero asks for the first page: the open conversations
 	// and the past week.
 	Before time.Time
+	// Query keeps the conversations of every age whose shown text holds
+	// each of its words; the pages then hold only those.
+	Query string
+	// Tool keeps one tool's conversations; empty keeps all three.
+	Tool Tool
 }
 
 // Scan returns one page of conversations, newest first. The first page
@@ -103,7 +110,13 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	results := s.readAll(ctx, opts)
 	var all []Conversation
 	for _, result := range results {
-		all = append(all, result.conversations...)
+		if opts.Tool == "" || result.source.Tool == opts.Tool {
+			all = append(all, result.conversations...)
+		}
+	}
+	words := queryWords(opts.Query)
+	if len(words) > 0 {
+		all = s.searchAll(ctx, all, words)
 	}
 	first := opts.Before.IsZero()
 	to := opts.Before
@@ -122,6 +135,10 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	}
 	if more {
 		view.Next = view.From
+	}
+	if len(words) > 0 {
+		matches := len(all)
+		view.Matches = &matches
 	}
 	for _, result := range results {
 		result.source.Count = len(result.conversations)

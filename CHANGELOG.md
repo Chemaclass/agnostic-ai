@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, the Conversations search finds every conversation, not just the weeks loaded so far, and the tool chips list one tool's conversations from the server.
 - The web interface's rail names each page first, with its question under the name and its counts as a tooltip.
 
 - `agnostic-ai view --json` gives each MCP server item its `disabled` state in `fields`, the way hooks carry it (#3145).

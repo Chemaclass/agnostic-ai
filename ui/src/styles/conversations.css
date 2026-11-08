@@ -86,9 +86,6 @@
   overflow-wrap: anywhere;
 }
 
-.conversations-search-note {
-  font-size: 12px;
-}
 
 /* The end of the list: the sentinel that loads the week before as it nears
    the viewport, then the button that does the same, its error, or the end. */

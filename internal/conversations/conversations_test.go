@@ -908,3 +908,67 @@ func TestScan_ReadsACursorAgentChatAgainOnlyWhenItChanges(t *testing.T) {
 		t.Errorf("a changed chat must be read again: %d store reads, prompt %q", storeReads, c.Prompt)
 	}
 }
+
+func TestScan_SearchesConversationsOfEveryAge(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	session := func(id, stamp, prompt string) {
+		write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", id+".jsonl"), lines(
+			obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": stamp, "message": obj{"role": "user", "content": prompt}}))
+	}
+	session(idSafari, "2026-11-06T10:00:00.000Z", "Fix the Safari login")
+	session(idCache, "2026-08-01T10:00:00.000Z", "Tune the cache eviction for Safari")
+	session(idSecret, "2026-07-01T10:00:00.000Z", "Rotate the staging password for Safari")
+
+	view := scanner.Scan(context.Background(), ScanOptions{Query: "safari"})
+	if view.Matches == nil || *view.Matches != 2 {
+		t.Fatalf("a credential prompt is withheld, so only two rows can match: %s", asJSON(t, view))
+	}
+	if len(view.Conversations) != 1 || view.Conversations[0].ID != idSafari || view.Next == "" {
+		t.Errorf("first page = %s", asJSON(t, view))
+	}
+	before, err := time.Parse(time.RFC3339, view.Next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	older := scanner.Scan(context.Background(), ScanOptions{Query: "safari", Before: before})
+	if len(older.Conversations) != 1 || older.Conversations[0].ID != idCache || older.Next != "" {
+		t.Errorf("a month-old match must come on the next page, got %s", asJSON(t, older))
+	}
+
+	both := scanner.Scan(context.Background(), ScanOptions{Query: "CACHE  safari"})
+	if *both.Matches != 1 || both.Conversations[0].ID != idCache {
+		t.Errorf("every word must match, in any case: %s", asJSON(t, both))
+	}
+	if none := scanner.Scan(context.Background(), ScanOptions{Query: "safari", Tool: ToolCodex}); *none.Matches != 0 || len(none.Conversations) != 0 {
+		t.Errorf("the tool filter applies to the search: %s", asJSON(t, none))
+	}
+	if plain := scanner.Scan(context.Background(), ScanOptions{}); plain.Matches != nil {
+		t.Errorf("a scan without a search reports no match count: %s", asJSON(t, plain))
+	}
+}
+
+func TestScan_SearchReadsEveryCursorChatOnceUntilItChanges(t *testing.T) {
+	queries := 0
+	stores := fakeStores(t, map[string]string{
+		"state.vscdb|FROM composerHeaders": `[{"id":"88888888-8888-4888-8888-888888888888","workspace_id":"ws1","created_at":1700000000000,"recency":1700000000000,"name":"Old chat","folder":"/tmp/app","branch":""}]`,
+		"state.vscdb|chosen(composerId)":   `[{"id":"88888888-8888-4888-8888-888888888888","first_text":"Migrate the billing webhooks","last_text":"Ship it"}]`,
+	})
+	counting := func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if strings.Contains(query, "chosen(composerId)") {
+			queries++
+		}
+		return stores(ctx, path, query)
+	}
+	scanner, paths := testScanner(t, counting, fakeProcesses{})
+	write(t, paths.CursorDB, "")
+
+	for range 2 {
+		view := scanner.Scan(context.Background(), ScanOptions{Query: "billing webhooks"})
+		if *view.Matches != 1 || view.Conversations[0].Title != "Old chat" {
+			t.Fatalf("search must reach a two-year-old Cursor chat's prompt: %s", asJSON(t, view))
+		}
+	}
+	if queries != 1 {
+		t.Errorf("an unchanged chat's prompts are read once, read %d times", queries)
+	}
+}

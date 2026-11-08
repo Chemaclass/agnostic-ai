@@ -80,7 +80,26 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 		}
 		opts.Before = at
 	}
+	opts.Query = r.URL.Query().Get("q")
+	if len([]rune(opts.Query)) > maxConversationQuery {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "q is longer than 200 characters"})
+		return
+	}
+	if tool := r.URL.Query().Get("tool"); tool != "" {
+		if !knownConversationTool(conversations.Tool(tool)) {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+			return
+		}
+		opts.Tool = conversations.Tool(tool)
+	}
 	writeEditJSON(w, http.StatusOK, h.scanner.Scan(r.Context(), opts))
+}
+
+// maxConversationQuery bounds a search, which every row is matched against.
+const maxConversationQuery = 200
+
+func knownConversationTool(tool conversations.Tool) bool {
+	return tool == conversations.ToolClaude || tool == conversations.ToolCodex || tool == conversations.ToolCursor
 }
 
 func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +118,7 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
 		return
 	}
-	if req.Tool != conversations.ToolClaude && req.Tool != conversations.ToolCodex && req.Tool != conversations.ToolCursor {
+	if !knownConversationTool(req.Tool) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
 		return
 	}

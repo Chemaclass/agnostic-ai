@@ -822,4 +822,7 @@
 # The Authority editor restyle (#3151: FileDiff and the refresh guard in the
 # embedded bundle) measured 25378976 bytes on CI; the budget is that plus
 # 8192, rounded up to a multiple of 4096.
-25391104
+# Server-side Conversations search measured 25391264 bytes, up
+# 12288 from main 4108f429; the budget is that plus 8192, rounded up
+# to a multiple of 4096.
+25403392

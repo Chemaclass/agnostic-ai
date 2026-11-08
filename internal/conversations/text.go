@@ -111,3 +111,60 @@ func (c *Conversation) fill(t texts) {
 func mayHoldCredential(text string) bool {
 	return text != "" && preview.ProseSensitive(text)
 }
+
+// queryWords splits a search into lowercase words.
+func queryWords(query string) []string {
+	return strings.Fields(strings.ToLower(query))
+}
+
+// matching keeps the conversations whose shown text holds every word:
+// title, folder, branch, opening lines, latest prompt, tool and app. A
+// withheld field is not shown, so it does not match either.
+func matching(list []Conversation, words []string) []Conversation {
+	var kept []Conversation
+	for _, c := range list {
+		if holdsAll(strings.Join(append([]string{c.Title, c.Folder, c.Branch, c.Prompt, toolLabels[c.Tool], string(c.App)}, c.Opening...), "\n"), words) {
+			kept = append(kept, c)
+		}
+	}
+	return kept
+}
+
+// holdsAll reports whether text holds each lowercase word, ignoring case.
+func holdsAll(text string, words []string) bool {
+	text = strings.ToLower(text)
+	for _, word := range words {
+		if !strings.Contains(text, word) {
+			return false
+		}
+	}
+	return true
+}
+
+// filled is what fill wrote for one set of raw texts.
+type filled struct {
+	texts    texts
+	title    string
+	opening  []string
+	prompt   string
+	withheld []string
+}
+
+// fill sets a row's shown text from its raw texts, reusing the last
+// result while the texts are the same: the credential check is the
+// costly part of a scan.
+func (s *Scanner) fill(c *Conversation, t texts) {
+	if s.filled == nil {
+		s.filled = map[string]filled{}
+	}
+	key := string(c.Tool) + ":" + c.ID
+	if hit, ok := s.filled[key]; ok && hit.texts == t {
+		c.Title, c.Opening, c.Prompt, c.Withheld = hit.title, hit.opening, hit.prompt, hit.withheld
+		c.pending = nil
+		return
+	}
+	c.Title, c.Opening, c.Prompt, c.Withheld = "", nil, "", nil
+	c.fill(t)
+	c.pending = nil
+	s.filled[key] = filled{texts: t, title: c.Title, opening: c.Opening, prompt: c.Prompt, withheld: c.Withheld}
+}

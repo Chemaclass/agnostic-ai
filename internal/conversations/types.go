@@ -71,7 +71,10 @@ type View struct {
 	To   string `json:"to"`
 	// Next is the Before time of the following page; empty when no older
 	// conversation remains.
-	Next          string         `json:"next,omitempty"`
+	Next string `json:"next,omitempty"`
+	// Matches counts every conversation the search matched, across all
+	// pages; set only when the scan searched.
+	Matches       *int           `json:"matches,omitempty"`
 	Tools         []Source       `json:"tools"`
 	Conversations []Conversation `json:"conversations"`
 }

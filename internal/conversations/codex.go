@@ -76,7 +76,7 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 			Tool: ToolCodex, ID: thread.ID, Folder: thread.Cwd, Branch: thread.GitBranch,
 			StartedAt: timeFromMillis(thread.CreatedAtMs), UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
 		}
-		c.fill(texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]})
+		s.fill(&c, texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]})
 		codexRoute(&c, thread, editor)
 		conversations = append(conversations, c)
 	}

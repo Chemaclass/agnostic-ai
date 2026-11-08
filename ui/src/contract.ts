@@ -913,6 +913,8 @@ export interface ConversationsView {
   to: string
   /** The `before` value of the next page; absent when no older conversation remains. */
   next?: string
+  /** How many conversations of any age the search matched, across all pages; set only for a request with `q`. */
+  matches?: number
   /** count is every conversation the tool holds; shown is how many this page holds. */
   tools: ConversationSource[]
   conversations: Conversation[]
@@ -940,7 +942,7 @@ export interface ConversationOpenReply {
 //   GET  /api/views/overview                              → OverviewView
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
 //   GET  /api/views/source?path=<openPath>               → SourceView; 404 for a file the configuration does not list
-//   GET  /api/views/conversations?editor=<id>&before=<time> → ConversationsView, one week per page; a project server lists the project's own conversations
+//   GET  /api/views/conversations?editor=<id>&before=<time>&q=<words>&tool=<tool> → ConversationsView, one week per page; q searches every conversation; a project server lists the project's own conversations
 //   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest)
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup

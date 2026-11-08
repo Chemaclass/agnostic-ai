@@ -71,13 +71,13 @@ function searchParts(conversation: Conversation): string[] {
   return [conversation.title, conversation.folder ?? '', conversation.branch ?? '', ...(conversation.opening ?? []), conversation.prompt ?? '']
 }
 
-/** Rows from the chosen tool whose title, folder, branch, opening, or last prompt holds the query, ignoring case. */
+/** Rows from the chosen tool whose shown text holds every word of the query, ignoring case: the rule the server applies, used for mock data. */
 export function filterConversations(conversations: Conversation[], query: string, tool: ToolFilter): Conversation[] {
-  const needle = query.trim().toLowerCase()
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   return conversations.filter((conversation) => {
     const toolMatches = tool === 'all' || conversation.tool === tool
-    const textMatches = needle === '' || searchParts(conversation).some((part) => part.toLowerCase().includes(needle))
-    return toolMatches && textMatches
+    const text = searchParts(conversation).join('\n').toLowerCase()
+    return toolMatches && words.every((word) => text.includes(word))
   })
 }
 

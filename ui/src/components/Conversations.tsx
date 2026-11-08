@@ -7,10 +7,10 @@
 // server to read the chats, so it only says what it needs.
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
+import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome, type ConversationsPage } from '../api'
 import type { Conversation, ConversationRoute, ConversationSource, ConversationsView, ConversationTool } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
 import { PageHeader, useApp } from './app-context'
@@ -28,6 +28,21 @@ type Older =
   | { state: 'loading'; before: string }
   | { state: 'failed'; before: string; error: Error }
 
+// How long typing pauses before the search goes to the server.
+const SEARCH_PAUSE_MS = 300
+
+/** The line under the search box: what the list holds, or that a search is on its way. */
+function searchStatus(searching: boolean, matches: number | undefined, loaded: number): string {
+  if (searching) return 'Searching…'
+  if (matches !== undefined) return `${plural(matches, 'conversation')} ${matches === 1 ? 'matches' : 'match'}.`
+  return plural(loaded, 'conversation')
+}
+
+function emptyNote(matches: number | undefined, next: string | undefined): string {
+  if (matches === 0) return 'No conversation matches.'
+  return next ? 'No conversation in the past week.' : 'No conversations to show.'
+}
+
 // The next week starts loading this far before the end of the list comes into view.
 const LOAD_AHEAD = '0px 0px 400px 0px'
 
@@ -39,6 +54,10 @@ export function ConversationsPage() {
   const [error, setError] = useState<Error>()
   const [older, setOlder] = useState<Older>({ state: 'idle' })
   const [tool, setTool] = useState<ToolFilter>('all')
+  const query = app.state.q ?? ''
+  // The search box asks the server once typing pauses.
+  const [searched, setSearched] = useState(query.trim())
+  const [searching, setSearching] = useState(false)
   const olderRequest = useRef<AbortController | undefined>(undefined)
   const sentinel = useRef<HTMLDivElement>(null)
   const olderButton = useRef<HTMLButtonElement>(null)
@@ -47,7 +66,15 @@ export function ConversationsPage() {
   const needsServer = app.source.kind === 'static'
   const next = pages.at(-1)?.next
 
-  // The first page. A new editor changes every link, so it starts over.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearched(query.trim()), SEARCH_PAUSE_MS)
+    return () => window.clearTimeout(timer)
+  }, [query])
+
+  // Which pages to load: every search, tool and editor starts over from the first page.
+  const filter: ConversationsPage = { query: searched || undefined, tool: tool === 'all' ? undefined : tool }
+
+  // The first page. The previous rows stay on screen until it arrives.
   useEffect(() => {
     if (needsServer) return
     const controller = new AbortController()
@@ -55,16 +82,21 @@ export function ConversationsPage() {
     olderRequest.current = undefined
     setOlder({ state: 'idle' })
     setError(undefined)
-    loadConversations(app.source, editor, undefined, controller.signal).then(
+    setSearching(true)
+    loadConversations(app.source, editor, { query: searched || undefined, tool: tool === 'all' ? undefined : tool }, controller.signal).then(
       (loaded) => {
-        if (!controller.signal.aborted) setPages([loaded.data])
+        if (controller.signal.aborted) return
+        setPages([loaded.data])
+        setSearching(false)
       },
       (failure: Error) => {
-        if (!controller.signal.aborted && failure.name !== 'AbortError') setError(failure)
+        if (controller.signal.aborted || failure.name === 'AbortError') return
+        setError(failure)
+        setSearching(false)
       },
     )
     return () => controller.abort()
-  }, [needsServer, app.source, editor])
+  }, [needsServer, app.source, editor, searched, tool])
 
   useEffect(() => () => olderRequest.current?.abort(), [])
 
@@ -74,7 +106,7 @@ export function ConversationsPage() {
     const controller = new AbortController()
     olderRequest.current = controller
     setOlder({ state: 'loading', before })
-    loadConversations(app.source, editor, before, controller.signal).then(
+    loadConversations(app.source, editor, { ...filter, before }, controller.signal).then(
       (loaded) => {
         if (controller.signal.aborted) return
         olderRequest.current = undefined
@@ -133,12 +165,10 @@ export function ConversationsPage() {
 
   const rows = mergePages(pages)
   const sources = pages.at(-1)!.tools
-  const query = app.state.q ?? ''
   const setQuery = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
-  const matching = filterConversations(rows, query, tool)
+  const matches = pages[0].matches
   const now = new Date()
-  const groups = groupConversations(matching, now)
-  const filtering = query.trim() !== '' || tool !== 'all'
+  const groups = groupConversations(rows, now)
   const canOpen = app.source.kind === 'api'
   const loading = older.state === 'loading'
 
@@ -148,13 +178,8 @@ export function ConversationsPage() {
         <Sources sources={sources} rows={rows} tool={tool} onToggle={(chosen) => setTool(toggleTool(tool, chosen))} />
       </PageHeader>
       {error && <ErrorPanel error={error} />}
-      <Search
-        query={query}
-        onQuery={setQuery}
-        status={filtering ? `${matching.length} of ${plural(rows.length, 'conversation')} match.` : plural(rows.length, 'conversation')}
-      />
-      {rows.length === 0 && <p className="muted">{next ? 'No conversation in the past week.' : 'No conversations to show.'}</p>}
-      {rows.length > 0 && groups.length === 0 && <p className="muted">No conversation matches.</p>}
+      <Search query={query} onQuery={setQuery} status={searchStatus(searching, matches, rows.length)} />
+      {rows.length === 0 && <p className="muted">{emptyNote(matches, next)}</p>}
       {groups.map((group) => {
         const headingId = `conversations-${group.id}`
         return (
@@ -235,14 +260,14 @@ function Sources({ sources, rows, tool, onToggle }: { sources: ConversationSourc
 function Search({ query, onQuery, status }: { query: string; onQuery: (value: string) => void; status: string }) {
   const searchId = useId()
   const input = useRef<HTMLInputElement>(null)
-  const describedBy = `${searchId}-status ${searchId}-note`
+  const describedBy = `${searchId}-status`
   return (
     <div className="section-search conversations-search" role="search" aria-label="Search conversations">
       <label htmlFor={searchId}>Search conversations</label>
       <div className="section-search-controls">
         <div className="section-search-input">
           <Icon name="search" />
-          <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Title, folder, branch, or prompt" aria-describedby={describedBy} />
+          <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search every conversation: title, folder, branch, or prompt" aria-describedby={describedBy} />
         </div>
         {query && (
           <button type="button" className="button button-quiet" onClick={() => {
@@ -252,7 +277,6 @@ function Search({ query, onQuery, status }: { query: string; onQuery: (value: st
         )}
       </div>
       <p id={`${searchId}-status`} className="muted section-search-status" role="status">{status}</p>
-      <p id={`${searchId}-note`} className="muted conversations-search-note">Search covers the weeks loaded so far.</p>
     </div>
   )
 }
