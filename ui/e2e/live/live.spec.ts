@@ -541,6 +541,7 @@ test('live Authority rejects a changed preview and preserves the rule draft for 
     const textbox = row.getByRole('textbox', { name: 'Ask first rules', exact: true })
     await textbox.fill('shell(git push *)')
     await row.getByRole('button', { name: 'Preview', exact: true }).click()
+    await expect(row.getByRole('region', { name: 'Ask first change preview' })).toBeVisible()
     const external = f.sharedBytes + '# Added from another editor.\n'
     await put(f.settings, external)
     await row.getByRole('button', { name: 'Apply', exact: true }).click()
@@ -601,6 +602,8 @@ test('live Authority keeps editing the first personal-only spec through save and
     await row.getByRole('button', { name: 'Apply', exact: true }).click()
     await row.getByRole('button', { name: 'Reset to the project rules', exact: true }).click()
     await row.getByRole('button', { name: 'Apply', exact: true }).click()
+    // With its last rule gone, Add a rule moves from the toolbar to the empty state.
+    await expect(page.getByRole('heading', { name: 'No rules yet.', exact: true })).toBeVisible()
     await addRuleTo(page, 'Ask first')
     await row.getByRole('textbox', { name: 'Ask first rules', exact: true }).fill('read(private/**)')
     await row.getByRole('button', { name: 'Preview', exact: true }).click()
