@@ -23,6 +23,16 @@ table,
   border: 0;
 }
 
+.section-head.is-quiet:not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .muted {
   color: var(--text-muted);
 }
@@ -141,6 +151,10 @@ textarea:focus {
 
 .page-header.has-verdict {
   gap: 12px;
+}
+
+.page-verdict-key {
+  color: var(--accent-strong);
 }
 
 .page-verdict {
@@ -274,6 +288,28 @@ textarea:focus {
   display: none;
 }
 
+/* The page's one primary action sits at the toolbar's end, outside the search landmark. */
+
+.section-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.section-toolbar > .section-search {
+  flex: 1 1 auto;
+}
+
+.section-toolbar-action {
+  display: flex;
+  margin-inline-start: auto;
+}
+
+.section-toolbar-action:empty {
+  display: none;
+}
+
 /* Empty states: what the type is, who uses it, and the next step. No box. */
 
 .empty-state {
@@ -316,6 +352,15 @@ textarea:focus {
   .section-search input {
     font-size: 16px;
     min-height: 44px;
+  }
+
+  .section-toolbar-action,
+  .section-toolbar-action > .button {
+    flex: 1 1 100%;
+  }
+
+  .section-toolbar-action > .button {
+    justify-content: center;
   }
 
   .page-facts-review,
@@ -2184,8 +2229,59 @@ textarea:focus {
 
 .row-hover:hover .row-actions > *,
 .row-hover:focus-within .row-actions > *,
-.row-actions:focus-within > * {
+.row-actions:focus-within > *,
+.row-actions > [aria-expanded='true'] {
   opacity: 1;
+}
+
+.details-toggle {
+  gap: 4px;
+}
+
+.details-toggle .icon {
+  width: 14px;
+  height: 14px;
+  transform: rotate(-90deg);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.details-toggle[aria-expanded='true'] .icon {
+  transform: none;
+}
+
+/* Technical names under a row: a sunken block of label and value pairs. */
+
+.row-details:not([hidden]) {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: var(--panel-sunken);
+  font-size: var(--text-sm);
+}
+
+.row-details > div {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 16px;
+}
+
+.row-details dt {
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.row-details dd {
+  min-width: 0;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .row-details > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* On touch screens and phones the same actions sit behind a ⋯ menu. */
@@ -2231,7 +2327,8 @@ textarea:focus {
 
 @media (prefers-reduced-motion: reduce) {
   .row-hover,
-  .row-actions > * {
+  .row-actions > *,
+  .details-toggle .icon {
     transition: none;
   }
 }

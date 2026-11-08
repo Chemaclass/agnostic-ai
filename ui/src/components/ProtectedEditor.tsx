@@ -159,7 +159,7 @@ function ProtectedForm({ field, files, sources, path, select }: ProtectedEditorP
         {!local && own && <button type="button" className="button button-quiet" disabled={locked} onClick={() => { void request('preview', null) }}>Remove protected paths</button>}
       </div>
     </form>}
-    {!overridden && path && !preview && <p className="muted permission-destination">{where} file: {local && !current.personalPath ? <>an overlay for <Code>{path}</Code></> : <Code>{local ? current.personalPath : path}</Code>}</p>}
+    {editing && path && !preview && <p className="muted permission-destination">{where} file: {local && !current.personalPath ? <>an overlay for <Code>{path}</Code></> : <Code>{local ? current.personalPath : path}</Code>}</p>}
     {preview && <section tabIndex={-1} className="permission-preview" aria-label={`${field.label} change preview`} aria-busy={!!pending}>
       <div className="permission-preview-head">
         <h3>{preview.protected === null ? local ? 'Use project paths' : 'Remove protected paths' : `Protect ${preview.protected.paths.length} path${preview.protected.paths.length === 1 ? '' : 's'}`}</h3>

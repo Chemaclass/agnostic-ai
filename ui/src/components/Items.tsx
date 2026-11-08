@@ -1,4 +1,4 @@
-import { useContext, type ReactNode } from 'react'
+import { useContext, useId, useState, type ReactNode } from 'react'
 import { API, type SectionItem, type ToolListing, type Value } from '../contract'
 import { postEdit } from '../api'
 import { BuiltinChange } from './BuiltinChange'
@@ -7,13 +7,13 @@ import { OpenInEditor } from './EditorLink'
 import { useApp } from './app-context'
 import { SpecMoveAction } from './SpecMoveAction'
 import { SourceContent } from './SourceContent'
-import { HookDetails } from './HookDetails'
+import { HookCommand } from './HookDetails'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
 import { builtinEnabled, comparisonValue } from '../model/audience-view'
 import { audienceLabel, layerLabel } from '../model/edit-audience'
 import { itemEntryId } from '../model/identity'
 import { isTurnedOff } from '../model/counts'
-import { Badge, Chip, Code, CopyButton, RowActions, Switch, Toggle, ToolAvatar } from './ui'
+import { Badge, Chip, Code, CopyButton, DetailsToggle, RowActions, Switch, Toggle, ToolAvatar } from './ui'
 import { ConfigurationRoot, PersonalBuiltins, useEntry } from './section-context'
 import { Findings } from './Findings'
 import { EditSwitch, ResetAction } from './EditSwitch'
@@ -85,7 +85,7 @@ export function ItemList({ items, hideValues, sharedUnlisted }: { items: Section
             <SpecMoveAction item={item} />
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
-            {item.kind === 'hook' ? <HookDetails item={item} /> : <SourceContent item={item} />}
+            {item.kind === 'hook' ? <HookCommand item={item} /> : <SourceContent item={item} />}
             <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
           </ItemRow>
         )
@@ -105,11 +105,11 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
   const app = useApp()
   const refinable = item.kind === 'instructions' && item.layer === 'global'
   const openable = app.source.kind === 'api' && item.openPath !== undefined
+  if (item.kind === 'builtin') return <BuiltinHeading item={item} control={control} />
   return (
     <div className="item-heading">
       <div className="item-main">
         <strong>{item.label}</strong>
-        {item.kind === 'builtin' && item.name !== item.label && <code className="muted item-key">{item.name}</code>}
         {item.description && <span className="muted item-description">{item.description}</span>}
         {item.kind === 'builtin' && item.local && audience && <OverrideComparison shared={builtinEnabled(item, 'shared') ? 'On' : 'Off'} personal={item.enabled ? 'On' : 'Off'} />}
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
@@ -128,6 +128,37 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         )}
       </div>
     </div>
+  )
+}
+
+/** A built-in: name, one line and its switch. The name config files use folds under Details. */
+function BuiltinHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
+  const audience = useViewAudience()
+  const [open, setOpen] = useState(false)
+  const detailsId = useId()
+  return (
+    <>
+      <div className="item-heading builtin-heading">
+        <div className="item-main">
+          <strong>{item.label}</strong>
+          {item.description && <span className="muted item-description">{item.description}</span>}
+          {item.local && audience && <OverrideComparison shared={builtinEnabled(item, 'shared') ? 'On' : 'Off'} personal={item.enabled ? 'On' : 'Off'} />}
+        </div>
+        <div className="item-meta">
+          <RowActions label={item.label}>
+            <DetailsToggle open={open} controls={detailsId} label={item.label} onToggle={() => setOpen(!open)} />
+          </RowActions>
+          {item.local && audience !== 'shared' && <Badge tone="accent" title="Set in a local file Git ignores">local</Badge>}
+          {control}
+        </div>
+      </div>
+      <dl id={detailsId} className="row-details" hidden={!open}>
+        <div>
+          <dt>Name in config</dt>
+          <dd><code>{item.name}</code></dd>
+        </div>
+      </dl>
+    </>
   )
 }
 

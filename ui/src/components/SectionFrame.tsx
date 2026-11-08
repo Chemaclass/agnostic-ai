@@ -24,14 +24,16 @@ import { contextLanding } from '../model/url'
 import type { Remote } from './Shell'
 import { Badge, Code, Icon } from './ui'
 import { EmptyState } from './EmptyState'
-import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings } from '../model/verdict'
+import { findingTallyText, sectionFacts, sectionFindings, sectionVerdict, tallyFindings, verdictKey } from '../model/verdict'
 import { ConfigurationRoot, ConfiguredTools, PersonalBuiltins } from './section-context'
 import { SettingsFields } from './Fields'
+import { AuthorityFields, AuthorityToolbarAction } from './Authority'
 import { ConfigurationFiles, GroupedItems, sharedUnlistedCommand } from './Items'
 import { NativeServers } from './NativeServers'
 import { Lifecycle } from './Lifecycle'
 import { Findings } from './Findings'
 import { SupportLink } from './SupportTable'
+import { ToolbarActionSlot } from './ToolbarAction'
 import { ResetAction } from './EditSwitch'
 
 export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
@@ -62,7 +64,7 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
   const isContext = section.id === 'context'
   const page = (
     <DocsTopic.Provider value={reportDocs}>
-      <PageHeader title={section.label} verdict={isContext ? <ContextVerdict fallback={sectionVerdict(section)} /> : sectionVerdict(section)}>
+      <PageHeader title={section.label} verdict={isContext ? <ContextVerdict fallback={sectionVerdict(section)} /> : <Verdict text={sectionVerdict(section)} accent={verdictKey(section)} />}>
         <SectionFacts key={section.id} section={section} docs={topic} lead={isContext && <ContextFacts />} support={<SupportLink key={section.id} section={section} toolLabel={toolLabel} />} />
       </PageHeader>
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
@@ -78,6 +80,13 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
   )
   // The Context verdict and its Context size tab share one report.
   return isContext ? <ContextReportProvider>{page}</ContextReportProvider> : page
+}
+
+/** The verdict sentence with its leading count in the accent. */
+function Verdict({ text, accent }: { text: string; accent?: string }) {
+  const at = accent ? text.indexOf(accent) : -1
+  if (!accent || at < 0) return text
+  return <>{text.slice(0, at)}<span className="page-verdict-key">{accent}</span>{text.slice(at + accent.length)}</>
 }
 
 /** Opens the folded findings list that holds this heading, then moves focus to it. */
@@ -98,7 +107,7 @@ function SectionFacts({ section, docs, lead, support }: { section: Section; docs
   const tally = tallyFindings(sectionFindings(section))
   const findings = findingTallyText(tally)
   const total = tally.errors + tally.warnings
-  const facts = sectionFacts(section, app.overview?.global === true)
+  const facts = sectionFacts(section, section.id === 'settings' && app.overview?.tools.items.length ? toolCount(app.overview.tools.items, 'shared') : undefined)
   const tone = tally.errors ? 'is-error' : 'is-warning'
   const shownAbove = section.findings.some((finding) => finding.severity === 'error')
   // Review leads to the first finding: the section's own list, else the first row that has one.
@@ -139,6 +148,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const app = useApp()
   const audience = useViewAudience()
   const [warningsExpanded, setWarningsExpanded] = useState(false)
+  const [toolbarAction, setToolbarAction] = useState<HTMLElement | null>(null)
   const personalBuiltins = useContext(PersonalBuiltins)
   const level = useLevelName()
   const root = useContext(ConfigurationRoot)
@@ -186,6 +196,9 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const activePanel = tabs.find((tab) => tab.id === active)
   // One selector serves every block on the page; Config files and Editor show the combined setup.
   const scoped = (section.id === 'settings' || section.id === 'authority') && (activePanel ? activePanel.extra === 'targets' || activePanel.kinds.some((kind) => kind === 'settings' || kind === 'builtin') : section.kinds.some((k) => k.kind === 'settings' || k.kind === 'builtin'))
+    || section.id === 'tools' && activePanel?.extra === 'native' && nativeMatches.some((server) => server.holders.length > 0)
+  // The tab already names its list on Tools and Settings, so the list heading stays for screen readers.
+  const quietHeadings = tabs.length > 1 && (section.id === 'tools' || section.id === 'settings')
   const panels = tabs.length > 0 ? tabs : [{ id: 'all', label: section.label, kinds: section.kinds.map((kind) => kind.kind), extra: undefined }]
   const tabLabels = tabs.map((tab) => {
     const items = section.items.filter((item) => tab.kinds.includes(item.kind))
@@ -238,6 +251,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
     <RecheckSection.Provider value={section.id}>
       <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
       <SpecMovedSaver.Provider value={saveSpecMoved}>
+      <ToolbarActionSlot.Provider value={toolbarAction}>
       {app.source.kind === 'api' && specMoved && <SpecMovedNotice moved={specMoved} dismiss={() => saveSpecMoved()} />}
       {entryMissing && (
         <div className="entry-missing" role="status">
@@ -246,6 +260,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         </div>
       )}
       {errors > 0 && otherFindings}
+      <div className="section-toolbar">
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId} className="sr-only">Search {section.label.toLowerCase()}</label>
         <div className="section-search-input">
@@ -261,6 +276,9 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           {query && retainedFindings && ' Items with findings stay visible.'}
         </p>
         {scoped && <EditAudienceSwitch />}
+        {section.id === 'authority' && section.fields && <AuthorityToolbarAction fields={section.fields} />}
+      </div>
+      <span ref={setToolbarAction} className="section-toolbar-action" />
       </div>
       {tabs.length > 1 && <SectionTabs section={section.id} label={section.label} active={active!} select={selectTab} tabs={tabLabels} />}
       {section.id === 'authority' && <PermissionSaveNotice />}
@@ -276,6 +294,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       {section.kinds.filter((kind) => panel.kinds.includes(kind.kind)).map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={`${k.kind}:${query}:${entry ?? ''}`} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} matchingHooks={matchingItems} />
+        if (k.kind === 'settings' && section.id === 'authority' && section.fields) return <AuthorityFields key={k.kind} title={k.label} headingEntry={kindEntryId(k.kind)} fields={section.fields} files={items} query={query} />
         if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} headingEntry={kindEntryId(k.kind)} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} support={section.support.find((entry) => entry.kind === k.kind)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         const unlisted = sharedUnlistedCommand(section.items.filter((it) => it.kind === k.kind))
@@ -283,10 +302,11 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
         const count = k.kind === 'builtin' ? section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, audience)).length : k.count
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
-            <SectionHeading id={titleId} focusable entry={kindEntryId(k.kind)}>
+            <SectionHeading id={titleId} focusable entry={kindEntryId(k.kind)} hidden={quietHeadings}>
               {k.label}{tabs.length < 2 && count > 0 && <span className="muted kind-count">{count}{k.kind === 'builtin' ? ' enabled' : ''}</span>}
-              {k.local && audience !== 'shared' && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
+              {k.local && audience !== 'shared' && !quietHeadings && <Badge tone="accent" title={`Your local config replaces the ${level} list`}>local</Badge>}
             </SectionHeading>
+            {quietHeadings && k.local && audience !== 'shared' && <p className="muted"><Badge tone="accent">local</Badge> Your local config replaces the {level} list.</p>}
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
             {sharedBlocked && <div className="audience-notice"><p>These are the {level} defaults. Your local built-in list replaces them for you. Reset that list before changing {level} built-ins.</p><ViewPersonalButton /></div>}
             {k.kind === 'builtin' && audience === 'personal' && !personalBuiltins && <p className="muted">Inherited from {level}. Changing a built-in creates your local list.</p>}
@@ -302,13 +322,14 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       })}
       {panel.extra === 'native' && (section.native?.length
         ? <NativeServers servers={section.native} matches={matches} filtering={Boolean(query)} onSaved={saveMCPNotice} />
-        : <section className="block"><SectionHeading>Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
+        : <section className="block"><SectionHeading hidden={quietHeadings}>Found in tools</SectionHeading><p className="muted">No additional servers are listed in your tools’ own configuration.</p></section>)}
       {panel.extra === 'usage' && <ContextUsage />}
       {panel.extra === 'targets' && <CodingTools />}
       {panel.extra === 'editor' && <EditorSettings />}
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}
+      </ToolbarActionSlot.Provider>
       </SpecMovedSaver.Provider>
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>

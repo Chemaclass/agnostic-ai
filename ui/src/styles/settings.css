@@ -684,3 +684,73 @@
     flex-wrap: nowrap;
   }
 }
+
+/* A built-in reads as one line: name, what it does, then Details on hover and its switch. */
+
+.builtin-heading {
+  align-items: center;
+}
+
+.builtin-heading .item-main {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 16px;
+}
+
+.builtin-heading .item-description {
+  margin-top: 0;
+  font-size: var(--text-md);
+}
+
+.builtin-heading .item-meta {
+  flex-wrap: nowrap;
+  gap: 16px;
+}
+
+.builtin-heading .switch {
+  flex-direction: row-reverse;
+}
+
+@media (min-width: 761px) {
+  .item-row:has(> .builtin-heading) {
+    padding-block: 8px;
+  }
+
+  .builtin-heading .override-comparison {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 760px) {
+  .builtin-heading .item-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .builtin-heading .item-description {
+    font-size: var(--text-sm);
+  }
+
+  /* The switch stays beside the name; the ⋯ menu follows it. A reset button needs the full row. */
+  .item-heading.builtin-heading:not(:has(.item-meta .button:not(.row-menu-button, .details-toggle))) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .item-heading.builtin-heading:not(:has(.item-meta .button:not(.row-menu-button, .details-toggle))) .item-meta {
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .builtin-heading .item-meta > .row-menu {
+    order: 1;
+  }
+
+  .builtin-heading .switch-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

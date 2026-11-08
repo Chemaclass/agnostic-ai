@@ -216,7 +216,7 @@ export function BuiltinChangeControls({ local, resetSource }: { local: boolean; 
   if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --global</Code> to apply them to your tools.</p>{local && resetSource}</>
   return <div className="builtin-change">
     <div className="builtin-change-controls">
-      {!proposal && <span className="muted">Preview before applying to your tools.</span>}
+      {!proposal && <span className="muted">Ready-made features. Turning one on shows a preview before anything changes.</span>}
       {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || settling || proposal} onClick={() => { void resetList() }}>Reset built-ins to the {level} list</button>}
     </div>
     {proposal && change?.reset && <Preview change={change} title="Built-in list reset" heading={`Reset the built-in list to the ${level} list`} />}

@@ -33,7 +33,11 @@ export function sectionTabs(section: Section): SectionTab[] {
   if (configured.length === 0) return []
   const tabs = configured.filter((tab) => tab.extra || section.kinds.some((kind) => tab.kinds.includes(kind.kind)))
   const remaining = section.kinds.filter((kind) => !tabs.some((tab) => tab.kinds.includes(kind.kind)))
-  return [...tabs, ...remaining.map((kind) => ({ id: kind.kind, label: kind.label, kinds: [kind.kind] }))]
+  const all = [...tabs, ...remaining.map((kind) => ({ id: kind.kind, label: kind.label, kinds: [kind.kind] }))]
+  // Tools leads with the tabs that hold something; empty ones keep their order at the end.
+  if (section.id !== 'tools') return all
+  const filled = (tab: SectionTab) => tab.extra === 'native' ? (section.native?.length ?? 0) > 0 : section.items.some((item) => tab.kinds.includes(item.kind))
+  return [...all.filter(filled), ...all.filter((tab) => !filled(tab))]
 }
 
 export function entryTab(section: Section, tabs: SectionTab[], entry?: string): string | undefined {

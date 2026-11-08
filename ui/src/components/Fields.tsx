@@ -5,7 +5,7 @@ import { useApp } from './app-context'
 import { Notice } from './Banner'
 import { ChangeError, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { ViewPersonalButton, useEditAudience, useLevelName, useViewAudience, type EditAudience } from './EditAudience'
-import { PermissionEditor, useSavedEditNotice } from './PermissionEditor'
+import { useSavedEditNotice } from './PermissionEditor'
 import { ProtectedEditor } from './ProtectedEditor'
 import { ConfigSwitch } from './ConfigSwitch'
 import { useServedConfig } from './Shell'
@@ -93,7 +93,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
   )
 }
 
-function FieldResolution({ field, files, resolved }: { field: SettingField; files: SectionItem[]; resolved: TargetValue[] }) {
+export function FieldResolution({ field, files, resolved }: { field: SettingField; files: SectionItem[]; resolved: TargetValue[] }) {
   const app = useApp()
   const label = field.label
   const level = useLevelName()
@@ -149,9 +149,10 @@ interface FieldEditControlProps {
   toolLabel?: string
 }
 
-function FieldEditor(props: FieldEditControlProps) {
+// Permission lists edit in the Authority rules table, not as a field row.
+export function FieldEditor(props: FieldEditControlProps) {
   if (props.field.editable?.kind === 'protected-list') return <ProtectedEditor {...props} />
-  return props.field.editable?.kind === 'permission-list' ? <PermissionEditor {...props} /> : <FieldEditControl {...props} />
+  return props.field.editable?.kind === 'permission-list' ? props.sources() : <FieldEditControl {...props} />
 }
 
 function GlobalSettingsAction() {

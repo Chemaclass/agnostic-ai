@@ -23,19 +23,31 @@ function contextVerdict(section: VerdictSection): string {
 
 function authorityVerdict(section: VerdictSection): string {
   const counts = permissionCounts(section)
-  const parts: string[] = []
-  const actions = (count: number) => (parts.length ? `${count}` : plural(count, 'action'))
-  if (counts['permissions.allow']) parts.push(`allow ${actions(counts['permissions.allow'])}`)
-  if (counts['permissions.ask']) parts.push(`ask before ${actions(counts['permissions.ask'])}`)
-  if (counts['permissions.deny']) parts.push(`block ${actions(counts['permissions.deny'])}`)
-  return parts.length ? `Your rules ${joinAnd(parts)}.` : 'No allow, ask or block rules yet.'
+  const blocked = counts['permissions.deny']
+  const ask = counts['permissions.ask']
+  const allowed = counts['permissions.allow']
+  if (blocked) return `${plural(blocked, 'action')} ${blocked === 1 ? 'is' : 'are'} blocked${ask ? ` and agents ask before ${ask}` : ''}.`
+  if (ask) return `Agents ask before ${plural(ask, 'action')}.`
+  if (allowed) return `Agents run ${plural(allowed, 'action')} without asking.`
+  return 'Each tool decides when to ask.'
 }
 
 function toolsVerdict(section: VerdictSection): string {
   const parts = counted(section)
   const usable = section.support?.find((support) => support.kind === 'mcp')?.supported.length
-  if (parts.length) return `Your ${usable ? 'agents can use' : 'setup configures'} ${joinAnd(parts)}.`
+  if (parts.length) return `${usable ? 'Agents can use' : 'Your setup configures'} ${joinAnd(parts)}.`
   return turnedOff(section).length ? 'No MCP servers are turned on.' : 'Your setup configures no extra tools yet.'
+}
+
+// One stage names its moment; several stages give the count.
+const STAGE_MOMENTS: Record<string, string> = {
+  'session-start': 'when a session starts',
+  'prompt-submit': 'when a prompt is sent',
+  'before-tool': 'before a tool runs',
+  'after-tool': 'after a tool runs',
+  'after-edit': 'after a file edit',
+  stop: 'when the agent stops',
+  'session-end': 'when a session ends',
 }
 
 function lifecycleVerdict(section: VerdictSection): string {
@@ -43,16 +55,28 @@ function lifecycleVerdict(section: VerdictSection): string {
   if (!all.length) return 'Nothing runs around the agent yet.'
   const hooks = all.filter((item) => !isTurnedOff(item))
   if (!hooks.length) return 'No hooks are set to run.'
-  const verb = hooks.length === 1 ? 'is' : 'are'
-  const stages = new Set(hooks.map((hook) => hook.group).filter(Boolean)).size
-  return stages ? `${plural(hooks.length, 'hook')} ${verb} set to run at ${plural(stages, 'stage')} of a session.` : `${plural(hooks.length, 'hook')} ${verb} set.`
+  const verb = hooks.length === 1 ? 'runs' : 'run'
+  const stages = [...new Set(hooks.map((hook) => hook.group).filter((group): group is string => Boolean(group)))]
+  if (!stages.length) return `${plural(hooks.length, 'hook')} ${hooks.length === 1 ? 'is' : 'are'} set.`
+  if (stages.length > 1) return `${plural(hooks.length, 'hook')} ${verb} at ${plural(stages.length, 'stage')}.`
+  const stage = section.stages?.find((entry) => entry.id === stages[0])
+  return `${plural(hooks.length, 'hook')} ${verb} ${STAGE_MOMENTS[stages[0]] ?? `at ${stage?.label ?? stages[0]}`}.`
+}
+
+function builtinsOn(section: VerdictSection): number {
+  return section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, 'shared')).length
+}
+
+function preferencesSet(section: VerdictSection): number {
+  return (section.fields ?? []).filter((field) => field.set.some((source) => !source.local)).length
 }
 
 function settingsVerdict(section: VerdictSection): string {
-  const builtins = section.items.filter((item) => item.kind === 'builtin' && builtinEnabled(item, 'shared')).length
-  const preferences = (section.fields ?? []).filter((field) => field.set.some((source) => !source.local)).length
-  const parts = [builtins ? `${plural(builtins, 'built-in')} on` : '', preferences ? `${plural(preferences, 'preference')} set` : ''].filter(Boolean)
-  return parts.length ? `Your tools have ${joinAnd(parts)}.` : 'Your tools run on their own defaults.'
+  const builtins = builtinsOn(section)
+  if (builtins) return `${plural(builtins, 'built-in')} ${builtins === 1 ? 'is' : 'are'} on.`
+  const preferences = preferencesSet(section)
+  if (preferences) return `${plural(preferences, 'preference')} ${preferences === 1 ? 'is' : 'are'} set.`
+  return 'Your tools run on their own defaults.'
 }
 
 const VERDICTS: Record<string, (section: VerdictSection) => string> = {
@@ -68,25 +92,47 @@ export function sectionVerdict(section: VerdictSection): string {
   return (VERDICTS[section.id] ?? contextVerdict)(section)
 }
 
-/** The permission mode a settings file already sets; a local file overrides the shared one. */
-function defaultMode(section: VerdictSection): string | undefined {
-  const field = section.fields?.find((f) => f.key === 'permissions.default-mode')
-  const sources = [...(field?.set ?? [])].sort((a, b) => Number(Boolean(b.local)) - Number(Boolean(a.local)))
-  return sources.flatMap((source) => source.values).find((value) => value.key === field?.key && value.value)?.value
+/** The count the verdict leads with, which the page sets in the accent: "1 environment", "2 built-ins". */
+export function verdictKey(section: VerdictSection): string | undefined {
+  if (section.id === 'tools') {
+    const parts = counted(section)
+    return parts.length ? joinAnd(parts) : undefined
+  }
+  if (section.id === 'settings') {
+    const builtins = builtinsOn(section)
+    if (builtins) return plural(builtins, 'built-in')
+    const preferences = preferencesSet(section)
+    return preferences ? plural(preferences, 'preference') : undefined
+  }
+  return undefined
 }
 
-function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
+/** "Claude Code and Codex", or "4 of your tools" when naming them would crowd the line. */
+function toolNames(labels: string[]): string {
+  const unique = [...new Set(labels)]
+  return unique.length > 3 ? `${unique.length} of your tools` : joinAnd(unique)
+}
+
+function sectionOwnFacts(section: VerdictSection, tools?: ToolTally): string[] {
   if (section.id === 'authority') {
-    const paths = section.items.flatMap((item) => item.values).filter((value) => value.key === 'protected.paths').reduce((sum, value) => sum + (value.list?.length ?? 0), 0)
-    // Outside the global view the default mode applies only through global sync.
-    const mode = global ? defaultMode(section) : undefined
-    return [...(mode ? [`Default mode: ${mode}`] : []), ...(paths ? [plural(paths, 'protected path')] : [])]
+    const counts = permissionCounts(section)
+    const allowed = counts['permissions.allow']
+    // The verdict leads with blocked and ask rules; the allowed count is the fact it leaves out.
+    if (!allowed && !counts['permissions.ask'] && !counts['permissions.deny']) return ['No allow, ask or block rules yet']
+    return allowed && (counts['permissions.ask'] || counts['permissions.deny']) ? [`${allowed} run${allowed === 1 ? 's' : ''} without asking`] : []
   }
-  if (section.id === 'tools' && section.native?.length) return [`${plural(section.native.length, 'more server')} found in your tools`]
-  if (section.id === 'lifecycle' && section.stages?.length) return [`${plural(section.stages.length, 'stage')} in a session`]
+  if (section.id === 'tools' && section.native?.length) {
+    const labels = section.native.flatMap((server) => server.holders.map((holder) => holder.label))
+    return [`${plural(section.native.length, 'more server')} found in ${labels.length ? toolNames(labels) : 'your tools'}`]
+  }
+  if (section.id === 'lifecycle' && section.stages?.length) {
+    const empty = section.stages.filter((stage) => !section.items.some((item) => item.kind === 'hook' && item.group === stage.id && !isTurnedOff(item))).length
+    return empty ? [`${plural(empty, 'stage')} ${empty === 1 ? 'has' : 'have'} no hook`] : []
+  }
   if (section.id === 'settings') {
-    const files = section.items.filter((item) => item.kind === 'config').length
-    return files ? [plural(files, 'config file')] : []
+    // The verdict names built-ins first; preferences become a fact only beside them.
+    const preferences = builtinsOn(section) ? preferencesSet(section) : 0
+    return [...(preferences ? [`${plural(preferences, 'preference')} set`] : []), ...(tools ? [`${tools.on} of ${tools.total} tools on`] : [])]
   }
   return []
 }
@@ -94,10 +140,15 @@ function sectionOwnFacts(section: VerdictSection, global: boolean): string[] {
 // More facts than this crowd the line; tool support has its own link.
 const MAX_FACTS = 3
 
-/** Facts beside the verdict that it does not already say. */
-export function sectionFacts(section: VerdictSection, global = false): string[] {
+export interface ToolTally {
+  on: number
+  total: number
+}
+
+/** Facts beside the verdict that it does not already say. Settings counts the coding tools that are on. */
+export function sectionFacts(section: VerdictSection, tools?: ToolTally): string[] {
   const off = turnedOff(section)
-  return [...sectionOwnFacts(section, global), ...(off.length ? [`${joinAnd(off)} turned off`] : [])].slice(0, MAX_FACTS)
+  return [...sectionOwnFacts(section, tools), ...(off.length ? [`${joinAnd(off)} turned off`] : [])].slice(0, MAX_FACTS)
 }
 
 export interface FindingTally {

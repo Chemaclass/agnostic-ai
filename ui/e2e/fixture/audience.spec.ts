@@ -80,7 +80,8 @@ for (const width of [320, 390, 1440]) {
     await expect(verboseRow.locator('.override-comparison')).toContainText('Local: On')
     await expect(page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })).toContainText('light')
     await selectTab(page, 'Built-ins')
-    await expect(builtins.getByRole('heading', { level: 2 })).toContainText('local')
+    await expect(builtins.locator('p .badge', { hasText: 'local' })).toBeVisible()
+    await expect(builtins).toContainText('Your local config replaces the project list.')
     await selectTab(page, 'Preferences')
     expect(edits).toEqual([])
 
