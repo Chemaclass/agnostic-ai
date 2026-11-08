@@ -47,7 +47,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - **Authority** shows every allow, ask and block rule in one table, blocked first, with Edit and Remove on each row. **Add a rule** asks which list, and protected paths and the default permission mode sit in two rows below (#3120).
 - The Project | Local explanation moves into the switch's tooltip. Rows show actions such as **Open** and **Copy path** on hover or keyboard focus, and phones keep them behind a ⋯ menu. Rail summaries read as short sentences, such as "4 blocked, 3 ask, 11 allowed" or "2 built-ins on".
 - **Lifecycle** shows only the stages that have hooks, with **Show all stages** for the rest, and groups events only one tool uses under their own heading. Each hook says what it does and where it comes from, with its command behind **Command** and **Copy command**. **Add hook** sits at the end of the toolbar.
-- **Context** says how many words agents read when a session starts. It shows the start and on-demand counts with a budget bar, then **Read at every start** and **Read on demand** tables, each with **Copy prompt**. Checking one file and how words are counted fold away at the end.
+- **Context** says how many words agents read when a session starts. It shows the start and on-demand counts with a budget bar, then **Read at every start** and **Read on demand** tables, each with **Copy prompt**. Checking one file and how words are counted fold away at the end. The **Bytes** column (bytes show on hover), **Show the largest source**, **Copy all prompts** and the **Next** steps are gone.
 - Findings are cards with **Copy prompt** and **Details**. Empty types say which tools support them, and counts show only above zero (#3120).
 - **Setup health** reads calmer: **Recheck** sits after "Checked just now", errors list under **Fix first**, and **Copy all fixes** shows only for two or more. Each finding card keeps **Copy prompt** and **Details**, which now holds **Open**, **Copy path** and **Recheck**. **You could add** says how many of your tools support each feature, and a stage where an enabled built-in hook runs for your tools no longer counts as missing.
 - **Tools** shows each server found in your tools as one row with an **Import** button; its files, source choice and terminal command sit under **Details**, and empty tabs move to the end. **Settings** shows each built-in as a name, one line and a switch, with its config name under **Details**.
@@ -64,7 +64,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The web interface opens on **Conversations**: recent Claude Code, Codex and Cursor chats, open ones first, each reopened where it lives (#3109).
 - It opens with how many chats are open and how many wait for you, and each row names its tool (#3120, #3121).
 - The list shows at once when you return and refreshes in the background, three times faster.
-- Rows are calmer: one meta line and a one-line last prompt, a status chip only while the agent works or waits, and a typed shell command shows as `! gl`. **Open in Terminal** turns into a button on hover or focus, with **Copy command** beside it, and a tool filter sits next to the search.
+- Rows are calmer: one meta line and a one-line last prompt, a status chip only while the agent works or waits, and a typed shell command shows as `! gl`. **Open in Terminal** turns into a button on hover or focus, with **Copy command** beside it, and a tool filter sits next to the search. The **Not found** chip for a tool with no chats is gone.
 - It lists Codex and Cursor chats on Windows, handles a symlinked `~/.codex`, and withholds a prompt with `curl -u user:password` (#3119).
 - Opening a Codex thread that a running `codex` holds switches to its terminal; an editor chat brings forward its workspace window (#3134).
 
@@ -83,7 +83,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - A built-in hook's command shows only the agnostic-ai call it makes, such as `agnostic-ai project -- hook memory --target codex`; **Full command** shows the whole launcher script.
 - **Add hook** on Lifecycle previews and writes a new hook spec, then asks you to run `agnostic-ai sync` (#3037).
 - Tools counts only MCP servers that are on and shows others as off; `view --json` gives each one `disabled` in `fields` (#3120, #3145).
-- **Context size** starts with word counts, a budget line with **Change budget** and three **Next** steps (#3120, #3121).
+- **Context size** starts with word counts and a budget line with **Change budget** (#3120, #3121).
 - **Context size** no longer scrolls sideways on a phone (#3059).
 - **Show content** on a Context row shows the file's frontmatter as chips (#3025).
 - **Settings** previews changes as a diff card with **Preview**, **Apply** and **Cancel**. A quick second click sends no stale change (#3120, #3121).
