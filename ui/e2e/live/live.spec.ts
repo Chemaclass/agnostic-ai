@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { selectTab } from '../helpers'
+import { findingDetails, selectTab } from '../helpers'
 
 const run = promisify(execFile)
 const uiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -1622,6 +1622,7 @@ test('live finding opens its file on the server disk in the chosen editor', asyn
     await put(permissions, 'permissions:\n  allow: [read]\n')
     await page.goto(`${f.url}?view=authority`)
     const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await findingDetails(finding)
     const open = finding.getByRole('link', { name: /^Open .+ in Cursor$/ })
     const href = await open.getAttribute('href')
     expect(href).toMatch(/^cursor:\/\/file\/.+\/\.agnostic-ai\/settings\/permissions\.yaml$/)
@@ -1629,6 +1630,7 @@ test('live finding opens its file on the server disk in the chosen editor', asyn
     await page.goto(`${f.url}?view=settings&tab=editor`)
     await page.getByRole('combobox', { name: 'Open files in' }).selectOption('vscode')
     await page.goto(`${f.url}?view=authority`)
+    await findingDetails(finding)
     await expect(finding.getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', href!.replace(/^cursor:/, 'vscode:'))
     await expect(finding.getByRole('button', { name: /^Copy path of / })).toBeVisible()
   } finally {
@@ -1644,13 +1646,14 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     await page.goto(`${f.url}?view=authority`)
     const finding = (word: string) => page.locator('.finding:not(.finding-rechecked)', { hasText: `bare ${word} now covers` })
     const read = finding('read')
+    await findingDetails(read)
     await expect(read.getByRole('link', { name: /^Open .+ in Cursor$/ })).toBeVisible()
     await expect(read.getByRole('button', { name: 'Copy prompt' })).toBeVisible()
     await page.getByRole('searchbox').fill('permissions')
     const url = page.url()
 
     await put(permissions, 'permissions:\n  allow: ["read(src/**)", edit, shell]\n')
-    await read.getByRole('button', { name: 'Recheck' }).click()
+    await (await findingDetails(read)).getByRole('button', { name: 'Recheck' }).click()
     const gone = page.locator('.finding-rechecked')
     await expect(gone.getByRole('status')).toHaveText('This finding no longer appears. 1 new finding appears in .agnostic-ai/settings/permissions.yaml.')
     await expect(gone).toBeFocused()
@@ -1660,12 +1663,12 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     expect(page.url()).toBe(url)
 
     const edit = finding('edit')
-    await edit.getByRole('button', { name: 'Recheck' }).click()
+    await (await findingDetails(edit)).getByRole('button', { name: 'Recheck' }).click()
     await expect(edit.locator('.finding-recheck-result')).toHaveText('This finding still appears after the recheck.')
     await expect(gone).toHaveCount(0)
 
     await page.route('**/api/views/overview', (route) => route.abort())
-    await edit.getByRole('button', { name: 'Recheck' }).click()
+    await (await findingDetails(edit)).getByRole('button', { name: 'Recheck' }).click()
     await expect(page.getByRole('alert').filter({ hasText: 'The overview could not be refreshed.' })).toBeVisible()
     await expect(edit.locator('.finding-recheck-result')).toHaveText('The recheck did not finish, so this finding may still apply.')
     await expect(edit).toContainText('bare edit now covers every file edit')
@@ -1676,7 +1679,7 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     await expect(edit.locator('.finding-recheck-result')).toHaveText('')
 
     await rm(permissions)
-    await edit.getByRole('button', { name: 'Recheck' }).click()
+    await (await findingDetails(edit)).getByRole('button', { name: 'Recheck' }).click()
     const other = page.locator('section.block', { has: page.getByRole('heading', { name: 'Other findings' }) })
     await expect(other.locator('.finding-rechecked .finding-recheck-result')).toHaveText('This finding no longer appears.')
     await expect(other.locator('.finding-rechecked')).toBeFocused()

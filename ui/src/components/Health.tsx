@@ -1,7 +1,8 @@
 // Setup health: every finding in the overview on one page, errors first,
 // with the same finding rows, fix prompts, and rechecks as the sections.
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Improvements, OverviewView } from '../contract'
 import { recheckAllMessage, type RecheckAllResult } from '../model/recheck'
 import { countFindings, featureBars, gapLine, healthFixPrompt, healthGroups, healthSummary, healthVerdict, improvementsLine, placeLabel, type HealthEntry, type HealthSeverity } from '../model/health'
@@ -174,6 +175,12 @@ function HealthPlace({ entry }: { entry: HealthEntry }) {
 
 function Gaps({ gaps, sections }: { gaps: OverviewView['health']['gaps']; sections: OverviewView['sections'] }) {
   const [all, setAll] = useState(false)
+  const list = useRef<HTMLUListElement>(null)
+  // The button leaves once pressed, so focus moves to the first row it revealed.
+  const showAll = () => {
+    flushSync(() => setAll(true))
+    list.current?.children[GAPS_SHOWN_ON_PHONE]?.querySelector<HTMLElement>('input, a, button')?.focus()
+  }
   if (gaps.length === 0) return null
   const hidden = gaps.length - GAPS_SHOWN_ON_PHONE
   return (
@@ -182,7 +189,7 @@ function Gaps({ gaps, sections }: { gaps: OverviewView['health']['gaps']; sectio
         You could add <span className="kind-count">{gaps.length}</span>
       </SectionHeading>
       <p className="health-gaps-intro">Features your tools support that this project does not use yet.</p>
-      <ul className={`health-gap-list${all ? ' is-all' : ''}`}>
+      <ul ref={list} className={`health-gap-list${all ? ' is-all' : ''}`}>
         {gaps.map((gap) => {
           const section = sections.find((s) => s.id === gap.section)
           return (
@@ -200,7 +207,7 @@ function Gaps({ gaps, sections }: { gaps: OverviewView['health']['gaps']; sectio
           )
         })}
       </ul>
-      {hidden > 0 && !all && <button type="button" className="button health-gaps-more" onClick={() => setAll(true)}>Show {hidden} more</button>}
+      {hidden > 0 && !all && <button type="button" className="button health-gaps-more" onClick={showAll}>Show {hidden} more</button>}
     </section>
   )
 }
