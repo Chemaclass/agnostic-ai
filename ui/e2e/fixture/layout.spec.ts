@@ -61,6 +61,7 @@ test('names the serving release at the foot of the sidebar', async ({ page }) =>
   await page.goto('/?view=context')
   const badge = page.getByRole('link', { name: 'agnostic-ai v0.91.0 Release notes (opens in a new tab)' })
   await expect(badge).toHaveAttribute('href', 'https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.91.0')
+  await expect(badge).toHaveAttribute('title', 'Read the agnostic-ai v0.91.0 release notes. Made by Chemaclass.')
   await expect(badge).toBeInViewport({ ratio: 1 })
   await page.setViewportSize({ width: 900, height: 900 })
   await expect(badge).toBeHidden()
@@ -193,6 +194,7 @@ test('shows a checkout build without a release link', async ({ page }) => {
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true, version: 'main@b434c92e1a2b' } }))
   await page.goto('/?view=context')
   await expect(page.locator('.release-badge')).toContainText('main@b434c92e1a2b Development build')
+  await expect(page.locator('.release-badge')).toHaveAttribute('title', 'agnostic-ai main@b434c92e1a2b, a development build. Made by Chemaclass.')
   await expect(page.locator('.sidenav').getByRole('link', { name: /Release notes/ })).toHaveCount(0)
 })
 

@@ -41,6 +41,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The rail names each page over its live counts, lists **Setup health** first, and shows placeholder bars while the page loads (#3120).
 - The rail foot lists Search and the configuration switch, then the version (linked to release notes) and theme, **Overview JSON** and GitHub buttons (#3120).
 - The rail shows "Update needed" only when the project requires a newer agnostic-ai (#3034).
+- The version's tooltip ends with "Made by Chemaclass", and the browser console greets developers with the project and author links.
 - Phones get a top bar with the finding count, Search and **Menu** over one row of page links; search and the inspector open full screen (#3120).
 - Dropdowns open as a panel with a checkmark on the chosen item in every browser; forced colors keep the system list.
 - Each page opens with a smaller verdict sentence and one facts line that ends with **Tool support**, which opens the coding tool support table, and **Docs** (#3120, #3121).
