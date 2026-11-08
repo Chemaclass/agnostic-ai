@@ -49,7 +49,7 @@ func TestColorEnabled_DumbTerminalGetsNoColor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	t.Setenv("NO_COLOR", "")
 	t.Setenv("TERM", "xterm-256color")
 	if !ColorEnabled(f) {
