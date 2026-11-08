@@ -2,6 +2,8 @@ package term
 
 import (
 	"bytes"
+	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -36,5 +38,25 @@ func TestColorEnabled_HonorsNoColorEnv(t *testing.T) {
 	// This guards the env path independently from the writer type.
 	if ColorEnabled(&bytes.Buffer{}) {
 		t.Error("ColorEnabled must return false when NO_COLOR is set")
+	}
+}
+
+func TestColorEnabled_DumbTerminalGetsNoColor(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a Unix character device")
+	}
+	f, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm-256color")
+	if !ColorEnabled(f) {
+		t.Fatal("a character device must get color")
+	}
+	t.Setenv("TERM", "dumb")
+	if ColorEnabled(f) {
+		t.Error("TERM=dumb must disable color")
 	}
 }

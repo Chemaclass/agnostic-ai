@@ -2,7 +2,6 @@ package cli
 
 import (
 	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -21,17 +20,13 @@ func signature(linked bool) string {
 	return "Made by " + authorName + " · " + authorURL
 }
 
-func linksEnabled(w io.Writer) bool {
-	return term.ColorEnabled(w) && os.Getenv("TERM") != "dumb"
-}
-
 func signRootHelp(root *cobra.Command) {
 	help := root.HelpFunc()
 	root.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		help(cmd, args)
 		if cmd == root {
 			out := cmd.OutOrStdout()
-			_, _ = io.WriteString(out, "\n"+signature(linksEnabled(out))+"\n")
+			_, _ = io.WriteString(out, "\n"+signature(term.ColorEnabled(out))+"\n")
 		}
 	})
 }
@@ -42,7 +37,7 @@ func signRootHelp(root *cobra.Command) {
 // text/template into the binary (2.7 MB).
 func SignVersion(cmd *cobra.Command) {
 	out := cmd.OutOrStdout()
-	if linksEnabled(out) {
+	if term.ColorEnabled(out) {
 		signVersion(cmd, out)
 	}
 }
