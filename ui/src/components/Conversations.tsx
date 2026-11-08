@@ -1,27 +1,28 @@
 // Conversations: recent chats from Claude Code, Codex and Cursor, the open
 // ones first, then by day. The server sends one week per page; the next
 // loads when the list nears its end or from the button below it. The
-// source chips in the header filter by tool.
+// tool buttons beside the search filter by tool.
 // Each row asks the server to reopen the chat where it lives; the page
 // only posts which one and shows the reply. A static snapshot has no
 // server to read the chats, so it only says what it needs.
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
-import type { Conversation, ConversationRoute, ConversationSource, ConversationsView, ConversationTool } from '../contract'
+import type { Conversation, ConversationRoute, ConversationSource, ConversationsView } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, sourceLine, toggleTool, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel, Notice } from './Banner'
 import { useEditorChoice } from './EditorLink'
-import { Badge, CopyButton, Icon, ToolAvatar, toolName } from './ui'
+import { Badge, CopyButton, Icon, RowActions, ToolAvatar, toolName } from './ui'
 
 const TITLE = 'Conversations'
 const NEEDS_SERVER = CONVERSATIONS_NEED_SERVER
-const INTRO = 'Pick up a chat where you left it, in the tool where it lives.'
+const INTRO = 'Pick up where you left off, in the tool where it lives.'
+const SEARCH_NOTE = 'Search covers the weeks loaded so far.'
 const MOCK_OPEN_MESSAGE = 'Mock data: opening a conversation needs agnostic-ai view running.'
 
 /** Where loading the week before stands. */
@@ -39,7 +40,7 @@ const LOAD_AHEAD = '0px 0px 400px 0px'
 const firstPages = new Map<string, ConversationsView>()
 const firstPageKey = (source: DataSource, editor: string) => `${JSON.stringify(source)} ${editor}`
 
-const SKELETON_SOURCES = 3
+const SKELETON_TOOLS = 3
 const SKELETON_ROWS = 4
 
 export function ConversationsPage() {
@@ -176,17 +177,17 @@ export function ConversationsPage() {
     <>
       <PageHeader title={TITLE} verdict={loaded ? conversationsVerdict(rows, now, next !== undefined) : <span aria-hidden="true">{skeletonBar('conversations-skeleton-verdict')}</span>}>
         {loaded
-          ? <p className="page-facts">{plural(rows.length, 'conversation')}{next ? ' loaded so far' : ''}. {INTRO}</p>
+          ? <p className="page-facts"><span className="page-fact">{plural(rows.length, 'conversation')} loaded{next ? ' so far' : ''}</span><span className="page-fact">{INTRO}</span></p>
           : <p className="page-facts" aria-hidden="true">{skeletonBar('conversations-skeleton-facts')}</p>}
-        {loaded
-          ? <Sources sources={pages.at(-1)!.tools} rows={rows} tool={tool} onToggle={(chosen) => setTool(toggleTool(tool, chosen))} />
-          : <SourcesSkeleton />}
       </PageHeader>
       {error && <ErrorPanel error={error} />}
       <Search
         query={query}
         onQuery={setQuery}
         status={loaded && filtering ? `${matching.length} of ${plural(rows.length, 'conversation')} match.` : ''}
+        tools={loaded
+          ? <ToolFilterButtons sources={pages.at(-1)!.tools} rows={rows} tool={tool} onChoose={setTool} />
+          : <ToolFilterSkeleton />}
       />
       {!loaded && <ListSkeleton />}
       {rows.length > 0 && groups.length === 0 && <p className="muted empty-matches">No conversation matches.</p>}
@@ -231,15 +232,11 @@ function skeletonBar(className = '') {
 
 const skeletonAvatar = <span className="skeleton conversations-skeleton-avatar" />
 
-function SourcesSkeleton() {
+function ToolFilterSkeleton() {
   return (
-    <ul className="conversation-sources" aria-hidden="true">
-      {Array.from({ length: SKELETON_SOURCES }, (_, index) => (
-        <li key={index} className="conversation-source">
-          <span className="conversation-source-chip conversations-skeleton-chip">{skeletonAvatar}{skeletonBar()}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="segmented conversation-tools" aria-hidden="true">
+      {Array.from({ length: SKELETON_TOOLS }, (_, index) => <span key={index} className="conversations-skeleton-tool">{skeletonBar()}</span>)}
+    </div>
   )
 }
 
@@ -255,7 +252,7 @@ function ListSkeleton() {
             <div className="conversation-body">
               <p className="conversation-title">{skeletonBar('conversations-skeleton-title')}</p>
               <p className="conversation-meta">{skeletonBar('conversations-skeleton-meta')}</p>
-              <p className="conversation-opening">{skeletonBar()}</p>
+              <p className="conversation-prompt">{skeletonBar()}</p>
             </div>
             <span className="button conversations-skeleton-button">{skeletonBar()}</span>
           </li>
@@ -265,55 +262,27 @@ function ListSkeleton() {
   )
 }
 
-// Each found source is a toggle that shows only its tool; a source that was
-// not found has nothing to show, so it is plain text with the server's note.
-// The note shows while its chip is hovered or focused, so a missing chip takes focus too.
-function Sources({ sources, rows, tool, onToggle }: { sources: ConversationSource[]; rows: Conversation[]; tool: ToolFilter; onToggle: (tool: ConversationTool) => void }) {
-  if (sources.length === 0) return null
+// One button per tool whose store was found, after All. Pressing the chosen
+// tool again shows every tool. Each button's title says how many of the
+// tool's chats are loaded, since a week loads at a time.
+function ToolFilterButtons({ sources, rows, tool, onChoose }: { sources: ConversationSource[]; rows: Conversation[]; tool: ToolFilter; onChoose: (tool: ToolFilter) => void }) {
+  const choices = toolChoices(sources, rows)
+  if (choices.length === 0) return null
   return (
-    <ul className="conversation-sources" aria-label="Sources">
-      {sources.map((source) => {
-        const text = (
-          <>
-            <span aria-hidden="true"><ToolAvatar target={source.tool} label={source.label} /></span>
-            <span className="conversation-source-text">
-              <span className="conversation-source-name">{source.label}</span>
-              <span className="conversation-source-count">{sourceLine(source, rows)}</span>
-            </span>
-          </>
-        )
-        const noteId = source.note ? `conversation-source-note-${source.tool}` : undefined
-        const note = source.note && <span id={noteId} className="muted conversation-source-note">{source.note}</span>
-        if (!source.found) {
-          return (
-            <li key={source.tool} className="conversation-source is-missing">
-              <span className="conversation-source-chip" tabIndex={noteId ? 0 : undefined} aria-describedby={noteId}>{text}</span>
-              {note}
-            </li>
-          )
-        }
-        const pressed = tool === source.tool
-        return (
-          <li key={source.tool} className="conversation-source">
-            <button
-              type="button"
-              className="conversation-source-chip conversation-source-toggle"
-              aria-pressed={pressed}
-              aria-describedby={noteId}
-              title={pressed ? 'Show every tool' : `Show only ${source.label}`}
-              onClick={() => onToggle(source.tool)}
-            >
-              {text}
-            </button>
-            {note}
-          </li>
-        )
-      })}
-    </ul>
+    <div className="segmented conversation-tools" role="group" aria-label="Filter by tool">
+      <button type="button" aria-pressed={tool === 'all'} onClick={() => onChoose('all')}>
+        All <span className="conversation-tool-count">{rows.length}</span>
+      </button>
+      {choices.map((choice) => (
+        <button key={choice.tool} type="button" data-tool={choice.tool} aria-pressed={tool === choice.tool} title={choice.description} onClick={() => onChoose(toggleTool(tool, choice.tool))}>
+          {choice.label} <span className="conversation-tool-count">{choice.loaded}</span>
+        </button>
+      ))}
+    </div>
   )
 }
 
-function Search({ query, onQuery, status }: { query: string; onQuery: (value: string) => void; status: string }) {
+function Search({ query, onQuery, status, tools }: { query: string; onQuery: (value: string) => void; status: string; tools: ReactNode }) {
   const searchId = useId()
   const input = useRef<HTMLInputElement>(null)
   return (
@@ -321,8 +290,9 @@ function Search({ query, onQuery, status }: { query: string; onQuery: (value: st
       <label htmlFor={searchId} className="sr-only">Search conversations</label>
       <div className="section-search-input">
         <Icon name="search" />
-        <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Title, folder, branch, or prompt" aria-describedby={`${searchId}-status ${searchId}-note`} />
+        <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Title, folder, branch, or prompt" title={SEARCH_NOTE} aria-describedby={`${searchId}-status ${searchId}-note`} />
       </div>
+      {tools}
       {query && (
         <button type="button" className="button" onClick={() => {
           onQuery('')
@@ -330,7 +300,7 @@ function Search({ query, onQuery, status }: { query: string; onQuery: (value: st
         }}>Clear search</button>
       )}
       <p id={`${searchId}-status`} className="section-search-status" role="status">{status}</p>
-      <p id={`${searchId}-note`} className="conversations-search-note">Search covers the weeks loaded so far.</p>
+      <p id={`${searchId}-note`} className="sr-only">{SEARCH_NOTE}</p>
     </div>
   )
 }
@@ -351,9 +321,9 @@ function openStatus(outcome: ConversationOpenOutcome, route: ConversationRoute):
 function ConversationRow({ conversation, now, editor, canOpen }: { conversation: Conversation; now: Date; editor: string; canOpen: boolean }) {
   const [pending, setPending] = useState(false)
   const [status, setStatus] = useState<OpenStatus>()
-  const title = conversation.title || 'Untitled'
+  const title = chatText(conversation.title || 'Untitled')
   const withheld = conversation.withheld ?? []
-  const opening = (conversation.opening ?? []).slice(0, 3)
+  const prompt = withheld.includes('prompt') ? undefined : shownPrompt(title, conversation.prompt)
   const route = conversation.open
 
   const open = async () => {
@@ -369,36 +339,37 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
     setPending(false)
   }
 
+  // Open now rows always show the ink pill; the others turn their link into it on hover and focus.
   return (
-    <li className={`conversation${conversation.live ? ' is-live' : ''}`} data-tool={conversation.tool}>
+    <li className={`conversation row-hover${conversation.live ? ' is-live' : ''}`} data-tool={conversation.tool}>
       <span aria-hidden="true"><ToolAvatar target={conversation.tool} /></span>
       <div className="conversation-body">
-        <h3 className="conversation-title">{title}</h3>
+        <h3 className="conversation-title">{title.shell ? <code>{title.text}</code> : title.text}</h3>
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
         <p className="conversation-meta">
-          <span className="conversation-tool">{toolName(conversation.tool)}</span>
-          <span>{appLabel(conversation.app)}</span>
           {conversation.live && <LiveBadge conversation={conversation} />}
+          <span className="conversation-tool" title={`${toolName(conversation.tool)}, ${appLabel(conversation.app)}`}>{toolName(conversation.tool)}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}
           {conversation.branch && <span className="conversation-branch">{conversation.branch}</span>}
           <time dateTime={conversation.updatedAt} title={formatTime(conversation.updatedAt)}>{relativeTime(conversation.updatedAt, now)}</time>
         </p>
-        {withheld.includes('opening')
-          ? <Withheld label={withheldLabel('opening')} />
-          : opening.length > 0 && <div className="conversation-opening">{opening.map((line, index) => <p key={index}>{line}</p>)}</div>}
         {withheld.includes('prompt')
           ? <Withheld label={withheldLabel('prompt')} />
-          : conversation.prompt && <p className="conversation-prompt"><span className="conversation-label">Last prompt</span> {conversation.prompt}</p>}
+          : prompt && <p className="conversation-prompt" title={prompt.text}><span className="conversation-label">Last prompt:</span> {prompt.shell ? <code>{prompt.text}</code> : prompt.text}</p>}
       </div>
       <div className="conversation-actions">
-        <button type="button" className="button button-primary conversation-open" aria-disabled={pending || undefined} aria-label={`${route.label}: ${title}`} onClick={open}>
+        <button type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={open}>
           {route.label}
         </button>
-        {route.command && <CopyButton text={route.command} label="Copy command" ariaLabel={`Copy the command that resumes ${title}`} />}
+        {route.command && (
+          <RowActions label={title.text}>
+            <CopyButton text={route.command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />
+          </RowActions>
+        )}
       </div>
       <div className="conversation-result">
         <p className={`conversation-status${status ? ` is-${status.tone}` : ''}`} role="status">{pending ? 'Opening…' : status?.message ?? ''}</p>
-        {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${title}`} />}
+        {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${title.text}`} />}
       </div>
     </li>
   )
@@ -406,6 +377,7 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
 
 function LiveBadge({ conversation }: { conversation: Conversation }) {
   const badge = liveBadge(conversation.activity)
+  if (!badge) return null
   return (
     <Badge tone={badge.tone} className="conversation-live" title={badge.description}>
       <span aria-hidden="true">{badge.label}</span>

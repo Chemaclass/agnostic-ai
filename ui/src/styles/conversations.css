@@ -1,169 +1,38 @@
-/* Conversations: the verdict block with the source filter, the filter row,
-   then open chats first and each day after, as hairline rows with the
-   button that asks the server to reopen the chat where it lives. */
+/* Conversations: the verdict and facts, one toolbar with the search and the
+   tool filter, then open chats first and each day after, as hairline rows
+   with the link that asks the server to reopen the chat where it lives. */
 
-.conversation-sources {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--text-sm);
+.conversations-search {
+  gap: 8px 16px;
 }
 
-.conversation-source {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
+.conversation-tools {
+  align-self: center;
 }
 
-.conversation-source-chip {
+.conversation-tools button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 4px 16px 4px 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
+  gap: 6px;
 }
 
-.conversation-source-chip .tool-avatar,
-.conversation .tool-avatar {
-  width: 24px;
-  height: 24px;
+.conversation-tool-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
-.conversation-source-toggle {
-  cursor: pointer;
-  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out);
+/* The same box as a filter button, so the toolbar keeps its height when the tools land. */
+
+.conversations-skeleton-tool {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
 }
 
-.conversation-source-toggle:hover {
-  background: var(--accent-wash);
-}
-
-.conversation-source-toggle[aria-pressed='true'] {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--canvas);
-}
-
-.conversation-source.is-missing .conversation-source-chip {
-  border-style: dashed;
-  border-color: var(--line);
-  color: var(--text-muted);
-}
-
-.conversation-source-text {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 8px;
-  min-width: 0;
-}
-
-.conversation-source-name {
-  font-weight: 600;
-}
-
-.conversation-source-count {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.conversation-source-toggle[aria-pressed='true'] .conversation-source-count {
-  color: inherit;
-}
-
-.conversation-source-note {
-  max-width: 48ch;
-  padding-inline: 8px;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
-}
-
-/* With a pointer, a chip's note floats above that chip only while it is
-   hovered or keyboard-focused. An invisible bridge under it keeps the
-   pointer on it while crossing from the chip. Where anchor positioning
-   works, the note is fixed to its chip and flips to the chip's right edge
-   near the end of the screen, so it never widens the page. */
-@media (hover: hover) {
-  .conversation-source {
-    position: relative;
-  }
-
-  .conversation-source-note {
-    position: absolute;
-    bottom: 100%;
-    left: 0;
-    z-index: 35;
-    width: max-content;
-    max-width: min(48ch, calc(100vw - 32px));
-    margin-bottom: 6px;
-    padding: 8px 12px;
-    border-radius: var(--radius);
-    background: var(--panel);
-    box-shadow: var(--overlay-shadow);
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity var(--dur-1) var(--ease-out), visibility 0s var(--dur-2);
-  }
-
-  .conversation-source-note::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    right: 0;
-    left: 0;
-    height: 6px;
-  }
-
-  /* Without anchor positioning the note cannot flip, so the list clips
-     its sideways overflow instead of widening the page. */
-  @supports not ((anchor-name: --a) and (anchor-scope: --a)) {
-    .conversation-sources {
-      overflow-x: clip;
-    }
-  }
-
-  @supports (anchor-name: --a) and (anchor-scope: --a) {
-    .conversation-source {
-      anchor-scope: --source-chip;
-    }
-
-    .conversation-source-chip {
-      anchor-name: --source-chip;
-    }
-
-    .conversation-source-note {
-      position: fixed;
-      position-anchor: --source-chip;
-      position-area: top span-right;
-      position-try-fallbacks: flip-inline;
-      inset: auto;
-      margin: 0 0 6px;
-    }
-  }
-
-  .conversation-source:hover .conversation-source-note,
-  .conversation-source:has(:focus-visible) .conversation-source-note {
-    visibility: visible;
-    opacity: 1;
-    transition-delay: 0s;
-  }
-}
-
-.conversations-search-note {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
+.conversations-skeleton-tool .skeleton-line {
+  width: 5em;
 }
 
 .conversation-list {
@@ -171,16 +40,35 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid var(--line);
 }
 
 .conversation {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 4px 16px;
-  padding: 16px 0;
+  padding: 16px 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.conversation:last-child {
+  border-bottom-color: transparent;
+}
+
+/* A row that holds keyboard focus rings as a whole, like the hover fill. */
+
+.conversation:has(:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+.conversation > :first-child {
+  align-self: start;
+}
+
+.conversation .tool-avatar {
+  width: 24px;
+  height: 24px;
 }
 
 .conversation-body {
@@ -197,50 +85,48 @@
   overflow-wrap: anywhere;
 }
 
+.conversation-title code,
+.conversation-prompt code {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+}
+
 .conversation-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 12px;
+  gap: 2px 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
-.conversation-tool {
-  font-weight: 600;
-  color: var(--text-soft);
-}
+/* The separator trails its part, so a wrapped line never starts with it. */
 
-.conversation-folder,
-.conversation-branch {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  overflow-wrap: anywhere;
+.conversation-meta > :not(:last-child, .conversation-live)::after {
+  content: '·' / '';
+  margin-inline: 6px;
 }
 
 .conversation-live {
+  margin-inline-end: 8px;
   padding: 0 8px;
   font-size: var(--text-xs);
 }
 
-.conversation-opening {
-  display: grid;
-  max-width: var(--measure);
-  font-size: var(--text-sm);
-  color: var(--text-soft);
+.conversation-folder,
+.conversation-branch {
   overflow-wrap: anywhere;
 }
 
-.conversation-prompt {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+/* One line; `.block p` sets text-wrap, so this needs the extra class to win. */
+
+.conversation-body .conversation-prompt {
   overflow: hidden;
   max-width: var(--measure);
   font-size: var(--text-sm);
   color: var(--text-soft);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .conversation-withheld {
@@ -248,21 +134,40 @@
   color: var(--text-muted);
 }
 
-.conversation-label {
-  margin-right: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 .conversation-actions {
   display: flex;
-  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 8px 16px;
+}
+
+/* Copy command comes after the link for keyboard and screen readers, and
+   shows before it, as the lane ends with the primary action. */
+
+.conversation-actions > .row-actions > * {
+  order: -1;
+}
+
+/* The primary action is a link at rest and the ink pill on hover, on
+   keyboard focus, and on an open chat. The pill's padding stays at rest,
+   so the lane keeps its width. */
+
+.conversation-open {
+  padding-inline: 18px;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out);
+}
+
+.conversation:hover .conversation-open,
+.conversation:focus-within .conversation-open {
+  background: var(--text);
+  color: var(--canvas);
+  text-decoration: none;
+}
+
+.conversation:hover .conversation-open:hover,
+.conversation:focus-within .conversation-open:hover {
+  background: var(--text-soft);
 }
 
 .conversation-open[aria-disabled='true'] {
@@ -348,10 +253,6 @@
   max-width: 100%;
 }
 
-.conversations-skeleton-chip .skeleton-line {
-  width: 7em;
-}
-
 .conversations-skeleton-avatar {
   flex: none;
   width: 24px;
@@ -372,7 +273,8 @@
   width: 40%;
 }
 
-.conversations-skeleton .conversation-opening .skeleton-line {
+
+.conversations-skeleton .conversation-prompt .skeleton-line {
   width: 80%;
 }
 
@@ -381,40 +283,51 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .conversation-source-toggle {
+  .conversation-open {
     transition: none;
   }
 }
 
 @media (forced-colors: active) {
-  .conversation-source-toggle[aria-pressed='true'] {
-    border-color: Highlight;
-    background: Highlight;
-    color: HighlightText;
+  .conversation:hover .conversation-open,
+  .conversation:focus-within .conversation-open {
+    border-color: ButtonText;
   }
 }
+
+/* Phones: the link sits under the text with the row menu at the far end;
+   an open chat's pill spans the row. */
 
 @media (max-width: 760px) {
   .conversation {
     grid-template-columns: 24px minmax(0, 1fr);
+    padding-inline: 8px;
   }
 
   .conversation-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
+    grid-column: 2 / -1;
+    justify-content: space-between;
   }
 
   .conversation-actions .conversation-open {
-    flex: 1 1 100%;
+    padding-inline: 0;
+  }
+
+  .conversation-actions .conversation-open.button-primary {
+    flex: 1 1 auto;
     justify-content: center;
+    padding-inline: 18px;
   }
 
-  .conversation-result {
-    grid-column: 1 / -1;
+  .conversation:hover .conversation-open:not(.button-primary),
+  .conversation:focus-within .conversation-open:not(.button-primary) {
+    background: transparent;
+    color: var(--accent-strong);
   }
 
-  .conversation-source-chip,
   .conversations-more .button,
+  .conversation-tools button,
+  .conversations-skeleton-tool,
   .conversation-actions .button,
   .conversation-result .button {
     min-height: 44px;
