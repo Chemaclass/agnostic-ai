@@ -18,6 +18,12 @@
 # otherwise report daily (#1167). The runner keeps those URL and hash pairs
 # beside its snapshots, for as long as each snapshot lives.
 #
+# A page that fails with the same HTTP code on two runs in a row is a known
+# block, such as a vendor gateway refusing the runner's address (#3191). It
+# is reported once, then stays quiet until its code changes or it recovers.
+# The runner keeps only the latest run's failures, so a page that recovers
+# and later fails again is reported again.
+#
 # Usage:
 #   scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file] [known-pages-file]
 #   scripts/vendor-watch.sh publish <docfetch.tsv> [known-pages-file]
@@ -31,12 +37,14 @@ VENDOR_WATCH_TITLE="Vendor docs changed since the last target audit"
 VENDOR_WATCH_MARKER="<!-- vendor-watch:keys"
 
 # vendor_watch_keys <tsv> [known-pages-file] prints one "<url>\t<hash>" key
-# per moved row the report names, leaving out a changed row whose pair is
-# known. A failed row has no hash, so its key carries the HTTP code instead.
+# per moved row the report names, leaving out a changed row or a known block
+# whose pair is known. A failed row has no hash, so its key carries the HTTP
+# code instead.
 vendor_watch_keys() {
   awk -F '\t' -v known="${2:-/dev/null}" '
     BEGIN { while ((getline line < known) > 0) fetched[line] = 1 }
     $8 == "changed" && (($3 "\t" $6) in fetched) { next }
+    $8 == "failed" && (($3 "\tfailed-" $4) in fetched) { next }
     $8 == "new" || $8 == "changed" { print $3 "\t" $6 }
     $8 == "failed" { print $3 "\tfailed-" $4 }
   ' "$1" | sort -u
@@ -45,23 +53,26 @@ vendor_watch_keys() {
 VENDOR_WATCH_SEEN_FILE="seen-pages.tsv"
 
 # vendor_watch_seen <snapshot dir> prints each "<url>\t<hash>" pair the runner
-# fetched on an earlier run and still holds the snapshot for.
+# fetched on an earlier run and still holds the snapshot for, and each
+# "<url>\tfailed-<code>" pair that failed on the last run.
 vendor_watch_seen() {
   [ -r "$1/$VENDOR_WATCH_SEEN_FILE" ] || return 0
   while IFS=$'\t' read -r url sha; do
-    if [ -n "$sha" ] && [ -f "$1/$sha.txt" ]; then
+    if [ "${sha#failed-}" != "$sha" ] || { [ -n "$sha" ] && [ -f "$1/$sha.txt" ]; }; then
       printf '%s\t%s\n' "$url" "$sha"
     fi
   done <"$1/$VENDOR_WATCH_SEEN_FILE" | sort -u
 }
 
 # vendor_watch_record <tsv> <snapshot dir> adds the run's fetched pages to the
-# seen pairs, dropping pairs whose snapshot was pruned.
+# seen pairs, dropping pairs whose snapshot was pruned, and replaces the
+# earlier failures with this run's.
 vendor_watch_record() {
   local tmp
   tmp=$(mktemp)
   {
-    vendor_watch_seen "$2"
+    vendor_watch_seen "$2" | awk -F '\t' 'index($2, "failed-") != 1'
+    awk -F '\t' '$8 == "failed" { print $3 "\tfailed-" $4 }' "$1"
     awk -F '\t' '$8 != "failed" && $6 != "" && $6 != "-" { print $3 "\t" $6 }' "$1" |
       while IFS=$'\t' read -r url sha; do
         if [ -f "$2/$sha.txt" ]; then
@@ -75,7 +86,7 @@ vendor_watch_record() {
 
 # vendor_watch_report <tsv> <seen-keys-file> [known-pages-file] prints the
 # Markdown report of moved rows whose key is not in the seen file and, for a
-# changed row, whose URL and hash are not a known pair, grouped by target. It
+# changed or failed row, whose key is not a known pair, grouped by target. It
 # prints nothing when every moved row was already reported.
 # When the run left a deltas.tsv beside it, each moved page also carries
 # its delta label (mentions:<paths>, prose, chrome-only, ...), so the reader
@@ -101,6 +112,7 @@ vendor_watch_report() {
       key = $3 "\t" ($8 == "failed" ? "failed-" $4 : $6)
       if (key in done) next
       if ($8 == "changed" && (($3 "\t" $6) in fetched)) next
+      if ($8 == "failed" && (key in fetched)) next
       rowkey = $1 SUBSEP $2 SUBSEP $3
       if ($8 == "changed" && delta[rowkey] != "" && tag[rowkey] ~ /^counter-only:(junie-downloads|github-watchers):v1$/) {
         suppressed = suppressed "- " $3 " (`" tag[rowkey] "`); raw delta: `" delta[rowkey] "`\n"

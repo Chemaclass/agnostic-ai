@@ -104,7 +104,7 @@ function test_record_keeps_each_fetched_page_while_its_snapshot_lives() {
   : >"$FIXTURES/snapshots/bbb.txt"
   printf 'https://gone.example/page\tzzz\n' >"$FIXTURES/snapshots/seen-pages.tsv"
   vendor_watch_record "$(run_tsv)" "$FIXTURES/snapshots"
-  assert_equals "$(printf 'https://kiro.dev/docs/hooks/\tbbb\nhttps://kiro.dev/docs/steering/\taaa')" \
+  assert_equals "$(printf 'https://kiro.dev/docs/hooks/\tbbb\nhttps://kiro.dev/docs/steering/\taaa\nhttps://zed.dev/docs/ai/mcp\tfailed-404')" \
     "$(vendor_watch_seen "$FIXTURES/snapshots")"
   assert_empty "$(vendor_watch_seen "$FIXTURES/missing")"
 }
@@ -122,6 +122,40 @@ function test_seen_and_record_succeed_when_the_last_pair_lost_its_snapshot() {
   (set -euo pipefail; vendor_watch_record "$FIXTURES/pruned.tsv" "$FIXTURES/snapshots") || status=$?
   assert_equals 0 "$status"
   assert_equals "$(printf 'https://kiro.dev/docs/steering/\taaa')" "$(vendor_watch_seen "$FIXTURES/snapshots")"
+}
+
+function test_report_skips_a_page_that_failed_with_the_same_code_on_the_last_run() {
+  printf 'https://zed.dev/docs/ai/mcp\tfailed-404\n' >"$FIXTURES/known"
+  local out
+  out=$(vendor_watch_report "$(run_tsv)" /dev/null "$FIXTURES/known")
+  assert_not_contains "https://zed.dev/docs/ai/mcp" "$out"
+  assert_contains "- new: https://cursor.com/docs/rules" "$out"
+  assert_not_contains "zed.dev" "$(vendor_watch_keys "$(run_tsv)" "$FIXTURES/known")"
+}
+
+function test_report_names_a_known_block_again_when_its_code_changes() {
+  printf 'https://zed.dev/docs/ai/mcp\tfailed-403\n' >"$FIXTURES/known"
+  assert_contains "- failed (HTTP 404): https://zed.dev/docs/ai/mcp" \
+    "$(vendor_watch_report "$(run_tsv)" /dev/null "$FIXTURES/known")"
+}
+
+function test_record_keeps_only_this_runs_failures() {
+  mkdir -p "$FIXTURES/snapshots"
+  : >"$FIXTURES/snapshots/aaa.txt"
+  printf 'https://recovered.example/page\tfailed-403\n' >"$FIXTURES/snapshots/seen-pages.tsv"
+  vendor_watch_record "$(run_tsv)" "$FIXTURES/snapshots"
+  local seen
+  seen=$(vendor_watch_seen "$FIXTURES/snapshots")
+  assert_contains "$(printf 'https://zed.dev/docs/ai/mcp\tfailed-404')" "$seen"
+  assert_contains "$(printf 'https://kiro.dev/docs/steering/\taaa')" "$seen"
+  assert_not_contains "recovered.example" "$seen"
+}
+
+function test_publish_stays_quiet_when_every_failure_is_a_known_block() {
+  row codebuddy https://www.codebuddy.ai/docs/cli/hooks - failed 403 >"$FIXTURES/blocked.tsv"
+  printf 'https://www.codebuddy.ai/docs/cli/hooks\tfailed-403\n' >"$FIXTURES/known"
+  vendor_watch_publish "$FIXTURES/blocked.tsv" "$FIXTURES/known" >/dev/null
+  assert_not_contains "issue create" "$(cat "$GH_CALLS")"
 }
 
 function test_keys_pair_each_moved_url_with_its_hash() {
