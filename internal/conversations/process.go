@@ -17,6 +17,10 @@ type Processes interface {
 	// Alive reports whether pid runs and, when procStart is set, is the
 	// process that started then rather than a later one with a reused pid.
 	Alive(pid int, procStart string) bool
+	// AliveAmong answers Alive for many processes at once and returns
+	// the pids that passed. A scan asks about every open session, so
+	// the system reader does it with one look at the process table.
+	AliveAmong(processes []ProcessRef) map[int]bool
 	// TTY is the terminal device pid writes to, such as /dev/ttys018.
 	TTY(pid int) (string, error)
 	// TerminalApp names the app whose window holds pid's terminal, such
@@ -27,6 +31,13 @@ type Processes interface {
 	Holders(paths []string) map[string]int
 	// AppRunning reports whether the app, such as "Cursor", runs.
 	AppRunning(name string) bool
+}
+
+// ProcessRef names a process by its pid and, when known, by when it
+// started, as ps lstart writes it in UTC and the C locale.
+type ProcessRef struct {
+	PID       int
+	ProcStart string
 }
 
 // SystemProcesses reads the process table with ps.
@@ -64,6 +75,51 @@ func (SystemProcesses) Alive(pid int, procStart string) bool {
 	}
 	started, err := ps("-o", "lstart=", "-p", strconv.Itoa(pid))
 	return err == nil && started == strings.TrimSpace(procStart)
+}
+
+// AliveAmong runs ps once for every pid. ps prints a line for each pid
+// that runs and fails when none does, which leaves the result empty.
+func (SystemProcesses) AliveAmong(processes []ProcessRef) map[int]bool {
+	alive := map[int]bool{}
+	var pids []string
+	for _, process := range processes {
+		if process.PID > 0 {
+			pids = append(pids, strconv.Itoa(process.PID))
+		}
+	}
+	if len(pids) == 0 {
+		return alive
+	}
+	out, err := ps("-o", "pid=,lstart=", "-p", strings.Join(pids, ","))
+	if err != nil {
+		return alive
+	}
+	started := psStartTimes(out)
+	for _, process := range processes {
+		start, runs := started[process.PID]
+		if runs && (process.ProcStart == "" || start == strings.TrimSpace(process.ProcStart)) {
+			alive[process.PID] = true
+		}
+	}
+	return alive
+}
+
+// psStartTimes reads `ps -o pid=,lstart=` output: a pid, then its start
+// time, on each line.
+func psStartTimes(out string) map[int]string {
+	started := map[int]string{}
+	for _, line := range strings.Split(out, "\n") {
+		pidText, start, ok := strings.Cut(strings.TrimSpace(line), " ")
+		if !ok {
+			continue
+		}
+		pid, err := strconv.Atoi(pidText)
+		if err != nil {
+			continue
+		}
+		started[pid] = strings.TrimSpace(start)
+	}
+	return started
 }
 
 func (SystemProcesses) TTY(pid int) (string, error) {

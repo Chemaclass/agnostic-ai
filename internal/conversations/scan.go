@@ -76,6 +76,7 @@ type Scanner struct {
 	cursorTranscripts map[string]cached[[2]string]
 	cursorPrompts     map[string]cached[cursorPrompts]
 	shown             shownCache
+	keptSources       map[Tool]keptSource
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
@@ -182,8 +183,8 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) []sourceResult {
 	return []sourceResult{
 		s.scanClaude(ctx, opts),
-		s.scanCodex(ctx, opts),
-		s.scanCursor(ctx, opts),
+		s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) }),
+		s.kept(ctx, ToolCursor, opts, s.cursorFiles(), func() sourceResult { return s.scanCursor(ctx, opts) }),
 	}
 }
 

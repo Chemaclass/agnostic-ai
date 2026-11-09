@@ -20,7 +20,10 @@ import (
 
 type stillProcesses struct{}
 
-func (stillProcesses) Alive(int, string) bool          { return false }
+func (stillProcesses) Alive(int, string) bool { return false }
+func (stillProcesses) AliveAmong([]conversations.ProcessRef) map[int]bool {
+	return nil
+}
 func (stillProcesses) TTY(int) (string, error)         { return "", errors.New("no terminal") }
 func (stillProcesses) TerminalApp(int) (string, error) { return "", nil }
 func (stillProcesses) Holders([]string) map[string]int { return nil }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -41,6 +42,16 @@ func (f fakeProcesses) Holders(paths []string) map[string]int {
 func (f fakeProcesses) AppRunning(name string) bool { return f.running[name] }
 
 func (f fakeProcesses) Alive(pid int, _ string) bool { return f.alive[pid] }
+
+func (f fakeProcesses) AliveAmong(processes []ProcessRef) map[int]bool {
+	alive := map[int]bool{}
+	for _, process := range processes {
+		if f.alive[process.PID] {
+			alive[process.PID] = true
+		}
+	}
+	return alive
+}
 
 func (f fakeProcesses) TTY(pid int) (string, error) {
 	if tty, ok := f.tty[pid]; ok {
@@ -1083,5 +1094,29 @@ func TestMatching_SearchesTheTextAPersonSees(t *testing.T) {
 	}
 	if len(matching(rows, queryWords("bash-input"))) != 0 {
 		t.Error("the markup around a typed shell command never matches")
+	}
+}
+
+func TestPsStartTimes_ReadsAPidAndItsStartTimeFromEachLine(t *testing.T) {
+	started := psStartTimes("  412 Mon Nov  9 08:00:01 2026\n61234 Sun Nov  8 23:59:59 2026\n\nnot a pid line")
+	if len(started) != 2 || started[412] != "Mon Nov  9 08:00:01 2026" || started[61234] != "Sun Nov  8 23:59:59 2026" {
+		t.Errorf("started = %v", started)
+	}
+}
+
+func TestSystemProcesses_AliveAmongKeepsThisProcessAndDropsAWrongStartTime(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ps is not on Windows")
+	}
+	self := os.Getpid()
+	alive := SystemProcesses{}.AliveAmong([]ProcessRef{{PID: self}, {PID: 0}})
+	if len(alive) != 1 || !alive[self] {
+		t.Errorf("alive = %v, want only this process %d", alive, self)
+	}
+	if alive := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: self, ProcStart: "Thu Jan  1 00:00:00 1970"}}); len(alive) != 0 {
+		t.Errorf("a pid that started at another time counted as alive: %v", alive)
+	}
+	if alive := (SystemProcesses{}).AliveAmong(nil); len(alive) != 0 {
+		t.Errorf("no processes asked about, got %v", alive)
 	}
 }
