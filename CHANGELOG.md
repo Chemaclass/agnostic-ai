@@ -20,10 +20,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Handoff hooks call generated scripts, keeping completion messages short after compaction.
 - `lint` (LINT011) and `explain --context` no longer count a manual-only skill's description toward Claude's startup words, since Claude Code loads it only when you invoke the skill (#3199).
 
-#### Amp
-
-- The Amp and environments pages say Amp runs `.agents/setup` again on a snapshot refresh and stops it after 20 minutes, so setup must be safe to repeat (#3208).
-
 #### Grok
 
 - When an ignore file hides a Grok rule, the error names that file and pattern, and offers removing grok from targets as a fix (#3198).
@@ -31,6 +27,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### Site
 
 - Guides and references use plainer language, shorter explanations, supported model aliases, and current release examples.
+- The Amp and environments pages say Amp runs `.agents/setup` again on a snapshot refresh and stops it after 20 minutes, so setup must be safe to repeat (#3208).
 
 ## v0.92.0 - 2026-11-08
 
