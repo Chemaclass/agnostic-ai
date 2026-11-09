@@ -8,7 +8,7 @@ import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { APPLE_PLATFORM, Icon } from './ui'
 import { requiredRelease, servingRelease } from '../model/release'
-import { countFindings, healthSummary, type FindingCount } from '../model/health'
+import { countFindings, healthSummary } from '../model/health'
 import { healthRow, healthTone, sectionSummary } from '../model/rail'
 
 export interface Remote<T> {
@@ -17,16 +17,25 @@ export interface Remote<T> {
   error?: Error
 }
 
-// Each page's name, and the question it answers, which the rail shows under the name.
-const DEFAULT_SECTIONS: Record<string, { label: string; question: string }> = {
-  context: { label: 'Context', question: 'What is the agent told?' },
-  authority: { label: 'Authority', question: 'What may the agent do?' },
-  tools: { label: 'Tools', question: 'What can the agent use?' },
-  lifecycle: { label: 'Lifecycle', question: 'What runs around the agent, and when?' },
-  settings: { label: 'Settings', question: 'How are your tools set up?' },
+const DEFAULT_LABELS: Record<string, string> = {
+  context: 'Context',
+  authority: 'Authority',
+  tools: 'Tools',
+  lifecycle: 'Lifecycle',
+  settings: 'Settings',
 }
 
 const PRODUCT_NAME = 'agnostic-ai'
+
+function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <g className="brand-dots"><circle cx="14" cy="14" r="4.5" /><circle cx="32" cy="14" r="4.5" /><circle cx="50" cy="14" r="4.5" /><circle cx="14" cy="32" r="4.5" /><circle cx="50" cy="32" r="4.5" /><circle cx="14" cy="50" r="4.5" /><circle cx="32" cy="50" r="4.5" /><circle cx="50" cy="50" r="4.5" /></g>
+      <circle className="brand-focus" cx="32" cy="32" r="4.5" />
+      <circle className="brand-focus-ring" cx="32" cy="32" r="10" />
+    </svg>
+  )
+}
 const PRODUCT_REPOSITORY = 'https://github.com/Chemaclass/agnostic-ai'
 // At this width and below the rail becomes a top bar and a row of page links.
 const COMPACT_SHELL = '(max-width: 900px)'
@@ -167,7 +176,7 @@ export function Header({
   return (
     <header className="topbar" ref={headerRef} data-busy={overview.status === 'loading' || undefined}>
       <div className="brand">
-        <span className="brand-name">{PRODUCT_NAME}</span>
+        <span className="brand-title"><BrandMark /><span className="brand-name">{PRODUCT_NAME}</span></span>
         <ProjectName overview={overview} served={served} servedPending={servedPending} />
       </div>
       <div className="topbar-actions">
@@ -219,57 +228,51 @@ function ReleaseBadge({ served, version }: { served: ServedConfig; version: stri
 interface SectionLink {
   id: ViewId
   label: string
-  question: string
   summary?: string
 }
 
 function sectionLinks(overview: OverviewView | undefined): SectionLink[] {
   const sections = overview?.sections
-  if (!sections?.length) return SECTION_VIEWS.map((id) => ({ id, ...DEFAULT_SECTIONS[id] }))
+  if (!sections?.length) return SECTION_VIEWS.map((id) => ({ id, label: DEFAULT_LABELS[id] }))
   return [...sections].sort((a, b) => a.order - b.order).map((section) => ({
     id: section.id as ViewId,
     label: section.label,
-    question: section.question || DEFAULT_SECTIONS[section.id]?.question || '',
     summary: sectionSummary(section),
   }))
 }
 
-/** Setup health, Conversations, then each section: the page name over the question it answers.
-    The live counts are each link's tooltip, and its name reads as one phrase: "Context: 1 rule, 3 agents". */
+/** Setup health, Conversations, then each section: the page name over its live counts.
+    Once counts load, each link's name reads as one phrase: "Context: 1 rule, 3 agents". */
 function PageLinks({ overview, pending, onNavigate }: { overview: OverviewView | undefined; pending: boolean; onNavigate?: () => void }) {
   const app = useApp()
   const count = overview ? countFindings(overview) : undefined
   const tone = count ? healthTone(count) : undefined
   const health = count && overview ? healthRow(count, overview.health.gaps.length) : undefined
-  const link = (id: ViewId, className: string | undefined, label: string, question: string, summary: string | undefined, status?: string, dot?: string) => {
-    const counted = summary && !pending ? summary : undefined
-    return (
-      <li key={id} className={className}>
-        <AppLink to={{ view: id }} className="nav-link" aria-label={counted ? `${label}: ${counted}${status ? ` ${status}` : ''}` : undefined} title={counted} aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate}>
-          {dot && <span className={`nav-dot is-${dot}`} aria-hidden="true" />}
-          <Icon name={id} />
-          <span className="nav-text">
-            <span className="nav-label">{label}</span>
-            <span className="nav-question">{question}</span>
-          </span>
-        </AppLink>
-      </li>
-    )
+  // One line each, cut with an ellipsis; the link's name and the tooltip keep the whole summary.
+  const summaryLine = (id: ViewId, summary: string | undefined) => {
+    if (id === 'conversations') return undefined
+    if (pending) return <span className="nav-summary"><Placeholder /></span>
+    return summary && <span className="nav-summary" title={summary}>{summary}</span>
   }
+  const link = (id: ViewId, className: string | undefined, label: string, summary: string | undefined, status?: string, dot?: string) => (
+    <li key={id} className={className}>
+      <AppLink to={{ view: id }} className="nav-link" aria-label={summary && !pending ? `${label}: ${summary}${status ? ` ${status}` : ''}` : undefined} aria-current={app.state.view === id ? 'page' : undefined} onNavigate={onNavigate}>
+        {dot && <span className={`nav-dot is-${dot}`} aria-hidden="true" />}
+        <Icon name={id} />
+        <span className="nav-text">
+          <span className="nav-label">{label}</span>
+          {summaryLine(id, summary)}
+        </span>
+      </AppLink>
+    </li>
+  )
   return (
     <ul className="nav-list">
-      {link('health', 'nav-item-health', 'Setup health', healthQuestion(count, health?.status), health?.summary, health?.status, tone ?? 'loading')}
-      {link('conversations', 'nav-item-conversations', 'Conversations', 'Where did you leave off?', undefined)}
-      {sectionLinks(overview).map((section) => link(section.id, undefined, section.label, section.question, section.summary))}
+      {link('health', 'nav-item-health', 'Setup health', health?.summary, health?.status, tone ?? 'loading')}
+      {link('conversations', 'nav-item-conversations', 'Conversations', undefined)}
+      {sectionLinks(overview).map((section) => link(section.id, undefined, section.label, section.summary))}
     </ul>
   )
-}
-
-/** Setup health's line under its name: its status, with how many findings to fix. */
-function healthQuestion(count: FindingCount | undefined, status: string | undefined): string {
-  if (!count || !status) return 'Checking your setup'
-  const findings = count.errors + count.warnings
-  return findings ? `${status}: ${findings} to fix` : status
 }
 
 function RailFoot({
@@ -370,7 +373,7 @@ export function MenuSheet({ open, onClose, overview, onOpenSearch: _search, ...f
         <div className="menu-sheet-body">
           <div className="menu-sheet-head">
             <div className="brand">
-              <span className="brand-name">{PRODUCT_NAME}</span>
+              <span className="brand-title"><BrandMark /><span className="brand-name">{PRODUCT_NAME}</span></span>
               <ProjectName overview={overview} served={foot.served} servedPending={foot.servedPending} />
             </div>
             <button type="button" className="button button-icon menu-sheet-close" aria-label="Close menu" onClick={onClose}>

@@ -134,8 +134,8 @@ test('keeps every rail row in place while the overview and server details load',
   await expect(page.locator('.sidenav .skeleton').first()).toBeVisible()
   const loading = await boxes()
   releaseOverview()
-  await expect(page.locator('.sidenav .nav-question').first()).not.toBeEmpty()
-  await expect(page.locator('.sidenav .nav-question .skeleton')).toHaveCount(0)
+  await expect(page.locator('.sidenav .nav-summary').first()).not.toBeEmpty()
+  await expect(page.locator('.sidenav .nav-summary .skeleton')).toHaveCount(0)
   expect(await boxes()).toEqual(loading)
   releaseHealth()
   await expect(page.locator('.release-badge .release-version')).toHaveText('agnostic-ai v0.91.0')
@@ -144,22 +144,20 @@ test('keeps every rail row in place while the overview and server details load',
   expect(await boxes()).toEqual(loading)
 })
 
-test('keeps each rail question on one line, with the live counts in the link name and tooltip', async ({ page }) => {
+test('keeps each rail summary on one line and its whole text in the link name', async ({ page }) => {
   const data = structuredClone(fixture)
   const context = data.sections.find((section: { id: string }) => section.id === 'context')!
   for (const kind of context.kinds) kind.count = 15
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/?view=context')
-  const questions = page.locator('.sidenav .nav-question')
-  await expect(questions.first()).toBeVisible()
-  for (const height of await questions.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))) expect(height).toBeLessThanOrEqual(16)
+  const summaries = page.locator('.sidenav .nav-summary')
+  await expect(summaries.first()).toBeVisible()
+  for (const height of await summaries.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))) expect(height).toBeLessThanOrEqual(16)
   const link = page.getByRole('navigation', { name: 'Configuration sections' }).getByRole('link', { name: /^Context: / })
-  await expect(link.locator('.nav-label')).toHaveText('Context')
-  await expect(link.locator('.nav-question')).toHaveText('What is the agent told?')
-  const counts = (await link.getAttribute('aria-label'))!.replace(/^Context: /, '')
-  await expect(link).toHaveAttribute('title', counts)
-  expect(counts).toMatch(/^15 /)
+  const summary = link.locator('.nav-summary')
+  await expect(summary).toHaveAttribute('title', await summary.textContent() ?? '')
+  expect(await summary.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
 })
 
 test('links agnostic-ai and the project repository on GitHub', async ({ page }) => {
