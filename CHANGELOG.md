@@ -17,6 +17,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Claude Code
 
+- Handoff hooks call generated scripts, keeping completion messages short after compaction.
 - `lint` (LINT011) and `explain --context` no longer count a manual-only skill's description toward Claude's startup words, since Claude Code loads it only when you invoke the skill (#3199).
 
 #### Grok
