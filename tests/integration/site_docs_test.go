@@ -72,11 +72,13 @@ func TestSiteDocs_AllPageShellsLoadCronitorRUM(t *testing.T) {
 		if !strings.Contains(page, cronitorRUMClientKey) {
 			t.Errorf("%s does not configure the Cronitor RUM client key", path)
 		}
-		if !strings.Contains(page, `<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="brand-panel"`) {
-			t.Errorf("%s does not use the zig-zag brand mark", path)
+		if !strings.Contains(page, `<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><g class="brand-dots">`) {
+			t.Errorf("%s does not use the focused grid brand mark", path)
 		}
-		if !strings.Contains(page, `%3Cpath d='M24 10L40 16V54L24 48Z' fill='%23f0a35e'/%3E`) {
-			t.Errorf("%s favicon does not use the zig-zag brand mark", path)
+		for _, icon := range []string{"favicon.ico", "favicon.svg", `type="image/svg+xml"`, `rel="apple-touch-icon"`} {
+			if !strings.Contains(page, icon) {
+				t.Errorf("%s does not link the brand icon %s", path, icon)
+			}
 		}
 	}
 }
@@ -693,7 +695,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	for _, metadata := range []string{
 		`property="og:site_name" content="agnostic-ai.org"`,
 		`property="og:url" content="https://agnostic-ai.org/"`,
-		`property="og:image:secure_url" content="https://agnostic-ai.org/og-v4.png"`,
+		`property="og:image:secure_url" content="https://agnostic-ai.org/og-v5.png"`,
 		`name="twitter:domain" content="agnostic-ai.org"`,
 		`name="twitter:url" content="https://agnostic-ai.org/"`,
 	} {

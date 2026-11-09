@@ -4,6 +4,7 @@
   "description": "Saved-file diagnostics, schema-validated config editing, render preview, sync commands, and drift status for agnostic-ai projects.",
   "version": "0.2.0",
   "publisher": "Chemaclass",
+  "icon": "images/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -416,12 +416,18 @@ code {
   flex: none;
 }
 
-.brand-panel {
+.brand-dots {
   fill: var(--ink);
 }
 
-.brand-panel-accent {
+.brand-focus {
   fill: var(--accent);
+}
+
+.brand-focus-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
 }
 
 .site-nav {

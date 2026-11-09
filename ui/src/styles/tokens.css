@@ -92,6 +92,7 @@
   --text-faint: #8a9692;
   --on-accent: #10201c;
   --accent: #7cc4b2;
+  --brand-accent: #f0a35e;
   --accent-strong: #9ad6c7;
   --accent-wash: #1f3330;
   --accent-wash-strong: #284440;
@@ -183,6 +184,7 @@
   --text-faint: #6f7976;
   --on-accent: #ffffff;
   --accent: #256f61;
+  --brand-accent: #a8481a;
   --accent-strong: #1f5e52;
   --accent-wash: #dbe6df;
   --accent-wash-strong: #c9dad0;
@@ -225,6 +227,7 @@
     --panel-sunken: var(--rail);
     --field: var(--rail);
     --accent: var(--rail-ink);
+    --brand-accent: #f0a35e;
     --accent-strong: var(--rail-ink);
     --accent-wash: var(--rail-raised);
     --accent-wash-strong: var(--rail-raised);
@@ -248,6 +251,7 @@
   --panel-sunken: var(--rail);
   --field: var(--rail);
   --accent: var(--rail-ink);
+  --brand-accent: #f0a35e;
   --accent-strong: var(--rail-ink);
   --accent-wash: var(--rail-raised);
   --accent-wash-strong: var(--rail-raised);
