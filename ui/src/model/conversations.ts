@@ -3,7 +3,7 @@
 // shows as. The server sends the rows newest first; these helpers keep
 // that order.
 
-import type { Conversation, ConversationActivity, ConversationApp, ConversationOpenReply, ConversationRoute, ConversationSource, ConversationsView, ConversationTool } from '../contract'
+import type { Conversation, ConversationActivity, ConversationApp, ConversationOpenReply, ConversationRoute, ConversationSource, ConversationState, ConversationTool, ConversationsView } from '../contract'
 import { plural } from './format'
 
 const APP_LABELS = {
@@ -200,6 +200,25 @@ const ACTIVITY_BADGES = {
 /** The status chip of an open chat: only Working or Waiting, since the Open now group already says it is open. */
 export function liveBadge(activity: ConversationActivity | undefined): LiveBadge | undefined {
   if (activity === 'working' || activity === 'waiting') return ACTIVITY_BADGES[activity]
+  return undefined
+}
+
+const STATE_BADGES = {
+  unread: { label: 'New reply', tone: 'approval', description: 'Something was written since you last opened it' },
+  completed: { label: 'Done', tone: 'neutral', description: 'You marked it as done; a new message brings it back' },
+} satisfies Partial<Record<ConversationState, StateBadge>>
+
+interface StateBadge {
+  label: string
+  /** Amber for a reply that waits to be read, neutral for a finished chat. */
+  tone: 'approval' | 'neutral'
+  /** The full sentence, for the title and screen readers. */
+  description: string
+}
+
+/** The chip for the person's own marks: a reply not yet read, or a chat marked as done. Waiting and working already have the live chip, and an active or dormant chat needs none. */
+export function stateBadge(state: ConversationState | undefined): StateBadge | undefined {
+  if (state === 'unread' || state === 'completed') return STATE_BADGES[state]
   return undefined
 }
 

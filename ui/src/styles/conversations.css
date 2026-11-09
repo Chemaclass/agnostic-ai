@@ -102,12 +102,13 @@
 
 /* The separator trails its part, so a wrapped line never starts with it. */
 
-.conversation-meta > :not(:last-child, .conversation-live)::after {
+.conversation-meta > :not(:last-child, .conversation-live, .conversation-state)::after {
   content: '·' / '';
   margin-inline: 6px;
 }
 
-.conversation-live {
+.conversation-live,
+.conversation-state {
   margin-inline-end: 8px;
   padding: 0 8px;
   font-size: var(--text-xs);

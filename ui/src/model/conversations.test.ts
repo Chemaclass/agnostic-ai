@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Conversation, ConversationSource, ConversationsView } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
+import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Local times, so the day groups hold in any time zone the tests run in.
@@ -149,6 +149,12 @@ describe('conversation words', () => {
     expect(liveBadge('waiting')).toEqual({ label: 'Waiting for you', tone: 'approval', description: 'Open now: the agent is waiting for you' })
     expect(liveBadge('idle')).toBeUndefined()
     expect(liveBadge(undefined)).toBeUndefined()
+  })
+
+  it('shows a chip for a reply not yet read and for a chat marked as done, and none otherwise', () => {
+    expect(stateBadge('unread')).toEqual({ label: 'New reply', tone: 'approval', description: 'Something was written since you last opened it' })
+    expect(stateBadge('completed')).toEqual({ label: 'Done', tone: 'neutral', description: 'You marked it as done; a new message brings it back' })
+    for (const state of ['blocked', 'working', 'active', 'dormant', undefined] as const) expect(stateBadge(state)).toBeUndefined()
   })
 
   it('shows a typed shell command as "! command" and hides a last prompt that repeats the title', () => {

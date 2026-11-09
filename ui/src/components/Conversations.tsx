@@ -10,7 +10,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationRoute, ConversationSource, ConversationsView } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
@@ -375,6 +375,7 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
         <p className="conversation-meta">
           {conversation.live && <LiveBadge conversation={conversation} />}
+          <StateBadge conversation={conversation} />
           <span className="conversation-tool" title={`${toolName(conversation.tool)}, ${appLabel(conversation.app)}`}>{toolName(conversation.tool)}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}
           {conversation.branch && <span className="conversation-branch">{conversation.branch}</span>}
@@ -407,6 +408,17 @@ function LiveBadge({ conversation }: { conversation: Conversation }) {
   if (!badge) return null
   return (
     <Badge tone={badge.tone} className="conversation-live" title={badge.description}>
+      <span aria-hidden="true">{badge.label}</span>
+      <span className="sr-only">{badge.description}</span>
+    </Badge>
+  )
+}
+
+function StateBadge({ conversation }: { conversation: Conversation }) {
+  const badge = stateBadge(conversation.state)
+  if (!badge) return null
+  return (
+    <Badge tone={badge.tone} className="conversation-state" title={badge.description}>
       <span aria-hidden="true">{badge.label}</span>
       <span className="sr-only">{badge.description}</span>
     </Badge>

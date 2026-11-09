@@ -83,6 +83,7 @@
       "branch": "main",
       "startedAt": "2026-11-07T12:10:00Z",
       "updatedAt": "2026-11-07T13:02:00Z",
+      "state": "unread",
       "opening": [
         "The Cursor store read takes 900 ms on a large state.vscdb.",
         "Find where the time goes before changing anything."
@@ -165,6 +166,9 @@
       "branch": "fix/ci-cache",
       "startedAt": "2026-11-04T16:02:00Z",
       "updatedAt": "2026-11-04T16:20:00Z",
+      "state": "completed",
+      "seenAt": "2026-11-04T17:00:00Z",
+      "completedAt": "2026-11-04T17:00:00Z",
       "opening": [
         "Read the last ten CI runs on main."
       ],

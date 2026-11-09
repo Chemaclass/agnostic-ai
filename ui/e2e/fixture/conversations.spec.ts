@@ -115,6 +115,14 @@ test.describe('conversations', () => {
     const waiting = row(page, 'Plan the sync --global dry run').locator('.conversation-live')
     await expect(waiting).toHaveText('Waiting for youOpen now: the agent is waiting for you')
     await expect(waiting).toHaveClass(/badge-approval/)
+    // The person's own marks show as chips too: a reply not yet read, and a chat marked as done.
+    const unread = row(page, 'Speed up the sqlite reader').locator('.conversation-state')
+    await expect(unread).toHaveText('New replySomething was written since you last opened it')
+    await expect(unread).toHaveClass(/badge-approval/)
+    const done = row(page, 'Summarize failing CI jobs').locator('.conversation-state')
+    await expect(done).toHaveText('DoneYou marked it as done; a new message brings it back')
+    await expect(done).toHaveClass(/badge-neutral/)
+    await expect(row(page, 'Explain the sync --watch debounce').locator('.conversation-state')).toHaveCount(0)
     // An open chat whose tool does not say what it does shows no status chip: the group says it is open.
     const plain = row(page, 'Tighten the nav labels on phones')
     await expect(plain.locator('.conversation-live')).toHaveCount(0)
