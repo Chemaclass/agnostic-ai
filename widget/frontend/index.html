@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>agnostic-ai</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <link rel="stylesheet" href="/bubble.css">
+  <script type="module" src="/bubble.js"></script>
+</head>
+<body>
+  <button class="bubble" id="bubble" type="button" aria-label="Conversations">
+    <span class="ring" aria-hidden="true"></span>
+    <span class="disc" aria-hidden="true">
+      <svg class="mark" viewBox="0 0 64 64" focusable="false">
+        <path class="sheet" d="M8 16L24 10V48L8 54ZM40 16L56 10V48L40 54Z"/>
+        <path class="fold" d="M24 10L40 16V54L24 48Z"/>
+      </svg>
+    </span>
+    <span class="badge" id="badge" hidden></span>
+  </button>
+</body>
+</html>

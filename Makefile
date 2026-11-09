@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check build test test-short test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check widget widget-run widget-test build test test-short test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -15,6 +15,20 @@ ui-build:
 
 ui-check:
 	go test ./ui -run TestBundleMatchesSources -count=1
+
+# The floating conversations widget is its own Go module (widget/go.mod),
+# so Wails stays out of the CLI's dependencies and its binary. It builds
+# for the system it runs on; see widget/README.md. private_mac_apis lets the
+# macOS web view draw without a background, which has no public API; other
+# systems ignore the tag.
+widget:
+	cd widget && go build -tags "production private_mac_apis" -trimpath -ldflags="-s -w" -o ../bin/agnostic-ai-widget .
+
+widget-run: widget
+	./bin/agnostic-ai-widget
+
+widget-test:
+	cd widget && go vet . && go test . && node --test tests/*.test.js
 
 build: ui-check
 	go build -trimpath -ldflags="-s -w" -o $(BIN) $(PKG)

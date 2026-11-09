@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>agnostic-ai conversations</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <link rel="stylesheet" href="/panel.css">
+  <script type="module" src="/panel.js"></script>
+</head>
+<body>
+  <main class="card" id="card" data-from="bottom-right">
+    <header class="head">
+      <label class="search">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.6"/><path d="M10.6 10.6L14 14"/></svg>
+        <input id="query" type="text" placeholder="Search every conversation" aria-label="Search every conversation" autocomplete="off" spellcheck="false">
+        <button class="clear" id="clear" type="button" aria-label="Clear the search" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+        </button>
+      </label>
+    </header>
+    <p class="note" id="note" role="status" hidden></p>
+    <div class="list" id="list" role="listbox" aria-label="Conversations" tabindex="-1"></div>
+    <footer class="foot">
+      <span class="summary" id="summary" role="status"></span>
+      <button class="dashboard" id="dashboard" type="button" title="Open the full agnostic-ai web interface">
+        Dashboard
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6 3.5h6.5V10M12.5 3.5L4 12"/></svg>
+      </button>
+      <button class="quit" id="quit" type="button" aria-label="Quit the widget" title="Quit the widget">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2v6M4.3 4.6a5 5 0 1 0 7.4 0"/></svg>
+      </button>
+    </footer>
+    <p class="toast" id="toast" role="status" hidden></p>
+  </main>
+</body>
+</html>

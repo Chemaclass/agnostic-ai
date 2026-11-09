@@ -1,0 +1,492 @@
+/* The window is larger than the card by 16px a side, which holds the shadow. */
+body {
+  padding: 16px;
+}
+
+.card {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(242, 237, 229, 0.05), transparent 120px),
+    var(--ink);
+  box-shadow:
+    inset 0 0 0 1px var(--hairline),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 16px rgba(0, 0, 0, 0.32),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+/* The card grows out of the corner nearest the bubble. */
+.card[data-from='top-left'] { transform-origin: top left; }
+.card[data-from='top-right'] { transform-origin: top right; }
+.card[data-from='bottom-left'] { transform-origin: bottom left; }
+.card[data-from='bottom-right'] { transform-origin: bottom right; }
+
+.card.is-opening {
+  animation: open 200ms var(--ease-out);
+}
+
+@keyframes open {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* Search */
+
+.head {
+  padding: 12px 12px 10px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(242, 237, 229, 0.06);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: box-shadow 140ms ease, background 140ms ease;
+}
+
+.search:focus-within {
+  background: rgba(242, 237, 229, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(240, 163, 94, 0.55), 0 0 0 3px var(--rust-soft);
+}
+
+.search svg,
+.quit svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: var(--paper-faint);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: 0;
+  color: var(--paper);
+  font: inherit;
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+  cursor: text;
+}
+
+.search input::placeholder {
+  color: var(--paper-faint);
+}
+
+.clear {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(242, 237, 229, 0.1);
+}
+
+.clear[hidden] {
+  display: none;
+}
+
+.clear svg {
+  width: 10px;
+  height: 10px;
+  stroke: var(--paper-dim);
+  stroke-width: 1.8;
+}
+
+.clear:hover {
+  background: rgba(242, 237, 229, 0.18);
+}
+
+/* A problem above the list */
+
+.note {
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--alert-soft);
+  color: var(--paper);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.note[hidden],
+.toast[hidden] {
+  display: none;
+}
+
+/* List */
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 6px 6px;
+  outline: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 237, 229, 0.16) transparent;
+}
+
+.list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background: rgba(242, 237, 229, 0.16);
+  background-clip: content-box;
+}
+
+.group-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 8px 6px;
+  background: linear-gradient(180deg, var(--ink) 72%, transparent);
+  color: var(--paper-faint);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.group-title:hover {
+  color: var(--paper-dim);
+}
+
+.group-title .chevron {
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms var(--ease-out);
+}
+
+.group-title[aria-expanded='true'] .chevron {
+  transform: rotate(90deg);
+}
+
+.group-title .count {
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.group-title.is-urgent {
+  color: var(--alert);
+}
+
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border-radius: 10px;
+  transition: background 120ms ease;
+}
+
+.row.is-active,
+.row:hover {
+  background: rgba(242, 237, 229, 0.07);
+}
+
+.row.is-active {
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.card.is-opening .row {
+  animation: rise 240ms var(--ease-out) backwards;
+  animation-delay: calc(var(--order, 0) * 14ms + 40ms);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* The state mark at the row's left. */
+
+.state {
+  justify-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--paper-faint);
+}
+
+.state.is-blocked,
+.state.is-unread {
+  background: var(--alert);
+  box-shadow: 0 0 0 3px var(--alert-soft);
+}
+
+.state.is-working {
+  background: var(--rust);
+  box-shadow: 0 0 0 3px var(--rust-soft);
+  animation: breathe 1.4s ease-in-out infinite;
+}
+
+.state.is-active {
+  background: var(--calm);
+}
+
+.state.is-completed {
+  width: 14px;
+  height: 14px;
+  background: none;
+  border-radius: 0;
+}
+
+.state.is-completed svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--paper-faint);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.state.is-dormant {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--paper-faint);
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.text {
+  min-width: 0;
+}
+
+.title,
+.meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.title {
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.005em;
+  color: var(--paper);
+}
+
+.row.needs-you .title {
+  font-weight: 620;
+}
+
+.row.is-quiet .title {
+  color: var(--paper-dim);
+}
+
+.meta {
+  margin-top: 1px;
+  font-size: 11.5px;
+  line-height: 15px;
+  color: var(--paper-faint);
+}
+
+.meta .why {
+  color: var(--alert);
+  font-weight: 560;
+}
+
+.meta .why.is-working {
+  color: var(--rust);
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transform: translateX(4px);
+  transition: opacity 120ms ease, transform 160ms var(--ease-out);
+}
+
+.row:hover .actions,
+.row.is-active .actions,
+.actions:focus-within {
+  opacity: 1;
+  transform: none;
+}
+
+.action {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(242, 237, 229, 0.08);
+  transition: background 120ms ease, transform 120ms var(--ease-spring);
+}
+
+.action:hover {
+  background: var(--rust);
+}
+
+.action:active {
+  transform: scale(0.9);
+}
+
+.action svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: var(--paper-dim);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.action:hover svg {
+  stroke: var(--ink);
+}
+
+.empty {
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--paper-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.empty strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--paper-dim);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Foot */
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 8px 0 14px;
+  border-top: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--paper-faint);
+  font-size: 11.5px;
+}
+
+.summary {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--paper-dim);
+}
+
+.summary.is-urgent {
+  color: var(--paper);
+}
+
+.dashboard {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--paper-dim);
+  font-size: 11.5px;
+  font-weight: 560;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.dashboard svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms var(--ease-out);
+}
+
+.dashboard:hover {
+  background: var(--rust-soft);
+  color: var(--rust);
+}
+
+.dashboard:hover svg {
+  transform: translate(1px, -1px);
+}
+
+.quit {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.quit:hover {
+  background: rgba(242, 237, 229, 0.08);
+}
+
+.quit:hover svg {
+  stroke: var(--paper);
+}
+
+/* What the last open said, over the foot for a moment. */
+
+.toast {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 48px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--ink-high);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), 0 8px 20px rgba(0, 0, 0, 0.45);
+  color: var(--paper);
+  font-size: 12px;
+  line-height: 1.4;
+  animation: rise 200ms var(--ease-out);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 1px;
+}

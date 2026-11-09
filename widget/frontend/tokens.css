@@ -1,0 +1,59 @@
+/* The widget's look, in one place. Colors follow the agnostic-ai site:
+   ink, paper and rust. */
+:root {
+  --ink: #16130f;
+  --ink-raised: #201c17;
+  --ink-high: #2a251f;
+  --paper: #f2ede5;
+  --paper-dim: rgba(242, 237, 229, 0.62);
+  --paper-faint: rgba(242, 237, 229, 0.38);
+  --hairline: rgba(242, 237, 229, 0.1);
+  --hairline-strong: rgba(242, 237, 229, 0.18);
+  --rust: #f0a35e;
+  --rust-soft: rgba(240, 163, 94, 0.16);
+  --alert: #ff6250;
+  --alert-soft: rgba(255, 98, 80, 0.16);
+  --calm: #7fcf9a;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Inter, Cantarell, "Noto Sans", sans-serif;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  color: var(--paper);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
