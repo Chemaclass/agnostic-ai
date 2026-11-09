@@ -32,7 +32,7 @@ test('writes a short age', () => {
 
 test('names the tool, the folder and the age, on either kind of path', () => {
   const now = Date.parse('2026-11-09T12:05:00Z')
-  assert.equal(detailsOf(row('a', 'active', { folder: '/Users/mo/Products/agnostic-ai' }), now), 'Claude Code · agnostic-ai · 5m')
+  assert.equal(detailsOf(row('a', 'active', { folder: '/Users/me/code/agnostic-ai' }), now), 'Claude Code · agnostic-ai · 5m')
   assert.equal(detailsOf(row('a', 'active', { tool: 'cursor', folder: 'C:\\work\\app\\' }), now), 'Cursor · app · 5m')
   assert.equal(detailsOf(row('a', 'active', { tool: 'codex' }), now), 'Codex · 5m')
 })

@@ -596,10 +596,10 @@ func folderOpenIn(storagePath, folder string) bool {
 
 func TestFolderOpenIn_ReadsTheEditorsOpenWindows(t *testing.T) {
 	storage := filepath.Join(t.TempDir(), "storage.json")
-	write(t, storage, `{"windowsState":{"lastActiveWindow":{"folder":"file:///Users/me/Products/kombo"},"openedWindows":[{"folder":"file:///Users/me/Products/agnostic-ai"},{"folder":"file:///Users/me/My%20Code/app"}]}}`)
+	write(t, storage, `{"windowsState":{"lastActiveWindow":{"folder":"file:///Users/me/Products/service"},"openedWindows":[{"folder":"file:///Users/me/Products/agnostic-ai"},{"folder":"file:///Users/me/My%20Code/app"}]}}`)
 	for folder, want := range map[string]bool{
 		"/Users/me/Products/agnostic-ai": true,
-		"/Users/me/Products/kombo":       true,
+		"/Users/me/Products/service":       true,
 		"/Users/me/My Code/app":          true,
 		"/Users/me/Products/agnostic":    false,
 		"/Users/me/Products":             false,
