@@ -38,7 +38,6 @@ const state = {
 const ICONS = {
   chevron: 'M2.5 1.5L5.5 4L2.5 6.5',
   archive: 'M3 8.5l3 3 7-7.5',
-  read: 'M2 6l6-3.5L14 6v6.5H2zM2 6l6 4 6-4',
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
 }
 
@@ -116,11 +115,14 @@ function rowOf(conversation, order) {
   text.append(meta)
 
   const actions = element('div', 'actions')
-  if (conversation.state === 'unread') actions.append(actionButton('read', 'Mark as read', conversation, 'seen'))
-  // An archived chat needs no archive button. Opening it, or a new message, brings it back.
+  // One button a row: archive a chat that is not archived yet, hide one that is.
+  // Opening an archived chat, or a new message in it, brings it back.
   const archived = conversation.state === 'completed' || conversation.state === 'dormant'
-  if (!archived) actions.append(actionButton('archive', 'Archive, until something new is written', conversation, 'completed'))
-  actions.append(actionButton('hide', 'Hide from agnostic-ai, until something new is written', conversation, 'hidden'))
+  if (archived) {
+    actions.append(actionButton('hide', 'Hide from agnostic-ai, until something new is written', conversation, 'hidden'))
+  } else {
+    actions.append(actionButton('archive', 'Archive, until something new is written', conversation, 'completed'))
+  }
 
   row.append(stateMark(conversation), text, actions)
   row.addEventListener('click', () => openRow(conversation))

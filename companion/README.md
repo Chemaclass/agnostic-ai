@@ -33,8 +33,9 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
   **Ctrl+Alt+Space** (⌃⌥Space on a Mac) until you change it.
 - **Type** to search every conversation, of any age.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
-- Hover a row to **mark it as read**, **archive** it, or **hide** it.
-  **Archive all** beside Active archives every active chat at once.
+- Hover a row for its one button: **archive** a chat, or **hide** one that
+  is already archived. **Archive all** beside Active archives every active
+  chat at once.
 - An archived chat comes back when you open it or when something new is
   written in it. A hidden chat leaves every list and search in agnostic-ai
   and comes back only with a new message. The tool that owns the chat keeps
@@ -83,7 +84,7 @@ Only Claude Code reports waiting and busy. Codex and Cursor chats reach Needs
 you when something new is written in them.
 
 You see a conversation when you open it from the companion or the web interface,
-or mark it as read, archive it or hide it. A chat you read in its own terminal still counts
+or archive it. A chat you read in its own terminal still counts
 as unread until then.
 
 ## Files it keeps
