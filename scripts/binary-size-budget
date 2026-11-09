@@ -840,4 +840,7 @@
 # The conversations search, states, marks and kept Codex and Cursor reads
 # measured 25489568 bytes locally; the budget is that plus 8192, rounded up
 # to a multiple of 4096.
-25501696
+# The companion command (install and start), the list ETag, the hidden
+# mark and serve --stop-with-stdin measured 25530528 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+25542656
