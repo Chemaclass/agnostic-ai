@@ -9,10 +9,9 @@ test('groups rows by state, in list order, and leaves empty groups out', () => {
   assert.deepEqual(groups.map((group) => [group.id, group.rows.map((r) => r.id)]), [
     ['needs-you', ['b', 'd']],
     ['working', ['c']],
-    ['done', ['e']],
-    ['dormant', ['a']],
+    ['archived', ['a', 'e']],
   ])
-  assert.deepEqual(groups.map((group) => group.startsFolded), [false, false, true, true])
+  assert.deepEqual(groups.map((group) => group.startsFolded), [false, false, true])
 })
 
 test('says why a row needs the person, and nothing for a quiet one', () => {
@@ -42,9 +41,11 @@ test('sums up what needs the person, or the search', () => {
   assert.equal(summaryOf({ needsYou: 0 }, ''), 'All caught up')
   assert.equal(summaryOf({ needsYou: 1 }, ''), '1 conversation needs you')
   assert.equal(summaryOf({ needsYou: 3 }, ''), '3 conversations need you')
-  assert.equal(summaryOf({ needsYou: 3, matches: 0 }, 'parser'), 'No conversation matches')
-  assert.equal(summaryOf({ needsYou: 3, matches: 1 }, 'parser'), '1 conversation matches')
-  assert.equal(summaryOf({ needsYou: 3, matches: 12 }, 'parser'), '12 conversations match')
+  const found = (matches, shown) => ({ needsYou: 3, matches, conversations: Array.from({ length: shown }, (_, i) => row(String(i), 'active')) })
+  assert.equal(summaryOf(found(0, 0), 'parser'), 'No conversation matches')
+  assert.equal(summaryOf(found(1, 1), 'parser'), '1 conversation matches')
+  assert.equal(summaryOf(found(12, 12), 'parser'), '12 conversations match')
+  assert.equal(summaryOf(found(40, 25), 'parser'), '40 conversations match; the newest 25 show')
 })
 
 test('moves through the rows and stops at the ends', () => {

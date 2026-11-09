@@ -1,14 +1,19 @@
-// The widget's own calls, answered by the Go shell in this process.
+// The companion's own calls, answered by the Go shell in this process,
+// which asks the agnostic-ai server.
 
 /** A failed call. `message` is what the person reads. */
 export class CallError extends Error {}
+
+/** A call its caller gave up on, through the `signal` it passed. Nothing failed. */
+export class GivenUp extends Error {}
 
 async function call(path, options) {
   let response
   try {
     response = await fetch(path, options)
   } catch (cause) {
-    throw new CallError('The widget could not reach its own shell.', { cause })
+    if (options?.signal?.aborted) throw new GivenUp()
+    throw new CallError('The companion could not reach its own shell.', { cause })
   }
   if (response.status === 204) return undefined
   const body = await response.json()
@@ -20,24 +25,31 @@ function post(path, body) {
   return call(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) })
 }
 
-/** The list: every open conversation and the past week, or every match of `query`. */
-export function readInbox(query) {
-  return call(query ? '/api/inbox?q=' + encodeURIComponent(query) : '/api/inbox')
+/**
+ * The list, as `{view, note?}`. `view` is the server's answer: every open
+ * conversation and the past week, or every match of `query`. `note` is
+ * something the companion itself has to say, such as a version mismatch.
+ */
+export function readInbox(query, before, signal) {
+  if (!query) return call('/api/inbox')
+  const asked = new URLSearchParams({ q: query })
+  // A search comes one week at a time; `before` is the `next` of the page already read.
+  if (before) asked.set('before', before)
+  // `signal` lets the caller give up a search that newer typing replaced.
+  return call('/api/inbox?' + asked, { signal })
 }
 
 export function openConversation(conversation) {
   return post('/api/open', { tool: conversation.tool, id: conversation.id })
 }
 
-/** mark is `seen`, `completed` or `open`. */
+/** mark is `seen`, `completed` or `hidden`. */
 export function markConversation(conversation, mark) {
   return post('/api/mark', { tool: conversation.tool, id: conversation.id, as: mark })
 }
 
 export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
-/** Counts everything written up to now as read, in every conversation. */
-export const markAllSeen = () => post('/api/mark-all-seen')
 
 /** The settings menu's values: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
 export const readPreferences = () => call('/api/preferences')
@@ -46,4 +58,5 @@ export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-log
 
 /** Opens the full web interface in the browser. */
 export const openDashboard = () => post('/api/dashboard')
-export const quitWidget = () => post('/api/quit')
+/** Takes the companion off the screen; the shortcut brings it back. */
+export const hideCompanion = () => post('/api/hide')

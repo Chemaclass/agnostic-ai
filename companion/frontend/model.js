@@ -1,12 +1,14 @@
 // What the list shows, worked out from the rows the shell sends. No DOM here.
 
-/** The groups, in the order the list shows them. Done and Dormant start folded. */
+/**
+ * The groups, in the order the list shows them. Archived starts folded: it
+ * holds what the person archived and what went quiet by itself.
+ */
 export const GROUPS = [
   { id: 'needs-you', title: 'Needs you', startsFolded: false },
   { id: 'working', title: 'Working', startsFolded: false },
   { id: 'active', title: 'Active', startsFolded: false },
-  { id: 'done', title: 'Done', startsFolded: true },
-  { id: 'dormant', title: 'Dormant', startsFolded: true },
+  { id: 'archived', title: 'Archived', startsFolded: true },
 ]
 
 /** The group each state belongs to. */
@@ -15,8 +17,8 @@ const GROUP_OF_STATE = {
   unread: 'needs-you',
   working: 'working',
   active: 'active',
-  completed: 'done',
-  dormant: 'dormant',
+  completed: 'archived',
+  dormant: 'archived',
 }
 
 /** Why a row is where it is, said before the tool's name; states that need no words have none. */
@@ -80,6 +82,8 @@ export function ago(stamp, now) {
 export function summaryOf(view, query) {
   if (query !== '') {
     if (view.matches === 0) return 'No conversation matches'
+    // More matched than the list reads: say so instead of showing fewer rows than the count.
+    if (view.conversations.length < view.matches) return `${view.matches} conversations match; the newest ${view.conversations.length} show`
     return view.matches === 1 ? '1 conversation matches' : `${view.matches} conversations match`
   }
   if (view.needsYou === 0) return 'All caught up'

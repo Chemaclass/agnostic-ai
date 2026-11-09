@@ -277,25 +277,9 @@ body {
   background: var(--calm);
 }
 
-.state.is-completed {
-  width: 14px;
-  height: 14px;
-  background: none;
-  border-radius: 0;
-}
+/* Archived rows, by hand or by going quiet, carry the same empty mark. */
 
-.state.is-completed svg {
-  display: block;
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: var(--paper-faint);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.state.is-dormant {
+.state.is-archived {
   background: none;
   box-shadow: inset 0 0 0 1.5px var(--paper-faint);
 }

@@ -1,23 +1,27 @@
-// The agnostic-ai widget: a small circle that floats over every app and
+// The agnostic-ai companion: a small circle that floats over every app and
 // counts the AI conversations that need the person, with a searchable
-// list beside it that opens each one where it lives. It reads the same
-// stores and keeps the same marks as `agnostic-ai serve`.
+// list beside it that opens each one where it lives. It is a window on
+// `agnostic-ai serve`: the server reads, opens and marks the
+// conversations, and the companion asks it.
 package main
 
 import (
-	"context"
 	"embed"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-
-	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
+
+// version is the agnostic-ai release this companion was built for, set
+// by `agnostic-ai companion install`; empty in a build made by hand.
+var version string
 
 //go:embed frontend
 var embedded embed.FS
@@ -32,8 +36,8 @@ const (
 	panelHeight = 624
 )
 
-// instanceID names the widget to the system, so a second start finds the first.
-const instanceID = "dev.agnostic-ai.widget"
+// instanceID names the companion to the system, so a second start finds the first.
+const instanceID = "dev.agnostic-ai.companion"
 
 // Events the pages listen for.
 const (
@@ -57,6 +61,8 @@ type shell struct {
 	app    *application.App
 	bubble application.Window
 	panel  application.Window
+	inbox  *inbox
+	server *server
 
 	settingsPath string
 
@@ -68,10 +74,45 @@ type shell struct {
 	// hiddenByFocusAt is when the panel last hid because it lost focus.
 	hiddenByFocusAt time.Time
 	save            *time.Timer
+	// hidden is set while the companion is off the screen: only the
+	// shortcut listens then, and nothing reads or asks anything.
+	hidden bool
+}
+
+// hide takes the companion off the screen and stops its server, until
+// the shortcut or a second start brings it back.
+func (s *shell) hide() {
+	s.mu.Lock()
+	s.hidden = true
+	s.mu.Unlock()
+	s.panel.Hide()
+	s.bubble.Hide()
+	s.inbox.stop()
+	s.server.rest()
+}
+
+// comeBack puts the bubble back and reads a new list. It reports
+// whether the companion was hidden.
+func (s *shell) comeBack() bool {
+	s.mu.Lock()
+	wasHidden := s.hidden
+	s.hidden = false
+	s.mu.Unlock()
+	if !wasHidden {
+		return false
+	}
+	s.server.resume()
+	s.inbox.start()
+	s.bubble.Show()
+	return true
 }
 
 // togglePanel answers a click on the bubble and the shortcut.
 func (s *shell) togglePanel() {
+	if s.comeBack() {
+		s.showPanel()
+		return
+	}
 	if s.panel.IsVisible() {
 		s.panel.Hide()
 		return
@@ -110,9 +151,9 @@ func (s *shell) workArea() rect {
 	return rect{X: screen.WorkArea.X, Y: screen.WorkArea.Y, Width: screen.WorkArea.Width, Height: screen.WorkArea.Height}
 }
 
-// screensWait is how long the widget waits at start for Wails to list
+// screensWait is how long the companion waits at start for Wails to list
 // the screens. Wails lists them in its own start handler, which runs
-// beside the widget's.
+// beside the companion's.
 const screensWait = 2 * time.Second
 
 // workAreas waits for the screens and returns the usable part of each,
@@ -181,12 +222,12 @@ func (s *shell) panelLostFocus() {
 	s.mu.Unlock()
 }
 
-// routes serves the widget's pages and the few calls they make.
+// routes serves the companion's pages and the few calls they make.
 func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/inbox", in.list)
-	mux.HandleFunc("POST /api/open", in.open)
-	mux.HandleFunc("POST /api/mark", in.mark)
+	mux.HandleFunc("POST /api/open", in.pass(serverOpenPath))
+	mux.HandleFunc("POST /api/mark", in.pass(serverMarkPath))
 	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, _ *http.Request) {
 		s.togglePanel()
 		w.WriteHeader(http.StatusNoContent)
@@ -195,14 +236,13 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		s.panel.Hide()
 		w.WriteHeader(http.StatusNoContent)
 	})
-	mux.HandleFunc("POST /api/mark-all-seen", in.markAllSeen)
 	mux.HandleFunc("GET /api/preferences", s.getPreferences)
 	mux.HandleFunc("POST /api/preferences/shortcut", s.setShortcut)
 	mux.HandleFunc("POST /api/preferences/start-at-login", s.setStartAtLogin)
 	mux.HandleFunc("POST /api/dashboard", dashboard)
-	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-		s.app.Quit()
+		s.hide()
 	})
 	mux.Handle("/", application.BundledAssetFileServer(pages))
 	return mux
@@ -240,6 +280,10 @@ func floating(options application.WebviewWindowOptions) application.WebviewWindo
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--version" {
+		fmt.Println(version)
+		return
+	}
 	path, err := settingsPath()
 	if err != nil {
 		log.Fatal(err)
@@ -253,23 +297,27 @@ func main() {
 		log.Fatal(err)
 	}
 
-	s := &shell{settingsPath: path, settings: saved}
-	in := newInbox(conversations.NewScanner(), conversations.SystemLauncher(), func() {
+	s := &shell{settingsPath: path, settings: saved, server: newServer()}
+	s.inbox = newInbox(s.server, version, func() {
 		s.app.Event.Emit(eventInbox)
 	})
+	in := s.inbox
 	s.app = application.New(application.Options{
-		Name:        "agnostic-ai widget",
+		Name:        "agnostic-ai companion",
 		Description: "The AI conversations that need you, floating over every app.",
 		Mac: application.MacOptions{
 			// No Dock icon and no menu bar of its own.
 			ActivationPolicy: application.ActivationPolicyAccessory,
 		},
 		Assets: application.AssetOptions{Handler: s.routes(in, pages)},
-		// One widget at a time. Starting it again opens the list of the
-		// one that runs, instead of a second circle.
+		// One companion at a time. Starting it again brings back the one
+		// that runs and opens its list, instead of a second circle.
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID:               instanceID,
-			OnSecondInstanceLaunch: func(application.SecondInstanceData) { s.showPanel() },
+			UniqueID: instanceID,
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
+				s.comeBack()
+				s.showPanel()
+			},
 		},
 	})
 
@@ -295,15 +343,16 @@ func main() {
 	s.bubble.OnWindowEvent(events.Common.WindowDidMove, func(*application.WindowEvent) { s.bubbleMoved() })
 	s.panel.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) { s.panelLostFocus() })
 
-	ctx, stop := context.WithCancel(context.Background())
-	defer stop()
 	s.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		s.placeBubble(saved.Bubble)
 		s.registerShortcut()
-		go in.poll(ctx)
+		in.start()
 	})
 
-	if err := s.app.Run(); err != nil {
+	err = s.app.Run()
+	// The server also stops by itself when this process ends; this stops it sooner.
+	s.server.rest()
+	if err != nil {
 		log.Fatal(err)
 	}
 }

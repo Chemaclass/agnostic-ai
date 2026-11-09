@@ -1,5 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
-import { readInbox, togglePanel } from '/api.js'
+import { CallError, readInbox, togglePanel } from '/api.js'
 import { isDrag } from '/model.js'
 
 const bubble = document.getElementById('bubble')
@@ -10,11 +10,11 @@ function badgeText(count) {
   return count > 99 ? '99+' : String(count)
 }
 
-function show(view) {
+function show({ view, note }) {
   const count = view.needsYou
   const working = view.conversations.some((conversation) => conversation.state === 'working')
   bubble.classList.toggle('is-working', working)
-  bubble.classList.toggle('is-troubled', Boolean(view.marksNote))
+  bubble.classList.toggle('is-troubled', Boolean(view.marksNote || note))
   bubble.setAttribute('aria-label', count === 0 ? 'Conversations: none needs you' : `Conversations: ${count} need you`)
   badge.hidden = count === 0
   badge.textContent = badgeText(count)
@@ -27,8 +27,25 @@ function show(view) {
   shownCount = count
 }
 
+/** No list could be read: an old count would be a guess, so none shows. */
+function showTrouble(message) {
+  bubble.classList.remove('is-working')
+  bubble.classList.add('is-troubled')
+  bubble.setAttribute('aria-label', 'Conversations: ' + message)
+  badge.hidden = true
+  shownCount = 0
+}
+
 async function refresh() {
-  show(await readInbox(''))
+  let reply
+  try {
+    reply = await readInbox('')
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    showTrouble(error.message)
+    return
+  }
+  show(reply)
 }
 
 // A press becomes a drag once the pointer has travelled; until then it is a

@@ -1,5 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, hidePanel, markAllSeen, markConversation, openConversation, openDashboard, quitWidget, readInbox, readPreferences, saveShortcut, saveStartAtLogin } from '/api.js'
+import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, saveShortcut, saveStartAtLogin } from '/api.js'
 import { GROUPS, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf } from '/model.js'
 
 const card = document.getElementById('card')
@@ -20,6 +20,12 @@ const STAGGERED_ROWS = 12
 const state = {
   /** The latest list, or the latest search result while a search is typed. */
   view: undefined,
+  /** A search was typed and its answer is not here yet. */
+  searching: false,
+  /** Why the list could not be read; undefined when it could. */
+  problem: undefined,
+  /** What the companion itself has to say, such as a version mismatch. */
+  note: undefined,
   query: '',
   /** Group ids the person folded or unfolded, over each group's start. */
   folded: new Map(GROUPS.map((group) => [group.id, group.startsFolded])),
@@ -31,9 +37,9 @@ const state = {
 
 const ICONS = {
   chevron: 'M2.5 1.5L5.5 4L2.5 6.5',
-  done: 'M3 8.5l3 3 7-7.5',
+  archive: 'M3 8.5l3 3 7-7.5',
   read: 'M2 6l6-3.5L14 6v6.5H2zM2 6l6 4 6-4',
-  undo: 'M6 3.5L2.5 7 6 10.5M3 7h6.5a3.5 3.5 0 0 1 0 7H8',
+  hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
 }
 
 function icon(name, viewBox) {
@@ -78,10 +84,11 @@ function actionButton(iconName, label, conversation, mark) {
   return button
 }
 
+/** The state's mark. Archived rows share one, however they got there. */
+const MARK_OF = { completed: 'archived', dormant: 'archived' }
+
 function stateMark(conversation) {
-  const mark = element('span', 'state is-' + conversation.state)
-  if (conversation.state === 'completed') mark.append(icon('done', '0 0 16 16'))
-  return mark
+  return element('span', 'state is-' + (MARK_OF[conversation.state] ?? conversation.state))
 }
 
 function rowOf(conversation, order) {
@@ -110,11 +117,10 @@ function rowOf(conversation, order) {
 
   const actions = element('div', 'actions')
   if (conversation.state === 'unread') actions.append(actionButton('read', 'Mark as read', conversation, 'seen'))
-  if (conversation.state === 'completed') {
-    actions.append(actionButton('undo', 'Not done: move it back', conversation, 'open'))
-  } else {
-    actions.append(actionButton('done', 'Mark as done, until something new is written', conversation, 'completed'))
-  }
+  // An archived chat needs no archive button. Opening it, or a new message, brings it back.
+  const archived = conversation.state === 'completed' || conversation.state === 'dormant'
+  if (!archived) actions.append(actionButton('archive', 'Archive, until something new is written', conversation, 'completed'))
+  actions.append(actionButton('hide', 'Hide from agnostic-ai, until something new is written', conversation, 'hidden'))
 
   row.append(stateMark(conversation), text, actions)
   row.addEventListener('click', () => openRow(conversation))
@@ -136,11 +142,11 @@ function groupHead(group) {
   })
   const head = element('div', 'group-head')
   head.append(title)
-  // Marking all as read clears the unread rows; a row that waits on a prompt stays.
-  if (group.id === 'needs-you' && group.rows.some((conversation) => conversation.state === 'unread')) {
-    const all = element('button', 'group-action', 'Mark all read')
+  if (group.id === 'active') {
+    const all = element('button', 'group-action', 'Archive all')
     all.type = 'button'
-    all.addEventListener('click', markAllRead)
+    all.title = 'Archive every active conversation, until something new is written in it'
+    all.addEventListener('click', () => archiveAll(group.rows))
     head.append(all)
   }
   return head
@@ -158,13 +164,32 @@ function emptyMessage() {
 
 function draw({ force } = { force: false }) {
   const view = state.view
-  if (!view) return
-  const signature = JSON.stringify([view.conversations, view.needsYou, view.matches, view.marksNote, state.query, state.activeKey])
+  // What could not be read comes first, then what the companion and the server have to say.
+  const said = state.problem ?? state.note ?? view?.marksNote ?? ''
+  note.hidden = said === ''
+  note.textContent = said
+  if (state.searching) {
+    // The rows on screen answer another question, so they give way until this one's answer is here.
+    state.drawn = undefined
+    summary.textContent = 'Searching…'
+    summary.classList.remove('is-urgent')
+    const waiting = element('div', 'empty is-searching')
+    waiting.append(element('strong', '', 'Searching…'), 'Looking through every conversation.')
+    list.replaceChildren(waiting)
+    return
+  }
+  if (!view) {
+    // No list could be read. An old one would look current, so none shows.
+    state.drawn = undefined
+    summary.textContent = ''
+    summary.classList.remove('is-urgent')
+    list.replaceChildren()
+    return
+  }
+  const signature = JSON.stringify([view.conversations, view.needsYou, view.matches, said, state.query, state.activeKey])
   if (!force && signature === state.drawn) return
   state.drawn = signature
 
-  note.hidden = !view.marksNote
-  note.textContent = view.marksNote ?? ''
   summary.textContent = summaryOf(view, state.query)
   summary.classList.toggle('is-urgent', state.query === '' && view.needsYou > 0)
 
@@ -222,18 +247,42 @@ function sayFailure(error) {
   say(error.message)
 }
 
+/** How many weeks with matches one search reads. */
+const MAX_SEARCH_PAGES = 8
+
+/** The list, or a search's matches from the newest weeks that hold any, read one after the other. */
+async function readEveryPage(asked, signal) {
+  let reply = await readInbox(asked, undefined, signal)
+  if (asked === '') return reply
+  for (let pages = 1; reply.view.next && pages < MAX_SEARCH_PAGES; pages += 1) {
+    const older = await readInbox(asked, reply.view.next, signal)
+    reply = { ...reply, view: { ...reply.view, next: older.view.next, conversations: [...reply.view.conversations, ...older.view.conversations] } }
+  }
+  return reply
+}
+
+/** The search on its way; a newer one gives it up, so the server stops working on it. */
+let searchOnItsWay
+
 async function refresh() {
   const asked = state.query
-  let view
+  searchOnItsWay?.abort()
+  searchOnItsWay = asked === '' ? undefined : new AbortController()
+  let reply
+  let problem
   try {
-    view = await readInbox(asked)
+    reply = await readEveryPage(asked, searchOnItsWay?.signal)
   } catch (error) {
-    sayFailure(error)
-    return
+    if (error instanceof GivenUp) return
+    if (!(error instanceof CallError)) throw error
+    problem = error.message
   }
   // A search typed meanwhile has its own request on the way.
   if (asked !== state.query) return
-  state.view = view
+  state.searching = false
+  state.problem = problem
+  state.view = reply?.view
+  state.note = reply?.note
   draw()
 }
 
@@ -257,22 +306,30 @@ async function markRow(conversation, mark) {
   await refresh()
 }
 
-async function markAllRead() {
+/** Archives each of the rows, one mark after the other, then reads the list once. */
+async function archiveAll(rows) {
   try {
-    await markAllSeen()
+    for (const conversation of rows) {
+      await markConversation(conversation, 'completed')
+    }
   } catch (error) {
     sayFailure(error)
-    return
   }
   await refresh()
 }
 
 let searchTimer
 function searchSoon() {
-  state.query = queryInput.value.trim()
+  const typed = queryInput.value.trim()
   clearButton.hidden = queryInput.value === ''
+  if (typed === state.query) return
+  state.query = typed
+  // The server is asked once the typing pauses, not on every key.
+  state.searching = typed !== ''
+  draw({ force: true })
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(refresh, SEARCH_PAUSE_MS)
+  // An emptied search goes back to the list at once: it is already here.
+  searchTimer = setTimeout(refresh, typed === '' ? 0 : SEARCH_PAUSE_MS)
 }
 
 queryInput.addEventListener('input', searchSoon)
@@ -354,7 +411,7 @@ document.addEventListener('mousedown', (event) => {
   if (menu.hidden || menu.contains(event.target) || menuButton.contains(event.target)) return
   closeMenu()
 })
-document.getElementById('quit').addEventListener('click', () => quitWidget())
+document.getElementById('hide').addEventListener('click', () => hideCompanion())
 document.getElementById('dashboard').addEventListener('click', async () => {
   try {
     await openDashboard()
