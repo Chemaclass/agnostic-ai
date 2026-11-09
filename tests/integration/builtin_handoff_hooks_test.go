@@ -115,8 +115,8 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, name := range []string{"handoff-snapshot.sh", "handoff-session-start.sh"} {
-			rel := filepath.ToSlash(filepath.Join(".claude", "hooks", name))
-			path := filepath.Join(root, filepath.FromSlash(rel))
+			rel := filepath.Join(".claude", "hooks", name)
+			path := filepath.Join(root, rel)
 			info, err := os.Stat(path)
 			if err != nil {
 				t.Fatal(err)
