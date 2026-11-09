@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, saveShortcut, saveStartAtLogin } from '/api.js'
-import { GROUPS, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf } from '/model.js'
+import { GROUPS, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, serverNoteOf, shortcutOf, summaryOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -165,7 +165,7 @@ function emptyMessage() {
 function draw({ force } = { force: false }) {
   const view = state.view
   // What could not be read comes first, then what the companion and the server have to say.
-  const said = state.problem ?? state.note ?? view?.marksNote ?? ''
+  const said = state.problem ?? state.note ?? serverNoteOf(view)
   note.hidden = said === ''
   note.textContent = said
   if (state.searching) {

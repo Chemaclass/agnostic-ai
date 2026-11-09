@@ -843,4 +843,7 @@
 # The companion command (install and start), the list ETag, the hidden
 # mark and serve --stop-with-stdin measured 25530528 bytes locally; the
 # budget is that plus 8192, rounded up to a multiple of 4096.
-25542656
+# serve --cloud-sessions, which lists Claude Code cloud sessions, measured
+# 25559200 bytes locally; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+25571328

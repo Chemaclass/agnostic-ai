@@ -73,8 +73,9 @@ func (s *server) address() (string, error) {
 	}
 	// Port 0 lets the system pick a free port, away from the ports
 	// `agnostic-ai view` uses. --stop-with-stdin ends the server with
-	// this process, however this process ends.
-	process := exec.Command(binary, "serve", "--global", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin")
+	// this process, however this process ends. --cloud-sessions adds
+	// the Claude Code sessions that run at claude.ai/code.
+	process := exec.Command(binary, "serve", "--global", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--cloud-sessions")
 	withoutConsoleWindow(process)
 	input, err := process.StdinPipe()
 	if err != nil {

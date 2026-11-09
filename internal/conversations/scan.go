@@ -69,6 +69,9 @@ type Scanner struct {
 	// MarksPath is the file that keeps the person's seen and completed
 	// marks. Empty keeps none.
 	MarksPath string
+	// Cloud lists the Claude Code sessions that run at claude.ai/code.
+	// Nil reads none, and nothing leaves this machine.
+	Cloud CloudSessions
 
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
@@ -77,6 +80,7 @@ type Scanner struct {
 	cursorPrompts     map[string]cached[cursorPrompts]
 	shown             shownCache
 	keptSources       map[Tool]keptSource
+	keptCloud         *keptCloud
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
@@ -113,7 +117,7 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	defer s.mu.Unlock()
 	s.shown.start()
 	defer s.shown.finish()
-	results := s.readAll(ctx, opts)
+	results, cloudNote := s.readAll(ctx, opts)
 	needsYou, marksErr := s.applyMarks(results)
 	var all []Conversation
 	for _, result := range results {
@@ -144,6 +148,7 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	if marksErr != nil {
 		view.MarksNote = "Seen and completed marks are unavailable: " + marksErr.Error()
 	}
+	view.CloudNote = cloudNote
 	if more {
 		view.Next = view.From
 	}
@@ -170,7 +175,8 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptions) (Conversation, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, result := range s.readAll(ctx, opts) {
+	results, _ := s.readAll(ctx, opts)
+	for _, result := range results {
 		for _, c := range result.conversations {
 			if c.Tool == tool && c.ID == id {
 				return c, true
@@ -180,12 +186,17 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 	return Conversation{}, false
 }
 
-func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) []sourceResult {
+// readAll reads every store. Cloud sessions count among Claude Code's
+// conversations; cloudNote says why they are missing, when they are.
+func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
+	claude := s.scanClaude(ctx, opts)
+	cloud, cloudNote := s.cloudRows(ctx, opts)
+	claude.conversations = append(claude.conversations, cloud...)
 	return []sourceResult{
-		s.scanClaude(ctx, opts),
+		claude,
 		s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) }),
 		s.kept(ctx, ToolCursor, opts, s.cursorFiles(), func() sourceResult { return s.scanCursor(ctx, opts) }),
-	}
+	}, cloudNote
 }
 
 // weekPage picks one page from all: below to, from a week earlier, or
