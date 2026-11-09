@@ -10,9 +10,11 @@ group = "Reference"
 
 # Agents
 
-`agents/` defines subagents: specialists the main agent hands a task to. Each has its own instructions, tools, and model. Examples: a reviewer that only reads, an architect on the strongest model, a test writer on a cheaper one.
+`agents/` defines subagents that handle tasks for the main agent. Each has its own instructions, tools, and model. For example, a reviewer can have read-only access, while a test writer uses a cheaper model.
 
-Give the agent one responsibility, the files or decisions it owns, a clear return format, and how it should check its result. Write `description` as the trigger: say when to hand a task to the agent ("use proactively" makes Claude Code delegate more often). Keep detail in the body, which loads only when the agent runs; every description loads in every session.
+Give the agent one responsibility. Name the files or decisions it owns, the result it should return, and how to check that result.
+
+Use `description` to say when to delegate to it ("use proactively" makes Claude Code delegate more often). Keep detailed instructions in the body, which loads only when the agent runs. Descriptions load in every session.
 
 ## When not to write one
 
@@ -137,7 +139,7 @@ Claude gets `opus` and `xhigh`. Qoder gets `gpt-6.1-sol` and `8000`. Cursor gets
 
 **`effort` values by target.** Without `effort`, the agent uses the session's level.
 
-| Target | Values | How it lands |
+| Target | Values | Output |
 |--------|--------|--------------|
 | [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent | `effort`, not checked |
 | [Qoder](@/docs/targets/qoder.md) | Same five names, or a positive integer | `effort` |
@@ -193,7 +195,7 @@ outputs:
 
 ## `can` and `tools` support by target {#tools-support-by-target}
 
-A tool that cannot honor the list prints a sync note, so `can: [read]` never silently becomes an unrestricted agent.
+A tool that cannot enforce the list prints a sync note. Check these notes before relying on `can: [read]` to restrict an agent.
 
 | Target | Behavior |
 |--------|----------|
@@ -204,7 +206,7 @@ A tool that cannot honor the list prints a sync note, so `can: [read]` never sil
 
 On Trae, an explicitly empty list disables all tools, and an unset field loads every tool. Use `x-trae: {tools: ""}` to restrict only Trae.
 
-The change can widen access: on Kiro, `edit` also allows `delete_file`. Sync prints a note naming the extra access, and `on-unsupported: error` fails. `explain agents/<name>.md` lists each tool's names and any widening. Most tools accept their own names through `x-<target>.tools`, which skips the change.
+Translation can grant extra access: on Kiro, `edit` also allows `delete_file`. Sync prints a note naming the extra access, and `on-unsupported: error` fails. `explain agents/<name>.md` lists each tool's names and any widening. Most tools accept their own names through `x-<target>.tools`, which skips the change.
 
 ## `mcpServers` support by target {#mcpservers-support-by-target}
 
@@ -260,7 +262,7 @@ On Qoder, `bypassPermissions` becomes `acceptEdits` when security policy disable
 
 ## `color` support by target
 
-`color` is written as given and not checked. An unrecognized value only affects looks.
+`color` is written as given and not checked. An unrecognized value affects only the badge.
 
 | Target | Values |
 |--------|--------|

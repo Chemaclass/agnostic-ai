@@ -1,6 +1,6 @@
 +++
 title = "Trae"
-description = "What agnostic-ai writes for Trae: file paths, what Trae cannot do, and output options."
+description = "Trae: generated files, supported features, and output settings."
 weight = 180
 
 [extra]
@@ -19,9 +19,9 @@ ByteDance [Trae](https://docs.trae.ai/ide/rules) reads `.trae/rules/`, the root 
 
 ## First rule
 
-Install the client using the [official setup guide](https://www.trae.ai), then open your project in it.
+Follow the [official setup guide](https://www.trae.ai), then open your project in the tool.
 
-Select `trae` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.trae/rules/conventional-commits.md`.
+Select `trae` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.trae/rules/conventional-commits.md`.
 
 Project hooks and subagent directories require separate switches in Trae settings. Syncing their files does not enable those features.
 
@@ -67,9 +67,9 @@ Sync always writes `description`, `globs`, and `alwaysApply` (Cursor's `.mdc` fi
 
 - `tools` is written as is, as a string joined with commas, because Trae uses Claude-style names (`Bash`, `Edit`, `Glob`, `Grep`, `Read`, `Write`, `WebFetch`, `WebSearch`, plus `Skill`, `LSP`, `TodoWrite`, and `mcp__<server>__<tool>`).
 - Omit `tools` to load every available tool. An explicitly empty tool list (`can: []`, `tools: []`, `tools: ""`, or `x-trae.tools`) writes `tools: ""`, which disables all tools. Import preserves this restriction through later syncs.
-- Trae accepts only its built-in model IDs (`gpt-5.4`, `minimax-m3`, ...). A generic `model` drops with a sync note. Use `model: {trae: <id>}` or `x-trae.model`.
+- Trae accepts only its built-in model IDs. A generic `model` drops with a sync note. Use `model: {trae: <id>}` or `x-trae.model`.
 - `disallowedTools` and `mcpServers` come from `x-trae`. `x-trae.disallowedTools` is a comma-separated list of blocked tools, and it wins over `tools`.
-- Names start with an ASCII letter, end with a letter or digit, use only letters, digits, or hyphens, and run at most 50 characters. Sync rejects any other name.
+- Names start with an ASCII letter, end with a letter or digit, use only letters, digits, or hyphens, and have at most 50 characters. Sync rejects any other name.
 - Subagents need Settings > Beta > Subagents > Enable Subagents Directory. Trae does not say whether it is on by default.
 
 ### Skills

@@ -28,7 +28,13 @@ After you change the config, run `agnostic-ai sync --dry-run` to see the planned
 
 ## Local overrides
 
-`agnostic-ai.local.yaml` holds changes for one machine. A single value or a list replaces the base value. A group of settings merges key by key. An empty local key, such as one whose children are all commented out, is ignored when the shared value is a group of settings, and `lint` warns about it. Write `{}` to clear a shared group, except a model tier, where `{}` fails to load. Over a list or a single value, an empty key replaces the shared value; an empty `targets:` with no shared `targets` replaces the default targets; an empty `requires:` turns the version check off. `init` adds the file to `.gitignore`. Personal specs go in [`.agnostic-ai/local/`](@/docs/local-overrides.md).
+`agnostic-ai.local.yaml` holds changes for one machine. `init` adds it to `.gitignore`. Personal specs go in [`.agnostic-ai/local/`](@/docs/local-overrides.md).
+
+Local values replace or merge with shared values as follows:
+
+- A single value or list replaces the shared value. A group of settings merges key by key.
+- An empty key, including one with only commented-out children, leaves a shared group unchanged and triggers a lint warning. Write `{}` to clear the group. Model tiers reject `{}`.
+- Over a list or single value, an empty key replaces the shared value. An empty `targets:` also replaces default targets when no shared list exists. An empty `requires:` turns the version check off.
 
 ```yaml
 # agnostic-ai.local.yaml (never committed)
@@ -43,7 +49,7 @@ outputs:
 `init` adds this comment so editors validate the file against the schema of your release.
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/v0.72.0/docs/schemas/config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/v0.92.0/docs/schemas/config.schema.json
 ```
 
 ## Top-level fields
@@ -74,7 +80,7 @@ An unknown key, in `agnostic-ai.local.yaml` too, fails every command that reads 
 `builtins` turns on specs bundled with the binary. None are on unless listed; `init` writes `builtins: [handoff]` for a new project, or `[handoff, memory]` with `--memory`.
 
 ```yaml
-requires: ">=0.80.0"
+requires: ">=0.92.0"
 builtins: [handoff]
 ```
 
@@ -92,7 +98,7 @@ Unknown names fail as AAI-004 and list the valid names. A project, pack, or pers
 
 The same list works in the [global home config](#global-configuration). A `builtins` list in a local config replaces the shared list, and `builtins: []` there turns them all off. When you remove a name, the next sync removes the files and tool settings it manages, and keeps unrelated settings and project overrides. A local `builtins` list never changes the committed ignore files; see [block contents](#block-contents).
 
-When you enable built-ins, set `requires` to at least 0.80.0 so an older binary cannot skip them. An upgrade that changes built-in text makes `sync --check` fail until you sync.
+When you enable built-ins, set `requires` to the release you use. An upgrade that changes built-in text makes `sync --check` fail until you sync.
 
 ## `memory`
 
@@ -118,29 +124,22 @@ See [one store per repository](@/docs/memory.md#one-store-per-repository) for wh
 Pick one form:
 
 ```yaml
-requires: ">=0.71.0"           # minimum: 0.71.0 or any newer release
-requires: "0.73.0"             # exact: only 0.73.0; "=0.73.0" means the same
-requires: ">=0.73.0 <0.74.0"   # range: 0.73.0 and its patch releases
+requires: ">=0.92.0"          # minimum: 0.92.0 or any newer release
+requires: "0.92.0"            # exact: only 0.92.0; "=0.92.0" means the same
+requires: ">=0.92.0 <0.93.0"  # range: 0.92.0 and its patch releases
 ```
 
 - **Minimum**: the default that `init` writes, naming the release that created the project. Newer releases keep working.
 - **Exact**: choose it when you commit generated files and run `sync --check` in CI, since a newer release can write different output. `init --gitignore=off` writes a minimum and prints this advice. When npm installs the tool, pin the same release in `package.json`.
 - **Range**: accept patch releases but not the next minor one.
 
-[`upgrade --requires`](@/docs/cli-reference/upgrades.md#upgrade-options) raises the value to the installed release and keeps its form: `>=0.71.0` becomes `>=0.74.0`, and `0.73.0` becomes `0.74.0`. A range becomes a minimum, and the command prints the value it replaced.
+[`upgrade --requires`](@/docs/cli-reference/upgrades.md#upgrade-options) raises the value to the installed release, keeping a minimum as a minimum and an exact pin as an exact pin. A range becomes a minimum, and the command prints the value it replaced.
 
-A binary outside the value stops every command that reads your specs, before any write, with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). That page lists the fixes. `sync --watch` stops when a pulled config puts the binary outside `requires`.
+An installed release outside the allowed range stops every command that reads your specs before any write, with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). Follow that page for fixes. `sync --watch` stops when a pulled config puts the binary outside `requires`.
 
-A value is one or more terms separated by spaces, and the binary must match every term. A term is `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`; anything else fails as AAI-004, naming the file. That includes `^`, `~`, commas, and `||`. Before 1.0, `^0.90.0` would allow only 0.90 patch releases, so write `>=0.90.0` to accept newer releases. A build from source (`go run`, or a commit after a tag) is not a release, so it warns once instead.
+A value is one or more terms separated by spaces, and the binary must match every term. A term is `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`; anything else fails as AAI-004, naming the file. That includes `^`, `~`, commas, and `||`. Before 1.0, `^0.92.0` would allow only 0.92 patch releases, so write `>=0.92.0` to accept newer releases. A build from source (`go run`, or a commit after a tag) is not a release, so it warns once instead.
 
 `agnostic-ai.local.yaml` can replace the value. An empty `requires:` there turns the check off. The [global home config](#global-configuration) accepts the key too.
-
-<details>
-<summary>Older releases</summary>
-
-Releases before 0.70.0 ignore the key. Releases before 0.74.0 read only `>=X.Y.Z` and stop on an exact or range value with AAI-004. Install the release the value names instead of editing `requires`.
-
-</details>
 
 ## `sources`
 
@@ -200,8 +199,6 @@ Claude Code resolves `opus`, `sonnet`, `haiku`, and `fable` itself. Codex takes 
 | `astra` | `gpt-6-astra` |
 | `terra` | `gpt-6.1-terra` |
 
-On v0.77.0 or earlier, write `terra` as `gpt-5.6-terra`.
-
 Each release pins the model ids. When an upgrade changes one, the next `sync` prints `note: codex: sol now resolves to <new id> (was <old id>)` once. An alias works anywhere Codex reads a `model`: a tier, `model.codex`, a shared `model`, or a settings spec. `x-codex.model` is written as given.
 
 | Tier key | Value |
@@ -214,7 +211,7 @@ Each release pins the model ids. When an upgrade changes one, the next `sync` pr
 - A tier with neither a model nor `effort` fails to load, and so does any other key (AAI-004, naming the closest target).
 - Per-spec overrides and which value wins: [model tiers](@/docs/spec-format/agents.md#model-tiers). `explain <spec>` shows the model and effort each target gets, and how an alias resolved.
 - `lint` warns when a tier a spec names has no entry and no `default` for a target that writes the spec, a tier is named like a Claude model (LINT025), or a tier's `default` is a Claude model another target cannot load (LINT026).
-- A tier in `agnostic-ai.local.yaml` replaces the same-name tier whole. The [global home config](#global-configuration) accepts the key too.
+- A tier in `agnostic-ai.local.yaml` replaces the entire shared tier of the same name. The [global home config](#global-configuration) accepts the key too.
 
 ## `targets`
 
@@ -268,7 +265,7 @@ When `true`, each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) 
 
 ### `sync.resolve-imports` {#syncresolve-imports}
 
-Sets what a tool that cannot resolve `@path` imports gets for a line in `AGNOSTIC_AI.md` that holds only an `@path` import. `CLAUDE.md` always keeps the line. An `@mention` inside a sentence or a fenced code block is untouched. Paths resolve from the project root.
+Controls standalone `@path` lines in `AGNOSTIC_AI.md` for tools that cannot resolve imports. `CLAUDE.md` always keeps the line. An `@mention` inside a sentence or a fenced code block is untouched. Paths resolve from the project root.
 
 | Value | Tools that cannot resolve it get |
 |-------|---------------------------|
@@ -314,7 +311,7 @@ sync:
 - `sync` prints `~ skip (unmanaged) <path>`. `sync --check`, `status`, and `doctor` never count it as drift. `revert` and `doctor --fix` never touch it.
 - Removing the entry deletes nothing. The next sync rewrites the file.
 - `sync.shared-skills` never links such a skill folder.
-- `agnostic-ai.local.yaml` replaces the list whole.
+- `agnostic-ai.local.yaml` replaces the entire list.
 - Hook script bodies copied from `.agnostic-ai/scripts/` are not covered.
 
 ### `sync.output-manifest` {#syncoutput-manifest}
@@ -340,7 +337,7 @@ sync:
   allow-global-names: [gh-issue, gh-issues]
 ```
 
-- Put the list in `agnostic-ai.local.yaml`, since the home exists only on your machine. A local list replaces the shared one whole.
+- Put the list in `agnostic-ai.local.yaml`, since the home exists only on your machine. A local list replaces the entire shared list.
 - Names match the way Claude Code folds skill names: case, spacing, and invisible characters do not count.
 - `doctor` still lists each allowed name under **Global names**, marked as allowed.
 
@@ -391,7 +388,7 @@ import:
 
 ## `lint`
 
-Budgets for the text each tool loads in every session. Past a budget, `agnostic-ai lint` warns and `lint --strict` exits 1.
+Set limits on text loaded in every session. `agnostic-ai lint` warns when a limit is exceeded; `lint --strict` exits 1.
 
 | Key | Default | Effect |
 |-----|---------|--------|

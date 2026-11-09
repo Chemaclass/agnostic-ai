@@ -22,7 +22,7 @@ A spec is a file under `.agnostic-ai/` that defines shared tool configuration. `
 
 ## Choose what to write
 
-Pick the folder from the [table below](#folders), and write the smallest spec that covers the task: when it applies, what to do, and what to return. Check it with `agnostic-ai lint` and `agnostic-ai sync --dry-run`, then sync and run `agnostic-ai sync --check`.
+Choose a [folder](#folders), then write when the spec applies, what to do, and what to return. Check it with `agnostic-ai lint` and `agnostic-ai sync --dry-run`, then sync and run `agnostic-ai sync --check`.
 
 ## Terms used in these pages
 
@@ -41,13 +41,13 @@ Pick the folder from the [table below](#folders), and write the smallest spec th
 
 | Folder | Holds | Use it when |
 |--------|-------|-------------|
-| [`agents/`](@/docs/spec-format/agents.md) | Subagents with their own prompt, tools, and model | a task deserves a specialist with a narrow role |
+| [`agents/`](@/docs/spec-format/agents.md) | Subagents with their own prompt, tools, and model | a separate agent should handle one part of a task |
 | [`skills/`](@/docs/spec-format/skills.md) | Procedures loaded on demand, with bundled files | a workflow is long, occasional, or needs scripts |
 | [`rules/`](@/docs/spec-format/rules.md) | Standing conventions, for the project, a directory, or a file pattern | the agent must follow it every time |
 | [`commands/`](@/docs/spec-format/commands.md) | Slash commands | a person starts the workflow by name |
 | [`hooks/`](@/docs/spec-format/hooks.md) | Commands the tool runs at events such as session start | something must happen every time, not when the model remembers |
 | [`mcps/`](@/docs/spec-format/mcps.md) | MCP server connections | the agent needs an outside tool or data source |
-| [`settings/`](@/docs/spec-format/settings.md) | Permissions, default model, and effort | one policy should decide what agents may run |
+| [`settings/`](@/docs/spec-format/settings.md) | Permissions, default model, and effort | you need shared permissions or model defaults |
 | [`reviews/`](@/docs/spec-format/reviews.md) | Guidance for code-review bots | a review bot should check project rules |
 | [`environments/`](@/docs/spec-format/environments.md) | Worktree setup, dev servers, and cleanup | agents work in fresh worktrees |
 | [`ignore/`](@/docs/spec-format/ignore.md) | Context and indexing exclusions for supported tools | irrelevant files crowd search or context |
@@ -163,7 +163,7 @@ Before pushing, run {{$AGENT:reviewer}}, then {{$SKILL:commit}}.
 | every other target | the reviewer agent | the commit skill | |
 
 - **Bodies only**, with the `$` and an uppercase keyword, like path variables. `{{AGENT:reviewer}}` stays untouched.
-- **A tool with no documented form gets a neutral phrase** and one sync note, not the raw text, which reads worse to a model.
+- **A tool with no documented form gets a neutral phrase** and one sync note.
 - **A shared file gets the neutral phrase**: a rule or review in the rules block of `AGENTS.md` or a nested `AGENTS.md` (so a Codex rule always does), and a skill, agent, or command in a directory two enabled tools write, such as `.agents/skills` for Codex and Windsurf.
 - **`lint` fails with LINT033** on an unknown name, or on a name whose spec does not sync to every target the referring spec reaches, and lists the known names. Only project specs count, since a teammate lacks your global agents.
 

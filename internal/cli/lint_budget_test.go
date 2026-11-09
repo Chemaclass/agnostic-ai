@@ -457,3 +457,28 @@ func TestLintBudget_CursorSharesOneLineWithCodexWhenTotalsMatch(t *testing.T) {
 		}
 	}
 }
+
+// Claude Code keeps a disable-model-invocation skill's description out
+// of context until the user invokes it; Codex still lists every skill.
+func TestLintBudget_ClaudeSkipsManualOnlySkillDescriptions(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex]\nlint:\n  instructions-words: 1\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(10)+"\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "auto", "SKILL.md"), "---\nname: auto\ndescription: "+words(3)+"\n---\nBody.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "manual", "SKILL.md"), "---\nname: manual\ndisable-model-invocation: true\ndescription: "+words(8)+"\n---\nBody.\n")
+
+	out, _ := runCLI(t, "lint")
+	want := map[string]string{"claude loads": "skill descriptions 3;", "codex loads": "skill descriptions 11;"}
+	for _, line := range findingLines(out, "LINT011") {
+		for tool, count := range want {
+			if strings.Contains(line, tool) {
+				if !strings.Contains(line, count) {
+					t.Errorf("%s: want %q in:\n%s", tool, count, line)
+				}
+				delete(want, tool)
+			}
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing LINT011 lines for %v:\n%s", want, out)
+	}
+}

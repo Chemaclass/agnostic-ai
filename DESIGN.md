@@ -141,7 +141,7 @@ The system has no shadows. Depth comes from tonal surfaces, whitespace, and one-
 
 ## Shapes
 
-Most containers remain square and merge into the page grid. Pills are reserved for compact target and status labels. Inline code uses 4px, and evidence callouts use 14px as the only soft container shape. The brand mark is a hub logo with no plate.
+Most containers remain square and merge into the page grid. Pills are reserved for compact target and status labels. Inline code uses 4px, and evidence callouts use 14px as the only soft container shape. The brand mark is a sheet folded into three panels, the middle one in Rust Signal, with no plate.
 
 ## Components
 

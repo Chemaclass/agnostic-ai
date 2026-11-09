@@ -1,6 +1,6 @@
 +++
 title = "Google Antigravity"
-description = "What agnostic-ai writes for Google Antigravity: file paths, what Antigravity supports, and config options."
+description = "Google Antigravity: generated files, supported features, and output settings."
 weight = 140
 
 [extra]
@@ -19,9 +19,9 @@ Antigravity reads per-rule files under `.agents/rules/` and custom subagents und
 
 ## First rule
 
-Install the client using the [official setup guide](https://antigravity.google/download), then open your project in it.
+Follow the [official setup guide](https://antigravity.google/download), then open your project in the tool.
 
-Select `antigravity` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.agents/rules/conventional-commits.md`.
+Select `antigravity` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.agents/rules/conventional-commits.md`.
 
 Rules need native trigger frontmatter. Sync supplies it from the portable activation fields.
 
@@ -35,7 +35,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Shared memory
 
-With `builtins: [memory]`, sync writes `antigravity-memory-index.md` as an always-on rule. Native `@[label](path)` includes load the project index and checkout personal index. Paths resolve from the generated rule file, including when `outputs.antigravity.rules-dir` changes. The rule stays identical whether either index exists. Sync reads existing indexes to check the expanded rule size and does not create empty ones.
+With `builtins: [memory]`, sync writes `antigravity-memory-index.md` as an always-on rule. Native `@[label](path)` includes load the project index and checkout personal index. Paths resolve from the generated rule file, including when `outputs.antigravity.rules-dir` changes. Sync writes the same rule whether the indexes exist or not. It reads existing indexes to check the expanded rule size and does not create empty ones.
 
 With `memory.personal: repo` in local configuration, only project memory is included. The shared policy finds personal memory through `agnostic-ai memory path`. Global sync keeps that policy and omits project-file includes.
 
@@ -69,7 +69,7 @@ Rules, skills, and MCP go to the plural `.agents/` form Antigravity prefers ([ru
 
 ### Plugins
 
-Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, when an output key points at a component of the [plugin layout](https://antigravity.google/docs/build-plugins#supported-components): `skills/`, `agents/`, `rules/`, `hooks.json`, `mcp_config.json`, or `mcp.json`. A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
+Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, when an output key points at a component of the [plugin layout](https://antigravity.google/docs/build-plugins#supported-components): `skills/`, `agents/`, `rules/`, `hooks.json`, `mcp_config.json`, or `mcp.json`. A path inside a component, such as `.agents/plugins/team/skills/extra`, gets no manifest.
 
 To bundle MCP servers in a plugin, set `outputs.antigravity.mcp-file` to `.agents/plugins/<name>/mcp_config.json`, the path in the [plugin documentation](https://antigravity.google/docs/build-plugins). Sync also recognizes `mcp.json` for the manifest and notes the documented filename. The standalone file stays at `.agents/mcp_config.json`.
 

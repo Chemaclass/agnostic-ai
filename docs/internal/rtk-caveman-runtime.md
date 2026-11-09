@@ -2,7 +2,9 @@
 
 # Running RTK and Caveman together, issue #1960
 
-This local experiment tested RTK 0.51.0 with Caveman CLI 2.1.0 and its signed `bin-v2.1.0` engine in a Linux arm64 Debian trixie container. The [runner](../../scripts/rtk-caveman-runtime.py) generates fixed test output, runs each command once, and writes [machine-readable results](rtk-caveman-runtime-results.json). The [Linux installation records](rtk-caveman-runtime-linux-provenance.json) list the pinned image, release checksums, signed installer result, and unchanged inherited home. The runner uses temporary stores for command history and retrieving saved output, passes no model-provider credentials to either tool, and never starts a proxy or coding agent.
+This experiment tested RTK 0.51.0 with Caveman CLI 2.1.0 and its signed `bin-v2.1.0` engine in a Linux arm64 Debian trixie container. The [runner](../../scripts/rtk-caveman-runtime.py) generates fixed test output, runs each command once, and writes [machine-readable results](rtk-caveman-runtime-results.json).
+
+The [Linux installation records](rtk-caveman-runtime-linux-provenance.json) list the pinned image, release checksums, signed installer result, and unchanged inherited home. Command history and saved output use temporary stores. The runner passes no model-provider credentials and starts no proxy or coding agent.
 
 ## Recommendation
 
@@ -39,7 +41,9 @@ The local runner checked immediate retrieval only. [RTK 0.51.0 documents](https:
 
 ## Reproduce
 
-Run these commands from the repository root with Python 3 and Docker available. The [asset helper](../../scripts/rtk-caveman-runtime-linux/fetch-assets.py) downloads official pinned release metadata and assets to scratch, checks required assets and SHA-256 digests, and uses 60-second network timeouts. The [container helper](../../scripts/rtk-caveman-runtime-linux/setup-linux.sh) refuses execution outside a Linux arm64 Docker container running Debian trixie. It installs dependencies in the disposable container and Caveman under the mounted scratch directory. The CLI dependency graph comes from the committed npm lockfile and installs with `npm ci --ignore-scripts`. Debian package installation still selects current repository packages; engine verification remains separate from the npm lock. The unchanged upstream installer verifies Caveman's signed checksum manifest, its release binding, and binary checksums. No host home or provider configuration is mounted.
+Run these commands from the repository root with Python 3 and Docker. The [asset helper](../../scripts/rtk-caveman-runtime-linux/fetch-assets.py) downloads pinned official release metadata and assets to a scratch directory, checks required assets and SHA-256 digests, and limits network requests to 60 seconds.
+
+The [container helper](../../scripts/rtk-caveman-runtime-linux/setup-linux.sh) runs only in a Linux arm64 Docker container with Debian trixie. It installs dependencies in the disposable container and Caveman under the mounted scratch directory. CLI dependencies install from the committed npm lockfile with `npm ci --ignore-scripts`; Debian packages still come from current repositories. Separately, the unchanged upstream installer verifies Caveman's signed checksum manifest, its release binding, and binary checksums. No host home or provider configuration is mounted.
 
 ```sh
 linux_lab=$(mktemp -d)

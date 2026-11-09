@@ -10,7 +10,7 @@ target_id = "vibe"
 
 # Mistral Vibe (`vibe`)
 
-Sync writes the files [Mistral Vibe Code CLI v3.1.0](https://github.com/mistralai/mistral-vibe/releases/tag/v3.1.0) reads. Start Vibe from the project root and make its trust choice yourself. The normal CLI loads project configuration only for trusted roots. In host sandbox or agent-socket mode, Vibe reads project instructions and skills but ignores project `.vibe` configuration, agents, and hooks.
+Sync writes the files [Mistral Vibe Code CLI v3.1.0](https://github.com/mistralai/mistral-vibe/releases/tag/v3.1.0) reads. Start Vibe from the project root and choose whether to trust it in Vibe. The normal CLI loads project configuration only for trusted roots. In host sandbox or agent-socket mode, Vibe reads project instructions and skills but ignores project `.vibe` configuration, agents, and hooks.
 
 ## Set up this tool
 
@@ -54,7 +54,7 @@ The model must already exist in Vibe's model catalog or user configuration. Unkn
 
 `VIBE_HOME` moves every user path in this table. Project output overrides use `file`, `rules-file`, `agents-dir`, `skills-dir`, `conf-file`, `mcp-file`, and `hooks-file` under `outputs.vibe`. `conf-file` moves the shared model and MCP file unless `mcp-file` names a separate file. An override changes the generated path; configure Vibe to read a path outside its discovery locations.
 
-Commands use the shared conversion to skills invoked by the user. Vibe has no native command file emitted by this target.
+Command specs become skills you run by name. This target writes no native Vibe command files.
 
 ## Agents and skills
 
@@ -80,10 +80,14 @@ Hooks receive JSON on standard input and respond with Vibe JSON. Exit zero with 
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
 
 ## Import and ownership
 
 Run `agnostic-ai import vibe` before syncing handwritten project files. It imports instructions, agent TOML, skill folders, MCP entries, model and native settings, and hook TOML. Native fields stay under `x-vibe`. Import refuses literal credentials in native settings, profiles, and connection fields; keep credentials in user configuration or use a native environment-variable setting. An agent that references a system prompt without inline instructions stops import; copy that prompt into `instructions` first.
 
-Global sync adopts equal handwritten entries without rewriting them. Omitted `sampling_enabled` compares as `false`, Vibe's native default; a handwritten `true` conflicts unless the spec sets `x-vibe.sampling_enabled: true`. If an earlier sync adopted `sampling_enabled: true` from a spec that omitted sampling, sync stops before changing the file. Set `x-vibe.sampling_enabled: true` to keep it or `false` to disable it. It changes and removes only its recorded MCP and hook entries, preserving other entries, comments, and file permissions. A hand-edited owned entry stops sync. An equivalent inline array can be adopted, but changes require native `[[mcp_servers]]` or `[[hooks]]` tables. `import --global vibe` keeps unmanaged connections and hooks and excludes entries still equal to managed state. See [global configuration](@/docs/global-configuration.md) for source layout and commands.
+Global sync adopts equal handwritten entries without rewriting them. Omitted `sampling_enabled` compares as `false`, Vibe's native default; a handwritten `true` conflicts unless the spec sets `x-vibe.sampling_enabled: true`.
+
+If an earlier sync adopted `sampling_enabled: true` from a spec that omitted sampling, sync stops before changing the file. Set `x-vibe.sampling_enabled: true` to keep it or `false` to disable it.
+
+Sync changes and removes only its recorded MCP and hook entries. Other entries, comments, and file permissions stay. A hand-edited owned entry stops sync. An equivalent inline array can be adopted, but changes require native `[[mcp_servers]]` or `[[hooks]]` tables. `import --global vibe` keeps unmanaged connections and hooks and excludes entries still equal to managed state. See [global configuration](@/docs/global-configuration.md) for source layout and commands.

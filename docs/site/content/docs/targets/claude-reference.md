@@ -10,7 +10,7 @@ group = "Reference"
 
 # Claude Code native reference
 
-Start with the [Claude Code setup](@/docs/targets/claude.md). This page covers native mappings and overrides. For shared home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
+Start with the [Claude Code setup](@/docs/targets/claude.md). For home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
 
 ## Rules and instruction loading
 

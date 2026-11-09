@@ -50,8 +50,13 @@ func measuredContext(category, load, source, text string) contextContribution {
 
 func (l *sessionLoad) addEntryContext(entries []spec.Entry, kind string) {
 	for _, e := range entries {
-		desc, _ := adapters.ResolveMeta(e.Meta, l.target)["description"].(string)
-		l.context = append(l.context, measuredContext(kind+" discovery", "startup", adapters.EntrySourcePath(e), desc))
+		meta := adapters.ResolveMeta(e.Meta, l.target)
+		desc, _ := meta["description"].(string)
+		load := "startup"
+		if !listedAtStartup(meta, l.target) {
+			load = "on-demand"
+		}
+		l.context = append(l.context, measuredContext(kind+" discovery", load, adapters.EntrySourcePath(e), desc))
 		l.context = append(l.context, measuredContext(kind+" body", "on-demand", adapters.EntrySourcePath(e), e.Body))
 	}
 }

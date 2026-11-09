@@ -10,7 +10,7 @@ group = "Workflows"
 
 # Directory-specific instructions
 
-Use a scoped rule for instructions that apply to one directory, such as a service's conventions. Write the rule once and sync writes each supported tool's files, which keeps that text out of the root instructions every session loads.
+Use a scoped rule for one directory's instructions, such as a service's conventions. Sync writes the rule to each supported tool's files and keeps it out of the root instructions loaded every session.
 
 ## Start with one directory
 
@@ -52,7 +52,7 @@ To change the rule, edit the source and sync again. Preview with `agnostic-ai re
 agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
-The report lists each instruction for one tool (Claude Code, Codex, or Cursor), with its source spec, output path, condition, and status. It reads the output sync plans to write, so it shows what is set to apply, not what the model loaded. A shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file) for the status values.
+For Claude Code, Codex, or Cursor, the report lists each instruction's source spec, output path, condition, and status. It describes planned output; it cannot show what the model loaded. A shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file) for the status values.
 
 <details>
 <summary>Set directory scope and understand Codex directory patterns</summary>

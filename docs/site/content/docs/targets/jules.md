@@ -1,6 +1,6 @@
 +++
 title = "Jules"
-description = "What agnostic-ai writes for Jules: file paths, what it supports, and output settings."
+description = "Jules: generated files, supported features, and output settings."
 weight = 230
 
 [extra]
@@ -21,7 +21,7 @@ Google announced that Jules becomes read-only after November 11, 2026 and closes
 
 ## First rule
 
-Select `jules` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
+Select `jules` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
 Jules is sync-only: there is no importer or output for agents, skills, hooks, or MCP servers.
 
@@ -45,4 +45,4 @@ None.
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

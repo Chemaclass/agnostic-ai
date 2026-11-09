@@ -1,6 +1,6 @@
 +++
 title = "MCP recipes"
-description = "Specs for GitHub, Context7, Playwright, and the reference filesystem server, ready to copy into your MCP specs."
+description = "Specs for GitHub, Context7, Playwright, and the reference filesystem server, to copy into your MCP specs."
 weight = 65
 
 [extra]

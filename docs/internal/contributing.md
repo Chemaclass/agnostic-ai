@@ -18,7 +18,7 @@ Use a temporary project when experimenting with imported or generated files. Ada
 
 ## Choose checks for your change
 
-Use this section to choose checks for contributions, audit fixes, and PR review. Review the whole diff against the PR base, including tests, fixtures, generated files, and embedded inputs. Run the checks in every applicable row below.
+Review the whole diff against the PR base, including tests, fixtures, generated files, and embedded inputs. Run the checks in every applicable row below.
 
 - Documentation, audit data, and source instructions use the focused checks for their changed inputs. Do not add a full local gate only to validate prose.
 - Adapter, shared Go, or runtime behavior changes require `make ci-local`, plus applicable checks below that it does not cover. Unknown impact uses this full gate too.
@@ -45,7 +45,7 @@ Use this section to choose checks for contributions, audit fixes, and PR review.
 
 Record the commands, results (including failures and skips), tested commit or tree, and relevant working-tree, generated, embedded, or external inputs. Include toolchain versions and environment limits that affect the result, without secrets. A binary used for sync must match its source and embedded inputs; rebuild it or use `go run` after those inputs change.
 
-Manual evidence may be reused only when its relevant inputs are known unchanged and its environment still applies. A commit SHA alone does not establish that for an uncommitted tree, a stale binary, or external inputs. Otherwise rerun the affected checks. Changed tests and fixtures invalidate results that depend on them. After a rebase, merge, or review fix, inspect the resulting diff and rerun checks whose inputs changed.
+Reuse manual results only when their inputs and environment still match. A commit SHA alone cannot establish that for uncommitted files, stale binaries, or external inputs. After changing code, tests, or fixtures, or after a rebase, merge, or review fix, rerun the checks whose inputs changed.
 
 All selected checks must pass before pushing. Missing tools, skipped tests, and pending or absent required CI are limits to resolve, not green checks. Before merging, wait for required checks on the current PR head and the remote OS checks below when applicable. Audit fixers stop at reviewable PRs; merging requires an explicitly authorized merge workflow. Releases still require the full local and remote gates in [cut-release](../../.agnostic-ai/skills/cut-release/SKILL.md).
 
@@ -71,11 +71,11 @@ PATH="$PWD:$PATH" make site-serve   # http://127.0.0.1:1111
 
 `make site-serve` and `make site-build` generate current target counts from `adapters.Names()` and `config.DefaultTargets()`. The generated `docs/site/data/targets.toml` supplies the landing page counts; `docs/site/static/llms.txt` comes from `docs/site/llms.txt.tmpl`. After changing registered targets, defaults, or the text template, run `make site-generate` and commit the generated files. `make site-check` and `make site-test` reject missing or stale output without rewriting it.
 
-The social preview image is rendered from `docs/site/og/card.html`. After editing the card, run `make site-og` (it needs Chrome or Chromium; set `CHROME` if it is not found). Platforms cache the image by URL, so a redesign ships under a new file name: pass the new path to `scripts/render-og-image.sh` and update `image_url` in `docs/site/config.toml` and the image tags in `docs/playground/index.html`.
+The social preview image is rendered from `docs/site/og/card.html`. After editing the card, run `make site-og` (it needs Chrome or Chromium; set `CHROME` if it is not found). Platforms cache the image by URL, so a redesign ships under a new file name: change the default output path in `scripts/render-og-image.sh` so `make site-og` renders there, and update `image_url` in `docs/site/config.toml` and the image tags in `docs/playground/index.html`.
 
 A long reference page can be split into a topic index (a hub): a folder with an `_index.md` (`template = "docs/hub.html"`, `hub = true`) and one page per topic, such as `cli-reference/` and `spec-format/`. Link to a topic page as `@/docs/<hub>/<page>.md#anchor`. The hub redirects old `#anchor` links from before the split to the topic page that now holds them. Add new hubs to the sitemap and `llms-full.txt` lists in `scripts/`.
 
-Never edit `docs/site/templates/` just to satisfy a newer Zola. Moving versions is its own change: bump `ZOLA_VERSION` in the Makefile, `.github/workflows/playground.yml` and `.github/workflows/ci.yml` with the template edits, and compare `_site/` built on both versions.
+Update Zola and `docs/site/templates/` in a separate change: bump `ZOLA_VERSION` in the Makefile, `.github/workflows/playground.yml` and `.github/workflows/ci.yml` with the template edits, and compare `_site/` built on both versions.
 
 ## Conventions
 

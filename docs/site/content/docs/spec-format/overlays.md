@@ -9,7 +9,7 @@ group = "Reference"
 
 # Overlays
 
-`overlays/` keeps the parts of a Claude Code or Codex configuration that no shared spec covers yet, such as a Claude Code `statusLine`, Codex `[tui]` settings, or a status-line script. `agnostic-ai import` saves them here, and `sync` writes them back into the tool's files, restoring a deleted `.claude/` or `.codex/` directory with those keys.
+`overlays/` keeps the parts of a Claude Code or Codex configuration that no shared spec covers yet, such as a Claude Code `statusLine`, Codex `[tui]` settings, or a status-line script. `agnostic-ai import` saves them here, and `sync` writes them back into the tool's files, including when the `.claude/` or `.codex/` directory was deleted.
 
 Import leaves out of `claude.settings.json` each `env` value, helper command such as `apiKeyHelper`, and `statusLine` command that holds a credential, and any literal value of a header variable such as `OTEL_EXPORTER_OTLP_HEADERS`, and prints a warning naming the key. The [setting value rule](@/docs/spec-format/mcp-import.md#setting-values) decides which `env` values hold a credential. The next sync then removes it from `.claude/settings.json`. To keep it, set it under `x-claude` in a settings spec in [`local/`](@/docs/local-overrides.md), which Git ignores.
 

@@ -9,14 +9,14 @@ group = "Workflows"
 
 # Session handoffs
 
-The built-in `handoff` skill leaves a task note in one coding tool so you can resume the task in another on the same machine. The second tool checks the note against Git before it continues.
+Use the built-in `handoff` skill to save a task note and resume in another coding tool on the same machine. The next tool checks the note against Git before continuing.
 
 ## Enable the skill
 
 Add this to `agnostic-ai.yaml`, then run `agnostic-ai sync`:
 
 ```yaml
-requires: ">=0.80.0"
+requires: ">=0.92.0"
 builtins: [handoff]
 ```
 
@@ -117,7 +117,7 @@ The project file follows `sources.rules` if you changed it, and the global file 
 The separate `handoff-hook` built-in, off by default, saves the Git state when a session ends or the tool shortens its conversation history (context compaction):
 
 ```yaml
-requires: ">=0.80.0"
+requires: ">=0.92.0"
 builtins: [handoff, handoff-hook]
 ```
 
@@ -129,11 +129,13 @@ builtins: [handoff, handoff-hook]
 | [Qoder CLI](https://docs.qoder.com/cli/hooks-reference.md) | `PreCompact`, `SessionEnd` | `SessionStart` |
 | [Factory / Droid](https://docs.factory.com/harness/hooks) | `PreCompact`, `SessionEnd` | `SessionStart` |
 
-The snapshot goes to `handoffs/<branch-slug>.auto.md` in the same store as manual notes, written the same safe way, with the same fallback to the checkout store. It holds the tool, date, branch, HEAD, absolute worktree path, `git status --short`, and the last five commit messages. Each hook also keeps `.agnostic-ai/local/HANDOFF.auto.md` as a compatibility copy when that path is ignored. It never reads your handoff note, diffs, transcripts, or tool memory. Outside a git repository, or before the first commit, no snapshot is saved.
+The snapshot uses `handoffs/<branch-slug>.auto.md` in the manual note store, with the same private writes and fallback to the checkout store. It holds the tool, date, branch, HEAD, absolute worktree path, `git status --short`, and the last five commit messages. Each hook also keeps `.agnostic-ai/local/HANDOFF.auto.md` as a compatibility copy when that path is ignored. It never reads your handoff note, diffs, transcripts, or tool memory. Outside a git repository, or before the first commit, no snapshot is saved.
 
 When a session starts in a linked worktree, the notice names its branch's handoff. In the main checkout, it reports how many branches have handoffs. A manual note and a snapshot for the same branch count as one task, and the notice prefers the manual note. Snapshot worktree headers end with `detached: true` or `detached: false`. A detached snapshot uses its HEAD as the task key, so different detached tasks and a branch named `detached` stay separate. The final boolean keeps marker-like path text intact. The hooks still show the old messages for `.agnostic-ai/local/HANDOFF.md` and `HANDOFF.auto.md` when no task handoff matches. Nothing resumes until you ask.
 
 Claude hooks use the working directory (`cwd`) from the tool's event, including in linked worktrees, even when the hook process runs in the main checkout. Config discovery stays inside that checkout. Empty input or an event without `cwd` uses the process directory. Invalid or ambiguous input saves nothing. Input is limited to 64 KiB, 32 nested containers, and a two-second read deadline.
+
+Claude hooks call scripts generated under `.claude/hooks/`, so completion messages show a short command. Project hooks find those scripts through Claude's `CLAUDE_PROJECT_DIR`; global hooks use absolute paths. The event's `cwd` still selects the checkout to snapshot. Sync tracks the scripts and removes unchanged copies when you disable the built-in.
 
 Claude hooks need Bash; the other hooks need `sh`. All need Git and `awk`. On Windows, use Git for Windows with its Unix tools on PATH. Start Claude Code from the project root so it loads `.claude/settings.json`.
 

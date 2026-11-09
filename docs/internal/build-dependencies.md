@@ -1,6 +1,6 @@
 # Build dependency checks
 
-For a dependency alert, find the workflow that installs or runs the affected package below. Check its selected version and verification steps; release builds, editor packaging, vendor checks, and local experiments use different inputs.
+For a dependency alert, find the workflow below that uses the package. Check its selected version and verification steps. Release builds, editor packaging, vendor checks, and local experiments use different inputs.
 
 | Workflow | Inputs and verification | Alert review |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ Remove the exception when the advisory range is corrected or the client selects 
 
 ## Replay a vendor load check
 
-The Tool load workflow uploads `tool-load-dependencies`, containing `package.json`, `package-lock.json`, `selected-packages.txt`, and `environment.txt`. The lock records all selected npm packages, their dependencies, and registry checksums. Those checksums verify that downloaded files match the lock; they do not verify who published the package or which source produced it.
+The Tool load workflow uploads `tool-load-dependencies`, containing `package.json`, `package-lock.json`, `selected-packages.txt`, and `environment.txt`. The lock records all selected npm packages, their dependencies, and registry checksums. The checksums verify downloaded files against the lock, without identifying the publisher or source.
 
 To repeat a check from a downloaded workflow artifact, use an existing agnostic-ai binary:
 

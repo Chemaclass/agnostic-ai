@@ -37,7 +37,7 @@ agnostic-ai sync -t pi
 agnostic-ai sync --check -t pi
 ```
 
-Inspect `AGENTS.md` for the rule. This checks generated files. To check discovery, start Pi from the project root and ask for a commit subject. For an existing setup, [import it](#import) before syncing.
+Inspect `AGENTS.md` for the rule, then start Pi from the project root and ask for a commit subject to check that it loaded. For an existing setup, [import it](#import) before syncing.
 
 ## Output
 
@@ -58,7 +58,11 @@ Skills keep their `SKILL.md` metadata and bundled files in `.pi/skills/`. Pi als
 
 Commands become prompt templates in `.pi/prompts/`, with `description` and `argument-hint` frontmatter. Pi expands `$ARGUMENTS`, `$@`, and positional arguments in their bodies. Sync keeps that text as written. See [prompt templates](https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/prompt-templates.md).
 
-MCP entries live under `mcpServers` in `.pi/mcp.json`. Sync accepts a leading UTF-8 byte order mark (BOM) in native MCP files and keeps it when updating the file. Stdio uses `command`, `args`, `env`, and optional `cwd`; HTTP uses `url` and optional `headers`. Portable `disabled: true` becomes native `enabled: false`. Pi reads `timeout` in seconds and the spec holds milliseconds, so sync divides by 1000 exactly (1500 becomes 1.5) and import multiplies by 1000. A value under 1000 gets a note, since it most likely holds seconds. `x-pi.timeout` is already seconds, must be positive, and wins. Environment placeholders stay literal. Target-native extras belong under `x-pi`. The order of `toolExposure` patterns follows source order; exact tool names take priority over patterns. See [Pi MCP](https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/mcp.md).
+MCP entries live under `mcpServers` in `.pi/mcp.json`. Sync accepts a leading UTF-8 byte order mark (BOM) in native MCP files and keeps it when updating the file. Stdio uses `command`, `args`, `env`, and optional `cwd`; HTTP uses `url` and optional `headers`. Portable `disabled: true` becomes native `enabled: false`.
+
+Pi reads `timeout` in seconds and the spec holds milliseconds, so sync divides by 1000 exactly (1500 becomes 1.5) and import multiplies by 1000. A value under 1000 gets a note, since it most likely holds seconds. `x-pi.timeout` is already seconds, must be positive, and wins.
+
+Environment placeholders stay literal. Target-native extras belong under `x-pi`. The order of `toolExposure` patterns follows source order; exact tool names take priority over patterns. See [Pi MCP](https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/mcp.md).
 
 Settings map portable `model` to `defaultModel` and `effort` to `defaultThinkingLevel`. Pi accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. Choose a provider separately with native `x-pi.defaultProvider`; sync does not split model IDs. Unrelated settings stay in place.
 

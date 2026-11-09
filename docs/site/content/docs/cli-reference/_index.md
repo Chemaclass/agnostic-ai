@@ -24,7 +24,7 @@ To troubleshoot, start with [`doctor`](@/docs/cli-reference/check.md#doctor) and
 
 ## Find a command
 
-Root help groups commands into setup, daily generation, diagnosis and inspection, and maintenance. A fresh project can follow this path:
+Root help groups commands by task: setup, generation, checks, inspection, and maintenance. For a new project, start here:
 
 ```bash
 echo "claude,codex" | agnostic-ai init
@@ -54,7 +54,7 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 
 `sync` (including `--watch`, until it exits), `import`, `use`, `init`, and `migrate` hold one project lock while they run. A second writer exits with the running command's name and process ID; retry after it finishes. `sync --check`, `sync --plan`, dry runs, `status`, `list`, and global commands take no lock. The lock works between processes on one machine, not across a network file system.
 
-The lock file, `.agnostic-ai/.command-lock`, stays on disk; leave it. The managed `.gitignore` block ignores it, and writing commands refresh those runtime entries even when generated outputs are committed. The operating system releases the lock when the process exits or is killed.
+The lock file, `.agnostic-ai/.command-lock`, stays on disk. Do not delete it. The managed `.gitignore` block ignores it, and writing commands refresh those runtime entries even when generated outputs are committed. The operating system releases the lock when the process exits or is killed.
 
 ## Global flags
 

@@ -27,4 +27,4 @@ Check [Targets](https://agnostic-ai.org/docs/targets/) for the fields your tool 
 
 ## Add RTK or Caveman independently
 
-[Project packs for RTK and Caveman](rtk-and-caveman/README.md) provides two independent packs (folders of shared specs) for Claude Code on macOS or Linux: an RTK hook and the default Caveman response skill. The guide covers replacing an existing installation, removing either pack, and repeating the configuration checks.
+[Project packs for RTK and Caveman](rtk-and-caveman/README.md) shows how to add an RTK hook or the Caveman response skill to Claude Code on macOS or Linux. It covers existing installations, removal, and configuration checks.

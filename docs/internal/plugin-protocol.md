@@ -92,7 +92,7 @@ agnostic-ai writes one JSON document to standard input and reads one from standa
 
 ## Versioning
 
-- `protocol_version` integer is the sole compatibility signal. Changes that break the input or output format increase this number.
+- `protocol_version` is the compatibility signal. Increase it when the input or output format breaks compatibility.
 - Compatible additions, such as optional fields, keep the same number. Adapters ignore unknown fields rather than fail.
 - YAML header fields (frontmatter) under `meta` are stable. Adapter-specific keys (`x-my-tool.<key>`) belong to the adapter; ignore the rest.
 

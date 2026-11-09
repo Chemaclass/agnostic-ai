@@ -6,7 +6,7 @@ template = "docs/section.html"
 page_template = "docs/page.html"
 +++
 
-New to agnostic-ai? Read [Why agnostic-ai?](@/docs/why-agnostic-ai.md), then [Set up your project](@/docs/getting-started.md). Already set up? Pick a guide, or look up a command or field in Reference.
+Start with [Why agnostic-ai?](@/docs/why-agnostic-ai.md), then [Set up your project](@/docs/getting-started.md). For an existing setup, use the guides below or look up commands and fields in Reference.
 
 <!-- more -->
 

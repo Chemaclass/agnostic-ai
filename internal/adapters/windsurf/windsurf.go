@@ -105,10 +105,11 @@
 // Local (stdio) servers carry `command` (required) plus optional
 // `args` / `env`. Remote servers carry `url` (required) plus optional
 // `transport` (`http`, the default for URL-based servers, or legacy
-// `sse`), `headers`, `oauthClientId`, `oauthClientSecret`, and
-// `oauthResource` (docs.devin.ai/cli/extensibility/mcp/configuration).
-// Both transports accept `disabled`, which `devin mcp enable|disable`
-// also toggles on this file. The shared `emit.MCPSchemaServersMap`
+// `sse`), `headers`, `oauthClientId`, `oauthClientSecret`,
+// `oauthResource`, and `oauthScopes`
+// (docs.devin.ai/cli/extensibility/mcp/configuration). Both transports
+// accept `disabledTools` and `disabled`; `devin mcp enable|disable`
+// also toggles `disabled` on this file. The shared `emit.MCPSchemaServersMap`
 // builder always writes the transport discriminant under the key
 // `type`; Devin's own field is spelled `transport`, so this adapter
 // holds its own schema in mcp.go rather than reuse it, the same reason

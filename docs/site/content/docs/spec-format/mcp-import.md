@@ -14,7 +14,7 @@ The [Tools page's **Add to your setup** action](@/docs/cli-reference/inspect.md#
 
 ## What import writes
 
-`import` replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting and a spec is meant to be committed. So `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set; mark it [`!literal`](@/docs/spec-format/mcps.md#plain-settings) by hand to put it back. Import prints each replacement and the variable to set.
+`import` replaces every literal `env` and `headers` value with a reference, because it cannot distinguish a token from a plain setting in a spec that will be committed. For example, `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set; mark it [`!literal`](@/docs/spec-format/mcps.md#plain-settings) by hand to put it back. Import prints each replacement and the variable to set.
 
 It reads each tool's own reference form in `env`, `headers`, `url`, and `args` back as `${NAME}`, including a whole-value `$NAME` on Gemini and Crush and `%NAME%` on Gemini. A `${NAME}` in a field the tool never expands, as in Warp, Zed, and Codex `args`, is plain text, so the spec gets [`$${NAME}`](@/docs/spec-format/mcps.md#literal-text).
 

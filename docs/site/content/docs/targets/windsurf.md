@@ -1,6 +1,6 @@
 +++
 title = "Windsurf / Devin Desktop"
-description = "What agnostic-ai writes for Windsurf / Devin Desktop: file paths, what the tool supports, and config options."
+description = "Windsurf / Devin Desktop: generated files, supported features, and output settings."
 weight = 80
 
 [extra]
@@ -15,15 +15,15 @@ set-up-this-tool = "@/docs/targets/windsurf.md#first-rule"
 
 ## Set up this tool {#set-up-this-tool .legacy-anchor}
 
-Windsurf became Devin Desktop (2026-06). The tool keeps its `windsurf` name, so existing `outputs.windsurf.*` keys and `x-windsurf` meta still work.
+Windsurf became Devin Desktop in June 2026. The target keeps the `windsurf` name, so existing `outputs.windsurf.*` keys and `x-windsurf` fields still work.
 
 ## First rule
 
-Install the client using the [official setup guide](https://devin.ai/desktop), then open your project in it.
+Follow the [official setup guide](https://devin.ai/desktop), then open your project in the tool.
 
-Select `windsurf` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.devin/rules/conventional-commits.md`.
+Select `windsurf` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.devin/rules/conventional-commits.md`.
 
-The target ID stays `windsurf`. It writes the current `.devin/` paths; Desktop and CLI differ in when scoped rules load.
+Sync writes `.devin/` paths. Desktop and CLI differ in when scoped rules load.
 
 For existing files, check [what `import windsurf` reads](#import) before syncing.
 
@@ -37,7 +37,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 With `builtins: [memory]`, a Devin CLI `SessionStart` hook adds shared memory indexes. It needs POSIX `sh`. Native memory stays available. See [shared memory](@/docs/memory.md#load-at-session-start) for which agnostic-ai it runs.
 
-Devin does not document the hook's default shell, working directory, timeout, or Windows execution. Local modeled checks do not establish native recall or Windows support; the memory rule remains the fallback when hooks do not run.
+Devin does not document the hook's default shell, working directory, timeout, or Windows execution. Local tests simulate hook behavior; they do not verify memory loading in Devin or Windows support. The memory rule remains available when hooks do not run.
 
 ## Output
 
@@ -102,7 +102,7 @@ An always-on rule has no frontmatter. Devin treats a file without frontmatter as
 
 `.agents/skills/<name>/SKILL.md`. Devin reads `.agents/skills/`, `.devin/skills/`, and `.windsurf/skills/`. This adapter writes the first, so a skill is written once even when other tools also write `.agents/skills/`. Files next to the skill and file modes are kept.
 
-- `disable-model-invocation: true` is written as `triggers: [user]`, which Devin documents to "prevent the agent from invoking a skill on its own" while `/skill-name` still runs it ([Devin skills](https://docs.devin.ai/cli/extensibility/skills/overview)). So each command reaches Devin as a skill the user runs by name ([tools without commands](@/docs/spec-format/commands.md#tools-without-commands)). When another target also writes the skills folder, the files must match, so the field is dropped with a note and commands are skipped; set `outputs.windsurf.skills-dir: .devin/skills` to keep them. Import reads `triggers: [user]` back as `disable-model-invocation: true`, so after import every selected tool treats that skill as user-only. Deleting `triggers` and importing with `--overwrite` lifts the restriction for Windsurf only when no other enabled target writes that folder. A shared folder keeps the restriction, because its files omit `triggers` during sync too.
+- `disable-model-invocation: true` is written as `triggers: [user]`, which Devin documents to "prevent the agent from invoking a skill on its own" while `/skill-name` still runs it ([Devin skills](https://docs.devin.ai/cli/extensibility/skills/overview)). Commands become skills you run by name ([tools without commands](@/docs/spec-format/commands.md#tools-without-commands)). When another target shares the skills folder, sync drops the field with a note and skips commands to keep the files identical. Set `outputs.windsurf.skills-dir: .devin/skills` to retain the field and commands. Import reads `triggers: [user]` back as `disable-model-invocation: true`, so after import every selected tool treats that skill as user-only. Deleting `triggers` and importing with `--overwrite` lifts the restriction for Windsurf only when no other enabled target writes that folder. A shared folder keeps the restriction, because its files omit `triggers` during sync too.
 - Other native `triggers` live under `x-windsurf` in the spec and go back to top-level frontmatter on sync. This keeps `[model]` and combined invocation settings, and other tools never see a Devin-only field. An `x-windsurf.triggers` value wins over `disable-model-invocation`.
 
 ### Ignore
@@ -116,8 +116,9 @@ Ignore specs are written as `.devinignore` and `.windsurfignore`, in gitignore s
 
 Servers are merged into `.devin/mcp_config.json` under `mcpServers`, which [Devin Local](https://docs.devin.ai/desktop/devin-local) reads for project scope. Cascade, with its own MCP file, was removed in Devin Desktop v3.9.19 ([changelog](https://docs.devin.ai/desktop/changelog.md), [Cascade MCP page](https://docs.devin.ai/desktop/cascade/mcp)).
 
-- [The schema](https://docs.devin.ai/cli/extensibility/mcp/configuration) uses `command`/`args`/`env` for stdio and `url`/`transport` (`http` or `sse`)/`headers`/`oauthClientId`/`oauthClientSecret`/`oauthResource` for remote. The key is `transport`, not `type`, so this tool has its own format.
+- [The schema](https://docs.devin.ai/cli/extensibility/mcp/configuration) uses `command`/`args`/`env` for stdio and `url`/`transport` (`http` or `sse`)/`headers`/`oauthClientId`/`oauthClientSecret`/`oauthResource`/`oauthScopes` for remote. The key is `transport`, not `type`, so this tool has its own format.
 - Both accept `disabled`, also toggled by `devin mcp enable|disable` (see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)).
+- Both accept `disabledTools`, a list of tool names Devin hides from the agent and rejects at call time.
 - A `type: ws` spec writes no server and gets a sync note. Devin remote servers use only `http` and `sse`.
 - Cascade's personal file `~/.codeium/windsurf/mcp_config.json` is not written, since agnostic-ai writes project files only.
 
@@ -186,4 +187,4 @@ Portable `permissions` are merged into `.devin/config.json`, the committed proje
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

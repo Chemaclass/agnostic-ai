@@ -166,7 +166,7 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 
 ### What import writes
 
-`import` turns native references and literal credentials into `${NAME}` references, and lists each variable to set. [MCP import credentials](@/docs/spec-format/mcp-import.md) owns the rewrite rules, [credential names](@/docs/spec-format/mcp-import.md#credential-names), and detection limits.
+`import` turns native references and literal credentials into `${NAME}` references, and lists each variable to set. [MCP import credentials](@/docs/spec-format/mcp-import.md) describes the rewrite rules, [credential names](@/docs/spec-format/mcp-import.md#credential-names), and detection limits.
 
 ## Credential names {#credential-names .legacy-anchor}
 
@@ -180,6 +180,7 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 | [Qoder](@/docs/targets/qoder.md) | `trust`, `includeTools`, `excludeTools`, `alwaysAllow` |
 | [Kiro](@/docs/targets/kiro.md) | `autoApprove`, `disabledTools`, `oauthScopes` |
 | [Factory](@/docs/targets/factory.md) | `x-factory.enabledTools`, `disabledTools`, `connectTimeout` |
+| [Windsurf / Devin Desktop](@/docs/targets/windsurf.md) | `disabledTools`, `oauthScopes` (remote servers) |
 | [Claude Code](@/docs/targets/claude.md) | `alwaysLoad`, `bareElicitationCapability`, `headersHelper` |
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` and `sandbox` (VS Code file only), `tools` (Copilot CLI files only) |

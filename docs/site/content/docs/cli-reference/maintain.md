@@ -89,7 +89,7 @@ files=$(agnostic-ai hook paths) || exit 1
 printf '%s\n' "$files" | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
 ```
 
-Capture the output first, as above: piped straight into the loop, a failure is lost and the hook exits 0.
+Capture the output before the loop, as shown above. Piping it directly into the loop hides failures and lets the hook exit 0.
 
 | Flag | Description |
 |------|-------------|

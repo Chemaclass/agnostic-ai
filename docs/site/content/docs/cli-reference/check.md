@@ -10,7 +10,7 @@ group = "Reference"
 
 # Check specs and output
 
-Start troubleshooting with [`doctor`](#doctor): it combines project and local setup checks and ends with a next step. It is read-only unless you pass `--fix`.
+Start troubleshooting with [`doctor`](#doctor). It checks project and local setup, then suggests a next step. It is read-only unless you pass `--fix`.
 
 Use [`validate`](#validate) for invalid spec formats, [`lint`](#lint) for spec quality, and [`sync --check`](@/docs/cli-reference/sync.md#sync) for generated files that differ from the sources. [`status`](#status) summarizes the project. [`verify`](#verify) runs your own tasks to check each AI tool's behavior.
 

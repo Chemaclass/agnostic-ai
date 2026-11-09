@@ -12,7 +12,7 @@ group = "Reference"
 
 ## project
 
-Run the project's installed agnostic-ai binary after checking its version against the project's `requires` and any exact stable version in `package.json`. It prefers `node_modules/.bin/agnostic-ai` over `PATH`; when the project declares an agnostic-ai dependency, a global binary never stands in for the local one. On Windows it runs the package's Node launcher directly.
+Run the project's installed agnostic-ai binary after checking its version against the project's `requires` and any exact stable version in `package.json`. It prefers `node_modules/.bin/agnostic-ai` over `PATH`; when the project declares an agnostic-ai dependency, it requires the local binary. On Windows it runs the package's Node launcher directly.
 
 ```bash
 agnostic-ai project                     # sync --keep-edits --quiet
@@ -24,9 +24,9 @@ agnostic-ai project -- hook memory --target codex
 
 - It finds the nearest project config at or above the working directory; a built-in hook can use the host's project-directory variable instead.
 - A mismatch names the installed and required versions and the `agnostic-ai project --bootstrap` recovery. Conflicting exact declarations stop before any install. npm ranges, tags, aliases, prereleases, and file dependencies are not read as requirements; state those in `requires`.
-- With `--against index` or `HEAD`, the version contract comes from the staged files or commit, and the binary from the working checkout.
+- With `--against index` or `HEAD`, version requirements come from the staged files or commit. The binary comes from the working checkout.
 - Version and command checks share ten seconds. A failed check shows up to 64 KiB of the command's error output, marking cut-off text, timeouts, and cancellation. Warnings from a successful command do not fail it.
-- A binary without `project` (such as v0.82.0) gets an instruction to upgrade the owning package through its package manager.
+- A binary without `project` gets an instruction to upgrade the owning package through its package manager.
 
 | Flag | Description |
 |------|-------------|
@@ -46,7 +46,7 @@ agnostic-ai project --check
 agnostic-ai project -- doctor --scope project --check-references
 ```
 
-Start your environment after these lines, so a failed check stops it. The second command checks every configured target, including local Markdown links in generated skills, without approving hooks on this machine. The project binary must support `doctor --scope project` (v0.82.0 does not). Keep the package pin, lockfile, and `requires` aligned.
+Start your environment after these lines, so a failed check stops it. The second command checks every configured target, including local Markdown links in generated skills, without approving hooks on this machine. The project binary must support `doctor --scope project`. Keep the package pin, lockfile, and `requires` aligned.
 
 - Missing or mismatched project binary: run `agnostic-ai project --bootstrap`, then repeat the checks.
 - Only ignored generated files missing: run `agnostic-ai project`.

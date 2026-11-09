@@ -63,9 +63,10 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 // `command` (required) plus optional `args` / `env`. Remote (Streamable
 // HTTP by default, or legacy SSE) carries `url` (required) plus
 // optional `transport` (`http` or `sse`), `headers`, `oauthClientId`,
-// `oauthClientSecret`, and `oauthResource`. Both transports accept
-// `disabled`: the CLI's own `devin mcp enable|disable` commands toggle
-// this literal key on the same file, unlike the trae and antigravity
+// `oauthClientSecret`, `oauthResource`, and `oauthScopes`. Both
+// transports accept `disabledTools` (tool names hidden from the agent)
+// and `disabled`. The CLI's own `devin mcp enable|disable` commands
+// toggle the literal `disabled` key on the same file, unlike the trae and antigravity
 // adapters, where the same key is unconfirmed and stripped before it
 // ever reaches the file (see StripMCPDisabled in the shared emit
 // package).
@@ -106,6 +107,9 @@ func buildMCPServer(e spec.Entry) map[string]any {
 		if resource, ok := e.Meta["oauthResource"].(string); ok {
 			out["oauthResource"] = resource
 		}
+		if scopes := emit.StringSlice(e.Meta["oauthScopes"]); len(scopes) > 0 {
+			out["oauthScopes"] = scopes
+		}
 	default: // stdio
 		cmd, _ := e.Meta["command"].(string)
 		if cmd == "" {
@@ -121,6 +125,9 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	}
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		out["disabled"] = true
+	}
+	if tools := emit.StringSlice(e.Meta["disabledTools"]); len(tools) > 0 {
+		out["disabledTools"] = tools
 	}
 	return out
 }

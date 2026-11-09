@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Git hooks
 
-Git hooks run agnostic-ai at Git events such as a commit or checkout, so stale generated files are caught before CI. They are separate from [coding-agent hooks](@/docs/spec-format/hooks.md), which run inside a coding tool. Pick a recipe by whether your team [commits or ignores outputs](@/docs/getting-started.md#commit-or-ignore-generated-outputs):
+Git hooks check or regenerate files on commit and checkout. [Coding-agent hooks](@/docs/spec-format/hooks.md) run inside a coding tool. Choose a recipe based on whether your team [commits or ignores outputs](@/docs/getting-started.md#commit-or-ignore-generated-outputs):
 
 - Committed outputs: [check the staged files](#check-staged-files) at commit time, so you never commit output you forgot to stage.
 - Ignored outputs: run `sync` once in each checkout, then [regenerate on checkout and pull](#regenerate-on-checkout) so coding agents find their files. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
@@ -116,7 +116,6 @@ With `gitignore.enabled: true`, the hook checks only that the staged specs rende
 <details>
 <summary>Limits of --against</summary>
 
-- `--against` needs agnostic-ai 0.74.0 or later. A `--shared` hook blocks commits for a teammate on an older release until they upgrade.
 - The check copies the tracked files to a temporary folder on each commit. In a large repository, use the lint-staged recipe above so it runs only when specs are staged.
 - `--against HEAD` checks the last commit instead. See the [CI recipe](@/docs/ci.md#committed-outputs).
 - For what the check compares and skips, see [`--against` details](@/docs/cli-reference/sync.md#against-details).
@@ -138,7 +137,9 @@ Paste the list into the glob, or drop the glob and check every commit. Rerun it 
 
 ## Regenerate on checkout and pull {#regenerate-on-checkout}
 
-With ignored outputs (`gitignore.enabled: true`), a fresh clone or new `git worktree` has no `CLAUDE.md`, rules, or hooks until someone runs `sync`, so an AI session started there by automated worktree creation finds no config. A `post-checkout` hook fixes this: `git checkout`, `git clone`, and `git worktree add` all run it. A pull that merges runs `post-merge` instead, which also restores generated files that an incoming commit untracks.
+With ignored outputs (`gitignore.enabled: true`), a fresh clone or worktree has no `CLAUDE.md`, rules, or hooks until `sync` runs. An automated session can therefore start without its config.
+
+Use a `post-checkout` hook: `git checkout`, `git clone`, and `git worktree add` all run it. A pull that merges runs `post-merge` instead. That hook also restores generated files untracked by the incoming commit.
 
 `agnostic-ai install-hook --post-checkout` writes both hooks. They prefer the local binary and run `agnostic-ai project` from the worktree root, which keeps manual edits and installs no dependencies. They skip a checkout without `agnostic-ai.yaml`, and print a recovery command when the binary is missing. Run the command again in a clone with older generated hooks to update them and add pull coverage.
 

@@ -87,7 +87,7 @@ Start with one small hook for a repeated task. Use portable `on` names so sync c
 | Check before a reply ends | `stop` | Check a small completion condition; exit 2 can keep the agent working. |
 | Clean up session files | `session-end` | Remove temporary files that the session created. |
 
-Keep a shared script under `.agnostic-ai/scripts/` and reference it from `command`; see [shared hook scripts](@/docs/spec-format/hook-recipes.md#shared-hook-scripts) for paths and platform details. Test guards with both allowed and blocked inputs, and give a `stop` check a clear way to succeed so it does not keep the agent working without an end.
+Keep a shared script under `.agnostic-ai/scripts/` and reference it from `command`; see [shared hook scripts](@/docs/spec-format/hook-recipes.md#shared-hook-scripts) for paths and platform details. Test guards with both allowed and blocked inputs. Give a `stop` check a clear success condition so the agent can finish.
 
 ## Write one
 

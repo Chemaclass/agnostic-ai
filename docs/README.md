@@ -1,6 +1,6 @@
 # Documentation
 
-Choose a guide by task, or look up a command or field in the reference pages. To use a coding agent, give it the agent setup guide and name the tools you want configured.
+Choose a guide below. For a coding agent, use the agent setup guide and name the tools to configure.
 
 | Your goal | Start here |
 |---|---|

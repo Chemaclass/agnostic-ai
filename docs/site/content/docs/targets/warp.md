@@ -1,6 +1,6 @@
 +++
 title = "Warp"
-description = "What agnostic-ai writes for Warp: file paths, what it supports, and output settings."
+description = "Warp: generated files, supported features, and output settings."
 weight = 120
 
 [extra]
@@ -21,11 +21,11 @@ Set `outputs.warp.agents: skill` to write agents as on-demand skills; see [agent
 
 ## First rule
 
-Install the client using the [official setup guide](https://www.warp.dev), then open your project in it.
+Follow the [official setup guide](https://www.warp.dev), then open your project in the tool.
 
-Select `warp` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
+Select `warp` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
-Optional agent-to-workflow output runs the agent body as a shell command. Use skills for prompt procedures.
+Optional workflow output runs agent bodies as shell commands. Use skills for written procedures.
 
 For existing files, check [what `import warp` reads](#import) before syncing.
 
@@ -48,7 +48,6 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
-
 
 - **Rules**: root rules are included in `AGENTS.md`. Scoped rules go to `<scope>/AGENTS.md` ([tools that share it](@/docs/scoped-context.md)).
 - **Skills**: [Warp skills](https://docs.warp.dev/agents/capabilities/skills) at `.agents/skills/<name>/SKILL.md`, the path Warp recommends. A skill in a scope folder moves under that scope, and import keeps it there. Identical root copies are written once.
@@ -82,7 +81,7 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 | `outputs.warp.agents` | unset (agents are dropped) | `skill` writes each agent as an on-demand skill. Sync keeps it off with a note while another tool with subagents writes the same skills folder; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills) |
 | `outputs.warp.workflows-dir` | empty | opt-in |
 | `outputs.warp.mcp-file` | `.warp/.mcp.json` | |
-| `outputs.warp.rules-file` | unset | writes all rules into one legacy file and skips the write of instructions that point to source specs |
+| `outputs.warp.rules-file` | unset | writes all rules into one legacy file and skips instructions that point to source specs |
 
 ## Global configuration
 
@@ -123,4 +122,4 @@ Skills import, with all bundled files, from `<root>/skills/` for each root Warp 
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

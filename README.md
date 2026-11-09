@@ -1,6 +1,6 @@
 # agnostic-ai
 
-agnostic-ai keeps your coding tools working from the same project instructions. Edit one source, then run `agnostic-ai sync` to write the files Claude Code, Codex, and your other tools read.
+Keep the same project instructions across coding tools. Edit one source, then run `agnostic-ai sync` to write the files Claude Code, Codex, and your other tools read.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/agnostic-ai?logo=npm&label=npm)](https://www.npmjs.com/package/agnostic-ai)
@@ -9,7 +9,7 @@ agnostic-ai keeps your coding tools working from the same project instructions. 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Chemaclass/agnostic-ai/badge)](https://scorecard.dev/viewer/?uri=github.com/Chemaclass/agnostic-ai)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15088/badge)](https://www.bestpractices.dev/projects/15088)
 
-Each AI tool reads its instructions from different files. Kept by hand, those files fall out of step. agnostic-ai keeps one source in plain Markdown and YAML inside your repository. It needs no account and no service. See [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/).
+Each AI tool reads different instruction files. Hand-edited copies can fall out of sync. agnostic-ai generates them from Markdown and YAML in your repository, with no account or service. See [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/).
 
 <a id="set-up-manually"></a>
 <a id="install"></a>
@@ -25,7 +25,7 @@ agnostic-ai init
 
 Select the tools you use, for example Claude Code and Codex. If the project already has files such as `CLAUDE.md` or `AGENTS.md`, accept the offer to import them so their instructions are kept. If the project already has `agnostic-ai.yaml`, skip `init` and run `agnostic-ai sync`.
 
-`init` also creates `.agnostic-ai/AGNOSTIC_AI.md`, the note every selected tool reads. Open it and replace the placeholder comment with one project note, or add it below any imported instructions, for example:
+`init` creates `.agnostic-ai/AGNOSTIC_AI.md`, the instructions every selected tool reads. Replace its placeholder comment with a project note, or add one below any imported instructions:
 
 ```markdown
 Run the project tests before finishing a change.
@@ -45,7 +45,7 @@ Homebrew, the install script, Windows, and Go are on the [installation page](htt
 
 ## Set up with a coding agent
 
-Or paste this into Claude Code, Codex, Cursor, or another coding agent:
+Paste this into Claude Code, Codex, Cursor, or another coding agent:
 
 ```text
 Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior. Before any sync, check for existing CLAUDE.md, AGENTS.md, and similar files, and ask me what to do with their content. Finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
@@ -58,6 +58,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [What you can share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when): rules, skills, agents, hooks, MCP servers, settings, and memory.
 - [Supported tools](https://agnostic-ai.org/docs/targets/): what each tool receives, and where.
 - [Open the web interface](https://agnostic-ai.org/docs/cli-reference/inspect/#serve): `agnostic-ai ui` shows context size, hooks, MCP servers, and settings, and edits them in the browser.
+- [Save a session handoff](https://agnostic-ai.org/docs/handoff/): resume a task in another tool, or enable automatic Git snapshots with short Claude hook commands.
 - [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` names its source.
 - [Personal settings](https://agnostic-ai.org/docs/global-configuration/): keep them in `~/.agnostic-ai` and apply them with `agnostic-ai sync --global`.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails. `agnostic-ai doctor` explains drift.

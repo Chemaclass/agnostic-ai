@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -120,6 +121,21 @@ func reconcileGuidedRequires(root, version string) error {
 	changed, err := config.PersistRequires(root, version, schemaURL(version))
 	if err != nil {
 		return fmt.Errorf("reconcile requires and schema: %w", err)
+	}
+	for i, c := range changed {
+		if rel, err := filepath.Rel(root, c.Path); err == nil && !strings.HasPrefix(rel, "..") {
+			changed[i].Path = rel
+		}
+	}
+	for _, c := range changed {
+		switch {
+		case c.From == c.To || c.Collapsed():
+			// noteCollapsedRequires reports a collapsed range.
+		case c.From == "":
+			summaryf("%s %s: requires is now %q\n", tick(), c.Path, c.To)
+		default:
+			summaryf("%s %s: requires %q is now %q\n", tick(), c.Path, c.From, c.To)
+		}
 	}
 	noteCollapsedRequires(changed)
 	return nil

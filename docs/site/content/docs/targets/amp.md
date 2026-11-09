@@ -1,6 +1,6 @@
 +++
 title = "Amp"
-description = "What agnostic-ai writes for Amp: file paths, what Amp cannot do, and output options."
+description = "Amp: generated files, supported features, and output settings."
 weight = 100
 
 [extra]
@@ -21,11 +21,9 @@ Set `outputs.amp.agents: skill` to write agents as on-demand skills; see [agents
 
 ## First rule
 
-Install the client using the [official setup guide](https://ampcode.com/docs), then open your project in it.
+Follow the [official setup guide](https://ampcode.com/docs), then open your project in the tool.
 
-Select `amp` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
-
-Agent prompts can become skills, but Amp has no native file-based custom agents.
+Select `amp` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
 For existing files, check [what `import amp` reads](#import) before syncing.
 
@@ -56,7 +54,7 @@ Root rules go into `AGENTS.md`. Scoped rules use `<scope>/AGENTS.md`. See [direc
 
 ### Skills
 
-Amp's [native skills layout](https://ampcode.com/docs/customize/skills). Frontmatter carries `name` and `description`. Files next to the skill are copied as they are. Amp [replaced custom slash commands with skills](https://ampcode.com/news/slashing-custom-commands), so skills are no longer written as `.agents/commands/skill-<name>.md`.
+Skills use [Amp's native layout](https://ampcode.com/docs/customize/skills), with `name` and `description` in frontmatter. Bundled files are copied unchanged. Amp [replaced custom slash commands with skills](https://ampcode.com/news/slashing-custom-commands), so skills are no longer written as `.agents/commands/skill-<name>.md`.
 
 - Amp has no user-only skill: it [removed user-invokable skills](https://ampcode.com/news/neo) on 2026-05-06, and the model decides when to load every skill. So `disable-model-invocation` is dropped with a note, and commands are skipped.
 - Any `x-amp` key passes through. `x-amp.mcpServers` ties MCP servers to one skill and hides their tools until it loads. Amp recommends this over user settings for most cases ([Amp skills docs](https://ampcode.com/docs/customize/skills)). A sibling `mcp.json` also works, and frontmatter wins.
@@ -97,12 +95,12 @@ Under `amp.mcpServers` (one dotted key, not a nested object). Stdio writes `comm
 
 ### Environments
 
-`install` writes an executable [`.agents/setup`](https://ampcode.com/docs/orbs/customizing), which Amp runs while preparing a project orb or snapshot. Named `terminals` write [`.amp/services.yaml`](https://ampcode.com/docs/orbs/portals): services Amp keeps running, apart from the setup script.
+`install` writes an executable [`.agents/setup`](https://ampcode.com/docs/orbs/customizing), which Amp runs while preparing a project orb or snapshot. Amp runs it again when it refreshes a snapshot, so write it to be safe to repeat. Amp stops setup after 20 minutes, including the time the project's pre-setup script (set in project settings) takes. Named `terminals` write [`.amp/services.yaml`](https://ampcode.com/docs/orbs/portals): services Amp keeps running, apart from the setup script.
 
 - Each service needs `command`. Its name uses only lowercase letters, numbers, and hyphens, starts with a letter or number, and has at most 32 characters.
 - `x-amp.terminals` can set `cwd`, `port`, `env`, `health`, `portal`, `portals`, `review`, and `platforms`.
 - `platforms` is an optional list of `linux` or `darwin`. Amp skips a service that leaves out the OS it runs on. An empty list is invalid.
-- There is no `.agents/resume`. It runs after activation and on every wake with thread credentials, so it is neither dependency setup nor a service.
+- Sync does not write `.agents/resume`. Amp runs that file after activation and on every wake with thread credentials, outside dependency setup and services.
 - Environment specs merge by top-level field, and the last one wins.
 
 <details>
@@ -123,7 +121,7 @@ Amp uses `AGENTS.md` (plural). On the first sync after upgrading, a generated `A
 | `outputs.amp.mcp-file` | `.amp/settings.json` | also carries settings; one file, one override |
 | `outputs.amp.setup-file` | `.agents/setup` | |
 | `outputs.amp.environment-file` | `.amp/services.yaml` | |
-| `outputs.amp.rules-file` | unset | writes legacy joined rules and skips the write of instructions that point to source specs |
+| `outputs.amp.rules-file` | unset | writes legacy joined rules and skips instructions that point to source specs |
 
 `outputs.amp.commands-dir` no longer has an effect.
 
@@ -133,4 +131,4 @@ Amp uses `AGENTS.md` (plural). On the first sync after upgrading, a generated `A
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

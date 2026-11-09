@@ -4,7 +4,7 @@
 
 A pack is a Git repository or local directory with the same source layout as an agnostic-ai project. Users install it with `agnostic-ai packs add`; its specs become shared defaults for their project.
 
-Start with one useful spec, publish a version tag, and test installation in a temporary project using the command under [Versioning](#versioning).
+Start with one spec. Publish a version tag and test installation in a temporary project with the command under [Versioning](#versioning).
 
 ## Layout
 
@@ -24,7 +24,7 @@ Leave out empty directories. No `agnostic-ai.yaml` is needed; the loader uses th
 Follow the [user spec format](../site/content/docs/spec-format/_index.md) for YAML header fields (frontmatter) and the Markdown body:
 
 - Set `name:` (name that projects use to override a spec).
-- Write a short, action-oriented `description:` (adapters show it in combined documents).
+- Write a short `description:` that says what the spec does (adapters show it in combined documents).
 - Avoid project-specific `globs:`. Prefer patterns that match files for a language or framework.
 
 ## Versioning

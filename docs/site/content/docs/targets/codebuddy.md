@@ -12,7 +12,7 @@ target_id = "codebuddy"
 
 Use `codebuddy` for Tencent's CodeBuddy Code CLI. This adapter follows the [official CLI documentation](https://www.codebuddy.ai/docs/cli/installation) and npm package `@tencent-ai/codebuddy-code` 2.179.3.
 
-Select it explicitly with `targets: [codebuddy]`. It is outside the default target list because native agent names reject digits, and scoped or portable empty agent tool lists cannot be represented.
+Select it with `targets: [codebuddy]`. It is excluded from the defaults because native agent names reject digits, and scoped or portable empty agent tool lists cannot be represented.
 
 ## First rule
 
@@ -61,7 +61,7 @@ agnostic-ai sync --check
 agnostic-ai lint
 ```
 
-Import reads root and scoped instructions, modular rules, agents, skill folders and resources, commands, settings, command and prompt hooks, and root MCP files. Native fields stay under `x-codebuddy` when they have no portable equivalent. Top-level environment and credential settings stay in the native file. Nested credentials and inline agent MCP literals fail import with a field-only diagnostic; use native environment references in supported MCP fields. Native MCP import reads `.mcp.json` before deprecated `mcp.json`. Configure the opt-in below before syncing imported project servers.
+Import reads root and scoped instructions, modular rules, agents, skill folders and resources, commands, settings, command and prompt hooks, and root MCP files. Native fields stay under `x-codebuddy` when they have no portable equivalent. Top-level environment and credential settings stay in the native file. Import rejects nested credentials and literal credentials in inline agent MCP servers. The error names the field without showing its value. Use native environment references in supported MCP fields. Native MCP import reads `.mcp.json` before deprecated `mcp.json`. Configure the opt-in below before syncing imported project servers.
 
 Instruction frontmatter keeps its native `enabled`, `alwaysApply`, and `paths` values. `enabled: false` and `alwaysApply: false` without paths stay inactive. Import uses the source-only `x-codebuddy.instruction-file` hint, either `CODEBUDDY.md` or `.codebuddy/CODEBUDDY.md`, with validated `scope` to restore the original location. This hint is omitted from native output. If both root alternatives exist, select one with the [entry-point file configuration](@/docs/configuration.md#entry-point-files) before import.
 
@@ -83,7 +83,7 @@ At user scope, sync and import use the first existing file: `~/.codebuddy/.mcp.j
 
 ## Fields and limits
 
-Agent names use lowercase letters and hyphens. Scoped tool patterns and server-only MCP names have no verified restrictive exposure mapping, so they fail sync. Keep scoped shell and file policies in permission rules. Use per-spec target filters when an agent requires a policy CodeBuddy cannot represent; `x-codebuddy.tools` supplies an explicit native exposure list.
+Agent names use lowercase letters and hyphens. Sync rejects scoped tool patterns and MCP server names used as tool restrictions because their native equivalents have not been verified. Keep scoped shell and file policies in permission rules. Use per-spec target filters when an agent requires a policy CodeBuddy cannot represent; `x-codebuddy.tools` supplies an explicit native exposure list.
 
 A portable empty `tools` or `can` list also fails sync, because CodeBuddy before 2.179.0 gives such an agent every tool. To run an agent without tools, set `x-codebuddy.tools: []`. Sync writes `tools: []` and prints a note that only CodeBuddy [2.179.0](https://www.codebuddy.ai/docs/cli/release-notes/v2.179.0) or later reads it as no tools; older versions still give every tool. CodeBuddy still adds its messaging tools and the plan-exit tool to such an agent. Import keeps a native `tools: []` as `x-codebuddy.tools: []`.
 
