@@ -180,6 +180,7 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 | [Qoder](@/docs/targets/qoder.md) | `trust`, `includeTools`, `excludeTools`, `alwaysAllow` |
 | [Kiro](@/docs/targets/kiro.md) | `autoApprove`, `disabledTools`, `oauthScopes` |
 | [Factory](@/docs/targets/factory.md) | `x-factory.enabledTools`, `disabledTools`, `connectTimeout` |
+| [Windsurf / Devin Desktop](@/docs/targets/windsurf.md) | `disabledTools`, `oauthScopes` (remote servers) |
 | [Claude Code](@/docs/targets/claude.md) | `alwaysLoad`, `bareElicitationCapability`, `headersHelper` |
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` and `sandbox` (VS Code file only), `tools` (Copilot CLI files only) |

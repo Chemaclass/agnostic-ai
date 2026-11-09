@@ -116,8 +116,9 @@ Ignore specs are written as `.devinignore` and `.windsurfignore`, in gitignore s
 
 Servers are merged into `.devin/mcp_config.json` under `mcpServers`, which [Devin Local](https://docs.devin.ai/desktop/devin-local) reads for project scope. Cascade, with its own MCP file, was removed in Devin Desktop v3.9.19 ([changelog](https://docs.devin.ai/desktop/changelog.md), [Cascade MCP page](https://docs.devin.ai/desktop/cascade/mcp)).
 
-- [The schema](https://docs.devin.ai/cli/extensibility/mcp/configuration) uses `command`/`args`/`env` for stdio and `url`/`transport` (`http` or `sse`)/`headers`/`oauthClientId`/`oauthClientSecret`/`oauthResource` for remote. The key is `transport`, not `type`, so this tool has its own format.
+- [The schema](https://docs.devin.ai/cli/extensibility/mcp/configuration) uses `command`/`args`/`env` for stdio and `url`/`transport` (`http` or `sse`)/`headers`/`oauthClientId`/`oauthClientSecret`/`oauthResource`/`oauthScopes` for remote. The key is `transport`, not `type`, so this tool has its own format.
 - Both accept `disabled`, also toggled by `devin mcp enable|disable` (see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)).
+- Both accept `disabledTools`, a list of tool names Devin hides from the agent and rejects at call time.
 - A `type: ws` spec writes no server and gets a sync note. Devin remote servers use only `http` and `sse`.
 - Cascade's personal file `~/.codeium/windsurf/mcp_config.json` is not written, since agnostic-ai writes project files only.
 

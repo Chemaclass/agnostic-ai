@@ -20,6 +20,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Handoff hooks call generated scripts, keeping completion messages short after compaction.
 - `lint` (LINT011) and `explain --context` no longer count a manual-only skill's description toward Claude's startup words, since Claude Code loads it only when you invoke the skill (#3199).
 
+#### Windsurf / Devin Desktop
+
+- Sync writes MCP `disabledTools` on every server and `oauthScopes` on remote ones to `.devin/mcp_config.json`, instead of dropping them (#3207).
+
 #### Grok
 
 - When an ignore file hides a Grok rule, the error names that file and pattern, and offers removing grok from targets as a fix (#3198).
