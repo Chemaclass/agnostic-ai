@@ -45,17 +45,23 @@ body {
 }
 
 .mark {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   transition: opacity 200ms ease;
 }
 
-.sheet {
+.dots {
   fill: var(--paper);
 }
 
-.fold {
+.focus-dot {
   fill: var(--rust);
+}
+
+.focus-ring {
+  fill: none;
+  stroke: var(--rust);
+  stroke-width: 2.5;
 }
 
 /* Nothing can be read: the mark dims. */

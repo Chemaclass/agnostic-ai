@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/site/static/logo-dark.svg">
+    <img src="docs/site/static/logo.svg" alt="agnostic-ai logo" width="96" height="96">
+  </picture>
+</p>
+
 # agnostic-ai
 
 Keep the same project instructions across coding tools. Edit one source, then run `agnostic-ai sync` to write the files Claude Code, Codex, and your other tools read.

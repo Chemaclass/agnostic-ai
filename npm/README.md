@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://agnostic-ai.org/logo-dark.svg">
+    <img src="https://agnostic-ai.org/logo.svg" alt="agnostic-ai logo" width="96" height="96">
+  </picture>
+</p>
+
 # agnostic-ai
 
 Keep one set of instructions and settings for your coding tools. Write source files (specs) once, then run sync to create the files Claude Code, Codex, Gemini, Cursor, Copilot, and other supported tools read.

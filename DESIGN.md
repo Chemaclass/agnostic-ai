@@ -141,7 +141,7 @@ The system has no shadows. Depth comes from tonal surfaces, whitespace, and one-
 
 ## Shapes
 
-Most containers remain square and merge into the page grid. Pills are reserved for compact target and status labels. Inline code uses 4px, and evidence callouts use 14px as the only soft container shape. The brand mark is a sheet folded into three panels, the middle one in Rust Signal, with no plate.
+Most containers remain square and merge into the page grid. Pills are reserved for compact target and status labels. Inline code uses 4px, and evidence callouts use 14px as the only soft container shape. The brand mark is a three by three grid of dots with the center dot and a ring around it in Rust Signal, with no plate. Its files live in `docs/site/static/` (`logo.svg`, `logo-dark.svg`, `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `icon-512.png`); the editor extensions carry copies. The favicon, touch icon, and app icons put the mark on a dark `#16130f` tile with 14px corners at 64px.
 
 ## Components
 

@@ -62,23 +62,29 @@
       height: 64px;
     }
 
-    .brand-panel {
+    .brand-dots {
       fill: var(--ink);
     }
 
-    .brand-panel-accent {
+    .brand-focus {
       fill: var(--accent);
     }
 
-    .brand-core {
+    .brand-focus-ring {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2.5;
+    }
+
+    .fan-hub {
       fill: var(--accent);
     }
 
-    .brand-sat-good {
+    .fan-node {
       fill: var(--good);
     }
 
-    .brand-sat-ink {
+    .fan-more {
       fill: var(--ink);
     }
 
@@ -168,7 +174,7 @@
   <div class="card">
     <div class="bar">
       <div class="brand">
-        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><path class="brand-panel" d="M8 16L24 10V48L8 54ZM40 16L56 10V48L40 54Z"/><path class="brand-panel-accent" d="M24 10L40 16V54L24 48Z"/></svg>
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><g class="brand-dots"><circle cx="14" cy="14" r="4.5"/><circle cx="32" cy="14" r="4.5"/><circle cx="50" cy="14" r="4.5"/><circle cx="14" cy="32" r="4.5"/><circle cx="50" cy="32" r="4.5"/><circle cx="14" cy="50" r="4.5"/><circle cx="32" cy="50" r="4.5"/><circle cx="50" cy="50" r="4.5"/></g><circle class="brand-focus" cx="32" cy="32" r="4.5"/><circle class="brand-focus-ring" cx="32" cy="32" r="10"/></svg>
         <span>agnostic-ai</span>
       </div>
       <div class="domain">agnostic-ai.org</div>
@@ -180,15 +186,15 @@
 
     <svg class="fan" viewBox="0 0 1200 630" aria-hidden="true">
       <path class="rail" d="M812 366C860 366 860 221 908 221M812 366C860 366 860 279 908 279M812 366C860 366 860 337 908 337M812 366C860 366 860 395 908 395M812 366C860 366 860 453 908 453M812 366C860 366 860 511 908 511"/>
-      <circle class="brand-core" cx="812" cy="366" r="13"/>
-      <g class="brand-sat-good">
+      <circle class="fan-hub" cx="812" cy="366" r="13"/>
+      <g class="fan-node">
         <circle cx="908" cy="221" r="7"/>
         <circle cx="908" cy="279" r="7"/>
         <circle cx="908" cy="337" r="7"/>
         <circle cx="908" cy="395" r="7"/>
         <circle cx="908" cy="453" r="7"/>
       </g>
-      <circle class="brand-sat-ink" cx="908" cy="511" r="7"/>
+      <circle class="fan-more" cx="908" cy="511" r="7"/>
       <text x="930" y="221">Claude Code</text>
       <text x="930" y="279">Codex</text>
       <text x="930" y="337">Cursor</text>

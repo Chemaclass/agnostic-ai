@@ -37,7 +37,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### Site
 
 - Guides and references use plainer language, shorter explanations, supported model aliases, and current release examples.
-- A new logo, a sheet folded into three panels, replaces the hub logo on the site, the playground, the social preview image, and the web interface's tab icon.
+- A new logo, a grid of dots with the center one circled, is the new brand on the site, the playground, the social preview image, the web interface, the READMEs, and the VS Code and JetBrains extension icons.
 - The Amp and environments pages say Amp runs `.agents/setup` again on a snapshot refresh and stops it after 20 minutes, so setup must be safe to repeat (#3208).
 
 ## v0.92.0 - 2026-11-08
