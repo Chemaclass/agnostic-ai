@@ -29,7 +29,7 @@ not ship the widget yet, so building it is the only way to get it.
 - **Esc**, or a click anywhere else, closes the list.
 - The power button at the foot of the list quits the widget.
 
-The number on the circle counts the conversations that need you. A rust arc
+The number on the circle counts the conversations that need you. An ice blue arc
 turns around the circle while an agent is working.
 
 ## What each group means

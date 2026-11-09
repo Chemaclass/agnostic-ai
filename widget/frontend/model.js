@@ -93,3 +93,11 @@ export function neighbour(keys, key, step) {
   if (at === -1) return keys[0]
   return keys[Math.min(Math.max(at + step, 0), keys.length - 1)]
 }
+
+/** How far, in pixels, a press must travel before it drags the bubble. Less is a click with an unsteady hand. */
+export const DRAG_DISTANCE = 4
+
+/** Whether the pointer moved far enough from where it was pressed to be dragging. */
+export function isDrag(pressed, pointer) {
+  return Math.hypot(pointer.x - pressed.x, pointer.y - pressed.y) >= DRAG_DISTANCE
+}

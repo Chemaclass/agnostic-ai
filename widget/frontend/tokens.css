@@ -11,6 +11,13 @@
   --hairline-strong: rgba(242, 237, 229, 0.18);
   --rust: #f0a35e;
   --rust-soft: rgba(240, 163, 94, 0.16);
+  /* What needs the person: the brand's orange, the color of action. */
+  --action: var(--rust);
+  --action-soft: var(--rust-soft);
+  /* Agents at work: ice blue, cool beside the orange, so it never reads as a call to act. */
+  --busy: #5cc4ff;
+  --busy-soft: rgba(92, 196, 255, 0.2);
+  /* Something went wrong. Not used for what needs the person. */
   --alert: #ff6250;
   --alert-soft: rgba(255, 98, 80, 0.16);
   --calm: #7fcf9a;

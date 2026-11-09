@@ -196,7 +196,7 @@ body {
 }
 
 .group-title.is-urgent {
-  color: var(--alert);
+  color: var(--action);
 }
 
 .row {
@@ -243,13 +243,13 @@ body {
 
 .state.is-blocked,
 .state.is-unread {
-  background: var(--alert);
-  box-shadow: 0 0 0 3px var(--alert-soft);
+  background: var(--action);
+  box-shadow: 0 0 0 3px var(--action-soft);
 }
 
 .state.is-working {
-  background: var(--rust);
-  box-shadow: 0 0 0 3px var(--rust-soft);
+  background: var(--busy);
+  box-shadow: 0 0 0 3px var(--busy-soft);
   animation: breathe 1.4s ease-in-out infinite;
 }
 
@@ -320,12 +320,12 @@ body {
 }
 
 .meta .why {
-  color: var(--alert);
+  color: var(--action);
   font-weight: 560;
 }
 
 .meta .why.is-working {
-  color: var(--rust);
+  color: var(--busy);
 }
 
 .actions {

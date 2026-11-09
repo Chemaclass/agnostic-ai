@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ago, detailsOf, grouped, neighbour, reasonOf, summaryOf } from '../frontend/model.js'
+import { ago, detailsOf, grouped, isDrag, neighbour, reasonOf, summaryOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -54,4 +54,12 @@ test('moves through the rows and stops at the ends', () => {
   assert.equal(neighbour(keys, 'a', -1), 'a')
   assert.equal(neighbour(keys, 'gone', 1), 'a')
   assert.equal(neighbour([], 'a', 1), undefined)
+})
+
+test('takes a press that barely moves as a click, and a longer one as a drag', () => {
+  const pressed = { x: 30, y: 30 }
+  assert.equal(isDrag(pressed, { x: 30, y: 30 }), false)
+  assert.equal(isDrag(pressed, { x: 32, y: 32 }), false)
+  assert.equal(isDrag(pressed, { x: 34, y: 30 }), true)
+  assert.equal(isDrag(pressed, { x: 27, y: 26 }), true)
 })

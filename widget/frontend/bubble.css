@@ -3,9 +3,9 @@ body {
   place-items: center;
 }
 
-/* The whole circle drags the window; a press that does not move is a click. */
+/* bubble.js tells a click from a drag, so the circle is not a Wails drag
+   region: that starts a drag on the first pixel of movement and drops the click. */
 .bubble {
-  --wails-draggable: drag;
   position: relative;
   width: 60px;
   height: 60px;
@@ -13,8 +13,7 @@ body {
   transition: transform 220ms var(--ease-spring);
 }
 
-/* A press must land on the button itself: the window drags only when the
-   pressed element is the draggable one, and the mark's shapes are not. */
+/* Presses land on the button itself, never on the shapes inside it. */
 .bubble > * {
   pointer-events: none;
 }
@@ -69,12 +68,12 @@ body {
   opacity: 0.4;
 }
 
-/* An agent is working: a rust arc turns around the circle. */
+/* An agent is working: a quiet arc turns around the circle. */
 .ring {
   position: absolute;
   inset: -4px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0 62%, var(--rust) 96%, transparent 100%);
+  background: conic-gradient(from 0deg, transparent 0 62%, var(--busy) 96%, transparent 100%);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
   opacity: 0;
@@ -102,9 +101,9 @@ body {
   display: grid;
   place-items: center;
   border-radius: 11px;
-  background: linear-gradient(180deg, #ff7a69, var(--alert));
+  background: linear-gradient(180deg, #f7b877, var(--action));
   box-shadow: 0 0 0 2px var(--ink), 0 2px 6px rgba(0, 0, 0, 0.45);
-  color: #fff;
+  color: var(--ink);
   font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
