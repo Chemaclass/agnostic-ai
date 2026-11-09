@@ -1,6 +1,8 @@
 package windsurf
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -152,6 +154,59 @@ func TestEmit_MCP_OAuthFieldsPassThrough(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
+	}
+}
+
+// TestEmit_MCP_DisabledToolsAndOAuthScopesPassThrough locks the two
+// list fields docs.devin.ai/cli/extensibility/mcp/configuration added:
+// `disabledTools` on both transports and `oauthScopes` on remote ones.
+func TestEmit_MCP_DisabledToolsAndOAuthScopesPassThrough(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "gh",
+			Meta: map[string]any{
+				"type":          "http",
+				"url":           "https://mcp.example.com/mcp",
+				"oauthScopes":   []any{"repo", "read:org"},
+				"disabledTools": []any{"delete_repo"},
+			},
+		},
+		{
+			Kind: spec.KindMCP,
+			Name: "fs",
+			Meta: map[string]any{
+				"command":       "npx",
+				"args":          []any{"x"},
+				"disabledTools": []any{"write_file"},
+				"oauthScopes":   []any{"ignored"},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		MCPServers map[string]map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".devin/mcp_config.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	gh, fs := doc.MCPServers["gh"], doc.MCPServers["fs"]
+	if got := fmt.Sprint(gh["disabledTools"]); got != "[delete_repo]" {
+		t.Errorf("gh disabledTools = %s, want [delete_repo]", got)
+	}
+	if got := fmt.Sprint(gh["oauthScopes"]); got != "[repo read:org]" {
+		t.Errorf("gh oauthScopes = %s, want [repo read:org]", got)
+	}
+	if got := fmt.Sprint(fs["disabledTools"]); got != "[write_file]" {
+		t.Errorf("fs disabledTools = %s, want [write_file]", got)
+	}
+	if _, ok := fs["oauthScopes"]; ok {
+		t.Errorf("oauthScopes is remote-only and must not reach a stdio server: %v", fs)
 	}
 }
 
