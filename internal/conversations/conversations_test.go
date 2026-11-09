@@ -202,6 +202,7 @@ func TestScan_ListsClaudeSessionsWithTitlesPromptsAndRoutes(t *testing.T) {
   ],
   "prompt": "Now add a test for it",
   "live": true,
+  "state": "active",
   "open": {
     "kind": "focus",
     "label": "Open in Terminal",
@@ -372,6 +373,7 @@ func TestScan_ListsCursorChatsInTheProjectWithTheirPrompts(t *testing.T) {
     "Keep the API"
   ],
   "prompt": "Add benchmarks",
+  "state": "dormant",
   "open": {
     "kind": "link",
     "label": "Open in Cursor",

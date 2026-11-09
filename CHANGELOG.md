@@ -11,7 +11,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Web interface
 
 - In the web interface, the Conversations search finds every conversation, not just the weeks loaded so far, and the tool chips list one tool's conversations from the server.
-- The web interface's rail names each page first, with its question under the name and its counts as a tooltip.
+- Each conversation in `GET /api/views/conversations` has a `state`: blocked, working, completed, unread, active or dormant. `needsYou` counts the blocked and unread ones. `POST /api/conversations/mark` marks one seen or completed, and opening one marks it seen. A completion lasts until a new message arrives. The marks stay in a file on your machine.
+- A floating widget shows how many conversations need you, over every app, with a searchable list that opens each one where it lives. It is a separate app in `widget/`, built with `make widget`; releases do not ship it yet.
 
 #### Upgrades
 

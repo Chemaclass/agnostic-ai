@@ -837,4 +837,6 @@
 # #3198 measured 25452704 bytes in CI: the Grok error names the ignore file
 # and pattern, and the guided upgrade prints each requires change. The
 # budget is that plus 8192, rounded up to a multiple of 4096.
-25464832
+# The conversations search, states and marks measured 25469088 bytes
+# locally; the budget is that plus 8192, rounded up to a multiple of 4096.
+25481216

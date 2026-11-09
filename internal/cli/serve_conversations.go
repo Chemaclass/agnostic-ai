@@ -17,6 +17,7 @@ import (
 const (
 	conversationsViewPath = "/api/views/conversations"
 	conversationOpenPath  = "/api/conversations/open"
+	conversationMarkPath  = "/api/conversations/mark"
 )
 
 // maxConversationOpenBytes bounds an open request: a tool, an id and an editor.
@@ -28,16 +29,22 @@ type conversationOpenRequest struct {
 	Editor string             `json:"editor"`
 }
 
+type conversationMarkRequest struct {
+	Tool conversations.Tool `json:"tool"`
+	ID   string             `json:"id"`
+	// As is seen, completed or open (which takes a completion back).
+	As conversations.Mark `json:"as"`
+}
+
 // conversationsHandler lists the coding tools' conversations and
 // reopens one where it lives. A project server lists the conversations
 // started in the project or one of its Git worktrees; a global server
 // lists them all.
 type conversationsHandler struct {
-	root      string
-	global    bool
-	scanner   *conversations.Scanner
-	launcher  conversations.Launcher
-	processes conversations.Processes
+	root     string
+	global   bool
+	scanner  *conversations.Scanner
+	launcher conversations.Launcher
 	// worktrees lists a project's Git worktrees; nil skips them.
 	worktrees func(root string) []string
 }
@@ -49,7 +56,6 @@ func newConversationsHandler(root string, global bool) *conversationsHandler {
 		global:    global,
 		scanner:   scanner,
 		launcher:  conversations.SystemLauncher(),
-		processes: scanner.Processes,
 		worktrees: gitWorktrees,
 	}
 }
@@ -60,6 +66,8 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.view(w, r)
 	case conversationOpenPath:
 		h.open(w, r)
+	case conversationMarkPath:
+		h.mark(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})
 	}
@@ -124,12 +132,51 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	}
 	// The route comes from the server's own scan; the request only names
 	// which conversation.
-	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(req.Editor))
-	if !ok {
+	reply, found := h.scanner.Reopen(r.Context(), req.Tool, req.ID, h.scanOptions(req.Editor), h.launcher)
+	if !found {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
 		return
 	}
-	writeEditJSON(w, http.StatusOK, conversations.Open(r.Context(), conversation, h.processes, h.launcher))
+	writeEditJSON(w, http.StatusOK, reply)
+}
+
+// mark records that the person saw a conversation, completed it, or
+// took a completion back.
+func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
+	if status, message := editRequestGuard(r); status != 0 {
+		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	var req conversationMarkRequest
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, as}"})
+		return
+	}
+	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
+		return
+	}
+	if !knownConversationTool(req.Tool) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+		return
+	}
+	if !conversations.KnownMark(req.As) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "as must be seen, completed or open"})
+		return
+	}
+	// Only a conversation the server lists gets a mark, so the file
+	// never holds an id a request made up.
+	if _, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions("")); !ok {
+		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
+		return
+	}
+	if err := h.scanner.Mark(req.Tool, req.ID, req.As); err != nil {
+		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *conversationsHandler) scanOptions(editor string) conversations.ScanOptions {

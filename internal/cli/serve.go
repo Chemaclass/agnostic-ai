@@ -200,6 +200,7 @@ func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions,
 	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
 	mux.Handle(conversationsViewPath, conversationsHandler)
 	mux.Handle(conversationOpenPath, conversationsHandler)
+	mux.Handle(conversationMarkPath, conversationsHandler)
 	mux.Handle(sourceViewPath, newSourceHandler(opts.Global))
 	var peer *switchPeer
 	if switches != nil {
@@ -229,7 +230,7 @@ func serializeAPI(next http.Handler) http.Handler {
 		// Conversations read only the coding tools' own stores and lock
 		// their own scanner, so a slow scan does not hold up the overview.
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath && r.URL.Path != switchPath &&
-			r.URL.Path != conversationsViewPath && r.URL.Path != conversationOpenPath {
+			r.URL.Path != conversationsViewPath && r.URL.Path != conversationOpenPath && r.URL.Path != conversationMarkPath {
 			mu.Lock()
 			defer mu.Unlock()
 		}

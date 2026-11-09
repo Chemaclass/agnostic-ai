@@ -859,6 +859,9 @@ export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background'
 /** What an open conversation is doing, when its tool says: the agent is working, it waits for the person, or it sits idle. */
 export type ConversationActivity = 'working' | 'waiting' | 'idle'
 
+/** Where a conversation stands for the person. The first that holds wins: `blocked` (open, and its tool says it waits for the person), `working` (open, and its tool says the agent is busy), `completed` (marked completed, nothing written since), `unread` (written after the person last saw it), `active` (open, or written in the last 24 hours), `dormant` (closed and quiet for longer). */
+export type ConversationState = 'blocked' | 'working' | 'completed' | 'unread' | 'active' | 'dormant'
+
 export interface ConversationSource {
   tool: ConversationTool
   label: string
@@ -901,6 +904,12 @@ export interface Conversation {
   live?: boolean
   /** Set for a live conversation whose tool reports it. */
   activity?: ConversationActivity
+  /** Absent from a server older than the marks. */
+  state?: ConversationState
+  /** When the person last saw it: opening it through the server, or a `seen` or `completed` mark. */
+  seenAt?: string
+  /** When the person marked it completed. The server deletes it once something is written after it. */
+  completedAt?: string
   open: ConversationRoute
 }
 
@@ -915,6 +924,10 @@ export interface ConversationsView {
   next?: string
   /** How many conversations of any age the search matched, across all pages; set only for a request with `q`. */
   matches?: number
+  /** How many conversations are `blocked` or `unread`, across every age and tool the server lists, whatever the page or the search. */
+  needsYou?: number
+  /** Why the marks file could not be read or written; rows then carry no marks. */
+  marksNote?: string
   /** count is every conversation the tool holds; shown is how many this page holds. */
   tools: ConversationSource[]
   conversations: Conversation[]
@@ -925,6 +938,13 @@ export interface ConversationOpenRequest {
   id: string
   /** The editor chosen in Settings, so editor links use its scheme. */
   editor?: string
+}
+
+/** A mark on one conversation, kept in a file on this machine: `seen` (read up to now), `completed` (done until something new is written; also marks it seen) or `open` (takes a completion back). */
+export interface ConversationMarkRequest {
+  tool: ConversationTool
+  id: string
+  as: 'seen' | 'completed' | 'open'
 }
 
 /** opened is false when the server could not open it here; message says why and command, when set, resumes it by hand. */
@@ -943,7 +963,8 @@ export interface ConversationOpenReply {
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
 //   GET  /api/views/source?path=<openPath>               → SourceView; 404 for a file the configuration does not list
 //   GET  /api/views/conversations?editor=<id>&before=<time>&q=<words>&tool=<tool> → ConversationsView, one week per page; q searches every conversation; a project server lists the project's own conversations
-//   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest)
+//   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest); an opened conversation is marked seen
+//   POST /api/conversations/mark                          → 204 (body: ConversationMarkRequest)
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })

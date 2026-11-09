@@ -66,6 +66,9 @@ type Scanner struct {
 	SQLite    SQLiteQuery
 	Processes Processes
 	Now       func() time.Time
+	// MarksPath is the file that keeps the person's seen and completed
+	// marks. Empty keeps none.
+	MarksPath string
 
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
@@ -78,7 +81,7 @@ type Scanner struct {
 // NewScanner reads the current user's stores with the system sqlite3
 // and process table.
 func NewScanner() *Scanner {
-	return &Scanner{Stores: DefaultStores(), SQLite: RunSQLite, Processes: SystemProcesses{}, Now: time.Now}
+	return &Scanner{Stores: DefaultStores(), SQLite: RunSQLite, Processes: SystemProcesses{}, Now: time.Now, MarksPath: DefaultMarksPath()}
 }
 
 // ScanOptions narrow and shape one scan.
@@ -110,6 +113,7 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	s.shown.start()
 	defer s.shown.finish(ctx)
 	results := s.readAll(ctx, opts)
+	needsYou, marksErr := s.applyMarks(results)
 	var all []Conversation
 	for _, result := range results {
 		if opts.Tool == "" || result.source.Tool == opts.Tool {
@@ -134,6 +138,10 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 		SchemaVersion: SchemaVersion, GeneratedAt: s.Now().UTC().Format(time.RFC3339),
 		From: from.UTC().Format(time.RFC3339), To: to.UTC().Format(time.RFC3339),
 		Tools: []Source{}, Conversations: page,
+	}
+	view.NeedsYou = needsYou
+	if marksErr != nil {
+		view.MarksNote = "Seen and completed marks are unavailable: " + marksErr.Error()
 	}
 	if more {
 		view.Next = view.From
