@@ -22,7 +22,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Windsurf / Devin Desktop
 
-- Sync writes MCP `disabledTools` on every server and `oauthScopes` on remote ones to `.devin/mcp_config.json`, instead of dropping them (#3207).
+- Sync writes MCP `disabledTools` on every server and `oauthScopes` on remote ones to `.devin/mcp_config.json`, instead of dropping them (#3210).
 
 #### Grok
 
