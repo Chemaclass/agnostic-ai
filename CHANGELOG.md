@@ -27,6 +27,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### Site
 
 - Guides and references use plainer language, shorter explanations, supported model aliases, and current release examples.
+- A new logo, a sheet folded into three panels, replaces the hub logo on the site, the playground, the social preview image, and the web interface's tab icon.
 
 ## v0.92.0 - 2026-11-08
 
