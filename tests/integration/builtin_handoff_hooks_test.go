@@ -68,6 +68,107 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 		return handoffReadHandlers(t, dir)
 	}
 
+	t.Run("claude-short-script-commands", func(t *testing.T) {
+		t.Parallel()
+		dir := project(t)
+		handlers := syncHooks(t, dir)["claude"]
+		for _, event := range []string{"PreCompact", "SessionEnd", "SessionStart"} {
+			name := "handoff-snapshot.sh"
+			if event == "SessionStart" {
+				name = "handoff-session-start.sh"
+			}
+			want := `bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/` + name + `"`
+			if got := handlers[event].Command; got != want {
+				t.Errorf("%s command has %d bytes, want short script invocation %q", event, len(got), want)
+			}
+		}
+	})
+
+	scriptLifecycle := func(t *testing.T, global bool) {
+		t.Helper()
+		dir := project(t)
+		handoffInitGit(t, dir)
+		root := dir
+		configPath := filepath.Join(dir, "agnostic-ai.yaml")
+		statePath := filepath.Join(dir, ".agnostic-ai", ".sync-state")
+		args := []string{"sync", "--gitignore=off"}
+		if global {
+			root = filepath.Join(t.TempDir(), "home with ' apostrophe 雪")
+			source := filepath.Join(root, ".agnostic-ai")
+			handoffSetenv(t, "HOME", root)
+			handoffSetenv(t, "USERPROFILE", root)
+			handoffSetenv(t, "AGNOSTIC_AI_HOME", source)
+			configPath = filepath.Join(source, "agnostic-ai.yaml")
+			statePath = filepath.Join(source, "state", "global.json")
+			args = []string{"sync", "--global"}
+		}
+		handoffWrite(t, configPath, "version: 1\ntargets: [claude]\nbuiltins: [handoff-hook]\n")
+		run(t, dir, args...)
+		handlers := handoffReadHandlersFor(t, root, "claude")
+		var state struct {
+			Outputs    []string          `json:"outputs"`
+			Files      []string          `json:"files"`
+			Sums       map[string]string `json:"sums"`
+			OutputSums map[string]string `json:"output_sums"`
+		}
+		if err := json.Unmarshal([]byte(handoffRead(t, statePath)), &state); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"handoff-snapshot.sh", "handoff-session-start.sh"} {
+			rel := filepath.ToSlash(filepath.Join(".claude", "hooks", name))
+			path := filepath.Join(root, filepath.FromSlash(rel))
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+				t.Errorf("script is not executable: %s", path)
+			}
+			if global {
+				if !slices.Contains(state.Files, path) || state.Sums[path] == "" {
+					t.Errorf("global output ledger does not own %s", path)
+				}
+			} else if !slices.Contains(state.Outputs, rel) || state.OutputSums[rel] == "" {
+				t.Errorf("project output ledger does not own %s", rel)
+			}
+		}
+		run(t, dir, args...)
+		run(t, dir, append(slices.Clone(args), "--check")...)
+		linked := filepath.Join(t.TempDir(), "linked checkout ' 雪")
+		handoffGit(t, dir, "worktree", "add", "-b", "script-lifecycle", linked)
+		handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), fixture)
+		payload, err := json.Marshal(map[string]string{"cwd": linked})
+		if err != nil {
+			t.Fatal(err)
+		}
+		foreign := t.TempDir()
+		for _, event := range []string{"PreCompact", "SessionEnd"} {
+			handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers[event], foreign, string(payload), "foreign", ""), "")
+			snapshot := handoffRead(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"))
+			if !strings.Contains(snapshot, "branch: script-lifecycle") {
+				t.Errorf("hook did not snapshot input checkout: %s", snapshot)
+			}
+		}
+		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], foreign, string(payload), "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/script-lifecycle.auto.md (branch script-lifecycle). Ask to resume the handoff.")
+		handoffWrite(t, configPath, "version: 1\ntargets: [claude]\nbuiltins: []\n")
+		run(t, dir, args...)
+		for _, name := range []string{"handoff-snapshot.sh", "handoff-session-start.sh"} {
+			path := filepath.Join(root, ".claude", "hooks", name)
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Errorf("removed builtin left script %s: %v", path, err)
+			}
+		}
+		run(t, dir, append(slices.Clone(args), "--check")...)
+	}
+	t.Run("claude-project-script-lifecycle", func(t *testing.T) {
+		t.Parallel()
+		scriptLifecycle(t, false)
+	})
+	t.Run("claude-global-script-lifecycle", func(t *testing.T) {
+		t.Parallel()
+		scriptLifecycle(t, true)
+	})
+
 	t.Run("claude-command-source-and-native-input", func(t *testing.T) {
 		t.Parallel()
 		payload := `{"cwd":"C:\\checkout\\雪"}`
@@ -696,9 +797,9 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 				if (target == "claude" || target == "qoder") && h.Shell != "bash" {
 					t.Errorf("%s shell = %q", target, h.Shell)
 				}
-				body := h.Command
+				var body string
 				if target == "claude" {
-					handoffAssertClaudeInput(t, h.Command)
+					body = handoffAssertClaudeInput(t, dir, h.Command)
 				} else {
 					body = handoffAssertTransport(t, h.Command)
 				}
@@ -720,6 +821,10 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			if handlers[target][events[0]].Command != handlers[target]["SessionEnd"].Command {
 				t.Errorf("%s departure commands differ", target)
 			}
+		}
+		for _, name := range []string{"handoff-snapshot.sh", "handoff-session-start.sh"} {
+			path := ".claude/hooks/" + name
+			output[path] = handoffRead(t, filepath.Join(dir, filepath.FromSlash(path)))
 		}
 		expected := filepath.Join(packageDir, "fixtures", "golden", "builtin-handoff-hook")
 		if os.Getenv("UPDATE_GOLDEN") == "1" {
@@ -756,7 +861,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 					withBOM := func(h handoffNativeHandler) handoffNativeHandler {
 						inject := func(command string) string {
 							if target == "claude" {
-								handoffAssertClaudeInput(t, command)
+								handoffAssertClaudeInput(t, dir, command)
 								return command
 							}
 							if strings.Count(command, "echo '\n") != 1 {
@@ -1232,19 +1337,28 @@ func handoffReadHandlersFor(t *testing.T, dir, target string) map[string]handoff
 		for k, v := range doc.Env {
 			h.Env[k] = v
 		}
+		if target == "claude" {
+			h.Env["CLAUDE_PROJECT_DIR"] = dir
+		}
 		out[event] = h
 	}
 	return out
 }
 
-func handoffAssertClaudeInput(t *testing.T, command string) {
+func handoffAssertClaudeInput(t *testing.T, dir, command string) string {
 	t.Helper()
-	if !strings.HasPrefix(command, "export LC_ALL=C\n") || !strings.Contains(command, "read -r -d '' -n 65537 -t 2 handoff_payload") {
-		t.Errorf("Claude command does not retain bounded native stdin: %q", command)
+	name := strings.TrimSuffix(strings.TrimPrefix(command, `bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/`), `"`)
+	if name != "handoff-snapshot.sh" && name != "handoff-session-start.sh" {
+		t.Fatalf("Claude command is not a short script invocation: %q", command)
 	}
-	if strings.Contains(command, "echo '\n") || strings.Contains(command, "</dev/null") || strings.Contains(command, "exec sh -s") {
-		t.Errorf("Claude command replaces native input with program source: %q", command)
+	body := handoffRead(t, filepath.Join(dir, ".claude", "hooks", name))
+	if !strings.HasPrefix(body, "#!/usr/bin/env bash\nexport LC_ALL=C\n") || !strings.Contains(body, "read -r -d '' -n 65537 -t 2 handoff_payload") {
+		t.Errorf("Claude script does not retain bounded native stdin: %q", body)
 	}
+	if strings.Contains(body, "echo '\n") || strings.Contains(body, "</dev/null") || strings.Contains(body, "exec sh -s") {
+		t.Errorf("Claude script replaces native input with program source: %q", body)
+	}
+	return body
 }
 
 func handoffAssertTransport(t *testing.T, command string) string {

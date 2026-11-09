@@ -135,6 +135,8 @@ When a session starts in a linked worktree, the notice names its branch's handof
 
 Claude hooks use the working directory (`cwd`) from the tool's event, including in linked worktrees, even when the hook process runs in the main checkout. Config discovery stays inside that checkout. Empty input or an event without `cwd` uses the process directory. Invalid or ambiguous input saves nothing. Input is limited to 64 KiB, 32 nested containers, and a two-second read deadline.
 
+Claude hooks call scripts generated under `.claude/hooks/`, so completion messages show a short command. Project hooks find those scripts through Claude's `CLAUDE_PROJECT_DIR`; global hooks use absolute paths. The event's `cwd` still selects the checkout to snapshot. Sync tracks the scripts and removes unchanged copies when you disable the built-in.
+
 Claude hooks need Bash; the other hooks need `sh`. All need Git and `awk`. On Windows, use Git for Windows with its Unix tools on PATH. Start Claude Code from the project root so it loads `.claude/settings.json`.
 
 Each tool's own hook settings still apply: approve Codex hooks with `/hooks`, and approve Gemini project hooks when asked. A tool may stop before the snapshot finishes when it exits or compacts.
