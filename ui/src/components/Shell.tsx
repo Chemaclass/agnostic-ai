@@ -26,6 +26,16 @@ const DEFAULT_LABELS: Record<string, string> = {
 }
 
 const PRODUCT_NAME = 'agnostic-ai'
+
+function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <g className="brand-dots"><circle cx="14" cy="14" r="4.5" /><circle cx="32" cy="14" r="4.5" /><circle cx="50" cy="14" r="4.5" /><circle cx="14" cy="32" r="4.5" /><circle cx="50" cy="32" r="4.5" /><circle cx="14" cy="50" r="4.5" /><circle cx="32" cy="50" r="4.5" /><circle cx="50" cy="50" r="4.5" /></g>
+      <circle className="brand-focus" cx="32" cy="32" r="4.5" />
+      <circle className="brand-focus-ring" cx="32" cy="32" r="10" />
+    </svg>
+  )
+}
 const PRODUCT_REPOSITORY = 'https://github.com/Chemaclass/agnostic-ai'
 // At this width and below the rail becomes a top bar and a row of page links.
 const COMPACT_SHELL = '(max-width: 900px)'
@@ -166,7 +176,7 @@ export function Header({
   return (
     <header className="topbar" ref={headerRef} data-busy={overview.status === 'loading' || undefined}>
       <div className="brand">
-        <span className="brand-name">{PRODUCT_NAME}</span>
+        <span className="brand-title"><BrandMark /><span className="brand-name">{PRODUCT_NAME}</span></span>
         <ProjectName overview={overview} served={served} servedPending={servedPending} />
       </div>
       <div className="topbar-actions">
@@ -363,7 +373,7 @@ export function MenuSheet({ open, onClose, overview, onOpenSearch: _search, ...f
         <div className="menu-sheet-body">
           <div className="menu-sheet-head">
             <div className="brand">
-              <span className="brand-name">{PRODUCT_NAME}</span>
+              <span className="brand-title"><BrandMark /><span className="brand-name">{PRODUCT_NAME}</span></span>
               <ProjectName overview={overview} served={foot.served} servedPending={foot.servedPending} />
             </div>
             <button type="button" className="button button-icon menu-sheet-close" aria-label="Close menu" onClick={onClose}>

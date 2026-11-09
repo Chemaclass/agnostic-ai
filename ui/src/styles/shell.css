@@ -151,6 +151,33 @@ html {
   min-width: 0;
 }
 
+.brand-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+
+.brand-dots {
+  fill: var(--text);
+}
+
+.brand-focus {
+  fill: var(--brand-accent);
+}
+
+.brand-focus-ring {
+  fill: none;
+  stroke: var(--brand-accent);
+  stroke-width: 2.5;
+}
+
 .brand-name {
   color: var(--text);
   font-family: var(--font-display);

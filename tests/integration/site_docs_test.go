@@ -75,8 +75,10 @@ func TestSiteDocs_AllPageShellsLoadCronitorRUM(t *testing.T) {
 		if !strings.Contains(page, `<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><g class="brand-dots">`) {
 			t.Errorf("%s does not use the focused grid brand mark", path)
 		}
-		if !strings.Contains(page, `%3Ccircle cx='32' cy='32' r='10' fill='none' stroke='%23f0a35e' stroke-width='2.5'/%3E`) {
-			t.Errorf("%s favicon does not use the focused grid brand mark", path)
+		for _, icon := range []string{"favicon.ico", "favicon.svg", `type="image/svg+xml"`, `rel="apple-touch-icon"`} {
+			if !strings.Contains(page, icon) {
+				t.Errorf("%s does not link the brand icon %s", path, icon)
+			}
 		}
 	}
 }
