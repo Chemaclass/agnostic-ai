@@ -149,35 +149,70 @@ func TestScan_SaysWhenTheMarksFileCannotBeRead(t *testing.T) {
 	}
 }
 
-func TestMarkAllSeen_ClearsEveryUnreadConversationUntilTheNextMessage(t *testing.T) {
-	const first, second = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
+func TestScan_LeavesOutAHiddenConversationUntilItsNextMessage(t *testing.T) {
+	const hidden, other = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	scanner.Now = func() time.Time { return now }
+	writeMarkedSession(t, stores, hidden, "2026-11-07T11:00:00.000Z")
+	writeMarkedSession(t, stores, other, "2026-11-07T11:30:00.000Z")
 	scanner.Scan(context.Background(), ScanOptions{})
-	if err := scanner.Mark(ToolClaude, first, MarkSeen); err != nil {
+
+	if err := scanner.Mark(ToolClaude, hidden, MarkHidden); err != nil {
 		t.Fatal(err)
-	}
-	writeMarkedSession(t, stores, first, "2026-11-07T12:10:00.000Z")
-	writeMarkedSession(t, stores, second, "2026-11-07T12:20:00.000Z")
-	now = now.Add(30 * time.Minute)
-	if view := scanner.Scan(context.Background(), ScanOptions{}); view.NeedsYou != 2 {
-		t.Fatalf("before: needsYou = %d, want 2", view.NeedsYou)
 	}
 
-	if err := scanner.MarkAllSeen(); err != nil {
-		t.Fatal(err)
+	listed := func(view View) []string {
+		var ids []string
+		for _, c := range view.Conversations {
+			ids = append(ids, c.ID)
+		}
+		return ids
 	}
 	view := scanner.Scan(context.Background(), ScanOptions{})
-	if view.NeedsYou != 0 || byID(t, view, first).State != StateActive || byID(t, view, second).State != StateActive {
-		t.Fatalf("after marking all seen: %s", asJSON(t, view))
+	if ids := listed(view); len(ids) != 1 || ids[0] != other {
+		t.Fatalf("the list after hiding = %v", ids)
+	}
+	if view.Tools[0].Count != 1 {
+		t.Errorf("the tool counts %d conversations, want 1: a hidden one is not counted", view.Tools[0].Count)
+	}
+	search := scanner.Scan(context.Background(), ScanOptions{Query: "parser"})
+	if ids := listed(search); len(ids) != 1 || *search.Matches != 1 {
+		t.Errorf("a search after hiding = %v, matches %d", ids, *search.Matches)
+	}
+	if _, found := scanner.Find(context.Background(), ToolClaude, hidden, ScanOptions{}); !found {
+		t.Error("the tool's own store lost the hidden conversation")
 	}
 
-	writeMarkedSession(t, stores, second, "2026-11-07T12:45:00.000Z")
+	writeMarkedSession(t, stores, hidden, "2026-11-07T12:20:00.000Z")
 	now = now.Add(30 * time.Minute)
 	view = scanner.Scan(context.Background(), ScanOptions{})
-	if view.NeedsYou != 1 || byID(t, view, second).State != StateUnread {
-		t.Fatalf("after a new message: %s", asJSON(t, view))
+	if c := byID(t, view, hidden); c.State != StateUnread || view.NeedsYou != 1 {
+		t.Fatalf("after a new message: state %s, needsYou %d", c.State, view.NeedsYou)
+	}
+	if entry := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolClaude, hidden)]; entry.HiddenAt != "" {
+		t.Errorf("the file still hides it at %q after a new message", entry.HiddenAt)
+	}
+}
+
+func TestReopen_TakesACompletionBack(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	if err := scanner.Mark(ToolClaude, id, MarkCompleted); err != nil {
+		t.Fatal(err)
+	}
+
+	reply, found := scanner.Reopen(context.Background(), ToolClaude, id, ScanOptions{}, &fakeLauncher{})
+
+	if !found || !reply.Opened {
+		t.Fatalf("reopen = %+v, found %t", reply, found)
+	}
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateActive || c.CompletedAt != "" || c.SeenAt != "2026-11-07T12:00:00Z" {
+		t.Errorf("after opening a completed conversation: state %s, completedAt %q, seenAt %q", c.State, c.CompletedAt, c.SeenAt)
 	}
 }

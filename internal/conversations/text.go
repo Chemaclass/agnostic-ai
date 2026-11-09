@@ -1,7 +1,6 @@
 package conversations
 
 import (
-	"context"
 	"maps"
 	"regexp"
 	"strings"
@@ -120,17 +119,23 @@ func showTexts(t texts) shownTexts {
 
 // shownCache keeps each row's shown texts from one scan to the next,
 // since the credential check costs more than the rest of a warm scan.
-// Texts no scan asked for since the previous one are dropped.
+// A list asks for the rows of one week and a search for every row that
+// may match, so what one scan did not ask for is kept for the next: a
+// search between two lists would otherwise pay for every row again.
 type shownCache struct {
 	last, next map[texts]shownTexts
 }
 
+// maxShownKept bounds the cache. Past it, only what the latest scan
+// asked for is kept; texts of chats that changed or went away would
+// otherwise pile up for as long as the server runs.
+const maxShownKept = 20000
+
 func (c *shownCache) start() { c.next = map[texts]shownTexts{} }
 
-// finish keeps what this scan asked for. A canceled scan stopped before
-// it reached every row, so it adds to what the cache held instead.
-func (c *shownCache) finish(ctx context.Context) {
-	if ctx.Err() == nil || c.last == nil {
+// finish adds what this scan asked for to what the cache held.
+func (c *shownCache) finish() {
+	if c.last == nil || len(c.last)+len(c.next) > maxShownKept {
 		c.last, c.next = c.next, nil
 		return
 	}

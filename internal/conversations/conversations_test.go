@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -828,7 +829,7 @@ func TestScan_KeepsCachedSessionsWhenTheScanIsCanceled(t *testing.T) {
 	}
 }
 
-func TestScan_ReusesShownTextsAndDropsThoseOfGoneSessions(t *testing.T) {
+func TestScan_ReusesShownTextsAndKeepsThoseAScanDidNotAskFor(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{4242: true}})
 	writeClaudeSessions(t, stores)
 	first := asJSON(t, scanner.Scan(context.Background(), ScanOptions{}))
@@ -845,8 +846,32 @@ func TestScan_ReusesShownTextsAndDropsThoseOfGoneSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	scanner.Scan(context.Background(), ScanOptions{})
-	if len(scanner.shown.last) != held-1 {
-		t.Errorf("held the texts of %d rows, then %d after one session went away", held, len(scanner.shown.last))
+	// A list asks for one week and a search for every match; what one
+	// leaves out, the other would pay for again.
+	if len(scanner.shown.last) != held {
+		t.Errorf("held the texts of %d rows, then %d after a scan that asked for fewer", held, len(scanner.shown.last))
+	}
+}
+
+func TestShownCache_KeepsOnlyTheLatestScanOnceItIsFull(t *testing.T) {
+	var cache shownCache
+	ask := func(from, to int) {
+		cache.start()
+		for i := from; i < to; i++ {
+			cache.get(texts{title: strconv.Itoa(i)})
+		}
+		cache.finish()
+	}
+	ask(0, maxShownKept-10)
+	ask(maxShownKept-10, maxShownKept)
+	if len(cache.last) != maxShownKept {
+		t.Fatalf("held %d texts below the bound, want %d", len(cache.last), maxShownKept)
+	}
+
+	ask(maxShownKept, maxShownKept+5)
+
+	if len(cache.last) != 5 {
+		t.Errorf("held %d texts past the bound, want the 5 of the latest scan", len(cache.last))
 	}
 }
 

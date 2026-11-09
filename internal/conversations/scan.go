@@ -112,7 +112,7 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.shown.start()
-	defer s.shown.finish(ctx)
+	defer s.shown.finish()
 	results := s.readAll(ctx, opts)
 	needsYou, marksErr := s.applyMarks(results)
 	var all []Conversation

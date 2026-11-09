@@ -39,6 +39,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	var (
 		addr, dir, uiDir, switchBack       string
 		open, global, noInstalled, apiOnly bool
+		stopWithStdin                      bool
 		allowedOrigins                     []string
 	)
 	cmd := &cobra.Command{
@@ -138,7 +139,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			switches := newSwitchHandler(peer, viewPortCandidates(), probeViewServer, peerStarter)
 			switches.back = switchBack
 			defer switches.close()
-			return serveUntilInterrupted(cmd.Context(), ln, newServeMuxWithSwitch(src.load, opts, !noInstalled, switches))
+			ctx := cmd.Context()
+			if stopWithStdin {
+				ctx = endedWith(ctx, cmd.InOrStdin())
+			}
+			return serveUntilInterrupted(ctx, ln, newServeMuxWithSwitch(src.load, opts, !noInstalled, switches))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -151,6 +156,8 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	cmd.Flags().BoolVar(&noInstalled, "no-installed", false, "Skip comparing the generated files with disk.")
 	cmd.Flags().StringVar(&switchBack, "switch-back", "", "Loopback address of the server that started this one; its way back tries it first.")
 	_ = cmd.Flags().MarkHidden("switch-back")
+	cmd.Flags().BoolVar(&stopWithStdin, "stop-with-stdin", false, "Stop when standard input closes: a program that started this server ends it by closing the pipe, or by ending itself.")
+	_ = cmd.Flags().MarkHidden("stop-with-stdin")
 	return cmd
 }
 
@@ -236,6 +243,17 @@ func serializeAPI(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// endedWith returns a context that also ends when in reaches its end:
+// the program at the other side of the pipe closed it or is gone.
+func endedWith(ctx context.Context, in io.Reader) context.Context {
+	ctx, end := context.WithCancel(ctx)
+	go func() {
+		_, _ = io.Copy(io.Discard, in)
+		end()
+	}()
+	return ctx
 }
 
 // serveSignals stops serve on hangup too, unless the hangup was ignored

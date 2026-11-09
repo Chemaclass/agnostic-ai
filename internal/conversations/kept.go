@@ -3,15 +3,21 @@ package conversations
 import (
 	"context"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
 
-// keptMaxAge is how long a reader's result is reused while its files
+// freshSpan is how long a scan's answer may be reused while the files
 // hold still. The files say when a chat changed, but not when the app
-// or process that had one open went away, so a kept result is read
-// again at this age and an open mark can outlive its process by it.
-const keptMaxAge = time.Minute
+// or process that had one open went away, or that a quiet chat went
+// dormant, so everything is read again once per span and such a change
+// shows at most this late.
+const freshSpan = time.Minute
+
+// spanOf numbers the freshSpan that at falls in. Kept results and the
+// Stamp both expire when the number changes, so they expire together.
+func spanOf(at time.Time) int64 { return at.Unix() / int64(freshSpan/time.Second) }
 
 // keptSource is one reader's last result and what it was read from.
 type keptSource struct {
@@ -24,19 +30,19 @@ type keptSource struct {
 }
 
 // kept returns the reader's last result while its files and the options
-// it depends on are unchanged and the result is younger than
-// keptMaxAge; otherwise it reads again. Codex and Cursor keep their
+// it depends on are unchanged and the result is from the current
+// freshSpan; otherwise it reads again. Codex and Cursor keep their
 // chats in SQLite, read through the sqlite3 command, which costs far
 // more than checking whether the files changed.
 func (s *Scanner) kept(ctx context.Context, tool Tool, opts ScanOptions, files []string, read func() sourceResult) sourceResult {
 	stamp := fileStamp(files...)
 	shape := opts.Editor + "\x00" + strings.Join(opts.Within, "\x00")
 	now := s.Now()
-	if last, ok := s.keptSources[tool]; ok && last.stamp == stamp && last.shape == shape && now.Sub(last.at) < keptMaxAge && !now.Before(last.at) {
+	if last, ok := s.keptSources[tool]; ok && last.stamp == stamp && last.shape == shape && spanOf(now) == spanOf(last.at) {
 		return copyOf(last.result)
 	}
 	result := read()
-	// A canceled read stopped early; keeping it would show its gaps for keptMaxAge.
+	// A canceled read stopped early; keeping it would show its gaps until the span ends.
 	if ctx.Err() != nil {
 		return result
 	}
@@ -95,11 +101,11 @@ func (s *Scanner) claudeFiles() []string {
 	return append(append(transcripts, running...), jobs...)
 }
 
-// Stamp changes whenever a file that a scan reads changed: the three
-// tools' stores and the marks. It starts no program and reads no file's
-// contents, so a caller that scans on a timer can ask it first and skip
-// the scan while it holds. It cannot see a process end or a day pass,
-// so such a caller still scans at least every StampMaxAge.
+// Stamp changes whenever a scan could answer differently: a file that a
+// scan reads changed (the three tools' stores and the marks), or a new
+// freshSpan began. It starts no program and reads no file's contents,
+// so a caller that asks on a timer can compare it first and skip the
+// scan while it holds.
 func (s *Scanner) Stamp() string {
 	files := append(s.claudeFiles(), s.codexFiles()...)
 	files = append(files, s.cursorFiles()...)
@@ -108,10 +114,5 @@ func (s *Scanner) Stamp() string {
 	}
 	// The names are part of the stamp: a file that replaces another of
 	// the same size and time is still a change.
-	return strings.Join(files, "\x00") + "\x00" + fileStamp(files...)
+	return strconv.FormatInt(spanOf(s.Now()), 10) + "\x00" + strings.Join(files, "\x00") + "\x00" + fileStamp(files...)
 }
-
-// StampMaxAge is how long a caller may skip scans on an unchanged
-// Stamp: what the files cannot show, such as a process that ended or a
-// conversation going dormant, is at most this late.
-const StampMaxAge = keptMaxAge

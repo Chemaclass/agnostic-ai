@@ -37,13 +37,13 @@ func TestScan_ReadsCursorAgainOnlyWhenItsFilesChangeOrTheResultIsOld(t *testing.
 	if scan(); scan() != 1 {
 		t.Fatalf("an unchanged store is read once, read %d times", reads)
 	}
-	now = now.Add(keptMaxAge - time.Second)
+	now = now.Add(freshSpan - time.Second)
 	if scan() != 1 {
-		t.Fatalf("a result younger than %s is kept, read %d times", keptMaxAge, reads)
+		t.Fatalf("a result from the same %s is kept, read %d times", freshSpan, reads)
 	}
 	now = now.Add(time.Second)
 	if scan() != 2 {
-		t.Fatalf("a result as old as %s is read again, read %d times", keptMaxAge, reads)
+		t.Fatalf("a result from the %s before is read again, read %d times", freshSpan, reads)
 	}
 	write(t, paths.CursorDB+"-wal", "a write Cursor has not folded in yet")
 	if scan() != 3 {
@@ -119,5 +119,21 @@ func TestStamp_ChangesWhenAStoreOrTheMarksChange(t *testing.T) {
 			t.Errorf("%s: the stamp did not change", name)
 		}
 		before = after
+	}
+}
+
+func TestStamp_ChangesWhenANewSpanBegins(t *testing.T) {
+	scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	before := scanner.Stamp()
+
+	now = now.Add(freshSpan - time.Second)
+	if scanner.Stamp() != before {
+		t.Errorf("the stamp changed within one %s", freshSpan)
+	}
+	now = now.Add(time.Second)
+	if scanner.Stamp() == before {
+		t.Errorf("the stamp held into the next %s, so a process that ended would never show", freshSpan)
 	}
 }

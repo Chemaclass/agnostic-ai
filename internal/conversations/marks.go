@@ -43,11 +43,15 @@ const (
 	MarkCompleted Mark = "completed"
 	// MarkOpen takes a completion back.
 	MarkOpen Mark = "open"
+	// MarkHidden: the person is done with it and wants it out of every
+	// list and search, until something new is written. The tool's own
+	// store keeps the conversation.
+	MarkHidden Mark = "hidden"
 )
 
 // KnownMark reports whether mark is one the store keeps.
 func KnownMark(mark Mark) bool {
-	return mark == MarkSeen || mark == MarkCompleted || mark == MarkOpen
+	return mark == MarkSeen || mark == MarkCompleted || mark == MarkOpen || mark == MarkHidden
 }
 
 const marksSchemaVersion = "conversation-marks/v1"
@@ -60,9 +64,8 @@ const maxMarksBytes = 8 << 20
 type marksFile struct {
 	SchemaVersion string `json:"schemaVersion"`
 	// Since is the baseline: everything written up to it counts as seen.
-	// It starts as when the file began, so the chats written before the
-	// person started marking are not all unread, and MarkAllSeen moves
-	// it to now.
+	// It is when the file began, so the chats written before the person
+	// started marking are not all unread.
 	Since string               `json:"since"`
 	Marks map[string]markEntry `json:"marks"`
 }
@@ -70,6 +73,7 @@ type marksFile struct {
 type markEntry struct {
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
+	HiddenAt    string `json:"hiddenAt,omitempty"`
 }
 
 func markKey(tool Tool, id string) string { return string(tool) + ":" + id }
@@ -150,8 +154,7 @@ func parseStamp(value string) time.Time {
 func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	written := lastWritten(c)
 	completedAt := parseStamp(entry.CompletedAt)
-	// Seen is the later of the conversation's own mark and the file's
-	// baseline, which MarkAllSeen moves forward.
+	// Seen is the later of the conversation's own mark and the file's baseline.
 	seenAt := parseStamp(entry.SeenAt)
 	if since.After(seenAt) {
 		seenAt = since
@@ -178,10 +181,12 @@ func needsPerson(state State) bool {
 }
 
 // applyMarks sets the state and marks of every conversation in
-// results, in place, and returns how many need the person. A completion
-// that a later write overtook is deleted from the file, so the file
-// holds only completions that still stand. Without a marks path, or
-// with a file that cannot be read, nothing is unread or completed.
+// results, in place, takes out the ones the person hid, and returns how
+// many need the person. A completion or a hiding that a later write
+// overtook is deleted from the file, so the file holds only those that
+// still stand, and a hidden conversation comes back with its next
+// message. Without a marks path, or with a file that cannot be read,
+// nothing is unread, completed or hidden.
 func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 	now := s.Now()
 	file := marksFile{Marks: map[string]markEntry{}}
@@ -194,24 +199,35 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 		err = readErr
 	}
 	since := parseStamp(file.Since)
-	for _, result := range results {
-		for i := range result.conversations {
-			c := &result.conversations[i]
+	for r := range results {
+		// The rows that stay are written over the start of the same list.
+		listed := results[r].conversations[:0]
+		for _, c := range results[r].conversations {
 			key := markKey(c.Tool, c.ID)
 			entry := file.Marks[key]
-			completedAt := parseStamp(entry.CompletedAt)
-			if !completedAt.IsZero() && lastWritten(*c).After(completedAt) {
+			written := lastWritten(c)
+			if overtaken(entry.CompletedAt, written) {
 				entry.CompletedAt = ""
 				file.Marks[key] = entry
 				changed = true
 			}
-			c.State = stateOf(*c, entry, since, now)
+			if overtaken(entry.HiddenAt, written) {
+				entry.HiddenAt = ""
+				file.Marks[key] = entry
+				changed = true
+			}
+			if entry.HiddenAt != "" {
+				continue
+			}
+			c.State = stateOf(c, entry, since, now)
 			c.SeenAt = entry.SeenAt
 			c.CompletedAt = entry.CompletedAt
 			if needsPerson(c.State) {
 				needsYou++
 			}
+			listed = append(listed, c)
 		}
+		results[r].conversations = listed
 	}
 	if err == nil && changed {
 		err = writeMarks(s.MarksPath, file)
@@ -219,10 +235,36 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 	return needsYou, err
 }
 
+// overtaken reports whether something was written after a mark made at
+// markedAt; an empty markedAt is no mark.
+func overtaken(markedAt string, written time.Time) bool {
+	at := parseStamp(markedAt)
+	return !at.IsZero() && written.After(at)
+}
+
 // Mark records what the person says about one conversation, as of now.
-// Completing one also marks it seen, so a later write brings it back
-// as unread.
+// Completing or hiding one also marks it seen, so a later write brings
+// it back as unread.
 func (s *Scanner) Mark(tool Tool, id string, mark Mark) error {
+	changes := map[Mark]func(entry *markEntry, now string){
+		MarkSeen: func(entry *markEntry, now string) { entry.SeenAt = now },
+		MarkCompleted: func(entry *markEntry, now string) {
+			entry.SeenAt, entry.CompletedAt = now, now
+		},
+		MarkOpen: func(entry *markEntry, _ string) { entry.CompletedAt = "" },
+		MarkHidden: func(entry *markEntry, now string) {
+			entry.SeenAt, entry.HiddenAt = now, now
+		},
+	}
+	change, known := changes[mark]
+	if !known {
+		return fmt.Errorf("unknown mark %q", mark)
+	}
+	return s.changeMark(tool, id, change)
+}
+
+// changeMark applies change to one conversation's marks and saves them.
+func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry, now string)) error {
 	if s.MarksPath == "" {
 		return errors.New("this server keeps no conversation marks")
 	}
@@ -235,41 +277,14 @@ func (s *Scanner) Mark(tool Tool, id string, mark Mark) error {
 	}
 	key := markKey(tool, id)
 	entry := file.Marks[key]
-	switch mark {
-	case MarkSeen:
-		entry.SeenAt = stamp(now)
-	case MarkCompleted:
-		entry.SeenAt = stamp(now)
-		entry.CompletedAt = stamp(now)
-	case MarkOpen:
-		entry.CompletedAt = ""
-	default:
-		return fmt.Errorf("unknown mark %q", mark)
-	}
+	change(&entry, stamp(now))
 	file.Marks[key] = entry
 	return writeMarks(s.MarksPath, file)
 }
 
-// MarkAllSeen counts everything written up to now as seen, for every
-// conversation, by moving the file's baseline to now. Completions stay,
-// and a conversation that waits on a prompt is still blocked.
-func (s *Scanner) MarkAllSeen() error {
-	if s.MarksPath == "" {
-		return errors.New("this server keeps no conversation marks")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	now := s.Now()
-	file, _, err := readMarks(s.MarksPath, now)
-	if err != nil {
-		return err
-	}
-	file.Since = stamp(now)
-	return writeMarks(s.MarksPath, file)
-}
-
-// Reopen finds one conversation, opens it where it lives and marks it
-// seen: opening it is seeing it. found is false when the scan no longer
+// Reopen finds one conversation, opens it where it lives, marks it seen
+// and takes its completion back: opening it is seeing it, and picking
+// it up again. found is false when the scan no longer
 // lists it. The open has already happened when the mark is saved, so a
 // mark that cannot be saved is said beside the reply, not instead of it.
 func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (reply OpenReply, found bool) {
@@ -281,7 +296,8 @@ func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if !reply.Opened || s.MarksPath == "" {
 		return reply, true
 	}
-	if err := s.Mark(tool, id, MarkSeen); err != nil {
+	reopened := func(entry *markEntry, now string) { entry.SeenAt, entry.CompletedAt = now, "" }
+	if err := s.changeMark(tool, id, reopened); err != nil {
 		reply.Message += " It could not be marked as seen: " + err.Error()
 	}
 	return reply, true

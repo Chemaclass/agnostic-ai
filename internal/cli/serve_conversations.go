@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -32,7 +34,8 @@ type conversationOpenRequest struct {
 type conversationMarkRequest struct {
 	Tool conversations.Tool `json:"tool"`
 	ID   string             `json:"id"`
-	// As is seen, completed or open (which takes a completion back).
+	// As is seen, completed, open (which takes a completion back) or
+	// hidden (out of every list until something new is written).
 	As conversations.Mark `json:"as"`
 }
 
@@ -100,7 +103,25 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 		}
 		opts.Tool = conversations.Tool(tool)
 	}
+	// The tag is taken before the scan. A scan that itself writes the
+	// marks then changes the stamp, and the caller's next question gets
+	// one more scan instead of a list that missed a write made meanwhile.
+	tag := h.listTag(r)
+	w.Header().Set("ETag", tag)
+	if r.Header.Get("If-None-Match") == tag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	writeEditJSON(w, http.StatusOK, h.scanner.Scan(r.Context(), opts))
+}
+
+// listTag names what a list request would answer: it changes when a
+// scan could answer differently (conversations.Scanner.Stamp) or the
+// request asks for something else. A caller that polls sends it back as
+// If-None-Match and gets 304 without a scan while it holds.
+func (h *conversationsHandler) listTag(r *http.Request) string {
+	sum := sha256.Sum256([]byte(h.scanner.Stamp() + "\x00" + r.URL.RawQuery))
+	return `"` + hex.EncodeToString(sum[:16]) + `"`
 }
 
 // maxConversationQuery bounds a search, which every row is matched against.
@@ -140,8 +161,8 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	writeEditJSON(w, http.StatusOK, reply)
 }
 
-// mark records that the person saw a conversation, completed it, or
-// took a completion back.
+// mark records that the person saw a conversation, completed it, took
+// a completion back, or hid it.
 func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
@@ -163,7 +184,7 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !conversations.KnownMark(req.As) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "as must be seen, completed or open"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "as must be seen, completed, open or hidden"})
 		return
 	}
 	// Only a conversation the server lists gets a mark, so the file
