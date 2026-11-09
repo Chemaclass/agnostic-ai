@@ -31,7 +31,7 @@ dev-commands:
     auto-port: true
 ```
 
-A sandbox that runs an install step and keeps a terminal open (Cursor, OpenHands, Amp). Amp can run `install` again when it refreshes a snapshot, so make it safe to repeat:
+A sandbox that runs an install step and keeps a terminal open (Cursor, OpenHands, Amp). Cursor runs `install` each time its VM starts, and Amp runs it again when it refreshes a snapshot, so make it safe to repeat:
 
 ```yaml
 install: go mod download
