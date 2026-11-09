@@ -9,10 +9,26 @@ import (
 	"path/filepath"
 )
 
+// defaultShortcut opens the list from anywhere until the person picks
+// another. Almost nothing else uses it; a global shortcut takes its keys
+// away from every other app.
+const defaultShortcut = "Ctrl+Alt+Space"
+
 // settings is what the widget remembers between runs.
 type settings struct {
 	// Bubble is where the person left the bubble; nil before they moved it.
 	Bubble *point `json:"bubble,omitempty"`
+	// Shortcut is the keys that open the list from anywhere, as Wails
+	// writes them, such as "Ctrl+Alt+Space". Empty means defaultShortcut.
+	Shortcut string `json:"shortcut,omitempty"`
+}
+
+// shortcut is the saved shortcut, or the default before one was saved.
+func (s settings) shortcut() string {
+	if s.Shortcut == "" {
+		return defaultShortcut
+	}
+	return s.Shortcut
 }
 
 type point struct {

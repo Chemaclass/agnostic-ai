@@ -35,6 +35,9 @@ func TestStateOf_PlacesAConversationByToolReportThenMarksThenAge(t *testing.T) {
 			t.Errorf("%s: state = %s, want %s", tc.name, got, tc.want)
 		}
 	}
+	if got := stateOf(Conversation{UpdatedAt: at(time.Hour)}, markEntry{SeenAt: at(47 * time.Hour)}, since.Add(47*time.Hour+30*time.Minute), now); got != StateActive {
+		t.Errorf("a baseline later than the seen mark counts: state = %s", got)
+	}
 	if got := stateOf(Conversation{UpdatedAt: at(time.Minute)}, markEntry{}, time.Time{}, now); got != StateActive {
 		t.Errorf("without a marks file nothing is unread: state = %s", got)
 	}
@@ -143,5 +146,38 @@ func TestScan_SaysWhenTheMarksFileCannotBeRead(t *testing.T) {
 	}
 	if err := scanner.Mark(ToolClaude, "11111111-1111-4111-8111-111111111111", MarkSeen); err == nil {
 		t.Fatal("marking wrote over an unreadable marks file")
+	}
+}
+
+func TestMarkAllSeen_ClearsEveryUnreadConversationUntilTheNextMessage(t *testing.T) {
+	const first, second = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	scanner.Scan(context.Background(), ScanOptions{})
+	if err := scanner.Mark(ToolClaude, first, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	writeMarkedSession(t, stores, first, "2026-11-07T12:10:00.000Z")
+	writeMarkedSession(t, stores, second, "2026-11-07T12:20:00.000Z")
+	now = now.Add(30 * time.Minute)
+	if view := scanner.Scan(context.Background(), ScanOptions{}); view.NeedsYou != 2 {
+		t.Fatalf("before: needsYou = %d, want 2", view.NeedsYou)
+	}
+
+	if err := scanner.MarkAllSeen(); err != nil {
+		t.Fatal(err)
+	}
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	if view.NeedsYou != 0 || byID(t, view, first).State != StateActive || byID(t, view, second).State != StateActive {
+		t.Fatalf("after marking all seen: %s", asJSON(t, view))
+	}
+
+	writeMarkedSession(t, stores, second, "2026-11-07T12:45:00.000Z")
+	now = now.Add(30 * time.Minute)
+	view = scanner.Scan(context.Background(), ScanOptions{})
+	if view.NeedsYou != 1 || byID(t, view, second).State != StateUnread {
+		t.Fatalf("after a new message: %s", asJSON(t, view))
 	}
 }

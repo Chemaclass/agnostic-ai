@@ -12,7 +12,9 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - In the web interface, the Conversations search finds every conversation, not just the weeks loaded so far, and the tool chips list one tool's conversations from the server.
 - Each conversation in `GET /api/views/conversations` has a `state`: blocked, working, completed, unread, active or dormant. `needsYou` counts the blocked and unread ones. `POST /api/conversations/mark` marks one seen or completed, and opening one marks it seen. A completion lasts until a new message arrives. The marks stay in a file on your machine.
-- A floating widget shows how many conversations need you, over every app, with a searchable list that opens each one where it lives. It is a separate app in `widget/`, built with `make widget`; releases do not ship it yet.
+- A floating widget shows how many conversations need you, over every app, with a searchable list that opens each one where it lives. It opens with a shortcut you can change, can start at login, and marks chats as read or done. It is a separate app in `widget/`, built with `make widget`; releases do not ship it yet.
+- In the web interface, a conversation shows **New reply** when something was written since you last opened it, and **Done** when you marked it as done.
+- Listing conversations costs less: Codex and Cursor chats are read again only when their files change, for at most a minute, and the open Claude Code sessions are checked with one `ps` call. On one machine a repeated list read went from about 133 ms of CPU time to about 22 ms.
 
 #### Upgrades
 

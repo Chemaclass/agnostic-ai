@@ -101,3 +101,55 @@ export const DRAG_DISTANCE = 4
 export function isDrag(pressed, pointer) {
   return Math.hypot(pointer.x - pressed.x, pointer.y - pressed.y) >= DRAG_DISTANCE
 }
+
+/** The key names Wails takes in a shortcut, by the browser's name for the physical key. Letters and digits are handled apart. */
+const SHORTCUT_KEYS = {
+  Space: 'Space',
+  Enter: 'Enter',
+  Tab: 'Tab',
+  Backspace: 'Backspace',
+  Delete: 'Delete',
+  Home: 'Home',
+  End: 'End',
+  ArrowLeft: 'Left',
+  ArrowRight: 'Right',
+  ArrowUp: 'Up',
+  ArrowDown: 'Down',
+  F1: 'F1', F2: 'F2', F3: 'F3', F4: 'F4', F5: 'F5', F6: 'F6',
+  F7: 'F7', F8: 'F8', F9: 'F9', F10: 'F10', F11: 'F11', F12: 'F12',
+}
+
+function shortcutKey(code) {
+  const letter = /^Key([A-Z])$/.exec(code)
+  if (letter) return letter[1]
+  const digit = /^Digit([0-9])$/.exec(code)
+  if (digit) return digit[1]
+  return SHORTCUT_KEYS[code]
+}
+
+/**
+ * The shortcut a key press spells, as Wails writes it ("Ctrl+Alt+Space"), or undefined while it is
+ * not one yet: a shortcut needs a modifier other than Shift, so it cannot swallow plain typing, and a key
+ * Wails can name. On a Mac the Command key is "Cmd"; elsewhere the Windows or Super key is "Super".
+ */
+export function shortcutOf(press, isMac) {
+  const key = shortcutKey(press.code)
+  if (key === undefined) return undefined
+  const parts = []
+  if (press.ctrlKey) parts.push('Ctrl')
+  if (press.altKey) parts.push('Alt')
+  if (press.metaKey) parts.push(isMac ? 'Cmd' : 'Super')
+  if (parts.length === 0) return undefined
+  if (press.shiftKey) parts.push('Shift')
+  return [...parts, key].join('+')
+}
+
+/** How each part of a shortcut reads on a Mac, where the modifiers have symbols. */
+const MAC_KEYCAPS = { Ctrl: '⌃', Alt: '⌥', Shift: '⇧', Cmd: '⌘', Super: '⌘' }
+
+/** The keycaps that show a shortcut: ["⌃", "⌥", "Space"] on a Mac, ["Ctrl", "Alt", "Space"] elsewhere. */
+export function keycapsOf(shortcut, isMac) {
+  const parts = shortcut.split('+')
+  if (!isMac) return parts
+  return parts.map((part) => MAC_KEYCAPS[part] ?? part)
+}

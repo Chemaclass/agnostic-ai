@@ -37,3 +37,26 @@ func TestDefaultBubblePosition_IsTheLowerRightOfTheWorkArea(t *testing.T) {
 		t.Errorf("bubble at (%d, %d), want (1332, 792)", x, y)
 	}
 }
+
+func TestOnScreen_SaysWhetherThePersonCanReachTheBubble(t *testing.T) {
+	laptop := rect{X: 0, Y: 25, Width: 1440, Height: 875}
+	external := rect{X: 1440, Y: 0, Width: 2560, Height: 1440}
+	cases := []struct {
+		name    string
+		bubble  rect
+		screens []rect
+		want    bool
+	}{
+		{"on the laptop screen", rect{1332, 792, 84, 84}, []rect{laptop}, true},
+		{"on the external monitor", rect{3000, 600, 84, 84}, []rect{laptop, external}, true},
+		{"where the unplugged monitor was", rect{3000, 600, 84, 84}, []rect{laptop}, false},
+		{"mostly past the right edge", rect{1410, 400, 84, 84}, []rect{laptop}, false},
+		{"under the menu bar", rect{700, -30, 84, 84}, []rect{laptop}, false},
+		{"with no screen reported", rect{700, 400, 84, 84}, nil, false},
+	}
+	for _, tc := range cases {
+		if got := onScreen(tc.bubble, tc.screens); got != tc.want {
+			t.Errorf("%s: onScreen = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

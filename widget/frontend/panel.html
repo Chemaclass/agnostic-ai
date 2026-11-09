@@ -26,10 +26,22 @@
         Dashboard
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6 3.5h6.5V10M12.5 3.5L4 12"/></svg>
       </button>
-      <button class="quit" id="quit" type="button" aria-label="Quit the widget" title="Quit the widget">
-        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2v6M4.3 4.6a5 5 0 1 0 7.4 0"/></svg>
+      <button class="icon-button" id="menu-button" type="button" aria-label="Settings" title="Settings" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>
       </button>
     </footer>
+    <section class="menu" id="menu" aria-label="Settings" hidden>
+      <div class="menu-row">
+        <span class="menu-label" id="login-label">Start at login</span>
+        <button class="switch" id="login" type="button" role="switch" aria-checked="false" aria-labelledby="login-label"><span></span></button>
+      </div>
+      <div class="menu-row">
+        <span class="menu-label" id="shortcut-label">Open from anywhere</span>
+        <button class="shortcut" id="shortcut" type="button" aria-labelledby="shortcut-label" title="Change the shortcut"></button>
+      </div>
+      <p class="menu-problem" id="menu-problem" role="status" hidden></p>
+      <button class="menu-item" id="quit" type="button">Quit widget</button>
+    </section>
     <p class="toast" id="toast" role="status" hidden></p>
   </main>
 </body>

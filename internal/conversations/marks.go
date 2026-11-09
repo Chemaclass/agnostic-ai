@@ -59,9 +59,10 @@ const maxMarksBytes = 8 << 20
 // names, ids and times, never conversation text.
 type marksFile struct {
 	SchemaVersion string `json:"schemaVersion"`
-	// Since is when the file began. A conversation with no seen mark
-	// counts as seen at Since, so the chats written before the person
-	// started marking are not all unread.
+	// Since is the baseline: everything written up to it counts as seen.
+	// It starts as when the file began, so the chats written before the
+	// person started marking are not all unread, and MarkAllSeen moves
+	// it to now.
 	Since string               `json:"since"`
 	Marks map[string]markEntry `json:"marks"`
 }
@@ -149,8 +150,10 @@ func parseStamp(value string) time.Time {
 func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	written := lastWritten(c)
 	completedAt := parseStamp(entry.CompletedAt)
+	// Seen is the later of the conversation's own mark and the file's
+	// baseline, which MarkAllSeen moves forward.
 	seenAt := parseStamp(entry.SeenAt)
-	if seenAt.IsZero() {
+	if since.After(seenAt) {
 		seenAt = since
 	}
 	switch {
@@ -244,6 +247,24 @@ func (s *Scanner) Mark(tool Tool, id string, mark Mark) error {
 		return fmt.Errorf("unknown mark %q", mark)
 	}
 	file.Marks[key] = entry
+	return writeMarks(s.MarksPath, file)
+}
+
+// MarkAllSeen counts everything written up to now as seen, for every
+// conversation, by moving the file's baseline to now. Completions stay,
+// and a conversation that waits on a prompt is still blocked.
+func (s *Scanner) MarkAllSeen() error {
+	if s.MarksPath == "" {
+		return errors.New("this server keeps no conversation marks")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.Now()
+	file, _, err := readMarks(s.MarksPath, now)
+	if err != nil {
+		return err
+	}
+	file.Since = stamp(now)
 	return writeMarks(s.MarksPath, file)
 }
 

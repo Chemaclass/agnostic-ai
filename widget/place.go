@@ -63,3 +63,18 @@ func defaultBubblePosition(work rect, side int) (x, y int) {
 	const margin = 24
 	return work.X + work.Width - side - margin, work.Y + work.Height - side - margin
 }
+
+// onScreen reports whether the middle of the bubble sits inside one of
+// the screens' work areas, so the person can see and reach it. A saved
+// place on a monitor that is no longer plugged in is not.
+func onScreen(bubble rect, workAreas []rect) bool {
+	centerX, centerY := bubble.X+bubble.Width/2, bubble.Y+bubble.Height/2
+	for _, work := range workAreas {
+		insideX := centerX >= work.X && centerX < work.X+work.Width
+		insideY := centerY >= work.Y && centerY < work.Y+work.Height
+		if insideX && insideY {
+			return true
+		}
+	}
+	return false
+}

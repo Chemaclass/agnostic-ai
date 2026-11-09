@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -12,7 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
 
-// pollEvery is how often the widget reads the tools' stores again.
+// pollEvery is how often the widget checks the tools' stores for a change.
 const pollEvery = 5 * time.Second
 
 // maxRequestBytes bounds a request from the widget's own pages: a tool, an id and a mark.
@@ -39,22 +37,41 @@ func newInbox(scanner *conversations.Scanner, launcher conversations.Launcher, c
 	return &inbox{scanner: scanner, launcher: launcher, changed: changed, refresh: make(chan struct{}, 1)}
 }
 
-// poll reads the list now, then every pollEvery and whenever a refresh
-// is asked for, until ctx ends.
+// poll reads the list now, then checks every pollEvery whether a store
+// changed and reads again only when one did, when a refresh is asked
+// for, or when the last read is StampMaxAge old, until ctx ends. While
+// nothing is written anywhere, a tick costs a look at the files' sizes
+// and times.
 func (in *inbox) poll(ctx context.Context) {
 	ticker := time.NewTicker(pollEvery)
 	defer ticker.Stop()
+	var readStamp string
+	var readAt time.Time
 	for {
-		view := in.scanner.Scan(ctx, conversations.ScanOptions{})
-		in.mu.Lock()
-		in.latest = &view
-		in.mu.Unlock()
-		in.changed()
+		asked := false
+		select {
+		case <-in.refresh:
+			asked = true
+		default:
+		}
+		stamp := in.scanner.Stamp()
+		due := asked || stamp != readStamp || time.Since(readAt) >= conversations.StampMaxAge
+		if due {
+			view := in.scanner.Scan(ctx, conversations.ScanOptions{})
+			// The scan may itself write the marks, so the stamp is taken after it.
+			readStamp, readAt = in.scanner.Stamp(), time.Now()
+			in.mu.Lock()
+			in.latest = &view
+			in.mu.Unlock()
+			in.changed()
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		case <-in.refresh:
+			// Put the request back for the top of the loop to see.
+			in.refreshSoon()
 		}
 	}
 }
@@ -108,18 +125,7 @@ type conversationRequest struct {
 }
 
 func readRequest(w http.ResponseWriter, r *http.Request) (conversationRequest, bool) {
-	var req conversationRequest
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxRequestBytes))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, apiError{Error: "send {tool, id}"})
-		return req, false
-	}
-	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
-		writeJSON(w, http.StatusBadRequest, apiError{Error: "send one JSON object"})
-		return req, false
-	}
-	return req, true
+	return readBody[conversationRequest](w, r, "{tool, id}")
 }
 
 // open answers POST /api/open: the conversation opens where it lives
@@ -157,6 +163,17 @@ func (in *inbox) mark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The pages read the list again once the poll loop says it changed.
+	in.refreshSoon()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// markAllSeen answers POST /api/mark-all-seen: everything written up to
+// now counts as read.
+func (in *inbox) markAllSeen(w http.ResponseWriter, _ *http.Request) {
+	if err := in.scanner.MarkAllSeen(); err != nil {
+		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
+		return
+	}
 	in.refreshSoon()
 	w.WriteHeader(http.StatusNoContent)
 }

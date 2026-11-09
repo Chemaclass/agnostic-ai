@@ -1,6 +1,6 @@
-import { Events } from '/wails/runtime.js'
-import { CallError, hidePanel, markConversation, openConversation, openDashboard, quitWidget, readInbox } from '/api.js'
-import { GROUPS, detailsOf, grouped, keyOf, neighbour, reasonOf, summaryOf } from '/model.js'
+import { Events, System } from '/wails/runtime.js'
+import { CallError, hidePanel, markAllSeen, markConversation, openConversation, openDashboard, quitWidget, readInbox, readPreferences, saveShortcut, saveStartAtLogin } from '/api.js'
+import { GROUPS, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -122,7 +122,7 @@ function rowOf(conversation, order) {
   return row
 }
 
-function groupTitle(group) {
+function groupHead(group) {
   const folded = isFolded(group)
   const title = element('button', 'group-title')
   title.type = 'button'
@@ -134,7 +134,16 @@ function groupTitle(group) {
     state.folded.set(group.id, !folded)
     draw({ force: true })
   })
-  return title
+  const head = element('div', 'group-head')
+  head.append(title)
+  // Marking all as read clears the unread rows; a row that waits on a prompt stays.
+  if (group.id === 'needs-you' && group.rows.some((conversation) => conversation.state === 'unread')) {
+    const all = element('button', 'group-action', 'Mark all read')
+    all.type = 'button'
+    all.addEventListener('click', markAllRead)
+    head.append(all)
+  }
+  return head
 }
 
 function emptyMessage() {
@@ -168,7 +177,7 @@ function draw({ force } = { force: false }) {
   }
   let order = 0
   for (const group of groups) {
-    list.append(groupTitle(group))
+    list.append(groupHead(group))
     if (isFolded(group)) continue
     for (const conversation of group.rows) {
       list.append(rowOf(conversation, order))
@@ -248,6 +257,16 @@ async function markRow(conversation, mark) {
   await refresh()
 }
 
+async function markAllRead() {
+  try {
+    await markAllSeen()
+  } catch (error) {
+    sayFailure(error)
+    return
+  }
+  await refresh()
+}
+
 let searchTimer
 function searchSoon() {
   state.query = queryInput.value.trim()
@@ -262,6 +281,79 @@ clearButton.addEventListener('click', () => {
   searchSoon()
   queryInput.focus()
 })
+// Settings
+
+const menu = document.getElementById('menu')
+const menuButton = document.getElementById('menu-button')
+const loginSwitch = document.getElementById('login')
+const shortcutButton = document.getElementById('shortcut')
+const menuProblem = document.getElementById('menu-problem')
+const isMac = System.IsMac()
+
+const settings = {
+  /** What the shell last said: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
+  preferences: undefined,
+  /** True while the next key press becomes the shortcut. */
+  recording: false,
+  /** Why the last change was refused; shown until the next change. */
+  refusal: undefined,
+}
+
+function drawSettings() {
+  const preferences = settings.preferences
+  loginSwitch.setAttribute('aria-checked', String(preferences.startAtLogin))
+  shortcutButton.classList.toggle('is-recording', settings.recording)
+  if (settings.recording) {
+    shortcutButton.replaceChildren('Press the new keys')
+  } else {
+    shortcutButton.replaceChildren(...keycapsOf(preferences.shortcut, isMac).map((keycap) => element('kbd', '', keycap)))
+  }
+  const problem = settings.refusal ?? preferences.shortcutProblem ?? preferences.startAtLoginProblem
+  menuProblem.hidden = problem === undefined
+  menuProblem.textContent = problem ?? ''
+}
+
+function closeMenu() {
+  settings.recording = false
+  menu.hidden = true
+  menuButton.setAttribute('aria-expanded', 'false')
+}
+
+async function openMenu() {
+  try {
+    settings.preferences = await readPreferences()
+  } catch (error) {
+    sayFailure(error)
+    return
+  }
+  settings.refusal = undefined
+  drawSettings()
+  menu.hidden = false
+  menuButton.setAttribute('aria-expanded', 'true')
+}
+
+/** Saves one setting and shows what the shell now holds, or why it refused. */
+async function change(save) {
+  try {
+    settings.preferences = await save()
+    settings.refusal = undefined
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    settings.refusal = error.message
+  }
+  drawSettings()
+}
+
+menuButton.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()))
+loginSwitch.addEventListener('click', () => change(() => saveStartAtLogin(!settings.preferences.startAtLogin)))
+shortcutButton.addEventListener('click', () => {
+  settings.recording = !settings.recording
+  drawSettings()
+})
+document.addEventListener('mousedown', (event) => {
+  if (menu.hidden || menu.contains(event.target) || menuButton.contains(event.target)) return
+  closeMenu()
+})
 document.getElementById('quit').addEventListener('click', () => quitWidget())
 document.getElementById('dashboard').addEventListener('click', async () => {
   try {
@@ -275,6 +367,15 @@ document.getElementById('dashboard').addEventListener('click', async () => {
 
 const KEY_STEPS = { ArrowDown: 1, ArrowUp: -1 }
 document.addEventListener('keydown', (event) => {
+  if (settings.recording) {
+    // Every key belongs to the new shortcut until one is complete.
+    event.preventDefault()
+    const shortcut = shortcutOf(event, isMac)
+    if (shortcut === undefined) return
+    settings.recording = false
+    change(() => saveShortcut(shortcut))
+    return
+  }
   const step = KEY_STEPS[event.key]
   if (step !== undefined) {
     event.preventDefault()
@@ -294,6 +395,7 @@ function opened(from) {
   void card.offsetWidth
   card.classList.add('is-opening')
   toast.hidden = true
+  closeMenu()
   state.activeKey = undefined
   queryInput.focus()
   queryInput.select()

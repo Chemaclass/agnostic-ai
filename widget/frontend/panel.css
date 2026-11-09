@@ -60,8 +60,7 @@ body {
   box-shadow: inset 0 0 0 1px rgba(240, 163, 94, 0.55), 0 0 0 3px var(--rust-soft);
 }
 
-.search svg,
-.quit svg {
+.search svg {
   width: 16px;
   height: 16px;
   flex: none;
@@ -152,16 +151,37 @@ body {
   background-clip: content-box;
 }
 
-.group-title {
+.group-head {
   position: sticky;
   top: 0;
   z-index: 1;
   display: flex;
+  align-items: flex-end;
+  background: linear-gradient(180deg, var(--ink) 72%, transparent);
+}
+
+.group-action {
+  flex: none;
+  margin: 0 6px 3px 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--paper-faint);
+  font-size: 11px;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.group-action:hover {
+  background: var(--action-soft);
+  color: var(--action);
+}
+
+.group-title {
+  display: flex;
   align-items: center;
   gap: 6px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 10px 8px 6px;
-  background: linear-gradient(180deg, var(--ink) 72%, transparent);
   color: var(--paper-faint);
   font-size: 10.5px;
   font-weight: 650;
@@ -452,7 +472,7 @@ body {
   transform: translate(1px, -1px);
 }
 
-.quit {
+.icon-button {
   display: grid;
   place-items: center;
   width: 26px;
@@ -460,17 +480,162 @@ body {
   border-radius: 8px;
 }
 
-.quit:hover {
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--paper-faint);
+}
+
+.icon-button:hover,
+.icon-button[aria-expanded='true'] {
   background: rgba(242, 237, 229, 0.08);
 }
 
-.quit:hover svg {
-  stroke: var(--paper);
+.icon-button:hover svg,
+.icon-button[aria-expanded='true'] svg {
+  fill: var(--paper);
+}
+
+/* Settings: a small sheet that rises over the foot. */
+
+/* Above the list's sticky group heads. */
+.menu {
+  z-index: 5;
+  position: absolute;
+  right: 8px;
+  bottom: 46px;
+  width: 264px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--ink-high);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), 0 12px 28px rgba(0, 0, 0, 0.5);
+  transform-origin: bottom right;
+  animation: menu-in 160ms var(--ease-out);
+}
+
+.menu[hidden] {
+  display: none;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(4px);
+  }
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 0 8px;
+}
+
+.menu-label {
+  font-size: 12.5px;
+  color: var(--paper);
+}
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(242, 237, 229, 0.16);
+  transition: background 160ms ease;
+}
+
+.switch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: transform 180ms var(--ease-spring);
+}
+
+.switch[aria-checked='true'] {
+  background: var(--action);
+}
+
+.switch[aria-checked='true'] span {
+  transform: translateX(14px);
+}
+
+.shortcut {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 24px;
+  padding: 2px 4px;
+  border-radius: 7px;
+  color: var(--paper-dim);
+  font-size: 11.5px;
+  transition: background 120ms ease;
+}
+
+.shortcut:hover {
+  background: rgba(242, 237, 229, 0.08);
+}
+
+.shortcut.is-recording {
+  padding: 2px 8px;
+  background: var(--action-soft);
+  color: var(--action);
+}
+
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: rgba(242, 237, 229, 0.1);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.4), inset 0 0 0 1px var(--hairline);
+  font: inherit;
+  font-size: 11px;
+  color: var(--paper);
+}
+
+.menu-problem {
+  margin: 2px 8px 6px;
+  color: var(--alert);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.menu-problem[hidden] {
+  display: none;
+}
+
+.menu-item {
+  width: 100%;
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0 0 8px 8px;
+  color: var(--paper-dim);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.menu-item:hover {
+  color: var(--paper);
+  background: rgba(242, 237, 229, 0.06);
 }
 
 /* What the last open said, over the foot for a moment. */
 
 .toast {
+  z-index: 6;
   position: absolute;
   left: 12px;
   right: 12px;

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ago, detailsOf, grouped, isDrag, neighbour, reasonOf, summaryOf } from '../frontend/model.js'
+import { ago, detailsOf, grouped, isDrag, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -62,4 +62,23 @@ test('takes a press that barely moves as a click, and a longer one as a drag', (
   assert.equal(isDrag(pressed, { x: 32, y: 32 }), false)
   assert.equal(isDrag(pressed, { x: 34, y: 30 }), true)
   assert.equal(isDrag(pressed, { x: 27, y: 26 }), true)
+})
+
+test('spells a key press as a shortcut once it has a modifier and a key', () => {
+  const press = (code, modifiers = {}) => ({ code, ctrlKey: false, altKey: false, metaKey: false, shiftKey: false, ...modifiers })
+  assert.equal(shortcutOf(press('Space', { ctrlKey: true, altKey: true }), true), 'Ctrl+Alt+Space')
+  assert.equal(shortcutOf(press('KeyK', { metaKey: true, shiftKey: true }), true), 'Cmd+Shift+K')
+  assert.equal(shortcutOf(press('KeyK', { metaKey: true }), false), 'Super+K')
+  assert.equal(shortcutOf(press('Digit1', { altKey: true }), false), 'Alt+1')
+  assert.equal(shortcutOf(press('F5', { ctrlKey: true }), false), 'Ctrl+F5')
+  assert.equal(shortcutOf(press('KeyK'), true), undefined, 'a plain key is typing')
+  assert.equal(shortcutOf(press('KeyK', { shiftKey: true }), true), undefined, 'Shift alone is typing a capital')
+  assert.equal(shortcutOf(press('ControlLeft', { ctrlKey: true }), true), undefined, 'a modifier on its own is not a shortcut yet')
+  assert.equal(shortcutOf(press('Comma', { ctrlKey: true }), true), undefined, 'a key Wails cannot name')
+})
+
+test('shows a shortcut as keycaps, with symbols on a Mac', () => {
+  assert.deepEqual(keycapsOf('Ctrl+Alt+Space', true), ['⌃', '⌥', 'Space'])
+  assert.deepEqual(keycapsOf('Cmd+Shift+K', true), ['⌘', '⇧', 'K'])
+  assert.deepEqual(keycapsOf('Ctrl+Alt+Space', false), ['Ctrl', 'Alt', 'Space'])
 })
