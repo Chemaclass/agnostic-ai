@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -217,6 +218,52 @@ func TestImportWindsurf_MCPTransportKeyRenamesToType(t *testing.T) {
 	}
 	if strings.Contains(got, "transport:") {
 		t.Errorf("Devin's own transport key must not survive into the spec, got:\n%s", got)
+	}
+}
+
+// TestImportWindsurf_MCPDisabledToolsAndOAuthScopesRoundTrip covers
+// import followed by sync: Devin's `disabledTools` and `oauthScopes`
+// lists must survive into the spec and back into the native file.
+func TestImportWindsurf_MCPDisabledToolsAndOAuthScopesRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [windsurf]\n")
+	writeFile(t, filepath.Join(dir, ".devin", "mcp_config.json"), `{
+  "mcpServers": {
+    "gh": {
+      "url": "https://mcp.example.test/mcp",
+      "transport": "http",
+      "oauthScopes": ["repo"],
+      "disabledTools": ["delete_repo"]
+    },
+    "fs": {
+      "command": "npx",
+      "args": ["x"],
+      "disabledTools": ["write_file"]
+    }
+  }
+}
+`)
+
+	execCLI(t, "import", "windsurf")
+	execCLI(t, "sync")
+
+	var doc struct {
+		MCPServers map[string]map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".devin", "mcp_config.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ server, key, want string }{
+		{"gh", "oauthScopes", "[repo]"},
+		{"gh", "disabledTools", "[delete_repo]"},
+		{"fs", "disabledTools", "[write_file]"},
+	} {
+		if got := fmt.Sprint(doc.MCPServers[c.server][c.key]); got != c.want {
+			t.Errorf("%s.%s after import and sync = %s, want %s", c.server, c.key, got, c.want)
+		}
 	}
 }
 

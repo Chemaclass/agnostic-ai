@@ -6,7 +6,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_file="$root/docs/site/og/card.html"
-output_file=${1:-"$root/docs/site/static/og-v3.png"}
+output_file=${1:-"$root/docs/site/static/og-v4.png"}
 
 find_chrome() {
   if [[ -n "${CHROME:-}" ]]; then

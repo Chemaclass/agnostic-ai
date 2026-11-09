@@ -416,24 +416,12 @@ code {
   flex: none;
 }
 
-.brand-spokes {
-  fill: none;
-  stroke: var(--accent);
-  stroke-opacity: 0.7;
-  stroke-width: 3.5;
-  stroke-linecap: round;
-}
-
-.brand-core {
-  fill: var(--accent);
-}
-
-.brand-sat-good {
-  fill: var(--good);
-}
-
-.brand-sat-ink {
+.brand-panel {
   fill: var(--ink);
+}
+
+.brand-panel-accent {
+  fill: var(--accent);
 }
 
 .site-nav {
