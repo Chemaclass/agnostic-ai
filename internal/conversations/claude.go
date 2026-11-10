@@ -70,6 +70,9 @@ type claudeLive struct {
 	// Status is busy, shell (running a command), waiting (for the
 	// person) or idle.
 	Status string `json:"status"`
+	// Entrypoint is where this process runs it, which can differ from
+	// where the session began: a plugin session resumed in a terminal.
+	Entrypoint string `json:"entrypoint"`
 }
 
 // claudeActivity maps a live session's status to what the page shows.
@@ -82,8 +85,9 @@ var claudeActivity = map[string]Activity{
 
 // liveSession is a running process that holds a session, and what it does.
 type liveSession struct {
-	process  liveProcess
-	activity Activity
+	process    liveProcess
+	activity   Activity
+	entrypoint string
 }
 
 type claudeJob struct {
@@ -128,7 +132,11 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity
-		claudeRoute(&c, meta.entrypoint, jobs[id], session.process, isLive, editor)
+		entrypoint := meta.entrypoint
+		if isLive && session.entrypoint != "" {
+			entrypoint = session.entrypoint
+		}
+		claudeRoute(&c, entrypoint, jobs[id], session.process, isLive, editor)
 		conversations = append(conversations, c)
 	}
 	for file := range s.claude {
@@ -335,7 +343,7 @@ func (s *Scanner) claudeLiveSessions() map[string]liveSession {
 	live := map[string]liveSession{}
 	for _, entry := range entries {
 		if alive[entry.PID] {
-			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status]}
+			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint}
 		}
 	}
 	return live

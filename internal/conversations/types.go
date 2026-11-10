@@ -55,7 +55,8 @@ type RouteKind string
 const (
 	// RouteFocus switches to the terminal tab that already runs it.
 	RouteFocus RouteKind = "focus"
-	// RouteTerminal runs Command in a new terminal window.
+	// RouteTerminal runs Command: in the tab it last ran in, a new tab of
+	// that app, or a new Terminal window.
 	RouteTerminal RouteKind = "terminal"
 	// RouteLink opens Link in the app that owns the conversation.
 	RouteLink RouteKind = "link"

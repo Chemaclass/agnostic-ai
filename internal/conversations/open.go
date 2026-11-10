@@ -214,14 +214,10 @@ func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply
 	return OpenReply{Opened: true, Message: opening.opened}
 }
 
-// tabApps are the terminal apps whose tabs the server selects and types
-// into by tty. Terminal opens no tab from outside, so a new session
-// there gets a window.
-var tabApps = map[string]struct{ newTabs bool }{
-	"Terminal": {newTabs: false},
-	"iTerm":    {newTabs: true},
-	"Ghostty":  {newTabs: true},
-}
+// tabApps are the terminal apps whose tabs the server selects by tty
+// and opens new tabs in. An ended session is typed into its old tab
+// only in an app listed in typeLines, which can clear the line first.
+var tabApps = map[string]bool{"Terminal": true, "iTerm": true, "Ghostty": true}
 
 // editorTerminals are the editors whose window on a folder holds the
 // terminal, by the name hostOf gives them, with their macOS name.
@@ -239,34 +235,41 @@ func allowControl(verb, app, then string) string {
 // while that tab sits at its prompt, else in a new tab of the same app.
 func resumeTerminal(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
 	tab := c.lastTab
-	if tab == nil {
+	if tab == nil || !tabApps[tab.App] {
 		return newTerminal(ctx, c, launcher)
 	}
-	app, scriptable := tabApps[tab.App]
-	if !scriptable {
-		return newTerminal(ctx, c, launcher)
-	}
-	if table, err := processes.Table(); err == nil && tabIdle(table, *tab) {
-		ok, err := launcher.RunInTab(ctx, tab.App, tab.TTY, c.Open.Command)
-		if ok && err == nil {
-			return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in the %s tab it last ran in.", tab.App)}
+	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: c.Open.Command} }
+	if _, typed := typeLines[tab.App]; typed {
+		if table, err := processes.Table(); err == nil && tabIdle(table, *tab) {
+			ok, err := launcher.RunInTab(ctx, tab.App, tab.TTY, c.Open.Command)
+			switch {
+			case ok && err == nil:
+				return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in the %s tab it last ran in.", tab.App)}
+			case errors.Is(err, errAutomationDenied):
+				return byHand(allowControl("opening", tab.App, "or run this command yourself"))
+			case errors.Is(err, context.DeadlineExceeded):
+				return byHand(waitingForPrompt(tab.App))
+			}
 		}
-		if errors.Is(err, errAutomationDenied) {
-			return OpenReply{Message: allowControl("opening", tab.App, "or run this command yourself"), Command: c.Open.Command}
-		}
-	}
-	if !app.newTabs {
-		return newTerminal(ctx, c, launcher)
 	}
 	err := launcher.RunInNewTab(ctx, tab.App, c.Open.Command)
 	switch {
 	case err == nil:
 		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", tab.App)}
 	case errors.Is(err, errAutomationDenied):
-		return OpenReply{Message: allowControl("opening", tab.App, "or run this command yourself"), Command: c.Open.Command}
+		return byHand(allowControl("opening", tab.App, "or run this command yourself"))
+	case errors.Is(err, context.DeadlineExceeded):
+		return byHand(waitingForPrompt(tab.App))
+	case tab.App == "Terminal":
+		// Terminal before macOS 26 has no do script in new tab.
+		return newTerminal(ctx, c, launcher)
 	default:
-		return OpenReply{Message: fmt.Sprintf("Could not open a %s tab. Run this command in a terminal.", tab.App), Command: c.Open.Command}
+		return byHand(fmt.Sprintf("Could not open a %s tab. Run this command in a terminal.", tab.App))
 	}
+}
+
+func waitingForPrompt(app string) string {
+	return fmt.Sprintf("macOS is waiting for you to allow control of %s. Answer its prompt, then click again.", app)
 }
 
 func newTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
@@ -296,23 +299,29 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 		return OpenReply{Message: message, Command: c.Open.Command}
 	}
 	placed := c.placed
-	if placed == nil && c.Tool == ToolCodex {
-		return switchThere(fmt.Sprintf("Codex keeps this thread open in the background (process %d), but no Codex terminal shows it. Run this command to show it in a terminal.", c.process.PID))
+	// A thread the Codex daemon holds is live even with no client in
+	// front of it, so the reply never offers to resume it again.
+	if c.Tool == ToolCodex && (placed == nil || len(placed.ttys) > 0) {
+		switch {
+		case placed == nil:
+			return OpenReply{Message: fmt.Sprintf("Codex keeps this thread open in the background (process %d), but no Codex terminal shows it.", c.process.PID)}
+		case len(placed.ttys) == 1:
+			return OpenReply{Message: "Codex keeps this thread open in the background, and the terminal that shows it could not be identified. It may be the Codex session on " + shortTTY(placed.ttys[0]) + "."}
+		default:
+			return OpenReply{Message: fmt.Sprintf("Codex keeps this thread open in the background and does not say which of its sessions shows it (%s). Switch to it there.", strings.Join(shortTTYs(placed.ttys), ", "))}
+		}
 	}
 	if placed == nil {
 		return switchThere(fmt.Sprintf("It is open (process %d), but the terminal that runs it could not be found. Switch to it there.", c.process.PID))
 	}
-	if len(placed.ttys) > 1 {
-		return switchThere(fmt.Sprintf("Two Codex sessions run in this folder (%s) and Codex does not say which one holds this thread. Switch to it there.", strings.Join(shortTTYs(placed.ttys), ", ")))
-	}
 	app, pid, tty := placed.host.App, placed.process.PID, shortTTY(placed.host.TTY)
-	if _, scriptable := tabApps[app]; scriptable {
+	if tabApps[app] {
 		ok, err := launcher.FocusTab(ctx, app, placed.host.TTY)
 		switch {
 		case errors.Is(err, errAutomationDenied):
 			return switchThere(allowControl("switching to", app, "then click again"))
 		case errors.Is(err, context.DeadlineExceeded):
-			return switchThere(fmt.Sprintf("macOS is waiting for you to allow control of %s. Answer its prompt, then click again.", app))
+			return switchThere(waitingForPrompt(app))
 		case err != nil || !ok:
 			return switchThere(fmt.Sprintf("It runs in %s on %s (process %d), but no tab shows that terminal. Switch to it there.", app, tty, pid))
 		default:
@@ -448,11 +457,17 @@ var tabScripts = map[string]struct{ open, match, close []string }{
 	},
 }
 
-// typeLines type item 2 of argv into the matched t, then press Return.
+// typeLines clear what was typed on the matched t's prompt line, so it
+// cannot run with the command, then type item 2 of argv and press
+// Return. Terminal cannot send keys to a tab, and iTerm2's write text
+// was not shown to clear a line, so their tabs are never typed into.
 var typeLines = map[string][]string{
-	"Terminal": {"do script (item 2 of argv) in t"},
-	"iTerm":    {"tell t to write text (item 2 of argv)"},
-	"Ghostty":  {"input text (item 2 of argv) to t", `send key "enter" to t`},
+	"Ghostty": {
+		`send key "e" modifiers "control" to t`,
+		`send key "u" modifiers "control" to t`,
+		"input text (item 2 of argv) to t",
+		`send key "enter" to t`,
+	},
 }
 
 func tabArgs(app string, extra []string, values ...string) []string {
@@ -476,6 +491,12 @@ func runInTabArgs(app, tty, command string) []string {
 // newTabLines open a tab that runs item 1 of argv, in the front window
 // or, with none open, in a new one.
 var newTabLines = map[string][]string{
+	"Terminal": {
+		`tell application "Terminal"`,
+		"do script in new tab (item 1 of argv)",
+		"activate",
+		"end tell",
+	},
 	"iTerm": {
 		`tell application "iTerm"`,
 		"if (count of windows) is 0 then",
@@ -528,7 +549,7 @@ func (macLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) 
 }
 
 func (macLauncher) RunInTab(ctx context.Context, app, tty, command string) (bool, error) {
-	if _, ok := tabScripts[app]; !ok {
+	if _, ok := typeLines[app]; !ok {
 		return false, errNotHere
 	}
 	out, err := run(ctx, "osascript", runInTabArgs(app, tty, command)...)

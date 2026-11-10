@@ -432,6 +432,7 @@ type fakeLauncher struct {
 	calls     []string
 	err       error
 	folderErr error
+	newTabErr error
 	focusOK   bool
 }
 
@@ -467,6 +468,9 @@ func (f *fakeLauncher) RunInTab(_ context.Context, app, tty, command string) (bo
 
 func (f *fakeLauncher) RunInNewTab(_ context.Context, app, command string) error {
 	f.calls = append(f.calls, "new tab "+app+" "+command)
+	if f.newTabErr != nil {
+		return f.newTabErr
+	}
 	return f.err
 }
 

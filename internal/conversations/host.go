@@ -82,6 +82,8 @@ type terminalHost struct {
 var terminalApps = []struct{ fragment, app string }{
 	{"/Terminal.app/", "Terminal"},
 	{"/iTerm.app/", "iTerm"},
+	// iTerm2 keeps its shells under a session server outside the app.
+	{"/iTerm2/iTermServer-", "iTerm"},
 	{"/Ghostty.app/", "Ghostty"},
 	{"/Warp.app/", "Warp"},
 	{"/Cursor.app/", "Cursor"},
@@ -126,7 +128,9 @@ func hostOf(table []ProcessInfo, pid int) (host terminalHost, ok bool) {
 var shells = map[string]bool{"zsh": true, "bash": true, "fish": true, "sh": true, "dash": true, "ksh": true, "tcsh": true, "nu": true}
 
 // tabIdle reports whether tab still shows the login the session ran
-// under and sits at a shell prompt: only a shell in the foreground.
+// under and sits at its shell prompt: the tab's own shell, the child of
+// that login, is the only process in the foreground. A script the shell
+// runs, even one that waits at a prompt of its own, is busy.
 func tabIdle(table []ProcessInfo, tab terminalHost) bool {
 	leader, foreground := false, false
 	for _, process := range table {
@@ -137,7 +141,8 @@ func tabIdle(table []ProcessInfo, tab terminalHost) bool {
 			leader = true
 		}
 		if strings.Contains(process.Stat, "+") {
-			if !shells[strings.TrimPrefix(filepath.Base(process.Command), "-")] {
+			ownShell := process.PPID == tab.Leader.PID || process.PID == tab.Leader.PID
+			if !ownShell || !shells[strings.TrimPrefix(filepath.Base(process.Command), "-")] {
 				return false
 			}
 			foreground = true
@@ -150,52 +155,89 @@ func tabIdle(table []ProcessInfo, tab terminalHost) bool {
 // start: the terminal client creates its first thread as it starts.
 const codexClientLead = 15 * time.Second
 
-// pickCodexClient finds the terminal client that shows a thread the
-// Codex app-server daemon holds: the client started with the thread's
-// id, else the only one whose first thread after it started, within
-// codexClientLead, is this one, else the only client in the thread's
-// folder that started no thread. threads holds when each Codex thread
-// was created. Codex does not record which client shows a thread, and
-// its daemon keeps a thread after the client quits, so with none of
-// these pid is 0 and ttys lists the clients that could still be it.
-func pickCodexClient(c Conversation, threads []string, table []ProcessInfo, processes Processes) (pid int, ttys []string) {
+// codexClients finds the terminal client that shows a thread the Codex
+// app-server daemon holds. Codex does not record which client shows a
+// thread, and its daemon keeps a thread after the client quits, so the
+// pick reads clues: the command lines once, and the clients' folders
+// once and only when the folder can still decide.
+type codexClients struct {
+	table     []ProcessInfo
+	threads   []string
+	processes Processes
+	loaded    bool
+	pids      []int
+	args      map[int]string
+	clients   []ProcessInfo
+	cwds      map[int]string
+}
+
+// newCodexClients reads table; threads holds when each Codex CLI thread
+// was created.
+func newCodexClients(table []ProcessInfo, threads []string, processes Processes) *codexClients {
+	return &codexClients{table: table, threads: threads, processes: processes}
+}
+
+func (k *codexClients) load() {
+	if k.loaded {
+		return
+	}
+	k.loaded = true
 	var candidates []ProcessInfo
-	for _, process := range table {
+	for _, process := range k.table {
 		if process.TTY != "" && filepath.Base(process.Command) == "codex" {
 			candidates = append(candidates, process)
+			k.pids = append(k.pids, process.PID)
 		}
 	}
 	if len(candidates) == 0 {
-		return 0, nil
+		return
 	}
-	pids := make([]int, len(candidates))
-	for i, candidate := range candidates {
-		pids[i] = candidate.PID
-	}
-	args := processes.Args(pids)
-	var clients []ProcessInfo
+	k.args = k.processes.Args(k.pids)
 	for _, candidate := range candidates {
-		if strings.Contains(args[candidate.PID], "app-server") {
-			continue
+		if !strings.Contains(k.args[candidate.PID], "app-server") {
+			k.clients = append(k.clients, candidate)
 		}
-		if strings.Contains(args[candidate.PID], c.ID) {
-			return candidate.PID, nil
-		}
-		clients = append(clients, candidate)
 	}
-	if only, ok := onlyOne(clients, func(client ProcessInfo) bool { return firstThreadAfter(client, threads) == c.StartedAt }); ok && c.StartedAt != "" {
+}
+
+func (k *codexClients) folders() map[int]string {
+	if k.cwds == nil {
+		k.cwds = k.processes.Cwds(k.pids)
+		if k.cwds == nil {
+			k.cwds = map[int]string{}
+		}
+	}
+	return k.cwds
+}
+
+// pick returns the client that shows c: the one started with its id,
+// else the only one whose first thread after it started is c, else,
+// when alone says the daemon holds no other thread in c's folder, the
+// only client in that folder that started no thread. With none of
+// these pid is 0 and ttys lists the clients that could still be it.
+func (k *codexClients) pick(c Conversation, alone bool) (pid int, ttys []string) {
+	k.load()
+	for _, client := range k.clients {
+		if strings.Contains(k.args[client.PID], c.ID) {
+			return client.PID, nil
+		}
+	}
+	if only, ok := onlyOne(k.clients, func(client ProcessInfo) bool { return firstThreadAfter(client, k.threads) == c.StartedAt }); ok && c.StartedAt != "" {
 		return only.PID, nil
 	}
 	// A client whose first thread is another one shows that thread.
 	var free []ProcessInfo
-	for _, client := range clients {
-		if firstThreadAfter(client, threads) == "" {
+	for _, client := range k.clients {
+		if firstThreadAfter(client, k.threads) == "" {
 			free = append(free, client)
 		}
 	}
-	cwds := processes.Cwds(pids)
+	if len(free) == 0 {
+		return 0, nil
+	}
+	cwds := k.folders()
 	inFolder := func(client ProcessInfo) bool { return cwds[client.PID] == c.Folder }
-	if only, ok := onlyOne(free, inFolder); ok {
+	if only, ok := onlyOne(free, inFolder); ok && alone {
 		return only.PID, nil
 	}
 	for _, client := range free {
@@ -254,17 +296,14 @@ type placement struct {
 // holds shows in a terminal client, which is looked for.
 func (s *Scanner) placeLive(results []sourceResult) {
 	var live []*Conversation
+	var threads []string
 	for r := range results {
 		for i := range results[r].conversations {
-			if c := &results[r].conversations[i]; c.Open.Kind == RouteFocus && c.process != nil {
+			c := &results[r].conversations[i]
+			if c.Open.Kind == RouteFocus && c.process != nil {
 				live = append(live, c)
 			}
-		}
-	}
-	var threads []string
-	for _, result := range results {
-		for _, c := range result.conversations {
-			if c.Tool == ToolCodex && c.StartedAt != "" {
+			if c.Tool == ToolCodex && c.App == AppCLI && c.StartedAt != "" {
 				threads = append(threads, c.StartedAt)
 			}
 		}
@@ -272,14 +311,21 @@ func (s *Scanner) placeLive(results []sourceResult) {
 	tabs := s.rememberedTabs()
 	if len(live) > 0 {
 		if table, err := s.Processes.Table(); err == nil {
-			changed := false
+			seen := map[string]terminalHost{}
+			heldIn := map[string]int{}
 			for _, c := range live {
-				if place(c, threads, table, s.Processes) && c.placed.host.App != "" && tabs.remember(markKey(c.Tool, c.ID), c.placed.host, s.Now()) {
-					changed = true
+				if host, _ := hostOf(table, c.process.PID); c.Tool == ToolCodex && host.TTY == "" {
+					heldIn[c.Folder]++
 				}
 			}
-			if changed {
-				s.saveTabs(tabs)
+			clients := newCodexClients(table, threads, s.Processes)
+			for _, c := range live {
+				if place(c, clients, table, heldIn[c.Folder] <= 1) {
+					seen[markKey(c.Tool, c.ID)] = c.placed.host
+				}
+			}
+			if changed := tabs.rememberAll(seen, s.Now()); changed {
+				tabs = s.saveTabs(seen)
 			}
 		}
 	}
@@ -289,7 +335,7 @@ func (s *Scanner) placeLive(results []sourceResult) {
 			if c.Open.Kind != RouteTerminal || c.App != AppCLI {
 				continue
 			}
-			if tab, ok := tabs.Tabs[markKey(c.Tool, c.ID)]; ok && tab.Host.App != "" {
+			if tab, ok := tabs.Tabs[markKey(c.Tool, c.ID)]; ok && isTabApp(tab.Host.App) {
 				host := tab.Host
 				c.lastTab = &host
 				c.Open.Label = "Open in " + host.App
@@ -298,14 +344,20 @@ func (s *Scanner) placeLive(results []sourceResult) {
 	}
 }
 
-// place sets where c shows; false when its terminal was not found.
-func place(c *Conversation, threads []string, table []ProcessInfo, processes Processes) bool {
+func isTabApp(app string) bool {
+	_, ok := tabApps[app]
+	return ok
+}
+
+// place sets where c shows. ok is true when it shows in a tab of an app
+// in tabApps, which is worth remembering.
+func place(c *Conversation, clients *codexClients, table []ProcessInfo, alone bool) (ok bool) {
 	process := *c.process
 	host, _ := hostOf(table, process.PID)
 	if host.TTY == "" && c.Tool == ToolCodex {
-		pid, ttys := pickCodexClient(*c, threads, table, processes)
+		pid, ttys := clients.pick(*c, alone)
 		if pid == 0 {
-			if len(ttys) > 1 {
+			if len(ttys) > 0 {
 				c.placed = &placement{ttys: ttys}
 			}
 			return false
@@ -317,9 +369,10 @@ func place(c *Conversation, threads []string, table []ProcessInfo, processes Pro
 		return false
 	}
 	c.placed = &placement{process: process, host: host}
-	if host.App != "" {
-		c.Open.Label = "Switch to " + host.App
+	if !isTabApp(host.App) {
+		return false
 	}
+	c.Open.Label = "Switch to " + host.App
 	return true
 }
 
@@ -338,8 +391,12 @@ type rememberedTab struct {
 // last seen running.
 const tabsKept = 30 * 24 * time.Hour
 
+// tabsSeenRefresh is how old a remembered tab's time may grow while its
+// session still runs, so pruning counts from when it was last seen.
+const tabsSeenRefresh = 24 * time.Hour
+
 func (f *tabsFile) remember(key string, host terminalHost, now time.Time) bool {
-	if f.Tabs[key].Host == host {
+	if kept, ok := f.Tabs[key]; ok && kept.Host == host && now.Sub(parseStamp(kept.At)) < tabsSeenRefresh {
 		return false
 	}
 	f.Tabs[key] = rememberedTab{Host: host, At: stamp(now)}
@@ -349,6 +406,16 @@ func (f *tabsFile) remember(key string, host terminalHost, now time.Time) bool {
 		}
 	}
 	return true
+}
+
+func (f *tabsFile) rememberAll(seen map[string]terminalHost, now time.Time) bool {
+	changed := false
+	for key, host := range seen {
+		if f.remember(key, host, now) {
+			changed = true
+		}
+	}
+	return changed
 }
 
 // tabsPath sits beside the marks file and outside Stamp: it changes
@@ -361,8 +428,11 @@ func (s *Scanner) tabsPath() string {
 }
 
 func (s *Scanner) rememberedTabs() tabsFile {
+	return readTabs(s.tabsPath())
+}
+
+func readTabs(path string) tabsFile {
 	file := tabsFile{Version: 1, Tabs: map[string]rememberedTab{}}
-	path := s.tabsPath()
 	if path == "" {
 		return file
 	}
@@ -377,14 +447,25 @@ func (s *Scanner) rememberedTabs() tabsFile {
 	return read
 }
 
-// saveTabs writes the file; a tab that cannot be remembered only makes
-// an ended session resume in a new tab.
-func (s *Scanner) saveTabs(file tabsFile) {
+// saveTabs records seen in the file under the lock every server shares,
+// so one server's tabs do not discard another's, and returns the file
+// as written. A tab that cannot be remembered only makes an ended
+// session resume in a new tab.
+func (s *Scanner) saveTabs(seen map[string]terminalHost) tabsFile {
 	path := s.tabsPath()
 	if path == "" {
-		return
+		return readTabs("")
 	}
-	_ = writeJSONFile(path, file)
+	release, err := lockMarks(path)
+	if err != nil {
+		return readTabs(path)
+	}
+	defer release()
+	file := readTabs(path)
+	if file.rememberAll(seen, s.Now()) {
+		_ = writeJSONFile(path, file)
+	}
+	return file
 }
 
 // writeJSONFile replaces path in one step, so a reader never sees half a file.

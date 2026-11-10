@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -65,6 +66,15 @@ func TestHostOf_FindsTheAppAndTheTabsLogin(t *testing.T) {
 	if host, ok := hostOf(table, 902); !ok || host.App != "Cursor" || host.TTY != "/dev/ttys020" {
 		t.Errorf("an editor's terminal: %+v, %v", host, ok)
 	}
+	iterm := []ProcessInfo{
+		{PID: 700, PPID: 1, Stat: "S", Command: "/Users/you/Library/Application Support/iTerm2/iTermServer-3.5.4"},
+		{PID: 701, PPID: 700, Stat: "Ss", TTY: "/dev/ttys040", Started: "Tue Nov 10 09:00:00 2026", Command: "/usr/bin/login"},
+		{PID: 702, PPID: 701, Stat: "S", TTY: "/dev/ttys040", Command: "-zsh"},
+		{PID: 703, PPID: 702, Stat: "S+", TTY: "/dev/ttys040", Command: "claude"},
+	}
+	if host, ok := hostOf(append(table, iterm...), 703); !ok || host != (terminalHost{App: "iTerm", TTY: "/dev/ttys040", Leader: ProcessRef{PID: 701, ProcStart: "Tue Nov 10 09:00:00 2026"}}) {
+		t.Errorf("an iTerm2 shell under its session server: %+v, %v", host, ok)
+	}
 	if host, ok := hostOf(table, 6923); ok {
 		t.Errorf("a daemon without a terminal has no host, got %+v", host)
 	}
@@ -86,6 +96,12 @@ func TestTabIdle_OnlyWhenTheSameLoginShowsAShellPrompt(t *testing.T) {
 	if tabIdle(ghosttyTable(ghosttyTab("/dev/ttys004", 45469, 45864, "vim")), tab) {
 		t.Error("a tab running a program is busy")
 	}
+	script := append([]ProcessInfo{}, prompt...)
+	script[1].Stat = "Ss"
+	script = append(script, ProcessInfo{PID: 45480, PPID: 45470, Stat: "S+", TTY: "/dev/ttys004", Command: "bash"})
+	if tabIdle(ghosttyTable(script), tab) {
+		t.Error("a shell script waiting at read -p is busy")
+	}
 	reused := append([]ProcessInfo{}, prompt...)
 	reused[0].Started = "Tue Nov 10 23:00:00 2026"
 	if tabIdle(ghosttyTable(reused), tab) {
@@ -96,6 +112,12 @@ func TestTabIdle_OnlyWhenTheSameLoginShowsAShellPrompt(t *testing.T) {
 	}
 }
 
+// pick asks for the client of a thread that is the only one the daemon
+// holds in its folder.
+func pick(c Conversation, threads []string, table []ProcessInfo, processes Processes) (int, []string) {
+	return newCodexClients(table, threads, processes).pick(c, true)
+}
+
 func TestPickCodexClient_ByIDThenStartThenFolder(t *testing.T) {
 	thread := Conversation{Tool: ToolCodex, ID: "01a1c738-eda0-7be0-b151-023a3e0ab7ee", Folder: "/repo", StartedAt: "2026-11-10T21:49:19Z"}
 	first := ghosttyTab("/dev/ttys002", 16953, 17199, "codex")
@@ -104,23 +126,61 @@ func TestPickCodexClient_ByIDThenStartThenFolder(t *testing.T) {
 	table := ghosttyTable(first, second)
 	both := processesWithTable(table)
 
-	if pid, ttys := pickCodexClient(thread, []string{thread.StartedAt}, table, both); pid != 17199 || ttys != nil {
+	if pid, ttys := pick(thread, []string{thread.StartedAt}, table, both); pid != 17199 || ttys != nil {
 		t.Errorf("the client that started just before the thread: %d, %v", pid, ttys)
 	}
 	later := thread
 	later.StartedAt = "2026-11-10T23:00:00Z"
-	if pid, ttys := pickCodexClient(later, []string{later.StartedAt}, table, both); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
+	if pid, ttys := pick(later, []string{later.StartedAt}, table, both); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
 		t.Errorf("two clients in the folder and neither started with the thread: %d, %v", pid, ttys)
 	}
 	resumed := both
 	resumed.args = map[int]string{46288: "codex resume " + thread.ID}
-	if pid, _ := pickCodexClient(later, []string{later.StartedAt}, table, resumed); pid != 46288 {
+	if pid, _ := pick(later, []string{later.StartedAt}, table, resumed); pid != 46288 {
 		t.Errorf("a client started with the thread's id holds it: %d", pid)
 	}
 	elsewhere := both
 	elsewhere.cwds = map[int]string{17199: "/repo", 46288: "/other"}
-	if pid, _ := pickCodexClient(later, []string{later.StartedAt}, table, elsewhere); pid != 17199 {
+	if pid, _ := pick(later, []string{later.StartedAt}, table, elsewhere); pid != 17199 {
 		t.Errorf("the only client in the thread's folder holds it: %d", pid)
+	}
+	if pid, ttys := newCodexClients(table, []string{later.StartedAt}, elsewhere).pick(later, false); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+		t.Errorf("with another thread held in the folder, the folder says nothing: %d, %v", pid, ttys)
+	}
+}
+
+// countingProcesses counts how often the costly lookups run.
+type countingProcesses struct {
+	fakeProcesses
+	argsCalls, cwdsCalls int
+}
+
+func (c *countingProcesses) Args(pids []int) map[int]string {
+	c.argsCalls++
+	return c.fakeProcesses.Args(pids)
+}
+
+func (c *countingProcesses) Cwds(pids []int) map[int]string {
+	c.cwdsCalls++
+	return c.fakeProcesses.Cwds(pids)
+}
+
+func TestCodexClients_ReadArgsOnceAndFoldersOnlyWhenNeeded(t *testing.T) {
+	first := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
+	first[2].Started = "Tue Nov 10 22:55:27 2026"
+	second := ghosttyTab("/dev/ttys004", 81131, 81453, "codex")
+	second[2].Started = "Tue Nov 10 22:55:32 2026"
+	table := ghosttyTable(first, second)
+	threads := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z", "2026-11-10T23:30:00Z"}
+	processes := &countingProcesses{fakeProcesses: processesWithTable(table)}
+	clients := newCodexClients(table, threads, processes)
+
+	for _, created := range threads {
+		clients.pick(Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: created}, false)
+	}
+
+	if processes.argsCalls != 1 || processes.cwdsCalls != 0 {
+		t.Errorf("args read %d times, folders %d times; want 1 and 0", processes.argsCalls, processes.cwdsCalls)
 	}
 }
 
@@ -133,7 +193,7 @@ func TestPickCodexClient_EachClientHoldsTheFirstThreadAfterItStarted(t *testing.
 	threads := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z", "2026-11-10T22:58:00Z"}
 	for created, want := range map[string]int{threads[0]: 80312, threads[1]: 81453, threads[2]: 0} {
 		thread := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: created}
-		if pid, _ := pickCodexClient(thread, threads, table, processesWithTable(table)); pid != want {
+		if pid, _ := pick(thread, threads, table, processesWithTable(table)); pid != want {
 			t.Errorf("thread created %s: client %d, want %d", created, pid, want)
 		}
 	}
@@ -148,7 +208,7 @@ func TestPickCodexClient_AClientShowingAnotherThreadIsNotAGuess(t *testing.T) {
 	threads := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z"}
 	quit := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: threads[1]}
 
-	if pid, ttys := pickCodexClient(quit, threads, table, processes); pid != 0 || ttys != nil {
+	if pid, ttys := pick(quit, threads, table, processes); pid != 0 || ttys != nil {
 		t.Errorf("the client in the folder shows its own first thread: %d, %v", pid, ttys)
 	}
 }
@@ -185,6 +245,102 @@ func TestScan_CodexThreadHeldByTheDaemonSwitchesToItsTerminalClient(t *testing.T
 
 	if strings.Join(launcher.calls, "; ") != "focus Ghostty /dev/ttys002" || reply != (OpenReply{Opened: true, Message: "Switched to the Ghostty tab that runs it."}) {
 		t.Errorf("calls %v, reply %+v", launcher.calls, reply)
+	}
+}
+
+func TestScan_TwoCodexClientsInOneFolderEachSwitchToTheirOwnTab(t *testing.T) {
+	first, second, quit := "01a1c775-7c2b-7011-a261-3a61edc96e71", "01a1c775-911c-7893-bd08-5f77cc835aa3", "01a1c775-aaaa-7893-bd08-5f77cc835aa3"
+	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
+		"state_5.sqlite|FROM threads": `[
+			{"id":"` + first + `","cwd":"/repo","created_at_ms":1762815327400,"updated_at_ms":1762815400000,"originator":"codex-tui","source":"vscode","name":"First"},
+			{"id":"` + second + `","cwd":"/repo","created_at_ms":1762815333100,"updated_at_ms":1762815400000,"originator":"codex-tui","source":"vscode","name":"Second"},
+			{"id":"` + quit + `","cwd":"/repo","created_at_ms":1762815000000,"updated_at_ms":1762815400000,"originator":"codex-tui","source":"vscode","name":"Quit"}
+		]`,
+	}), nil)
+	a := ghosttyTab("/dev/ttys002", 79973, 80312, "codex")
+	a[2].Started = "Mon Nov 10 22:55:27 2025"
+	b := ghosttyTab("/dev/ttys004", 81125, 81453, "codex")
+	b[2].Started = "Mon Nov 10 22:55:32 2025"
+	table := append(ghosttyTable(a, b), ProcessInfo{PID: 6923, PPID: 1, Stat: "S", Started: "Sun Nov  8 10:58:14 2025", Command: "/Users/you/.codex/packages/app-server-daemon/bin/codex"})
+	processes := processesWithTable(table)
+	processes.held = map[string]int{first + ".lock": 6923, second + ".lock": 6923, quit + ".lock": 6923}
+	processes.cwds = map[int]string{80312: "/repo", 81453: "/repo"}
+	scanner.Processes = processes
+	scanner.Now = func() time.Time { return time.UnixMilli(1762815500000) }
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	for _, id := range []string{first, second, quit} {
+		write(t, filepath.Join(stores.CodexDir, "thread-writer-locks", id+".lock"), "")
+	}
+
+	for id, want := range map[string]string{first: "focus Ghostty /dev/ttys002", second: "focus Ghostty /dev/ttys004", quit: ""} {
+		c, _ := scanner.Find(context.Background(), ToolCodex, id, ScanOptions{})
+		launcher := &fakeLauncher{focusOK: true}
+		reply := Open(context.Background(), c, scanner.Processes, launcher)
+		if strings.Join(launcher.calls, "; ") != want || reply.Opened != (want != "") {
+			t.Errorf("%s: calls %v, reply %+v", id, launcher.calls, reply)
+		}
+		if want == "" && (reply.Command != "" || !strings.Contains(reply.Message, "Codex keeps this thread open in the background")) {
+			t.Errorf("a thread no client shows must not offer a second resume: %+v", reply)
+		}
+	}
+}
+
+func TestScan_OnlyTerminalAppsAreRememberedAndRenamed(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, nil)
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	writeClaudeLive(t, stores, idSafari, 902)
+	scanner.Processes = processesWithTable([]ProcessInfo{
+		{PID: 900, PPID: 1, Stat: "S", Command: "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper.app/Contents/MacOS/Cursor Helper"},
+		{PID: 901, PPID: 900, Stat: "Ss", TTY: "/dev/ttys020", Command: "/bin/zsh"},
+		{PID: 902, PPID: 901, Stat: "S+", TTY: "/dev/ttys020", Command: "claude"},
+	})
+
+	live, _ := scanner.Find(context.Background(), ToolClaude, idSafari, ScanOptions{})
+	scanner.Processes = fakeProcesses{}
+	ended, _ := scanner.Find(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if live.Open.Label != "Open in Terminal" || ended.Open.Label != "Open in Terminal" || ended.lastTab != nil {
+		t.Errorf("a session in Cursor's terminal: live %q, ended %q, last tab %+v", live.Open.Label, ended.Open.Label, ended.lastTab)
+	}
+}
+
+func TestRemember_RefreshesADayOldTimeSoPruningCountsFromLastSeen(t *testing.T) {
+	host := terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}
+	now := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
+	file := tabsFile{Tabs: map[string]rememberedTab{"claude:x": {Host: host, At: stamp(now.Add(-2 * time.Hour))}}}
+	if file.remember("claude:x", host, now) {
+		t.Error("an unchanged tab seen two hours ago needs no write")
+	}
+	file.Tabs["claude:x"] = rememberedTab{Host: host, At: stamp(now.Add(-25 * time.Hour))}
+	if !file.remember("claude:x", host, now) || file.Tabs["claude:x"].At != stamp(now) {
+		t.Errorf("a day-old time is refreshed: %+v", file.Tabs["claude:x"])
+	}
+}
+
+func TestScan_LiveEntrypointBeatsTheTranscript(t *testing.T) {
+	for name, tc := range map[string]struct {
+		live  string
+		calls string
+	}{
+		"plugin-born session resumed in Ghostty": {live: "cli", calls: "focus Ghostty /dev/ttys004"},
+		"plugin session still in Cursor":         {live: "claude-vscode", calls: "folder Cursor /tmp/app; link cursor://anthropic.claude-code/open?session=" + idSafari},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores := testScanner(t, noSQLite, nil)
+			write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl"), lines(
+				obj{"type": "user", "message": obj{"role": "user", "content": "Fix the build"}, "timestamp": "2026-11-07T10:00:00.000Z", "entrypoint": "claude-vscode", "cwd": "/tmp/app"},
+			))
+			write(t, filepath.Join(stores.ClaudeDir, "sessions", "45864.json"), `{"pid":45864,"sessionId":"`+idSafari+`","status":"idle","entrypoint":"`+tc.live+`"}`)
+			scanner.Processes = processesWithTable(ghosttyTable(ghosttyTab("/dev/ttys004", 45469, 45864, "claude")))
+
+			c, _ := scanner.Find(context.Background(), ToolClaude, idSafari, ScanOptions{Editor: "cursor"})
+			launcher := &fakeLauncher{focusOK: true}
+			Open(context.Background(), c, scanner.Processes, launcher)
+
+			if actual := strings.Join(launcher.calls, "; "); actual != tc.calls {
+				t.Errorf("calls %q, want %q", actual, tc.calls)
+			}
+		})
 	}
 }
 
@@ -247,6 +403,12 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 			reply:        OpenReply{Opened: true, Message: "Switched to the Terminal tab that runs it."},
 			calls:        "focus Terminal /dev/ttys018",
 		},
+		"iTerm2 tab": {
+			conversation: at(terminalHost{App: "iTerm", TTY: "/dev/ttys040"}),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        OpenReply{Opened: true, Message: "Switched to the iTerm tab that runs it."},
+			calls:        "focus iTerm /dev/ttys040",
+		},
 		"tab not found": {
 			conversation: at(ghostty),
 			reply:        OpenReply{Message: "It runs in Ghostty on ttys004 (process 42), but no tab shows that terminal. Switch to it there.", Command: "claude --resume x"},
@@ -284,7 +446,11 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 		},
 		"two Codex clients could hold it": {
 			conversation: Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{ttys: []string{"/dev/ttys002", "/dev/ttys007"}}},
-			reply:        OpenReply{Message: "Two Codex sessions run in this folder (ttys002, ttys007) and Codex does not say which one holds this thread. Switch to it there.", Command: "codex resume x"},
+			reply:        OpenReply{Message: "Codex keeps this thread open in the background and does not say which of its sessions shows it (ttys002, ttys007). Switch to it there."},
+		},
+		"one Codex client could hold it": {
+			conversation: Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{ttys: []string{"/dev/ttys002"}}},
+			reply:        OpenReply{Message: "Codex keeps this thread open in the background, and the terminal that shows it could not be identified. It may be the Codex session on ttys002."},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -306,6 +472,12 @@ func TestOpen_EndedSessionReusesItsTabOrOpensANewOne(t *testing.T) {
 	login := ProcessInfo{PID: 45469, PPID: 761, Stat: "Ss", TTY: "/dev/ttys004", Started: "Tue Nov 10 21:49:14 2026", Command: "/usr/bin/login"}
 	prompt := processesWithTable(ghosttyTable([]ProcessInfo{login, {PID: 45470, PPID: 45469, Stat: "Ss+", TTY: "/dev/ttys004", Command: "-zsh"}}))
 	busy := processesWithTable(ghosttyTable(ghosttyTab("/dev/ttys004", 45469, 50000, "vim")))
+	terminalTab := terminalHost{App: "Terminal", TTY: "/dev/ttys009", Leader: ProcessRef{PID: 300, ProcStart: "Tue Nov 10 21:49:14 2026"}}
+	terminalPrompt := processesWithTable([]ProcessInfo{
+		{PID: 299, PPID: 1, Command: "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"},
+		{PID: 300, PPID: 299, Stat: "Ss", TTY: "/dev/ttys009", Started: "Tue Nov 10 21:49:14 2026", Command: "/usr/bin/login"},
+		{PID: 301, PPID: 300, Stat: "Ss+", TTY: "/dev/ttys009", Command: "-zsh"},
+	})
 	for name, tc := range map[string]struct {
 		conversation Conversation
 		processes    fakeProcesses
@@ -333,10 +505,22 @@ func TestOpen_EndedSessionReusesItsTabOrOpensANewOne(t *testing.T) {
 			reply: OpenReply{Message: "macOS blocked opening Ghostty. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "claude --resume x"},
 			calls: "new tab Ghostty claude --resume x",
 		},
-		"Terminal opens no tabs from outside": {
-			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &terminalHost{App: "Terminal", TTY: "/dev/ttys009"}},
-			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},
-			calls:        "terminal claude --resume x",
+		"Automation prompt unanswered while typing": {
+			conversation: ended, processes: prompt, launcher: fakeLauncher{err: context.DeadlineExceeded},
+			reply: OpenReply{Message: "macOS is waiting for you to allow control of Ghostty. Answer its prompt, then click again.", Command: "claude --resume x"},
+			calls: "type Ghostty /dev/ttys004 claude --resume x",
+		},
+		"Terminal tab is never typed into": {
+			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &terminalTab},
+			processes:    terminalPrompt,
+			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal tab."},
+			calls:        "new tab Terminal claude --resume x",
+		},
+		"Terminal without new tabs falls back to a window": {
+			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &terminalTab},
+			processes:    terminalPrompt, launcher: fakeLauncher{newTabErr: errors.New("no such command")},
+			reply: OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},
+			calls: "new tab Terminal claude --resume x; terminal claude --resume x",
 		},
 		"no tab remembered": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}},
@@ -369,7 +553,7 @@ func TestOpen_CodexThreadStillHeldNeverResumesAgain(t *testing.T) {
 
 	reply := Open(context.Background(), held, fakeProcesses{alive: map[int]bool{6923: true}}, launcher)
 
-	if len(launcher.calls) != 0 || reply.Opened || !strings.Contains(reply.Message, "Codex keeps this thread open in the background (process 6923)") || reply.Command != "codex resume x" {
+	if len(launcher.calls) != 0 || reply.Opened || !strings.Contains(reply.Message, "Codex keeps this thread open in the background (process 6923)") || reply.Command != "" {
 		t.Errorf("a thread the daemon holds must launch nothing: calls %v, reply %+v", launcher.calls, reply)
 	}
 }
@@ -411,6 +595,19 @@ func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 			if strings.Contains(arg, "echo") {
 				t.Errorf("%s: the value leaked into the script text: %q", name, arg)
 			}
+		}
+	}
+}
+
+func TestRunInTabArgs_ClearTheLineBeforeTyping(t *testing.T) {
+	script := strings.Join(runInTabArgs("Ghostty", "/dev/ttys004", "claude --resume x"), "\n")
+	cleared, typed := strings.Index(script, `send key "u" modifiers "control" to t`), strings.Index(script, "(item 2 of argv)")
+	if cleared < 0 || typed < 0 || cleared > typed {
+		t.Errorf("Ghostty must clear the line before typing:\n%s", script)
+	}
+	for _, app := range []string{"Terminal", "iTerm"} {
+		if _, reused := typeLines[app]; reused {
+			t.Errorf("%s cannot be shown to clear a line, so its tabs are never typed into", app)
 		}
 	}
 }
