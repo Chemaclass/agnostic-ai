@@ -12,6 +12,8 @@ import (
 // --custom-contextmenu.
 const bubbleMenuName = "bubble"
 
+const settingsHeader = "Settings"
+
 type appearance struct {
 	Animate bool `json:"animate"`
 }
@@ -45,9 +47,18 @@ func (s *shell) getAppearance(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.appearance())
 }
 
+// addSettingsHeader adds a native section heading where the system has
+// one (macOS 14 and later), and a disabled item elsewhere.
+func addSettingsHeader(menu *application.Menu) {
+	menu.AddSectionHeader(settingsHeader)
+	if menu.FindByLabel(settingsHeader) == nil {
+		menu.Add(settingsHeader).SetEnabled(false)
+	}
+}
+
 func (s *shell) bubbleMenu() {
 	menu := application.NewContextMenu(bubbleMenuName)
-	menu.AddSectionHeader("Settings")
+	addSettingsHeader(menu.Menu)
 	animate := menu.AddCheckbox("Animate companion", s.appearance().Animate)
 	animate.OnClick(func(clicked *application.Context) {
 		if err := s.setAnimate(clicked.IsChecked()); err != nil {

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // toldShell is a shell whose pages' news is recorded in told.
@@ -76,5 +78,20 @@ func TestGetAppearance_AnswersTheSavedValues(t *testing.T) {
 
 	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || body != `{"animate":false}` {
 		t.Errorf("appearance = %d %s", rec.Code, body)
+	}
+}
+
+func TestSettingsHeader_LeadsTheMenuAndCannotBeClicked(t *testing.T) {
+	menu := application.NewMenu()
+
+	addSettingsHeader(menu)
+	menu.AddCheckbox("Animate companion", true)
+
+	first := menu.ItemAt(0)
+	if first == nil || first.Label() != settingsHeader || first.Enabled() {
+		t.Fatalf("first item = %+v; want a disabled %q", first, settingsHeader)
+	}
+	if second := menu.ItemAt(1); second == nil || second.Label() != "Animate companion" {
+		t.Errorf("the header was added twice or the checkbox moved: second item = %+v", second)
 	}
 }

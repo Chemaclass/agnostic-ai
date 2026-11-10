@@ -662,8 +662,10 @@ document.addEventListener('keydown', (event) => {
 function opened(from) {
   card.dataset.from = from
   card.classList.remove('is-opening')
-  void card.offsetWidth
-  card.classList.add('is-opening')
+  if (document.documentElement.dataset.motion !== 'off') {
+    void card.offsetWidth
+    card.classList.add('is-opening')
+  }
   toast.hidden = true
   closeMenu()
   closeRowMenu()
@@ -677,6 +679,10 @@ function opened(from) {
 
 card.addEventListener('animationend', (event) => {
   if (event.target === card) card.classList.remove('is-opening')
+})
+// An opening left over would play again when animation is turned back on.
+document.addEventListener('motion', () => {
+  if (document.documentElement.dataset.motion === 'off') card.classList.remove('is-opening')
 })
 
 drawPlaces()

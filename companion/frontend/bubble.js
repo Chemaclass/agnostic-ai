@@ -31,6 +31,9 @@ function show({ view, note }) {
 
 // A pop left over would play again when animation is turned back on.
 badge.addEventListener('animationend', () => badge.classList.remove('is-new'))
+document.addEventListener('motion', () => {
+  if (document.documentElement.dataset.motion === 'off') badge.classList.remove('is-new')
+})
 
 /** No list could be read: an old count would be a guess, so none shows. */
 function showTrouble(message) {
