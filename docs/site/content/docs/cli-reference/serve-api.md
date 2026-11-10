@@ -126,7 +126,7 @@ Conversation fields:
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
   - `focus` switches to the Terminal or Ghostty tab that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
-  - `terminal` runs `command`. In Ghostty it clears any half-typed line and types it into the tab the session last ran in, when that tab's own shell sits at its prompt. Otherwise it opens a new tab of the app the session last ran in, Terminal or Ghostty. With no tab remembered, it opens a new Terminal window. `label` then names the app, such as `Open in Ghostty`.
+  - `terminal` runs `command`. In Ghostty it types it into the tab the session last ran in, when that tab's own shell sits at its prompt. It first sends Ctrl-C twice, so a half-typed line or an open quote's continuation lines never run with it. Otherwise it opens a new tab of the app the session last ran in, Terminal or Ghostty. With no tab remembered, it opens a new Terminal window. `label` then names the app, such as `Open in Ghostty`.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 
 Codex and Cursor stores are read with the `sqlite3` command.
@@ -166,7 +166,7 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?}`.
 - For a `focus` route, `opened` is true only when the session's own tab came to the front. A running session is never started a second time.
 - `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes it by hand; a Codex thread still open in the background gets none.
-- Not supported yet: tmux, WezTerm, kitty and Warp. For their sessions the app comes forward, or `message` names the terminal device.
+- Not supported yet: iTerm2, tmux, WezTerm, kitty and Warp. For their sessions the app comes forward, or `message` names the terminal device.
 - The route comes from the server's own scan, never from the request.
 - A conversation outside the list returns 404.
 - Any other field is a 400.

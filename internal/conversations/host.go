@@ -159,7 +159,7 @@ const codexClientLead = 15 * time.Second
 // app-server daemon holds. Codex does not record which client shows a
 // thread, and its daemon keeps a thread after the client quits, so the
 // pick reads clues: the command lines once, and the clients' folders
-// once and only when the folder can still decide.
+// once and only when a client could still be it.
 type codexClients struct {
 	table     []ProcessInfo
 	threads   []string
@@ -211,11 +211,12 @@ func (k *codexClients) folders() map[int]string {
 }
 
 // pick returns the client that shows c: the one started with its id,
-// else the only one whose first thread after it started is c, else,
-// when alone says the daemon holds no other thread in c's folder, the
-// only client in that folder that started no thread. With none of
-// these pid is 0 and ttys lists the clients that could still be it.
-func (k *codexClients) pick(c Conversation, alone bool) (pid int, ttys []string) {
+// else the only one whose first thread after it started is c. With
+// neither pid is 0 and ttys lists the clients in c's folder that
+// started no thread of their own, which could still be it. Being in the
+// folder is never enough to pick one: a client opened later in the
+// folder shows an empty tab, not a thread the daemon kept.
+func (k *codexClients) pick(c Conversation) (pid int, ttys []string) {
 	k.load()
 	for _, client := range k.clients {
 		if strings.Contains(k.args[client.PID], c.ID) {
@@ -225,7 +226,6 @@ func (k *codexClients) pick(c Conversation, alone bool) (pid int, ttys []string)
 	if only, ok := onlyOne(k.clients, func(client ProcessInfo) bool { return firstThreadAfter(client, k.threads) == c.StartedAt }); ok && c.StartedAt != "" {
 		return only.PID, nil
 	}
-	// A client whose first thread is another one shows that thread.
 	var free []ProcessInfo
 	for _, client := range k.clients {
 		if firstThreadAfter(client, k.threads) == "" {
@@ -236,12 +236,8 @@ func (k *codexClients) pick(c Conversation, alone bool) (pid int, ttys []string)
 		return 0, nil
 	}
 	cwds := k.folders()
-	inFolder := func(client ProcessInfo) bool { return cwds[client.PID] == c.Folder }
-	if only, ok := onlyOne(free, inFolder); ok && alone {
-		return only.PID, nil
-	}
 	for _, client := range free {
-		if inFolder(client) || len(cwds) == 0 {
+		if cwds[client.PID] == c.Folder {
 			ttys = append(ttys, client.TTY)
 		}
 	}
@@ -312,15 +308,9 @@ func (s *Scanner) placeLive(results []sourceResult) {
 	if len(live) > 0 {
 		if table, err := s.Processes.Table(); err == nil {
 			seen := map[string]terminalHost{}
-			heldIn := map[string]int{}
-			for _, c := range live {
-				if host, _ := hostOf(table, c.process.PID); c.Tool == ToolCodex && host.TTY == "" {
-					heldIn[c.Folder]++
-				}
-			}
 			clients := newCodexClients(table, threads, s.Processes)
 			for _, c := range live {
-				if place(c, clients, table, heldIn[c.Folder] <= 1) {
+				if place(c, clients, table) {
 					seen[markKey(c.Tool, c.ID)] = c.placed.host
 				}
 			}
@@ -351,11 +341,11 @@ func isTabApp(app string) bool {
 
 // place sets where c shows. ok is true when it shows in a tab of an app
 // in tabApps, which is worth remembering.
-func place(c *Conversation, clients *codexClients, table []ProcessInfo, alone bool) (ok bool) {
+func place(c *Conversation, clients *codexClients, table []ProcessInfo) (ok bool) {
 	process := *c.process
 	host, _ := hostOf(table, process.PID)
 	if host.TTY == "" && c.Tool == ToolCodex {
-		pid, ttys := clients.pick(*c, alone)
+		pid, ttys := clients.pick(*c)
 		if pid == 0 {
 			if len(ttys) > 0 {
 				c.placed = &placement{ttys: ttys}

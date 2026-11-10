@@ -112,13 +112,11 @@ func TestTabIdle_OnlyWhenTheSameLoginShowsAShellPrompt(t *testing.T) {
 	}
 }
 
-// pick asks for the client of a thread that is the only one the daemon
-// holds in its folder.
 func pick(c Conversation, threads []string, table []ProcessInfo, processes Processes) (int, []string) {
-	return newCodexClients(table, threads, processes).pick(c, true)
+	return newCodexClients(table, threads, processes).pick(c)
 }
 
-func TestPickCodexClient_ByIDThenStartThenFolder(t *testing.T) {
+func TestPickCodexClient_ByIDThenStartNeverByFolder(t *testing.T) {
 	thread := Conversation{Tool: ToolCodex, ID: "01a1c738-eda0-7be0-b151-023a3e0ab7ee", Folder: "/repo", StartedAt: "2026-11-10T21:49:19Z"}
 	first := ghosttyTab("/dev/ttys002", 16953, 17199, "codex")
 	second := ghosttyTab("/dev/ttys005", 46075, 46288, "codex")
@@ -131,7 +129,9 @@ func TestPickCodexClient_ByIDThenStartThenFolder(t *testing.T) {
 	}
 	later := thread
 	later.StartedAt = "2026-11-10T23:00:00Z"
-	if pid, ttys := pick(later, []string{later.StartedAt}, table, both); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
+	inRepo := both
+	inRepo.cwds = map[int]string{17199: "/repo", 46288: "/repo"}
+	if pid, ttys := pick(later, []string{later.StartedAt}, table, inRepo); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
 		t.Errorf("two clients in the folder and neither started with the thread: %d, %v", pid, ttys)
 	}
 	resumed := both
@@ -141,11 +141,8 @@ func TestPickCodexClient_ByIDThenStartThenFolder(t *testing.T) {
 	}
 	elsewhere := both
 	elsewhere.cwds = map[int]string{17199: "/repo", 46288: "/other"}
-	if pid, _ := pick(later, []string{later.StartedAt}, table, elsewhere); pid != 17199 {
-		t.Errorf("the only client in the thread's folder holds it: %d", pid)
-	}
-	if pid, ttys := newCodexClients(table, []string{later.StartedAt}, elsewhere).pick(later, false); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
-		t.Errorf("with another thread held in the folder, the folder says nothing: %d, %v", pid, ttys)
+	if pid, ttys := pick(later, []string{later.StartedAt}, table, elsewhere); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+		t.Errorf("the only client in the folder may show an empty tab, so it is named, never picked: %d, %v", pid, ttys)
 	}
 }
 
@@ -176,7 +173,7 @@ func TestCodexClients_ReadArgsOnceAndFoldersOnlyWhenNeeded(t *testing.T) {
 	clients := newCodexClients(table, threads, processes)
 
 	for _, created := range threads {
-		clients.pick(Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: created}, false)
+		clients.pick(Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: created})
 	}
 
 	if processes.argsCalls != 1 || processes.cwdsCalls != 0 {
@@ -403,11 +400,11 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 			reply:        OpenReply{Opened: true, Message: "Switched to the Terminal tab that runs it."},
 			calls:        "focus Terminal /dev/ttys018",
 		},
-		"iTerm2 tab": {
+		"iTerm2, not supported yet": {
 			conversation: at(terminalHost{App: "iTerm", TTY: "/dev/ttys040"}),
 			launcher:     fakeLauncher{focusOK: true},
-			reply:        OpenReply{Opened: true, Message: "Switched to the iTerm tab that runs it."},
-			calls:        "focus iTerm /dev/ttys040",
+			reply:        OpenReply{Message: "Brought iTerm to the front, but its tab cannot be selected from outside. It runs on ttys040 (process 42).", Command: "claude --resume x"},
+			calls:        "activate iTerm",
 		},
 		"tab not found": {
 			conversation: at(ghostty),
@@ -578,7 +575,7 @@ func TestScan_LiveClaudePluginSessionKeepsItsEditorLink(t *testing.T) {
 func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 	hostile := "cd '/tmp/a\"b' && echo \"quoted\"\nrm -rf ~"
 	cases := map[string][]string{"new terminal": newTerminalArgs(hostile)}
-	for _, app := range []string{"Terminal", "iTerm", "Ghostty"} {
+	for _, app := range []string{"Terminal", "Ghostty"} {
 		cases["focus "+app] = focusTabArgs(app, hostile)
 		cases["type "+app] = runInTabArgs(app, "/dev/ttys004", hostile)
 		cases["new tab "+app] = runInNewTabArgs(app, hostile)
@@ -601,7 +598,7 @@ func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 
 func TestRunInTabArgs_ClearTheLineBeforeTyping(t *testing.T) {
 	script := strings.Join(runInTabArgs("Ghostty", "/dev/ttys004", "claude --resume x"), "\n")
-	cleared, typed := strings.Index(script, `send key "u" modifiers "control" to t`), strings.Index(script, "(item 2 of argv)")
+	cleared, typed := strings.Index(script, `send key "c" modifiers "control" to t`), strings.Index(script, "(item 2 of argv)")
 	if cleared < 0 || typed < 0 || cleared > typed {
 		t.Errorf("Ghostty must clear the line before typing:\n%s", script)
 	}

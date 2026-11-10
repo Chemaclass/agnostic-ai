@@ -217,7 +217,7 @@ func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply
 // tabApps are the terminal apps whose tabs the server selects by tty
 // and opens new tabs in. An ended session is typed into its old tab
 // only in an app listed in typeLines, which can clear the line first.
-var tabApps = map[string]bool{"Terminal": true, "iTerm": true, "Ghostty": true}
+var tabApps = map[string]bool{"Terminal": true, "Ghostty": true}
 
 // editorTerminals are the editors whose window on a folder holds the
 // terminal, by the name hostOf gives them, with their macOS name.
@@ -445,11 +445,6 @@ var tabScripts = map[string]struct{ open, match, close []string }{
 		match: []string{"set selected of t to true", "set index of w to 1"},
 		close: []string{"end if", "end repeat", "end repeat", "end tell"},
 	},
-	"iTerm": {
-		open:  []string{`tell application "iTerm"`, "repeat with w in windows", "repeat with k in tabs of w", "repeat with t in sessions of k", "if tty of t is (item 1 of argv) then"},
-		match: []string{"select w", "select k", "select t"},
-		close: []string{"end if", "end repeat", "end repeat", "end repeat", "end tell"},
-	},
 	"Ghostty": {
 		open:  []string{`tell application "Ghostty"`, "repeat with t in terminals", "if tty of t is (item 1 of argv) then"},
 		match: []string{"focus t"},
@@ -457,14 +452,20 @@ var tabScripts = map[string]struct{ open, match, close []string }{
 	},
 }
 
-// typeLines clear what was typed on the matched t's prompt line, so it
-// cannot run with the command, then type item 2 of argv and press
-// Return. Terminal cannot send keys to a tab, and iTerm2's write text
-// was not shown to clear a line, so their tabs are never typed into.
+// typeLines drop whatever the matched t's shell holds at its prompt,
+// a half-typed line or an open quote's continuation lines, so it cannot
+// run with the command: Ctrl-C does that in zsh, bash and fish in every
+// key mode. A prompt theme such as powerlevel10k can take the first
+// Ctrl-C while it redraws, so a second follows; at a clean prompt it
+// only draws the prompt again. After a moment for the prompt to redraw,
+// they type item 2 of argv and press Return. Terminal cannot send keys
+// to a tab, so its tabs are never typed into.
 var typeLines = map[string][]string{
 	"Ghostty": {
-		`send key "e" modifiers "control" to t`,
-		`send key "u" modifiers "control" to t`,
+		`send key "c" modifiers "control" to t`,
+		"delay 0.5",
+		`send key "c" modifiers "control" to t`,
+		"delay 0.5",
 		"input text (item 2 of argv) to t",
 		`send key "enter" to t`,
 	},
@@ -494,17 +495,6 @@ var newTabLines = map[string][]string{
 	"Terminal": {
 		`tell application "Terminal"`,
 		"do script in new tab (item 1 of argv)",
-		"activate",
-		"end tell",
-	},
-	"iTerm": {
-		`tell application "iTerm"`,
-		"if (count of windows) is 0 then",
-		"create window with default profile",
-		"else",
-		"tell current window to create tab with default profile",
-		"end if",
-		"tell current session of current window to write text (item 1 of argv)",
 		"activate",
 		"end tell",
 	},
