@@ -38,7 +38,15 @@ It exits non-zero on any drift, [lint](@/docs/cli-reference/check.md#lint) error
 
 On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references`. Codex hook trust then shows `SKIPPED` in text, and JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` with an empty `hook_trust`. `--scope project --fix` repairs drift without reading or approving trust. `--json` stays read-only.
 
-`--check-references` reads each Markdown file a selected tool writes for its skills. A link is valid when it resolves from the document's directory or from the project root. It skips code, URLs, absolute paths, and `#fragment`-only links, and checks only the file in a `file#fragment` link. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve. Any broken link fails doctor. Findings group by source spec and link:
+`--check-references` reads each Markdown file a selected tool writes for its skills.
+
+- A link is valid when it resolves from the document's directory or from the project root.
+- It skips code, URLs, absolute paths, and `#fragment`-only links.
+- In a `file#fragment` link, it checks only the file.
+- [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve.
+- Any broken link fails doctor.
+
+Findings group by source spec and link:
 
 ```
 Skill references:
@@ -63,13 +71,13 @@ After the file report, doctor prints:
 
 | Block | What it shows | Counts as drift |
 |-------|---------------|-----------|
-| **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor; a warning does not. | No |
+| **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor. A warning does not. | No |
 | **Coverage notes** | With [`coverage.accept`](@/docs/configuration.md#coverageaccept) set, how many notes it accepts (`coverage_accepted` in `--json`). `sync -vv` lists them. | No |
 | **Packaging ignores** | Generated paths that an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore` does not cover, with the ignore file. | No, reported only |
 | **Tracked despite ignored** | A generated path that git tracks and ignores, with the `git rm --cached` fix. | No |
-| **Codex hook trust** | With Codex selected: inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails; disabled does not. | Never grants trust |
+| **Codex hook trust** | With Codex selected: inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails. Disabled does not. | Never grants trust |
 | **MCP** | Whether each stdio `command:` is on PATH, with install hints. Then each `${NAME}` a server reads in `env`, `headers`, `url`, or `args` that is unset in this shell, by name only. A reference with a default is skipped. | No |
-| **Claude hook specs** | With `claude` enabled: a hook spec with several commands that `.claude/settings.json` already runs in one group with different settings, as an older `import claude` wrote it, so each command runs twice. Delete the spec, run `sync`, then run `import claude`. | No |
+| **Claude hook specs** | With `claude` enabled: a hook spec with several commands that `.claude/settings.json` already runs in one group with different settings, as an older `import claude` wrote it. Each command then runs twice. To fix it, delete the spec, run `sync`, then run `import claude`. | No |
 | **Nested CLAUDE.md** | With `claude` enabled: a hand-written `<dir>/CLAUDE.md` whose text equals the body of a rule scoped to `<dir>`, as `import claude` leaves it. Claude Code would load it beside the synced rule. | Yes, `--fix` removes it |
 | **Script divergence** | Scripts under `.agnostic-ai/scripts/<tool>/` with the same name but different bodies across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, no automatic fix |
 | **Unmanaged config** | Markdown and TOML config files with no generated-file marker, grouped by the `import` source that adopts each. | No |
@@ -102,13 +110,23 @@ Claude skill overrides:
   ~ ~/.claude/settings.json also sets 4 entries for skills sync does not write
 ```
 
-An entry is reported only when no higher file sets the same skill: a user file that turns `deploy` off is not reported when the local file turns it back `on`. Entries for skills sync does not write, such as your personal ones, are only counted. Skills whose generated files are under `sync.unmanaged` do not count as synced. `--json` lists every entry, with `effective` and `synced` as above.
+- Doctor reports an entry only when no higher file sets the same skill. A user file that turns `deploy` off is not reported when the local file turns it back `on`.
+- Entries for skills sync does not write, such as your personal ones, are only counted.
+- Skills whose generated files are under `sync.unmanaged` do not count as synced.
+- `--json` lists every entry, with `effective` and `synced` as above.
 
-The shared file is team policy, so its line points to the [overlay](@/docs/spec-format/overlays.md) sync writes it from, or is a `~` note when the overlay sets the same value.
+The shared file is team policy. Its line points to the [overlay](@/docs/spec-format/overlays.md) sync writes it from. When the overlay sets the same value, the line is a `~` note instead.
 
-Below the git root, Claude Code also reads the local file at the root (or the main checkout in a worktree), and its value wins for a key both set. Doctor lists it first, labelled `(git root)` or `(main checkout)`. Claude Code and doctor skip the root file on Windows and when the root is your home folder. Claude Code also skips it when you do not own the root or its `.git` or `.claude` entry; doctor does not check ownership.
+Below the git root, Claude Code also reads the local file at the root (or the main checkout in a worktree).
 
-`--scope project` reads only the shared file. An empty settings file counts as no settings. Managed (enterprise) settings and `--settings` are not read. Claude Code reads settings as strict JSON, and so does doctor:
+- Its value wins for a key both set.
+- Doctor lists it first, labelled `(git root)` or `(main checkout)`.
+- Claude Code and doctor skip the root file on Windows and when the root is your home folder.
+- Claude Code also skips it when you do not own the root or its `.git` or `.claude` entry. Doctor does not check ownership.
+
+`--scope project` reads only the shared file. An empty settings file counts as no settings. Managed (enterprise) settings and `--settings` are not read.
+
+Claude Code reads settings as strict JSON, and so does doctor:
 
 | Case | Doctor reports | `--json` |
 |------|----------------|----------|
@@ -117,7 +135,13 @@ Below the git root, Claude Code also reads the local file at the root (or the ma
 | Two keys name one skill (`Deploy` and `deploy`) with different values, and Claude Code does not say which applies | Both keys. The file still overrules lower files. | `conflict: true` on both |
 | Two keys name one skill with the same value | One key | The other has `effective: false` |
 
-`doctor --fix` in a terminal asks once per state whether to re-enable those skills. A yes removes only their entries (both keys of a duplicate) from the project's `.claude/settings.local.json`, the only file it edits. When a lower file sets the same skill, the question names the value that then applies (or may apply, if that value is rejected). It skips a linked, hard-linked, read-only, or other user's file, one that sets `skillOverrides` twice, and one under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged). The file is replaced in one step, so a failed write leaves it as it was, and a file that changed while doctor ran is left alone.
+`doctor --fix` in a terminal asks once per state whether to re-enable those skills.
+
+- A yes removes only their entries (both keys of a duplicate) from the project's `.claude/settings.local.json`, the only file it edits.
+- When a lower file sets the same skill, the question names the value that then applies (or may apply, if that value is rejected).
+- It skips a file that is linked, hard-linked, read-only, or owned by another user, one that sets `skillOverrides` twice, and one under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged).
+- It replaces the file in one step, so a failed write leaves it as it was.
+- It leaves alone a file that changed while doctor ran.
 
 Subcommands run one check:
 
@@ -130,10 +154,25 @@ Subcommands run one check:
 
 ### RTK approval diagnostics
 
-`doctor rtk --command 'git status'` calls the installed `rtk --version` and `rtk rewrite`, following [RTK's rewrite protocol](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/hooks/rewrite_cmd.rs). It never runs the command or changes permissions. Missing RTK reports `missing`; an unsupported or already-prefixed command reports `unchanged`. RTK's exit 3 with a replacement (it requests approval) and exit 2 without one (it found a deny rule) are reported as results, with `processor_exit` in JSON. Other RTK failures and unreadable settings fail the command.
+`doctor rtk --command 'git status'` calls the installed `rtk --version` and `rtk rewrite`, following [RTK's rewrite protocol](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/hooks/rewrite_cmd.rs). It never runs the command or changes permissions.
 
-The report compares simple Bash rules declared in planned project settings (or native project settings when none is planned), project-local settings, and user settings (`CLAUDE_CONFIG_DIR` or `~/.claude`), using [Claude Code's precedence](https://code.claude.com/docs/en/permissions): deny over ask over allow. Exact rules, bare `Bash`, and simple trailing command prefixes are supported; shell wrappers, parameter rules, other shell syntax, and ambiguous patterns report `unknown`. A rewrite from a known ask to a known allow warns.
+- Missing RTK reports `missing`.
+- An unsupported or already-prefixed command reports `unchanged`.
+- RTK's exit 3 with a replacement (it requests approval) and exit 2 without one (it found a deny rule) are reported as results, with `processor_exit` in JSON.
+- Other RTK failures and unreadable settings fail the command.
 
-It lists known RTK `PreToolUse` handlers by settings path and warns when there is more than one. It recognizes direct Bash handlers that use `rtk rewrite` or RTK's Claude processor; plugins, indirect scripts, and other matchers can go unseen.
+The report compares simple Bash rules declared in:
 
-Runtime approval always reports `unknown`: administrator settings, session options, project trust, enabled hooks, and other handlers can change the outcome on a live host. Warnings do not grant approval or fail the command.
+- planned project settings (or native project settings when none is planned)
+- project-local settings
+- user settings (`CLAUDE_CONFIG_DIR` or `~/.claude`)
+
+It uses [Claude Code's precedence](https://code.claude.com/docs/en/permissions): deny over ask over allow.
+
+- Exact rules, bare `Bash`, and simple trailing command prefixes are supported.
+- Shell wrappers, parameter rules, other shell syntax, and ambiguous patterns report `unknown`.
+- A rewrite from a known ask to a known allow warns.
+
+It lists known RTK `PreToolUse` handlers by settings path and warns when there is more than one. It recognizes direct Bash handlers that use `rtk rewrite` or RTK's Claude processor. Plugins, indirect scripts, and other matchers can go unseen.
+
+Runtime approval always reports `unknown`. Administrator settings, session options, project trust, enabled hooks, and other handlers can change the outcome on a live host. Warnings do not grant approval or fail the command.
