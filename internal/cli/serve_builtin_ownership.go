@@ -156,7 +156,7 @@ func validateBuiltinMemory(root string, cfg *config.Config, reports []driftRepor
 		} else if err != nil {
 			return fmt.Errorf("%s: %w", candidate.path, err)
 		}
-		plan, err := planMemoryImport(candidate.path, store, candidate.label, nil)
+		plan, err := planMemoryImport(candidate.path, store, candidate.label, memoryImportPick{})
 		if err != nil {
 			return err
 		}

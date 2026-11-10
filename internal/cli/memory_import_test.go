@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -599,7 +600,7 @@ func TestMemoryImport_IgnoresTheWholeStoreWhenOnlyMarkdownIsIgnored(t *testing.T
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	for _, name := range []string{".imported", ".lock"} {
+	for _, name := range []string{".imported", ".declined", ".lock"} {
 		if err := exec.Command("git", "check-ignore", "-q", filepath.Join(personalStore, name)).Run(); err != nil {
 			t.Errorf("%s is not ignored: %v", name, err)
 		}
@@ -785,5 +786,440 @@ func TestMemoryImport_KeepsNewIndexNotesAfterTheCollidingSourceFactIsRemoved(t *
 	}
 	if got := readText(t, filepath.Join(personalStore, "claude-index-notes-2.md")); !strings.Contains(got, "Prefer small pull requests.") {
 		t.Errorf("new prose lost: %q", got)
+	}
+}
+
+const oldFact = "---\nname: old\ndescription: an out of date fact\nmetadata:\n  type: project\n---\n\nCI runs on Travis.\n"
+
+// claudeStoreToDecline syncs so Claude reads personal memory, then fills
+// Claude's own store with three facts and an index with a prose note, so
+// LINT043 counts four facts.
+func claudeStoreToDecline(t *testing.T) string {
+	t.Helper()
+	native := importProject(t)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeStore(t, native, map[string]string{
+		"MEMORY.md":    "- [Tabs](tabs.md): tabs\nAlways run the tests before a push.\n",
+		"tabs.md":      tabsFact,
+		"ci-ubuntu.md": ciFact,
+		"old.md":       oldFact,
+	})
+	return native
+}
+
+func lintOutput(t *testing.T) string {
+	t.Helper()
+	out, _ := runRoot(t, "memory", "lint")
+	return out
+}
+
+func TestMemoryImport_SkipRecordsADeclineAndCopiesNothing(t *testing.T) {
+	native := claudeStoreToDecline(t)
+	before := listing(t, native)
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip", "old.md")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	for _, name := range []string{"tabs.md", "ci-ubuntu.md", "old.md"} {
+		if _, err := os.Stat(filepath.Join(personalStore, name)); err == nil {
+			t.Errorf("%s copied", name)
+		}
+	}
+	record := readText(t, filepath.Join(personalStore, ".declined"))
+	if !strings.HasPrefix(record, "claude/old.md\tsha256:") || strings.Count(record, "\n") != 1 {
+		t.Errorf(".declined = %q", record)
+	}
+	if info, err := os.Stat(filepath.Join(personalStore, ".declined")); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf(".declined mode: %v %v", info, err)
+	}
+	if !strings.Contains(out, "Declined 1 fact(s)") || !strings.Contains(out, "  old.md") {
+		t.Errorf("output:\n%s", out)
+	}
+	if after := listing(t, native); after != before {
+		t.Errorf("source changed:\nbefore %s\nafter %s", before, after)
+	}
+}
+
+func TestMemoryImport_SkipRestDeclinesEveryFactNotImported(t *testing.T) {
+	native := claudeStoreToDecline(t)
+	writeFile(t, filepath.Join(native, "token.md"), "deploy with ghp_"+strings.Repeat("a", 36)+"\n")
+	writeStore(t, personalStore, map[string]string{"MEMORY.md": "- [Tabs](tabs.md): tabs\n", "tabs.md": tabsFact})
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip-rest")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	record := readText(t, filepath.Join(personalStore, ".declined"))
+	for _, key := range []string{"claude/ci-ubuntu.md\t", "claude/old.md\t", "claude/token.md\t", "claude/@index-notes/claude-index-notes.md\t"} {
+		if !strings.Contains(record, key) {
+			t.Errorf(".declined lacks %q:\n%s", key, record)
+		}
+	}
+	if strings.Contains(record, "tabs.md") {
+		t.Errorf("an imported fact was declined:\n%s", record)
+	}
+	if !strings.Contains(out, "Declined 4 fact(s)") {
+		t.Errorf("output:\n%s", out)
+	}
+	if lint := lintOutput(t); strings.Contains(lint, "LINT043") {
+		t.Errorf("lint:\n%s", lint)
+	}
+}
+
+func TestMemoryImport_OnlyWithSkipRestCopiesThePickAndDeclinesTheOthers(t *testing.T) {
+	claudeStoreToDecline(t)
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md", "--skip-rest")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+		t.Errorf("tabs.md = %q", got)
+	}
+	record := readText(t, filepath.Join(personalStore, ".declined"))
+	if strings.Contains(record, "tabs.md") || strings.Count(record, "\n") != 3 {
+		t.Errorf(".declined:\n%s", record)
+	}
+	if !strings.Contains(out, "Copied 1 fact(s)") || !strings.Contains(out, "Declined 3 fact(s)") {
+		t.Errorf("output:\n%s", out)
+	}
+}
+
+func TestMemoryImport_SkipRestAloneCopiesNothing(t *testing.T) {
+	claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip-rest")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	for _, name := range []string{"ci-ubuntu.md", "old.md", "claude-index-notes.md"} {
+		if _, err := os.Stat(filepath.Join(personalStore, name)); err == nil {
+			t.Errorf("%s copied", name)
+		}
+	}
+	if !strings.Contains(out, "Declined 3 fact(s)") {
+		t.Errorf("output:\n%s", out)
+	}
+}
+
+func TestMemoryImport_RejectsASkipNameTheSourceLacks(t *testing.T) {
+	claudeStoreToDecline(t)
+
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--skip", "nope.md"}, "--skip nope.md"},
+		{[]string{"--only", "old.md", "--skip", "old.md"}, "old.md"},
+	} {
+		args := append([]string{"memory", "import", "--from", "claude"}, tc.args...)
+		if _, err := runRoot(t, args...); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%v: err = %v", tc.args, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(personalStore, ".declined")); err == nil {
+		t.Error("a rejected run recorded a decline")
+	}
+}
+
+func TestMemoryImport_DryRunShowsImportedDeclinedAndPending(t *testing.T) {
+	claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md", "--skip", "old.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip-rest", "--dry-run"); err != nil || !strings.Contains(out, "Would decline 2 fact(s)") {
+		t.Fatalf("dry run with --skip-rest: %v\n%s", err, out)
+	}
+	recorded := readText(t, filepath.Join(personalStore, ".declined"))
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--dry-run")
+	if err != nil {
+		t.Fatalf("dry run: %v\n%s", err, out)
+	}
+
+	for _, want := range []string{
+		"Would copy 2 fact(s)", "  ci-ubuntu.md", "  claude-index-notes.md",
+		"Already imported 1 fact(s):\n  tabs.md\n",
+		"declined fact(s)", "  old.md\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("dry run lacks %q:\n%s", want, out)
+		}
+	}
+	if got := readText(t, filepath.Join(personalStore, ".declined")); got != recorded {
+		t.Errorf("dry run changed .declined:\n%s", got)
+	}
+}
+
+func TestMemoryImport_LeavesDeclinedFactsOutOfAPlainImport(t *testing.T) {
+	claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip", "old.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(filepath.Join(personalStore, "old.md")); err == nil {
+		t.Error("a declined fact was copied")
+	}
+	if !strings.Contains(out, "Copied 3 fact(s)") {
+		t.Errorf("output:\n%s", out)
+	}
+}
+
+func TestMemoryImport_OnlyBringsBackADeclinedFact(t *testing.T) {
+	claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip", "old.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "old.md")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if got := readText(t, filepath.Join(personalStore, "old.md")); got != oldFact {
+		t.Errorf("old.md = %q", got)
+	}
+}
+
+func TestMemoryImport_SkipOnAnImportedFactRecordsNothing(t *testing.T) {
+	claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip", "tabs.md")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(filepath.Join(personalStore, ".declined")); err == nil {
+		t.Error("an imported fact was declined")
+	}
+	if !strings.Contains(out, "already imported") || !strings.Contains(out, "  tabs.md") {
+		t.Errorf("output:\n%s", out)
+	}
+}
+
+func TestLintMemory_StaysQuietAfterImportingSomeAndDecliningTheOthers(t *testing.T) {
+	native := claudeStoreToDecline(t)
+	before := listing(t, native)
+	if lint := lintOutput(t); !strings.Contains(lint, "4 fact(s) here no longer load") {
+		t.Fatalf("lint before:\n%s", lint)
+	}
+
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md", "--skip", "old.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+	if lint := lintOutput(t); !strings.Contains(lint, "2 fact(s) here no longer load") {
+		t.Errorf("lint after one decline:\n%s", lint)
+	}
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip-rest"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if lint := lintOutput(t); strings.Contains(lint, "LINT043") {
+		t.Errorf("lint after declining the rest:\n%s", lint)
+	}
+	if after := listing(t, native); after != before {
+		t.Errorf("source changed:\nbefore %s\nafter %s", before, after)
+	}
+}
+
+func TestLintMemory_SaysHowManyFactsWereDeclined(t *testing.T) {
+	claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip", "old.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	lint := lintOutput(t)
+
+	if !strings.Contains(lint, "3 fact(s) here no longer load") || !strings.Contains(lint, "1 declined") {
+		t.Errorf("lint:\n%s", lint)
+	}
+}
+
+func TestLintMemory_CountsADeclinedFactThatChanged(t *testing.T) {
+	native := claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip-rest"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(native, "old.md"), oldFact+"Now it runs on GitHub Actions.\n")
+
+	lint := lintOutput(t)
+	dry, err := runRoot(t, "memory", "import", "--from", "claude", "--dry-run")
+	if err != nil {
+		t.Fatalf("dry run: %v\n%s", err, dry)
+	}
+
+	if !strings.Contains(lint, "1 fact(s) here no longer load") {
+		t.Errorf("lint:\n%s", lint)
+	}
+	if !strings.Contains(dry, "Would copy 1 fact(s)") || !strings.Contains(dry, "old.md") || !strings.Contains(dry, "changed since declined") {
+		t.Errorf("dry run:\n%s", dry)
+	}
+}
+
+func TestMemoryImport_DeclinesFromCheckoutRepoAndPath(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T) []string
+		lints bool
+	}{
+		{"claude", func(t *testing.T) []string {
+			claudeStoreToDecline(t)
+			return []string{"--from", "claude"}
+		}, true},
+		{"checkout", func(t *testing.T) []string {
+			importProject(t)
+			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+			writeStore(t, personalStore, map[string]string{"tabs.md": tabsFact, "old.md": oldFact})
+			return []string{"--from", "checkout"}
+		}, true},
+		{"repo", func(t *testing.T) []string {
+			importProject(t)
+			repoStoreWithFacts(t, map[string]string{"tabs.md": tabsFact, "old.md": oldFact})
+			return []string{"--from", "repo"}
+		}, true},
+		{"path", func(t *testing.T) []string {
+			importProject(t)
+			other := filepath.Join(t.TempDir(), "gemini-memory")
+			writeStore(t, other, map[string]string{"tabs.md": tabsFact, "old.md": oldFact})
+			return []string{"--path", other}
+		}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := tc.setup(t)
+
+			args := append(append([]string{"memory", "import"}, source...), "--only", "tabs.md", "--skip-rest")
+			out, err := runRoot(t, args...)
+			if err != nil {
+				t.Fatalf("memory import: %v\n%s", err, out)
+			}
+
+			if !strings.Contains(out, "Copied 1 fact(s)") || !strings.Contains(out, "  old.md") {
+				t.Errorf("output:\n%s", out)
+			}
+			if tc.lints {
+				if lint := lintOutput(t); strings.Contains(lint, "LINT043") {
+					t.Errorf("lint:\n%s", lint)
+				}
+			}
+		})
+	}
+}
+
+func TestSync_DoesNotSeedDeclinedFacts(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact, "old.md": oldFact})
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip", "old.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+		t.Errorf("tabs.md = %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(personalStore, "old.md")); err == nil {
+		t.Error("sync seeded a declined fact")
+	}
+}
+
+func TestMemoryImport_SaysNothingToCopyOnlyWhenNothingIsLeft(t *testing.T) {
+	claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	for _, args := range [][]string{{"--only", "tabs.md", "--dry-run"}, {"--only", "tabs.md", "--skip-rest"}} {
+		out, err := runRoot(t, append([]string{"memory", "import", "--from", "claude"}, args...)...)
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		if strings.Contains(out, "has every fact") {
+			t.Errorf("%v claims every fact is there:\n%s", args, out)
+		}
+	}
+}
+
+func TestMemoryImport_DryRunWithOnlyListsThePendingFacts(t *testing.T) {
+	claudeStoreToDecline(t)
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md", "--dry-run")
+	if err != nil {
+		t.Fatalf("dry run: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(out, "Pending 3 fact(s)") || !strings.Contains(out, "  old.md\n") {
+		t.Errorf("dry run:\n%s", out)
+	}
+}
+
+func TestMemoryImport_StartsARecordOnItsOwnLine(t *testing.T) {
+	claudeStoreToDecline(t)
+	writeStore(t, personalStore, map[string]string{
+		".declined": "claude/other.md",
+		".imported": "claude/other.md",
+	})
+
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md", "--skip", "old.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if got := readText(t, filepath.Join(personalStore, ".imported")); got != "claude/other.md\nclaude/tabs.md\n" {
+		t.Errorf(".imported = %q", got)
+	}
+	declined := readText(t, filepath.Join(personalStore, ".declined"))
+	if !strings.HasPrefix(declined, "claude/other.md\nclaude/old.md\tsha256:") {
+		t.Errorf(".declined = %q", declined)
+	}
+}
+
+func TestMemoryImport_KeepsADeclineWhenOnlyLineEndingsChange(t *testing.T) {
+	native := claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip-rest"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(native, "old.md"), strings.ReplaceAll(oldFact, "\n", "\r\n"))
+
+	if lint := lintOutput(t); strings.Contains(lint, "LINT043") {
+		t.Errorf("lint:\n%s", lint)
+	}
+}
+
+func TestValidateBuiltinMemory_AllowsAStoreWhoseFactsAreAllDeclined(t *testing.T) {
+	importProject(t)
+	repoStoreWithFacts(t, map[string]string{"old.md": oldFact})
+	root, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Targets: []string{"codex"}, Builtins: []string{"memory"}}
+	if err := validateBuiltinMemory(root, cfg, nil); err == nil || !strings.Contains(err.Error(), "needs migration") {
+		t.Fatalf("pending fact: err = %v", err)
+	}
+	if out, err := runRoot(t, "memory", "import", "--from", "repo", "--skip-rest"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if err := validateBuiltinMemory(root, cfg, nil); err != nil {
+		t.Errorf("declined fact still needs migration: %v", err)
 	}
 }

@@ -294,8 +294,8 @@ var lintCodes = map[string]lintCode{
 	"LINT043": {
 		Severity: lintWarn,
 		Title:    "Memory facts no longer load",
-		Cause:    "A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own auto memory store once sync points Claude at personal memory, or the personal store of the other `memory.personal` mode after a switch. It counts facts by file name, and notes kept in that store's index as one more, and never prints what a fact says.",
-		Fix:      "Run the `agnostic-ai memory import` command the finding names. It copies the facts into personal memory and leaves the source as it is.",
+		Cause:    "A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own auto memory store once sync points Claude at personal memory, or the personal store of the other `memory.personal` mode after a switch. It counts facts by file name, and notes kept in that store's index as one more, leaves out facts you declined, and never prints what a fact says.",
+		Fix:      "Run the `agnostic-ai memory import` command the finding names. It copies the facts into personal memory and leaves the source as it is. To leave a fact behind, decline it with `--skip <file>`, or decline every fact not imported yet with `--skip-rest`.",
 	},
 	"LINT045": {
 		Severity: lintError,

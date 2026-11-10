@@ -31,6 +31,8 @@ agnostic-ai memory import --from claude   # copy facts from another memory store
 
   Import refuses a personal folder holding tracked files, and first adds the checkout folder to Git's exclude list if Git would track it. It records handled facts in `.imported` there, so LINT043 stops counting facts you later delete or merge.
 
+  To leave a fact behind, decline it. `--skip <file>` declines one fact and `--skip-rest` declines every fact not imported yet. Without `--only`, they copy nothing. Import records each decline in `.declined` in personal memory, with a checksum of the fact. LINT043 stops counting a declined fact, and a plain import or sync leaves it out. If the fact changes in the source, it counts again. A file import cannot read is declined by name only, so a change does not bring it back. To import a declined fact, name it with `--only`.
+
 | Flag | Description |
 |------|-------------|
 | `--strict` | With `memory lint`, exit 1 on warnings too. |
@@ -38,4 +40,6 @@ agnostic-ai memory import --from claude   # copy facts from another memory store
 | `--from` | With `memory import`, the store to copy from: `claude`, `checkout`, or `repo`. |
 | `--path` | With `memory import`, a folder to copy from instead of `--from`. |
 | `--only` | With `memory import`, copy only this fact file; repeat the flag for more. |
-| `--dry-run` | With `memory import`, list each fact and its description and write nothing. |
+| `--skip` | With `memory import`, decline this fact file so LINT043 stops counting it; repeat the flag for more. |
+| `--skip-rest` | With `memory import`, decline every fact not imported yet, after copying the `--only` picks. |
+| `--dry-run` | With `memory import`, list which facts are already imported, declined, and pending, and write nothing. |
