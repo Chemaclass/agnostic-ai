@@ -14,6 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - An archived or hidden chat that starts working again moves to Working by itself, in the companion and the web interface (#3239).
 - On macOS, `companion install` makes an app with the agnostic-ai icon, replaces the old bare program, and keeps start at login (#3238).
 - Cursor chats show what you typed as their title and prompt, without the timestamp, notification and attachment tags Cursor adds (#3241).
+- Cursor and Windsurf load each always-on rule once, from the root `AGENTS.md`; Trae opts in with `outputs.trae.rules-mode: entry-point` (#3230). Run `agnostic-ai sync` to drop the old rule files.
 
 ### Site
 

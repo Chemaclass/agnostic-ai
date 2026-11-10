@@ -31,7 +31,19 @@ For existing files, check [what `import windsurf` reads](#import) before syncing
 
 Run `agnostic-ai sync --check` and inspect `.devin/rules/conventional-commits.md` for the commit-prefix rule. Open the project in Devin Desktop or CLI and ask for a commit subject for a small fix; it should use `fix:`.
 
+With Codex or another tool that puts rules in `AGENTS.md`, the rule is in that file's `## Rules` block instead. See [loaded at session start](#loaded-at-session-start).
+
 Next, [add a skill](@/docs/spec-format/skills.md).
+
+## Loaded at session start
+
+Devin reads the root `AGENTS.md` and its always-on rule files in every session. The [Devin Local customizations page](https://docs.devin.ai/desktop/devin-local/customizations.md) says "`AGENTS.md`, `AGENTS.local.md` ... and `AGENT.md` are all read as always-on rules" and "Rule files in both `.devin/rules/` and `.windsurf/rules/` load". The [Devin CLI rules reference](https://docs.devin.ai/cli/extensibility/rules.md) says "Files at the workspace root are loaded at session start."
+
+When Codex or another tool writes the `## Rules` block in `AGENTS.md`, sync skips the `.devin/rules/` file of each always-on rule that block already holds, so the rule loads once (#3230). With `outputs.codex.nested-glob-rules: false`, scoped rules also stay in the root `AGENTS.md`, so Devin loads them there at start as well.
+
+Neither page states a size limit. Older Cascade docs capped a rule file at 12,000 characters; that page now redirects to Devin Local. A client that still applies the cap may cut a long `AGENTS.md`.
+
+Setting `"agents_standard": false` in Devin's config stops it from reading `AGENTS.md`, and sync does not read that setting. If you turn it off, set `outputs.windsurf.file` to another path. Windsurf then keeps a `.devin/rules/` file for every rule.
 
 ## Shared memory
 
@@ -67,8 +79,7 @@ Devin prefers `.devin/rules/*.md` and still reads `.windsurf/rules/` (`.windsurf
 
 Devin also reads the root `AGENTS.md`, so `sync` writes the shared instructions that point to source specs there.
 
-- When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, Devin loads each always-on rule twice, because every rule also keeps its `.devin/rules/` file.
-- Legacy Cascade [limits](https://docs.devin.ai/desktop/cascade/memories#rules) each workspace rule file to 12,000 characters and reads `AGENTS.md` the same way. The [Devin CLI rules reference](https://docs.devin.ai/cli/extensibility/rules) gives no size limit. Sync keeps the per-rule files for compatibility. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, scoped, model-decided and manual rules keep their `.devin/rules/` files, and so does a rule whose Windsurf text differs. See [loaded at session start](#loaded-at-session-start).
 
 ### Agents
 

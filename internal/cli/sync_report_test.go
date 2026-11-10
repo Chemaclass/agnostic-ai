@@ -404,7 +404,7 @@ func TestRunSyncOnce_ReportCountsTargetsThatReadAGENTSmd(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "  ~ rule style → 3 files in 3 targets\n") {
+	if !strings.Contains(out, "  ~ rule style → 2 files in 2 targets\n") {
 		t.Errorf("AGENTS.md should count for codex, which reads it:\n%s", out)
 	}
 	if !regexp.MustCompile(`(?m)^codex\s+0\s+1\s+0\s+\d+ms$`).MatchString(out) {

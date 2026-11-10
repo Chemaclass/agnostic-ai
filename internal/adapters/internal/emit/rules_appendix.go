@@ -161,12 +161,15 @@ func InlinesRulesIntoEntryPoint(target string) bool {
 //   - kilo: AGENTS.md "cannot be individually disabled".
 //   - augment: the IDE always includes a root AGENTS.md, and Auggie
 //     ranks it above `.augment/rules/`.
+//   - cursor: the CLI "reads AGENTS.md and CLAUDE.md at the project
+//     root ... and applies them as rules alongside .cursor/rules". It
+//     writes no entry point; another target writes AGENTS.md (#3230).
+//   - windsurf: Devin reads AGENTS.md "as always-on rules" next to
+//     `.devin/rules/` (#3230).
 //
-// trae is absent: it reads AGENTS.md only after "Include AGENTS.md in
-// the context" is switched on under Settings > Rules & Memories. windsurf is
-// absent: Devin caps a workspace rule at 12,000 characters and runs a
-// root AGENTS.md through the same rules engine, and its docs do not
-// exempt AGENTS.md, so one file with every rule could be cut short.
+// trae reads AGENTS.md only after "Include AGENTS.md in the context" is
+// switched on under Settings > Rules & Memories, which the user declares
+// with `outputs.trae.rules-mode: entry-point`.
 var entryPointFirstTargets = map[string]bool{
 	"codebuddy": true,
 	"cline":     true,
@@ -174,6 +177,35 @@ var entryPointFirstTargets = map[string]bool{
 	"qoder":     true,
 	"kilo":      true,
 	"augment":   true,
+	"cursor":    true,
+	"windsurf":  true,
+}
+
+// TraeReadsEntryPoint reports whether the user declared Trae's "Include
+// AGENTS.md in the context" switch on (`outputs.trae.rules-mode:
+// entry-point`). Trae's docs give no default and tell the user to turn
+// it on, so it counts as off until declared.
+func TraeReadsEntryPoint(cfg *config.Config) bool {
+	return cfg != nil && cfg.Outputs["trae"].RulesMode == "entry-point"
+}
+
+func loadsEntryPointRules(cfg *config.Config, target string) bool {
+	return entryPointFirstTargets[target] || target == "trae" && TraeReadsEntryPoint(cfg)
+}
+
+// RootInstructionsPath returns the conventional root instructions file
+// target reads at session start, or "" when an output override moves it
+// off the file its tool reads. Cursor writes no entry point but reads
+// the project-root AGENTS.md when another target writes it.
+func RootInstructionsPath(cfg *config.Config, target string) string {
+	if target == "cursor" {
+		return "AGENTS.md"
+	}
+	path := EntryPointPath(cfg, target)
+	if path == "" || path != entryPointPaths[target] {
+		return ""
+	}
+	return path
 }
 
 // EntryPointRuleInliner returns the target whose rules block sync
@@ -184,11 +216,11 @@ var entryPointFirstTargets = map[string]bool{
 // not the conventional root file its tool reads, or sync does not write
 // that file. Mirrors the reader grouping in internal/cli/entrypoint.go.
 func EntryPointRuleInliner(cfg *config.Config, target string) string {
-	if cfg == nil || !entryPointFirstTargets[target] || HasLegacyRulesFile(cfg, target) {
+	if cfg == nil || !loadsEntryPointRules(cfg, target) || HasLegacyRulesFile(cfg, target) {
 		return ""
 	}
-	path := EntryPointPath(cfg, target)
-	if path != entryPointPaths[target] || cfg.IsUnmanaged(path) {
+	path := RootInstructionsPath(cfg, target)
+	if path == "" || cfg.IsUnmanaged(path) {
 		return ""
 	}
 	for _, t := range append([]string{target}, cfg.Targets...) {

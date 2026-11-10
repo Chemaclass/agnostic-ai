@@ -31,7 +31,19 @@ For existing files, check [what `import cursor` reads](#import) before syncing.
 
 Run `agnostic-ai sync --check` and inspect `.cursor/rules/conventional-commits.mdc` for the commit-prefix rule. Open the project in Cursor. Confirm the rule is Always Apply in the Rules panel, then ask for a commit subject for a small fix; it should use `fix:`.
 
+With Codex or another tool that puts rules in `AGENTS.md`, the rule is in that file's `## Rules` block instead, and the Rules panel does not list it. See [loaded at session start](#loaded-at-session-start).
+
 Next, [add a skill](@/docs/spec-format/skills.md).
+
+## Loaded at session start
+
+Cursor reads the root `AGENTS.md` and its own always-on rules in every session. The [CLI docs](https://cursor.com/docs/cli/using) say:
+
+> The CLI also reads `AGENTS.md` and `CLAUDE.md` at the project root (if present) and applies them as rules alongside `.cursor/rules`.
+
+The [rules docs](https://cursor.com/docs/rules) say "Cursor supports AGENTS.md in the project root and subdirectories", and an Always Apply rule applies "to every chat session".
+
+Cursor writes no `AGENTS.md`. When another tool such as Codex writes it with the `## Rules` block, sync skips the `.cursor/rules/` file of each always-on rule that block already holds, so the rule loads once (#3230). Rules scoped by `globs`, rules Cursor applies by description or by hand, and rules whose Cursor text differs keep their `.mdc` file. With `outputs.codex.nested-glob-rules: false`, scoped rules also stay in the root `AGENTS.md`, so Cursor loads them there at start as well.
 
 ## Output
 

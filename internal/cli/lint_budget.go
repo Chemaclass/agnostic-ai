@@ -183,6 +183,10 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 			agentsFile = &files[i]
 		}
 		for _, t := range f.Readers {
+			// Trae reads AGENTS.md only once its switch is on.
+			if t == "trae" && f.Path == "AGENTS.md" && !adapters.TraeReadsEntryPoint(cfg) {
+				continue
+			}
 			// The first file a target reads is its entry point; a
 			// CLAUDE.md that imports AGENTS.md comes before it.
 			if _, seen := fileOf[t]; !seen {

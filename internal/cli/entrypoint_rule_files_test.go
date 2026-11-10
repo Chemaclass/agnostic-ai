@@ -303,15 +303,198 @@ func TestSync_KiroSkipsSteeringCopyWhenAnAgentSetsResources(t *testing.T) {
 	}
 }
 
-// Devin caps a workspace rule at 12,000 characters and runs AGENTS.md
-// through the same rules engine, so Windsurf keeps its own files.
-func TestSync_WindsurfKeepsAlwaysOnRulesBesideAGENTSMd(t *testing.T) {
+// Devin reads AGENTS.md as always-on rules next to .devin/rules/, so
+// Windsurf leaves the always-on rule to AGENTS.md (#3230).
+func TestSync_WindsurfSkipsAlwaysOnRulesCodexInlinesIntoAGENTSMd(t *testing.T) {
 	dir := ruleFilesProject(t, "targets: [codex, windsurf]\n")
 
 	mustSync(t)
 
-	if !exists(filepath.Join(dir, ".devin", "rules", "always.md")) {
-		t.Error(".devin/rules/always.md must stay")
+	if exists(filepath.Join(dir, ".devin", "rules", "always.md")) {
+		t.Error(".devin/rules/always.md loads the rule a second time next to AGENTS.md")
+	}
+	if !exists(filepath.Join(dir, ".devin", "rules", "go.md")) {
+		t.Error(".devin/rules/go.md must stay: only the rules folder scopes it by path")
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after sync: %v\n%s", err, out)
+	}
+}
+
+// Cursor applies the root AGENTS.md as rules alongside .cursor/rules/,
+// so the always-on rule loads from AGENTS.md alone (#3230).
+func TestSync_CursorSkipsAlwaysOnRulesCodexInlinesIntoAGENTSMd(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, cursor]\n")
+
+	mustSync(t)
+
+	if exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
+		t.Error(".cursor/rules/always.mdc loads the rule a second time next to AGENTS.md")
+	}
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".cursor", "rules", "go.mdc")), "Go body.") {
+		t.Error(".cursor/rules/go.mdc must stay: only the rules folder scopes it by path")
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after sync: %v\n%s", err, out)
+	}
+}
+
+func TestSync_CursorKeepsAlwaysOnRulesWithoutARulesBlockInAGENTSMd(t *testing.T) {
+	for _, targets := range []string{"[cursor]", "[cursor, windsurf, trae]", "[claude, cursor]"} {
+		t.Run(targets, func(t *testing.T) {
+			dir := ruleFilesProject(t, "targets: "+targets+"\n")
+
+			mustSync(t)
+
+			if !exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
+				t.Error(".cursor/rules/always.mdc must stay: no AGENTS.md carries the rule")
+			}
+		})
+	}
+}
+
+func TestSync_CursorKeepsAlwaysOnRulesWhenAGENTSMdIsUnmanaged(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, cursor]\nsync:\n  unmanaged: [AGENTS.md]\n")
+
+	mustSync(t)
+
+	if !exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
+		t.Error(".cursor/rules/always.mdc must stay when sync does not write AGENTS.md")
+	}
+}
+
+// With "Include AGENTS.md in the context" switched on, the user tells
+// sync so with rules-mode: entry-point and Trae reads AGENTS.md alone.
+func TestSync_TraeSkipsAlwaysOnRulesWhenItDeclaresItReadsAGENTSMd(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, trae]\noutputs:\n  trae:\n    rules-mode: entry-point\n")
+
+	mustSync(t)
+
+	if exists(filepath.Join(dir, ".trae", "rules", "always.md")) {
+		t.Error(".trae/rules/always.md loads the rule a second time next to AGENTS.md")
+	}
+	if !exists(filepath.Join(dir, ".trae", "rules", "go.md")) {
+		t.Error(".trae/rules/go.md must stay: only the rules folder scopes it by path")
+	}
+}
+
+// Codex owns the shared AGENTS.md. Adding the tools that read it must
+// not change a byte of it.
+func TestSync_CursorWindsurfAndTraeLeaveCodexAGENTSMdUnchanged(t *testing.T) {
+	const opts = "outputs:\n  codex:\n    nested-glob-rules: false\n"
+	dir := ruleFilesProject(t, "targets: [codex]\n"+opts)
+	mustSync(t)
+	alone := readFile(t, filepath.Join(dir, "AGENTS.md"))
+
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cursor, windsurf, trae]\n"+opts)
+	mustSync(t)
+
+	if got := readFile(t, filepath.Join(dir, "AGENTS.md")); got != alone {
+		t.Errorf("AGENTS.md changed when Cursor, Windsurf and Trae joined codex:\nbefore:\n%s\nafter:\n%s", alone, got)
+	}
+}
+
+func TestLintBudget_CursorAndWindsurfCountEachAlwaysOnRuleOnce(t *testing.T) {
+	ruleFilesProject(t, "targets: [codex, cursor, windsurf]\nlint:\n  instructions-words: 1\n")
+
+	out, _ := runCLI(t, "lint")
+
+	for _, line := range findingLines(out, "LINT011") {
+		if strings.Contains(line, "always-on rule files") {
+			t.Errorf("Cursor and Windsurf load the always-on rule from AGENTS.md only, got:\n%s", line)
+		}
+	}
+}
+
+// Trae reads AGENTS.md only once its switch is on, so by default lint
+// counts its rule files and not AGENTS.md.
+func TestLintBudget_TraeDoesNotCountAGENTSMdByDefault(t *testing.T) {
+	ruleFilesProject(t, "targets: [codex, trae]\nlint:\n  instructions-words: 1\n")
+
+	out, _ := runCLI(t, "lint")
+
+	for _, line := range findingLines(out, "LINT011") {
+		if strings.Contains(line, "trae") && strings.Contains(line, "AGENTS.md ") {
+			t.Errorf("Trae does not read AGENTS.md by default, got:\n%s", line)
+		}
+	}
+}
+
+func TestExplainContext_CountsEachAlwaysOnRuleOnce(t *testing.T) {
+	cases := map[string]string{
+		"cursor":                  "targets: [codex, cursor]\n",
+		"windsurf":                "targets: [codex, windsurf]\n",
+		"trae":                    "targets: [codex, trae]\n",
+		"trae with the switch on": "targets: [codex, trae]\noutputs:\n  trae:\n    rules-mode: entry-point\n",
+	}
+	for name, config := range cases {
+		t.Run(name, func(t *testing.T) {
+			ruleFilesProject(t, config)
+			target, _, _ := strings.Cut(name, " ")
+
+			out, err := runCLI(t, "explain", "--context", "--target", target)
+			if err != nil {
+				t.Fatalf("explain --context: %v\n%s", err, out)
+			}
+			var startup []string
+			for _, line := range strings.Split(out, "\n") {
+				if strings.Contains(line, "[startup]") && strings.Contains(line, "rules/always.md") {
+					startup = append(startup, line)
+				}
+			}
+			if len(startup) != 1 {
+				t.Errorf("%s loads the always-on rule once, got %d startup lines:\n%s", target, len(startup), out)
+			}
+		})
+	}
+}
+
+func TestExplain_CreditsAGENTSMdToCursorForAnInlinedRule(t *testing.T) {
+	ruleFilesProject(t, "targets: [codex, cursor]\n")
+
+	out, err := runCLI(t, "explain", filepath.Join(".agnostic-ai", "rules", "always.md"))
+	if err != nil {
+		t.Fatalf("explain: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, `[cursor] AGENTS.md (section "always")`) {
+		t.Errorf("explain should credit the AGENTS.md section to cursor, got:\n%s", out)
+	}
+	if strings.Contains(out, ".cursor/rules/always.mdc") {
+		t.Errorf("explain lists a .cursor/rules file sync no longer writes:\n%s", out)
+	}
+}
+
+func TestRender_CursorShowsTheAGENTSMdSectionForAnInlinedRule(t *testing.T) {
+	ruleFilesProject(t, "targets: [codex, cursor]\n")
+
+	out, err := runCLI(t, "render", filepath.Join(".agnostic-ai", "rules", "always.md"), "-t", "cursor")
+	if err != nil {
+		t.Fatalf("render: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "# target: cursor") || !strings.Contains(out, " AGENTS.md") || !strings.Contains(out, "Always body.") {
+		t.Errorf("render should show the AGENTS.md section Cursor reads, got:\n%s", out)
+	}
+	if strings.Contains(out, ".cursor/rules/always.mdc") {
+		t.Errorf("render shows a .cursor/rules file sync no longer writes:\n%s", out)
+	}
+}
+
+func TestImport_CursorReadsTheRulesBlockItsCopiesWereSkippedFor(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, cursor]\n")
+	mustSync(t)
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", "rules")); err != nil {
+		t.Fatal(err)
+	}
+
+	if out, err := runCLI(t, "import", "cursor"); err != nil {
+		t.Fatalf("import cursor: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md")), "Always body.") {
+		t.Error("import cursor must recover the rule Cursor reads from AGENTS.md")
+	}
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md")), "**/*.go") {
+		t.Error("import cursor must keep the scoped rule from .cursor/rules/go.mdc")
 	}
 }
 

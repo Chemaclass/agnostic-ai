@@ -30,8 +30,6 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		"GEMINI.md",
 		"CONVENTIONS.md",
 		".github/copilot-instructions.md",
-		".cursor/rules/sample-rule.mdc",
-		".devin/rules/sample-rule.md",
 		".continue/rules/sample-rule.md",
 		".junie/AGENTS.md",
 		".junie/agents/sample-agent.md",
@@ -53,6 +51,8 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		".qoder/rules/sample-rule.md",
 		".kilo/rules/sample-rule.md",
 		".augment/rules/sample-rule.md",
+		".cursor/rules/sample-rule.mdc",
+		".devin/rules/sample-rule.md",
 	} {
 		if _, err := os.Stat(filepath.Join(dir, f)); err == nil {
 			t.Errorf("%s loads the rule a second time next to AGENTS.md", f)

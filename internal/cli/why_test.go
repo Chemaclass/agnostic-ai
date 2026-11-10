@@ -106,9 +106,9 @@ func TestWhy_DefaultProjectIgnoresUnconfiguredAdapterErrors(t *testing.T) {
 		t.Errorf("want shared instructions provenance, got %v", got.Sources)
 	}
 
-	got = runWhyJSON(t, ".devin/rules/demo.md")
-	if got.Target != "windsurf" || got.Configured {
-		t.Errorf("want unconfigured windsurf, got target %q, configured %v", got.Target, got.Configured)
+	got = runWhyJSON(t, ".trae/rules/demo.md")
+	if got.Target != "trae" || got.Configured {
+		t.Errorf("want unconfigured trae, got target %q, configured %v", got.Target, got.Configured)
 	}
 	if !slices.ContainsFunc(got.Sources, func(s whySource) bool { return s.Name == "demo" }) {
 		t.Errorf("want demo rule provenance, got %v", got.Sources)
