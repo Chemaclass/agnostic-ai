@@ -16,6 +16,8 @@ make build
 
 The web interface is embedded from tracked assets, so Go-only builds need no Node.js. After changing `ui/src/`, its build inputs, or dependencies, use Node.js 22 and run `make ui-build`, then commit the updated `ui/embedded/` files. `make build` checks that those assets match their sources.
 
+The JetBrains plugin under `editors/jetbrains/` needs JDK 21 on `PATH`, or `JAVA_HOME` set to it. `make ci-local` runs the plugin tests only when that folder changed. Without Java, pass `SKIP_JETBRAINS=1` and wait for the plugin's CI job instead. See its [README](editors/jetbrains/README.md#build--run-locally).
+
 After building and syncing, run `./agnostic-ai` or `go run ./cmd/agnostic-ai` to use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked to set up new checkouts. Edit the specs, then sync.
 
 ## Make a change

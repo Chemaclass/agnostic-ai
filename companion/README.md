@@ -5,8 +5,9 @@ conversations need you. Click it for a searchable list of your Claude Code,
 Codex and Cursor chats, and open any of them where it lives.
 
 It is a window on the `agnostic-ai` command and reads no chat itself. It
-starts its own `agnostic-ai serve --global --cloud-sessions`, and that server
-reads, opens and marks the conversations. So the companion and the web interface always agree,
+starts its own `agnostic-ai serve --global --api-only --cloud-sessions`, and
+that server reads, opens and marks the conversations. So the companion and the
+web interface always agree,
 and an upgrade of agnostic-ai is an upgrade of what the companion shows.
 
 ## Get it
@@ -19,9 +20,12 @@ agnostic-ai companion uninstall   # remove it from this machine
 ```
 
 `install` builds the companion from the same commit as your `agnostic-ai`,
-with Go, and says how far it is. Releases ship no built companion, so nothing
+with Go, and prints each step as it goes. Releases ship no built companion, so nothing
 has to be signed or published for each system. It names what your machine
-lacks before it builds anything; see [Systems](#systems).
+lacks before it builds anything. [companion](../docs/site/content/docs/cli-reference/inspect.md#companion)
+lists what each system needs and where it has been run.
+
+Codex and Cursor chats need the `sqlite3` command, as in the web interface.
 
 To work on the companion itself, from the repository root: `make companion-run`
 builds it and the CLI and starts it on that CLI. `make companion` only builds
@@ -117,10 +121,13 @@ and a session file that holds still. So a turn that wrote nothing for 5 minutes
 shows as Waiting for you. A command that runs longer than that reads as a wait
 too; open the chat and it leaves Needs you until it writes again.
 
-How a status is believed:
+When a status counts:
 
 - **Looking counts.** Opening or archiving a chat that waits for you takes it
   out of Needs you. Its next prompt is a new write, which puts it back.
+- **Only looking here counts.** You see a conversation when you open it from
+  the companion or the web interface, or archive it. A chat you read in its
+  own terminal still counts as unread until then.
 - **A local chat** is working or waiting only while its process runs on this
   machine.
 - **A cloud chat** has no process here to check, so its status is believed for
@@ -128,49 +135,30 @@ How a status is believed:
   only while its worker runs: a session that failed can keep a working status
   for weeks.
 
-## Claude Code cloud sessions
+## Cloud sessions
 
-The list also shows the Claude Code sessions that run at claude.ai/code. They
-sit in the same groups as the others, with **Cloud** in their second line.
+The list also shows the Claude Code sessions that run at claude.ai/code and the
+threads that run in the Codex cloud. They sit in the same groups as the others,
+with **Cloud** in their second line.
 
-- **What it reads.** The server asks `api.anthropic.com` for the list of your
-  cloud sessions: id, title, status and times, at most 100 of them. It never
-  reads a session's messages.
-- **When.** At most once a minute, with a 5-second timeout. A cloud session that
-  starts, stops or needs you shows in the list at most about a minute late
-  (65 seconds).
-- **The sign-in.** The server reads the claude.ai sign-in that Claude Code keeps
-  in the macOS keychain, afresh for each call, and sends it only to
-  `api.anthropic.com`. It never keeps, prints or logs it. Run `claude` to sign in or
-  renew it. Windows and Linux are not supported yet: there the list shows no
-  cloud sessions and says why.
-- **When it fails.** Your local chats always show. A cloud that is slow or
-  fails to answer keeps its last good list for up to 10 minutes and says
-  nothing. After that, or when the sign-in is the problem, its sessions leave
-  the list and one quiet line under the rows says why.
-- **Opening one** opens that session's own page on claude.ai in your browser.
-- **It can break.** The endpoint is undocumented, so any Claude Code release can
-  change it. The list then shows your local chats and says the cloud answer could
-  not be read.
+- **What it reads.** The id, title, status and times of at most 100 sessions
+  for each tool. It never reads a session's messages.
+- **The sign-in.** It uses the sign-in each tool already keeps on this machine
+  and sends it only to that tool's own cloud. Claude Code cloud sessions need
+  macOS for now; elsewhere the list shows none and says nothing. If you never
+  signed in to Codex, nothing is asked and nothing is said.
+- **When it fails.** Your local chats always show. When the cloud is slow or
+  does not answer, the list keeps the last good cloud sessions for up to 10
+  minutes and says nothing. After that, or when the sign-in is the problem,
+  they leave the list and one quiet line under the rows says why.
+- **Opening one** opens a Claude Code session on claude.ai in your browser, and
+  a Codex thread in the Codex app.
+- **It can break.** Both endpoints are undocumented, so a release of either
+  tool can change them. The list then shows your local chats and says the cloud
+  answer could not be read.
 
-## Codex cloud threads
-
-The list shows the threads that run in the Codex cloud the same way, as
-`Codex · Cloud`.
-
-- **What it reads.** The server asks the Codex cloud, the same place the Codex
-  app reads from, for the list of your threads: id, name, status and times, at
-  most 100 of them. It never reads a thread's messages.
-- **The sign-in.** It reads the ChatGPT login the Codex command keeps in
-  `~/.codex/auth.json`, afresh for each call, and sends it only to the Codex
-  cloud. If you never signed in to Codex, nothing is asked and nothing is said.
-- **When, and when it fails:** as for Claude Code above.
-- **Opening one** opens the thread in the Codex app.
-- **It can break.** This endpoint is undocumented too.
-
-You see a conversation when you open it from the companion or the web interface,
-or archive it. A chat you read in its own terminal still counts
-as unread until then.
+[Cloud sessions under serve](../docs/site/content/docs/cli-reference/inspect.md#claude-code-cloud-sessions)
+has the hosts, the sign-in files and the timing.
 
 ## Files it keeps
 
@@ -181,18 +169,6 @@ Both are in the `agnostic-ai` folder of your user configuration folder
 - `conversation-marks.json`: what you saw and what you archived, shared
   with `agnostic-ai serve`. Tool names, ids and times only.
 - `companion.json`: where you left the circle, and your shortcut.
-
-## Systems
-
-| System | State |
-| --- | --- |
-| System | To build it | State |
-| --- | --- | --- |
-| macOS | Go, Xcode Command Line Tools | Built and run on macOS 27 (arm64). |
-| Windows | Go | Compiles; not yet run on a Windows machine. |
-| Linux | Go, a C compiler, the GTK 4, WebKitGTK 6.0 and X11 development packages | Not yet built or run. Wayland compositors decide what stays on top, so the circle may not float there. |
-
-Codex and Cursor chats need the `sqlite3` command, as in the web interface.
 
 ## When it reads
 
@@ -213,7 +189,6 @@ What you see is never older than this:
   the list says why, instead of showing the last one as if it were current.
 - After the companion was hidden, the first list is a new read.
 
-COSTS
 ## Layout
 
 - `main.go`: the two windows (the circle and the list) and how they open and close.
