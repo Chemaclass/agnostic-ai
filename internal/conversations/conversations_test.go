@@ -353,14 +353,15 @@ func TestScan_ListsCursorChatsInTheProjectWithTheirPrompts(t *testing.T) {
 			{"id":"` + inApp + `","created_at":1762500000000,"recency":1762600000000,"name":"Parser refactor","folder":"/tmp/app/src","branch":"main"},
 			{"id":"` + elsewhere + `","created_at":1762500000000,"recency":1762700000000,"name":"Other repo","folder":"/tmp/other","branch":""}
 		]`,
-		"state.vscdb|chosen(composerId)": `[{"id":"` + inApp + `","first_text":"Split the parser\nKeep the API","last_text":"Add benchmarks"}]`,
+		"state.vscdb|chosen(composerId)": `[{"id":"` + inApp + `","first_text":"Split the parser\nKeep the API","last_text":"<timestamp>Saturday, Nov 8, 2025</timestamp><system_notification><task>build done</task></system_notification><user_query>Add benchmarks</user_query>"}]`,
 		"store.db|FROM meta":             `[{"value":"` + meta + `"}]`,
 	}), fakeProcesses{})
 	write(t, stores.CursorDB, "")
 	write(t, filepath.Join(stores.CursorDir, "chats", md5Hex("/tmp/app"), agent, "store.db"), "")
 	write(t, filepath.Join(stores.CursorDir, "projects", "p1", "agent-transcripts", agent, agent+".jsonl"), lines(
 		obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<user_info>os</user_info>"}}}},
-		obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<user_query>Fix the CI job</user_query>"}}}},
+		obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<manually_attached_skills>\nreview\n</manually_attached_skills>\n<timestamp>Friday, Nov 7, 2025, 8:00 AM</timestamp>\n<user_query>Fix the CI job</user_query>"}}}},
+		obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<timestamp>Friday, Nov 7, 2025, 8:05 AM</timestamp>\n<user_query>Run it again</user_query>"}}}},
 	))
 
 	scanner.Now = func() time.Time { return time.UnixMilli(1762800000000) }
@@ -394,8 +395,26 @@ func TestScan_ListsCursorChatsInTheProjectWithTheirPrompts(t *testing.T) {
 }` {
 		t.Errorf("editor chat =\n%s", actual)
 	}
-	if c := byID(t, view, agent); c.App != AppCLI || c.Title != "Fix the CI job" || c.Open.Command != "cd '/tmp/app' && cursor-agent --resume "+agent {
+	if c := byID(t, view, agent); c.App != AppCLI || c.Title != "Fix the CI job" || c.Prompt != "Run it again" || c.Open.Command != "cd '/tmp/app' && cursor-agent --resume "+agent {
 		t.Errorf("cursor-agent chat = %s", asJSON(t, c))
+	}
+	for query, want := range map[string]int{"ci job": 1, "friday": 0, "build done": 0} {
+		found := scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}, Query: query})
+		if found.Matches == nil || *found.Matches != want {
+			t.Errorf("search %q matched %s, want %d", query, asJSON(t, found.Matches), want)
+		}
+	}
+}
+
+func TestCursorTyped_KeepsOnlyWhatWasTyped(t *testing.T) {
+	for in, want := range map[string]string{
+		"<timestamp>Mon</timestamp>\n<user_query>Fix it</user_query>":                                "Fix it",
+		"<external_links>x</external_links><user_query>One</user_query><user_query>Two</user_query>": "One\nTwo",
+		"Plain text with no query": "Plain text with no query",
+	} {
+		if actual := cursorTyped(in); actual != want {
+			t.Errorf("cursorTyped(%q) = %q, want %q", in, actual, want)
+		}
 	}
 }
 
@@ -545,6 +564,7 @@ func TestTypedText_DropsInjectedBlocksAndKeepsWhatWasTyped(t *testing.T) {
 	for in, want := range map[string]string{
 		"<system-reminder>be brief</system-reminder>\nHello   there":                  "Hello there",
 		"<user_query>\nFix the CI job\n</user_query>":                                 "Fix the CI job",
+		"<timestamp>2026-01-01</timestamp> is rejected by the parser":                 "<timestamp>2026-01-01</timestamp> is rejected by the parser",
 		"<command-name>/review</command-name>\n<command-args>PR 12</command-args>":    "/review\nPR 12",
 		"<ide_selection lines=\"1-3\">secret code</ide_selection>Why does this fail?": "Why does this fail?",
 	} {
