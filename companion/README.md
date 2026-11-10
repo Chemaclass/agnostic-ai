@@ -32,7 +32,7 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
 - **Click** the circle to open or close the list. So does the shortcut,
   **Ctrl+Alt+Space** (⌃⌥Space on a Mac) until you change it.
 - **Type** to search every conversation, of any age.
-- **All, Local, Cloud** beside the search narrows the list to the chats on this
+- **All, Local, Cloud** at the foot narrows the list to the chats on this
   machine or to the ones that run in a tool's cloud. It remembers your choice.
   The number on the circle always counts both.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
@@ -43,7 +43,8 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
   written in it. A hidden chat leaves every list and search in agnostic-ai
   and comes back only with a new message. The tool that owns the chat keeps
   it either way.
-- **Dashboard** opens the full agnostic-ai web interface.
+- The **arrow button** beside the search opens the full agnostic-ai web
+  interface, the dashboard.
 - **Esc**, or a click anywhere else, closes the list.
 
 The number on the circle counts the conversations that need you. An ice blue arc

@@ -51,22 +51,22 @@ body {
   min-width: 0;
 }
 
-/* All, Local, Cloud: one quiet track with the chosen place lifted. */
+/* All, Local, Cloud at the foot: one quiet track with the chosen place lifted. */
 
 .places {
   display: flex;
   flex: none;
-  height: 36px;
-  padding: 3px;
+  height: 26px;
+  padding: 2px;
   gap: 2px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(242, 237, 229, 0.04);
   box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
 .place {
   padding: 0 9px;
-  border-radius: 7px;
+  border-radius: 6px;
   color: var(--paper-faint);
   font-size: 11.5px;
   font-weight: 550;
@@ -452,7 +452,7 @@ body {
   align-items: center;
   gap: 10px;
   height: 38px;
-  padding: 0 8px 0 6px;
+  padding: 0 8px 0 8px;
   border-top: 1px solid var(--hairline);
   background: rgba(0, 0, 0, 0.18);
   color: var(--paper-faint);
@@ -469,23 +469,24 @@ body {
   color: var(--paper-faint);
 }
 
+/* Beside the search: opens the full web interface. */
+
 .dashboard {
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 8px;
-  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(242, 237, 229, 0.04);
+  box-shadow: inset 0 0 0 1px var(--hairline);
   color: var(--paper-dim);
-  font-size: 11.5px;
-  font-weight: 560;
   transition: background 120ms ease, color 120ms ease;
 }
 
 .dashboard svg {
-  width: 11px;
-  height: 11px;
+  width: 14px;
+  height: 14px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
