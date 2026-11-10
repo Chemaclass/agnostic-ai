@@ -849,4 +849,7 @@
 # Codex cloud threads under the same flag, and working local Codex
 # threads read from their rollouts, measured 25591968 bytes locally; the
 # budget is that plus 8192, rounded up to a multiple of 4096.
-25604096
+# The lock on the conversation marks file, shared by every server on
+# the machine, measured 25600160 bytes locally; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+25612288

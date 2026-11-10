@@ -3,8 +3,10 @@ package conversations
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -221,5 +223,75 @@ func TestReopen_TakesACompletionBack(t *testing.T) {
 	}
 	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateActive || c.CompletedAt != "" || c.SeenAt != "2026-11-07T12:00:00Z" {
 		t.Errorf("after opening a completed conversation: state %s, completedAt %q, seenAt %q", c.State, c.CompletedAt, c.SeenAt)
+	}
+}
+
+func TestMark_TwoServersSharingTheMarksFileLoseNoMark(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	server := func() *Scanner {
+		scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
+		scanner.MarksPath = path
+		scanner.Now = func() time.Time { return now }
+		return scanner
+	}
+	// The companion's server and the dashboard's: two scanners, one file.
+	companion, dashboard := server(), server()
+	const each = 40
+	var wait sync.WaitGroup
+	failed := make(chan error, 2*each)
+	for i := range each {
+		wait.Go(func() {
+			if err := companion.Mark(ToolClaude, fmt.Sprintf("companion-%d", i), MarkCompleted); err != nil {
+				failed <- err
+			}
+		})
+		wait.Go(func() {
+			if err := dashboard.Mark(ToolCodex, fmt.Sprintf("dashboard-%d", i), MarkHidden); err != nil {
+				failed <- err
+			}
+		})
+	}
+	wait.Wait()
+	close(failed)
+	for err := range failed {
+		t.Fatal(err)
+	}
+
+	kept := storedMarks(t, path).Marks
+	for i := range each {
+		if kept[markKey(ToolClaude, fmt.Sprintf("companion-%d", i))].CompletedAt == "" {
+			t.Errorf("the companion's completion %d was lost", i)
+		}
+		if kept[markKey(ToolCodex, fmt.Sprintf("dashboard-%d", i))].HiddenAt == "" {
+			t.Errorf("the dashboard's hiding %d was lost", i)
+		}
+	}
+}
+
+func TestLockMarks_WaitsForTheOtherHolderAndFreesTheLockWhenReleased(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "conversation-marks.json")
+	release, err := lockMarks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	taken := make(chan struct{})
+	go func() {
+		again, err := lockMarks(path)
+		if err == nil {
+			again()
+		}
+		close(taken)
+	}()
+	select {
+	case <-taken:
+		t.Fatal("a second holder took the lock while the first held it")
+	case <-time.After(100 * time.Millisecond):
+	}
+	release()
+	select {
+	case <-taken:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the lock was not taken after its holder released it")
 	}
 }

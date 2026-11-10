@@ -35,14 +35,22 @@ func (s *shell) preferences() preferences {
 	return prefs
 }
 
+// shortcuts takes keys away from every other app so they open the
+// list, and gives them back. The window system refuses keys another
+// app already holds.
+type shortcuts interface {
+	Register(keys string, pressed func()) error
+	Unregister(keys string) error
+}
+
 // registerShortcut makes the saved shortcut open the list. A shortcut
 // the system refuses is kept in the settings and its reason shown, so
-// the person can pick another.
+// the person can pick another or try the same keys again later.
 func (s *shell) registerShortcut() {
 	s.mu.Lock()
 	keys := s.settings.shortcut()
 	s.mu.Unlock()
-	err := s.app.GlobalShortcut.Register(keys, s.togglePanel)
+	err := s.shortcuts.Register(keys, s.togglePanel)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.shortcutProblem = ""
@@ -52,31 +60,29 @@ func (s *shell) registerShortcut() {
 }
 
 // changeShortcut swaps the shortcut for keys. The new keys are taken
-// first, so a refused shortcut leaves the old one working.
+// first, so a refused shortcut leaves the old one working. Keys whose
+// last registration was refused are not held, so choosing them again
+// tries again: the problem clears only once the system takes them.
 func (s *shell) changeShortcut(keys string) error {
 	s.mu.Lock()
 	old := s.settings.shortcut()
-	hadProblem := s.shortcutProblem != ""
+	oldIsHeld := s.shortcutProblem == ""
 	s.mu.Unlock()
-	if keys == old && !hadProblem {
+	if keys == old && oldIsHeld {
 		return nil
 	}
-	if keys != old {
-		if err := s.app.GlobalShortcut.Register(keys, s.togglePanel); err != nil {
-			return fmt.Errorf("%s cannot be used: %w", keys, err)
-		}
-		if !hadProblem {
-			if err := s.app.GlobalShortcut.Unregister(old); err != nil {
-				return fmt.Errorf("release %s: %w", old, err)
-			}
+	if err := s.shortcuts.Register(keys, s.togglePanel); err != nil {
+		return fmt.Errorf("%s cannot be used: %w", keys, err)
+	}
+	if keys != old && oldIsHeld {
+		if err := s.shortcuts.Unregister(old); err != nil {
+			return fmt.Errorf("release %s: %w", old, err)
 		}
 	}
 	s.mu.Lock()
-	s.settings.Shortcut = keys
 	s.shortcutProblem = ""
-	saved := s.settings
 	s.mu.Unlock()
-	return writeSettings(s.settingsPath, saved)
+	return s.changeSettings(func(saved *settings) { saved.Shortcut = keys })
 }
 
 func readBody[T any](w http.ResponseWriter, r *http.Request, shape string) (T, bool) {

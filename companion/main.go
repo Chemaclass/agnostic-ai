@@ -66,6 +66,12 @@ type shell struct {
 
 	settingsPath string
 
+	// shortcuts takes and gives back the keys that open the list from anywhere.
+	shortcuts shortcuts
+
+	// mu guards the fields below. A change to the settings holds it
+	// through the write to disk, so two changes never write at once and
+	// an older snapshot never lands after a newer one.
 	mu sync.Mutex
 	// settings is what is saved; every write saves all of it.
 	settings settings
@@ -206,14 +212,19 @@ func (s *shell) bubbleMoved() {
 	}
 	s.save = time.AfterFunc(savePause, func() {
 		x, y := s.bubble.Position()
-		s.mu.Lock()
-		s.settings.Bubble = &point{X: x, Y: y}
-		saved := s.settings
-		s.mu.Unlock()
-		if err := writeSettings(s.settingsPath, saved); err != nil {
+		if err := s.changeSettings(func(saved *settings) { saved.Bubble = &point{X: x, Y: y} }); err != nil {
 			log.Print(err)
 		}
 	})
+}
+
+// changeSettings applies change to the settings and saves them, as one
+// step: the lock is held from the change through the write.
+func (s *shell) changeSettings(change func(saved *settings)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	change(&s.settings)
+	return writeSettings(s.settingsPath, s.settings)
 }
 
 func (s *shell) panelLostFocus() {
@@ -322,6 +333,7 @@ func main() {
 		},
 	})
 
+	s.shortcuts = s.app.GlobalShortcut
 	s.bubble = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
 		Name:   "bubble",
 		Title:  "agnostic-ai",

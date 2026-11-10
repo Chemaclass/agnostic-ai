@@ -197,11 +197,19 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 	file := marksFile{Marks: map[string]markEntry{}}
 	changed := false
 	if s.MarksPath != "" {
-		read, created, readErr := readMarks(s.MarksPath, now)
-		if readErr == nil {
-			file, changed = read, created
+		// The read, the changes below and the write are one step for
+		// every server that shares the file.
+		release, lockErr := lockMarks(s.MarksPath)
+		if lockErr == nil {
+			defer release()
+			read, created, readErr := readMarks(s.MarksPath, now)
+			if readErr == nil {
+				file, changed = read, created
+			}
+			err = readErr
+		} else {
+			err = lockErr
 		}
-		err = readErr
 	}
 	since := parseStamp(file.Since)
 	for r := range results {
@@ -275,6 +283,13 @@ func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry,
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Another server may change the same file: the lock spans the read
+	// and the write, so neither discards the other's mark.
+	release, err := lockMarks(s.MarksPath)
+	if err != nil {
+		return err
+	}
+	defer release()
 	now := s.Now()
 	file, _, err := readMarks(s.MarksPath, now)
 	if err != nil {
