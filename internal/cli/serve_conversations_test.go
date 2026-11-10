@@ -531,6 +531,8 @@ func TestConversationsHandler_AnArchivedConversationThatWorksShowsWorkingOnEvery
 	companion, _, _ := conversationsFixture(t, true)
 	companion.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	companion.scanner.Processes = runningProcesses{pid: 4242}
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	companion.scanner.Now = func() time.Time { return now }
 	shared := companion.scanner
 	dashboard := &conversationsHandler{root: companion.root, scanner: &conversations.Scanner{
 		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now, MarksPath: shared.MarksPath,
@@ -565,6 +567,7 @@ func TestConversationsHandler_AnArchivedConversationThatWorksShowsWorkingOnEvery
 			t.Fatal(err)
 		}
 	}
+	now = now.Add(time.Second)
 	writeSession("busy")
 	rec := get(companion, tag)
 	var view conversations.View

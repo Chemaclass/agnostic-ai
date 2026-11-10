@@ -1888,9 +1888,12 @@ test('live an archived session that starts working leaves Archived on another se
 
     const session = join(f.claudeDir, 'sessions', `${process.pid}.json`)
     await put(session, JSON.stringify({ pid: process.pid, sessionId: resumed, status: 'busy' }))
-    const listed = await (await fetch(`${companion}api/views/conversations`)).json() as { conversations: { id: string; state: string; completedAt?: string }[] }
-    expect(listed.conversations.find((c) => c.id === resumed)).toMatchObject({ state: 'working' })
-    expect(listed.conversations.find((c) => c.id === resumed)?.completedAt).toBeUndefined()
+    // An archive made in the second a read began stands for that read, so the next poll clears it.
+    await expect.poll(async () => {
+      const listed = await (await fetch(`${companion}api/views/conversations`)).json() as { conversations: { id: string; state: string; completedAt?: string }[] }
+      const c = listed.conversations.find((c) => c.id === resumed)
+      return { state: c?.state, completedAt: c?.completedAt }
+    }, { timeout: 5_000 }).toEqual({ state: 'working', completedAt: undefined })
 
     await page.reload()
     await expect(row('Fix the parser').locator('.conversation-live')).toContainText('Working')
@@ -1899,6 +1902,7 @@ test('live an archived session that starts working leaves Archived on another se
 
     await put(session, JSON.stringify({ pid: process.pid, sessionId: resumed, status: 'idle' }))
     await page.reload()
+    await expect(row('Fix the parser').locator('.conversation-live')).toHaveCount(0)
     await expect(page.locator('.conversation-state', { hasText: 'Archived' })).toHaveCount(1)
     await expect(row('Fix the parser').locator('.conversation-state')).toHaveCount(0)
     await expect(row('Review the branch').locator('.conversation-state')).toContainText('Archived')

@@ -127,8 +127,9 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	defer s.mu.Unlock()
 	s.shown.start()
 	defer s.shown.finish()
+	readAt := s.Now()
 	results, cloudNote := s.readAll(ctx, opts)
-	needsYou, marksErr := s.applyMarks(results)
+	needsYou, marksErr := s.applyMarks(results, readAt)
 	var all []Conversation
 	for _, result := range results {
 		if opts.Tool == "" || result.source.Tool == opts.Tool {

@@ -45,15 +45,17 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
   The number on the circle always counts both.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
 - Hover a row for its one button: **archive** a chat, or **hide** one that
-  is already archived. **Archive all** beside Active archives every active
+  is already archived. A working chat has no button, since the work would
+  bring it back at once. **Archive all** beside Active archives every active
   chat at once.
 - **Right-click** a row and choose **Rename…** to give the chat your own
   name. **Enter** saves it and **Esc** keeps the old one. An empty name is
   refused. The web interface shows the same name, and a search finds it.
   Right-clicking does not open the chat or mark it as read.
-- An archived chat comes back when you open it or when something new is
-  written in it. A hidden chat leaves every list and search in agnostic-ai
-  and comes back only with a new message. The tool that owns the chat keeps
+- An archived chat comes back when you open it, when something new is
+  written in it, or when it starts working. A hidden chat leaves every list
+  and search in agnostic-ai and comes back with a new message or when it
+  starts working. The tool that owns the chat keeps
   it either way.
 - The **home button** beside the search opens the full agnostic-ai web
   interface, the dashboard.

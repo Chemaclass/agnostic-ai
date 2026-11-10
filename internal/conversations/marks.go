@@ -195,13 +195,13 @@ func needsPerson(state State) bool {
 // applyMarks sets the state and marks of every conversation in
 // results, in place, takes out the ones the person hid, and returns how
 // many need the person. A completion or a hiding that a later write
-// overtook, or whose conversation its tool reports working, is cleared
-// in the file, so the file holds only those that still stand, and a
+// overtook, or whose conversation its tool reported working in a read
+// that began at readAt, after the mark, is cleared in the file, so the file holds only those that still stand, and a
 // conversation that worked is not completed or hidden again once the
 // work ends. The entry keeps its seen mark and chosen name. Without a
 // marks path, or with a file that cannot be read, nothing is unread,
 // completed or hidden.
-func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
+func (s *Scanner) applyMarks(results []sourceResult, readAt time.Time) (needsYou int, err error) {
 	now := s.Now()
 	file := marksFile{Marks: map[string]markEntry{}}
 	changed := false
@@ -229,12 +229,12 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			entry := file.Marks[key]
 			written := lastWritten(c)
 			working := c.Live && c.Activity == ActivityWorking
-			if lifted(entry.CompletedAt, written, working) {
+			if lifted(entry.CompletedAt, written, working, readAt) {
 				entry.CompletedAt = ""
 				file.Marks[key] = entry
 				changed = true
 			}
-			if lifted(entry.HiddenAt, written, working) {
+			if lifted(entry.HiddenAt, written, working, readAt) {
 				entry.HiddenAt = ""
 				file.Marks[key] = entry
 				changed = true
@@ -268,9 +268,15 @@ func overtaken(markedAt string, written time.Time) bool {
 }
 
 // lifted reports whether a mark made at markedAt no longer stands: a
-// later write overtook it, or the conversation is working.
-func lifted(markedAt string, written time.Time, working bool) bool {
-	return markedAt != "" && (working || overtaken(markedAt, written))
+// later write overtook it, or the conversation was working in a read
+// that began at readAt. The tools are read before the marks file is
+// locked, so a mark made by another server since then stands. Marks keep
+// whole seconds: one made in the second the read began stands too.
+func lifted(markedAt string, written time.Time, working bool, readAt time.Time) bool {
+	if markedAt == "" {
+		return false
+	}
+	return overtaken(markedAt, written) || working && parseStamp(markedAt).Before(readAt.Truncate(time.Second))
 }
 
 // Mark records what the person says about one conversation, as of now.

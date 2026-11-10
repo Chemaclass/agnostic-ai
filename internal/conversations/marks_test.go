@@ -532,13 +532,12 @@ func TestScan_AWorkingConversationLeavesTheArchiveOnEveryServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := os.ReadFile(path)
 	dashboard.Scan(context.Background(), ScanOptions{})
 	after, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again, _ := os.ReadFile(path); string(again) != string(raw) || !after.ModTime().Equal(before.ModTime()) {
+	if !os.SameFile(before, after) {
 		t.Error("a scan while the conversation still works wrote the marks file again")
 	}
 
@@ -575,5 +574,53 @@ func TestScan_AWorkingConversationLeavesHiding(t *testing.T) {
 	}
 	if entry := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolClaude, id)]; entry.HiddenAt != "" || entry.CompletedAt != "" || entry.SeenAt == "" {
 		t.Errorf("the resumed conversation's marks: %+v", entry)
+	}
+}
+
+// duringRead runs read once, while the scan asks which processes are alive.
+type duringRead struct {
+	fakeProcesses
+	read func()
+}
+
+func (d *duringRead) AliveAmong(processes []ProcessRef) map[int]bool {
+	if d.read != nil {
+		d.read()
+		d.read = nil
+	}
+	return d.fakeProcesses.AliveAmong(processes)
+}
+
+func TestScan_KeepsAnArchiveMadeAfterItsReadBegan(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	path := filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 500_000_000, time.UTC)
+	processes := &duringRead{fakeProcesses: fakeProcesses{alive: map[int]bool{4242: true}}}
+	dashboard, stores := testScanner(t, noSQLite, processes)
+	companion := &Scanner{Stores: stores, SQLite: noSQLite, Processes: fakeProcesses{}}
+	for _, scanner := range []*Scanner{companion, dashboard} {
+		scanner.MarksPath = path
+		scanner.Now = func() time.Time { return now }
+	}
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	writeClaudeProcess(t, stores, 4242, id, "busy")
+	dashboard.Scan(context.Background(), ScanOptions{})
+
+	now = now.Add(time.Minute)
+	processes.read = func() {
+		now = now.Add(time.Second)
+		if err := companion.Mark(ToolClaude, id, MarkCompleted); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dashboard.Scan(context.Background(), ScanOptions{})
+	if entry := storedMarks(t, path).Marks[markKey(ToolClaude, id)]; entry.CompletedAt != "2026-11-07T12:01:01Z" {
+		t.Fatalf("a scan that read the tools before the archive cleared it: %+v", entry)
+	}
+
+	now = now.Add(time.Second)
+	dashboard.Scan(context.Background(), ScanOptions{})
+	if entry := storedMarks(t, path).Marks[markKey(ToolClaude, id)]; entry.CompletedAt != "" {
+		t.Errorf("a scan that read the tools after the archive kept it: %+v", entry)
 	}
 }
