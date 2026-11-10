@@ -226,7 +226,6 @@ function draw({ force } = { force: false }) {
     // The rows on screen answer another question, so they give way until this one's answer is here.
     state.drawn = undefined
     summary.textContent = 'Searching…'
-    summary.classList.remove('is-urgent')
     const waiting = element('div', 'empty is-searching')
     waiting.append(element('strong', '', 'Searching…'), 'Looking through every conversation.')
     list.replaceChildren(waiting)
@@ -236,7 +235,6 @@ function draw({ force } = { force: false }) {
     // No list could be read. An old one would look current, so none shows.
     state.drawn = undefined
     summary.textContent = ''
-    summary.classList.remove('is-urgent')
     list.replaceChildren()
     return
   }
@@ -245,7 +243,6 @@ function draw({ force } = { force: false }) {
   state.drawn = signature
 
   summary.textContent = summaryOf(view, state.query)
-  summary.classList.toggle('is-urgent', state.query === '' && view.needsYou > 0)
 
   const groups = grouped(view.conversations)
   const scroll = list.scrollTop

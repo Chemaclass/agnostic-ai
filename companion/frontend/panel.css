@@ -452,7 +452,7 @@ body {
   align-items: center;
   gap: 10px;
   height: 38px;
-  padding: 0 8px 0 14px;
+  padding: 0 8px 0 6px;
   border-top: 1px solid var(--hairline);
   background: rgba(0, 0, 0, 0.18);
   color: var(--paper-faint);
@@ -465,11 +465,8 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--paper-dim);
-}
-
-.summary.is-urgent {
-  color: var(--paper);
+  text-align: right;
+  color: var(--paper-faint);
 }
 
 .dashboard {

@@ -44,10 +44,8 @@ test('says Cloud for a session that runs in the cloud, and nothing for one on th
   assert.equal(detailsOf(row('a', 'active', { app: 'desktop' }), now), 'Claude Code · 5m')
 })
 
-test('sums up what needs the person, or the search', () => {
-  assert.equal(summaryOf({ needsYou: 0 }, ''), 'All caught up')
-  assert.equal(summaryOf({ needsYou: 1 }, ''), '1 conversation needs you')
-  assert.equal(summaryOf({ needsYou: 3 }, ''), '3 conversations need you')
+test('sums up a search, and says nothing without one', () => {
+  assert.equal(summaryOf({ needsYou: 3 }, ''), '')
   const found = (matches, shown) => ({ needsYou: 3, matches, conversations: Array.from({ length: shown }, (_, i) => row(String(i), 'active')) })
   assert.equal(summaryOf(found(0, 0), 'parser'), 'No conversation matches')
   assert.equal(summaryOf(found(1, 1), 'parser'), '1 conversation matches')

@@ -114,7 +114,7 @@ export function ago(stamp, now) {
   return Math.floor(age / (7 * DAY)) + 'w'
 }
 
-/** The line at the foot: what needs the person, or how the search went. */
+/** The line at the foot: how the search went. Empty without a search. */
 export function summaryOf(view, query) {
   if (query !== '') {
     if (view.matches === 0) return 'No conversation matches'
@@ -122,8 +122,8 @@ export function summaryOf(view, query) {
     if (view.conversations.length < view.matches) return `${view.matches} conversations match; the newest ${view.conversations.length} show`
     return view.matches === 1 ? '1 conversation matches' : `${view.matches} conversations match`
   }
-  if (view.needsYou === 0) return 'All caught up'
-  return view.needsYou === 1 ? '1 conversation needs you' : `${view.needsYou} conversations need you`
+  // Without a search the foot says nothing: the Needs you group already counts.
+  return ''
 }
 
 /** The row after or before `key` among `keys`; the first row when `key` is not listed. step is 1 or -1. */
