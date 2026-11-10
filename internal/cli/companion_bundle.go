@@ -93,7 +93,7 @@ func assembleCompanionApp(ctx context.Context, tools companionTools, program, ap
 	contents := filepath.Join(app, "Contents")
 	for _, folder := range []string{"MacOS", "Resources"} {
 		if err := os.MkdirAll(filepath.Join(contents, folder), 0o700); err != nil {
-			return fmt.Errorf("%s: %w", app, err)
+			return err
 		}
 	}
 	files := map[string][]byte{
@@ -102,12 +102,12 @@ func assembleCompanionApp(ctx context.Context, tools companionTools, program, ap
 	}
 	for path, content := range files {
 		if err := os.WriteFile(path, content, 0o600); err != nil {
-			return fmt.Errorf("%s: %w", path, err)
+			return err
 		}
 	}
 	inner := filepath.Join(contents, "MacOS", companionName)
 	if err := os.Rename(program, inner); err != nil {
-		return fmt.Errorf("%s: %w", inner, err)
+		return err
 	}
 	if err := tools.sign(ctx, app); err != nil {
 		return fmt.Errorf("sign the companion: %w", err)
@@ -140,16 +140,6 @@ func signCompanion(ctx context.Context, app string) error {
 	return nil
 }
 
-func companionLoginOn(ctx context.Context, path string) error {
-	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, path, companionLoginOnFlag).CombinedOutput()
-	if err != nil {
-		return withWhatItSaid(err, out)
-	}
-	return nil
-}
-
 // startedAtLogin reports whether one of the login entries an earlier
 // install left is there.
 func startedAtLogin(entries []string) bool {
@@ -168,7 +158,7 @@ func removeLoginEntries(entries []string) (bool, error) {
 	for _, entry := range entries {
 		err := os.Remove(entry)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return left, fmt.Errorf("%s: %w", entry, err)
+			return left, err
 		}
 		left = left || err == nil
 	}
@@ -189,7 +179,7 @@ func leaveBareCompanion(ctx context.Context, out io.Writer, tools companionTools
 		_ = tools.loginOff(ctx, bare)
 	}
 	if err := os.Remove(bare); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%s: %w", bare, err)
+		return err
 	}
 	if _, err := removeLoginEntries(loginEntries); err != nil {
 		return fmt.Errorf("turn off start at login: %w", err)

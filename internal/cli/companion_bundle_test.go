@@ -396,3 +396,22 @@ func TestUninstallCompanion_RemovesTheAppOnMacOS(t *testing.T) {
 		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
 	}
 }
+
+func TestReplaceCompanionApp_PutsTheInstalledAppBackWhenTheNewOneCannotMoveIn(t *testing.T) {
+	dir := t.TempDir()
+	installed := installedCompanion(t, dir, "darwin")
+	app := companionBundle(dir)
+	staging := t.TempDir()
+
+	err := replaceCompanionApp(filepath.Join(staging, "missing.app"), app, staging)
+
+	if err == nil {
+		t.Fatal("a missing app took the installed one's place")
+	}
+	if raw, _ := os.ReadFile(installed); string(raw) != "the one that works" {
+		t.Errorf("the installed app was not put back: %q", raw)
+	}
+	if _, err := os.Stat(filepath.Join(staging, "replaced.app")); !os.IsNotExist(err) {
+		t.Errorf("the installed app stayed aside (%v)", err)
+	}
+}
