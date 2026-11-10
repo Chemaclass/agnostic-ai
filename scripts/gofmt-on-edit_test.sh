@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HOOK_SCRIPT="$REPO_ROOT/.agnostic-ai/scripts/gofmt-on-edit.sh"
+# make test-shell builds the binary first.
+AGNOSTIC_AI_TEST_BIN="$REPO_ROOT/agnostic-ai"
+
+BAD_GO='package demo
+type point struct{ x, y int }
+var xs = []point{point{1, 2}}
+func  f( )  int {
+return 1 }
+'
+
+GOOD_GO='package demo
+
+type point struct{ x, y int }
+
+var xs = []point{{1, 2}}
+
+func f() int {
+	return 1
+}
+'
+
+# Each test gets a project with the hook script at its real place, so the
+# script finds the project root from its own path. PATH holds only what
+# the script needs, so a missing tool is really missing.
+function set_up() {
+  project="$(mktemp -d "${TMPDIR:-/tmp}/agnostic-gofmt-hook-tests.XXXXXX")"
+  project="$(cd "$project" && pwd -P)"
+  sys="$project/.sys"
+  mkdir -p "$project/.agnostic-ai/scripts" "$project/pkg/sub" "$sys"
+  cp "$HOOK_SCRIPT" "$project/.agnostic-ai/scripts/"
+  ln -s "$(command -v dirname)" "$sys/dirname"
+  ln -s "$(command -v gofmt)" "$sys/gofmt"
+}
+
+function tear_down() {
+  case "$project" in
+    */agnostic-gofmt-hook-tests.*) rm -rf "$project" ;;
+    *) return 1 ;;
+  esac
+}
+
+function run_hook() {
+  local target="$1" payload="$2"
+  shift 2
+  printf '%s' "$payload" | (cd "${HOOK_CWD:-$project}" && env -i HOME="$project" PATH="$sys" \
+    AGNOSTIC_AI_TARGET="$target" AGNOSTIC_AI_BIN="$AGNOSTIC_AI_TEST_BIN" "$@" \
+    /bin/sh "$project/.agnostic-ai/scripts/gofmt-on-edit.sh")
+}
+
+function write_bad() {
+  printf '%s' "$BAD_GO" > "$project/$1"
+}
+
+function test_claude_edit_formats_the_go_file() {
+  write_bad pkg/a.go
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$project/pkg/a.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$project/pkg/a.go")
+"
+}
+
+function test_codex_patch_formats_only_its_go_files() {
+  write_bad pkg/a.go
+  write_bad pkg/b.go
+  printf '#  title\n\n\tindented   text\n' > "$project/notes.md"
+  local before_md
+  before_md="$(cat "$project/notes.md")"
+  local patch='*** Begin Patch\n*** Update File: pkg/a.go\n@@\n-x\n+y\n*** Add File: pkg/b.go\n+y\n*** Update File: notes.md\n@@\n-x\n+y\n*** End Patch\n'
+  run_hook codex "{\"cwd\":\"$project\",\"tool_name\":\"apply_patch\",\"tool_input\":{\"command\":\"$patch\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$project/pkg/a.go")
+"
+  assert_same "$GOOD_GO" "$(cat "$project/pkg/b.go")
+"
+  assert_same "$before_md" "$(cat "$project/notes.md")"
+}
+
+function test_gemini_write_file_formats_the_go_file() {
+  write_bad pkg/a.go
+  run_hook gemini "{\"cwd\":\"$project\",\"tool_name\":\"write_file\",\"tool_input\":{\"file_path\":\"$project/pkg/a.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$project/pkg/a.go")
+"
+}
+
+function test_a_hook_started_below_the_root_formats_the_file() {
+  write_bad pkg/sub/c.go
+  local patch='*** Begin Patch\n*** Update File: c.go\n@@\n-x\n+y\n*** End Patch\n'
+  HOOK_CWD="$project/pkg/sub" run_hook codex "{\"cwd\":\"$project/pkg/sub\",\"tool_name\":\"apply_patch\",\"tool_input\":{\"command\":\"$patch\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$project/pkg/sub/c.go")
+"
+}
+
+function test_a_path_with_a_space_is_formatted() {
+  mkdir -p "$project/my pkg"
+  write_bad "my pkg/a.go"
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$project/my pkg/a.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$project/my pkg/a.go")
+"
+}
+
+function test_a_non_go_edit_changes_nothing() {
+  printf 'func  f( )  {\n' > "$project/notes.txt"
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$project/notes.txt\"}}"
+  assert_successful_code "$?"
+  assert_same "func  f( )  {" "$(cat "$project/notes.txt")"
+}
+
+function test_a_go_file_with_a_syntax_error_stays_as_it_is() {
+  printf 'package demo\nfunc  f( {\n' > "$project/pkg/broken.go"
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$project/pkg/broken.go\"}}"
+  assert_successful_code "$?"
+  assert_same "package demo
+func  f( {" "$(cat "$project/pkg/broken.go")"
+}
+
+function test_a_shell_tool_call_does_nothing() {
+  local out
+  out="$(run_hook claude '{"tool_name":"Bash","tool_input":{"command":"gofmt -l ."}}' 2>&1)"
+  assert_successful_code "$?"
+  assert_empty "$out"
+}
+
+function test_a_go_file_outside_the_project_is_not_touched() {
+  local outside
+  outside="$(mktemp -d "${TMPDIR:-/tmp}/agnostic-gofmt-hook-outside.XXXXXX")"
+  printf '%s' "$BAD_GO" > "$outside/x.go"
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$outside/x.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$BAD_GO" "$(cat "$outside/x.go")
+"
+  rm -rf "$outside"
+}
+
+function test_a_missing_agnostic_ai_binary_exits_zero() {
+  write_bad pkg/a.go
+  local out
+  out="$(run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$project/pkg/a.go\"}}" AGNOSTIC_AI_BIN=/nonexistent/agnostic-ai 2>&1)"
+  assert_successful_code "$?"
+  assert_empty "$out"
+  assert_same "$BAD_GO" "$(cat "$project/pkg/a.go")
+"
+}
+
+function test_a_missing_gofmt_exits_zero() {
+  rm "$sys/gofmt"
+  write_bad pkg/a.go
+  local out
+  out="$(run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$project/pkg/a.go\"}}" 2>&1)"
+  assert_successful_code "$?"
+  assert_empty "$out"
+  assert_same "$BAD_GO" "$(cat "$project/pkg/a.go")
+"
+}
+
+function test_invalid_json_exits_zero() {
+  run_hook claude 'not json'
+  assert_successful_code "$?"
+}
