@@ -34,9 +34,17 @@ function set_up() {
   cp "$HOOK_SCRIPT" "$project/.agnostic-ai/scripts/"
   ln -s "$(command -v dirname)" "$sys/dirname"
   ln -s "$(command -v gofmt)" "$sys/gofmt"
+  ln -s "$(command -v git)" "$sys/git"
+  others=()
 }
 
 function tear_down() {
+  local other
+  for other in "${others[@]}"; do
+    case "$other" in
+      */agnostic-gofmt-hook-other.*) rm -rf "$other" ;;
+    esac
+  done
   case "$project" in
     */agnostic-gofmt-hook-tests.*) rm -rf "$project" ;;
     *) return 1 ;;
@@ -46,9 +54,23 @@ function tear_down() {
 function run_hook() {
   local target="$1" payload="$2"
   shift 2
+  local bin_env=(AGNOSTIC_AI_BIN="$AGNOSTIC_AI_TEST_BIN")
+  [ "${HOOK_BIN_UNSET:-}" = 1 ] && bin_env=()
   printf '%s' "$payload" | (cd "${HOOK_CWD:-$project}" && env -i HOME="$project" PATH="$sys" \
-    AGNOSTIC_AI_TARGET="$target" AGNOSTIC_AI_BIN="$AGNOSTIC_AI_TEST_BIN" "$@" \
+    AGNOSTIC_AI_TARGET="$target" "${bin_env[@]}" "$@" \
     /bin/sh "$project/.agnostic-ai/scripts/gofmt-on-edit.sh")
+}
+
+function other_dir() {
+  local dir
+  dir="$(mktemp -d "${TMPDIR:-/tmp}/agnostic-gofmt-hook-other.XXXXXX")"
+  dir="$(cd "$dir" && pwd -P)"
+  others+=("$dir")
+  printf '%s\n' "$dir"
+}
+
+function git_quiet() {
+  git -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false "$@" >/dev/null 2>&1
 }
 
 function write_bad() {
@@ -121,10 +143,75 @@ func  f( {" "$(cat "$project/pkg/broken.go")"
 }
 
 function test_a_shell_tool_call_does_nothing() {
+  write_bad pkg/a.go
   local out
   out="$(run_hook claude '{"tool_name":"Bash","tool_input":{"command":"gofmt -l ."}}' 2>&1)"
   assert_successful_code "$?"
   assert_empty "$out"
+  assert_same "$BAD_GO" "$(cat "$project/pkg/a.go")
+"
+}
+
+function test_a_hook_started_below_the_root_formats_a_file_above_its_cwd() {
+  write_bad pkg/a.go
+  HOOK_CWD="$project/pkg/sub" run_hook claude "{\"cwd\":\"$project/pkg/sub\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$project/pkg/a.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$project/pkg/a.go")
+"
+}
+
+function test_a_file_named_like_a_flag_is_formatted() {
+  write_bad -x.go
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$project/-x.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat -- "$project/-x.go")
+"
+}
+
+function test_a_go_file_in_another_worktree_of_the_repo_is_formatted() {
+  git_quiet -C "$project" init
+  git_quiet -C "$project" commit --allow-empty -m init
+  local worktree
+  worktree="$(other_dir)/wt"
+  git_quiet -C "$project" worktree add -b other "$worktree"
+  printf '%s' "$BAD_GO" > "$worktree/a.go"
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$worktree/a.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$worktree/a.go")
+"
+}
+
+function test_a_go_file_in_an_unrelated_repo_is_not_touched() {
+  git_quiet -C "$project" init
+  local repo
+  repo="$(other_dir)"
+  git_quiet -C "$repo" init
+  printf '%s' "$BAD_GO" > "$repo/a.go"
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$repo/a.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$BAD_GO" "$(cat "$repo/a.go")
+"
+}
+
+function test_a_go_file_in_a_plain_folder_outside_the_repo_is_not_touched() {
+  git_quiet -C "$project" init
+  local folder
+  folder="$(other_dir)"
+  printf '%s' "$BAD_GO" > "$folder/a.go"
+  run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$folder/a.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$BAD_GO" "$(cat "$folder/a.go")
+"
+}
+
+function test_without_agnostic_ai_bin_it_uses_the_binary_at_the_root() {
+  write_bad pkg/a.go
+  printf '#!/bin/sh\nprintf "pkg/a.go\\n"\n' > "$project/agnostic-ai"
+  chmod +x "$project/agnostic-ai"
+  HOOK_BIN_UNSET=1 run_hook claude '{}'
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$project/pkg/a.go")
+"
 }
 
 function test_a_go_file_outside_the_project_is_not_touched() {

@@ -93,7 +93,7 @@ Update Zola and `docs/site/templates/` in a separate change: bump `ZOLA_VERSION`
 
 The repository's `.agnostic-ai/` specs generate root entry points and tool folders. Most output is ignored; `.openhands/setup.sh` is tracked for initial setup. Edit specs and review any tracked output change after syncing.
 
-After a sync, Claude Code, Codex and Gemini CLI format each Go file they edit with `gofmt -s -w`, through the [`gofmt-on-edit`](../../.agnostic-ai/hooks/gofmt-on-edit.yaml) hook. The hook skips files it cannot format and never fails an edit, so `make fmt-check` stays the gate.
+After a sync, Claude Code, Codex and Gemini CLI format each Go file they edit with `gofmt -s -w`, through the [`gofmt-on-edit`](../../.agnostic-ai/hooks/gofmt-on-edit.yaml) hook. It runs on macOS and Linux; it has no Windows command. It needs `./agnostic-ai` from `make build`, or `agnostic-ai` on `PATH`. It formats files in this checkout and in other worktrees of this repository. The hook skips files it cannot format and never fails an edit, so `make fmt-check` stays the gate.
 
 The repository's output ignore block is maintained by hand. Preserve hierarchical patterns such as `**/AGENTS.md` and the `!internal/adapters/*/testdata/**` exception that keeps saved expected output files (golden fixtures) tracked. Add new adapter paths to [.gitignore](../../.gitignore).
 

@@ -17,13 +17,32 @@ fi
 command -v "$bin" >/dev/null 2>&1 || exit 0
 command -v gofmt >/dev/null 2>&1 || exit 0
 
+# Prints the absolute Git common dir of a folder, which every worktree of
+# one repository shares.
+common_dir() {
+  command -v git >/dev/null 2>&1 || return 1
+  dir=$(git -C "$1" rev-parse --git-common-dir 2>/dev/null) || return 1
+  case "$dir" in /*) ;; *) dir="$1/$dir" ;; esac
+  CDPATH='' cd -- "$dir" 2>/dev/null && pwd -P
+}
+
 # hook paths prints project files relative to the root and keeps files
-# outside it absolute; only the project's own files are formatted.
+# outside it absolute. An absolute path is formatted only when it sits in
+# another worktree of this repository.
+root_common=$(common_dir "$root") || root_common=''
 files=$("$bin" hook paths 2>/dev/null) || exit 0
 printf '%s\n' "$files" | while IFS= read -r file; do
   case "$file" in
-    /* | ../*) continue ;;
-    *.go) [ -f "$file" ] && gofmt -s -w "$file" 2>/dev/null ;;
+    *.go) [ -f "$file" ] || continue ;;
+    *) continue ;;
   esac
+  case "$file" in
+    ../*) continue ;;
+    /*)
+      [ -n "$root_common" ] || continue
+      [ "$(common_dir "$(dirname -- "$file")")" = "$root_common" ] || continue
+      ;;
+  esac
+  gofmt -s -w -- "$file" 2>/dev/null
 done
 exit 0
