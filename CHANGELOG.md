@@ -6,6 +6,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### General
+
+- `memory import --skip <file>` and `--skip-rest` decline facts you do not want, so LINT043 stops counting them; the dry run shows each fact's state (#3231).
+
 ### Site
 
 - The CLI reference gives `serve`, the local API, `companion`, `doctor` and `import` their own pages, and the `sync` and `gitignore` settings move to their own page. Old links redirect to the new sections.

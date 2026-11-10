@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,7 +33,7 @@ var memoryImportSources = []string{memorySourceClaude, memorySourceCheckout, mem
 
 func newMemoryImportCmd() *cobra.Command {
 	var from, path string
-	var only []string
+	var pick memoryImportPick
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "import",
@@ -41,6 +43,8 @@ func newMemoryImportCmd() *cobra.Command {
 			"--from checkout and --from repo read the other personal store after a memory.personal switch. " +
 			"--path reads any folder with a MEMORY.md and one Markdown file per fact, such as Gemini CLI's ~/.gemini/tmp/<project>/memory or Qoder's ~/.qoder/projects/<project>/memory. " +
 			"Every tool reads personal memory, so read the facts --dry-run lists and pass --only <file> to copy just some. " +
+			"--skip <file> declines a fact and --skip-rest declines every fact not imported yet, so LINT043 stops counting them; " +
+			"without --only they copy nothing. Declines go to .declined in personal memory, and a declined fact that changes counts again. " +
 			"The source never changes. A fact whose file name personal memory already has stays as it is, " +
 			"and a symlink or a file with a line that looks like a secret is skipped; the report names each.",
 		Example: `  # Bring over what Claude Code saved before sync redirected it
@@ -50,12 +54,20 @@ func newMemoryImportCmd() *cobra.Command {
   # Copy only the facts every tool should read
   agnostic-ai memory import --from claude --only tabs.md --only ci-ubuntu.md
 
+  # Decline the facts left, so lint stops counting them
+  agnostic-ai memory import --from claude --skip-rest
+
   # After switching memory.personal to repo
   agnostic-ai memory import --from checkout`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if (from == "") == (path == "") {
 				return errors.New("pass one of --from or --path")
+			}
+			for _, name := range pick.skip {
+				if slices.Contains(pick.only, name) {
+					return fmt.Errorf("%s is in both --only and --skip; pick one", name)
+				}
 			}
 			root := memoryProjectRoot("")
 			if root == "" {
@@ -81,14 +93,14 @@ func newMemoryImportCmd() *cobra.Command {
 				label = "imported"
 			}
 			if dryRun {
-				plan, err := planMemoryImport(source, target, label, only)
+				plan, err := planMemoryImport(source, target, label, pick)
 				if err != nil {
 					return err
 				}
 				plan.print(cmd.OutOrStdout(), true)
 				return nil
 			}
-			plan, _, err := importMemory(source, target, label, only, false)
+			plan, _, err := importMemory(source, target, label, pick, false)
 			if err != nil {
 				return err
 			}
@@ -98,8 +110,10 @@ func newMemoryImportCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&from, "from", "", "Store to copy from: "+strings.Join(memoryImportSources, ", ")+".")
 	cmd.Flags().StringVar(&path, "path", "", "Folder to copy from, holding MEMORY.md and one Markdown file per fact.")
-	cmd.Flags().StringSliceVar(&only, "only", nil, "Copy only this fact file; repeat the flag for more.")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would be copied and write nothing.")
+	cmd.Flags().StringSliceVar(&pick.only, "only", nil, "Copy only this fact file; repeat the flag for more.")
+	cmd.Flags().StringSliceVar(&pick.skip, "skip", nil, "Decline this fact file so lint stops counting it; repeat the flag for more.")
+	cmd.Flags().BoolVar(&pick.skipRest, "skip-rest", false, "Decline every fact not imported yet, after copying the --only picks.")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print which facts are imported, declined and pending, and write nothing.")
 	return cmd
 }
 
@@ -147,6 +161,14 @@ func memoryImportSource(root, from, path string) (string, error) {
 // lines, so a larger file is not one.
 const memoryFactMaxBytes = 1 << 20
 
+// memoryImportPick is what the person chose to copy and to decline.
+type memoryImportPick struct {
+	only, skip []string
+	skipRest   bool
+}
+
+func (p memoryImportPick) declines() bool { return len(p.skip) > 0 || p.skipRest }
+
 // memoryCopy is one fact file import writes, with the index line it gets.
 type memoryCopy struct {
 	file   string
@@ -154,6 +176,19 @@ type memoryCopy struct {
 	line   string
 	record string
 }
+
+// recordName is the fact's name in the records of imported and declined
+// facts.
+func (c memoryCopy) recordName() string {
+	if c.record != "" {
+		return c.record
+	}
+	return c.file
+}
+
+// memoryDecline is a fact to add to the record of declined facts. An empty
+// sum declines it by name, for a file import could not read.
+type memoryDecline struct{ file, record, sum string }
 
 // memoryImportPlan is what import copies from one store into another.
 type memoryImportPlan struct {
@@ -171,6 +206,21 @@ type memoryImportPlan struct {
 	relined []string
 	// skipped names each file left out, with the reason.
 	skipped []memorySkip
+	// imported names the facts personal memory has by name or by record,
+	// outside the ones this run copies.
+	imported []string
+	// declined names the facts declined before, left out of this run.
+	declined []string
+	// changed names the facts declined before whose content changed since,
+	// so they are pending again.
+	changed []string
+	// pending names the facts neither imported nor declined that this run
+	// leaves alone.
+	pending []string
+	// toDecline are the facts this run declines.
+	toDecline []memoryDecline
+	// skipImported names the --skip facts already imported, so not declined.
+	skipImported []string
 	// label names the source in the record of handled facts.
 	label string
 }
@@ -184,7 +234,7 @@ func (s memorySkip) String() string { return s.file + ": " + s.reason }
 // target while holding the store's lock. With intoEmpty it copies nothing
 // once the store holds a Markdown file, and reports false. label names the
 // source in the fact that keeps its index notes.
-func importMemory(source, target, label string, only []string, intoEmpty bool) (memoryImportPlan, bool, error) {
+func importMemory(source, target, label string, pick memoryImportPick, intoEmpty bool) (memoryImportPlan, bool, error) {
 	if intoEmpty && hasMarkdownFile(target) {
 		return memoryImportPlan{}, false, nil
 	}
@@ -207,18 +257,14 @@ func importMemory(source, target, label string, only []string, intoEmpty bool) (
 	if intoEmpty && hasMarkdownFile(target) {
 		return memoryImportPlan{}, false, nil
 	}
-	plan, err := planMemoryImport(source, target, label, only)
+	plan, err := planMemoryImport(source, target, label, pick)
 	if err != nil {
 		return plan, false, err
 	}
 	if intoEmpty && (label == memorySourceCheckout || label == memorySourceRepo) {
 		handled := importedFacts(target)
 		plan.copies = slices.DeleteFunc(plan.copies, func(fact memoryCopy) bool {
-			record := fact.record
-			if record == "" {
-				record = fact.file
-			}
-			return handled[label+"/"+record]
+			return handled[label+"/"+fact.recordName()]
 		})
 	}
 	return plan, true, plan.apply()
@@ -228,29 +274,50 @@ func importMemory(source, target, label string, only []string, intoEmpty bool) (
 // target by file name, and reads the source index line of each fact. A
 // fact with no line gets one from its frontmatter. Lines of the source
 // index that link no fact become one more fact, so notes a tool kept in
-// its index come along too.
-func planMemoryImport(source, target, label string, only []string) (memoryImportPlan, error) {
+// its index come along too. A fact declined with the same content stays
+// out unless --only names it; pick also says which facts to decline.
+func planMemoryImport(source, target, label string, pick memoryImportPick) (memoryImportPlan, error) {
 	plan := memoryImportPlan{source: source, target: target, label: label}
 	entries, err := os.ReadDir(source)
 	if err != nil {
 		return plan, fmt.Errorf("%s: %w", source, err)
 	}
+	handled := importedFacts(target)
+	declined := declinedFacts(target)
+	isImported := func(file, record string) bool {
+		_, err := os.Lstat(filepath.Join(target, file))
+		return err == nil || handled[label+"/"+record]
+	}
+	declines := func(file string) bool { return pick.skipRest || slices.Contains(pick.skip, file) }
 	var facts []memoryCopy
+	var unread []string
 	for _, e := range entries {
 		name := e.Name()
 		if e.IsDir() || filepath.Ext(name) != ".md" || name == memoryIndexFile {
 			continue
 		}
-		if !e.Type().IsRegular() {
-			plan.skipped = append(plan.skipped, memorySkip{name, "not a regular file"})
+		reason := "not a regular file"
+		if e.Type().IsRegular() {
+			body, err := readMemoryFact(filepath.Join(source, name))
+			if err == nil {
+				facts = append(facts, memoryCopy{file: name, body: body})
+				continue
+			}
+			reason = err.Error()
+		}
+		unread = append(unread, name)
+		switch sum, ok := declined[label+"/"+name]; {
+		case slices.Contains(pick.only, name) || isImported(name, name):
+		case declines(name):
+			if !ok || sum != "" {
+				plan.toDecline = append(plan.toDecline, memoryDecline{file: name, record: name})
+			}
+			continue
+		case ok && sum == "":
+			plan.declined = append(plan.declined, name)
 			continue
 		}
-		body, err := readMemoryFact(filepath.Join(source, name))
-		if err != nil {
-			plan.skipped = append(plan.skipped, memorySkip{name, err.Error()})
-			continue
-		}
-		facts = append(facts, memoryCopy{file: name, body: body})
+		plan.skipped = append(plan.skipped, memorySkip{name, reason})
 	}
 	lines := sourceIndexLines(source)
 	for i, f := range facts {
@@ -267,15 +334,47 @@ func planMemoryImport(source, target, label string, only []string) (memoryImport
 		}
 		facts = append(facts, fact)
 	}
-	if len(only) > 0 {
-		for _, name := range only {
-			if !slices.ContainsFunc(facts, func(f memoryCopy) bool { return f.file == name }) {
-				return plan, fmt.Errorf("--only %s: %s has no such fact file", name, filepath.ToSlash(source))
-			}
+	for _, name := range pick.only {
+		if !slices.ContainsFunc(facts, func(f memoryCopy) bool { return f.file == name }) {
+			return plan, fmt.Errorf("--only %s: %s has no such fact file", name, filepath.ToSlash(source))
 		}
-		facts = slices.DeleteFunc(facts, func(f memoryCopy) bool { return !slices.Contains(only, f.file) })
+	}
+	for _, name := range pick.skip {
+		if !slices.ContainsFunc(facts, func(f memoryCopy) bool { return f.file == name }) && !slices.Contains(unread, name) {
+			return plan, fmt.Errorf("--skip %s: %s has no such fact file", name, filepath.ToSlash(source))
+		}
 	}
 	for _, f := range facts {
+		record := f.recordName()
+		imported := isImported(f.file, record)
+		sum := memoryFactSum(f.body)
+		was, wasDeclined := declined[label+"/"+record]
+		stillDeclined := wasDeclined && !imported && (was == "" || was == sum)
+		if wasDeclined && !imported && !stillDeclined {
+			plan.changed = append(plan.changed, f.file)
+		}
+		if !slices.Contains(pick.only, f.file) {
+			if len(pick.only) > 0 || pick.declines() {
+				switch {
+				case imported:
+					plan.imported = append(plan.imported, f.file)
+					if slices.Contains(pick.skip, f.file) {
+						plan.skipImported = append(plan.skipImported, f.file)
+					}
+				case declines(f.file) && was != sum:
+					plan.toDecline = append(plan.toDecline, memoryDecline{file: f.file, record: record, sum: sum})
+				case stillDeclined:
+					plan.declined = append(plan.declined, f.file)
+				default:
+					plan.pending = append(plan.pending, f.file)
+				}
+				continue
+			}
+			if stillDeclined {
+				plan.declined = append(plan.declined, f.file)
+				continue
+			}
+		}
 		if line := memorySecretLine(string(f.body)); line > 0 {
 			plan.skipped = append(plan.skipped, memorySkip{f.file, fmt.Sprintf("line %d looks like a secret", line)})
 			continue
@@ -297,6 +396,13 @@ func planMemoryImport(source, target, label string, only []string) (memoryImport
 		}
 	}
 	return plan, nil
+}
+
+// memoryFactSum fingerprints a fact's content, so a declined fact that
+// changes counts again.
+func memoryFactSum(body []byte) string {
+	sum := sha256.Sum256(normalizeNewlines(body))
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func normalizeNewlines(b []byte) []byte {
@@ -449,7 +555,7 @@ func (p memoryImportPlan) apply() error {
 	if err := guardStoreFromGit(p.target); err != nil {
 		return err
 	}
-	for _, name := range []string{memoryIndexFile, memoryImportRecord} {
+	for _, name := range []string{memoryIndexFile, memoryImportRecord, memoryDeclineRecord} {
 		if err := requireRegularOrAbsent(filepath.Join(p.target, name)); err != nil {
 			return err
 		}
@@ -472,7 +578,10 @@ func (p memoryImportPlan) apply() error {
 	if err := appendMemoryIndexLines(p.target, append(written, p.present...)); err != nil {
 		return err
 	}
-	return p.record()
+	if err := p.record(); err != nil {
+		return err
+	}
+	return p.decline()
 }
 
 // The record suppresses warnings for facts deleted or merged after import.
@@ -482,11 +591,7 @@ const memoryImportRecord = ".imported"
 func (p memoryImportPlan) record() error {
 	var names []string
 	for _, c := range append(slices.Clone(p.copies), p.present...) {
-		name := c.record
-		if name == "" {
-			name = c.file
-		}
-		names = append(names, name)
+		names = append(names, c.recordName())
 	}
 	names = append(names, p.kept...)
 	if len(names) == 0 {
@@ -505,11 +610,15 @@ func (p memoryImportPlan) record() error {
 	if add.Len() == 0 {
 		return nil
 	}
+	return appendPrivateFile(path, add.String())
+}
+
+func appendPrivateFile(path, text string) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
-	_, err = f.WriteString(add.String())
+	_, err = f.WriteString(text)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
@@ -517,6 +626,45 @@ func (p memoryImportPlan) record() error {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	return nil
+}
+
+// The decline record is separate from .imported, which means handled for
+// good and has no sum, so older releases keep reading .imported as before.
+// Each line is `<label>/<record>`, then a tab and the fact's sum when import
+// could read it; the last line for a fact wins.
+const memoryDeclineRecord = ".declined"
+
+// decline adds each fact the plan declines to the store's record.
+func (p memoryImportPlan) decline() error {
+	if len(p.toDecline) == 0 {
+		return nil
+	}
+	var add strings.Builder
+	for _, d := range p.toDecline {
+		add.WriteString(p.label + "/" + d.record)
+		if d.sum != "" {
+			add.WriteString("\t" + d.sum)
+		}
+		add.WriteString("\n")
+	}
+	return appendPrivateFile(filepath.Join(p.target, memoryDeclineRecord), add.String())
+}
+
+// declinedFacts reads the record of declined facts in store, mapping each
+// fact to its sum, or to "" for one declined by name.
+func declinedFacts(store string) map[string]string {
+	out := map[string]string{}
+	data, err := os.ReadFile(filepath.Join(store, memoryDeclineRecord))
+	if err != nil {
+		return out
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		key, sum, _ := strings.Cut(strings.TrimSpace(line), "\t")
+		if key != "" {
+			out[key] = sum
+		}
+	}
+	return out
 }
 
 // importedFacts reads the record of handled facts in store.
@@ -656,7 +804,7 @@ func guardStoreFromGit(store string) error {
 	}
 	// Import writes facts, the index, its record, its lock, and temporary
 	// files; a rule that ignores only Markdown leaves the rest committable.
-	probes := []string{memoryIndexFile, memoryImportRecord, ".lock", ".fact.md.0.tmp"}
+	probes := []string{memoryIndexFile, memoryImportRecord, memoryDeclineRecord, ".lock", ".fact.md.0.tmp"}
 	trackable := func() bool {
 		for _, name := range probes {
 			if gitWouldTrack(repo, filepath.Join(store, name)) {
@@ -780,9 +928,9 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 		_, _ = fmt.Fprintf(w, "%s %d fact(s) from %s to %s:\n", verb, len(p.copies), from, to)
 		for _, c := range p.copies {
 			if d := strings.TrimSpace(parseMemoryTopic(c.file, string(c.body)).description); d != "" {
-				_, _ = fmt.Fprintf(w, "  %s: %s\n", c.file, d)
+				_, _ = fmt.Fprintf(w, "  %s: %s%s\n", c.file, d, p.changedNote(c.file))
 			} else {
-				_, _ = fmt.Fprintf(w, "  %s\n", c.file)
+				_, _ = fmt.Fprintf(w, "  %s%s\n", c.file, p.changedNote(c.file))
 			}
 		}
 		if dryRun {
@@ -790,9 +938,9 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 		} else {
 			_, _ = fmt.Fprintln(w, "Every tool reads personal memory, so these facts now guide all of them. Review them with `agnostic-ai memory list`; delete a file to remove one.")
 		}
-	case len(p.present) > 0 && len(p.kept)+len(p.skipped) == 0:
+	case len(p.present) > 0 && len(p.kept)+len(p.skipped)+len(p.declined) == 0:
 		_, _ = fmt.Fprintf(w, "Nothing to copy: %s has every fact in %s.\n", to, from)
-	case len(p.present)+len(p.kept)+len(p.skipped) == 0:
+	case len(p.present)+len(p.kept)+len(p.skipped)+len(p.imported)+len(p.declined)+len(p.pending)+len(p.toDecline) == 0:
 		_, _ = fmt.Fprintf(w, "No facts in %s.\n", from)
 	default:
 		_, _ = fmt.Fprintf(w, "Nothing copied from %s.\n", from)
@@ -803,6 +951,29 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 			_, _ = fmt.Fprintf(w, "  %s\n", name)
 		}
 	}
+	if dryRun {
+		var imported []string
+		for _, c := range p.present {
+			imported = append(imported, c.file)
+		}
+		printMemoryFacts(w, append(imported, p.imported...), "Already imported %d fact(s):")
+		var pending []string
+		for _, name := range p.pending {
+			pending = append(pending, name+p.changedNote(name))
+		}
+		printMemoryFacts(w, pending, "Pending %d fact(s); pass --only <file> to copy one or --skip <file> to decline it:")
+	}
+	printMemoryFacts(w, p.declined, "Left out %d declined fact(s); pass --only <file> to import one anyway:")
+	var declining []string
+	for _, d := range p.toDecline {
+		declining = append(declining, d.file)
+	}
+	verb = "Declined"
+	if dryRun {
+		verb = "Would decline"
+	}
+	printMemoryFacts(w, declining, verb+" %d fact(s); lint stops counting them, and the source keeps them:")
+	printMemoryFacts(w, p.skipImported, "Did not decline %d fact(s) already imported:")
 	if len(p.relined) > 0 {
 		_, _ = fmt.Fprintf(w, "Built a new index line for %d fact(s), since the source line looks like a secret:\n", len(p.relined))
 		for _, name := range p.relined {
@@ -817,6 +988,24 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 	}
 }
 
+// changedNote marks a fact declined before whose content changed since.
+func (p memoryImportPlan) changedNote(file string) string {
+	if slices.Contains(p.changed, file) {
+		return " (changed since declined)"
+	}
+	return ""
+}
+
+func printMemoryFacts(w io.Writer, names []string, header string) {
+	if len(names) == 0 {
+		return
+	}
+	_, _ = fmt.Fprintf(w, header+"\n", len(names))
+	for _, name := range names {
+		_, _ = fmt.Fprintf(w, "  %s\n", name)
+	}
+}
+
 // runMemorySeeds copies, for each seed an adapter queued this sync, the
 // source facts into its personal store when that store holds no Markdown
 // file yet, and notes the result.
@@ -825,7 +1014,7 @@ func runMemorySeeds() {
 		if info, err := os.Stat(seed.From); err != nil || !info.IsDir() {
 			continue
 		}
-		plan, done, err := importMemory(seed.From, seed.To, seed.Target, nil, true)
+		plan, done, err := importMemory(seed.From, seed.To, seed.Target, memoryImportPick{}, true)
 		from := filepath.ToSlash(seed.From)
 		if err != nil {
 			adapters.NoteProject(fmt.Sprintf("%s: could not copy the facts in %s into personal memory: %v; run `agnostic-ai memory import --from %s`", seed.Target, from, err, seed.Target))
@@ -856,8 +1045,8 @@ func hasMarkdownFile(dir string) bool {
 // any longer, and that the personal store lacks by file name (LINT043):
 // Claude Code's own store once sync points Claude at personal memory, and
 // the personal store of the other memory.personal mode. It counts facts by
-// file name, and notes kept in a store's index as one more, and never
-// prints what a fact says.
+// file name, and notes kept in a store's index as one more, leaves out the
+// facts declined with the same content, and never prints what a fact says.
 func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, error) {
 	if readers.cfg == nil {
 		return nil, nil
@@ -879,6 +1068,7 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 		return nil, err
 	}
 	handled := importedFacts(personal)
+	declined := declinedFacts(personal)
 	type darkStore struct{ dir, from, why string }
 	var candidates []darkStore
 	if slices.Contains(readers.cfg.Targets, memorySourceClaude) && claudeReadsPersonalMemory(readers.cfg, root, personal) {
@@ -900,29 +1090,49 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 		if err != nil {
 			return nil, err
 		}
-		if len(sourceIndexNotes(c.dir)) > 0 {
-			fact, err := uniqueMemoryNotesFact(c.dir, personal, c.from, sourceIndexNotes(c.dir))
+		isDeclined := func(record string, body func() ([]byte, error)) bool {
+			sum, ok := declined[c.from+"/"+record]
+			if !ok || sum == "" {
+				return ok
+			}
+			b, err := body()
+			return err == nil && memoryFactSum(b) == sum
+		}
+		missing, declinedHere := 0, 0
+		if notes := sourceIndexNotes(c.dir); len(notes) > 0 {
+			fact, err := uniqueMemoryNotesFact(c.dir, personal, c.from, notes)
 			if err != nil {
 				return nil, err
 			}
-			if !handled[c.from+"/"+fact.record] {
-				facts = append(facts, fact.file)
+			switch {
+			case handled[c.from+"/"+fact.record]:
+			case isDeclined(fact.record, func() ([]byte, error) { return fact.body, nil }):
+				declinedHere++
+			default:
+				missing++
 			}
 		}
-		missing := 0
 		for _, f := range facts {
-			if !slices.Contains(have, f) && !handled[c.from+"/"+f] {
+			switch {
+			case slices.Contains(have, f) || handled[c.from+"/"+f]:
+			case isDeclined(f, func() ([]byte, error) { return readMemoryFact(filepath.Join(c.dir, f)) }):
+				declinedHere++
+			default:
 				missing++
 			}
 		}
 		if missing == 0 {
 			continue
 		}
+		message := fmt.Sprintf("%d fact(s) here no longer load: %s; copy them into personal memory with `agnostic-ai memory import --from %s`, or decline them with --skip <file> or --skip-rest", missing, c.why, c.from)
+		if declinedHere > 0 {
+			message += fmt.Sprintf("; %d declined", declinedHere)
+		}
 		out = append(out, lintFinding{
 			Code:     "LINT043",
 			Severity: lintWarn,
 			Path:     c.dir,
-			Message:  fmt.Sprintf("%d fact(s) here no longer load: %s; copy them into personal memory with `agnostic-ai memory import --from %s`", missing, c.why, c.from),
+			Message:  message,
 		})
 	}
 	return out, nil

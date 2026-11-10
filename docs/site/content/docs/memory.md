@@ -146,7 +146,7 @@ agnostic-ai memory import --from claude --dry-run
 agnostic-ai memory import --from claude
 ```
 
-Every tool reads personal memory, so the dry run lists each fact with its description first; `--only <file>` copies just the ones you pick. `--path` copies from any folder with the same layout, such as Gemini CLI's `~/.gemini/tmp/<project>/memory/` or Qoder's `~/.qoder/projects/<project>/memory/`. See [memory import](@/docs/cli-reference/maintain.md#memory).
+Every tool reads personal memory, so the dry run lists each fact with its description first; `--only <file>` copies just the ones you pick. To clear LINT043 for the rest, decline them with `--skip <file>` or `--skip-rest`. `--path` copies from any folder with the same layout, such as Gemini CLI's `~/.gemini/tmp/<project>/memory/` or Qoder's `~/.qoder/projects/<project>/memory/`. See [memory import](@/docs/cli-reference/maintain.md#memory).
 
 ### Each tool's own memory {#each-tools-own-memory}
 
