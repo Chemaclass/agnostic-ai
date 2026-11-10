@@ -23,7 +23,9 @@ agnostic-ai companion uninstall   # remove it from this machine
 with Go, and prints each step as it goes. Releases ship no built companion, so nothing
 has to be signed or published for each system. It names what your machine
 lacks before it builds anything. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
-lists what each system needs and where it has been run.
+lists what each system needs. Only macOS is supported; Windows
+([#3221](https://github.com/Chemaclass/agnostic-ai/issues/3221)) and Linux
+([#3222](https://github.com/Chemaclass/agnostic-ai/issues/3222)) need someone to run and verify it.
 
 Codex and Cursor chats need the `sqlite3` command, as in the web interface.
 

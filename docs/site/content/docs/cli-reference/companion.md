@@ -22,11 +22,13 @@ agnostic-ai companion uninstall
 
 The companion is a separate program that is built on your machine, so `companion install` comes first, and again after each upgrade of agnostic-ai. It builds the companion from the same commit as the `agnostic-ai` you run and prints each step as it goes. It needs:
 
-| System | Needs |
-|--------|-------|
-| macOS | Go and the Xcode Command Line Tools. Built and run on macOS 27 (arm64). |
-| Windows | Go. Compiles; not yet run on a Windows machine. |
-| Linux | Go, a C compiler, and the GTK 4, WebKitGTK 6.0 and X11 development packages. Not yet built or run on a Linux machine. Wayland compositors decide what stays on top, so the circle may not float there. |
+| System | Status | Needs |
+|--------|--------|-------|
+| macOS | **Supported.** Built and run on macOS 27 (arm64). | Go and the Xcode Command Line Tools. |
+| Windows | **Not supported.** It compiles, but nobody has run it on a Windows machine. | Go. |
+| Linux | **Not supported.** Nobody has built or run it on a Linux machine. Wayland compositors decide what stays on top, so the circle may not float there. | Go, a C compiler, and the GTK 4, WebKitGTK 6.0 and X11 development packages. |
+
+Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Chemaclass/agnostic-ai/issues/3221) and [Linux (#3222)](https://github.com/Chemaclass/agnostic-ai/issues/3222) list what to run and verify.
 
 When something is missing, the command names it and how to get it, and builds nothing. A build that fails leaves the installed companion as it was. A companion that runs is stopped for the install and started again after it.
 
