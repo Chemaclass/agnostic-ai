@@ -645,3 +645,37 @@ func TestUninstallCompanion_RemovesWhatAnInterruptedInstallLeft(t *testing.T) {
 		t.Errorf("build folders left behind: %v", found)
 	}
 }
+
+func TestUninstallCompanion_TreatsTheConfigPathLiterally(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "config[ab]")
+	installedCompanion(t, dir)
+	build := filepath.Join(dir, ".companion-build-own")
+	sibling := filepath.Join(root, "configa", ".companion-build-other")
+	kept := filepath.Join(dir, "other-folder")
+	for _, path := range []string{build, sibling, kept} {
+		if err := os.MkdirAll(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := uninstallCompanion(context.Background(), &bytes.Buffer{}, builtTools(t), dir, "darwin", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(build); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("build folder remains: %v", err)
+	}
+	for _, path := range []string{sibling, kept} {
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("unrelated folder was removed: %v", err)
+		}
+	}
+}
+
+func TestUninstallCompanion_SucceedsWithoutAConfigDirectory(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "missing")
+	if err := uninstallCompanion(context.Background(), &bytes.Buffer{}, builtTools(t), dir, "darwin", ""); err != nil {
+		t.Errorf("uninstall without a config directory: %v", err)
+	}
+}

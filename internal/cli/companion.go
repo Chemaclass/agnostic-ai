@@ -31,8 +31,8 @@ const (
 	// installed or last started the companion. The companion reads it to
 	// find this command when it starts at login, with no terminal's PATH.
 	companionCommandFile = "companion-command"
-	// companionBuildFolders names the folders an install builds in.
-	companionBuildFolders = ".companion-build-*"
+	// companionBuildPrefix names the folders an install builds in.
+	companionBuildPrefix = ".companion-build-"
 	// companionSettingsFile is where the companion keeps its place and shortcut.
 	companionSettingsFile = "companion.json"
 
@@ -327,12 +327,15 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 		}
 	}
 	// An install that was interrupted leaves its build folder.
-	builds, err := filepath.Glob(filepath.Join(dir, companionBuildFolders))
-	if err != nil {
+	entries, err := os.ReadDir(dir)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("remove the companion: %w", err)
 	}
-	for _, build := range builds {
-		if err := os.RemoveAll(build); err != nil {
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), companionBuildPrefix) {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
 			return fmt.Errorf("remove the companion: %w", err)
 		}
 	}
@@ -487,7 +490,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	if err := os.MkdirAll(filepath.Dir(companionFile(dir, build.goos)), 0o700); err != nil {
 		return fmt.Errorf("install the companion: %w", err)
 	}
-	staging, err := os.MkdirTemp(dir, companionBuildFolders)
+	staging, err := os.MkdirTemp(dir, companionBuildPrefix+"*")
 	if err != nil {
 		return fmt.Errorf("install the companion: %w", err)
 	}
