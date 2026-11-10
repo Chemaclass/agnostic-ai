@@ -103,7 +103,9 @@ func (s *Scanner) claudeFiles() []string {
 
 // Stamp changes whenever a scan could answer differently: a file that a
 // scan reads changed (the three tools' stores and the marks), or a new
-// freshSpan began. It starts no program and reads no file's contents,
+// freshSpan began. Cloud sessions are no files: the cloud is asked
+// again only in a new span, which changes the stamp, so a cloud change
+// shows at most a span late. It starts no program and reads no file's contents,
 // so a caller that asks on a timer can compare it first and skip the
 // scan while it holds.
 func (s *Scanner) Stamp() string {

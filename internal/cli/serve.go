@@ -22,6 +22,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/conversations"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -39,7 +40,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	var (
 		addr, dir, uiDir, switchBack       string
 		open, global, noInstalled, apiOnly bool
-		stopWithStdin                      bool
+		stopWithStdin, cloudSessions       bool
 		allowedOrigins                     []string
 	)
 	cmd := &cobra.Command{
@@ -60,7 +61,10 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
   agnostic-ai serve --ui ui/dist --open
 
   # The user-level configuration
-  agnostic-ai serve --global`,
+  agnostic-ai serve --global
+
+  # Also list Claude Code cloud sessions, read from claude.ai
+  agnostic-ai serve --global --cloud-sessions`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if apiOnly && (cmd.Flags().Changed("ui") || open) {
@@ -86,6 +90,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			}
 			if global && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
+			}
+			// A project server lists the conversations started in the
+			// project, and a cloud session names no folder.
+			if cloudSessions && !global {
+				return errors.New("--cloud-sessions needs --global: cloud sessions belong to no project folder")
 			}
 			if uiDir != "" {
 				abs, err := filepath.Abs(uiDir)
@@ -143,7 +152,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			if stopWithStdin {
 				ctx = endedWith(ctx, cmd.InOrStdin())
 			}
-			return serveUntilInterrupted(ctx, ln, newServeMuxWithSwitch(src.load, opts, !noInstalled, switches))
+			return serveUntilInterrupted(ctx, ln, newServeMuxWithCloud(src.load, opts, !noInstalled, switches, cloudSessions))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -158,6 +167,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	_ = cmd.Flags().MarkHidden("switch-back")
 	cmd.Flags().BoolVar(&stopWithStdin, "stop-with-stdin", false, "Stop when standard input closes: a program that started this server ends it by closing the pipe, or by ending itself.")
 	_ = cmd.Flags().MarkHidden("stop-with-stdin")
+	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions: reads the claude.ai sign-in from the macOS keychain and asks api.anthropic.com at most once a minute. Needs --global.")
 	return cmd
 }
 
@@ -181,6 +191,13 @@ func newServeMuxWith(load authority.Loader, opts authority.HandlerOptions, compa
 // newServeMuxWithSwitch also mounts the switch to the other
 // configuration when switches is set.
 func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler) http.Handler {
+	return newServeMuxWithCloud(load, opts, compareInstalled, switches, false)
+}
+
+// newServeMuxWithCloud also lists Claude Code cloud sessions when
+// cloudSessions is set. Without it nothing reads the sign-in or leaves
+// this machine.
+func newServeMuxWithCloud(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler, cloudSessions bool) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
 	views := newOverviewHandler(".", compareInstalled)
@@ -205,6 +222,9 @@ func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions,
 	mux.Handle(builtinStatusPath+"/", changes)
 	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
 	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
+	if cloudSessions {
+		conversationsHandler.scanner.Cloud = conversations.NewClaudeCloud()
+	}
 	mux.Handle(conversationsViewPath, conversationsHandler)
 	mux.Handle(conversationOpenPath, conversationsHandler)
 	mux.Handle(conversationMarkPath, conversationsHandler)

@@ -140,7 +140,7 @@ describe('conversation search', () => {
 
 describe('conversation words', () => {
   it('names every app', () => {
-    expect((['cli', 'ide', 'desktop', 'background'] as const).map(appLabel)).toEqual(['Terminal', 'Editor', 'Desktop app', 'Background'])
+    expect((['cli', 'ide', 'desktop', 'background', 'cloud'] as const).map(appLabel)).toEqual(['Terminal', 'Editor', 'Desktop app', 'Background', 'Cloud'])
     expect(appLabel('watch' as Conversation['app'])).toBe('watch')
   })
 

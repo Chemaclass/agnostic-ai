@@ -5,8 +5,8 @@ conversations need you. Click it for a searchable list of your Claude Code,
 Codex and Cursor chats, and open any of them where it lives.
 
 It is a window on the `agnostic-ai` command and reads no chat itself. It
-starts its own `agnostic-ai serve --global`, and that server reads, opens and
-marks the conversations. So the companion and the web interface always agree,
+starts its own `agnostic-ai serve --global --cloud-sessions`, and that server
+reads, opens and marks the conversations. So the companion and the web interface always agree,
 and an upgrade of agnostic-ai is an upgrade of what the companion shows.
 
 ## Get it
@@ -83,6 +83,30 @@ Each conversation is in the first group whose rule holds.
 Only Claude Code reports waiting and busy. Codex and Cursor chats reach Needs
 you when something new is written in them.
 
+## Claude Code cloud sessions
+
+The list also shows the Claude Code sessions that run at claude.ai/code. They
+sit in the same groups as the others, with **Cloud** in their second line.
+
+- **What it reads.** The server asks `api.anthropic.com` for the list of your
+  cloud sessions: id, title, status and times, at most 100 of them. It never
+  reads a session's messages.
+- **When.** At most once a minute, with a 5-second timeout. A cloud session that
+  starts, stops or needs you shows in the list at most about a minute late
+  (65 seconds).
+- **The sign-in.** The server reads the claude.ai sign-in that Claude Code keeps
+  in the macOS keychain, afresh for each call, and sends it only to
+  `api.anthropic.com`. It never keeps, prints or logs it. Run `claude` to sign in or
+  renew it. Windows and Linux are not supported yet: there the list shows no
+  cloud sessions and says why.
+- **When it fails.** Your local chats still show, no cloud session shows, and the
+  note above the list says why. An old cloud list is never shown as current.
+- **Opening one** opens claude.ai/code in your browser: a session's own page
+  cannot be linked from what the list holds, so find it there by its title.
+- **It can break.** The endpoint is undocumented, so any Claude Code release can
+  change it. The list then shows your local chats and says the cloud answer could
+  not be read.
+
 You see a conversation when you open it from the companion or the web interface,
 or archive it. A chat you read in its own terminal still counts
 as unread until then.
@@ -121,8 +145,9 @@ What you see is never older than this:
 
 - A new message, a new chat, or a mark: 5 seconds.
 - A Claude Code chat that starts or stops working or waiting: 5 seconds.
-- An app or process that ended without writing anything, and a chat that went
-  dormant: the turn of the minute, so at most 65 seconds.
+- An app or process that ended without writing anything, a chat that went
+  dormant, and any change to a cloud session: the turn of the minute, so at
+  most 65 seconds.
 - A list that could not be read is not shown. The circle loses its number and
   the list says why, instead of showing the last one as if it were current.
 - After the companion was hidden, the first list is a new read.

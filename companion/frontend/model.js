@@ -51,9 +51,16 @@ export function reasonOf(conversation) {
   return REASON_OF_STATE[conversation.state]
 }
 
-/** "Claude Code · agnostic-ai · 5m": the tool, the folder's name and how long ago it was written. */
+/** Where a row runs, said only when it is not on this machine. */
+const PLACE_LABELS = {
+  cloud: 'Cloud',
+}
+
+/** "Claude Code · agnostic-ai · 5m": the tool, where it runs when not here, the folder's name and how long ago it was written. */
 export function detailsOf(conversation, now) {
   const parts = [TOOL_LABELS[conversation.tool]]
+  const place = PLACE_LABELS[conversation.app]
+  if (place) parts.push(place)
   if (conversation.folder) parts.push(folderName(conversation.folder))
   parts.push(ago(conversation.updatedAt, now))
   return parts.join(' · ')
@@ -76,6 +83,12 @@ export function ago(stamp, now) {
   if (age < DAY) return Math.floor(age / HOUR) + 'h'
   if (age < 14 * DAY) return Math.floor(age / DAY) + 'd'
   return Math.floor(age / (7 * DAY)) + 'w'
+}
+
+/** What the server says about the list: why marks or cloud sessions are missing. Empty when it says nothing. */
+export function serverNoteOf(view) {
+  if (view === undefined) return ''
+  return [view.marksNote, view.cloudNote].filter((note) => note !== undefined && note !== '').join(' ')
 }
 
 /** The line at the foot: what needs the person, or how the search went. */

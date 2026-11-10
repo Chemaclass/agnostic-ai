@@ -11,6 +11,7 @@ const APP_LABELS = {
   ide: 'Editor',
   desktop: 'Desktop app',
   background: 'Background',
+  cloud: 'Cloud',
 } satisfies Record<ConversationApp, string>
 
 /** Where the chat lives, in words; an app this client does not know shows its raw name. */
