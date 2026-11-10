@@ -297,6 +297,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	takeFirstClick()
 	s := &shell{settingsPath: path, settings: saved, server: newServer()}
 	s.inbox = newInbox(s.server, version, func() {
 		s.app.Event.Emit(eventInbox)
