@@ -12,6 +12,9 @@
   "prHourlyLimit": 4,
   "prConcurrentLimit": 6,
   "rangeStrategy": "bump",
+  "mise": {
+    "enabled": false
+  },
   "packageRules": [
     {
       "matchManagers": ["gomod"],
