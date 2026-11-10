@@ -1,0 +1,9 @@
+# Optional. `mise install` gets the versions CI uses; see CONTRIBUTING.md.
+# Bump each pin with the file it mirrors: go.mod, the Makefile and
+# .github/workflows/ci.yml. tests/integration/toolchain_pins_test.go holds
+# them level.
+[tools]
+go = "1.27.3"
+node = "22"
+java = "temurin-21"
+zola = "0.23.6"

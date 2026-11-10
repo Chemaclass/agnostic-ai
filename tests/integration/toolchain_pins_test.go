@@ -14,6 +14,8 @@ const (
 	makefilePath      = "../../Makefile"
 	ciWorkflowPath    = "../../.github/workflows/ci.yml"
 	pagesWorkflowPath = "../../.github/workflows/playground.yml"
+	goModPath         = "../../go.mod"
+	misePath          = "../../mise.toml"
 )
 
 var (
@@ -47,6 +49,55 @@ func TestGolangciLintPin_MatchesCI(t *testing.T) {
 	if local != ci {
 		t.Errorf("Makefile pins golangci-lint %s but %s pins %s; bump both together so `make lint` matches the PR check",
 			local, ciWorkflowPath, ci)
+	}
+}
+
+// TestMisePins_MatchRepoPins keeps the optional mise.toml on the versions
+// CI uses, so `mise install` sets up the same toolchain as the PR checks.
+func TestMisePins_MatchRepoPins(t *testing.T) {
+	data, err := os.ReadFile(filepath.FromSlash(ciWorkflowPath))
+	if err != nil {
+		t.Fatalf("read %s: %v", ciWorkflowPath, err)
+	}
+	ci := string(data)
+
+	goMod, err := os.ReadFile(filepath.FromSlash(goModPath))
+	if err != nil {
+		t.Fatalf("read %s: %v", goModPath, err)
+	}
+	// Without a toolchain line, the go line names the toolchain, as in scripts/doctor-dev.sh.
+	goPin := regexp.MustCompile(`(?m)^toolchain go(\S+)$`).FindSubmatch(goMod)
+	if goPin == nil {
+		goPin = regexp.MustCompile(`(?m)^go (\S+)$`).FindSubmatch(goMod)
+	}
+	if goPin == nil {
+		t.Fatalf("no toolchain or go line found in %s", goModPath)
+	}
+
+	pins := []struct {
+		tool, source, want string
+	}{
+		{"go", goModPath, string(goPin[1])},
+		{"zola", makefilePath, pinFrom(t, makefilePath, zolaMakefilePinRE)},
+	}
+	nodes := regexp.MustCompile(`(?m)^\s+node-version:\s*'?([^'\s]+)'?$`).FindAllStringSubmatch(ci, -1)
+	if len(nodes) == 0 {
+		t.Fatalf("no node-version found in %s", ciWorkflowPath)
+	}
+	for _, m := range nodes {
+		pins = append(pins, struct{ tool, source, want string }{"node", ciWorkflowPath, m[1]})
+	}
+	java := regexp.MustCompile(`(?s)setup-java@\S+.*?distribution:\s*'?([^'\s]+)'?\s+java-version:\s*'?([^'\s]+)'?`).FindStringSubmatch(ci)
+	if java == nil {
+		t.Fatalf("no setup-java distribution and java-version found in %s", ciWorkflowPath)
+	}
+	pins = append(pins, struct{ tool, source, want string }{"java", ciWorkflowPath, java[1] + "-" + java[2]})
+
+	for _, p := range pins {
+		got := pinFrom(t, misePath, regexp.MustCompile(`(?m)^`+p.tool+` = "([^"]+)"$`))
+		if got != p.want {
+			t.Errorf("mise.toml pins %s %s but %s pins %s; bump them together", p.tool, got, p.source, p.want)
+		}
 	}
 }
 

@@ -31,7 +31,7 @@ Review the whole diff against the PR base, including tests, fixtures, generated 
 | Inner edit loop, before the checks above | `make test-short`: skips end-to-end and timing tests, so it never replaces a gate |
 | Concurrency | `make test-race` (included in `make ci-local`) |
 | Dependencies (`go.mod`) or binary size | `make size-check` (included in `make ci-local`); raise [`scripts/binary-size-budget`](../../scripts/binary-size-budget) only when the growth is worth it, and say why in the PR |
-| Shell scripts or CLI end-to-end behavior | `make test-shell` (included in `make ci-local`, requires bashunit on PATH) |
+| Shell scripts or CLI end-to-end behavior | `make test-shell` (included in `make ci-local`, requires bashunit on PATH at the `BASHUNIT_VERSION` in [ci.yml](../../.github/workflows/ci.yml)) |
 | Project setup, branch changes or package versions | `go test ./tests/integration -run TestProjectLifecycle -count=1`; Linux and macOS CI plus Windows smoke |
 | Config struct or schema fields | `go run ./cmd/schemagen`; review the updated schema and include it |
 | Project source specs or adapters | `go run ./cmd/agnostic-ai validate`, `go run ./cmd/agnostic-ai lint`, then `go run ./cmd/agnostic-ai sync` and `go run ./cmd/agnostic-ai sync --check`; review tracked output changes and keep ignored output ignored |
@@ -41,7 +41,7 @@ Review the whole diff against the PR base, including tests, fixtures, generated 
 | Docs site (`docs/site/`) | `make site-serve` to preview, then `make site-check` and `make site-test`, with the pinned Zola; count skipped tests, not only the exit code. See [Docs site](#docs-site) |
 | Editor extension | Use Node.js 22+ for VS Code builds; follow its [development guide](../../editors/README.md) and CI job |
 
-`make preflight` covers formatting, lint (including `govet`), and Go tests. It is useful during development but does not replace the full gate above. `make test` and `make test-race` run [`scripts/test-go.sh`](../../scripts/test-go.sh), which splits `internal/cli` into shards that run at the same time. `make ci-local` adds race tests, the CLI and WASM builds, the WASM tests, schema drift, source lint, shell tests, binary size, and editor checks. Use `SKIP_JETBRAINS=1` only when Java or Gradle is unavailable, report the skip, and require JetBrains CI when its inputs changed. `make ci-local` skips the Web client job, govulncheck, the VS Code package step, the JetBrains plugin build and the pull-request-only plugin version-bump job. Neither command replaces applicable site checks or required remote CI.
+`make preflight` covers formatting, lint (including `govet`), and Go tests. It is useful during development but does not replace the full gate above. `make test` and `make test-race` run [`scripts/test-go.sh`](../../scripts/test-go.sh), which splits `internal/cli` into shards that run at the same time. `make ci-local` adds race tests, the CLI and WASM builds, the WASM tests, schema drift, source lint, shell tests, binary size, and editor checks. Use `SKIP_JETBRAINS=1` only when Java or Gradle is unavailable (`mise install` gets the pinned JDK), report the skip, and require JetBrains CI when its inputs changed. `make ci-local` skips the Web client job, govulncheck, the VS Code package step, the JetBrains plugin build and the pull-request-only plugin version-bump job. Neither command replaces applicable site checks or required remote CI.
 
 Record the commands, results (including failures and skips), tested commit or tree, and relevant working-tree, generated, embedded, or external inputs. Include toolchain versions and environment limits that affect the result, without secrets. A binary used for sync must match its source and embedded inputs; rebuild it or use `go run` after those inputs change.
 
@@ -59,7 +59,7 @@ Pull requests and pushes to `main` run the Go tests on Linux only, in six parall
 
 ## Docs site
 
-The site is [Zola](https://www.getzola.org/), and `zola --version` must match `ZOLA_VERSION` in the [Makefile](../../Makefile) exactly. `site-serve`, `site-check`, and `site-build` refuse a different version. To run the pinned build without replacing your install, download that release and put it first on `PATH`:
+The site is [Zola](https://www.getzola.org/), and `zola --version` must match `ZOLA_VERSION` in the [Makefile](../../Makefile) exactly. `site-serve`, `site-check`, and `site-build` refuse a different version. `mise install` gets the pinned Zola from [mise.toml](../../mise.toml). To run the pinned build without mise or without replacing your install, download that release and put it first on `PATH`:
 
 ```bash
 gh release download v0.23.6 --repo getzola/zola --pattern '*aarch64-apple-darwin.tar.gz'
@@ -75,7 +75,7 @@ The social preview image is rendered from `docs/site/og/card.html`. After editin
 
 A long reference page can be split into a topic index (a hub): a folder with an `_index.md` (`template = "docs/hub.html"`, `hub = true`) and one page per topic, such as `cli-reference/` and `spec-format/`. Link to a topic page as `@/docs/<hub>/<page>.md#anchor`. The hub redirects old `#anchor` links from before the split to the topic page that now holds them. Add new hubs to the sitemap and `llms-full.txt` lists in `scripts/`.
 
-Update Zola and `docs/site/templates/` in a separate change: bump `ZOLA_VERSION` in the Makefile, `.github/workflows/playground.yml` and `.github/workflows/ci.yml` with the template edits, and compare `_site/` built on both versions.
+Update Zola and `docs/site/templates/` in a separate change: bump `ZOLA_VERSION` in the Makefile, `.github/workflows/playground.yml` and `.github/workflows/ci.yml`, and `zola` in `mise.toml`, with the template edits, and compare `_site/` built on both versions.
 
 ## Conventions
 
