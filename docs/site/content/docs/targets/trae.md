@@ -136,7 +136,7 @@ For every current agent, sync removes a generated copy at the old `.trae/rules/a
 
 | Source | Becomes |
 |--------|---------|
-| `.trae/rules/*.md` | rules, agents, and skills by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification) |
+| `.trae/rules/*.md` | rules, agents, and skills by [filename prefix](@/docs/cli-reference/import.md#filename-prefix-reclassification) |
 | `.trae/agents/<name>.md` | `<agents>/<name>.md`, copied, minus the generated header |
 | `.trae/skills/<name>/SKILL.md` and `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied as is) |
 | `.trae/commands/<name>.md` | `<commands>/<name>.md` |

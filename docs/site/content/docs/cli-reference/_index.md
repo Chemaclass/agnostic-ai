@@ -20,7 +20,7 @@ agnostic-ai [command] [flags]
 
 Run project commands from the folder containing `agnostic-ai.yaml`, unless the command documents support for subdirectories or `--global`. Use `agnostic-ai <command> --help` for the options available in your installed release.
 
-To troubleshoot, start with [`doctor`](@/docs/cli-reference/check.md#doctor) and follow its next step, or see [troubleshooting](@/docs/troubleshooting.md) by symptom.
+To troubleshoot, start with [`doctor`](@/docs/cli-reference/doctor.md#doctor) and follow its next step, or see [troubleshooting](@/docs/troubleshooting.md) by symptom.
 
 ## Find a command
 
@@ -35,11 +35,13 @@ agnostic-ai doctor
 
 | Task | Commands |
 |---|---|
-| Set up a project | [use](@/docs/cli-reference/start.md#use), [init](@/docs/cli-reference/start.md#init), [import](@/docs/cli-reference/start.md#import), [new](@/docs/cli-reference/start.md#new) |
+| Set up a project | [use](@/docs/cli-reference/start.md#use), [init](@/docs/cli-reference/start.md#init), [import](@/docs/cli-reference/import.md#import), [new](@/docs/cli-reference/start.md#new) |
 | Generate or preview output | [sync](@/docs/cli-reference/sync.md#sync), [render](@/docs/cli-reference/inspect.md#render) |
-| Diagnose problems, then check a specific area | [doctor](@/docs/cli-reference/check.md#doctor), [validate](@/docs/cli-reference/check.md#validate), [lint](@/docs/cli-reference/check.md#lint), [status](@/docs/cli-reference/check.md#status), [verify](@/docs/cli-reference/check.md#verify) |
+| Diagnose problems, then check a specific area | [doctor](@/docs/cli-reference/doctor.md#doctor), [validate](@/docs/cli-reference/check.md#validate), [lint](@/docs/cli-reference/check.md#lint), [status](@/docs/cli-reference/check.md#status), [verify](@/docs/cli-reference/check.md#verify) |
 | Find which specs each tool reads | [list](@/docs/cli-reference/start.md#list), [explain](@/docs/cli-reference/inspect.md#explain), [compare](@/docs/cli-reference/inspect.md#compare), [graph](@/docs/cli-reference/inspect.md#graph), [why](@/docs/cli-reference/inspect.md#why) |
-| Inspect tool permissions and settings | [ui / view](@/docs/cli-reference/inspect.md#view), [serve](@/docs/cli-reference/inspect.md#serve) |
+| Inspect tool permissions and settings | [ui / view](@/docs/cli-reference/serve.md#view), [serve](@/docs/cli-reference/serve.md#serve) |
+| Call the local JSON API | [local API](@/docs/cli-reference/serve-api.md) |
+| See the conversations that need you | [companion](@/docs/cli-reference/companion.md#companion) |
 | List each MCP server's tools for the overview | [mcp tools](@/docs/cli-reference/inspect.md#mcp-tools) |
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |

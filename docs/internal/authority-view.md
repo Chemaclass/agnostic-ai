@@ -129,7 +129,7 @@ The same comparison as `sync --check` sets each target's `sync` state: `in-sync`
 
 Shared edits write committed files. Personal edits write Git-ignored overlays and reject paths outside the local folder, inside team sources, or already tracked by Git. An empty local built-in list disables shared built-ins.
 
-The change apply and undo endpoints also write generated files. See [prerequisites, conflicts, and recovery](../site/content/docs/cli-reference/inspect.md#serve).
+The change apply and undo endpoints also write generated files. See [prerequisites, conflicts, and recovery](../site/content/docs/cli-reference/serve.md#serve).
 
 `serve` binds to an explicit loopback IP and reloads configuration per request. Every route checks Host and Origin. Other browser origins require an exact `--allow-origin`; CLI requests without Origin are allowed. Request bodies have size limits and are read before taking the adapter lock. Header, read, write, and idle deadlines limit stalled clients.
 

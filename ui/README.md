@@ -11,7 +11,7 @@ Run `agnostic-ai view` from a project or any folder inside it to open its config
 | Lifecycle | Session stages and their hooks, with an Add hook form |
 | Settings | Built-ins, coding tools, config values, preferences, and the editor used by Open links |
 
-See [DESIGN.md](DESIGN.md) for visual rules, [the API reference](../docs/internal/authority-view.md) for the server contract, and [the CLI reference](../docs/site/content/docs/cli-reference/inspect.md#serve) for editing and recovery.
+See [DESIGN.md](DESIGN.md) for visual rules, [the API reference](../docs/internal/authority-view.md) for the server contract, and [the CLI reference](../docs/site/content/docs/cli-reference/serve.md#serve) for editing and recovery.
 
 ## Run it against the server
 
@@ -227,11 +227,11 @@ A local override disables the project control and offers **View local settings**
 
 Authority's **Add rules** and **Edit rules** accept one rule per line for Allow, Ask first, or Always blocked. Saved rules also have **Edit** and **Remove**. **Preview** shows the destination and exact diff; **Apply** saves the source file. The displayed sync command applies it to tools. Local lists replace project lists and show a comparison, with **Reset to the project rules** to inherit again. Multiple editable settings files require a choice.
 
-**Default permission mode** lists Claude Code's accepted mode names. It saves to the same settings file in the global view; projects show it read-only with **Open global settings**. **Protected paths** accepts paths, a decision, and a reason, with preview and save. Local blocks start from project values; the global view is read-only. See [permission editing](../docs/site/content/docs/cli-reference/inspect.md#permission-editing).
+**Default permission mode** lists Claude Code's accepted mode names. It saves to the same settings file in the global view; projects show it read-only with **Open global settings**. **Protected paths** accepts paths, a decision, and a reason, with preview and save. Local blocks start from project values; the global view is read-only. See [permission editing](../docs/site/content/docs/cli-reference/serve.md#permission-editing).
 
 Coding-tool switches save `targets` through `POST /api/edit/targets`: `{audience, name, enabled, expected}` or `{audience: 'personal', reset: true, expected: [names]}`. Turning a tool off requires confirmation. The overview's `tools` catalog includes `source` (`default`, `shared`, `personal`) and `items`. Helpers live in `src/model/coding-tools.ts`; `targetDocPath` in `src/model/documentation.ts` supplies docs links.
 
-Values render as chips for lists, switches for booleans, and text otherwise. Native settings group keys by tool. Project built-in switches preview and apply changes across configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches validate and save source files. See [prerequisites and recovery](../docs/site/content/docs/cli-reference/inspect.md#serve).
+Values render as chips for lists, switches for booleans, and text otherwise. Native settings group keys by tool. Project built-in switches preview and apply changes across configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches validate and save source files. See [prerequisites and recovery](../docs/site/content/docs/cli-reference/serve.md#serve).
 
 Change previews keep Apply and Cancel at the top. Affected tools, changed files, and review notes start collapsed; notes group by tool, scroll within a bounded area, and offer **Copy notes** for the full text. Pending source changes stay visible above these details.
 

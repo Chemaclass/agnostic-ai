@@ -142,7 +142,7 @@ Sync writes each tool's own form, and never writes a reference as plain text. Wh
 
 Kiro expands only variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset. Continue's IDE extensions read secrets from project `.env`, `.continue/.env`, or `~/.continue/.env`, and its CLI also reads environment variables ([secret resolution](https://docs.continue.dev/faqs#managing-local-secrets-and-environment-variables)). Keep `.env` files out of Git.
 
-[`agnostic-ai doctor`](@/docs/cli-reference/check.md#doctor) lists each referenced variable unset in your shell, including in `x-<target>` blocks and disabled servers. A tool started from a desktop launcher may see a different environment.
+[`agnostic-ai doctor`](@/docs/cli-reference/doctor.md#doctor) lists each referenced variable unset in your shell, including in `x-<target>` blocks and disabled servers. A tool started from a desktop launcher may see a different environment.
 
 ### References in `url` and `args`
 

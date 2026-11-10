@@ -22,7 +22,7 @@ agnostic-ai companion uninstall   # remove it from this machine
 `install` builds the companion from the same commit as your `agnostic-ai`,
 with Go, and prints each step as it goes. Releases ship no built companion, so nothing
 has to be signed or published for each system. It names what your machine
-lacks before it builds anything. [companion](../docs/site/content/docs/cli-reference/inspect.md#companion)
+lacks before it builds anything. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
 lists what each system needs and where it has been run.
 
 Codex and Cursor chats need the `sqlite3` command, as in the web interface.
@@ -157,7 +157,7 @@ with **Cloud** in their second line.
   tool can change them. The list then shows your local chats and says the cloud
   answer could not be read.
 
-[Cloud sessions under serve](../docs/site/content/docs/cli-reference/inspect.md#claude-code-cloud-sessions)
+[Cloud sessions](../docs/site/content/docs/cli-reference/companion.md#claude-code-cloud-sessions)
 has the hosts, the sign-in files and the timing.
 
 ## Files it keeps

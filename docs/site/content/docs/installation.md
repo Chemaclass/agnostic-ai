@@ -19,7 +19,7 @@ npm needs Node 18 or newer. The other methods install a ready-made binary that n
 
 {{ <install_picker /> }}
 
-The binary includes the browser interface (`agnostic-ai ui`). See [the view reference](@/docs/cli-reference/inspect.md#view).
+The binary includes the browser interface (`agnostic-ai ui`). See [the view reference](@/docs/cli-reference/serve.md#view).
 
 ## Verify the install
 

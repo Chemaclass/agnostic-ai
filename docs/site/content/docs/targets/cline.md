@@ -119,7 +119,7 @@ Global sync preserves unrelated event files and stops on a conflicting hand-writ
 
 ## Import
 
-- **Rules**: from `.clinerules/` and `.cline/rules/`. Identical duplicates become one rule. Different files with the same destination conflict. The reserved `skills`, `workflows`, and `hooks` subfolders are skipped. Native `paths` arrays are kept in `x-cline.paths`, including brace globs and empty arrays that turn off activation. Rules still follow the [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification) sorting of older layouts.
+- **Rules**: from `.clinerules/` and `.cline/rules/`. Identical duplicates become one rule. Different files with the same destination conflict. The reserved `skills`, `workflows`, and `hooks` subfolders are skipped. Native `paths` arrays are kept in `x-cline.paths`, including brace globs and empty arrays that turn off activation. Rules still follow the [filename prefix](@/docs/cli-reference/import.md#filename-prefix-reclassification) sorting of older layouts.
 - **Agents**: each `.cline/agents/<name>.yml` becomes a `<name>.md` spec, without the generated-file header. `.yaml` is read too, and `.md` last, so files from older syncs still import. `.yml` wins a clash. Native `tools`, `skills`, `providerId`, `modelId`, and `maxIterations` move under `x-cline` so sync preserves them. The `agent-<name>.md` prefix applies only to the old layout where rules and agents shared `.clinerules/`.
 - **Skills**: from the paths Cline scans, in order: `.cline/skills/`, `.clinerules/skills/`, `.claude/skills/`, `.agents/skills/`. The first same-name skill wins. Bundled assets and executable file modes are kept. The rules import skips `.clinerules/skills/`.
 

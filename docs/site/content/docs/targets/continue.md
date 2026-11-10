@@ -73,7 +73,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Import
 
-`agnostic-ai import continue` reads `.continue/rules/` and sorts each file into a spec kind by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification). Native `globs` and `regex` values (strings or arrays, including empty arrays and patterns with commas) are kept under `x-continue`.
+`agnostic-ai import continue` reads `.continue/rules/` and sorts each file into a spec kind by [filename prefix](@/docs/cli-reference/import.md#filename-prefix-reclassification). Native `globs` and `regex` values (strings or arrays, including empty arrays and patterns with commas) are kept under `x-continue`.
 
 - **Scope**: a subfolder named after a project directory sets the rule's scope. The rule then matches the scope directory plus its patterns. A scoped `regex` or scoped empty `globs` array is reported as unsupported. To filter by file only, omit `scope` and keep the source file outside any folder that sets scope.
 - **Native activation**: `x-continue.globs` and `x-continue.regex` keep the rule's activation exactly, as long as there is no portable `scope`. A rule in a subfolder stays in that folder, even when the folder names no project directory. An explicit `scope` switches to scope plus patterns, with its selector limits.

@@ -223,7 +223,7 @@ An empty list keeps generated files: `sync` warns, `sync --check` fails while th
 
 `init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
 
-The web interface lists every tool with a switch under **Settings**, **Coding tools**; see [serve](@/docs/cli-reference/inspect.md#serve).
+The web interface lists every tool with a switch under **Settings**, **Coding tools**; see [serve](@/docs/cli-reference/serve.md#serve).
 
 ## `sync`
 
@@ -411,7 +411,7 @@ A missing key or `0` keeps the default. A negative value fails as AAI-004. See [
 
 ### `doctor.check-references.ignore` {#doctorcheck-referencesignore}
 
-Link destinations [`doctor --check-references`](@/docs/cli-reference/check.md#doctor) never reports as broken.
+Link destinations [`doctor --check-references`](@/docs/cli-reference/doctor.md#doctor) never reports as broken.
 
 ```yaml
 doctor:
@@ -603,7 +603,7 @@ When `<path>` is the target's own entry-point file (`outputs.claude.rules-file: 
 `.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/_index.md#per-target-body-fences), with the same rules for shared entry-point files.
 
 - `validate` flags a fence naming an unknown target or one that reads no entry-point file.
-- For how `import` treats a fenced source, see [import](@/docs/cli-reference/start.md#files-and-source-order).
+- For how `import` treats a fenced source, see [import](@/docs/cli-reference/import.md#files-and-source-order).
 
 ## Which value wins {#precedence}
 

@@ -6,6 +6,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### Site
+
+- The CLI reference gives `serve`, the local API, `companion`, `doctor` and `import` their own pages; old links still land on a note that points to them.
+
 ## v0.93.0 - 2026-11-10
 
 ### Highlights

@@ -60,7 +60,7 @@ Preview several tools at once with `agnostic-ai import claude codex --dry-run --
 <details>
 <summary>Re-import after editing a native tool file</summary>
 
-Re-running import with no edits leaves every spec as it is. After you edit a tool's own file, import brings the edit back into the spec, or stops when that would lose content. See [keep existing specs](@/docs/cli-reference/start.md#keep-existing-specs) and [bring tool edits back](@/docs/cli-reference/start.md#bring-tool-edits-back). [Local specs](@/docs/local-overrides.md#import) stay out of the shared source.
+Re-running import with no edits leaves every spec as it is. After you edit a tool's own file, import brings the edit back into the spec, or stops when that would lose content. See [keep existing specs](@/docs/cli-reference/import.md#keep-existing-specs) and [bring tool edits back](@/docs/cli-reference/import.md#bring-tool-edits-back). [Local specs](@/docs/local-overrides.md#import) stay out of the shared source.
 
 </details>
 

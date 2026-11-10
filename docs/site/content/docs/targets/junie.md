@@ -147,7 +147,7 @@ Older versions wrote rules and agents to `.junie/rules/`, which `.junie/AGENTS.m
 Older layouts still import:
 
 - With no native agent files, the older Agents block in `.junie/AGENTS.md`.
-- `.junie/rules/`, when it exists, wins over `.junie/AGENTS.md`. Each file is sorted by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification).
+- `.junie/rules/`, when it exists, wins over `.junie/AGENTS.md`. Each file is sorted by [filename prefix](@/docs/cli-reference/import.md#filename-prefix-reclassification).
 - A legacy flat `.junie/rules/skill-<name>.md` imports as a skill.
 
 ## Protected paths

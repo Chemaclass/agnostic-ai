@@ -25,7 +25,7 @@ Select `aider` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-st
 
 Aider does not load this file automatically unless you enable the [project config](#output).
 
-For existing files, review [migration](@/docs/migration.md) and the [`import aider` command](@/docs/cli-reference/start.md#import) before syncing.
+For existing files, review [migration](@/docs/migration.md) and the [`import aider` command](@/docs/cli-reference/import.md#import) before syncing.
 
 ## Verify
 

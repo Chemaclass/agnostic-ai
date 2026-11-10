@@ -15,7 +15,7 @@ Keep instructions, rules, hooks, skills, agents, settings, and MCP servers for a
 
 The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --global` runs from any directory and loads no packs or project specs. [Global output](#global-output) lists the paths it writes.
 
-To start the folder from the web interface, click **Open global settings** on a project page when none exists. The panel creates an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/`, and can run `git init`. It does not run `sync --global`. See [the web interface](@/docs/cli-reference/inspect.md#serve).
+To start the folder from the web interface, click **Open global settings** on a project page when none exists. The panel creates an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/`, and can run `git init`. It does not run `sync --global`. See [the web interface](@/docs/cli-reference/serve.md#serve).
 
 ```text
 ~/.agnostic-ai/
@@ -66,7 +66,7 @@ Global specs never merge with project specs. When both exist, each tool decides 
 
 Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop before any write and point you to the `--global` form. Read-only commands such as `lint`, `validate`, and `doctor` still run.
 
-Keep the home in its own Git repository and push it to a remote to back it up. For a home kept in Git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`. See [import](@/docs/cli-reference/start.md#import).
+Keep the home in its own Git repository and push it to a remote to back it up. For a home kept in Git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`. See [import](@/docs/cli-reference/import.md#import).
 
 `import --global` reads [voice dictation](@/docs/spec-format/settings.md#voice-dictation) keys into shared `settings/imported.yaml`. Tool arguments select which native files to read. Existing home voice specs keep their scope; see [voice import](@/docs/spec-format/settings.md#voice-dictation) for exclusions and skipped values.
 
@@ -210,7 +210,7 @@ MCP specs in the home's `mcps/` install servers in each supported tool's user MC
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
 
-The **Tools** page in `serve --global` lists servers that have no home spec and were not written by sync. Each includes the `import --global <target>` command to create its spec. See [serve](@/docs/cli-reference/inspect.md#serve).
+The **Tools** page in `serve --global` lists servers that have no home spec and were not written by sync. Each includes the `import --global <target>` command to create its spec. See [serve](@/docs/cli-reference/serve.md#serve).
 
 OpenHands has no user MCP file sync can write. Sync prints a note that points at Agent Canvas **Customize > MCP Servers**, and removes the servers an earlier sync recorded as its own in `~/.openhands/mcp.json`. See [OpenHands MCP](@/docs/targets/openhands.md#mcp).
 

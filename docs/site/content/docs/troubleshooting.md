@@ -15,7 +15,7 @@ Run `doctor` from the directory that holds `agnostic-ai.yaml` first:
 agnostic-ai doctor
 ```
 
-Follow its final **Next step**. Doctor reads files without changing them; [`doctor --fix`](@/docs/cli-reference/check.md#doctor) applies repairs. Rerun `doctor` afterward. Use the symptoms below if you need more detail or `doctor` cannot start.
+Follow its final **Next step**. Doctor reads files without changing them; [`doctor --fix`](@/docs/cli-reference/doctor.md#doctor) applies repairs. Rerun `doctor` afterward. Use the symptoms below if you need more detail or `doctor` cannot start.
 
 | Symptom | Next step |
 |---|---|
@@ -83,7 +83,7 @@ A link that works from the project root, such as `apps/engine/src/lib.ts`, count
 
 ## A synced skill is disabled via skillOverrides
 
-A message such as `Skill "deploy" is disabled via skillOverrides` means your Claude Code settings switched the skill off, usually from the `/skills` menu. Sync still writes it. Run `agnostic-ai doctor` to list every synced skill your Claude settings turn off, file by file, then re-enable them in `/skills` or with `agnostic-ai doctor --fix` in a terminal. See [Claude skill overrides](@/docs/cli-reference/check.md#claude-skill-overrides).
+A message such as `Skill "deploy" is disabled via skillOverrides` means your Claude Code settings switched the skill off, usually from the `/skills` menu. Sync still writes it. Run `agnostic-ai doctor` to list every synced skill your Claude settings turn off, file by file, then re-enable them in `/skills` or with `agnostic-ai doctor --fix` in a terminal. See [Claude skill overrides](@/docs/cli-reference/doctor.md#claude-skill-overrides).
 
 ## Hook timeouts
 
