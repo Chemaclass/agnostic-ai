@@ -156,8 +156,25 @@ func pendingRows(list []Conversation) []Conversation {
 }
 
 func withPrompts(t texts, prompts cursorPrompts) texts {
-	t.firstPrompt, t.lastPrompt = prompts.First, prompts.Last
+	t.firstPrompt, t.lastPrompt = cursorTyped(prompts.First), cursorTyped(prompts.Last)
 	return t
+}
+
+var cursorQuery = regexp.MustCompile(`(?s)<user_query>(.*?)</user_query>`)
+
+// cursorTyped is what the person typed in a Cursor prompt. Cursor puts
+// timestamps, notifications and attachments beside <user_query> in the
+// same text, so a prompt that has one keeps only what is inside it.
+func cursorTyped(text string) string {
+	found := cursorQuery.FindAllStringSubmatch(text, -1)
+	if len(found) == 0 {
+		return text
+	}
+	queries := make([]string, len(found))
+	for i, match := range found {
+		queries[i] = match[1]
+	}
+	return strings.Join(queries, "\n")
 }
 
 var cursorWorkspacePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -386,7 +403,7 @@ func (s *Scanner) cursorAgentPrompts(id string, seen map[string]bool) (first, la
 			}
 			for _, part := range line.Message.Content {
 				if part.Type == "text" && strings.Contains(part.Text, "<user_query>") {
-					found = append(found, part.Text)
+					found = append(found, cursorTyped(part.Text))
 				}
 			}
 		}
