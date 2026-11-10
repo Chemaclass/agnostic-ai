@@ -21,4 +21,6 @@ try {
   if (!told) apply(saved)
 } catch (error) {
   if (!(error instanceof CallError)) throw error
+  // The page starts still until the choice is read; an unreadable choice moves.
+  if (!told) apply(undefined)
 }
