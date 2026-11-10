@@ -2,13 +2,13 @@
 
 [Contributor docs](README.md) · [Architecture](architecture.md)
 
-The Authority view resolves an agent or session's permissions for one coding tool. The server resolves rules, records their sources, and analyzes proposed changes. `serve` hosts the versioned JSON document at `/api/views/authority`. The [browser client](../../ui/README.md) displays the configuration overview, including its Authority section.
+The Authority API resolves an agent or session's permissions for one coding tool, records the source rules, and previews changes. `serve` exposes it at `/api/views/authority`. The [browser client](../../ui/README.md) displays the overview's Authority section.
 
-The contract lives in three places that change together: [`internal/authority/types.go`](../../internal/authority/types.go) (canonical), [`internal/overview/types.go`](../../internal/overview/types.go) (the overview), and [`ui/src/contract.ts`](../../ui/src/contract.ts) (the TypeScript mirror). A field changes meaning only with a schema version bump; adding an optional field keeps `authority/v1`.
+Keep [`internal/authority/types.go`](../../internal/authority/types.go), [`internal/overview/types.go`](../../internal/overview/types.go), and their TypeScript mirror, [`ui/src/contract.ts`](../../ui/src/contract.ts), in sync. Authority types are canonical. Changing a field's meaning requires a schema version bump; adding an optional field keeps `authority/v1`.
 
 ## Four states, kept apart
 
-Every operation carries four values. Do not combine them in one badge.
+Each operation reports four separate states:
 
 | State | Field | Comes from | Values |
 |---|---|---|---|
@@ -17,20 +17,32 @@ Every operation carries four values. Do not combine them in one badge.
 | installed | `installed` | comparing what sync would write with disk | `in-sync`, `stale`, `not-generated`, `not-checked`, `not-applicable` |
 | runtime | `runtime` | nothing: a running tool is never observed | `not-observed` |
 
-`resolution` says how the step from declared to effective went: `translated` (the adapter writes the winning rule and the tool's matching for that rule form is documented in this repository), `translated-unverified` (the rule is written but its matching is not documented, so the effect stays `unresolved`), `hook` (a generated hook enforces it), `not-expressed` (the adapter writes nothing for it), `agent-scope` (the subject's own spec decides, on a tool that reads agent tool lists), `no-rule`, or `disabled`.
+`resolution` explains how the declared rule becomes an effective decision:
 
-`hypothetical` is true while the generated file is stale, missing, or unchecked. A client then uses conditional wording: "Would be permitted once synced".
+| Value | Meaning |
+|---|---|
+| `translated` | The adapter writes the winning rule, and this repository documents how the tool matches it |
+| `translated-unverified` | The adapter writes the rule, but matching is undocumented; the effect stays `unresolved` |
+| `hook` | A generated hook enforces the rule |
+| `not-expressed` | The adapter writes no rule |
+| `agent-scope` | The agent spec decides, on a tool that reads agent tool lists |
+| `no-rule` | No rule applies |
+| `disabled` | The provider is switched off, and the tool honors that setting |
+
+When the generated file is stale, missing, or unchecked, `hypothetical` is true. Use conditional wording: "Would be permitted once synced".
 
 ## Precedence
 
 1. Agent narrowing comes first. A tool absent from the agent's `can`, `tools`, or `mcpServers`, or blocked by `readonly`, is `unavailable` whatever the project says. The grant names the excluding list.
-2. Then deny over ask over allow, across settings files and across server-wide and tool-level MCP rules alike. Specificity never overrides.
+2. Deny wins over ask, then allow, across settings files and both server-wide and tool-level MCP rules. Specificity does not change this order.
 3. Protected paths contribute `ask` or `deny` grants on edit and write.
 4. No grant means `default`: the tool's own default decides, and the view does not restate it.
 
 ## Evidence threshold
 
-A permitted, approval-required, or blocked badge is effective only when a loaded spec declares the rule, the selected adapter translates it, and the tool's matching behavior for that rule form is documented under `docs/site/content/docs/targets/`. Translation uses the same calls as `explain`: `adapters.TranslatePermissionCapabilityIn` and `TranslateAgentCapabilityIn`. Whole-tool rules and exact MCP tool names qualify on every tool that writes them. Prefix, glob, and domain forms qualify only where the target page documents how they match. A translation reported as widening stays unresolved. Installed status requires a disk comparison. Runtime behavior is never claimed.
+An effective decision requires a declared rule, an adapter translation, and documented matching behavior under `docs/site/content/docs/targets/`. Translation uses the same calls as `explain`: `adapters.TranslatePermissionCapabilityIn` and `TranslateAgentCapabilityIn`.
+
+Whole-tool rules and exact MCP tool names qualify on every tool that writes them. Prefix, glob, and domain rules qualify only when the target page documents matching. Translations that widen access remain unresolved. Installed status requires a disk comparison; runtime behavior is not observed.
 
 ## Resources
 
@@ -42,33 +54,42 @@ A permitted, approval-required, or blocked badge is effective only when a loaded
 | `declared-root` | declared-root | an MCP `roots` entry with a `file://` URI; the [MCP specification](https://modelcontextprotocol.io/specification/2026-07-28/client/roots) defines roots as informational filesystem guidance, not access control |
 | `undeclared-scope` | undeclared | an MCP server with no file root: "Scope not declared, credential reach not inspected" |
 
-A root with another URI scheme creates no resource and raises the `root-not-filesystem` uncertainty. Named cloud resources need their own explicitly non-enforcing metadata, which is a separate proposal.
+Other root URI schemes create no resource and raise `root-not-filesystem`. Named cloud resources are outside this model; they would need metadata that explicitly grants no access.
 
-Tool lists are not queried. An MCP tool appears as an operation when a rule or the subject's `can` names it, plus one "any other tool" operation at the server-wide effect, with the `tool-list-unknown` uncertainty.
+The API does not query MCP tool lists. It creates operations for tools named by a rule or the subject's `can`, plus "any other tool" with the server-wide effect and `tool-list-unknown`.
 
 ## Alternate routes
 
-`alternateRoutes` lists ways to reach the same system outside this operation's rules, such as shell access to a provider's command-line client. An empty list does not prove that no other route exists. `routeCoverage.checked` lists each evaluated route and the subject's decision: shell as a whole, each scoped shell prefix, and local files. `routeCoverage.notModeled` lists what the view does not evaluate: delegation, other MCP servers, web access, and runtime behavior absent from configuration.
+`alternateRoutes` lists other ways to reach the same system, such as a provider's shell command. An empty list does not rule out other routes.
+
+`routeCoverage.checked` records decisions for the whole shell, scoped shell prefixes, and local files. `routeCoverage.notModeled` lists excluded routes: delegation, other MCP servers, web access, and runtime behavior absent from configuration.
 
 ## Secrets
 
-A secret is a credential the configuration references by name through `${NAME}`. Four rights are reported separately: `discover` (the name is in the configuration), `readValue` (reported `unknown` with the reason, since a shell or file rule may reach it another way), `use` (allowed when the provider is available to the subject), and `manage` (unknown; rotation happens in the provider). Display fields redact credential-named values, recognized tokens, and resolved secret values. Matching retains private original rules; public identifiers remain distinct after redaction.
+Secrets are credentials referenced as `${NAME}`. The API reports four rights:
+
+- `discover`: the name appears in configuration.
+- `readValue`: unknown, with a reason; shell or file rules may provide another route.
+- `use`: allowed when the subject can use the provider.
+- `manage`: unknown; the provider handles rotation.
+
+Display fields redact credential-named values, recognized tokens, and resolved secrets. Matching uses the private original rules; public identifiers stay distinct after redaction.
 
 ## Snapshot and revision
 
-`snapshot.revision` is a short hash over every input used in resolution: the config files and every loaded spec, in a fixed order. The overview builds its snapshot through the same function, so both views report one revision for the same sources. `snapshot.evidence` states coverage per class: declared is always loaded, installed is checked or not, runtime is not observed.
+`snapshot.revision` hashes every config file and loaded spec in a fixed order. Authority and overview use the same function, so identical sources produce the same revision. `snapshot.evidence` records declared rules as loaded and installed files as checked or unchecked. Runtime is not observed.
 
 ## Proposal and impact
 
-`POST /api/views/authority/impact` takes a `Proposal`: subject, harness, optional revision, and `add` or `remove` changes to the `allow`, `ask`, or `deny` lists. It applies the changes to a copy of the specs and rebuilds every subject on the harness without writing files.
+`POST /api/views/authority/impact` accepts a `Proposal`: subject, harness, optional revision, and `add` or `remove` changes to `allow`, `ask`, or `deny`. It changes a copy of the specs and rebuilds every subject on that harness without writing files.
 
-The returned `ImpactResult` has `status: "proposed"`, the operations whose declared or effective effects change, their direction, affected subjects, and the file's exact before and after content. Direction ranks known decisions as allowed over ask over denied, counting unavailable as denied. If either side is `default` or `unresolved`, direction is `indeterminate` with a reason. A revision mismatch returns a problem instead of recomputing.
+`ImpactResult` returns `status: "proposed"`, changed operations, direction, affected subjects, and exact before/after file content. Direction ranks allowed above ask above denied, treating unavailable as denied. A `default` or `unresolved` value on either side makes direction `indeterminate`, with a reason. A revision mismatch returns a problem without recomputing.
 
 Permission proposals are preview-only (`supportedActions` lists apply as unsupported). Edit the spec and run `sync` to apply one.
 
 ## Overview
 
-`GET /api/views/overview` returns five harness sections with their configured items, counts, and per-tool support from the adapters' capability declarations:
+`GET /api/views/overview` returns five configuration sections with items, counts, and tool support from adapter capability declarations:
 
 | Section | Question | Items |
 |---|---|---|
@@ -78,9 +99,11 @@ Permission proposals are preview-only (`supportedActions` lists apply as unsuppo
 | Lifecycle | What runs around the agent, and when? | Hooks, each with `group` set to its stage; `stages` lists every portable event in session order, with the configured tools that run it and their event names, even when no hook runs there, then one stage per native event a hook names |
 | Settings | How are your tools set up? | Every shipped built-in with `enabled`, the config files read, and every other settings spec |
 
-Settings specs and config files carry `values`: one entry per dotted key, typed `list`, `bool`, or `text`, so a client can render chips, a switch, or text. A value whose key names a credential, or that looks like a known token format or a 32-character key run, shows as `<redacted>`; a `${VAR}` reference shows as written.
+Settings and config files expose `values` by dotted key, typed `list`, `bool`, or `text`. Values under credential-named keys, recognized tokens, and 32-character key runs display as `<redacted>`. `${VAR}` references remain visible.
 
-Read-only check results appear on affected items or sections, never in a separate list. A lint or doctor finding appears on every item whose file it names, or whose skill folder contains that file. If it names no configured item, it appears on its stated section, or Settings when no section is stated. The capture-and-compare path used by `sync --check` sets each target's `sync` state: `in-sync`, `drifted` with the files that differ, or `not-checked`.
+Lint and doctor findings attach to each matching file or containing skill folder. Unmatched findings attach to their named section, defaulting to Settings. The API stores findings on items and sections, without a separate list.
+
+The same comparison as `sync --check` sets each target's `sync` state: `in-sync`, `drifted` with differing files, or `not-checked`.
 
 ## Endpoints
 
@@ -102,11 +125,13 @@ Read-only check results appear on affected items or sections, never in a separat
 | POST | `/api/changes/builtin/undo` | restores the files and permissions from before the last successful apply for `{id}` |
 | POST | `/api/changes/builtin/cancel` | discards the preview `{id}` without writing files and keeps the last undo; 409 when that preview was already replaced or closed |
 
-`/api/edit/builtin`, `/api/edit/value`, and `/api/edit/field` write source files without syncing. Only `/api/edit/field` takes a `target` other than `all`; the other two return 400 for one. They require explicit JSON booleans, preserve unrelated text and file modes, and validate before and after the edit. Snapshots detect concurrent changes before replacement or rollback; failed restorations are reported. A shared edit writes the committed file; a personal edit writes the Git-ignored overlay, and is refused when its file resolves outside the local folder, into a team source, or to a tracked file. An empty local built-in list disables shared built-ins.
+`/api/edit/builtin`, `/api/edit/value`, and `/api/edit/field` save source files without syncing. Only `/api/edit/field` accepts a `target` other than `all`; the other two return 400. Boolean inputs must be JSON booleans. Edits preserve unrelated text and file modes, validate before and after writing, and check for concurrent changes before replacement or rollback. Failed restorations are reported.
+
+Shared edits write committed files. Personal edits write Git-ignored overlays and reject paths outside the local folder, inside team sources, or already tracked by Git. An empty local built-in list disables shared built-ins.
 
 The change apply and undo endpoints also write generated files. See [prerequisites, conflicts, and recovery](../site/content/docs/cli-reference/inspect.md#serve).
 
-`serve` binds to an explicit loopback IP and reloads the configuration on every request. One shared Host/Origin guard protects every route. Other browser origins require an exact `--allow-origin`; no-Origin CLI requests remain allowed, while cross-site browser requests are refused. Bodies are bounded and read before the adapter serialization lock. Header, read, write and idle deadlines limit stalled clients.
+`serve` binds to an explicit loopback IP and reloads configuration per request. Every route checks Host and Origin. Other browser origins require an exact `--allow-origin`; CLI requests without Origin are allowed. Request bodies have size limits and are read before taking the adapter lock. Header, read, write, and idle deadlines limit stalled clients.
 
 `/api/switch` is the only route that starts a server. Its destination is fixed at startup: the user configuration for a project server, or the starting project for a global server. Requests carry no path, port, or argument. `/api/global/create` runs `git init` once in its fixed folder when asked.
 
@@ -114,7 +139,9 @@ Switching first looks on `127.0.0.1:4310` to `4319` for a server whose health na
 
 A child validates `--switch-back` as a loopback IP and port and tries it before the port range. This lets it return to a parent on any `--addr`. The address comes from the parent's listener, never from a request.
 
-As with `ui`, reuse trusts any local process whose health reports the expected root. Another user on a shared machine could bind the port first, but the Host/Origin guard prevents that process's page from calling this user's servers. The switch also requires `Content-Type: application/json`, blocking cross-site forms. A project tab cannot edit `~/.agnostic-ai` because the global server has a different origin. Each server edits one configuration; accepting a configuration path per request would let a project tab edit the shared user setup.
+Server reuse trusts a local process that reports the expected root, as `ui` does. Another user on a shared machine could occupy the port first. Host/Origin checks prevent that process's page from calling this user's servers; requiring `Content-Type: application/json` also blocks cross-site forms.
+
+Each server edits one configuration. The global server has a separate origin, preventing a project tab from editing `~/.agnostic-ai`. Requests cannot choose a configuration path.
 
 Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--global` reads the user-level configuration from any directory; its overview uses global lint and output comparisons, without project doctor checks.
 
@@ -137,4 +164,4 @@ Installed comparisons use builtin adapters only. The web server never executes a
 
 ## Illustrative data
 
-[`internal/authority/testdata/demo-project`](../../internal/authority/testdata/demo-project) is an illustrative project with three agents, allow, ask, and deny lists, protected paths, MCP servers, and secret references. Every name in it is an example. The client's fixture `ui/src/fixtures/overview.mock.json` is generated from it.
+[`internal/authority/testdata/demo-project`](../../internal/authority/testdata/demo-project) contains three example agents, permission lists, protected paths, MCP servers, and secret references. It supplies the client fixture `ui/src/fixtures/overview.mock.json`.

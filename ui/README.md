@@ -1,57 +1,17 @@
 # Local configuration UI
 
-Inspect project or user configuration in a local browser. Installed binaries include the client: run `agnostic-ai view` from a project or any folder inside it. Outside a project it opens user configuration; `--global` selects that configuration explicitly.
+Run `agnostic-ai view` from a project or any folder inside it to open its configuration in a browser. Outside a project, it opens user configuration; `--global` selects that configuration explicitly. Installed binaries include the client.
 
 | Section | Shows |
 | --- | --- |
-| Conversations | Recent chats from Claude Code, Codex, and Cursor, open ones first, then by day, each with a button that reopens it where it lives. The default page with a running server |
-| Context | The instructions file, rules, agents, and skills |
-| Authority | Permission rules, default mode, and protected paths, with project or local editing and file previews |
-| Tools | MCP servers, each with the tools `agnostic-ai mcp tools` last listed |
-| Lifecycle | Every session stage and its hook counts; expand a stage for its tools and hooks, or use Expand all and Collapse all. Counts show only above zero; a stage that holds only turned-off hooks says "turned off". With no hooks, the shared empty state over a plain list of stages and their tools. On a running server, **Add hook** previews and writes one portable hook spec, then asks you to run sync |
-| Settings | Every built-in with its on/off state, every coding tool with a switch and docs link, the config file's values, preference specs, and the editor Open links use |
+| Conversations | Recent Claude Code, Codex, and Cursor chats, with actions to reopen them |
+| Context | Context size, instructions, rules, agents, and skills |
+| Authority | Permission rules, default mode, and protected paths, with edit previews |
+| Tools | MCP servers and their cached tool listings |
+| Lifecycle | Session stages and their hooks, with an Add hook form |
+| Settings | Built-ins, coding tools, config values, preferences, and the editor used by Open links |
 
-**Conversations** comes first in the rail and is the page an address without `view` opens, with a running server or the mock fixture; a static snapshot has no chats, so it opens on Context. The default is chosen in one place, `defaultView` in `src/model/url.ts`, and links leave it out, so the Conversations link is `/` and Context is `?view=context`. The page reads `GET /api/views/conversations?editor=<id>`, with the editor chosen in Settings, one week at a time: the first page holds every open conversation and the past week, and each page's `next` is the `before=<time>` of the week before it, skipping empty weeks. When the list nears its end, an `IntersectionObserver` on a sentinel after the last group loads that week and merges it in (one row per tool and id, the later copy winning, newest first, open ones on top), one request at a time. **Load the week before** under the list does the same by click or keyboard and stays for browsers without the observer; it reads **Loading the week before…** while a week loads, a failed week shows its error with **Try again** for the same week and keeps what is loaded, and with no `next` the list ends with **That's every conversation.** The page opens with a verdict sentence, from `conversationsVerdict`: how many chats are open and how many wait for you, else when the last one ran, and a facts line with the count loaded so far. Beside the search, a tool filter shows **All** and one toggle (`aria-pressed`) per tool whose store was found, each with the conversations loaded so far and a title such as **12 of 66 Codex chats loaded.**; pressing a chosen tool again shows every tool. A store that was not found is left out. Every conversation a process or editor window has open comes first under **Open now**, newest first; the rest group by when the person or the agent last wrote in it, in local time (Today, Yesterday, This week, Earlier). A row shows the title, one meta line (tool, folder, branch, time; where the chat lives, such as Terminal or Desktop app, is the tool name's title), and the last prompt on one line, left out when it repeats the title. A typed shell command, `<bash-input>gl</bash-input>`, shows as `! gl` in mono. An open row's chip says what it is doing when the tool reports it (Claude Code does): **Working** or **Waiting for you** in amber; otherwise no chip. A row also shows **New reply** in amber when something was written since the person last opened it, and **Archived** when they archived it, from the row's `state` (`stateBadge`); the other states need no chip. The server leaves out SDK sessions and Codex exec runs. A field the server withholds because it may hold a credential reads **Hidden: may hold a credential**. The search box asks the server again with `q` once typing pauses (300 ms), so a search finds conversations of every age, loaded or not: every word must appear in the title, folder, branch, last prompt, tool or app as the row shows them, and the matches page by week like the full list, with their count across every week in the status line (**Searching…** while it runs). The tool buttons narrow what the server sent; scrolling or the button still loads more matches. Only the list without a search is kept for a quick return. Mock mode applies the same rule to the fixture. The row's one action, such as **Open in Terminal**, is a link that turns into the ink pill on row hover or keyboard focus (always the pill on an open chat), with **Copy command** beside it, or behind the ⋯ menu on touch screens and phones. It posts `{tool, id, editor}` to `POST /api/conversations/open`; the server does the opening and the row shows its message. An editor extension opens a link in its front window, so for those the server first opens the chat's folder in that editor, waiting about a second when the folder already has a window and up to five when one has to open. When the server could not open it and names a command, **Copy command** offers it. Helpers live in `src/model/conversations.ts`. Mock mode reads `src/fixtures/conversations.mock.json` as the only week and does not post; snapshots show that the page needs a running server.
-
-Each finding is a card: its state (**Needs a fix** or **Worth a look**, plus the section away from its own page), the message, the suggested fix and the source path, then **Copy prompt** and **Details** (`src/components/Findings.tsx`). Long messages show three lines and **Show full message**; **Copy prompt** always copies the complete diagnostic. **Details** holds **Open** in the editor, **Copy path** and **Recheck**, then the check code, the explanation, and the exact prompt the button copies. With a running server, **Recheck** reloads the overview through the shared refresh and compares finding ids, which ignore line numbers, to say whether that finding still appears. A failed refresh, or the `lint-incomplete` finding the server sends when lint stopped early, is never read as a fix. Doctor findings that disappear are shown as not confirmed, because the overview's doctor checks skip files they cannot read. Native settings group keys by tool. Target lists use logos with full names on hover.
-
-The rail's **Setup health** row counts every finding in the overview by severity, such as "Setup health: 1 error, 3 warnings", beside a status word and dot: **Needs a fix** (brick), **Worth a look** (ochre), or **All clear** (`src/model/health.ts`, `src/model/rail.ts`). At 900px and below the top bar shows the same counts as a chip ("1E 3W"). Both link to **Setup health** (`?view=health`). That page opens with a verdict such as "1 thing needs a fix, and 3 more are worth a look." (`healthVerdict`), a facts line with the counts, the suggestions, whether the data was checked just now or comes from a saved snapshot, **Recheck** with a running server, and **Docs**. It lists every finding, under **Fix first** and then **Worth a look**, then by section and item, with the same finding cards, **Copy prompt** and **Details** as the section pages. The item name, or the section name on a card, links to it in the section. With two or more findings, **Copy all fixes** copies one prompt for every finding, errors first, with the shared guidance once. Each finding card and suggestion row has a checkbox (`src/components/pick.tsx`); ticking any shows a bar at the foot of the page with the count ("3 selected"), **Copy prompt** for one prompt with the ticked items, errors first, then suggestions, and the guidance once (`healthFixPrompt` with a pick), and **Clear**. A ticked finding that a recheck fixes drops out of the count. Below the findings, **You could add** lists the overview's `health.gaps`, such as "Skills: No skill yet. 2 of your tools can use one." (`gapLine`). The name links to its section, and **Copy prompt** shows on row hover or focus, behind a ⋯ menu on phones, where the list shows four rows until **Show N more**. Under the verdict, `health.improvements` shows as a feature track, one bar per feature with the ones in use filled, and one line such as "7 of 9 features your tools support are in use" (`improvementsLine`); without improvements data the track hides, and with no gaps the list hides. Gaps are suggestions and never count as findings. It reads only the loaded overview, so it also works from a static snapshot, without Recheck.
-
-The **Context size** tab in Context, the first tab, reads `GET /api/views/context?target=<tool>&file=<path>` from a running server. It is the landing tab when a project with a coding tool loads from a server or the mock fixture; a static snapshot, user configuration (`--global`, which the overview marks with `global`) and a project with no coding tool open the first tab with content. It shows the `explain --context` report for one target, with scoped rules counted for the file under **Check against a file** when the tool supports one. The startup and on-demand figures come first, with one line that compares startup words with the `startupWordBudget` the view carries (`lint.instructions-words`) and links **Change budget** (`src/model/context-verdict.ts`). **Next** lists three steps: show the largest startup source, **Copy command** for the explain command, and **Copy prompt** for a startup review. **How this is counted** holds the load conditions and the default model and effort for the tool from the Settings fields (`src/model/model-line.ts`). Then every source ranked with its share, always shown, and duplicated startup passages, only when there are any, with edit links and **Copy prompt**. **What can I do?** on a source explains it and offers **Copy prompt**; **Copy all prompts** beside the ranked list copies one prompt with the advice for every source that has something to change, startup first (`contextAllAdvicePrompt`). Coding tools show by name. Advice text comes from `src/model/context-advice.ts`. **Read again** fetches the report again and labels the previous counts **Before**. Source types show plain names (instructions file, tool wrapper text, skill name and description); prompts keep the raw category. The tool and file live in the URL (`target`, `file`). Mock mode reads `src/fixtures/context.mock.json`; snapshots show that it needs a running server.
-
-With a running server, each instructions, rule, agent, skill, command, review instructions and ignore file row on Context has **Show content**. The first open reads `GET /api/views/source?path=<openPath>` and keeps the reply for that path; the row then shows the frontmatter fields as chips and the rest of the file as plain text, with a note when the server cut a body over 256 KB. The server answers only for files the loaded configuration lists. Search does not look inside the content, and snapshots and the mock fixture hide the toggle.
-
-Each hook row on Lifecycle has **Summary**, **Key fields** and **Full file** in place of **Show content**. Key fields come from the overview's `fields` (`on`, `event`, `match`, `matcher`, `type`, `command`, `timeout`, `disabled`), so they work in snapshots too. Full file reads the same endpoint, which returns a hook file as fields and no raw text, or withholds it whole when it looks like it holds a credential; it is hidden for built-in hooks, snapshots and the mock fixture. On a hook from a personal file, such as `local/hooks/guard.yaml`, the button reads **Fields this file sets**, because the server reads that file alone while Key fields show the merged hook. Search matches a hook's key fields, its command included. Expand all and Collapse all leave the hook levels as they are.
-
-Each section page opens with its name as a small label, a verdict sentence that answers the page's question from the loaded overview, such as "Your rules allow 11 actions, ask before 3, and block 4.", and one facts line (`src/model/verdict.ts`). The verdict describes what the setup configures; the facts line names any set-up tool that ignores a configured type, such as "Kiro ignores permissions", and counts every finding on the page, the section's own and its rows'. Errors of the section show as finding cards before the tabs and raise the alert. **Review** opens the section's folded list, or moves to the first row with a finding. Then one filter row: a search field for names, paths, descriptions, and values, a match count only while filtering, and **Docs** at its right. Matching unconfigured fields open automatically, and findings remain visible while searching. Clear the search or change pages to restore the full list. A type with nothing configured says what it is, which tools support it, and offers **Copy prompt** (from the matching `health.gaps` entry), with the page's **Docs** link above; while filtering it says **No matches.**
-
-**Search** in the rail foot (the top bar on phones), or `Cmd+K` / `Ctrl+K`, searches every section of the loaded overview, findings included, without asking the server. Arrow keys move through the results, `Enter` opens one, and `Esc` closes the search and returns focus. Opening a result puts a link to that item, setting, or finding in the address bar; the link works after a reload and in browser history. A link to an entry the configuration no longer has says so and selects nothing else. Links name entries within the configuration the server or snapshot shows, so they only work for someone who can open that same address.
-
-The interface follows the Mineral design system in `DESIGN.md`: bone paper, a slate rail, verdigris links, Fraunces for headings and Atkinson Hyperlegible Next for text, in light and dark themes. `src/styles/tokens.test.ts` checks the token colours against `DESIGN.md` and their contrast. On wide screens a 280px rail holds the wordmark, the project name and path, the Setup health row, and each page as its question over a live summary from the loaded overview, such as "Context: 1 rule, 3 agents" (`sectionSummary`). Its foot holds Search, the configuration switch, the theme button, GitHub links, the version and Overview JSON. At 900px and below the rail becomes a 60px top bar with the finding chip, Search and Menu, over one row of page links that never scrolls; Menu opens the rail's questions, summaries and foot as a sheet from the left. Mock data and static snapshots say so once, in a notice at the top of the page. Source paths sit below descriptions, edit controls stay alongside their rows, and lifecycle stages form a numbered timeline. The rail foot names the agnostic-ai version that serves the page, from `/api/health`: a release links its notes on GitHub, and a checkout build shows its `<branch>@<sha>` label with no link. Static snapshots and mock fixtures have no server to ask, so they show no version. Context, Tools, and Settings use tabs to show one source group at a time. Tools separates MCP servers, servers found in tools, and environments; Context opens on context size, then guidance, rules, agents, and skills; Settings separates built-ins, coding tools, preferences, config files, and the editor. Authority keeps permissions together, and Lifecycle keeps its session timeline.
-
-Tabs support Left/Right, Home, and End keys. Their `tab` URL parameter survives refresh and browser history; changing pages clears it. Search covers all source tabs, shows match counts in the tabs, and opens a matching group. A tab or heading shows a count only above zero, and only once. Linked search results open their owning tab. Switching tabs keeps unsaved drafts, previews, and context-size state. On narrow screens the tab row scrolls horizontally; the page stays within the viewport. Coding tool support and page findings remain outside the tab panels. Coding tool support folds below the content in a disclosure that starts closed, with a one-line summary such as "3 of 3 tools support rules, agents, and skills" (`supportSummary`); opening or folding it is remembered per section (`agnostic-ai.support-open:<section>` in `localStorage`). Each tool shows its logo and name. Each kind in the table links to the tab that holds it and moves focus to that kind's heading (`entry=kind:<kind>`); hovering a tab lists the kinds it holds, such as Guidance: Instructions, review instructions, ignore files. The Config files tab shows the combined configuration and hides the edit-scope selector.
-
-In Settings, **View and edit** changes both the displayed values and the save destination. It appears once, beside the filter, and applies to every block on the page. It reads **Project | Local** in a project and **Global | Local** in the global view. Project (or Global) shows the level's own values; Local shows your overrides from the git-ignored `local/` layer and labels values inherited from the level. Local values win for you. Rows with different values show both, such as **Project: Off · Local: On**. Built-in counts follow that view. A local override disables the corresponding project control and offers **View local settings**. Reset actions appear in Local. The API keeps the audience values `shared` and `personal`. The config snapshot and **What each tool gets** show the combined configuration used for sync.
-
-Authority uses the same scope selector. **Add rules** or **Edit rules** changes Allow, Ask first, or Always blocked, one rule per line; each saved rule also has **Edit** and **Remove**. **Preview** shows the destination and exact file diff; **Apply** saves that source file. Run the displayed sync command to apply it. A local list replaces the same list in its project spec, with a comparison when they differ and **Reset to the project rules** to inherit again. Multiple editable settings files require an explicit choice. **Default permission mode** is a list of the mode names Claude Code accepts, saved to the same file in the global view only; a project shows it read-only with **Open global settings**. **Protected paths** takes one path per line, a decision, and a reason, with the same preview and save; a local block starts from the project block. The global view keeps protected paths read-only. See [permission editing](../docs/site/content/docs/cli-reference/inspect.md#permission-editing) for details.
-
-Coding tools switches save the `targets` list through `POST /api/edit/targets` (`{audience, name, enabled, expected}` or `{audience: 'personal', reset: true, expected: [names]}`), the same shape as `/api/edit/builtin`; the overview carries the catalog as `tools` with `source` (`default`, `shared`, `personal`) and `items`. Turning a tool off asks first. Helpers live in `src/model/coding-tools.ts`; the docs path per tool is `targetDocPath` in `src/model/documentation.ts`.
-
-Source lists use aligned rows. Unconfigured fields stay in a disclosure. Lifecycle stages start closed, with names, counts, and descriptions visible. Search opens matching stages; a linked hook or finding opens its stage and receives focus. Clearing search closes the stages, and open states are not saved. Support groups stack on mobile.
-
-Change previews keep Apply and Cancel at the top. Affected tools, changed files, and review notes start collapsed. Notes group by tool, scroll within a bounded area, and have a **Copy notes** action for their full text. Pending source changes remain visible above those details.
-
-Values render by type: a list as chips, a boolean as a switch, anything
-else as text. Project built-in switches preview and apply changes across the configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
-runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens
-it in the editor chosen in Settings under Editor (`<scheme>://file/<absolute path>:<line>`): Cursor, VS Code, VS Code Insiders, VSCodium, Zed, or a custom link template with `{path}` and `{line}`. The browser remembers the choice (`agnostic-ai.editor`, and `agnostic-ai.editor-template` for the template) and Cursor is the default. The Editor tab shows only with a running server. Each item carries the lint and doctor findings that name
-its file. A finding whose file is on the server's disk opens at its line when it has one, from the `openPath` the server sends. Every open link has Copy path beside it, since a browser cannot tell whether the editor opened. Mock and static data name no local files, so they show paths without open links. The JSON overview also reports whether generated files match
-what `sync` would write.
-
-`src/contract.ts` mirrors the Go types in `internal/overview/types.go`
-and `internal/authority/types.go`. Update them together. `src/builtin-change.ts` validates the change responses from `internal/cli/serve_builtin_changes.go`.
-
-See [the local UI design system](DESIGN.md) for layout, colors, and component conventions.
+See [DESIGN.md](DESIGN.md) for visual rules, [the API reference](../docs/internal/authority-view.md) for the server contract, and [the CLI reference](../docs/site/content/docs/cli-reference/inspect.md#serve) for editing and recovery.
 
 ## Run it against the server
 
@@ -70,10 +30,7 @@ npm ci
 npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```
 
-Open `http://127.0.0.1:5173`. Vite forwards `/api` to
-`http://127.0.0.1:4310`, preserving the original Host header. Set
-`AGNOSTIC_AI_API_URL` to use another backend address. Other browser
-origins need an exact `--allow-origin` on the Go server.
+Open `http://127.0.0.1:5173`. Vite forwards `/api` to `http://127.0.0.1:4310`, preserving the original Host header. Set `AGNOSTIC_AI_API_URL` to use another backend address. Other browser origins need an exact `--allow-origin` on the Go server.
 
 The bundled client runs on the same port as the API:
 
@@ -98,31 +55,21 @@ Commit `ui/embedded/` with changes to its inputs. The bundle records source and 
 
 ## Run it without a server
 
-**Mock data.** Add `?mock=1` to the URL. The client reads
-`src/fixtures/overview.mock.json`, the server's output for the demo
-project, with the checkout's absolute path replaced so no machine path is committed. Regenerate it after a contract change:
+**Mock data.** Add `?mock=1` to the URL. The client reads `src/fixtures/overview.mock.json`, the server's output for the demo project, with the checkout's absolute path replaced so no machine path is committed. Regenerate it after a contract change:
 
 ```sh
 go run ./cmd/agnostic-ai view --dir internal/authority/testdata/demo-project --json \
   | sed "s|$PWD/|/path/to/agnostic-ai/|g" > ui/src/fixtures/overview.mock.json
 ```
 
-**Static snapshot.** Add `?source=<directory or URL>`, for example
-`?source=./snapshot`. The client reads `<source>/overview.json` with
-plain `fetch`. A relative source resolves against the page; an absolute
-one must be http(s). A snapshot or the mock fixture is read-only: the
-notice at the top of each page says that opening files, rechecks and
-switches need `agnostic-ai view`. A source that does not load shows
-**Could not load the snapshot**, with the URL and status under
-**Details** and **Retry**. Capture one from a running server:
+**Static snapshot.** Add `?source=<directory or URL>`, for example `?source=./snapshot`. The client reads `<source>/overview.json` with plain `fetch`. A relative source resolves against the page; an absolute one must be http(s). A snapshot or the mock fixture is read-only: the notice at the top of each page says that opening files, rechecks and switches need `agnostic-ai view`. A source that does not load shows **Could not load the snapshot**, with the URL and status under **Details** and **Retry**. Capture one from a running server:
 
 ```sh
 mkdir -p snapshot
 curl -s http://127.0.0.1:4310/api/views/overview > snapshot/overview.json
 ```
 
-For a host with no server at all, such as GitHub Pages, build with a
-default source so visitors need no query string:
+For static hosts such as GitHub Pages, set a default source so visitors need no query string:
 
 ```sh
 VITE_DEFAULT_SOURCE=./snapshot npm run build
@@ -159,18 +106,11 @@ Overview JSON, at the foot of the rail (in Menu on phones), opens the JSON inspe
 
 ## Tests
 
-**Model tests** (`src/model/*.test.ts`) cover URL state, data source
-parsing, and the fixture's conformance to the contract. Point them at
-real server output with `OVERVIEW_FIXTURE` (a path relative to `ui/`).
+**Model tests** (`src/model/*.test.ts`) cover URL state, source parsing, and fixture conformance to the contract. Set `OVERVIEW_FIXTURE` to server output, using a path relative to `ui/`.
 
-**Fixture browser tests** (`e2e/fixture/`) exercise rendering, themes, keyboard controls,
-and accepted/refused edit responses. The edit responses are mocked.
+**Fixture browser tests** (`e2e/fixture/`) check rendering, themes, keyboard controls, and mocked edit responses for success and refusal.
 
-**Live browser tests** (`e2e/live/`) start the built Go server
-against temporary project and user sources. They load the embedded client without `--ui`, use real API requests,
-reload persisted edits, enforce browser boundaries, list tools from a
-local fake MCP server, and exercise the Vite proxy. They do not read or
-change the user's configuration.
+**Live browser tests** (`e2e/live/`) use the built Go server, embedded client, and temporary project and user sources. They check real API requests, saved edits after reload, browser boundaries, a local fake MCP server, and the Vite proxy. They never access the user's configuration.
 
 | Variable             | Meaning |
 | -------------------- | ------- |
@@ -191,9 +131,7 @@ make build
 (cd ui && npm run e2e:live)
 ```
 
-Use `E2E_CHROMIUM_PATH` for an existing Chrome installation, or install
-the browser matching the pinned Playwright version with
-`npx playwright install chromium` from `ui/`. CI installs the pinned browser before running both suites.
+Use `E2E_CHROMIUM_PATH` for an existing Chrome installation, or install the browser matching the pinned Playwright version with `npx playwright install chromium` from `ui/`. CI installs the pinned browser before running both suites.
 
 The live suite also checks Handoff then Caveman for Claude and Codex, pending source updates, shared undo after reload and filtering, and conflicts that preserve later source and output edits.
 
@@ -203,8 +141,106 @@ The live suite also checks Handoff then Caveman for Claude and Codex, pending so
 - `src/api.ts` loading from the server, the mock fixture, or a static snapshot
 - `src/model/` URL state and normalization
 - `src/components/` the shell, the section page, and the JSON inspector
-- `src/styles/` the stylesheets, imported in order by `index.css`. `tokens.css`
-  holds every colour as a token on `:root`, with a light theme under
-  `[data-theme="light"]`. `shell.css`, `components.css` and one file per area
-  hold the rules, each with its own media, reduced-motion and forced-colors
-  variants
+- `src/styles/`: stylesheets imported in order by `index.css`. `tokens.css` defines colors on `:root` and `[data-theme="light"]`. `shell.css`, `components.css`, and area stylesheets each contain their media, reduced-motion, and forced-colors rules.
+
+## Navigation and search
+
+Conversations is the default page with a server or mock data. Static snapshots open Context because they contain no chats. `defaultView` in `src/model/url.ts` chooses the default, which links omit: Conversations is `/`, Context is `?view=context`.
+
+The desktop rail shows the project, Setup health, and each page's question and summary (`sectionSummary` in `src/model/rail.ts`). Its foot holds Search, the configuration switch, theme, GitHub links, version, and Overview JSON. At 900px and below, a top bar and one row of page links replace the rail; Menu opens its contents in a side sheet. Mock data and snapshots display one notice at the top of the page.
+
+The version comes from `/api/health`. Releases link to their GitHub notes; checkout builds show `<branch>@<sha>` without a link. Mock data and snapshots show no version.
+
+Each section starts with a summary sentence and a facts line (`src/model/verdict.ts`). The facts identify unsupported configuration, such as "Kiro ignores permissions", and count findings on the section and its rows. Errors appear before the tabs; **Review** opens the warnings list or focuses the first affected row. **Tool support** opens a dialog with `supportSummary`, tool names and logos, and links to each type's tab and heading (`entry=kind:<kind>`). **Docs** opens the relevant documentation.
+
+The section search matches names, paths, descriptions, and values. It opens matching groups and unconfigured fields, shows match counts only while filtering, and leaves findings visible. Clearing it or changing pages restores the full list. Empty groups explain the type, list supporting tools, and offer **Copy prompt** from `health.gaps`; a search with no results says **No matches.**
+
+**Search** in the rail foot or mobile top bar, also `Cmd+K` / `Ctrl+K`, searches all loaded sections and findings without a server request. Arrow keys select a result, `Enter` opens it, and `Esc` closes search and restores focus. Results link to an item, setting, or finding; links survive reload and browser history. A missing entry is reported without selecting another. These links require access to the same server or snapshot.
+
+Context, Tools, and Settings use tabs. Context starts with context size, then guidance, rules, agents, and skills. Tools separates MCP servers, servers found in tools, and environments. Settings separates built-ins, coding tools, preferences, config files, and the editor. Authority keeps permissions together; Lifecycle uses a timeline.
+
+Tabs support Left/Right, Home, and End. The `tab` URL parameter survives refresh and history but clears when changing pages. Search covers every tab and opens a matching group; linked results open their owning tab. Tab tooltips list the types they contain. Counts appear once and only above zero. Switching tabs keeps drafts, previews, and context-size state. The tab row scrolls on narrow screens without widening the page. Findings and tool-support controls remain outside the panels.
+
+## Conversations
+
+The page reads `GET /api/views/conversations?editor=<id>` using the editor chosen in Settings. The first page includes all open chats and the past week. Each response's `next` supplies the next `before=<time>`, skipping empty weeks.
+
+An `IntersectionObserver` near the list's end loads the next week, one request at a time. **Load the week before** provides the same action by click or keyboard and works without the observer. While loading it reads **Loading the week before…**. A failed request keeps the loaded rows and offers **Try again** for that week; no `next` ends the list with **That's every conversation.** Rows merge by tool and id, with the later copy winning, newest first, and open chats on top.
+
+`conversationsVerdict` reports open chats and those waiting for you, or when the last chat ran. The facts line counts loaded chats. Tool filters show **All** and an `aria-pressed` toggle for each detected store, with its loaded count and a tooltip such as "12 of 66 Codex chats loaded." Pressing the selected tool restores All. Missing stores are omitted.
+
+Chats open in a process or editor window appear under **Open now**, newest first. Others group by the last user or agent message in local time: Today, Yesterday, This week, Earlier. Each row shows a title; tool, folder, branch, and time; and the last prompt unless it repeats the title. The tool's tooltip names the app, such as Terminal or Desktop app. Shell input such as `<bash-input>gl</bash-input>` renders as `! gl` in monospace.
+
+Open chats show **Working** or **Waiting for you** in amber when the tool reports activity, as Claude Code does. `stateBadge` maps the row's `state` to **New reply** when a message arrived since the last open, or **Archived**; other states need no badge. The server excludes SDK sessions and Codex exec runs. Withheld fields read **Hidden: may hold a credential**.
+
+Search sends `q` after a 300 ms typing pause and covers chats of every age, including unloaded weeks. Every word must match the displayed title, folder, branch, last prompt, tool, or app. Results page by week and report the total match count, with **Searching…** while loading. Tool filters narrow the returned rows; scrolling still loads more matches. Only the unfiltered list is cached for a quick return. Mock mode applies the same matching rule.
+
+The primary action, such as **Open in Terminal**, becomes a filled button on hover or keyboard focus and stays filled for open chats. **Copy command** sits beside it, or in the ⋯ menu on touch screens and phones. Opening posts `{tool, id, editor}` to `POST /api/conversations/open`; the row displays the server's reply. For editor extensions, the server first opens the chat's folder, waiting about one second for an existing window or up to five for a new one. If opening fails and the server supplies a command, **Copy command** offers it.
+
+Helpers live in `src/model/conversations.ts`. Mock mode uses `src/fixtures/conversations.mock.json` as one week and sends no open requests. Snapshots explain that Conversations needs a running server.
+
+## Findings and setup health
+
+Finding cards show **Needs a fix** or **Worth a look**, the owning section when shown elsewhere, a title, and a source path. **Copy prompt** copies the complete diagnostic. **Details** contains the original message, suggested fix, explanation, check code, exact prompt, editor link, **Copy path**, and **Recheck** (`src/components/Findings.tsx`). Long titles collapse to three lines with **Show full message**. Findings in the same file with the same title also show their raw messages to distinguish them.
+
+With a server, **Recheck** refreshes the overview and compares finding ids, which ignore line numbers. A failed refresh or `lint-incomplete` result never counts as a fix. A disappearing doctor finding is marked not confirmed because doctor skips unreadable files.
+
+The rail's Setup health row shows **Needs attention** or **All clear**, a status dot, and counts such as "1 to fix, 12 you could add" (`src/model/health.ts`, `src/model/rail.ts`). The mobile top bar shows severity counts such as "1E 3W". Both link to `?view=health`.
+
+Setup health starts with `healthVerdict`, finding and suggestion counts, and whether the data was checked just now or came from a snapshot. It offers **Docs** and, with a server, **Recheck**. Findings group under **Fix first** and **Worth a look**, then by section and item, using the same cards as section pages. Item and section links open the affected location.
+
+With two or more findings, **Copy all fixes** combines them into one prompt, errors first, with shared guidance once. Checkboxes on findings and suggestions (`src/components/pick.tsx`) let users select a subset. Selecting any shows a bottom bar with the count, **Copy prompt**, and **Clear**. `healthFixPrompt` orders selected errors first, then other findings and suggestions, with shared guidance once. Fixed findings leave the selection after a recheck.
+
+**You could add** lists `health.gaps`, such as "Skills: No skill yet. 2 of your tools can use one." (`gapLine`). Names link to their sections; **Copy prompt** appears on hover or focus, or in the mobile ⋯ menu. Phones show four suggestions before **Show N more**. Suggestions never count as findings.
+
+`health.improvements` supplies a bar per supported feature, filled when in use, and a line such as "7 of 9 features your tools support are in use" (`improvementsLine`). The track hides without improvements data; the suggestion list hides without gaps. Both use the loaded overview and work in snapshots, which omit Recheck.
+
+## Context and source files
+
+**Context size** reads `GET /api/views/context?target=<tool>&file=<path>`. It is the first tab for projects with a coding tool, using a server or mock data. Snapshots, global configuration (`global` in the overview), and projects without a coding tool open the first populated tab instead.
+
+The report matches `explain --context` for one target. **Check against a file** includes scoped rules when the tool supports them. Startup and on-demand counts come first, followed by a comparison with `startupWordBudget` (`lint.instructions-words`) and **Change budget** (`src/model/context-verdict.ts`). **Next** offers the largest startup source, **Copy command** for explain, and **Copy prompt** for a startup review.
+
+**How this is counted** explains load conditions and the tool's default model and effort from Settings (`src/model/model-line.ts`). Sources rank by share; duplicated startup passages appear only when found, with edit links and **Copy prompt**. Each source's **What can I do?** explains possible changes. **Copy all prompts** combines advice for actionable sources, startup first (`contextAllAdvicePrompt`). Advice comes from `src/model/context-advice.ts`.
+
+**Read again** refreshes the report and labels previous counts **Before**. Source types use plain names such as instructions file, tool wrapper text, and skill name and description; prompts retain raw categories. `target` and `file` persist in the URL. Mock mode uses `src/fixtures/context.mock.json`; snapshots require a server for this report.
+
+Context rows for instructions, rules, agents, skills, commands, review instructions, and ignore files offer **Show content** with a server. The first open fetches `GET /api/views/source?path=<openPath>` and caches by path. Frontmatter appears as chips, followed by plain text, with a truncation notice for bodies over 256 KB. The server serves only files listed by the loaded configuration. Search excludes file contents; snapshots and mock mode hide the toggle.
+
+## Lifecycle
+
+The timeline shows stages with hooks; **Show all stages** includes empty stages. Stages start closed, with names, descriptions, and nonzero counts. Turned-off hooks are counted separately. Without hooks, the page shows the shared empty state and a plain list of stages and tools. Tool-specific events have their own group.
+
+Search opens matching stages. A linked hook or finding opens its stage and receives focus. Clearing search closes stages; open states are not saved. **Expand all** and **Collapse all** affect stages without changing the disclosures inside each hook.
+
+Hooks show their description, origin, and a **Command** disclosure, or **Details** when no command exists (`src/components/HookDetails.tsx`). Fields come from the overview (`on`, `event`, `match`, `matcher`, `type`, `command`, `timeout`, `disabled`), so they also work in snapshots. Search includes these fields and the command.
+
+**Full file** uses the source endpoint to show hook fields without raw text. Files that may contain credentials are withheld. Built-ins, snapshots, and mock mode hide this action. Personal hooks label it **Fields this file sets**: it reads that file alone, while overview fields show the merged hook.
+
+With a server, **Add hook** previews and writes one portable hook spec, then asks the user to run sync. Built-in hooks link to Settings. Tool icons come from `src/assets/tools/`; its [README](src/assets/tools/README.md) records their sources and licenses.
+
+## Editing
+
+Settings and Authority use one scope selector per page: **Project | Local**, or **Global | Local** for user configuration. It changes displayed values and the save destination. Project and Global show their own values; Local shows git-ignored overrides and labels inherited values. Local values win. Differences show both values, such as **Project: Off · Local: On**; built-in counts follow the selected scope.
+
+A local override disables the project control and offers **View local settings**. Reset actions appear in Local. API audiences remain `shared` and `personal`. The Config files tab hides the selector; its snapshot and **What each tool gets** show the combined configuration used by sync.
+
+Authority's **Add rules** and **Edit rules** accept one rule per line for Allow, Ask first, or Always blocked. Saved rules also have **Edit** and **Remove**. **Preview** shows the destination and exact diff; **Apply** saves the source file. The displayed sync command applies it to tools. Local lists replace project lists and show a comparison, with **Reset to the project rules** to inherit again. Multiple editable settings files require a choice.
+
+**Default permission mode** lists Claude Code's accepted mode names. It saves to the same settings file in the global view; projects show it read-only with **Open global settings**. **Protected paths** accepts paths, a decision, and a reason, with preview and save. Local blocks start from project values; the global view is read-only. See [permission editing](../docs/site/content/docs/cli-reference/inspect.md#permission-editing).
+
+Coding-tool switches save `targets` through `POST /api/edit/targets`: `{audience, name, enabled, expected}` or `{audience: 'personal', reset: true, expected: [names]}`. Turning a tool off requires confirmation. The overview's `tools` catalog includes `source` (`default`, `shared`, `personal`) and `items`. Helpers live in `src/model/coding-tools.ts`; `targetDocPath` in `src/model/documentation.ts` supplies docs links.
+
+Values render as chips for lists, switches for booleans, and text otherwise. Native settings group keys by tool. Project built-in switches preview and apply changes across configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches validate and save source files. See [prerequisites and recovery](../docs/site/content/docs/cli-reference/inspect.md#serve).
+
+Change previews keep Apply and Cancel at the top. Affected tools, changed files, and review notes start collapsed; notes group by tool, scroll within a bounded area, and offer **Copy notes** for the full text. Pending source changes stay visible above these details.
+
+Markdown and YAML items open in the editor selected in Settings: Cursor (default), VS Code, VS Code Insiders, VSCodium, Zed, or a custom template using `{path}` and `{line}`. Links use `<scheme>://file/<absolute path>:<line>`. Choices persist in `agnostic-ai.editor` and `agnostic-ai.editor-template`. The Editor tab requires a server.
+
+Items carry lint and doctor findings for their files. Editor links use the server's `openPath` and line when available. **Copy path** accompanies each link because the browser cannot confirm that the editor opened. Mock and static data show paths without editor links. The overview also reports whether generated files match sync output.
+
+## Contract
+
+`src/contract.ts` mirrors `internal/overview/types.go` and `internal/authority/types.go`; update them together. `src/builtin-change.ts` validates responses from `internal/cli/serve_builtin_changes.go`.
+
+The client uses the [Mineral design system](DESIGN.md), including light and dark themes. `src/styles/tokens.test.ts` checks its documented colors and contrast.

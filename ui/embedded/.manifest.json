@@ -10,7 +10,7 @@
     "src/api.ts": "99719eac402134d799fc0f7c0e8557ce7c3d452a39085d4ffe0a3934dcf193ec",
     "src/assets/fonts/OFL-AtkinsonHyperlegibleNext.txt": "aca6a428580965d2297d1b718042dd427c2a9443ece3b0d02d758e161e0c4030",
     "src/assets/fonts/OFL-Fraunces.txt": "bdf4c22802eaf804f998195871c6b8938aac2ac14b2d78a8bd66a6f1eced833b",
-    "src/assets/fonts/README.md": "441a7c9d120537013bc06e4c811284ea3fa6e921a88c5b38224395e99d06ddcc",
+    "src/assets/fonts/README.md": "f4ddd03b301c91b25d08f08d17813a5988e2376b2e88fe414b241c090647083e",
     "src/assets/fonts/atkinson-next-400.woff2": "d64da53e154162dcd2d984818fb8036c207f8ee52f63d8c44ce508b5f5a1027c",
     "src/assets/fonts/atkinson-next-600.woff2": "7e611aee93618cb770839dd0d85ffcffa0ad6d01acd1dc18a46dfbd2900b341b",
     "src/assets/fonts/fraunces-500.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
@@ -18,7 +18,7 @@
     "src/assets/tools/LICENSE": "add9d7531d1b21646317a8958e38fc727506fa39d24bdecb44154d943c82753a",
     "src/assets/tools/LICENSE-APACHE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "src/assets/tools/LICENSE-CRUSH": "3faa5d4f3a51f07e4963b993f27af4b9344d7c509fa20aa856dd878788ba5f18",
-    "src/assets/tools/README.md": "862b9dfabdbbeb2dfed93edd95b099016a3cb7e4d4fcbd6a789e7efd5394f90c",
+    "src/assets/tools/README.md": "ca1e61df75294dd55bd71b551e95cf26cd3a82e034c140cc3984dee9b75be2b8",
     "src/assets/tools/aider.png": "76df46f16497adaaf724c98db79a6e32058f84dc8de384a35d2a7d38f7437bbb",
     "src/assets/tools/amp.svg": "6df4cced9e35703d6263d65968985e8afdff68b61358daf9cc09fa16dd9b2aad",
     "src/assets/tools/antigravity.svg": "652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca",
@@ -200,6 +200,6 @@
     "assets/overview.mock-DwEBecHy.js": "98658a6c48ca33213ab61208b2ad3948a962dc9853e2215e09aff24855c0a8fe",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
     "index.html": "684167becdc01cf13f038140d42c0d5ccd8bf9e0d7c2a0014dcb59b76a13f100",
-    "third-party-notices.txt": "c1a1591ee63d396db2899a42b979e5167f8dc028808662c86d7b0bcdbf98dc84"
+    "third-party-notices.txt": "53536b1c45ee962b1274daeeac604aeb3d8ee36c4152568281d52762bad2afd3"
   }
 }

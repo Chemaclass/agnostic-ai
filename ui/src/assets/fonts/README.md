@@ -1,6 +1,6 @@
 # Interface fonts
 
-The interface ships two font families inside the binary. It loads no network font.
+Both font families ship in the binary and load without network requests.
 
 | File | Family | Weight | Characters |
 | --- | --- | --- | --- |
@@ -24,7 +24,7 @@ Both families use the SIL Open Font License 1.1: see `OFL-AtkinsonHyperlegibleNe
 
 ## Rebuild
 
-The steps use fontTools 4.60.2 and Brotli 1.2.1 in a virtual environment. Keep the downloads in their own empty folder and run Python with `-I`, so it loads no module from the current folder. `SOURCE_DATE_EPOCH=0` fixes the timestamp inside each font, so the output matches byte for byte.
+Use fontTools 4.60.2 and Brotli 1.2.1 in a virtual environment. Download into an empty folder and run Python with `-I` to prevent imports from that folder. `SOURCE_DATE_EPOCH=0` fixes font timestamps for reproducible output.
 
 ```sh
 fonts="$PWD/ui/src/assets/fonts"
@@ -68,7 +68,7 @@ Run it from the repository root in `sh` or `bash`; zsh does not split `$py` and 
 
 ## Fallback faces
 
-`src/styles/tokens.css` declares a fallback face for each font, scaled so text keeps its width while the real font loads: Arial for Atkinson Hyperlegible Next, Georgia for Fraunces. The numbers compare the average advance of `The quick brown fox jumps over the lazy dog 0123456789` with the local font (its bold for 600); ascent and descent come from the font's typographic metrics divided by the size adjustment.
+`src/styles/tokens.css` scales Arial as the Atkinson Hyperlegible Next fallback and Georgia as the Fraunces fallback to preserve text width during loading. Size adjustments compare the average advance of `The quick brown fox jumps over the lazy dog 0123456789` in each face and its local fallback (bold for weight 600). Ascent and descent are the font's typographic metrics divided by the size adjustment.
 
 | Fallback | Local font | size-adjust | ascent-override | descent-override |
 | --- | --- | --- | --- | --- |

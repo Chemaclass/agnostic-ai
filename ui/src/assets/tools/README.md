@@ -1,6 +1,6 @@
 # Coding tool logos
 
-These marks identify coding tools. They belong to their respective owners.
+These logos identify coding tools and belong to their respective owners.
 
 ## Lobe Icons
 
@@ -50,4 +50,4 @@ Monochrome `currentColor` fills and Kimi's white letter use `#141a28` for the wh
 
 Apache-2.0 text is in `LICENSE-APACHE`. Continue: Copyright 2023 Continue Dev, Inc. Crush's FSL-1.1-MIT text is in `LICENSE-CRUSH`. Simple Icons assets are CC0-1.0.
 
-Augment's dark-mode color rule is removed so its paths stay black on the white avatar. Augment and Factory have explicit outer `viewBox` attributes for scaling. Other artwork is unchanged.
+Augment's dark-mode rule is removed to keep its paths black on white avatars. Augment and Factory have outer `viewBox` attributes for scaling. Other artwork is unchanged.
