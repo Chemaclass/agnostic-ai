@@ -177,7 +177,7 @@ The environment, its servers, and its setup are scoped to `targets: [ellipsis]`,
 
 When the reviewer has no `environment` and an environment file imports too, import sets `x-ellipsis.reviewer.environment: null`, so the review keeps running in the basic sandbox and does not move into the imported environment. The next sync writes the same behavior back. Comments and key order in the hand-written files are not kept. A file that carries the generated header imports nothing, since its specs are the source.
 
-Import stops with a message and writes nothing when the review file has more than one reviewer, is not a `code_review` file, has a field Ellipsis does not list, or has a reviewer without a prompt. Keep one reviewer and import again, or leave the file hand-written and list it under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged).
+Import stops with a message and writes nothing when the review file has more than one reviewer, is not a `code_review` file, has a field Ellipsis does not list, or has a reviewer without a prompt. Keep one reviewer and import again, or leave the file hand-written and list it under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged).
 
 An environment file it cannot express is left as written, with a note that names the reason: more than one repository, a field the schema does not list, a variable that holds a credential value, a credential in a server's `url` or `args`, or a server with both `url` and `command`. Several environment files are left too, since sync writes one. When the file is not at `.ellipsis/environments/<name>.yaml`, import says so, because sync writes there and Ellipsis would see two files with one name. `import all` detects the target from a `.ellipsis/` folder.
 

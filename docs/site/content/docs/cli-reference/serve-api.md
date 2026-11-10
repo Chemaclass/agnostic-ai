@@ -91,7 +91,7 @@ Rules:
 Query:
 
 - `?editor=<id>`: the editor chosen in Settings, so editor links use its scheme.
-- `&before=<time>`: a later page.
+- `&before=<time>`: the next page, which holds older conversations.
 - `&q=<words>`: a search.
 - `&tool=claude`, `codex` or `cursor`: list one tool.
 
@@ -139,7 +139,7 @@ Each row has a `state`, the first of these that holds:
 5. `active`: open, or written in the last 24 hours.
 6. `dormant`: closed and quiet for longer.
 
-A loaded local Codex thread is `working` during an unfinished turn. It is inferred to be `waiting` after five minutes without a rollout write. A long-running command can also meet that threshold.
+The `activity` of a loaded local Codex thread is `working` during an unfinished turn. It is inferred to be `waiting` after five minutes without a rollout write, which makes the state `blocked` until you see it. A long-running command can also meet that threshold.
 
 Marks:
 

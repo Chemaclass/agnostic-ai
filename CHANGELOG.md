@@ -8,7 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
-- The CLI reference gives `serve`, the local API, `companion`, `doctor` and `import` their own pages; old links still land on a note that points to them.
+- The CLI reference gives `serve`, the local API, `companion`, `doctor` and `import` their own pages, and the `sync` and `gitignore` settings move to their own page. Old links redirect to the new sections.
+- The companion page marks Windows and Linux as not supported and links the issues to help.
 
 ## v0.93.0 - 2026-11-10
 

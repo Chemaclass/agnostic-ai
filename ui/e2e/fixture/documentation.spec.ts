@@ -24,7 +24,7 @@ test('shows one Docs link per page at the end of the facts line, for the open ta
     ['context', 'usage', 'cli-reference/inspect/#rank-context-contributions'],
     ['authority', '', 'spec-format/settings/#permission-rules'],
     ['tools', 'servers', 'spec-format/mcps/'],
-    ['tools', 'native', 'cli-reference/start/#import'],
+    ['tools', 'native', 'cli-reference/import/#import'],
     ['tools', 'environment', 'spec-format/environments/'],
     ['lifecycle', '', 'spec-format/hooks/#a-typical-session'],
     ['settings', 'builtins', 'configuration/#built-ins'],

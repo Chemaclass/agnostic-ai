@@ -184,7 +184,7 @@ Settings, reviews, and environments share one native file per target. If your lo
 
 ## Stay out of Git
 
-`init` and `sync` add `/.agnostic-ai/local/` to the managed `.gitignore` block, next to `/agnostic-ai.local.yaml`. Add nothing by hand. See [gitignore](@/docs/configuration.md#gitignore).
+`init` and `sync` add `/.agnostic-ai/local/` to the managed `.gitignore` block, next to `/agnostic-ai.local.yaml`. Add nothing by hand. See [gitignore](@/docs/sync-settings.md#gitignore).
 
 If `~/.agnostic-ai/` is a Git repository, add this line to its `.gitignore`:
 

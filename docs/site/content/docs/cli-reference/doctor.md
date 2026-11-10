@@ -81,8 +81,8 @@ After the file report, doctor prints:
 | **Nested CLAUDE.md** | With `claude` enabled: a hand-written `<dir>/CLAUDE.md` whose text equals the body of a rule scoped to `<dir>`, as `import claude` leaves it. Claude Code would load it beside the synced rule. | Yes, `--fix` removes it |
 | **Script divergence** | Scripts under `.agnostic-ai/scripts/<tool>/` with the same name but different bodies across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, no automatic fix |
 | **Unmanaged config** | Markdown and TOML config files with no generated-file marker, grouped by the `import` source that adopts each. | No |
-| **User-owned** | [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
-| **Global names** | A project skill or agent that shares its name with one in `~/.agnostic-ai/`, and which wins per tool. A name in [`sync.allow-global-names`](@/docs/configuration.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/global-configuration.md#global-shared-names). | Never |
+| **User-owned** | [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
+| **Global names** | A project skill or agent that shares its name with one in `~/.agnostic-ai/`, and which wins per tool. A name in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/global-configuration.md#global-shared-names). | Never |
 | **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text. | Never |
 | **Claude skill overrides** | With `claude` selected: synced skills that `skillOverrides` in a Claude settings file turns off, hides from Claude, or lists without a description. See [below](#claude-skill-overrides). | Never |
 
@@ -139,7 +139,7 @@ Claude Code reads settings as strict JSON, and so does doctor:
 
 - A yes removes only their entries (both keys of a duplicate) from the project's `.claude/settings.local.json`, the only file it edits.
 - When a lower file sets the same skill, the question names the value that then applies (or may apply, if that value is rejected).
-- It skips a file that is linked, hard-linked, read-only, or owned by another user, one that sets `skillOverrides` twice, and one under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged).
+- It skips a file that is linked, hard-linked, read-only, or owned by another user, one that sets `skillOverrides` twice, and one under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged).
 - It replaces the file in one step, so a failed write leaves it as it was.
 - It leaves alone a file that changed while doctor ran.
 

@@ -57,4 +57,4 @@ target: cursor
 - A missing file, an absolute path, or a path outside the project fails the load ([AAI-001](@/docs/errors.md#aai-001-spec-parse-failed)).
 - A line inside a fenced code block stays as written.
 - An included file is not searched for more `@path` lines.
-- Only reviews take `@path` lines. On `AGNOSTIC_AI.md` the [`resolve-imports`](@/docs/configuration.md#syncresolve-imports) setting controls them.
+- Only reviews take `@path` lines. On `AGNOSTIC_AI.md` the [`resolve-imports`](@/docs/sync-settings.md#syncresolve-imports) setting controls them.

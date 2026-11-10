@@ -221,7 +221,7 @@ Apply and its preview:
 - A changed input or output blocks apply or undo until a fresh preview.
 - A failed write restores the files the operation owns. A recovery error names any it kept and points to `agnostic-ai doctor`.
 
-Edits keep unrelated text and private file permissions. A validation failure restores the edit, unless another process changed the file. That case is reported as a conflict.
+Edits keep unrelated text and private file permissions. A validation failure puts the file back as it was, unless another process changed the file. Then the save fails with an error that says the file could not be restored.
 
 ### Save project or local changes {#edit-scope}
 

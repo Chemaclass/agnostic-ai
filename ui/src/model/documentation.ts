@@ -16,7 +16,7 @@ export const DOC_TOPICS: Record<string, DocTopic> = {
   review: { path: '/docs/spec-format/reviews/', label: 'reviews' },
   ignore: { path: '/docs/spec-format/ignore/', label: 'ignore patterns' },
   mcp: { path: '/docs/spec-format/mcps/', label: 'MCP servers' },
-  native: { path: '/docs/cli-reference/start/#import', label: 'importing native configuration' },
+  native: { path: '/docs/cli-reference/import/#import', label: 'importing native configuration' },
   environment: { path: '/docs/spec-format/environments/', label: 'environments' },
   hook: { path: '/docs/spec-format/hooks/#a-typical-session', label: 'the session timeline and hooks' },
   builtin: { path: '/docs/configuration/#built-ins', label: 'built-ins' },
@@ -27,7 +27,7 @@ export const DOC_TOPICS: Record<string, DocTopic> = {
   budget: { path: '/docs/configuration/#lint', label: 'context budgets' },
   support: { path: '/docs/target-behavior/', label: 'coding tool support' },
   findings: { path: '/docs/cli-reference/check/', label: 'configuration checks' },
-  editor: { path: '/docs/cli-reference/inspect/#serve', label: 'opening files in an editor' },
+  editor: { path: '/docs/cli-reference/serve/#serve', label: 'opening files in an editor' },
   targets: { path: '/docs/configuration/#targets', label: 'selecting coding tools' },
 }
 

@@ -89,7 +89,7 @@ gitignore:
   commit: [ellipsis:reviews]
 ```
 
-This also keeps an environment named by that review trackable. Independent environments use `ellipsis:environments` or `ellipsis:mcps`. See [generated-file ownership](@/docs/configuration.md#gitignore).
+This also keeps an environment named by that review trackable. Independent environments use `ellipsis:environments` or `ellipsis:mcps`. See [generated-file ownership](@/docs/sync-settings.md#gitignore).
 
 ## Protected paths
 

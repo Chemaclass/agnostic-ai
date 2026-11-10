@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { DOC_FALLBACK, DOC_TOPICS, documentationUrl, targetDocPath } from './documentation'
 
 const content = fileURLToPath(new URL('../../../docs/site/content', import.meta.url))
-const EXTRA_PATHS = ['/docs/cli-reference/inspect/#serve']
+const EXTRA_PATHS = ['/docs/cli-reference/serve/#serve']
 
 function pageFile(path: string): string {
   const clean = path.replace(/#.*$/, '').replace(/\/$/, '')

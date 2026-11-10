@@ -106,7 +106,7 @@ Sync and doctor do not check other tools, though some document what happens:
 
 To layer on purpose, give the project spec its own name, such as a `gh-issue-project` skill beside a global `gh-issue`. Both then load everywhere, under different names.
 
-To keep one name in both places, list it in [`sync.allow-global-names`](@/docs/configuration.md#syncallow-global-names). To stop the warning for every shared name, set [`sync.global-name-clash: ignore`](@/docs/configuration.md#syncglobal-name-clash).
+To keep one name in both places, list it in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names). To stop the warning for every shared name, set [`sync.global-name-clash: ignore`](@/docs/sync-settings.md#syncglobal-name-clash).
 
 ### Default model and effort {#global-default-model-and-effort}
 

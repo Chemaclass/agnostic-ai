@@ -70,7 +70,7 @@ When a target leaves the setup, cleanup removes only its recorded values. Sync d
 
 ### Other entry-point options
 
-A partial sync still refreshes shared instruction files for all configured readers, so the body matches a full sync. For the [legacy merged rules file](@/docs/configuration.md#entry-point-files) and [`sync.target-overview`](@/docs/configuration.md#synctarget-overview), see configuration.
+A partial sync still refreshes shared instruction files for all configured readers, so the body matches a full sync. For the [legacy merged rules file](@/docs/configuration.md#entry-point-files) and [`sync.target-overview`](@/docs/sync-settings.md#synctarget-overview), see those pages.
 
 ## Spec kind behavior
 
@@ -88,7 +88,7 @@ Each [spec reference](@/docs/spec-format/_index.md) has the details. [`on-unsupp
 
 ### Shared skills and agent discovery
 
-Many targets share `.agents/skills/`, and sync writes identical folders once. Crush and Goose share neutral skill frontmatter; Crush commands remain skipped at that shared path because their user-only flag cannot be kept. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) can replace identical copies in other directories with symlinks. A tool can also find folders written for another selected target, even when the spec excludes that tool.
+Many targets share `.agents/skills/`, and sync writes identical folders once. Crush and Goose share neutral skill frontmatter; Crush commands remain skipped at that shared path because their user-only flag cannot be kept. [`sync.shared-skills`](@/docs/sync-settings.md#syncshared-skills) can replace identical copies in other directories with symlinks. A tool can also find folders written for another selected target, even when the spec excludes that tool.
 
 **Devin discovers `.agents/agents/` profiles written for Goose, OpenHands, and Antigravity.** Those profiles can lack Devin's `allowed-tools`, which defaults to all tools. A `.devin/agents/` profile with the same name can also appear. `targets:` controls which adapter writes a file, not which tools read it, so check the profiles Devin finds for duplicate names and tool limits. Sync reports which targets write shared profiles. See [Windsurf / Devin](@/docs/targets/windsurf.md).
 

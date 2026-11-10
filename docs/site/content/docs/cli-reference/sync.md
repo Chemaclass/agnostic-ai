@@ -47,7 +47,7 @@ agnostic-ai sync --only claude,cursor
 
 - Only outputs Git tracks are compared. An untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
 - Files are read with the line endings Git stores, so `core.autocrlf` and `core.eol` cause no drift. An `eol` rule in `.gitattributes` still applies, as it does in every clone.
-- Shared skill links that Git checks out as plain files fail with the affected link and repair choices. See [shared skill checkout policy](@/docs/configuration.md#syncshared-skills). Any other link checked out as a plain file fails with a message that names `core.symlinks`.
+- Shared skill links that Git checks out as plain files fail with the affected link and repair choices. See [shared skill checkout policy](@/docs/sync-settings.md#syncshared-skills). Any other link checked out as a plain file fails with a message that names `core.symlinks`.
 - A tracked output that no spec produces fails as a leftover to delete: a file with the generated header, or one that still holds what the previous state wrote (`HEAD` for `index`, the first parent for `HEAD`). A file edited since is left alone. A run narrowed with `-t`, `--only`, or `--except` skips this comparison.
 - A hand-written skill, agent, rule, or command that Git tracks inside a folder the managed block ignores also fails, because only the tool that reads that folder sees it. The failure names the `import` that adopts it. For example, a branch from before the move to `.agnostic-ai/` adds `.cursor/skills/<name>/SKILL.md`: run `agnostic-ai import cursor`, then `git rm --cached` the file, or list it under `sync.unmanaged` to keep it.
 

@@ -99,7 +99,7 @@ Remote OAuth keeps `clientId`, `callbackPort`, `authServerMetadataUrl`, and spac
 
 With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/`, `/.claude/settings.local.json`, `/.claude/worktrees/`, and `/.claude/scheduled_tasks.lock`, following `outputs.claude.dir`. It omits `.claude/agent-memory/` (`memory: project`), which is shareable. Ignoring does not untrack: run `git rm -r --cached .claude/agent-memory-local` if that store is committed.
 
-The block also goes into `.worktreeinclude`, so new worktrees start with the ignored outputs ([gitignore](@/docs/configuration.md#gitignore)). `gitignore.ignore-worktree-include: true` ignores the managed `.worktreeinclude` too; `gitignore.worktree-include: false` leaves it to you.
+The block also goes into `.worktreeinclude`, so new worktrees start with the ignored outputs ([gitignore](@/docs/sync-settings.md#gitignore)). `gitignore.ignore-worktree-include: true` ignores the managed `.worktreeinclude` too; `gitignore.worktree-include: false` leaves it to you.
 
 ## Agent memory
 

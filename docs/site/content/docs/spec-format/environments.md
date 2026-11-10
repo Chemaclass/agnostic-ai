@@ -99,7 +99,7 @@ It resets only that linked worktree's marker and runs setup again; a failure lea
 
 A new worktree needs `.claude/settings.json` and the script.
 
-- With `gitignore.enabled`, both are ignored. `.worktreeinclude`, which sync keeps when `claude` is a target, copies them into each worktree Claude Code creates (see [gitignore](@/docs/configuration.md#gitignore)).
+- With `gitignore.enabled`, both are ignored. `.worktreeinclude`, which sync keeps when `claude` is a target, copies them into each worktree Claude Code creates (see [gitignore](@/docs/sync-settings.md#gitignore)).
 - Without it, both files are committed, so the checkout has them.
 
 To keep `setup` for the other tools and set up Claude Code another way, turn the hooks off:
