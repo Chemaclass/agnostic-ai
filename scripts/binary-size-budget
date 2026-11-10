@@ -859,6 +859,7 @@
 # facts and keeps a checksum of each with crypto/sha256; the budget is that
 # plus 8192, rounded up to a multiple of 4096.
 # #3234 installs the companion on macOS as an app with the agnostic-ai
-# icon, embedded as a 36 KB PNG, and measured 25682080 bytes locally; the
-# budget is that plus 8192, rounded up to a multiple of 4096.
-25694208
+# icon, embedded as a 36 KB PNG, and measured 25706656 bytes locally on
+# top of #3231; the budget is that plus 8192, rounded up to a multiple of
+# 4096.
+25718784
