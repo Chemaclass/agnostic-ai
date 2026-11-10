@@ -32,6 +32,9 @@ const (
 	askQuit = "--quit"
 	// askLoginOff takes the companion out of what starts at login.
 	askLoginOff = "--disable-start-at-login"
+	// askLoginOn puts the companion in what starts at login. An install
+	// uses it to keep start at login on when the program moves.
+	askLoginOn = "--enable-start-at-login"
 )
 
 // notRunningExit is how a companion started with askQuit ends when no
@@ -46,7 +49,7 @@ func asked(args []string) string {
 		return ""
 	}
 	switch args[1] {
-	case askVersion, askQuit, askLoginOff:
+	case askVersion, askQuit, askLoginOff, askLoginOn:
 		return args[1]
 	}
 	return ""
@@ -331,7 +334,7 @@ func main() {
 		log.Fatal(err)
 	}
 	saved, err := readSettings(path)
-	// A companion asked to quit or to leave the login needs no settings,
+	// A companion asked to quit or to change the login needs no settings,
 	// and must answer even when the file cannot be read.
 	if err != nil && ask == "" {
 		log.Fatal(err)
@@ -368,6 +371,10 @@ func main() {
 					if err := s.app.Autostart.Disable(); err != nil {
 						log.Print(err)
 					}
+				case askLoginOn:
+					if err := s.app.Autostart.Enable(); err != nil {
+						log.Print(err)
+					}
 				default:
 					s.comeBack()
 					s.showPanel()
@@ -380,8 +387,12 @@ func main() {
 	switch ask {
 	case askQuit:
 		os.Exit(notRunningExit)
-	case askLoginOff:
-		if err := s.app.Autostart.Disable(); err != nil {
+	case askLoginOff, askLoginOn:
+		change := s.app.Autostart.Disable
+		if ask == askLoginOn {
+			change = s.app.Autostart.Enable
+		}
+		if err := change(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
