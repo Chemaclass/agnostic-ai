@@ -154,7 +154,7 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 		}
 		s.keptClouds[tool] = last
 	}
-	shown := last.rows
+	shown, shownAt := last.rows, last.at
 	if last.err != nil {
 		reason := CloudReason("")
 		if cloudErr, ok := last.err.(*CloudError); ok {
@@ -163,7 +163,7 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 		riding := cloudPassing[reason] && !last.goodAt.IsZero() && now.Sub(last.goodAt) < cloudRideSpan
 		switch {
 		case riding:
-			shown = last.good
+			shown, shownAt = last.good, last.goodAt
 		case cloudSilent[reason]:
 			return nil, ""
 		default:
@@ -177,6 +177,7 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 			c.Live, c.Activity = false, ""
 		}
 		s.fill(&c, texts{title: c.Title})
+		c.readAt = shownAt
 		rows = append(rows, c)
 	}
 	return rows, ""

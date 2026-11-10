@@ -153,7 +153,7 @@ describe('conversation words', () => {
 
   it('shows a chip for a reply not yet read and for a chat marked as done, and none otherwise', () => {
     expect(stateBadge('unread')).toEqual({ label: 'New reply', tone: 'approval', description: 'Something was written since you last opened it' })
-    expect(stateBadge('completed')).toEqual({ label: 'Archived', tone: 'neutral', description: 'You archived it; a new message brings it back' })
+    expect(stateBadge('completed')).toEqual({ label: 'Archived', tone: 'neutral', description: 'You archived it; it comes back with a new message or when it starts working' })
     for (const state of ['blocked', 'working', 'active', 'dormant', undefined] as const) expect(stateBadge(state)).toBeUndefined()
   })
 

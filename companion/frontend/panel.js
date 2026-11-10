@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
+import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -174,13 +174,12 @@ function rowOf(conversation, order) {
   text.append(meta)
 
   const actions = element('div', 'actions')
-  // One button a row: archive a chat that is not archived yet, hide one that is.
-  // Opening an archived chat, or a new message in it, brings it back.
-  const archived = conversation.state === 'completed' || conversation.state === 'dormant'
-  if (archived) {
-    actions.append(actionButton('hide', 'Hide from agnostic-ai, until something new is written', conversation, 'hidden'))
-  } else {
-    actions.append(actionButton('archive', 'Archive, until something new is written', conversation, 'completed'))
+  // Opening an archived chat, a new message in it, or its tool starting work brings it back.
+  const action = rowActionOf(conversation)
+  if (action === 'hide') {
+    actions.append(actionButton('hide', 'Hide from agnostic-ai, until something new is written or it starts working', conversation, 'hidden'))
+  } else if (action === 'archive') {
+    actions.append(actionButton('archive', 'Archive, until something new is written or it starts working', conversation, 'completed'))
   }
 
   row.append(stateMark(conversation), text, actions)
@@ -245,7 +244,7 @@ function groupHead(group) {
   if (group.id === 'active') {
     const all = element('button', 'group-action', 'Archive all')
     all.type = 'button'
-    all.title = 'Archive every active conversation, until something new is written in it'
+    all.title = 'Archive every active conversation, until something new is written in it or it starts working'
     all.addEventListener('click', () => archiveAll(group.rows))
     head.append(all)
   }

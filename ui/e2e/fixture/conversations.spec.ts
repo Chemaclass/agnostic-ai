@@ -120,7 +120,7 @@ test.describe('conversations', () => {
     await expect(unread).toHaveText('New replySomething was written since you last opened it')
     await expect(unread).toHaveClass(/badge-approval/)
     const done = row(page, 'Summarize failing CI jobs').locator('.conversation-state')
-    await expect(done).toHaveText('ArchivedYou archived it; a new message brings it back')
+    await expect(done).toHaveText('ArchivedYou archived it; it comes back with a new message or when it starts working')
     await expect(done).toHaveClass(/badge-neutral/)
     await expect(row(page, 'Explain the sync --watch debounce').locator('.conversation-state')).toHaveCount(0)
     // An open chat whose tool does not say what it does shows no status chip: the group says it is open.

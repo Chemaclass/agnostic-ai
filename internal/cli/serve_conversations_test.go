@@ -29,6 +29,22 @@ func (stillProcesses) TerminalApp(int) (string, error) { return "", nil }
 func (stillProcesses) Holders([]string) map[string]int { return nil }
 func (stillProcesses) AppRunning(string) bool          { return false }
 
+// runningProcesses has one process running, with every other answer of stillProcesses.
+type runningProcesses struct {
+	stillProcesses
+	pid int
+}
+
+func (r runningProcesses) AliveAmong(processes []conversations.ProcessRef) map[int]bool {
+	alive := map[int]bool{}
+	for _, process := range processes {
+		if process.PID == r.pid {
+			alive[process.PID] = true
+		}
+	}
+	return alive
+}
+
 type recordingLauncher struct{ calls []string }
 
 func (l *recordingLauncher) OpenLink(_ context.Context, link string) error {
@@ -508,5 +524,70 @@ func TestConversationsHandler_ARenameOnOneServerShowsOnAnother(t *testing.T) {
 	var view conversations.View
 	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil || ids(view) != inProject {
 		t.Errorf("the dashboard's search = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestConversationsHandler_AnArchivedConversationThatWorksShowsWorkingOnEveryServer(t *testing.T) {
+	companion, _, _ := conversationsFixture(t, true)
+	companion.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	companion.scanner.Processes = runningProcesses{pid: 4242}
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	companion.scanner.Now = func() time.Time { return now }
+	shared := companion.scanner
+	dashboard := &conversationsHandler{root: companion.root, scanner: &conversations.Scanner{
+		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now, MarksPath: shared.MarksPath,
+	}, worktrees: companion.worktrees}
+	for _, id := range []string{inProject, inWorktree} {
+		if rec := postEdit(t, companion, conversationMarkPath, `{"tool":"claude","id":"`+id+`","as":"completed"}`, nil); rec.Code != http.StatusNoContent {
+			t.Fatalf("archive %s = %d %s", id, rec.Code, rec.Body)
+		}
+	}
+	get := func(h http.Handler, tag string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath, nil)
+		if tag != "" {
+			req.Header.Set("If-None-Match", tag)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	tag := get(companion, "").Header().Get("ETag")
+	if rec := get(companion, tag); rec.Code != http.StatusNotModified {
+		t.Fatalf("the archived list = %d", rec.Code)
+	}
+
+	session := filepath.Join(shared.Stores.ClaudeDir, "sessions", "4242.json")
+	writeSession := func(status string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(session), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(session, []byte(`{"pid":4242,"sessionId":"`+inProject+`","status":"`+status+`"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now = now.Add(time.Second)
+	writeSession("busy")
+	rec := get(companion, tag)
+	var view conversations.View
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); rec.Code != http.StatusOK || err != nil {
+		t.Fatalf("the companion's next poll = %d %s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(ids(view), inProject) {
+		t.Fatalf("the companion lists %s", ids(view))
+	}
+	for _, c := range view.Conversations {
+		if c.ID == inProject && (c.State != conversations.StateWorking || c.CompletedAt != "") {
+			t.Errorf("the resumed conversation on the companion: state %s, completedAt %q", c.State, c.CompletedAt)
+		}
+	}
+
+	writeSession("idle")
+	if c, _ := stateOfListed(t, dashboard, inProject); c.State != conversations.StateActive || c.CompletedAt != "" {
+		t.Errorf("after the work ends the dashboard shows: state %s, completedAt %q", c.State, c.CompletedAt)
+	}
+	if c, _ := stateOfListed(t, dashboard, inWorktree); c.State != conversations.StateCompleted {
+		t.Errorf("the other archived conversation on the dashboard: state %s", c.State)
 	}
 }

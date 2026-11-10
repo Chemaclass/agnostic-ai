@@ -116,6 +116,15 @@ export function reasonOf(conversation) {
   return REASON_OF_STATE[conversation.state]
 }
 
+/**
+ * The one action a row offers: hide a chat that is archived, archive one that
+ * is not. A working chat offers none, since the work would undo the archive.
+ */
+export function rowActionOf(conversation) {
+  if (conversation.state === 'working') return undefined
+  return GROUP_OF_STATE[conversation.state] === 'archived' ? 'hide' : 'archive'
+}
+
 /** Where a row runs, said only when it is not on this machine. */
 const PLACE_LABELS = {
   cloud: 'Cloud',
