@@ -77,7 +77,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
-      "link": "https://claude.ai/code"
+      "link": "https://claude.ai/code/session_working01"
     }
   },
   {
@@ -92,7 +92,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
-      "link": "https://claude.ai/code"
+      "link": "https://claude.ai/code/session_blocked01"
     }
   },
   {
@@ -105,7 +105,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
-      "link": "https://claude.ai/code"
+      "link": "https://claude.ai/code/session_review01"
     }
   },
   {
@@ -118,7 +118,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
-      "link": "https://claude.ai/code"
+      "link": "https://claude.ai/code/session_done01"
     }
   },
   {
@@ -131,7 +131,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
-      "link": "https://claude.ai/code"
+      "link": "https://claude.ai/code/session_new01"
     }
   }
 ]`
@@ -380,27 +380,38 @@ func TestScan_MarksAndHidesCloudSessionsByTheirID(t *testing.T) {
 	}
 }
 
-func TestOpen_SendsACloudSessionToClaudeAI(t *testing.T) {
-	row := cloudRow("cse_a1", "Fix the parser", "2026-11-07T11:30:00Z")
+func TestOpen_SendsACloudSessionToItsOwnPage(t *testing.T) {
+	row, err := cloudConversation(claudeCloudRow{ID: "cse_01AbCdEf", Title: "Fix the parser", LastEventAt: "2026-11-07T11:30:00Z"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	launcher := &fakeLauncher{}
 	reply := Open(context.Background(), row, fakeProcesses{}, launcher)
-	want := OpenReply{Opened: true, Message: "Opened claude.ai/code. This session runs in the cloud and could not be linked directly, so find it there by its title."}
-	if reply != want || strings.Join(launcher.calls, ";") != "link https://claude.ai/code" {
+	want := OpenReply{Opened: true, Message: "Opened on claude.ai."}
+	if reply != want || strings.Join(launcher.calls, ";") != "link https://claude.ai/code/session_01AbCdEf" {
 		t.Errorf("reply %+v after %v", reply, launcher.calls)
 	}
 	launcher = &fakeLauncher{err: errNotHere}
 	reply = Open(context.Background(), row, fakeProcesses{}, launcher)
-	want = OpenReply{Message: "Could not open a browser. This session runs in the cloud: open https://claude.ai/code and find it there by its title."}
+	want = OpenReply{Message: "Could not open a browser. This session runs in the cloud: open https://claude.ai/code/session_01AbCdEf"}
 	if reply != want {
 		t.Errorf("reply %+v", reply)
 	}
+
+	row.Open.Link = "https://example.com/session_01AbCdEf"
+	launcher = &fakeLauncher{}
+	reply = Open(context.Background(), row, fakeProcesses{}, launcher)
+	want = OpenReply{Message: "This session runs in the cloud and its link is not one this version opens. Find it at https://claude.ai/code by its title."}
+	if reply != want || len(launcher.calls) != 0 {
+		t.Errorf("reply %+v after %v", reply, launcher.calls)
+	}
 }
 
-func TestCheckedLink_OpensClaudeAICodeAndNoOtherWebPage(t *testing.T) {
-	if err := checkedLink("https://claude.ai/code"); err != nil {
+func TestCheckedLink_OpensACloudSessionPageAndNoOtherWebPage(t *testing.T) {
+	if err := checkedLink("https://claude.ai/code/session_01AbCdEf"); err != nil {
 		t.Error(err)
 	}
-	for _, link := range []string{"https://claude.ai/code/other", "https://claude.ai", "http://claude.ai/code"} {
+	for _, link := range []string{"https://claude.ai/code", "https://claude.ai/code/other", "https://claude.ai/code/session_01/../x", "https://claude.ai", "http://claude.ai/code/session_01AbCdEf", "https://claude.ai.example.com/code/session_01AbCdEf"} {
 		if err := checkedLink(link); err == nil {
 			t.Errorf("%s must be refused", link)
 		}

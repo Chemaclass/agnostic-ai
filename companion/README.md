@@ -101,8 +101,7 @@ sit in the same groups as the others, with **Cloud** in their second line.
   cloud sessions and says why.
 - **When it fails.** Your local chats still show, no cloud session shows, and the
   note above the list says why. An old cloud list is never shown as current.
-- **Opening one** opens claude.ai/code in your browser: a session's own page
-  cannot be linked from what the list holds, so find it there by its title.
+- **Opening one** opens that session's own page on claude.ai in your browser.
 - **It can break.** The endpoint is undocumented, so any Claude Code release can
   change it. The list then shows your local chats and says the cloud answer could
   not be read.

@@ -28,9 +28,21 @@ const claudeCloudBase = "https://api.anthropic.com"
 // most 100; how to ask for more is not known yet.
 const claudeCloudSessionsPath = "/v1/code/sessions?limit=100"
 
-// claudeCloudLink is where a cloud session opens. A session's own link
-// cannot be built from its id, so the list of sessions opens instead.
+// claudeCloudLink is where cloud sessions are listed in the browser.
 const claudeCloudLink = "https://claude.ai/code"
+
+// cloudSessionIDPrefix starts every cloud session id.
+const cloudSessionIDPrefix = "cse_"
+
+// cloudSessionLink is a session's own page: claude.ai names it by the
+// id with session_ in place of cse_. Seen on one account's sessions on
+// 2026-11-10; like the rest of this file it can change.
+func cloudSessionLink(id string) string {
+	return claudeCloudLink + "/session_" + strings.TrimPrefix(id, cloudSessionIDPrefix)
+}
+
+// cloudSessionLinkPattern is the only shape of web page the server opens.
+var cloudSessionLinkPattern = regexp.MustCompile(`^https://claude\.ai/code/session_[A-Za-z0-9_-]{1,128}$`)
 
 // cloudTimeout bounds one list call. A slow answer is a failed one: the
 // list shows without cloud sessions rather than wait.
@@ -280,7 +292,7 @@ func cloudConversation(row claudeCloudRow) (Conversation, error) {
 		UpdatedAt: updated,
 		Live:      bucket.live,
 		Activity:  bucket.activity,
-		Open:      Route{Kind: RouteLink, Label: "Open on claude.ai", Link: claudeCloudLink},
+		Open:      Route{Kind: RouteLink, Label: "Open on claude.ai", Link: cloudSessionLink(row.ID)},
 	}, nil
 }
 

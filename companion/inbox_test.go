@@ -211,7 +211,7 @@ touch "`+stopped+`"`)
 		t.Fatalf("address = %q, %v", address, err)
 	}
 	args, _ := os.ReadFile(stopped + ".args")
-	if strings.TrimSpace(string(args)) != "serve --global --api-only --no-installed --addr 127.0.0.1:0 --stop-with-stdin" {
+	if strings.TrimSpace(string(args)) != "serve --global --api-only --no-installed --addr 127.0.0.1:0 --stop-with-stdin --cloud-sessions" {
 		t.Errorf("started with %q", args)
 	}
 

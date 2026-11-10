@@ -42,9 +42,6 @@ var errAutomationDenied = errors.New("macOS blocked controlling Terminal")
 // linkSchemes are the only schemes the server opens.
 var linkSchemes = map[string]bool{"cursor": true, "vscode": true, "vscode-insiders": true, "vscodium": true, "claude": true, "codex": true}
 
-// webLinks are the only web pages the server opens.
-var webLinks = map[string]bool{claudeCloudLink: true}
-
 const launchTimeout = 15 * time.Second
 
 // An editor link goes to whichever window is in front, so it waits for
@@ -183,13 +180,15 @@ func openLink(ctx context.Context, c Conversation, launcher Launcher) OpenReply 
 	return OpenReply{Opened: true, Message: fmt.Sprintf("Opened in %s.", app)}
 }
 
-// openCloud opens claude.ai/code in the browser. A cloud session's own
-// page cannot be linked from its id, so the reply says where to look.
+// openCloud opens a cloud session's own page in the browser.
 func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
-	if err := launcher.OpenLink(ctx, c.Open.Link); err != nil {
-		return OpenReply{Message: fmt.Sprintf("Could not open a browser. This session runs in the cloud: open %s and find it there by its title.", c.Open.Link)}
+	if err := checkedLink(c.Open.Link); err != nil {
+		return OpenReply{Message: "This session runs in the cloud and its link is not one this version opens. Find it at " + claudeCloudLink + " by its title."}
 	}
-	return OpenReply{Opened: true, Message: "Opened claude.ai/code. This session runs in the cloud and could not be linked directly, so find it there by its title."}
+	if err := launcher.OpenLink(ctx, c.Open.Link); err != nil {
+		return OpenReply{Message: fmt.Sprintf("Could not open a browser. This session runs in the cloud: open %s", c.Open.Link)}
+	}
+	return OpenReply{Opened: true, Message: "Opened on claude.ai."}
 }
 
 func newTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
@@ -270,7 +269,8 @@ func bringHostForward(ctx context.Context, c Conversation, app string, launcher 
 }
 
 func checkedLink(link string) error {
-	if webLinks[link] {
+	// The one kind of web page the server opens: a cloud session's own.
+	if cloudSessionLinkPattern.MatchString(link) {
 		return nil
 	}
 	parsed, err := url.Parse(link)

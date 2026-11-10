@@ -531,7 +531,7 @@ Omit `path` only when at most one editable settings spec exists; with none, a fi
 - **The sign-in.** It reads the claude.ai sign-in Claude Code keeps in the macOS keychain (the `Claude Code-credentials` entry) for each call, and sends it only to `api.anthropic.com`. It never keeps, prints or logs it, and never uses the refresh token. Run `claude` to sign in or renew it. Windows and Linux are not supported yet.
 - **How often.** At most once a minute, with a 5-second timeout and no retry. A cloud change shows in the list at most a minute late (65 seconds in the companion, which asks every 5 seconds).
 - **When it fails.** Local conversations still list, no cloud row shows, and `cloudNote` says why: no sign-in, an expired sign-in, a refusal, no answer in time, or an answer this version cannot read. The failure stands for the rest of that minute.
-- **Opening one.** A session's own page cannot be built from its id, so opening it opens `https://claude.ai/code`, and the reply says to find it there by its title.
+- **Opening one** opens the session's own page, `https://claude.ai/code/session_<id>`, in the browser. It is the only kind of web page the server opens.
 - **Status.** `working` shows as working and `blocked` as waiting for you; other statuses are not live.
 
 The endpoint is undocumented and can change with any Claude Code release.
