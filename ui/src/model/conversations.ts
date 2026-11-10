@@ -206,7 +206,7 @@ export function liveBadge(activity: ConversationActivity | undefined): LiveBadge
 
 const STATE_BADGES = {
   unread: { label: 'New reply', tone: 'approval', description: 'Something was written since you last opened it' },
-  completed: { label: 'Archived', tone: 'neutral', description: 'You archived it; a new message brings it back' },
+  completed: { label: 'Archived', tone: 'neutral', description: 'You archived it; it comes back with a new message or when it starts working' },
 } satisfies Partial<Record<ConversationState, StateBadge>>
 
 interface StateBadge {

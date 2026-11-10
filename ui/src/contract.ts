@@ -859,7 +859,7 @@ export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background' | 'cloud'
 /** What an open conversation is doing, when its tool says: the agent is working, it waits for the person, or it sits idle. */
 export type ConversationActivity = 'working' | 'waiting' | 'idle'
 
-/** Where a conversation stands for the person. The first that holds wins: `working` (open, and its tool says the agent is busy), `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `completed` (marked completed, nothing written since), `unread` (written after the person last saw it), `active` (open, or written in the last 24 hours), `dormant` (closed and quiet for longer). */
+/** Where a conversation stands for the person. The first that holds wins: `working` (open, and its tool says the agent is busy), `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `completed` (marked completed, and since then nothing written and never reported working), `unread` (written after the person last saw it), `active` (open, or written in the last 24 hours), `dormant` (closed and quiet for longer). */
 export type ConversationState = 'blocked' | 'working' | 'completed' | 'unread' | 'active' | 'dormant'
 
 export interface ConversationSource {
@@ -908,7 +908,7 @@ export interface Conversation {
   state?: ConversationState
   /** When the person last saw it: opening it through the server, or a `seen` or `completed` mark. */
   seenAt?: string
-  /** When the person marked it completed. The server deletes it once something is written after it. */
+  /** When the person marked it completed. The server clears it once something is written after it or its tool reports it working. */
   completedAt?: string
   open: ConversationRoute
 }
@@ -942,7 +942,7 @@ export interface ConversationOpenRequest {
   editor?: string
 }
 
-/** A mark on one conversation, kept in a file on this machine: `seen` (read up to now), `completed` (done until something new is written; also marks it seen), `open` (takes a completion back) or `hidden` (out of every list and search until something new is written; also marks it seen). */
+/** A mark on one conversation, kept in a file on this machine: `seen` (read up to now), `completed` (done until something new is written or it starts working; also marks it seen), `open` (takes a completion back) or `hidden` (out of every list and search until something new is written or it starts working; also marks it seen). */
 export interface ConversationMarkRequest {
   tool: ConversationTool
   id: string

@@ -41,7 +41,7 @@ func (s *Scanner) kept(ctx context.Context, tool Tool, opts ScanOptions, files [
 	if last, ok := s.keptSources[tool]; ok && last.stamp == stamp && last.shape == shape && spanOf(now) == spanOf(last.at) {
 		return copyOf(last.result)
 	}
-	result := read()
+	result := readAt(now, read())
 	// A canceled read stopped early; keeping it would show its gaps until the span ends.
 	if ctx.Err() != nil {
 		return result
@@ -50,6 +50,16 @@ func (s *Scanner) kept(ctx context.Context, tool Tool, opts ScanOptions, files [
 		s.keptSources = map[Tool]keptSource{}
 	}
 	s.keptSources[tool] = keptSource{stamp: stamp, shape: shape, at: now, result: copyOf(result)}
+	return result
+}
+
+// readAt dates each row of result that has no read time yet.
+func readAt(at time.Time, result sourceResult) sourceResult {
+	for i := range result.conversations {
+		if result.conversations[i].readAt.IsZero() {
+			result.conversations[i].readAt = at
+		}
+	}
 	return result
 }
 

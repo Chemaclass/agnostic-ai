@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, renameOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -19,6 +19,13 @@ test('says why a row needs the person, and nothing for a quiet one', () => {
   assert.equal(reasonOf(row('a', 'unread')), 'New reply')
   assert.equal(reasonOf(row('a', 'working')), 'Working')
   assert.equal(reasonOf(row('a', 'active')), undefined)
+})
+
+test('offers archive on a chat that is not archived, hide on one that is, and nothing on a working one', () => {
+  assert.deepEqual(
+    ['blocked', 'unread', 'active', 'working', 'completed', 'dormant'].map((state) => rowActionOf(row('a', state))),
+    ['archive', 'archive', 'archive', undefined, 'hide', 'hide'],
+  )
 })
 
 test('writes a short age', () => {
