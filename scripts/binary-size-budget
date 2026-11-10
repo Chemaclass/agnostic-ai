@@ -852,4 +852,7 @@
 # The lock on the conversation marks file, shared by every server on
 # the machine, measured 25600160 bytes locally; the budget is that plus
 # 8192, rounded up to a multiple of 4096.
-25612288
+# `companion stop` and `companion uninstall`, with an install that stops
+# and restarts a running companion, measured 25616544 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+25628672

@@ -15,6 +15,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - `agnostic-ai companion` adds a floating chat list with unread counts, archive actions and a shortcut (#3213).
+- `companion stop` ends the companion, `companion uninstall` removes it, and `companion install` restarts one that runs (#3223).
 - `serve --global --cloud-sessions` lists Claude Code and Codex cloud chats using your existing sign-ins (#3213).
 - Conversations searches all local chats, shows new replies and archives, and refreshes faster (#3213).
 - Automatic upgrades use the new CLI to update `requires` and report stopped steps, starting with this release (#3196, #3198).
