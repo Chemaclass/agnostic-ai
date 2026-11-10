@@ -200,7 +200,7 @@ func TestClaudeCloud_SaysWhyTheListCouldNotBeRead(t *testing.T) {
 func TestClaudeCloud_AsksNothingWithoutASignIn(t *testing.T) {
 	asked := false
 	cloud := cloudAPI(t, func(http.ResponseWriter, *http.Request) { asked = true })
-	cloud.Credentials = fakeCredentials{err: &CloudError{Reason: CloudNoCredential, Cause: errors.New("no entry")}}
+	cloud.Credentials = fakeCredentials{err: &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: errors.New("no entry")}}
 	_, err := cloud.List(context.Background())
 	if err == nil || err.Error() != "no Claude sign-in that may list cloud sessions was found on this machine. Sign in with `claude` first." {
 		t.Errorf("error = %v", err)
@@ -285,7 +285,7 @@ func TestScan_ListsCloudSessionsWithTheLocalOnesAndAsksOncePerSpan(t *testing.T)
 			return []Conversation{cloudRow("cse_a1", "Fix the parser", "2026-11-07T11:30:00Z")}, nil
 		},
 		func() ([]Conversation, error) {
-			return nil, &CloudError{Reason: CloudSignedOut, Cause: errors.New("HTTP 401: expired")}
+			return nil, &CloudError{Tool: ToolClaude, Reason: CloudSignedOut, Cause: errors.New("HTTP 401: expired")}
 		},
 	}}
 	scanner.Cloud = cloud
@@ -344,7 +344,7 @@ func TestScan_KeepsNoCloudAnswerFromACanceledScan(t *testing.T) {
 	scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
 	cloud := &countingCloud{answers: []func() ([]Conversation, error){
 		func() ([]Conversation, error) {
-			return nil, &CloudError{Reason: CloudUnreachable, Cause: context.Canceled}
+			return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreachable, Cause: context.Canceled}
 		},
 	}}
 	scanner.Cloud = cloud
@@ -401,7 +401,7 @@ func TestOpen_SendsACloudSessionToItsOwnPage(t *testing.T) {
 	row.Open.Link = "https://example.com/session_01AbCdEf"
 	launcher = &fakeLauncher{}
 	reply = Open(context.Background(), row, fakeProcesses{}, launcher)
-	want = OpenReply{Message: "This session runs in the cloud and its link is not one this version opens. Find it at https://claude.ai/code by its title."}
+	want = OpenReply{Message: "This conversation runs in the cloud and its link is not one this version opens. Find it in https://claude.ai/code by its title."}
 	if reply != want || len(launcher.calls) != 0 {
 		t.Errorf("reply %+v after %v", reply, launcher.calls)
 	}

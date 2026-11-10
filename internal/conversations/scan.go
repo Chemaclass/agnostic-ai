@@ -72,6 +72,9 @@ type Scanner struct {
 	// Cloud lists the Claude Code sessions that run at claude.ai/code.
 	// Nil reads none, and nothing leaves this machine.
 	Cloud CloudSessions
+	// CodexCloud lists the Codex threads that run in the Codex cloud.
+	// Nil reads none.
+	CodexCloud CloudSessions
 
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
@@ -80,7 +83,7 @@ type Scanner struct {
 	cursorPrompts     map[string]cached[cursorPrompts]
 	shown             shownCache
 	keptSources       map[Tool]keptSource
-	keptCloud         *keptCloud
+	keptClouds        map[Tool]*keptCloud
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
@@ -186,17 +189,26 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 	return Conversation{}, false
 }
 
-// readAll reads every store. Cloud sessions count among Claude Code's
-// conversations; cloudNote says why they are missing, when they are.
+// readAll reads every store. A tool's cloud conversations count among
+// its own; cloudNote says why they are missing, when they are.
 func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
 	claude := s.scanClaude(ctx, opts)
-	cloud, cloudNote := s.cloudRows(ctx, opts)
-	claude.conversations = append(claude.conversations, cloud...)
+	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
+	claude.conversations = append(claude.conversations, claudeCloud...)
+	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })
+	codexCloud, codexNote := s.cloudRows(ctx, opts, ToolCodex, s.CodexCloud)
+	codex.conversations = append(codex.conversations, codexCloud...)
+	var notes []string
+	for _, note := range []string{claudeNote, codexNote} {
+		if note != "" {
+			notes = append(notes, note)
+		}
+	}
 	return []sourceResult{
 		claude,
-		s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) }),
+		codex,
 		s.kept(ctx, ToolCursor, opts, s.cursorFiles(), func() sourceResult { return s.scanCursor(ctx, opts) }),
-	}, cloudNote
+	}, strings.Join(notes, " ")
 }
 
 // weekPage picks one page from all: below to, from a week earlier, or

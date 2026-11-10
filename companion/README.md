@@ -106,6 +106,21 @@ sit in the same groups as the others, with **Cloud** in their second line.
   change it. The list then shows your local chats and says the cloud answer could
   not be read.
 
+## Codex cloud threads
+
+The list shows the threads that run in the Codex cloud the same way, as
+`Codex · Cloud`.
+
+- **What it reads.** The server asks the Codex cloud, the same place the Codex
+  app reads from, for the list of your threads: id, name, status and times, at
+  most 100 of them. It never reads a thread's messages.
+- **The sign-in.** It reads the ChatGPT login the Codex command keeps in
+  `~/.codex/auth.json`, afresh for each call, and sends it only to the Codex
+  cloud. If you never signed in to Codex, nothing is asked and nothing is said.
+- **When, and when it fails:** as for Claude Code above.
+- **Opening one** opens the thread in the Codex app.
+- **It can break.** This endpoint is undocumented too.
+
 You see a conversation when you open it from the companion or the web interface,
 or archive it. A chat you read in its own terminal still counts
 as unread until then.

@@ -846,4 +846,6 @@
 # serve --cloud-sessions, which lists Claude Code cloud sessions, measured
 # 25559200 bytes locally; the budget is that plus 8192, rounded up to a
 # multiple of 4096.
-25571328
+# Codex cloud threads under the same flag measured 25583776 bytes
+# locally; the budget is that plus 8192, rounded up to a multiple of 4096.
+25595904

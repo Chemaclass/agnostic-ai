@@ -853,7 +853,7 @@ export interface ContextView {
 
 export type ConversationTool = 'claude' | 'codex' | 'cursor'
 
-/** Where the chat lives: a terminal, an editor extension or panel, a desktop app, a background job, or Claude Code's cloud at claude.ai/code (listed only by a server started with --cloud-sessions). Runs a program started (SDK sessions, Codex exec) are not listed. */
+/** Where the chat lives: a terminal, an editor extension or panel, a desktop app, a background job, or the tool's cloud, such as Claude Code at claude.ai/code or a Codex cloud thread (listed only by a server started with --cloud-sessions). Runs a program started (SDK sessions, Codex exec) are not listed. */
 export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background' | 'cloud'
 
 /** What an open conversation is doing, when its tool says: the agent is working, it waits for the person, or it sits idle. */
@@ -928,7 +928,7 @@ export interface ConversationsView {
   needsYou?: number
   /** Why the marks file could not be read or written; rows then carry no marks. */
   marksNote?: string
-  /** Why Claude Code cloud sessions are missing, on a server started with --cloud-sessions; rows then hold none. */
+  /** Why a tool's cloud conversations are missing, on a server started with --cloud-sessions; rows then hold none of them. */
   cloudNote?: string
   /** count is every conversation the tool holds; shown is how many this page holds. */
   tools: ConversationSource[]

@@ -63,7 +63,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
   # The user-level configuration
   agnostic-ai serve --global
 
-  # Also list Claude Code cloud sessions, read from claude.ai
+  # Also list Claude Code cloud sessions and Codex cloud threads
   agnostic-ai serve --global --cloud-sessions`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -167,7 +167,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	_ = cmd.Flags().MarkHidden("switch-back")
 	cmd.Flags().BoolVar(&stopWithStdin, "stop-with-stdin", false, "Stop when standard input closes: a program that started this server ends it by closing the pipe, or by ending itself.")
 	_ = cmd.Flags().MarkHidden("stop-with-stdin")
-	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions: reads the claude.ai sign-in from the macOS keychain and asks api.anthropic.com at most once a minute. Needs --global.")
+	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions and Codex cloud threads: reads each tool's own sign-in on this machine and asks its cloud at most once a minute. Needs --global.")
 	return cmd
 }
 
@@ -194,8 +194,8 @@ func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions,
 	return newServeMuxWithCloud(load, opts, compareInstalled, switches, false)
 }
 
-// newServeMuxWithCloud also lists Claude Code cloud sessions when
-// cloudSessions is set. Without it nothing reads the sign-in or leaves
+// newServeMuxWithCloud also lists Claude Code cloud sessions and Codex
+// cloud threads when cloudSessions is set. Without it nothing reads the sign-in or leaves
 // this machine.
 func newServeMuxWithCloud(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler, cloudSessions bool) http.Handler {
 	mux := http.NewServeMux()
@@ -224,6 +224,7 @@ func newServeMuxWithCloud(load authority.Loader, opts authority.HandlerOptions, 
 	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
 	if cloudSessions {
 		conversationsHandler.scanner.Cloud = conversations.NewClaudeCloud()
+		conversationsHandler.scanner.CodexCloud = conversations.NewCodexCloud()
 	}
 	mux.Handle(conversationsViewPath, conversationsHandler)
 	mux.Handle(conversationOpenPath, conversationsHandler)

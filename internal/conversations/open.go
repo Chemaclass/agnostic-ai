@@ -180,15 +180,33 @@ func openLink(ctx context.Context, c Conversation, launcher Launcher) OpenReply 
 	return OpenReply{Opened: true, Message: fmt.Sprintf("Opened in %s.", app)}
 }
 
-// openCloud opens a cloud session's own page in the browser.
+// cloudOpening is what opening a tool's cloud conversation says.
+type cloudOpening struct {
+	// opened is the reply when the link opened.
+	opened string
+	// failed starts the reply when it did not; the link follows.
+	failed string
+	// home is where the person finds the conversation by hand.
+	home string
+}
+
+var cloudOpenings = map[Tool]cloudOpening{
+	ToolClaude: {opened: "Opened on claude.ai.", failed: "Could not open a browser. This session runs in the cloud: open ", home: claudeCloudLink},
+	ToolCodex:  {opened: "Opened in the Codex app.", failed: "Could not open the Codex app. This thread runs in the cloud: open ", home: "the Codex app"},
+}
+
+// openCloud opens a cloud conversation where its tool shows it: a
+// Claude Code session's own page in the browser, a Codex thread in the
+// Codex app.
 func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
+	opening := cloudOpenings[c.Tool]
 	if err := checkedLink(c.Open.Link); err != nil {
-		return OpenReply{Message: "This session runs in the cloud and its link is not one this version opens. Find it at " + claudeCloudLink + " by its title."}
+		return OpenReply{Message: "This conversation runs in the cloud and its link is not one this version opens. Find it in " + opening.home + " by its title."}
 	}
 	if err := launcher.OpenLink(ctx, c.Open.Link); err != nil {
-		return OpenReply{Message: fmt.Sprintf("Could not open a browser. This session runs in the cloud: open %s", c.Open.Link)}
+		return OpenReply{Message: opening.failed + c.Open.Link}
 	}
-	return OpenReply{Opened: true, Message: "Opened on claude.ai."}
+	return OpenReply{Opened: true, Message: opening.opened}
 }
 
 func newTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {

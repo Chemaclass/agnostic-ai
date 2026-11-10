@@ -127,23 +127,23 @@ type claudeKeychainEntry struct {
 
 func (k KeychainCredentials) AccessToken(ctx context.Context) (string, error) {
 	if k.GOOS != "darwin" {
-		return "", &CloudError{Reason: CloudUnsupported, Cause: fmt.Errorf("no Claude sign-in store known on %s", k.GOOS)}
+		return "", &CloudError{Tool: ToolClaude, Reason: CloudUnsupported, Cause: fmt.Errorf("no Claude sign-in store known on %s", k.GOOS)}
 	}
 	raw, err := k.Read(ctx)
 	if err != nil {
-		return "", &CloudError{Reason: CloudNoCredential, Cause: err}
+		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: err}
 	}
 	var entry claudeKeychainEntry
 	if err := json.Unmarshal(raw, &entry); err != nil {
 		// The JSON error names a position and a type, never the text.
-		return "", &CloudError{Reason: CloudNoCredential, Cause: fmt.Errorf("keychain entry %q is not the JSON Claude Code writes: %w", claudeKeychainService, err)}
+		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: fmt.Errorf("keychain entry %q is not the JSON Claude Code writes: %w", claudeKeychainService, err)}
 	}
 	oauth := entry.ClaudeAiOauth
 	if oauth == nil || oauth.AccessToken == "" {
-		return "", &CloudError{Reason: CloudNoCredential, Cause: fmt.Errorf("keychain entry %q holds no claude.ai sign-in", claudeKeychainService)}
+		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: fmt.Errorf("keychain entry %q holds no claude.ai sign-in", claudeKeychainService)}
 	}
 	if !slices.Contains(oauth.Scopes, claudeCloudScope) {
-		return "", &CloudError{Reason: CloudNoCredential, Cause: fmt.Errorf("the claude.ai sign-in lacks the %s scope", claudeCloudScope)}
+		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: fmt.Errorf("the claude.ai sign-in lacks the %s scope", claudeCloudScope)}
 	}
 	return oauth.AccessToken, nil
 }
@@ -195,7 +195,7 @@ func (c *ClaudeCloud) List(ctx context.Context) ([]Conversation, error) {
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+claudeCloudSessionsPath, nil)
 	if err != nil {
-		return nil, &CloudError{Reason: CloudUnreachable, Cause: err}
+		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreachable, Cause: err}
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
@@ -204,7 +204,7 @@ func (c *ClaudeCloud) List(ctx context.Context) ([]Conversation, error) {
 	req.Header.Set("User-Agent", "agnostic-ai")
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		return nil, &CloudError{Reason: CloudUnreachable, Cause: err}
+		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreachable, Cause: err}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
@@ -212,10 +212,10 @@ func (c *ClaudeCloud) List(ctx context.Context) ([]Conversation, error) {
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxCloudReplyBytes+1))
 	if err != nil {
-		return nil, &CloudError{Reason: CloudUnreachable, Cause: err}
+		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreachable, Cause: err}
 	}
 	if len(body) > maxCloudReplyBytes {
-		return nil, &CloudError{Reason: CloudUnreadable, Cause: fmt.Errorf("the session list is larger than %d bytes", maxCloudReplyBytes)}
+		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreadable, Cause: fmt.Errorf("the session list is larger than %d bytes", maxCloudReplyBytes)}
 	}
 	return cloudConversations(body)
 }
@@ -234,7 +234,7 @@ func refusal(resp *http.Response) error {
 		reason = CloudRefused
 	}
 	said, _ := io.ReadAll(io.LimitReader(resp.Body, maxCloudCauseBytes))
-	return &CloudError{Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
+	return &CloudError{Tool: ToolClaude, Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
 }
 
 // cloudConversations reads the list answer. A row this version cannot
@@ -242,16 +242,16 @@ func refusal(resp *http.Response) error {
 func cloudConversations(body []byte) ([]Conversation, error) {
 	var list claudeCloudList
 	if err := json.Unmarshal(body, &list); err != nil {
-		return nil, &CloudError{Reason: CloudUnreadable, Cause: fmt.Errorf("session list: %w", err)}
+		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreadable, Cause: fmt.Errorf("session list: %w", err)}
 	}
 	if list.Data == nil {
-		return nil, &CloudError{Reason: CloudUnreadable, Cause: errors.New("session list has no data field")}
+		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreadable, Cause: errors.New("session list has no data field")}
 	}
 	conversations := make([]Conversation, 0, len(*list.Data))
 	for i, row := range *list.Data {
 		c, err := cloudConversation(row)
 		if err != nil {
-			return nil, &CloudError{Reason: CloudUnreadable, Cause: fmt.Errorf("session list row %d: %w", i, err)}
+			return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreadable, Cause: fmt.Errorf("session list row %d: %w", i, err)}
 		}
 		conversations = append(conversations, c)
 	}

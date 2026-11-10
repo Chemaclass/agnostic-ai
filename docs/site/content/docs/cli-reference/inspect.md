@@ -334,7 +334,7 @@ agnostic-ai serve --api-only
 | `--open` | Open the served URL in a browser. |
 | `--global` | Serve the user configuration. Its overview shows `lint --global` findings and drift against what `sync --global` would write; doctor checks are skipped. |
 | `--no-installed` | Skip comparing generated files with disk. |
-| `--cloud-sessions` | Also list Claude Code cloud sessions, the ones at claude.ai/code. Needs `--global`. Off by default: without it nothing reads your sign-in or leaves this machine. See [cloud sessions](#claude-code-cloud-sessions). |
+| `--cloud-sessions` | Also list Claude Code cloud sessions, the ones at claude.ai/code, and Codex cloud threads. Needs `--global`. Off by default: without it nothing reads your sign-in or leaves this machine. See [cloud sessions](#claude-code-cloud-sessions). |
 
 In the browser:
 
@@ -533,6 +533,14 @@ Omit `path` only when at most one editable settings spec exists; with none, a fi
 - **When it fails.** Local conversations still list, no cloud row shows, and `cloudNote` says why: no sign-in, an expired sign-in, a refusal, no answer in time, or an answer this version cannot read. The failure stands for the rest of that minute.
 - **Opening one** opens the session's own page, `https://claude.ai/code/session_<id>`, in the browser. It is the only kind of web page the server opens.
 - **Status.** `working` shows as working and `blocked` as waiting for you; other statuses are not live.
+
+The same flag adds the threads that run in the Codex cloud. They count among Codex's conversations, with `app` `cloud`.
+
+- **What it reads.** It asks `GET https://codex-cloud-backend.chatgpt.com/v1/threads?limit=100`, the list the Codex app reads, which answers at most 100 threads; it does not page past them yet. It uses their id, name, status and times, and never reads a thread's messages. The endpoint is undocumented and can change with any Codex release.
+- **The sign-in.** It reads the ChatGPT login the Codex command keeps in `auth.json` (in `$CODEX_HOME`, default `~/.codex`) for each call, and sends it only to that host. It never keeps, prints or logs it, and never reads the refresh token or an API key. Without that file nothing is asked and nothing is said: the person does not use Codex. A login with an API key has no cloud threads, and `cloudNote` says so.
+- **How often, and failures:** as for Claude Code above. `cloudNote` holds one sentence for each cloud that could not be read.
+- **Opening one** opens `codex://threads/<id>?hostId=durable`, which the Codex app handles.
+- **Status.** An `active` thread shows as working, or as waiting for you when it waits on an approval or on your input; other statuses are not live.
 
 The endpoint is undocumented and can change with any Claude Code release.
 

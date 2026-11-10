@@ -31,8 +31,9 @@ const (
 	AppIDE        App = "ide"
 	AppDesktop    App = "desktop"
 	AppBackground App = "background"
-	// AppCloud is a Claude Code session that runs in Anthropic's cloud,
-	// at claude.ai/code, not on this machine.
+	// AppCloud is a conversation that runs in its tool's cloud, not on
+	// this machine: a Claude Code session at claude.ai/code, or a Codex
+	// cloud thread.
 	AppCloud App = "cloud"
 )
 
@@ -84,8 +85,8 @@ type View struct {
 	// MarksNote says why the marks file could not be read or written;
 	// rows then show no marks.
 	MarksNote string `json:"marksNote,omitempty"`
-	// CloudNote says why Claude Code cloud sessions are missing from the
-	// list, on a server that reads them; rows then hold none.
+	// CloudNote says why a tool's cloud conversations are missing from
+	// the list, on a server that reads them; rows then hold none of them.
 	CloudNote     string         `json:"cloudNote,omitempty"`
 	Tools         []Source       `json:"tools"`
 	Conversations []Conversation `json:"conversations"`
