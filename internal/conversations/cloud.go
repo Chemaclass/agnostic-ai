@@ -92,19 +92,44 @@ func cloudNote(tool Tool, err error) string {
 	return cloudNotePrefixes[tool] + cloudErr.Error()
 }
 
-// keptCloud is the last cloud read and when it ran.
+// keptCloud is the last cloud read and when it ran, and the last read
+// that worked.
 type keptCloud struct {
 	at   time.Time
 	rows []Conversation
 	err  error
+	// good and goodAt are the rows of the last read that worked.
+	good   []Conversation
+	goodAt time.Time
+}
+
+// cloudRideSpan is how long the last good list stands in for a cloud
+// that fails to answer. A slow or failing answer is common and passes;
+// the list a few minutes old is closer to the truth than none, and the
+// person is not told about a hiccup they can do nothing about.
+const cloudRideSpan = 10 * time.Minute
+
+// cloudPassing are the failures that pass by themselves: the next ask,
+// a minute later, may well work.
+var cloudPassing = map[CloudReason]bool{
+	CloudRefused:     true,
+	CloudUnreachable: true,
+	CloudUnreadable:  true,
+}
+
+// cloudSilent are the failures nobody is told about: the person can do
+// nothing about a system this version cannot read a sign-in on.
+var cloudSilent = map[CloudReason]bool{
+	CloudUnsupported: true,
 }
 
 // cloudRows returns tool's cloud conversations and, when they could
 // not be read, the note that says why. Each cloud is asked at most
-// once per freshSpan: a success or a failure stands until the span
-// ends, so a failure never shows an older list as current. A project
-// server lists only conversations whose folder is in the project, and
-// cloud sessions have none, so it never asks.
+// once per freshSpan. A failure that passes by itself shows the last
+// good list for up to cloudRideSpan and says nothing; after that, or
+// when the sign-in is the problem, no cloud row shows and the note
+// says why. A project server lists only conversations whose folder is
+// in the project, and cloud sessions have none, so it never asks.
 func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cloud CloudSessions) ([]Conversation, string) {
 	if cloud == nil || len(opts.Within) > 0 {
 		return nil, ""
@@ -117,18 +142,37 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 		if ctx.Err() != nil {
 			return nil, ""
 		}
-		last = &keptCloud{at: now, rows: rows, err: err}
+		read := &keptCloud{at: now, rows: rows, err: err}
+		if err == nil {
+			read.good, read.goodAt = rows, now
+		} else if last != nil {
+			read.good, read.goodAt = last.good, last.goodAt
+		}
+		last = read
 		if s.keptClouds == nil {
 			s.keptClouds = map[Tool]*keptCloud{}
 		}
 		s.keptClouds[tool] = last
 	}
+	shown := last.rows
 	if last.err != nil {
-		return nil, cloudNote(tool, last.err)
+		reason := CloudReason("")
+		if cloudErr, ok := last.err.(*CloudError); ok {
+			reason = cloudErr.Reason
+		}
+		riding := cloudPassing[reason] && !last.goodAt.IsZero() && now.Sub(last.goodAt) < cloudRideSpan
+		switch {
+		case riding:
+			shown = last.good
+		case cloudSilent[reason]:
+			return nil, ""
+		default:
+			return nil, cloudNote(tool, last.err)
+		}
 	}
 	// Each scan fills and marks its own copies.
-	rows := make([]Conversation, 0, len(last.rows))
-	for _, c := range last.rows {
+	rows := make([]Conversation, 0, len(shown))
+	for _, c := range shown {
 		if c.Live && now.Sub(lastWritten(c)) >= cloudLiveSpan {
 			c.Live, c.Activity = false, ""
 		}

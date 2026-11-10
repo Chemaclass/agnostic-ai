@@ -125,8 +125,10 @@ sit in the same groups as the others, with **Cloud** in their second line.
   `api.anthropic.com`. It never keeps, prints or logs it. Run `claude` to sign in or
   renew it. Windows and Linux are not supported yet: there the list shows no
   cloud sessions and says why.
-- **When it fails.** Your local chats still show, no cloud session shows, and the
-  note above the list says why. An old cloud list is never shown as current.
+- **When it fails.** Your local chats always show. A cloud that is slow or
+  fails to answer keeps its last good list for up to 10 minutes and says
+  nothing. After that, or when the sign-in is the problem, its sessions leave
+  the list and one quiet line under the rows says why.
 - **Opening one** opens that session's own page on claude.ai in your browser.
 - **It can break.** The endpoint is undocumented, so any Claude Code release can
   change it. The list then shows your local chats and says the cloud answer could

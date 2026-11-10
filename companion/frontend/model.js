@@ -85,12 +85,6 @@ export function ago(stamp, now) {
   return Math.floor(age / (7 * DAY)) + 'w'
 }
 
-/** What the server says about the list: why marks or cloud sessions are missing. Empty when it says nothing. */
-export function serverNoteOf(view) {
-  if (view === undefined) return ''
-  return [view.marksNote, view.cloudNote].filter((note) => note !== undefined && note !== '').join(' ')
-}
-
 /** The line at the foot: what needs the person, or how the search went. */
 export function summaryOf(view, query) {
   if (query !== '') {

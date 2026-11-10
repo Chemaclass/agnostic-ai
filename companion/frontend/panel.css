@@ -379,6 +379,15 @@ body {
   stroke: var(--ink);
 }
 
+/* Something the list lacks that the person need not act on now, such as a cloud that did not answer. */
+
+.aside {
+  margin: 10px 14px 6px;
+  color: var(--paper-faint);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
 .empty {
   padding: 56px 24px;
   text-align: center;

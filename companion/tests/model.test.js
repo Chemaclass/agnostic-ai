@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ago, detailsOf, grouped, isDrag, keycapsOf, neighbour, reasonOf, serverNoteOf, shortcutOf, summaryOf } from '../frontend/model.js'
+import { ago, detailsOf, grouped, isDrag, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -42,17 +42,6 @@ test('says Cloud for a session that runs in the cloud, and nothing for one on th
   assert.equal(detailsOf(row('cse_a1', 'active', { app: 'cloud' }), now), 'Claude Code · Cloud · 5m')
   assert.equal(detailsOf(row('a', 'active', { app: 'cli', folder: '/tmp/app' }), now), 'Claude Code · app · 5m')
   assert.equal(detailsOf(row('a', 'active', { app: 'desktop' }), now), 'Claude Code · 5m')
-})
-
-test('passes on why marks or cloud sessions are missing', () => {
-  assert.equal(serverNoteOf(undefined), '')
-  assert.equal(serverNoteOf({}), '')
-  assert.equal(serverNoteOf({ marksNote: '' }), '')
-  assert.equal(serverNoteOf({ cloudNote: 'Claude Code cloud sessions are not listed: claude.ai did not answer in time.' }), 'Claude Code cloud sessions are not listed: claude.ai did not answer in time.')
-  assert.equal(
-    serverNoteOf({ marksNote: 'Seen and completed marks are unavailable: disk full', cloudNote: 'Claude Code cloud sessions are not listed: claude.ai refused to list them.' }),
-    'Seen and completed marks are unavailable: disk full Claude Code cloud sessions are not listed: claude.ai refused to list them.',
-  )
 })
 
 test('sums up what needs the person, or the search', () => {

@@ -231,7 +231,15 @@ func TestScan_ListsCodexCloudThreadsUnderCodexAndSaysWhyEachCloudIsMissing(t *te
 		}
 	}
 
+	// A cloud that fails to answer rides on its last good list, and nobody is told.
 	at = at.Add(freshSpan)
+	view = scanner.Scan(context.Background(), ScanOptions{})
+	if len(view.Conversations) != 1 || view.Conversations[0].ID != codexIdle || view.CloudNote != "" {
+		t.Errorf("a minute into the failure: rows %s, note %q", asJSON(t, view.Conversations), view.CloudNote)
+	}
+
+	// Once it has failed for longer than that, no cloud row shows and the note says why.
+	at = at.Add(cloudRideSpan)
 	view = scanner.Scan(context.Background(), ScanOptions{})
 	want := "Claude Code cloud sessions are not listed: claude.ai did not answer in time. Codex cloud threads are not listed: the Codex cloud refused to list them."
 	if len(view.Conversations) != 0 || view.CloudNote != want {
@@ -356,5 +364,20 @@ func TestCodexActivity_ATurnThatWroteNothingForAWhileWaitsForThePerson(t *testin
 	}
 	if got := codexActivity(path, time.Now().Add(time.Hour)); got != "" {
 		t.Errorf("between turns, however long ago: %q, want nothing", got)
+	}
+}
+
+func TestScan_SaysNothingAboutACloudThisSystemCannotSignInTo(t *testing.T) {
+	scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.Cloud = &countingCloud{answers: []func() ([]Conversation, error){
+		func() ([]Conversation, error) {
+			return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnsupported, Cause: errors.New("no sign-in store on linux")}
+		},
+	}}
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if view.CloudNote != "" || len(view.Conversations) != 0 {
+		t.Errorf("rows %s, note %q; want neither", asJSON(t, view.Conversations), view.CloudNote)
 	}
 }

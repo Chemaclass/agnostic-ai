@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, saveShortcut, saveStartAtLogin } from '/api.js'
-import { GROUPS, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, serverNoteOf, shortcutOf, summaryOf } from '/model.js'
+import { GROUPS, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -167,7 +167,8 @@ function emptyMessage() {
 function draw({ force } = { force: false }) {
   const view = state.view
   // What could not be read comes first, then what the companion and the server have to say.
-  const said = state.problem ?? state.note ?? serverNoteOf(view)
+  // A cloud that is missing is not a problem with the list: it gets a quiet line under the rows.
+  const said = state.problem ?? state.note ?? view?.marksNote ?? ''
   note.hidden = said === ''
   note.textContent = said
   if (state.searching) {
@@ -188,7 +189,7 @@ function draw({ force } = { force: false }) {
     list.replaceChildren()
     return
   }
-  const signature = JSON.stringify([view.conversations, view.needsYou, view.matches, said, state.query, state.activeKey])
+  const signature = JSON.stringify([view.conversations, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey])
   if (!force && signature === state.drawn) return
   state.drawn = signature
 
@@ -200,6 +201,7 @@ function draw({ force } = { force: false }) {
   list.replaceChildren()
   if (groups.length === 0) {
     list.append(emptyMessage())
+    if (view.cloudNote) list.append(element('p', 'aside', view.cloudNote))
     return
   }
   let order = 0
@@ -211,6 +213,7 @@ function draw({ force } = { force: false }) {
       order += 1
     }
   }
+  if (view.cloudNote) list.append(element('p', 'aside', view.cloudNote))
   list.scrollTop = scroll
 }
 
