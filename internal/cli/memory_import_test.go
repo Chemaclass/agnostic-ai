@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -1138,5 +1139,87 @@ func TestSync_DoesNotSeedDeclinedFacts(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(personalStore, "old.md")); err == nil {
 		t.Error("sync seeded a declined fact")
+	}
+}
+
+func TestMemoryImport_SaysNothingToCopyOnlyWhenNothingIsLeft(t *testing.T) {
+	claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	for _, args := range [][]string{{"--only", "tabs.md", "--dry-run"}, {"--only", "tabs.md", "--skip-rest"}} {
+		out, err := runRoot(t, append([]string{"memory", "import", "--from", "claude"}, args...)...)
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		if strings.Contains(out, "has every fact") {
+			t.Errorf("%v claims every fact is there:\n%s", args, out)
+		}
+	}
+}
+
+func TestMemoryImport_DryRunWithOnlyListsThePendingFacts(t *testing.T) {
+	claudeStoreToDecline(t)
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md", "--dry-run")
+	if err != nil {
+		t.Fatalf("dry run: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(out, "Pending 3 fact(s)") || !strings.Contains(out, "  old.md\n") {
+		t.Errorf("dry run:\n%s", out)
+	}
+}
+
+func TestMemoryImport_StartsARecordOnItsOwnLine(t *testing.T) {
+	claudeStoreToDecline(t)
+	writeStore(t, personalStore, map[string]string{
+		".declined": "claude/other.md",
+		".imported": "claude/other.md",
+	})
+
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md", "--skip", "old.md"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if got := readText(t, filepath.Join(personalStore, ".imported")); got != "claude/other.md\nclaude/tabs.md\n" {
+		t.Errorf(".imported = %q", got)
+	}
+	declined := readText(t, filepath.Join(personalStore, ".declined"))
+	if !strings.HasPrefix(declined, "claude/other.md\nclaude/old.md\tsha256:") {
+		t.Errorf(".declined = %q", declined)
+	}
+}
+
+func TestMemoryImport_KeepsADeclineWhenOnlyLineEndingsChange(t *testing.T) {
+	native := claudeStoreToDecline(t)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip-rest"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(native, "old.md"), strings.ReplaceAll(oldFact, "\n", "\r\n"))
+
+	if lint := lintOutput(t); strings.Contains(lint, "LINT043") {
+		t.Errorf("lint:\n%s", lint)
+	}
+}
+
+func TestValidateBuiltinMemory_AllowsAStoreWhoseFactsAreAllDeclined(t *testing.T) {
+	importProject(t)
+	repoStoreWithFacts(t, map[string]string{"old.md": oldFact})
+	root, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Targets: []string{"codex"}, Builtins: []string{"memory"}}
+	if err := validateBuiltinMemory(root, cfg, nil); err == nil || !strings.Contains(err.Error(), "needs migration") {
+		t.Fatalf("pending fact: err = %v", err)
+	}
+	if out, err := runRoot(t, "memory", "import", "--from", "repo", "--skip-rest"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if err := validateBuiltinMemory(root, cfg, nil); err != nil {
+		t.Errorf("declined fact still needs migration: %v", err)
 	}
 }

@@ -855,4 +855,7 @@
 # `companion stop` and `companion uninstall`, with an install that stops
 # and restarts a running companion, measured 25616544 bytes locally; the
 # budget is that plus 8192, rounded up to a multiple of 4096.
-25628672
+# #3231 measured 25637024 bytes locally, up 20480: memory import declines
+# facts and keeps a checksum of each with crypto/sha256; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+25649152

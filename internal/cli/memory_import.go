@@ -613,12 +613,24 @@ func (p memoryImportPlan) record() error {
 	return appendPrivateFile(path, add.String())
 }
 
+// appendPrivateFile starts text on a line of its own, even after a record
+// someone edited by hand without a final newline.
 func appendPrivateFile(path, text string) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0o600)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
-	_, err = f.WriteString(text)
+	last := make([]byte, 1)
+	if info, statErr := f.Stat(); statErr != nil {
+		err = statErr
+	} else if info.Size() > 0 {
+		if _, err = f.ReadAt(last, info.Size()-1); err == nil && last[0] != '\n' {
+			text = "\n" + text
+		}
+	}
+	if err == nil {
+		_, err = f.WriteString(text)
+	}
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
@@ -938,7 +950,7 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 		} else {
 			_, _ = fmt.Fprintln(w, "Every tool reads personal memory, so these facts now guide all of them. Review them with `agnostic-ai memory list`; delete a file to remove one.")
 		}
-	case len(p.present) > 0 && len(p.kept)+len(p.skipped)+len(p.declined) == 0:
+	case len(p.present) > 0 && len(p.kept)+len(p.skipped)+len(p.declined)+len(p.pending)+len(p.toDecline) == 0:
 		_, _ = fmt.Fprintf(w, "Nothing to copy: %s has every fact in %s.\n", to, from)
 	case len(p.present)+len(p.kept)+len(p.skipped)+len(p.imported)+len(p.declined)+len(p.pending)+len(p.toDecline) == 0:
 		_, _ = fmt.Fprintf(w, "No facts in %s.\n", from)
