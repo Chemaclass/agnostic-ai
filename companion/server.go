@@ -101,9 +101,11 @@ func (s *server) address() (string, error) {
 		}
 		close(served)
 	}()
+	ended := make(chan struct{})
 	go func() {
 		// Collect the process when it ends, and forget its address then.
 		_ = process.Wait()
+		close(ended)
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		if s.process == process {
@@ -115,6 +117,11 @@ func (s *server) address() (string, error) {
 	case address, ok := <-served:
 		if !ok || address == "" {
 			_ = input.Close()
+			// Wait copies the last of stderr into problems, so read it only after the process ends.
+			select {
+			case <-ended:
+			case <-time.After(serverStartWait):
+			}
 			return "", fmt.Errorf("agnostic-ai serve stopped before it listened: %s", problems.String())
 		}
 		s.base, s.process, s.input = address, process, input
