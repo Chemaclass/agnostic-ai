@@ -63,7 +63,7 @@ func TestEmit_NativeSixKinds(t *testing.T) {
 	if _, err := toml.Decode(string(data), &hooks); err != nil {
 		t.Fatal(err)
 	}
-	if len(hooks.Hooks) != 1 || DeclaredHookCommand(hooks.Hooks[0].Command) != "echo '{}'" {
+	if len(hooks.Hooks) != 5 || DeclaredHookCommand(hooks.Hooks[0].Command) != "echo '{}'" {
 		t.Fatalf("native hook command or target wrapper changed: %s", data)
 	}
 
@@ -112,10 +112,27 @@ func TestEmit_RejectsAgentNamedMainInAnyCase(t *testing.T) {
 		})
 	}
 }
-func TestUserHookRecords_PostAgentRejectsStrict(t *testing.T) {
-	h := spec.Entry{Kind: spec.KindHook, Name: "after", Meta: map[string]any{"event": "post_agent", "command": "echo done", "x-vibe": map[string]any{"strict": true}}}
-	if _, err := (Adapter{}).UserHookRecordsForPlatform([]spec.Entry{h}, ".vibe/hooks", "linux"); err == nil || !strings.Contains(err.Error(), "cannot set strict") {
-		t.Fatalf("strict on post_agent must fail: %v", err)
+func TestUserHookRecords_NativeEventsAndStrict(t *testing.T) {
+	for _, event := range []string{"pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"} {
+		t.Run(event, func(t *testing.T) {
+			for _, strict := range []bool{false, true} {
+				h := spec.Entry{Kind: spec.KindHook, Name: "native", Meta: map[string]any{"event": event, "command": "echo done", "x-vibe": map[string]any{"strict": strict, "match": "main"}}}
+				records, err := (Adapter{}).UserHookRecordsForPlatform([]spec.Entry{h}, ".vibe/hooks", "linux")
+				allowed := !strict || event == "pre_tool" || event == "post_tool" || event == "pre_agent"
+				if !allowed {
+					if err == nil || !strings.Contains(err.Error(), "cannot set strict") {
+						t.Errorf("strict on %s must fail: %v", event, err)
+					}
+					continue
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(records) != 1 || records[0]["type"] != event || records[0]["match"] != "main" || records[0]["strict"] != strict {
+					t.Errorf("native hook changed: %v", records)
+				}
+			}
+		})
 	}
 }
 
@@ -134,6 +151,10 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindMCP, Name: "docs", Meta: map[string]any{"type": "http", "url": "https://example.com/mcp", "headers": map[string]any{"X-Test": "ok"}}},
 		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "node", "args": []any{"server.js"}}},
 		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "pre_tool", "matcher": "bash", "command": "echo '{}'", "timeout": 10}},
+		{Kind: spec.KindHook, Name: "pre-agent", Meta: map[string]any{"event": "pre_agent", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": true}}},
+		{Kind: spec.KindHook, Name: "notification", Meta: map[string]any{"event": "notification", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": false}}},
+		{Kind: spec.KindHook, Name: "session-start", Meta: map[string]any{"event": "session_start", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": false}}},
+		{Kind: spec.KindHook, Name: "session-end", Meta: map[string]any{"event": "session_end", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": false}}},
 	})
 }
 func TestKitSink_GoldenSnapshot(t *testing.T) {
@@ -421,4 +442,26 @@ func TestEmit_GrepOmissionKeepsReadRestrictionAndReportsCoverage(t *testing.T) {
 		}
 	}
 	t.Fatal("omitted search capability has no coverage note")
+}
+
+func TestEmit_NativeEventOverrides(t *testing.T) {
+	for _, event := range []string{"pre_agent", "notification", "session_start", "session_end"} {
+		t.Run(event, func(t *testing.T) {
+			testutil.TempCwd(t)
+			hooks := []spec.Entry{
+				{Kind: spec.KindHook, Name: "event", Meta: map[string]any{"event": "SessionStart", "command": "echo done", "x-vibe": map[string]any{"event": event}}},
+				{Kind: spec.KindHook, Name: "type", Meta: map[string]any{"command": "echo done", "x-vibe": map[string]any{"type": event}}},
+			}
+			if err := New().Emit(emit.NewSession(), spec.Bundle{Hooks: hooks}, &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(".vibe/hooks.toml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Count(string(data), `type = "`+event+`"`) != 2 {
+				t.Errorf("native overrides lost: %s", data)
+			}
+		})
+	}
 }

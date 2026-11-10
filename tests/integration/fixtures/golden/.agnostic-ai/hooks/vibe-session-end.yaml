@@ -1,0 +1,7 @@
+name: vibe-session-end
+target: vibe
+event: session_end
+command: echo done
+matcher: main
+x-vibe:
+  strict: false

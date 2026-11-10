@@ -23,7 +23,7 @@ Follow the [official setup guide](https://devin.ai/desktop), then open your proj
 
 Select `windsurf` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.devin/rules/conventional-commits.md`.
 
-Sync writes `.devin/` paths. Desktop and CLI differ in when scoped rules load.
+Sync writes `.devin/` paths. See [scoped rules](#scoped-rules) for directory discovery.
 
 For existing files, check [what `import windsurf` reads](#import) before syncing.
 
@@ -81,10 +81,10 @@ Custom subagent profiles ([subagents docs](https://docs.devin.ai/cli/subagents))
 
 ### Scoped rules
 
-Go to `<scope>/.devin/rules/<name>.md`, because Desktop finds `.devin/rules` or `.windsurf/rules` in any sub-folder ([Desktop rules reference](https://docs.devin.ai/desktop/cascade/memories)). Devin CLI v3000.11.1 also finds rules in nested folders under `.devin/rules/` and `.windsurf/rules/` ([CLI changelog](https://docs.devin.ai/cli/changelog/stable.md)). That is unconfirmed for Desktop, so the layout stays.
+Rules go to `<scope>/.devin/rules/<name>.md`. [Devin Local shares the CLI's format and discovery](https://docs.devin.ai/desktop/devin-local/customizations.md). Both load root rules at startup and discover sub-folder rules when the agent accesses files there ([CLI rules reference](https://docs.devin.ai/cli/extensibility/rules.md)).
 
 - With `outputs.windsurf.rules-dir` set, the prefix follows it: `<scope>/.windsurf/rules/<name>.md`.
-- Devin CLI loads a sub-folder's rules once the agent touches files there. Desktop loads all of them at start. So the scope narrows what only the CLI sees.
+- Legacy Cascade used separate [rule discovery](https://docs.devin.ai/desktop/cascade/memories). Its behavior does not describe Devin Local.
 
 ### Rule activation
 
