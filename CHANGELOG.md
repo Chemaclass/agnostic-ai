@@ -8,7 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
-- `memory import --skip <file>` and `--skip-rest` decline facts you do not want, so LINT043 stops counting them; the dry run shows each fact's state (#3231).
+- `memory import --skip <file>` and `--skip-rest` decline facts you do not want, so LINT043 stops counting them; the dry run shows each fact's state (#3235).
 
 ### Site
 
