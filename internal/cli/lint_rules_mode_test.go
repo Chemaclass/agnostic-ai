@@ -30,10 +30,10 @@ func TestLint_AcceptsTheRulesModesTargetsRead(t *testing.T) {
 
 	out, err := runCLI(t, "lint")
 
+	if err != nil {
+		t.Fatalf("lint: %v\n%s", err, out)
+	}
 	if strings.Contains(out, "LINT061") {
 		t.Errorf("claude import and trae entry-point are valid:\n%s", out)
-	}
-	if err != nil && strings.Contains(err.Error(), "rules-mode") {
-		t.Errorf("a valid rules-mode must load: %v", err)
 	}
 }

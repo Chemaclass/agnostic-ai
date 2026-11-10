@@ -339,18 +339,19 @@ func TestSync_CursorSkipsAlwaysOnRulesCodexInlinesIntoAGENTSMd(t *testing.T) {
 	}
 }
 
-// A run that writes no AGENTS.md cannot leave a rule to it: Cursor
-// would get the rule from no file at all.
-func TestSync_OnlyCursorKeepsAlwaysOnRulesWhenTheRunWritesNoAGENTSMd(t *testing.T) {
+// Cursor writes no AGENTS.md of its own, so a run that syncs Cursor
+// alone writes the root AGENTS.md too. The rule then reaches Cursor from
+// that file, once.
+func TestSync_OnlyCursorWritesTheAGENTSMdItLeavesTheRuleTo(t *testing.T) {
 	dir := ruleFilesProject(t, "targets: [codex, cursor]\n")
 
 	mustSync(t, "--only", "cursor")
 
-	if exists(filepath.Join(dir, "AGENTS.md")) {
-		t.Fatal("sync --only cursor wrote AGENTS.md; the test needs a run that does not")
+	if !strings.Contains(readFile(t, filepath.Join(dir, "AGENTS.md")), "Always body.") {
+		t.Error("sync --only cursor must write AGENTS.md with the rule Cursor reads there")
 	}
-	if !exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
-		t.Error(".cursor/rules/always.mdc must stay: this run writes no AGENTS.md")
+	if exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
+		t.Error(".cursor/rules/always.mdc loads the rule a second time next to AGENTS.md")
 	}
 }
 
@@ -359,8 +360,53 @@ func TestSync_OnlyCursorAndCodexLeaveTheRuleToAGENTSMd(t *testing.T) {
 
 	mustSync(t, "--only", "cursor,codex")
 
+	if !strings.Contains(readFile(t, filepath.Join(dir, "AGENTS.md")), "Always body.") {
+		t.Error("AGENTS.md must carry the rule Cursor leaves to it")
+	}
 	if exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
 		t.Error(".cursor/rules/always.mdc loads the rule a second time next to AGENTS.md")
+	}
+}
+
+// A partial run after a full one must write what the full run wrote, or
+// the two undo each other and a full check fails.
+func TestSync_OnlyCursorAfterAFullSyncKeepsTheProjectInSync(t *testing.T) {
+	for _, only := range []string{"cursor", "cursor,claude"} {
+		t.Run(only, func(t *testing.T) {
+			dir := ruleFilesProject(t, "targets: [codex, cursor, windsurf, claude]\n")
+			mustSync(t)
+
+			mustSync(t, "--only", only)
+
+			if exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
+				t.Error("sync --only " + only + " brought back .cursor/rules/always.mdc")
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("full sync --check after sync --only %s: %v\n%s", only, err, out)
+			}
+		})
+	}
+}
+
+func TestSyncCheck_OnlyCursorAgreesWithADryRun(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, cursor, windsurf, claude]\n")
+	mustSync(t)
+
+	if out, err := runCLI(t, "sync", "--check", "--only", "cursor"); err != nil {
+		t.Errorf("sync --check --only cursor after a full sync: %v\n%s", err, out)
+	}
+	var err error
+	out := captureStdout(t, func() {
+		_, err = runCLI(t, "sync", "--only", "cursor", "--dry-run", "--gitignore=off")
+	})
+	if err != nil {
+		t.Fatalf("sync --only cursor --dry-run: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "always.mdc") {
+		t.Errorf("a dry run plans .cursor/rules/always.mdc that the check does not expect:\n%s", out)
+	}
+	if exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
+		t.Error("a dry run wrote .cursor/rules/always.mdc")
 	}
 }
 

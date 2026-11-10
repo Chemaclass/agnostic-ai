@@ -43,7 +43,7 @@ Cursor reads the root `AGENTS.md` and its own always-on rules in every session. 
 
 The [rules docs](https://cursor.com/docs/rules) say "Cursor supports AGENTS.md in the project root and subdirectories", and an Always Apply rule applies "to every chat session".
 
-Cursor writes no `AGENTS.md`. When another tool such as Codex writes it with the `## Rules` block, sync skips the `.cursor/rules/` file of each always-on rule that block already holds, so the rule loads once (#3230). Rules scoped by `globs`, rules Cursor applies by description or by hand, and rules whose Cursor text differs keep their `.mdc` file. With `outputs.codex.nested-glob-rules: false`, scoped rules also stay in the root `AGENTS.md`, so Cursor loads them there at start as well.
+Cursor writes no `AGENTS.md`. When another tool such as Codex writes it with the `## Rules` block, sync skips the `.cursor/rules/` file of each always-on rule that block already holds, so the rule loads once (#3230). `sync --only cursor` writes that `AGENTS.md` too, so a partial run keeps the rule. Rules scoped by `globs`, rules Cursor applies by description or by hand, and rules whose Cursor text differs keep their `.mdc` file. With `outputs.codex.nested-glob-rules: false`, scoped rules also stay in the root `AGENTS.md`, so Cursor loads them there at start as well.
 
 ## Output
 

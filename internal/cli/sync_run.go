@@ -516,7 +516,6 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 				}
 				edits.apply(sess)
 				sess.SetCollisionWinners(winners)
-				sess.SetSyncedTargets(targets)
 				if !dryRun {
 					sess.StartTransaction()
 				}
