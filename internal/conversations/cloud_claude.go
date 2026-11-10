@@ -68,13 +68,19 @@ type cloudBucket struct {
 }
 
 // cloudBuckets maps each status_bucket seen to the live and activity
-// fields. A bucket not listed is not live.
+// fields. A bucket not listed is not live. The bucket alone is not
+// believed for working: see claudeCloudWorkerRunning.
 var cloudBuckets = map[string]cloudBucket{
 	"working":      {live: true, activity: ActivityWorking},
 	"blocked":      {live: true, activity: ActivityWaiting},
 	"review_ready": {live: false},
 	"completed":    {live: false},
 }
+
+// claudeCloudWorkerRunning is the worker_status of a session whose
+// agent runs now. A session that failed keeps the working bucket for
+// weeks with another worker status, so working needs both.
+const claudeCloudWorkerRunning = "running"
 
 // CloudCredentials hands out the claude.ai sign-in token for one call.
 type CloudCredentials interface {
@@ -182,6 +188,7 @@ type claudeCloudRow struct {
 	ID           string `json:"id"`
 	Title        string `json:"title"`
 	StatusBucket string `json:"status_bucket"`
+	WorkerStatus string `json:"worker_status"`
 	CreatedAt    string `json:"created_at"`
 	UpdatedAt    string `json:"updated_at"`
 	LastEventAt  string `json:"last_event_at"`
@@ -283,6 +290,9 @@ func cloudConversation(row claudeCloudRow) (Conversation, error) {
 		}
 	}
 	bucket := cloudBuckets[row.StatusBucket]
+	if bucket.activity == ActivityWorking && row.WorkerStatus != claudeCloudWorkerRunning {
+		bucket = cloudBucket{}
+	}
 	return Conversation{
 		Tool:      ToolClaude,
 		App:       AppCloud,

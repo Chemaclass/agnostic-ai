@@ -75,13 +75,25 @@ Each conversation is in the first group whose rule holds.
 
 | Group | Rule |
 | --- | --- |
-| Needs you | Open, and its tool says it waits for you. Or something was written after you last saw it. |
+| Needs you | Something was written after you last saw it. Or it is open, its tool says it waits for you, and you have not looked at it since it asked. |
 | Working | Open, and its tool says the agent is busy. |
 | Active | Open, or written in the last 24 hours. |
 | Archived | You archived it and nothing was written since, or it is closed and was quiet for more than 24 hours. A new message moves it back to Needs you. |
 
-Only Claude Code reports waiting and busy. Codex and Cursor chats reach Needs
-you when something new is written in them.
+Claude Code, local and cloud, and Codex cloud threads report waiting and busy.
+Local Codex chats and Cursor chats reach Needs you when something new is
+written in them.
+
+How a status is believed:
+
+- **Looking counts.** Opening or archiving a chat that waits for you takes it
+  out of Needs you. Its next prompt is a new write, which puts it back.
+- **A local chat** is working or waiting only while its process runs on this
+  machine.
+- **A cloud chat** has no process here to check, so its status is believed for
+  a day after its last write. A Claude Code cloud session also counts as working
+  only while its worker runs: a session that failed can keep a working status
+  for weeks.
 
 ## Claude Code cloud sessions
 

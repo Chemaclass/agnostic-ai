@@ -859,7 +859,7 @@ export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background' | 'cloud'
 /** What an open conversation is doing, when its tool says: the agent is working, it waits for the person, or it sits idle. */
 export type ConversationActivity = 'working' | 'waiting' | 'idle'
 
-/** Where a conversation stands for the person. The first that holds wins: `blocked` (open, and its tool says it waits for the person), `working` (open, and its tool says the agent is busy), `completed` (marked completed, nothing written since), `unread` (written after the person last saw it), `active` (open, or written in the last 24 hours), `dormant` (closed and quiet for longer). */
+/** Where a conversation stands for the person. The first that holds wins: `working` (open, and its tool says the agent is busy), `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `completed` (marked completed, nothing written since), `unread` (written after the person last saw it), `active` (open, or written in the last 24 hours), `dormant` (closed and quiet for longer). */
 export type ConversationState = 'blocked' | 'working' | 'completed' | 'unread' | 'active' | 'dormant'
 
 export interface ConversationSource {

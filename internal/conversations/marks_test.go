@@ -19,7 +19,11 @@ func TestStateOf_PlacesAConversationByToolReportThenMarksThenAge(t *testing.T) {
 		entry markEntry
 		want  State
 	}{
-		{"a live chat on a prompt is blocked, even when completed", Conversation{UpdatedAt: at(time.Hour), Live: true, Activity: ActivityWaiting}, markEntry{CompletedAt: at(time.Minute)}, StateBlocked},
+		{"a live chat on a prompt nobody looked at is blocked", Conversation{UpdatedAt: at(time.Hour), Live: true, Activity: ActivityWaiting}, markEntry{SeenAt: at(2 * time.Hour)}, StateBlocked},
+		{"a live chat on a prompt, never seen and written after the marks began, is blocked", Conversation{UpdatedAt: at(time.Hour), Live: true, Activity: ActivityWaiting}, markEntry{}, StateBlocked},
+		{"a prompt the person looked at no longer needs them", Conversation{UpdatedAt: at(time.Hour), Live: true, Activity: ActivityWaiting}, markEntry{SeenAt: at(time.Minute)}, StateActive},
+		{"a prompt older than the marks no longer needs them", Conversation{UpdatedAt: at(72 * time.Hour), Live: true, Activity: ActivityWaiting}, markEntry{}, StateActive},
+		{"archiving a waiting chat holds until its next write", Conversation{UpdatedAt: at(time.Hour), Live: true, Activity: ActivityWaiting}, markEntry{SeenAt: at(time.Minute), CompletedAt: at(time.Minute)}, StateCompleted},
 		{"a live busy chat is working, not unread", Conversation{UpdatedAt: at(time.Minute), Live: true, Activity: ActivityWorking}, markEntry{SeenAt: at(time.Hour)}, StateWorking},
 		{"completed with nothing written since", Conversation{UpdatedAt: at(2 * time.Hour)}, markEntry{SeenAt: at(time.Hour), CompletedAt: at(time.Hour)}, StateCompleted},
 		{"completed in the second of its last write", Conversation{UpdatedAt: at(time.Hour)}, markEntry{CompletedAt: at(time.Hour)}, StateCompleted},
@@ -40,6 +44,9 @@ func TestStateOf_PlacesAConversationByToolReportThenMarksThenAge(t *testing.T) {
 	}
 	if got := stateOf(Conversation{UpdatedAt: at(time.Minute)}, markEntry{}, time.Time{}, now); got != StateActive {
 		t.Errorf("without a marks file nothing is unread: state = %s", got)
+	}
+	if got := stateOf(Conversation{UpdatedAt: at(time.Hour), Live: true, Activity: ActivityWaiting}, markEntry{}, time.Time{}, now); got != StateBlocked {
+		t.Errorf("without a marks file a waiting chat is still blocked: state = %s", got)
 	}
 }
 

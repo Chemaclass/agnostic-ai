@@ -532,7 +532,7 @@ Omit `path` only when at most one editable settings spec exists; with none, a fi
 - **How often.** At most once a minute, with a 5-second timeout and no retry. A cloud change shows in the list at most a minute late (65 seconds in the companion, which asks every 5 seconds).
 - **When it fails.** Local conversations still list, no cloud row shows, and `cloudNote` says why: no sign-in, an expired sign-in, a refusal, no answer in time, or an answer this version cannot read. The failure stands for the rest of that minute.
 - **Opening one** opens the session's own page, `https://claude.ai/code/session_<id>`, in the browser. It is the only kind of web page the server opens.
-- **Status.** `working` shows as working and `blocked` as waiting for you; other statuses are not live.
+- **Status.** `working` shows as working, only while the session's worker runs, and `blocked` as waiting for you; other statuses are not live. No process on this machine can be checked for a cloud conversation, so either cloud's status is believed for a day after the conversation's last write.
 
 The same flag adds the threads that run in the Codex cloud. They count among Codex's conversations, with `app` `cloud`.
 

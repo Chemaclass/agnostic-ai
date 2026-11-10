@@ -16,7 +16,8 @@ import (
 type State string
 
 const (
-	// StateBlocked: a live conversation whose tool says it waits for the person.
+	// StateBlocked: a live conversation whose tool says it waits for the
+	// person, and that the person has not looked at since its last write.
 	StateBlocked State = "blocked"
 	// StateWorking: a live conversation whose tool says the agent is busy.
 	StateWorking State = "working"
@@ -148,9 +149,13 @@ func parseStamp(value string) time.Time {
 	return at
 }
 
-// stateOf places one conversation. The first rule that holds wins:
-// what the tool reports about a live conversation comes before the
-// person's marks, and the marks before its age.
+// stateOf places one conversation. The first rule that holds wins.
+// A tool that says its conversation is busy is believed. A tool that
+// says it waits for the person is believed until the person has looked:
+// like a new reply, a wait needs the person only while nothing shows
+// they saw it since its last write. So opening or archiving a waiting
+// conversation takes it out of the count, and the next write, which
+// every new prompt is, puts it back.
 func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	written := lastWritten(c)
 	completedAt := parseStamp(entry.CompletedAt)
@@ -160,7 +165,7 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 		seenAt = since
 	}
 	switch {
-	case c.Live && c.Activity == ActivityWaiting:
+	case c.Live && c.Activity == ActivityWaiting && (seenAt.IsZero() || written.After(seenAt)):
 		return StateBlocked
 	case c.Live && c.Activity == ActivityWorking:
 		return StateWorking

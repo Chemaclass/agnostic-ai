@@ -53,7 +53,7 @@ func answerWith(status int, body string) func(http.ResponseWriter, *http.Request
 
 func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
 	cloud := cloudAPI(t, answerWith(http.StatusOK, `{"data": [
-		{"id": "cse_working01", "title": "Fix the parser", "status_bucket": "working", "created_at": "2026-11-09T08:00:00.123Z", "updated_at": "2026-11-09T09:00:00Z", "last_event_at": "2026-11-09T09:30:00.5Z", "user_message_count": 0},
+		{"id": "cse_working01", "title": "Fix the parser", "status_bucket": "working", "worker_status": "running", "created_at": "2026-11-09T08:00:00.123Z", "updated_at": "2026-11-09T09:00:00Z", "last_event_at": "2026-11-09T09:30:00.5Z", "user_message_count": 0},
 		{"id": "cse_blocked01", "title": "Add a test", "status_bucket": "blocked", "updated_at": "2026-11-09T07:00:00Z"},
 		{"id": "cse_review01", "title": "Rename the flag", "status_bucket": "review_ready", "last_event_at": "2026-11-08T07:00:00+02:00"},
 		{"id": "cse_done01", "title": "Ship it", "status_bucket": "completed", "last_event_at": "2026-11-07T07:00:00Z"},
@@ -272,7 +272,7 @@ func (c *countingCloud) List(context.Context) ([]Conversation, error) {
 }
 
 func cloudRow(id, title, updated string) Conversation {
-	return Conversation{Tool: ToolClaude, App: AppCloud, ID: id, Title: title, UpdatedAt: updated, Open: Route{Kind: RouteLink, Label: "Open on claude.ai", Link: claudeCloudLink}}
+	return Conversation{Tool: ToolClaude, App: AppCloud, ID: id, Title: title, UpdatedAt: updated, Open: Route{Kind: RouteLink, Label: "Open on claude.ai", Link: cloudSessionLink(id)}}
 }
 
 func TestScan_ListsCloudSessionsWithTheLocalOnesAndAsksOncePerSpan(t *testing.T) {
@@ -415,5 +415,56 @@ func TestCheckedLink_OpensACloudSessionPageAndNoOtherWebPage(t *testing.T) {
 		if err := checkedLink(link); err == nil {
 			t.Errorf("%s must be refused", link)
 		}
+	}
+}
+
+func TestClaudeCloud_DoesNotBelieveAWorkingBucketWithoutARunningWorker(t *testing.T) {
+	// A session that failed keeps status_bucket working for weeks.
+	row, err := cloudConversation(claudeCloudRow{ID: "cse_a1", StatusBucket: "working", WorkerStatus: "WORKER_STATUS_UNSPECIFIED", LastEventAt: "2026-11-07T11:30:00Z"})
+	if err != nil || row.Live || row.Activity != "" {
+		t.Errorf("live %t, activity %q, error %v; want a session that is not live", row.Live, row.Activity, err)
+	}
+	row, err = cloudConversation(claudeCloudRow{ID: "cse_a1", StatusBucket: "working", WorkerStatus: "running", LastEventAt: "2026-11-07T11:30:00Z"})
+	if err != nil || !row.Live || row.Activity != ActivityWorking {
+		t.Errorf("live %t, activity %q, error %v; want a working session", row.Live, row.Activity, err)
+	}
+}
+
+func TestScan_BelievesACloudStatusForADayAfterItsLastWrite(t *testing.T) {
+	scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	at := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return at }
+	waiting := func(id, updated string) Conversation {
+		c := cloudRow(id, "Add a test", updated)
+		c.Live, c.Activity = true, ActivityWaiting
+		return c
+	}
+	scanner.Cloud = &countingCloud{answers: []func() ([]Conversation, error){
+		func() ([]Conversation, error) {
+			return []Conversation{waiting("cse_fresh", "2026-11-07T11:30:00Z"), waiting("cse_stale", "2026-10-11T11:30:00Z")}, nil
+		},
+	}}
+	// The marks begin before the fresh session's last write.
+	if err := writeMarks(scanner.MarksPath, marksFile{SchemaVersion: marksSchemaVersion, Since: "2026-11-07T10:00:00Z", Marks: map[string]markEntry{}}); err != nil {
+		t.Fatal(err)
+	}
+
+	view := scanner.Scan(context.Background(), ScanOptions{Query: "add a test"})
+
+	if fresh := byID(t, view, "cse_fresh"); fresh.State != StateBlocked {
+		t.Errorf("a session that asked half an hour ago: state %s", fresh.State)
+	}
+	if stale := byID(t, view, "cse_stale"); stale.Live || stale.State != StateDormant {
+		t.Errorf("a session that asked four weeks ago: live %t, state %s; want it archived", stale.Live, stale.State)
+	}
+
+	// Opening it is looking at it: it leaves the count until it writes again.
+	if _, found := scanner.Reopen(context.Background(), ToolClaude, "cse_fresh", ScanOptions{}, &fakeLauncher{}); !found {
+		t.Fatal("the fresh session was not found")
+	}
+	view = scanner.Scan(context.Background(), ScanOptions{})
+	if fresh := byID(t, view, "cse_fresh"); fresh.State != StateActive || view.NeedsYou != 0 {
+		t.Errorf("after opening it: state %s, needsYou %d", fresh.State, view.NeedsYou)
 	}
 }

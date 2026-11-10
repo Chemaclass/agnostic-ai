@@ -129,8 +129,18 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 	// Each scan fills and marks its own copies.
 	rows := make([]Conversation, 0, len(last.rows))
 	for _, c := range last.rows {
+		if c.Live && now.Sub(lastWritten(c)) >= cloudLiveSpan {
+			c.Live, c.Activity = false, ""
+		}
 		s.fill(&c, texts{title: c.Title})
 		rows = append(rows, c)
 	}
 	return rows, ""
 }
+
+// cloudLiveSpan is how long a cloud's word that a conversation works or
+// waits is believed after its last write. A cloud agent writes as it
+// works, and no process on this machine can be checked for it, so one
+// that wrote nothing for a day is taken as stopped whatever its status
+// says: a failed session can keep a working status for weeks.
+const cloudLiveSpan = activeSpan
