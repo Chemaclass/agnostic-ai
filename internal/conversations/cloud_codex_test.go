@@ -327,3 +327,34 @@ func TestCodexTurnRuns_ReadsATailThatHoldsNoTurnEventAsTheMiddleOfATurn(t *testi
 		t.Error("a rollout that cannot be read says nothing")
 	}
 }
+
+func TestCodexActivity_ATurnThatWroteNothingForAWhileWaitsForThePerson(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rollout.jsonl")
+	if err := os.WriteFile(path, []byte(`{"type":"event_msg","payload":{"type":"task_started"}}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	written := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(path, written, written); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		after time.Duration
+		want  Activity
+	}{
+		{time.Second, ActivityWorking},
+		{codexQuietSpan - time.Second, ActivityWorking},
+		{codexQuietSpan, ActivityWaiting},
+		{time.Hour, ActivityWaiting},
+	} {
+		if got := codexActivity(path, written.Add(tc.after)); got != tc.want {
+			t.Errorf("%s after its last write: %q, want %q", tc.after, got, tc.want)
+		}
+	}
+
+	if err := os.WriteFile(path, []byte(`{"type":"event_msg","payload":{"type":"task_complete"}}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := codexActivity(path, time.Now().Add(time.Hour)); got != "" {
+		t.Errorf("between turns, however long ago: %q, want nothing", got)
+	}
+}

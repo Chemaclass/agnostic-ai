@@ -149,9 +149,7 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 		c.Live = true
 		if rollout, ok := s.codexRollout(rollouts[c.ID]); ok {
 			liveRollouts = append(liveRollouts, rollout)
-			if codexTurnRuns(rollout) {
-				c.Activity = ActivityWorking
-			}
+			c.Activity = codexActivity(rollout, s.Now())
 		}
 		if c.App == AppCLI {
 			c.process = &liveProcess{PID: pid}
@@ -176,6 +174,33 @@ func (s *Scanner) codexRollout(path string) (string, bool) {
 		return "", false
 	}
 	return path, true
+}
+
+// codexQuietSpan is how long a turn may write nothing before it is
+// taken to wait for the person. Codex does not write down that it asks
+// for an approval or for input, and a turn that hangs or lost its end
+// never says so either. All three look the same: a turn that began and
+// a rollout that holds still. A turn that works writes as it goes, so
+// one silent for this long needs a look, at the price of a command that
+// runs longer reading as a wait.
+const codexQuietSpan = 5 * time.Minute
+
+// codexActivity is what a loaded thread does, read from its rollout:
+// working while a turn runs and writes, waiting once that turn has
+// written nothing for codexQuietSpan, and nothing the rollout can say
+// between turns.
+func codexActivity(rollout string, now time.Time) Activity {
+	if !codexTurnRuns(rollout) {
+		return ""
+	}
+	info, err := os.Stat(rollout)
+	if err != nil {
+		return ""
+	}
+	if now.Sub(info.ModTime()) >= codexQuietSpan {
+		return ActivityWaiting
+	}
+	return ActivityWorking
 }
 
 // codexRolloutTail is how much of a rollout's end is read for its last
