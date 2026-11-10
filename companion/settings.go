@@ -21,6 +21,8 @@ type settings struct {
 	// Shortcut is the keys that open the list from anywhere, as Wails
 	// writes them, such as "Ctrl+Alt+Space". Empty means defaultShortcut.
 	Shortcut string `json:"shortcut,omitempty"`
+	// Animate is whether the circle and the list move; nil means they do.
+	Animate *bool `json:"animate,omitempty"`
 }
 
 // shortcut is the saved shortcut, or the default before one was saved.
@@ -29,6 +31,10 @@ func (s settings) shortcut() string {
 		return defaultShortcut
 	}
 	return s.Shortcut
+}
+
+func (s settings) animate() bool {
+	return s.Animate == nil || *s.Animate
 }
 
 type point struct {

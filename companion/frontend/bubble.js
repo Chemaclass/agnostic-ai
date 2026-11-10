@@ -1,6 +1,8 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, readInbox, togglePanel } from '/api.js'
 import { isDrag } from '/model.js'
+// Waits for the person's animation choice, so a still circle never starts spinning.
+import '/motion.js'
 
 const bubble = document.getElementById('bubble')
 const badge = document.getElementById('badge')
@@ -18,7 +20,7 @@ function show({ view, note }) {
   bubble.setAttribute('aria-label', count === 0 ? 'Conversations: none needs you' : `Conversations: ${count} need you`)
   badge.hidden = count === 0
   badge.textContent = badgeText(count)
-  if (count > shownCount) {
+  if (count > shownCount && document.documentElement.dataset.motion !== 'off') {
     // Restart the pop, so each new arrival is noticed.
     badge.classList.remove('is-new')
     void badge.offsetWidth
@@ -26,6 +28,12 @@ function show({ view, note }) {
   }
   shownCount = count
 }
+
+// A pop left over would play again when animation is turned back on.
+badge.addEventListener('animationend', () => badge.classList.remove('is-new'))
+document.addEventListener('motion', () => {
+  if (document.documentElement.dataset.motion === 'off') badge.classList.remove('is-new')
+})
 
 /** No list could be read: an old count would be a guess, so none shows. */
 function showTrouble(message) {
@@ -57,8 +65,9 @@ const press = {
   dragged: false,
 }
 
+// Ctrl+click on a Mac opens the menu; its release goes to the menu, not here.
 bubble.addEventListener('mousedown', (event) => {
-  if (event.button !== 0) return
+  if (event.button !== 0 || event.ctrlKey) return
   press.at = { x: event.screenX, y: event.screenY }
   press.dragged = false
 })
@@ -75,8 +84,12 @@ window.addEventListener('mouseup', () => {
   press.at = undefined
 })
 
-bubble.addEventListener('click', () => {
-  if (press.dragged) return
+window.addEventListener('contextmenu', () => {
+  press.at = undefined
+})
+
+bubble.addEventListener('click', (event) => {
+  if (press.dragged || event.ctrlKey) return
   togglePanel()
 })
 Events.On('inbox', refresh)

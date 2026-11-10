@@ -77,6 +77,8 @@ const (
 	eventInbox = "inbox"
 	// eventPanelShown says the panel opened; its data is the corner nearest the bubble.
 	eventPanelShown = "panel-shown"
+	// eventAppearance says how the pages look changed; its data is the new appearance.
+	eventAppearance = "appearance"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -100,6 +102,7 @@ type shell struct {
 
 	// shortcuts takes and gives back the keys that open the list from anywhere.
 	shortcuts shortcuts
+	tell      func(appearance)
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -283,6 +286,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/preferences", s.getPreferences)
 	mux.HandleFunc("POST /api/preferences/shortcut", s.setShortcut)
 	mux.HandleFunc("POST /api/preferences/start-at-login", s.setStartAtLogin)
+	mux.HandleFunc("GET /api/appearance", s.getAppearance)
 	mux.HandleFunc("POST /api/dashboard", dashboard)
 	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -349,6 +353,9 @@ func main() {
 	s.inbox = newInbox(s.server, version, func() {
 		s.app.Event.Emit(eventInbox)
 	})
+	s.tell = func(looks appearance) {
+		s.app.Event.Emit(eventAppearance, looks)
+	}
 	in := s.inbox
 	s.app = application.New(application.Options{
 		Name:        "agnostic-ai companion",
@@ -400,6 +407,7 @@ func main() {
 	}
 
 	s.shortcuts = s.app.GlobalShortcut
+	s.bubbleMenu()
 	s.bubble = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
 		Name:   "bubble",
 		Title:  "agnostic-ai",

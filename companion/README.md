@@ -65,7 +65,8 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
   rename is open, **Esc** closes that first.
 
 The number on the circle counts the conversations that need you. An ice blue arc
-turns around the circle while an agent is working.
+turns around the circle while an agent is working. With animation off, a still
+ice blue ring shows instead.
 
 Starting the companion a second time brings back the one that already runs and
 opens its list.
@@ -92,6 +93,15 @@ The ⋯ button at the foot of the list holds them:
 
 The menu has no quit: a hidden companion does nothing but wait for the
 shortcut. To end it, see below.
+
+Right-click the circle (Ctrl+click on a Mac) for its own menu. The settings
+are at the top:
+
+- **Animate companion** turns movement on and off: the turning arc, the
+  breathing dot in the list, the badge's pop and the list's opening. When it is
+  off, a still ring shows that an agent is working, and the number keeps
+  updating. Hover and press feedback stay. Your system's reduce motion setting
+  still applies when it is on.
 
 ## Stop it and remove it
 
@@ -185,7 +195,8 @@ Both are in the `agnostic-ai` folder of your user configuration folder
 - `conversation-marks.json`: what you saw, what you archived and the names
   you gave chats, shared with `agnostic-ai serve`. Tool names, ids, times
   and those names only, never chat text.
-- `companion.json`: where you left the circle, and your shortcut.
+- `companion.json`: where you left the circle, your shortcut, and whether it
+  animates.
 
 ## When it reads
 
@@ -212,11 +223,13 @@ What you see is never older than this:
 - `server.go`: starts and stops the companion's `agnostic-ai serve`, and calls it.
 - `inbox.go`: asks the server every 5 seconds whether the list changed, keeps the latest one, and hands the pages' opens and marks to the server.
 - `preferences.go`: the shortcut and the start-at-login setting.
+- `appearance.go`: the circle's right-click menu and the animation setting.
 - `dashboard.go`: opens the full web interface.
 - `place.go`: where the list opens beside the circle, and whether a saved place is still on a screen.
 - `settings.go`: what the companion remembers between runs.
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
-  `model.js` holds the logic and has no DOM in it.
+  `model.js` holds the logic and has no DOM in it. `look.js` turns your
+  settings into how the pages look, and `motion.js` applies it to each page.
 
 This folder is its own Go module, so [Wails](https://wails.io), which draws the
 windows, is not a dependency of the `agnostic-ai` command and adds nothing to

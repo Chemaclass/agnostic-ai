@@ -11,6 +11,7 @@ body {
   height: 60px;
   border-radius: 50%;
   transition: transform 220ms var(--ease-spring);
+  --custom-contextmenu: bubble;
 }
 
 /* Presses land on the button itself, never on the shapes inside it. */
@@ -83,6 +84,16 @@ body {
 .bubble.is-working .ring {
   opacity: 1;
   animation: turn 1.6s linear infinite;
+}
+
+:root[data-motion='off'] .bubble.is-working .ring {
+  background: var(--busy);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble.is-working .ring {
+    background: var(--busy);
+  }
 }
 
 @keyframes turn {
