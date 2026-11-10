@@ -1,0 +1,7 @@
+name: vibe-session-start
+target: vibe
+event: session_start
+command: echo done
+matcher: main
+x-vibe:
+  strict: false

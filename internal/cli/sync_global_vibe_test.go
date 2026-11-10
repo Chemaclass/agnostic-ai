@@ -208,3 +208,29 @@ func TestSyncGlobal_VibePlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T
 		t.Fatal("concurrent user edit replaced")
 	}
 }
+
+func TestSyncGlobal_VibeNativeLifecycleEvents(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	root := filepath.Join(home, "vibe")
+	t.Setenv("VIBE_HOME", root)
+	events := []string{"pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"}
+	for _, event := range events {
+		name := strings.ReplaceAll(event, "_", "-")
+		mustWriteGlobalTest(t, filepath.Join(source, "hooks", name+".yaml"), "name: "+name+"\ntarget: vibe\nevent: "+event+"\ncommand: echo done\nx-vibe:\n  match: main\n")
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+		t.Fatalf("sync: %v %s", err, warnings)
+	}
+	got := readGlobalTest(t, filepath.Join(root, "hooks.toml"))
+	for _, event := range events {
+		if !strings.Contains(got, `type = "`+event+`"`) {
+			t.Errorf("missing %s: %s", event, got)
+		}
+	}
+	if strings.Count(got, `match = "main"`) != len(events) {
+		t.Errorf("native matches lost: %s", got)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
+		t.Fatalf("check: %v %s", err, warnings)
+	}
+}

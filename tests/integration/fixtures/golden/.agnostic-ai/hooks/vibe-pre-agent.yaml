@@ -1,0 +1,7 @@
+name: vibe-pre-agent
+target: vibe
+event: pre_agent
+command: echo done
+matcher: main
+x-vibe:
+  strict: true

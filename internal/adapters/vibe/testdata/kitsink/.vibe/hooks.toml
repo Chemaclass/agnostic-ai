@@ -5,3 +5,31 @@
   name = "guard"
   timeout = 10
   type = "pre_tool"
+
+[[hooks]]
+  command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
+  match = "main"
+  name = "pre-agent"
+  strict = true
+  type = "pre_agent"
+
+[[hooks]]
+  command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
+  match = "main"
+  name = "notification"
+  strict = false
+  type = "notification"
+
+[[hooks]]
+  command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
+  match = "main"
+  name = "session-start"
+  strict = false
+  type = "session_start"
+
+[[hooks]]
+  command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
+  match = "main"
+  name = "session-end"
+  strict = false
+  type = "session_end"

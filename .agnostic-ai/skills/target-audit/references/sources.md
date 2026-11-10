@@ -403,10 +403,10 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://docs.mistral.ai/vibe/code/cli/configuration-reference · https://docs.mistral.ai/vibe/code/cli/agents · https://docs.mistral.ai/vibe/code/cli/skills · https://docs.mistral.ai/vibe/code/cli/hooks
 - changelog: https://github.com/mistralai/mistral-vibe/releases
-- code: https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/vibe_schema.py (stable release commit 338ad4bf0f73c4dd879d667cf7ab011555ae1751; native config schema) · https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/models.py (MCP transports, authentication, and defaults) · https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/hooks/models.py (native hook fields and event restrictions)
+- code: https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/vibe_schema.py (stable release commit 338ad4bf0f73c4dd879d667cf7ab011555ae1751; native config schema) · https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/models.py (MCP transports, authentication, and defaults) · https://github.com/mistralai/mistral-vibe/blob/v3.1.1/vibe/core/hooks/models.py (stable release commit 97e31350d2adc15c8a33a091566e897cbe9f41bc; seven native hook events and strict restrictions)
 - watch: VIBE_HOME, trusted project loading, AGENTS.md hierarchy, agent_type and enabled_tools, skill flags, config.toml mcp_servers arrays and auth, hooks.toml JSON decisions and Windows shell selection.
 - trap: empty enabled_tools enables every tool; skills allowed-tools does not enforce restrictions; hook exit 2 is a failure, not a denial.
-- decision: native hooks only (pre_tool, post_tool, post_agent); global TOML arrays are owned by native name and retain unrelated text.
+- decision: native hooks only; v3.1.1 adds pre_agent, notification, session_start and session_end to pre_tool, post_tool and post_agent. Strict is valid only for pre_tool, post_tool and pre_agent. Project and global sync emit all seven native events; portable event translation and built-in target selection remain unchanged. Global TOML arrays are owned by native name and retain unrelated text.
 
 ## pi
 

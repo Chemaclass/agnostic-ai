@@ -1,0 +1,7 @@
+name: vibe-notification
+target: vibe
+event: notification
+command: echo done
+matcher: main
+x-vibe:
+  strict: false

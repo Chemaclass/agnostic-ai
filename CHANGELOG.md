@@ -34,11 +34,17 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Sync writes MCP `disabledTools` on every server and `oauthScopes` on remote ones to `.devin/mcp_config.json`, instead of dropping them (#3210).
 
+#### Mistral Vibe
+
+- Project and global sync write all seven native hook events from Vibe 3.1.1 and reject strict mode on events that do not support it.
+
 #### Grok
 
 - When an ignore file hides a Grok rule, the error names that file and pattern, and offers removing grok from targets as a fix (#3198).
 
 ### Site
+
+- The Windsurf guide describes Devin Local and CLI sharing lazy discovery of scoped rules, with legacy Cascade kept separate.
 
 - Guides and references use plainer language, shorter explanations, supported model aliases, and current release examples.
 - A new logo, a grid of dots with the center one circled, is the new brand on the site, the playground, the social preview image, the web interface, the READMEs, and the VS Code and JetBrains extension icons.

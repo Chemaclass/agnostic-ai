@@ -93,6 +93,8 @@ Copilot sets no variable, so a hook synced to `claude` and `copilot` [runs twice
 
 ## Native events
 
+[Vibe native hooks](@/docs/targets/vibe.md#connections-settings-and-hooks) use snake_case events, including `pre_agent`, `notification`, `session_start`, and `session_end`. Portable lifecycle events are not translated for Vibe.
+
 `event` and `matcher` take a tool's own names. This hook formats the Go files the agent edits, on Claude Code and Codex alike:
 
 ```yaml

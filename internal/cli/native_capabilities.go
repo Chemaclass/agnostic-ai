@@ -41,7 +41,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	),
 	"codex": setOf(codex.HookEvents()...),
 	"kimi":  setOf(kimi.HookEvents()...),
-	"vibe":  setOf("pre_tool", "post_tool", "post_agent"),
+	"vibe":  setOf("pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"),
 	"gemini": setOf(
 		"BeforeTool", "AfterTool",
 		"BeforeAgent", "AfterAgent",
