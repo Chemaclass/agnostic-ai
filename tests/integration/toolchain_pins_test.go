@@ -14,6 +14,8 @@ const (
 	makefilePath      = "../../Makefile"
 	ciWorkflowPath    = "../../.github/workflows/ci.yml"
 	pagesWorkflowPath = "../../.github/workflows/playground.yml"
+	goModPath         = "../../go.mod"
+	misePath          = "../../mise.toml"
 )
 
 var (
@@ -47,6 +49,38 @@ func TestGolangciLintPin_MatchesCI(t *testing.T) {
 	if local != ci {
 		t.Errorf("Makefile pins golangci-lint %s but %s pins %s; bump both together so `make lint` matches the PR check",
 			local, ciWorkflowPath, ci)
+	}
+}
+
+// TestMisePins_MatchRepoPins keeps the optional mise.toml on the versions
+// CI uses, so `mise install` sets up the same toolchain as the PR checks.
+func TestMisePins_MatchRepoPins(t *testing.T) {
+	data, err := os.ReadFile(filepath.FromSlash(ciWorkflowPath))
+	if err != nil {
+		t.Fatalf("read %s: %v", ciWorkflowPath, err)
+	}
+	ci := string(data)
+
+	pins := []struct {
+		tool, source, want string
+	}{
+		{"go", goModPath, pinFrom(t, goModPath, regexp.MustCompile(`(?m)^toolchain go(\S+)$`))},
+		{"zola", makefilePath, pinFrom(t, makefilePath, zolaMakefilePinRE)},
+	}
+	for _, m := range regexp.MustCompile(`(?m)^\s+node-version:\s*'?([^'\s]+)'?$`).FindAllStringSubmatch(ci, -1) {
+		pins = append(pins, struct{ tool, source, want string }{"node", ciWorkflowPath, m[1]})
+	}
+	java := regexp.MustCompile(`(?s)setup-java@\S+.*?distribution:\s*'?([^'\s]+)'?\s+java-version:\s*'?([^'\s]+)'?`).FindStringSubmatch(ci)
+	if java == nil {
+		t.Fatalf("no setup-java distribution and java-version found in %s", ciWorkflowPath)
+	}
+	pins = append(pins, struct{ tool, source, want string }{"java", ciWorkflowPath, java[1] + "-" + java[2]})
+
+	for _, p := range pins {
+		got := pinFrom(t, misePath, regexp.MustCompile(`(?m)^`+p.tool+` = "([^"]+)"$`))
+		if got != p.want {
+			t.Errorf("mise.toml pins %s %s but %s pins %s; bump them together", p.tool, got, p.source, p.want)
+		}
 	}
 }
 
