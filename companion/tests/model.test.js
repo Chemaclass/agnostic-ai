@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ago, detailsOf, grouped, isDrag, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf } from '../frontend/model.js'
+import { PLACES, ago, detailsOf, grouped, isDrag, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf, viewIn } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -89,4 +89,17 @@ test('shows a shortcut as keycaps, with symbols on a Mac', () => {
   assert.deepEqual(keycapsOf('Ctrl+Alt+Space', true), ['⌃', '⌥', 'Space'])
   assert.deepEqual(keycapsOf('Cmd+Shift+K', true), ['⌘', '⇧', 'K'])
   assert.deepEqual(keycapsOf('Ctrl+Alt+Space', false), ['Ctrl', 'Alt', 'Space'])
+})
+
+test('narrows the list to one place and counts what needs the person there', () => {
+  const view = {
+    needsYou: 9,
+    conversations: [row('a', 'unread'), row('b', 'blocked', { app: 'cloud' }), row('c', 'active', { app: 'cloud' }), row('d', 'working', { app: 'cli' })],
+  }
+  assert.equal(viewIn(view, 'all'), view)
+  const local = viewIn(view, 'local')
+  assert.deepEqual([local.conversations.map((r) => r.id), local.needsYou, local.matches], [['a', 'd'], 1, undefined])
+  const cloud = viewIn({ ...view, matches: 4 }, 'cloud')
+  assert.deepEqual([cloud.conversations.map((r) => r.id), cloud.needsYou, cloud.matches], [['b', 'c'], 1, 2])
+  assert.deepEqual(PLACES.map((place) => place.id), ['all', 'local', 'cloud'])
 })

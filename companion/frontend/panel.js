@@ -1,11 +1,12 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, saveShortcut, saveStartAtLogin } from '/api.js'
-import { GROUPS, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf } from '/model.js'
+import { GROUPS, PLACES, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf, viewIn } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
 const clearButton = document.getElementById('clear')
 const note = document.getElementById('note')
+const places = document.getElementById('places')
 const list = document.getElementById('list')
 const summary = document.getElementById('summary')
 const toast = document.getElementById('toast')
@@ -17,7 +18,22 @@ const TOAST_MS = 3200
 /** Only the first rows rise one after another; the rest arrive with the last of them. */
 const STAGGERED_ROWS = 12
 
+const PLACE_KEY = 'place'
+
+/** The place chosen last time, or all. A web view that keeps no storage starts at all each run. */
+function storedPlace() {
+  let stored
+  try {
+    stored = localStorage.getItem(PLACE_KEY)
+  } catch {
+    return 'all'
+  }
+  return PLACES.some((place) => place.id === stored) ? stored : 'all'
+}
+
 const state = {
+  /** Which conversations show: all, local or cloud. Kept between runs. */
+  place: storedPlace(),
   /** The latest list, or the latest search result while a search is typed. */
   view: undefined,
   /** A search was typed and its answer is not here yet. */
@@ -33,6 +49,36 @@ const state = {
   activeKey: undefined,
   /** What was drawn last, so an unchanged list is not drawn again. */
   drawn: '',
+}
+
+/** The list as the place switch narrows it; undefined before the first one arrived. */
+function shownView() {
+  return state.view === undefined ? undefined : viewIn(state.view, state.place)
+}
+
+function choosePlace(place) {
+  state.place = place
+  try {
+    localStorage.setItem(PLACE_KEY, place)
+  } catch {
+    // The choice then lasts for this run only.
+  }
+  state.activeKey = undefined
+  drawPlaces()
+  draw({ force: true })
+}
+
+function drawPlaces() {
+  places.replaceChildren(
+    ...PLACES.map((place) => {
+      const button = element('button', 'place', place.label)
+      button.type = 'button'
+      button.title = place.title
+      button.setAttribute('aria-pressed', String(place.id === state.place))
+      button.addEventListener('click', () => choosePlace(place.id))
+      return button
+    }),
+  )
 }
 
 const ICONS = {
@@ -65,7 +111,7 @@ function isFolded(group) {
 }
 
 function visibleKeys() {
-  return grouped(state.view.conversations)
+  return grouped(shownView().conversations)
     .filter((group) => !isFolded(group))
     .flatMap((group) => group.rows.map(keyOf))
 }
@@ -164,8 +210,13 @@ function emptyMessage() {
   return empty
 }
 
+/** Why a cloud is missing, said only where cloud rows would show. */
+function cloudAside(view) {
+  return state.place === 'local' ? undefined : view.cloudNote
+}
+
 function draw({ force } = { force: false }) {
-  const view = state.view
+  const view = shownView()
   // What could not be read comes first, then what the companion and the server have to say.
   // A cloud that is missing is not a problem with the list: it gets a quiet line under the rows.
   const said = state.problem ?? state.note ?? view?.marksNote ?? ''
@@ -189,7 +240,7 @@ function draw({ force } = { force: false }) {
     list.replaceChildren()
     return
   }
-  const signature = JSON.stringify([view.conversations, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey])
+  const signature = JSON.stringify([view.conversations, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place])
   if (!force && signature === state.drawn) return
   state.drawn = signature
 
@@ -201,7 +252,7 @@ function draw({ force } = { force: false }) {
   list.replaceChildren()
   if (groups.length === 0) {
     list.append(emptyMessage())
-    if (view.cloudNote) list.append(element('p', 'aside', view.cloudNote))
+    if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
     return
   }
   let order = 0
@@ -213,7 +264,7 @@ function draw({ force } = { force: false }) {
       order += 1
     }
   }
-  if (view.cloudNote) list.append(element('p', 'aside', view.cloudNote))
+  if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
   list.scrollTop = scroll
 }
 
@@ -235,7 +286,7 @@ function moveActive(step) {
 }
 
 function activeConversation() {
-  return state.view?.conversations.find((conversation) => keyOf(conversation) === state.activeKey)
+  return shownView()?.conversations.find((conversation) => keyOf(conversation) === state.activeKey)
 }
 
 let toastTimer
@@ -469,6 +520,7 @@ card.addEventListener('animationend', (event) => {
   if (event.target === card) card.classList.remove('is-opening')
 })
 
+drawPlaces()
 Events.On('inbox', refresh)
 Events.On('panel-shown', (event) => opened(event.data))
 refresh()

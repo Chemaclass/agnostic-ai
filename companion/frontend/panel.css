@@ -40,7 +40,48 @@ body {
 /* Search */
 
 .head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 12px 12px 10px;
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+}
+
+/* All, Local, Cloud: one quiet track with the chosen place lifted. */
+
+.places {
+  display: flex;
+  flex: none;
+  height: 36px;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 10px;
+  background: rgba(242, 237, 229, 0.04);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.place {
+  padding: 0 9px;
+  border-radius: 7px;
+  color: var(--paper-faint);
+  font-size: 11.5px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.place:hover {
+  color: var(--paper-dim);
+}
+
+.place[aria-pressed='true'] {
+  background: rgba(242, 237, 229, 0.11);
+  color: var(--paper);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .search {

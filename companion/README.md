@@ -32,6 +32,9 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
 - **Click** the circle to open or close the list. So does the shortcut,
   **Ctrl+Alt+Space** (⌃⌥Space on a Mac) until you change it.
 - **Type** to search every conversation, of any age.
+- **All, Local, Cloud** beside the search narrows the list to the chats on this
+  machine or to the ones that run in a tool's cloud. It remembers your choice.
+  The number on the circle always counts both.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
 - Hover a row for its one button: **archive** a chat, or **hide** one that
   is already archived. **Archive all** beside Active archives every active

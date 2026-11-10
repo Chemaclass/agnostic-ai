@@ -11,6 +11,35 @@ export const GROUPS = [
   { id: 'archived', title: 'Archived', startsFolded: true },
 ]
 
+/** Where conversations run, as the switch beside the search offers them. */
+export const PLACES = [
+  { id: 'all', label: 'All', title: 'Every conversation' },
+  { id: 'local', label: 'Local', title: 'Conversations on this machine' },
+  { id: 'cloud', label: 'Cloud', title: 'Conversations that run in a tool\'s cloud' },
+]
+
+/** Whether a conversation runs in `place`. */
+const IN_PLACE = {
+  all: () => true,
+  local: (conversation) => conversation.app !== 'cloud',
+  cloud: (conversation) => conversation.app === 'cloud',
+}
+
+const NEEDS_PERSON = { blocked: true, unread: true }
+
+/**
+ * The view narrowed to one place: its rows, how many of them need the
+ * person and, in a search, how many match. `all` is the view as it came,
+ * with the server's own counts, which also cover weeks the list has not read.
+ */
+export function viewIn(view, place) {
+  if (place === 'all') return view
+  const conversations = view.conversations.filter(IN_PLACE[place])
+  const narrowed = { ...view, conversations, needsYou: conversations.filter((conversation) => NEEDS_PERSON[conversation.state]).length }
+  if (view.matches !== undefined) narrowed.matches = conversations.length
+  return narrowed
+}
+
 /** The group each state belongs to. */
 const GROUP_OF_STATE = {
   blocked: 'needs-you',
