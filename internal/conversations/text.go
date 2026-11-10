@@ -1,7 +1,6 @@
 package conversations
 
 import (
-	"context"
 	"maps"
 	"regexp"
 	"strings"
@@ -120,17 +119,23 @@ func showTexts(t texts) shownTexts {
 
 // shownCache keeps each row's shown texts from one scan to the next,
 // since the credential check costs more than the rest of a warm scan.
-// Texts no scan asked for since the previous one are dropped.
+// A list asks for the rows of one week and a search for every row that
+// may match, so what one scan did not ask for is kept for the next: a
+// search between two lists would otherwise pay for every row again.
 type shownCache struct {
 	last, next map[texts]shownTexts
 }
 
+// maxShownKept bounds the cache. Past it, only what the latest scan
+// asked for is kept; texts of chats that changed or went away would
+// otherwise pile up for as long as the server runs.
+const maxShownKept = 20000
+
 func (c *shownCache) start() { c.next = map[texts]shownTexts{} }
 
-// finish keeps what this scan asked for. A canceled scan stopped before
-// it reached every row, so it adds to what the cache held instead.
-func (c *shownCache) finish(ctx context.Context) {
-	if ctx.Err() == nil || c.last == nil {
+// finish adds what this scan asked for to what the cache held.
+func (c *shownCache) finish() {
+	if c.last == nil || len(c.last)+len(c.next) > maxShownKept {
 		c.last, c.next = c.next, nil
 		return
 	}
@@ -162,4 +167,46 @@ func (s *Scanner) fill(c *Conversation, t texts) {
 // as the file content view does, read as prose rather than as a file.
 func mayHoldCredential(text string) bool {
 	return text != "" && preview.ProseSensitive(text)
+}
+
+// queryWords splits a search into lowercase words.
+func queryWords(query string) []string {
+	return strings.Fields(strings.ToLower(query))
+}
+
+// matching keeps the conversations whose row text holds every word:
+// title, folder, branch, latest prompt, tool and app, the fields a row
+// shows. A withheld field is not shown, so it does not match either.
+func matching(list []Conversation, words []string) []Conversation {
+	var kept []Conversation
+	for _, c := range list {
+		if holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+			kept = append(kept, c)
+		}
+	}
+	return kept
+}
+
+// typedShell is a command typed with Claude Code's ! prefix, which the
+// page shows as "! command"; the tool may cut the closing tag.
+var typedShell = regexp.MustCompile(`^\s*<bash-input>((?s).*?)(?:</bash-input>\s*)?$`)
+
+// asShown reads a title or prompt the way the page shows it, so a search
+// matches the text a person sees and never the markup around it.
+func asShown(text string) string {
+	if match := typedShell.FindStringSubmatch(text); match != nil {
+		return "! " + match[1]
+	}
+	return text
+}
+
+// holdsAll reports whether text holds each lowercase word, ignoring case.
+func holdsAll(text string, words []string) bool {
+	text = strings.ToLower(text)
+	for _, word := range words {
+		if !strings.Contains(text, word) {
+			return false
+		}
+	}
+	return true
 }

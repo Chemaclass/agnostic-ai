@@ -113,23 +113,51 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 // fillPending reads the prompts of the page's Cursor editor chats, the
 // only rows whose prompts wait for a page: the store holds thousands.
 func (s *Scanner) fillPending(ctx context.Context, page []Conversation) {
-	var waiting []Conversation
-	for _, c := range page {
-		if c.pending != nil {
-			waiting = append(waiting, c)
-		}
-	}
-	prompts := s.cursorEditorPrompts(ctx, waiting)
+	prompts := s.cursorEditorPrompts(ctx, pendingRows(page))
 	for i := range page {
 		c := &page[i]
-		if c.pending == nil {
-			continue
+		if c.pending != nil {
+			t := withPrompts(*c.pending, prompts[c.ID])
+			c.pending = nil
+			s.fill(c, t)
 		}
-		t := *c.pending
-		t.firstPrompt, t.lastPrompt = prompts[c.ID].First, prompts[c.ID].Last
-		c.pending = nil
-		s.fill(c, t)
 	}
+}
+
+// searchAll keeps the rows whose shown text holds every word. A pending
+// Cursor chat is checked on its raw text first, a superset of what it
+// shows, so only the chats that may match pay for the credential check;
+// the match is then made on the shown text, so withheld text never matches.
+func (s *Scanner) searchAll(ctx context.Context, all []Conversation, words []string) []Conversation {
+	prompts := s.cursorEditorPrompts(ctx, pendingRows(all))
+	var maybe []Conversation
+	for _, c := range all {
+		if c.pending != nil {
+			t := withPrompts(*c.pending, prompts[c.ID])
+			if !holdsAll(strings.Join([]string{t.title, t.firstPrompt, t.lastPrompt, c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+				continue
+			}
+			c.pending = nil
+			s.fill(&c, t)
+		}
+		maybe = append(maybe, c)
+	}
+	return matching(maybe, words)
+}
+
+func pendingRows(list []Conversation) []Conversation {
+	var pending []Conversation
+	for _, c := range list {
+		if c.pending != nil {
+			pending = append(pending, c)
+		}
+	}
+	return pending
+}
+
+func withPrompts(t texts, prompts cursorPrompts) texts {
+	t.firstPrompt, t.lastPrompt = prompts.First, prompts.Last
+	return t
 }
 
 var cursorWorkspacePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -171,26 +199,53 @@ func (s *Scanner) cursorOpenChats(ctx context.Context, headers []cursorHeader) m
 	return open
 }
 
+// cursorPromptBatch bounds how many chats one prompts query names.
+const cursorPromptBatch = 300
+
 // cursorEditorPrompts reads the first and last prompt of the editor
-// chats among list, which are only the ones the view shows.
+// chats among list. A chat's prompts are kept until its last activity
+// time changes, so a search over thousands of chats queries only the
+// ones that are new or changed.
 func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) map[string]cursorPrompts {
+	if s.cursorPrompts == nil {
+		s.cursorPrompts = map[string]cached[cursorPrompts]{}
+	}
 	prompts := map[string]cursorPrompts{}
-	var values []string
+	var missing []string
 	for _, c := range list {
-		if c.App == AppIDE {
-			// Ids match cursorIDPattern, so they need no escaping.
-			values = append(values, "('"+c.ID+"')")
+		if c.App != AppIDE {
+			continue
 		}
+		if hit, ok := s.cursorPrompts[c.ID]; ok && hit.stamp == c.UpdatedAt {
+			prompts[c.ID] = hit.value
+			continue
+		}
+		missing = append(missing, c.ID)
 	}
-	if len(values) == 0 {
-		return prompts
+	stamps := map[string]string{}
+	for _, c := range list {
+		stamps[c.ID] = c.UpdatedAt
 	}
-	rows, err := queryRows[cursorPrompts](ctx, s.SQLite, s.Stores.CursorDB, fmt.Sprintf(cursorPromptsQuery, strings.Join(values, ",")))
-	if err != nil {
-		return prompts
-	}
-	for _, row := range rows {
-		prompts[row.ID] = row
+	for start := 0; start < len(missing); start += cursorPromptBatch {
+		batch := missing[start:min(start+cursorPromptBatch, len(missing))]
+		values := make([]string, len(batch))
+		for i, id := range batch {
+			// Ids match cursorIDPattern, so they need no escaping.
+			values[i] = "('" + id + "')"
+		}
+		rows, err := queryRows[cursorPrompts](ctx, s.SQLite, s.Stores.CursorDB, fmt.Sprintf(cursorPromptsQuery, strings.Join(values, ",")))
+		if err != nil {
+			continue
+		}
+		found := map[string]cursorPrompts{}
+		for _, row := range rows {
+			found[row.ID] = row
+		}
+		// A chat with no prompt rows is cached too, so it is not asked again.
+		for _, id := range batch {
+			prompts[id] = found[id]
+			s.cursorPrompts[id] = cached[cursorPrompts]{stamp: stamps[id], value: found[id]}
+		}
 	}
 	return prompts
 }

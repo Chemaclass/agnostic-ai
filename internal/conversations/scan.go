@@ -66,18 +66,37 @@ type Scanner struct {
 	SQLite    SQLiteQuery
 	Processes Processes
 	Now       func() time.Time
+	// MarksPath is the file that keeps the person's seen and completed
+	// marks. Empty keeps none.
+	MarksPath string
+	// Cloud lists the Claude Code sessions that run at claude.ai/code.
+	// Nil reads none, and nothing leaves this machine.
+	Cloud CloudSessions
+	// CodexCloud lists the Codex threads that run in the Codex cloud.
+	// Nil reads none.
+	CodexCloud CloudSessions
 
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
 	cursorAgents      map[string]cached[cursorAgentMeta]
 	cursorTranscripts map[string]cached[[2]string]
+	cursorPrompts     map[string]cached[cursorPrompts]
 	shown             shownCache
+	keptSources       map[Tool]keptSource
+	keptClouds        map[Tool]*keptCloud
+
+	// rolloutsMu guards codexLiveRollouts apart from mu: Stamp reads
+	// them without waiting for a scan to end.
+	rolloutsMu sync.Mutex
+	// codexLiveRollouts are the rollouts of the Codex threads a process
+	// had loaded at the last read.
+	codexLiveRollouts []string
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
 // and process table.
 func NewScanner() *Scanner {
-	return &Scanner{Stores: DefaultStores(), SQLite: RunSQLite, Processes: SystemProcesses{}, Now: time.Now}
+	return &Scanner{Stores: DefaultStores(), SQLite: RunSQLite, Processes: SystemProcesses{}, Now: time.Now, MarksPath: DefaultMarksPath()}
 }
 
 // ScanOptions narrow and shape one scan.
@@ -91,6 +110,11 @@ type ScanOptions struct {
 	// this time. Zero asks for the first page: the open conversations
 	// and the past week.
 	Before time.Time
+	// Query keeps the conversations of every age whose shown text holds
+	// each of its words; the pages then hold only those.
+	Query string
+	// Tool keeps one tool's conversations; empty keeps all three.
+	Tool Tool
 }
 
 // Scan returns one page of conversations, newest first. The first page
@@ -102,11 +126,18 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.shown.start()
-	defer s.shown.finish(ctx)
-	results := s.readAll(ctx, opts)
+	defer s.shown.finish()
+	results, cloudNote := s.readAll(ctx, opts)
+	needsYou, marksErr := s.applyMarks(results)
 	var all []Conversation
 	for _, result := range results {
-		all = append(all, result.conversations...)
+		if opts.Tool == "" || result.source.Tool == opts.Tool {
+			all = append(all, result.conversations...)
+		}
+	}
+	words := queryWords(opts.Query)
+	if len(words) > 0 {
+		all = s.searchAll(ctx, all, words)
 	}
 	first := opts.Before.IsZero()
 	to := opts.Before
@@ -123,8 +154,17 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 		From: from.UTC().Format(time.RFC3339), To: to.UTC().Format(time.RFC3339),
 		Tools: []Source{}, Conversations: page,
 	}
+	view.NeedsYou = needsYou
+	if marksErr != nil {
+		view.MarksNote = "Seen and completed marks are unavailable: " + marksErr.Error()
+	}
+	view.CloudNote = cloudNote
 	if more {
 		view.Next = view.From
+	}
+	if len(words) > 0 {
+		matches := len(all)
+		view.Matches = &matches
 	}
 	for _, result := range results {
 		result.source.Count = len(result.conversations)
@@ -145,7 +185,8 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptions) (Conversation, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, result := range s.readAll(ctx, opts) {
+	results, _ := s.readAll(ctx, opts)
+	for _, result := range results {
 		for _, c := range result.conversations {
 			if c.Tool == tool && c.ID == id {
 				return c, true
@@ -155,12 +196,26 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 	return Conversation{}, false
 }
 
-func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) []sourceResult {
-	return []sourceResult{
-		s.scanClaude(ctx, opts),
-		s.scanCodex(ctx, opts),
-		s.scanCursor(ctx, opts),
+// readAll reads every store. A tool's cloud conversations count among
+// its own; cloudNote says why they are missing, when they are.
+func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
+	claude := s.scanClaude(ctx, opts)
+	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
+	claude.conversations = append(claude.conversations, claudeCloud...)
+	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })
+	codexCloud, codexNote := s.cloudRows(ctx, opts, ToolCodex, s.CodexCloud)
+	codex.conversations = append(codex.conversations, codexCloud...)
+	var notes []string
+	for _, note := range []string{claudeNote, codexNote} {
+		if note != "" {
+			notes = append(notes, note)
+		}
 	}
+	return []sourceResult{
+		claude,
+		codex,
+		s.kept(ctx, ToolCursor, opts, s.cursorFiles(), func() sourceResult { return s.scanCursor(ctx, opts) }),
+	}, strings.Join(notes, " ")
 }
 
 // weekPage picks one page from all: below to, from a week earlier, or

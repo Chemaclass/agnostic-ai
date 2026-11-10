@@ -43,13 +43,13 @@ func BenchmarkShownTexts(b *testing.B) {
 		for _, t := range list {
 			cache.get(t)
 		}
-		cache.finish(context.Background())
+		cache.finish()
 		for b.Loop() {
 			cache.start()
 			for _, t := range list {
 				cache.get(t)
 			}
-			cache.finish(context.Background())
+			cache.finish()
 		}
 	})
 }

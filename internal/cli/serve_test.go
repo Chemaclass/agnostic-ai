@@ -24,6 +24,15 @@ func TestServe_RejectsAPIOnlyWithClientFlags(t *testing.T) {
 	}
 }
 
+func TestServe_ListsCloudSessionsOnlyOnAGlobalServer(t *testing.T) {
+	cmd := newServeCmd()
+	cmd.SetArgs([]string{"--cloud-sessions", "--api-only"})
+	want := "--cloud-sessions needs --global: cloud sessions belong to no project folder"
+	if err := cmd.Execute(); err == nil || err.Error() != want {
+		t.Errorf("error = %v, want %q", err, want)
+	}
+}
+
 func TestServeMux_ServesHealthAndTheView(t *testing.T) {
 	silence(t)
 	testutil.Chdir(t, demoProject(t))

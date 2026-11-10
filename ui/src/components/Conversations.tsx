@@ -10,7 +10,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationRoute, ConversationSource, ConversationsView } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
@@ -22,7 +22,20 @@ import { Badge, CopyButton, Icon, RowActions, ToolAvatar, toolName } from './ui'
 const TITLE = 'Conversations'
 const NEEDS_SERVER = CONVERSATIONS_NEED_SERVER
 const INTRO = 'Pick up where you left off, in the tool where it lives.'
-const SEARCH_NOTE = 'Search covers the weeks loaded so far.'
+const SEARCH_NOTE = 'Search covers every conversation, loaded or not.'
+
+// How long typing pauses before the search goes to the server.
+const SEARCH_PAUSE_MS = 300
+
+/** The line under the search box: a search on its way, its matches across every week, or what a tool button kept. */
+function searchStatus(searching: boolean, matches: number | undefined, kept: number, loaded: number, toolChosen: boolean): string {
+  if (searching) return 'Searching…'
+  if (matches !== undefined && toolChosen) return `${kept} of ${plural(matches, 'conversation')} match.`
+  if (matches !== undefined) return `${plural(matches, 'conversation')} ${matches === 1 ? 'matches' : 'match'}.`
+  if (toolChosen) return `${kept} of ${plural(loaded, 'conversation')} match.`
+  return ''
+}
+
 const MOCK_OPEN_MESSAGE = 'Mock data: opening a conversation needs agnostic-ai view running.'
 
 /** Where loading the week before stands. */
@@ -55,6 +68,10 @@ export function ConversationsPage() {
   const [error, setError] = useState<Error>()
   const [older, setOlder] = useState<Older>({ state: 'idle' })
   const [tool, setTool] = useState<ToolFilter>('all')
+  const query = app.state.q ?? ''
+  // The search goes to the server, which searches every conversation, once typing pauses.
+  const [searched, setSearched] = useState(query.trim())
+  const [searching, setSearching] = useState(false)
   const olderRequest = useRef<AbortController | undefined>(undefined)
   const sentinel = useRef<HTMLDivElement>(null)
   const olderButton = useRef<HTMLButtonElement>(null)
@@ -63,7 +80,12 @@ export function ConversationsPage() {
   const needsServer = app.source.kind === 'static'
   const next = pages.at(-1)?.next
 
-  // The first page. A new editor changes every link, so it starts over.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearched(query.trim()), SEARCH_PAUSE_MS)
+    return () => window.clearTimeout(timer)
+  }, [query])
+
+  // The first page. A new editor or search changes every row, so it starts over.
   // A kept copy shows until the fresh one lands, which replaces it only
   // when a row or source changed.
   useEffect(() => {
@@ -73,13 +95,16 @@ export function ConversationsPage() {
     olderRequest.current = undefined
     setOlder({ state: 'idle' })
     setError(undefined)
-    const cached = firstPages.get(cacheKey)
+    // Only the list without a search is kept for a quick return.
+    const cached = searched ? undefined : firstPages.get(cacheKey)
     if (cached) setPages((current) => current[0] === cached ? current : [cached])
-    loadConversations(app.source, editor, undefined, controller.signal).then(
+    setSearching(searched !== '')
+    loadConversations(app.source, editor, { query: searched || undefined }, controller.signal).then(
       (loaded) => {
         if (controller.signal.aborted) return
+        setSearching(false)
         if (cached && sameFirstPage(cached, loaded.data)) return
-        firstPages.set(cacheKey, loaded.data)
+        if (!searched) firstPages.set(cacheKey, loaded.data)
         // A week loaded or loading after the kept page may leave a gap
         // before the fresh one, so the list starts over from it.
         olderRequest.current?.abort()
@@ -88,11 +113,13 @@ export function ConversationsPage() {
         setPages([loaded.data])
       },
       (failure: Error) => {
-        if (!controller.signal.aborted && failure.name !== 'AbortError') setError(failure)
+        if (controller.signal.aborted || failure.name === 'AbortError') return
+        setSearching(false)
+        setError(failure)
       },
     )
     return () => controller.abort()
-  }, [needsServer, app.source, editor, cacheKey])
+  }, [needsServer, app.source, editor, cacheKey, searched])
 
   useEffect(() => () => olderRequest.current?.abort(), [])
 
@@ -102,7 +129,7 @@ export function ConversationsPage() {
     const controller = new AbortController()
     olderRequest.current = controller
     setOlder({ state: 'loading', before })
-    loadConversations(app.source, editor, before, controller.signal).then(
+    loadConversations(app.source, editor, { query: searched || undefined, before }, controller.signal).then(
       (loaded) => {
         if (controller.signal.aborted) return
         olderRequest.current = undefined
@@ -151,7 +178,6 @@ export function ConversationsPage() {
       </>
     )
   }
-  const query = app.state.q ?? ''
   const setQuery = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
   if (!loaded && error) {
     return (
@@ -167,9 +193,10 @@ export function ConversationsPage() {
   // same elements before and after, so focus and typing carry over.
   const rows = mergePages(pages)
   const now = new Date()
-  const matching = filterConversations(rows, query, tool)
+  // The server already searched; the tool buttons narrow what it sent.
+  const matching = filterConversations(rows, '', tool)
   const groups = groupConversations(matching, now)
-  const filtering = query.trim() !== '' || tool !== 'all'
+  const matches = pages[0]?.matches
   const canOpen = app.source.kind === 'api'
   const loading = older.state === 'loading'
 
@@ -184,13 +211,13 @@ export function ConversationsPage() {
       <Search
         query={query}
         onQuery={setQuery}
-        status={loaded && filtering ? `${matching.length} of ${plural(rows.length, 'conversation')} match.` : ''}
+        status={loaded ? searchStatus(searching, matches, matching.length, rows.length, tool !== 'all') : ''}
         tools={loaded
           ? <ToolFilterButtons sources={pages.at(-1)!.tools} rows={rows} tool={tool} onChoose={setTool} />
           : <ToolFilterSkeleton />}
       />
       {!loaded && <ListSkeleton />}
-      {rows.length > 0 && groups.length === 0 && <p className="muted empty-matches">No conversation matches.</p>}
+      {loaded && groups.length === 0 && (matches === 0 || rows.length > 0) && <p className="muted empty-matches">No conversation matches.</p>}
       {groups.map((group) => {
         const headingId = `conversations-${group.id}`
         return (
@@ -348,6 +375,7 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
         <p className="conversation-meta">
           {conversation.live && <LiveBadge conversation={conversation} />}
+          <StateBadge conversation={conversation} />
           <span className="conversation-tool" title={`${toolName(conversation.tool)}, ${appLabel(conversation.app)}`}>{toolName(conversation.tool)}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}
           {conversation.branch && <span className="conversation-branch">{conversation.branch}</span>}
@@ -380,6 +408,17 @@ function LiveBadge({ conversation }: { conversation: Conversation }) {
   if (!badge) return null
   return (
     <Badge tone={badge.tone} className="conversation-live" title={badge.description}>
+      <span aria-hidden="true">{badge.label}</span>
+      <span className="sr-only">{badge.description}</span>
+    </Badge>
+  )
+}
+
+function StateBadge({ conversation }: { conversation: Conversation }) {
+  const badge = stateBadge(conversation.state)
+  if (!badge) return null
+  return (
+    <Badge tone={badge.tone} className="conversation-state" title={badge.description}>
       <span aria-hidden="true">{badge.label}</span>
       <span className="sr-only">{badge.description}</span>
     </Badge>

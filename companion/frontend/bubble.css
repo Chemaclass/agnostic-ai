@@ -1,0 +1,125 @@
+body {
+  display: grid;
+  place-items: center;
+}
+
+/* bubble.js tells a click from a drag, so the circle is not a Wails drag
+   region: that starts a drag on the first pixel of movement and drops the click. */
+.bubble {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  transition: transform 220ms var(--ease-spring);
+}
+
+/* Presses land on the button itself, never on the shapes inside it. */
+.bubble > * {
+  pointer-events: none;
+}
+
+.bubble:hover {
+  transform: scale(1.06);
+}
+
+.bubble:active {
+  transform: scale(0.95);
+  transition-duration: 90ms;
+}
+
+.disc {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(120% 120% at 28% 18%, rgba(242, 237, 229, 0.16), transparent 46%),
+    linear-gradient(160deg, #2b2620, var(--ink) 62%);
+  box-shadow:
+    inset 0 0 0 1px var(--hairline-strong),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 6px 14px rgba(0, 0, 0, 0.38),
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.mark {
+  width: 32px;
+  height: 32px;
+  transition: opacity 200ms ease;
+}
+
+.dots {
+  fill: var(--paper);
+}
+
+.focus-dot {
+  fill: var(--rust);
+}
+
+.focus-ring {
+  fill: none;
+  stroke: var(--rust);
+  stroke-width: 2.5;
+}
+
+/* Nothing can be read: the mark dims. */
+.bubble.is-troubled .mark {
+  opacity: 0.4;
+}
+
+/* An agent is working: a quiet arc turns around the circle. */
+.ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 62%, var(--busy) 96%, transparent 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+.bubble.is-working .ring {
+  opacity: 1;
+  animation: turn 1.6s linear infinite;
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: linear-gradient(180deg, #f7b877, var(--action));
+  box-shadow: 0 0 0 2px var(--ink), 0 2px 6px rgba(0, 0, 0, 0.45);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.badge[hidden] {
+  display: none;
+}
+
+.badge.is-new {
+  animation: pop 360ms var(--ease-spring);
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.4);
+  }
+}

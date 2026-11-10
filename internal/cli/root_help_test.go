@@ -31,7 +31,7 @@ func TestRoot_HelpListsEveryCommandOnceByTask(t *testing.T) {
 		t.Error("help has commands outside the task groups")
 	}
 
-	want := strings.Fields("cleanup compare completion doctor explain graph handoff help hook import init install-hook lint list lsp mcp memory migrate new packs project render revert serve status sync upgrade use validate verify view why")
+	want := strings.Fields("cleanup companion compare completion doctor explain graph handoff help hook import init install-hook lint list lsp mcp memory migrate new packs project render revert serve status sync upgrade use validate verify view why")
 	listed := map[string]int{}
 	for line := range strings.SplitSeq(out.String(), "\n") {
 		fields := strings.Fields(line)

@@ -3,7 +3,7 @@
 // shows as. The server sends the rows newest first; these helpers keep
 // that order.
 
-import type { Conversation, ConversationActivity, ConversationApp, ConversationOpenReply, ConversationRoute, ConversationSource, ConversationsView, ConversationTool } from '../contract'
+import type { Conversation, ConversationActivity, ConversationApp, ConversationOpenReply, ConversationRoute, ConversationSource, ConversationState, ConversationTool, ConversationsView } from '../contract'
 import { plural } from './format'
 
 const APP_LABELS = {
@@ -11,6 +11,7 @@ const APP_LABELS = {
   ide: 'Editor',
   desktop: 'Desktop app',
   background: 'Background',
+  cloud: 'Cloud',
 } satisfies Record<ConversationApp, string>
 
 /** Where the chat lives, in words; an app this client does not know shows its raw name. */
@@ -111,13 +112,13 @@ function searchParts(conversation: Conversation): string[] {
   return [chatText(conversation.title).text, conversation.folder ?? '', conversation.branch ?? '', chatText(conversation.prompt ?? '').text]
 }
 
-/** Rows from the chosen tool whose title, folder, branch, or last prompt, as the row shows them, holds the query, ignoring case. */
+/** Rows from the chosen tool whose title, folder, branch, or last prompt, as the row shows them, holds every word of the query, ignoring case: the server's rule, applied here to mock data. */
 export function filterConversations(conversations: Conversation[], query: string, tool: ToolFilter): Conversation[] {
-  const needle = query.trim().toLowerCase()
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   return conversations.filter((conversation) => {
     const toolMatches = tool === 'all' || conversation.tool === tool
-    const textMatches = needle === '' || searchParts(conversation).some((part) => part.toLowerCase().includes(needle))
-    return toolMatches && textMatches
+    const text = searchParts(conversation).join('\n').toLowerCase()
+    return toolMatches && words.every((word) => text.includes(word))
   })
 }
 
@@ -200,6 +201,25 @@ const ACTIVITY_BADGES = {
 /** The status chip of an open chat: only Working or Waiting, since the Open now group already says it is open. */
 export function liveBadge(activity: ConversationActivity | undefined): LiveBadge | undefined {
   if (activity === 'working' || activity === 'waiting') return ACTIVITY_BADGES[activity]
+  return undefined
+}
+
+const STATE_BADGES = {
+  unread: { label: 'New reply', tone: 'approval', description: 'Something was written since you last opened it' },
+  completed: { label: 'Archived', tone: 'neutral', description: 'You archived it; a new message brings it back' },
+} satisfies Partial<Record<ConversationState, StateBadge>>
+
+interface StateBadge {
+  label: string
+  /** Amber for a reply that waits to be read, neutral for a finished chat. */
+  tone: 'approval' | 'neutral'
+  /** The full sentence, for the title and screen readers. */
+  description: string
+}
+
+/** The chip for the person's own marks: a reply not yet read, or a chat marked as done. Waiting and working already have the live chip, and an active or dormant chat needs none. */
+export function stateBadge(state: ConversationState | undefined): StateBadge | undefined {
+  if (state === 'unread' || state === 'completed') return STATE_BADGES[state]
   return undefined
 }
 

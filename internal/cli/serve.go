@@ -22,6 +22,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/conversations"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -39,6 +40,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	var (
 		addr, dir, uiDir, switchBack       string
 		open, global, noInstalled, apiOnly bool
+		stopWithStdin, cloudSessions       bool
 		allowedOrigins                     []string
 	)
 	cmd := &cobra.Command{
@@ -59,7 +61,10 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
   agnostic-ai serve --ui ui/dist --open
 
   # The user-level configuration
-  agnostic-ai serve --global`,
+  agnostic-ai serve --global
+
+  # Also list Claude Code cloud sessions and Codex cloud threads
+  agnostic-ai serve --global --cloud-sessions`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if apiOnly && (cmd.Flags().Changed("ui") || open) {
@@ -85,6 +90,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			}
 			if global && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
+			}
+			// A project server lists the conversations started in the
+			// project, and a cloud session names no folder.
+			if cloudSessions && !global {
+				return errors.New("--cloud-sessions needs --global: cloud sessions belong to no project folder")
 			}
 			if uiDir != "" {
 				abs, err := filepath.Abs(uiDir)
@@ -138,7 +148,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			switches := newSwitchHandler(peer, viewPortCandidates(), probeViewServer, peerStarter)
 			switches.back = switchBack
 			defer switches.close()
-			return serveUntilInterrupted(cmd.Context(), ln, newServeMuxWithSwitch(src.load, opts, !noInstalled, switches))
+			ctx := cmd.Context()
+			if stopWithStdin {
+				ctx = endedWith(ctx, cmd.InOrStdin())
+			}
+			return serveUntilInterrupted(ctx, ln, newServeMuxWithCloud(src.load, opts, !noInstalled, switches, cloudSessions))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -151,6 +165,9 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	cmd.Flags().BoolVar(&noInstalled, "no-installed", false, "Skip comparing the generated files with disk.")
 	cmd.Flags().StringVar(&switchBack, "switch-back", "", "Loopback address of the server that started this one; its way back tries it first.")
 	_ = cmd.Flags().MarkHidden("switch-back")
+	cmd.Flags().BoolVar(&stopWithStdin, "stop-with-stdin", false, "Stop when standard input closes: a program that started this server ends it by closing the pipe, or by ending itself.")
+	_ = cmd.Flags().MarkHidden("stop-with-stdin")
+	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions and Codex cloud threads: reads each tool's own sign-in on this machine and asks its cloud at most once a minute. Needs --global.")
 	return cmd
 }
 
@@ -174,6 +191,13 @@ func newServeMuxWith(load authority.Loader, opts authority.HandlerOptions, compa
 // newServeMuxWithSwitch also mounts the switch to the other
 // configuration when switches is set.
 func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler) http.Handler {
+	return newServeMuxWithCloud(load, opts, compareInstalled, switches, false)
+}
+
+// newServeMuxWithCloud also lists Claude Code cloud sessions and Codex
+// cloud threads when cloudSessions is set. Without it nothing reads the sign-in or leaves
+// this machine.
+func newServeMuxWithCloud(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler, cloudSessions bool) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
 	views := newOverviewHandler(".", compareInstalled)
@@ -198,8 +222,13 @@ func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions,
 	mux.Handle(builtinStatusPath+"/", changes)
 	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
 	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
+	if cloudSessions {
+		conversationsHandler.scanner.Cloud = conversations.NewClaudeCloud()
+		conversationsHandler.scanner.CodexCloud = conversations.NewCodexCloud()
+	}
 	mux.Handle(conversationsViewPath, conversationsHandler)
 	mux.Handle(conversationOpenPath, conversationsHandler)
+	mux.Handle(conversationMarkPath, conversationsHandler)
 	mux.Handle(sourceViewPath, newSourceHandler(opts.Global))
 	var peer *switchPeer
 	if switches != nil {
@@ -229,12 +258,23 @@ func serializeAPI(next http.Handler) http.Handler {
 		// Conversations read only the coding tools' own stores and lock
 		// their own scanner, so a slow scan does not hold up the overview.
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath && r.URL.Path != switchPath &&
-			r.URL.Path != conversationsViewPath && r.URL.Path != conversationOpenPath {
+			r.URL.Path != conversationsViewPath && r.URL.Path != conversationOpenPath && r.URL.Path != conversationMarkPath {
 			mu.Lock()
 			defer mu.Unlock()
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// endedWith returns a context that also ends when in reaches its end:
+// the program at the other side of the pipe closed it or is gone.
+func endedWith(ctx context.Context, in io.Reader) context.Context {
+	ctx, end := context.WithCancel(ctx)
+	go func() {
+		_, _ = io.Copy(io.Discard, in)
+		end()
+	}()
+	return ctx
 }
 
 // serveSignals stops serve on hangup too, unless the hangup was ignored

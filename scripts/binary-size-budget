@@ -837,4 +837,19 @@
 # #3198 measured 25452704 bytes in CI: the Grok error names the ignore file
 # and pattern, and the guided upgrade prints each requires change. The
 # budget is that plus 8192, rounded up to a multiple of 4096.
-25464832
+# The conversations search, states, marks and kept Codex and Cursor reads
+# measured 25489568 bytes locally; the budget is that plus 8192, rounded up
+# to a multiple of 4096.
+# The companion command (install and start), the list ETag, the hidden
+# mark and serve --stop-with-stdin measured 25530528 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# serve --cloud-sessions, which lists Claude Code cloud sessions, measured
+# 25559200 bytes locally; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+# Codex cloud threads under the same flag, and working local Codex
+# threads read from their rollouts, measured 25591968 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# The lock on the conversation marks file, shared by every server on
+# the machine, measured 25600160 bytes locally; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+25612288

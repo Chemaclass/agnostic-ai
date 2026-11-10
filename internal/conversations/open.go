@@ -146,6 +146,9 @@ func SystemLauncher() Launcher {
 // Open reopens a conversation along its route. The conversation comes
 // from the server's own scan, never from the request.
 func Open(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
+	if c.App == AppCloud {
+		return openCloud(ctx, c, launcher)
+	}
 	switch c.Open.Kind {
 	case RouteLink:
 		return openLink(ctx, c, launcher)
@@ -175,6 +178,35 @@ func openLink(ctx context.Context, c Conversation, launcher Launcher) OpenReply 
 		return OpenReply{Opened: true, Message: fmt.Sprintf("Opened in %s, but its folder %s could not be opened, so it may show in another window.", app, c.Folder)}
 	}
 	return OpenReply{Opened: true, Message: fmt.Sprintf("Opened in %s.", app)}
+}
+
+// cloudOpening is what opening a tool's cloud conversation says.
+type cloudOpening struct {
+	// opened is the reply when the link opened.
+	opened string
+	// failed starts the reply when it did not; the link follows.
+	failed string
+	// home is where the person finds the conversation by hand.
+	home string
+}
+
+var cloudOpenings = map[Tool]cloudOpening{
+	ToolClaude: {opened: "Opened on claude.ai.", failed: "Could not open a browser. This session runs in the cloud: open ", home: claudeCloudLink},
+	ToolCodex:  {opened: "Opened in the Codex app.", failed: "Could not open the Codex app. This thread runs in the cloud: open ", home: "the Codex app"},
+}
+
+// openCloud opens a cloud conversation where its tool shows it: a
+// Claude Code session's own page in the browser, a Codex thread in the
+// Codex app.
+func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
+	opening := cloudOpenings[c.Tool]
+	if err := checkedLink(c.Open.Link); err != nil {
+		return OpenReply{Message: "This conversation runs in the cloud and its link is not one this version opens. Find it in " + opening.home + " by its title."}
+	}
+	if err := launcher.OpenLink(ctx, c.Open.Link); err != nil {
+		return OpenReply{Message: opening.failed + c.Open.Link}
+	}
+	return OpenReply{Opened: true, Message: opening.opened}
 }
 
 func newTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
@@ -255,6 +287,10 @@ func bringHostForward(ctx context.Context, c Conversation, app string, launcher 
 }
 
 func checkedLink(link string) error {
+	// The one kind of web page the server opens: a cloud session's own.
+	if cloudSessionLinkPattern.MatchString(link) {
+		return nil
+	}
 	parsed, err := url.Parse(link)
 	if err != nil || !linkSchemes[parsed.Scheme] {
 		return fmt.Errorf("refusing to open %q", link)

@@ -1,0 +1,685 @@
+/* The window is larger than the card by 16px a side, which holds the shadow. */
+body {
+  padding: 16px;
+}
+
+.card {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(242, 237, 229, 0.05), transparent 120px),
+    var(--ink);
+  box-shadow:
+    inset 0 0 0 1px var(--hairline),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 16px rgba(0, 0, 0, 0.32),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+/* The card grows out of the corner nearest the bubble. */
+.card[data-from='top-left'] { transform-origin: top left; }
+.card[data-from='top-right'] { transform-origin: top right; }
+.card[data-from='bottom-left'] { transform-origin: bottom left; }
+.card[data-from='bottom-right'] { transform-origin: bottom right; }
+
+.card.is-opening {
+  animation: open 200ms var(--ease-out);
+}
+
+@keyframes open {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* Search */
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 10px;
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+}
+
+/* All, Local, Cloud at the foot: one quiet track with the chosen place lifted. */
+
+.places {
+  display: flex;
+  flex: none;
+  height: 26px;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 8px;
+  background: rgba(242, 237, 229, 0.04);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.place {
+  padding: 0 9px;
+  border-radius: 6px;
+  color: var(--paper-faint);
+  font-size: 11.5px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.place:hover {
+  color: var(--paper-dim);
+}
+
+.place[aria-pressed='true'] {
+  background: rgba(242, 237, 229, 0.11);
+  color: var(--paper);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(242, 237, 229, 0.06);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: box-shadow 140ms ease, background 140ms ease;
+}
+
+.search:focus-within {
+  background: rgba(242, 237, 229, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(240, 163, 94, 0.55), 0 0 0 3px var(--rust-soft);
+}
+
+.search svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: var(--paper-faint);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: 0;
+  color: var(--paper);
+  font: inherit;
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+  cursor: text;
+}
+
+.search input::placeholder {
+  color: var(--paper-faint);
+}
+
+.clear {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(242, 237, 229, 0.1);
+}
+
+.clear[hidden] {
+  display: none;
+}
+
+.clear svg {
+  width: 10px;
+  height: 10px;
+  stroke: var(--paper-dim);
+  stroke-width: 1.8;
+}
+
+.clear:hover {
+  background: rgba(242, 237, 229, 0.18);
+}
+
+/* A problem above the list */
+
+.note {
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--alert-soft);
+  color: var(--paper);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.note[hidden],
+.toast[hidden] {
+  display: none;
+}
+
+/* List */
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 6px 6px;
+  outline: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 237, 229, 0.16) transparent;
+}
+
+.list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background: rgba(242, 237, 229, 0.16);
+  background-clip: content-box;
+}
+
+.group-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  background: linear-gradient(180deg, var(--ink) 72%, transparent);
+}
+
+.group-action {
+  flex: none;
+  margin: 0 6px 3px 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--paper-faint);
+  font-size: 11px;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.group-action:hover {
+  background: var(--action-soft);
+  color: var(--action);
+}
+
+.group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 10px 8px 6px;
+  color: var(--paper-faint);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.group-title:hover {
+  color: var(--paper-dim);
+}
+
+.group-title .chevron {
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms var(--ease-out);
+}
+
+.group-title[aria-expanded='true'] .chevron {
+  transform: rotate(90deg);
+}
+
+.group-title .count {
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.group-title.is-urgent {
+  color: var(--action);
+}
+
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border-radius: 10px;
+  transition: background 120ms ease;
+}
+
+.row.is-active,
+.row:hover {
+  background: rgba(242, 237, 229, 0.07);
+}
+
+.row.is-active {
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.card.is-opening .row {
+  animation: rise 240ms var(--ease-out) backwards;
+  animation-delay: calc(var(--order, 0) * 14ms + 40ms);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* The state mark at the row's left. */
+
+.state {
+  justify-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--paper-faint);
+}
+
+.state.is-blocked,
+.state.is-unread {
+  background: var(--action);
+  box-shadow: 0 0 0 3px var(--action-soft);
+}
+
+.state.is-working {
+  background: var(--busy);
+  box-shadow: 0 0 0 3px var(--busy-soft);
+  animation: breathe 1.4s ease-in-out infinite;
+}
+
+.state.is-active {
+  background: var(--calm);
+}
+
+/* Archived rows, by hand or by going quiet, carry the same empty mark. */
+
+.state.is-archived {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--paper-faint);
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.text {
+  min-width: 0;
+}
+
+.title,
+.meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.title {
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.005em;
+  color: var(--paper);
+}
+
+.row.needs-you .title {
+  font-weight: 620;
+}
+
+.row.is-quiet .title {
+  color: var(--paper-dim);
+}
+
+.meta {
+  margin-top: 1px;
+  font-size: 11.5px;
+  line-height: 15px;
+  color: var(--paper-faint);
+}
+
+.meta .why {
+  color: var(--action);
+  font-weight: 560;
+}
+
+.meta .why.is-working {
+  color: var(--busy);
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transform: translateX(4px);
+  transition: opacity 120ms ease, transform 160ms var(--ease-out);
+}
+
+.row:hover .actions,
+.row.is-active .actions,
+.actions:focus-within {
+  opacity: 1;
+  transform: none;
+}
+
+.action {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(242, 237, 229, 0.08);
+  transition: background 120ms ease, transform 120ms var(--ease-spring);
+}
+
+.action:hover {
+  background: var(--rust);
+}
+
+.action:active {
+  transform: scale(0.9);
+}
+
+.action svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: var(--paper-dim);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.action:hover svg {
+  stroke: var(--ink);
+}
+
+/* Something the list lacks that the person need not act on now, such as a cloud that did not answer. */
+
+.aside {
+  margin: 10px 14px 6px;
+  color: var(--paper-faint);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.empty {
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--paper-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.empty strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--paper-dim);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Foot */
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 8px 0 8px;
+  border-top: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--paper-faint);
+  font-size: 11.5px;
+}
+
+.summary {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  color: var(--paper-faint);
+}
+
+/* Beside the search: opens the full web interface. */
+
+.dashboard {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(242, 237, 229, 0.04);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--paper-dim);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.dashboard svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dashboard:hover {
+  background: var(--rust-soft);
+  color: var(--rust);
+}
+
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--paper-faint);
+}
+
+.icon-button:hover,
+.icon-button[aria-expanded='true'] {
+  background: rgba(242, 237, 229, 0.08);
+}
+
+.icon-button:hover svg,
+.icon-button[aria-expanded='true'] svg {
+  fill: var(--paper);
+}
+
+/* Settings: a small sheet that rises over the foot. */
+
+/* Above the list's sticky group heads. */
+.menu {
+  z-index: 5;
+  position: absolute;
+  right: 8px;
+  bottom: 46px;
+  width: 264px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--ink-high);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), 0 12px 28px rgba(0, 0, 0, 0.5);
+  transform-origin: bottom right;
+  animation: menu-in 160ms var(--ease-out);
+}
+
+.menu[hidden] {
+  display: none;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(4px);
+  }
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 0 8px;
+}
+
+.menu-label {
+  font-size: 12.5px;
+  color: var(--paper);
+}
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(242, 237, 229, 0.16);
+  transition: background 160ms ease;
+}
+
+.switch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: transform 180ms var(--ease-spring);
+}
+
+.switch[aria-checked='true'] {
+  background: var(--action);
+}
+
+.switch[aria-checked='true'] span {
+  transform: translateX(14px);
+}
+
+.shortcut {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 24px;
+  padding: 2px 4px;
+  border-radius: 7px;
+  color: var(--paper-dim);
+  font-size: 11.5px;
+  transition: background 120ms ease;
+}
+
+.shortcut:hover {
+  background: rgba(242, 237, 229, 0.08);
+}
+
+.shortcut.is-recording {
+  padding: 2px 8px;
+  background: var(--action-soft);
+  color: var(--action);
+}
+
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: rgba(242, 237, 229, 0.1);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.4), inset 0 0 0 1px var(--hairline);
+  font: inherit;
+  font-size: 11px;
+  color: var(--paper);
+}
+
+.menu-problem {
+  margin: 2px 8px 6px;
+  color: var(--alert);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.menu-problem[hidden] {
+  display: none;
+}
+
+.menu-item {
+  width: 100%;
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0 0 8px 8px;
+  color: var(--paper-dim);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.menu-item:hover {
+  color: var(--paper);
+  background: rgba(242, 237, 229, 0.06);
+}
+
+/* What the last open said, over the foot for a moment. */
+
+.toast {
+  z-index: 6;
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 48px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--ink-high);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), 0 8px 20px rgba(0, 0, 0, 0.45);
+  color: var(--paper);
+  font-size: 12px;
+  line-height: 1.4;
+  animation: rise 200ms var(--ease-out);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 1px;
+}

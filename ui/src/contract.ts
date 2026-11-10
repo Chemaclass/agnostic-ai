@@ -853,11 +853,14 @@ export interface ContextView {
 
 export type ConversationTool = 'claude' | 'codex' | 'cursor'
 
-/** Where the chat lives: a terminal, an editor extension or panel, a desktop app, or a background job. Runs a program started (SDK sessions, Codex exec) are not listed. */
-export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background'
+/** Where the chat lives: a terminal, an editor extension or panel, a desktop app, a background job, or the tool's cloud, such as Claude Code at claude.ai/code or a Codex cloud thread (listed only by a server started with --cloud-sessions). Runs a program started (SDK sessions, Codex exec) are not listed. */
+export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background' | 'cloud'
 
 /** What an open conversation is doing, when its tool says: the agent is working, it waits for the person, or it sits idle. */
 export type ConversationActivity = 'working' | 'waiting' | 'idle'
+
+/** Where a conversation stands for the person. The first that holds wins: `working` (open, and its tool says the agent is busy), `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `completed` (marked completed, nothing written since), `unread` (written after the person last saw it), `active` (open, or written in the last 24 hours), `dormant` (closed and quiet for longer). */
+export type ConversationState = 'blocked' | 'working' | 'completed' | 'unread' | 'active' | 'dormant'
 
 export interface ConversationSource {
   tool: ConversationTool
@@ -901,6 +904,12 @@ export interface Conversation {
   live?: boolean
   /** Set for a live conversation whose tool reports it. */
   activity?: ConversationActivity
+  /** Absent from a server older than the marks. */
+  state?: ConversationState
+  /** When the person last saw it: opening it through the server, or a `seen` or `completed` mark. */
+  seenAt?: string
+  /** When the person marked it completed. The server deletes it once something is written after it. */
+  completedAt?: string
   open: ConversationRoute
 }
 
@@ -913,6 +922,14 @@ export interface ConversationsView {
   to: string
   /** The `before` value of the next page; absent when no older conversation remains. */
   next?: string
+  /** How many conversations of any age the search matched, across all pages; set only for a request with `q`. */
+  matches?: number
+  /** How many conversations are `blocked` or `unread`, across every age and tool the server lists, whatever the page or the search. */
+  needsYou?: number
+  /** Why the marks file could not be read or written; rows then carry no marks. */
+  marksNote?: string
+  /** Why a tool's cloud conversations are missing, on a server started with --cloud-sessions; rows then hold none of them. */
+  cloudNote?: string
   /** count is every conversation the tool holds; shown is how many this page holds. */
   tools: ConversationSource[]
   conversations: Conversation[]
@@ -923,6 +940,13 @@ export interface ConversationOpenRequest {
   id: string
   /** The editor chosen in Settings, so editor links use its scheme. */
   editor?: string
+}
+
+/** A mark on one conversation, kept in a file on this machine: `seen` (read up to now), `completed` (done until something new is written; also marks it seen), `open` (takes a completion back) or `hidden` (out of every list and search until something new is written; also marks it seen). */
+export interface ConversationMarkRequest {
+  tool: ConversationTool
+  id: string
+  as: 'seen' | 'completed' | 'open' | 'hidden'
 }
 
 /** opened is false when the server could not open it here; message says why and command, when set, resumes it by hand. */
@@ -940,8 +964,9 @@ export interface ConversationOpenReply {
 //   GET  /api/views/overview                              → OverviewView
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
 //   GET  /api/views/source?path=<openPath>               → SourceView; 404 for a file the configuration does not list
-//   GET  /api/views/conversations?editor=<id>&before=<time> → ConversationsView, one week per page; a project server lists the project's own conversations
-//   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest)
+//   GET  /api/views/conversations?editor=<id>&before=<time>&q=<words>&tool=<tool> → ConversationsView, one week per page; q searches every conversation; a project server lists the project's own conversations; the reply's ETag sent back as If-None-Match answers 304 while the list holds
+//   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest); an opened conversation is marked seen and its completion taken back
+//   POST /api/conversations/mark                          → 204 (body: ConversationMarkRequest)
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })

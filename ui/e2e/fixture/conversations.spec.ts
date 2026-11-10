@@ -18,12 +18,33 @@ interface Mocks {
 type Answer = { status?: number; json: unknown } | Promise<{ status?: number; json: unknown }>
 type Reply = (body: unknown) => Answer
 /** Answers GET /api/views/conversations; `before` is null for the first page. */
-type Week = (before: string | null) => Answer
+/** Answers GET /api/views/conversations; `before` is null for the first page, and params holds the whole query. */
+type Week = (before: string | null, params: URLSearchParams) => Answer
 
 const opened: Reply = () => ({ json: { opened: true, message: 'Switched to the Terminal tab that runs it.' } })
 
 // Every /api request is answered here, so no test reaches a real server
 // or opens a real terminal. Routes added later win over the catch-all.
+const TOOL_LABELS: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor' }
+
+interface Row { tool: string; app: string; title?: string; folder?: string; branch?: string; prompt?: string }
+
+// The server searches every conversation: every word of q in the row's
+// title, folder, branch, prompt, tool or app. The mock does the same to
+// whatever page a test answers with, and counts the matches.
+function asTheServerSearches(json: unknown, params: URLSearchParams): unknown {
+  const view = json as { conversations?: Row[] }
+  const words = (params.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+  if (!Array.isArray(view?.conversations) || words.length === 0) return json
+  // A typed shell command reads "! command" on the page, so that is what matches.
+  const shown = (text?: string) => (text ?? '').replace(/^\s*<bash-input>([\s\S]*?)(?:<\/bash-input>\s*)?$/, '! $1')
+  const rows = view.conversations.filter((c) => {
+    const text = [shown(c.title), c.folder, c.branch, shown(c.prompt), TOOL_LABELS[c.tool], c.app].join('\n').toLowerCase()
+    return words.every((word) => text.includes(word))
+  })
+  return { ...view, conversations: rows, matches: rows.length }
+}
+
 async function mockServer(page: Page, reply: Reply = opened, week: Week = () => ({ json: conversations })): Promise<Mocks> {
   const mocks: Mocks = { views: [], opens: [] }
   await page.clock.setFixedTime(NOW)
@@ -33,8 +54,8 @@ async function mockServer(page: Page, reply: Reply = opened, week: Week = () => 
   await page.route('**/api/views/conversations**', async (route) => {
     const url = new URL(route.request().url())
     mocks.views.push(url.search)
-    const answer = await week(url.searchParams.get('before'))
-    return route.fulfill({ status: answer.status ?? 200, json: answer.json })
+    const answer = await week(url.searchParams.get('before'), url.searchParams)
+    return route.fulfill({ status: answer.status ?? 200, json: asTheServerSearches(answer.json, url.searchParams) })
   })
   await page.route('**/api/conversations/open', async (route) => {
     const request = route.request()
@@ -73,8 +94,8 @@ test.describe('conversations', () => {
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 3', 'Today 2', 'Yesterday 2', 'This week 2'])
     await expect(page.locator('li.conversation')).toHaveCount(9)
     await expect(page.locator('.section-search-status')).toBeEmpty()
-    await expect(page.getByRole('searchbox', { name: 'Search conversations' })).toHaveAttribute('title', 'Search covers the weeks loaded so far.')
-    await expect(page.getByRole('searchbox', { name: 'Search conversations' })).toHaveAccessibleDescription('Search covers the weeks loaded so far.')
+    await expect(page.getByRole('searchbox', { name: 'Search conversations' })).toHaveAttribute('title', 'Search covers every conversation, loaded or not.')
+    await expect(page.getByRole('searchbox', { name: 'Search conversations' })).toHaveAccessibleDescription('Search covers every conversation, loaded or not.')
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
     const open = page.getByRole('region', { name: /^Open now/ })
@@ -94,6 +115,14 @@ test.describe('conversations', () => {
     const waiting = row(page, 'Plan the sync --global dry run').locator('.conversation-live')
     await expect(waiting).toHaveText('Waiting for youOpen now: the agent is waiting for you')
     await expect(waiting).toHaveClass(/badge-approval/)
+    // The person's own marks show as chips too: a reply not yet read, and a chat they archived.
+    const unread = row(page, 'Speed up the sqlite reader').locator('.conversation-state')
+    await expect(unread).toHaveText('New replySomething was written since you last opened it')
+    await expect(unread).toHaveClass(/badge-approval/)
+    const done = row(page, 'Summarize failing CI jobs').locator('.conversation-state')
+    await expect(done).toHaveText('ArchivedYou archived it; a new message brings it back')
+    await expect(done).toHaveClass(/badge-neutral/)
+    await expect(row(page, 'Explain the sync --watch debounce').locator('.conversation-state')).toHaveCount(0)
     // An open chat whose tool does not say what it does shows no status chip: the group says it is open.
     const plain = row(page, 'Tighten the nav labels on phones')
     await expect(plain.locator('.conversation-live')).toHaveCount(0)
@@ -120,7 +149,7 @@ test.describe('conversations', () => {
   })
 
   test('filters by tool with the source chips and narrows with the search', async ({ page }) => {
-    await mockServer(page)
+    const mocks = await mockServer(page)
     await page.goto('/')
     const status = page.locator('.section-search-status')
     const codex = chip(page, 'Codex')
@@ -158,8 +187,10 @@ test.describe('conversations', () => {
     const search = page.getByRole('searchbox', { name: 'Search conversations' })
     await search.fill('SQLITE')
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader'])
-    await expect(status).toHaveText('1 of 9 conversations match.')
+    await expect(status).toHaveText('1 conversation matches.')
     await expect(page).toHaveURL(/\?q=SQLITE$/)
+    // The search goes to the server, which searches every conversation, not just the loaded weeks.
+    expect(mocks.views).toContain('?editor=cursor&q=SQLITE')
     await search.fill('sync --global')
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 1'])
     await search.fill('website')
@@ -181,7 +212,7 @@ test.describe('conversations', () => {
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Nightly dependency audit', 'Draft the release notes for v0.92'])
     await claude.click()
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Nightly dependency audit'])
-    await expect(status).toHaveText('1 of 9 conversations match.')
+    await expect(status).toHaveText('1 of 2 conversations match.')
     await cursor.click()
     await expect(page.locator('li.conversation')).toHaveCount(0)
     await expect(page.getByText('No conversation matches.')).toBeVisible()
@@ -418,6 +449,20 @@ test.describe('conversations by week', () => {
     expect(mocks.views).toEqual([FIRST_REQUEST, OLDER_REQUEST])
   })
 
+  test('searches every conversation, including weeks not loaded yet', async ({ page }) => {
+    // The server holds an older week; the first page leaves it out until a search asks.
+    const everything = { ...firstWeek, conversations: [...firstWeek.conversations, ...weekBefore.conversations], next: undefined }
+    const mocks = await mockServer(page, opened, (_before, params) => ({ json: params.get('q') ? everything : firstWeek }))
+    await page.goto('/')
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+    await expect(row(page, 'Port the docs search to Pagefind')).toHaveCount(0)
+
+    await page.getByRole('searchbox', { name: 'Search conversations' }).fill('pagefind')
+    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Port the docs search to Pagefind'])
+    await expect(page.locator('.section-search-status')).toHaveText('1 conversation matches.')
+    expect(mocks.views).toEqual([FIRST_REQUEST, '?editor=cursor&q=pagefind'])
+  })
+
   test('shows a week that failed to load inline and retries the same week', async ({ page }) => {
     let attempts = 0
     const mocks = await mockServer(page, opened, (before) => {
@@ -520,7 +565,7 @@ test.describe('conversations by week', () => {
     await expect(page.getByRole('region', { name: 'Loading conversations' })).toBeVisible()
     await search.fill('sync')
     release()
-    await expect(page.locator('.section-search-status')).toHaveText(/ of 9 conversations match\.$/)
+    await expect(page.locator('.section-search-status')).toHaveText(/^\d+ conversations? match(es)?\.$/)
     await expect(search).toBeFocused()
     await page.keyboard.type(' --')
     await expect(search).toHaveValue('sync --')

@@ -31,6 +31,10 @@ const (
 	AppIDE        App = "ide"
 	AppDesktop    App = "desktop"
 	AppBackground App = "background"
+	// AppCloud is a conversation that runs in its tool's cloud, not on
+	// this machine: a Claude Code session at claude.ai/code, or a Codex
+	// cloud thread.
+	AppCloud App = "cloud"
 )
 
 // Activity is what a live conversation is doing, when its tool says.
@@ -71,7 +75,19 @@ type View struct {
 	To   string `json:"to"`
 	// Next is the Before time of the following page; empty when no older
 	// conversation remains.
-	Next          string         `json:"next,omitempty"`
+	Next string `json:"next,omitempty"`
+	// Matches counts every conversation the search matched, across all
+	// pages; set only when the scan searched.
+	Matches *int `json:"matches,omitempty"`
+	// NeedsYou counts the blocked and unread conversations of every age
+	// and tool this server lists, whatever the page or the search.
+	NeedsYou int `json:"needsYou"`
+	// MarksNote says why the marks file could not be read or written;
+	// rows then show no marks.
+	MarksNote string `json:"marksNote,omitempty"`
+	// CloudNote says why a tool's cloud conversations are missing from
+	// the list, on a server that reads them; rows then hold none of them.
+	CloudNote     string         `json:"cloudNote,omitempty"`
 	Tools         []Source       `json:"tools"`
 	Conversations []Conversation `json:"conversations"`
 }
@@ -115,7 +131,12 @@ type Conversation struct {
 	Withheld  []string `json:"withheld,omitempty"`
 	Live      bool     `json:"live,omitempty"`
 	Activity  Activity `json:"activity,omitempty"`
-	Open      Route    `json:"open"`
+	// State places the conversation for the person; see stateOf.
+	State State `json:"state"`
+	// SeenAt and CompletedAt are the person's marks, when set.
+	SeenAt      string `json:"seenAt,omitempty"`
+	CompletedAt string `json:"completedAt,omitempty"`
+	Open        Route  `json:"open"`
 
 	// process is the live process that runs it, for a focus route.
 	process *liveProcess

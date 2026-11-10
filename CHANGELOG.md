@@ -8,6 +8,16 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+#### Web interface
+
+- `agnostic-ai serve --global --cloud-sessions` also lists Claude Code cloud sessions from claude.ai and Codex cloud threads, each at most once a minute, with the sign-in each tool keeps on this machine (the macOS keychain for Claude Code, `auth.json` for Codex). The companion starts its server with it, labels those rows **Cloud**, and has an All, Local, Cloud switch beside the search; `cloudNote` says why they are missing when they could not be read.
+- In the web interface, the Conversations search finds every conversation, not just the weeks loaded so far, and the tool chips list one tool's conversations from the server.
+- Each conversation in `GET /api/views/conversations` has a `state`: blocked, working, completed, unread, active or dormant. `needsYou` counts the blocked and unread ones. A conversation that waits for you is blocked until you open or archive it, and again at its next prompt; a cloud conversation's status is believed for a day after its last write. A local Codex thread shows as working while a turn runs in it, and as waiting for you once that turn has written nothing for 5 minutes. `POST /api/conversations/mark` marks one seen or completed, and opening one marks it seen. A completion lasts until a new message arrives. The marks stay in a file on your machine.
+- `agnostic-ai companion` shows a floating circle with how many conversations need you, over every app, with a searchable list that opens each one where it lives. It opens with a shortcut you can change, can start at login, and archives a chat or hides an archived one. Archived holds what you archived and what went quiet for a day; a new message brings a chat back. **Hide Agnostic AI companion** takes it off the screen and stops all reading until the shortcut brings it back. It asks its own `agnostic-ai serve --global`, so the server does the reading and the marking. Build it on your machine with `agnostic-ai companion install`, which needs Go; releases ship no built companion.
+- `GET /api/views/conversations` sends an `ETag`. Send it back as `If-None-Match` and the server answers 304 without reading anything while no chat changed and the minute has not turned. `POST /api/conversations/mark` takes `hidden`: the conversation leaves every list and search until a new message arrives, and stays in its tool's own store. Opening a conversation takes its completion back.
+- In the web interface, a conversation shows **New reply** when something was written since you last opened it, and **Archived** when you archived it from the companion.
+- Listing conversations costs less: Codex and Cursor chats are read again only when their files change, and once at the turn of each minute, and the open Claude Code sessions are checked with one `ps` call. On one machine a repeated list read went from about 133 ms of CPU time to about 22 ms.
+
 #### Upgrades
 
 - The automatic upgrade has the new release update `requires`, so fixes to that step apply in the same upgrade. This takes effect for upgrades started from this release onward (#3196).

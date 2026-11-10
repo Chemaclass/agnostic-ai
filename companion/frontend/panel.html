@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>agnostic-ai conversations</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <link rel="stylesheet" href="/panel.css">
+  <script type="module" src="/panel.js"></script>
+</head>
+<body>
+  <main class="card" id="card" data-from="bottom-right">
+    <header class="head">
+      <label class="search">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.6"/><path d="M10.6 10.6L14 14"/></svg>
+        <input id="query" type="text" placeholder="Search every conversation" aria-label="Search every conversation" autocomplete="off" spellcheck="false">
+        <button class="clear" id="clear" type="button" aria-label="Clear the search" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+        </button>
+      </label>
+      <button class="dashboard" id="dashboard" type="button" aria-label="Open the dashboard" title="Open the full agnostic-ai web interface">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 7.4L8 2.8l5.5 4.6V13H9.6V9.6H6.4V13H2.5z"/></svg>
+      </button>
+    </header>
+    <p class="note" id="note" role="status" hidden></p>
+    <div class="list" id="list" role="listbox" aria-label="Conversations" tabindex="-1"></div>
+    <footer class="foot">
+      <div class="places" id="places" role="group" aria-label="Where the conversations run"></div>
+      <span class="summary" id="summary" role="status"></span>
+      <button class="icon-button" id="menu-button" type="button" aria-label="Settings" title="Settings" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>
+      </button>
+    </footer>
+    <section class="menu" id="menu" aria-label="Settings" hidden>
+      <div class="menu-row">
+        <span class="menu-label" id="login-label">Start at login</span>
+        <button class="switch" id="login" type="button" role="switch" aria-checked="false" aria-labelledby="login-label"><span></span></button>
+      </div>
+      <div class="menu-row">
+        <span class="menu-label" id="shortcut-label">Open from anywhere</span>
+        <button class="shortcut" id="shortcut" type="button" aria-labelledby="shortcut-label" title="Change the shortcut"></button>
+      </div>
+      <p class="menu-problem" id="menu-problem" role="status" hidden></p>
+      <button class="menu-item" id="hide" type="button" title="Takes the companion off the screen and stops its reading. The shortcut brings it back.">Hide Agnostic AI companion</button>
+    </section>
+    <p class="toast" id="toast" role="status" hidden></p>
+  </main>
+</body>
+</html>

@@ -106,6 +106,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newGraphCmd(),
 		newViewCmd(),
 		newServeCmd(),
+		newCompanionCmd(),
 		newMCPCmd(),
 	)
 	addCommandGroup(root, "maintenance", "Maintenance:",

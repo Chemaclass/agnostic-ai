@@ -7,7 +7,8 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type ConversationOpenReply, type ConversationOpenRequest, type ConversationsView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type ConversationOpenReply, type ConversationOpenRequest, type ConversationTool, type ConversationsView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
+import { filterConversations } from './model/conversations'
 import { normalizeContextView, normalizeConversationsView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
 import { parseProtectedPreview } from './model/protected-edit'
@@ -129,20 +130,33 @@ export const CONVERSATIONS_NEED_SERVER = 'Conversations need agnostic-ai running
  * week), with it the week before that time. The mock fixture is a single
  * page with no next; a static snapshot has none.
  */
-export async function loadConversations(source: DataSource, editor: string, before: string | undefined, signal?: AbortSignal): Promise<Loaded<ConversationsView>> {
+/** Which page of the list to load: the week before `before`, matching `query` and `tool`. */
+export interface ConversationsPage {
+  before?: string
+  query?: string
+  tool?: ConversationTool
+}
+
+export async function loadConversations(source: DataSource, editor: string, page: ConversationsPage, signal?: AbortSignal): Promise<Loaded<ConversationsView>> {
   switch (source.kind) {
     case 'invalid':
       throw new LoadError(source.reason, `Received: ${source.value}`)
     case 'static':
       throw new LoadError(CONVERSATIONS_NEED_SERVER)
     case 'mock': {
+      // The fixture is one week; a search or tool filter applies the server's rule to it.
       const module = await import('./fixtures/conversations.mock.json')
       const data = normalizeConversationsView(module.default)
-      return { data, endpoint: 'Mock fixture src/fixtures/conversations.mock.json', schemaWarning: schemaWarning(data.schemaVersion, CONVERSATIONS_SCHEMA_VERSION) }
+      const query = page.query?.trim() ?? ''
+      const rows = filterConversations(data.conversations, query, page.tool ?? 'all')
+      const filtered = { ...data, conversations: rows, ...(query ? { matches: rows.length } : {}) }
+      return { data: filtered, endpoint: 'Mock fixture src/fixtures/conversations.mock.json', schemaWarning: schemaWarning(data.schemaVersion, CONVERSATIONS_SCHEMA_VERSION) }
     }
     case 'api': {
       const params = new URLSearchParams({ editor })
-      if (before) params.set('before', before)
+      if (page.before) params.set('before', page.before)
+      if (page.query?.trim()) params.set('q', page.query.trim())
+      if (page.tool) params.set('tool', page.tool)
       const path = `${API.conversations}?${params}`
       const data = normalizeConversationsView(await getJson(path, signal, SERVER_HINT))
       return { data, endpoint: `GET ${path}`, schemaWarning: schemaWarning(data.schemaVersion, CONVERSATIONS_SCHEMA_VERSION) }

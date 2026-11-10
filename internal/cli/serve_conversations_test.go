@@ -20,7 +20,10 @@ import (
 
 type stillProcesses struct{}
 
-func (stillProcesses) Alive(int, string) bool          { return false }
+func (stillProcesses) Alive(int, string) bool { return false }
+func (stillProcesses) AliveAmong([]conversations.ProcessRef) map[int]bool {
+	return nil
+}
 func (stillProcesses) TTY(int) (string, error)         { return "", errors.New("no terminal") }
 func (stillProcesses) TerminalApp(int) (string, error) { return "", nil }
 func (stillProcesses) Holders([]string) map[string]int { return nil }
@@ -110,7 +113,6 @@ func conversationsFixture(t *testing.T, global bool) (*conversationsHandler, *re
 		global:    global,
 		scanner:   scanner,
 		launcher:  launcher,
-		processes: stillProcesses{},
 		worktrees: func(string) []string { return []string{project, worktree} },
 	}
 	return h, launcher, project
@@ -247,5 +249,172 @@ func TestGitWorktrees_KeepsAProjectInASubfolderToItsOwnFolder(t *testing.T) {
 
 	if len(got) != 1 || got[0] != project {
 		t.Errorf("worktrees of %s = %v, want only the project folder", project, got)
+	}
+}
+
+func TestConversationsHandler_SearchesAndFiltersByTool(t *testing.T) {
+	h, _, _ := conversationsFixture(t, true)
+	get := func(query string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+query, nil))
+		return rec
+	}
+	var view conversations.View
+	rec := get("?q=parser&tool=claude")
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil || rec.Code != http.StatusOK || view.Matches == nil || *view.Matches != 1 || ids(view) != inProject {
+		t.Errorf("search = %d %s", rec.Code, rec.Body)
+	}
+	for query, reply := range map[string]string{
+		"?tool=gemini":                   `{"error":"tool must be claude, codex or cursor"}`,
+		"?q=" + strings.Repeat("a", 201): `{"error":"q is longer than 200 characters"}`,
+	} {
+		if rec := get(query); rec.Code != http.StatusBadRequest || strings.TrimSpace(rec.Body.String()) != reply {
+			t.Errorf("%.20s = %d %s", query, rec.Code, rec.Body)
+		}
+	}
+}
+
+func stateOfListed(t *testing.T, h http.Handler, id string) (conversations.Conversation, int) {
+	t.Helper()
+	view := listConversations(t, h)
+	for _, c := range view.Conversations {
+		if c.ID == id {
+			return c, view.NeedsYou
+		}
+	}
+	t.Fatalf("no conversation %s listed", id)
+	return conversations.Conversation{}, 0
+}
+
+func TestConversationsHandler_MarksAConversationCompletedThenOpenAgain(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+
+	if rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"completed"}`, nil); rec.Code != http.StatusNoContent || rec.Body.Len() != 0 {
+		t.Fatalf("mark completed = %d %s", rec.Code, rec.Body)
+	}
+	if c, _ := stateOfListed(t, h, inProject); c.State != conversations.StateCompleted || c.CompletedAt != "2026-11-07T12:00:00Z" || c.SeenAt != "2026-11-07T12:00:00Z" {
+		t.Errorf("after completing: state %s, completedAt %q, seenAt %q", c.State, c.CompletedAt, c.SeenAt)
+	}
+	if c, _ := stateOfListed(t, h, inWorktree); c.State != conversations.StateActive || c.CompletedAt != "" {
+		t.Errorf("an unmarked conversation: state %s, completedAt %q", c.State, c.CompletedAt)
+	}
+
+	if rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"open"}`, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("mark open = %d %s", rec.Code, rec.Body)
+	}
+	if c, _ := stateOfListed(t, h, inProject); c.State != conversations.StateActive || c.CompletedAt != "" {
+		t.Errorf("after reopening: state %s, completedAt %q", c.State, c.CompletedAt)
+	}
+}
+
+func TestConversationsHandler_OpeningAConversationMarksItSeen(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+
+	if rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"`+inProject+`","editor":"cursor"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("open = %d %s", rec.Code, rec.Body)
+	}
+	if c, _ := stateOfListed(t, h, inProject); c.SeenAt != "2026-11-07T12:00:00Z" {
+		t.Errorf("seenAt after opening = %q", c.SeenAt)
+	}
+	if c, _ := stateOfListed(t, h, inWorktree); c.SeenAt != "" {
+		t.Errorf("seenAt of a conversation nobody opened = %q", c.SeenAt)
+	}
+}
+
+func TestConversationsHandler_RefusesAMarkItCannotKeep(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	for name, tc := range map[string]struct {
+		body   string
+		status int
+		reply  string
+	}{
+		"outside the project": {`{"tool":"claude","id":"` + elsewhere + `","as":"seen"}`, http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
+		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `","as":"seen"}`, http.StatusBadRequest, `{"error":"tool must be claude, codex or cursor"}`},
+		"unknown mark":        {`{"tool":"claude","id":"` + inProject + `","as":"deleted"}`, http.StatusBadRequest, `{"error":"as must be seen, completed, open or hidden"}`},
+		"no mark":             {`{"tool":"claude","id":"` + inProject + `"}`, http.StatusBadRequest, `{"error":"as must be seen, completed, open or hidden"}`},
+		"an extra field":      {`{"tool":"claude","id":"` + inProject + `","as":"seen","at":"2030-01-01T00:00:00Z"}`, http.StatusBadRequest, `{"error":"send {tool, id, as}"}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := postEdit(t, h, conversationMarkPath, tc.body, nil)
+			if rec.Code != tc.status || strings.TrimSpace(rec.Body.String()) != tc.reply {
+				t.Errorf("= %d %s", rec.Code, rec.Body)
+			}
+		})
+	}
+	foreign := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"completed"}`, func(r *http.Request) { r.Header.Set("Origin", "https://attacker.example") })
+	if foreign.Code != http.StatusForbidden {
+		t.Errorf("a foreign page = %d %s", foreign.Code, foreign.Body)
+	}
+	if c, _ := stateOfListed(t, h, inProject); c.State != conversations.StateActive || c.SeenAt != "" {
+		t.Errorf("a refused mark was kept: state %s, seenAt %q", c.State, c.SeenAt)
+	}
+}
+
+func TestConversationsHandler_SaysAServerWithoutAMarksFileKeepsNone(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+
+	rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"seen"}`, nil)
+
+	if rec.Code != http.StatusInternalServerError || strings.TrimSpace(rec.Body.String()) != `{"error":"this server keeps no conversation marks"}` {
+		t.Errorf("= %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestConversationsHandler_AnswersNotModifiedWhileTheListHolds(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	get := func(query, tag string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+query, nil)
+		if tag != "" {
+			req.Header.Set("If-None-Match", tag)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	// The first scan begins the marks file, which is itself a change.
+	get("", "")
+	first := get("", "")
+	tag := first.Header().Get("ETag")
+	if first.Code != http.StatusOK || tag == "" {
+		t.Fatalf("first read = %d, ETag %q", first.Code, tag)
+	}
+
+	if rec := get("", tag); rec.Code != http.StatusNotModified || rec.Body.Len() != 0 || rec.Header().Get("ETag") != tag {
+		t.Errorf("an unchanged list = %d %s, ETag %q", rec.Code, rec.Body, rec.Header().Get("ETag"))
+	}
+	if rec := get("?q=fix", tag); rec.Code != http.StatusOK {
+		t.Errorf("another question with the same tag = %d", rec.Code)
+	}
+
+	changes := map[string]func(){
+		"a mark": func() {
+			postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"completed"}`, nil)
+		},
+		"a write to a store": func() {
+			sessions := filepath.Join(h.scanner.Stores.ClaudeDir, "sessions")
+			if err := os.MkdirAll(sessions, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(sessions, "999.json"), []byte(`{}`), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"the next minute": func() {
+			now := h.scanner.Now().Add(time.Minute)
+			h.scanner.Now = func() time.Time { return now }
+		},
+	}
+	for name, change := range changes {
+		change()
+		rec := get("", tag)
+		if rec.Code != http.StatusOK || rec.Header().Get("ETag") == tag {
+			t.Errorf("after %s = %d, ETag unchanged: %t", name, rec.Code, rec.Header().Get("ETag") == tag)
+		}
+		tag = rec.Header().Get("ETag")
 	}
 }
