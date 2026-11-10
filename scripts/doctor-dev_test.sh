@@ -115,14 +115,23 @@ function test_node_above_the_pinned_major_warns_without_failing() {
   assert_successful_code "$?"
   assert_matches "node +26\.3\.0 +22 +newer" "$out"
   assert_contains "doctor-dev: ok, 1 warning" "$out"
+  assert_contains "note: CI uses node 22" "$out"
 }
 
-function test_java_above_the_pinned_major_warns_without_failing() {
+function test_java_above_the_pinned_major_fails() {
   fake_tool java 'echo "openjdk version \"25.0.1\" 2025-10-21" >&2'
   local out
   out="$(run_doctor)"
-  assert_successful_code "$?"
-  assert_matches "java +25\.0\.1 +21 +newer" "$out"
+  assert_general_error "$?"
+  assert_matches "java +25\.0\.1 +21 +wrong" "$out"
+  assert_contains "SKIP_JETBRAINS=1" "$out"
+}
+
+function test_an_invalid_java_home_is_missing_even_with_java_on_path() {
+  local out
+  out="$(run_doctor JAVA_HOME="$fixture/no-jdk")"
+  assert_general_error "$?"
+  assert_matches "java +- +21 +missing" "$out"
 }
 
 function test_java_is_found_through_java_home() {
@@ -167,6 +176,31 @@ function test_npm_through_a_mise_shim_warns_about_home() {
   assert_successful_code "$?"
   assert_contains "warning: npm runs through a version manager shim" "$out"
   assert_contains "mise exec -- make ci-local" "$out"
+}
+
+function test_gobin_on_path_is_enough() {
+  fake_tool go 'case "$1 $2" in
+  "env GOVERSION") echo go1.30.1 ;;
+  "env GOPATH") echo "$FAKE_GOPATH" ;;
+  "env GOBIN") echo "$FAKE_GOBIN" ;;
+esac'
+  mkdir -p "$fixture/gobin"
+  local out
+  out="$(DOCTOR_TEST_PATH="$bin:$fixture/gobin:$sys" run_doctor FAKE_GOBIN="$fixture/gobin")"
+  assert_successful_code "$?"
+  assert_not_contains "is not on PATH" "$out"
+}
+
+function test_gobin_missing_from_path_warns() {
+  fake_tool go 'case "$1 $2" in
+  "env GOVERSION") echo go1.30.1 ;;
+  "env GOPATH") echo "$FAKE_GOPATH" ;;
+  "env GOBIN") echo "$FAKE_GOBIN" ;;
+esac'
+  local out
+  out="$(run_doctor FAKE_GOBIN="$fixture/gobin")"
+  assert_successful_code "$?"
+  assert_contains "warning: $fixture/gobin is not on PATH" "$out"
 }
 
 function test_go_bin_dir_missing_from_path_warns() {

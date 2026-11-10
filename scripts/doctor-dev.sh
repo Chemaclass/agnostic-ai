@@ -80,10 +80,11 @@ found_npm() {
   { npm --version 2>/dev/null || true; } | sed -n 1p
 }
 
-# Gradle uses JAVA_HOME when it is set, so check that Java first.
+# Gradle uses JAVA_HOME when it is set and fails when it is invalid, so a
+# set JAVA_HOME is the only Java checked.
 java_bin() {
-  if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-    printf '%s\n' "$JAVA_HOME/bin/java"
+  if [ -n "${JAVA_HOME:-}" ]; then
+    if [ -x "$JAVA_HOME/bin/java" ]; then printf '%s\n' "$JAVA_HOME/bin/java"; fi
   elif has java; then
     command -v java
   fi
@@ -127,7 +128,7 @@ report() {
       ;;
     newer)
       doctor_warnings=$((doctor_warnings + 1))
-      printf '  note: CI runs %s %s; this one usually works too\n' "$name" "$wanted"
+      printf '  note: CI uses %s %s; a newer major works for local checks\n' "$name" "$wanted"
       ;;
   esac
 }
@@ -148,15 +149,16 @@ check_present() {
   report "$1" "$2" any "$status" "$3"
 }
 
+# A major above the pin is `newer` (a warning) unless $5 names another status.
 check_major() {
-  local name="$1" found="$2" wanted="$3" hint="$4" status=ok major
+  local name="$1" found="$2" wanted="$3" hint="$4" above="${5:-newer}" status=ok major
   major=$(major_of "$found")
   if [ -z "$found" ]; then
     status=missing
   elif [ -z "$major" ] || [ "$major" -lt "$wanted" ]; then
     status=wrong
   elif [ "$major" -gt "$wanted" ]; then
-    status=newer
+    status=$above
   fi
   report "$name" "$found" "$wanted" "$status" "$hint"
 }
@@ -168,13 +170,17 @@ warn() {
 
 check_go_bin_on_path() {
   has go || return 0
-  local gopath
-  gopath=$(go env GOPATH 2>/dev/null || true)
-  gopath=${gopath%%:*}
-  [ -n "$gopath" ] || return 0
+  local dir
+  dir=$(go env GOBIN 2>/dev/null || true)
+  if [ -z "$dir" ]; then
+    dir=$(go env GOPATH 2>/dev/null || true)
+    dir=${dir%%:*}
+    [ -n "$dir" ] || return 0
+    dir="$dir/bin"
+  fi
   case ":$PATH:" in
-    *":$gopath/bin:"*) ;;
-    *) warn "$gopath/bin is not on PATH. 'make tools' installs there: export PATH=\"\$(go env GOPATH)/bin:\$PATH\"" ;;
+    *":$dir:"*) ;;
+    *) warn "$dir is not on PATH, and 'make tools' installs golangci-lint and lefthook there. Add it to PATH." ;;
   esac
 }
 
@@ -210,7 +216,8 @@ main() {
   if [ "${SKIP_JETBRAINS:-}" = 1 ]; then
     report java "" "$java_want" skipped ""
   else
-    check_major java "$(found_java)" "$java_want" "install JDK $java_want, or run 'mise install', or set JAVA_HOME to it"
+    # The JetBrains build asks Gradle for a Java 21 toolchain and does not download one.
+    check_major java "$(found_java)" "$java_want" "install JDK $java_want, or run 'mise install', or set JAVA_HOME to it; without Java, run 'make doctor-dev SKIP_JETBRAINS=1' and 'make ci-local SKIP_JETBRAINS=1'" wrong
   fi
   check_exact zola "$(found_zola)" "$zola_want" "run 'mise install', or download Zola $zola_want from https://github.com/getzola/zola/releases"
   check_exact bashunit "$(found_bashunit)" "$bashunit_want" "download https://github.com/TypedDevs/bashunit/releases/download/$bashunit_want/bashunit to a folder on PATH"

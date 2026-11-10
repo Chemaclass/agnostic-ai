@@ -61,13 +61,30 @@ func TestMisePins_MatchRepoPins(t *testing.T) {
 	}
 	ci := string(data)
 
+	goMod, err := os.ReadFile(filepath.FromSlash(goModPath))
+	if err != nil {
+		t.Fatalf("read %s: %v", goModPath, err)
+	}
+	// Without a toolchain line, the go line names the toolchain, as in scripts/doctor-dev.sh.
+	goPin := regexp.MustCompile(`(?m)^toolchain go(\S+)$`).FindSubmatch(goMod)
+	if goPin == nil {
+		goPin = regexp.MustCompile(`(?m)^go (\S+)$`).FindSubmatch(goMod)
+	}
+	if goPin == nil {
+		t.Fatalf("no toolchain or go line found in %s", goModPath)
+	}
+
 	pins := []struct {
 		tool, source, want string
 	}{
-		{"go", goModPath, pinFrom(t, goModPath, regexp.MustCompile(`(?m)^toolchain go(\S+)$`))},
+		{"go", goModPath, string(goPin[1])},
 		{"zola", makefilePath, pinFrom(t, makefilePath, zolaMakefilePinRE)},
 	}
-	for _, m := range regexp.MustCompile(`(?m)^\s+node-version:\s*'?([^'\s]+)'?$`).FindAllStringSubmatch(ci, -1) {
+	nodes := regexp.MustCompile(`(?m)^\s+node-version:\s*'?([^'\s]+)'?$`).FindAllStringSubmatch(ci, -1)
+	if len(nodes) == 0 {
+		t.Fatalf("no node-version found in %s", ciWorkflowPath)
+	}
+	for _, m := range nodes {
 		pins = append(pins, struct{ tool, source, want string }{"node", ciWorkflowPath, m[1]})
 	}
 	java := regexp.MustCompile(`(?s)setup-java@\S+.*?distribution:\s*'?([^'\s]+)'?\s+java-version:\s*'?([^'\s]+)'?`).FindStringSubmatch(ci)
