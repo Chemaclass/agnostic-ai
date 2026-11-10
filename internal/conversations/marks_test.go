@@ -624,3 +624,35 @@ func TestScan_KeepsAnArchiveMadeAfterItsReadBegan(t *testing.T) {
 		t.Errorf("a scan that read the tools after the archive kept it: %+v", entry)
 	}
 }
+
+func TestScan_KeepsAnArchiveMadeAfterAKeptWorkingRowWasRead(t *testing.T) {
+	scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 1, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	working := func() ([]Conversation, error) {
+		row := cloudRow("cse_a1", "Fix the parser", "2026-11-07T11:59:00Z")
+		row.Live, row.Activity = true, ActivityWorking
+		return []Conversation{row}, nil
+	}
+	scanner.Cloud = &countingCloud{answers: []func() ([]Conversation, error){working, working}}
+	scanner.Scan(context.Background(), ScanOptions{})
+
+	now = now.Add(9 * time.Second)
+	if err := scanner.Mark(ToolClaude, "cse_a1", MarkCompleted); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(20 * time.Second)
+	scanner.Scan(context.Background(), ScanOptions{})
+	if entry := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolClaude, "cse_a1")]; entry.CompletedAt != "2026-11-07T12:00:10Z" {
+		t.Fatalf("a working row read before the archive cleared it: %+v", entry)
+	}
+
+	now = now.Add(time.Minute)
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), "cse_a1"); c.State != StateWorking {
+		t.Fatalf("the fresh read shows %s", c.State)
+	}
+	if entry := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolClaude, "cse_a1")]; entry.CompletedAt != "" {
+		t.Errorf("a working row read after the archive kept it: %+v", entry)
+	}
+}

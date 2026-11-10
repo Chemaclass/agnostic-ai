@@ -127,9 +127,8 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	defer s.mu.Unlock()
 	s.shown.start()
 	defer s.shown.finish()
-	readAt := s.Now()
 	results, cloudNote := s.readAll(ctx, opts)
-	needsYou, marksErr := s.applyMarks(results, readAt)
+	needsYou, marksErr := s.applyMarks(results)
 	var all []Conversation
 	for _, result := range results {
 		if opts.Tool == "" || result.source.Tool == opts.Tool {
@@ -200,7 +199,7 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 // readAll reads every store. A tool's cloud conversations count among
 // its own; cloudNote says why they are missing, when they are.
 func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
-	claude := s.scanClaude(ctx, opts)
+	claude := readAt(s.Now(), s.scanClaude(ctx, opts))
 	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
 	claude.conversations = append(claude.conversations, claudeCloud...)
 	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })

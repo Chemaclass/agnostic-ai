@@ -10,6 +10,8 @@
 // ui/src/contract.ts. Change both together.
 package conversations
 
+import "time"
+
 // SchemaVersion names the shape of View.
 const SchemaVersion = "conversations/v1"
 
@@ -146,6 +148,9 @@ type Conversation struct {
 	editor *editorApp
 	// renamed is the name the person chose, shown over the tool's title.
 	renamed string
+	// readAt is when the read that gave this row began. A kept result
+	// or a cloud list can be older than the scan that shows it.
+	readAt time.Time
 	// pending holds what fill still needs once the row lands on a page,
 	// for a store whose prompts are read only for the rows shown.
 	pending *texts

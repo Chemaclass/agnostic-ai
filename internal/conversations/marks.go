@@ -196,12 +196,12 @@ func needsPerson(state State) bool {
 // results, in place, takes out the ones the person hid, and returns how
 // many need the person. A completion or a hiding that a later write
 // overtook, or whose conversation its tool reported working in a read
-// that began at readAt, after the mark, is cleared in the file, so the file holds only those that still stand, and a
+// that began after the mark, is cleared in the file, so the file holds only those that still stand, and a
 // conversation that worked is not completed or hidden again once the
 // work ends. The entry keeps its seen mark and chosen name. Without a
 // marks path, or with a file that cannot be read, nothing is unread,
 // completed or hidden.
-func (s *Scanner) applyMarks(results []sourceResult, readAt time.Time) (needsYou int, err error) {
+func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 	now := s.Now()
 	file := marksFile{Marks: map[string]markEntry{}}
 	changed := false
@@ -229,12 +229,12 @@ func (s *Scanner) applyMarks(results []sourceResult, readAt time.Time) (needsYou
 			entry := file.Marks[key]
 			written := lastWritten(c)
 			working := c.Live && c.Activity == ActivityWorking
-			if lifted(entry.CompletedAt, written, working, readAt) {
+			if lifted(entry.CompletedAt, written, working, c.readAt) {
 				entry.CompletedAt = ""
 				file.Marks[key] = entry
 				changed = true
 			}
-			if lifted(entry.HiddenAt, written, working, readAt) {
+			if lifted(entry.HiddenAt, written, working, c.readAt) {
 				entry.HiddenAt = ""
 				file.Marks[key] = entry
 				changed = true
@@ -269,9 +269,10 @@ func overtaken(markedAt string, written time.Time) bool {
 
 // lifted reports whether a mark made at markedAt no longer stands: a
 // later write overtook it, or the conversation was working in a read
-// that began at readAt. The tools are read before the marks file is
-// locked, so a mark made by another server since then stands. Marks keep
-// whole seconds: one made in the second the read began stands too.
+// that began at readAt. A row can come from a read older than the scan,
+// and the tools are read before the marks file is locked, so a mark made
+// since that read stands. Marks keep whole seconds: one made in the
+// second the read began stands too.
 func lifted(markedAt string, written time.Time, working bool, readAt time.Time) bool {
 	if markedAt == "" {
 		return false

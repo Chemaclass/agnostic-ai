@@ -1902,8 +1902,8 @@ test('live an archived session that starts working leaves Archived on another se
 
     await put(session, JSON.stringify({ pid: process.pid, sessionId: resumed, status: 'idle' }))
     await page.reload()
-    await expect(row('Fix the parser').locator('.conversation-live')).toHaveCount(0)
     await expect(page.locator('.conversation-state', { hasText: 'Archived' })).toHaveCount(1)
+    await expect(row('Fix the parser').locator('.conversation-live')).toHaveCount(0)
     await expect(row('Fix the parser').locator('.conversation-state')).toHaveCount(0)
     await expect(row('Review the branch').locator('.conversation-state')).toContainText('Archived')
   } finally {
