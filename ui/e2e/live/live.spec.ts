@@ -1786,3 +1786,67 @@ test('live Show content reads an agent and refuses files outside the configurati
     await f.close()
   }
 })
+
+test('live a rename made through another server shows after a reload and in a search', async ({ page }) => {
+  const temporary = await mkdtemp(join(tmpdir(), 'agnostic-ui-live-'))
+  const userHome = join(temporary, 'user')
+  const home = join(temporary, 'global')
+  const claudeDir = join(userHome, '.claude')
+  const folder = join(temporary, 'app')
+  // Every store and the marks file sit in the fixture, never in the person's own folders.
+  const env = {
+    ...process.env,
+    AGNOSTIC_AI_HOME: home,
+    AGNOSTIC_AI_NO_UPDATE_CHECK: '1',
+    AGNOSTIC_AI_TARGET: '',
+    HOME: userHome,
+    USERPROFILE: userHome,
+    APPDATA: join(temporary, 'config'),
+    XDG_CONFIG_HOME: join(temporary, 'config'),
+    LOCALAPPDATA: join(temporary, 'cache'),
+    XDG_CACHE_HOME: join(temporary, 'cache'),
+    CLAUDE_CONFIG_DIR: claudeDir,
+    CODEX_HOME: join(userHome, '.codex'),
+    NO_COLOR: '1',
+  }
+  const servers: ChildProcess[] = []
+  const start = async (...args: string[]) => {
+    const child = spawn(binary, ['serve', '--global', '--addr', '127.0.0.1:0', ...args], { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
+    servers.push(child)
+    return serverURL(child)
+  }
+  try {
+    const id = '11111111-1111-4111-8111-111111111111'
+    await mkdir(folder, { recursive: true })
+    await put(join(home, 'agnostic-ai.yaml'), 'version: 1\ntargets:\n    - claude\nbuiltins: []\n')
+    await put(join(claudeDir, 'projects', folder.replace(/[^A-Za-z0-9]/g, '-'), `${id}.jsonl`), JSON.stringify({
+      type: 'user', cwd: folder, entrypoint: 'cli', timestamp: new Date().toISOString(),
+      message: { role: 'user', content: 'Fix the parser' },
+    }) + '\n')
+    // The companion's server answers the API only; the dashboard is another process.
+    const companion = await start('--api-only')
+    const dashboard = await start()
+
+    await page.goto(dashboard)
+    await expect(page.getByRole('heading', { level: 3, name: 'Fix the parser', exact: true })).toBeVisible()
+
+    const origin = companion.replace(/\/$/, '')
+    const renamed = await fetch(`${origin}/api/conversations/rename`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: origin },
+      body: JSON.stringify({ tool: 'claude', id, title: 'Release notes' }),
+    })
+    expect(renamed.status).toBe(204)
+
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 3, name: 'Release notes', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 3, name: 'Fix the parser', exact: true })).toHaveCount(0)
+    await page.getByRole('searchbox', { name: 'Search conversations' }).fill('release notes')
+    await expect(page.locator('li.conversation')).toHaveCount(1)
+    await expect(page.getByRole('heading', { level: 3, name: 'Release notes', exact: true })).toBeVisible()
+  } finally {
+    for (const server of servers) await stop(server)
+    if (!temporary.startsWith(join(tmpdir(), 'agnostic-ui-live-'))) throw new Error('Unexpected fixture directory')
+    await rm(temporary, { recursive: true, force: true })
+  }
+})

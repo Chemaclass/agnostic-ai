@@ -13,14 +13,15 @@ import (
 // pollEvery is how often the companion asks the server whether the list changed.
 const pollEvery = 5 * time.Second
 
-// maxRequestBytes bounds a request from the companion's own pages: a tool, an id and a mark.
+// maxRequestBytes bounds a request from the companion's own pages: a tool, an id and a mark or a name.
 const maxRequestBytes = 4 << 10
 
 // The server's endpoints the companion uses.
 const (
-	serverListPath = "/api/views/conversations"
-	serverOpenPath = "/api/conversations/open"
-	serverMarkPath = "/api/conversations/mark"
+	serverListPath   = "/api/views/conversations"
+	serverOpenPath   = "/api/conversations/open"
+	serverMarkPath   = "/api/conversations/mark"
+	serverRenamePath = "/api/conversations/rename"
 )
 
 // inbox keeps the latest list of conversations for the pages. It holds
@@ -202,7 +203,7 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 
 // pass hands a page's request to the server's endpoint at path as it
 // came, and the server's answer back. The server checks the request; it
-// is the one that opens and marks. A call that worked asks for a new
+// is the one that opens, marks and renames. A call that worked asks for a new
 // list.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

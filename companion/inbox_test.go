@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 // fakeAgnosticAI stands in for the agnostic-ai server.
@@ -179,6 +180,35 @@ func TestInbox_PassesAMarkToTheServerAndItsAnswerBack(t *testing.T) {
 	case <-in.refresh:
 	default:
 		t.Error("a mark the server kept asked for no new list")
+	}
+}
+
+func TestInbox_PassesARenameToTheServerAndItsAnswerBack(t *testing.T) {
+	fake := &fakeAgnosticAI{}
+	in, _ := connected(t, fake)
+	routes := (&shell{}).routes(in, fstest.MapFS{})
+	post := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/rename", strings.NewReader(body)))
+		return rec
+	}
+
+	done := post(`{"tool":"claude","id":"a","title":"Parser fix"}`)
+	gone := post(`{"tool":"claude","id":"gone","title":"Parser fix"}`)
+
+	if done.Code != http.StatusNoContent || done.Body.Len() != 0 {
+		t.Errorf("a rename the server kept = %d %s", done.Code, done.Body)
+	}
+	if gone.Code != http.StatusNotFound || gone.Body.String() != `{"error":"That conversation is not in this list any more. Refresh the page."}` {
+		t.Errorf("a rename the server refused = %d %s", gone.Code, gone.Body)
+	}
+	if sent := fake.posts[serverRenamePath]; len(sent) != 2 || sent[0] != `application/json {"tool":"claude","id":"a","title":"Parser fix"}` {
+		t.Errorf("the server received %q", sent)
+	}
+	select {
+	case <-in.refresh:
+	default:
+		t.Error("a rename the server kept asked for no new list")
 	}
 }
 

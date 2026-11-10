@@ -134,7 +134,7 @@ func (s *Scanner) searchAll(ctx context.Context, all []Conversation, words []str
 	for _, c := range all {
 		if c.pending != nil {
 			t := withPrompts(*c.pending, prompts[c.ID])
-			if !holdsAll(strings.Join([]string{t.title, t.firstPrompt, t.lastPrompt, c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+			if !holdsAll(strings.Join([]string{c.renamed, t.title, t.firstPrompt, t.lastPrompt, c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
 				continue
 			}
 			c.pending = nil

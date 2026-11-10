@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, detailsOf, grouped, isDrag, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf, viewIn } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, renameOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -100,4 +100,44 @@ test('narrows the list to one place and counts what needs the person there', () 
   const cloud = viewIn({ ...view, matches: 4 }, 'cloud')
   assert.deepEqual([cloud.conversations.map((r) => r.id), cloud.needsYou, cloud.matches], [['b', 'c'], 1, 2])
   assert.deepEqual(PLACES.map((place) => place.id), ['all', 'local', 'cloud'])
+})
+
+test('takes a typed name as one line and refuses an empty one', () => {
+  assert.equal(nameOf('  Parser \n\t fix  '), 'Parser fix')
+  assert.equal(nameOf(''), undefined)
+  assert.equal(nameOf(' \n\t '), undefined)
+})
+
+test('shows a new name on its row at once and leaves the rest of the view as it was', () => {
+  const view = { needsYou: 1, conversations: [row('a', 'unread'), row('a', 'active', { tool: 'codex' }), row('b', 'completed')] }
+  const renamed = withTitle(view, 'claude:a', 'Parser fix')
+  assert.deepEqual(renamed.conversations.map((r) => [r.tool, r.id, r.title, r.state]), [
+    ['claude', 'a', 'Parser fix', 'unread'],
+    ['codex', 'a', 'a', 'active'],
+    ['claude', 'b', 'b', 'completed'],
+  ])
+  assert.equal(renamed.needsYou, 1)
+  assert.equal(view.conversations[0].title, 'a')
+})
+
+test('sends a typed name, refuses an empty one and keeps a name that did not change', () => {
+  assert.deepEqual(renameOf(' Parser  fix ', '/clear'), { title: 'Parser fix' })
+  assert.deepEqual(renameOf('  ', '/clear'), { empty: true })
+  assert.deepEqual(renameOf('/clear', '/clear'), { keep: true })
+  // A long title shows cut short; saving it as it shows would lose its end.
+  const cut = 'a'.repeat(119) + '…'
+  assert.deepEqual(renameOf(cut, cut), { keep: true })
+})
+
+test('lets an input method confirm its candidate without saving', () => {
+  assert.equal(confirmsCandidate({ key: 'Enter', isComposing: true, keyCode: 13 }), true)
+  assert.equal(confirmsCandidate({ key: 'Enter', isComposing: false, keyCode: 229 }), true)
+  assert.equal(confirmsCandidate({ key: 'Enter', isComposing: false, keyCode: 13 }), false)
+})
+
+test('closes the nearest thing on Escape: the row menu, a rename, the settings, then the panel', () => {
+  assert.equal(escapeTarget({ rowMenuOpen: true, renaming: true, settingsOpen: true }), 'row-menu')
+  assert.equal(escapeTarget({ rowMenuOpen: false, renaming: true, settingsOpen: true }), 'rename')
+  assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: true }), 'settings')
+  assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: false }), 'panel')
 })

@@ -61,7 +61,8 @@ const marksSchemaVersion = "conversation-marks/v1"
 const maxMarksBytes = 8 << 20
 
 // marksFile is the person's marks on this machine. It holds tool
-// names, ids and times, never conversation text.
+// names, ids, times and the names the person gave conversations, never
+// the conversations' own text.
 type marksFile struct {
 	SchemaVersion string `json:"schemaVersion"`
 	// Since is the baseline: everything written up to it counts as seen.
@@ -75,6 +76,9 @@ type markEntry struct {
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
 	HiddenAt    string `json:"hiddenAt,omitempty"`
+	// Title is the name the person chose, shown over the tool's own. A
+	// new message keeps it.
+	Title string `json:"title,omitempty"`
 }
 
 func markKey(tool Tool, id string) string { return string(tool) + ":" + id }
@@ -232,6 +236,8 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			if entry.HiddenAt != "" {
 				continue
 			}
+			c.renamed = entry.Title
+			c.showChosenName()
 			c.State = stateOf(c, entry, since, now)
 			c.SeenAt = entry.SeenAt
 			c.CompletedAt = entry.CompletedAt
@@ -300,6 +306,16 @@ func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry,
 	change(&entry, stamp(now))
 	file.Marks[key] = entry
 	return writeMarks(s.MarksPath, file)
+}
+
+// Rename saves the name the person chose for one conversation. It
+// leaves its seen, completed and hidden marks as they were.
+func (s *Scanner) Rename(tool Tool, id, title string) error {
+	title, err := CleanTitle(title)
+	if err != nil {
+		return err
+	}
+	return s.changeMark(tool, id, func(entry *markEntry, _ string) { entry.Title = title })
 }
 
 // Reopen finds one conversation, opens it where it lives, marks it seen

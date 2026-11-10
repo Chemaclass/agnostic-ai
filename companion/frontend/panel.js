@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, saveShortcut, saveStartAtLogin } from '/api.js'
-import { GROUPS, PLACES, detailsOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf, viewIn } from '/model.js'
+import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin } from '/api.js'
+import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -49,6 +49,8 @@ const state = {
   activeKey: undefined,
   /** What was drawn last, so an unchanged list is not drawn again. */
   drawn: '',
+  /** The row whose name is being typed: {key, draft, problem?, saving?}; undefined otherwise. */
+  renaming: undefined,
 }
 
 /** The list as the place switch narrows it; undefined before the first one arrived. */
@@ -151,13 +153,24 @@ function rowOf(conversation, order) {
   row.title = conversation.open.label
 
   const text = element('div', 'text')
-  text.append(element('div', 'title', conversation.title === '' ? 'Untitled conversation' : conversation.title))
-  const meta = element('div', 'meta')
-  const reason = reasonOf(conversation)
-  if (reason) {
-    meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
+  const renaming = state.renaming?.key === key ? state.renaming : undefined
+  if (renaming) {
+    text.append(renameField(conversation, renaming))
+  } else {
+    text.append(element('div', 'title', conversation.title === '' ? 'Untitled conversation' : conversation.title))
   }
-  meta.append(detailsOf(conversation, Date.now()))
+  const meta = element('div', 'meta')
+  if (renaming?.problem) {
+    meta.classList.add('is-problem')
+    meta.title = renaming.problem
+    meta.append(renaming.problem)
+  } else {
+    const reason = reasonOf(conversation)
+    if (reason) {
+      meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
+    }
+    meta.append(detailsOf(conversation, Date.now()))
+  }
   text.append(meta)
 
   const actions = element('div', 'actions')
@@ -173,7 +186,46 @@ function rowOf(conversation, order) {
   row.append(stateMark(conversation), text, actions)
   row.addEventListener('click', () => openRow(conversation))
   row.addEventListener('mousemove', () => setActive(key))
+  row.addEventListener('contextmenu', (event) => {
+    // Right-clicking only offers the menu: the chat stays closed and unread.
+    event.preventDefault()
+    setActive(key)
+    openRowMenu(conversation, event)
+  })
   return row
+}
+
+function renameField(conversation, renaming) {
+  const input = element('input', 'title rename')
+  input.type = 'text'
+  input.value = renaming.draft
+  input.spellcheck = false
+  input.autocomplete = 'off'
+  input.setAttribute('aria-label', 'New name')
+  // The row opens on a click; typing a name must not.
+  for (const kind of ['click', 'contextmenu']) {
+    input.addEventListener(kind, (event) => event.stopPropagation())
+  }
+  input.addEventListener('input', () => { renaming.draft = input.value })
+  input.addEventListener('keydown', (event) => {
+    event.stopPropagation()
+    if (confirmsCandidate(event)) return
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      saveRename(conversation)
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelRename()
+    }
+  })
+  input.addEventListener('blur', () => {
+    // Chrome sends blur while a redraw is still removing the field, so wait until the redraw is over:
+    // only a person leaving a field that is still on the page cancels.
+    setTimeout(() => {
+      if (input.isConnected) cancelRename()
+    })
+  })
+  return input
 }
 
 function groupHead(group) {
@@ -216,6 +268,8 @@ function cloudAside(view) {
 }
 
 function draw({ force } = { force: false }) {
+  // A new list would take the name being typed away; it waits until the rename ends.
+  if (state.renaming && !force) return
   const view = shownView()
   // What could not be read comes first, then what the companion and the server have to say.
   // A cloud that is missing is not a problem with the list: it gets a quiet line under the rows.
@@ -359,6 +413,98 @@ async function markRow(conversation, mark) {
   await refresh()
 }
 
+// Rename
+
+const rowMenu = document.getElementById('row-menu')
+const renameItem = document.getElementById('rename')
+/** The conversation the row menu was opened on. */
+let rowMenuFor
+
+function openRowMenu(conversation, event) {
+  rowMenuFor = conversation
+  rowMenu.hidden = false
+  // The menu opens at the pointer and stays inside the card.
+  const bounds = card.getBoundingClientRect()
+  const left = Math.min(event.clientX - bounds.left, bounds.width - rowMenu.offsetWidth - 8)
+  const top = Math.min(event.clientY - bounds.top, bounds.height - rowMenu.offsetHeight - 8)
+  rowMenu.style.left = Math.max(left, 8) + 'px'
+  rowMenu.style.top = Math.max(top, 8) + 'px'
+  renameItem.focus()
+}
+
+function closeRowMenu() {
+  rowMenu.hidden = true
+  rowMenuFor = undefined
+}
+
+function startRename(conversation) {
+  closeRowMenu()
+  state.renaming = { key: keyOf(conversation), draft: conversation.title }
+  draw({ force: true })
+  if (!focusRename()) dropRename('That conversation is no longer in the list.')
+}
+
+/** Puts the keys in the name field; false when the row it belongs to is not drawn. */
+function focusRename() {
+  const input = list.querySelector('.rename')
+  if (!input) return false
+  input.focus()
+  input.select()
+  return true
+}
+
+/** Ends a rename whose row left the list, which would otherwise hold every redraw and key. */
+function dropRename(message) {
+  state.renaming = undefined
+  draw({ force: true })
+  say(message)
+}
+
+function cancelRename() {
+  if (!state.renaming || state.renaming.saving) return
+  state.renaming = undefined
+  draw({ force: true })
+}
+
+async function saveRename(conversation) {
+  const renaming = state.renaming
+  const { title, empty, keep } = renameOf(renaming.draft, conversation.title)
+  if (keep) {
+    cancelRename()
+    return
+  }
+  if (empty) {
+    renaming.problem = 'Type a name, or press Escape to keep the old one.'
+    draw({ force: true })
+    if (!focusRename()) dropRename(renaming.problem)
+    return
+  }
+  renaming.saving = true
+  try {
+    await renameConversation(conversation, title)
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    renaming.saving = false
+    renaming.problem = error.message
+    draw({ force: true })
+    if (!focusRename()) dropRename(error.message)
+    return
+  }
+  state.renaming = undefined
+  if (state.view) state.view = withTitle(state.view, renaming.key, title)
+  draw({ force: true })
+  // The shell still holds the list it polled before the rename and sends the new one as an inbox event.
+  // A search asks the server itself.
+  if (state.query !== '') await refresh()
+}
+
+renameItem.addEventListener('click', () => {
+  if (rowMenuFor) startRename(rowMenuFor)
+})
+list.addEventListener('scroll', () => {
+  if (!rowMenu.hidden) closeRowMenu()
+})
+
 /** Archives each of the rows, one mark after the other, then reads the list once. */
 async function archiveAll(rows) {
   try {
@@ -461,6 +607,7 @@ shortcutButton.addEventListener('click', () => {
   drawSettings()
 })
 document.addEventListener('mousedown', (event) => {
+  if (!rowMenu.hidden && !rowMenu.contains(event.target)) closeRowMenu()
   if (menu.hidden || menu.contains(event.target) || menuButton.contains(event.target)) return
   closeMenu()
 })
@@ -477,6 +624,19 @@ document.getElementById('dashboard').addEventListener('click', async () => {
 
 const KEY_STEPS = { ArrowDown: 1, ArrowUp: -1 }
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    const closes = {
+      'row-menu': closeRowMenu,
+      rename: cancelRename,
+      settings: closeMenu,
+      panel: () => hidePanel().catch(sayFailure),
+    }
+    closes[escapeTarget({ rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden })]()
+    return
+  }
+  // The open row menu takes Enter and Space on its own item.
+  if (!rowMenu.hidden || state.renaming) return
   if (settings.recording) {
     // Every key belongs to the new shortcut until one is complete.
     event.preventDefault()
@@ -506,6 +666,8 @@ function opened(from) {
   card.classList.add('is-opening')
   toast.hidden = true
   closeMenu()
+  closeRowMenu()
+  state.renaming = undefined
   state.activeKey = undefined
   queryInput.focus()
   queryInput.select()

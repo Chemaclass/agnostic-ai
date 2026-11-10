@@ -123,6 +123,7 @@ Conversation fields:
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - Any of `title`, `opening` and `prompt` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses.
+- `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
   - `focus` switches to the Terminal tab that runs it.
   - `terminal` runs `command` in a new Terminal window.
@@ -145,8 +146,9 @@ Marks:
 
 - `seenAt` and `completedAt` are your marks, when set.
 - `needsYou` counts the blocked and unread conversations of every age and tool the server lists, whatever the page or the search.
-- The marks live in `conversation-marks.json` in the `agnostic-ai` folder of your user configuration folder. The file holds tool names, ids and times only.
+- The marks live in `conversation-marks.json` in the `agnostic-ai` folder of your user configuration folder. The file holds tool names, ids, times and the names you chose, never conversation text.
 - The first read starts the file, and what was written before it counts as seen.
+- An older `serve` that still runs after an upgrade drops the chosen names when it rewrites the file. Restart it, and the companion, after you upgrade.
 - A read deletes a completion that a later message overtook. That conversation is then unread.
 - `marksNote` says why the file could not be read or written. Rows then carry no marks.
 
@@ -185,6 +187,20 @@ Replies:
 - Returns 204.
 - A conversation outside the list returns 404.
 - Another `as`, or any other field, is a 400.
+
+## `POST /api/conversations/rename`
+
+Body: `{tool, id, title}` with `Content-Type: application/json`, from the server's own origin.
+
+- Saves `title` as the conversation's name in the marks file. Every server that shares the file shows it and finds it in a search.
+- The name stays after new messages. It leaves the seen, completed and hidden marks as they were.
+- Spaces and line breaks are joined into one line.
+
+Replies:
+
+- Returns 204.
+- A conversation outside the list returns 404.
+- An empty name, a name longer than 120 characters, a name that may hold a credential, or any other field is a 400.
 
 ## `GET /api/views/authority`
 

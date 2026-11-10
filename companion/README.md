@@ -47,13 +47,18 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
 - Hover a row for its one button: **archive** a chat, or **hide** one that
   is already archived. **Archive all** beside Active archives every active
   chat at once.
+- **Right-click** a row and choose **Rename…** to give the chat your own
+  name. **Enter** saves it and **Esc** keeps the old one. An empty name is
+  refused. The web interface shows the same name, and a search finds it.
+  Right-clicking does not open the chat or mark it as read.
 - An archived chat comes back when you open it or when something new is
   written in it. A hidden chat leaves every list and search in agnostic-ai
   and comes back only with a new message. The tool that owns the chat keeps
   it either way.
 - The **home button** beside the search opens the full agnostic-ai web
   interface, the dashboard.
-- **Esc**, or a click anywhere else, closes the list.
+- **Esc**, or a click anywhere else, closes the list. While a menu or a
+  rename is open, **Esc** closes that first.
 
 The number on the circle counts the conversations that need you. An ice blue arc
 turns around the circle while an agent is working.
@@ -168,8 +173,9 @@ Both are in the `agnostic-ai` folder of your user configuration folder
 (`~/Library/Application Support` on macOS, `%AppData%` on Windows,
 `~/.config` on Linux):
 
-- `conversation-marks.json`: what you saw and what you archived, shared
-  with `agnostic-ai serve`. Tool names, ids and times only.
+- `conversation-marks.json`: what you saw, what you archived and the names
+  you gave chats, shared with `agnostic-ai serve`. Tool names, ids, times
+  and those names only, never chat text.
 - `companion.json`: where you left the circle, and your shortcut.
 
 ## When it reads

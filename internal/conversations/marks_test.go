@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -54,9 +55,14 @@ func TestStateOf_PlacesAConversationByToolReportThenMarksThenAge(t *testing.T) {
 
 func writeMarkedSession(t *testing.T, stores Stores, id, timestamp string) {
 	t.Helper()
+	writeSessionSaying(t, stores, id, timestamp, "Fix the parser")
+}
+
+func writeSessionSaying(t *testing.T, stores Stores, id, timestamp, prompt string) {
+	t.Helper()
 	line, err := json.Marshal(map[string]any{
 		"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": timestamp,
-		"message": map[string]any{"role": "user", "content": "Fix the parser"},
+		"message": map[string]any{"role": "user", "content": prompt},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -293,5 +299,183 @@ func TestLockMarks_WaitsForTheOtherHolderAndFreesTheLockWhenReleased(t *testing.
 	case <-taken:
 	case <-time.After(2 * time.Second):
 		t.Fatal("the lock was not taken after its holder released it")
+	}
+}
+
+func renamingScanner(t *testing.T) (*Scanner, Stores, *time.Time) {
+	t.Helper()
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	return scanner, stores, &now
+}
+
+func TestRename_ShowsTheChosenTitleAndKeepsItAfterANewMessage(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	scanner, stores, now := renamingScanner(t)
+	writeSessionSaying(t, stores, id, "2026-11-07T11:00:00.000Z", "/clear")
+	scanner.Scan(context.Background(), ScanOptions{})
+
+	if err := scanner.Rename(ToolClaude, id, "Parser fix"); err != nil {
+		t.Fatal(err)
+	}
+
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.Title != "Parser fix" {
+		t.Fatalf("title after renaming = %q", c.Title)
+	}
+	*now = now.Add(time.Hour)
+	writeSessionSaying(t, stores, id, "2026-11-07T12:30:00.000Z", "/clear")
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id)
+	if c.Title != "Parser fix" || c.State != StateUnread {
+		t.Errorf("after a new message: title %q, state %s", c.Title, c.State)
+	}
+	if entry := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolClaude, id)]; entry.Title != "Parser fix" {
+		t.Errorf("stored entry = %+v", entry)
+	}
+}
+
+func TestRename_KeepsTheStateSeenAndCompletedMarks(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	scanner, stores, now := renamingScanner(t)
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	scanner.Scan(context.Background(), ScanOptions{})
+	if err := scanner.Mark(ToolClaude, id, MarkCompleted); err != nil {
+		t.Fatal(err)
+	}
+	*now = now.Add(time.Minute)
+
+	if err := scanner.Rename(ToolClaude, id, "Parser fix"); err != nil {
+		t.Fatal(err)
+	}
+
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id)
+	if c.Title != "Parser fix" || c.State != StateCompleted || c.SeenAt != "2026-11-07T12:00:00Z" || c.CompletedAt != "2026-11-07T12:00:00Z" {
+		t.Errorf("after renaming a completed conversation: %s", asJSON(t, c))
+	}
+}
+
+func TestRename_KeepsAHiddenConversationHidden(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	scanner, stores, _ := renamingScanner(t)
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	if err := scanner.Mark(ToolClaude, id, MarkHidden); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := scanner.Rename(ToolClaude, id, "Parser fix"); err != nil {
+		t.Fatal(err)
+	}
+
+	if view := scanner.Scan(context.Background(), ScanOptions{}); len(view.Conversations) != 0 {
+		t.Errorf("a rename brought a hidden conversation back: %s", asJSON(t, view.Conversations))
+	}
+}
+
+func TestCleanTitle_KeepsOneLineAndRefusesWhatItCannotShow(t *testing.T) {
+	if title, err := CleanTitle("  Parser \n\t fix  "); err != nil || title != "Parser fix" {
+		t.Errorf("CleanTitle = %q, %v", title, err)
+	}
+	if title, err := CleanTitle(strings.Repeat("é", titleRunes)); err != nil || title != strings.Repeat("é", titleRunes) {
+		t.Errorf("a title of %d characters = %q, %v", titleRunes, title, err)
+	}
+	for typed, refusal := range map[string]string{
+		"":                          "the name is empty",
+		" \n\t ":                    "the name is empty",
+		strings.Repeat("a", 121):    "the name is longer than 120 characters",
+		"Use password hunter2 here": "the name may hold a password or key, so it is not saved",
+	} {
+		if _, err := CleanTitle(typed); err == nil || err.Error() != refusal {
+			t.Errorf("CleanTitle(%.20q) = %v, want %q", typed, err, refusal)
+		}
+	}
+}
+
+func TestRename_ShowsATitleThatWasWithheld(t *testing.T) {
+	const renamed, twin = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
+	scanner, stores, _ := renamingScanner(t)
+	// Two chats with the same texts share what the scan worked out for them.
+	writeSessionSaying(t, stores, renamed, "2026-11-07T11:00:00.000Z", "Use password hunter2 for the staging login")
+	writeSessionSaying(t, stores, twin, "2026-11-07T11:00:00.000Z", "Use password hunter2 for the staging login")
+
+	if err := scanner.Rename(ToolClaude, renamed, "Staging login"); err != nil {
+		t.Fatal(err)
+	}
+
+	for range 2 {
+		view := scanner.Scan(context.Background(), ScanOptions{})
+		if c := byID(t, view, renamed); c.Title != "Staging login" || strings.Join(c.Withheld, ",") != "opening" {
+			t.Errorf("the renamed chat: title %q, withheld %v", c.Title, c.Withheld)
+		}
+		if c := byID(t, view, twin); c.Title != "" || strings.Join(c.Withheld, ",") != "title,opening" {
+			t.Errorf("the other chat: title %q, withheld %v", c.Title, c.Withheld)
+		}
+	}
+}
+
+func TestScan_SearchFindsARenamedConversationByItsNewName(t *testing.T) {
+	const claude, recentCursor, oldCursor = "11111111-1111-4111-8111-111111111111", "88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999"
+	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
+		"state.vscdb|FROM composerHeaders": `[
+			{"id":"` + recentCursor + `","workspace_id":"ws1","created_at":1794049200000,"recency":1794049200000,"name":"Cursor chat","folder":"/tmp/app","branch":""},
+			{"id":"` + oldCursor + `","workspace_id":"ws1","created_at":1700000000000,"recency":1700000000000,"name":"Old chat","folder":"/tmp/app","branch":""}
+		]`,
+		"state.vscdb|chosen(composerId)": `[
+			{"id":"` + recentCursor + `","first_text":"Start here","last_text":"Go on"},
+			{"id":"` + oldCursor + `","first_text":"Start there","last_text":"Keep going"}
+		]`,
+	}), fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	write(t, stores.CursorDB, "")
+	writeSessionSaying(t, stores, claude, "2026-11-07T11:00:00.000Z", "/clear")
+	for id, title := range map[string]string{recentCursor: "Billing webhooks", oldCursor: "Invoice export"} {
+		if err := scanner.Rename(ToolCursor, id, title); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := scanner.Rename(ToolClaude, claude, "Parser fix"); err != nil {
+		t.Fatal(err)
+	}
+
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), recentCursor); c.Title != "Billing webhooks" {
+		t.Errorf("a Cursor chat whose prompts are read for the page shows %q", c.Title)
+	}
+	for query, id := range map[string]string{"parser fix": claude, "billing webhooks": recentCursor, "invoice export": oldCursor} {
+		view := scanner.Scan(context.Background(), ScanOptions{Query: query})
+		if *view.Matches != 1 || view.Conversations[0].ID != id {
+			t.Errorf("search %q = %s", query, asJSON(t, view.Conversations))
+		}
+	}
+}
+
+func TestRename_TwoServersSharingTheMarksFileAgree(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	path := filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	companion, stores := testScanner(t, noSQLite, fakeProcesses{})
+	dashboard := &Scanner{Stores: stores, SQLite: noSQLite, Processes: fakeProcesses{}}
+	for _, scanner := range []*Scanner{companion, dashboard} {
+		scanner.MarksPath = path
+		scanner.Now = func() time.Time { return now }
+	}
+	writeSessionSaying(t, stores, id, "2026-11-07T11:00:00.000Z", "/clear")
+	dashboard.Scan(context.Background(), ScanOptions{})
+
+	if err := companion.Rename(ToolClaude, id, "Parser fix"); err != nil {
+		t.Fatal(err)
+	}
+	if c := byID(t, dashboard.Scan(context.Background(), ScanOptions{}), id); c.Title != "Parser fix" {
+		t.Fatalf("the other server shows %q", c.Title)
+	}
+	if err := dashboard.Mark(ToolClaude, id, MarkCompleted); err != nil {
+		t.Fatal(err)
+	}
+
+	c := byID(t, companion.Scan(context.Background(), ScanOptions{}), id)
+	if c.Title != "Parser fix" || c.State != StateCompleted {
+		t.Errorf("after the other server's completion: title %q, state %s", c.Title, c.State)
+	}
+	if view := dashboard.Scan(context.Background(), ScanOptions{Query: "parser fix"}); *view.Matches != 1 {
+		t.Errorf("the other server's search found %d", *view.Matches)
 	}
 }

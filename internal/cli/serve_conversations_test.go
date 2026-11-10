@@ -218,6 +218,21 @@ func TestServeMux_ServesConversations(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || view.SchemaVersion != conversations.SchemaVersion || len(view.Tools) != 3 {
 		t.Errorf("GET %s = %d %+v (%v)", conversationsViewPath, resp.StatusCode, view, err)
 	}
+
+	rename, err := http.NewRequest(http.MethodPost, srv.URL+conversationRenamePath, strings.NewReader(`{"tool":"gemini","id":"x","title":"Parser fix"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rename.Header.Set("Content-Type", "application/json")
+	rename.Header.Set("Origin", srv.URL)
+	resp, err = http.DefaultClient.Do(rename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("POST %s = %d, want the handler's own refusal", conversationRenamePath, resp.StatusCode)
+	}
 }
 
 func TestConversationsHandler_PagesByWeek(t *testing.T) {
@@ -395,6 +410,9 @@ func TestConversationsHandler_AnswersNotModifiedWhileTheListHolds(t *testing.T) 
 		"a mark": func() {
 			postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"completed"}`, nil)
 		},
+		"a rename": func() {
+			postEdit(t, h, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Parser fix"}`, nil)
+		},
 		"a write to a store": func() {
 			sessions := filepath.Join(h.scanner.Stores.ClaudeDir, "sessions")
 			if err := os.MkdirAll(sessions, 0o700); err != nil {
@@ -416,5 +434,79 @@ func TestConversationsHandler_AnswersNotModifiedWhileTheListHolds(t *testing.T) 
 			t.Errorf("after %s = %d, ETag unchanged: %t", name, rec.Code, rec.Header().Get("ETag") == tag)
 		}
 		tag = rec.Header().Get("ETag")
+	}
+}
+
+func TestConversationsHandler_RenamesAConversation(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+
+	if rec := postEdit(t, h, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"  Parser   fix "}`, nil); rec.Code != http.StatusNoContent || rec.Body.Len() != 0 {
+		t.Fatalf("rename = %d %s", rec.Code, rec.Body)
+	}
+	if c, _ := stateOfListed(t, h, inProject); c.Title != "Parser fix" || c.State != conversations.StateActive || c.SeenAt != "" {
+		t.Errorf("after renaming: title %q, state %s, seenAt %q", c.Title, c.State, c.SeenAt)
+	}
+	if c, _ := stateOfListed(t, h, inWorktree); c.Title != "Review the branch" {
+		t.Errorf("another conversation's title = %q", c.Title)
+	}
+}
+
+func TestConversationsHandler_RefusesARenameItCannotKeep(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	for name, tc := range map[string]struct {
+		body   string
+		status int
+		reply  string
+	}{
+		"outside the project": {`{"tool":"claude","id":"` + elsewhere + `","title":"Parser fix"}`, http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
+		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `","title":"Parser fix"}`, http.StatusBadRequest, `{"error":"tool must be claude, codex or cursor"}`},
+		"an empty name":       {`{"tool":"claude","id":"` + inProject + `","title":"   "}`, http.StatusBadRequest, `{"error":"the name is empty"}`},
+		"no name":             {`{"tool":"claude","id":"` + inProject + `"}`, http.StatusBadRequest, `{"error":"the name is empty"}`},
+		"a long name":         {`{"tool":"claude","id":"` + inProject + `","title":"` + strings.Repeat("a", 121) + `"}`, http.StatusBadRequest, `{"error":"the name is longer than 120 characters"}`},
+		"a password":          {`{"tool":"claude","id":"` + inProject + `","title":"Use password hunter2 here"}`, http.StatusBadRequest, `{"error":"the name may hold a password or key, so it is not saved"}`},
+		"an extra field":      {`{"tool":"claude","id":"` + inProject + `","title":"Parser fix","as":"seen"}`, http.StatusBadRequest, `{"error":"send {tool, id, title}"}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := postEdit(t, h, conversationRenamePath, tc.body, nil)
+			if rec.Code != tc.status || strings.TrimSpace(rec.Body.String()) != tc.reply {
+				t.Errorf("= %d %s", rec.Code, rec.Body)
+			}
+		})
+	}
+	foreign := postEdit(t, h, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Parser fix"}`, func(r *http.Request) { r.Header.Set("Origin", "https://attacker.example") })
+	if foreign.Code != http.StatusForbidden {
+		t.Errorf("a foreign page = %d %s", foreign.Code, foreign.Body)
+	}
+	if c, _ := stateOfListed(t, h, inProject); c.Title != "Fix the parser" {
+		t.Errorf("a refused rename was kept: title %q", c.Title)
+	}
+}
+
+func TestConversationsHandler_ARenameOnOneServerShowsOnAnother(t *testing.T) {
+	companion, _, _ := conversationsFixture(t, true)
+	companion.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	// The companion's global server and a project dashboard: two scanners, one marks file.
+	shared := companion.scanner
+	dashboard := &conversationsHandler{root: companion.root, scanner: &conversations.Scanner{
+		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now, MarksPath: shared.MarksPath,
+	}, worktrees: companion.worktrees}
+	if c, _ := stateOfListed(t, dashboard, inProject); c.Title != "Fix the parser" {
+		t.Fatalf("before the rename the dashboard shows %q", c.Title)
+	}
+
+	if rec := postEdit(t, companion, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Release notes"}`, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("rename = %d %s", rec.Code, rec.Body)
+	}
+
+	if c, _ := stateOfListed(t, dashboard, inProject); c.Title != "Release notes" {
+		t.Errorf("the dashboard shows %q", c.Title)
+	}
+	rec := httptest.NewRecorder()
+	dashboard.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+"?q=release+notes", nil))
+	var view conversations.View
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil || ids(view) != inProject {
+		t.Errorf("the dashboard's search = %d %s", rec.Code, rec.Body)
 	}
 }

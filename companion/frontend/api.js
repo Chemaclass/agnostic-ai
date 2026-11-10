@@ -48,6 +48,10 @@ export function markConversation(conversation, mark) {
   return post('/api/mark', { tool: conversation.tool, id: conversation.id, as: mark })
 }
 
+export function renameConversation(conversation, title) {
+  return post('/api/rename', { tool: conversation.tool, id: conversation.id, title })
+}
+
 export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
 
