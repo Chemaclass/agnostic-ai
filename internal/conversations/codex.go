@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,7 +16,9 @@ import (
 
 // Codex indexes its threads in state_<n>.sqlite and keeps each prompt in
 // thread_history_<n>.sqlite, so neither the compressed rollout files nor
-// a zstd library are needed.
+// a zstd library are needed to list them. Only a thread a process has
+// loaded has its rollout read, for whether a turn runs; Codex writes
+// that one as plain lines.
 
 var codexStatePattern = regexp.MustCompile(`^state_([0-9]+)\.sqlite$`)
 var codexHistoryPattern = regexp.MustCompile(`^thread_history_([0-9]+)\.sqlite$`)
@@ -33,11 +36,14 @@ type codexThread struct {
 	Name             string `json:"name"`
 	Title            string `json:"title"`
 	FirstUserMessage string `json:"first_user_message"`
+	// RolloutPath is the file Codex appends the thread's events to.
+	RolloutPath string `json:"rollout_path"`
 }
 
 const codexThreadsQuery = `SELECT id, cwd, created_at_ms, updated_at_ms, coalesce(originator, '') AS originator,
   coalesce(source, '') AS source, coalesce(git_branch, '') AS git_branch, coalesce(name, '') AS name,
-  coalesce(title, '') AS title, coalesce(first_user_message, '') AS first_user_message
+  coalesce(title, '') AS title, coalesce(first_user_message, '') AS first_user_message,
+  coalesce(rollout_path, '') AS rollout_path
 FROM threads
 WHERE thread_source = 'user' AND archived = 0
 ORDER BY updated_at_ms DESC`
@@ -68,6 +74,7 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	lastPrompts := s.codexLastPrompts(ctx)
 	editor := extensionEditor(s.Stores.Home, "openai.chatgpt", opts.Editor)
 	conversations := make([]Conversation, 0, len(threads))
+	rollouts := map[string]string{}
 	for _, thread := range threads {
 		if !sessionIDPattern.MatchString(thread.ID) || codexExec(thread) {
 			continue
@@ -79,8 +86,9 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		s.fill(&c, texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]})
 		codexRoute(&c, thread, editor)
 		conversations = append(conversations, c)
+		rollouts[thread.ID] = thread.RolloutPath
 	}
-	s.markLiveCodexThreads(conversations)
+	s.markLiveCodexThreads(conversations, rollouts)
 	return found(ToolCodex, within(conversations, opts.Within))
 }
 
@@ -116,7 +124,9 @@ const codexLiveWindow = 7 * 24 * time.Hour
 // holds the thread; the files stay after it exits, so the test is
 // whether a process still has one open. An open CLI thread switches to
 // the terminal that runs it, since a second resume would compete with it.
-func (s *Scanner) markLiveCodexThreads(conversations []Conversation) {
+// A loaded thread whose rollout says a turn runs is working.
+func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string) {
+	var liveRollouts []string
 	cutoff := s.Now().Add(-codexLiveWindow).UTC().Format(time.RFC3339)
 	lockOf := map[string]int{}
 	var locks []string
@@ -137,11 +147,91 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation) {
 		}
 		c := &conversations[i]
 		c.Live = true
+		if rollout, ok := s.codexRollout(rollouts[c.ID]); ok {
+			liveRollouts = append(liveRollouts, rollout)
+			if codexTurnRuns(rollout) {
+				c.Activity = ActivityWorking
+			}
+		}
 		if c.App == AppCLI {
 			c.process = &liveProcess{PID: pid}
 			c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: c.Open.Command}
 		}
 	}
+	// A turn that begins or ends writes only to the rollout, so the
+	// rollouts of loaded threads are among the files a Codex read depends on.
+	s.rolloutsMu.Lock()
+	s.codexLiveRollouts = liveRollouts
+	s.rolloutsMu.Unlock()
+}
+
+// codexRollout checks a rollout path from the thread index before it
+// is opened: a plain-lines file under Codex's own folder.
+func (s *Scanner) codexRollout(path string) (string, bool) {
+	if path == "" || filepath.Ext(path) != ".jsonl" {
+		return "", false
+	}
+	inside, err := filepath.Rel(s.Stores.CodexDir, path)
+	if err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) || filepath.IsAbs(inside) {
+		return "", false
+	}
+	return path, true
+}
+
+// codexRolloutTail is how much of a rollout's end is read for its last
+// turn event. Events between two of them run to megabytes in a long
+// turn; see codexTurnRuns for a tail that holds none.
+const codexRolloutTail = 256 << 10
+
+// codexTurnEvents are the events that begin and end a turn, and
+// whether a turn runs after each.
+var codexTurnEvents = map[string]bool{
+	"task_started":  true,
+	"task_complete": false,
+	"turn_aborted":  false,
+}
+
+// codexTurnRuns reports whether the rollout's last turn event began a
+// turn. Codex writes task_started when a turn begins and task_complete
+// or turn_aborted when it ends, and nothing after an end until the next
+// begin. So a tail that holds no turn event, cut from a longer file, is
+// the middle of a turn that runs; a whole file with none has no turn.
+// A file that cannot be read says nothing, and the thread shows as open.
+func codexTurnRuns(path string) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
+		return false
+	}
+	from := max(info.Size()-codexRolloutTail, 0)
+	tail := make([]byte, info.Size()-from)
+	if _, err := file.ReadAt(tail, from); err != nil && !errors.Is(err, io.EOF) {
+		return false
+	}
+	lines := strings.Split(string(tail), "\n")
+	if from > 0 {
+		// The first line of a cut tail is the end of a longer one.
+		lines = lines[1:]
+	}
+	for i := len(lines) - 1; i >= 0; i-- {
+		var event struct {
+			Type    string `json:"type"`
+			Payload struct {
+				Type string `json:"type"`
+			} `json:"payload"`
+		}
+		if json.Unmarshal([]byte(lines[i]), &event) != nil || event.Type != "event_msg" {
+			continue
+		}
+		if runs, known := codexTurnEvents[event.Payload.Type]; known {
+			return runs
+		}
+	}
+	return from > 0
 }
 
 // codexLastPrompts maps thread ids to their newest prompt. Threads the

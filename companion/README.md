@@ -80,9 +80,17 @@ Each conversation is in the first group whose rule holds.
 | Active | Open, or written in the last 24 hours. |
 | Archived | You archived it and nothing was written since, or it is closed and was quiet for more than 24 hours. A new message moves it back to Needs you. |
 
-Claude Code, local and cloud, and Codex cloud threads report waiting and busy.
-Local Codex chats and Cursor chats reach Needs you when something new is
-written in them.
+What each tool reports:
+
+| Tool | Working | Waiting for you |
+| --- | --- | --- |
+| Claude Code, local and cloud | yes | yes |
+| Codex cloud | yes | yes |
+| Codex local | yes, from the turn that runs in its session file | no |
+| Cursor | no | no |
+
+A chat whose tool does not report waiting reaches Needs you when something new
+is written in it.
 
 How a status is believed:
 

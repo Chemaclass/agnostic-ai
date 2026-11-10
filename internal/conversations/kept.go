@@ -71,11 +71,15 @@ func withWAL(databases ...string) []string {
 }
 
 // codexFiles are the files a Codex read depends on: the thread index,
-// the prompt history and the folder of thread locks, whose own time
-// changes when a lock comes or goes.
+// the prompt history, the folder of thread locks, whose own time
+// changes when a lock comes or goes, and the rollouts of the threads a
+// process had loaded at the last read, where a turn begins and ends.
 func (s *Scanner) codexFiles() []string {
 	files := withWAL(newestNumbered(s.Stores.CodexDir, codexStatePattern), newestNumbered(s.Stores.CodexDir, codexHistoryPattern))
-	return append(files, filepath.Join(s.Stores.CodexDir, "thread-writer-locks"))
+	files = append(files, filepath.Join(s.Stores.CodexDir, "thread-writer-locks"))
+	s.rolloutsMu.Lock()
+	defer s.rolloutsMu.Unlock()
+	return append(files, s.codexLiveRollouts...)
 }
 
 // cursorFiles are the files a Cursor read depends on: the chat index,

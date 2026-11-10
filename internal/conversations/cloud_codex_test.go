@@ -257,3 +257,73 @@ func TestOpen_SendsACodexCloudThreadToTheCodexApp(t *testing.T) {
 		t.Errorf("reply %+v", reply)
 	}
 }
+
+func TestScan_ALoadedCodexThreadIsWorkingWhileItsRolloutSaysATurnRuns(t *testing.T) {
+	const busy, done, fresh, long = "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777", "88888888-8888-4888-8888-888888888888"
+	dir := t.TempDir()
+	codexDir := filepath.Join(dir, ".codex")
+	rollout := func(id string) string {
+		return filepath.Join(codexDir, "sessions", "2026", "11", "07", "rollout-"+id+".jsonl")
+	}
+	thread := func(id, name, path string) string {
+		return fmt.Sprintf(`{"id":%q,"cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex-tui","source":"cli","name":%q,"rollout_path":%q}`, id, name, path)
+	}
+	outside := filepath.Join(dir, "elsewhere.jsonl")
+	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
+		"state_5.sqlite|FROM threads": "[" + strings.Join([]string{
+			thread(busy, "Busy", rollout(busy)), thread(done, "Done", rollout(done)),
+			thread(fresh, "Fresh", rollout(fresh)), thread(long, "Long", outside),
+		}, ",") + "]",
+	}), fakeProcesses{held: map[string]int{busy + ".lock": 1, done + ".lock": 2, fresh + ".lock": 3, long + ".lock": 4}})
+	stores.CodexDir = codexDir
+	scanner.Stores = stores
+	scanner.Now = func() time.Time { return time.UnixMilli(1762520000000) }
+	write(t, filepath.Join(codexDir, "state_5.sqlite"), "")
+	for _, id := range []string{busy, done, fresh, long} {
+		write(t, filepath.Join(codexDir, "thread-writer-locks", id+".lock"), "")
+	}
+	started, completed := `{"type":"event_msg","payload":{"type":"task_started"}}`, `{"type":"event_msg","payload":{"type":"task_complete"}}`
+	other := `{"type":"response_item","payload":{"type":"message"}}`
+	write(t, rollout(busy), strings.Join([]string{started, completed, started, other, other}, "\n")+"\n")
+	write(t, rollout(done), strings.Join([]string{started, other, completed}, "\n")+"\n")
+	write(t, rollout(fresh), other+"\n")
+	// A rollout outside Codex's folder is never opened, whatever it says.
+	write(t, outside, started+"\n")
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	want := map[string]Activity{busy: ActivityWorking, done: "", fresh: "", long: ""}
+	for id, activity := range want {
+		if c := byID(t, view, id); !c.Live || c.Activity != activity {
+			t.Errorf("%s: live %t, activity %q, want live with %q", c.Title, c.Live, c.Activity, activity)
+		}
+	}
+	if state := byID(t, view, busy).State; state != StateWorking {
+		t.Errorf("the busy thread's state = %s", state)
+	}
+
+	// The turn ends in the rollout alone: the next scan must see it.
+	before := scanner.Stamp()
+	write(t, rollout(busy), strings.Join([]string{started, completed, started, other, other, completed}, "\n")+"\n")
+	if scanner.Stamp() == before {
+		t.Error("a write to a loaded thread's rollout did not change the stamp")
+	}
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), busy); c.Activity != "" {
+		t.Errorf("after its turn ended the thread still shows %q", c.Activity)
+	}
+}
+
+func TestCodexTurnRuns_ReadsATailThatHoldsNoTurnEventAsTheMiddleOfATurn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rollout.jsonl")
+	filler := `{"type":"response_item","payload":{"type":"message","text":"` + strings.Repeat("x", 1000) + `"}}` + "\n"
+	long := `{"type":"event_msg","payload":{"type":"task_started"}}` + "\n" + strings.Repeat(filler, codexRolloutTail/len(filler)+10)
+	if err := os.WriteFile(path, []byte(long), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !codexTurnRuns(path) {
+		t.Error("a long turn whose start is before the tail must read as running")
+	}
+	if codexTurnRuns(filepath.Join(t.TempDir(), "missing.jsonl")) {
+		t.Error("a rollout that cannot be read says nothing")
+	}
+}

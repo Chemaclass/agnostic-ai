@@ -84,6 +84,13 @@ type Scanner struct {
 	shown             shownCache
 	keptSources       map[Tool]keptSource
 	keptClouds        map[Tool]*keptCloud
+
+	// rolloutsMu guards codexLiveRollouts apart from mu: Stamp reads
+	// them without waiting for a scan to end.
+	rolloutsMu sync.Mutex
+	// codexLiveRollouts are the rollouts of the Codex threads a process
+	// had loaded at the last read.
+	codexLiveRollouts []string
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
