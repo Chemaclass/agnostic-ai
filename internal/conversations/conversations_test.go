@@ -360,7 +360,8 @@ func TestScan_ListsCursorChatsInTheProjectWithTheirPrompts(t *testing.T) {
 	write(t, filepath.Join(stores.CursorDir, "chats", md5Hex("/tmp/app"), agent, "store.db"), "")
 	write(t, filepath.Join(stores.CursorDir, "projects", "p1", "agent-transcripts", agent, agent+".jsonl"), lines(
 		obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<user_info>os</user_info>"}}}},
-		obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<user_query>Fix the CI job</user_query>"}}}},
+		obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<timestamp>Friday, Nov 7, 2025, 8:00 AM</timestamp>\n<user_query>Fix the CI job</user_query>"}}}},
+		obj{"role": "user", "message": obj{"content": []obj{{"type": "text", "text": "<timestamp>Friday, Nov 7, 2025, 8:05 AM</timestamp>\n<user_query>Run it again</user_query>"}}}},
 	))
 
 	scanner.Now = func() time.Time { return time.UnixMilli(1762800000000) }
@@ -394,7 +395,7 @@ func TestScan_ListsCursorChatsInTheProjectWithTheirPrompts(t *testing.T) {
 }` {
 		t.Errorf("editor chat =\n%s", actual)
 	}
-	if c := byID(t, view, agent); c.App != AppCLI || c.Title != "Fix the CI job" || c.Open.Command != "cd '/tmp/app' && cursor-agent --resume "+agent {
+	if c := byID(t, view, agent); c.App != AppCLI || c.Title != "Fix the CI job" || c.Prompt != "Run it again" || c.Open.Command != "cd '/tmp/app' && cursor-agent --resume "+agent {
 		t.Errorf("cursor-agent chat = %s", asJSON(t, c))
 	}
 }
@@ -543,10 +544,11 @@ func TestCheckedLink_OpensOnlyToolSchemes(t *testing.T) {
 
 func TestTypedText_DropsInjectedBlocksAndKeepsWhatWasTyped(t *testing.T) {
 	for in, want := range map[string]string{
-		"<system-reminder>be brief</system-reminder>\nHello   there":                  "Hello there",
-		"<user_query>\nFix the CI job\n</user_query>":                                 "Fix the CI job",
-		"<command-name>/review</command-name>\n<command-args>PR 12</command-args>":    "/review\nPR 12",
-		"<ide_selection lines=\"1-3\">secret code</ide_selection>Why does this fail?": "Why does this fail?",
+		"<system-reminder>be brief</system-reminder>\nHello   there":                              "Hello there",
+		"<user_query>\nFix the CI job\n</user_query>":                                             "Fix the CI job",
+		"<timestamp>Tuesday, Nov 10, 2026, 10:05 PM</timestamp>\n<user_query>Fix it</user_query>": "Fix it",
+		"<command-name>/review</command-name>\n<command-args>PR 12</command-args>":                "/review\nPR 12",
+		"<ide_selection lines=\"1-3\">secret code</ide_selection>Why does this fail?":             "Why does this fail?",
 	} {
 		if actual := typedText(in); actual != want {
 			t.Errorf("typedText(%q) = %q, want %q", in, actual, want)
