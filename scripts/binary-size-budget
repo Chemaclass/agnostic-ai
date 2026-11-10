@@ -862,4 +862,8 @@
 # icon, embedded as a 36 KB PNG, and measured 25706656 bytes locally on
 # top of #3231; the budget is that plus 8192, rounded up to a multiple of
 # 4096.
-25718784
+# #3228 focuses the exact Terminal, iTerm2 or Ghostty tab of a running
+# session, finds the Codex terminal behind its background service, and
+# remembers each session's tab; it measured 25743520 bytes locally on top
+# of #3234; the budget is that plus 8192, rounded up to a multiple of 4096.
+25755648

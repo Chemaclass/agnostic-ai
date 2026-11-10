@@ -24,10 +24,11 @@ func (stillProcesses) Alive(int, string) bool { return false }
 func (stillProcesses) AliveAmong([]conversations.ProcessRef) map[int]bool {
 	return nil
 }
-func (stillProcesses) TTY(int) (string, error)         { return "", errors.New("no terminal") }
-func (stillProcesses) TerminalApp(int) (string, error) { return "", nil }
-func (stillProcesses) Holders([]string) map[string]int { return nil }
-func (stillProcesses) AppRunning(string) bool          { return false }
+func (stillProcesses) Table() ([]conversations.ProcessInfo, error) { return nil, nil }
+func (stillProcesses) Args([]int) map[int]string                   { return nil }
+func (stillProcesses) Cwds([]int) map[int]string                   { return nil }
+func (stillProcesses) Holders([]string) map[string]int             { return nil }
+func (stillProcesses) AppRunning(string) bool                      { return false }
 
 // runningProcesses has one process running, with every other answer of stillProcesses.
 type runningProcesses struct {
@@ -67,8 +68,16 @@ func (l *recordingLauncher) RunInNewTerminal(_ context.Context, command string) 
 	return nil
 }
 
-func (l *recordingLauncher) FocusTerminalTab(context.Context, string) (bool, error) {
+func (l *recordingLauncher) FocusTab(context.Context, string, string) (bool, error) {
 	return false, errors.New("unexpected focus")
+}
+
+func (l *recordingLauncher) RunInTab(context.Context, string, string, string) (bool, error) {
+	return false, errors.New("unexpected typing")
+}
+
+func (l *recordingLauncher) RunInNewTab(context.Context, string, string) error {
+	return errors.New("unexpected tab")
 }
 
 func realDir(t *testing.T) string {

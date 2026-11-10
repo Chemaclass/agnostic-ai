@@ -125,8 +125,8 @@ Conversation fields:
 - Any of `title`, `opening` and `prompt` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
-  - `focus` switches to the Terminal tab that runs it.
-  - `terminal` runs `command` in a new Terminal window.
+  - `focus` switches to the tab that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
+  - `terminal` runs `command`. It types it into the Terminal, iTerm2 or Ghostty tab the session last ran in, when that tab sits at its shell prompt. Otherwise it opens a new tab of that app, or a new window in Terminal, which cannot open a tab from outside. With no tab remembered, it opens a new Terminal window. `label` then names the app, such as `Open in Ghostty`.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 
 Codex and Cursor stores are read with the `sqlite3` command.
@@ -164,11 +164,13 @@ Cloud sessions and refresh:
 Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the server's own origin.
 
 - Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?}`.
-- `opened` is false when it could not: a live session in another app's terminal, a system that cannot open Terminal, or macOS refusing Automation access. `command` then resumes it by hand.
+- `opened` is true only when the session's own tab came to the front, or the session resumed. A running session is never started a second time.
+- `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when two Codex sessions in one folder could each hold the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs, and `command` resumes it by hand.
 - The route comes from the server's own scan, never from the request.
 - A conversation outside the list returns 404.
 - Any other field is a 400.
-- Opening Terminal asks once for macOS Automation access.
+- macOS asks once for Automation access to each app the server controls: Terminal, iTerm2 and Ghostty. The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
+- The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app, the terminal device and the tab's login process. It holds no conversation text.
 - A conversation that opened is marked seen, and a completion on it is taken back.
 
 ## `POST /api/conversations/mark`

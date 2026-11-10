@@ -141,8 +141,12 @@ type Conversation struct {
 	CompletedAt string `json:"completedAt,omitempty"`
 	Open        Route  `json:"open"`
 
-	// process is the live process that runs it, for a focus route.
+	// process is the live process that holds it, for a focus route.
 	process *liveProcess
+	// placed is where that session shows, when its terminal was found.
+	placed *placement
+	// lastTab is the tab an ended session last ran in, when remembered.
+	lastTab *terminalHost
 	// editor is set for an editor extension's link: its folder opens
 	// there first, so the link reaches the window that holds it.
 	editor *editorApp

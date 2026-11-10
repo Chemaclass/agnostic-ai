@@ -46,6 +46,9 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
   machine or to the ones that run in a tool's cloud. It remembers your choice.
   The number on the circle always counts both.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
+  A running chat comes up in the Terminal, iTerm2 or Ghostty tab that runs
+  it. When only the app can come forward, the list stays open and says where
+  the chat runs. macOS asks once to let the companion control each app.
 - Hover a row for its one button: **archive** a chat, or **hide** one that
   is already archived. A working chat has no button, since the work would
   bring it back at once. **Archive all** beside Active archives every active
