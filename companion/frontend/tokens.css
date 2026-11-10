@@ -64,3 +64,10 @@ button {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* The person turned animation off: nothing moves by itself. Hover and press feedback stay. */
+:root[data-motion='off'] *,
+:root[data-motion='off'] *::before,
+:root[data-motion='off'] *::after {
+  animation: none !important;
+}

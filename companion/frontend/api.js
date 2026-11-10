@@ -60,6 +60,9 @@ export const readPreferences = () => call('/api/preferences')
 export const saveShortcut = (shortcut) => post('/api/preferences/shortcut', { shortcut })
 export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-login', { enabled })
 
+/** How the pages look: {animate}. */
+export const readAppearance = () => call('/api/appearance')
+
 /** Opens the full web interface in the browser. */
 export const openDashboard = () => post('/api/dashboard')
 /** Takes the companion off the screen; the shortcut brings it back. */
