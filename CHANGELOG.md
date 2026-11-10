@@ -13,7 +13,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Right-click a chat in the companion and choose Rename; the web interface shows the same name and search finds it (#3236).
 - An archived or hidden chat that starts working again moves to Working by itself, in the companion and the web interface (#3239).
 - On macOS, `companion install` makes an app with the agnostic-ai icon, replaces the old bare program, and keeps start at login (#3238).
-- Cursor chats show what you typed as their title and prompt, without the timestamp, notification and attachment tags Cursor adds (#3240).
+- Cursor chats show what you typed as their title and prompt, without the timestamp, notification and attachment tags Cursor adds (#3241).
 
 ### Site
 
