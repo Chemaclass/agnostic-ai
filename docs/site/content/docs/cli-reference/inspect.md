@@ -551,6 +551,8 @@ Show a small circle that floats over every app and counts the Claude Code, Codex
 ```bash
 agnostic-ai companion install
 agnostic-ai companion
+agnostic-ai companion stop
+agnostic-ai companion uninstall
 ```
 
 The companion is a separate program that is built on your machine, so `companion install` comes first, and again after each upgrade of agnostic-ai. It builds the companion from the same commit as the `agnostic-ai` you run and prints each step as it goes. It needs:
@@ -561,13 +563,18 @@ The companion is a separate program that is built on your machine, so `companion
 | Windows | Go. Compiles; not yet run on a Windows machine. |
 | Linux | Go, a C compiler, and the GTK 4, WebKitGTK 6.0 and X11 development packages. Not yet built or run on a Linux machine. |
 
-When something is missing, the command names it and how to get it, and builds nothing. A build that fails leaves the installed companion as it was.
+When something is missing, the command names it and how to get it, and builds nothing. A build that fails leaves the installed companion as it was. A companion that runs is stopped for the install and started again after it.
 
 | Flag | Description |
 |------|-------------|
 | `install --source` | Build from this folder, the `companion` folder of an agnostic-ai checkout, instead of fetching the source. |
 
 `agnostic-ai companion` starts the companion and returns. Running it again brings a hidden companion back and opens its list. It says when the companion was built for another release.
+
+| Command | What it does |
+|---------|--------------|
+| `companion stop` | Ends the companion and the server it started. It succeeds and says so when none runs. Start at login stays as you set it. |
+| `companion uninstall` | Ends the companion, turns off start at login, and deletes the built program, `companion.json` (its place and shortcut) and `companion-command` (where the CLI is). It keeps `conversation-marks.json`, which `serve` uses too. On macOS and Linux it also removes a login entry that a deleted program left behind; on Windows it names the registry value to delete. |
 
 The companion reads no chat itself. It starts its own `agnostic-ai serve --global --api-only --cloud-sessions` on a free loopback port and asks it every 5 seconds whether the list changed, with the list's `ETag`; the server answers without reading anything while no chat changed. **Hide Agnostic AI companion**, in the list's ⋯ menu, takes the circle off the screen and stops that server: nothing is read or asked until the shortcut brings the companion back.
 

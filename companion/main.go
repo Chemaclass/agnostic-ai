@@ -23,6 +23,35 @@ import (
 // by `agnostic-ai companion install`; empty in a build made by hand.
 var version string
 
+// What `agnostic-ai companion` and its subcommands start the companion
+// with, as its first argument.
+const (
+	// askVersion prints the release this companion was built for.
+	askVersion = "--version"
+	// askQuit ends the companion that runs.
+	askQuit = "--quit"
+	// askLoginOff takes the companion out of what starts at login.
+	askLoginOff = "--disable-start-at-login"
+)
+
+// notRunningExit is how a companion started with askQuit ends when no
+// other companion runs. One that runs is told to quit, and the asking
+// one then ends with 0.
+const notRunningExit = 3
+
+// asked returns which of those a companion was started with; empty for
+// a plain start. args are the program's own, its path first.
+func asked(args []string) string {
+	if len(args) < 2 {
+		return ""
+	}
+	switch args[1] {
+	case askVersion, askQuit, askLoginOff:
+		return args[1]
+	}
+	return ""
+}
+
 //go:embed frontend
 var embedded embed.FS
 
@@ -291,7 +320,8 @@ func floating(options application.WebviewWindowOptions) application.WebviewWindo
 }
 
 func main() {
-	if len(os.Args) == 2 && os.Args[1] == "--version" {
+	ask := asked(os.Args)
+	if ask == askVersion {
 		fmt.Println(version)
 		return
 	}
@@ -300,7 +330,9 @@ func main() {
 		log.Fatal(err)
 	}
 	saved, err := readSettings(path)
-	if err != nil {
+	// A companion asked to quit or to leave the login needs no settings,
+	// and must answer even when the file cannot be read.
+	if err != nil && ask == "" {
 		log.Fatal(err)
 	}
 	pages, err := fs.Sub(embedded, "frontend")
@@ -326,12 +358,34 @@ func main() {
 		// that runs and opens its list, instead of a second circle.
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: instanceID,
-			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
-				s.comeBack()
-				s.showPanel()
+			OnSecondInstanceLaunch: func(second application.SecondInstanceData) {
+				switch asked(second.Args) {
+				case askQuit:
+					s.app.Quit()
+				case askLoginOff:
+					// The companion that asked ended inside New and cannot do it.
+					if err := s.app.Autostart.Disable(); err != nil {
+						log.Print(err)
+					}
+				default:
+					s.comeBack()
+					s.showPanel()
+				}
 			},
 		},
 	})
+	// A companion started while another runs hands over its arguments and
+	// ends inside New, so from here on this is the only one.
+	switch ask {
+	case askQuit:
+		os.Exit(notRunningExit)
+	case askLoginOff:
+		if err := s.app.Autostart.Disable(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	s.shortcuts = s.app.GlobalShortcut
 	s.bubble = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{

@@ -12,8 +12,10 @@ and an upgrade of agnostic-ai is an upgrade of what the companion shows.
 ## Get it
 
 ```sh
-agnostic-ai companion install   # build it on this machine; again after each upgrade
-agnostic-ai companion           # start it
+agnostic-ai companion install     # build it on this machine; again after each upgrade
+agnostic-ai companion             # start it
+agnostic-ai companion stop        # end it
+agnostic-ai companion uninstall   # remove it from this machine
 ```
 
 `install` builds the companion from the same commit as your `agnostic-ai`,
@@ -71,7 +73,20 @@ The ⋯ button at the foot of the list holds them:
   shortcut listens. The shortcut, or `agnostic-ai companion`, brings it back
   with a new list.
 
-There is no quit: a hidden companion does nothing but wait for the shortcut.
+The menu has no quit: a hidden companion does nothing but wait for the
+shortcut. To end it, see below.
+
+## Stop it and remove it
+
+- `agnostic-ai companion stop` ends the companion and its server. It says so
+  when none runs. **Start at login** stays as you set it.
+- `agnostic-ai companion uninstall` ends the companion, turns off **Start at
+  login**, and deletes the built program, `companion.json` and
+  `companion-command`. Your read and archive marks stay, because
+  `agnostic-ai serve` uses them too. It also removes a login entry that a
+  deleted program left behind.
+- `agnostic-ai companion install` over a companion that runs stops it, replaces
+  it, and starts the new one.
 
 ## What each group means
 
