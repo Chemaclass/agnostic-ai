@@ -219,8 +219,11 @@ function renameField(conversation, renaming) {
     }
   })
   input.addEventListener('blur', () => {
-    // A redraw takes the field away; only a person leaving it cancels.
-    if (input.isConnected) cancelRename()
+    // Chrome sends blur while a redraw is still removing the field, so wait until the redraw is over:
+    // only a person leaving a field that is still on the page cancels.
+    setTimeout(() => {
+      if (input.isConnected) cancelRename()
+    })
   })
   return input
 }
