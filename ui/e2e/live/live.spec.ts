@@ -1787,7 +1787,7 @@ test('live Show content reads an agent and refuses files outside the configurati
   }
 })
 
-test('live a rename made through another server shows after a reload and in a search', async ({ page }) => {
+async function conversationServers() {
   const temporary = await mkdtemp(join(tmpdir(), 'agnostic-ui-live-'))
   const userHome = join(temporary, 'user')
   const home = join(temporary, 'global')
@@ -1810,32 +1810,49 @@ test('live a rename made through another server shows after a reload and in a se
     NO_COLOR: '1',
   }
   const servers: ChildProcess[] = []
-  const start = async (...args: string[]) => {
-    const child = spawn(binary, ['serve', '--global', '--addr', '127.0.0.1:0', ...args], { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
-    servers.push(child)
-    return serverURL(child)
+  await mkdir(folder, { recursive: true })
+  await put(join(home, 'agnostic-ai.yaml'), 'version: 1\ntargets:\n    - claude\nbuiltins: []\n')
+  return {
+    claudeDir,
+    writeSession: (id: string, prompt: string, at: Date) => put(join(claudeDir, 'projects', folder.replace(/[^A-Za-z0-9]/g, '-'), `${id}.jsonl`), JSON.stringify({
+      type: 'user', cwd: folder, entrypoint: 'cli', timestamp: at.toISOString(),
+      message: { role: 'user', content: prompt },
+    }) + '\n'),
+    start: async (...args: string[]) => {
+      const child = spawn(binary, ['serve', '--global', '--addr', '127.0.0.1:0', ...args], { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
+      servers.push(child)
+      return serverURL(child)
+    },
+    close: async () => {
+      for (const server of servers) await stop(server)
+      if (!temporary.startsWith(join(tmpdir(), 'agnostic-ui-live-'))) throw new Error('Unexpected fixture directory')
+      await rm(temporary, { recursive: true, force: true })
+    },
   }
+}
+
+function postConversation(server: string, action: 'mark' | 'rename', body: object) {
+  const origin = server.replace(/\/$/, '')
+  return fetch(`${origin}/api/conversations/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: origin },
+    body: JSON.stringify(body),
+  })
+}
+
+test('live a rename made through another server shows after a reload and in a search', async ({ page }) => {
+  const f = await conversationServers()
   try {
     const id = '11111111-1111-4111-8111-111111111111'
-    await mkdir(folder, { recursive: true })
-    await put(join(home, 'agnostic-ai.yaml'), 'version: 1\ntargets:\n    - claude\nbuiltins: []\n')
-    await put(join(claudeDir, 'projects', folder.replace(/[^A-Za-z0-9]/g, '-'), `${id}.jsonl`), JSON.stringify({
-      type: 'user', cwd: folder, entrypoint: 'cli', timestamp: new Date().toISOString(),
-      message: { role: 'user', content: 'Fix the parser' },
-    }) + '\n')
+    await f.writeSession(id, 'Fix the parser', new Date())
     // The companion's server answers the API only; the dashboard is another process.
-    const companion = await start('--api-only')
-    const dashboard = await start()
+    const companion = await f.start('--api-only')
+    const dashboard = await f.start()
 
     await page.goto(dashboard)
     await expect(page.getByRole('heading', { level: 3, name: 'Fix the parser', exact: true })).toBeVisible()
 
-    const origin = companion.replace(/\/$/, '')
-    const renamed = await fetch(`${origin}/api/conversations/rename`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: origin },
-      body: JSON.stringify({ tool: 'claude', id, title: 'Release notes' }),
-    })
+    const renamed = await postConversation(companion, 'rename', { tool: 'claude', id, title: 'Release notes' })
     expect(renamed.status).toBe(204)
 
     await page.reload()
@@ -1845,8 +1862,47 @@ test('live a rename made through another server shows after a reload and in a se
     await expect(page.locator('li.conversation')).toHaveCount(1)
     await expect(page.getByRole('heading', { level: 3, name: 'Release notes', exact: true })).toBeVisible()
   } finally {
-    for (const server of servers) await stop(server)
-    if (!temporary.startsWith(join(tmpdir(), 'agnostic-ui-live-'))) throw new Error('Unexpected fixture directory')
-    await rm(temporary, { recursive: true, force: true })
+    await f.close()
+  }
+})
+
+test('live an archived session that starts working leaves Archived on another server after a reload', async ({ page }) => {
+  test.skip(process.platform === 'win32', 'Claude Code reports a running session by pid; the fixture uses this process')
+  const f = await conversationServers()
+  try {
+    const resumed = '11111111-1111-4111-8111-111111111111'
+    const other = '22222222-2222-4222-8222-222222222222'
+    // A minute old, so an archive made now is not overtaken by the second it was written in.
+    const earlier = new Date(Date.now() - 60_000)
+    await f.writeSession(resumed, 'Fix the parser', earlier)
+    await f.writeSession(other, 'Review the branch', earlier)
+    const companion = await f.start('--api-only')
+    const dashboard = await f.start()
+    for (const id of [resumed, other]) {
+      expect((await postConversation(companion, 'mark', { tool: 'claude', id, as: 'completed' })).status).toBe(204)
+    }
+    const row = (prompt: string) => page.locator('li.conversation').filter({ has: page.getByRole('heading', { level: 3, name: prompt, exact: true }) })
+
+    await page.goto(dashboard)
+    await expect(page.locator('.conversation-state', { hasText: 'Archived' })).toHaveCount(2)
+
+    const session = join(f.claudeDir, 'sessions', `${process.pid}.json`)
+    await put(session, JSON.stringify({ pid: process.pid, sessionId: resumed, status: 'busy' }))
+    const listed = await (await fetch(`${companion}api/views/conversations`)).json() as { conversations: { id: string; state: string; completedAt?: string }[] }
+    expect(listed.conversations.find((c) => c.id === resumed)).toMatchObject({ state: 'working' })
+    expect(listed.conversations.find((c) => c.id === resumed)?.completedAt).toBeUndefined()
+
+    await page.reload()
+    await expect(row('Fix the parser').locator('.conversation-live')).toContainText('Working')
+    await expect(row('Fix the parser').locator('.conversation-state')).toHaveCount(0)
+    await expect(row('Review the branch').locator('.conversation-state')).toContainText('Archived')
+
+    await put(session, JSON.stringify({ pid: process.pid, sessionId: resumed, status: 'idle' }))
+    await page.reload()
+    await expect(page.locator('.conversation-state', { hasText: 'Archived' })).toHaveCount(1)
+    await expect(row('Fix the parser').locator('.conversation-state')).toHaveCount(0)
+    await expect(row('Review the branch').locator('.conversation-state')).toContainText('Archived')
+  } finally {
+    await f.close()
   }
 })

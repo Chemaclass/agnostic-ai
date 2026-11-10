@@ -479,3 +479,101 @@ func TestRename_TwoServersSharingTheMarksFileAgree(t *testing.T) {
 		t.Errorf("the other server's search found %d", *view.Matches)
 	}
 }
+
+func writeClaudeProcess(t *testing.T, stores Stores, pid int, id, status string) {
+	t.Helper()
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", fmt.Sprintf("%d.json", pid)), fmt.Sprintf(`{"pid":%d,"sessionId":%q,"status":%q}`, pid, id, status))
+}
+
+func TestScan_AWorkingConversationLeavesTheArchiveOnEveryServer(t *testing.T) {
+	const resumed, other = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
+	path := filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	processes := fakeProcesses{alive: map[int]bool{4242: true}}
+	companion, stores := testScanner(t, noSQLite, processes)
+	dashboard := &Scanner{Stores: stores, SQLite: noSQLite, Processes: processes}
+	for _, scanner := range []*Scanner{companion, dashboard} {
+		scanner.MarksPath = path
+		scanner.Now = func() time.Time { return now }
+	}
+	writeMarkedSession(t, stores, resumed, "2026-11-07T11:00:00.000Z")
+	writeMarkedSession(t, stores, other, "2026-11-07T11:30:00.000Z")
+	companion.Scan(context.Background(), ScanOptions{})
+	if err := companion.Rename(ToolClaude, resumed, "Parser fix"); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(time.Minute)
+	for _, id := range []string{resumed, other} {
+		if err := companion.Mark(ToolClaude, id, MarkCompleted); err != nil {
+			t.Fatal(err)
+		}
+	}
+	archived := storedMarks(t, path).Marks
+
+	now = now.Add(time.Minute)
+	writeClaudeProcess(t, stores, 4242, resumed, "busy")
+	view := companion.Scan(context.Background(), ScanOptions{})
+	if c := byID(t, view, resumed); c.State != StateWorking || c.CompletedAt != "" {
+		t.Fatalf("the resumed conversation on the companion: %s", asJSON(t, c))
+	}
+	if c := byID(t, view, other); c.State != StateCompleted {
+		t.Errorf("the other archived conversation is %s", c.State)
+	}
+	marks := storedMarks(t, path).Marks
+	entry := marks[markKey(ToolClaude, resumed)]
+	if entry.CompletedAt != "" || entry.SeenAt != archived[markKey(ToolClaude, resumed)].SeenAt || entry.Title != "Parser fix" {
+		t.Errorf("the resumed conversation's marks: %+v", entry)
+	}
+	if marks[markKey(ToolClaude, other)] != archived[markKey(ToolClaude, other)] {
+		t.Errorf("the other conversation's marks changed: %+v", marks[markKey(ToolClaude, other)])
+	}
+
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	dashboard.Scan(context.Background(), ScanOptions{})
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := os.ReadFile(path); string(again) != string(raw) || !after.ModTime().Equal(before.ModTime()) {
+		t.Error("a scan while the conversation still works wrote the marks file again")
+	}
+
+	writeClaudeProcess(t, stores, 4242, resumed, "idle")
+	for name, scanner := range map[string]*Scanner{"companion": companion, "dashboard": dashboard} {
+		c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), resumed)
+		if c.State != StateActive || c.CompletedAt != "" || c.Title != "Parser fix" {
+			t.Errorf("after the work ends on the %s: %s", name, asJSON(t, c))
+		}
+	}
+}
+
+func TestScan_AWorkingConversationLeavesHiding(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{4242: true}})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	scanner.Scan(context.Background(), ScanOptions{})
+	for _, mark := range []Mark{MarkCompleted, MarkHidden} {
+		if err := scanner.Mark(ToolClaude, id, mark); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if view := scanner.Scan(context.Background(), ScanOptions{}); len(view.Conversations) != 0 {
+		t.Fatalf("the hidden conversation is listed: %s", asJSON(t, view.Conversations))
+	}
+
+	now = now.Add(time.Minute)
+	writeClaudeProcess(t, stores, 4242, id, "busy")
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateWorking {
+		t.Fatalf("the resumed conversation is %s", c.State)
+	}
+	if entry := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolClaude, id)]; entry.HiddenAt != "" || entry.CompletedAt != "" || entry.SeenAt == "" {
+		t.Errorf("the resumed conversation's marks: %+v", entry)
+	}
+}

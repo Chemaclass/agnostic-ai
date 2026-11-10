@@ -36,7 +36,8 @@ type conversationMarkRequest struct {
 	Tool conversations.Tool `json:"tool"`
 	ID   string             `json:"id"`
 	// As is seen, completed, open (which takes a completion back) or
-	// hidden (out of every list until something new is written).
+	// hidden (out of every list until something new is written or the
+	// conversation starts working).
 	As conversations.Mark `json:"as"`
 }
 
