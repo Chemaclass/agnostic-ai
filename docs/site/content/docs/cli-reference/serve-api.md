@@ -148,6 +148,7 @@ Marks:
 - `needsYou` counts the blocked and unread conversations of every age and tool the server lists, whatever the page or the search.
 - The marks live in `conversation-marks.json` in the `agnostic-ai` folder of your user configuration folder. The file holds tool names, ids, times and the names you chose, never conversation text.
 - The first read starts the file, and what was written before it counts as seen.
+- An older `serve` that still runs after an upgrade drops the chosen names when it rewrites the file. Restart it, and the companion, after you upgrade.
 - A read deletes a completion that a later message overtook. That conversation is then unread.
 - `marksNote` says why the file could not be read or written. Rows then carry no marks.
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, detailsOf, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, renameOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -118,4 +118,26 @@ test('shows a new name on its row at once and leaves the rest of the view as it 
   ])
   assert.equal(renamed.needsYou, 1)
   assert.equal(view.conversations[0].title, 'a')
+})
+
+test('sends a typed name, refuses an empty one and keeps a name that did not change', () => {
+  assert.deepEqual(renameOf(' Parser  fix ', '/clear'), { title: 'Parser fix' })
+  assert.deepEqual(renameOf('  ', '/clear'), { empty: true })
+  assert.deepEqual(renameOf('/clear', '/clear'), { keep: true })
+  // A long title shows cut short; saving it as it shows would lose its end.
+  const cut = 'a'.repeat(119) + '…'
+  assert.deepEqual(renameOf(cut, cut), { keep: true })
+})
+
+test('lets an input method confirm its candidate without saving', () => {
+  assert.equal(confirmsCandidate({ key: 'Enter', isComposing: true, keyCode: 13 }), true)
+  assert.equal(confirmsCandidate({ key: 'Enter', isComposing: false, keyCode: 229 }), true)
+  assert.equal(confirmsCandidate({ key: 'Enter', isComposing: false, keyCode: 13 }), false)
+})
+
+test('closes the nearest thing on Escape: the row menu, a rename, the settings, then the panel', () => {
+  assert.equal(escapeTarget({ rowMenuOpen: true, renaming: true, settingsOpen: true }), 'row-menu')
+  assert.equal(escapeTarget({ rowMenuOpen: false, renaming: true, settingsOpen: true }), 'rename')
+  assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: true }), 'settings')
+  assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: false }), 'panel')
 })

@@ -74,6 +74,30 @@ export function nameOf(typed) {
   return name === '' ? undefined : name
 }
 
+/**
+ * What Enter does with a typed name: `{ keep: true }` when it is the title the row already shows,
+ * which may be cut short, so nothing is sent; `{ empty: true }` when nothing was typed; otherwise `{ title }`.
+ */
+export function renameOf(draft, shown) {
+  const title = nameOf(draft)
+  if (title === undefined) return { empty: true }
+  if (title === shown) return { keep: true }
+  return { title }
+}
+
+/** Whether a key press only confirms an input method's candidate, such as a Japanese conversion. */
+export function confirmsCandidate(press) {
+  return press.isComposing === true || press.keyCode === 229
+}
+
+/** What Escape closes: the row menu, then a rename, then the settings menu, then the panel. */
+export function escapeTarget({ rowMenuOpen, renaming, settingsOpen }) {
+  if (rowMenuOpen) return 'row-menu'
+  if (renaming) return 'rename'
+  if (settingsOpen) return 'settings'
+  return 'panel'
+}
+
 /** The view with the row at `key` showing `title`, so a rename shows before the next list arrives. */
 export function withTitle(view, key, title) {
   const conversations = view.conversations.map((conversation) => (keyOf(conversation) === key ? { ...conversation, title } : conversation))

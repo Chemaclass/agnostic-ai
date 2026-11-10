@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin } from '/api.js'
-import { GROUPS, PLACES, detailsOf, grouped, keyOf, keycapsOf, nameOf, neighbour, reasonOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
+import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -209,6 +209,7 @@ function renameField(conversation, renaming) {
   input.addEventListener('input', () => { renaming.draft = input.value })
   input.addEventListener('keydown', (event) => {
     event.stopPropagation()
+    if (confirmsCandidate(event)) return
     if (event.key === 'Enter') {
       event.preventDefault()
       saveRename(conversation)
@@ -437,13 +438,23 @@ function startRename(conversation) {
   closeRowMenu()
   state.renaming = { key: keyOf(conversation), draft: conversation.title }
   draw({ force: true })
-  focusRename()
+  if (!focusRename()) dropRename('That conversation is no longer in the list.')
 }
 
+/** Puts the keys in the name field; false when the row it belongs to is not drawn. */
 function focusRename() {
   const input = list.querySelector('.rename')
-  input?.focus()
-  input?.select()
+  if (!input) return false
+  input.focus()
+  input.select()
+  return true
+}
+
+/** Ends a rename whose row left the list, which would otherwise hold every redraw and key. */
+function dropRename(message) {
+  state.renaming = undefined
+  draw({ force: true })
+  say(message)
 }
 
 function cancelRename() {
@@ -454,11 +465,15 @@ function cancelRename() {
 
 async function saveRename(conversation) {
   const renaming = state.renaming
-  const title = nameOf(renaming.draft)
-  if (title === undefined) {
+  const { title, empty, keep } = renameOf(renaming.draft, conversation.title)
+  if (keep) {
+    cancelRename()
+    return
+  }
+  if (empty) {
     renaming.problem = 'Type a name, or press Escape to keep the old one.'
     draw({ force: true })
-    focusRename()
+    if (!focusRename()) dropRename(renaming.problem)
     return
   }
   renaming.saving = true
@@ -469,7 +484,7 @@ async function saveRename(conversation) {
     renaming.saving = false
     renaming.problem = error.message
     draw({ force: true })
-    focusRename()
+    if (!focusRename()) dropRename(error.message)
     return
   }
   state.renaming = undefined
@@ -608,9 +623,13 @@ const KEY_STEPS = { ArrowDown: 1, ArrowUp: -1 }
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault()
-    if (!rowMenu.hidden) closeRowMenu()
-    else if (state.renaming) cancelRename()
-    else hidePanel().catch(sayFailure)
+    const closes = {
+      'row-menu': closeRowMenu,
+      rename: cancelRename,
+      settings: closeMenu,
+      panel: () => hidePanel().catch(sayFailure),
+    }
+    closes[escapeTarget({ rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden })]()
     return
   }
   // The open row menu takes Enter and Space on its own item.
