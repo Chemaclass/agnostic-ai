@@ -715,6 +715,10 @@ func entryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) ma
 // withoutEntryPointRules drops the rules entryPointRules reports, so
 // target loads each of them once, and records them on sess.
 func withoutEntryPointRules(sess *Session, cfg *config.Config, b spec.Bundle, target string, own []spec.Entry) []spec.Entry {
+	if !runWritesRootInstructions(cfg, target, sess.SyncedTargets()) {
+		sess.SetInlinedRules(nil)
+		return own
+	}
 	inlined := entryPointRules(cfg, b, target, own)
 	sess.SetInlinedRules(inlined)
 	if len(inlined) == 0 {
@@ -731,6 +735,22 @@ func withoutEntryPointRules(sess *Session, cfg *config.Config, b spec.Bundle, ta
 		}
 	}
 	return out
+}
+
+// runWritesRootInstructions reports whether a sync of synced writes the
+// root instructions file target reads. A nil synced means the caller
+// did not name a run, so the configured targets write it.
+func runWritesRootInstructions(cfg *config.Config, target string, synced []string) bool {
+	if synced == nil {
+		return true
+	}
+	path := emit.RootInstructionsPath(cfg, target)
+	for _, t := range synced {
+		if path != "" && emit.EntryPointPath(cfg, t) == path && !emit.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+			return true
+		}
+	}
+	return false
 }
 
 // RenderRulesAppendix renders the sentinel-marked rules block for an

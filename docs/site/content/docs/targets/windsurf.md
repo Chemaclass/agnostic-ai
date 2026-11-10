@@ -43,7 +43,7 @@ When Codex or another tool writes the `## Rules` block in `AGENTS.md`, sync skip
 
 Neither page states a size limit. Older Cascade docs capped a rule file at 12,000 characters; that page now redirects to Devin Local. A client that still applies the cap may cut a long `AGENTS.md`.
 
-Setting `"agents_standard": false` in Devin's config stops it from reading `AGENTS.md`, and sync does not read that setting. If you turn it off, set `outputs.windsurf.file` to another path. Windsurf then keeps a `.devin/rules/` file for every rule.
+Setting `"agents_standard": false` in Devin's config stops it from reading `AGENTS.md`, and sync does not read that setting. If you turn it off, set `outputs.windsurf.file` to another path, such as `.devin/unread-instructions.md`. Windsurf then keeps a `.devin/rules/` file for every rule. Sync writes the shared instructions to that path, which Devin never reads, and the sync summary still lists it as the file Windsurf reads.
 
 ## Shared memory
 

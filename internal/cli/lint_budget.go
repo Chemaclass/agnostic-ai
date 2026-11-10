@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/trae"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -197,6 +198,9 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 	loads := make([]sessionLoad, 0, len(cfg.Targets))
 	for _, t := range cfg.Targets {
 		load := sessionLoad{target: t, path: adapters.AgnosticEntryPointPath}
+		if t == "trae" {
+			load.path = trae.RulesDir(cfg)
+		}
 		if f, ok := fileOf[t]; ok {
 			load.path = f.Path
 			load.setFile(f.Path, f.Content, f.Layers)

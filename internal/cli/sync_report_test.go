@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -119,7 +120,7 @@ func TestCreditEntryPointReaders_CountsReadersOfChangedFilesOnly(t *testing.T) {
 	rows := []emitRow{{target: "codex"}, {target: "claude"}}
 	var r syncReport
 
-	creditEntryPointReaders(&r, rows, []string{"claude", "codex", "amp"}, writes, files)
+	creditEntryPointReaders(&config.Config{}, &r, rows, []string{"claude", "codex", "amp"}, writes, files)
 
 	if !r.targets["codex"] || !r.targets["amp"] {
 		t.Errorf("every synced reader of the updated AGENTS.md should count, got %v", r.targets)
@@ -404,7 +405,7 @@ func TestRunSyncOnce_ReportCountsTargetsThatReadAGENTSmd(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "  ~ rule style → 2 files in 2 targets\n") {
+	if !strings.Contains(out, "  ~ rule style → 2 files in 3 targets\n") {
 		t.Errorf("AGENTS.md should count for codex, which reads it:\n%s", out)
 	}
 	if !regexp.MustCompile(`(?m)^codex\s+0\s+1\s+0\s+\d+ms$`).MatchString(out) {
@@ -412,6 +413,9 @@ func TestRunSyncOnce_ReportCountsTargetsThatReadAGENTSmd(t *testing.T) {
 	}
 	if !regexp.MustCompile(`(?m)^claude\s+0\s+1\s+1\s+\d+ms$`).MatchString(out) {
 		t.Errorf("claude line should count its unchanged CLAUDE.md:\n%s", out)
+	}
+	if !regexp.MustCompile(`(?m)^cursor\s+0\s+1\s+0\s+\d+ms$`).MatchString(out) {
+		t.Errorf("cursor line should count the AGENTS.md it reads the rule from:\n%s", out)
 	}
 }
 

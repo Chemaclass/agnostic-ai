@@ -339,6 +339,31 @@ func TestSync_CursorSkipsAlwaysOnRulesCodexInlinesIntoAGENTSMd(t *testing.T) {
 	}
 }
 
+// A run that writes no AGENTS.md cannot leave a rule to it: Cursor
+// would get the rule from no file at all.
+func TestSync_OnlyCursorKeepsAlwaysOnRulesWhenTheRunWritesNoAGENTSMd(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, cursor]\n")
+
+	mustSync(t, "--only", "cursor")
+
+	if exists(filepath.Join(dir, "AGENTS.md")) {
+		t.Fatal("sync --only cursor wrote AGENTS.md; the test needs a run that does not")
+	}
+	if !exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
+		t.Error(".cursor/rules/always.mdc must stay: this run writes no AGENTS.md")
+	}
+}
+
+func TestSync_OnlyCursorAndCodexLeaveTheRuleToAGENTSMd(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, cursor]\n")
+
+	mustSync(t, "--only", "cursor,codex")
+
+	if exists(filepath.Join(dir, ".cursor", "rules", "always.mdc")) {
+		t.Error(".cursor/rules/always.mdc loads the rule a second time next to AGENTS.md")
+	}
+}
+
 func TestSync_CursorKeepsAlwaysOnRulesWithoutARulesBlockInAGENTSMd(t *testing.T) {
 	for _, targets := range []string{"[cursor]", "[cursor, windsurf, trae]", "[claude, cursor]"} {
 		t.Run(targets, func(t *testing.T) {
@@ -399,10 +424,18 @@ func TestLintBudget_CursorAndWindsurfCountEachAlwaysOnRuleOnce(t *testing.T) {
 
 	out, _ := runCLI(t, "lint")
 
+	var found bool
 	for _, line := range findingLines(out, "LINT011") {
+		if !strings.Contains(line, "cursor") || !strings.Contains(line, "windsurf") {
+			continue
+		}
+		found = true
 		if strings.Contains(line, "always-on rule files") {
 			t.Errorf("Cursor and Windsurf load the always-on rule from AGENTS.md only, got:\n%s", line)
 		}
+	}
+	if !found {
+		t.Errorf("want a LINT011 line for cursor and windsurf, got:\n%s", out)
 	}
 }
 
@@ -413,10 +446,20 @@ func TestLintBudget_TraeDoesNotCountAGENTSMdByDefault(t *testing.T) {
 
 	out, _ := runCLI(t, "lint")
 
+	var trae []string
 	for _, line := range findingLines(out, "LINT011") {
-		if strings.Contains(line, "trae") && strings.Contains(line, "AGENTS.md ") {
-			t.Errorf("Trae does not read AGENTS.md by default, got:\n%s", line)
+		if strings.Contains(line, "trae") {
+			trae = append(trae, line)
 		}
+	}
+	if len(trae) != 1 {
+		t.Fatalf("want one LINT011 line for trae, got:\n%s", out)
+	}
+	if strings.Contains(trae[0], "AGENTS.md") {
+		t.Errorf("Trae does not read AGENTS.md by default, got:\n%s", trae[0])
+	}
+	if !strings.HasPrefix(trae[0], "LINT011 [warn] .trae/rules: ") {
+		t.Errorf("the finding must point at the rules folder Trae loads, got:\n%s", trae[0])
 	}
 }
 

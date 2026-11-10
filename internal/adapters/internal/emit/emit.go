@@ -143,6 +143,9 @@ type Session struct {
 	// skillsDirWriters maps each skills dir to the enabled targets that
 	// write it, atomic for the same reason as unmanaged.
 	skillsDirWriters atomic.Pointer[map[string][]string]
+	// syncedTargets are the targets this sync run emits, nil when the
+	// caller did not say, atomic for the same reason as unmanaged.
+	syncedTargets atomic.Pointer[[]string]
 	// inlinedRules are the rules EmitWithProvenance left out of this
 	// emit because the entry point carries them.
 	inlinedRules []spec.Entry
@@ -314,6 +317,20 @@ func (s *Session) SkillsDirWrittenByOthers(dir, self string) bool {
 		}
 	}
 	return false
+}
+
+// SetSyncedTargets records the targets this sync run emits, so a target
+// leaves a rule to an entry point only when the run writes that file.
+func (s *Session) SetSyncedTargets(targets []string) {
+	s.syncedTargets.Store(&targets)
+}
+
+// SyncedTargets returns the targets SetSyncedTargets recorded, or nil.
+func (s *Session) SyncedTargets() []string {
+	if targets := s.syncedTargets.Load(); targets != nil {
+		return *targets
+	}
+	return nil
 }
 
 // SetInlinedRules records the rules the current emit leaves to the
