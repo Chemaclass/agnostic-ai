@@ -6,6 +6,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.93.0 - 2026-11-10
+
 ### Highlights
 
 - The desktop companion shows chats that need you and opens them where they live (#3213).
