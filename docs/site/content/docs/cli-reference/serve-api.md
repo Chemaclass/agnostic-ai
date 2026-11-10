@@ -135,7 +135,7 @@ Each row has a `state`, the first of these that holds:
 
 1. `blocked`: open, and its tool says it waits for you.
 2. `working`: open, and its tool says the agent is busy.
-3. `completed`: you marked it completed and nothing was written since.
+3. `completed`: you marked it completed. It holds until something is written or its tool says the agent is working.
 4. `unread`: written after you last saw it.
 5. `active`: open, or written in the last 24 hours.
 6. `dormant`: closed and quiet for longer.
@@ -149,7 +149,7 @@ Marks:
 - The marks live in `conversation-marks.json` in the `agnostic-ai` folder of your user configuration folder. The file holds tool names, ids, times and the names you chose, never conversation text.
 - The first read starts the file, and what was written before it counts as seen.
 - An older `serve` that still runs after an upgrade drops the chosen names when it rewrites the file. Restart it, and the companion, after you upgrade.
-- A read deletes a completion that a later message overtook. That conversation is then unread.
+- A read clears a completion or a hiding once a later message overtook it or the conversation started working. The entry keeps its seen time and chosen name. After a new message the conversation is unread. After work that wrote nothing it is active again when the work ends.
 - `marksNote` says why the file could not be read or written. Rows then carry no marks.
 
 Cloud sessions and refresh:
@@ -178,9 +178,9 @@ Body: `{tool, id, as}` with `Content-Type: application/json`, from the server's 
 `as` is one of:
 
 - `seen`: read up to now.
-- `completed`: done until something new is written. This also marks it seen.
+- `completed`: done until something new is written or it starts working. This also marks it seen.
 - `open`: takes a completion back.
-- `hidden`: left out of every list, search and count until something new is written. The tool's own store keeps it. This also marks it seen.
+- `hidden`: left out of every list, search and count until something new is written or it starts working. The tool's own store keeps it. This also marks it seen.
 
 Replies:
 
