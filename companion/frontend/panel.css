@@ -492,7 +492,6 @@ body {
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 160ms var(--ease-out);
 }
 
 .dashboard:hover {
@@ -500,9 +499,6 @@ body {
   color: var(--rust);
 }
 
-.dashboard:hover svg {
-  transform: translate(1px, -1px);
-}
 
 .icon-button {
   display: grid;

@@ -43,7 +43,7 @@ builds it and the CLI and starts it on that CLI. `make companion` only builds
   written in it. A hidden chat leaves every list and search in agnostic-ai
   and comes back only with a new message. The tool that owns the chat keeps
   it either way.
-- The **arrow button** beside the search opens the full agnostic-ai web
+- The **home button** beside the search opens the full agnostic-ai web
   interface, the dashboard.
 - **Esc**, or a click anywhere else, closes the list.
 
