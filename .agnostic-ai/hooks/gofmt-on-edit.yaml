@@ -1,0 +1,6 @@
+name: gofmt-on-edit
+description: Format the Go files the agent edits.
+targets: [claude, codex, gemini]
+on: after-edit
+command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/gofmt-on-edit.sh"'
+timeout: 10
