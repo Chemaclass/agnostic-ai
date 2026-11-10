@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	conversationsViewPath = "/api/views/conversations"
-	conversationOpenPath  = "/api/conversations/open"
-	conversationMarkPath  = "/api/conversations/mark"
+	conversationsViewPath  = "/api/views/conversations"
+	conversationOpenPath   = "/api/conversations/open"
+	conversationMarkPath   = "/api/conversations/mark"
+	conversationRenamePath = "/api/conversations/rename"
 )
 
 // maxConversationOpenBytes bounds an open request: a tool, an id and an editor.
@@ -37,6 +38,12 @@ type conversationMarkRequest struct {
 	// As is seen, completed, open (which takes a completion back) or
 	// hidden (out of every list until something new is written).
 	As conversations.Mark `json:"as"`
+}
+
+type conversationRenameRequest struct {
+	Tool  conversations.Tool `json:"tool"`
+	ID    string             `json:"id"`
+	Title string             `json:"title"`
 }
 
 // conversationsHandler lists the coding tools' conversations and
@@ -71,6 +78,8 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.open(w, r)
 	case conversationMarkPath:
 		h.mark(w, r)
+	case conversationRenamePath:
+		h.rename(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})
 	}
@@ -194,6 +203,44 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.scanner.Mark(req.Tool, req.ID, req.As); err != nil {
+		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// rename saves the name the person chose for a conversation, which
+// every server sharing the marks file then shows.
+func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
+	if status, message := editRequestGuard(r); status != 0 {
+		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	var req conversationRenameRequest
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, title}"})
+		return
+	}
+	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
+		return
+	}
+	if !knownConversationTool(req.Tool) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+		return
+	}
+	title, err := conversations.CleanTitle(req.Title)
+	if err != nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+		return
+	}
+	if _, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions("")); !ok {
+		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
+		return
+	}
+	if err := h.scanner.Rename(req.Tool, req.ID, title); err != nil {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}

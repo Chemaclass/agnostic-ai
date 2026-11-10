@@ -68,6 +68,18 @@ export function keyOf(conversation) {
   return conversation.tool + ':' + conversation.id
 }
 
+/** A typed name as one line, or undefined when nothing but spaces was typed. The server makes the other checks. */
+export function nameOf(typed) {
+  const name = typed.split(/\s+/).filter((word) => word !== '').join(' ')
+  return name === '' ? undefined : name
+}
+
+/** The view with the row at `key` showing `title`, so a rename shows before the next list arrives. */
+export function withTitle(view, key, title) {
+  const conversations = view.conversations.map((conversation) => (keyOf(conversation) === key ? { ...conversation, title } : conversation))
+  return { ...view, conversations }
+}
+
 /** The rows of each group that has any, in list order. */
 export function grouped(conversations) {
   return GROUPS.map((group) => ({

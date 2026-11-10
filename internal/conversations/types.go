@@ -5,7 +5,8 @@
 //
 // A list row needs a title, the opening lines of the first prompt and
 // the latest prompt. Each is withheld when it may hold a credential, and
-// transcripts never leave the server. The JSON contract is mirrored in
+// transcripts never leave the server. A name the person chose in the
+// marks file replaces the tool's title. The JSON contract is mirrored in
 // ui/src/contract.ts. Change both together.
 package conversations
 
@@ -143,6 +144,8 @@ type Conversation struct {
 	// editor is set for an editor extension's link: its folder opens
 	// there first, so the link reaches the window that holds it.
 	editor *editorApp
+	// renamed is the name the person chose, shown over the tool's title.
+	renamed string
 	// pending holds what fill still needs once the row lands on a page,
 	// for a store whose prompts are read only for the rows shown.
 	pending *texts

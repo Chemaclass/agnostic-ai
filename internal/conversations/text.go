@@ -1,8 +1,11 @@
 package conversations
 
 import (
+	"errors"
+	"fmt"
 	"maps"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -161,6 +164,34 @@ func (c *shownCache) get(t texts) shownTexts {
 func (s *Scanner) fill(c *Conversation, t texts) {
 	shown := s.shown.get(t)
 	c.Title, c.Opening, c.Prompt, c.Withheld = shown.title, shown.opening, shown.prompt, shown.withheld
+	c.showChosenName()
+}
+
+// showChosenName puts the name the person chose over the tool's title.
+// Withheld is shared with cached rows, so it is replaced, never changed.
+func (c *Conversation) showChosenName() {
+	if c.renamed == "" {
+		return
+	}
+	c.Title = c.renamed
+	if slices.Contains(c.Withheld, FieldTitle) {
+		c.Withheld = slices.DeleteFunc(slices.Clone(c.Withheld), func(field string) bool { return field == FieldTitle })
+	}
+}
+
+// CleanTitle is a name the person typed, as one line, or why it cannot
+// be kept: empty, longer than a row's title, or a possible credential.
+func CleanTitle(typed string) (string, error) {
+	title := oneLine(typed)
+	switch {
+	case title == "":
+		return "", errors.New("the name is empty")
+	case utf8.RuneCountInString(title) > titleRunes:
+		return "", fmt.Errorf("the name is longer than %d characters", titleRunes)
+	case mayHoldCredential(title):
+		return "", errors.New("the name may hold a password or key, so it is not saved")
+	}
+	return title, nil
 }
 
 // mayHoldCredential withholds a whole text on any sign of a credential,

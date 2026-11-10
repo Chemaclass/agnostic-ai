@@ -268,6 +268,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/inbox", in.list)
 	mux.HandleFunc("POST /api/open", in.pass(serverOpenPath))
 	mux.HandleFunc("POST /api/mark", in.pass(serverMarkPath))
+	mux.HandleFunc("POST /api/rename", in.pass(serverRenamePath))
 	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, _ *http.Request) {
 		s.togglePanel()
 		w.WriteHeader(http.StatusNoContent)
@@ -404,7 +405,7 @@ func main() {
 		URL:             "/panel.html",
 		Hidden:          true,
 		HideOnFocusLost: true,
-		HideOnEscape:    true,
+		// The page handles Escape: it first closes its menu or a rename.
 	}))
 
 	s.bubble.OnWindowEvent(events.Common.WindowDidMove, func(*application.WindowEvent) { s.bubbleMoved() })

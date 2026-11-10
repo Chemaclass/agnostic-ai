@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, detailsOf, grouped, isDrag, keycapsOf, neighbour, reasonOf, shortcutOf, summaryOf, viewIn } from '../frontend/model.js'
+import { PLACES, ago, detailsOf, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -100,4 +100,22 @@ test('narrows the list to one place and counts what needs the person there', () 
   const cloud = viewIn({ ...view, matches: 4 }, 'cloud')
   assert.deepEqual([cloud.conversations.map((r) => r.id), cloud.needsYou, cloud.matches], [['b', 'c'], 1, 2])
   assert.deepEqual(PLACES.map((place) => place.id), ['all', 'local', 'cloud'])
+})
+
+test('takes a typed name as one line and refuses an empty one', () => {
+  assert.equal(nameOf('  Parser \n\t fix  '), 'Parser fix')
+  assert.equal(nameOf(''), undefined)
+  assert.equal(nameOf(' \n\t '), undefined)
+})
+
+test('shows a new name on its row at once and leaves the rest of the view as it was', () => {
+  const view = { needsYou: 1, conversations: [row('a', 'unread'), row('a', 'active', { tool: 'codex' }), row('b', 'completed')] }
+  const renamed = withTitle(view, 'claude:a', 'Parser fix')
+  assert.deepEqual(renamed.conversations.map((r) => [r.tool, r.id, r.title, r.state]), [
+    ['claude', 'a', 'Parser fix', 'unread'],
+    ['codex', 'a', 'a', 'active'],
+    ['claude', 'b', 'b', 'completed'],
+  ])
+  assert.equal(renamed.needsYou, 1)
+  assert.equal(view.conversations[0].title, 'a')
 })
