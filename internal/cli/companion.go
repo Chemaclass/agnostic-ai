@@ -40,6 +40,7 @@ const (
 	// already runs receives them from the one started with them.
 	companionQuitFlag     = "--quit"
 	companionLoginOffFlag = "--disable-start-at-login"
+	companionLoginOnFlag  = "--enable-start-at-login"
 	// companionNotRunningExit is how a companion started with
 	// companionQuitFlag ends when no other companion runs.
 	companionNotRunningExit = 3
@@ -93,6 +94,9 @@ type companionTools struct {
 	quit func(ctx context.Context, path string) (running bool, err error)
 	// loginOff removes the companion from what starts at login.
 	loginOff func(ctx context.Context, path string) error
+	// loginOn adds the companion to what starts at login.
+	loginOn func(ctx context.Context, path string) error
+	sign    func(ctx context.Context, app string) error
 	// pause waits between two looks at a companion that is ending.
 	pause func(time.Duration)
 }
@@ -106,7 +110,9 @@ func systemCompanionTools() companionTools {
 		start:    startCompanion,
 		builtFor: companionBuiltFor,
 		quit:     quitCompanion,
-		loginOff: companionLoginOff,
+		loginOff: func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOffFlag) },
+		loginOn:  func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOnFlag) },
+		sign:     signCompanion,
 		pause:    time.Sleep,
 	}
 }
@@ -178,10 +184,12 @@ func withWhatItSaid(err error, out []byte) error {
 	return err
 }
 
-func companionLoginOff(ctx context.Context, path string) error {
+// askCompanion starts the companion with one of the flags it takes as
+// its only argument and waits for it to end.
+func askCompanion(ctx context.Context, path, flag string) error {
 	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, path, companionLoginOffFlag).CombinedOutput()
+	out, err := exec.CommandContext(ctx, path, flag).CombinedOutput()
 	if err != nil {
 		return withWhatItSaid(err, out)
 	}
@@ -189,39 +197,42 @@ func companionLoginOff(ctx context.Context, path string) error {
 }
 
 // Where the window library writes the companion's start at login, named
-// after the companion.
+// after the companion. On macOS an app registers with the system
+// instead, and the launch agent is what a bare program left; inside the
+// app, before macOS 13, it is named after the app.
 const (
 	companionLaunchAgent  = "wails.autostart.agnostic-ai-companion.plist"
 	companionDesktopEntry = "agnostic-ai-companion.desktop"
 	companionRunValue     = `agnostic-ai-companion value under HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
 )
 
-// companionLoginEntry is the file that starts the companion at login,
-// given the home and configuration folders; empty on a system that keeps
-// it elsewhere than in a file. The companion removes the entry that
-// names its own path. This reaches one left by a program that is gone
-// or was built somewhere else.
-func companionLoginEntry(goos, home, config string) string {
+// companionLoginEntries are the files that start the companion at
+// login, given the home and configuration folders; none on a system
+// that keeps it elsewhere than in a file. The companion removes the
+// entry that names its own path. This reaches one left by a program
+// that is gone, moved into the app, or was built somewhere else.
+func companionLoginEntries(goos, home, config string) []string {
 	switch goos {
 	case "darwin":
-		return filepath.Join(home, "Library", "LaunchAgents", companionLaunchAgent)
+		agents := filepath.Join(home, "Library", "LaunchAgents")
+		return []string{filepath.Join(agents, companionLaunchAgent), filepath.Join(agents, companionBundleID+".plist")}
 	case "linux":
-		return filepath.Join(config, "autostart", companionDesktopEntry)
+		return []string{filepath.Join(config, "autostart", companionDesktopEntry)}
 	default:
-		return ""
+		return nil
 	}
 }
 
-func systemCompanionLoginEntry(goos string) (string, error) {
+func systemCompanionLoginEntries(goos string) ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("locate the companion's start at login: %w", err)
+		return nil, fmt.Errorf("locate the companion's start at login: %w", err)
 	}
 	config, err := os.UserConfigDir()
 	if err != nil {
-		return "", fmt.Errorf("locate the companion's start at login: %w", err)
+		return nil, fmt.Errorf("locate the companion's start at login: %w", err)
 	}
-	return companionLoginEntry(goos, home, config), nil
+	return companionLoginEntries(goos, home, config), nil
 }
 
 // endCompanion asks the running companion to quit and waits until it is
@@ -244,15 +255,29 @@ func endCompanion(ctx context.Context, tools companionTools, installed string) (
 	}
 }
 
-// companionInstalled reports whether dir holds a built companion.
+// companionInstalled reports whether dir holds a built companion, and
+// where. On macOS that is the app, or the bare program an install
+// before the app left.
 func companionInstalled(dir, goos string) (string, bool, error) {
 	installed := companionFile(dir, goos)
-	if _, err := os.Stat(installed); errors.Is(err, fs.ErrNotExist) {
-		return installed, false, nil
-	} else if err != nil {
-		return installed, false, fmt.Errorf("the companion: %w", err)
+	found, err := companionExists(installed)
+	if err != nil || found || goos != "darwin" {
+		return installed, found, err
 	}
-	return installed, true, nil
+	bare := bareCompanionFile(dir)
+	if found, err := companionExists(bare); err != nil || found {
+		return bare, found, err
+	}
+	return installed, false, nil
+}
+
+func companionExists(path string) (bool, error) {
+	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("the companion: %w", err)
+	}
+	return true, nil
 }
 
 func stopCompanionCommand(ctx context.Context, out io.Writer, tools companionTools, dir, goos string) error {
@@ -279,8 +304,8 @@ func stopCompanionCommand(ctx context.Context, out io.Writer, tools companionToo
 // uninstallCompanion ends the companion, takes it out of what starts at
 // login, and deletes the program and its settings. The login entry goes
 // first, while the program that knows how to remove it is still there;
-// loginEntry is the file that holds it, removed too when it is left.
-func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools, dir, goos, loginEntry string) error {
+// loginEntries are the files that hold it, removed too when they are left.
+func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools, dir, goos string, loginEntries []string) error {
 	installed, found, err := companionInstalled(dir, goos)
 	if err != nil {
 		return err
@@ -297,13 +322,9 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 			return fmt.Errorf("turn off start at login: %w", err)
 		}
 	}
-	left := false
-	if loginEntry != "" {
-		err := os.Remove(loginEntry)
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("turn off start at login: %w", err)
-		}
-		left = err == nil
+	left, err := removeLoginEntries(loginEntries)
+	if err != nil {
+		return fmt.Errorf("turn off start at login: %w", err)
 	}
 	switch {
 	case found || left:
@@ -311,7 +332,7 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 	case goos == "windows":
 		_, _ = fmt.Fprintf(out, "! If the companion started at login, delete the %s.\n", companionRunValue)
 	}
-	folder := filepath.Dir(installed)
+	folder := companionFolder(dir)
 	remove := func() error { return os.RemoveAll(folder) }
 	if found {
 		err = whileHeld(tools, remove)
@@ -358,12 +379,23 @@ func companionDir() (string, error) {
 	return filepath.Join(dir, "agnostic-ai"), nil
 }
 
-func companionFile(dir, goos string) string {
-	name := companionName
+// companionFolder holds everything an install writes besides its notes.
+func companionFolder(dir string) string {
+	return filepath.Join(dir, "companion")
+}
+
+func companionProgramName(goos string) string {
 	if goos == "windows" {
-		name += ".exe"
+		return companionName + ".exe"
 	}
-	return filepath.Join(dir, "companion", name)
+	return companionName
+}
+
+func companionFile(dir, goos string) string {
+	if goos == "darwin" {
+		return filepath.Join(companionBundle(dir), "Contents", "MacOS", companionName)
+	}
+	return filepath.Join(companionFolder(dir), companionProgramName(goos))
 }
 
 // buildRevision is the commit this agnostic-ai was built from; empty
@@ -405,7 +437,7 @@ func (b companionBuild) goArgs() (args []string, dir string) {
 	}
 	flags := []string{"-v", "-tags", companionTags, "-trimpath", "-ldflags", linker}
 	if b.source != "" {
-		return append(append([]string{"build"}, flags...), "-o", companionFile(filepath.Dir(b.into), b.goos), "."), b.source
+		return append(append([]string{"build"}, flags...), "-o", filepath.Join(b.into, companionProgramName(b.goos)), "."), b.source
 	}
 	return append(append([]string{"install"}, flags...), companionModule+"@"+b.revision), ""
 }
@@ -464,7 +496,10 @@ func (p *buildProgress) done() {
 	_, _ = fmt.Fprintf(p.out, "  %d modules fetched, %d packages compiled\n", p.fetched, p.compiled)
 }
 
-func installCompanion(ctx context.Context, out io.Writer, live bool, tools companionTools, dir string, build companionBuild) error {
+// installCompanion builds the companion and puts it in place. On macOS,
+// loginEntries are where a bare program an earlier install left kept
+// its start at login.
+func installCompanion(ctx context.Context, out io.Writer, live bool, tools companionTools, dir string, build companionBuild, loginEntries []string) error {
 	_, _ = fmt.Fprintf(out, "Building the companion for agnostic-ai %s on this machine.\n", build.version)
 	needs, known := companionNeeds[build.goos]
 	if !known {
@@ -487,7 +522,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 
 	// The program is built in a folder of its own and moved into place
 	// at the end, so a build that fails leaves the installed one alone.
-	if err := os.MkdirAll(filepath.Dir(companionFile(dir, build.goos)), 0o700); err != nil {
+	if err := os.MkdirAll(companionFolder(dir), 0o700); err != nil {
 		return fmt.Errorf("install the companion: %w", err)
 	}
 	staging, err := os.MkdirTemp(dir, companionBuildPrefix+"*")
@@ -512,24 +547,35 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	if err != nil {
 		return err
 	}
+	target := companionFile(dir, build.goos)
+	place := func() error { return os.Rename(built, target) }
+	if build.goos == "darwin" {
+		app := filepath.Join(staging, companionAppName+".app")
+		if err := assembleCompanionApp(ctx, tools, built, app, build.version); err != nil {
+			return err
+		}
+		target = companionBundle(dir)
+		place = func() error { return replaceCompanionApp(app, target, staging) }
+	}
 	installed, found, err := companionInstalled(dir, build.goos)
 	if err != nil {
 		return err
 	}
 	if !found {
-		if err := os.Rename(built, installed); err != nil {
+		if err := place(); err != nil {
 			return fmt.Errorf("install the companion: %w", err)
 		}
 		if err := recordCompanionCommand(dir); err != nil {
 			return err
 		}
-		_, _ = fmt.Fprintf(out, "✓ Installed %s\n", installed)
+		_, _ = fmt.Fprintf(out, "✓ Installed %s\n", target)
 		_, _ = fmt.Fprintln(out, "Start it with: agnostic-ai companion")
 		return nil
 	}
 
 	// Windows does not replace the file of a program that runs.
 	ran, err := endCompanion(ctx, tools, installed)
+	alone := err == nil
 	switch {
 	case err != nil && ran:
 		// It still runs. A start now would only open its list.
@@ -539,12 +585,18 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	case ran:
 		_, _ = fmt.Fprintln(out, "✓ Stopped the running companion")
 	}
-	err = whileHeld(tools, func() error { return os.Rename(built, installed) })
+	err = whileHeld(tools, place)
 	if err != nil {
 		err = fmt.Errorf("install the companion: %w", err)
 	} else {
-		_, _ = fmt.Fprintf(out, "✓ Installed %s\n", installed)
-		err = recordCompanionCommand(dir)
+		_, _ = fmt.Fprintf(out, "✓ Installed %s\n", target)
+		installed = companionFile(dir, build.goos)
+		if build.goos == "darwin" {
+			err = leaveBareCompanion(ctx, out, tools, bareCompanionFile(dir), installed, loginEntries, alone)
+		}
+		if err == nil {
+			err = recordCompanionCommand(dir)
+		}
 	}
 	if !ran {
 		if err == nil {
@@ -589,7 +641,7 @@ func startInstalledCompanion(tools companionTools, installed string) error {
 // builtCompanion finds the program the build wrote. `go install` names
 // it after the module's folder; `go build -o` uses the name it was given.
 func builtCompanion(build companionBuild) (string, error) {
-	candidates := []string{companionFile(filepath.Dir(build.into), build.goos), filepath.Join(build.into, "companion"), filepath.Join(build.into, "companion.exe")}
+	candidates := []string{filepath.Join(build.into, companionProgramName(build.goos)), filepath.Join(build.into, "companion"), filepath.Join(build.into, "companion.exe")}
 	for _, candidate := range candidates {
 		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() {
 			return candidate, nil
@@ -676,9 +728,11 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 		Long: "Builds the companion from the same commit as this agnostic-ai and installs it in " +
 			"your configuration folder. Nothing is downloaded but source code, through Go. It " +
 			"needs Go, and on macOS the Xcode Command Line Tools, on Linux a C compiler with the " +
-			"GTK 4, WebKitGTK 6.0 and X11 development packages; it names what is missing. Run it " +
-			"again after each upgrade of agnostic-ai. A companion that runs is stopped for the " +
-			"install and started again after it.",
+			"GTK 4, WebKitGTK 6.0 and X11 development packages; it names what is missing. On " +
+			"macOS it installs an app with the agnostic-ai icon, signed on this machine, and " +
+			"replaces a bare program an earlier release installed. Run it again after each " +
+			"upgrade of agnostic-ai. A companion that runs is stopped for the install and " +
+			"started again after it.",
 		Example: `  agnostic-ai companion install
 
   # Build from a checkout instead
@@ -696,9 +750,13 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 					return fmt.Errorf("--source: %w", err)
 				}
 			}
+			loginEntries, err := systemCompanionLoginEntries(runtime.GOOS)
+			if err != nil {
+				return err
+			}
 			out := cmd.OutOrStdout()
 			file, isFile := out.(*os.File)
-			return installCompanion(cmd.Context(), out, isFile && term.IsTerminal(file.Fd()), tools, dir, build)
+			return installCompanion(cmd.Context(), out, isFile && term.IsTerminal(file.Fd()), tools, dir, build, loginEntries)
 		},
 	}
 	install.Flags().StringVar(&source, "source", "", "Build from this folder, the companion folder of an agnostic-ai checkout, instead of fetching the source.")
@@ -731,11 +789,11 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			loginEntry, err := systemCompanionLoginEntry(runtime.GOOS)
+			loginEntries, err := systemCompanionLoginEntries(runtime.GOOS)
 			if err != nil {
 				return err
 			}
-			return uninstallCompanion(cmd.Context(), cmd.OutOrStdout(), tools, dir, runtime.GOOS, loginEntry)
+			return uninstallCompanion(cmd.Context(), cmd.OutOrStdout(), tools, dir, runtime.GOOS, loginEntries)
 		},
 	}
 	cmd.AddCommand(install, stop, uninstall)

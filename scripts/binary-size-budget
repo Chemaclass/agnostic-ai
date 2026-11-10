@@ -858,4 +858,7 @@
 # #3231 measured 25637024 bytes locally, up 20480: memory import declines
 # facts and keeps a checksum of each with crypto/sha256; the budget is that
 # plus 8192, rounded up to a multiple of 4096.
-25649152
+# #3234 installs the companion on macOS as an app with the agnostic-ai
+# icon, embedded as a 36 KB PNG, and measured 25682080 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+25694208

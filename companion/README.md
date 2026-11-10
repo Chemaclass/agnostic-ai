@@ -23,7 +23,9 @@ agnostic-ai companion uninstall   # remove it from this machine
 with Go, and prints each step as it goes. Releases ship no built companion, so nothing
 has to be signed or published for each system. It names what your machine
 lacks before it builds anything. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
-lists what each system needs. Only macOS is supported; Windows
+lists what each system needs. On macOS it installs the companion as an app,
+`agnostic-ai companion.app`, with the agnostic-ai icon, signed on your machine.
+Only macOS is supported; Windows
 ([#3221](https://github.com/Chemaclass/agnostic-ai/issues/3221)) and Linux
 ([#3222](https://github.com/Chemaclass/agnostic-ai/issues/3222)) need someone to run and verify it.
 
@@ -71,8 +73,10 @@ opens its list.
 The ⋯ button at the foot of the list holds them:
 
 - **Start at login** starts the companion when you log in. The system keeps this
-  setting; it points at the companion where it is now, so turn it off and on
-  again after you move the file.
+  setting. On macOS the app shows under System Settings > General > Login Items,
+  in Open at Login, with its name and icon. Elsewhere it points at the
+  companion where it is now, so turn it off and on again after you move the
+  file.
 - **Open from anywhere** shows the shortcut. Click it, then press the new keys:
   at least one of Ctrl, Alt or Cmd (the Windows or Super key elsewhere), and a
   letter, digit, Space, an arrow or a function key. A shortcut takes its keys
@@ -97,7 +101,9 @@ shortcut. To end it, see below.
   `agnostic-ai serve` uses them too. It also removes a login entry that a
   deleted program left behind.
 - `agnostic-ai companion install` over a companion that runs stops it, replaces
-  it, and starts the new one.
+  it, and starts the new one. On macOS it also replaces a companion that an
+  earlier release installed as a bare program, with its launch agent. When
+  that one started at login, the app does now.
 
 ## What each group means
 

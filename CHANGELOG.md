@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `memory import --skip <file>` and `--skip-rest` decline facts you do not want, so LINT043 stops counting them; the dry run shows each fact's state (#3235).
 - Right-click a chat in the companion and choose Rename; the web interface shows the same name and search finds it (#3236).
+- On macOS, `companion install` installs the companion as an app with the agnostic-ai icon, so its login item shows the icon and name. It replaces a bare program an earlier release installed and keeps start at login (#3234).
 
 ### Site
 

@@ -31,6 +31,9 @@ The companion is a separate program that is built on your machine. Run `companio
 Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Chemaclass/agnostic-ai/issues/3221) and [Linux (#3222)](https://github.com/Chemaclass/agnostic-ai/issues/3222) list what to run and verify.
 
 - When something is missing, the command names it, says how to get it, and builds nothing.
+- On macOS it installs an app, `agnostic-ai companion.app`, with the agnostic-ai icon. It signs the app on your machine with `codesign`, without a developer identity. The app stays out of the Dock.
+- Start at login on macOS registers the app with the system. It shows under System Settings > General > Login Items, in Open at Login, with the app's name and icon.
+- An install over a companion that an earlier release built as a bare program removes that program and its launch agent. When it started at login, the app does now.
 - A build that fails leaves the installed companion as it was.
 - A running companion is stopped for the install and started again after it.
 
