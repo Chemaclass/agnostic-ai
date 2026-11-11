@@ -35,6 +35,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Augment
 
+- Settings `permissions.ask` writes `ask-user` rules to `.augment/settings.json`, between deny and allow rules; `import augment` reads them back (#3266).
 - Settings `model` and `effort` write Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; Auggie 0.x ignores both keys. `import augment` reads them back (#3265).
 
 ### Site

@@ -135,17 +135,14 @@
 // is an **object**: "`permission` must be an object with a `type`
 // field, `{ "type": "deny" }`, not the bare string `"deny"`. A rule
 // with a bare-string permission is malformed and is dropped." Order is
-// load-bearing too ("first match wins"), so deny rules emit ahead of
-// allow rules; see buildToolPermissions.
+// load-bearing too ("first match wins"), so deny rules emit first, then
+// `ask` rules as `ask-user`, then allow rules; see buildToolPermissions.
 //
 // The portable `model` and `effort` become `defaultModel` and
 // `defaultThinkingLevel`, which Auggie 1.x reads and 0.x ignores.
 //
-// Two portable things reach nothing here and each surfaces a
-// coverage note rather than a guess. The `ask` list has no Augment permission type: the four
-// are allow, deny, webhook-policy, and script-policy, and none of them
-// prompts. And a path- or URL-scoped rule such as `Read(src/**)` has
-// no Augment matcher, since only `terminal` takes one
+// A path- or URL-scoped rule such as `Read(src/**)` surfaces a
+// coverage note rather than a guess: it has no Augment matcher, since only `terminal` takes one
 // (`shellInputRegex`), so flattening it onto a bare `read` would widen
 // it to every file on disk. `x-augment.toolPermissions` passes an
 // author's own native rules through verbatim, ahead of the translated
@@ -324,7 +321,7 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 		keys[hooksKey] = block
 	}
 	rules, droppedRules := buildToolPermissions(settings)
-	noteSettingsGaps(settings, droppedRules)
+	noteSettingsGaps(droppedRules)
 	if len(rules) > 0 {
 		keys[toolPermissionsKey] = rules
 	}

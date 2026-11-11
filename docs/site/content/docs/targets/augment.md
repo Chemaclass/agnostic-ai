@@ -95,17 +95,15 @@ The IDE keeps the memory rule. See [shared memory](@/docs/memory.md#load-at-sess
 
 Settings spec permissions merge into the same file under `toolPermissions`, which Auggie CLI and Cosmos cloud agents follow. Augment recommends committing `.augment/settings.json` so the policy applies to every cloud agent in the repo ([permissions docs](https://docs.augmentcode.com/cli/permissions)).
 
-- Rules are an ordered array and the first match wins, so deny rules come first.
+- Rules are an ordered array and the first match wins, so deny rules come first, then ask rules, then allow rules.
+- The `ask` list becomes `{ "type": "ask-user" }`. Auggie asks before the call; with no interactive UI, such as a headless run, it denies the call. Auggie 0.x reads the same type.
 - Each `permission` is an **object** such as `{ "type": "deny" }`. Augment ignores a bare-string permission.
 - Bare tool names map onto Augment's six tools (`Read` to `read`, `Bash` to `terminal`, `WebFetch` to `web-fetch`, ...).
 - `Bash(prefix:*)` becomes a `terminal` rule with `shellInputRegex: ^prefix`. An exact `Bash(command)` is anchored at both ends. `mcp__<server>__<tool>` becomes `{tool-name}_{server-name}`.
 
 `model` becomes `defaultModel` and `effort` becomes `defaultThinkingLevel` (`off`, `minimal`, `low`, `medium`, `high`, or `xhigh`; another value raises a sync note). Auggie 1.x reads both keys ([settings docs](https://docs.augmentcode.com/cli/settings.md)); Auggie 0.x ignores them and reads only `model`, which you can set with `x-augment: {model: ...}`. Auggie 1.x also reads `model` when `defaultModel` is absent.
 
-These are not written and raise a sync note:
-
-- The `ask` list: none of Augment's types (`allow`, `deny`, `webhook-policy`, `script-policy`) prompts.
-- Path- or URL-scoped rules such as `Read(src/**)`: only `terminal` takes a matcher, and a bare `read` would cover every file.
+Path- or URL-scoped rules such as `Read(src/**)` are not written and raise a sync note: only `terminal` takes a matcher, and a bare `read` would cover every file.
 
 `x-augment.toolPermissions` writes Augment's rule objects as is, ahead of the translated ones. Other `x-augment` keys, such as `shell` or `startupScript`, merge in as written.
 
@@ -125,7 +123,7 @@ These are not written and raise a sync note:
 
 ## Import
 
-`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment`, or `x-augment.defaultModel` when another settings spec sets a different Augment model. `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). Nothing else is imported.
+`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. An `ask-user` rule goes to the `ask` list. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment`, or `x-augment.defaultModel` when another settings spec sets a different Augment model. `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). Nothing else is imported.
 
 ## Protected paths
 

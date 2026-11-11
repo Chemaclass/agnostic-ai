@@ -208,6 +208,8 @@ func augmentPermissionList(raw json.RawMessage) (string, bool) {
 	switch obj.Type {
 	case "allow", "deny":
 		return obj.Type, true
+	case "ask-user":
+		return "ask", true
 	}
 	return "", false
 }
