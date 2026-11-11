@@ -96,9 +96,9 @@ Enter or `0` exits without taking action. Every option keeps the original error 
 
 ### AAI-102: Tools write to the same file {#aai-102-targets-emit-to-the-same-output-path}
 
-Two or more enabled targets would write different content to the same path, so sync stops instead of letting the last one win.
+Two or more enabled targets would write different content to the same path, so sync stops instead of letting the last one win. A target's merged `rules-file` on a file sync also writes as another target's instructions file, such as `outputs.codex.rules-file: AGENTS.md` while Cline reads `AGENTS.md`, also stops sync. `sync.collision-policy` does not settle that case, since neither version is right for both tools.
 
-**Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`.
+**Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`. For a shared instructions file, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool.
 
 <a id="aai-103-hand-authored-ignore-file-cannot-be-safely-overwritten"></a>
 

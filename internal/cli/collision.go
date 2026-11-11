@@ -50,8 +50,12 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		return nil, err
 	}
 	readers := append(append([]string(nil), cfg.Targets...), targets...)
-	if _, err := renderEntryPointFiles(cfg, b, readers, ""); err != nil {
+	entryFiles, err := renderEntryPointFiles(cfg, b, readers, "")
+	if err != nil {
 		return nil, err
+	}
+	if conflicts := sharedRulesFileConflicts(cfg, targets); len(conflicts) > 0 {
+		return nil, errs.Coded(errs.CodeOutputCollision, "output collision: %s", strings.Join(conflicts, "\n"))
 	}
 	policy := cfg.Sync.CollisionPolicy
 	if policy == "" {
@@ -95,6 +99,9 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 			}
 			written[f.Path][t] = f.Content
 		}
+	}
+	if err := entryPointOverwrites(cfg, entryFiles, owners); err != nil {
+		return nil, err
 	}
 	if policy == "prefer-spec" {
 		for path, variants := range contents {
@@ -237,4 +244,32 @@ func warnSharedAgentsTreeReaders(owners map[string][]string, targets []string) {
 	}
 	adapters.NoteProject(fmt.Sprintf("%d agent file%s in %s written by %s %s also read by Devin; shared profiles may lack allowed-tools restrictions (check discovered profiles for duplicate names)",
 		files, plural(files), sharedAgentsTree, strings.Join(names, ", "), verb))
+}
+
+// entryPointOverwrites stops a run in which a target's adapter writes a
+// file that sync then writes again as another target's instructions file.
+// The collision policy cannot settle it: sync writes instructions files
+// after every adapter, so the adapter's version would never survive.
+func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map[string][]string) error {
+	byPath := map[string][]string{}
+	for path, ts := range owners {
+		byPath[filepath.Clean(path)] = ts
+	}
+	var lines []string
+	for _, f := range files {
+		ts := byPath[filepath.Clean(f.Path)]
+		if len(ts) == 0 || cfg.IsUnmanaged(f.Path) {
+			continue
+		}
+		ts = slices.Clone(ts)
+		sort.Strings(ts)
+		lines = append(lines, fmt.Sprintf("  %s ← %s, and the instructions file of %s", f.Path, strings.Join(ts, ", "), strings.Join(f.Readers, ", ")))
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	sort.Strings(lines)
+	return errs.Coded(errs.CodeOutputCollision,
+		"output collision: an adapter writes a file sync also writes as an instructions file\n%s\n"+
+			"point that output elsewhere, or set outputs.<target>.file for the readers", strings.Join(lines, "\n"))
 }

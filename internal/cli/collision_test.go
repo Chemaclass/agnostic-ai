@@ -44,6 +44,7 @@ func TestSync_LegacyRulesFileCollision(t *testing.T) {
 	}
 	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
 	if err := os.WriteFile(cfgPath, []byte(`version: 1
+targets: [codex, amp]
 gitignore:
   enabled: true
 outputs:
@@ -77,6 +78,7 @@ func TestSync_SharedPathIdenticalContent_NoCollision(t *testing.T) {
 
 	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
 	if err := os.WriteFile(cfgPath, []byte(`version: 1
+targets: [codex, amp]
 gitignore:
   enabled: true
 outputs:
@@ -150,6 +152,7 @@ func TestSync_CollisionPolicyPreferSpec_SkipsCheck(t *testing.T) {
 
 	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
 	if err := os.WriteFile(cfgPath, []byte(`version: 1
+targets: [codex, amp]
 gitignore:
   enabled: false
 sync:
@@ -215,6 +218,7 @@ func TestSync_CollisionPolicyFail_HardError(t *testing.T) {
 	}
 	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
 	if err := os.WriteFile(cfgPath, []byte(`version: 1
+targets: [codex, amp]
 gitignore:
   enabled: false
 sync:

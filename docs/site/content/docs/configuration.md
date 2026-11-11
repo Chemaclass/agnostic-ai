@@ -454,7 +454,7 @@ When the file is missing, sync creates it with one line saying the tool files ar
 
 Setting `outputs.<target>.rules-file: <path>` restores the legacy layout: the adapter writes one merged document at `<path>`, including the built-in skill instructions. Two adapters writing different content to one path fail unless you set `sync.collision-policy: prefer-spec`.
 
-When `<path>` is the target's own entry-point file (`outputs.claude.rules-file: CLAUDE.md`), sync skips the pointer body. Any other path keeps the entry-point file, and for `claude` the pointer body also gains an `@<path>` import.
+When `<path>` is the target's own entry-point file (`outputs.claude.rules-file: CLAUDE.md`), sync skips the pointer body. That file then belongs to that target alone: if another enabled target reads the same file, such as Cline with `outputs.codex.rules-file: AGENTS.md`, `sync` stops with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) and `validate` reports it. The merged file holds neither the `AGNOSTIC_AI.md` body nor the other target's rules. Any other path keeps the entry-point file, and for `claude` the pointer body also gains an `@<path>` import.
 
 These targets write it: `aider`, `amp`, `antigravity`, `augment`, `claude`, `codex`, `copilot`, `gemini`, `goose`, `kimi`, `opencode`, `pi`, `qwen`, `vibe`, `warp`, and `zed`. On any other target sync ignores the key and `lint` warns with LINT062. That target keeps its entry-point file and its rules as if the key were unset.
 
