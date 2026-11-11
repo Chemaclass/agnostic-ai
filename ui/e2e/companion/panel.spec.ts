@@ -639,3 +639,68 @@ test('a chat the server cannot delete says why and sends nothing', async ({ page
   await expect(row(page, 'Bump the Go version')).toBeVisible()
   expect(sent).toEqual([])
 })
+
+const titles = (page: Page) => page.getByRole('option').locator('.title')
+const nestedRows = (page: Page) => page.locator('.row.is-nested')
+
+test('a chat started from another sits under it while both are in the same group, and is a normal row elsewhere', async ({ page }) => {
+  await openPanel(page, 'nested')
+  await expect(titles(page)).toHaveText([
+    'Check the docs links', 'Approve the API change', 'Update the API docs',
+    'Plan the docs site', 'Write the docs index', 'Draft the API guide', 'Try the API guide examples', 'Tidy the docs styles',
+  ])
+  await expect(nestedRows(page).locator('.title')).toHaveText(['Update the API docs', 'Write the docs index', 'Try the API guide examples'])
+  await expect(groupTitle(page, 'Needs you').locator('.count')).toHaveText('3')
+  await expect(row(page, 'Update the API docs')).toHaveAttribute('aria-description', /^Started from Approve the API change\n/)
+  await expect(row(page, 'Check the docs links')).not.toHaveAttribute('aria-description', /Started from/)
+  await expect(row(page, 'Write the docs index').getByRole('button')).toHaveCount(await row(page, 'Plan the docs site').getByRole('button').count())
+  const indent = async (title: string) => (await row(page, title).locator('.state').boundingBox())!.x
+  expect(await indent('Write the docs index')).toBeGreaterThan(await indent('Plan the docs site'))
+
+  // The arrow keys follow the drawn order.
+  for (const title of ['Check the docs links', 'Approve the API change', 'Update the API docs', 'Plan the docs site']) {
+    await page.keyboard.press('ArrowDown')
+    await expect(selected(page)).toContainText(title)
+  }
+
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect(row(page, 'Try the API guide examples')).not.toHaveClass(/is-nested/)
+  await page.getByRole('button', { name: 'All', exact: true }).click()
+
+  await page.getByLabel('Search every conversation').fill('docs')
+  await expect(titles(page)).toHaveText(['Check the docs links', 'Update the API docs', 'Plan the docs site', 'Write the docs index', 'Tidy the docs styles'])
+  await expect(nestedRows(page).locator('.title')).toHaveText(['Write the docs index'])
+})
+
+test('archiving, renaming or hiding a parent never changes its child', async ({ page }) => {
+  await openPanel(page, 'nested')
+  await row(page, 'Approve the API change').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Rename…' }).click()
+  await page.getByLabel('New name').fill('Approve the API field change')
+  await page.getByLabel('New name').press('Enter')
+  await expect(row(page, 'Update the API docs')).toHaveAttribute('aria-description', /^Started from Approve the API field change\n/)
+  await expect(row(page, 'Update the API docs')).toHaveClass(/is-nested/)
+
+  const parent = row(page, 'Plan the docs site')
+  await parent.hover()
+  await completeButton(parent).click()
+  await expect(parent).toBeHidden()
+  await expect(row(page, 'Write the docs index')).toBeVisible()
+  await expect(row(page, 'Write the docs index')).not.toHaveClass(/is-nested/)
+  await expect(row(page, 'Check the docs links')).not.toHaveClass(/is-nested/)
+
+  await groupTitle(page, 'Archived').click()
+  await parent.hover()
+  await parent.getByRole('button', { name: /^Hide from agnostic-ai,/ }).click()
+  await expect(parent).toHaveCount(0)
+  await expect(row(page, 'Write the docs index')).toBeVisible()
+  await expect(row(page, 'Write the docs index')).not.toHaveClass(/is-nested/)
+})
+
+test('mark all as read marks every Needs you row, the nested one included', async ({ page }) => {
+  await openPanel(page, 'nested')
+  const marks = markBodies(page)
+  await markAllRead(page).click()
+  await expect(groupTitle(page, 'Needs you')).toHaveCount(0)
+  expect(marks).toEqual([seen('claude', 'nest-blocked'), seen('claude', 'nest-wait'), seen('codex', 'nest-reply')])
+})

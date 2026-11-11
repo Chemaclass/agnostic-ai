@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -12,6 +12,55 @@ test('groups rows by state, in list order, and leaves empty groups out', () => {
     ['archived', ['a', 'e']],
   ])
   assert.deepEqual(groups.map((group) => group.startsFolded), [false, false, true])
+})
+
+const child = (id, state, parent, extra = {}) => row(id, state, { parent: { tool: 'claude', id: parent }, ...extra })
+const drawn = (groups) => groups.map((group) => [group.id, group.rows.map((r) => [r.id, group.under.get(keyOf(r))?.id ?? null])])
+
+test('draws a child under its parent in the same group, whatever its tool, and keeps the group\'s count', () => {
+  const groups = grouped([row('other', 'active'), child('kid', 'active', 'parent', { tool: 'codex' }), row('parent', 'active')])
+  assert.deepEqual(drawn(groups), [['active', [['other', null], ['parent', null], ['kid', 'parent']]]])
+})
+
+test('a child whose parent sits in another group is a normal row in its own group: a waiting child stays under Needs you', () => {
+  for (const parentState of ['active', 'working', 'completed', 'dormant']) {
+    const groups = grouped([child('kid', 'blocked', 'parent'), row('parent', parentState)])
+    assert.deepEqual(drawn(groups)[0], ['needs-you', [['kid', null]]])
+    assert.equal(groups.find((group) => group.id === 'needs-you').rows.length, 1)
+  }
+})
+
+test('a child is a normal row when its parent is not in the list: hidden, of another place, or not matching the search', () => {
+  assert.deepEqual(drawn(grouped([child('kid', 'active', 'parent')])), [['active', [['kid', null]]]])
+  const view = { conversations: [child('kid', 'active', 'parent'), row('parent', 'active', { app: 'cloud' })] }
+  assert.deepEqual(drawn(grouped(viewIn(view, 'local').conversations)), [['active', [['kid', null]]]])
+  assert.deepEqual(drawn(grouped(view.conversations)), [['active', [['parent', null], ['kid', 'parent']]]])
+})
+
+test('draws a chain at one level under the root in the group, oldest first', () => {
+  const groups = grouped([
+    child('grandchild', 'active', 'kid', { updatedAt: '2026-11-09T12:20:00Z' }),
+    child('kid', 'active', 'root', { updatedAt: '2026-11-09T12:10:00Z' }),
+    row('root', 'active', { updatedAt: '2026-11-09T11:00:00Z' }),
+  ])
+  assert.deepEqual(drawn(groups), [['active', [['root', null], ['kid', 'root'], ['grandchild', 'root']]]])
+})
+
+test('draws every row of a loop made by hand as a normal row, and a row naming itself too', () => {
+  const groups = grouped([child('a', 'active', 'b'), child('b', 'active', 'a'), child('c', 'active', 'a'), child('self', 'active', 'self')])
+  assert.deepEqual(drawn(groups), [['active', [['a', null], ['b', null], ['c', null], ['self', null]]]])
+})
+
+test('the arrow keys move through the rows in the order they are drawn', () => {
+  const rows = grouped([row('other', 'active'), child('kid', 'active', 'parent'), row('parent', 'active')]).flatMap((group) => group.rows.map(keyOf))
+  assert.equal(neighbour(rows, 'claude:parent', 1), 'claude:kid')
+  assert.equal(neighbour(rows, 'claude:kid', 1), 'claude:kid')
+  assert.equal(neighbour(rows, 'claude:other', 1), 'claude:parent')
+})
+
+test('says which conversation a nested row was started from', () => {
+  assert.equal(startedFromOf(row('parent', 'active', { title: 'Plan the release' })), 'Started from Plan the release')
+  assert.equal(startedFromOf(row('parent', 'active', { title: '' })), 'Started from Untitled conversation')
 })
 
 test('offers Mark as read only on a row that needs the person, and Rename on every row', () => {

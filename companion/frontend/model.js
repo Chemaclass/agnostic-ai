@@ -119,12 +119,56 @@ export function withTitle(view, key, title) {
   return { ...view, conversations }
 }
 
-/** The rows of each group that has any, in list order. */
+/**
+ * The rows of each group that has any, in list order, except that a conversation started from another
+ * one in the same group comes right after it. `under` maps such a row's key to the row it sits under.
+ */
 export function grouped(conversations) {
   return GROUPS.map((group) => ({
     ...group,
-    rows: conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id),
+    ...nested(conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)),
   })).filter((group) => group.rows.length > 0)
+}
+
+/** The row a conversation sits under: the last of its parents, walking up, that is in `rows`. Undefined for a row with none, and for one whose walk meets a loop. */
+function rootOf(conversation, rows) {
+  const seen = new Set([keyOf(conversation)])
+  let root
+  for (let parent = conversation.parent; parent; parent = root.parent) {
+    const key = parent.tool + ':' + parent.id
+    const above = rows.get(key)
+    if (!above) break
+    if (seen.has(key)) return undefined
+    seen.add(key)
+    root = above
+  }
+  return root
+}
+
+// A time that does not parse counts as the oldest.
+const writtenAt = (conversation) => Date.parse(conversation.updatedAt) || 0
+const oldestFirst = (a, b) => writtenAt(a) - writtenAt(b)
+
+/** One group's rows as the list draws them: every descendant right after the root it sits under, oldest first, one level deep. */
+function nested(rows) {
+  const byKey = new Map(rows.map((conversation) => [keyOf(conversation), conversation]))
+  const under = new Map()
+  const children = new Map()
+  for (const conversation of rows) {
+    const root = rootOf(conversation, byKey)
+    if (!root) continue
+    under.set(keyOf(conversation), root)
+    children.set(keyOf(root), [...(children.get(keyOf(root)) ?? []), conversation])
+  }
+  const drawn = rows
+    .filter((conversation) => !under.has(keyOf(conversation)))
+    .flatMap((conversation) => [conversation, ...(children.get(keyOf(conversation)) ?? []).sort(oldestFirst)])
+  return { rows: drawn, under }
+}
+
+/** What a nested row tells a screen reader about the row it sits under. */
+export function startedFromOf(parent) {
+  return 'Started from ' + titleOf(parent)
 }
 
 /**
