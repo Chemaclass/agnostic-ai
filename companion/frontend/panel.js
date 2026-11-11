@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
+import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
+import { GROUPS, PLACES, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -412,6 +412,7 @@ async function refresh() {
   state.note = reply?.note
   draw()
   keepRowMenuCurrent()
+  keepDeleteConfirmCurrent()
 }
 
 // The panel never activates its app, so while it shows it keeps the keys
@@ -440,8 +441,10 @@ async function openRow(conversation) {
   })
 }
 
-function showOpenFailure(failure) {
+/** The notice says why something the person asked for did not happen; `label` names what. */
+function showOpenFailure(failure, label = 'Why it did not open') {
   state.openFailure = failure
+  notice.setAttribute('aria-label', label)
   notice.hidden = failure === undefined
   noticeMessage.textContent = failure?.message ?? ''
   noticeCommand.textContent = failure?.command ?? ''
@@ -517,7 +520,7 @@ async function completeRow(conversation, row, button) {
 
 const rowMenu = document.getElementById('row-menu')
 const renameItem = document.getElementById('rename')
-const menuItems = { read: document.getElementById('mark-read'), rename: renameItem }
+const menuItems = { read: document.getElementById('mark-read'), rename: renameItem, delete: document.getElementById('delete') }
 /** The conversation the row menu was opened on. */
 let rowMenuFor
 
@@ -642,6 +645,78 @@ list.addEventListener('scroll', () => {
   if (!rowMenu.hidden) closeRowMenu()
 })
 
+// Delete permanently
+
+const deleteConfirm = document.getElementById('delete-confirm')
+const deleteTitle = document.getElementById('delete-title')
+const deleteDetails = document.getElementById('delete-details')
+const deleteBody = document.getElementById('delete-body')
+const deleteCancel = document.getElementById('delete-cancel')
+const deleteGo = document.getElementById('delete-go')
+/** The conversation the confirmation asks about; undefined while none shows. */
+let deleteFor
+
+menuItems.delete.addEventListener('click', () => {
+  const conversation = rowMenuTarget('delete')
+  closeRowMenu()
+  if (!conversation) {
+    queryInput.focus()
+    return
+  }
+  const confirm = deleteConfirmOf(conversation, Date.now(), folderNamesOf(shownView().conversations.map((row) => row.folder)))
+  if (confirm.unsupported) {
+    // Nothing is sent: the server already said this chat cannot be deleted from here.
+    showOpenFailure({ message: confirm.unsupported }, 'Why it cannot be deleted')
+    queryInput.focus()
+    return
+  }
+  deleteFor = conversation
+  deleteTitle.textContent = confirm.title
+  deleteDetails.textContent = confirm.details
+  deleteBody.textContent = confirm.body
+  deleteGo.disabled = false
+  deleteConfirm.hidden = false
+  deleteCancel.focus()
+})
+
+function closeDeleteConfirm() {
+  deleteConfirm.hidden = true
+  deleteFor = undefined
+  queryInput.focus()
+}
+
+/** A new list that no longer offers Delete for the row, such as one where it was written in again, closes the confirmation. */
+function keepDeleteConfirmCurrent() {
+  if (deleteConfirm.hidden || !deleteFor || deleteGo.disabled) return
+  const key = keyOf(deleteFor)
+  const current = shownView()?.conversations.find((conversation) => keyOf(conversation) === key)
+  if (current && rowMenuOf(current).includes('delete') && !current.deleteUnsupported) return
+  closeDeleteConfirm()
+}
+
+deleteCancel.addEventListener('click', closeDeleteConfirm)
+deleteGo.addEventListener('click', async () => {
+  const conversation = deleteFor
+  if (!conversation) return
+  deleteGo.disabled = true
+  let reply
+  try {
+    reply = await deleteConversation(conversation)
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    closeDeleteConfirm()
+    // A refusal can list what is still on disk: it stays until dismissed, unlike the toast.
+    showOpenFailure({ message: error.message }, 'Why it was not deleted')
+    await refresh()
+    return
+  }
+  closeDeleteConfirm()
+  const { message, note: problem } = deletedOf(reply)
+  if (problem) showOpenFailure({ message: message + ' ' + problem }, 'What was not tidied')
+  else say(message)
+  await refresh()
+})
+
 /** Marks each of the rows complete, one mark after the other, then reads the list once. No row shows a tick: this is tidying up. */
 async function completeAll(rows) {
   try {
@@ -764,16 +839,17 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault()
     const closes = {
+      'delete-confirm': closeDeleteConfirm,
       'row-menu': closeRowMenu,
       rename: escapeRename,
       settings: closeMenu,
       panel: () => hidePanel().catch(sayFailure),
     }
-    closes[escapeTarget({ rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden })]()
+    closes[escapeTarget({ deleteConfirmOpen: !deleteConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden })]()
     return
   }
-  // The open row menu takes Enter and Space on its own item.
-  if (!rowMenu.hidden || state.renaming) return
+  // The open row menu and the delete confirmation take Enter and Space on their own buttons.
+  if (!rowMenu.hidden || !deleteConfirm.hidden || state.renaming) return
   if (settings.recording) {
     // Every key belongs to the new shortcut until one is complete.
     event.preventDefault()
@@ -807,6 +883,8 @@ function opened(from) {
   toast.hidden = true
   closeMenu()
   closeRowMenu()
+  deleteConfirm.hidden = true
+  deleteFor = undefined
   state.renaming = undefined
   if (!state.returning) state.activeKey = undefined
   state.returning = false

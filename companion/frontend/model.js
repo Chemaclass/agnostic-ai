@@ -90,8 +90,9 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-/** What Escape closes: the row menu, then a rename, then the settings menu, then the panel. */
-export function escapeTarget({ rowMenuOpen, renaming, settingsOpen }) {
+/** What Escape closes: a delete confirmation, then the row menu, then a rename, then the settings menu, then the panel. */
+export function escapeTarget({ deleteConfirmOpen, rowMenuOpen, renaming, settingsOpen }) {
+  if (deleteConfirmOpen) return 'delete-confirm'
   if (rowMenuOpen) return 'row-menu'
   if (renaming) return 'rename'
   if (settingsOpen) return 'settings'
@@ -139,9 +140,57 @@ export function rowActionOf(conversation) {
   return GROUP_OF_STATE[conversation.state] === 'archived' ? 'hide' : 'archive'
 }
 
-/** What the row menu offers: Mark as read clears a wait or a reply without opening the chat. */
+/**
+ * What the row menu offers: Mark as read clears a wait or a reply without opening the chat.
+ * Only a chat the person archived, and that no process holds, can be deleted.
+ */
 export function rowMenuOf(conversation) {
-  return NEEDS_PERSON[conversation.state] ? ['read', 'rename'] : ['rename']
+  const offered = NEEDS_PERSON[conversation.state] ? ['read', 'rename'] : ['rename']
+  if (conversation.state === 'completed' && !conversation.live) offered.push('delete')
+  return offered
+}
+
+/** What the server deletes for each tool it can delete, as the confirmation says it. */
+const DELETED_DATA = {
+  claude:
+    'This removes the session from this computer: its transcript, its subagent transcripts, saved tool output, file backups and pasted images, and its name and marks in agnostic-ai. ' +
+    "It cannot be undone. The prompts you typed stay in Claude Code's own prompt history.",
+}
+
+/**
+ * What Delete permanently asks before it sends anything: `{ unsupported }` when the server said this chat
+ * cannot be deleted from here, otherwise `{ title, details, body }`.
+ */
+export function deleteConfirmOf(conversation, now, names) {
+  if (conversation.deleteUnsupported) return { unsupported: conversation.deleteUnsupported }
+  const title = conversation.title === '' ? 'Untitled conversation' : conversation.title
+  return {
+    title: `Delete "${title}" permanently?`,
+    details: detailsOf(conversation, now, names),
+    body: DELETED_DATA[conversation.tool] ?? 'This removes the conversation from this computer. It cannot be undone.',
+  }
+}
+
+const SIZE_UNITS = ['KB', 'MB', 'GB']
+
+/** "Freed 12 MB" after a delete; empty when the server freed nothing it could count. */
+export function freedOf(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return ''
+  if (bytes < 1000) return `Freed ${bytes} bytes`
+  let size = bytes
+  let unit = -1
+  while (size >= 1000 && unit < SIZE_UNITS.length - 1) {
+    size /= 1000
+    unit += 1
+  }
+  const shown = size < 10 ? Math.round(size * 10) / 10 : Math.round(size)
+  return `Freed ${shown} ${SIZE_UNITS[unit]}`
+}
+
+/** What the panel says once a chat is deleted: the bytes it freed, and what the server could not tidy. */
+export function deletedOf(reply) {
+  const freed = freedOf(reply.freedBytes)
+  return { message: freed === '' ? 'Deleted.' : `Deleted. ${freed}.`, note: reply.note }
 }
 
 /** Where a row runs, said only when it is not on this machine. */

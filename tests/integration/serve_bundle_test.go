@@ -133,8 +133,8 @@ func startInstalledServe(t *testing.T, binary, project string, flags ...string) 
 		cancel()
 		t.Fatal(err)
 	}
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
+	done := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	urls := make(chan string, 1)
 	go func() {

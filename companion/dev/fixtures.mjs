@@ -4,9 +4,10 @@
 
 const MINUTE = 60 * 1000
 
-function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main' } = {}) {
+function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported } = {}) {
   const cloud = app === 'cloud'
   return {
+    ...(deleteUnsupported ? { deleteUnsupported } : {}),
     tool,
     app,
     id,
@@ -29,6 +30,19 @@ function mixed(now) {
     conversation(now, 'claude', 'cloud-1', 'Write the onboarding guide', 'active', { app: 'cloud', minutesAgo: 60 }),
     conversation(now, 'codex', 'done-1', 'Bump the Go version', 'completed', { minutesAgo: 2 * 24 * 60 }),
     conversation(now, 'cursor', 'old-1', 'Sketch the pricing page', 'dormant', { folder: '/Users/you/Code/site', minutesAgo: 9 * 24 * 60 }),
+  ]
+}
+
+/** Archived chats: one Claude Code session that can be deleted, and others that cannot or are not archived by hand. */
+function archived(now) {
+  return [
+    conversation(now, 'claude', 'active-3', 'Write the migration guide', 'active', { minutesAgo: 30 }),
+    conversation(now, 'claude', 'done-2', 'Tidy the old branches', 'completed', { minutesAgo: 3 * 24 * 60 }),
+    conversation(now, 'codex', 'done-3', 'Bump the Go version', 'completed', {
+      minutesAgo: 2 * 24 * 60,
+      deleteUnsupported: 'Deleting Codex threads from here is not supported yet. To delete it, run this in a terminal: codex delete done-3',
+    }),
+    conversation(now, 'claude', 'old-2', 'Sketch the pricing page', 'dormant', { folder: '/Users/you/Code/site', minutesAgo: 9 * 24 * 60 }),
   ]
 }
 
@@ -65,7 +79,7 @@ function duplicateProjects(now) {
 /**
  * Each fixture is a list plus the ways its calls fail:
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
- * markProblem, renameProblem, openProblem (a conversation that did not open) with its openCommand,
+ * markProblem, renameProblem, deleteProblem, openProblem (a conversation that did not open) with its openCommand,
  * slowQueries (queries that contain the word wait that many milliseconds),
  * and heldOpens (opens of these conversation ids wait until POST /dev/release-opens).
  */
@@ -89,6 +103,13 @@ export const FIXTURES = {
     label: 'Archive and hide failure',
     conversations: mixed,
     markProblem: 'agnostic-ai could not save the mark: the marks file is read-only.',
+  },
+  archived: { label: 'Archived chats to delete', conversations: archived },
+  'delete-failure': {
+    label: 'Delete failure',
+    conversations: archived,
+    deleteProblem:
+      'Deleted 1 of 4 locations, then stopped: permission denied. Still on disk: /Users/you/.claude/file-history/done-2, /Users/you/.claude/projects/-Users-you-Code-agnostic-ai/done-2.jsonl. Its marks were kept.',
   },
   'open-failure': {
     label: 'Open failure',
