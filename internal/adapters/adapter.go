@@ -640,6 +640,19 @@ func EntryPointRuleInliner(cfg *config.Config, target string) string {
 	return emit.EntryPointRuleInliner(cfg, target)
 }
 
+// RootInstructionsPath returns the root instructions file target reads
+// at session start, AGENTS.md for Cursor (re-exported from the emit
+// layer).
+func RootInstructionsPath(cfg *config.Config, target string) string {
+	return emit.RootInstructionsPath(cfg, target)
+}
+
+// TraeReadsEntryPoint reports whether the user declared that Trae reads
+// AGENTS.md (re-exported from the emit layer).
+func TraeReadsEntryPoint(cfg *config.Config) bool {
+	return emit.TraeReadsEntryPoint(cfg)
+}
+
 // RuleInEntryPoint reports whether target skips its own file for rule r
 // because the entry point it reads already carries r, with the same
 // text, and that file would load r in every session too. To check many

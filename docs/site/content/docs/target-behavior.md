@@ -50,9 +50,9 @@ Tools that share a path get one write. Junie also has its preferred `.junie/AGEN
 
 Some tools read no separate rule directory. Sync puts their project-wide rules below the shared body in a marked `## Rules` block. Augment and Kilo use that block too, though they have rule directories. OpenHands uses it for always-on rules; path-triggered rules become skills. Qwen Code uses it for rules without file patterns; a rule with `globs` goes to `.qwen/rules/` and loads when a matching file is read or edited.
 
-Cline, Kiro, Qoder, Kilo, and Augment skip a native rule file when its body already appears in the root `AGENTS.md` they read. File-conditioned rules and tool-specific bodies keep their own files. Keep `AGENTS.md` enabled in Cline's Rules panel and Qoder's context file list, or those tools miss the shared rules.
+Cline, Kiro, Qoder, Kilo, Augment, Cursor, and Windsurf skip a native rule file when its body already appears in the root `AGENTS.md` they read. File-conditioned rules and tool-specific bodies keep their own files. Keep `AGENTS.md` enabled in Cline's Rules panel and Qoder's context file list, or those tools miss the shared rules.
 
-Trae keeps every rule file because reading `AGENTS.md` is optional. Windsurf keeps them for legacy compatibility. Enabling those tools beside an inlining target can load the same rule twice.
+Trae reads `AGENTS.md` only after a switch in its settings is on, so it keeps every rule file by default. Set `outputs.trae.rules-mode: entry-point` once the switch is on, and Trae skips them too. See [Trae](@/docs/targets/trae.md#loaded-at-session-start).
 
 A tool whose entry point moves off root `AGENTS.md` keeps its separate rule files. Listing `AGENTS.md` in `sync.unmanaged` stops writes for every target that shares the file, not for one tool.
 

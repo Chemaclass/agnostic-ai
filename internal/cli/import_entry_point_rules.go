@@ -25,7 +25,7 @@ func importInlinedEntryPointRules(root, source string, cfg *config.Config) error
 	if adapters.EntryPointRuleInliner(cfg, source) == "" {
 		return nil
 	}
-	name := adapters.EntryPointPath(cfg, source)
+	name := adapters.RootInstructionsPath(cfg, source)
 	data, err := readEntryFile(root, filepath.Join(root, name))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil

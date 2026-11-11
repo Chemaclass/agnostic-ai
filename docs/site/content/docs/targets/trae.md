@@ -29,9 +29,17 @@ For existing files, check [what `import trae` reads](#import) before syncing.
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `.trae/rules/conventional-commits.md` for the commit-prefix rule. Open the project in Trae. Confirm the rule is active in the Rules panel, then ask for a commit subject for a small fix; it should use `fix:`.
+Run `agnostic-ai sync --check` and inspect `.trae/rules/conventional-commits.md` for the commit-prefix rule. Open the project in Trae. Confirm the rule is active in the Rules panel, then ask for a commit subject for a small fix; it should use `fix:`. With `outputs.trae.rules-mode: entry-point` and Codex enabled, the rule is in the `## Rules` block of `AGENTS.md` instead.
 
 Next, [add a skill](@/docs/spec-format/skills.md).
+
+## Loaded at session start
+
+Trae always loads its own rule files. The [rules docs](https://docs.trae.ai/ide/rules) say a project rule "is effective for all AI chats within the current project".
+
+Trae reads `AGENTS.md` only after you turn it on: "In Import Settings, toggle the Include AGENTS.md in the context. and Include CLAUDE.md in context switches on." The docs do not give a default. They tell you to turn the switch on, so sync treats it as off.
+
+So by default every rule keeps its `.trae/rules/` file, and `lint` and `explain --context` do not count `AGENTS.md` for Trae. If you turn the switch on, set `outputs.trae.rules-mode: entry-point`. Then, when Codex or another tool writes the `## Rules` block in `AGENTS.md`, sync skips the `.trae/rules/` file of each always-on rule that block already holds, so the rule loads once (#3230). Scoped rules keep their files.
 
 ## Output
 
@@ -51,7 +59,7 @@ AGENTS.md                     # pointer body, plus the rules block when another 
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
-Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Settings > Rules & Memories). So every rule keeps its `.trae/rules/` file. With that switch on and codex or another tool that includes rules in instruction files enabled, always-on rules load twice. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Settings > Rules & Memories). See [loaded at session start](#loaded-at-session-start).
 
 ### Rules
 
@@ -123,6 +131,7 @@ For every current agent, sync removes a generated copy at the old `.trae/rules/a
 | Key | Default |
 | --- | --- |
 | `outputs.trae.rules-dir` | `.trae/rules` |
+| `outputs.trae.rules-mode` | unset; set `entry-point` when Trae's **Include AGENTS.md in the context** switch is on |
 | `outputs.trae.agents-dir` | `.trae/agents` |
 | `outputs.trae.skills-dir` | `.trae/skills` |
 | `outputs.trae.commands-dir` | `.trae/commands` |

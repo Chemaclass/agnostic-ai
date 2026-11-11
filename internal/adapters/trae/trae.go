@@ -230,7 +230,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	rulesDir := emit.OutputRulesDir(cfg, target, defaultDir)
+	rulesDir := RulesDir(cfg)
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         rulesDir,
 		ScopeAtRoot: true,
@@ -296,6 +296,11 @@ func commandFile(e spec.Entry) string {
 	sb.WriteString("\n")
 	sb.WriteString(e.Body)
 	return sb.String()
+}
+
+// RulesDir returns the folder sync writes Trae's rule files to.
+func RulesDir(cfg *config.Config) string {
+	return emit.OutputRulesDir(cfg, target, defaultDir)
 }
 
 // AlwaysOnRule reports whether Trae applies r to every chat: the

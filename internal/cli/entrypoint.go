@@ -142,7 +142,13 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 	var order []string
 	consumers := map[string][]string{}
 	for _, t := range targets {
-		if path := entryPoint(t); path != "" {
+		path := entryPoint(t)
+		// Cursor writes no entry point, so a run that syncs it writes the
+		// root file it leaves its rules to.
+		if path == "" && adapters.EntryPointRuleInliner(cfg, t) != "" {
+			path = adapters.RootInstructionsPath(cfg, t)
+		}
+		if path != "" {
 			if _, ok := consumers[path]; !ok {
 				order = append(order, path)
 				consumers[path] = nil

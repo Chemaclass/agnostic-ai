@@ -97,10 +97,10 @@ func TestExplain_FullFileForUniqueTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := out.String()
-	// Cursor writes one .mdc file per rule; removing the spec drops that
-	// file entirely, so the contribution should be classified as "full".
-	if !strings.Contains(got, ".cursor/rules/no-console-log.mdc (full file)") {
-		t.Errorf("expected full-file classification for cursor mdc: %s", got)
+	// Claude writes one file per rule; removing the spec drops that file
+	// entirely, so the contribution should be classified as "full".
+	if !strings.Contains(got, ".claude/rules/no-console-log.md (full file)") {
+		t.Errorf("expected full-file classification for the claude rule file: %s", got)
 	}
 }
 

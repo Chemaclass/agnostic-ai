@@ -180,7 +180,14 @@ func TestEntryPointRuleInliner(t *testing.T) {
 		{"cline on its own file", config.Config{Targets: []string{"codex", "cline"}, Outputs: map[string]config.Output{"cline": {File: "CLINE.md"}}}, "cline", ""},
 		{"codex owns AGENTS.md", config.Config{Targets: []string{"codex", "cline"}, Outputs: map[string]config.Output{"codex": {RulesFile: "AGENTS.md"}}}, "cline", ""},
 		{"target outside the config", config.Config{Targets: []string{"codex"}}, "kiro", "codex"},
-		{"windsurf may cut a long AGENTS.md", config.Config{Targets: []string{"codex", "windsurf"}}, "windsurf", ""},
+		{"windsurf reads codex's AGENTS.md", config.Config{Targets: []string{"codex", "windsurf"}}, "windsurf", "codex"},
+		{"cursor reads codex's AGENTS.md", config.Config{Targets: []string{"codex", "cursor"}}, "cursor", "codex"},
+		{"cursor alone", config.Config{Targets: []string{"cursor"}}, "cursor", ""},
+		{"cursor beside an AGENTS.md without rules", config.Config{Targets: []string{"cursor", "windsurf", "trae"}}, "cursor", ""},
+		{"cursor beside claude only", config.Config{Targets: []string{"claude", "cursor"}}, "cursor", ""},
+		{"cursor with an unmanaged AGENTS.md", config.Config{Targets: []string{"codex", "cursor"}, Sync: config.SyncConfig{Unmanaged: []string{"AGENTS.md"}}}, "cursor", ""},
+		{"cursor with a moved codex entry point", config.Config{Targets: []string{"codex", "cursor"}, Outputs: map[string]config.Output{"codex": {File: "docs/AGENTS.md"}}}, "cursor", ""},
+		{"trae declares it reads AGENTS.md", config.Config{Targets: []string{"codex", "trae"}, Outputs: map[string]config.Output{"trae": {RulesMode: "entry-point"}}}, "trae", "codex"},
 		{"kilo on a moved entry point", config.Config{Targets: []string{"kilo"}, Outputs: map[string]config.Output{"kilo": {File: "docs/KILO.md"}}}, "kilo", ""},
 	}
 	for _, c := range cases {

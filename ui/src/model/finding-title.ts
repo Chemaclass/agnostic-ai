@@ -60,6 +60,7 @@ const TITLES: Record<string, string> = {
   LINT058: 'A server uses an old Codex setting that Codex now ignores.',
   LINT059: 'A server timeout is outside the range a tool accepts.',
   LINT060: 'A server folder entry is missing its address.',
+  LINT061: 'A setting for how rules load has a value the tool ignores.',
   'lint-incomplete': 'The check stopped before it finished, so some findings may be missing.',
   'nested-claude-copy': 'Claude Code loads this text twice, from this file and from a rule.',
   'merged-claude-hooks': 'Claude Code runs these hook commands twice.',

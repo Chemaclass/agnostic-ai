@@ -868,7 +868,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
 		report.addWrites("", entryWrites)
-		creditEntryPointReaders(&report, emitRows, emitted, entryWrites, entryFiles)
+		creditEntryPointReaders(cfg, &report, emitRows, emitted, entryWrites, entryFiles)
 		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), dryRun)
 		if err != nil {
 			return err
@@ -1287,9 +1287,9 @@ type emitRow struct {
 // creditEntryPointReaders counts each entry-point file for every synced
 // target that reads it: in the report's target total, and in that target's
 // verbose row.
-func creditEntryPointReaders(report *syncReport, rows []emitRow, targets []string, writes []adapters.WrittenFile, files []entryPointFile) {
+func creditEntryPointReaders(cfg *config.Config, report *syncReport, rows []emitRow, targets []string, writes []adapters.WrittenFile, files []entryPointFile) {
 	for _, target := range targets {
-		created, updated, skipped := classifyDetailedWrites(entryWritesRead(target, writes, files))
+		created, updated, skipped := classifyDetailedWrites(entryWritesRead(cfg, target, writes, files))
 		if created+updated > 0 {
 			report.markTarget(target)
 		}

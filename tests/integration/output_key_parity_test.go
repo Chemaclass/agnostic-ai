@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -9,8 +10,10 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/cli"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // config.Output is one struct shared by every target, so an adapter that
@@ -216,6 +219,12 @@ func TestOutputKeys_DocumentedKeysMoveTheirOutput(t *testing.T) {
 			if valueOutputKeys[key] {
 				continue
 			}
+			if key == "file" {
+				if !entryPointFileMoves(t, target) {
+					t.Errorf("%s documents outputs.%s.file but sync still writes its default entry point", target, target)
+				}
+				continue
+			}
 			probe, ok := outputKeyProbes[key]
 			if !ok {
 				t.Errorf("%s documents outputs.%s.%s, which this test cannot probe; add it to outputKeyProbes or valueOutputKeys", target, target, key)
@@ -248,5 +257,41 @@ func TestOutputKeys_DocumentedKeysMoveTheirOutput(t *testing.T) {
 				t.Errorf("%s documents outputs.%s.%s but setting it changes nothing; sync still writes %v", target, target, key, before)
 			}
 		}
+	}
+}
+
+// entryPointFileMoves reports whether outputs.<target>.file moves the
+// entry-point file off its default path. Sync writes that file, not the
+// adapter, so the probe runs a full sync.
+func entryPointFileMoves(t *testing.T, target string) bool {
+	t.Helper()
+	const moved = "custom/moved.md"
+	var ok bool
+	t.Run(target+".file", func(t *testing.T) {
+		dir := testutil.TempCwd(t)
+		config := "version: 1\ntargets: [" + target + "]\noutputs:\n  " + target + ":\n    file: " + moved + "\n"
+		writeProbeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), config)
+		writeProbeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# probe\n")
+		root := cli.NewRootCmd("test")
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+		root.SetArgs([]string{"sync", "--gitignore=off"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("sync: %v", err)
+		}
+		_, movedErr := os.Stat(filepath.Join(dir, moved))
+		_, defaultErr := os.Stat(filepath.Join(dir, adapters.EntryPointPath(nil, target)))
+		ok = movedErr == nil && os.IsNotExist(defaultErr)
+	})
+	return ok
+}
+
+func writeProbeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

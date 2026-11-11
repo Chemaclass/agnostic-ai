@@ -165,11 +165,14 @@ func entryPointRuleFile(cfg *config.Config, target string, entry spec.Entry, sin
 		return adapters.CapturedFile{}, false
 	}
 	path := adapters.EntryPointPath(cfg, target)
+	inliner := adapters.EntryPointRuleInliner(cfg, target)
+	if inliner != "" {
+		path = adapters.RootInstructionsPath(cfg, target)
+	}
 	if path == "" {
 		return adapters.CapturedFile{}, false
 	}
 	var appendix string
-	inliner := adapters.EntryPointRuleInliner(cfg, target)
 	inlined, _ := withoutPartialBuiltinRules(single, adapters.EntryPointReaders(cfg, target))
 	switch {
 	case adapters.InlinesRulesIntoEntryPoint(target) && !adapters.HasLegacyRulesFile(cfg, target):
