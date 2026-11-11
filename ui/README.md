@@ -177,6 +177,8 @@ Search sends `q` after a 300 ms typing pause and covers chats of every age, incl
 
 The primary action, such as **Open in Terminal** or **Switch to Ghostty**, becomes a filled button on hover or keyboard focus and stays filled for open chats. **Copy command** sits beside it, or in the ⋯ menu on touch screens and phones. Opening posts `{tool, id, editor}` to `POST /api/conversations/open`; the row displays the server's reply. For editor extensions, the server first opens the chat's folder, waiting about one second for an existing window or up to five for a new one. If opening fails and the server supplies a command, **Copy command** offers it.
 
+A chat whose `parent` is in the same group sits right after it, indented, and screen readers hear "Started from" and the parent's title. Children of children sit under the same parent, oldest first, one level deep. A parent in another group, on a week not loaded yet, or filtered out leaves the child as a normal row; when the parent's week loads, the child moves under it. A loop typed by hand draws each row as a normal one.
+
 Helpers live in `src/model/conversations.ts`. Mock mode uses `src/fixtures/conversations.mock.json` as one week and sends no open requests. Snapshots explain that Conversations needs a running server.
 
 ## Findings and setup health

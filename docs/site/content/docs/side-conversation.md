@@ -42,6 +42,8 @@ The first line is the goal and becomes the new conversation's title. The brief s
 
 The agent says in one line what started, then goes on with its own task. It does not wait for the new conversation or read it.
 
+The new conversation shows under this one in the [Conversations](@/docs/cli-reference/serve.md) page and the [companion](@/docs/cli-reference/companion.md), while both sit in the same group. The [link line](@/docs/cli-reference/conversations.md#the-link-line) lists when it is a normal row instead.
+
 ## What it never does
 
 - It never opens a tab unless you ask or agree.

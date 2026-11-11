@@ -195,3 +195,6 @@ WARP.md
 /.agnostic-ai/packs/
 /agnostic-ai.local.yaml
 # <<< agnostic-ai (managed) <<<
+
+# TypeScript build caches.
+*.tsbuildinfo

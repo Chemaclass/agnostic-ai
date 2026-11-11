@@ -100,6 +100,7 @@ In the browser:
   - Open chats come first under **Open now**, with **Working** or **Waiting for you** when the tool reports it. A local Codex chat that wrote nothing for 5 minutes shows **No activity for 7m** instead, since Codex does not say when it waits. The rest follow by day, newest last message first.
   - It loads the past week. It loads the week before each time you scroll to the end, or with **Load the week before**.
   - The tool filter beside the search shows one tool's chats. Search covers every conversation, loaded or not.
+  - A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits indented under the chat it came from while both are in the same group.
   - Each row's action reopens the chat where it lives: the Terminal or Ghostty tab that runs it, a new tab in the app it last ran in, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.
   - **Copy command** copies the command that resumes an ended chat in a terminal. A chat that still runs, or that you just opened from the page, has none, because that command would start a second copy.
   - The first time, macOS asks to let agnostic-ai control each terminal app.
