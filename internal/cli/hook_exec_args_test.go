@@ -169,3 +169,25 @@ func TestSyncGlobal_WritesExecFormHookArgsOnAugment(t *testing.T) {
 		t.Errorf("check: %v", err)
 	}
 }
+
+// A shared script inside a command line gets its Augment path, as it
+// does on other targets that run a command through a shell.
+func TestSync_AugmentRewritesASharedScriptInsideACommandLine(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	captureLogOut(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "scripts", "check.sh"), "#!/bin/sh\nexit 0\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: bash .agnostic-ai/scripts/check.sh --flag\n")
+	mustSync(t)
+
+	body, err := os.ReadFile(filepath.Join(dir, ".augment", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"command": "bash .augment/hooks/check.sh --flag"`) {
+		t.Errorf("settings.json = %s", body)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".augment", "hooks", "check.sh")); err != nil {
+		t.Errorf("shared script not materialized: %v", err)
+	}
+}

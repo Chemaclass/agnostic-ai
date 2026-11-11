@@ -1255,7 +1255,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				literal bool
 			}
 			var commands []sourceCommand
-			literal := len(stringSliceFromAny(hook.Meta["args"])) > 0 || target == "augment"
+			literal := len(stringSliceFromAny(hook.Meta["args"])) > 0
 			for _, command := range globalHookCommands(hook.Meta["command"]) {
 				commands = append(commands, sourceCommand{command, literal})
 			}

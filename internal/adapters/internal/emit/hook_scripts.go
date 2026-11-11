@@ -233,7 +233,7 @@ func neutralHookFilename(path string, quote byte, literal bool) (int, string) {
 
 func hookSourceCommands(hook spec.Entry, target string) ([]string, bool) {
 	meta := ResolveMeta(hook.Meta, target)
-	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
+	literal := len(StringSlice(meta["args"])) > 0
 	if target == "gemini" || target == "qwen" {
 		if native, ok := hook.Meta["x-"+target].(map[string]any); ok {
 			if handlers, exists := native["hooks"]; exists {
@@ -301,7 +301,7 @@ func (s *Session) MaterializedHookScriptBody(cmd, target, sourceTool string) ([]
 
 func (s *Session) MaterializedHookScriptBodies(cmd, target, sourceTool string, metadata ...map[string]any) ([][]byte, error) {
 	meta := hookRootMeta(target, metadata)
-	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
+	literal := len(StringSlice(meta["args"])) > 0
 	scripts, err := NeutralHookScripts(cmd, target, agnosticScriptsDir, HookScriptsDir(target), literal)
 	if err != nil {
 		return nil, err
