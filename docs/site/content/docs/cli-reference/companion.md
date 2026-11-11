@@ -41,7 +41,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 |------|-------------|
 | `install --source` | Build from this folder instead of fetching the source. It is the `companion` folder of an agnostic-ai checkout. |
 
-`agnostic-ai companion` starts the companion and returns. Run it again to bring a hidden companion back and open its list. It tells you when the companion was built for another release.
+`agnostic-ai companion` starts the companion and returns. Run it again to wake a paused companion and open its list. It tells you when the companion was built for another release.
 
 | Command | What it does |
 |---------|--------------|
@@ -60,7 +60,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - Under Needs you, a row says why only when the agent waits: "Waiting for you", or "No activity for 7m" for local Codex. A new reply needs no words, and a row under Working does not repeat "Working".
 - **Delete permanently…** removes a chat under Archived from this computer, after a confirmation. See [Delete an archived chat](#delete-an-archived-chat).
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute. The archive is cleared in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
-- **Hide Agnostic AI companion**, in the list's ⋯ menu, takes the circle off the screen and stops that server. Nothing is read or asked until the shortcut brings the companion back.
+- **Pause Agnostic AI companion**, in the list's ⋯ menu, fades the circle to 10% and stops that server. The circle shows no count and can still be dragged. Nothing is read or asked until a click on the circle, the shortcut or `agnostic-ai companion` wakes it with a new list. A restart starts awake. Unlike **Dim when idle**, a paused companion does not keep watching.
 - **Quit Agnostic AI companion**, in the list's ⋯ menu and at the bottom of the circle's right-click menu, ends the companion and its server, as `companion stop` does. Start at login stays as you set it. `agnostic-ai companion` starts it again.
 - **Animate companion**, in the circle's right-click menu, turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
 - A local Codex chat that wrote nothing for 5 minutes moves to Needs you as "No activity for 7m", not "Waiting for you": Codex does not say when it waits, so the silence is all the server knows. A tool that reports its wait shows "Waiting for you". The web interface uses the same words.

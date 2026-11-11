@@ -264,7 +264,7 @@ touch "`+stopped+`"`)
 		_, err := os.Stat(stopped)
 		return err == nil
 	})
-	if _, err := server.address(); err == nil || err.Error() != "the companion is hidden and asks agnostic-ai nothing" {
+	if _, err := server.address(); err == nil || err.Error() != "the companion is paused and asks agnostic-ai nothing" {
 		t.Errorf("a resting companion started a server: %v", err)
 	}
 	server.resume()

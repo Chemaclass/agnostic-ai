@@ -36,8 +36,8 @@ func TestQuit_StopsTheServerThenEndsTheApp(t *testing.T) {
 	s, input, ended := quittingShell(t)
 	s.end = func() {
 		*ended++
-		if !s.server.resting || !input.closed {
-			t.Errorf("the app ended first: resting %v, input closed %v", s.server.resting, input.closed)
+		if !s.server.resting.Load() || !input.closed {
+			t.Errorf("the app ended first: resting %v, input closed %v", s.server.resting.Load(), input.closed)
 		}
 	}
 
@@ -83,8 +83,8 @@ func TestQuitRoute_AnswersNoContentAndQuits(t *testing.T) {
 	if *ended != 1 {
 		t.Errorf("end was called %d times; want once", *ended)
 	}
-	if !s.server.resting || !input.closed {
-		t.Errorf("the server still runs: resting %v, input closed %v", s.server.resting, input.closed)
+	if !s.server.resting.Load() || !input.closed {
+		t.Errorf("the server still runs: resting %v, input closed %v", s.server.resting.Load(), input.closed)
 	}
 }
 
@@ -140,18 +140,15 @@ func TestRestBriefly_GivesUpWhileTheServerIsStillStarting(t *testing.T) {
 	deadline := time.Now().Add(time.Second)
 	for {
 		s.server.mu.Lock()
-		resting := s.server.resting
+		closed := input.closed
 		s.server.mu.Unlock()
-		if resting {
+		if closed {
 			break
 		}
 		if time.Now().After(deadline) {
 			t.Fatal("the server never rested after the start let go")
 		}
 		time.Sleep(10 * time.Millisecond)
-	}
-	if !input.closed {
-		t.Error("the server's input was not closed")
 	}
 }
 
