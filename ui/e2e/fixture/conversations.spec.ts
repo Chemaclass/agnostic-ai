@@ -27,10 +27,10 @@ const opened: Reply = () => ({ json: { opened: true, message: 'Switched to the T
 // or opens a real terminal. Routes added later win over the catch-all.
 const TOOL_LABELS: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor' }
 
-interface Row { tool: string; app: string; title?: string; folder?: string; branch?: string; prompt?: string }
+interface Row { tool: string; app: string; title?: string; folder?: string; branch?: string; prompt?: string; reply?: string }
 
 // The server searches every conversation: every word of q in the row's
-// title, folder, branch, prompt, tool or app. The mock does the same to
+// title, folder, branch, prompt, reply, tool or app. The mock does the same to
 // whatever page a test answers with, and counts the matches.
 function asTheServerSearches(json: unknown, params: URLSearchParams): unknown {
   const view = json as { conversations?: Row[] }
@@ -39,7 +39,7 @@ function asTheServerSearches(json: unknown, params: URLSearchParams): unknown {
   // A typed shell command reads "! command" on the page, so that is what matches.
   const shown = (text?: string) => (text ?? '').replace(/^\s*<bash-input>([\s\S]*?)(?:<\/bash-input>\s*)?$/, '! $1')
   const rows = view.conversations.filter((c) => {
-    const text = [shown(c.title), c.folder, c.branch, shown(c.prompt), TOOL_LABELS[c.tool], c.app].join('\n').toLowerCase()
+    const text = [shown(c.title), c.folder, c.branch, shown(c.prompt), c.reply, TOOL_LABELS[c.tool], c.app].join('\n').toLowerCase()
     return words.every((word) => text.includes(word))
   })
   return { ...view, conversations: rows, matches: rows.length }
@@ -107,6 +107,13 @@ test.describe('conversations', () => {
     await expect(working.locator('.conversation-live')).toHaveAttribute('title', 'Open now: the agent is working')
     await expect(working.locator('.conversation-folder')).toHaveAttribute('title', '/Users/you/Products/agnostic-ai')
     await expect(working.locator('.conversation-prompt')).toHaveText('Last prompt: Run the e2e suite again and tell me which tests still fail.')
+    // The agent's latest reply sits right under the title, above the meta line.
+    await expect(working.locator('.conversation-body > *')).toHaveClass([/conversation-title/, /conversation-reply/, /conversation-meta/, /conversation-prompt/])
+    await expect(working.locator('.conversation-reply')).toHaveText('Latest reply: Two specs still fail: the empty state and the tool filter on phones.')
+    await expect(row(page, 'Plan the sync --global dry run').locator('.conversation-reply')).toHaveText('Latest reply: Should the dry run list the files it would remove, or only the ones it writes?')
+    await expect(row(page, 'Tighten the nav labels on phones').locator('.conversation-reply')).toHaveCount(0)
+    await expect(row(page, 'Nightly dependency audit').locator('.conversation-reply')).toHaveCount(0)
+    await expect(row(page, 'Nightly dependency audit').locator('.conversation-withheld')).toHaveText('Latest reply Hidden: may hold a credential')
     await expect(working.getByRole('button', { name: /^Open in Terminal/ })).toHaveClass(/button-primary/)
     await expect(working.locator('.conversation-tool')).toHaveText('Claude Code, Terminal')
     await expect(working.getByRole('button', { name: 'Open in Terminal: Add a Conversations page to the local UI' })).toBeVisible()
@@ -201,6 +208,8 @@ test.describe('conversations', () => {
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader'])
     await search.fill('Move the Settings changes')
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Untitled'])
+    await search.fill('measured 7 ms')
+    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader'])
     await search.fill('Group the changes by section')
     await expect(page.getByRole('heading', { level: 3 })).toHaveCount(0)
 

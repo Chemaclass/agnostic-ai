@@ -858,8 +858,8 @@ export interface ContextView {
 // ── Conversations ───────────────────────────────────────────────────
 // Recent chats from the coding tools' own stores, newest first. The
 // server reads them; the page never sees a transcript, only a title,
-// the opening lines and the latest prompt, each withheld when it may
-// hold a credential. Mirrors internal/conversations/types.go.
+// the opening lines, the latest prompt and the agent's latest reply,
+// each withheld when it may hold a credential. Mirrors internal/conversations/types.go.
 
 export type ConversationTool = 'claude' | 'codex' | 'cursor'
 
@@ -908,8 +908,10 @@ export interface Conversation {
   opening?: string[]
   /** The latest prompt typed into the conversation. */
   prompt?: string
+  /** The agent's latest message since the latest prompt, as one line: its question, or the start of the message. Claude Code and Codex conversations on this machine only. */
+  reply?: string
   /** Fields left out because they may hold a credential. */
-  withheld?: Array<'title' | 'opening' | 'prompt'>
+  withheld?: Array<'title' | 'opening' | 'prompt' | 'reply'>
   /** A process or editor window has it open right now. */
   live?: boolean
   /** Set for a live conversation whose tool reports it. */

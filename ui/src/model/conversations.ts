@@ -25,6 +25,7 @@ const WITHHELD_LABELS = {
   title: 'Title',
   opening: 'Opening',
   prompt: 'Last prompt',
+  reply: 'Latest reply',
 } satisfies Record<WithheldField, string>
 
 export function withheldLabel(field: WithheldField): string {
@@ -109,10 +110,10 @@ export function sameFirstPage(a: ConversationsView, b: ConversationsView): boole
 export type ToolFilter = ConversationTool | 'all'
 
 function searchParts(conversation: Conversation): string[] {
-  return [chatText(conversation.title).text, conversation.folder ?? '', conversation.branch ?? '', chatText(conversation.prompt ?? '').text]
+  return [chatText(conversation.title).text, conversation.folder ?? '', conversation.branch ?? '', chatText(conversation.prompt ?? '').text, conversation.reply ?? '']
 }
 
-/** Rows from the chosen tool whose title, folder, branch, or last prompt, as the row shows them, holds every word of the query, ignoring case: the server's rule, applied here to mock data. */
+/** Rows from the chosen tool whose title, folder, branch, last prompt, or latest reply, as the row shows them, holds every word of the query, ignoring case: the server's rule, applied here to mock data. */
 export function filterConversations(conversations: Conversation[], query: string, tool: ToolFilter): Conversation[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   return conversations.filter((conversation) => {

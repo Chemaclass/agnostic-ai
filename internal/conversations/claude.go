@@ -19,6 +19,11 @@ import (
 // the start, and files grow past 100 MB.
 const claudeWindow = 64 << 10
 
+// claudeReplyWindow is the end of a session file read again when the
+// last claudeWindow bytes hold neither a prompt nor an agent message,
+// as when a large tool result follows the agent's latest message.
+const claudeReplyWindow = 256 << 10
+
 // liveSessionFile is sessions/<pid>.json; its *.key siblings hold credentials.
 var liveSessionFile = regexp.MustCompile(`^[0-9]+\.json$`)
 
@@ -33,6 +38,7 @@ var claudeActiveJobStates = map[string]bool{"running": true, "blocked": true, "w
 
 type claudeMeta struct {
 	title, firstPrompt, lastPrompt string
+	reply, question                string
 	cwd, branch, entrypoint        string
 	started, updated               string
 	sidechain                      bool
@@ -56,10 +62,83 @@ type claudeLine struct {
 	Timestamp   string `json:"timestamp"`
 	IsSidechain bool   `json:"isSidechain"`
 	IsMeta      bool   `json:"isMeta"`
-	Message     *struct {
+	IsAPIError  bool   `json:"isApiErrorMessage"`
+	// Origin says who wrote a user line; Claude Code leaves it out on
+	// tool results and on lines from older versions.
+	Origin *struct {
+		Kind string `json:"kind"`
+	} `json:"origin"`
+	Message *struct {
 		Role    string          `json:"role"`
+		Model   string          `json:"model"`
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
+}
+
+// claudeReplies follows the lines of a session's end for the agent's
+// latest message and a question still open.
+type claudeReplies struct {
+	message, asked string
+	// known is set once the lines held a message or a typed prompt:
+	// what came before it cannot change the reply.
+	known bool
+}
+
+// claudeBlock is one part of a message's content.
+type claudeBlock struct {
+	Type  string `json:"type"`
+	Text  string `json:"text"`
+	Name  string `json:"name"`
+	Input struct {
+		Questions []struct {
+			Question string `json:"question"`
+		} `json:"questions"`
+	} `json:"input"`
+}
+
+// visit reads one line. Only the agent's own text counts: tool calls,
+// API errors, placeholder messages and subagent lines are skipped, and a
+// line of any other type is bookkeeping.
+func (r *claudeReplies) visit(line claudeLine) {
+	if line.IsSidechain || line.Message == nil {
+		return
+	}
+	switch line.Type {
+	case "assistant":
+		if line.IsAPIError || line.Message.Model == "<synthetic>" {
+			return
+		}
+		var blocks []claudeBlock
+		if json.Unmarshal(line.Message.Content, &blocks) != nil {
+			return
+		}
+		var parts []string
+		for _, block := range blocks {
+			switch {
+			case block.Type == "text" && strings.TrimSpace(block.Text) != "":
+				parts = append(parts, block.Text)
+			case block.Type == "tool_use" && block.Name == "AskUserQuestion" && len(block.Input.Questions) > 0:
+				r.asked = block.Input.Questions[0].Question
+			}
+		}
+		if len(parts) > 0 {
+			r.message, r.known = strings.Join(parts, "\n"), true
+		}
+	case "user":
+		// A background task's report or a peer's message is no prompt.
+		if line.IsMeta || (line.Origin != nil && line.Origin.Kind != "human") || (r.asked == "" && r.known && r.message == "") {
+			return
+		}
+		text, typed := claudeContentText(line.Message.Content)
+		if !typed {
+			// A tool result answers an open question.
+			r.asked = ""
+			return
+		}
+		if typedText(text) != "" {
+			r.message, r.asked, r.known = "", "", true
+		}
+	}
 }
 
 // claudeLive is a running Claude Code process, from sessions/<pid>.json.
@@ -128,7 +207,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			continue
 		}
 		c := Conversation{Tool: ToolClaude, ID: id, Folder: meta.cwd, Branch: meta.branch, StartedAt: meta.started, UpdatedAt: meta.updated, file: file}
-		s.fill(&c, texts{title: meta.title, firstPrompt: meta.firstPrompt, lastPrompt: meta.lastPrompt})
+		s.fill(&c, texts{title: meta.title, firstPrompt: meta.firstPrompt, lastPrompt: meta.lastPrompt, reply: meta.reply, question: meta.question})
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity
@@ -186,7 +265,10 @@ func (s *Scanner) claudeMeta(file string) (claudeMeta, bool) {
 	if err != nil {
 		return claudeMeta{}, false
 	}
-	meta := parseClaudeSession(head, tail)
+	meta, replyKnown := parseClaudeSession(head, tail)
+	if !replyKnown && info.Size() > 2*claudeWindow {
+		meta.reply, meta.question = claudeReplyAtEnd(file, info.Size())
+	}
 	if meta.cwd == "" || meta.entrypoint == "" {
 		streamClaudeMetadata(file, &meta)
 	}
@@ -213,18 +295,49 @@ func readEnds(path string, size int64, window int64) (head, tail []byte, err err
 	if _, err := io.ReadFull(f, head); err != nil {
 		return nil, nil, err
 	}
-	tail = make([]byte, window)
-	if _, err := f.ReadAt(tail, size-window); err != nil && err != io.EOF {
-		return nil, nil, err
-	}
-	// The head ends and the tail starts mid-line; drop the partial lines.
+	// The head ends mid-line; drop the partial line.
 	if cut := bytes.LastIndexByte(head, '\n'); cut >= 0 {
 		head = head[:cut]
 	}
+	tail, err = readTail(f, size, window)
+	if err != nil {
+		return nil, nil, err
+	}
+	return head, tail, nil
+}
+
+// readTail returns the complete lines in the last window bytes of f.
+func readTail(f *os.File, size, window int64) ([]byte, error) {
+	window = min(window, size)
+	tail := make([]byte, window)
+	if _, err := f.ReadAt(tail, size-window); err != nil && err != io.EOF {
+		return nil, err
+	}
+	if window == size {
+		return tail, nil
+	}
+	// The tail starts mid-line; drop the partial line.
 	if cut := bytes.IndexByte(tail, '\n'); cut >= 0 {
 		tail = tail[cut+1:]
 	}
-	return head, tail, nil
+	return tail, nil
+}
+
+// claudeReplyAtEnd looks for the agent's latest message in the last
+// claudeReplyWindow bytes of a session file.
+func claudeReplyAtEnd(file string, size int64) (reply, question string) {
+	f, err := os.Open(file)
+	if err != nil {
+		return "", ""
+	}
+	defer func() { _ = f.Close() }()
+	tail, err := readTail(f, size, claudeReplyWindow)
+	if err != nil {
+		return "", ""
+	}
+	var replies claudeReplies
+	eachClaudeLine(tail, replies.visit)
+	return agentSaid(replies.message, replies.message, replies.asked)
 }
 
 func eachClaudeLine(data []byte, visit func(claudeLine)) {
@@ -241,8 +354,10 @@ func eachClaudeLine(data []byte, visit func(claudeLine)) {
 	}
 }
 
-func parseClaudeSession(head, tail []byte) claudeMeta {
-	var meta claudeMeta
+// parseClaudeSession reads a session's head and tail. replyKnown is
+// false when the tail held neither a prompt nor an agent message.
+func parseClaudeSession(head, tail []byte) (meta claudeMeta, replyKnown bool) {
+	var replies claudeReplies
 	var headCustom, headAI, tailCustom, tailAI string
 	eachClaudeLine(head, func(line claudeLine) {
 		if line.IsSidechain {
@@ -267,6 +382,7 @@ func parseClaudeSession(head, tail []byte) claudeMeta {
 	// person or the agent, so bookkeeping lines do not reorder the list.
 	var tailCwd, tailBranch, tailEntry, lastMessage, lastAny string
 	eachClaudeLine(tail, func(line claudeLine) {
+		replies.visit(line)
 		setLast(&tailCustom, line.CustomTitle)
 		setLast(&tailAI, line.AITitle)
 		setLast(&meta.lastPrompt, line.LastPrompt)
@@ -284,7 +400,8 @@ func parseClaudeSession(head, tail []byte) claudeMeta {
 	meta.branch = firstNonEmpty(tailBranch, meta.branch)
 	meta.entrypoint = firstNonEmpty(tailEntry, meta.entrypoint)
 	meta.updated = firstNonEmpty(lastMessage, lastAny)
-	return meta
+	meta.reply, meta.question = agentSaid(replies.message, replies.message, replies.asked)
+	return meta, replies.known
 }
 
 // claudeContentText joins a message's text. typed is false for a tool

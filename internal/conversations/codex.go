@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Codex indexes its threads in state_<n>.sqlite and keeps each prompt in
@@ -59,6 +62,42 @@ FROM thread_items t
 JOIN (SELECT thread_id, max(rollout_ordinal) AS ordinal FROM thread_items WHERE item_type = 'userMessage' GROUP BY thread_id) newest
   ON t.thread_id = newest.thread_id AND t.rollout_ordinal = newest.ordinal`
 
+type codexLastReply struct {
+	ThreadID string `json:"thread_id"`
+	Start    string `json:"start"`
+	Ending   string `json:"ending"`
+	Length   int    `json:"length"`
+	Asked    string `json:"asked"`
+}
+
+// codexLastRepliesQuery reads, for each listed thread, the last agent
+// message after its last prompt, through the index on prompts and the
+// one on items by ordinal. A prompt typed while a turn runs is stored in
+// that turn, so turns do not mark what came after it. Each row holds
+// at most the first and last replyCheckedBytes+1 characters of the
+// message, so a long reply costs a fixed amount.
+func codexLastRepliesQuery(threads []string) string {
+	text := `coalesce(json_extract(a.item_json, '$.text'), '')`
+	part := strconv.Itoa(replyCheckedBytes + 1)
+	return `SELECT a.thread_id AS thread_id,
+  substr(` + text + `, 1, ` + part + `) AS start,
+  substr(` + text + `, -` + part + `) AS ending,
+  length(` + text + `) AS length,
+  substr(coalesce(json_extract(a.item_json, '$.questions[0].title'), ''), 1, ` + part + `) AS asked
+FROM (SELECT p.thread_id AS thread_id,
+        (SELECT max(i.rollout_ordinal) FROM thread_items i
+         WHERE i.thread_id = p.thread_id AND i.rollout_ordinal > p.ordinal AND i.item_type = 'agentMessage') AS ordinal
+      FROM (SELECT thread_id, max(rollout_ordinal) AS ordinal FROM thread_items
+            WHERE item_type = 'userMessage' AND thread_id IN ('` + strings.Join(threads, "', '") + `')
+            GROUP BY thread_id) p) latest
+JOIN thread_items a ON a.thread_id = latest.thread_id AND a.rollout_ordinal = latest.ordinal`
+}
+
+// codexSaid is the part of an agent message a row keeps.
+type codexSaid struct {
+	reply, question string
+}
+
 func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult {
 	statePath := newestNumbered(s.Stores.CodexDir, codexStatePattern)
 	if statePath == "" {
@@ -75,6 +114,7 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	editor := extensionEditor(s.Stores.Home, "openai.chatgpt", opts.Editor)
 	conversations := make([]Conversation, 0, len(threads))
 	rollouts := map[string]string{}
+	textsOf := map[string]texts{}
 	for _, thread := range threads {
 		if !sessionIDPattern.MatchString(thread.ID) || codexExec(thread) {
 			continue
@@ -83,13 +123,28 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 			Tool: ToolCodex, ID: thread.ID, Folder: thread.Cwd, Branch: thread.GitBranch,
 			StartedAt: timeFromMillis(thread.CreatedAtMs), UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
 		}
-		s.fill(&c, texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]})
+		textsOf[thread.ID] = texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]}
 		codexRoute(&c, thread, editor)
 		conversations = append(conversations, c)
 		rollouts[thread.ID] = thread.RolloutPath
 	}
 	s.markLiveCodexThreads(conversations, rollouts)
-	return found(ToolCodex, within(conversations, opts.Within))
+	conversations = within(conversations, opts.Within)
+	ids := make([]string, 0, len(conversations))
+	for _, c := range conversations {
+		ids = append(ids, c.ID)
+	}
+	lastReplies, err := s.codexLastReplies(ctx, ids)
+	for i := range conversations {
+		t, said := textsOf[conversations[i].ID], lastReplies[conversations[i].ID]
+		t.reply, t.question = said.reply, said.question
+		s.fill(&conversations[i], t)
+	}
+	result := found(ToolCodex, conversations)
+	if err != nil {
+		result.source.Note = "Could not read Codex's latest replies from " + filepath.Base(newestNumbered(s.Stores.CodexDir, codexHistoryPattern))
+	}
+	return result
 }
 
 // codexRoute opens a thread where it started: the editor extension, the
@@ -280,6 +335,48 @@ func (s *Scanner) codexLastPrompts(ctx context.Context) map[string]string {
 		prompts[row.ThreadID] = codexContentText(row.Content)
 	}
 	return prompts
+}
+
+// codexReplyBatch bounds how many thread ids one reply query names, so
+// the query stays far below the size of one command-line argument.
+const codexReplyBatch = 500
+
+// codexLastReplies maps thread ids to their agent's latest message. It
+// is a query of its own, so a history store it cannot read still shows
+// the prompts. threads are ids that passed sessionIDPattern, so they
+// are safe inside the query.
+func (s *Scanner) codexLastReplies(ctx context.Context, threads []string) (map[string]codexSaid, error) {
+	replies := map[string]codexSaid{}
+	historyPath := newestNumbered(s.Stores.CodexDir, codexHistoryPattern)
+	if historyPath == "" {
+		return replies, nil
+	}
+	for batch := range slices.Chunk(threads, codexReplyBatch) {
+		rows, err := queryRows[codexLastReply](ctx, s.SQLite, historyPath, codexLastRepliesQuery(batch))
+		if err != nil {
+			return replies, fmt.Errorf("read Codex's latest replies from %s: %w", filepath.Base(historyPath), err)
+		}
+		for _, row := range rows {
+			reply, question := agentSaid(row.Start, row.wholeLines(), row.Asked)
+			if reply != "" || question != "" {
+				replies[row.ThreadID] = codexSaid{reply: reply, question: question}
+			}
+		}
+	}
+	return replies, nil
+}
+
+// wholeLines is the row's ending without the line it may start inside:
+// a slice cut from a longer message, whose first line is then partial.
+func (row codexLastReply) wholeLines() string {
+	if utf8.RuneCountInString(row.Ending) >= row.Length {
+		return row.Ending
+	}
+	_, rest, found := strings.Cut(row.Ending, "\n")
+	if !found || strings.TrimSpace(rest) == "" {
+		return ""
+	}
+	return rest
 }
 
 // codexContentText joins the text parts of a user message. sqlite3

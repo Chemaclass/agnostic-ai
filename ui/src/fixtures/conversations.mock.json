@@ -24,6 +24,7 @@
         "Each row opens the chat where it lives."
       ],
       "prompt": "Run the e2e suite again and tell me which tests still fail.",
+      "reply": "Two specs still fail: the empty state and the tool filter on phones.",
       "live": true,
       "activity": "working",
       "open": {
@@ -46,6 +47,7 @@
         "It should print the files it would write and change nothing."
       ],
       "prompt": "Go with the second option and show me the plan before you edit.",
+      "reply": "Should the dry run list the files it would remove, or only the ones it writes?",
       "live": true,
       "activity": "waiting",
       "open": {
@@ -89,6 +91,7 @@
         "Find where the time goes before changing anything."
       ],
       "prompt": "Try a read-only connection with immutable=1 and measure again.",
+      "reply": "The reader now opens the file once; I measured 7 ms instead of 90 ms.",
       "open": {
         "kind": "terminal",
         "label": "Open in Terminal",
@@ -151,6 +154,9 @@
         "Check go.mod and ui/package-lock.json for known advisories."
       ],
       "prompt": "Open an issue for each advisory you cannot fix with a patch release.",
+      "withheld": [
+        "reply"
+      ],
       "open": {
         "kind": "terminal",
         "label": "Open in Terminal",

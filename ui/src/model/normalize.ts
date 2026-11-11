@@ -190,7 +190,7 @@ export function normalizeContextView(raw: unknown): ContextView {
   }
 }
 
-const WITHHELD_FIELDS = ['title', 'opening', 'prompt'] as const
+const WITHHELD_FIELDS = ['title', 'opening', 'prompt', 'reply'] as const
 
 function isWithheldField(value: unknown): value is NonNullable<Conversation['withheld']>[number] {
   return (WITHHELD_FIELDS as readonly unknown[]).includes(value)
@@ -216,6 +216,7 @@ function normalizeConversation(raw: unknown): Conversation {
     title: text(c.title),
     updatedAt: text(c.updatedAt),
     opening: arr<unknown>(c.opening).filter((line): line is string => typeof line === 'string'),
+    reply: typeof c.reply === 'string' && c.reply.trim() !== '' ? c.reply : undefined,
     withheld: arr<unknown>(c.withheld).filter(isWithheldField),
     live: c.live === true,
     open: { ...(route as unknown as ConversationRoute), label: text(route.label) },

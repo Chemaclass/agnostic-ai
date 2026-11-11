@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -243,4 +243,10 @@ test('a failed open keeps its reason, and the resume command only when the serve
     message: 'macOS blocked opening Terminal.',
     command: "cd '/tmp/app' && claude --resume x",
   })
+})
+
+test('shows the agent\'s latest reply the server sent, and nothing for a row without one', () => {
+  assert.equal(replyOf(row('a', 'blocked', { reply: ' Should I run the migration first? ' })), 'Should I run the migration first?')
+  assert.equal(replyOf(row('a', 'active')), '')
+  assert.equal(replyOf(row('a', 'active', { reply: 42 })), '')
 })
