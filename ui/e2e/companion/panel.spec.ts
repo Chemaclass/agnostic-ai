@@ -166,7 +166,12 @@ test('the next open replaces the notice', async ({ page }) => {
 
 test('a slow failed open that answers after a newer open leaves the newer notice alone', async ({ page }) => {
   await openPanel(page, 'slow-open-failure')
-  const slowAnswer = page.waitForResponse((response) => response.url().endsWith('/api/open') && response.request().postDataJSON().id === 'active-2')
+  let answered = false
+  const slowAnswer = page.waitForResponse((response) => {
+    const slow = response.url().endsWith('/api/open') && response.request().postDataJSON().id === 'active-2'
+    if (slow) answered = true
+    return slow
+  })
   await row(page, 'Plan the sync dry run').click()
   // The preview took the slow open under its fixture before the switch below.
   await expect.poll(async () => (await (await page.request.get('/dev/calls')).json()).some((call: { path: string }) => call.path === '/api/open')).toBe(true)
@@ -175,6 +180,8 @@ test('a slow failed open that answers after a newer open leaves the newer notice
   expect((await page.request.post('/dev/fixture', { data: { name: 'open-failure' } })).ok()).toBe(true)
   await row(page, 'Fix the login redirect').click()
   await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
+  // The newer notice came first, so the slow answer below is the one the guard must ignore.
+  expect(answered).toBe(false)
 
   expect((await (await slowAnswer).json()).command).toBe(RESUME)
   await page.waitForTimeout(200)
