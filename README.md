@@ -67,6 +67,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [Use the floating companion](https://agnostic-ai.org/docs/cli-reference/companion/): `agnostic-ai upgrade` also rebuilds your installed companion.
 - [Open the web interface](https://agnostic-ai.org/docs/cli-reference/serve/#serve): view context size and edit hooks, MCP servers, and settings with `agnostic-ai ui`.
 - [Save a session handoff](https://agnostic-ai.org/docs/handoff/): switch tools mid-task, or automate Git snapshots with Claude hooks.
+- [Start a side conversation](https://agnostic-ai.org/docs/side-conversation/): `agnostic-ai conversations start` opens a second task in a new terminal tab, linked to the session it came from.
 - [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` names its source.
 - [Personal settings](https://agnostic-ai.org/docs/global-configuration/): keep them in `~/.agnostic-ai` and apply them with `agnostic-ai sync --global`.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails. `agnostic-ai doctor` explains drift.

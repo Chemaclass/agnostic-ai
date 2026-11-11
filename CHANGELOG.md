@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `agnostic-ai conversations start` starts a new conversation from inside a Claude Code or Codex session, in a new terminal tab in the same folder, with a brief as its first prompt. Its first line, `Continues <tool>:<id>`, gives the row a `parent` in the conversations API. The new `side-conversation` built-in adds a skill that tells the agent when to run it and how to write the brief (#3285).
 - The companion and the web interface show the agent's latest reply under each chat's title: the question it asks, or the start of its last message. Local Claude Code and Codex chats show it; Cursor chats and cloud sessions do not yet. `reply` holds it in the API, and a search matches it (#3283).
 - The new `wrap-up` built-in adds a skill that ends a session with what changed, what is still open, and a note to share; `handoff` now points to it (#3284).
 - Delete an archived Claude Code chat for good from the companion's right-click menu, after a confirmation: its transcript, subagent transcripts, tool output, file backups and pasted images leave the disk. Other tools say why they cannot be deleted (#3275).

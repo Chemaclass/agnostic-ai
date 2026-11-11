@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Session handoffs
 
-Use the built-in `handoff` skill to save a task note and resume in another coding tool on the same machine. The next tool checks the note against Git before continuing. To end a session with a summary for people, use a [session wrap-up](@/docs/wrap-up.md).
+Use the built-in `handoff` skill to save a task note and resume in another coding tool on the same machine. The next tool checks the note against Git before continuing. To end a session with a summary for people, use a [session wrap-up](@/docs/wrap-up.md). To start a second task in its own conversation while this one goes on, use a [side conversation](@/docs/side-conversation.md).
 
 ## Enable the skill
 
