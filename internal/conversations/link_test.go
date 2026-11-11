@@ -235,3 +235,11 @@ func TestShowTexts_GivesNoParentForAnIDThatMayBeACredential(t *testing.T) {
 		t.Errorf("parent %+v opening %q prompt %q withheld %q", shown.parent, shown.opening, shown.prompt, shown.withheld)
 	}
 }
+
+func TestShowTexts_GivesNoParentForALinkInsideANestedInjectedBlock(t *testing.T) {
+	prompt := "<system-reminder>Context <ide_selection>x</ide_selection>\nContinues claude:" + idParent + "\n</system-reminder>\nWrite the notes"
+	shown := showTexts(texts{firstPrompt: prompt, lastPrompt: prompt})
+	if shown.parent != nil || shown.title == "</system-reminder>" {
+		t.Errorf("parent %+v title %q opening %q", shown.parent, shown.title, shown.opening)
+	}
+}

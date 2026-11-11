@@ -29,7 +29,13 @@ const (
 
 // injectedBlocks are wrappers a tool adds around or beside what the
 // person typed: editor context, reminders, command output.
-var injectedBlocks = regexp.MustCompile(`(?s)<(system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions)\b[^>]*>.*?</(?:system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions)>`)
+const injectedNames = `system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions`
+
+var injectedBlocks = regexp.MustCompile(`(?s)<(` + injectedNames + `)\b[^>]*>.*?</(?:` + injectedNames + `)>`)
+
+// injectedTag is an open or close tag of an injected block that removal
+// left behind: a block nested in another ends the match early.
+var injectedTag = regexp.MustCompile(`</?(` + injectedNames + `)\b[^>]*>`)
 
 // typedWrappers hold what the person typed: keep their content.
 var typedWrappers = regexp.MustCompile(`</?(user_query|command-name|command-args)\b[^>]*>`)

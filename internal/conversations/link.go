@@ -52,9 +52,14 @@ var (
 // linkOf reads the link line off what the person typed: the stored
 // prompt without the blocks a tool injects and the wrappers it adds,
 // and without blank lines before it. The line itself is kept as typed,
-// so spaces before it, two spaces or a tab stay text.
+// so spaces before it, two spaces or a tab stay text. When removal leaves
+// an injected tag behind, a block was nested in another and the line
+// may be text the tool added, so nothing links.
 func linkOf(prompt string) (ref Ref, rest string, ok bool) {
 	typed := injectedBlocks.ReplaceAllString(prompt, "")
+	if injectedTag.MatchString(typed) {
+		return Ref{}, prompt, false
+	}
 	typed = typedClose.ReplaceAllString(typedOpen.ReplaceAllString(typed, ""), "\n")
 	return splitLink(strings.TrimLeft(typed, "\r\n"))
 }
