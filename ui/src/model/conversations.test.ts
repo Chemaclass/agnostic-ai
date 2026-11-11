@@ -59,6 +59,74 @@ describe('conversation groups', () => {
   })
 })
 
+describe('nested rows', () => {
+  const at = (hour: number, minute = 0) => local(11, 7, hour, minute).toISOString()
+  const drawn = (rows: Conversation[]) => groupConversations(rows, NOW).map((group) => [group.label, group.conversations.map((c) => [c.id, group.under.get(`${c.tool}:${c.id}`)?.id ?? null])])
+
+  it('draws a child under its parent in the same group, whatever its tool, and keeps the group\'s count', () => {
+    const rows = [
+      conversation({ id: 'other', updatedAt: at(16, 20) }),
+      conversation({ id: 'child', tool: 'codex', updatedAt: at(16, 10), parent: { tool: 'claude', id: 'parent' } }),
+      conversation({ id: 'parent', updatedAt: at(15) }),
+    ]
+    expect(drawn(rows)).toEqual([['Today', [['other', null], ['parent', null], ['child', 'parent']]]])
+  })
+
+  it('draws a child whose parent sits in another group as a normal row in its own group', () => {
+    const rows = [
+      conversation({ id: 'child', live: true, updatedAt: at(16), parent: { tool: 'claude', id: 'parent' } }),
+      conversation({ id: 'parent', updatedAt: at(15) }),
+    ]
+    expect(drawn(rows)).toEqual([['Open now', [['child', null]]], ['Today', [['parent', null]]]])
+  })
+
+  it('draws a child as a normal row when its parent is not in the list: hidden, older, of another tool, or not matching the search', () => {
+    const rows = [
+      conversation({ id: 'child', tool: 'codex', updatedAt: at(16), parent: { tool: 'claude', id: 'parent' } }),
+      conversation({ id: 'parent', updatedAt: at(15) }),
+    ]
+    expect(drawn([rows[0]])).toEqual([['Today', [['child', null]]]])
+    expect(drawn(filterConversations(rows, '', 'codex'))).toEqual([['Today', [['child', null]]]])
+    expect(drawn([conversation({ id: 'child', parent: { tool: 'codex', id: 'parent' } }), conversation({ id: 'parent', updatedAt: at(15) })])).toEqual([['Today', [['child', null], ['parent', null]]]])
+  })
+
+  it('draws a chain at one level under the root that is in the group, oldest first', () => {
+    const rows = [
+      conversation({ id: 'grandchild', updatedAt: at(16, 20), parent: { tool: 'claude', id: 'child' } }),
+      conversation({ id: 'child', updatedAt: at(16, 10), parent: { tool: 'claude', id: 'root' } }),
+      conversation({ id: 'root', updatedAt: at(15) }),
+    ]
+    expect(drawn(rows)).toEqual([['Today', [['root', null], ['child', 'root'], ['grandchild', 'root']]]])
+  })
+
+  it('draws every row of a loop made by hand as a normal row, and a row naming itself too', () => {
+    const rows = [
+      conversation({ id: 'a', updatedAt: at(16), parent: { tool: 'claude', id: 'b' } }),
+      conversation({ id: 'b', updatedAt: at(15), parent: { tool: 'claude', id: 'a' } }),
+      conversation({ id: 'c', updatedAt: at(14), parent: { tool: 'claude', id: 'a' } }),
+      conversation({ id: 'self', updatedAt: at(13), parent: { tool: 'claude', id: 'self' } }),
+    ]
+    expect(drawn(rows)).toEqual([['Today', [['a', null], ['b', null], ['c', null], ['self', null]]]])
+  })
+
+  it('moves a child under its parent once the week that holds the parent loads', () => {
+    const firstWeek = { conversations: [conversation({ id: 'child', live: true, updatedAt: at(16), parent: { tool: 'claude', id: 'parent' } })] }
+    const weekBefore = { conversations: [conversation({ id: 'parent', live: true, updatedAt: local(10, 20, 9).toISOString() })] }
+    expect(drawn(mergePages([firstWeek]))).toEqual([['Open now', [['child', null]]]])
+    expect(drawn(mergePages([firstWeek, weekBefore]))).toEqual([['Open now', [['parent', null], ['child', 'parent']]]])
+  })
+
+  it('leaves the verdict as it was without nesting', () => {
+    const rows = [
+      conversation({ id: 'parent', live: true, updatedAt: at(16) }),
+      conversation({ id: 'child', live: true, activity: 'waiting', updatedAt: at(16, 10), parent: { tool: 'claude', id: 'parent' } }),
+    ]
+    const flat = rows.map(({ parent: _parent, ...rest }) => rest)
+    expect(conversationsVerdict(rows, NOW, false)).toBe(conversationsVerdict(flat, NOW, false))
+    expect(conversationsVerdict(rows, NOW, false)).toBe('2 chats are open now; 1 waits for you.')
+  })
+})
+
 describe('loaded weeks', () => {
   it('treats a fresh first page read later as the same when its rows, sources and end match', () => {
     const page = (overrides: Partial<ConversationsView>): ConversationsView => ({
@@ -267,6 +335,17 @@ describe('conversations normalization', () => {
     expect(reason('Delete it in Cursor.', 'dormant')).toBe('Delete it in Cursor.')
     expect(reason(42)).toBeUndefined()
     expect(reason('')).toBeUndefined()
+  })
+
+  it('keeps a parent with a known tool and an id, and drops any other', () => {
+    const parent = (value: unknown) => normalizeConversationsView({ conversations: [{ tool: 'claude', app: 'cli', id: 'x', updatedAt: '2026-11-07T15:00:00Z', parent: value, open: {} }] }).conversations[0].parent
+    expect(parent({ tool: 'codex', id: 'abc' })).toEqual({ tool: 'codex', id: 'abc' })
+    expect(parent({ tool: 'codex', id: 'abc', extra: 1 })).toEqual({ tool: 'codex', id: 'abc' })
+    expect(parent({ tool: 'other', id: 'abc' })).toBeUndefined()
+    expect(parent({ tool: 'claude', id: '' })).toBeUndefined()
+    expect(parent({ tool: 'claude', id: 42 })).toBeUndefined()
+    expect(parent('claude:abc')).toBeUndefined()
+    expect(parent(null)).toBeUndefined()
   })
 
   it('reads the mock fixture with every app, route kind, live state, withheld field, and tool', () => {

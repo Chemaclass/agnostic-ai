@@ -144,7 +144,10 @@ const GROUP_ORDER: GroupId[] = ['live', 'today', 'yesterday', 'week', 'earlier']
 interface ConversationGroup {
   id: GroupId
   label: string
+  /** In the order the list draws them: each nested row right after the row it sits under. */
   conversations: Conversation[]
+  /** The row each nested row sits under, by tool and id. */
+  under: ReadonlyMap<string, Conversation>
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -181,9 +184,42 @@ export function groupConversations(conversations: Conversation[], now: Date): Co
   const groups = GROUP_ORDER.map((id) => ({
     id,
     label: GROUP_LABELS[id],
-    conversations: conversations.filter((conversation) => groupOf(conversation, now) === id),
+    ...nestRows(conversations.filter((conversation) => groupOf(conversation, now) === id)),
   }))
   return groups.filter((group) => group.conversations.length > 0)
+}
+
+/** The row a conversation sits under: the last of its parents, walking up, that is in `rows`. Undefined for a row with none, and for one whose walk meets a loop. */
+function rootOf(conversation: Conversation, rows: ReadonlyMap<string, Conversation>): Conversation | undefined {
+  const seen = new Set([conversationKey(conversation)])
+  let root: Conversation | undefined
+  for (let parent = conversation.parent; parent; parent = root?.parent) {
+    const key = `${parent.tool}:${parent.id}`
+    const above = rows.get(key)
+    if (!above) break
+    if (seen.has(key)) return undefined
+    seen.add(key)
+    root = above
+  }
+  return root
+}
+
+/** One group's rows as the list draws them: every descendant right after the root it sits under, oldest first, one level deep. */
+function nestRows(rows: Conversation[]): Pick<ConversationGroup, 'conversations' | 'under'> {
+  const byKey = new Map(rows.map((conversation) => [conversationKey(conversation), conversation]))
+  const under = new Map<string, Conversation>()
+  const children = new Map<string, Conversation[]>()
+  for (const conversation of rows) {
+    const root = rootOf(conversation, byKey)
+    if (!root) continue
+    under.set(conversationKey(conversation), root)
+    const key = conversationKey(root)
+    children.set(key, [...(children.get(key) ?? []), conversation])
+  }
+  const conversations = rows
+    .filter((conversation) => !under.has(conversationKey(conversation)))
+    .flatMap((conversation) => [conversation, ...(children.get(conversationKey(conversation)) ?? []).sort((a, b) => newestFirst(b, a))])
+  return { conversations, under }
 }
 
 interface LiveBadge {

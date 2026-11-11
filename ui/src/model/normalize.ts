@@ -4,7 +4,7 @@
 // Normalizing never invents a decision: a missing effect stays missing
 // and renders as its raw value, a missing list becomes an empty list.
 
-import type { ContextLoad, ContextReport, ContextSize, ContextView, Conversation, ConversationRoute, ConversationSource, ConversationsView, Gap, Improvements, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
+import type { ContextLoad, ContextReport, ContextSize, ContextView, Conversation, ConversationRoute, ConversationSource, ConversationsView, ConversationTool, Gap, Improvements, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
 
 type Loose = Record<string, unknown>
 
@@ -202,6 +202,18 @@ function isActivity(value: unknown): value is NonNullable<Conversation['activity
   return (ACTIVITIES as readonly unknown[]).includes(value)
 }
 
+const TOOLS = ['claude', 'codex', 'cursor'] as const
+
+function isTool(value: unknown): value is ConversationTool {
+  return (TOOLS as readonly unknown[]).includes(value)
+}
+
+// A parent that does not name a known tool and an id is left out, so the row shows as a normal one.
+function parentOf(value: unknown): Conversation['parent'] {
+  const parent = obj(value)
+  return isTool(parent.tool) && typeof parent.id === 'string' && parent.id !== '' ? { tool: parent.tool, id: parent.id } : undefined
+}
+
 // An activity this client does not know is left out, so the row shows Open now.
 function normalizeConversation(raw: unknown): Conversation {
   const c = obj(raw)
@@ -219,6 +231,7 @@ function normalizeConversation(raw: unknown): Conversation {
     reply: typeof c.reply === 'string' && c.reply.trim() !== '' ? c.reply : undefined,
     withheld: arr<unknown>(c.withheld).filter(isWithheldField),
     live: c.live === true,
+    parent: parentOf(c.parent),
     open: { ...(route as unknown as ConversationRoute), label: text(route.label) },
   }
 }
