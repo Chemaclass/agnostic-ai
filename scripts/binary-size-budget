@@ -870,6 +870,6 @@
 # session, finds the Codex terminal behind its background service, and
 # remembers each session's tab; it measured 25743520 bytes locally on top
 # of #3234; the budget is that plus 8192, rounded up to a multiple of 4096.
-# Both together measured 25755808 bytes locally on Go 1.27.4; the budget
+# Both together measured 25764000 bytes locally on Go 1.27.4; the budget
 # is that plus 8192, rounded up to a multiple of 4096.
-25767936
+25776128
