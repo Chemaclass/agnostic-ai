@@ -97,6 +97,19 @@ func TestSync_RulesFileOnASharedInstructionsFile_KeepsTheFileWhenRulesSurvive(t 
 	}
 }
 
+// The documented form with the default targets: several of them inline
+// rules into AGENTS.md, so nothing is lost and sync passes.
+func TestSync_RulesFileOnAGENTSmdWithDefaultTargets_Passes(t *testing.T) {
+	sharedRulesFileProject(t, "outputs:\n  codex:\n    rules-file: AGENTS.md\n")
+
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
 // The policy that settles two adapters cannot settle this: neither
 // version is right for both readers.
 func TestSync_RulesFileOnASharedInstructionsFile_StopsUnderPreferSpec(t *testing.T) {

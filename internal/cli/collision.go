@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -107,15 +108,16 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 			written[f.Path][t] = f.Content
 		}
 	}
+	overwritten := maps.Clone(owners)
 	for _, s := range shared {
-		for path, ts := range owners {
+		for path, ts := range overwritten {
 			if filepath.Clean(path) == filepath.Clean(s.path) && slices.Contains(ts, s.owner) {
 				adapters.NoteProject(s.noEffect())
-				owners[path] = slices.DeleteFunc(slices.Clone(ts), func(t string) bool { return t == s.owner })
+				overwritten[path] = slices.DeleteFunc(slices.Clone(ts), func(t string) bool { return t == s.owner })
 			}
 		}
 	}
-	if err := entryPointOverwrites(cfg, entryFiles, owners); err != nil {
+	if err := entryPointOverwrites(cfg, entryFiles, overwritten); err != nil {
 		return nil, err
 	}
 	if policy == "prefer-spec" {

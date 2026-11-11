@@ -107,7 +107,7 @@ func TestSync_RulesFileOnTargetWithoutWriter_HasNoEffect(t *testing.T) {
 
 // codex and cline share AGENTS.md. Only codex writes a rules file, so the
 // key on cline changes nothing. The key on codex is a conflict, covered by
-// TestSync_RulesFileOnASharedInstructionsFile_StopsAndNamesBothTargets.
+// TestSync_RulesFileOnASharedInstructionsFile_StopsWhenRulesAreLost.
 func TestSync_SharedEntryPoint_RulesFileOnlyCountsForTheWriter(t *testing.T) {
 	base := "targets: [codex, cline]\n"
 	t.Run("cline sets it", func(t *testing.T) {
