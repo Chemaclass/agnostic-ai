@@ -161,15 +161,33 @@ func importAugmentPermissions(root, dstDir string) (int, error) {
 		}
 		lists[list] = appendUnique(lists[list], portable)
 	}
-	extra := map[string]any{}
-	if doc.DefaultModel != "" {
-		extra["model"] = map[string]any{"augment": doc.DefaultModel}
-	}
-	plan, level, err := planSettingsEffort("augment", doc.DefaultThinkingLevel, dstDir, augmentSettingsSpec+".yaml")
+	own := augmentSettingsSpec + ".yaml"
+	others, err := otherSettingsSpecsFor("augment", dstDir, filepath.Join(dstDir, own))
 	if err != nil {
 		return 0, err
 	}
-	maps.Copy(extra, settingsEffortSpec(plan, "augment", "defaultThinkingLevel", level))
+	extra := map[string]any{}
+	native := map[string]any{}
+	switch merged := adapters.SettingsModel(others, "augment"); {
+	case doc.DefaultModel == "" || doc.DefaultModel == merged:
+	case merged == "":
+		extra["model"] = map[string]any{"augment": doc.DefaultModel}
+	default:
+		native["defaultModel"] = doc.DefaultModel
+	}
+	plan, level, err := planSettingsEffort("augment", doc.DefaultThinkingLevel, dstDir, own)
+	if err != nil {
+		return 0, err
+	}
+	switch plan {
+	case effortPromote:
+		extra["effort"] = level
+	case effortOverride:
+		native["defaultThinkingLevel"] = level
+	}
+	if len(native) > 0 {
+		extra["x-augment"] = native
+	}
 	return writeSettingsSpecWith(dstDir, augmentSettingsSpec, lists, extra)
 }
 

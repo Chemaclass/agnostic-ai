@@ -125,7 +125,7 @@ These are not written and raise a sync note:
 
 ## Import
 
-`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment` and `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). Nothing else is imported.
+`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment`, or `x-augment.defaultModel` when another settings spec sets a different Augment model. `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). Nothing else is imported.
 
 ## Protected paths
 
