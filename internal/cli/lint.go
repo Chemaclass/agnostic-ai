@@ -305,6 +305,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	findings = append(findings, lintModels(scope.models, configPath, scope.targets, scope.support, scope.bundle)...)
 	findings = append(findings, lintTargetRefusals(scope.cfg, scope.targets, scope.bundle, configPath)...)
 	findings = append(findings, lintRulesModes(scope.cfg, configPath)...)
+	findings = append(findings, lintRulesFiles(scope.cfg, configPath)...)
 	return withoutBuiltinFindings(findings, scope.bundle), accepted, nil
 }
 

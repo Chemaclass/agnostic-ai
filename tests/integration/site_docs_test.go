@@ -1297,3 +1297,24 @@ func TestSiteDocs_TargetsStateWhatLoadsAtSessionStart(t *testing.T) {
 		}
 	}
 }
+
+// The configuration page lists the targets that write a merged rules file;
+// on any other target the key has no effect (#3295).
+func TestSiteDocs_RulesFileWritersMatchAdapters(t *testing.T) {
+	page, err := os.ReadFile(filepath.Join(siteDocsContentDir, "configuration.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`These targets write it: ([^.]+)\.`).FindStringSubmatch(string(page))
+	if m == nil {
+		t.Fatal(`configuration.md: no "These targets write it:" line`)
+	}
+	listed := regexp.MustCompile("`([a-z]+)`").FindAllStringSubmatch(m[1], -1)
+	var got []string
+	for _, l := range listed {
+		got = append(got, l[1])
+	}
+	if want := adapters.RulesFileWriters(); !slices.Equal(got, want) {
+		t.Errorf("configuration.md lists %v, the adapters that write rules-file are %v", got, want)
+	}
+}

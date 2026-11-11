@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `outputs.<target>.rules-file` on a target that writes no merged rules file, such as Cline or Kiro, no longer stops `sync` from writing that target's instructions file and rules. `lint` warns about the key with LINT062 (#3295).
 - The new `wrap-up` built-in adds a skill that ends a session with what changed, what is still open, and a note to share; `handoff` now points to it (#3284).
 - Delete an archived Claude Code chat for good from the companion's right-click menu, after a confirmation: its transcript, subagent transcripts, tool output, file backups and pasted images leave the disk. Other tools say why they cannot be deleted (#3275).
 - A model tier takes an optional `description` saying when to use it. `sync` and `sync --global` list the described tiers in each tool's instructions file (#3286).

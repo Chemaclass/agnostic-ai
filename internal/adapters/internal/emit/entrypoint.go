@@ -104,13 +104,55 @@ func EntryPointPath(cfg *config.Config, target string) string {
 	return entryPointPaths[target]
 }
 
+// rulesFileWriters are the targets whose adapter writes
+// outputs.<target>.rules-file. On any other target the key has no
+// effect: sync delivers rules and writes the entry point as if it were
+// unset, and lint reports it (LINT062).
+// TestRulesFileWriters_MatchAdapters keeps this list in step with the
+// adapters.
+var rulesFileWriters = map[string]bool{
+	"aider":       true,
+	"amp":         true,
+	"antigravity": true,
+	"augment":     true,
+	"claude":      true,
+	"codex":       true,
+	"copilot":     true,
+	"gemini":      true,
+	"goose":       true,
+	"kimi":        true,
+	"opencode":    true,
+	"pi":          true,
+	"qwen":        true,
+	"vibe":        true,
+	"warp":        true,
+	"zed":         true,
+}
+
+// WritesRulesFile reports whether target's adapter writes
+// outputs.<target>.rules-file.
+func WritesRulesFile(target string) bool {
+	return rulesFileWriters[target]
+}
+
+// RulesFileWriters returns, sorted, the targets that write
+// outputs.<target>.rules-file.
+func RulesFileWriters() []string {
+	out := make([]string, 0, len(rulesFileWriters))
+	for t := range rulesFileWriters {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // HasLegacyRulesFile reports whether the user opted into the legacy
-// concatenated rules-file layout for target. When true, the adapter
-// owns rule delivery: it concatenates rule bodies into
-// outputs.<target>.rules-file and the central sync layer neither
+// concatenated rules-file layout for a target that writes one. When
+// true, the adapter owns rule delivery: it concatenates rule bodies
+// into outputs.<target>.rules-file and the central sync layer neither
 // inlines nor `@`-imports them anywhere else.
 func HasLegacyRulesFile(cfg *config.Config, target string) bool {
-	if cfg == nil {
+	if cfg == nil || !rulesFileWriters[target] {
 		return false
 	}
 	o, ok := cfg.Outputs[target]

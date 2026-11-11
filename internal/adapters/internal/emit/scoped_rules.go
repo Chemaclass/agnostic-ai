@@ -201,7 +201,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 			continue
 		}
-		if OutputRulesFile(cfg, target, "") != "" {
+		if HasLegacyRulesFile(cfg, target) {
 			if target == "goose" && filepath.Base(OutputRulesFile(cfg, target, "")) == ".goosehints" {
 				doc = ".goosehints"
 			} else {
@@ -332,7 +332,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 // shared AGENTS.md only for its rules, such as cursor, adds the section
 // to those files alone.
 func scopedReviewSections(cfg *config.Config, target string, reviews map[string]string, grouped map[string][]spec.Entry) (map[string]string, error) {
-	owns := scopeDocument(target) == "AGENTS.md" && OutputRulesFile(cfg, target, "") == ""
+	owns := scopeDocument(target) == "AGENTS.md" && !HasLegacyRulesFile(cfg, target)
 	out := map[string]string{}
 	for scope, section := range reviews {
 		if scope == "" {
