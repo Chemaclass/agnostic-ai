@@ -888,7 +888,7 @@
 # measured 25837728 bytes locally; the budget is that plus 8192, rounded
 # up to a multiple of 4096.
 # #3283 (the agent's latest reply on each conversation row: the Claude
-# Code and Codex readers and the rebuilt web bundle) measured 25862304
-# bytes locally on 2026-11-11, 24576 above main c3a0e79a; the budget is
+# Code and Codex readers and the rebuilt web bundle) measured 25866400
+# bytes locally on 2026-11-11, 28672 above main c30c8e29; the budget is
 # that plus 8192, rounded up to a multiple of 4096.
-25874432
+25878528
