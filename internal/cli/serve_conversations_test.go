@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -258,6 +259,21 @@ func TestServeMux_ServesConversations(t *testing.T) {
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("POST %s = %d, want the handler's own refusal", conversationRenamePath, resp.StatusCode)
+	}
+
+	remove, err := http.NewRequest(http.MethodPost, srv.URL+conversationDeletePath, strings.NewReader(`{"tool":"gemini","id":"x"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	remove.Header.Set("Content-Type", "application/json")
+	remove.Header.Set("Origin", srv.URL)
+	resp, err = http.DefaultClient.Do(remove)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("POST %s = %d, want the handler's own refusal", conversationDeletePath, resp.StatusCode)
 	}
 }
 
@@ -680,4 +696,136 @@ func TestConversationsHandler_EveryServerSaysWhenACodexWaitIsReadFromSilence(t *
 			}
 		}
 	}
+}
+
+// archiveForDelete dates every Claude Code file before the fixture's
+// clock and archives inProject, so a delete may remove it.
+func archiveForDelete(t *testing.T, h *conversationsHandler) string {
+	t.Helper()
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	before := h.scanner.Now().Add(-time.Hour)
+	err := filepath.WalkDir(h.scanner.Stores.ClaudeDir, func(path string, _ os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		return os.Chtimes(path, before, before)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"completed"}`, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("archive = %d %s", rec.Code, rec.Body)
+	}
+	transcripts, err := filepath.Glob(filepath.Join(h.scanner.Stores.ClaudeDir, "projects", "*", inProject+".jsonl"))
+	if err != nil || len(transcripts) != 1 {
+		t.Fatalf("transcripts = %v (%v)", transcripts, err)
+	}
+	return transcripts[0]
+}
+
+func TestConversationsHandler_DeletesAnArchivedConversation(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	transcript := archiveForDelete(t, h)
+	info, err := os.Stat(transcript)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rec := postEdit(t, h, conversationDeletePath, `{"tool":"claude","id":"`+inProject+`"}`, nil)
+
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"deleted":true,"freedBytes":`+strconv.FormatInt(info.Size(), 10)+`}` {
+		t.Fatalf("delete = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(transcript); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the transcript is still there: %v", err)
+	}
+	if listed := ids(listConversations(t, h)); listed != inWorktree {
+		t.Errorf("listed after the delete = %s", listed)
+	}
+	if again := postEdit(t, h, conversationDeletePath, `{"tool":"claude","id":"`+inProject+`"}`, nil); again.Code != http.StatusNotFound {
+		t.Errorf("a second delete = %d %s", again.Code, again.Body)
+	}
+}
+
+func TestConversationsHandler_RefusesADeleteItCannotMake(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body    string
+		prepare func(t *testing.T, h *conversationsHandler)
+		status  int
+		reply   string
+	}{
+		"outside the project": {body: `{"tool":"claude","id":"` + elsewhere + `"}`, status: http.StatusNotFound, reply: `{"error":"That conversation is not in this list any more. Refresh the page."}`},
+		"unknown tool":        {body: `{"tool":"gemini","id":"` + inProject + `"}`, status: http.StatusBadRequest, reply: `{"error":"tool must be claude, codex or cursor"}`},
+		"an extra field":      {body: `{"tool":"claude","id":"` + inProject + `","path":"/"}`, status: http.StatusBadRequest, reply: `{"error":"send {tool, id}"}`},
+		"two objects":         {body: `{"tool":"claude","id":"` + inProject + `"}{}`, status: http.StatusBadRequest, reply: `{"error":"send one JSON object"}`},
+		"not archived": {body: `{"tool":"claude","id":"` + inWorktree + `"}`, status: http.StatusConflict,
+			reply: `{"error":"Only an archived conversation can be deleted. This one is not archived any more: something was written in it, or it was opened. Refresh the list.","reason":"not-archived"}`},
+		"running": {body: `{"tool":"claude","id":"` + inProject + `"}`, status: http.StatusConflict,
+			prepare: func(t *testing.T, h *conversationsHandler) {
+				sessions := filepath.Join(h.scanner.Stores.ClaudeDir, "sessions")
+				if err := os.MkdirAll(sessions, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(sessions, "4242.json"), []byte(`{"pid":4242,"sessionId":"`+inProject+`","status":"idle"}`), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				h.scanner.Processes = runningProcesses{pid: 4242}
+			},
+			reply: `{"error":"This conversation is still running. Close it in Claude Code, then delete it.","reason":"running"}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, _, _ := conversationsFixture(t, false)
+			transcript := archiveForDelete(t, h)
+			if tc.prepare != nil {
+				tc.prepare(t, h)
+			}
+
+			rec := postEdit(t, h, conversationDeletePath, tc.body, nil)
+
+			if rec.Code != tc.status || strings.TrimSpace(rec.Body.String()) != tc.reply {
+				t.Errorf("= %d %s", rec.Code, rec.Body)
+			}
+			if _, err := os.Stat(transcript); err != nil {
+				t.Errorf("a refused delete removed the transcript: %v", err)
+			}
+		})
+	}
+	h, _, _ := conversationsFixture(t, false)
+	transcript := archiveForDelete(t, h)
+	foreign := postEdit(t, h, conversationDeletePath, `{"tool":"claude","id":"`+inProject+`"}`, func(r *http.Request) { r.Header.Set("Origin", "https://attacker.example") })
+	if foreign.Code != http.StatusForbidden {
+		t.Errorf("a foreign page = %d %s", foreign.Code, foreign.Body)
+	}
+	get := httptest.NewRecorder()
+	h.ServeHTTP(get, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationDeletePath, nil))
+	if get.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET = %d %s", get.Code, get.Body)
+	}
+	if _, err := os.Stat(transcript); err != nil {
+		t.Errorf("a refused delete removed the transcript: %v", err)
+	}
+}
+
+func TestServeMux_ADeleteSkipsTheAPIQueue(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	srv := httptest.NewServer(serializeAPI(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/slow" {
+			close(started)
+			<-release
+		}
+	})))
+	defer srv.Close()
+	defer close(release)
+	go func() {
+		if resp, err := http.Get(srv.URL + "/api/slow"); err == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	<-started
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Post(srv.URL+conversationDeletePath, "application/json", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("a delete waited behind a slow view: %v", err)
+	}
+	_ = resp.Body.Close()
 }

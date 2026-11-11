@@ -52,6 +52,11 @@ export function renameConversation(conversation, title) {
   return post('/api/rename', { tool: conversation.tool, id: conversation.id, title })
 }
 
+/** Deletes an archived chat from this computer for good: `{deleted, freedBytes?, note?}`. */
+export function deleteConversation(conversation) {
+  return post('/api/delete', { tool: conversation.tool, id: conversation.id })
+}
+
 export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
 export const showPanel = () => post('/api/panel/show')

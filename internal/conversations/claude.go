@@ -127,7 +127,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		if !ok || meta.sidechain || strings.HasPrefix(meta.entrypoint, "sdk") || (meta.title == "" && meta.firstPrompt == "" && meta.lastPrompt == "") {
 			continue
 		}
-		c := Conversation{Tool: ToolClaude, ID: id, Folder: meta.cwd, Branch: meta.branch, StartedAt: meta.started, UpdatedAt: meta.updated}
+		c := Conversation{Tool: ToolClaude, ID: id, Folder: meta.cwd, Branch: meta.branch, StartedAt: meta.started, UpdatedAt: meta.updated, file: file}
 		s.fill(&c, texts{title: meta.title, firstPrompt: meta.firstPrompt, lastPrompt: meta.lastPrompt})
 		session, isLive := live[id]
 		c.Live = isLive
