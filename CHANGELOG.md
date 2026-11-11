@@ -9,6 +9,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - When the companion cannot open a chat, the reason stays until you dismiss it, and a chat that could not be resumed offers **Copy resume command**. Opening a chat that still runs in a terminal no longer replies with a resume command (#3256).
+- The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
+- A local Codex chat that went silent shows "No activity for 7m" instead of "Waiting for you" in the companion and the web interface; `quietSince` marks such a row in the API (#3251).
 - In the web interface's Built-ins tab, Details now says what each built-in does when on and links RTK and Caveman to their official pages (#3261).
 - `upgrade` also updates an installed companion and restarts it if it was running (#3247).
 - Right-click the companion's circle to stop its animation or dim it when nothing needs you (#3237, #3246).

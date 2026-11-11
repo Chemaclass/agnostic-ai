@@ -118,7 +118,15 @@ export function grouped(conversations) {
   })).filter((group) => group.rows.length > 0)
 }
 
-export function reasonOf(conversation) {
+/**
+ * A wait the server read from silence carries `quietSince`: it says how long nothing came,
+ * not that the agent asked. "Waiting for you" stays for a tool that reports its wait.
+ */
+export function reasonOf(conversation, now) {
+  if (conversation.state === 'blocked' && !Number.isNaN(Date.parse(conversation.quietSince))) {
+    const quiet = ago(conversation.quietSince, now)
+    return quiet === 'now' ? 'No activity' : 'No activity for ' + quiet
+  }
   return REASON_OF_STATE[conversation.state]
 }
 
@@ -136,19 +144,68 @@ const PLACE_LABELS = {
   cloud: 'Cloud',
 }
 
-/** "Claude Code · agnostic-ai · 5m": the tool, where it runs when not here, the folder's name and how long ago it was written. */
-export function detailsOf(conversation, now) {
+/**
+ * "Claude Code · agnostic-ai · 5m": the tool, where it runs when not here, the folder's name and how long ago it was written.
+ * `names` holds what folderNamesOf gave for the folders in view; without one the folder shows its last name.
+ */
+export function detailsOf(conversation, now, names = new Map()) {
   const parts = [TOOL_LABELS[conversation.tool]]
   const place = PLACE_LABELS[conversation.app]
   if (place) parts.push(place)
-  if (conversation.folder) parts.push(folderName(conversation.folder))
+  if (conversation.folder) parts.push(names.get(conversation.folder) ?? folderName(conversation.folder))
   parts.push(ago(conversation.updatedAt, now))
   return parts.join(' · ')
 }
 
+/** A folder as its names with the separators between them kept: ["Users", "/", "me", "/", "api"]. */
+function piecesOf(folder) {
+  const pieces = folder.replace(/[\\/]+$/, '').split(/([\\/]+)/)
+  return pieces[0] === '' ? pieces.slice(2) : pieces
+}
+
+/** The last `count` names of a folder, written with its own separators. */
+function tail(pieces, count) {
+  return pieces.slice(-(2 * count - 1)).join('')
+}
+
 function folderName(folder) {
-  const names = folder.split(/[\\/]/).filter((name) => name !== '')
-  return names.length === 0 ? folder : names[names.length - 1]
+  const pieces = piecesOf(folder)
+  return pieces.length === 0 ? folder : tail(pieces, 1)
+}
+
+/**
+ * The name each folder shows: its last name, with as many parent folders as tell it apart
+ * from the other folders in `folders` that end the same way, as in "shop/api" and "billing/api".
+ */
+export function folderNamesOf(folders) {
+  const paths = new Map()
+  for (const folder of folders) {
+    const pieces = folder ? piecesOf(folder) : []
+    if (pieces.length > 0) paths.set(pieces.join(''), pieces)
+  }
+  const shown = new Map([...paths.keys()].map((path) => [path, 1]))
+  let growing = true
+  while (growing) {
+    growing = false
+    const sharing = new Map()
+    for (const [path, pieces] of paths) {
+      const name = tail(pieces, shown.get(path))
+      sharing.set(name, (sharing.get(name) ?? 0) + 1)
+    }
+    for (const [path, pieces] of paths) {
+      const count = shown.get(path)
+      if (2 * count - 1 < pieces.length && sharing.get(tail(pieces, count)) > 1) {
+        shown.set(path, count + 1)
+        growing = true
+      }
+    }
+  }
+  const result = new Map()
+  for (const folder of folders) {
+    const pieces = folder ? piecesOf(folder) : []
+    if (pieces.length > 0) result.set(folder, tail(pieces, shown.get(pieces.join(''))))
+  }
+  return result
 }
 
 const MINUTE = 60 * 1000

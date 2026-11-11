@@ -135,6 +135,9 @@ type Conversation struct {
 	Withheld  []string `json:"withheld,omitempty"`
 	Live      bool     `json:"live,omitempty"`
 	Activity  Activity `json:"activity,omitempty"`
+	// QuietSince is set when the wait was read from silence, not reported
+	// by the tool: the time of the last write, since when nothing came.
+	QuietSince string `json:"quietSince,omitempty"`
 	// State places the conversation for the person; see stateOf.
 	State State `json:"state"`
 	// SeenAt and CompletedAt are the person's marks, when set.

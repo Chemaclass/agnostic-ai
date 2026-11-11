@@ -629,8 +629,8 @@ func TestScan_DatesByTheLastMessageAndKeepsTheStartFolder(t *testing.T) {
 	if c.Folder != "/tmp/app" || c.UpdatedAt != "2026-11-07T08:05:00Z" || c.Open.Command != "cd '/tmp/app' && claude --resume "+idCache {
 		t.Errorf("want the start folder and the last message time, got folder %q updated %s command %q", c.Folder, c.UpdatedAt, c.Open.Command)
 	}
-	if !c.Live || c.Activity != ActivityWaiting {
-		t.Errorf("a live session waiting for the person = live %v activity %q", c.Live, c.Activity)
+	if !c.Live || c.Activity != ActivityWaiting || c.QuietSince != "" {
+		t.Errorf("a live session that reports it waits for the person = live %v activity %q quiet since %q", c.Live, c.Activity, c.QuietSince)
 	}
 }
 

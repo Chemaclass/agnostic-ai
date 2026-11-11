@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -19,6 +19,19 @@ test('says why a row needs the person, and nothing for a quiet one', () => {
   assert.equal(reasonOf(row('a', 'unread')), 'New reply')
   assert.equal(reasonOf(row('a', 'working')), 'Working')
   assert.equal(reasonOf(row('a', 'active')), undefined)
+})
+
+test('says how long a chat has been silent when its wait is read from that silence, not reported', () => {
+  const now = Date.parse('2026-11-09T12:00:00Z')
+  const quiet = (since) => row('a', 'blocked', { tool: 'codex', activity: 'waiting', quietSince: since })
+  assert.equal(reasonOf(quiet('2026-11-09T11:55:00Z'), now), 'No activity for 5m')
+  assert.equal(reasonOf(quiet('2026-11-09T11:53:00Z'), now), 'No activity for 7m')
+  assert.equal(reasonOf(quiet('2026-11-09T09:00:00Z'), now), 'No activity for 3h')
+  // A clock that runs behind the server's must not say "for now".
+  assert.equal(reasonOf(quiet('2026-11-09T12:00:30Z'), now), 'No activity')
+  assert.equal(reasonOf(row('a', 'blocked', { tool: 'codex', activity: 'waiting' }), now), 'Waiting for you')
+  assert.equal(reasonOf(quiet('not a time'), now), 'Waiting for you')
+  assert.equal(reasonOf(row('a', 'unread', { tool: 'codex', quietSince: '2026-11-09T11:53:00Z' }), now), 'New reply')
 })
 
 test('offers archive on a chat that is not archived, hide on one that is, and nothing on a working one', () => {
@@ -49,6 +62,29 @@ test('says Cloud for a session that runs in the cloud, and nothing for one on th
   assert.equal(detailsOf(row('cse_a1', 'active', { app: 'cloud' }), now), 'Claude Code · Cloud · 5m')
   assert.equal(detailsOf(row('a', 'active', { app: 'cli', folder: '/tmp/app' }), now), 'Claude Code · app · 5m')
   assert.equal(detailsOf(row('a', 'active', { app: 'desktop' }), now), 'Claude Code · 5m')
+})
+
+test('adds parent folders only when two folders in view share a last name', () => {
+  const now = Date.parse('2026-11-09T12:05:00Z')
+  const folders = ['/Users/me/a/api', '/Users/me/b/api', '/Users/me/web', '/Users/me/b/api/']
+  assert.equal(detailsOf(row('a', 'active', { folder: '/Users/me/a/api' }), now, folderNamesOf(folders)), 'Claude Code · a/api · 5m')
+  assert.equal(detailsOf(row('b', 'active', { folder: '/Users/me/b/api/' }), now, folderNamesOf(folders)), 'Claude Code · b/api · 5m')
+  assert.equal(detailsOf(row('c', 'active', { folder: '/Users/me/web' }), now, folderNamesOf(folders)), 'Claude Code · web · 5m')
+  assert.equal(detailsOf(row('d', 'active', { folder: '/Users/me/a/api' }), now, folderNamesOf(['/Users/me/a/api', '/Users/me/a/api'])), 'Claude Code · api · 5m')
+  assert.equal(detailsOf(row('e', 'active', { folder: '/x/shop/api' }), now, folderNamesOf(['/x/shop/api', '/y/shop/api'])), 'Claude Code · x/shop/api · 5m')
+  const nested = folderNamesOf(['/x/shop/api', '/y/shop/api', '/z/web/api', '/api', '/'])
+  assert.deepEqual([...nested.values()], ['x/shop/api', 'y/shop/api', 'web/api', 'api'])
+})
+
+test('tells same-named folders apart with their own separators and skips rows with no folder', () => {
+  const now = Date.parse('2026-11-09T12:05:00Z')
+  const folders = ['C:\\work\\api', 'D:\\home\\api\\', '', undefined]
+  assert.equal(detailsOf(row('a', 'active', { tool: 'cursor', folder: 'C:\\work\\api' }), now, folderNamesOf(folders)), 'Cursor · work\\api · 5m')
+  assert.equal(detailsOf(row('b', 'active', { tool: 'cursor', folder: 'D:\\home\\api\\' }), now, folderNamesOf(folders)), 'Cursor · home\\api · 5m')
+  assert.equal(detailsOf(row('c', 'active', { app: 'cloud' }), now, folderNamesOf(folders)), 'Claude Code · Cloud · 5m')
+  // On macOS a backslash can be part of a folder's name, so these are two folders.
+  const names = folderNamesOf(['/Users/me/a\\b/api', '/Users/me/a/b/api'])
+  assert.deepEqual([...names.values()], ['a\\b/api', 'a/b/api'])
 })
 
 test('sums up a search, and says nothing without one', () => {

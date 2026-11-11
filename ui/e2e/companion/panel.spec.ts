@@ -190,9 +190,18 @@ test('a missing cloud gets one quiet line and local rows still show', async ({ p
   await expect(row(page, 'Fix the login redirect')).toBeVisible()
 })
 
-test('folders with the same name show on each row', async ({ page }) => {
+test('folders with the same name show their parent, and the full path on hover', async ({ page }) => {
   await openPanel(page, 'duplicate-projects')
-  await expect(page.locator('.row .meta').filter({ hasText: ' · api · ' })).toHaveCount(3)
+  await expect(row(page, 'Add rate limits')).toContainText(' · shop/api · ')
+  await expect(row(page, 'Split the user routes')).toContainText(' · billing/api · ')
+  await expect(row(page, 'Fix the health check')).toContainText(' · Work/api · ')
+  await expect(row(page, 'Add rate limits')).toHaveAttribute('title', 'Open in Terminal\n/Users/you/Code/shop/api')
+  await expect(row(page, 'Add rate limits')).toHaveAccessibleDescription('Open in Terminal /Users/you/Code/shop/api')
+})
+
+test('a folder name no other row shares stays short', async ({ page }) => {
+  await openPanel(page)
+  await expect(row(page, 'Fix the login redirect')).toContainText('Cursor · shop · 3h')
 })
 
 test('the circle counts the conversations that need you', async ({ page }) => {
