@@ -126,7 +126,7 @@ Conversation fields:
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
   - `focus` switches to the Terminal or Ghostty tab that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
-  - `terminal` runs `command`. In Ghostty it types it into the tab the session last ran in, when that tab's own shell sits at its prompt. It first sends Ctrl-C twice, so a half-typed line or an open quote's continuation lines never run with it. Otherwise it opens a new tab of the app the session last ran in, Terminal or Ghostty. With no tab remembered, it opens a new Terminal window. `label` then names the app, such as `Open in Ghostty`.
+  - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal or Ghostty. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. `label` then names the app, such as `Open in Ghostty`.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 
 Codex and Cursor stores are read with the `sqlite3` command.
@@ -171,7 +171,7 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - A conversation outside the list returns 404.
 - Any other field is a 400.
 - macOS asks once for Automation access to each app the server controls: Terminal and Ghostty. The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
-- The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app, the terminal device and the tab's login process. It holds no conversation text.
+- The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app and the terminal device. It holds no conversation text.
 - A conversation that opened is marked seen, and a completion on it is taken back.
 
 ## `POST /api/conversations/mark`

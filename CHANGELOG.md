@@ -14,7 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - An archived or hidden chat that starts working again moves to Working by itself, in the companion and the web interface (#3239).
 - On macOS, `companion install` makes an app with the agnostic-ai icon, replaces the old bare program, and keeps start at login (#3238).
 - Cursor chats show what you typed as their title and prompt, without the timestamp, notification and attachment tags Cursor adds (#3241).
-- Clicking a running session selects its Terminal or Ghostty tab, Codex included; an ended one resumes in its last tab or a new one (#3242).
+- Clicking a running session selects its Terminal or Ghostty tab, Codex included; an ended one resumes in a new tab of the app it ran in (#3242).
 - Builds use Go 1.27.4 to fix the `net/http` vulnerability [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859).
 
 ### Site

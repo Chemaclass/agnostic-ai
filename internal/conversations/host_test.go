@@ -48,7 +48,7 @@ func TestParseProcessTable_KeepsTheStartTimeAndACommandWithSpaces(t *testing.T) 
 	}
 }
 
-func TestHostOf_FindsTheAppAndTheTabsLogin(t *testing.T) {
+func TestHostOf_FindsTheAppAndTheTTY(t *testing.T) {
 	cursor := "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper.app/Contents/MacOS/Cursor Helper"
 	table := ghosttyTable(ghosttyTab("/dev/ttys004", 45469, 45864, "claude"))
 	table = append(table,
@@ -60,7 +60,7 @@ func TestHostOf_FindsTheAppAndTheTabsLogin(t *testing.T) {
 		ProcessInfo{PID: 51, PPID: 50, Stat: "S", TTY: "/dev/ttys030", Command: "zsh"},
 	)
 
-	if host, ok := hostOf(table, 45864); !ok || host != (terminalHost{App: "Ghostty", TTY: "/dev/ttys004", Leader: ProcessRef{PID: 45469, ProcStart: "Tue Nov 10 21:49:14 2026"}}) {
+	if host, ok := hostOf(table, 45864); !ok || host != (terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}) {
 		t.Errorf("Ghostty tab: %+v, %v", host, ok)
 	}
 	if host, ok := hostOf(table, 902); !ok || host.App != "Cursor" || host.TTY != "/dev/ttys020" {
@@ -72,7 +72,7 @@ func TestHostOf_FindsTheAppAndTheTabsLogin(t *testing.T) {
 		{PID: 702, PPID: 701, Stat: "S", TTY: "/dev/ttys040", Command: "-zsh"},
 		{PID: 703, PPID: 702, Stat: "S+", TTY: "/dev/ttys040", Command: "claude"},
 	}
-	if host, ok := hostOf(append(table, iterm...), 703); !ok || host != (terminalHost{App: "iTerm", TTY: "/dev/ttys040", Leader: ProcessRef{PID: 701, ProcStart: "Tue Nov 10 09:00:00 2026"}}) {
+	if host, ok := hostOf(append(table, iterm...), 703); !ok || host != (terminalHost{App: "iTerm", TTY: "/dev/ttys040"}) {
 		t.Errorf("an iTerm2 shell under its session server: %+v, %v", host, ok)
 	}
 	if host, ok := hostOf(table, 6923); ok {
@@ -83,37 +83,17 @@ func TestHostOf_FindsTheAppAndTheTabsLogin(t *testing.T) {
 	}
 }
 
-func TestTabIdle_OnlyWhenTheSameLoginShowsAShellPrompt(t *testing.T) {
-	tab := terminalHost{App: "Ghostty", TTY: "/dev/ttys004", Leader: ProcessRef{PID: 45469, ProcStart: "Tue Nov 10 21:49:14 2026"}}
-	prompt := []ProcessInfo{
-		{PID: 45469, PPID: 761, Stat: "Ss", TTY: "/dev/ttys004", Started: "Tue Nov 10 21:49:14 2026", Command: "/usr/bin/login"},
-		{PID: 45470, PPID: 45469, Stat: "Ss+", TTY: "/dev/ttys004", Command: "-zsh"},
-		{PID: 45471, PPID: 45470, Stat: "S", TTY: "/dev/ttys004", Command: "/Users/you/.cache/gitstatus/gitstatusd-darwin-arm64"},
-	}
-	if !tabIdle(ghosttyTable(prompt), tab) {
-		t.Error("a tab at its shell prompt is idle")
-	}
-	if tabIdle(ghosttyTable(ghosttyTab("/dev/ttys004", 45469, 45864, "vim")), tab) {
-		t.Error("a tab running a program is busy")
-	}
-	script := append([]ProcessInfo{}, prompt...)
-	script[1].Stat = "Ss"
-	script = append(script, ProcessInfo{PID: 45480, PPID: 45470, Stat: "S+", TTY: "/dev/ttys004", Command: "bash"})
-	if tabIdle(ghosttyTable(script), tab) {
-		t.Error("a shell script waiting at read -p is busy")
-	}
-	reused := append([]ProcessInfo{}, prompt...)
-	reused[0].Started = "Tue Nov 10 23:00:00 2026"
-	if tabIdle(ghosttyTable(reused), tab) {
-		t.Error("a new tab that got the same tty is not the one the session ran in")
-	}
-	if tabIdle(ghosttyTable(), tab) {
-		t.Error("a closed tab is not idle")
-	}
+func pick(c Conversation, threads []threadStart, table []ProcessInfo, processes Processes) (int, []string) {
+	return newCodexClients(table, threads, processes).pick(c)
 }
 
-func pick(c Conversation, threads []string, table []ProcessInfo, processes Processes) (int, []string) {
-	return newCodexClients(table, threads, processes).pick(c)
+// threadsInRepo is threads created in /repo at each time.
+func threadsInRepo(created ...string) []threadStart {
+	threads := make([]threadStart, len(created))
+	for i, at := range created {
+		threads[i] = threadStart{created: at, folder: "/repo"}
+	}
+	return threads
 }
 
 func TestPickCodexClient_ByIDThenStartNeverByFolder(t *testing.T) {
@@ -124,24 +104,24 @@ func TestPickCodexClient_ByIDThenStartNeverByFolder(t *testing.T) {
 	table := ghosttyTable(first, second)
 	both := processesWithTable(table)
 
-	if pid, ttys := pick(thread, []string{thread.StartedAt}, table, both); pid != 17199 || ttys != nil {
+	if pid, ttys := pick(thread, threadsInRepo(thread.StartedAt), table, both); pid != 17199 || ttys != nil {
 		t.Errorf("the client that started just before the thread: %d, %v", pid, ttys)
 	}
 	later := thread
 	later.StartedAt = "2026-11-10T23:00:00Z"
 	inRepo := both
 	inRepo.cwds = map[int]string{17199: "/repo", 46288: "/repo"}
-	if pid, ttys := pick(later, []string{later.StartedAt}, table, inRepo); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
+	if pid, ttys := pick(later, threadsInRepo(later.StartedAt), table, inRepo); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
 		t.Errorf("two clients in the folder and neither started with the thread: %d, %v", pid, ttys)
 	}
 	resumed := both
 	resumed.args = map[int]string{46288: "codex resume " + thread.ID}
-	if pid, _ := pick(later, []string{later.StartedAt}, table, resumed); pid != 46288 {
+	if pid, _ := pick(later, threadsInRepo(later.StartedAt), table, resumed); pid != 46288 {
 		t.Errorf("a client started with the thread's id holds it: %d", pid)
 	}
 	elsewhere := both
 	elsewhere.cwds = map[int]string{17199: "/repo", 46288: "/other"}
-	if pid, ttys := pick(later, []string{later.StartedAt}, table, elsewhere); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+	if pid, ttys := pick(later, threadsInRepo(later.StartedAt), table, elsewhere); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
 		t.Errorf("the only client in the folder may show an empty tab, so it is named, never picked: %d, %v", pid, ttys)
 	}
 }
@@ -162,22 +142,22 @@ func (c *countingProcesses) Cwds(pids []int) map[int]string {
 	return c.fakeProcesses.Cwds(pids)
 }
 
-func TestCodexClients_ReadArgsOnceAndFoldersOnlyWhenNeeded(t *testing.T) {
+func TestCodexClients_ReadArgsAndFoldersOnce(t *testing.T) {
 	first := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
 	first[2].Started = "Tue Nov 10 22:55:27 2026"
 	second := ghosttyTab("/dev/ttys004", 81131, 81453, "codex")
 	second[2].Started = "Tue Nov 10 22:55:32 2026"
 	table := ghosttyTable(first, second)
-	threads := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z", "2026-11-10T23:30:00Z"}
+	created := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z", "2026-11-10T23:30:00Z"}
 	processes := &countingProcesses{fakeProcesses: processesWithTable(table)}
-	clients := newCodexClients(table, threads, processes)
+	clients := newCodexClients(table, threadsInRepo(created...), processes)
 
-	for _, created := range threads {
+	for _, created := range created {
 		clients.pick(Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: created})
 	}
 
-	if processes.argsCalls != 1 || processes.cwdsCalls != 0 {
-		t.Errorf("args read %d times, folders %d times; want 1 and 0", processes.argsCalls, processes.cwdsCalls)
+	if processes.argsCalls != 1 || processes.cwdsCalls != 1 {
+		t.Errorf("args read %d times, folders %d times; want 1 and 1", processes.argsCalls, processes.cwdsCalls)
 	}
 }
 
@@ -187,11 +167,11 @@ func TestPickCodexClient_EachClientHoldsTheFirstThreadAfterItStarted(t *testing.
 	second := ghosttyTab("/dev/ttys004", 81131, 81453, "codex")
 	second[2].Started = "Tue Nov 10 22:55:32 2026"
 	table := ghosttyTable(first, second)
-	threads := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z", "2026-11-10T22:58:00Z"}
-	for created, want := range map[string]int{threads[0]: 80312, threads[1]: 81453, threads[2]: 0} {
-		thread := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: created}
-		if pid, _ := pick(thread, threads, table, processesWithTable(table)); pid != want {
-			t.Errorf("thread created %s: client %d, want %d", created, pid, want)
+	created := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z", "2026-11-10T22:58:00Z"}
+	for at, want := range map[string]int{created[0]: 80312, created[1]: 81453, created[2]: 0} {
+		thread := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: at}
+		if pid, _ := pick(thread, threadsInRepo(created...), table, processesWithTable(table)); pid != want {
+			t.Errorf("thread created %s: client %d, want %d", at, pid, want)
 		}
 	}
 }
@@ -202,11 +182,42 @@ func TestPickCodexClient_AClientShowingAnotherThreadIsNotAGuess(t *testing.T) {
 	table := ghosttyTable(client)
 	processes := processesWithTable(table)
 	processes.cwds = map[int]string{80312: "/repo"}
-	threads := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z"}
-	quit := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: threads[1]}
+	threads := threadsInRepo("2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z")
+	quit := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: threads[1].created}
 
 	if pid, ttys := pick(quit, threads, table, processes); pid != 0 || ttys != nil {
 		t.Errorf("the client in the folder shows its own first thread: %d, %v", pid, ttys)
+	}
+}
+
+func TestPickCodexClient_AClientResumingAnotherThreadIsNeverTimed(t *testing.T) {
+	client := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
+	client[2].Started = "Tue Nov 10 22:55:27 2026"
+	table := ghosttyTable(client)
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{80312: "/repo"}
+	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
+	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
+
+	for _, args := range []string{"codex resume 01a1c738-eda0-7be0-b151-023a3e0ab7ee", "codex resume --last"} {
+		processes.args = map[int]string{80312: args}
+		if pid, ttys := pick(created, threads, table, processes); pid != 0 || ttys != nil {
+			t.Errorf("%q shows the thread it resumed, not one created after it started: %d, %v", args, pid, ttys)
+		}
+	}
+}
+
+func TestPickCodexClient_AThreadInAnotherFolderIsNotTheClientsFirst(t *testing.T) {
+	client := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
+	client[2].Started = "Tue Nov 10 22:55:27 2026"
+	table := ghosttyTable(client)
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{80312: "/other"}
+	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
+	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
+
+	if pid, ttys := pick(created, threads, table, processes); pid != 0 || ttys != nil {
+		t.Errorf("a client in another folder did not create the thread: %d, %v", pid, ttys)
 	}
 }
 
@@ -359,8 +370,8 @@ func TestScan_RemembersTheTabAnEndedSessionRanIn(t *testing.T) {
 	launcher := &fakeLauncher{focusOK: true}
 	reply := Open(context.Background(), ended, scanner.Processes, launcher)
 
-	want := "type Ghostty /dev/ttys004 cd '/tmp/app' && claude --resume " + idSafari
-	if strings.Join(launcher.calls, "; ") != want || reply != (OpenReply{Opened: true, Message: "Resumed in the Ghostty tab it last ran in."}) {
+	want := "new tab Ghostty cd '/tmp/app' && claude --resume " + idSafari
+	if strings.Join(launcher.calls, "; ") != want || reply != (OpenReply{Opened: true, Message: "Resumed in a new Ghostty tab."}) {
 		t.Errorf("calls %v, reply %+v", launcher.calls, reply)
 	}
 	if ended.Open.Label != "Open in Ghostty" {
@@ -377,7 +388,7 @@ func writeClaudeLive(t *testing.T, stores Stores, id string, pid int) {
 }
 
 func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
-	ghostty := terminalHost{App: "Ghostty", TTY: "/dev/ttys004", Leader: ProcessRef{PID: 45469}}
+	ghostty := terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}
 	at := func(host terminalHost) Conversation {
 		return Conversation{Tool: ToolClaude, Folder: "/tmp/app", Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: host}}
 	}
@@ -463,18 +474,14 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 	}
 }
 
-func TestOpen_EndedSessionReusesItsTabOrOpensANewOne(t *testing.T) {
-	tab := terminalHost{App: "Ghostty", TTY: "/dev/ttys004", Leader: ProcessRef{PID: 45469, ProcStart: "Tue Nov 10 21:49:14 2026"}}
+func TestOpen_EndedSessionOpensANewTabInTheAppItRanIn(t *testing.T) {
+	tab := terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}
 	ended := Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &tab}
 	login := ProcessInfo{PID: 45469, PPID: 761, Stat: "Ss", TTY: "/dev/ttys004", Started: "Tue Nov 10 21:49:14 2026", Command: "/usr/bin/login"}
-	prompt := processesWithTable(ghosttyTable([]ProcessInfo{login, {PID: 45470, PPID: 45469, Stat: "Ss+", TTY: "/dev/ttys004", Command: "-zsh"}}))
-	busy := processesWithTable(ghosttyTable(ghosttyTab("/dev/ttys004", 45469, 50000, "vim")))
-	terminalTab := terminalHost{App: "Terminal", TTY: "/dev/ttys009", Leader: ProcessRef{PID: 300, ProcStart: "Tue Nov 10 21:49:14 2026"}}
-	terminalPrompt := processesWithTable([]ProcessInfo{
-		{PID: 299, PPID: 1, Command: "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"},
-		{PID: 300, PPID: 299, Stat: "Ss", TTY: "/dev/ttys009", Started: "Tue Nov 10 21:49:14 2026", Command: "/usr/bin/login"},
-		{PID: 301, PPID: 300, Stat: "Ss+", TTY: "/dev/ttys009", Command: "-zsh"},
-	})
+	// A shell at its prompt and one waiting in a builtin such as read
+	// look the same in the process table.
+	shell := processesWithTable(ghosttyTable([]ProcessInfo{login, {PID: 45470, PPID: 45469, Stat: "Ss+", TTY: "/dev/ttys004", Command: "-zsh"}}))
+	terminalTab := terminalHost{App: "Terminal", TTY: "/dev/ttys009"}
 	for name, tc := range map[string]struct {
 		conversation Conversation
 		processes    fakeProcesses
@@ -482,42 +489,31 @@ func TestOpen_EndedSessionReusesItsTabOrOpensANewOne(t *testing.T) {
 		reply        OpenReply
 		calls        string
 	}{
-		"idle tab": {
-			conversation: ended, processes: prompt, launcher: fakeLauncher{focusOK: true},
-			reply: OpenReply{Opened: true, Message: "Resumed in the Ghostty tab it last ran in."},
-			calls: "type Ghostty /dev/ttys004 claude --resume x",
-		},
-		"busy tab": {
-			conversation: ended, processes: busy,
+		"Ghostty tab with only its shell in front": {
+			conversation: ended, processes: shell, launcher: fakeLauncher{focusOK: true},
 			reply: OpenReply{Opened: true, Message: "Resumed in a new Ghostty tab."},
 			calls: "new tab Ghostty claude --resume x",
 		},
-		"tab gone since the check": {
-			conversation: ended, processes: prompt,
-			reply: OpenReply{Opened: true, Message: "Resumed in a new Ghostty tab."},
-			calls: "type Ghostty /dev/ttys004 claude --resume x; new tab Ghostty claude --resume x",
-		},
 		"Automation refused": {
-			conversation: ended, processes: busy, launcher: fakeLauncher{err: errAutomationDenied},
+			conversation: ended, processes: shell, launcher: fakeLauncher{err: errAutomationDenied},
 			reply: OpenReply{Message: "macOS blocked opening Ghostty. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "claude --resume x"},
 			calls: "new tab Ghostty claude --resume x",
 		},
-		"Automation prompt unanswered while typing": {
-			conversation: ended, processes: prompt, launcher: fakeLauncher{err: context.DeadlineExceeded},
+		"Automation prompt unanswered": {
+			conversation: ended, processes: shell, launcher: fakeLauncher{err: context.DeadlineExceeded},
 			reply: OpenReply{Message: "macOS is waiting for you to allow control of Ghostty. Answer its prompt, then click again.", Command: "claude --resume x"},
-			calls: "type Ghostty /dev/ttys004 claude --resume x",
+			calls: "new tab Ghostty claude --resume x",
 		},
-		"Terminal tab is never typed into": {
+		"Terminal tab": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &terminalTab},
-			processes:    terminalPrompt,
 			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal tab."},
 			calls:        "new tab Terminal claude --resume x",
 		},
 		"Terminal without new tabs falls back to a window": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &terminalTab},
-			processes:    terminalPrompt, launcher: fakeLauncher{newTabErr: errors.New("no such command")},
-			reply: OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},
-			calls: "new tab Terminal claude --resume x; terminal claude --resume x",
+			launcher:     fakeLauncher{newTabErr: errors.New("no such command")},
+			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},
+			calls:        "new tab Terminal claude --resume x; terminal claude --resume x",
 		},
 		"no tab remembered": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}},
@@ -526,9 +522,9 @@ func TestOpen_EndedSessionReusesItsTabOrOpensANewOne(t *testing.T) {
 		},
 		"ended since the scan": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}, lastTab: &tab},
-			processes:    prompt, launcher: fakeLauncher{focusOK: true},
-			reply: OpenReply{Opened: true, Message: "Resumed in the Ghostty tab it last ran in."},
-			calls: "type Ghostty /dev/ttys004 claude --resume x",
+			processes:    shell, launcher: fakeLauncher{focusOK: true},
+			reply: OpenReply{Opened: true, Message: "Resumed in a new Ghostty tab."},
+			calls: "new tab Ghostty claude --resume x",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -577,7 +573,6 @@ func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 	cases := map[string][]string{"new terminal": newTerminalArgs(hostile)}
 	for _, app := range []string{"Terminal", "Ghostty"} {
 		cases["focus "+app] = focusTabArgs(app, hostile)
-		cases["type "+app] = runInTabArgs(app, "/dev/ttys004", hostile)
 		cases["new tab "+app] = runInNewTabArgs(app, hostile)
 	}
 	for name, args := range cases {
@@ -592,19 +587,6 @@ func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 			if strings.Contains(arg, "echo") {
 				t.Errorf("%s: the value leaked into the script text: %q", name, arg)
 			}
-		}
-	}
-}
-
-func TestRunInTabArgs_ClearTheLineBeforeTyping(t *testing.T) {
-	script := strings.Join(runInTabArgs("Ghostty", "/dev/ttys004", "claude --resume x"), "\n")
-	cleared, typed := strings.Index(script, `send key "c" modifiers "control" to t`), strings.Index(script, "(item 2 of argv)")
-	if cleared < 0 || typed < 0 || cleared > typed {
-		t.Errorf("Ghostty must clear the line before typing:\n%s", script)
-	}
-	for _, app := range []string{"Terminal", "iTerm"} {
-		if _, reused := typeLines[app]; reused {
-			t.Errorf("%s cannot be shown to clear a line, so its tabs are never typed into", app)
 		}
 	}
 }

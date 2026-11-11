@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,9 +74,6 @@ type terminalHost struct {
 	App string `json:"app"`
 	// TTY is the terminal device of the session's process.
 	TTY string `json:"tty"`
-	// Leader is the tty's first process under the app, its login or
-	// shell. A tab opened later on the same tty has another.
-	Leader ProcessRef `json:"leader"`
 }
 
 // terminalApps maps a fragment of an ancestor's command path to the app
@@ -115,40 +114,12 @@ func hostOf(table []ProcessInfo, pid int) (host terminalHost, ok bool) {
 		for _, known := range terminalApps {
 			if strings.Contains(parent.Command, known.fragment) {
 				host.App = known.app
-				host.Leader = ProcessRef{PID: child.PID, ProcStart: child.Started}
 				return host, true
 			}
 		}
 		child = parent
 	}
 	return host, false
-}
-
-// shells are the programs a tab at its prompt runs in the foreground.
-var shells = map[string]bool{"zsh": true, "bash": true, "fish": true, "sh": true, "dash": true, "ksh": true, "tcsh": true, "nu": true}
-
-// tabIdle reports whether tab still shows the login the session ran
-// under and sits at its shell prompt: the tab's own shell, the child of
-// that login, is the only process in the foreground. A script the shell
-// runs, even one that waits at a prompt of its own, is busy.
-func tabIdle(table []ProcessInfo, tab terminalHost) bool {
-	leader, foreground := false, false
-	for _, process := range table {
-		if process.TTY != tab.TTY {
-			continue
-		}
-		if process.PID == tab.Leader.PID && process.Started == tab.Leader.ProcStart {
-			leader = true
-		}
-		if strings.Contains(process.Stat, "+") {
-			ownShell := process.PPID == tab.Leader.PID || process.PID == tab.Leader.PID
-			if !ownShell || !shells[strings.TrimPrefix(filepath.Base(process.Command), "-")] {
-				return false
-			}
-			foreground = true
-		}
-	}
-	return leader && foreground
 }
 
 // codexClientLead is how long before its thread a Codex client may
@@ -159,10 +130,10 @@ const codexClientLead = 15 * time.Second
 // app-server daemon holds. Codex does not record which client shows a
 // thread, and its daemon keeps a thread after the client quits, so the
 // pick reads clues: the command lines once, and the clients' folders
-// once and only when a client could still be it.
+// once and only when no command line names the thread.
 type codexClients struct {
 	table     []ProcessInfo
-	threads   []string
+	threads   []threadStart
 	processes Processes
 	loaded    bool
 	pids      []int
@@ -171,9 +142,11 @@ type codexClients struct {
 	cwds      map[int]string
 }
 
-// newCodexClients reads table; threads holds when each Codex CLI thread
-// was created.
-func newCodexClients(table []ProcessInfo, threads []string, processes Processes) *codexClients {
+// threadStart is when and where a Codex CLI thread was created.
+type threadStart struct{ created, folder string }
+
+// newCodexClients reads table and the Codex CLI threads.
+func newCodexClients(table []ProcessInfo, threads []threadStart, processes Processes) *codexClients {
 	return &codexClients{table: table, threads: threads, processes: processes}
 }
 
@@ -211,33 +184,34 @@ func (k *codexClients) folders() map[int]string {
 }
 
 // pick returns the client that shows c: the one started with its id,
-// else the only one whose first thread after it started is c. With
-// neither pid is 0 and ttys lists the clients in c's folder that
-// started no thread of their own, which could still be it. Being in the
-// folder is never enough to pick one: a client opened later in the
-// folder shows an empty tab, not a thread the daemon kept.
+// else the only one whose first thread in its folder after it started
+// is c. A client started to resume a thread shows that thread, so only
+// the id can pick it. With neither pid is 0 and ttys lists the clients
+// in c's folder that started no thread of their own, which could still
+// be it. Being in the folder is never enough to pick one: a client
+// opened later in the folder shows an empty tab, not a thread the
+// daemon kept.
 func (k *codexClients) pick(c Conversation) (pid int, ttys []string) {
 	k.load()
+	var fresh []ProcessInfo
 	for _, client := range k.clients {
 		if strings.Contains(k.args[client.PID], c.ID) {
 			return client.PID, nil
 		}
-	}
-	if only, ok := onlyOne(k.clients, func(client ProcessInfo) bool { return firstThreadAfter(client, k.threads) == c.StartedAt }); ok && c.StartedAt != "" {
-		return only.PID, nil
-	}
-	var free []ProcessInfo
-	for _, client := range k.clients {
-		if firstThreadAfter(client, k.threads) == "" {
-			free = append(free, client)
+		if !resumesThread(k.args[client.PID]) {
+			fresh = append(fresh, client)
 		}
 	}
-	if len(free) == 0 {
+	if len(fresh) == 0 {
 		return 0, nil
 	}
 	cwds := k.folders()
-	for _, client := range free {
-		if cwds[client.PID] == c.Folder {
+	first := func(client ProcessInfo) string { return firstThreadAfter(client, cwds[client.PID], k.threads) }
+	if only, ok := onlyOne(fresh, func(client ProcessInfo) bool { return first(client) == c.StartedAt }); ok && c.StartedAt != "" {
+		return only.PID, nil
+	}
+	for _, client := range fresh {
+		if first(client) == "" && cwds[client.PID] == c.Folder {
 			ttys = append(ttys, client.TTY)
 		}
 	}
@@ -245,21 +219,33 @@ func (k *codexClients) pick(c Conversation) (pid int, ttys []string) {
 	return 0, ttys
 }
 
-// firstThreadAfter is the creation time of the first thread created as
-// client started or within codexClientLead after, or "" for none.
-func firstThreadAfter(client ProcessInfo, threads []string) string {
+var threadIDPattern = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+
+// resumesThread reports whether a client's command line binds it to a
+// thread that already exists, by its id or with `codex resume`.
+func resumesThread(args string) bool {
+	return threadIDPattern.MatchString(args) || slices.Contains(strings.Fields(args), "resume")
+}
+
+// firstThreadAfter is the creation time of the first thread created in
+// folder as client started or within codexClientLead after, or "" for
+// none. An unknown folder counts every thread.
+func firstThreadAfter(client ProcessInfo, folder string, threads []threadStart) string {
 	started, err := time.Parse(lstartLayout, client.Started)
 	if err != nil {
 		return ""
 	}
 	first, firstAt := "", time.Time{}
 	for _, thread := range threads {
-		created, err := time.Parse(time.RFC3339, thread)
+		if folder != "" && thread.folder != folder {
+			continue
+		}
+		created, err := time.Parse(time.RFC3339, thread.created)
 		if err != nil || created.Before(started) || created.Sub(started) > codexClientLead {
 			continue
 		}
 		if first == "" || created.Before(firstAt) {
-			first, firstAt = thread, created
+			first, firstAt = thread.created, created
 		}
 	}
 	return first
@@ -292,7 +278,7 @@ type placement struct {
 // holds shows in a terminal client, which is looked for.
 func (s *Scanner) placeLive(results []sourceResult) {
 	var live []*Conversation
-	var threads []string
+	var threads []threadStart
 	for r := range results {
 		for i := range results[r].conversations {
 			c := &results[r].conversations[i]
@@ -300,7 +286,7 @@ func (s *Scanner) placeLive(results []sourceResult) {
 				live = append(live, c)
 			}
 			if c.Tool == ToolCodex && c.App == AppCLI && c.StartedAt != "" {
-				threads = append(threads, c.StartedAt)
+				threads = append(threads, threadStart{created: c.StartedAt, folder: c.Folder})
 			}
 		}
 	}

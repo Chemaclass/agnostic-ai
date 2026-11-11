@@ -30,9 +30,6 @@ type Launcher interface {
 	// FocusTab selects the tab of app that shows tty and brings its
 	// window to the front; ok is false when no tab shows that tty.
 	FocusTab(ctx context.Context, app, tty string) (ok bool, err error)
-	// RunInTab types command into the tab of app that shows tty and
-	// brings it to the front; ok is false when no tab shows that tty.
-	RunInTab(ctx context.Context, app, tty, command string) (ok bool, err error)
 	// RunInNewTab opens a tab of app that runs command.
 	RunInNewTab(ctx context.Context, app, command string) error
 }
@@ -160,7 +157,7 @@ func Open(ctx context.Context, c Conversation, processes Processes, launcher Lau
 	case RouteFocus:
 		return focusTerminal(ctx, c, processes, launcher)
 	case RouteTerminal:
-		return resumeTerminal(ctx, c, processes, launcher)
+		return resumeTerminal(ctx, c, launcher)
 	default:
 		return OpenReply{Message: fmt.Sprintf("No way to open a %s conversation here.", toolLabels[c.Tool])}
 	}
@@ -215,8 +212,7 @@ func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply
 }
 
 // tabApps are the terminal apps whose tabs the server selects by tty
-// and opens new tabs in. An ended session is typed into its old tab
-// only in an app listed in typeLines, which can clear the line first.
+// and opens new tabs in.
 var tabApps = map[string]bool{"Terminal": true, "Ghostty": true}
 
 // editorTerminals are the editors whose window on a folder holds the
@@ -231,27 +227,15 @@ func allowControl(verb, app, then string) string {
 	return fmt.Sprintf("macOS blocked %s %s. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control %s in System Settings › Privacy & Security › Automation, %s.", verb, app, app, then)
 }
 
-// resumeTerminal resumes an ended session: in the tab it last ran in
-// while that tab sits at its prompt, else in a new tab of the same app.
-func resumeTerminal(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
+// resumeTerminal resumes an ended session in a new tab of the app it
+// last ran in. Its old tab is never typed into: a shell waiting in a
+// builtin such as read looks the same as one at its prompt.
+func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
 	tab := c.lastTab
 	if tab == nil || !tabApps[tab.App] {
 		return newTerminal(ctx, c, launcher)
 	}
 	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: c.Open.Command} }
-	if _, typed := typeLines[tab.App]; typed {
-		if table, err := processes.Table(); err == nil && tabIdle(table, *tab) {
-			ok, err := launcher.RunInTab(ctx, tab.App, tab.TTY, c.Open.Command)
-			switch {
-			case ok && err == nil:
-				return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in the %s tab it last ran in.", tab.App)}
-			case errors.Is(err, errAutomationDenied):
-				return byHand(allowControl("opening", tab.App, "or run this command yourself"))
-			case errors.Is(err, context.DeadlineExceeded):
-				return byHand(waitingForPrompt(tab.App))
-			}
-		}
-	}
 	err := launcher.RunInNewTab(ctx, tab.App, c.Open.Command)
 	switch {
 	case err == nil:
@@ -293,7 +277,7 @@ func newTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenRep
 // that ended since the scan resumes as an ended one does.
 func focusTerminal(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
 	if c.process == nil || !processes.Alive(c.process.PID, c.process.ProcStart) {
-		return resumeTerminal(ctx, c, processes, launcher)
+		return resumeTerminal(ctx, c, launcher)
 	}
 	switchThere := func(message string) OpenReply {
 		return OpenReply{Message: message, Command: c.Open.Command}
@@ -438,7 +422,7 @@ func script(lines ...string) []string {
 }
 
 // tabScripts hold, per app, the lines that find the tab whose tty is
-// item 1 of argv as t; then runs inside that match, then is the reply.
+// item 1 of argv as t, select it, and close the blocks they opened.
 var tabScripts = map[string]struct{ open, match, close []string }{
 	"Terminal": {
 		open:  []string{`tell application "Terminal"`, "repeat with w in windows", "repeat with t in tabs of w", "if tty of t is (item 1 of argv) then"},
@@ -452,41 +436,13 @@ var tabScripts = map[string]struct{ open, match, close []string }{
 	},
 }
 
-// typeLines drop whatever the matched t's shell holds at its prompt,
-// a half-typed line or an open quote's continuation lines, so it cannot
-// run with the command: Ctrl-C does that in zsh, bash and fish in every
-// key mode. A prompt theme such as powerlevel10k can take the first
-// Ctrl-C while it redraws, so a second follows; at a clean prompt it
-// only draws the prompt again. After a moment for the prompt to redraw,
-// they type item 2 of argv and press Return. Terminal cannot send keys
-// to a tab, so its tabs are never typed into.
-var typeLines = map[string][]string{
-	"Ghostty": {
-		`send key "c" modifiers "control" to t`,
-		"delay 0.5",
-		`send key "c" modifiers "control" to t`,
-		"delay 0.5",
-		"input text (item 2 of argv) to t",
-		`send key "enter" to t`,
-	},
-}
-
-func tabArgs(app string, extra []string, values ...string) []string {
+func focusTabArgs(app, tty string) []string {
 	tabs := tabScripts[app]
-	lines := append(append([]string{}, tabs.open...), extra...)
-	lines = append(lines, tabs.match...)
+	lines := append(append([]string{}, tabs.open...), tabs.match...)
 	lines = append(lines, "activate", `return "ok"`)
 	lines = append(lines, tabs.close...)
 	lines = append(lines, `return "missing"`)
-	return append(script(lines...), values...)
-}
-
-func focusTabArgs(app, tty string) []string {
-	return tabArgs(app, nil, tty)
-}
-
-func runInTabArgs(app, tty, command string) []string {
-	return tabArgs(app, typeLines[app], tty, command)
+	return append(script(lines...), tty)
 }
 
 // newTabLines open a tab that runs item 1 of argv, in the front window
@@ -538,17 +494,6 @@ func (macLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) 
 	return out == "ok", nil
 }
 
-func (macLauncher) RunInTab(ctx context.Context, app, tty, command string) (bool, error) {
-	if _, ok := typeLines[app]; !ok {
-		return false, errNotHere
-	}
-	out, err := run(ctx, "osascript", runInTabArgs(app, tty, command)...)
-	if err != nil {
-		return false, err
-	}
-	return out == "ok", nil
-}
-
 func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
 	if _, ok := newTabLines[app]; !ok {
 		return errNotHere
@@ -577,10 +522,6 @@ func (linuxLauncher) FocusTab(context.Context, string, string) (bool, error) {
 	return false, errNotHere
 }
 
-func (linuxLauncher) RunInTab(context.Context, string, string, string) (bool, error) {
-	return false, errNotHere
-}
-
 func (linuxLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
 
 type unsupportedLauncher struct{}
@@ -594,10 +535,6 @@ func (unsupportedLauncher) ActivateApp(context.Context, string) error { return e
 func (unsupportedLauncher) RunInNewTerminal(context.Context, string) error { return errNotHere }
 
 func (unsupportedLauncher) FocusTab(context.Context, string, string) (bool, error) {
-	return false, errNotHere
-}
-
-func (unsupportedLauncher) RunInTab(context.Context, string, string, string) (bool, error) {
 	return false, errNotHere
 }
 

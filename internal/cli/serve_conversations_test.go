@@ -72,10 +72,6 @@ func (l *recordingLauncher) FocusTab(context.Context, string, string) (bool, err
 	return false, errors.New("unexpected focus")
 }
 
-func (l *recordingLauncher) RunInTab(context.Context, string, string, string) (bool, error) {
-	return false, errors.New("unexpected typing")
-}
-
 func (l *recordingLauncher) RunInNewTab(context.Context, string, string) error {
 	return errors.New("unexpected tab")
 }
