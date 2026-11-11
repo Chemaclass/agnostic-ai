@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -39,9 +40,22 @@ func TestRulesFileWriters_MatchAdapters(t *testing.T) {
 					writes = true
 				}
 			}
-			if writes != WritesRulesFile(name) {
-				t.Errorf("adapter writes rules-file: %v, WritesRulesFile: %v; update rulesFileWriters", writes, WritesRulesFile(name))
+			if writes != WritesRulesFile(name) || writes == IgnoresRulesFile(name) {
+				t.Errorf("adapter writes rules-file: %v, WritesRulesFile: %v, IgnoresRulesFile: %v; list every built-in in rulesFileWriters", writes, WritesRulesFile(name), IgnoresRulesFile(name))
 			}
 		})
+	}
+}
+
+// A name in the table that is not a built-in would hide an external
+// adapter's rules file.
+func TestRulesFileWriters_ListOnlyBuiltins(t *testing.T) {
+	for _, name := range emit.RulesFileTargets() {
+		if _, ok := Get(name); !ok {
+			t.Errorf("rulesFileWriters names %s, which is not a built-in target", name)
+		}
+	}
+	if IgnoresRulesFile("acme") || WritesRulesFile("acme") {
+		t.Error("an external target must keep the key's meaning")
 	}
 }

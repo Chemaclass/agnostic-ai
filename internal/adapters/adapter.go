@@ -418,6 +418,13 @@ func WritesRulesFile(target string) bool {
 	return emit.WritesRulesFile(target)
 }
 
+// IgnoresRulesFile reports whether target is a built-in whose adapter
+// writes no outputs.<target>.rules-file (re-exported from the emit
+// layer).
+func IgnoresRulesFile(target string) bool {
+	return emit.IgnoresRulesFile(target)
+}
+
 // RulesFileWriters returns, sorted, the targets that write
 // outputs.<target>.rules-file (re-exported from the emit layer).
 func RulesFileWriters() []string {
