@@ -120,8 +120,13 @@ test('tells open pages to reload after a frontend file changes, and ends their s
       seen += decoder.decode(value)
     }
   })()
-  await writeFile(join(copy, 'panel.css'), '/* edited */\n', { flag: 'a' })
-  await reloaded
+  // The watcher can miss a write that lands before the system starts reporting changes.
+  let seenReload = false
+  reloaded.then(() => { seenReload = true }, () => {})
+  while (!seenReload) {
+    await writeFile(join(copy, 'panel.css'), '/* edited */\n', { flag: 'a' })
+    await Promise.race([reloaded, new Promise((r) => setTimeout(r, 250))])
+  }
   await preview.close()
   let ended = false
   while (!ended) ended = (await reader.read()).done
