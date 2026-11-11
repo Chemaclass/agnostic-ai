@@ -144,7 +144,10 @@ const GROUP_ORDER: GroupId[] = ['live', 'today', 'yesterday', 'week', 'earlier']
 interface ConversationGroup {
   id: GroupId
   label: string
+  /** In the order the list draws them: each nested row right after the row it sits under. */
   conversations: Conversation[]
+  /** The row each nested row sits under, by tool and id. */
+  under: ReadonlyMap<string, Conversation>
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -181,9 +184,91 @@ export function groupConversations(conversations: Conversation[], now: Date): Co
   const groups = GROUP_ORDER.map((id) => ({
     id,
     label: GROUP_LABELS[id],
-    conversations: conversations.filter((conversation) => groupOf(conversation, now) === id),
+    ...nestRows(conversations.filter((conversation) => groupOf(conversation, now) === id)),
   }))
   return groups.filter((group) => group.conversations.length > 0)
+}
+
+// A walk that meets a loop gives no top, so every row on it stays a normal row.
+const LOOP = Symbol('loop')
+
+/**
+ * The top of each row's family in `rows`: the last of its parents, walking up, that is in `rows`,
+ * or the row itself. Each walk stops at a row already worked out, so the whole list costs one pass.
+ */
+function topsOf(rows: ReadonlyMap<string, Conversation>): (conversation: Conversation) => Conversation | typeof LOOP {
+  const tops = new Map<string, Conversation | typeof LOOP>()
+  return (conversation) => {
+    const path: string[] = []
+    const onPath = new Set<string>()
+    let at = conversation
+    let top: Conversation | typeof LOOP
+    for (;;) {
+      const key = conversationKey(at)
+      const known = tops.get(key)
+      if (known !== undefined) {
+        top = known
+        break
+      }
+      path.push(key)
+      onPath.add(key)
+      const above = at.parent && rows.get(`${at.parent.tool}:${at.parent.id}`)
+      if (!above) {
+        top = at
+        break
+      }
+      if (onPath.has(conversationKey(above))) {
+        top = LOOP
+        break
+      }
+      at = above
+    }
+    for (const key of path) tops.set(key, top)
+    return top
+  }
+}
+
+// When a child started: startedAt, else its last write. A time that does not parse counts as the oldest.
+function startedAt(conversation: Conversation): number {
+  const time = Date.parse(conversation.startedAt ?? conversation.updatedAt)
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time
+}
+
+/** Oldest start first, then by tool and id, so a new message moves no child. Each time is read once. */
+function byStart(family: Conversation[]): Conversation[] {
+  return family
+    .map((conversation) => ({ conversation, time: startedAt(conversation), key: conversationKey(conversation) }))
+    .sort((a, b) => (a.time !== b.time ? (a.time < b.time ? -1 : 1) : a.key === b.key ? 0 : a.key < b.key ? -1 : 1))
+    .map((entry) => entry.conversation)
+}
+
+/**
+ * One group's rows as the list draws them: every descendant right after the root it sits under,
+ * oldest first, one level deep. The first row with a tool and id owns its children, so as many rows come out as go in.
+ */
+function nestRows(rows: Conversation[]): Pick<ConversationGroup, 'conversations' | 'under'> {
+  const byKey = new Map<string, Conversation>()
+  for (const conversation of rows) {
+    if (!byKey.has(conversationKey(conversation))) byKey.set(conversationKey(conversation), conversation)
+  }
+  const topOf = topsOf(byKey)
+  const under = new Map<string, Conversation>()
+  const children = new Map<Conversation, Conversation[]>()
+  for (const conversation of rows) {
+    const top = topOf(conversation)
+    if (top === LOOP || conversationKey(top) === conversationKey(conversation)) continue
+    under.set(conversationKey(conversation), top)
+    const family = children.get(top)
+    if (family) family.push(conversation)
+    else children.set(top, [conversation])
+  }
+  const conversations: Conversation[] = []
+  for (const conversation of rows) {
+    if (under.has(conversationKey(conversation))) continue
+    conversations.push(conversation)
+    for (const child of byStart(children.get(conversation) ?? [])) conversations.push(child)
+  }
+  return { conversations, under }
 }
 
 interface LiveBadge {

@@ -4,11 +4,12 @@
 
 const MINUTE = 60 * 1000
 
-function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply } = {}) {
+function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent } = {}) {
   const cloud = app === 'cloud'
   return {
     ...(deleteUnsupported ? { deleteUnsupported } : {}),
     ...(reply ? { reply } : {}),
+    ...(parent ? { parent } : {}),
     tool,
     app,
     id,
@@ -97,6 +98,24 @@ function duplicateProjects(now) {
 }
 
 /**
+ * Conversations started from others: a child under its parent in Needs you and in Active, a waiting child
+ * whose parent is in Active, a local child of a cloud parent, and a child whose parent is not in the list.
+ */
+function nested(now) {
+  const from = (id) => ({ tool: 'claude', id })
+  return [
+    conversation(now, 'claude', 'nest-blocked', 'Check the docs links', 'blocked', { minutesAgo: 4, parent: from('nest-active') }),
+    conversation(now, 'codex', 'nest-reply', 'Update the API docs', 'unread', { minutesAgo: 10, parent: from('nest-wait') }),
+    conversation(now, 'claude', 'nest-wait', 'Approve the API change', 'blocked', { minutesAgo: 30, reply: 'Should the old field stay for one release?' }),
+    conversation(now, 'cursor', 'nest-active-kid', 'Write the docs index', 'active', { minutesAgo: 60, parent: from('nest-active') }),
+    conversation(now, 'claude', 'nest-active', 'Plan the docs site', 'active', { minutesAgo: 120 }),
+    conversation(now, 'claude', 'nest-local', 'Try the API guide examples', 'active', { minutesAgo: 150, parent: from('nest-cloud') }),
+    conversation(now, 'claude', 'nest-cloud', 'Draft the API guide', 'active', { app: 'cloud', minutesAgo: 200 }),
+    conversation(now, 'codex', 'nest-orphan', 'Tidy the docs styles', 'active', { minutesAgo: 240, parent: from('gone-1') }),
+  ]
+}
+
+/**
  * Each fixture is a list plus the ways its calls fail:
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
  * markProblem, renameProblem, deleteProblem, openProblem (a conversation that did not open) with its openCommand,
@@ -120,6 +139,7 @@ export const FIXTURES = {
     renameProblem: 'agnostic-ai could not save the name: the marks file is read-only.',
   },
   'needs-you': { label: 'Four chats that need you, one in the cloud', conversations: needsYou },
+  nested: { label: 'Chats started from other chats', conversations: nested },
   'needs-you-mark-failure': {
     label: 'Mark all as read failure',
     conversations: needsYou,

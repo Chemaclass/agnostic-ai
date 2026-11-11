@@ -119,12 +119,101 @@ export function withTitle(view, key, title) {
   return { ...view, conversations }
 }
 
-/** The rows of each group that has any, in list order. */
+/**
+ * The rows of each group that has any, in list order, except that a conversation started from another
+ * one in the same group comes right after it. `under` maps such a row's key to the row it sits under.
+ */
 export function grouped(conversations) {
   return GROUPS.map((group) => ({
     ...group,
-    rows: conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id),
+    ...nested(conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)),
   })).filter((group) => group.rows.length > 0)
+}
+
+// A walk that meets a loop gives no top, so every row on it stays a normal row.
+const LOOP = Symbol('loop')
+
+/**
+ * The top of each row's family in `rows`: the last of its parents, walking up, that is in `rows`,
+ * or the row itself. Each walk stops at a row already worked out, so the whole list costs one pass.
+ */
+function topsOf(rows) {
+  const tops = new Map()
+  return (conversation) => {
+    const path = []
+    const onPath = new Set()
+    let at = conversation
+    let top
+    for (;;) {
+      const key = keyOf(at)
+      if (tops.has(key)) {
+        top = tops.get(key)
+        break
+      }
+      path.push(key)
+      onPath.add(key)
+      const above = at.parent && rows.get(at.parent.tool + ':' + at.parent.id)
+      if (!above) {
+        top = at
+        break
+      }
+      if (onPath.has(keyOf(above))) {
+        top = LOOP
+        break
+      }
+      at = above
+    }
+    for (const key of path) tops.set(key, top)
+    return top
+  }
+}
+
+/** When a child started: startedAt, else its last write. A time that does not parse counts as the oldest. */
+function startedAt(conversation) {
+  const time = Date.parse(conversation.startedAt ?? conversation.updatedAt)
+  return Number.isNaN(time) ? -Infinity : time
+}
+
+/** Oldest start first, then by tool and id, so a new message moves no child. Each time is read once. */
+function byStart(family) {
+  return family
+    .map((conversation) => ({ conversation, time: startedAt(conversation), key: keyOf(conversation) }))
+    .sort((a, b) => (a.time !== b.time ? (a.time < b.time ? -1 : 1) : a.key === b.key ? 0 : a.key < b.key ? -1 : 1))
+    .map((entry) => entry.conversation)
+}
+
+/**
+ * One group's rows as the list draws them: every descendant right after the root it sits under,
+ * oldest first, one level deep. The first row with a tool and id owns its children, so as many rows come out as go in.
+ */
+function nested(rows) {
+  const byKey = new Map()
+  for (const conversation of rows) {
+    if (!byKey.has(keyOf(conversation))) byKey.set(keyOf(conversation), conversation)
+  }
+  const topOf = topsOf(byKey)
+  const under = new Map()
+  const children = new Map()
+  for (const conversation of rows) {
+    const top = topOf(conversation)
+    if (top === LOOP || keyOf(top) === keyOf(conversation)) continue
+    under.set(keyOf(conversation), top)
+    const family = children.get(top)
+    if (family) family.push(conversation)
+    else children.set(top, [conversation])
+  }
+  const drawn = []
+  for (const conversation of rows) {
+    if (under.has(keyOf(conversation))) continue
+    drawn.push(conversation)
+    for (const child of byStart(children.get(conversation) ?? [])) drawn.push(child)
+  }
+  return { rows: drawn, under }
+}
+
+/** What a nested row tells a screen reader about the row it sits under. */
+export function startedFromOf(parent) {
+  return 'Started from ' + titleOf(parent)
 }
 
 /**

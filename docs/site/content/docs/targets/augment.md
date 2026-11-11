@@ -87,7 +87,7 @@ Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported event
 
 ### Shared memory
 
-With `builtins: [memory]`, sync adds an executable `.augment/hooks/memory-augment-session-start.sh` and a `SessionStart` entry for Auggie CLI on its [supported platforms](https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli#system-requirements): macOS, Linux, and Windows WSL. The script finds the project from its working directory and returns both memory indexes through `hookSpecificOutput.additionalContext`. The same script is installed for `sync --global`. Auggie 0.x injects that output. The 1.x prerelease runs `SessionStart` hooks in the background and does not add their output to the agent's context ([1.x hooks docs](https://docs.augmentcode.com/cli/hooks.md)), so there the memory rule tells the agent to read the indexes.
+With `builtins: [memory]`, sync adds an executable `.augment/hooks/memory-augment-session-start.sh` and a `SessionStart` entry for Auggie CLI on its [supported platforms](https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli#system-requirements): macOS, Linux, and Windows WSL. The script finds the project from its working directory and returns both memory indexes through `hookSpecificOutput.additionalContext`. The same script is installed for `sync --global`. Auggie 0.x injects that output. Auggie 1.x, stable from 1.2.0, runs `SessionStart` hooks in the background and does not add their output to the agent's context ([1.x hooks docs](https://docs.augmentcode.com/cli/hooks.md)), so there the memory rule tells the agent to read the indexes.
 
 The IDE keeps the memory rule. See [shared memory](@/docs/memory.md#load-at-session-start) for the context limit and how to keep the tool's own memory.
 
