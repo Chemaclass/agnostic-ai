@@ -602,3 +602,26 @@ func TestSyncGlobal_SettingsNoteClaudeManagedOnlyKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncGlobal_CopilotSettingsTakeEveryDocumentedEffort(t *testing.T) {
+	for _, level := range []string{"none", "minimal", "max"} {
+		t.Run(level, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "effort:\n  copilot: "+level+"\n")
+
+			if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+			var doc map[string]any
+			if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".copilot", "settings.json"))), &doc); err != nil {
+				t.Fatal(err)
+			}
+			if doc["effortLevel"] != level {
+				t.Errorf("effortLevel = %v, want %s", doc["effortLevel"], level)
+			}
+			if _, _, err := runGlobalAgentTest("--only", "copilot", "--check"); err != nil {
+				t.Fatalf("check after sync: %v", err)
+			}
+		})
+	}
+}
