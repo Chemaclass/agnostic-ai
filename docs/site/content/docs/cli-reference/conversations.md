@@ -56,7 +56,7 @@ The brief must not be empty and must fit in 4096 bytes. Start it with the goal a
 | iTerm, Warp, an editor's terminal, or another app | A new Terminal window |
 | Linux or Windows | Refused. The message gives the line to run in a terminal yourself. |
 
-macOS asks once per app whether the terminal that runs the command may control Terminal or Ghostty.
+The first time, macOS may ask whether the terminal that runs the command may control Terminal or Ghostty.
 
 ### When it refuses
 
