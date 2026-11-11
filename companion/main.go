@@ -107,6 +107,9 @@ type shell struct {
 	tell      func(appearance)
 	end       func()
 	endOnce   sync.Once
+	// pausing keeps a pause and a wake from interleaving their server and
+	// poll changes.
+	pausing sync.Mutex
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -119,21 +122,41 @@ type shell struct {
 	// hiddenByFocusAt is when the panel last hid because it lost focus.
 	hiddenByFocusAt time.Time
 	save            *time.Timer
-	// hidden is set while the companion is off the screen: only the
-	// shortcut listens then, and nothing reads or asks anything.
-	hidden bool
+	// paused is set while the circle is faded: only the shortcut and
+	// the circle listen then, and nothing reads or asks anything.
+	paused bool
 }
 
-// hide takes the companion off the screen and stops its server, until
-// the shortcut or a second start brings it back.
-func (s *shell) hide() {
-	s.mu.Lock()
-	s.hidden = true
-	s.mu.Unlock()
+// pause fades the circle, closes the list and stops the server, until
+// a click, the shortcut or a second start wakes it.
+func (s *shell) pause() {
+	s.setPaused(true)
 	s.panel.Hide()
-	s.bubble.Hide()
-	s.inbox.stop()
-	s.server.rest()
+}
+
+// setPaused stops or starts the reading and tells the pages. It reports
+// whether the state changed.
+func (s *shell) setPaused(on bool) bool {
+	s.pausing.Lock()
+	defer s.pausing.Unlock()
+	s.mu.Lock()
+	changed := s.paused != on
+	s.paused = on
+	looks := s.settings.appearance()
+	looks.Paused = on
+	s.mu.Unlock()
+	if !changed {
+		return false
+	}
+	if on {
+		s.inbox.stop()
+		s.restBriefly()
+	} else {
+		s.server.resume()
+		s.inbox.start()
+	}
+	s.tell(looks)
+	return true
 }
 
 // quitRestWait is how long the companion waits for its server to stop
@@ -160,20 +183,10 @@ func (s *shell) quit() {
 	s.endOnce.Do(s.end)
 }
 
-// comeBack puts the bubble back and reads a new list. It reports
-// whether the companion was hidden.
+// comeBack wakes a paused companion and reads a new list. It reports
+// whether the companion was paused.
 func (s *shell) comeBack() bool {
-	s.mu.Lock()
-	wasHidden := s.hidden
-	s.hidden = false
-	s.mu.Unlock()
-	if !wasHidden {
-		return false
-	}
-	s.server.resume()
-	s.inbox.start()
-	s.bubble.Show()
-	return true
+	return s.setPaused(false)
 }
 
 // togglePanel answers a click on the bubble and the shortcut.
@@ -322,9 +335,9 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/preferences/start-at-login", s.setStartAtLogin)
 	mux.HandleFunc("GET /api/appearance", s.getAppearance)
 	mux.HandleFunc("POST /api/dashboard", dashboard)
-	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("POST /api/pause", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-		s.hide()
+		s.pause()
 	})
 	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

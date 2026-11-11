@@ -126,3 +126,19 @@ test('quit answers with no content and shows in the calls', async (t) => {
   const calls = await (await fetch(preview.url + '/dev/calls')).json()
   assert.equal(calls[0].path, '/api/quit')
 })
+
+test('pause sets paused in the appearance, and a click on the circle clears it', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  const appearance = async () => (await fetch(preview.url + '/api/appearance')).json()
+  assert.equal((await appearance()).paused, false)
+
+  const paused = await fetch(preview.url + '/api/pause', { method: 'POST' })
+  assert.equal(paused.status, 204)
+  assert.equal((await appearance()).paused, true)
+  const calls = await (await fetch(preview.url + '/dev/calls')).json()
+  assert.equal(calls[0].path, '/api/pause')
+
+  await fetch(preview.url + '/api/panel/toggle', { method: 'POST' })
+  assert.equal((await appearance()).paused, false)
+})

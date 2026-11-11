@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Hide in the companion's ⋯ menu is now Pause: the circle stays at 10% and reads nothing until you click it or press the shortcut (#3298).
 - Quit the companion from its ⋯ menu or the circle's right-click menu (#3297).
 - The companion and the web interface show the agent's latest reply under each chat's title: the question it asks, or the start of its last message. Local Claude Code and Codex chats show it; Cursor chats and cloud sessions do not yet. `reply` holds it in the API, and a search matches it (#3283).
 - The new `wrap-up` built-in adds a skill that ends a session with what changed, what is still open, and a note to share; `handoff` now points to it (#3284).

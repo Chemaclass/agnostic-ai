@@ -9,3 +9,8 @@ export function motionOf(appearance) {
 export function dimOf(appearance) {
   return appearance?.dimWhenIdle === true ? 'on' : 'off'
 }
+
+/** `on` only while the shell says the companion is paused; an unread appearance is awake. */
+export function pausedOf(appearance) {
+  return appearance?.paused === true ? 'on' : 'off'
+}

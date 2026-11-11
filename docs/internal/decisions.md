@@ -129,3 +129,13 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 **Why:** Confirming the delete is the person's statement that they are done with the chat, as the archive mark is for `completed`. A message written before the server read the row makes the row `unread`, not `dormant`, so the server refuses it as not archived. A file written after the read is at or after the cutoff, so the server refuses it as changed. A later moment, such as when the marks lock is taken, would let a write between the read and that moment through. Two alternatives were rejected. Offering Archive on a dormant row costs a second step on a row already shown as archived, and checks nothing more, since the new mark would also be the moment of the click. Measuring against the last look instead would refuse every later delete when a resumed session wrote only bookkeeping, and the companion has no action to refresh that time.
 
 **Accepted limits:** A dormant session that wrote only bookkeeping lines after the person last looked, and before the server read the row, is deleted. The list's time counts only messages from the person or the agent, so only a message makes the row `unread`. A chat taken back out of the archive whose last write is older than a day is `dormant` again: it is still listed under Archived and can be deleted, also from a page loaded before it was taken back.
+
+## 014: A paused companion fades and reads nothing
+
+**Date:** 2026-11-11
+
+**Context:** Hide took the circle off the screen, and only the shortcut or a second `agnostic-ai companion` brought it back. A person who forgot the shortcut could not find it ([#3298](https://github.com/Chemaclass/agnostic-ai/issues/3298)).
+
+**Decision:** Hide becomes **Pause Agnostic AI companion**. The circle stays where it is at 10% opacity, also under the pointer, with no count and no arc. The companion's server stops and nothing polls, as before. A click on the circle, the shortcut or a second start wakes it with a new read. The paused state is not saved, so a restart starts awake.
+
+**Why:** Pause is kept apart from Dim when idle. Dim is a saved setting that fades to 55% while nothing needs you and keeps watching. Pause is the off mode you can still see and click: it costs no reads. "Pause" names a state that lasts until you resume it, and it carries the companion's name so nobody reads it as pausing the agents.

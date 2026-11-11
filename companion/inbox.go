@@ -60,6 +60,8 @@ func (in *inbox) start() {
 	if in.stopPoll != nil {
 		return
 	}
+	// A list asked while the companion was paused failed; that is no news now.
+	in.problem = ""
 	ctx, stop := context.WithCancel(context.Background())
 	in.stopPoll = stop
 	go in.poll(ctx)

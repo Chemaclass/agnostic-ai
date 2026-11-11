@@ -698,8 +698,8 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			"Claude Code, Codex and Cursor conversations that wait for you, with a searchable " +
 			"list that opens each one where it lives. It asks a server of its own, " +
 			"`agnostic-ai serve --global`, which it starts when it needs a list and stops when " +
-			"you hide it. The companion is built on your machine first, with " +
-			"`agnostic-ai companion install`. Starting it again brings a hidden companion back. " +
+			"you pause it. The companion is built on your machine first, with " +
+			"`agnostic-ai companion install`. Starting it again wakes a paused companion. " +
 			"`agnostic-ai companion stop` ends it and `agnostic-ai companion uninstall` removes it.",
 		Example: `  # Build the companion for this machine, once and after each upgrade
   agnostic-ai companion install
