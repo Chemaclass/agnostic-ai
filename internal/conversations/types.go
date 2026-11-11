@@ -155,6 +155,9 @@ type Conversation struct {
 	// editor is set for an editor extension's link: its folder opens
 	// there first, so the link reaches the window that holds it.
 	editor *editorApp
+	// store is a cursor-agent chat's store.db, which its running process
+	// holds open.
+	store string
 	// renamed is the name the person chose, shown over the tool's title.
 	renamed string
 	// readAt is when the read that gave this row began. A kept result

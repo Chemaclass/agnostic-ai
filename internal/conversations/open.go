@@ -160,10 +160,39 @@ func Open(ctx context.Context, c Conversation, processes Processes, launcher Lau
 	case RouteFocus:
 		return focusTerminal(ctx, c, processes, launcher)
 	case RouteTerminal:
+		if held, ok := heldNow(c, processes); ok {
+			return focusTerminal(ctx, held, processes, launcher)
+		}
 		return resumeTerminal(ctx, c, launcher)
 	default:
 		return OpenReply{Message: fmt.Sprintf("No way to open a %s conversation here.", toolLabels[c.Tool])}
 	}
+}
+
+// heldNow checks a cursor-agent chat's store again before it is resumed:
+// the chat may have started after the scan, or be older than the scan
+// checks, and a resume would start a second copy of it.
+func heldNow(c Conversation, processes Processes) (Conversation, bool) {
+	if c.Tool != ToolCursor || c.store == "" {
+		return c, false
+	}
+	pid := processes.Holders([]string{c.store})[c.store]
+	if pid <= 0 {
+		return c, false
+	}
+	// Another program with the store open, such as a database viewer,
+	// must not stop an ended chat from resuming.
+	command, _, _ := strings.Cut(processes.Args([]int{pid})[pid], " ")
+	if !agentCommands[filepath.Base(command)] {
+		return c, false
+	}
+	c.Live = true
+	c.process = &liveProcess{PID: pid}
+	c.Open.Kind = RouteFocus
+	if table, err := processes.Table(); err == nil {
+		place(&c, nil, table)
+	}
+	return c, true
 }
 
 // openLink hands the conversation to its app. An editor extension

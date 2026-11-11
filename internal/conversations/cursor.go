@@ -299,7 +299,6 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 	}
 	seen := map[string]bool{}
 	var chats []Conversation
-	var chatStores []string
 	for _, store := range stores {
 		seen[store] = true
 		meta, ok := s.cursorAgentMeta(ctx, store)
@@ -316,17 +315,17 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		c := Conversation{
 			Tool: ToolCursor, App: AppCLI, ID: meta.AgentID, Folder: folder,
 			StartedAt: timeFromMillis(meta.CreatedAt), UpdatedAt: updated,
-			Open: Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
+			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
+			store: store,
 		}
 		s.fill(&c, texts{title: title, firstPrompt: first, lastPrompt: last})
 		chats = append(chats, c)
-		chatStores = append(chatStores, store)
 	}
 	if ctx.Err() == nil {
 		forget(s.cursorAgents, seen)
 		forget(s.cursorTranscripts, seen)
 	}
-	s.markLiveCursorAgentChats(chats, chatStores)
+	s.markLiveCursorAgentChats(chats)
 	return chats
 }
 
@@ -335,14 +334,14 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 // file stays after it exits, so the test is whether a process still has
 // it open. A running chat switches to its terminal, since a second
 // resume would compete with it.
-func (s *Scanner) markLiveCursorAgentChats(chats []Conversation, stores []string) {
+func (s *Scanner) markLiveCursorAgentChats(chats []Conversation) {
 	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
 	chatOf := map[string]int{}
 	var recent []string
 	for i, c := range chats {
 		if c.UpdatedAt >= cutoff {
-			chatOf[stores[i]] = i
-			recent = append(recent, stores[i])
+			chatOf[c.store] = i
+			recent = append(recent, c.store)
 		}
 	}
 	for store, pid := range s.Processes.Holders(recent) {
