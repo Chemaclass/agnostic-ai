@@ -256,6 +256,15 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       for (const release of released) release()
       sendJSON(response, 200, { released: released.length })
     },
+    // A new message in a listed chat: it is written now and needs the person again.
+    'POST /dev/write': async (request, response) => {
+      const row = find(await bodyOf(request))
+      if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
+      row.updatedAt = new Date(timeOf()).toISOString()
+      row.state = 'unread'
+      noContent(response)
+      emit('inbox')
+    },
     'POST /dev/arrive': (request, response) => {
       state.conversations = [arrival(timeOf()), ...state.conversations.filter((row) => row.id !== 'arrived-1')]
       noContent(response)

@@ -64,6 +64,22 @@ test('a fixture can refuse renames and marks', async (t) => {
   assert.equal(marked.status, 502)
 })
 
+test('a new message brings a chat marked read back to Needs you', async (t) => {
+  const now = Date.parse('2026-11-07T15:30:00Z')
+  const preview = await startPreview({ port: 0, fixture: 'needs-you', now })
+  t.after(preview.close)
+  assert.equal((await inbox(preview.url)).body.view.needsYou, 4)
+  assert.equal((await postJSON(preview.url + '/api/mark', { tool: 'codex', id: 'reply-2', as: 'seen' })).status, 204)
+  assert.equal((await inbox(preview.url)).body.view.needsYou, 3)
+
+  assert.equal((await postJSON(preview.url + '/dev/write', { tool: 'codex', id: 'reply-2' })).status, 204)
+  const after = await inbox(preview.url)
+  const written = after.body.view.conversations.find((row) => row.id === 'reply-2')
+  assert.equal(written.state, 'unread')
+  assert.equal(written.updatedAt, new Date(now).toISOString())
+  assert.equal(after.body.view.needsYou, 4)
+})
+
 test('searches the fixture rows', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)
