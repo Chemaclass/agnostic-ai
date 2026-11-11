@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hidePanel, markConversation, openConversation, openDashboard, pauseCompanion, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
+import { GROUPS, PLACES, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -151,7 +151,7 @@ function stateMark(conversation) {
   return element('span', 'state is-' + (MARK_OF[conversation.state] ?? conversation.state))
 }
 
-function rowOf(conversation, order, folderNames) {
+function rowOf(conversation, order, folderNames, under) {
   const key = keyOf(conversation)
   const needsYou = conversation.state === 'blocked' || conversation.state === 'unread'
   const quiet = conversation.state === 'completed' || conversation.state === 'dormant'
@@ -159,12 +159,14 @@ function rowOf(conversation, order, folderNames) {
   row.classList.toggle('needs-you', needsYou)
   row.classList.toggle('is-quiet', quiet)
   row.classList.toggle('is-active', key === state.activeKey)
+  row.classList.toggle('is-nested', under !== undefined)
   row.dataset.key = key
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
   row.setAttribute('role', 'option')
   row.setAttribute('aria-selected', String(key === state.activeKey))
   row.title = conversation.folder ? conversation.open.label + '\n' + conversation.folder : conversation.open.label
-  if (conversation.folder) row.setAttribute('aria-description', row.title)
+  const described = [under && startedFromOf(under), conversation.folder && row.title].filter(Boolean)
+  if (described.length > 0) row.setAttribute('aria-description', described.join('\n'))
 
   const text = element('div', 'text')
   const renaming = state.renaming?.key === key ? state.renaming : undefined
@@ -340,7 +342,7 @@ function draw({ force } = { force: false }) {
     list.append(groupHead(group))
     if (isFolded(group)) continue
     for (const conversation of group.rows) {
-      list.append(rowOf(conversation, order, folderNames))
+      list.append(rowOf(conversation, order, folderNames, group.under.get(keyOf(conversation))))
       order += 1
     }
   }
