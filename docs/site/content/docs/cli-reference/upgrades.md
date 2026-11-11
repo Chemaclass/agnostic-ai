@@ -92,6 +92,8 @@ The config needs one root setting per line and a single-line `requires`. Before 
 
 The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` also reports other copies on `PATH` that would run instead of the one it found.
 
+An installed companion is rebuilt through the updated CLI and restarted if it was running. If that update fails, the CLI stays upgraded and the error gives a retry command. See [companion upgrades](@/docs/cli-reference/companion.md#upgrade-the-companion).
+
 ## migrate
 
 Update spec files that use old field names or formats. Old forms keep working, and sync writes the same files afterward, except that a literal MCP credential becomes a `${NAME}` reference. `doctor` and `upgrade --requires` name the migrations that apply.

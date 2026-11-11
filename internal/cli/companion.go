@@ -730,8 +730,9 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			"needs Go, and on macOS the Xcode Command Line Tools, on Linux a C compiler with the " +
 			"GTK 4, WebKitGTK 6.0 and X11 development packages; it names what is missing. On " +
 			"macOS it installs an app with the agnostic-ai icon, signed on this machine, and " +
-			"replaces a bare program an earlier release installed. Run it again after each " +
-			"upgrade of agnostic-ai. A companion that runs is stopped for the install and " +
+			"replaces a bare program an earlier release installed. `agnostic-ai upgrade` updates " +
+			"an installed companion; run this after external upgrades or to retry a failed update. " +
+			"A companion that runs is stopped for the install and " +
 			"started again after it.",
 		Example: `  agnostic-ai companion install
 
