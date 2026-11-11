@@ -62,6 +62,7 @@ describe('context advice', () => {
   it('maps a built-in spec to the built-in that ships it', () => {
     expect(builtinOwner('builtin:shared-memory-policy')).toBe('memory')
     expect(builtinOwner('builtin:caveman')).toBe('caveman')
+    expect(builtinOwner('builtin:wrap-up')).toBe('wrap-up')
     expect(builtinOwner('builtin:unknown-thing')).toBeUndefined()
     expect(builtinOwner('.agnostic-ai/rules/testing.md')).toBeUndefined()
     const advice = contextAdvice(row('builtin:shared-memory-policy', 'always-on rule', 'startup', 270), report)

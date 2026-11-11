@@ -526,6 +526,7 @@ var builtinDescriptions = map[string]string{
 	"handoff-hook": "Offers a saved handoff when a session starts.",
 	"rtk":          "Routes shell commands through rtk to cut output tokens.",
 	"caveman":      "Terse replies to cut output tokens.",
+	"wrap-up":      "Ends a session with a short summary to share with people.",
 }
 
 // builtinAbouts explains each built-in in its Details panel. Keep each
@@ -575,6 +576,14 @@ var builtinAbouts = map[string]BuiltinAbout{
 		DocsURL:   "https://github.com/JuliusBrussee/caveman",
 		DocsLabel: "Caveman on GitHub",
 	},
+	"wrap-up": {
+		Summary: "Adds the wrap-up skill, which ends a session with a short summary for people.",
+		Points: []string{
+			`Say "wrap up" to get what changed, what is still open, and a short note to paste into a chat or a PR.`,
+			"Facts come from the session and local Git. It makes no network call and never guesses a PR number.",
+			"The result shows in the conversation. Nothing is posted, committed or written unless you ask.",
+		},
+	},
 }
 
 func builtinAbout(name string) *BuiltinAbout {
@@ -593,6 +602,7 @@ var builtinLabels = map[string]string{
 	"handoff-hook": "Handoff on start",
 	"rtk":          "RTK",
 	"caveman":      "Caveman",
+	"wrap-up":      "Wrap-up",
 }
 
 func builtinLabel(name string) string {

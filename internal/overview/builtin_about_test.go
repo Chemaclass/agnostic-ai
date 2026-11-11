@@ -11,6 +11,9 @@ func TestBuiltinItems_ExplainEveryBuiltin(t *testing.T) {
 		"rtk":     "https://github.com/rtk-ai/rtk",
 	}
 	for _, item := range builtinItems(Inputs{}) {
+		if item.Description == "Built-in feature." || item.Label == item.Name {
+			t.Errorf("%s description %q label %q, want its own line and label", item.Name, item.Description, item.Label)
+		}
 		about := item.About
 		if about == nil || about.Summary == "" || len(about.Points) < 2 {
 			t.Errorf("%s about = %+v, want a summary and at least two points", item.Name, about)
