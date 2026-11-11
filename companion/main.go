@@ -285,6 +285,11 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		s.panel.Hide()
 		w.WriteHeader(http.StatusNoContent)
 	})
+	// Unlike toggle, show skips the reopen guard: the page hid the panel itself.
+	mux.HandleFunc("POST /api/panel/show", func(w http.ResponseWriter, _ *http.Request) {
+		s.showPanel()
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /api/preferences", s.getPreferences)
 	mux.HandleFunc("POST /api/preferences/shortcut", s.setShortcut)
 	mux.HandleFunc("POST /api/preferences/start-at-login", s.setStartAtLogin)
