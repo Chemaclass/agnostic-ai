@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -12,6 +12,13 @@ test('groups rows by state, in list order, and leaves empty groups out', () => {
     ['archived', ['a', 'e']],
   ])
   assert.deepEqual(groups.map((group) => group.startsFolded), [false, false, true])
+})
+
+test('offers Mark as read only on a row that needs the person, and Rename on every row', () => {
+  assert.deepEqual(
+    ['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => rowMenuOf(row('a', state))),
+    [['read', 'rename'], ['read', 'rename'], ['rename'], ['rename'], ['rename'], ['rename']],
+  )
 })
 
 test('says why a row needs the person, and nothing for a quiet one', () => {

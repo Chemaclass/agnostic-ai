@@ -75,7 +75,10 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   refused. The web interface shows the same name, and a search finds it.
   A running chat's Terminal or Ghostty tab takes the name too, in place of
   the title the tool sets.
-  Right-clicking does not open the chat or mark it as read.
+- On a chat in Needs you, the same menu offers **Mark as read**. It takes the
+  chat out of Needs you without opening it, for a reply you already read in
+  its terminal. The next thing written in the chat puts it back.
+  Right-clicking alone does not open the chat or mark it as read.
 - An archived chat comes back when you open it, when something new is
   written in it, or when it starts working. A hidden chat leaves every list
   and search in agnostic-ai and comes back with a new message or when it
@@ -178,8 +181,8 @@ When a status counts:
 - **Looking counts.** Opening or archiving a chat that waits for you takes it
   out of Needs you. Its next prompt is a new write, which puts it back.
 - **Only looking here counts.** You see a conversation when you open it from
-  the companion or the web interface, or archive it. A chat you read in its
-  own terminal still counts as unread until then.
+  the companion or the web interface, archive it, or choose **Mark as read**.
+  A chat you read in its own terminal still counts as unread until then.
 - **A local chat** is working or waiting only while its process runs on this
   machine.
 - **A cloud chat** has no process here to check, so its status is believed for
@@ -270,7 +273,7 @@ about conversations comes over the server's API, documented under
 
 ```sh
 make companion-test   # Go vet, Go tests and the page logic tests
-make companion-e2e    # the list's search, open, rename and failure flows in headless Chromium
+make companion-e2e    # the list's search, open, rename, mark as read and failure flows in headless Chromium
 ```
 
 CI runs the page tests and the browser tests. It does not run the Go tests yet,

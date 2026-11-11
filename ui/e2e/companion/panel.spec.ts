@@ -51,6 +51,7 @@ test('rename then Escape keeps the old name and gives the keys back to the list'
   await expect(field).toHaveCount(0)
   await expect(row(page, 'Plan the sync dry run')).toBeVisible()
   expect(renames).toEqual([])
+  await expect(page.getByLabel('Search every conversation')).toBeFocused()
   const before = await selected(page).textContent()
   await page.keyboard.press('ArrowDown')
   await expect(selected(page)).not.toHaveText(before ?? '')
@@ -80,6 +81,48 @@ test('a failed archive keeps the row and says why', async ({ page }) => {
 
   await expect(page.getByRole('status').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
   await expect(target).toBeVisible()
+})
+
+const needsYou = (page: Page) => page.locator('.row.needs-you')
+
+for (const [kind, title, id, tool] of [
+  ['a wait', 'Approve the database migration', 'waits-1', 'claude'],
+  ['an unread reply', 'Draft the release notes', 'reply-1', 'codex'],
+] as const) {
+  test(`mark as read from the row menu takes ${kind} out of Needs you without opening it`, async ({ page }) => {
+    await openPanel(page)
+    const opens: string[] = []
+    page.on('request', (request) => {
+      if (request.url().endsWith('/api/open')) opens.push(request.url())
+    })
+    await expect(needsYou(page)).toHaveCount(2)
+    const marked = page.waitForRequest((request) => request.url().endsWith('/api/mark'))
+    await row(page, title).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Mark as read' }).click()
+    expect((await marked).postDataJSON()).toEqual({ tool, id, as: 'seen' })
+
+    await expect(needsYou(page)).toHaveCount(1)
+    await expect(needsYou(page).filter({ hasText: title })).toHaveCount(0)
+    await expect(row(page, title)).toBeVisible()
+    await expect(page.getByRole('menu', { name: 'Conversation' })).toBeHidden()
+    expect(opens).toEqual([])
+  })
+}
+
+test('the row menu offers Mark as read only on a row that needs you', async ({ page }) => {
+  await openPanel(page)
+  await row(page, 'Plan the sync dry run').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
+  await expect(page.getByRole('menuitem', { name: 'Mark as read' })).toBeHidden()
+})
+
+test('a failed mark as read keeps the row in Needs you and says why', async ({ page }) => {
+  await openPanel(page, 'mark-failure')
+  await row(page, 'Draft the release notes').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Mark as read' }).click()
+
+  await expect(page.getByRole('status').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
+  await expect(needsYou(page).filter({ hasText: 'Draft the release notes' })).toBeVisible()
 })
 
 test('a new list while navigating keeps the highlighted row', async ({ page }) => {
