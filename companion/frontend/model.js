@@ -130,39 +130,84 @@ export function grouped(conversations) {
   })).filter((group) => group.rows.length > 0)
 }
 
-/** The row a conversation sits under: the last of its parents, walking up, that is in `rows`. Undefined for a row with none, and for one whose walk meets a loop. */
-function rootOf(conversation, rows) {
-  const seen = new Set([keyOf(conversation)])
-  let root
-  for (let parent = conversation.parent; parent; parent = root.parent) {
-    const key = parent.tool + ':' + parent.id
-    const above = rows.get(key)
-    if (!above) break
-    if (seen.has(key)) return undefined
-    seen.add(key)
-    root = above
+// A walk that meets a loop gives no top, so every row on it stays a normal row.
+const LOOP = Symbol('loop')
+
+/**
+ * The top of each row's family in `rows`: the last of its parents, walking up, that is in `rows`,
+ * or the row itself. Each walk stops at a row already worked out, so the whole list costs one pass.
+ */
+function topsOf(rows) {
+  const tops = new Map()
+  return (conversation) => {
+    const path = []
+    const onPath = new Set()
+    let at = conversation
+    let top
+    for (;;) {
+      const key = keyOf(at)
+      if (tops.has(key)) {
+        top = tops.get(key)
+        break
+      }
+      path.push(key)
+      onPath.add(key)
+      const above = at.parent && rows.get(at.parent.tool + ':' + at.parent.id)
+      if (!above) {
+        top = at
+        break
+      }
+      if (onPath.has(keyOf(above))) {
+        top = LOOP
+        break
+      }
+      at = above
+    }
+    for (const key of path) tops.set(key, top)
+    return top
   }
-  return root
 }
 
-// A time that does not parse counts as the oldest.
-const writtenAt = (conversation) => Date.parse(conversation.updatedAt) || 0
-const oldestFirst = (a, b) => writtenAt(a) - writtenAt(b)
+/** When a child started: startedAt, else its last write. A time that does not parse counts as the oldest. */
+function startedAt(conversation) {
+  const time = Date.parse(conversation.startedAt ?? conversation.updatedAt)
+  return Number.isNaN(time) ? -Infinity : time
+}
 
-/** One group's rows as the list draws them: every descendant right after the root it sits under, oldest first, one level deep. */
+/** Oldest start first, then by tool and id, so a new message moves no child. Each time is read once. */
+function byStart(family) {
+  return family
+    .map((conversation) => ({ conversation, time: startedAt(conversation), key: keyOf(conversation) }))
+    .sort((a, b) => (a.time !== b.time ? (a.time < b.time ? -1 : 1) : a.key === b.key ? 0 : a.key < b.key ? -1 : 1))
+    .map((entry) => entry.conversation)
+}
+
+/**
+ * One group's rows as the list draws them: every descendant right after the root it sits under,
+ * oldest first, one level deep. The first row with a tool and id owns its children, so as many rows come out as go in.
+ */
 function nested(rows) {
-  const byKey = new Map(rows.map((conversation) => [keyOf(conversation), conversation]))
+  const byKey = new Map()
+  for (const conversation of rows) {
+    if (!byKey.has(keyOf(conversation))) byKey.set(keyOf(conversation), conversation)
+  }
+  const topOf = topsOf(byKey)
   const under = new Map()
   const children = new Map()
   for (const conversation of rows) {
-    const root = rootOf(conversation, byKey)
-    if (!root) continue
-    under.set(keyOf(conversation), root)
-    children.set(keyOf(root), [...(children.get(keyOf(root)) ?? []), conversation])
+    const top = topOf(conversation)
+    if (top === LOOP || keyOf(top) === keyOf(conversation)) continue
+    under.set(keyOf(conversation), top)
+    const family = children.get(top)
+    if (family) family.push(conversation)
+    else children.set(top, [conversation])
   }
-  const drawn = rows
-    .filter((conversation) => !under.has(keyOf(conversation)))
-    .flatMap((conversation) => [conversation, ...(children.get(keyOf(conversation)) ?? []).sort(oldestFirst)])
+  const drawn = []
+  for (const conversation of rows) {
+    if (under.has(keyOf(conversation))) continue
+    drawn.push(conversation)
+    for (const child of byStart(children.get(conversation) ?? [])) drawn.push(child)
+  }
   return { rows: drawn, under }
 }
 

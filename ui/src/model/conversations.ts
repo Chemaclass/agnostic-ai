@@ -189,36 +189,85 @@ export function groupConversations(conversations: Conversation[], now: Date): Co
   return groups.filter((group) => group.conversations.length > 0)
 }
 
-/** The row a conversation sits under: the last of its parents, walking up, that is in `rows`. Undefined for a row with none, and for one whose walk meets a loop. */
-function rootOf(conversation: Conversation, rows: ReadonlyMap<string, Conversation>): Conversation | undefined {
-  const seen = new Set([conversationKey(conversation)])
-  let root: Conversation | undefined
-  for (let parent = conversation.parent; parent; parent = root?.parent) {
-    const key = `${parent.tool}:${parent.id}`
-    const above = rows.get(key)
-    if (!above) break
-    if (seen.has(key)) return undefined
-    seen.add(key)
-    root = above
+// A walk that meets a loop gives no top, so every row on it stays a normal row.
+const LOOP = Symbol('loop')
+
+/**
+ * The top of each row's family in `rows`: the last of its parents, walking up, that is in `rows`,
+ * or the row itself. Each walk stops at a row already worked out, so the whole list costs one pass.
+ */
+function topsOf(rows: ReadonlyMap<string, Conversation>): (conversation: Conversation) => Conversation | typeof LOOP {
+  const tops = new Map<string, Conversation | typeof LOOP>()
+  return (conversation) => {
+    const path: string[] = []
+    const onPath = new Set<string>()
+    let at = conversation
+    let top: Conversation | typeof LOOP
+    for (;;) {
+      const key = conversationKey(at)
+      const known = tops.get(key)
+      if (known !== undefined) {
+        top = known
+        break
+      }
+      path.push(key)
+      onPath.add(key)
+      const above = at.parent && rows.get(`${at.parent.tool}:${at.parent.id}`)
+      if (!above) {
+        top = at
+        break
+      }
+      if (onPath.has(conversationKey(above))) {
+        top = LOOP
+        break
+      }
+      at = above
+    }
+    for (const key of path) tops.set(key, top)
+    return top
   }
-  return root
 }
 
-/** One group's rows as the list draws them: every descendant right after the root it sits under, oldest first, one level deep. */
+// When a child started: startedAt, else its last write. A time that does not parse counts as the oldest.
+function startedAt(conversation: Conversation): number {
+  const time = Date.parse(conversation.startedAt ?? conversation.updatedAt)
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time
+}
+
+/** Oldest start first, then by tool and id, so a new message moves no child. Each time is read once. */
+function byStart(family: Conversation[]): Conversation[] {
+  return family
+    .map((conversation) => ({ conversation, time: startedAt(conversation), key: conversationKey(conversation) }))
+    .sort((a, b) => (a.time !== b.time ? (a.time < b.time ? -1 : 1) : a.key === b.key ? 0 : a.key < b.key ? -1 : 1))
+    .map((entry) => entry.conversation)
+}
+
+/**
+ * One group's rows as the list draws them: every descendant right after the root it sits under,
+ * oldest first, one level deep. The first row with a tool and id owns its children, so as many rows come out as go in.
+ */
 function nestRows(rows: Conversation[]): Pick<ConversationGroup, 'conversations' | 'under'> {
-  const byKey = new Map(rows.map((conversation) => [conversationKey(conversation), conversation]))
-  const under = new Map<string, Conversation>()
-  const children = new Map<string, Conversation[]>()
+  const byKey = new Map<string, Conversation>()
   for (const conversation of rows) {
-    const root = rootOf(conversation, byKey)
-    if (!root) continue
-    under.set(conversationKey(conversation), root)
-    const key = conversationKey(root)
-    children.set(key, [...(children.get(key) ?? []), conversation])
+    if (!byKey.has(conversationKey(conversation))) byKey.set(conversationKey(conversation), conversation)
   }
-  const conversations = rows
-    .filter((conversation) => !under.has(conversationKey(conversation)))
-    .flatMap((conversation) => [conversation, ...(children.get(conversationKey(conversation)) ?? []).sort((a, b) => newestFirst(b, a))])
+  const topOf = topsOf(byKey)
+  const under = new Map<string, Conversation>()
+  const children = new Map<Conversation, Conversation[]>()
+  for (const conversation of rows) {
+    const top = topOf(conversation)
+    if (top === LOOP || conversationKey(top) === conversationKey(conversation)) continue
+    under.set(conversationKey(conversation), top)
+    const family = children.get(top)
+    if (family) family.push(conversation)
+    else children.set(top, [conversation])
+  }
+  const conversations: Conversation[] = []
+  for (const conversation of rows) {
+    if (under.has(conversationKey(conversation))) continue
+    conversations.push(conversation)
+    for (const child of byStart(children.get(conversation) ?? [])) conversations.push(child)
+  }
   return { conversations, under }
 }
 

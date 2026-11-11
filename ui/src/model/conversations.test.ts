@@ -109,6 +109,28 @@ describe('nested rows', () => {
     expect(drawn(rows)).toEqual([['Today', [['a', null], ['b', null], ['c', null], ['self', null]]]])
   })
 
+  it('orders the children by when they started, then by when they were written, then by id, so a new message moves none', () => {
+    const rows = [
+      conversation({ id: 'late-start', updatedAt: at(16, 25), startedAt: at(16, 5), parent: { tool: 'claude', id: 'root' } }),
+      conversation({ id: 'early-start', updatedAt: at(16, 20), startedAt: at(15, 30), parent: { tool: 'claude', id: 'root' } }),
+      conversation({ id: 'b-no-start', updatedAt: at(15, 50), parent: { tool: 'claude', id: 'root' } }),
+      conversation({ id: 'a-no-start', updatedAt: at(15, 50), parent: { tool: 'claude', id: 'root' } }),
+      conversation({ id: 'root', updatedAt: at(15), startedAt: at(15) }),
+    ]
+    expect(drawn(rows)).toEqual([['Today', [['root', null], ['early-start', 'root'], ['a-no-start', 'root'], ['b-no-start', 'root'], ['late-start', 'root']]]])
+  })
+
+  it('draws as many rows as it is given when two rows share a tool and id: the first owns the children', () => {
+    const rows = [
+      conversation({ id: 'parent', updatedAt: at(16) }),
+      conversation({ id: 'child', updatedAt: at(15, 30), parent: { tool: 'claude', id: 'parent' } }),
+      conversation({ id: 'parent', title: 'A second copy', updatedAt: at(15) }),
+    ]
+    const [group] = groupConversations(rows, NOW)
+    expect(group.conversations).toHaveLength(3)
+    expect(group.conversations.map((c) => [c.id, c.title])).toEqual([['parent', 'A chat'], ['child', 'A chat'], ['parent', 'A second copy']])
+  })
+
   it('moves a child under its parent once the week that holds the parent loads', () => {
     const firstWeek = { conversations: [conversation({ id: 'child', live: true, updatedAt: at(16), parent: { tool: 'claude', id: 'parent' } })] }
     const weekBefore = { conversations: [conversation({ id: 'parent', live: true, updatedAt: local(10, 20, 9).toISOString() })] }

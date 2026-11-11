@@ -46,6 +46,22 @@ test('draws a chain at one level under the root in the group, oldest first', () 
   assert.deepEqual(drawn(groups), [['active', [['root', null], ['kid', 'root'], ['grandchild', 'root']]]])
 })
 
+test('orders the children by when they started, then by when they were written, then by id, so a new message moves none', () => {
+  const groups = grouped([
+    child('late-start', 'active', 'root', { updatedAt: '2026-11-09T12:25:00Z', startedAt: '2026-11-09T12:05:00Z' }),
+    child('early-start', 'active', 'root', { updatedAt: '2026-11-09T12:20:00Z', startedAt: '2026-11-09T11:30:00Z' }),
+    child('b-no-start', 'active', 'root', { updatedAt: '2026-11-09T11:50:00Z' }),
+    child('a-no-start', 'active', 'root', { updatedAt: '2026-11-09T11:50:00Z' }),
+    row('root', 'active', { updatedAt: '2026-11-09T11:00:00Z', startedAt: '2026-11-09T11:00:00Z' }),
+  ])
+  assert.deepEqual(drawn(groups), [['active', [['root', null], ['early-start', 'root'], ['a-no-start', 'root'], ['b-no-start', 'root'], ['late-start', 'root']]]])
+})
+
+test('draws as many rows as it is given when two rows share a tool and id: the first owns the children', () => {
+  const [group] = grouped([row('parent', 'active'), child('kid', 'active', 'parent'), row('parent', 'active', { title: 'A second copy' })])
+  assert.deepEqual(group.rows.map((r) => [r.id, r.title]), [['parent', 'parent'], ['kid', 'kid'], ['parent', 'A second copy']])
+})
+
 test('draws every row of a loop made by hand as a normal row, and a row naming itself too', () => {
   const groups = grouped([child('a', 'active', 'b'), child('b', 'active', 'a'), child('c', 'active', 'a'), child('self', 'active', 'self')])
   assert.deepEqual(drawn(groups), [['active', [['a', null], ['b', null], ['c', null], ['self', null]]]])
