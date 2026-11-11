@@ -53,7 +53,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Opening and resuming chats
 
-- Clicking a running session opens its Terminal or Ghostty tab, ready for typing in the companion; an ended session resumes in a new tab (#3242, #3249).
+- Clicking a running session in the companion opens its Terminal or Ghostty tab, ready for typing; an ended session resumes in a new tab (#3242, #3249).
 - A running `cursor-agent` chat shows as open, and opening it switches to its terminal instead of starting a second copy (#3274).
 - When the companion cannot open a chat, the reason stays until you dismiss it, and a chat that could not resume offers **Copy resume command** (#3256).
 - Opening a Claude Code or Codex chat that still runs in a terminal no longer replies with a resume command (#3256).
