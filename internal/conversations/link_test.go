@@ -45,9 +45,6 @@ func TestSplitLink_KeepsALookAlikeAsText(t *testing.T) {
 		"leading spaces":      "  Continues claude:" + idParent + "\nWrite the notes",
 		"two spaces":          "Continues  claude:" + idParent + "\nWrite the notes",
 		"tab":                 "Continues\tclaude:" + idParent + "\nWrite the notes",
-		"carriage return":     "Continues claude:" + idParent + "\r\nWrite the notes",
-		"wrapped":             "<user_query>Continues claude:" + idParent + "</user_query>\nWrite the notes",
-		"after a reminder":    "<system-reminder>x</system-reminder>\nContinues claude:" + idParent + "\nWrite the notes",
 	} {
 		if ref, rest, ok := splitLink(prompt); ok || ref != (Ref{}) || rest != prompt {
 			t.Errorf("%s: ref = %+v ok %v rest %q, want the text kept", name, ref, ok, rest)
@@ -204,15 +201,29 @@ func TestScan_ArchivingHidingOrRenamingAParentLeavesItsChild(t *testing.T) {
 	}
 }
 
-func TestShowTexts_ReadsTheLinkOnlyFromTheRawFirstLine(t *testing.T) {
-	for _, prompt := range []string{
-		"  Continues claude:" + idParent + "\nWrite the notes",
-		"Continues\tclaude:" + idParent + "\nWrite the notes",
-		"<user_query>Continues claude:" + idParent + "</user_query>\nWrite the notes",
+func TestShowTexts_ReadsTheLinkFromTheFirstTypedLine(t *testing.T) {
+	want := Ref{Tool: ToolClaude, ID: idParent}
+	for name, prompt := range map[string]string{
+		"an injected block first": "<system-reminder>Today is Monday.</system-reminder>\nContinues claude:" + idParent + "\n\nWrite the notes",
+		"a wrapped prompt":        "<user_query>\nContinues claude:" + idParent + "\n\nWrite the notes\n</user_query>",
+		"a wrapper on the line":   "<user_query>Continues claude:" + idParent + "</user_query>\nWrite the notes",
+		"a trailing CR":           "Continues claude:" + idParent + "\r\n\r\nWrite the notes",
+	} {
+		shown := showTexts(texts{firstPrompt: prompt, lastPrompt: prompt})
+		if shown.parent == nil || *shown.parent != want || shown.title != "Write the notes" || shown.prompt != "Write the notes" {
+			t.Errorf("%s: parent %+v title %q prompt %q", name, shown.parent, shown.title, shown.prompt)
+		}
+	}
+	for name, prompt := range map[string]string{
+		"leading spaces": "  Continues claude:" + idParent + "\nWrite the notes",
+		"two spaces":     "Continues  claude:" + idParent + "\nWrite the notes",
+		"a tab":          "Continues\tclaude:" + idParent + "\nWrite the notes",
+		"trailing text":  "Continues claude:" + idParent + " now\nWrite the notes",
+		"wrapped spaces": "<user_query>  Continues claude:" + idParent + "</user_query>\nWrite the notes",
 	} {
 		shown := showTexts(texts{firstPrompt: prompt, lastPrompt: prompt})
 		if shown.parent != nil || !strings.HasPrefix(shown.title, "Continues") || !strings.HasPrefix(shown.prompt, "Continues") {
-			t.Errorf("%q: parent %+v title %q prompt %q", prompt, shown.parent, shown.title, shown.prompt)
+			t.Errorf("%s: parent %+v title %q prompt %q", name, shown.parent, shown.title, shown.prompt)
 		}
 	}
 }

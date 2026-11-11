@@ -41,13 +41,30 @@ func readLink(line string) (Ref, bool) {
 	return Ref{Tool: Tool(tool), ID: id}, true
 }
 
-// splitLink reads the link line off the start of a prompt as the store
-// keeps it, so a line with spaces before it, a tab, or a wrapper stays
-// text. It returns the rest. ok is false when the first line is not a
-// link line; rest is then the prompt as it was.
+// Wrappers a tool puts around what the person typed: the opening one is
+// dropped, and a closing one ends the line, so the link line before it
+// stays whole.
+var (
+	typedOpen  = regexp.MustCompile(`<(user_query|command-name|command-args)\b[^>]*>`)
+	typedClose = regexp.MustCompile(`</(user_query|command-name|command-args)>`)
+)
+
+// linkOf reads the link line off what the person typed: the stored
+// prompt without the blocks a tool injects and the wrappers it adds,
+// and without blank lines before it. The line itself is kept as typed,
+// so spaces before it, two spaces or a tab stay text.
+func linkOf(prompt string) (ref Ref, rest string, ok bool) {
+	typed := injectedBlocks.ReplaceAllString(prompt, "")
+	typed = typedClose.ReplaceAllString(typedOpen.ReplaceAllString(typed, ""), "\n")
+	return splitLink(strings.TrimLeft(typed, "\r\n"))
+}
+
+// splitLink reads the link line off the start of text and returns the
+// rest. A carriage return may end the line. ok is false when the first
+// line is not a link line; rest is then text as it was.
 func splitLink(prompt string) (ref Ref, rest string, ok bool) {
 	first, after, _ := strings.Cut(prompt, "\n")
-	ref, ok = readLink(first)
+	ref, ok = readLink(strings.TrimSuffix(first, "\r"))
 	if !ok {
 		return Ref{}, prompt, false
 	}

@@ -78,7 +78,7 @@ Continues claude:2f0c1e9a-5b7d-4c3e-9a1f-6d8e2b4c7a90
 Write the release notes for the parser change.
 ```
 
-- The line is `Continues <tool>:<id>`, where `<tool>` is `claude`, `codex` or `cursor`, and `<id>` has that tool's id form. It must be the whole first line. Anything else is plain text.
+- The line is `Continues <tool>:<id>`, where `<tool>` is `claude`, `codex` or `cursor`, and `<id>` has that tool's id form. It must be the whole first line of what was typed, with one space after `Continues` and nothing after the id. Text a tool adds around the prompt, such as a reminder block before it, does not count. Anything else is plain text: spaces before the line, two spaces, a tab, or words after the id.
 - The Conversations list reads it as the [`parent`](@/docs/cli-reference/serve-api.md) of the row, and cuts it from the title, the opening and the latest prompt.
 - You can type the line yourself at the start of a new conversation. It only decides where the row is shown.
 - The tool's own history still shows the line.
