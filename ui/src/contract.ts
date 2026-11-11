@@ -926,6 +926,8 @@ export interface Conversation {
   completedAt?: string
   /** Set only on a `completed` or `dormant` row: why this conversation cannot be deleted from here, such as one stored in its tool's cloud. Absent on an archived local Claude Code session, which can be. */
   deleteUnsupported?: string
+  /** The conversation this one continues, read from the line `Continues <tool>:<id>` that starts its first prompt. That line is cut from the title, opening and prompt. The parent may be on no page: hidden, older, filtered out or deleted. */
+  parent?: { tool: ConversationTool; id: string }
   open: ConversationRoute
 }
 

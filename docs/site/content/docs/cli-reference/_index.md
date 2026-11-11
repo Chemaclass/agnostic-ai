@@ -42,6 +42,7 @@ agnostic-ai doctor
 | Inspect tool permissions and settings | [ui / view](@/docs/cli-reference/serve.md#view), [serve](@/docs/cli-reference/serve.md#serve) |
 | Call the local JSON API | [local API](@/docs/cli-reference/serve-api.md) |
 | See the conversations that need you | [companion](@/docs/cli-reference/companion.md#companion) |
+| Start a linked conversation in a new tab | [conversations start](@/docs/cli-reference/conversations.md#conversations-start) |
 | List each MCP server's tools for the overview | [mcp tools](@/docs/cli-reference/inspect.md#mcp-tools) |
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |

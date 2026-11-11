@@ -121,6 +121,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newMigrateCmd(),
 		newMemoryCmd(),
 		newHandoffCmd(),
+		newConversationsCmd(),
 	)
 	root.ValidArgsFunction = completeCommandAliases
 	root.SetHelpCommandGroupID("maintenance")

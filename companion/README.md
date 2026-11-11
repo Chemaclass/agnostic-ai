@@ -68,6 +68,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - Under its title, a row shows the agent's latest reply in one line: the
   question it asks you, or the start of its last message. Local Claude Code
   and Codex chats show it. Cursor chats and cloud sessions do not yet.
+- A chat started with `agnostic-ai conversations start` names the chat it
+  came from. The list reads that link, but does not yet show the new chat
+  under its parent.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
   A running chat comes up in the Terminal or Ghostty tab that runs it, ready
   for typing. When only the app can come forward, the list comes back and
@@ -130,12 +133,12 @@ The ⋯ button at the foot of the list holds them:
   the companion's server. Nothing reads or asks anything after that; only the
   shortcut listens. The shortcut, or `agnostic-ai companion`, brings it back
   with a new list.
-
-The menu has no quit: a hidden companion does nothing but wait for the
-shortcut. To end it, see below.
+- **Quit Agnostic AI companion** ends the companion and its server, as
+  `agnostic-ai companion stop` does. **Start at login** stays as you set it.
+  `agnostic-ai companion` starts it again.
 
 Right-click the circle (Ctrl+click on a Mac) for its own menu. The settings
-are at the top:
+are at the top, and **Quit Agnostic AI companion** is at the bottom:
 
 - **Animate companion** turns movement on and off: the turning arc, the
   breathing dot in the list, the badge's pop and the list's opening. When it is
@@ -149,7 +152,9 @@ are at the top:
 
 ## Stop it and remove it
 
-- `agnostic-ai companion stop` ends the companion and its server. It says so
+- **Quit Agnostic AI companion**, in the list's ⋯ menu or the circle's
+  right-click menu, ends the companion and its server.
+- `agnostic-ai companion stop` does the same from a terminal. It says so
   when none runs. **Start at login** stays as you set it.
 - `agnostic-ai companion uninstall` ends the companion, turns off **Start at
   login**, and deletes the built program, `companion.json` and
@@ -290,7 +295,7 @@ about conversations comes over the server's API, documented under
 
 ```sh
 make companion-test   # Go vet, Go tests and the page logic tests
-make companion-e2e    # the list's search, open, rename, mark as read and failure flows in headless Chromium
+make companion-e2e    # the list's search, open, rename, mark as read and failure flows, and its ⋯ menu, in headless Chromium
 ```
 
 CI runs the page tests and the browser tests. It does not run the Go tests yet,
