@@ -149,24 +149,37 @@ type texts struct {
 }
 
 // shownTexts are what a row shows of its texts once any that may hold a
-// credential are withheld.
+// credential are withheld, and the conversation its link line names.
 type shownTexts struct {
 	title    string
 	opening  []string
 	prompt   string
 	reply    string
 	withheld []string
+	parent   *Ref
 }
 
 // showTexts withholds any text that may hold a credential. A row with no
-// title takes the first line of its first prompt.
-func showTexts(t texts) shownTexts {
+// title takes the first line of its first prompt. A link line at the
+// start of the first prompt names the parent and is cut from the title,
+// the opening and the latest prompt; the credential check still reads
+// the whole prompt.
+func showTexts(t texts) shownTexts { return showTextsOf(t, true) }
+
+func showTextsOf(t texts, readLinks bool) shownTexts {
 	var shown shownTexts
 	first := typedText(t.firstPrompt)
 	last := typedText(t.lastPrompt)
 	title := oneLine(t.title)
-	if title == "" && first != "" {
-		title = strings.SplitN(first, "\n", 2)[0]
+	opening := first
+	if ref, rest, ok := splitLink(first); ok && readLinks {
+		shown.parent = &ref
+		opening = rest
+		title = cutLink(title, ref)
+		last = cutLink(last, ref)
+	}
+	if title == "" && opening != "" {
+		title = strings.SplitN(opening, "\n", 2)[0]
 	}
 
 	if mayHoldCredential(title) {
@@ -178,7 +191,7 @@ func showTexts(t texts) shownTexts {
 		if mayHoldCredential(typedLayout(t.firstPrompt)) || mayHoldCredential(first) {
 			shown.withheld = append(shown.withheld, FieldOpening)
 		} else {
-			shown.opening = openingOf(first)
+			shown.opening = openingOf(opening)
 		}
 	}
 	if last != "" {
@@ -242,12 +255,17 @@ func (c *shownCache) get(t texts) shownTexts {
 	return shown
 }
 
-// fill sets the row's title, opening, prompt and reply from t. The
+// fill sets the row's title, opening, prompt, reply and parent from t. The
 // reply is looked up on its own: a working agent writes a new one every
 // few seconds, which must not check the other texts again.
 func (s *Scanner) fill(c *Conversation, t texts) {
-	shown := s.shown.get(texts{title: t.title, firstPrompt: t.firstPrompt, lastPrompt: t.lastPrompt})
-	c.Title, c.Opening, c.Prompt, c.Withheld = shown.title, shown.opening, shown.prompt, shown.withheld
+	prompts := texts{title: t.title, firstPrompt: t.firstPrompt, lastPrompt: t.lastPrompt}
+	shown := s.shown.get(prompts)
+	if shown.parent != nil && *shown.parent == (Ref{Tool: c.Tool, ID: c.ID}) {
+		// A conversation cannot continue itself: its line stays text.
+		shown = showTextsOf(prompts, false)
+	}
+	c.Title, c.Opening, c.Prompt, c.Withheld, c.Parent = shown.title, shown.opening, shown.prompt, shown.withheld, shown.parent
 	if t.reply != "" || t.question != "" {
 		said := s.shown.get(texts{reply: t.reply, question: t.question})
 		c.Reply = said.reply
