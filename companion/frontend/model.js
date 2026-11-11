@@ -98,6 +98,12 @@ export function escapeTarget({ rowMenuOpen, renaming, settingsOpen }) {
   return 'panel'
 }
 
+/** What a failed open leaves on screen: the reason, and the command to resume by hand only when the server sent one. */
+export function openFailureOf(reply) {
+  if (reply.opened) return undefined
+  return reply.command ? { message: reply.message, command: reply.command } : { message: reply.message }
+}
+
 /** The view with the row at `key` showing `title`, so a rename shows before the next list arrives. */
 export function withTitle(view, key, title) {
   const conversations = view.conversations.map((conversation) => (keyOf(conversation) === key ? { ...conversation, title } : conversation))

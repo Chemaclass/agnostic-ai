@@ -173,7 +173,8 @@ type liveProcess struct {
 
 // OpenReply is the answer to an open request. Opened is false when the
 // server could not open it here; Message says why and Command, when
-// set, resumes it by hand.
+// set, resumes the session by hand. A Claude Code or Codex session that
+// still runs in a terminal gets none: running it would start a second copy.
 type OpenReply struct {
 	Opened  bool   `json:"opened"`
 	Message string `json:"message"`

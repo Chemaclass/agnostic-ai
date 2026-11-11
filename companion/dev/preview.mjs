@@ -155,7 +155,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   async function open(request, response) {
     const body = await bodyOf(request)
     logCall('/api/open', body)
-    if (state.fixture.openProblem) return sendJSON(response, 200, { opened: false, message: state.fixture.openProblem })
+    if (state.fixture.openProblem) return sendJSON(response, 200, { opened: false, message: state.fixture.openProblem, command: state.fixture.openCommand })
     const row = find(body)
     if (row && NEEDS_PERSON[row.state]) row.state = 'active'
     sendJSON(response, 200, { opened: true })

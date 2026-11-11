@@ -69,6 +69,10 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   A running chat comes up in the Terminal or Ghostty tab that runs it, ready
   for typing. When only the app can come forward, the list comes back and
   says where the chat runs. macOS asks once to let the companion control each app.
+  The reason stays above the list until you dismiss it or open another chat.
+  When a chat could not be resumed, **Copy resume command** copies the command
+  to run in a terminal. A Claude Code or Codex chat still running in a
+  terminal never offers it, because that command would start a second copy.
 - Hover a row for its one button: **mark complete** a chat, which archives
   it, or **hide** one that is already archived. A working chat has no button,
   since the work would bring it back at once. The tick turns green for a

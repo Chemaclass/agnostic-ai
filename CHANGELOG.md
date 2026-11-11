@@ -9,6 +9,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - The companion's row button and "Archive all" now read "Mark complete" and "Mark all complete"; marking one chat complete turns its tick green for a moment.
+- When the companion cannot open a chat, the reason stays until you dismiss it, and a chat that could not be resumed offers **Copy resume command**. Opening a Claude Code or Codex chat that still runs in a terminal no longer replies with a resume command (#3256).
 - Mark a chat as read from the companion's right-click menu, without opening it; the next reply brings it back (#3250).
 - The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
 - A local Codex chat that went silent shows "No activity for 7m" instead of "Waiting for you" in the companion and the web interface; `quietSince` marks such a row in the API (#3251).

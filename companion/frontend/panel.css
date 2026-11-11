@@ -164,7 +164,91 @@ body {
   line-height: 1.4;
 }
 
+/* Why the last open failed, until dismissed or the next open */
+
+.notice {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 8px;
+  margin: 0 12px 8px;
+  padding: 8px 6px 8px 10px;
+  border-radius: 8px;
+  background: var(--ink-high);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  color: var(--paper);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.notice p {
+  margin: 0;
+}
+
+.notice-command,
+.notice-actions {
+  grid-column: 1 / -1;
+}
+
+.notice-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Nothing to copy: no empty row under the reason. */
+.notice-actions:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+.notice-command {
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper-dim);
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.notice-result {
+  color: var(--calm);
+}
+
+.notice-result.is-problem {
+  color: var(--alert);
+}
+
+.notice-copy {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--action-soft);
+  color: var(--action);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.notice-copy:hover {
+  background: rgba(240, 163, 94, 0.26);
+}
+
+.notice-dismiss {
+  align-self: start;
+  width: 22px;
+  height: 22px;
+}
+
+.notice-dismiss svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: var(--paper-dim);
+  stroke-width: 1.8;
+}
+
 .note[hidden],
+.notice[hidden],
+.notice [hidden],
 .toast[hidden] {
   display: none;
 }
@@ -762,7 +846,7 @@ kbd {
   color: var(--alert);
 }
 
-/* What the last open said, over the foot for a moment. */
+/* A short answer, such as a failed mark, over the foot for a moment. */
 
 .toast {
   z-index: 6;
