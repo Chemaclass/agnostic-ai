@@ -10,7 +10,10 @@ body {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  transition: transform 220ms var(--ease-spring);
+  transition:
+    transform 220ms var(--ease-spring),
+    opacity 120ms ease,
+    filter 120ms ease;
   --custom-contextmenu: bubble;
 }
 
@@ -26,6 +29,12 @@ body {
 .bubble:active {
   transform: scale(0.95);
   transition-duration: 90ms;
+}
+
+/* Nothing needs the person, so the circle steps back until the pointer is on it. */
+:root[data-dim='on'] .bubble.is-idle:not(:hover, .is-hovered) {
+  opacity: 0.55;
+  filter: saturate(0.25);
 }
 
 .disc {

@@ -68,6 +68,91 @@ func TestSetAnimate_KeepsTheOldChoiceWhenTheSaveFails(t *testing.T) {
 	}
 }
 
+func TestSetDimWhenIdle_SavesAndTellsThePages(t *testing.T) {
+	s, told := toldShell(t)
+	s.settings.Shortcut = "Cmd+Shift+K"
+
+	if err := s.setDimWhenIdle(true); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := readSettings(s.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.DimWhenIdle || saved.Shortcut != "Cmd+Shift+K" {
+		t.Errorf("saved %+v; want dimming on and the shortcut kept", saved)
+	}
+	if len(*told) != 1 || !(*told)[0].DimWhenIdle || !(*told)[0].Animate {
+		t.Errorf("the pages were told %+v; want dimming on and animation on, once", *told)
+	}
+}
+
+func TestSetDimWhenIdle_KeepsTheOldChoiceWhenTheSaveFails(t *testing.T) {
+	s, told := toldShell(t)
+	notAFolder := filepath.Join(t.TempDir(), "afile")
+	if err := os.WriteFile(notAFolder, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s.settingsPath = filepath.Join(notAFolder, "companion.json")
+
+	err := s.setDimWhenIdle(true)
+
+	if err == nil || !strings.HasPrefix(err.Error(), "save the dim choice: ") {
+		t.Errorf("error = %v", err)
+	}
+	if s.appearance().DimWhenIdle {
+		t.Error("the unsaved choice took effect")
+	}
+	if len(*told) != 1 || (*told)[0].DimWhenIdle {
+		t.Errorf("the pages were told %+v; want the old appearance, dimming off", *told)
+	}
+}
+
+func TestSetAnimate_LeavesDimAsItWas(t *testing.T) {
+	s, told := toldShell(t)
+	if err := s.setDimWhenIdle(true); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.setAnimate(false); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := readSettings(s.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.DimWhenIdle || saved.animate() {
+		t.Errorf("saved %+v; want dimming on and animation off", saved)
+	}
+	if last := (*told)[len(*told)-1]; !last.DimWhenIdle || last.Animate {
+		t.Errorf("the pages were last told %+v; want dimming on and animation off", last)
+	}
+}
+
+func TestSetDimWhenIdle_LeavesAnimationAsItWas(t *testing.T) {
+	s, told := toldShell(t)
+	if err := s.setAnimate(false); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.setDimWhenIdle(true); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := readSettings(s.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.DimWhenIdle || saved.animate() {
+		t.Errorf("saved %+v; want dimming on and animation off", saved)
+	}
+	if last := (*told)[len(*told)-1]; !last.DimWhenIdle || last.Animate {
+		t.Errorf("the pages were last told %+v; want dimming on and animation off", last)
+	}
+}
+
 func TestGetAppearance_AnswersTheSavedValues(t *testing.T) {
 	s, _ := toldShell(t)
 	off := false
@@ -76,7 +161,7 @@ func TestGetAppearance_AnswersTheSavedValues(t *testing.T) {
 	rec := httptest.NewRecorder()
 	s.getAppearance(rec, httptest.NewRequest(http.MethodGet, "/api/appearance", nil))
 
-	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || body != `{"animate":false}` {
+	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || body != `{"animate":false,"dimWhenIdle":false}` {
 		t.Errorf("appearance = %d %s", rec.Code, body)
 	}
 }

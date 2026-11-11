@@ -79,6 +79,8 @@ const (
 	eventPanelShown = "panel-shown"
 	// eventAppearance says how the pages look changed; its data is the new appearance.
 	eventAppearance = "appearance"
+	// eventPointer says the pointer entered or left the bubble window; its data is true while it is over it.
+	eventPointer = "pointer"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -432,6 +434,9 @@ func main() {
 
 	s.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		s.placeBubble(saved.Bubble)
+		watchPointer(s.bubble.NativeWindow(), func(over bool) {
+			s.app.Event.Emit(eventPointer, over)
+		})
 		s.registerShortcut()
 		in.start()
 	})

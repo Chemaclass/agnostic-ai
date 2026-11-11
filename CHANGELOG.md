@@ -8,14 +8,14 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
-- `upgrade` rebuilds an installed companion with the new CLI and restarts it if it was running; failed builds keep the old companion usable (#3245).
-
-- Right-click the companion's circle to turn its animation off; a still ring then shows a working agent, and the choice is kept (#3237).
+- `upgrade` rebuilds an installed companion with the new CLI and restarts it if it was running; failed builds keep the old companion usable (#3247).
+- Right-click the companion's circle to turn its animation off or dim it while nothing needs you; both choices are kept (#3237, #3246).
 - `memory import --skip <file>` and `--skip-rest` decline facts you do not want, so LINT043 stops counting them; the dry run shows each fact's state (#3235).
 - Right-click a chat in the companion and choose Rename; the web interface shows the same name and search finds it (#3236).
 - An archived or hidden chat that starts working again moves to Working by itself, in the companion and the web interface (#3239).
 - On macOS, `companion install` makes an app with the agnostic-ai icon, replaces the old bare program, and keeps start at login (#3238).
 - Cursor chats show what you typed as their title and prompt, without the timestamp, notification and attachment tags Cursor adds (#3241).
+- Clicking a running session selects its Terminal or Ghostty tab, Codex included; an ended one resumes in a new tab of the app it ran in (#3242).
 - Cursor and Windsurf load each always-on rule once, from the root `AGENTS.md`; Trae opts in with `outputs.trae.rules-mode: entry-point` (#3243).
 - LINT061 warns when `outputs.<target>.rules-mode` holds a value that target ignores (#3243).
 - Builds use Go 1.27.4 to fix the `net/http` vulnerability [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859).

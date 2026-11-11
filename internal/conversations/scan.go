@@ -211,11 +211,13 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 			notes = append(notes, note)
 		}
 	}
-	return []sourceResult{
+	results = []sourceResult{
 		claude,
 		codex,
 		s.kept(ctx, ToolCursor, opts, s.cursorFiles(), func() sourceResult { return s.scanCursor(ctx, opts) }),
-	}, strings.Join(notes, " ")
+	}
+	s.placeLive(results)
+	return results, strings.Join(notes, " ")
 }
 
 // weekPage picks one page from all: below to, from a week earlier, or

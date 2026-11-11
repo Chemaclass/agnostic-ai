@@ -4,3 +4,8 @@
 export function motionOf(appearance) {
   return appearance?.animate === false ? 'off' : 'on'
 }
+
+/** `on` only when the person turned dimming on; an unread appearance does not dim. */
+export function dimOf(appearance) {
+  return appearance?.dimWhenIdle === true ? 'on' : 'off'
+}

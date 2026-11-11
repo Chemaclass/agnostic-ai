@@ -866,4 +866,10 @@
 # warns about an unread rules-mode (LINT061); it measured 25718944 bytes
 # locally on top of #3241; the budget is that plus 8192, rounded up to a
 # multiple of 4096.
-25731072
+# #3228 focuses the exact Terminal, iTerm2 or Ghostty tab of a running
+# session, finds the Codex terminal behind its background service, and
+# remembers each session's tab; it measured 25743520 bytes locally on top
+# of #3234; the budget is that plus 8192, rounded up to a multiple of 4096.
+# Both together measured 25764000 bytes locally on Go 1.27.4; the budget
+# is that plus 8192, rounded up to a multiple of 4096.
+25776128
