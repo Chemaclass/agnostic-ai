@@ -123,11 +123,11 @@ func TestSync_LocalTierReplacesItsDescription(t *testing.T) {
 }
 
 func TestSync_TierDescriptionIsNotATarget(t *testing.T) {
-	budgetProject(t, "targets: [claude]\nmodels:\n  fast: {claude: haiku, descripton: for lookups}\n")
+	budgetProject(t, "targets: [claude]\nmodels:\n  fast: {claude: haiku, descr: for lookups}\n")
 
 	_, err := runCLI(t, "sync")
 
-	if err == nil || !strings.Contains(err.Error(), `unknown target "descripton"`) {
+	if err == nil || !strings.Contains(err.Error(), `unknown target "descr"`) {
 		t.Errorf("a misspelled description should still fail as a target, got %v", err)
 	}
 }
