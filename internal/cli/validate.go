@@ -87,6 +87,9 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 		scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 	} else {
 		scopeIssues = lintEntryPointFences(".", scope.cfg)
+		for _, conflict := range sharedRulesFileConflicts(scope.cfg, scope.bundle, scope.targets) {
+			scopeIssues = append(scopeIssues, validationIssue{Path: config.ConfigFileName, Field: "rules-file", Message: conflict})
+		}
 	}
 	if len(entries) == 0 {
 		return scopeIssues

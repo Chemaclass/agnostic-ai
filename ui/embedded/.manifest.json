@@ -131,7 +131,7 @@
     "src/model/finding-prompt.test.ts": "261851454887de6c9657186025d195b3049868e4242cb8b0be27660351c20682",
     "src/model/finding-prompt.ts": "7af1eece1bdff75ab9df34c8f4f404217f2efac5a2ce58c264aa6cb618d60ad4",
     "src/model/finding-title.test.ts": "478b6bf51c935ea914d58eb5b2e2b12290d73f31990e5cadab65565ef577efea",
-    "src/model/finding-title.ts": "e7dec1b12e8de5fbe8578da4b9e0aba1fa1689f39bac4fe9cf76615972cae78d",
+    "src/model/finding-title.ts": "489422e205ccbad024806283b0c85a75b1ce2bd944985142b4adb1c94b3c4043",
     "src/model/fixture.test.ts": "6d1056c4b133ae1d6f5eaf382e3301a47b038cff1a33fab133e1c05db20fdf80",
     "src/model/format.ts": "25e0e21a6c16426df0af927244e5e660859d781393c1ef6493622e7df8fbb1b2",
     "src/model/health.test.ts": "d21c9510f77becd6ecf81d8d520d0c41f97dfbd869fe438a8708f7d5c6d63a18",
@@ -196,11 +196,11 @@
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
     "assets/index-B1ZoesXR.css": "72f2623c151d496f8a7da48564a363257c7480dc2f78fe82102996359b0d22d5",
-    "assets/index-Dy0927Pe.js": "3b69c232930a3c170c75862b34eb67eca259054eb9d2a0bee333cef5b20da2e7",
+    "assets/index-RWc-3Cif.js": "aa32ebfafda6daf126d5c3b7256b943a49c47d17334eafb8cff96e0c72f6617b",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-Dctt5Oa6.js": "a36fc295ab1fbd2d0811dc368cde86160140109144d01352755073570a3de032",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "6a94bcb5f129b5a77e7cf2bc058672e9f5e1ab6992d3828098bc9f631d82a559",
+    "index.html": "5237d571ecf67ee71cf72ba6f0b318f77423d258a400b6643f21fad95be7ccfd",
     "third-party-notices.txt": "53536b1c45ee962b1274daeeac604aeb3d8ee36c4152568281d52762bad2afd3"
   }
 }
