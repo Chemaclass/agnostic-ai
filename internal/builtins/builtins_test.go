@@ -567,7 +567,7 @@ func TestMaterialize_LoadsSideConversationAsOneSkill(t *testing.T) {
 		"Only when the user asks", "never start one on your own", "not a subagent", "delegate instead",
 		"not a handoff", "## Acceptance\n## Context\n## Report back\n", "one plain sentence",
 		"under 40 lines", "secrets", "Do not write the `Continues` line", "agnostic-ai conversations start <<'BRIEF'",
-		"--tool", "Do not wait", "Do not work around it", "`handoff` skill", "shows under this one in the Conversations list",
+		"--tool", "Do not wait", "Do not work around it", "`handoff` skill", "shows under this one in the Conversations list while both are in the same group",
 	} {
 		if !strings.Contains(skill.Body, rule) {
 			t.Errorf("skill is missing rule %q", rule)

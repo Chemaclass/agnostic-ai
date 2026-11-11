@@ -45,8 +45,8 @@ func TestBuiltinItems_SideConversationSaysWhereTheNewRowShows(t *testing.T) {
 		if item.Name != "side-conversation" {
 			continue
 		}
-		if !slices.ContainsFunc(item.About.Points, func(point string) bool { return strings.Contains(point, "shows under this one") }) {
-			t.Errorf("points %q do not say the new conversation shows under this one", item.About.Points)
+		if !slices.ContainsFunc(item.About.Points, func(point string) bool { return strings.Contains(point, "shows under this one in the Conversations list while both are in the same group") }) {
+			t.Errorf("points %q do not say when the new conversation shows under this one", item.About.Points)
 		}
 		return
 	}
