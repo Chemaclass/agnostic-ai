@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
 - In the web interface's Built-ins tab, Details now says what each built-in does when on and links RTK and Caveman to their official pages (#3261).
 - `upgrade` also updates an installed companion and restarts it if it was running (#3247).
 - Right-click the companion's circle to stop its animation or dim it when nothing needs you (#3237, #3246).

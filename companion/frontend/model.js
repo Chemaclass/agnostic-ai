@@ -130,19 +130,65 @@ const PLACE_LABELS = {
   cloud: 'Cloud',
 }
 
-/** "Claude Code · agnostic-ai · 5m": the tool, where it runs when not here, the folder's name and how long ago it was written. */
-export function detailsOf(conversation, now) {
+/**
+ * "Claude Code · agnostic-ai · 5m": the tool, where it runs when not here, the folder's name and how long ago it was written.
+ * `names` holds what folderNamesOf gave for the folders in view; without one the folder shows its last name.
+ */
+export function detailsOf(conversation, now, names = new Map()) {
   const parts = [TOOL_LABELS[conversation.tool]]
   const place = PLACE_LABELS[conversation.app]
   if (place) parts.push(place)
-  if (conversation.folder) parts.push(folderName(conversation.folder))
+  if (conversation.folder) parts.push(names.get(conversation.folder) ?? folderName(conversation.folder))
   parts.push(ago(conversation.updatedAt, now))
   return parts.join(' · ')
 }
 
+function namesOf(folder) {
+  return folder.split(/[\\/]/).filter((name) => name !== '')
+}
+
+function tail(names, count) {
+  return names.slice(-count).join('/')
+}
+
 function folderName(folder) {
-  const names = folder.split(/[\\/]/).filter((name) => name !== '')
-  return names.length === 0 ? folder : names[names.length - 1]
+  const names = namesOf(folder)
+  return names.length === 0 ? folder : tail(names, 1)
+}
+
+/**
+ * The name each folder shows: its last name, with as many parent folders as tell it apart
+ * from the other folders in `folders` that end the same way, as in "shop/api" and "billing/api".
+ */
+export function folderNamesOf(folders) {
+  const paths = new Map()
+  for (const folder of folders) {
+    const names = folder ? namesOf(folder) : []
+    if (names.length > 0) paths.set(names.join('/'), names)
+  }
+  const shown = new Map([...paths.keys()].map((path) => [path, 1]))
+  let growing = true
+  while (growing) {
+    growing = false
+    const sharing = new Map()
+    for (const [path, names] of paths) {
+      const name = tail(names, shown.get(path))
+      sharing.set(name, (sharing.get(name) ?? 0) + 1)
+    }
+    for (const [path, names] of paths) {
+      const count = shown.get(path)
+      if (count < names.length && sharing.get(tail(names, count)) > 1) {
+        shown.set(path, count + 1)
+        growing = true
+      }
+    }
+  }
+  const result = new Map()
+  for (const folder of folders) {
+    const names = folder ? namesOf(folder) : []
+    if (names.length > 0) result.set(folder, tail(names, shown.get(names.join('/'))))
+  }
+  return result
 }
 
 const MINUTE = 60 * 1000
