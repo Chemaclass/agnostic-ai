@@ -53,7 +53,7 @@ func codexGlobDirectories(cfg *config.Config, target string, r spec.Entry) ([]st
 			continue
 		}
 		o := cfg.Outputs[reader]
-		if o.File != "" || o.RulesFile != "" || o.RulesDir != "" || o.ProvenanceHeader != nil && !*o.ProvenanceHeader {
+		if o.File != "" || HasLegacyRulesFile(cfg, reader) || o.RulesDir != "" || o.ProvenanceHeader != nil && !*o.ProvenanceHeader {
 			return nil, fmt.Sprintf("%s output overrides do not support automatic nested instructions", reader)
 		}
 		if InlinesRulesIntoEntryPoint(reader) && configuredScopeDocument(cfg, reader) != "AGENTS.md" {

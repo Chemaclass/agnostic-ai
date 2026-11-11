@@ -412,6 +412,25 @@ func ConventionalEntryPointPaths() []string {
 	return emit.ConventionalEntryPointPaths()
 }
 
+// WritesRulesFile reports whether target's adapter writes
+// outputs.<target>.rules-file (re-exported from the emit layer).
+func WritesRulesFile(target string) bool {
+	return emit.WritesRulesFile(target)
+}
+
+// IgnoresRulesFile reports whether target is a built-in whose adapter
+// writes no outputs.<target>.rules-file (re-exported from the emit
+// layer).
+func IgnoresRulesFile(target string) bool {
+	return emit.IgnoresRulesFile(target)
+}
+
+// RulesFileWriters returns, sorted, the targets that write
+// outputs.<target>.rules-file (re-exported from the emit layer).
+func RulesFileWriters() []string {
+	return emit.RulesFileWriters()
+}
+
 // HasLegacyRulesFile reports whether the user opted into the legacy
 // concatenated rules-file layout for target.
 func HasLegacyRulesFile(cfg *config.Config, target string) bool {
