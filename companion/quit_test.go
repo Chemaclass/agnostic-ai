@@ -3,6 +3,8 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -113,5 +115,62 @@ func TestBubbleMenu_EndsWithQuitAfterTheSettings(t *testing.T) {
 	quit := menu.ItemAt(len(want) - 1)
 	if !quit.Enabled() || quit.IsCheckbox() {
 		t.Errorf("quit item: enabled %v, checkbox %v; want an enabled plain item", quit.Enabled(), quit.IsCheckbox())
+	}
+}
+
+func TestRestBriefly_GivesUpWhileTheServerIsStillStarting(t *testing.T) {
+	s, input, _ := quittingShell(t)
+	s.server.mu.Lock()
+	unlocked := false
+	t.Cleanup(func() {
+		if !unlocked {
+			s.server.mu.Unlock()
+		}
+	})
+
+	started := time.Now()
+	s.restBriefly()
+
+	if waited := time.Since(started); waited > quitRestWait+time.Second {
+		t.Errorf("restBriefly waited %v for the server to finish starting", waited)
+	}
+	s.server.mu.Unlock()
+	unlocked = true
+	// The rest it started still runs once the start lets go of the lock.
+	deadline := time.Now().Add(time.Second)
+	for {
+		s.server.mu.Lock()
+		resting := s.server.resting
+		s.server.mu.Unlock()
+		if resting {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the server never rested after the start let go")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !input.closed {
+		t.Error("the server's input was not closed")
+	}
+}
+
+func TestQuit_TwoAtOnceEndTheAppOnce(t *testing.T) {
+	s, _, _ := quittingShell(t)
+	var ended atomic.Int32
+	s.end = func() { ended.Add(1) }
+
+	var both sync.WaitGroup
+	for range 2 {
+		both.Add(1)
+		go func() {
+			defer both.Done()
+			s.quit()
+		}()
+	}
+	both.Wait()
+
+	if n := ended.Load(); n != 1 {
+		t.Errorf("end was called %d times; want once", n)
 	}
 }

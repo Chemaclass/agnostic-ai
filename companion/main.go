@@ -106,6 +106,7 @@ type shell struct {
 	shortcuts shortcuts
 	tell      func(appearance)
 	end       func()
+	endOnce   sync.Once
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -135,12 +136,13 @@ func (s *shell) hide() {
 	s.server.rest()
 }
 
-// quitRestWait is how long quit waits for the server to stop. A server
-// still starting holds it longer; it ends with this process anyway.
+// quitRestWait is how long the companion waits for its server to stop
+// before it ends. A server still starting holds it longer; it ends with
+// this process anyway.
 const quitRestWait = time.Second
 
-// quit stops the server, then ends the app.
-func (s *shell) quit() {
+// restBriefly stops the server, waiting for it at most quitRestWait.
+func (s *shell) restBriefly() {
 	rested := make(chan struct{})
 	go func() {
 		s.server.rest()
@@ -150,7 +152,12 @@ func (s *shell) quit() {
 	case <-rested:
 	case <-time.After(quitRestWait):
 	}
-	s.end()
+}
+
+// quit stops the server, then ends the app once, however many ask.
+func (s *shell) quit() {
+	s.restBriefly()
+	s.endOnce.Do(s.end)
 }
 
 // comeBack puts the bubble back and reads a new list. It reports
@@ -473,7 +480,7 @@ func main() {
 
 	err = s.app.Run()
 	// The server also stops by itself when this process ends; this stops it sooner.
-	s.server.rest()
+	s.restBriefly()
 	if err != nil {
 		log.Fatal(err)
 	}
