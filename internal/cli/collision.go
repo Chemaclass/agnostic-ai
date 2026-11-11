@@ -54,7 +54,14 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 	if err != nil {
 		return nil, err
 	}
-	if conflicts := sharedRulesFileConflicts(cfg, targets); len(conflicts) > 0 {
+	shared := sharedRulesFiles(cfg, b, entryFiles)
+	var conflicts []string
+	for _, s := range shared {
+		if len(s.lost) > 0 {
+			conflicts = append(conflicts, s.conflict())
+		}
+	}
+	if len(conflicts) > 0 {
 		return nil, errs.Coded(errs.CodeOutputCollision, "output collision: %s", strings.Join(conflicts, "\n"))
 	}
 	policy := cfg.Sync.CollisionPolicy
@@ -98,6 +105,14 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 				written[f.Path] = map[string]string{}
 			}
 			written[f.Path][t] = f.Content
+		}
+	}
+	for _, s := range shared {
+		for path, ts := range owners {
+			if filepath.Clean(path) == filepath.Clean(s.path) && slices.Contains(ts, s.owner) {
+				adapters.NoteProject(s.noEffect())
+				owners[path] = slices.DeleteFunc(slices.Clone(ts), func(t string) bool { return t == s.owner })
+			}
 		}
 	}
 	if err := entryPointOverwrites(cfg, entryFiles, owners); err != nil {

@@ -46,7 +46,7 @@ var registry = map[Code]Entry{
 	CodeOutputCollision: {
 		Code:  CodeOutputCollision,
 		Title: "Targets emit to the same output path",
-		Cause: "Two or more enabled targets would write different content to the same path. Last-writer-wins would mask drift. A target's merged `rules-file` on a file sync also writes as another target's instructions file, such as `outputs.codex.rules-file: AGENTS.md` while Cline reads `AGENTS.md`, also stops sync. `sync.collision-policy` does not settle that case, since neither version is right for both tools.",
+		Cause: "Two or more enabled targets would write different content to the same path. Last-writer-wins would mask drift. Sync also stops when an adapter writes a file that sync then writes as another target's instructions file, such as an external adapter's `AGENTS.md`, or a merged `rules-file` that loses rules there, such as `outputs.codex.rules-file: AGENTS.md` while Cline reads `AGENTS.md`. `sync.collision-policy` does not settle those cases, since the instructions file is written last.",
 		Fix:   "Drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`. For a shared instructions file, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool.",
 	},
 	CodeIgnoreOverwrite: {

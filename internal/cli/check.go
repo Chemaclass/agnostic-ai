@@ -278,6 +278,7 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 	}
 	sess := adapters.NewSession()
 	sess.SetCollisionWinners(winners)
+	replaced := replacedRulesFiles(readerCfg, b, targets)
 	sums := state.OutputSums
 	emitted := map[string]bool{}
 	outputSums := map[string]string{}
@@ -300,7 +301,9 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 		if render.err != nil {
 			return nil, fmt.Errorf("%s: %w", t, render.err)
 		}
-		files := render.files
+		files := slices.DeleteFunc(slices.Clone(render.files), func(f adapters.CapturedFile) bool {
+			return replaced[t] == filepath.Clean(f.Path)
+		})
 		for _, f := range files {
 			emitted[f.Path] = true
 			outputSums[f.Path] = adapters.ContentSum(f.Content)

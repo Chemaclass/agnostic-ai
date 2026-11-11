@@ -20,20 +20,29 @@ func sharedRulesFileProject(t *testing.T, config string) string {
 }
 
 // Codex's merged rules file holds no AGNOSTIC_AI.md body and only the
-// rules routed to codex, so it is wrong for any other reader of that
-// file, and the instructions file sync writes for that reader drops the
-// merged rules. Sync used to write both, one after the other (#3302).
-func TestSync_RulesFileOnASharedInstructionsFile_StopsAndNamesBothTargets(t *testing.T) {
-	for _, reader := range []string{"cline", "amp"} {
-		t.Run(reader, func(t *testing.T) {
-			dir := sharedRulesFileProject(t, "targets: [codex, "+reader+"]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+// rules routed to codex. Sync then writes cline's instructions file over
+// it, which carries no rules block, so codex lost its rules (#3302).
+func TestSync_RulesFileOnASharedInstructionsFile_StopsWhenRulesAreLost(t *testing.T) {
+	for name, tc := range map[string]struct{ config, rule, reader string }{
+		"cline reads it": {config: "targets: [codex, cline]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n", reader: "cline"},
+		"amp misses a codex rule": {
+			config: "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n",
+			rule:   "---\nname: only-codex\ntarget: codex\n---\nCodex only.\n",
+			reader: "amp",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := sharedRulesFileProject(t, tc.config)
+			if tc.rule != "" {
+				mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "only-codex.md"), tc.rule)
+			}
 
 			out, err := runCLI(t, "sync", "--gitignore=off")
 
 			if err == nil {
 				t.Fatalf("sync must stop, got:\n%s", out)
 			}
-			for _, want := range []string{"AGENTS.md", "codex", reader, "outputs.codex.rules-file"} {
+			for _, want := range []string{"AGENTS.md", "codex", tc.reader, "outputs.codex.rules-file"} {
 				if !strings.Contains(err.Error(), want) {
 					t.Errorf("the error must name %q, got: %v", want, err)
 				}
@@ -44,8 +53,45 @@ func TestSync_RulesFileOnASharedInstructionsFile_StopsAndNamesBothTargets(t *tes
 
 			out, err = runCLI(t, "validate")
 
-			if err == nil || !strings.Contains(out, "outputs.codex.rules-file") || !strings.Contains(out, reader) {
-				t.Errorf("validate must reject the config and name codex and %s: %v\n%s", reader, err, out)
+			if err == nil || !strings.Contains(out, "outputs.codex.rules-file") || !strings.Contains(out, tc.reader) {
+				t.Errorf("validate must reject the config and name codex and %s: %v\n%s", tc.reader, err, out)
+			}
+		})
+	}
+}
+
+// When the other reader inlines every rule the writer would have merged,
+// the shared file already carries them. Sync keeps writing it as before,
+// says the rules-file has no effect there, and lint warns, in both
+// directions.
+func TestSync_RulesFileOnASharedInstructionsFile_KeepsTheFileWhenRulesSurvive(t *testing.T) {
+	for _, tc := range []struct{ writer, reader string }{{"codex", "amp"}, {"amp", "codex"}} {
+		t.Run(tc.writer+" writes, "+tc.reader+" reads", func(t *testing.T) {
+			dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  "+tc.writer+":\n    rules-file: AGENTS.md\n")
+			notes := captureNotes(t)
+
+			out, err := runCLI(t, "sync", "--gitignore=off")
+
+			if err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			data, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+			if !strings.Contains(string(data), "SHARED-BODY") || !strings.Contains(string(data), "Use tabs.") {
+				t.Errorf("AGENTS.md must keep the body and the rule, got:\n%s", data)
+			}
+			if note := notes.String(); !strings.Contains(note, "outputs."+tc.writer+".rules-file has no effect on AGENTS.md") || !strings.Contains(note, tc.reader) {
+				t.Errorf("sync must say the rules-file has no effect there, got:\n%s", note)
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check: %v\n%s", err, out)
+			}
+			if out, err := runCLI(t, "validate"); err != nil {
+				t.Errorf("validate: %v\n%s", err, out)
+			}
+			out, _ = runCLI(t, "lint")
+			lines := findingLines(out, "LINT063")
+			if len(lines) != 1 || !strings.Contains(lines[0], "outputs."+tc.writer+".rules-file") || !strings.Contains(lines[0], tc.reader) {
+				t.Errorf("want one LINT063 naming %s and %s, got:\n%s", tc.writer, tc.reader, out)
 			}
 		})
 	}

@@ -130,7 +130,7 @@
     "src/model/finding-prompt.test.ts": "261851454887de6c9657186025d195b3049868e4242cb8b0be27660351c20682",
     "src/model/finding-prompt.ts": "7af1eece1bdff75ab9df34c8f4f404217f2efac5a2ce58c264aa6cb618d60ad4",
     "src/model/finding-title.test.ts": "478b6bf51c935ea914d58eb5b2e2b12290d73f31990e5cadab65565ef577efea",
-    "src/model/finding-title.ts": "e7dec1b12e8de5fbe8578da4b9e0aba1fa1689f39bac4fe9cf76615972cae78d",
+    "src/model/finding-title.ts": "489422e205ccbad024806283b0c85a75b1ce2bd944985142b4adb1c94b3c4043",
     "src/model/fixture.test.ts": "6d1056c4b133ae1d6f5eaf382e3301a47b038cff1a33fab133e1c05db20fdf80",
     "src/model/format.ts": "25e0e21a6c16426df0af927244e5e660859d781393c1ef6493622e7df8fbb1b2",
     "src/model/health.test.ts": "d21c9510f77becd6ecf81d8d520d0c41f97dfbd869fe438a8708f7d5c6d63a18",
@@ -194,12 +194,12 @@
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
-    "assets/index-3SY0aPX7.js": "c42c3fd0a5bf6616a6ed9450908bc8a200c9c2210a7675e2fb7882356687c8fe",
+    "assets/index-C4OdZEhp.js": "d1eac258989c1dedf9fa03f5cf0ea043b690b9c411efead2f06430a4a2573377",
     "assets/index-C6O_iGnE.css": "2532541f8aa856881c0388bd8ff20db613fae006ba5e2e929d61ebe0cde21853",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-BWdmVmW5.js": "30fa35d01540306b9dfb479e58801dd20249bb518202c156c29ca66b0394251a",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "c352b179b1203b257fbdf7735a5fe2e8b1d90aa15e575fdfd4f8b7fb3ed5b44e",
+    "index.html": "62ddcba4ac27fa9a2c59d505f5a0960f3573f7cb8907e93c394495b64c00484a",
     "third-party-notices.txt": "53536b1c45ee962b1274daeeac604aeb3d8ee36c4152568281d52762bad2afd3"
   }
 }

@@ -899,7 +899,8 @@
 # LINT062 and the rebuilt web bundle) measured 25923744 bytes locally on
 # 2026-11-11, on top of main c9bb14de; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-# #3302 (stop when an adapter file and an instructions file share one
-# path) measured 25936032 bytes locally on 2026-11-11, on top of #3295;
-# the budget is that plus 8192, rounded up to a multiple of 4096.
-25948160
+# #3302 (an adapter file on an instructions file path: stop when rules
+# are lost, LINT063 when they survive, and the rebuilt web bundle)
+# measured 25948320 bytes locally on 2026-11-11, on top of #3295; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+25960448

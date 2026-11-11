@@ -310,6 +310,9 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	}
 	findings = append(findings, lintRulesModes(scope.cfg, outputPaths)...)
 	findings = append(findings, lintRulesFiles(scope.cfg, outputPaths)...)
+	if !scope.global {
+		findings = append(findings, lintSharedRulesFiles(scope.cfg, scope.bundle, scope.targets, outputPaths)...)
+	}
 	return withoutBuiltinFindings(findings, scope.bundle), accepted, nil
 }
 
