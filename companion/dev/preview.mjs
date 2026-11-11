@@ -242,6 +242,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'GET /api/appearance': (request, response) => sendJSON(response, 200, state.appearance),
     'POST /api/dashboard': (request, response) => { logCall('/api/dashboard'); noContent(response) },
     'POST /api/hide': (request, response) => { logCall('/api/hide'); noContent(response) },
+    'POST /api/quit': (request, response) => { logCall('/api/quit'); noContent(response) },
     'GET /wails/runtime.js': (request, response) => serveFile(response, here, 'runtime-shim.js'),
     'GET /dev/': (request, response) => serveFile(response, here, 'preview.html'),
     'GET /dev/events': events,

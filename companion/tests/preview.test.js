@@ -133,3 +133,12 @@ test('a taken port fails the start and leaves nothing running', { timeout: 10_00
   const port = Number(new URL(first.url).port)
   await assert.rejects(startPreview({ port }), /EADDRINUSE/)
 })
+
+test('quit answers with no content and shows in the calls', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  const quit = await fetch(preview.url + '/api/quit', { method: 'POST' })
+  assert.equal(quit.status, 204)
+  const calls = await (await fetch(preview.url + '/dev/calls')).json()
+  assert.equal(calls[0].path, '/api/quit')
+})

@@ -105,6 +105,8 @@ type shell struct {
 	// shortcuts takes and gives back the keys that open the list from anywhere.
 	shortcuts shortcuts
 	tell      func(appearance)
+	end       func()
+	endOnce   sync.Once
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -132,6 +134,30 @@ func (s *shell) hide() {
 	s.bubble.Hide()
 	s.inbox.stop()
 	s.server.rest()
+}
+
+// quitRestWait is how long the companion waits for its server to stop
+// before it ends. A server still starting holds it longer; it ends with
+// this process anyway.
+const quitRestWait = time.Second
+
+// restBriefly stops the server, waiting for it at most quitRestWait.
+func (s *shell) restBriefly() {
+	rested := make(chan struct{})
+	go func() {
+		s.server.rest()
+		close(rested)
+	}()
+	select {
+	case <-rested:
+	case <-time.After(quitRestWait):
+	}
+}
+
+// quit stops the server, then ends the app once, however many ask.
+func (s *shell) quit() {
+	s.restBriefly()
+	s.endOnce.Do(s.end)
 }
 
 // comeBack puts the bubble back and reads a new list. It reports
@@ -300,6 +326,10 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 		s.hide()
 	})
+	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+		s.quit()
+	})
 	mux.Handle("/", application.BundledAssetFileServer(pages))
 	return mux
 }
@@ -380,7 +410,7 @@ func main() {
 			OnSecondInstanceLaunch: func(second application.SecondInstanceData) {
 				switch asked(second.Args) {
 				case askQuit:
-					s.app.Quit()
+					s.quit()
 				case askLoginOff:
 					// The companion that asked ended inside New and cannot do it.
 					if err := s.app.Autostart.Disable(); err != nil {
@@ -397,6 +427,7 @@ func main() {
 			},
 		},
 	})
+	s.end = s.app.Quit
 	// A companion started while another runs hands over its arguments and
 	// ends inside New, so from here on this is the only one.
 	switch ask {
@@ -449,7 +480,7 @@ func main() {
 
 	err = s.app.Run()
 	// The server also stops by itself when this process ends; this stops it sooner.
-	s.server.rest()
+	s.restBriefly()
 	if err != nil {
 		log.Fatal(err)
 	}
