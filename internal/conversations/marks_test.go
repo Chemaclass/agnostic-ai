@@ -53,6 +53,37 @@ func TestStateOf_PlacesAConversationByToolReportThenMarksThenAge(t *testing.T) {
 	}
 }
 
+func TestStateOf_SeenClearsAWaitOrAReplyUntilTheNextWrite(t *testing.T) {
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	since := now.Add(-48 * time.Hour)
+	at := func(ago time.Duration) string { return now.Add(-ago).Format(time.RFC3339) }
+	waiting := func(written time.Duration) Conversation {
+		return Conversation{UpdatedAt: at(written), Live: true, Activity: ActivityWaiting}
+	}
+	closed := func(written time.Duration) Conversation { return Conversation{UpdatedAt: at(written)} }
+	before := markEntry{SeenAt: at(3 * time.Hour)}
+	seen := markEntry{SeenAt: at(30 * time.Minute)}
+	cases := []struct {
+		name  string
+		c     Conversation
+		entry markEntry
+		want  State
+	}{
+		{"a wait before it is marked read", waiting(time.Hour), before, StateBlocked},
+		{"a wait marked read", waiting(time.Hour), seen, StateActive},
+		{"a wait written again after it was marked read", waiting(10 * time.Minute), seen, StateBlocked},
+		{"a reply before it is marked read", closed(time.Hour), before, StateUnread},
+		{"a reply marked read", closed(time.Hour), seen, StateActive},
+		{"a reply written again after it was marked read", closed(10 * time.Minute), seen, StateUnread},
+		{"a reply older than a day, marked read, goes quiet", closed(30 * time.Hour), seen, StateDormant},
+	}
+	for _, tc := range cases {
+		if got := stateOf(tc.c, tc.entry, since, now); got != tc.want {
+			t.Errorf("%s: state = %s, want %s", tc.name, got, tc.want)
+		}
+	}
+}
+
 func writeMarkedSession(t *testing.T, stores Stores, id, timestamp string) {
 	t.Helper()
 	writeSessionSaying(t, stores, id, timestamp, "Fix the parser")
