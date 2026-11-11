@@ -199,6 +199,24 @@ func TestImportAugment_ReadsAskUserRulesBack(t *testing.T) {
 	}
 }
 
+// Auggie applies the first rule that matches a tool, so a later rule
+// for the same tool is not imported.
+func TestImportAugmentPermissions_KeepsTheFirstRuleForATool(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".augment", "settings.json"), `{"toolPermissions":[
+	  {"toolName": "write", "permission": {"type": "ask-user"}},
+	  {"toolName": "write", "permission": {"type": "allow"}}
+	]}`)
+	dst := filepath.Join(root, "settings")
+	if _, err := importAugmentPermissions(root, dst); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	got := readFileString(t, filepath.Join(dst, "permissions-augment.yaml"))
+	if !strings.Contains(got, "ask:") || strings.Contains(got, "allow:") {
+		t.Errorf("spec = %q, want only the first rule", got)
+	}
+}
+
 func readFileString(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)

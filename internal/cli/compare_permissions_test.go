@@ -83,6 +83,20 @@ func TestCompare_PortablePermissionEntriesAppear(t *testing.T) {
 	}
 }
 
+func TestCompare_AugmentAskRuleIsTranslated(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
+	mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  ask: [Write]\n")
+	runSyncOK(t)
+
+	out := compareJSON(t, "augment", "claude")
+	result := findCompareResult(t, out, ".agnostic-ai/settings/policy.yaml", "permissions.ask[0]", "augment")
+	if result.Status != statusTranslated || len(result.Paths) == 0 {
+		t.Errorf("Augment ask = %+v, want translated native output", result)
+	}
+}
+
 func TestCompare_PermissionPolicyUsesOtherSettingsSources(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
