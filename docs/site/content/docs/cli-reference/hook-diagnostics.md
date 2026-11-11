@@ -315,7 +315,7 @@ A tool that lacks the input a flag needs is not run, and the other tools still r
 
 ### Augment sample events
 
-`--bash` calls `launch-process`; `--edit` calls `str-replace-editor` or `save-file`. Augment has no prompt event.
+`--bash` calls `launch-process`; `--edit` calls `str-replace-editor` or `save-file`. `hook run` builds no `PromptSubmit` or `Notification` payload; pass `--payload <file>`.
 
 ## Matcher and plugin limits
 

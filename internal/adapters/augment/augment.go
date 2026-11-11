@@ -95,19 +95,17 @@
 // (see hooks.go and emitSettings below): "Project-scoped settings
 // (`.augment/settings.json` and `.augment/settings.local.json`) allow
 // repositories to ship hook configurations that apply automatically to
-// all contributors" (docs.augmentcode.com/cli/hooks). Five events,
-// re-verified fresh 2026-09-10: `PreToolUse`, `PostToolUse`, `Stop`,
-// `SessionStart`, `SessionEnd` (the vendor's `hook_event_name` field
-// also lists `Notification` as a possible value, but it has no
-// configuration section of its own, so it is not a sixth registrable
-// event). `timeout` reaches the file in **milliseconds**: the shared
+// all contributors" (docs.augmentcode.com/cli/hooks). Seven events
+// in Auggie 1.x: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`,
+// `SessionEnd`, `PromptSubmit`, `Notification` (the 0.x reference
+// documents the first five; see hookLifecycle in hooks.go). `timeout` reaches the file in **milliseconds**: the shared
 // hook spec's own `timeout` field is documented in seconds
 // (docs/site/content/docs/spec-format/hooks.md), so this adapter multiplies by 1000
 // before writing it, unlike factory, goose, and qoder's seconds-native
 // renderers; the vendor default when the key is absent is 60000.
 // `args` stays a separate array, which Auggie 0.37.1 and 1.x both run
 // with no shell. `matcher` is optional even for `PreToolUse`/`PostToolUse` (vendor
-// default `.*`) and unused for the three session events, whose own
+// default `.*`) and unused for the events that take none (`Stop`, `SessionStart`, `SessionEnd`, and in Auggie 1.x `PromptSubmit` and `Notification`), whose own
 // example omits the key outright rather than writing an empty string,
 // so this adapter never sets it there either. Augment's own matcher
 // vocabulary is its tool names (`launch-process`, `str-replace-editor`,
