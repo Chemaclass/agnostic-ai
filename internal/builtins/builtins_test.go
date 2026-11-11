@@ -65,7 +65,7 @@ func skillPath(root string) string {
 }
 
 func TestNames_ReturnsValidNamesWithoutSharingTheList(t *testing.T) {
-	want := []string{"caveman", "handoff", "handoff-hook", "memory", "rtk"}
+	want := []string{"caveman", "handoff", "handoff-hook", "memory", "rtk", "wrap-up"}
 	if got := builtins.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Names() = %v, want %v", got, want)
 	}
@@ -453,6 +453,85 @@ func TestMaterialize_LoadsHandoffHooksAsAnOrdinaryLayer(t *testing.T) {
 		}
 		if _, exists := hook.Meta["matcher"]; exists {
 			t.Errorf("hook %s filters lifecycle sources", hook.Name)
+		}
+	}
+}
+
+func TestMaterialize_LoadsWrapUpAsOneSkill(t *testing.T) {
+	cacheForTest(t)
+	root, cleanup, err := builtins.Materialize("wrap-up")
+	if err != nil {
+		t.Fatalf("materialize wrap-up: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Errorf("cleanup %s: %v", root, err)
+		}
+	})
+	var files []string
+	err = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || d.Name() == ".complete" {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		files = append(files, filepath.ToSlash(rel))
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(files, []string{"skills/wrap-up/SKILL.md"}) {
+		t.Errorf("materialized files = %v, want only the skill", files)
+	}
+	bundle, err := spec.LoadLayered([]spec.Layer{{
+		Name: "builtin", Root: root, Sources: config.Sources{Skills: "skills", Hooks: "hooks"},
+	}})
+	if err != nil {
+		t.Fatalf("load builtin layer: %v", err)
+	}
+	if len(bundle.All()) != 1 || len(bundle.Skills) != 1 || len(bundle.Hooks) != 0 {
+		t.Fatalf("builtin entries = %v, want one skill", bundle.All())
+	}
+	skill := bundle.Skills[0]
+	if skill.Name != "wrap-up" || skill.Layer != "builtin" {
+		t.Errorf("skill identity = %q layer %q", skill.Name, skill.Layer)
+	}
+	if skill.Description() != `Write an end-of-session summary for people. Use when asked to "wrap up" or "write a wrap-up".` {
+		t.Errorf("description = %q", skill.Description())
+	}
+	for _, rule := range []string{
+		"wrap up", "write a wrap-up", "## What changed\n## Still open\n## Note to share\n",
+		"nothing", "one screen", "git branch --show-current", "git status --short",
+		"git log --oneline", "Make no network call", "Never guess", "secrets",
+		"absolute home paths", "only read", "unless the user asks", "`handoff` skill",
+	} {
+		if !strings.Contains(skill.Body, rule) {
+			t.Errorf("skill is missing rule %q", rule)
+		}
+	}
+	for _, banned := range []string{"hooks/", "gh ", "/wrap-up", "Claude", "Codex", "Cursor", "\u2013", "\u2014"} {
+		if strings.Contains(skill.Body, banned) {
+			t.Errorf("skill contains %q", banned)
+		}
+	}
+}
+
+func TestWrapUpAndHandoff_PointToEachOther(t *testing.T) {
+	cacheForTest(t)
+	for name, pointer := range map[string]string{"handoff": "`wrap-up` skill", "wrap-up": "`handoff` skill"} {
+		root, cleanup, err := builtins.Materialize(name)
+		if err != nil {
+			t.Fatalf("materialize %s: %v", name, err)
+		}
+		body, err := os.ReadFile(filepath.Join(root, "skills", name, "SKILL.md"))
+		if cerr := cleanup(); cerr != nil {
+			t.Errorf("cleanup %s: %v", root, cerr)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), pointer) {
+			t.Errorf("%s skill does not point to %s", name, pointer)
 		}
 	}
 }

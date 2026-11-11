@@ -176,7 +176,7 @@ test.describe('overview', () => {
     await openApp(page, '?view=settings')
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
     const builtins = page.locator('.item-row', { has: page.locator('.switch') })
-    await expect(builtins).toHaveCount(5)
+    await expect(builtins).toHaveCount(6)
     await expect(builtins.filter({ hasText: 'memory' }).locator('.switch-text')).toHaveText(/On|Off/)
     await selectTab(page, 'Config files')
     const config = page.locator('.item-row', { hasText: 'agnostic-ai.yaml' })

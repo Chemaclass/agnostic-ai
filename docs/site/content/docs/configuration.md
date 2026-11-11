@@ -134,6 +134,7 @@ builtins: [handoff]
 | `memory` | Shared project and personal memory | [Shared memory](@/docs/memory.md) |
 | `rtk` | A Claude Code hook that shortens command output; install RTK separately | [RTK setup](@/docs/rtk-and-caveman.md#turn-them-on) |
 | `caveman` | An on-demand response skill from a fixed upstream version; no separate program needed | [Caveman setup](@/docs/rtk-and-caveman.md#turn-them-on) |
+| `wrap-up` | A skill to end a session with a summary to share | [Session wrap-ups](@/docs/wrap-up.md) |
 
 Before you enable RTK or Caveman, [check for an existing copy](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman).
 

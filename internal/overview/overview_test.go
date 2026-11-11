@@ -10,6 +10,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -108,8 +109,8 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 			}
 		}
 		if id == SectionSettings {
-			// Built-ins lists all five shipped built-ins and counts the enabled one.
-			total += 4
+			// Built-ins lists every shipped built-in and counts the enabled one.
+			total += len(builtins.Names()) - 1
 		}
 		if len(s.Items) != total {
 			t.Errorf("%s items = %d, want %d: %+v", id, len(s.Items), total, s.Items)
