@@ -651,8 +651,10 @@ func TestDelete_RefusesASessionThatWritesBetweenItsReads(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer resumed.Close()
 		if _, err := resumed.WriteString(`{"type":"assistant"}` + "\n"); err != nil {
+			t.Fatal(err)
+		}
+		if err := resumed.Close(); err != nil {
 			t.Fatal(err)
 		}
 	}
