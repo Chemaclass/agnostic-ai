@@ -109,6 +109,7 @@ The route lists Claude Code, Codex and Cursor conversations from each tool's own
 - A `before` that is not an RFC 3339 time is a 400.
 - A project server lists the conversations started in the project or one of its Git worktrees. A global server lists them all.
 - Runs a program started (Claude Code SDK sessions, `codex exec`) are left out.
+- A Claude Code session or Codex thread that was opened and never typed in is left out: it has no title and no prompt to show. It is not counted in `needsYou` or a tool's `count`.
 
 Returns `tools` and `conversations`:
 

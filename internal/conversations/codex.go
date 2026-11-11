@@ -119,11 +119,16 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		if !sessionIDPattern.MatchString(thread.ID) || codexExec(thread) {
 			continue
 		}
+		t := texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]}
+		// A thread opened and never typed in has nothing to show, as an empty Claude Code session.
+		if t.title == "" && t.firstPrompt == "" && t.lastPrompt == "" {
+			continue
+		}
 		c := Conversation{
 			Tool: ToolCodex, ID: thread.ID, Folder: thread.Cwd, Branch: thread.GitBranch,
 			StartedAt: timeFromMillis(thread.CreatedAtMs), UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
 		}
-		textsOf[thread.ID] = texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]}
+		textsOf[thread.ID] = t
 		codexRoute(&c, thread, editor)
 		conversations = append(conversations, c)
 		rollouts[thread.ID] = thread.RolloutPath
