@@ -218,7 +218,7 @@ func TestDelete_SaysWhyAConversationThatIsNotArchivedStays(t *testing.T) {
 
 	_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
 
-	if err == nil || err.Error() != "Only an archived conversation can be deleted. This one is not archived any more: something was written in it, or it was opened. Refresh the list." {
+	if err == nil || err.Error() != "Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list." {
 		t.Errorf("error = %v", err)
 	}
 	scanner.MarksPath = ""
@@ -725,5 +725,281 @@ func TestDelete_ReadsAReusedPidAsAnotherProcess(t *testing.T) {
 
 	if reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); err != nil || !reply.Deleted {
 		t.Errorf("= %s %v", asJSON(t, reply), err)
+	}
+}
+
+// quietAt is when dormantScanner's sessions last wrote, days before the delete.
+var quietAt = archivedAt.Add(-72 * time.Hour)
+
+// dormantScanner lists two Claude Code sessions in one project that went
+// quiet before the marks file began, with no mark of the person's.
+func dormantScanner(t *testing.T, processes Processes) (scanner *Scanner, stores Stores, target map[string]string) {
+	t.Helper()
+	scanner, stores = testScanner(t, noSQLite, processes)
+	scanner.MarksPath = filepath.Join(t.TempDir(), "state", "conversation-marks.json")
+	target = sessionFiles(t, stores, idSafari)
+	sessionFiles(t, stores, idCache)
+	for _, id := range []string{idSafari, idCache} {
+		writeMarkedSession(t, stores, id, quietAt.Format(time.RFC3339))
+	}
+	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+	data, err := os.ReadFile(transcript)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target[transcript] = string(data)
+	for path := range target {
+		if strings.Contains(path, "tasks") {
+			delete(target, path)
+		}
+	}
+	dateBefore(t, stores.ClaudeDir, quietAt)
+	now := archivedAt
+	scanner.Now = func() time.Time { return now }
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.State != StateDormant {
+		t.Fatalf("the fixture session is %s, want dormant", c.State)
+	}
+	now = archivedAt.Add(time.Minute)
+	return scanner, stores, target
+}
+
+const dormantChangedMessage = "Something was written in this conversation just now, so it was not deleted. Refresh the list."
+
+func TestDelete_RemovesADormantClaudeSession(t *testing.T) {
+	scanner, stores, target := dormantScanner(t, fakeProcesses{})
+	if err := scanner.Rename(ToolClaude, idSafari, "Old pricing sketch"); err != nil {
+		t.Fatal(err)
+	}
+	freed := 0
+	for _, content := range target {
+		freed += len(content)
+	}
+
+	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if err != nil || !reply.Deleted || reply.FreedBytes != int64(freed) {
+		t.Fatalf("= %s %v, want %d bytes freed", asJSON(t, reply), err, freed)
+	}
+	assertFiles(t, target, false)
+	if _, err := os.Lstat(filepath.Join(stores.ClaudeDir, "file-history", idSafari)); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the side folder is still there (%v)", err)
+	}
+	if _, kept := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolClaude, idSafari)]; kept {
+		t.Error("the deleted session's marks stay")
+	}
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	if listed(view, idSafari) || byID(t, view, idCache).State != StateDormant {
+		t.Errorf("after the delete: %s", asJSON(t, view.Conversations))
+	}
+}
+
+func TestDelete_RemovesADormantSessionThePersonLastSawAfterItsLastWrite(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	files := sessionFiles(t, stores, idSafari)
+	writeMarkedSession(t, stores, idSafari, quietAt.Format(time.RFC3339))
+	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+	data, err := os.ReadFile(transcript)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files[transcript] = string(data)
+	for path := range files {
+		if strings.Contains(path, "tasks") {
+			delete(files, path)
+		}
+	}
+	dateBefore(t, stores.ClaudeDir, quietAt)
+	now := quietAt.Add(-time.Hour)
+	scanner.Now = func() time.Time { return now }
+	scanner.Scan(context.Background(), ScanOptions{})
+	now = quietAt.Add(time.Hour)
+	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	now = archivedAt
+
+	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if err != nil || !reply.Deleted {
+		t.Fatalf("= %s %v", asJSON(t, reply), err)
+	}
+	assertFiles(t, files, false)
+}
+
+func TestDelete_RefusesASessionWrittenAfterThePersonsLastLook(t *testing.T) {
+	for name, seen := range map[string]bool{"seen, then written": true, "written after the marks began": false} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+			scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+			sessionFiles(t, stores, idSafari)
+			writeMarkedSession(t, stores, idSafari, quietAt.Format(time.RFC3339))
+			dateBefore(t, stores.ClaudeDir, quietAt)
+			now := quietAt.Add(time.Hour)
+			scanner.Now = func() time.Time { return now }
+			scanner.Scan(context.Background(), ScanOptions{})
+			if seen {
+				now = quietAt.Add(2 * time.Hour)
+				if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+					t.Fatal(err)
+				}
+			}
+			writeSessionSaying(t, stores, idSafari, quietAt.Add(3*time.Hour).Format(time.RFC3339), "One more thing")
+			transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+			data, err := os.ReadFile(transcript)
+			if err != nil {
+				t.Fatal(err)
+			}
+			now = archivedAt
+			if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.State != StateUnread {
+				t.Fatalf("the session is %s, want unread", c.State)
+			}
+
+			reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+			if refusal := deleteRefusal(t, err); refusal.Kind != DeleteNotArchived || reply.Deleted {
+				t.Errorf("= %s %+v", asJSON(t, reply), refusal)
+			}
+			assertFiles(t, map[string]string{transcript: string(data)}, true)
+		})
+	}
+}
+
+func TestDelete_RefusesARunningDormantSession(t *testing.T) {
+	for name, start := range map[string]func(t *testing.T, stores Stores){
+		"an idle process holds it": func(t *testing.T, stores Stores) {
+			writeClaudeProcess(t, stores, 4242, idSafari, "idle")
+		},
+		"a background job holds it": func(t *testing.T, stores Stores) {
+			write(t, filepath.Join(stores.ClaudeDir, "jobs", "5f12e206", "state.json"), `{"sessionId":"`+idSafari+`","state":"idle"}`)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores, target := dormantScanner(t, fakeProcesses{alive: map[int]bool{4242: true}})
+			start(t, stores)
+
+			_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+			if refusal := deleteRefusal(t, err); refusal.Kind != DeleteRunning {
+				t.Errorf("refusal = %+v", refusal)
+			}
+			assertFiles(t, target, true)
+		})
+	}
+}
+
+func TestDelete_RefusesADormantSessionThatWritesBetweenItsReads(t *testing.T) {
+	scanner, stores, _ := dormantScanner(t, fakeProcesses{})
+	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+	scanner.betweenReads = func() {
+		resumed, err := os.OpenFile(transcript, os.O_APPEND|os.O_WRONLY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := resumed.WriteString(`{"type":"assistant"}` + "\n"); err != nil {
+			t.Fatal(err)
+		}
+		if err := resumed.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteChanged || refusal.Message != dormantChangedMessage {
+		t.Errorf("refusal = %+v", refusal)
+	}
+	if data, err := os.ReadFile(transcript); err != nil || !strings.HasSuffix(string(data), `{"type":"assistant"}`+"\n") {
+		t.Errorf("the resumed transcript = %q (%v)", data, err)
+	}
+}
+
+func TestDelete_StopsBeforeTheTranscriptWhenADormantSessionStartsDuringTheRemoval(t *testing.T) {
+	scanner, stores, target := dormantScanner(t, fakeProcesses{})
+	writeClaudeProcess(t, stores, 4242, idSafari, "idle")
+	scanner.Processes = &startsLater{pid: 4242, from: 2}
+	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+
+	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	refusal := deleteRefusal(t, err)
+	if refusal.Kind != DeleteFailed || reply.Deleted || strings.Join(refusal.Remaining, ",") != transcript ||
+		!strings.HasPrefix(refusal.Message, "This conversation started running while it was being deleted, so agnostic-ai stopped before its transcript.") {
+		t.Fatalf("= %s %+v", asJSON(t, reply), refusal)
+	}
+	assertFiles(t, map[string]string{transcript: target[transcript]}, true)
+}
+
+func TestDelete_RefusesADormantSessionWhenItCannotTellWhetherItRuns(t *testing.T) {
+	scanner, _, target := dormantScanner(t, fakeProcesses{})
+	scanner.Processes = unreadableTable{}
+
+	_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteFailed || refusal.Message != "agnostic-ai could not check whether this session still runs, so it deleted nothing." {
+		t.Errorf("refusal = %+v", refusal)
+	}
+	assertFiles(t, target, true)
+}
+
+func TestDelete_RefusesADormantWriteInTheSecondOfTheRequest(t *testing.T) {
+	scanner, stores, target := dormantScanner(t, fakeProcesses{})
+	same := archivedAt.Add(time.Minute + 800*time.Millisecond)
+	if err := os.Chtimes(filepath.Join(stores.ClaudeDir, "session-env", idSafari, "hook-1.sh"), same, same); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteChanged || refusal.Message != dormantChangedMessage {
+		t.Errorf("refusal = %+v", refusal)
+	}
+	assertFiles(t, target, true)
+}
+
+func TestDelete_RefusesLinkedParentFoldersOfADormantSession(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic links need extra rights on Windows")
+	}
+	scanner, stores, target := dormantScanner(t, fakeProcesses{})
+	parent := filepath.Join(stores.ClaudeDir, "file-history")
+	outside := filepath.Join(t.TempDir(), "relocated")
+	if err := os.Rename(parent, outside); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, parent); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if err == nil {
+		t.Fatal("delete accepted a linked parent folder")
+	}
+	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteUnsupported || !strings.Contains(refusal.Message, parent) {
+		t.Errorf("refusal = %+v", refusal)
+	}
+	assertFiles(t, target, true)
+}
+
+func TestScan_SaysOnADormantRowWhyItCannotBeDeleted(t *testing.T) {
+	const codexQuiet = "55555555-5555-4555-8555-555555555555"
+	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
+		"state_5.sqlite|FROM threads": `[{"id":"` + codexQuiet + `","cwd":"/tmp/app","created_at_ms":1793786400000,"updated_at_ms":1793790000000,"originator":"codex-tui","source":"cli","name":"Quiet"}]`,
+	}), fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	sessionFiles(t, stores, idSafari)
+	writeMarkedSession(t, stores, idCache, quietAt.Format(time.RFC3339))
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if c := byID(t, view, codexQuiet); c.State != StateDormant || !strings.HasPrefix(c.DeleteUnsupported, "Deleting Codex threads from here is not supported") {
+		t.Errorf("dormant Codex thread: %s", asJSON(t, c))
+	}
+	for id, state := range map[string]State{idCache: StateDormant, idSafari: StateActive} {
+		if c := byID(t, view, id); c.State != state || c.DeleteUnsupported != "" {
+			t.Errorf("%s is %s and says %q", id, c.State, c.DeleteUnsupported)
+		}
 	}
 }

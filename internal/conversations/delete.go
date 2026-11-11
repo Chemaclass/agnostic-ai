@@ -26,11 +26,11 @@ type DeleteRefusal string
 const (
 	// DeleteNotListed: this server does not list the conversation, or the person hid it.
 	DeleteNotListed DeleteRefusal = "not-listed"
-	// DeleteNotArchived: the conversation is not completed now.
+	// DeleteNotArchived: the conversation is not completed or dormant now.
 	DeleteNotArchived DeleteRefusal = "not-archived"
 	// DeleteRunning: a process or a background job still holds it.
 	DeleteRunning DeleteRefusal = "running"
-	// DeleteChanged: one of its files was written after the archive.
+	// DeleteChanged: one of its files was written at or after the moment it was archived.
 	DeleteChanged DeleteRefusal = "changed"
 	// DeleteUnsupported: its store cannot be deleted from here.
 	DeleteUnsupported DeleteRefusal = "unsupported"
@@ -58,7 +58,7 @@ func refuse(kind DeleteRefusal, message string) *DeleteError {
 
 const notListedMessage = "That conversation is not in this list any more. Refresh the page."
 
-// Delete removes one archived Claude Code session from this machine:
+// Delete removes one Claude Code session under Archived from this machine:
 // its transcript and the folders Claude Code names after it, then its
 // marks. It removes only what it can verify belongs to the session, and
 // the transcript last, so after any failure the row is still listed,
@@ -100,8 +100,9 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if c.Live || c.App == AppBackground {
 		return DeleteReply{}, refuse(DeleteRunning, "This conversation is still running. Close it in Claude Code, then delete it.")
 	}
-	if entry.CompletedAt == "" || stateOf(c, entry, parseStamp(file.Since), now) != StateCompleted {
-		return DeleteReply{}, refuse(DeleteNotArchived, "Only an archived conversation can be deleted. This one is not archived any more: something was written in it, or it was opened. Refresh the list.")
+	archived, changed, ok := archivedAsOf(stateOf(c, entry, parseStamp(file.Since), now), entry, now)
+	if !ok {
+		return DeleteReply{}, refuse(DeleteNotArchived, "Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.")
 	}
 	if reason := s.deleteUnsupported(c); reason != "" {
 		return DeleteReply{}, refuse(DeleteUnsupported, reason)
@@ -126,15 +127,15 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if err != nil {
 		return DeleteReply{}, &DeleteError{Kind: DeleteFailed, Message: "Nothing was deleted: " + err.Error(), Cause: err}
 	}
-	// Marks keep whole seconds, so a write in the mark's own second may have come after it.
-	if !newest.Truncate(time.Second).Before(parseStamp(entry.CompletedAt)) {
-		return DeleteReply{}, refuse(DeleteChanged, "Something was written in this conversation after you archived it. Archive it again if you still want to delete it.")
+	// Marks keep whole seconds, so a write in the archive's own second may have come after it.
+	if !newest.Truncate(time.Second).Before(archived) {
+		return DeleteReply{}, refuse(DeleteChanged, changed)
 	}
-	if refusal := s.stillClosed(c, transcript); refusal != nil {
+	if refusal := s.stillClosed(c, transcript, changed); refusal != nil {
 		return DeleteReply{}, refusal
 	}
 	// The side folders can take a while: the session is checked once more before its transcript goes.
-	beforeTranscript := func() *DeleteError { return s.stillClosed(c, transcript) }
+	beforeTranscript := func() *DeleteError { return s.stillClosed(c, transcript, changed) }
 	if err := removeInOrder(paths, beforeTranscript); err != nil {
 		return DeleteReply{}, err
 	}
@@ -149,6 +150,21 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 		reply.Note = "The session data is gone. The terminal tab it last ran in could not be forgotten: " + err.Error() + "."
 	}
 	return reply, nil
+}
+
+// archivedAsOf is the moment a conversation under Archived was archived,
+// and the sentence for a write at or after it. A dormant conversation
+// was never archived by hand: the delete request is its archive.
+func archivedAsOf(state State, entry markEntry, now time.Time) (at time.Time, changed string, ok bool) {
+	switch state {
+	case StateCompleted:
+		at = parseStamp(entry.CompletedAt)
+		changed = "Something was written in this conversation after you archived it. Archive it again if you still want to delete it."
+	case StateDormant:
+		at = now.Truncate(time.Second)
+		changed = "Something was written in this conversation just now, so it was not deleted. Refresh the list."
+	}
+	return at, changed, !at.IsZero()
 }
 
 // findIn is the conversation results list for tool and id.
@@ -300,7 +316,7 @@ func measure(paths []string) (bytes int64, newest time.Time, err error) {
 // stillClosed asks again, right before the removal, whether a process
 // or a job took the session, or its transcript changed since it was
 // measured. A process that starts in the moment after is not seen.
-func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo) *DeleteError {
+func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo, changed string) *DeleteError {
 	// A lookup that fails answers that nothing runs, so the answer comes from a table that was read.
 	table, err := s.Processes.Table()
 	if err != nil {
@@ -323,7 +339,7 @@ func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo) *DeleteError
 	}
 	now, err := os.Lstat(c.file)
 	if err != nil || now.Size() != measured.Size() || !now.ModTime().Equal(measured.ModTime()) {
-		return refuse(DeleteChanged, "Something was written in this conversation after you archived it. Archive it again if you still want to delete it.")
+		return refuse(DeleteChanged, changed)
 	}
 	return nil
 }

@@ -922,7 +922,7 @@ export interface Conversation {
   seenAt?: string
   /** When the person marked it completed. The server clears it once something is written after it or its tool reports it working. */
   completedAt?: string
-  /** Set only on a `completed` row: why this conversation cannot be deleted from here, such as one stored in its tool's cloud. Absent on an archived local Claude Code session, which can be. */
+  /** Set only on a `completed` or `dormant` row: why this conversation cannot be deleted from here, such as one stored in its tool's cloud. Absent on an archived local Claude Code session, which can be. */
   deleteUnsupported?: string
   open: ConversationRoute
 }
