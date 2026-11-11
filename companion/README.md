@@ -93,6 +93,12 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.
   Right-clicking alone does not open the chat or mark it as read.
+- **Mark all as read** beside Needs you does the same for every chat that
+  group shows, after the search and the All, Local or Cloud choice. A chat
+  that got a new message since the list was drawn keeps its place. If a mark
+  fails, the run stops there, those rows stay, and the list says why. The
+  circle's count can stay above zero: it also counts unread chats older
+  than the week the list shows.
 - On a chat under Archived, the same menu offers **Delete permanently…**. It
   asks first, then removes the chat from this computer. Only local Claude
   Code chats can be deleted for now; the others say why. See
@@ -206,7 +212,8 @@ When a status counts:
 - **Looking counts.** Opening or archiving a chat that waits for you takes it
   out of Needs you. Its next prompt is a new write, which puts it back.
 - **Only looking here counts.** You see a conversation when you open it from
-  the companion or the web interface, archive it, or choose **Mark as read**.
+  the companion or the web interface, archive it, or choose **Mark as read**
+  or **Mark all as read**.
   A chat you read in its own terminal still counts as unread until then.
 - **A local chat** is working or waiting only while its process runs on this
   machine.
