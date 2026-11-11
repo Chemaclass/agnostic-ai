@@ -199,10 +199,75 @@ func TestPickCodexClient_AClientResumingAnotherThreadIsNeverTimed(t *testing.T) 
 	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
 	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
 
-	for _, args := range []string{"codex resume 01a1c738-eda0-7be0-b151-023a3e0ab7ee", "codex resume --last"} {
+	for _, args := range []string{"codex resume 01a1c738-eda0-7be0-b151-023a3e0ab7ee", "codex resume --last", "codex resume", "codex -m gpt-5 resume nightly"} {
 		processes.args = map[int]string{80312: args}
 		if pid, ttys := pick(created, threads, table, processes); pid != 0 || ttys != nil {
 			t.Errorf("%q shows the thread it resumed, not one created after it started: %d, %v", args, pid, ttys)
+		}
+	}
+}
+
+func TestPickCodexClient_ANewThreadIsTimedWhateverItsArgumentsSay(t *testing.T) {
+	client := ghosttyTab("/dev/ttys002", 79980, 80312, "/opt/homebrew/bin/codex")
+	client[2].Started = "Tue Nov 10 22:55:27 2026"
+	table := ghosttyTable(client)
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{80312: "/repo"}
+	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
+	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
+
+	for _, args := range []string{
+		"/opt/homebrew/bin/codex resume the migration where we left it",
+		"/opt/homebrew/bin/codex -m gpt-5 please resume",
+		"/opt/homebrew/bin/codex -c model=o3 fix the 01a1c738-eda0-7be0-b151-023a3e0ab7ee bug",
+		"/opt/homebrew/bin/codex fork 01a1c738-eda0-7be0-b151-023a3e0ab7ee",
+	} {
+		processes.args = map[int]string{80312: args}
+		if pid, _ := pick(created, threads, table, processes); pid != 80312 {
+			t.Errorf("%q starts a new thread, so it is timed: %d", args, pid)
+		}
+	}
+	forked := Conversation{Tool: ToolCodex, ID: "01a1c738-eda0-7be0-b151-023a3e0ab7ee", Folder: "/repo", StartedAt: "2026-11-10T20:00:00Z"}
+	processes.args = map[int]string{80312: "/opt/homebrew/bin/codex fork " + forked.ID}
+	if pid, _ := pick(forked, threads, table, processes); pid != 0 {
+		t.Errorf("a fork shows its new thread, not the one it forked: %d", pid)
+	}
+}
+
+func TestPickCodexClient_AClientResumingWithoutAnIDMayShowAnOlderThread(t *testing.T) {
+	client := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
+	client[2].Started = "Tue Nov 10 22:55:27 2026"
+	table := ghosttyTable(client)
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{80312: "/repo"}
+	older := Conversation{Tool: ToolCodex, ID: "01a1c738-eda0-7be0-b151-023a3e0ab7ee", Folder: "/repo", StartedAt: "2026-11-10T20:00:00Z"}
+	threads := []threadStart{{created: older.StartedAt, folder: "/repo"}}
+
+	for _, args := range []string{"codex resume --last", "codex resume", "codex resume nightly"} {
+		processes.args = map[int]string{80312: args}
+		if pid, ttys := pick(older, threads, table, processes); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+			t.Errorf("%q may show the older thread in its folder, so it is named: %d, %v", args, pid, ttys)
+		}
+	}
+	processes.args = map[int]string{80312: "codex resume 01a1c775-911c-7893-bd08-5f77cc835aa3"}
+	if pid, ttys := pick(older, threads, table, processes); pid != 0 || ttys != nil {
+		t.Errorf("a client resuming another id is not named: %d, %v", pid, ttys)
+	}
+}
+
+func TestPickCodexClient_AClientStartedInAnotherFolderHasNoKnownFolder(t *testing.T) {
+	client := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
+	client[2].Started = "Tue Nov 10 22:55:27 2026"
+	table := ghosttyTable(client)
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{80312: "/home"}
+	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
+	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
+
+	for _, args := range []string{"codex -C /repo", "codex --cd /repo", "codex --cd=/repo"} {
+		processes.args = map[int]string{80312: args}
+		if pid, _ := pick(created, threads, table, processes); pid != 80312 {
+			t.Errorf("%q works in another folder than its process: %d", args, pid)
 		}
 	}
 }
@@ -309,6 +374,16 @@ func TestScan_OnlyTerminalAppsAreRememberedAndRenamed(t *testing.T) {
 
 	if live.Open.Label != "Open in Terminal" || ended.Open.Label != "Open in Terminal" || ended.lastTab != nil {
 		t.Errorf("a session in Cursor's terminal: live %q, ended %q, last tab %+v", live.Open.Label, ended.Open.Label, ended.lastTab)
+	}
+}
+
+func TestReadTabs_LoadsAFileWrittenWithTheTabsLogin(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "conversation-tabs.json")
+	write(t, path, `{"version":1,"tabs":{"claude:x":{"host":{"app":"Ghostty","tty":"/dev/ttys004","leader":{"pid":45469,"procStart":"Tue Nov 10 21:49:14 2026"}},"at":"2026-11-10T12:00:00Z"}}}`)
+
+	tab, ok := readTabs(path).Tabs["claude:x"]
+	if !ok || tab.Host != (terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}) || tab.At != "2026-11-10T12:00:00Z" {
+		t.Errorf("tab = %+v, %v", tab, ok)
 	}
 }
 

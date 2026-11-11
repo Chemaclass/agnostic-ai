@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -183,35 +182,52 @@ func (k *codexClients) folders() map[int]string {
 	return k.cwds
 }
 
-// pick returns the client that shows c: the one started with its id,
-// else the only one whose first thread in its folder after it started
-// is c. A client started to resume a thread shows that thread, so only
-// the id can pick it. With neither pid is 0 and ttys lists the clients
-// in c's folder that started no thread of their own, which could still
-// be it. Being in the folder is never enough to pick one: a client
-// opened later in the folder shows an empty tab, not a thread the
-// daemon kept.
+// pick returns the client that shows c: the one started to resume its
+// id, else the only one whose first thread in its folder after it
+// started is c. A client started to resume a thread shows that thread,
+// so only its id can pick it. With neither pid is 0 and ttys lists the
+// clients in c's folder that could still show it: one that started no
+// thread of its own, or one resuming a thread it does not name that is
+// older than the client. Being in the folder is never enough to pick
+// one: a client opened later in the folder shows an empty tab, not a
+// thread the daemon kept.
 func (k *codexClients) pick(c Conversation) (pid int, ttys []string) {
 	k.load()
-	var fresh []ProcessInfo
+	var fresh, resuming []ProcessInfo
+	runs := map[int]codexRun{}
 	for _, client := range k.clients {
-		if strings.Contains(k.args[client.PID], c.ID) {
+		run := readCodexRun(k.args[client.PID])
+		switch {
+		case run.resumes && run.thread == c.ID:
 			return client.PID, nil
-		}
-		if !resumesThread(k.args[client.PID]) {
+		case !run.resumes:
 			fresh = append(fresh, client)
+		case run.thread == "":
+			resuming = append(resuming, client)
 		}
+		runs[client.PID] = run
 	}
-	if len(fresh) == 0 {
+	if len(fresh) == 0 && len(resuming) == 0 {
 		return 0, nil
 	}
 	cwds := k.folders()
-	first := func(client ProcessInfo) string { return firstThreadAfter(client, cwds[client.PID], k.threads) }
+	folder := func(client ProcessInfo) string {
+		if runs[client.PID].elsewhere {
+			return ""
+		}
+		return cwds[client.PID]
+	}
+	first := func(client ProcessInfo) string { return firstThreadAfter(client, folder(client), k.threads) }
 	if only, ok := onlyOne(fresh, func(client ProcessInfo) bool { return first(client) == c.StartedAt }); ok && c.StartedAt != "" {
 		return only.PID, nil
 	}
 	for _, client := range fresh {
-		if first(client) == "" && cwds[client.PID] == c.Folder {
+		if first(client) == "" && folder(client) == c.Folder {
+			ttys = append(ttys, client.TTY)
+		}
+	}
+	for _, client := range resuming {
+		if folder(client) == c.Folder && startedBefore(c.StartedAt, client) {
 			ttys = append(ttys, client.TTY)
 		}
 	}
@@ -219,12 +235,77 @@ func (k *codexClients) pick(c Conversation) (pid int, ttys []string) {
 	return 0, ttys
 }
 
-var threadIDPattern = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+func startedBefore(created string, client ProcessInfo) bool {
+	at, err := time.Parse(time.RFC3339, created)
+	started, startErr := time.Parse(lstartLayout, client.Started)
+	return err == nil && startErr == nil && at.Before(started)
+}
 
-// resumesThread reports whether a client's command line binds it to a
-// thread that already exists, by its id or with `codex resume`.
-func resumesThread(args string) bool {
-	return threadIDPattern.MatchString(args) || slices.Contains(strings.Fields(args), "resume")
+// codexRun is what a Codex client's command line says about the thread
+// it shows.
+type codexRun struct {
+	// resumes is true for `codex resume` and `codex exec resume`.
+	resumes bool
+	// thread is the id it resumes, "" for the last one or a picker.
+	thread string
+	// elsewhere is true when -C or --cd moves it out of its process's
+	// folder.
+	elsewhere bool
+}
+
+// codexValueFlags are the Codex options that take the next field as
+// their value.
+var codexValueFlags = map[string]bool{
+	"-c": true, "--config": true, "-C": true, "--cd": true, "-m": true, "--model": true,
+	"-p": true, "--profile": true, "-s": true, "--sandbox": true, "-a": true, "--ask-for-approval": true,
+	"-i": true, "--image": true, "--add-dir": true, "--enable": true, "--disable": true, "--local-provider": true,
+}
+
+var threadIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// readCodexRun reads a client's command line, which ps prints without
+// quotes: a prompt such as "resume the migration" reads as several
+// words, so resume with more than one word after it and no id is a
+// prompt.
+func readCodexRun(args string) codexRun {
+	fields := strings.Fields(args)
+	if len(fields) == 0 {
+		return codexRun{}
+	}
+	var run codexRun
+	var words []string
+	last := false
+	for i := 1; i < len(fields); i++ {
+		field := fields[i]
+		if !strings.HasPrefix(field, "-") {
+			words = append(words, field)
+			continue
+		}
+		name, _, inline := strings.Cut(field, "=")
+		if name == "-C" || name == "--cd" {
+			run.elsewhere = true
+		}
+		if name == "--last" || name == "--all" {
+			last = true
+		}
+		if codexValueFlags[name] && !inline {
+			i++
+		}
+	}
+	if len(words) > 0 && words[0] == "exec" {
+		words = words[1:]
+	}
+	if len(words) == 0 || words[0] != "resume" {
+		return run
+	}
+	rest := words[1:]
+	switch {
+	case len(rest) > 0 && threadIDPattern.MatchString(rest[0]):
+		run.resumes, run.thread = true, rest[0]
+	case last || len(rest) <= 1:
+		run.resumes = true
+	}
+	return run
 }
 
 // firstThreadAfter is the creation time of the first thread created in
@@ -273,8 +354,8 @@ type placement struct {
 }
 
 // placeLive finds the terminal of each session a process runs, with one
-// look at the process table, and remembers it so that an ended session
-// resumes in the tab it ran in. A Codex thread the app-server daemon
+// look at the process table, and remembers its app so that an ended
+// session resumes in a new tab there. A Codex thread the app-server daemon
 // holds shows in a terminal client, which is looked for.
 func (s *Scanner) placeLive(results []sourceResult) {
 	var live []*Conversation
@@ -352,7 +433,8 @@ func place(c *Conversation, clients *codexClients, table []ProcessInfo) (ok bool
 	return true
 }
 
-// tabsFile keeps the terminal tab each session last ran in.
+// tabsFile keeps the terminal app and tty each session last ran in,
+// so an ended session resumes in a new tab of that app.
 type tabsFile struct {
 	Version int                      `json:"version"`
 	Tabs    map[string]rememberedTab `json:"tabs"`
