@@ -93,3 +93,13 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 **Decision:** On macOS, `companion install` puts the companion in `agnostic-ai companion.app` with the bundle ID `dev.agnostic-ai.companion`, the project icon as a one-image ICNS written in Go, and an ad-hoc signature from `codesign`. Inside an app the window library registers start at login with `SMAppService`, so the item moves to Open at Login. The install removes the bare program and its launch agent and turns start at login on for the app when it was on.
 
 **Why:** A launch agent ties to an app only through a Team ID, which an ad-hoc build has none of. `SMAppService` registers the app itself and works for an ad-hoc app outside `/Applications`. A spike on macOS 27 showed that register and unregister both work, and that a rebuild with a new signature keeps the registration. Writing the icon in Go needs no `iconutil` or `sips` and runs in tests on any system.
+
+## 010: Model tier descriptions render after the instructions, sorted by name
+
+**Date:** 2026-11-11
+
+**Context:** A model tier's `description` says when to use it, and the main agent needs that text in its instructions ([#3286](https://github.com/Chemaclass/agnostic-ai/issues/3286)).
+
+**Decision:** Sync appends one marked line after each entry point's instructions body, once the per-file view is built, and lists the described tiers sorted by name. `sync --global` puts the same line, without markers, in the block it manages. Import drops the marked line.
+
+**Why:** Appending after the view keeps the text out of the `AGNOSTIC_AI.md` layer that `lint` and `explain --file` report, and keeps a `CLAUDE.md` that imports `AGENTS.md` as it is. Config file order is lost once tiers decode into a map; keeping it needs an order-aware decode in three loaders. Sorted order is stable at no cost.

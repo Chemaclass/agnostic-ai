@@ -95,8 +95,9 @@ type entryPointFile struct {
 	// Layers is the text each source adds to Content, for lint's
 	// instructions budget.
 	Layers []instructionLayer
-	// plain is set when Content is the instructions body and the local
-	// layer alone, with no rules, review, or overview block.
+	// plain is set when Content is the instructions body, the model
+	// tiers, and the local layer alone, with no rules, review, or
+	// overview block.
 	plain bool
 }
 
@@ -121,6 +122,9 @@ type entryPointFile struct {
 // block reaches a path when any of that path's consumers is listed, so a
 // shared AGENTS.md keeps a codex-only block for every AGENTS.md reader; a
 // shared file is never split. AGNOSTIC_AI.md itself keeps the fences.
+//
+// When a model tier has a description, a sentinel-marked block after the
+// body lists the described tiers, so import can drop it.
 //
 // The git-ignored `.agnostic-ai/local/AGNOSTIC_AI.md`, when present,
 // extends the shared body in a sentinel-marked block after the rules
@@ -173,6 +177,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		return nil, err
 	}
 
+	tiers := adapters.RenderModelTiers(cfg.Models)
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
 		content, imports, err := entryPointViewWithImports(cfg, path, consumers[path], body)
@@ -180,6 +185,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			return nil, err
 		}
 		layers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: content, Sources: []instructionSource{{Path: adapters.AgnosticEntryPointPath, Text: content, Imports: imports}}}}
+		content, layers = withModelTiers(content, layers, tiers)
 		plain := !cfg.Sync.TargetOverview
 		unchanged := content
 		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
@@ -245,7 +251,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 					return nil, fmt.Errorf("%s: codebuddy: native instructions in %s conflict with another reader of this path", path, source)
 				}
 				if strings.TrimSpace(content) != "" && !isEntryPointSeed(content) {
-					return nil, fmt.Errorf("%s: codebuddy: native instructions in %s conflict with shared, local, rule, memory, or overview content; keep one instruction policy for this file", path, source)
+					return nil, fmt.Errorf("%s: codebuddy: native instructions in %s conflict with shared, local, rule, memory, model tier, or overview content; keep one instruction policy for this file", path, source)
 				}
 				continue
 			}
@@ -266,6 +272,16 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		})
 	}
 	return importAgentsFromClaude(cfg, files, body, local)
+}
+
+// withModelTiers appends the model tiers block to content and its layer
+// to layers. The layer stays apart from AGNOSTIC_AI.md, which never holds
+// the line.
+func withModelTiers(content string, layers []instructionLayer, tiers string) (string, []instructionLayer) {
+	if tiers == "" {
+		return content, layers
+	}
+	return adapters.AppendModelTiers(content, tiers), append(layers, instructionLayer{Name: "model tiers", Text: tiers})
 }
 
 // importAgentsFromClaude rewrites the root CLAUDE.md as `@AGENTS.md` plus
@@ -368,6 +384,7 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 		agentsText = adapters.AppendLocalInstructions(agentsText, shared[1])
 	}
 	sharedLayers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: agentsText, Sources: sharedSources}}
+	agentsText, sharedLayers = withModelTiers(agentsText, sharedLayers, adapters.RenderModelTiers(cfg.Models))
 	rendered := strings.TrimRight(renderContextInstructions(cfg, []string{"claude"}, agentsText, sharedLayers), "\n") + "\n"
 	parts, err := appendMemoryPart(cfg, parts, files[claudeAt].Path)
 	if err != nil {

@@ -125,7 +125,7 @@ func lintBudgetFindings(scope checkScope) ([]lintFinding, error) {
 		}
 		source = filepath.Join(scope.source, "AGNOSTIC_AI.md")
 		agentsPath = filepath.Join(scope.source, "agents")
-		loads, err = globalSessionLoads(scope.source, scope.targets, scope.bundle)
+		loads, err = globalSessionLoads(scope.source, scope.targets, scope.models, scope.bundle)
 	} else {
 		budgets = scope.cfg.Lint
 		agentsPath = scope.cfg.Sources.Agents
@@ -236,8 +236,8 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 
 // globalSessionLoads measures each target sync --global writes. Every
 // target with an instructions file gets the same managed block.
-func globalSessionLoads(source string, targets []string, b spec.Bundle) ([]sessionLoad, error) {
-	layers, err := globalInstructionLayers(source, b.Rules)
+func globalSessionLoads(source string, targets []string, tiers map[string]config.ModelTier, b spec.Bundle) ([]sessionLoad, error) {
+	layers, err := globalInstructionLayers(source, tiers, b.Rules)
 	if err != nil {
 		return nil, err
 	}

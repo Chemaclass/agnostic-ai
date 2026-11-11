@@ -56,7 +56,7 @@ type Config struct {
 	Outputs  map[string]Output `yaml:"outputs,omitempty"        json:"outputs,omitempty"`
 	// Models names model tiers once; a spec `model` that names a tier
 	// resolves through it per target.
-	Models        map[string]ModelTier `yaml:"models,omitempty"         json:"models,omitempty" jsonschema_description:"Model tiers by name. A spec whose model names a tier gets that tier's model and effort for each target."`
+	Models        map[string]ModelTier `yaml:"models,omitempty"         json:"models,omitempty" jsonschema_description:"Model tiers by name. A spec whose model names a tier gets that tier's model and effort for each target. A tier's description says when to use it; sync lists it in the generated instructions."`
 	OnUnsupported string               `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty" jsonschema:"enum=warn,enum=error,enum=silent"`
 	Gitignore     Gitignore            `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
 	Sync          SyncConfig           `yaml:"sync,omitempty"           json:"sync,omitempty"`

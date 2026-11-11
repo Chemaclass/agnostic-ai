@@ -1189,6 +1189,24 @@ func AppendMemoryBlock(body, block string) string {
 	return emit.AppendMemoryBlock(body, block)
 }
 
+// ModelTiersLine lists the tiers that carry a description, "" when none
+// does (re-exported from the emit layer).
+func ModelTiersLine(tiers map[string]config.ModelTier) string {
+	return emit.ModelTiersLine(tiers)
+}
+
+// RenderModelTiers renders the marked model tiers block (re-exported from
+// the emit layer).
+func RenderModelTiers(tiers map[string]config.ModelTier) string {
+	return emit.RenderModelTiers(tiers)
+}
+
+// AppendModelTiers appends the model tiers block to body, replacing any
+// earlier one (re-exported from the emit layer).
+func AppendModelTiers(body, block string) string {
+	return emit.AppendModelTiers(body, block)
+}
+
 // EntrySourcePath is the provenance path sync stamps for e: its spec path,
 // or `builtin:<name>` for a built-in (re-exported from the emit layer).
 func EntrySourcePath(e spec.Entry) string {

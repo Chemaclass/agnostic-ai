@@ -227,10 +227,10 @@ Name each model role (a tier) once, then use that name in specs instead of a ven
 
 ```yaml
 models:
-  frontier: {claude: fable,  codex: astra, effort: xhigh}
-  strong:   {claude: opus,   codex: sol,   effort: high}
-  balanced: {claude: sonnet, codex: terra, effort: medium}
-  fast:     {claude: haiku,  codex: luna,  effort: low}
+  frontier: {claude: fable,  codex: astra, effort: xhigh,  description: "for ambitious, open-ended work"}
+  strong:   {claude: opus,   codex: sol,   effort: high,   description: "for everyday coding"}
+  balanced: {claude: sonnet, codex: terra, effort: medium, description: "when strong breezes through the task"}
+  fast:     {claude: haiku,  codex: luna,  effort: low,    description: "for lookups and high-volume subagents"}
 ```
 
 An agent with `model: fast` gets `haiku` (Haiku 5.5 today) in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. To pin a Claude version, write the exact id instead, such as `claude: claude-haiku-5-5`. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way.
@@ -251,12 +251,15 @@ Each release pins the model ids. When an upgrade changes one, the next `sync` pr
 | A target name | That target's model id. |
 | `default` | The model id for each target the tier does not name. |
 | `effort` | One effort for every target, or a per-target map such as `{claude: xhigh, codex: high}`. |
+| `description` | When to use the tier, in one line. Write the joining word yourself, such as `for` or `when`. |
 
 - A `model` that names no tier stays a literal model id. A tier with only `effort` keeps each tool's default model.
-- A tier with neither a model nor `effort` fails to load, and so does any other key (AAI-004, naming the closest target).
+- A tier with neither a model nor `effort` fails to load, and so does any other key that names no target (AAI-004, naming the closest target). A `description` alone does not make a tier.
 - Per-spec overrides and which value wins: [model tiers](@/docs/spec-format/agents.md#model-tiers). `explain <spec>` shows the model and effort each target gets, and how an alias resolved.
 - `lint` warns when a tier a spec names has no entry and no `default` for a target that writes the spec, a tier is named like a Claude model (LINT025), or a tier's `default` is a Claude model another target cannot load (LINT026).
-- A tier in `agnostic-ai.local.yaml` replaces the entire shared tier of the same name. The [global home config](#global-configuration) accepts the key too.
+- A tier in `agnostic-ai.local.yaml` replaces the entire shared tier of the same name, its `description` included. The [global home config](#global-configuration) accepts the key too.
+
+Sync lists each tier that has a `description` in one line of the instructions every tool loads, sorted by tier name. With the example above, that line reads: ``Model tiers: `balanced` when strong breezes through the task; `fast` for lookups and high-volume subagents; `frontier` for ambitious, open-ended work; `strong` for everyday coding.`` A tier without a `description` is left out, and with none the files do not change. The line goes into each tool's [entry-point file](#entry-point-files), after your instructions, and into the managed block `sync --global` writes. A tool that sync writes no root instructions file for, such as Cursor, Continue, or Grok in a project, sees the line only in a file another target writes, such as `AGENTS.md`. Import drops it. A description must fit on one line and cannot hold `<!--` or `-->`. Releases before 0.94.0 reject the key as an unknown target.
 
 ## `targets`
 
@@ -438,7 +441,7 @@ Notes that start with a target name, such as `note: codex: outputs.codex.config.
 
 ## Entry-point files
 
-`sync` copies `.agnostic-ai/AGNOSTIC_AI.md` into one root entry-point file per enabled tool. See the [per-target table](@/docs/target-behavior.md#entry-point-files). `.agnostic-ai/local/AGNOSTIC_AI.md` [extends that body](@/docs/local-overrides.md#extend-the-instructions) on one machine.
+`sync` copies `.agnostic-ai/AGNOSTIC_AI.md` into one root entry-point file per enabled tool. See the [per-target table](@/docs/target-behavior.md#entry-point-files). `.agnostic-ai/local/AGNOSTIC_AI.md` [extends that body](@/docs/local-overrides.md#extend-the-instructions) on one machine. A [model tier](#models) with a `description` adds one line after the body.
 
 Write the instructions every tool shares in `AGNOSTIC_AI.md`. Every session loads this text, so keep it to what an agent cannot infer from the code. Rules, agents, and skills stay in their own `sources` folders. Sync never overwrites this file; it overwrites only the root entry points.
 

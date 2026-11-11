@@ -214,8 +214,8 @@ func lintGlobalRuleFindings(rules []spec.Entry, targets []string) []lintFinding 
 	return out
 }
 
-func globalInstructions(source string, rules []spec.Entry) ([]byte, error) {
-	layers, err := globalInstructionLayers(source, rules)
+func globalInstructions(source string, tiers map[string]config.ModelTier, rules []spec.Entry) ([]byte, error) {
+	layers, err := globalInstructionLayers(source, tiers, rules)
 	if err != nil {
 		return nil, err
 	}
@@ -247,9 +247,10 @@ type instructionSource struct {
 }
 
 // globalInstructionLayers returns the non-empty parts of the managed
-// instructions block in order: AGNOSTIC_AI.md, the rules, then
-// local/AGNOSTIC_AI.md.
-func globalInstructionLayers(source string, rules []spec.Entry) ([]instructionLayer, error) {
+// instructions block in order: AGNOSTIC_AI.md, the model tiers, the
+// rules, then local/AGNOSTIC_AI.md. The tiers line carries no markers:
+// sync owns the whole block.
+func globalInstructionLayers(source string, tiers map[string]config.ModelTier, rules []spec.Entry) ([]instructionLayer, error) {
 	var layers []instructionLayer
 	for i, root := range []string{source, filepath.Join(source, "local")} {
 		path := filepath.Join(root, "AGNOSTIC_AI.md")
@@ -263,6 +264,9 @@ func globalInstructionLayers(source string, rules []spec.Entry) ([]instructionLa
 				name = "local/AGNOSTIC_AI.md"
 			}
 			layers = append(layers, instructionLayer{Name: name, Text: body})
+		}
+		if line := adapters.ModelTiersLine(tiers); i == 0 && line != "" {
+			layers = append(layers, instructionLayer{Name: "model tiers", Text: line})
 		}
 		if i == 0 && len(rules) > 0 {
 			sections := make([]string, 0, len(rules))

@@ -208,7 +208,7 @@ func globalOverviewDriftFindings(scope checkScope) (findings []overview.Finding,
 // for targets, as runGlobalSync does before it writes, without the sync
 // ledger. It reads the user files sync would edit and writes none.
 func planGlobalWrites(home string, scope checkScope, targets []string) ([]globalWrite, error) {
-	instructions, err := globalInstructions(scope.source, scope.bundle.Rules)
+	instructions, err := globalInstructions(scope.source, scope.models, scope.bundle.Rules)
 	if err != nil {
 		return nil, err
 	}
