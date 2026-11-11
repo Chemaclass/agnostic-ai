@@ -113,7 +113,7 @@ The route lists Claude Code, Codex and Cursor conversations from each tool's own
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, withheld?, live?, activity?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, withheld?, live?, activity?, quietSince?, open}`.
 
 Conversation fields:
 
@@ -121,6 +121,7 @@ Conversation fields:
 - `folder` is where the conversation started and where it resumes.
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
+- `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - Any of `title`, `opening` and `prompt` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
@@ -140,7 +141,7 @@ Each row has a `state`, the first of these that holds:
 5. `active`: open, or written in the last 24 hours.
 6. `dormant`: closed and quiet for longer.
 
-The `activity` of a loaded local Codex thread is `working` during an unfinished turn. It is inferred to be `waiting` after five minutes without a rollout write, which makes the state `blocked` until you see it. A long-running command can also meet that threshold.
+The `activity` of a loaded local Codex thread is `working` during an unfinished turn. It is inferred to be `waiting` after five minutes without a rollout write, which makes the state `blocked` until you see it. A long-running command can also meet that threshold. Such a row carries `quietSince`, and the web interface and the companion show "No activity for 7m" instead of "Waiting for you".
 
 Marks:
 

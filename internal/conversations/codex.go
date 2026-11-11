@@ -149,7 +149,11 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 		c.Live = true
 		if rollout, ok := s.codexRollout(rollouts[c.ID]); ok {
 			liveRollouts = append(liveRollouts, rollout)
-			c.Activity = codexActivity(rollout, s.Now())
+			var quiet time.Time
+			c.Activity, quiet = codexActivity(rollout, s.Now())
+			if !quiet.IsZero() {
+				c.QuietSince = quiet.UTC().Format(time.RFC3339)
+			}
 		}
 		if c.App == AppCLI {
 			c.process = &liveProcess{PID: pid}
@@ -188,19 +192,20 @@ const codexQuietSpan = 5 * time.Minute
 // codexActivity is what a loaded thread does, read from its rollout:
 // working while a turn runs and writes, waiting once that turn has
 // written nothing for codexQuietSpan, and nothing the rollout can say
-// between turns.
-func codexActivity(rollout string, now time.Time) Activity {
+// between turns. A wait comes with the rollout's last write, since the
+// wait is only read from that silence.
+func codexActivity(rollout string, now time.Time) (Activity, time.Time) {
 	if !codexTurnRuns(rollout) {
-		return ""
+		return "", time.Time{}
 	}
 	info, err := os.Stat(rollout)
 	if err != nil {
-		return ""
+		return "", time.Time{}
 	}
 	if now.Sub(info.ModTime()) >= codexQuietSpan {
-		return ActivityWaiting
+		return ActivityWaiting, info.ModTime()
 	}
-	return ActivityWorking
+	return ActivityWorking, time.Time{}
 }
 
 // codexRolloutTail is how much of a rollout's end is read for its last

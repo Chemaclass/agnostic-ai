@@ -209,6 +209,8 @@ function normalizeConversation(raw: unknown): Conversation {
   return {
     ...(c as unknown as Conversation),
     activity: isActivity(c.activity) ? c.activity : undefined,
+    // Anything but a time string reads as a wait the tool reported.
+    quietSince: typeof c.quietSince === 'string' && !Number.isNaN(Date.parse(c.quietSince)) ? c.quietSince : undefined,
     id: text(c.id),
     title: text(c.title),
     updatedAt: text(c.updatedAt),

@@ -167,11 +167,12 @@ function rowOf(conversation, order) {
     meta.title = renaming.problem
     meta.append(renaming.problem)
   } else {
-    const reason = reasonOf(conversation)
+    const now = Date.now()
+    const reason = reasonOf(conversation, now)
     if (reason) {
       meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
     }
-    meta.append(detailsOf(conversation, Date.now()))
+    meta.append(detailsOf(conversation, now))
   }
   text.append(meta)
 
@@ -293,7 +294,10 @@ function draw({ force } = { force: false }) {
     list.replaceChildren()
     return
   }
-  const signature = JSON.stringify([view.conversations, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place])
+  // The reasons go in too: a silent chat's "No activity for 7m" changes with no new row data.
+  const now = Date.now()
+  const reasons = view.conversations.map((conversation) => reasonOf(conversation, now))
+  const signature = JSON.stringify([view.conversations, reasons, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place])
   if (!force && signature === state.drawn) return
   state.drawn = signature
 

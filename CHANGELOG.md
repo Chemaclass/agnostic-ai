@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- A local Codex chat that went silent shows "No activity for 7m" instead of "Waiting for you" in the companion and the web interface; `quietSince` marks such a row in the API (#3251).
 - `upgrade` also updates an installed companion and restarts it if it was running (#3247).
 - Right-click the companion's circle to stop its animation or dim it when nothing needs you (#3237, #3246).
 - `memory import --skip <file>` and `--skip-rest` decline facts you do not want, and LINT043 stops counting them (#3235).
