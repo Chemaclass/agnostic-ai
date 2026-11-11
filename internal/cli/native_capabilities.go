@@ -233,6 +233,7 @@ var matcherAcceptingEvents = setOf(
 	// SessionEnd: claude filters on why the session ended (clear, resume,
 	// logout, prompt_input_exit, other); codex on the end reason (other).
 	"SessionEnd",
+	"FileChanged",             // claude, qwen: literal filenames to watch, separated by |
 	"BeforeTool", "AfterTool", // gemini
 	// cursor: tool/shell/MCP/file events filter on a regex matcher.
 	"beforeShellExecution", "afterShellExecution",

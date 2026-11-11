@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3262).
 - The companion's row button and "Archive all" now read "Mark complete" and "Mark all complete"; marking one chat complete turns its tick green for a moment.
 - When the companion cannot open a chat, the reason stays until you dismiss it, and a chat that could not be resumed offers **Copy resume command**. Opening a Claude Code or Codex chat that still runs in a terminal no longer replies with a resume command (#3256).
 - Mark a chat as read from the companion's right-click menu, without opening it; the next reply brings it back (#3250).
