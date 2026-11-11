@@ -63,12 +63,15 @@ test('adds parent folders only when two folders in view share a last name', () =
   assert.deepEqual([...nested.values()], ['x/shop/api', 'y/shop/api', 'web/api', 'api'])
 })
 
-test('tells same-named folders apart across Windows separators and skips rows with no folder', () => {
+test('tells same-named folders apart with their own separators and skips rows with no folder', () => {
   const now = Date.parse('2026-11-09T12:05:00Z')
   const folders = ['C:\\work\\api', 'D:\\home\\api\\', '', undefined]
-  assert.equal(detailsOf(row('a', 'active', { tool: 'cursor', folder: 'C:\\work\\api' }), now, folderNamesOf(folders)), 'Cursor · work/api · 5m')
-  assert.equal(detailsOf(row('b', 'active', { tool: 'cursor', folder: 'D:\\home\\api\\' }), now, folderNamesOf(folders)), 'Cursor · home/api · 5m')
+  assert.equal(detailsOf(row('a', 'active', { tool: 'cursor', folder: 'C:\\work\\api' }), now, folderNamesOf(folders)), 'Cursor · work\\api · 5m')
+  assert.equal(detailsOf(row('b', 'active', { tool: 'cursor', folder: 'D:\\home\\api\\' }), now, folderNamesOf(folders)), 'Cursor · home\\api · 5m')
   assert.equal(detailsOf(row('c', 'active', { app: 'cloud' }), now, folderNamesOf(folders)), 'Claude Code · Cloud · 5m')
+  // On macOS a backslash can be part of a folder's name, so these are two folders.
+  const names = folderNamesOf(['/Users/me/a\\b/api', '/Users/me/a/b/api'])
+  assert.deepEqual([...names.values()], ['a\\b/api', 'a/b/api'])
 })
 
 test('sums up a search, and says nothing without one', () => {

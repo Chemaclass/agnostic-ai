@@ -143,17 +143,20 @@ export function detailsOf(conversation, now, names = new Map()) {
   return parts.join(' · ')
 }
 
-function namesOf(folder) {
-  return folder.split(/[\\/]/).filter((name) => name !== '')
+/** A folder as its names with the separators between them kept: ["Users", "/", "me", "/", "api"]. */
+function piecesOf(folder) {
+  const pieces = folder.replace(/[\\/]+$/, '').split(/([\\/]+)/)
+  return pieces[0] === '' ? pieces.slice(2) : pieces
 }
 
-function tail(names, count) {
-  return names.slice(-count).join('/')
+/** The last `count` names of a folder, written with its own separators. */
+function tail(pieces, count) {
+  return pieces.slice(-(2 * count - 1)).join('')
 }
 
 function folderName(folder) {
-  const names = namesOf(folder)
-  return names.length === 0 ? folder : tail(names, 1)
+  const pieces = piecesOf(folder)
+  return pieces.length === 0 ? folder : tail(pieces, 1)
 }
 
 /**
@@ -163,21 +166,21 @@ function folderName(folder) {
 export function folderNamesOf(folders) {
   const paths = new Map()
   for (const folder of folders) {
-    const names = folder ? namesOf(folder) : []
-    if (names.length > 0) paths.set(names.join('/'), names)
+    const pieces = folder ? piecesOf(folder) : []
+    if (pieces.length > 0) paths.set(pieces.join(''), pieces)
   }
   const shown = new Map([...paths.keys()].map((path) => [path, 1]))
   let growing = true
   while (growing) {
     growing = false
     const sharing = new Map()
-    for (const [path, names] of paths) {
-      const name = tail(names, shown.get(path))
+    for (const [path, pieces] of paths) {
+      const name = tail(pieces, shown.get(path))
       sharing.set(name, (sharing.get(name) ?? 0) + 1)
     }
-    for (const [path, names] of paths) {
+    for (const [path, pieces] of paths) {
       const count = shown.get(path)
-      if (count < names.length && sharing.get(tail(names, count)) > 1) {
+      if (2 * count - 1 < pieces.length && sharing.get(tail(pieces, count)) > 1) {
         shown.set(path, count + 1)
         growing = true
       }
@@ -185,8 +188,8 @@ export function folderNamesOf(folders) {
   }
   const result = new Map()
   for (const folder of folders) {
-    const names = folder ? namesOf(folder) : []
-    if (names.length > 0) result.set(folder, tail(names, shown.get(names.join('/'))))
+    const pieces = folder ? piecesOf(folder) : []
+    if (pieces.length > 0) result.set(folder, tail(pieces, shown.get(pieces.join(''))))
   }
   return result
 }
