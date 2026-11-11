@@ -35,6 +35,15 @@ To work on the companion itself, from the repository root: `make companion-run`
 builds it and the CLI and starts it on that CLI. `make companion` only builds
 `bin/agnostic-ai-companion`.
 
+To work on its pages, `make companion-preview` serves the real bubble and list
+in your browser with made-up conversations, and prints the address. Pick a
+fixture at the top: an empty inbox, many sessions, long names, duplicate folder
+names, failures. Saving a file under `frontend/` reloads the pages; no rebuild,
+Wails, server or sign-in is needed. Calls to open, mark or rename change only
+the fixture in that process. The preview runs in a browser, not in the app's
+web view, so check focus, window placement, the shortcut and changes to Go code
+with `make companion-run`.
+
 ## Upgrade
 
 `agnostic-ai upgrade` also rebuilds an installed companion from the updated CLI's commit. It prints each build step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
@@ -248,6 +257,8 @@ What you see is never older than this:
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
   `model.js` holds the logic and has no DOM in it. `look.js` turns your
   settings into how the pages look, and `motion.js` applies both choices to each page.
+- `dev/`: the browser preview behind `make companion-preview` and `make companion-e2e`.
+  It is outside `frontend/`, so no build of the companion holds it.
 
 This folder is its own Go module, so [Wails](https://wails.io), which draws the
 windows, is not a dependency of the `agnostic-ai` command and adds nothing to
@@ -258,5 +269,9 @@ about conversations comes over the server's API, documented under
 ## Test it
 
 ```sh
-make companion-test
+make companion-test   # Go vet, Go tests and the page logic tests
+make companion-e2e    # the list's search, open, rename and failure flows in headless Chromium
 ```
+
+CI runs the page tests and the browser tests. It does not run the Go tests yet,
+so run `make companion-test` before you push a change to Go code here.

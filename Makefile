@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check companion companion-run companion-test build test test-short test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools doctor-dev hooks install clean release site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools doctor-dev hooks install clean release site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -31,6 +31,15 @@ companion-run: companion build
 
 companion-test:
 	cd companion && go vet . && go test . && node --test tests/*.test.js
+
+# The real companion pages in a browser, with fixture data and a reload on
+# each edit under companion/frontend. No Wails, server or credentials.
+companion-preview:
+	node companion/dev/preview.mjs
+
+# The panel's interaction tests in headless Chromium, against the preview.
+companion-e2e:
+	cd ui && npm ci && npm run e2e:companion
 
 build: ui-check
 	go build -trimpath -ldflags="-s -w" -o $(BIN) $(PKG)
