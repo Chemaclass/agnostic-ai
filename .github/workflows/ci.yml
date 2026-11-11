@@ -791,7 +791,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Companion browser tests
-        run: npm run e2e:companion
+        run: npx playwright test --config playwright.companion.config.ts
 
       - name: Fixture browser tests
         env:

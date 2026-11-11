@@ -39,7 +39,7 @@ companion-preview:
 
 # The panel's interaction tests in headless Chromium, against the preview.
 companion-e2e:
-	cd ui && npm ci && npm run e2e:companion
+	cd ui && npm ci && npx playwright test --config playwright.companion.config.ts
 
 build: ui-check
 	go build -trimpath -ldflags="-s -w" -o $(BIN) $(PKG)
