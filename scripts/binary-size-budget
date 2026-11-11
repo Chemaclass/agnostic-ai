@@ -875,4 +875,7 @@
 # #3247 rebuilds the installed companion on upgrade; with main it
 # measured 25772192 bytes locally; the budget is that plus 8192, rounded
 # up to a multiple of 4096.
-25784320
+# Built-in Details text (summary, points, docs links) and the rebuilt
+# web bundle measured 25784480 bytes locally, 8192 above main ed0eccd3;
+# the budget is that plus 8192, rounded up to a multiple of 4096.
+25796608

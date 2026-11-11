@@ -75,7 +75,13 @@ test.describe('calm Settings page', () => {
     await row.hover()
     await row.getByRole('button', { name: 'Details for Handoff on start' }).click()
     await expect(row.locator('.row-details')).toContainText('Name in config')
+    await expect(row.locator('.row-details')).toContainText('Nothing resumes until you ask.')
     await expect(row.getByText('handoff-hook', { exact: true })).toBeVisible()
+
+    const rtk = page.locator('.item-row', { hasText: 'Routes shell commands through rtk' })
+    await rtk.hover()
+    await rtk.getByRole('button', { name: 'Details for RTK' }).click()
+    await expect(rtk.getByRole('link', { name: /RTK on GitHub/ })).toHaveAttribute('href', 'https://github.com/rtk-ai/rtk')
   })
 
   test('puts Details behind the row menu on a phone', async ({ page }) => {
