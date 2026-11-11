@@ -103,6 +103,8 @@ test('a failed open keeps its reason on screen, with no copy button when the ser
   // The panel hides when it loses focus; showing it again keeps the notice.
   expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
   await expect(notice(page)).toBeVisible()
+  // Only the return from the failed open keeps its row highlighted.
+  await expect(selected(page)).toHaveCount(0)
 
   const opens: string[] = []
   page.on('request', (request) => {

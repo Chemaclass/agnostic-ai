@@ -751,8 +751,8 @@ document.addEventListener('keydown', (event) => {
     moveActive(step)
     return
   }
-  // A focused button takes Enter as its own click.
-  if (event.key === 'Enter' && !event.target.closest('button')) {
+  // A focused notice button takes Enter as its own click.
+  if (event.key === 'Enter' && !event.target.closest('#notice button')) {
     const conversation = activeConversation()
     if (conversation) openRow(conversation)
   }
