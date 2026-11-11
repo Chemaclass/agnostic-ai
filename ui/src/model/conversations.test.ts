@@ -145,10 +145,21 @@ describe('conversation words', () => {
   })
 
   it('shows a status chip only while the agent works or waits, in amber when it waits for the person', () => {
-    expect(liveBadge('working')).toEqual({ label: 'Working', tone: 'permitted', description: 'Open now: the agent is working' })
-    expect(liveBadge('waiting')).toEqual({ label: 'Waiting for you', tone: 'approval', description: 'Open now: the agent is waiting for you' })
-    expect(liveBadge('idle')).toBeUndefined()
-    expect(liveBadge(undefined)).toBeUndefined()
+    expect(liveBadge(conversation({ activity: 'working' }), NOW)).toEqual({ label: 'Working', tone: 'permitted', description: 'Open now: the agent is working' })
+    expect(liveBadge(conversation({ activity: 'waiting' }), NOW)).toEqual({ label: 'Waiting for you', tone: 'approval', description: 'Open now: the agent is waiting for you' })
+    expect(liveBadge(conversation({ activity: 'idle' }), NOW)).toBeUndefined()
+    expect(liveBadge(conversation({}), NOW)).toBeUndefined()
+  })
+
+  it('says how long a chat has been silent when its wait is read from that silence, not reported', () => {
+    const since = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString()
+    expect(liveBadge(conversation({ tool: 'codex', activity: 'waiting', quietSince: since(7) }), NOW)).toEqual({ label: 'No activity for 7m', tone: 'approval', description: 'Open now: nothing written for 7 minutes, so it may be waiting for you' })
+    expect(liveBadge(conversation({ tool: 'codex', activity: 'waiting', quietSince: since(180) }), NOW)?.description).toBe('Open now: nothing written for 3 hours, so it may be waiting for you')
+    expect(liveBadge(conversation({ tool: 'codex', activity: 'waiting', quietSince: since(60 * 24 * 2 + 5) }), NOW)?.label).toBe('No activity for 2d')
+    expect(liveBadge(conversation({ tool: 'codex', activity: 'waiting', quietSince: since(1) }), NOW)?.description).toBe('Open now: nothing written for 1 minute, so it may be waiting for you')
+    expect(liveBadge(conversation({ tool: 'codex', activity: 'waiting', quietSince: new Date(NOW.getTime() + 30_000).toISOString() }), NOW)?.label).toBe('No activity')
+    expect(liveBadge(conversation({ tool: 'codex', activity: 'waiting', quietSince: 'not a time' }), NOW)?.label).toBe('Waiting for you')
+    expect(liveBadge(conversation({ tool: 'codex', activity: 'waiting' }), NOW)?.label).toBe('Waiting for you')
   })
 
   it('shows a chip for a reply not yet read and for a chat marked as done, and none otherwise', () => {
@@ -223,6 +234,14 @@ describe('conversations normalization', () => {
     expect(view.conversations[0]).toMatchObject({ title: '', opening: [], withheld: ['prompt'], live: true, activity: undefined, open: { label: 'Open in Terminal' } })
   })
 
+  it('keeps when a silent wait began and drops a value that is not a time string', () => {
+    const quiet = (quietSince: unknown) => normalizeConversationsView({ conversations: [{ tool: 'codex', app: 'cli', id: 'x', updatedAt: '2026-11-07T15:00:00Z', live: true, activity: 'waiting', quietSince, open: {} }] }).conversations[0].quietSince
+    expect(quiet('2026-11-07T15:00:00Z')).toBe('2026-11-07T15:00:00Z')
+    expect(quiet(42)).toBeUndefined()
+    expect(quiet('')).toBeUndefined()
+    expect(quiet('not a time')).toBeUndefined()
+  })
+
   it('reads the mock fixture with every app, route kind, live state, withheld field, and tool', () => {
     const view = normalizeConversationsView(fixture)
     expect(view.schemaVersion).toBe('conversations/v1')
@@ -242,6 +261,15 @@ describe('conversations verdict', () => {
     expect(conversationsVerdict(open.slice(0, 1), NOW, false)).toBe('One chat is open now.')
     expect(conversationsVerdict(open.slice(1, 2), NOW, false)).toBe('One chat is open and waits for you.')
     expect(conversationsVerdict([open[0], conversation({ id: 'd' })], NOW, false)).toBe('One chat is open now.')
+  })
+
+  it('does not say a chat waits for you when only its silence says so', () => {
+    const quiet = conversation({ id: 'q', tool: 'codex', live: true, activity: 'waiting', quietSince: new Date(NOW.getTime() - 7 * 60_000).toISOString() })
+    const waiting = conversation({ id: 'w', live: true, activity: 'waiting' })
+    expect(conversationsVerdict([quiet], NOW, false)).toBe('One chat is open with no recent activity.')
+    expect(conversationsVerdict([waiting, quiet], NOW, false)).toBe('2 chats are open now; 1 waits for you; 1 has no recent activity.')
+    expect(conversationsVerdict([quiet, { ...quiet, id: 'r' }, conversation({ id: 'c', live: true })], NOW, false)).toBe('3 chats are open now; 2 have no recent activity.')
+    expect(conversationsVerdict([{ ...quiet, quietSince: 'not a time' }], NOW, false)).toBe('One chat is open and waits for you.')
   })
 
   it('says when the last chat ran when none is open, or that there is none', () => {
