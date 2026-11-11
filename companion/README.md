@@ -55,9 +55,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   The number on the circle always counts both.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
   A running chat comes up in the Terminal or Ghostty tab that runs it, ready
-  for typing. When
-  only the app can come forward, the list stays open and says where the chat
-  runs. macOS asks once to let the companion control each app.
+  for typing. When only the app can come forward, the list comes back and
+  says where the chat runs. macOS asks once to let the companion control each app.
 - Hover a row for its one button: **archive** a chat, or **hide** one that
   is already archived. A working chat has no button, since the work would
   bring it back at once. **Archive all** beside Active archives every active
