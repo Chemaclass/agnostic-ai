@@ -62,6 +62,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - **All, Local, Cloud** at the foot narrows the list to the chats on this
   machine or to the ones that run in a tool's cloud. It remembers your choice.
   The number on the circle always counts both.
+- A row names the chat's folder when it has one. When two folders in the list end in the
+  same name, the row adds the parent folders that tell them apart, such as
+  `shop/api` and `billing/api`. Hover a row for its full folder path.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
   A running chat comes up in the Terminal or Ghostty tab that runs it, ready
   for typing. When only the app can come forward, the list comes back and
