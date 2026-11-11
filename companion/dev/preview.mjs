@@ -161,8 +161,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (state.fixture.deleteProblem) return sendJSON(response, 500, { error: state.fixture.deleteProblem, reason: 'failed' })
     const row = find(body)
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this list any more. Refresh the page.' })
-    if (row.state !== 'completed') {
-      return sendJSON(response, 409, { error: 'Only an archived conversation can be deleted. This one is not archived any more: something was written in it, or it was opened. Refresh the list.', reason: 'not-archived' })
+    if (row.state !== 'completed' && row.state !== 'dormant') {
+      return sendJSON(response, 409, { error: 'Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.', reason: 'not-archived' })
     }
     if (row.deleteUnsupported) return sendJSON(response, 422, { error: row.deleteUnsupported, reason: 'unsupported' })
     state.conversations = state.conversations.filter((other) => other !== row)

@@ -377,18 +377,18 @@ function deletesSent(page: Page) {
   return sent
 }
 
-test('the row menu offers Delete permanently only on a chat archived by hand', async ({ page }) => {
+test('the row menu offers Delete permanently only on a chat under Archived', async ({ page }) => {
   await openArchived(page)
-  await row(page, 'Tidy the old branches').click({ button: 'right' })
-  await expect(deleteItem(page)).toBeVisible()
-  await page.keyboard.press('Escape')
-
-  for (const title of ['Write the migration guide', 'Sketch the pricing page']) {
+  for (const title of ['Tidy the old branches', 'Sketch the pricing page']) {
     await row(page, title).click({ button: 'right' })
-    await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-    await expect(deleteItem(page)).toBeHidden()
+    await expect(deleteItem(page)).toBeVisible()
     await page.keyboard.press('Escape')
   }
+
+  await row(page, 'Write the migration guide').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
+  await expect(deleteItem(page)).toBeHidden()
+  await page.keyboard.press('Escape')
 })
 
 test('the delete confirmation names the chat and what goes, and Cancel or Escape sends nothing', async ({ page }) => {
@@ -425,6 +425,21 @@ test('confirming a delete removes the row and says what it freed', async ({ page
   await expect(row(page, 'Tidy the old branches')).toHaveCount(0)
   await expect(deleteDialog(page)).toBeHidden()
   expect(sent).toEqual([{ tool: 'claude', id: 'done-2' }])
+})
+
+test('a chat that went quiet on its own can be deleted through the same confirmation', async ({ page }) => {
+  await openArchived(page)
+  const sent = deletesSent(page)
+  await row(page, 'Sketch the pricing page').click({ button: 'right' })
+  await deleteItem(page).click()
+
+  await expect(deleteDialog(page)).toContainText('Delete "Sketch the pricing page" permanently?')
+  await expect(deleteDialog(page)).toContainText('It cannot be undone.')
+  await deleteDialog(page).getByRole('button', { name: 'Delete permanently' }).click()
+
+  await expect(page.getByRole('status').filter({ hasText: 'Deleted. Freed 12 MB.' })).toBeVisible()
+  await expect(row(page, 'Sketch the pricing page')).toHaveCount(0)
+  expect(sent).toEqual([{ tool: 'claude', id: 'old-2' }])
 })
 
 test('a refused delete keeps the row and its reason stays on screen', async ({ page }) => {
