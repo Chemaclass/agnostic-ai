@@ -695,6 +695,108 @@ func TestScan_LeavesCodexExecRunsOutAndMarksLoadedThreadsLive(t *testing.T) {
 	}
 }
 
+// codexUnreadScanner lists threads with a marks file that began before
+// every one of them, so each counts as unread. marks holds the file's
+// entries; history, when set, answers the queries on Codex's history.
+func codexUnreadScanner(t *testing.T, threads, marks, history string) *Scanner {
+	t.Helper()
+	answers := map[string]string{"state_5.sqlite|FROM threads": threads}
+	if history != "" {
+		answers["thread_history_1.sqlite|thread_items"] = history
+	}
+	scanner, stores := testScanner(t, fakeStores(t, answers), fakeProcesses{})
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	if history != "" {
+		write(t, filepath.Join(stores.CodexDir, "thread_history_1.sqlite"), "")
+	}
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	write(t, scanner.MarksPath, `{"schemaVersion":"conversation-marks/v1","since":"2026-10-01T00:00:00Z","marks":{`+marks+`}}`)
+	return scanner
+}
+
+func codexWrittenAt(at time.Time) string { return strconv.FormatInt(at.UnixMilli(), 10) }
+
+func TestScan_LeavesOutCodexThreadsNobodyTypedIn(t *testing.T) {
+	empty, named, typed := "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777"
+	renamed, answered := "88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999"
+	written := codexWrittenAt(time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC))
+	thread := func(id, name, first string) string {
+		return `{"id":"` + id + `","cwd":"/tmp/app","created_at_ms":` + written + `,"updated_at_ms":` + written + `,"originator":"codex-tui","source":"cli","name":"` + name + `","title":"","first_user_message":"` + first + `"}`
+	}
+	// The answered thread's only prompt held no text, such as an image, and the agent replied to it.
+	scanner := codexUnreadScanner(t,
+		"["+strings.Join([]string{thread(empty, "", ""), thread(named, "Release checklist", ""), thread(typed, "", `Split the parser\nKeep the API`), thread(renamed, "", ""), thread(answered, "", "")}, ",")+"]",
+		`"codex:`+renamed+`":{"title":"Plan the release"}`,
+		`[{"thread_id":"`+answered+`","start":"The screenshot shows a 404.","ending":"The screenshot shows a 404.","length":27,"asked":""}]`,
+	)
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	listed := map[string]bool{}
+	for _, c := range view.Conversations {
+		listed[c.ID] = true
+	}
+	if listed[empty] || len(listed) != 4 {
+		t.Fatalf("only the thread opened and never typed in must be left out, as an empty Claude Code session is: listed %v", listed)
+	}
+	if view.NeedsYou != 4 || view.Tools[1].Count != 4 {
+		t.Errorf("the left-out thread must not count: needsYou %d, Codex count %d", view.NeedsYou, view.Tools[1].Count)
+	}
+	if c := byID(t, view, typed); c.Title != "Split the parser" {
+		t.Errorf("a thread with no name takes the first line of its first message, actual %q", c.Title)
+	}
+	if c := byID(t, view, renamed); c.Title != "Plan the release" {
+		t.Errorf("an empty thread the person named keeps its row and name, actual %q", c.Title)
+	}
+	if c := byID(t, view, answered); c.Title != "" || c.Reply != "The screenshot shows a 404." {
+		t.Errorf("a thread the agent answered keeps its row, actual %s", asJSON(t, c))
+	}
+}
+
+func TestScan_KeepsCodexThreadsWithNoPromptTextWhenTheRepliesCannotBeRead(t *testing.T) {
+	empty := "55555555-5555-4555-8555-555555555555"
+	written := codexWrittenAt(time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC))
+	// Only the prompts query is answered, so the replies query fails.
+	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
+		"state_5.sqlite|FROM threads":       `[{"id":"` + empty + `","cwd":"/tmp/app","created_at_ms":` + written + `,"updated_at_ms":` + written + `,"originator":"codex-tui","source":"cli","name":"","title":"","first_user_message":""}]`,
+		"thread_history_1.sqlite|$.content": `[]`,
+	}), fakeProcesses{})
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	write(t, filepath.Join(stores.CodexDir, "thread_history_1.sqlite"), "")
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if view.Tools[1].Note == "" || len(view.Conversations) != 1 {
+		t.Errorf("a thread whose reply could not be read may hold one, so it must stay: note %q, rows %s", view.Tools[1].Note, asJSON(t, view.Conversations))
+	}
+}
+
+// The circle counts every chat that needs the person, while the first
+// page holds a week and the open chats. An unread chat older than that
+// keeps the count above zero after every listed row is marked read.
+// Known limit, not fixed here.
+func TestScan_NeedsYouCountsAnUnreadChatOlderThanTheFirstPage(t *testing.T) {
+	recent, old := "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666"
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner := codexUnreadScanner(t, `[
+		{"id":"`+recent+`","cwd":"/tmp/app","created_at_ms":`+codexWrittenAt(now.Add(-time.Hour))+`,"updated_at_ms":`+codexWrittenAt(now.Add(-time.Hour))+`,"originator":"codex-tui","source":"cli","name":"Recent"},
+		{"id":"`+old+`","cwd":"/tmp/app","created_at_ms":`+codexWrittenAt(now.Add(-10*24*time.Hour))+`,"updated_at_ms":`+codexWrittenAt(now.Add(-10*24*time.Hour))+`,"originator":"codex-tui","source":"cli","name":"Old"}
+	]`, "", "")
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	if len(view.Conversations) != 1 || view.Conversations[0].ID != recent || view.NeedsYou != 2 {
+		t.Fatalf("first page = %s, needsYou %d", asJSON(t, view.Conversations), view.NeedsYou)
+	}
+
+	if err := scanner.Mark(ToolCodex, recent, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	view = scanner.Scan(context.Background(), ScanOptions{})
+	if byID(t, view, recent).State != StateActive || view.NeedsYou != 1 {
+		t.Errorf("after marking every listed row read, the count holds the older chat: state %s, needsYou %d", byID(t, view, recent).State, view.NeedsYou)
+	}
+}
+
 func TestScan_MarksTheCursorChatsOpenInAWindow(t *testing.T) {
 	open, closed := "88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999"
 	scanner, stores := testScanner(t, fakeStores(t, map[string]string{

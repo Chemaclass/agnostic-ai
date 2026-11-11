@@ -516,10 +516,6 @@ body {
   font-weight: 560;
 }
 
-.meta .why.is-working {
-  color: var(--busy);
-}
-
 .actions {
   display: flex;
   gap: 4px;

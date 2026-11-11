@@ -37,7 +37,7 @@ function fixtureState(name, now) {
     fixture,
     conversations: fixture.conversations(now),
     preferences: { shortcut: 'Ctrl+Alt+Space', startAtLogin: false },
-    appearance: { animate: true, dimWhenIdle: false },
+    appearance: { animate: true, dimWhenIdle: false, paused: false },
   }
 }
 
@@ -108,6 +108,14 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   let calls = []
   function logCall(path, body) {
     calls = [{ path, body }, ...calls].slice(0, 50)
+  }
+
+  /** A click on the circle or the shortcut wakes a paused companion, which reads a new list. */
+  function wake() {
+    if (!state.appearance.paused) return
+    state.appearance.paused = false
+    emit('appearance', state.appearance)
+    emit('inbox')
   }
 
   // Opens a fixture holds, answered when a test releases them.
@@ -227,9 +235,14 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/mark': mark,
     'POST /api/rename': rename,
     'POST /api/delete': remove,
-    'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); noContent(response); emit('panel-shown', 'bottom-right') },
+    'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); wake(); noContent(response); emit('panel-shown', 'bottom-right') },
     'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
-    'POST /api/panel/show': (request, response) => { logCall('/api/panel/show'); noContent(response); emit('panel-shown', 'bottom-right') },
+    // Like the shell: a paused companion does not show the list for the page.
+    'POST /api/panel/show': (request, response) => {
+      logCall('/api/panel/show')
+      noContent(response)
+      if (!state.appearance.paused) emit('panel-shown', 'bottom-right')
+    },
     'GET /api/preferences': (request, response) => sendJSON(response, 200, state.preferences),
     'POST /api/preferences/shortcut': async (request, response) => {
       state.preferences.shortcut = (await bodyOf(request)).shortcut
@@ -241,7 +254,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     },
     'GET /api/appearance': (request, response) => sendJSON(response, 200, state.appearance),
     'POST /api/dashboard': (request, response) => { logCall('/api/dashboard'); noContent(response) },
-    'POST /api/hide': (request, response) => { logCall('/api/hide'); noContent(response) },
+    'POST /api/pause': (request, response) => {
+      logCall('/api/pause')
+      state.appearance.paused = true
+      noContent(response)
+      emit('appearance', state.appearance)
+    },
     'POST /api/quit': (request, response) => { logCall('/api/quit'); noContent(response) },
     'GET /wails/runtime.js': (request, response) => serveFile(response, here, 'runtime-shim.js'),
     'GET /dev/': (request, response) => serveFile(response, here, 'preview.html'),
@@ -255,6 +273,23 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       heldOpens = []
       for (const release of released) release()
       sendJSON(response, 200, { released: released.length })
+    },
+    // Stands in for the circle's right-click menu, which the preview has not.
+    'POST /dev/appearance': async (request, response) => {
+      const { animate, dimWhenIdle } = await bodyOf(request)
+      if (typeof animate === 'boolean') state.appearance.animate = animate
+      if (typeof dimWhenIdle === 'boolean') state.appearance.dimWhenIdle = dimWhenIdle
+      noContent(response)
+      emit('appearance', state.appearance)
+    },
+    // A new message in a listed chat: it is written now and needs the person again.
+    'POST /dev/write': async (request, response) => {
+      const row = find(await bodyOf(request))
+      if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
+      row.updatedAt = new Date(timeOf()).toISOString()
+      row.state = 'unread'
+      noContent(response)
+      emit('inbox')
     },
     'POST /dev/arrive': (request, response) => {
       state.conversations = [arrival(timeOf()), ...state.conversations.filter((row) => row.id !== 'arrived-1')]
