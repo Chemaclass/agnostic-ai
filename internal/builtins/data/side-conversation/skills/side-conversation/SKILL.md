@@ -5,7 +5,7 @@ description: Start a side conversation in a new terminal tab, linked to this one
 
 # side-conversation
 
-Start a second conversation, seeded with a short brief, in a new terminal tab. This session goes on with its own task.
+Start a second conversation, seeded with a short brief, in a new terminal tab. This session goes on with its own task. The new conversation shows under this one in the Conversations list.
 
 ## When
 

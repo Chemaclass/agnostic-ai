@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -39,15 +40,15 @@ func TestBuiltinAbout_UnknownBuiltinHasNone(t *testing.T) {
 	}
 }
 
-func TestBuiltinItems_SideConversationClaimsNoNestedRowsYet(t *testing.T) {
+func TestBuiltinItems_SideConversationSaysWhereTheNewRowShows(t *testing.T) {
 	for _, item := range builtinItems(Inputs{}) {
 		if item.Name != "side-conversation" {
 			continue
 		}
-		for _, text := range append([]string{item.Description, item.About.Summary}, item.About.Points...) {
-			if strings.Contains(text, "under this one") {
-				t.Errorf("text %q promises a nested row the list does not draw yet", text)
-			}
+		if !slices.ContainsFunc(item.About.Points, func(point string) bool { return strings.Contains(point, "shows under this one") }) {
+			t.Errorf("points %q do not say the new conversation shows under this one", item.About.Points)
 		}
+		return
 	}
+	t.Fatal("no side-conversation built-in")
 }

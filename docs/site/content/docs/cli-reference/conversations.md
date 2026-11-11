@@ -85,6 +85,7 @@ Write the release notes for the parser change.
 
 - The line is `Continues <tool>:<id>`, where `<tool>` is `claude`, `codex` or `cursor`, and `<id>` has that tool's id form. It must be the whole first line of what was typed, with one space after `Continues` and nothing after the id. Text a tool adds around the prompt, such as a reminder block before it, does not count. Anything else is plain text: spaces before the line, two spaces, a tab, or words after the id.
 - The Conversations list reads it as the [`parent`](@/docs/cli-reference/serve-api.md) of the row, and cuts it from the title, the opening and the latest prompt.
+- The Conversations page and the companion draw the new conversation under its parent while both sit in the same group, such as Open now, or Needs you in the companion. Otherwise it is a normal row in its own group: the parent sits in another group, is on a week not loaded yet, is filtered out by the search, tool or place, or is hidden or deleted. A conversation started from a child sits under the same parent, one level deep.
 - You can type the line yourself at the start of a new conversation. It only decides where the row is shown.
 - The tool's own history still shows the line.
 - Hiding, archiving, renaming or deleting the parent never changes the new conversation.
