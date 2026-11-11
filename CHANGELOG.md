@@ -57,6 +57,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Copilot settings take the effort values `none`, `minimal` and `max`, as the project `.github/copilot/settings.json` and the global `~/.copilot/settings.json` both accept them. Per-agent effort keeps `low`, `medium`, `high` and `xhigh` (#3307).
 
+#### Qwen Code
+
+- A Qwen command hook with a `timeout` of 1000 seconds or more is now written in milliseconds, which Qwen reads from 1000 up; `timeout: 1200` became a 1.2 second limit before. Lower values are unchanged (#3309).
+
 ### Site
 
 - The Qwen page says a `FileChanged` hook can also replace or clear the paths registered through `watchPaths` (#3263).
