@@ -3,7 +3,7 @@
 # .github/workflows/ci.yml. tests/integration/toolchain_pins_test.go holds
 # them level.
 [tools]
-go = "1.27.3"
+go = "1.27.4"
 node = "22"
 java = "temurin-21"
 zola = "0.23.6"
