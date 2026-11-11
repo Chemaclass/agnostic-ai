@@ -6,67 +6,115 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### Highlights
+
+- Delete an archived Claude Code chat for good from the companion, including one that went quiet on its own (#3275, #3288).
+- `agnostic-ai conversations start` opens a linked conversation in a new terminal tab, from inside Claude Code or Codex (#3285, #3304).
+- The companion and the web interface show the agent's latest reply or question under each chat's title (#3283).
+- Both companion menus offer the same settings, plus Pause and Quit (#3237, #3246, #3297, #3298, #3299).
+- `sync` no longer loses a target's rules because of `outputs.<target>.rules-file` (#3295, #3302).
+
 ### General
 
-- Both companion menus offer the same settings: Animate, Dim when idle, Start at login, the shortcut, Pause and Quit. A change in one shows in the other (#3299).
-- `sync` no longer loses a target's rules when its `rules-file` is an instructions file another enabled target reads, such as `outputs.codex.rules-file: AGENTS.md` with Cline. It stops with AAI-102, and `validate` reports it: point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool. Where the other tool's file already carries those rules, as with Amp, sync writes what it wrote before and `lint` warns with LINT063. An adapter file on a path sync also writes as another target's instructions file, such as an external adapter's `AGENTS.md`, now stops `sync` with AAI-102 too (#3302).
-- **Mark all as read** on the companion's Needs you header takes every chat it shows out of the group, after the search and the All, Local or Cloud choice. Rows no longer repeat their group as "New reply" or "Working", and a Codex thread opened and never typed in no longer shows as "Untitled conversation" (#3300).
-- Hide in the companion's ⋯ menu is now Pause: the circle stays at 10% and reads nothing until you click it or press the shortcut (#3298).
-- `outputs.<target>.rules-file` on a target that writes no merged rules file, such as Cline or Kiro, no longer stops `sync` from writing that target's instructions file and rules. `lint` warns about the key with LINT062 (#3295).
-- A conversation started with `agnostic-ai conversations start` now sits indented under the one it came from, in the web interface and the companion, while both are in the same group. Otherwise it is a normal row (#3285).
-- Quit the companion from its ⋯ menu or the circle's right-click menu (#3297).
-- `agnostic-ai conversations start` starts a new conversation from inside a Claude Code or Codex session, in a new terminal tab in the same folder, with a brief as its first prompt. Its first line, `Continues <tool>:<id>`, gives the row a `parent` in the conversations API. The new `side-conversation` built-in adds a skill that tells the agent when to run it and how to write the brief (#3285).
-- The companion and the web interface show the agent's latest reply under each chat's title: the question it asks, or the start of its last message. Local Claude Code and Codex chats show it; Cursor chats and cloud sessions do not yet. `reply` holds it in the API, and a search matches it (#3283).
-- The new `wrap-up` built-in adds a skill that ends a session with what changed, what is still open, and a note to share; `handoff` now points to it (#3284).
-- Delete an archived Claude Code chat for good from the companion's right-click menu, after a confirmation: its transcript, subagent transcripts, tool output, file backups and pasted images leave the disk. Other tools say why they cannot be deleted (#3275).
-- A Claude Code chat that went quiet on its own under Archived can be deleted too, unless something was written in it since you last looked (#3288).
-- A model tier takes an optional `description` saying when to use it. `sync` and `sync --global` list the described tiers in each tool's instructions file (#3286).
-- The companion and the web interface show a `cursor-agent` chat that still runs as open. Opening it switches to its terminal instead of starting a second copy (#3274).
-- The web interface no longer offers Copy command on a session that still runs; running it would start a second copy (#3272).
-- `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3262).
-- The companion's row button and "Archive all" now read "Mark complete" and "Mark all complete"; marking one chat complete turns its tick green for a moment.
-- When the companion cannot open a chat, the reason stays until you dismiss it, and a chat that could not be resumed offers **Copy resume command**. Opening a Claude Code or Codex chat that still runs in a terminal no longer replies with a resume command (#3256).
-- Mark a chat as read from the companion's right-click menu, without opening it; the next reply brings it back (#3250).
-- The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
-- A local Codex chat that went silent shows "No activity for 7m" instead of "Waiting for you" in the companion and the web interface; `quietSince` marks such a row in the API (#3251).
-- In the web interface's Built-ins tab, Details now says what each built-in does when on and links RTK and Caveman to their official pages (#3261).
+#### Companion menus and app
+
+- Both companion menus offer Animate, Dim when idle, Start at login, the shortcut, Pause and Quit, kept in step (#3237, #3246, #3297, #3299).
+- Pause replaces Hide: the circle stays at 10% and reads nothing until you click it or press the shortcut (#3298).
 - `upgrade` also updates an installed companion and restarts it if it was running (#3247).
-- Right-click the companion's circle to stop its animation or dim it when nothing needs you (#3237, #3246).
-- `memory import --skip <file>` and `--skip-rest` decline facts you do not want, and LINT043 stops counting them (#3235).
-- Rename a chat from the companion's right-click menu; the web interface shows the new name (#3236).
-- Renaming a running chat also names its Terminal or Ghostty tab.
-- An archived or hidden chat that starts working again moves back to Working (#3239).
 - On macOS, `companion install` makes an app with the agnostic-ai icon that still starts at login (#3238).
+
+#### Linked conversations
+
+- `agnostic-ai conversations start`, run inside Claude Code or Codex, opens a chat in a new tab of the same folder, with a brief as its first prompt (#3285).
+- The new chat's first line, `Continues <tool>:<id>`, gives its row a `parent` in the conversations API (#3285).
+- The web interface and the companion show it indented under the one it came from while both are in the same group (#3285).
+- The new `side-conversation` built-in adds a skill that tells the agent when to start one and how to write the brief (#3285).
+
+#### Deleting archived chats
+
+- Delete an archived Claude Code chat for good from the companion's right-click menu, after a confirmation (#3275).
+- Deleting removes its transcript, subagent transcripts, tool output, file backups and pasted images from the disk (#3275).
+- A Claude Code chat that went quiet on its own under Archived can be deleted too, unless something was written in it since you last looked (#3288).
+- Other tools say why their chats cannot be deleted; Codex deletes a thread even while open, so close it before running `codex delete <id>` (#3275, #3292).
+
+#### Chat list
+
+- **Mark all as read** on the companion's Needs you header marks every chat the group shows, after the search and the All, Local or Cloud choice (#3300).
+- The companion's buttons now read "Mark complete" and "Mark all complete", and a chat marked complete shows a green tick for a moment (#3273).
+- Mark a chat as read from the companion's right-click menu, without opening it; the next reply brings it back (#3250).
+- Companion rows no longer repeat their group as "New reply" or "Working", and a Codex thread opened and never typed in is left out (#3300).
+
+#### Latest reply
+
+- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code and Codex chats (#3283).
+- The API's `reply` field holds that line, and a search matches it; Cursor chats and cloud sessions have none yet (#3283).
+
+#### Chat names and states
+
+- Rename a chat from the companion's right-click menu; the web interface and a running chat's Terminal or Ghostty tab show the new name (#3236, #3258).
 - Cursor chat titles show what you typed, without the tags Cursor adds (#3241).
-- Clicking a running session opens its Terminal or Ghostty tab; an ended session resumes in a new tab (#3242).
-- Clicking a running session in the companion leaves its terminal ready for typing.
-- Cursor and Windsurf load each always-on rule once, from `AGENTS.md`; Trae opts in with `outputs.trae.rules-mode: entry-point` (#3243).
-- LINT061 warns when a target ignores its `outputs.<target>.rules-mode` value (#3243).
-- Builds use Go 1.27.4 to fix the `net/http` vulnerability [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859).
+- The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
+- A silent local Codex chat shows "No activity for 7m", not "Waiting for you", in the companion and the web interface; the API sets `quietSince` (#3251).
+- An archived or hidden chat that starts working again moves back to Working (#3239).
+
+#### Opening and resuming chats
+
+- A running session opens in its Terminal or Ghostty tab, which the companion leaves ready for typing; an ended session resumes in a new tab (#3242, #3249).
+- A running `cursor-agent` chat shows as open in the companion and the web interface; opening it switches to its terminal, not a second copy (#3274).
+- When the companion cannot open a chat, the reason stays until you dismiss it, and a chat that could not resume offers **Copy resume command** (#3256).
+- Opening a Claude Code or Codex chat that still runs in a terminal no longer replies with a resume command (#3256).
+- The web interface no longer offers Copy command on a session that still runs, since running it would start a second copy (#3272).
+
+#### The rules-file setting
+
+- `sync` ignores `outputs.<target>.rules-file` on a target that writes no merged rules file, such as Cline or Kiro, and writes its usual files (#3295).
+- `lint` warns with LINT062 about a `rules-file` on such a target (#3295).
+- `sync` stops with AAI-102, which `validate` reports, when a `rules-file` that another enabled target reads as instructions would lose rules (#3302).
+- For `outputs.codex.rules-file: AGENTS.md` with Cline, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool (#3302).
+- When the other tool's file already has the rules, as with Amp, `sync` writes what it wrote before and `lint` warns with LINT063 (#3302).
+
+#### Shared instructions files
+
+- `sync` also stops with AAI-102 when an adapter writes another target's instructions file, such as an external adapter's `AGENTS.md` (#3302).
+- Cursor and Windsurf load each always-on rule once, from `AGENTS.md`; Trae opts in with `rules-mode: entry-point`, and LINT061 flags an ignored value (#3243).
+
+#### Built-ins and settings
+
+- The new `wrap-up` built-in adds a skill that ends a session with what changed, what is still open, and a note to share; `handoff` points to it (#3284).
+- A model tier takes an optional `description` of when to use it; `sync` and `sync --global` list the described tiers in each tool's instructions file (#3286).
+- `memory import --skip <file>` and `--skip-rest` decline facts you do not want, and LINT043 stops counting them (#3235).
+- In the web interface's Built-ins tab, Details says what each built-in does when on and links RTK and Caveman to their official pages (#3261).
+- `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3262).
+
+#### Security
+
+- A folder or program path with control characters can no longer type a command into a terminal tab; start and resume refuse it and offer no command (#3304).
+- Builds use Go 1.27.4 to fix the `net/http` vulnerability [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859) (#3244).
 
 ### By tool
 
 #### Augment
 
-- `validate` and `sync` accept `PromptSubmit` and `Notification` hooks, which Auggie 1.x documents. Like `Stop`, they take no matcher, so one is left out of the written file, and `sync` now says so for every event that takes none (#3308).
-- The target guide calls Auggie 1.x stable, from 1.2.0, instead of a prerelease. The 0.x and 1.x differences it lists are unchanged (#3310).
+- `validate` and `sync` accept Auggie 1.x's `PromptSubmit` and `Notification` hooks; `sync` drops a matcher on any event that takes none and says so (#3308).
 - Settings `permissions.ask` writes `ask-user` rules to `.augment/settings.json`, between deny and allow rules; `import augment` reads them back (#3266).
-- Settings `model` and `effort` write Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; Auggie 0.x ignores both keys. `import augment` reads them back (#3265).
-- Hooks with `args` reach `.augment/settings.json` and `~/.augment/settings.json` with their arguments, instead of being skipped. An inline command no longer raises a "never executes" note, and `hook run` runs it (#3264).
-
-#### Copilot
-
-- Copilot settings take the effort values `none`, `minimal` and `max`, as the project `.github/copilot/settings.json` and the global `~/.copilot/settings.json` both accept them. Per-agent effort keeps `low`, `medium`, `high` and `xhigh` (#3307).
+- `model` and `effort` set Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; 0.x ignores them, `import` reads them (#3265).
+- Hooks with `args` reach `.augment/settings.json` and `~/.augment/settings.json` with their arguments, instead of being skipped (#3264).
+- An inline hook command no longer raises a "never executes" note, and `hook run` runs it (#3264).
 
 #### Qwen Code
 
-- A Qwen command hook with a `timeout` of 1000 seconds or more is now written in milliseconds, which Qwen reads from 1000 up; `timeout: 1200` became a 1.2 second limit before. Lower values are unchanged (#3309).
+- A command hook `timeout` of 1000 seconds or more is written in milliseconds; `timeout: 1200` gave a 1.2 second limit, and lower values are unchanged (#3309).
+
+#### Copilot
+
+- Project and global settings accept the effort values `none`, `minimal` and `max`; per-agent effort keeps `low`, `medium`, `high` and `xhigh` (#3307).
 
 ### Site
 
-- The Qwen page says a `FileChanged` hook can also replace or clear the paths registered through `watchPaths` (#3263).
 - `serve`, the local API, `companion`, `doctor`, `import`, and the `sync` and `gitignore` settings have their own reference pages; old links redirect.
 - The companion page says Windows and Linux are not supported and links the issues.
+- The Augment guide calls Auggie 1.x stable from 1.2.0, not a prerelease; its list of 0.x and 1.x differences is unchanged (#3310).
+- The Qwen page says a `FileChanged` hook can also replace or clear the paths registered through `watchPaths` (#3263).
 
 ## v0.93.0 - 2026-11-10
 
