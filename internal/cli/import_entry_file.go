@@ -17,10 +17,10 @@ var importAllSkippedEntryFiles map[string]bool
 // regular file inside root reads as fs.ErrNotExist, noted once. A named
 // import follows links anywhere.
 //
-// The project-local instructions block sync appends to entry points is
-// dropped here, before any importer mirrors or slices the file, so the
-// git-ignored `.agnostic-ai/local/AGNOSTIC_AI.md` text never lands in
-// the committed sources.
+// The project-local instructions and model tiers blocks sync appends to
+// entry points are dropped here, before any importer mirrors or slices
+// the file: the local text is git-ignored, and the tiers come from the
+// config alone.
 //
 // An entry point sync wrote from the current unfenced AGNOSTIC_AI.md
 // alone reads as fs.ErrNotExist too: it holds nothing the sources lack.
@@ -46,7 +46,7 @@ func readProjectEntryFile(root, path string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		return []byte(adapters.StripLocalInstructions(string(data))), nil
+		return []byte(adapters.StripModelTiers(adapters.StripLocalInstructions(string(data)))), nil
 	}
 	if _, err := os.Lstat(path); err == nil && !importAllSkippedEntryFiles[path] {
 		importAllSkippedEntryFiles[path] = true

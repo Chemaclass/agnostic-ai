@@ -1201,6 +1201,12 @@ func RenderModelTiers(tiers map[string]config.ModelTier) string {
 	return emit.RenderModelTiers(tiers)
 }
 
+// StripModelTiers removes the marked model tiers block from body
+// (re-exported from the emit layer).
+func StripModelTiers(body string) string {
+	return emit.StripModelTiers(body)
+}
+
 // AppendModelTiers appends the model tiers block to body, replacing any
 // earlier one (re-exported from the emit layer).
 func AppendModelTiers(body, block string) string {

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -292,5 +294,37 @@ func TestSync_AdapterWrittenRulesFileListsTheTiers(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestImport_RulesFileRoundTripKeepsTheTiersOnce(t *testing.T) {
+	for _, target := range []string{"amp", "zed", "aider", "opencode", "antigravity", "warp"} {
+		t.Run(target, func(t *testing.T) {
+			path := adapters.EntryPointPath(&config.Config{Targets: []string{target}}, target)
+			dir := budgetProject(t, "targets: ["+target+"]\noutputs:\n  "+target+": {rules-file: "+path+"}\n"+describedTiersConfig)
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+			syncProjectOK(t)
+
+			if out, err := runCLI(t, "import", target); err != nil {
+				t.Fatalf("import: %v\n%s", err, out)
+			}
+			syncProjectOK(t)
+
+			if got := readFileString(t, filepath.Join(dir, path)); strings.Count(got, "Model tiers:") != 1 {
+				t.Errorf("%s should list the tiers once:\n%s", path, got)
+			}
+			rules, err := os.ReadDir(filepath.Join(dir, ".agnostic-ai", "rules"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, rule := range rules {
+				if body := readFileString(t, filepath.Join(dir, ".agnostic-ai", "rules", rule.Name())); strings.Contains(body, "agnostic-ai:models") {
+					t.Errorf("rule %s holds the tiers block:\n%s", rule.Name(), body)
+				}
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check: %v\n%s", err, out)
+			}
+		})
 	}
 }
