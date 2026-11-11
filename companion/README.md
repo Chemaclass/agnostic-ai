@@ -118,7 +118,7 @@ turns around the circle while an agent is working. With animation off, a still
 ice blue ring shows instead.
 
 Starting the companion a second time brings back the one that already runs and
-opens its list.
+opens its list. It also wakes a paused companion.
 
 ## Settings
 
@@ -135,10 +135,13 @@ The ⋯ button at the foot of the list holds them:
   away from every other app, so pick one nothing else uses. Keys another app
   already holds are refused and the old shortcut stays. macOS, Windows and X11
   ask for no permission; a Wayland desktop asks you once to approve it.
-- **Hide Agnostic AI companion** takes the circle off the screen and stops
-  the companion's server. Nothing reads or asks anything after that; only the
-  shortcut listens. The shortcut, or `agnostic-ai companion`, brings it back
-  with a new list.
+- **Pause Agnostic AI companion** fades the circle to 10% and stops the
+  companion's server. The circle stays where it is, with no number and no
+  arc, and pointing at it does not brighten it. Nothing reads or asks
+  anything until you wake it. You can still drag it. Click it, press the
+  shortcut, or run `agnostic-ai companion` to wake it with a new list. A
+  restart always starts awake. Pause is not **Dim when idle**: dimming keeps
+  watching, pausing reads nothing.
 - **Quit Agnostic AI companion** ends the companion and its server, as
   `agnostic-ai companion stop` does. **Start at login** stays as you set it.
   `agnostic-ai companion` starts it again.
@@ -260,7 +263,7 @@ Both are in the `agnostic-ai` folder of your user configuration folder
 
 | The companion is | What runs |
 | --- | --- |
-| Hidden | The shortcut listener. No server, no timer, no reads. |
+| Paused | The shortcut listener and the faded circle. No server, no timer, no reads. |
 | On screen | Every 5 seconds it asks its server whether the list changed. The server compares the files' sizes and times and answers "unchanged" without reading a chat. It reads only when a chat or a mark changed, and once when a new minute begins. |
 | Searching | One read for each search, and again when a chat changes while the search shows. |
 
@@ -273,7 +276,7 @@ What you see is never older than this:
   most 65 seconds.
 - A list that could not be read is not shown. The circle loses its number and
   the list says why, instead of showing the last one as if it were current.
-- After the companion was hidden, the first list is a new read.
+- After the companion was paused, the first list is a new read.
 
 ## Layout
 
@@ -288,7 +291,8 @@ What you see is never older than this:
 - `settings.go`: what the companion remembers between runs.
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
   `model.js` holds the logic and has no DOM in it. `look.js` turns your
-  settings into how the pages look, and `motion.js` applies both choices to each page.
+  settings and whether the companion is paused into how the pages look, and
+  `motion.js` applies them to each page.
 - `dev/`: the browser preview behind `make companion-preview` and `make companion-e2e`.
   It is outside `frontend/`, so no build of the companion holds it.
 
@@ -302,7 +306,7 @@ about conversations comes over the server's API, documented under
 
 ```sh
 make companion-test   # Go vet, Go tests and the page logic tests
-make companion-e2e    # the list's search, open, rename, mark as read and failure flows, and its ⋯ menu, in headless Chromium
+make companion-e2e    # the list's search, open, rename, mark as read and failure flows, its ⋯ menu, and the paused circle, in headless Chromium
 ```
 
 CI runs the page tests and the browser tests. It does not run the Go tests yet,

@@ -895,4 +895,8 @@
 # built-in and the rebuilt web bundle) measured 25911456 bytes locally on
 # 2026-11-11; the budget is that plus 8192, rounded up to a multiple of
 # 4096.
-25923584
+# #3295 (rules-file has no effect on a built-in target that writes none,
+# LINT062 and the rebuilt web bundle) measured 25923744 bytes locally on
+# 2026-11-11, on top of main c9bb14de; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+25935872

@@ -19,6 +19,8 @@ const quitLabel = "Quit Agnostic AI companion"
 type appearance struct {
 	Animate     bool `json:"animate"`
 	DimWhenIdle bool `json:"dimWhenIdle"`
+	// Paused is the shell's state, never saved: a restart starts awake.
+	Paused bool `json:"paused"`
 }
 
 func (s settings) appearance() appearance {
@@ -28,7 +30,9 @@ func (s settings) appearance() appearance {
 func (s *shell) appearance() appearance {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.settings.appearance()
+	looks := s.settings.appearance()
+	looks.Paused = s.paused
+	return looks
 }
 
 // setAnimate saves whether the pages move.
@@ -58,6 +62,7 @@ func (s *shell) changeLook(change func(*settings)) error {
 		s.settings = before
 	}
 	looks := s.settings.appearance()
+	looks.Paused = s.paused
 	s.mu.Unlock()
 	s.tell(looks)
 	return err

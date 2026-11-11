@@ -35,7 +35,21 @@ function show({ view, note }) {
 badge.addEventListener('animationend', () => badge.classList.remove('is-new'))
 document.addEventListener('motion', () => {
   if (document.documentElement.dataset.motion === 'off') badge.classList.remove('is-new')
+  if (isPaused()) showPaused()
 })
+
+function isPaused() {
+  return document.documentElement.dataset.paused === 'on'
+}
+
+/** Paused: nothing is read, so no count shows; the first list after waking draws a new one. */
+function showPaused() {
+  bubble.classList.remove('is-working', 'is-troubled', 'is-idle')
+  bubble.setAttribute('aria-label', 'Conversations: paused. Click to resume.')
+  badge.hidden = true
+  badge.classList.remove('is-new')
+  shownCount = 0
+}
 
 /** No list could be read: an old count would be a guess, so none shows. */
 function showTrouble(message) {
@@ -48,14 +62,18 @@ function showTrouble(message) {
 }
 
 async function refresh() {
+  // A paused companion asks nothing.
+  if (isPaused()) return
   let reply
   try {
     reply = await readInbox('')
   } catch (error) {
     if (!(error instanceof CallError)) throw error
-    showTrouble(error.message)
+    // Paused while the list was on its way: the failure is the pause.
+    if (!isPaused()) showTrouble(error.message)
     return
   }
+  if (isPaused()) return
   show(reply)
 }
 

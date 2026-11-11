@@ -73,6 +73,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT059 | Warning. An MCP spec that reaches Crush, Pi or Junie sets `timeout` below 1000. The field is milliseconds: Crush and Pi read seconds, so sync writes a limit of one second or less, and Junie accepts 1000 ms or more. Such a value is most likely seconds, from an older import or the old Pi page: multiply it by 1000, or set `x-crush.timeout` or `x-pi.timeout` in seconds, or `x-junie.timeout` in milliseconds, for one tool. It also warns, and sync prints a note, when `timeout` or `x-junie.timeout` above 3600000 (one hour) reaches Junie, which ignores it and uses 60 seconds. Lower it to 3600000 or less. |
 | LINT060 | Error, also refused by `sync` and `validate`. An MCP spec's `roots` is not a list, or an item is not a mapping with a text `uri`, such as `- file:///path`. Every tool would drop it without a note. Write `- uri: file:///path`, with an optional `name`. |
 | LINT061 | Warning. `outputs.<target>.rules-mode` holds a value that target does not read, so sync ignores it. Claude reads `import` and Trae reads `entry-point`; no other target reads the key. Fix the value or remove the key; a later release will refuse it. |
+| LINT062 | Warning. `outputs.<target>.rules-file` is set on a target that writes no merged rules file, so sync ignores it. The target keeps its instructions file and its rules as if the key were unset. See [which targets write one](@/docs/configuration.md#entry-point-files). Remove the key. |
 
 ## Context budgets
 
