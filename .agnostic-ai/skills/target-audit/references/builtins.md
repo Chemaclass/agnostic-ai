@@ -9,7 +9,7 @@ Built-ins are specs that agnostic-ai ships inside the binary, such as the handof
 The start command in `scripts/target-audit/manifest.md` saves `scripts/target-facts.sh --builtins` as `builtins.txt` and records its exact digest. Pass that path to each batch. Its metadata is evidence to inspect, not a computed support verdict.
 
 - Registration and specs: `internal/builtins/builtins.go` and `internal/builtins/data/<built-in>/`. Read selectors, exclusions and `x-<target>` overrides. Confirm selection through `internal/spec/spec.go`, the adapter and emitted output; never copy a target table into the audit instructions.
-- Docs: the matching pages under `docs/site/content/docs/`. The current handoff built-ins share `handoff.md` and `configuration.md`; the memory built-in has `memory.md`; the wrap-up built-in has `wrap-up.md`.
+- Docs: the matching pages under `docs/site/content/docs/`. The current handoff built-ins share `handoff.md` and `configuration.md`; the memory built-in has `memory.md`; the wrap-up built-in has `wrap-up.md`; the side-conversation built-in has `side-conversation.md`.
 - Behavior: `internal/builtins/builtins_test.go`, `internal/cli/builtins_test.go`, `tests/integration/builtins_test.go`, `tests/integration/builtin_handoff_hooks_test.go` and `tests/integration/builtin_memory_test.go`, with their fixtures under `tests/integration/fixtures/builtin-*`.
 
 ## Coverage since the last audit

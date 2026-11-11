@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Launcher runs what reopens a conversation.
@@ -39,6 +40,21 @@ type Launcher interface {
 
 // errNotHere means this OS has no supported way to run the route.
 var errNotHere = errors.New("not supported on this system")
+
+// errControlCharacters means a command holds a character a terminal
+// acts on as it is typed: single quotes stop the shell, not the terminal, so a
+// carriage return or escape in a folder name would run what follows.
+var errControlCharacters = errors.New("holds control characters")
+
+// hasControl reports whether text holds a control character, C0, DEL
+// or C1 (some terminals read U+009B as CSI), or is not valid UTF-8,
+// which a terminal may decode as one.
+func hasControl(text string) bool {
+	if !utf8.ValidString(text) {
+		return true
+	}
+	return strings.IndexFunc(text, func(r rune) bool { return r < 0x20 || (r >= 0x7f && r <= 0x9f) }) >= 0
+}
 
 // errAutomationDenied means macOS refused to let the server control a
 // terminal app; the person allows it once per app in System Settings.
@@ -263,24 +279,33 @@ func allowControl(verb, app, then string) string {
 // last ran in. Its old tab is never typed into: a shell waiting in a
 // builtin such as read looks the same as one at its prompt.
 func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
-	tab := c.lastTab
-	if tab == nil || !tabApps[tab.App] {
-		return newTerminal(ctx, c, launcher)
+	app := ""
+	if c.lastTab != nil {
+		app = c.lastTab.App
 	}
+	controlled := OpenReply{Message: "Its folder name holds control characters, which a terminal would act on as they are typed, so it is not resumed from here."}
+	if c.Open.Command == "" {
+		return controlled
+	}
+	opened := openInTab(ctx, launcher, app, c.Open.Command)
 	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: c.Open.Command} }
-	err := launcher.RunInNewTab(ctx, tab.App, c.Open.Command)
 	switch {
-	case err == nil:
-		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", tab.App)}
-	case errors.Is(err, errAutomationDenied):
-		return byHand(allowControl("opening", tab.App, "or run this command yourself"))
-	case errors.Is(err, context.DeadlineExceeded):
-		return byHand(waitingForPrompt(tab.App))
-	case tab.App == "Terminal":
-		// Terminal before macOS 26 has no do script in new tab.
-		return newTerminal(ctx, c, launcher)
+	case opened.err == nil && opened.window:
+		return OpenReply{Opened: true, Message: "Resumed in a new Terminal window."}
+	case opened.err == nil:
+		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", opened.app)}
+	case errors.Is(opened.err, errControlCharacters):
+		return controlled
+	case errors.Is(opened.err, errAutomationDenied):
+		return byHand(allowControl("opening", opened.app, "or run this command yourself"))
+	case opened.window && errors.Is(opened.err, errNotHere):
+		return byHand("This system cannot open a terminal from the page. Run this command in a terminal.")
+	case opened.window:
+		return byHand("Could not open a Terminal window. Run this command in a terminal.")
+	case errors.Is(opened.err, context.DeadlineExceeded):
+		return byHand(waitingForPrompt(opened.app))
 	default:
-		return byHand(fmt.Sprintf("Could not open a %s tab. Run this command in a terminal.", tab.App))
+		return byHand(fmt.Sprintf("Could not open a %s tab. Run this command in a terminal.", opened.app))
 	}
 }
 
@@ -288,18 +313,30 @@ func waitingForPrompt(app string) string {
 	return fmt.Sprintf("macOS is waiting for you to allow control of %s. Answer its prompt, then click again.", app)
 }
 
-func newTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
-	err := launcher.RunInNewTerminal(ctx, c.Open.Command)
-	switch {
-	case err == nil:
-		return OpenReply{Opened: true, Message: "Resumed in a new Terminal window."}
-	case errors.Is(err, errAutomationDenied):
-		return OpenReply{Message: allowControl("opening", "Terminal", "or run this command yourself"), Command: c.Open.Command}
-	case errors.Is(err, errNotHere):
-		return OpenReply{Message: "This system cannot open a terminal from the page. Run this command in a terminal.", Command: c.Open.Command}
-	default:
-		return OpenReply{Message: "Could not open a Terminal window. Run this command in a terminal.", Command: c.Open.Command}
+// tabOpening is where openInTab ran a command, or why it could not.
+type tabOpening struct {
+	// app got the command: the app asked for, or Terminal for a window.
+	app string
+	// window is true when it went to a new Terminal window.
+	window bool
+	err    error
+}
+
+// openInTab runs command in a new tab of app when app takes one, else
+// in a new Terminal window. Terminal before macOS 26 has no do script
+// in new tab, so a failed Terminal tab falls back to a window; a refused
+// or unanswered permission does not, since the window needs it too.
+func openInTab(ctx context.Context, launcher Launcher, app, command string) tabOpening {
+	if hasControl(command) {
+		return tabOpening{app: app, err: errControlCharacters}
 	}
+	if tabApps[app] {
+		err := launcher.RunInNewTab(ctx, app, command)
+		if err == nil || app != "Terminal" || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) {
+			return tabOpening{app: app, err: err}
+		}
+	}
+	return tabOpening{app: "Terminal", window: true, err: launcher.RunInNewTerminal(ctx, command)}
 }
 
 // focusTerminal switches to the exact tab that runs a live session. It

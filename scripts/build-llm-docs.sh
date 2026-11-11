@@ -72,7 +72,7 @@ revision=${GITHUB_SHA:-$(git -C "$root" rev-parse --verify HEAD 2>/dev/null || p
   echo "https://github.com/Chemaclass/agnostic-ai"
   for doc in _index installation agent-setup getting-started migration troubleshooting \
              inspect-configuration spec-format targets target-behavior configuration sync-settings global-configuration \
-             cli-reference ci packs composer local-overrides scoped-context memory handoff wrap-up \
+             cli-reference ci packs composer local-overrides scoped-context memory handoff wrap-up side-conversation \
              rtk-and-caveman git-hooks compare errors verify-a-release \
              why-agnostic-ai; do
     echo

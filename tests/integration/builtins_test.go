@@ -517,3 +517,44 @@ func TestBuiltinWrapUp(t *testing.T) {
 	}
 	run(t, dir, "sync", "--check", "--gitignore=off")
 }
+
+func TestBuiltinSideConversation(t *testing.T) {
+	binary := builtCandidateBinary(t, "0.80.0")
+	run := func(t *testing.T, dir string, args ...string) string {
+		t.Helper()
+		cmd := exec.Command(binary, args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		return string(out)
+	}
+	dir := t.TempDir()
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	cfg := filepath.Join(dir, "agnostic-ai.yaml")
+	must(t, os.WriteFile(cfg, []byte("version: 1\ntargets: [claude, codex]\nbuiltins: [side-conversation]\n"), 0o644))
+	run(t, dir, "sync", "--gitignore=off")
+	paths := []string{".claude/skills/side-conversation/SKILL.md", ".agents/skills/side-conversation/SKILL.md"}
+	for _, path := range paths {
+		assertContains(t, filepath.Join(dir, filepath.FromSlash(path)), "agnostic-ai conversations start")
+	}
+	for _, path := range []string{".claude/settings.json", ".codex/hooks.json"} {
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("side-conversation wrote hook output %s: %v", path, err)
+		}
+	}
+	if out := run(t, dir, "list"); !strings.Contains(out, "skill\tside-conversation\tbuiltin") {
+		t.Errorf("list did not report the builtin: %s", out)
+	}
+	run(t, dir, "explain", "builtin:side-conversation")
+	run(t, dir, "sync", "--check", "--gitignore=off")
+	must(t, os.WriteFile(cfg, []byte("version: 1\ntargets: [claude, codex]\nbuiltins: []\n"), 0o644))
+	run(t, dir, "sync", "--gitignore=off")
+	for _, path := range paths {
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("orphan %s remains: %v", path, err)
+		}
+	}
+	run(t, dir, "sync", "--check", "--gitignore=off")
+}
