@@ -116,6 +116,27 @@ test('the row menu offers Mark as read only on a row that needs you', async ({ p
   await expect(page.getByRole('menuitem', { name: 'Mark as read' })).toBeHidden()
 })
 
+for (const [change, as] of [
+  ['leaves Needs you', 'seen'],
+  ['leaves the list', 'hidden'],
+] as const) {
+  test(`the row menu closes when its row ${change} while it is open`, async ({ page }) => {
+    await openPanel(page)
+    const marks: unknown[] = []
+    page.on('request', (request) => {
+      if (request.url().endsWith('/api/mark')) marks.push(request.postDataJSON())
+    })
+    await row(page, 'Approve the database migration').click({ button: 'right' })
+    await expect(page.getByRole('menuitem', { name: 'Mark as read' })).toBeFocused()
+
+    const changed = await page.request.post('/api/mark', { data: { tool: 'claude', id: 'waits-1', as } })
+    expect(changed.ok()).toBe(true)
+
+    await expect(page.getByRole('menu', { name: 'Conversation' })).toBeHidden()
+    expect(marks).toEqual([])
+  })
+}
+
 test('a failed mark as read keeps the row in Needs you and says why', async ({ page }) => {
   await openPanel(page, 'mark-failure')
   await row(page, 'Draft the release notes').click({ button: 'right' })

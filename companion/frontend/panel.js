@@ -392,6 +392,7 @@ async function refresh() {
   state.view = reply?.view
   state.note = reply?.note
   draw()
+  keepRowMenuCurrent()
 }
 
 // The panel never activates its app, so while it shows it keeps the keys
@@ -450,6 +451,26 @@ function openRowMenu(conversation, event) {
 function closeRowMenu() {
   rowMenu.hidden = true
   rowMenuFor = undefined
+}
+
+/** The row as the latest list has it, while it still offers `item`; undefined otherwise. */
+function rowMenuTarget(item) {
+  if (!rowMenuFor) return undefined
+  const key = keyOf(rowMenuFor)
+  const current = shownView()?.conversations.find((conversation) => keyOf(conversation) === key)
+  return current && rowMenuOf(current).includes(item) ? current : undefined
+}
+
+/** A new list can move or remove the menu's row; the menu then closes rather than act on a row that changed. */
+function keepRowMenuCurrent() {
+  if (rowMenu.hidden || !rowMenuFor) return
+  const offered = Object.keys(menuItems).filter((item) => !menuItems[item].hidden)
+  if (offered.every((item) => rowMenuTarget(item))) {
+    rowMenuFor = rowMenuTarget(offered[0])
+    return
+  }
+  closeRowMenu()
+  queryInput.focus()
 }
 
 function startRename(conversation) {
@@ -523,10 +544,10 @@ renameItem.addEventListener('click', () => {
   if (rowMenuFor) startRename(rowMenuFor)
 })
 menuItems.read.addEventListener('click', () => {
-  const conversation = rowMenuFor
-  if (!conversation) return
+  const conversation = rowMenuTarget('read')
   closeRowMenu()
   queryInput.focus()
+  if (!conversation) return
   // Seen is the mark opening a chat sets, so the chat stays closed and a later write brings it back.
   markRow(conversation, 'seen')
 })
