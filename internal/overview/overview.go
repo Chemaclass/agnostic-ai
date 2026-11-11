@@ -521,12 +521,13 @@ func instructionItems(docs []Document) []SectionItem {
 
 // builtinDescriptions says what each built-in feature does.
 var builtinDescriptions = map[string]string{
-	"memory":       "Shared memory every coding tool reads and saves facts to.",
-	"handoff":      "Saves a task so the next session, in this or another tool, can resume it.",
-	"handoff-hook": "Offers a saved handoff when a session starts.",
-	"rtk":          "Routes shell commands through rtk to cut output tokens.",
-	"caveman":      "Terse replies to cut output tokens.",
-	"wrap-up":      "Ends a session with a short summary to share with people.",
+	"memory":            "Shared memory every coding tool reads and saves facts to.",
+	"handoff":           "Saves a task so the next session, in this or another tool, can resume it.",
+	"handoff-hook":      "Offers a saved handoff when a session starts.",
+	"rtk":               "Routes shell commands through rtk to cut output tokens.",
+	"caveman":           "Terse replies to cut output tokens.",
+	"side-conversation": "Starts a second task in a new terminal tab, linked to this session.",
+	"wrap-up":           "Ends a session with a short summary to share with people.",
 }
 
 // builtinAbouts explains each built-in in its Details panel. Keep each
@@ -576,6 +577,14 @@ var builtinAbouts = map[string]BuiltinAbout{
 		DocsURL:   "https://github.com/JuliusBrussee/caveman",
 		DocsLabel: "Caveman on GitHub",
 	},
+	"side-conversation": {
+		Summary: "Adds the side-conversation skill, which starts a second task in its own conversation while this one goes on.",
+		Points: []string{
+			`Say "spin this off" to start a new conversation in a new terminal tab, in the same folder, with a short brief as its first prompt.`,
+			"The new conversation shows under this one in the Conversations list. Nothing comes back to this session.",
+			"Runs agnostic-ai conversations start, from a Claude Code or Codex session on macOS. It opens a tab only when you ask.",
+		},
+	},
 	"wrap-up": {
 		Summary: "Adds the wrap-up skill, which ends a session with a short summary for people.",
 		Points: []string{
@@ -597,12 +606,13 @@ func builtinAbout(name string) *BuiltinAbout {
 // builtinLabels names each built-in for people; the id stays the key
 // written in the builtins list.
 var builtinLabels = map[string]string{
-	"memory":       "Shared memory",
-	"handoff":      "Handoff",
-	"handoff-hook": "Handoff on start",
-	"rtk":          "RTK",
-	"caveman":      "Caveman",
-	"wrap-up":      "Wrap-up",
+	"memory":            "Shared memory",
+	"handoff":           "Handoff",
+	"handoff-hook":      "Handoff on start",
+	"rtk":               "RTK",
+	"caveman":           "Caveman",
+	"side-conversation": "Side conversation",
+	"wrap-up":           "Wrap-up",
 }
 
 func builtinLabel(name string) string {

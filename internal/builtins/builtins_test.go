@@ -65,7 +65,7 @@ func skillPath(root string) string {
 }
 
 func TestNames_ReturnsValidNamesWithoutSharingTheList(t *testing.T) {
-	want := []string{"caveman", "handoff", "handoff-hook", "memory", "rtk", "wrap-up"}
+	want := []string{"caveman", "handoff", "handoff-hook", "memory", "rtk", "side-conversation", "wrap-up"}
 	if got := builtins.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Names() = %v, want %v", got, want)
 	}
@@ -532,6 +532,70 @@ func TestWrapUpAndHandoff_PointToEachOther(t *testing.T) {
 		}
 		if !strings.Contains(string(body), pointer) {
 			t.Errorf("%s skill does not point to %s", name, pointer)
+		}
+	}
+}
+
+func TestMaterialize_LoadsSideConversationAsOneSkill(t *testing.T) {
+	cacheForTest(t)
+	root, cleanup, err := builtins.Materialize("side-conversation")
+	if err != nil {
+		t.Fatalf("materialize side-conversation: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Errorf("cleanup %s: %v", root, err)
+		}
+	})
+	bundle, err := spec.LoadLayered([]spec.Layer{{
+		Name: "builtin", Root: root, Sources: config.Sources{Skills: "skills", Hooks: "hooks"},
+	}})
+	if err != nil {
+		t.Fatalf("load builtin layer: %v", err)
+	}
+	if len(bundle.All()) != 1 || len(bundle.Skills) != 1 || len(bundle.Hooks) != 0 {
+		t.Fatalf("builtin entries = %v, want one skill", bundle.All())
+	}
+	skill := bundle.Skills[0]
+	if skill.Name != "side-conversation" || skill.Layer != "builtin" {
+		t.Errorf("skill identity = %q layer %q", skill.Name, skill.Layer)
+	}
+	if skill.Description() != "Start a side conversation in a new terminal tab, linked to this one. Use when asked to spin a task off, or to follow something up in its own conversation." {
+		t.Errorf("description = %q", skill.Description())
+	}
+	for _, rule := range []string{
+		"Only when the user asks", "never start one on your own", "not a subagent", "delegate instead",
+		"not a handoff", "## Acceptance\n## Context\n## Report back\n", "one plain sentence",
+		"under 40 lines", "secrets", "Do not write the `Continues` line", "agnostic-ai conversations start <<'BRIEF'",
+		"--tool", "Do not wait", "Do not work around it", "`handoff` skill",
+	} {
+		if !strings.Contains(skill.Body, rule) {
+			t.Errorf("skill is missing rule %q", rule)
+		}
+	}
+	for _, banned := range []string{"hooks/", "osascript", "Claude", "Codex", "Cursor", "–", "—"} {
+		if strings.Contains(skill.Body, banned) {
+			t.Errorf("skill contains %q", banned)
+		}
+	}
+}
+
+func TestHandoffAndWrapUp_PointToSideConversation(t *testing.T) {
+	cacheForTest(t)
+	for _, name := range []string{"handoff", "wrap-up"} {
+		root, cleanup, err := builtins.Materialize(name)
+		if err != nil {
+			t.Fatalf("materialize %s: %v", name, err)
+		}
+		body, err := os.ReadFile(filepath.Join(root, "skills", name, "SKILL.md"))
+		if cerr := cleanup(); cerr != nil {
+			t.Errorf("cleanup %s: %v", root, cerr)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), "`side-conversation` skill") {
+			t.Errorf("%s skill does not point to the side-conversation skill", name)
 		}
 	}
 }
