@@ -133,6 +133,11 @@ export function rowActionOf(conversation) {
   return GROUP_OF_STATE[conversation.state] === 'archived' ? 'hide' : 'archive'
 }
 
+/** What the row menu offers: Mark as read clears a wait or a reply without opening the chat. */
+export function rowMenuOf(conversation) {
+  return NEEDS_PERSON[conversation.state] ? ['read', 'rename'] : ['rename']
+}
+
 /** Where a row runs, said only when it is not on this machine. */
 const PLACE_LABELS = {
   cloud: 'Cloud',

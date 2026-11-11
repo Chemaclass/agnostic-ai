@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
+import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -218,7 +218,7 @@ function renameField(conversation, renaming) {
       saveRename(conversation)
     } else if (event.key === 'Escape') {
       event.preventDefault()
-      cancelRename()
+      escapeRename()
     }
   })
   input.addEventListener('blur', () => {
@@ -398,6 +398,7 @@ async function refresh() {
   state.view = reply?.view
   state.note = reply?.note
   draw()
+  keepRowMenuCurrent()
 }
 
 // The panel never activates its app, so while it shows it keeps the keys
@@ -435,11 +436,14 @@ async function markRow(conversation, mark) {
 
 const rowMenu = document.getElementById('row-menu')
 const renameItem = document.getElementById('rename')
+const menuItems = { read: document.getElementById('mark-read'), rename: renameItem }
 /** The conversation the row menu was opened on. */
 let rowMenuFor
 
 function openRowMenu(conversation, event) {
   rowMenuFor = conversation
+  const offered = rowMenuOf(conversation)
+  for (const [name, item] of Object.entries(menuItems)) item.hidden = !offered.includes(name)
   rowMenu.hidden = false
   // The menu opens at the pointer and stays inside the card.
   const bounds = card.getBoundingClientRect()
@@ -447,12 +451,32 @@ function openRowMenu(conversation, event) {
   const top = Math.min(event.clientY - bounds.top, bounds.height - rowMenu.offsetHeight - 8)
   rowMenu.style.left = Math.max(left, 8) + 'px'
   rowMenu.style.top = Math.max(top, 8) + 'px'
-  renameItem.focus()
+  menuItems[offered[0]].focus()
 }
 
 function closeRowMenu() {
   rowMenu.hidden = true
   rowMenuFor = undefined
+}
+
+/** The row as the latest list has it, while it still offers `item`; undefined otherwise. */
+function rowMenuTarget(item) {
+  if (!rowMenuFor) return undefined
+  const key = keyOf(rowMenuFor)
+  const current = shownView()?.conversations.find((conversation) => keyOf(conversation) === key)
+  return current && rowMenuOf(current).includes(item) ? current : undefined
+}
+
+/** A new list can move or remove the menu's row; the menu then closes rather than act on a row that changed. */
+function keepRowMenuCurrent() {
+  if (rowMenu.hidden || !rowMenuFor) return
+  const offered = Object.keys(menuItems).filter((item) => !menuItems[item].hidden)
+  if (offered.every((item) => rowMenuTarget(item))) {
+    rowMenuFor = rowMenuTarget(offered[0])
+    return
+  }
+  closeRowMenu()
+  queryInput.focus()
 }
 
 function startRename(conversation) {
@@ -482,6 +506,12 @@ function cancelRename() {
   if (!state.renaming || state.renaming.saving) return
   state.renaming = undefined
   draw({ force: true })
+}
+
+/** Escape ends a rename; the keys go back to the search, which moves through the list. */
+function escapeRename() {
+  cancelRename()
+  if (!state.renaming) queryInput.focus()
 }
 
 async function saveRename(conversation) {
@@ -518,6 +548,14 @@ async function saveRename(conversation) {
 
 renameItem.addEventListener('click', () => {
   if (rowMenuFor) startRename(rowMenuFor)
+})
+menuItems.read.addEventListener('click', () => {
+  const conversation = rowMenuTarget('read')
+  closeRowMenu()
+  queryInput.focus()
+  if (!conversation) return
+  // Seen is the mark opening a chat sets, so the chat stays closed and a later write brings it back.
+  markRow(conversation, 'seen')
 })
 list.addEventListener('scroll', () => {
   if (!rowMenu.hidden) closeRowMenu()
@@ -646,7 +684,7 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault()
     const closes = {
       'row-menu': closeRowMenu,
-      rename: cancelRename,
+      rename: escapeRename,
       settings: closeMenu,
       panel: () => hidePanel().catch(sayFailure),
     }

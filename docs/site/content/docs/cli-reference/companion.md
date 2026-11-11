@@ -11,7 +11,7 @@ group = "Reference"
 
 ## companion
 
-Show a small circle that floats over every app. It counts the Claude Code, Codex and Cursor conversations that wait for you. Click it, or press its shortcut, for a searchable list. The list opens each conversation where it lives and marks it as read or done. Right-click a conversation and choose **Rename…** to give it your own name. The web interface shows the same name.
+Show a small circle that floats over every app. It counts the Claude Code, Codex and Cursor conversations that wait for you. Click it, or press its shortcut, for a searchable list. The list opens each conversation where it lives and marks it as read or done. Right-click a conversation and choose **Rename…** to give it your own name. The web interface shows the same name. On a conversation that needs you, the same menu offers **Mark as read**, which clears it without opening it.
 
 ```bash
 agnostic-ai companion install
@@ -53,6 +53,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - Clicking a running chat selects the Terminal or Ghostty tab that runs it, through the same server route as the web interface. When only the app can come forward, the list stays open and says where the chat runs. macOS asks once to let the companion control each of those apps.
 - A row names the conversation's folder when it has one; a cloud session has none. When two folders in the list end in the same name, the row adds the parent folders that tell them apart, such as `shop/api` and `billing/api`. The row's tooltip and screen-reader description give the full path.
 - **Rename…** saves the name in `conversation-marks.json` through that server, so every `serve` on the machine shows it and finds it in a search. Enter saves it, and Escape keeps the old one. Right-clicking does not open the conversation or mark it as read. A new message keeps the name. A running conversation's Terminal or Ghostty tab takes the name as its title, and keeps it after the session ends.
+- **Mark as read** saves the same seen mark that opening a conversation saves, through that server. The conversation leaves Needs you in the companion and the web interface without being opened, and moves where an opened one would: Active, or Archived when it is not running and was last written more than a day ago. Its next write brings it back. If the save fails, the row stays and the list shows why.
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute. The archive is cleared in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
 - **Hide Agnostic AI companion**, in the list's ⋯ menu, takes the circle off the screen and stops that server. Nothing is read or asked until the shortcut brings the companion back.
 - **Animate companion**, in the circle's right-click menu, turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
