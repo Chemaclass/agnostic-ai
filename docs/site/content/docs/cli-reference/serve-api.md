@@ -113,7 +113,7 @@ The route lists Claude Code, Codex and Cursor conversations from each tool's own
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, withheld?, live?, activity?, quietSince?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, withheld?, live?, activity?, quietSince?, deleteUnsupported?, open}`.
 
 Conversation fields:
 
@@ -122,6 +122,7 @@ Conversation fields:
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
+- `deleteUnsupported` is set only on a `completed` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - Any of `title`, `opening` and `prompt` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
@@ -206,6 +207,50 @@ Replies:
 - Returns 204.
 - A conversation outside the list returns 404.
 - An empty name, a name longer than 120 characters, a name that may hold a credential, or any other field is a 400.
+
+## `POST /api/conversations/delete`
+
+Body: `{tool, id}` with `Content-Type: application/json`, from the server's own origin.
+
+Deletes one archived conversation from this machine for good. Only a local Claude Code session can be deleted, and only when all of these hold:
+
+- Its `state` is `completed`. A `dormant` row is not, even though the companion shows it under Archived.
+- No Claude Code process or background job holds it. The server asks again right before it removes anything, and once more before the transcript.
+- None of its files was written after you archived it, or in the same second. Archiving it again makes a new mark.
+- Its session id names exactly one transcript.
+
+What it removes, each only when its name is exactly the session id:
+
+- `projects/<project>/<id>/`: subagent transcripts, saved tool output and the chosen title.
+- `file-history/<id>/`: file backups for undo.
+- `session-env/<id>/`: hook environment.
+- `uploads/<id>/`: images pasted into the session.
+- `projects/<project>/<id>.jsonl`: the transcript, last, so a failure leaves the row listed and the delete can be retried.
+- Its marks and its remembered terminal tab.
+
+What stays:
+
+- `history.jsonl`: Claude Code's prompt history, one file shared by every session.
+- `projects/<project>/memory/`: project memory, shared by every session of the project.
+- `tasks/session-<prefix>/` and `telemetry/` files: named after part of the id, or after more than the id, so the server cannot prove they belong to this session alone.
+
+A location that is a link, or that holds a link, is refused, since the data it points to would stay.
+
+Accepted limits:
+
+- A session that starts in the moment between the last check and the removal is not seen.
+- A forked session may still point at saved tool output under its parent's `projects/<project>/<parent id>/tool-results/`. Deleting the parent removes that output.
+
+Replies:
+
+- 200 `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file.
+- 400 for an unknown tool or any other field.
+- 404 for a conversation outside the list, or one you hid.
+- 409 `{error, reason}` with `reason` `not-archived` (not `completed` now), `running` (a process or job holds it) or `changed` (a file was written after the archive).
+- 422 `{error, reason: "unsupported"}`: Codex threads (run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions, and any session on Windows, where the server cannot tell whether a session still runs. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link.
+- 500 `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept.
+
+`error` is always a complete sentence.
 
 ## `GET /api/views/authority`
 

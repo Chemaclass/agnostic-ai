@@ -246,6 +246,61 @@ body {
   stroke-width: 1.8;
 }
 
+/* Delete permanently asks first: what goes, and that it cannot come back. */
+
+.confirm {
+  grid-template-columns: 1fr;
+  padding-right: 10px;
+  box-shadow: inset 0 0 0 1px var(--alert-soft);
+}
+
+.confirm-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.confirm-details {
+  color: var(--paper-dim);
+}
+
+.confirm-actions {
+  justify-content: flex-end;
+}
+
+.confirm-cancel,
+.confirm-delete {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.confirm-cancel {
+  background: rgba(242, 237, 229, 0.08);
+  color: var(--paper);
+}
+
+.confirm-cancel:hover {
+  background: rgba(242, 237, 229, 0.14);
+}
+
+.confirm-delete {
+  background: var(--alert-soft);
+  color: var(--alert);
+}
+
+.confirm-delete:hover {
+  background: rgba(255, 98, 80, 0.26);
+}
+
+.confirm-delete:disabled {
+  opacity: 0.6;
+}
+
+.row-menu .menu-item.is-danger {
+  color: var(--alert);
+}
+
 .note[hidden],
 .notice[hidden],
 .notice [hidden],

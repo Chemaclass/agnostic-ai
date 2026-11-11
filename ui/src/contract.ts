@@ -922,6 +922,8 @@ export interface Conversation {
   seenAt?: string
   /** When the person marked it completed. The server clears it once something is written after it or its tool reports it working. */
   completedAt?: string
+  /** Set only on a `completed` row: why this conversation cannot be deleted from here, such as one stored in its tool's cloud. Absent on an archived local Claude Code session, which can be. */
+  deleteUnsupported?: string
   open: ConversationRoute
 }
 
@@ -961,6 +963,27 @@ export interface ConversationMarkRequest {
   as: 'seen' | 'completed' | 'open' | 'hidden'
 }
 
+/** Deletes one archived conversation from this machine for good. Only a `completed` local Claude Code session that no process holds can be deleted. */
+export interface ConversationDeleteRequest {
+  tool: ConversationTool
+  id: string
+}
+
+/** Sent with 200 only once the transcript is gone. freedBytes is what its files held; note says what could not be tidied after the data went, such as its entry in the marks file. */
+export interface ConversationDeleteReply {
+  deleted: true
+  freedBytes?: number
+  note?: string
+}
+
+/** A refused delete: 409 for `not-archived`, `running` or `changed`, 422 for `unsupported`, 500 for `failed` with the paths already removed and those still on disk. error is a complete sentence. */
+export interface ConversationDeleteRefusal {
+  error: string
+  reason: 'not-archived' | 'running' | 'changed' | 'unsupported' | 'failed'
+  removed?: string[]
+  remaining?: string[]
+}
+
 /** opened is false when the server could not open it here; message says why and command, when set, resumes it by hand; a Claude Code, Codex or cursor-agent session that still runs in a terminal gets none. */
 export interface ConversationOpenReply {
   opened: boolean
@@ -979,6 +1002,7 @@ export interface ConversationOpenReply {
 //   GET  /api/views/conversations?editor=<id>&before=<time>&q=<words>&tool=<tool> → ConversationsView, one week per page; q searches every conversation; a project server lists the project's own conversations; the reply's ETag sent back as If-None-Match answers 304 while the list holds
 //   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest); an opened conversation is marked seen and its completion taken back
 //   POST /api/conversations/mark                          → 204 (body: ConversationMarkRequest)
+//   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 404 when not listed, else ConversationDeleteRefusal
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })

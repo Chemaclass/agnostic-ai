@@ -1,7 +1,8 @@
 // Package conversations lists recent chats from the coding tools' own
-// stores (Claude Code, Codex and Cursor) and reopens one where it lives:
+// stores (Claude Code, Codex and Cursor), reopens one where it lives:
 // the terminal tab that still runs it, a new terminal that resumes it,
-// or the editor panel or desktop app it came from.
+// or the editor panel or desktop app it came from, and deletes an
+// archived Claude Code session from this machine.
 //
 // A list row needs a title, the opening lines of the first prompt and
 // the latest prompt. Each is withheld when it may hold a credential, and
@@ -143,7 +144,10 @@ type Conversation struct {
 	// SeenAt and CompletedAt are the person's marks, when set.
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
-	Open        Route  `json:"open"`
+	// DeleteUnsupported says why an archived conversation cannot be
+	// deleted from here; set only on completed rows.
+	DeleteUnsupported string `json:"deleteUnsupported,omitempty"`
+	Open              Route  `json:"open"`
 
 	// process is the live process that holds it, for a focus route.
 	process *liveProcess
@@ -158,6 +162,8 @@ type Conversation struct {
 	// store is a cursor-agent chat's store.db, which its running process
 	// holds open.
 	store string
+	// file is a Claude Code session's transcript, as the scan found it.
+	file string
 	// renamed is the name the person chose, shown over the tool's title.
 	renamed string
 	// readAt is when the read that gave this row began. A kept result

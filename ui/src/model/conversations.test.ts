@@ -250,6 +250,13 @@ describe('conversations normalization', () => {
     expect(quiet('not a time')).toBeUndefined()
   })
 
+  it('keeps why an archived row cannot be deleted and drops a value that is not a sentence', () => {
+    const reason = (deleteUnsupported: unknown) => normalizeConversationsView({ conversations: [{ tool: 'cursor', app: 'ide', id: 'x', updatedAt: '2026-11-07T15:00:00Z', state: 'completed', deleteUnsupported, open: {} }] }).conversations[0].deleteUnsupported
+    expect(reason('Delete it in Cursor.')).toBe('Delete it in Cursor.')
+    expect(reason(42)).toBeUndefined()
+    expect(reason('')).toBeUndefined()
+  })
+
   it('reads the mock fixture with every app, route kind, live state, withheld field, and tool', () => {
     const view = normalizeConversationsView(fixture)
     expect(view.schemaVersion).toBe('conversations/v1')

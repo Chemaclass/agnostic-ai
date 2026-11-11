@@ -94,7 +94,19 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 
 **Why:** A launch agent ties to an app only through a Team ID, which an ad-hoc build has none of. `SMAppService` registers the app itself and works for an ad-hoc app outside `/Applications`. A spike on macOS 27 showed that register and unregister both work, and that a rebuild with a new signature keeps the registration. Writing the icon in Go needs no `iconutil` or `sips` and runs in tests on any system.
 
-## 010: Model tier descriptions render after the instructions, sorted by name
+## 010: Delete only what agnostic-ai can verify, transcript last
+
+**Date:** 2026-11-11
+
+**Context:** People asked to delete archived chats from the companion for good ([#3275](https://github.com/Chemaclass/agnostic-ai/issues/3275)). Each tool stores a conversation differently, and a delete cannot be undone.
+
+**Decision:** `POST /api/conversations/delete` deletes only local Claude Code sessions in `completed` state. It removes `session-env/<id>`, `file-history/<id>`, `uploads/<id>` and `projects/<project>/<id>/`, each only when the name is exactly the session id, and the transcript `projects/<project>/<id>.jsonl` last. It holds the marks lock throughout, refuses when any of its files was written in or after the archive mark's second, refuses a location that is a link or holds one, and asks the process table again right before it removes anything. Shared files stay: `history.jsonl`, project memory, `tasks/session-<prefix>/` and `telemetry/`. Codex, Cursor, `cursor-agent`, cloud sessions and every session on Windows answer 422 with the reason.
+
+**Why:** Claude Code keeps a session in files named by its full id, so ownership can be checked by name alone. Removing the transcript last means any failure leaves the row listed and archived, and the delete can be retried; the reply is 200 only once the transcript is gone. A file newer than the mark catches a resumed session that wrote only bookkeeping lines, which the list's own time ignores. Cursor keeps every chat in one shared database it holds open, with no delete command. Codex has `codex delete`, but its effect on a thread a process has loaded is not verified yet, so it waits for its own change. On Windows the server cannot see running processes, so "cannot tell" would read as "not running". The process list must be readable before anything is removed, since a failed `ps` reads as "nothing runs". The session is checked again before its transcript, because the side folders can take a while.
+
+**Accepted limits:** A session that starts in the moment between the last check and the removal is not seen. A forked Claude Code session may still point at its parent's saved tool output under `projects/<project>/<parent id>/tool-results/`, and deleting the parent removes it. On one machine 0 of 182 transcripts pointed at another session's folder, so no scan was added. A clock set back after the archive can make a later write look older than the mark, so the delete goes ahead. A resume that recreates an empty side folder, such as `session-env/<id>`, and exits without writing the transcript is not caught, because only file times are compared.
+
+## 011: Model tier descriptions render after the instructions, sorted by name
 
 **Date:** 2026-11-11
 
