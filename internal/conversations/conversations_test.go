@@ -24,8 +24,9 @@ const (
 
 type fakeProcesses struct {
 	alive   map[int]bool
-	app     map[int]string
-	tty     map[int]string
+	table   []ProcessInfo
+	args    map[int]string
+	cwds    map[int]string
 	held    map[string]int
 	running map[string]bool
 }
@@ -54,14 +55,11 @@ func (f fakeProcesses) AliveAmong(processes []ProcessRef) map[int]bool {
 	return alive
 }
 
-func (f fakeProcesses) TTY(pid int) (string, error) {
-	if tty, ok := f.tty[pid]; ok {
-		return tty, nil
-	}
-	return "", errors.New("no terminal")
-}
+func (f fakeProcesses) Table() ([]ProcessInfo, error) { return f.table, nil }
 
-func (f fakeProcesses) TerminalApp(pid int) (string, error) { return f.app[pid], nil }
+func (f fakeProcesses) Args([]int) map[int]string { return f.args }
+
+func (f fakeProcesses) Cwds([]int) map[int]string { return f.cwds }
 
 func write(t *testing.T, path, content string) {
 	t.Helper()
@@ -434,6 +432,7 @@ type fakeLauncher struct {
 	calls     []string
 	err       error
 	folderErr error
+	newTabErr error
 	focusOK   bool
 }
 
@@ -457,13 +456,20 @@ func (f *fakeLauncher) RunInNewTerminal(_ context.Context, command string) error
 	return f.err
 }
 
-func (f *fakeLauncher) FocusTerminalTab(_ context.Context, tty string) (bool, error) {
-	f.calls = append(f.calls, "focus "+tty)
+func (f *fakeLauncher) FocusTab(_ context.Context, app, tty string) (bool, error) {
+	f.calls = append(f.calls, "focus "+app+" "+tty)
 	return f.focusOK, f.err
 }
 
+func (f *fakeLauncher) RunInNewTab(_ context.Context, app, command string) error {
+	f.calls = append(f.calls, "new tab "+app+" "+command)
+	if f.newTabErr != nil {
+		return f.newTabErr
+	}
+	return f.err
+}
+
 func TestOpen_FollowsEachRoute(t *testing.T) {
-	live := Conversation{Tool: ToolClaude, Folder: "/tmp/app", Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}}
 	for name, tc := range map[string]struct {
 		conversation Conversation
 		processes    fakeProcesses
@@ -492,39 +498,10 @@ func TestOpen_FollowsEachRoute(t *testing.T) {
 			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},
 			calls:        "terminal codex resume x",
 		},
-		"live in a Terminal tab": {
-			conversation: live,
-			processes:    fakeProcesses{alive: map[int]bool{42: true}, app: map[int]string{42: "Terminal"}, tty: map[int]string{42: "/dev/ttys018"}},
-			launcher:     fakeLauncher{focusOK: true},
-			reply:        OpenReply{Opened: true, Message: "Switched to the Terminal tab that runs it."},
-			calls:        "focus /dev/ttys018",
-		},
-		"live in an editor's terminal": {
-			conversation: live,
-			processes:    fakeProcesses{alive: map[int]bool{42: true}, app: map[int]string{42: "Cursor"}},
-			reply:        OpenReply{Opened: true, Message: "Brought its Cursor window to the front. It runs in that window's terminal (process 42)."},
-			calls:        "folder Cursor /tmp/app",
-		},
-		"live in iTerm": {
-			conversation: live,
-			processes:    fakeProcesses{alive: map[int]bool{42: true}, app: map[int]string{42: "iTerm"}},
-			reply:        OpenReply{Opened: true, Message: "Brought iTerm to the front. It runs in one of its tabs (process 42)."},
-			calls:        "activate iTerm",
-		},
-		"live in an unknown terminal": {
-			conversation: live,
-			processes:    fakeProcesses{alive: map[int]bool{42: true}},
-			reply:        OpenReply{Message: "It is open in another app (process 42). Switch to it there.", Command: "claude --resume x"},
-		},
-		"ended since the scan": {
-			conversation: live,
-			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},
-			calls:        "terminal claude --resume x",
-		},
 		"Automation not allowed": {
 			conversation: Conversation{Open: Route{Kind: RouteTerminal, Command: "codex resume x"}},
 			launcher:     fakeLauncher{err: errAutomationDenied},
-			reply:        OpenReply{Message: "macOS blocked opening Terminal. Allow agnostic-ai to control Terminal in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "codex resume x"},
+			reply:        OpenReply{Message: "macOS blocked opening Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "codex resume x"},
 			calls:        "terminal codex resume x",
 		},
 		"no terminal on this system": {
@@ -684,7 +661,11 @@ func TestScan_LeavesCodexExecRunsOutAndMarksLoadedThreadsLive(t *testing.T) {
 			{"id":"` + idle + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex-tui","source":"cli","name":"Closed"},
 			{"id":"` + exec + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex_exec","source":"exec","name":"Exec run"}
 		]`,
-	}), fakeProcesses{held: map[string]int{loaded + ".lock": 4242}, alive: map[int]bool{4242: true}, app: map[int]string{4242: "Terminal"}, tty: map[int]string{4242: "/dev/ttys004"}})
+	}), fakeProcesses{held: map[string]int{loaded + ".lock": 4242}, alive: map[int]bool{4242: true}, table: []ProcessInfo{
+		{PID: 400, PPID: 1, Command: "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"},
+		{PID: 401, PPID: 400, TTY: "/dev/ttys004", Command: "/usr/bin/login"},
+		{PID: 4242, PPID: 401, TTY: "/dev/ttys004", Command: "codex"},
+	}})
 	scanner.Now = func() time.Time { return time.UnixMilli(1762520000000) }
 	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
 	for _, id := range []string{loaded, idle} {
@@ -696,12 +677,12 @@ func TestScan_LeavesCodexExecRunsOutAndMarksLoadedThreadsLive(t *testing.T) {
 	if len(view.Conversations) != 2 || !byID(t, view, loaded).Live || byID(t, view, idle).Live {
 		t.Errorf("want two threads, only the loaded one live: %s", asJSON(t, view.Conversations))
 	}
-	if open := byID(t, view, loaded).Open; open.Kind != RouteFocus || open.Label != "Open in Terminal" {
+	if open := byID(t, view, loaded).Open; open.Kind != RouteFocus || open.Label != "Switch to Terminal" {
 		t.Errorf("an open CLI thread switches to its terminal, actual %s", asJSON(t, open))
 	}
 	launcher := &fakeLauncher{focusOK: true}
 	reply := Open(context.Background(), byID(t, view, loaded), scanner.Processes, launcher)
-	if strings.Join(launcher.calls, ";") != "focus /dev/ttys004" || !reply.Opened {
+	if strings.Join(launcher.calls, ";") != "focus Terminal /dev/ttys004" || !reply.Opened {
 		t.Errorf("opening it must switch to its tab, not resume it again: calls %v, reply %s", launcher.calls, asJSON(t, reply))
 	}
 }
@@ -1108,26 +1089,6 @@ func TestEnclosingWindowFolder_PrefersTheEditorWindowAroundTheFolder(t *testing.
 	} {
 		if actual, _ := enclosingWindowFolder(storage, folder, "/home/me"); filepath.ToSlash(actual) != want {
 			t.Errorf("enclosingWindowFolder(%q) = %q, want %q", folder, actual, want)
-		}
-	}
-}
-
-func TestOsascriptArgs_PassTheCommandAndTTYAsArguments(t *testing.T) {
-	hostile := "cd '/tmp/a\"b' && echo \"quoted\"\nrm -rf ~"
-	for name, args := range map[string][]string{
-		"new terminal": newTerminalArgs(hostile),
-		"focus tab":    focusTabArgs(hostile),
-	} {
-		if len(args) < 2 || args[len(args)-1] != hostile || args[len(args)-2] != "end run" {
-			t.Errorf("%s: the value must be the one argument after the script, actual %q", name, args)
-		}
-		for _, arg := range args[:len(args)-1] {
-			if strings.Contains(arg, "echo") {
-				t.Errorf("%s: the value leaked into the script text: %q", name, arg)
-			}
-		}
-		if args[0] != "-e" || args[1] != "on run argv" {
-			t.Errorf("%s: the script must read argv, actual %q", name, args[:2])
 		}
 	}
 }

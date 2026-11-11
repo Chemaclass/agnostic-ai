@@ -100,8 +100,8 @@ In the browser:
   - Open chats come first under **Open now**, with **Working** or **Waiting for you** when Claude Code reports it. The rest follow by day, newest last message first.
   - It loads the past week. It loads the week before each time you scroll to the end, or with **Load the week before**.
   - The tool filter beside the search shows one tool's chats. Search covers every conversation, loaded or not.
-  - Each row's **Open in** action reopens the chat where it lives: its Terminal tab, a new Terminal window, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.
-  - The first time, macOS asks to let agnostic-ai control Terminal.
+  - Each row's action reopens the chat where it lives: the Terminal or Ghostty tab that runs it, a new tab in the app it last ran in, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.
+  - The first time, macOS asks to let agnostic-ai control each terminal app.
   - Codex and Cursor chats need the `sqlite3` command.
   - See [`/api/views/conversations`](@/docs/cli-reference/serve-api.md).
 - On wide screens, the rail labels the page **Project** or **Global** and shows its path under the name. On phones, the top bar shows the name and **Menu** shows the path.

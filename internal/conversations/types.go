@@ -55,7 +55,8 @@ type RouteKind string
 const (
 	// RouteFocus switches to the terminal tab that already runs it.
 	RouteFocus RouteKind = "focus"
-	// RouteTerminal runs Command in a new terminal window.
+	// RouteTerminal runs Command in a new tab of the app it last ran in,
+	// or a new Terminal window.
 	RouteTerminal RouteKind = "terminal"
 	// RouteLink opens Link in the app that owns the conversation.
 	RouteLink RouteKind = "link"
@@ -141,8 +142,13 @@ type Conversation struct {
 	CompletedAt string `json:"completedAt,omitempty"`
 	Open        Route  `json:"open"`
 
-	// process is the live process that runs it, for a focus route.
+	// process is the live process that holds it, for a focus route.
 	process *liveProcess
+	// placed is where that session shows, when its terminal was found.
+	placed *placement
+	// lastTab is the tab an ended session last ran in, when remembered;
+	// its app gets the new tab.
+	lastTab *terminalHost
 	// editor is set for an editor extension's link: its folder opens
 	// there first, so the link reaches the window that holds it.
 	editor *editorApp

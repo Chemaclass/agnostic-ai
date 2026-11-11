@@ -120,25 +120,7 @@ func readMarks(path string, now time.Time) (file marksFile, created bool, err er
 // writeMarks replaces the marks file in one step, so a reader never
 // sees half of it.
 func writeMarks(path string, file marksFile) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("write conversation marks: %w", err)
-	}
-	temp, err := os.CreateTemp(dir, "conversation-marks-*")
-	if err != nil {
-		return fmt.Errorf("write conversation marks: %w", err)
-	}
-	defer func() { _ = os.Remove(temp.Name()) }()
-	encoder := json.NewEncoder(temp)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(file); err != nil {
-		_ = temp.Close()
-		return fmt.Errorf("write conversation marks: %w", err)
-	}
-	if err := temp.Close(); err != nil {
-		return fmt.Errorf("write conversation marks: %w", err)
-	}
-	if err := os.Rename(temp.Name(), path); err != nil {
+	if err := writeJSONFile(path, file); err != nil {
 		return fmt.Errorf("write conversation marks: %w", err)
 	}
 	return nil

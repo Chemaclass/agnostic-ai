@@ -21,11 +21,12 @@ type Processes interface {
 	// the pids that passed. A scan asks about every open session, so
 	// the system reader does it with one look at the process table.
 	AliveAmong(processes []ProcessRef) map[int]bool
-	// TTY is the terminal device pid writes to, such as /dev/ttys018.
-	TTY(pid int) (string, error)
-	// TerminalApp names the app whose window holds pid's terminal, such
-	// as "Terminal" or "Cursor", or "" when no known app is an ancestor.
-	TerminalApp(pid int) (string, error)
+	// Table lists every process, with its parent, terminal and start.
+	Table() ([]ProcessInfo, error)
+	// Args maps each of pids that runs to its command line.
+	Args(pids []int) map[int]string
+	// Cwds maps each of pids that runs to its working folder.
+	Cwds(pids []int) map[int]string
 	// Holders maps each of paths a running process has open to that
 	// process's pid.
 	Holders(paths []string) map[string]int
@@ -36,8 +37,8 @@ type Processes interface {
 // ProcessRef names a process by its pid and, when known, by when it
 // started, as ps lstart writes it in UTC and the C locale.
 type ProcessRef struct {
-	PID       int
-	ProcStart string
+	PID       int    `json:"pid"`
+	ProcStart string `json:"procStart"`
 }
 
 // SystemProcesses reads the process table with ps.
@@ -122,51 +123,58 @@ func psStartTimes(out string) map[int]string {
 	return started
 }
 
-func (SystemProcesses) TTY(pid int) (string, error) {
-	tty, err := ps("-o", "tty=", "-p", strconv.Itoa(pid))
+func (SystemProcesses) Table() ([]ProcessInfo, error) {
+	out, err := ps("-axo", "pid=,ppid=,stat=,tty=,lstart=,comm=")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if tty == "" || tty == "??" {
-		return "", fmt.Errorf("process %d has no terminal", pid)
-	}
-	return "/dev/" + strings.TrimPrefix(tty, "/dev/"), nil
+	return parseProcessTable(out), nil
 }
 
-// terminalApps maps a fragment of an ancestor's command path to the app
-// that shows the terminal.
-var terminalApps = []struct{ fragment, app string }{
-	{"/Terminal.app/", "Terminal"},
-	{"/iTerm.app/", "iTerm"},
-	{"/Ghostty.app/", "Ghostty"},
-	{"/Warp.app/", "Warp"},
-	{"/Cursor.app/", "Cursor"},
-	{"/Visual Studio Code.app/", "VS Code"},
-	{"/Zed.app/", "Zed"},
+func pidList(pids []int) string {
+	texts := make([]string, len(pids))
+	for i, pid := range pids {
+		texts[i] = strconv.Itoa(pid)
+	}
+	return strings.Join(texts, ",")
 }
 
-const maxAncestors = 12
-
-func (SystemProcesses) TerminalApp(pid int) (string, error) {
-	current := pid
-	for range maxAncestors {
-		line, err := ps("-o", "ppid=,comm=", "-p", strconv.Itoa(current))
-		if err != nil {
-			return "", err
-		}
-		parentField, command, _ := strings.Cut(strings.TrimSpace(line), " ")
-		for _, known := range terminalApps {
-			if strings.Contains(command, known.fragment) {
-				return known.app, nil
-			}
-		}
-		parent, err := strconv.Atoi(strings.TrimSpace(parentField))
-		if err != nil || parent <= 1 {
-			return "", nil
-		}
-		current = parent
+func (SystemProcesses) Args(pids []int) map[int]string {
+	args := map[int]string{}
+	if len(pids) == 0 {
+		return args
 	}
-	return "", nil
+	out, err := ps("-o", "pid=,args=", "-p", pidList(pids))
+	if err != nil {
+		return args
+	}
+	for _, line := range strings.Split(out, "\n") {
+		pidText, command, ok := strings.Cut(strings.TrimSpace(line), " ")
+		if pid, err := strconv.Atoi(pidText); ok && err == nil {
+			args[pid] = strings.TrimSpace(command)
+		}
+	}
+	return args
+}
+
+// Cwds asks lsof once for every pid: a "p<pid>" line, then "n<folder>".
+func (SystemProcesses) Cwds(pids []int) map[int]string {
+	cwds := map[int]string{}
+	if len(pids) == 0 {
+		return cwds
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), psTimeout)
+	defer cancel()
+	out, _ := exec.CommandContext(ctx, "lsof", "-a", "-d", "cwd", "-Fn", "-p", pidList(pids)).Output()
+	pid := 0
+	for _, line := range strings.Split(string(out), "\n") {
+		if field, ok := strings.CutPrefix(line, "p"); ok {
+			pid, _ = strconv.Atoi(field)
+		} else if folder, ok := strings.CutPrefix(line, "n"); ok && pid > 0 {
+			cwds[pid] = folder
+		}
+	}
+	return cwds
 }
 
 func (SystemProcesses) Holders(paths []string) map[string]int {

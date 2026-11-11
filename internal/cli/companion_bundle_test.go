@@ -116,6 +116,7 @@ func TestInstallCompanion_BuildsASignedAppOnMacOS(t *testing.T) {
 		"<key>CFBundleIconFile</key>\n\t<string>companion</string>",
 		"<key>CFBundleShortVersionString</key>\n\t<string>1.2.3</string>",
 		"<key>LSUIElement</key>\n\t<true/>",
+		"<key>NSAppleEventsUsageDescription</key>\n\t<string>",
 	} {
 		if !strings.Contains(string(plist), want) {
 			t.Errorf("Info.plist lacks %q:\n%s", want, plist)

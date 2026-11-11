@@ -71,6 +71,8 @@ func companionInfoPlist(version string) []byte {
 	<string>11.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Clicking a session switches to the terminal tab that runs it.</string>
 </dict>
 </plist>
 `, companionBundleID, companionAppName, companionName, companionIconName, escaped.String())
