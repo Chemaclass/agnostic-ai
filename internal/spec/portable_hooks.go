@@ -114,11 +114,9 @@ var portableHookTargets = map[string]nativeHookNames{
 		tools:  map[string]string{"shell": "^shell$", "edit": "^(write|edit)$", "any": ""},
 	},
 	"augment": {
-		events: pickEvents("session-start", "before-tool", "session-end"),
-		tools:  map[string]string{"shell": "^launch-process$", "edit": "^(str-replace-editor|save-file)$", "web": "^(web-fetch|web-search)$", "any": ""},
-		// hookrun.AugmentRuns: a command that is not a bare script path
-		// never starts.
-		noDecision: "augment runs a hook command only as a bare script path, so it cannot run the wrapper that reads decision: stdout",
+		events:     pickEvents("session-start", "before-tool", "session-end"),
+		tools:      map[string]string{"shell": "^launch-process$", "edit": "^(str-replace-editor|save-file)$", "web": "^(web-fetch|web-search)$", "any": ""},
+		noDecision: "sync writes augment hooks without the wrapper that reads decision: stdout",
 	},
 	"crush": {
 		events: pickEvents("before-tool"),

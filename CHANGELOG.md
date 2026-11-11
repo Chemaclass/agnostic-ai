@@ -30,6 +30,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - LINT061 warns when a target ignores its `outputs.<target>.rules-mode` value (#3243).
 - Builds use Go 1.27.4 to fix the `net/http` vulnerability [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859).
 
+### By tool
+
+#### Augment
+
+- Hooks with `args` reach `.augment/settings.json` and `~/.augment/settings.json` with their arguments, instead of being skipped. An inline command no longer raises a "never executes" note, and `hook run` runs it (#3264).
+
 ### Site
 
 - The Qwen page says a `FileChanged` hook can also replace or clear the paths registered through `watchPaths` (#3263).

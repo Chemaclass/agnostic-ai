@@ -31,8 +31,9 @@ var otherDefaultTimeouts = map[string]time.Duration{
 
 // otherArgv is how each target starts a command: Trae in Bash, or
 // PowerShell on Windows; OpenHands through Python's shell=True, which is
-// /bin/sh or cmd.exe; Goose with `sh -c` everywhere; Augment runs the
-// script itself on Unix, and by extension on Windows.
+// /bin/sh or cmd.exe; Goose with `sh -c` everywhere; Augment as Auggie
+// 1.x does: a command with args runs with no shell (by extension on
+// Windows), and one without args runs in the system shell.
 func otherArgv(target, goos string, h Handler) ([]string, bool) {
 	switch target {
 	case "codebuddy":
@@ -74,15 +75,35 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		// bash -c with $0 as the script path runs it as `bash <file>` does, minus BASH_SOURCE, and needs no temp file.
 		return []string{"bash", "-c", h.Script, h.Command}, true
 	case "augment":
-		switch ext := strings.ToLower(filepath.Ext(h.Command)); {
-		case goos == "windows" && ext == ".ps1":
-			return []string{"powershell.exe", "-Command", h.Command}, true
-		case goos == "windows" && (ext == ".cmd" || ext == ".bat"):
-			return []string{"cmd.exe", "/c", h.Command}, true
-		}
-		return []string{h.Command}, true
+		return augmentArgv(goos, h), true
 	}
 	return nil, false
+}
+
+func augmentArgv(goos string, h Handler) []string {
+	ext := strings.ToLower(filepath.Ext(h.Command))
+	if len(h.Args) == 0 {
+		switch {
+		case goos != "windows":
+			return []string{"/bin/sh", "-c", h.Command}
+		case ext == ".ps1":
+			return []string{"powershell.exe", "-Command", h.Command}
+		case ext == ".cmd" || ext == ".bat":
+			return []string{"cmd.exe", "/c", h.Command}
+		}
+		return []string{"cmd.exe", "/d", "/s", "/c", h.Command}
+	}
+	if goos == "windows" {
+		switch ext {
+		case ".sh":
+			return append([]string{"bash.exe", h.Command}, h.Args...)
+		case ".ps1":
+			return append([]string{"powershell.exe", "-File", h.Command}, h.Args...)
+		case ".cmd", ".bat":
+			return append([]string{"cmd.exe", "/d", "/s", "/c", h.Command}, h.Args...)
+		}
+	}
+	return append([]string{h.Command}, h.Args...)
 }
 
 // DecideHandler is Decide for one handler, whose own failure policy can
@@ -255,7 +276,7 @@ func HandlersFromDoc(target string, body []byte) ([]Handler, error) {
 				if n.Type != "" && n.Type != "command" {
 					continue
 				}
-				out = append(out, Handler{Command: n.Command, Timeout: n.timeout(target), FailClosed: n.OnFailure == "block"})
+				out = append(out, Handler{Command: n.Command, Args: n.Args, Timeout: n.timeout(target), FailClosed: n.OnFailure == "block"})
 			}
 		}
 	}

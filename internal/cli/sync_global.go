@@ -1236,7 +1236,6 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 		adapters.NotePortableHookGaps(target, b.Hooks)
 		if g.hooksFormat == "augment" {
 			augment.NoteUserHookGaps(hooks)
-			hooks = slices.DeleteFunc(slices.Clone(hooks), augment.ExecFormHook)
 		}
 		scriptsDir := filepath.Join(filepath.Dir(path), "hooks")
 		if wrapper, ok := adapters.PortableHookWrapperScript(hooks, target, scriptsDir); ok {
@@ -2109,9 +2108,12 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			var item, plain any
 			switch format {
 			case "augment":
-				// Augment documents type, command, and timeout (ms) on a
-				// hook, and a matcher only on tool events.
+				// Augment documents type, command, args, and timeout (ms)
+				// on a hook, and a matcher only on tool events.
 				commandHook := map[string]any{"type": "command", "command": command}
+				if len(args) > 0 && !wraps {
+					commandHook["args"] = args
+				}
 				if timeout, ok := augment.HookTimeout(entry.Meta); ok {
 					commandHook["timeout"] = timeout
 				}

@@ -95,7 +95,7 @@ Commands come from the spec, so a command that calls a hook script needs a `sync
 | Trae | `bash -c`, or PowerShell on Windows | 30 seconds |
 | OpenHands | `/bin/sh -c`, or `cmd.exe /c` on Windows | 60 seconds |
 | Goose | `sh -c` on every platform | 30 seconds |
-| Augment | A `.sh`, `.ps1`, `.cmd`, or `.bat` script path only, run directly on macOS and Linux, and on Windows with `powershell.exe -Command` (`.ps1`) or `cmd.exe /c` (`.cmd`, `.bat`). An inline command is not run. | 60 seconds |
+| Augment | A command with `args` runs with no shell; on Windows a `.sh`, `.ps1`, `.cmd`, or `.bat` script runs through `bash.exe`, `powershell.exe -File`, or `cmd.exe`. A command without `args` runs with `/bin/sh -c`, or on Windows with `cmd.exe` (`powershell.exe -Command` for `.ps1`). | 60 seconds |
 | Cursor | Script path only | Assumed 30 seconds |
 | Crush | Crush's embedded POSIX shell, on every platform. A path starting with `./`, `../`, or `/` runs through its shebang interpreter, or with no shebang as shell source. A path without that prefix, such as `hooks/guard.sh`, starts as a program; on macOS and Linux one without a shebang then fails with exit 1. | 30 seconds |
 | Copilot | Exec-form `args` with no shell. A `command` is script path only. | 30 seconds |

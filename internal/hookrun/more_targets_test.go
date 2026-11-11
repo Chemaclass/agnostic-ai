@@ -3,6 +3,7 @@ package hookrun
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -163,7 +164,7 @@ func TestArgv_MoreTargets(t *testing.T) {
 		{"openhands", "darwin", "echo hi", []string{"/bin/sh", "-c", "echo hi"}},
 		{"openhands", "windows", "echo hi", []string{"cmd.exe", "/c", "echo hi"}},
 		{"goose", "windows", "echo hi", []string{"sh", "-c", "echo hi"}},
-		{"augment", "linux", ".augment/hooks/guard.sh", []string{".augment/hooks/guard.sh"}},
+		{"augment", "linux", ".augment/hooks/guard.sh", []string{"/bin/sh", "-c", ".augment/hooks/guard.sh"}},
 		{"augment", "windows", ".augment/hooks/guard.ps1", []string{"powershell.exe", "-Command", ".augment/hooks/guard.ps1"}},
 		{"augment", "windows", ".augment/hooks/guard.cmd", []string{"cmd.exe", "/c", ".augment/hooks/guard.cmd"}},
 	} {
@@ -185,8 +186,30 @@ func TestHandlersFromDoc_ReadsTimeoutUnitsAndFailurePolicy(t *testing.T) {
 	}
 }
 
-func TestAugmentRunsOnlyScriptPaths(t *testing.T) {
-	if AugmentRuns("echo hi") || !AugmentRuns(".augment/hooks/guard.sh") {
-		t.Error("AugmentRuns misreads the script extension rule")
+func TestHandlersFromDoc_AugmentKeepsArgs(t *testing.T) {
+	got, err := HandlersFromDoc("augment", []byte(`{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"node","args":["check.js","--strict"]}]}]}}`))
+	if err != nil || len(got) != 1 || !slices.Equal(got[0].Args, []string{"check.js", "--strict"}) {
+		t.Errorf("augment = %+v, %v", got, err)
+	}
+}
+
+// Auggie 1.x starts a command with args and no shell, and hands one
+// without args to a shell.
+func TestOtherArgv_Augment(t *testing.T) {
+	for _, tc := range []struct {
+		goos string
+		h    Handler
+		want []string
+	}{
+		{"linux", Handler{Command: "node", Args: []string{"check.js", "two words"}}, []string{"node", "check.js", "two words"}},
+		{"linux", Handler{Command: "gofmt -l . | head"}, []string{"/bin/sh", "-c", "gofmt -l . | head"}},
+		{"windows", Handler{Command: "guard.sh", Args: []string{"x"}}, []string{"bash.exe", "guard.sh", "x"}},
+		{"windows", Handler{Command: "guard.ps1", Args: []string{"x"}}, []string{"powershell.exe", "-File", "guard.ps1", "x"}},
+		{"windows", Handler{Command: "echo hi"}, []string{"cmd.exe", "/d", "/s", "/c", "echo hi"}},
+	} {
+		got, ok := otherArgv("augment", tc.goos, tc.h)
+		if !ok || !slices.Equal(got, tc.want) {
+			t.Errorf("%s %+v = %q, want %q", tc.goos, tc.h, got, tc.want)
+		}
 	}
 }
