@@ -142,3 +142,14 @@ test('pause sets paused in the appearance, and a click on the circle clears it',
   await fetch(preview.url + '/api/panel/toggle', { method: 'POST' })
   assert.equal((await appearance()).paused, false)
 })
+
+test('a list that asks to show itself while paused stays paused', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  await fetch(preview.url + '/api/pause', { method: 'POST' })
+
+  const shown = await fetch(preview.url + '/api/panel/show', { method: 'POST' })
+
+  assert.equal(shown.status, 204)
+  assert.equal((await (await fetch(preview.url + '/api/appearance')).json()).paused, true)
+})

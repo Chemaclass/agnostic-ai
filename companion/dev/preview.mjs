@@ -237,7 +237,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/delete': remove,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); wake(); noContent(response); emit('panel-shown', 'bottom-right') },
     'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
-    'POST /api/panel/show': (request, response) => { logCall('/api/panel/show'); wake(); noContent(response); emit('panel-shown', 'bottom-right') },
+    // Like the shell: a paused companion does not show the list for the page.
+    'POST /api/panel/show': (request, response) => {
+      logCall('/api/panel/show')
+      noContent(response)
+      if (!state.appearance.paused) emit('panel-shown', 'bottom-right')
+    },
     'GET /api/preferences': (request, response) => sendJSON(response, 200, state.preferences),
     'POST /api/preferences/shortcut': async (request, response) => {
       state.preferences.shortcut = (await bodyOf(request)).shortcut

@@ -275,25 +275,23 @@ func TestInbox_StartReadsANewListNotOneHeldFromBefore(t *testing.T) {
 	}
 }
 
-func TestShowRoute_WakesAPausedCompanion(t *testing.T) {
-	// The list shows itself again after an open failed; over a paused
-	// companion every call would answer that it is paused.
+func TestShowRoute_LeavesAPausedCompanionPausedAndTheListClosed(t *testing.T) {
+	// The list asks to show itself again when an open fails, which can be
+	// long after a pause. Only a click, the shortcut or a second start wakes it.
 	s, told, _ := pausableShell(t)
 	panel, bubble := &fakeWindow{}, &fakeWindow{}
 	s.panel, s.bubble = panel, bubble
 	s.setPaused(true)
+	toldBefore := len(*told)
 	routes := s.routes(s.inbox, fstest.MapFS{})
 
 	rec := httptest.NewRecorder()
 	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/panel/show", nil))
 
-	if rec.Code != http.StatusNoContent || panel.shows != 1 {
-		t.Errorf("POST /api/panel/show = %d, list shown %d times", rec.Code, panel.shows)
+	if rec.Code != http.StatusNoContent || panel.shows != 0 {
+		t.Errorf("POST /api/panel/show = %d, list shown %d times; want 204 and no list", rec.Code, panel.shows)
 	}
-	if s.appearance().Paused || s.server.resting.Load() {
-		t.Error("the list showed over a paused companion")
-	}
-	if last := (*told)[len(*told)-1]; last.Paused {
-		t.Errorf("the pages were last told %+v; want awake", last)
+	if !s.appearance().Paused || !s.server.resting.Load() || len(*told) != toldBefore {
+		t.Error("showing the list woke a paused companion")
 	}
 }
