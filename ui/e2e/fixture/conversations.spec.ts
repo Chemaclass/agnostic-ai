@@ -99,7 +99,7 @@ test.describe('conversations', () => {
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
     const open = page.getByRole('region', { name: /^Open now/ })
-    await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Add a Conversations page to the local UI', 'Plan the sync --global dry run', 'Tighten the nav labels on phones'])
+    await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Add a Conversations page to the local UI', 'Tighten the nav labels on phones', 'Plan the sync --global dry run'])
     await expect(page.getByRole('region', { name: /^Today/ }).getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader', 'Explain the sync --watch debounce'])
 
     const working = row(page, 'Add a Conversations page to the local UI')
@@ -237,6 +237,38 @@ test.describe('conversations', () => {
     await expect(page.locator('li.conversation')).toHaveCount(7)
     await expect(page.locator('.section-search-status')).toBeEmpty()
     await expect(page.locator('.page-facts')).toHaveText(/^7 conversations loaded/)
+  })
+
+  test('draws a conversation under the one it was started from, only while both sit in the same group', async ({ page }) => {
+    await mockServer(page)
+    await page.goto('/')
+    const parent = row(page, 'Add a Conversations page to the local UI')
+    const child = row(page, 'Tighten the nav labels on phones')
+    await expect(page.locator('li.conversation.is-nested')).toHaveCount(1)
+    await expect(child).toHaveClass(/is-nested/)
+    await expect(child.locator('.sr-only').first()).toHaveText('Started from Add a Conversations page to the local UI')
+    await expect(parent).not.toHaveClass(/is-nested/)
+    // Started from the open parent, but on another day group; and started from a chat not in the list.
+    await expect(row(page, 'Explain the sync --watch debounce')).not.toHaveClass(/is-nested/)
+    await expect(row(page, 'Nightly dependency audit')).not.toHaveClass(/is-nested/)
+    const indent = async (locator: typeof child) => (await locator.locator('.tool-avatar').boundingBox())!.x
+    expect(await indent(child)).toBeGreaterThan(await indent(parent))
+    const buttons = await child.getByRole('button').count()
+
+    // Tab follows the drawn order: from the parent's link to the child's.
+    await parent.getByRole('button', { name: /^Open in Terminal: / }).focus()
+    await page.keyboard.press('Tab')
+    await expect(child.getByRole('button', { name: 'Open in Cursor: Tighten the nav labels on phones' })).toBeFocused()
+
+    await chip(page, 'Cursor').click()
+    await expect(child).toBeVisible()
+    await expect(page.locator('li.conversation.is-nested')).toHaveCount(0)
+    await expect(child.getByRole('button')).toHaveCount(buttons)
+    await chip(page, 'Cursor').click()
+
+    await page.getByRole('searchbox', { name: 'Search conversations' }).fill('nav labels')
+    await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Tighten the nav labels on phones'])
+    await expect(page.locator('li.conversation.is-nested')).toHaveCount(0)
   })
 
   test('shows a typed shell command as "! command" and hides a last prompt that repeats the title', async ({ page }) => {
@@ -457,6 +489,37 @@ test.describe('conversations by week', () => {
     await scrollToEnd(page)
     expect(mocks.views).toHaveLength(2)
     await saveScreenshot(page, 'conversations-second-page.png')
+  })
+
+  test('moves a conversation under its parent once the week that holds the parent loads', async ({ page }) => {
+    const parentId = '1f0c9b8a-7d6e-4f5a-8b3c-2d1e0f9a8b7c'
+    const childRow = {
+      tool: 'codex', app: 'cli', id: '0199d2e3-f4a5-7b6c-8d9e-0f1a2b3c4d5e', parent: { tool: 'claude', id: parentId }, title: 'Write the changelog line',
+      updatedAt: '2026-11-07T15:00:00Z', live: true, activity: 'working', open: { kind: 'focus', label: 'Open in Terminal' },
+    }
+    const parentRow = {
+      tool: 'claude', app: 'cli', id: parentId, title: 'Ship the parser change',
+      updatedAt: '2026-10-28T09:00:00Z', live: true, open: { kind: 'focus', label: 'Open in Terminal' },
+    }
+    const first = { ...structuredClone(conversations), next: NEXT, conversations: [childRow] }
+    const before = { ...weekBefore, conversations: [parentRow] }
+    let release!: () => void
+    const released = new Promise<void>((resolve) => { release = resolve })
+    await mockServer(page, opened, async (asked) => {
+      if (asked === null) return { json: first }
+      await released
+      return { json: before }
+    })
+    await page.goto('/')
+    const open = page.getByRole('region', { name: /^Open now/ })
+    await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Write the changelog line'])
+    await expect(page.locator('li.conversation.is-nested')).toHaveCount(0)
+
+    // The short list puts its end in view, so the week before is already on its way.
+    release()
+    await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Ship the parser change', 'Write the changelog line'])
+    await expect(row(page, 'Write the changelog line')).toHaveClass(/is-nested/)
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 2'])
   })
 
   test('loads the week before from the button by keyboard, one request at a time, under a tool filter', async ({ page }) => {

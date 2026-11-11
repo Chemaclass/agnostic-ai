@@ -60,6 +60,10 @@
       "tool": "cursor",
       "app": "ide",
       "id": "8d4f2b6a-1c9e-4e07-b3a5-7f2c0d6e9a18",
+      "parent": {
+        "tool": "claude",
+        "id": "6f1c2a4e-8b3d-4c1e-9a7f-2d5e8b1c4a90"
+      },
       "title": "Tighten the nav labels on phones",
       "folder": "/Users/you/Products/agnostic-ai",
       "branch": "motechfr/conversations-tab",
@@ -102,6 +106,10 @@
       "tool": "claude",
       "app": "ide",
       "id": "b42e7d10-5f6a-4a8c-8e21-9c3d7f0a1b55",
+      "parent": {
+        "tool": "claude",
+        "id": "6f1c2a4e-8b3d-4c1e-9a7f-2d5e8b1c4a90"
+      },
       "title": "Explain the sync --watch debounce",
       "folder": "/Users/you/Products/website",
       "branch": "docs/watch",
@@ -145,6 +153,10 @@
       "tool": "claude",
       "app": "background",
       "id": "3c7d2e91-a5b8-4f06-9d1e-6b4a8c2f7e13",
+      "parent": {
+        "tool": "codex",
+        "id": "0199a1b2-c3d4-7e5f-8a6b-9c0d1e2f3a4b"
+      },
       "title": "Nightly dependency audit",
       "folder": "/Users/you/Products/agnostic-ai",
       "branch": "main",
