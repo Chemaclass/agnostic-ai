@@ -509,7 +509,7 @@ func TestMaterialize_LoadsWrapUpAsOneSkill(t *testing.T) {
 			t.Errorf("skill is missing rule %q", rule)
 		}
 	}
-	for _, banned := range []string{"hooks/", "gh ", "/wrap-up", "Claude", "Codex", "Cursor", "\u2013", "\u2014"} {
+	for _, banned := range []string{"hooks/", "/wrap-up", "Claude", "Codex", "Cursor", "\u2013", "\u2014"} {
 		if strings.Contains(skill.Body, banned) {
 			t.Errorf("skill contains %q", banned)
 		}

@@ -32,6 +32,7 @@ Reply in the conversation with these three parts, in this order, under these hea
 
 ## Limits
 
-- In the note, use plain words and paths relative to the project root. Leave out secrets, tokens, `.env` values, and absolute home paths. Do not copy text from files this session only read; say it in your own words.
+- In every part, leave out secrets, tokens, `.env` values, and absolute home paths; use paths relative to the project root.
+- In the note, use plain words. Do not copy text from files this session only read; say it in your own words.
 - Show the result only. Do not post it, commit, push, write a file, or archive the conversation unless the user asks. A wrap-up request alone is not that request.
 - State a fact only when the session or local Git shows it. Mark anything else as unknown.
