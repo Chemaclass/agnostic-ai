@@ -121,6 +121,7 @@
 
 /* One line; `.block p` sets text-wrap, so this needs the extra class to win. */
 
+.conversation-body .conversation-reply,
 .conversation-body .conversation-prompt {
   overflow: hidden;
   max-width: var(--measure);

@@ -104,17 +104,18 @@ describe('loaded weeks', () => {
 describe('conversation search', () => {
   const rows = [
     conversation({ id: 'ui', title: 'Add a Conversations page', folder: '/Users/you/Products/agnostic-ai', branch: 'motechfr/conversations-tab' }),
-    conversation({ id: 'sqlite', tool: 'codex', title: 'Speed up the sqlite reader', opening: ['The Cursor store read takes 900 ms.'], prompt: 'Try immutable=1.' }),
+    conversation({ id: 'sqlite', tool: 'codex', title: 'Speed up the sqlite reader', opening: ['The Cursor store read takes 900 ms.'], prompt: 'Try immutable=1.', reply: 'I measured 7 ms after the change.' }),
     conversation({ id: 'site', tool: 'cursor', title: '', folder: '/Users/you/Products/website' }),
   ]
   const ids = (list: Conversation[]) => list.map((c) => c.id)
 
-  it('matches title, folder, branch, and prompt as the row shows them, ignoring case and outer spaces', () => {
+  it('matches title, folder, branch, prompt, and reply as the row shows them, ignoring case and outer spaces', () => {
     expect(ids(filterConversations(rows, 'CONVERSATIONS', 'all'))).toEqual(['ui'])
     expect(ids(filterConversations(rows, 'website', 'all'))).toEqual(['site'])
     expect(ids(filterConversations(rows, 'motechfr/', 'all'))).toEqual(['ui'])
     expect(ids(filterConversations(rows, ' Immutable=1 ', 'all'))).toEqual(['sqlite'])
     expect(ids(filterConversations(rows, '900 ms', 'all'))).toEqual([])
+    expect(ids(filterConversations(rows, 'Measured', 'all'))).toEqual(['sqlite'])
     expect(ids(filterConversations([conversation({ id: 'gl', title: '<bash-input>gl</bash-input>' })], '! gl', 'all'))).toEqual(['gl'])
     expect(ids(filterConversations(rows, 'products', 'all'))).toEqual(['ui', 'site'])
     expect(ids(filterConversations(rows, 'nothing like this', 'all'))).toEqual([])
@@ -180,7 +181,7 @@ describe('conversation words', () => {
   })
 
   it('names every withheld field', () => {
-    expect([withheldLabel('title'), withheldLabel('opening'), withheldLabel('prompt')]).toEqual(['Title', 'Opening', 'Last prompt'])
+    expect([withheldLabel('title'), withheldLabel('opening'), withheldLabel('prompt'), withheldLabel('reply')]).toEqual(['Title', 'Opening', 'Last prompt', 'Latest reply'])
   })
 
   it('counts each found tool\'s rows across the loaded weeks against everything it holds, and leaves out a tool not found', () => {
@@ -250,9 +251,18 @@ describe('conversations normalization', () => {
     expect(quiet('not a time')).toBeUndefined()
   })
 
+  it('keeps the agent\'s latest reply when it is text and drops anything else', () => {
+    const reply = (value: unknown) => normalizeConversationsView({ conversations: [{ tool: 'claude', app: 'cli', id: 'x', updatedAt: '2026-11-07T15:00:00Z', reply: value, withheld: ['reply', 'other'], open: {} }] }).conversations[0]
+    expect(reply('The tests pass.').reply).toBe('The tests pass.')
+    expect(reply(42).reply).toBeUndefined()
+    expect(reply('  ').reply).toBeUndefined()
+    expect(reply(undefined).withheld).toEqual(['reply'])
+  })
+
   it('keeps why an archived row cannot be deleted and drops a value that is not a sentence', () => {
-    const reason = (deleteUnsupported: unknown) => normalizeConversationsView({ conversations: [{ tool: 'cursor', app: 'ide', id: 'x', updatedAt: '2026-11-07T15:00:00Z', state: 'completed', deleteUnsupported, open: {} }] }).conversations[0].deleteUnsupported
+    const reason = (deleteUnsupported: unknown, state = 'completed') => normalizeConversationsView({ conversations: [{ tool: 'cursor', app: 'ide', id: 'x', updatedAt: '2026-11-07T15:00:00Z', state, deleteUnsupported, open: {} }] }).conversations[0].deleteUnsupported
     expect(reason('Delete it in Cursor.')).toBe('Delete it in Cursor.')
+    expect(reason('Delete it in Cursor.', 'dormant')).toBe('Delete it in Cursor.')
     expect(reason(42)).toBeUndefined()
     expect(reason('')).toBeUndefined()
   })
@@ -263,7 +273,7 @@ describe('conversations normalization', () => {
     expect(new Set(view.conversations.map((c) => c.app))).toEqual(new Set(['cli', 'ide', 'desktop', 'background']))
     expect(new Set(view.conversations.map((c) => c.open.kind))).toEqual(new Set(['focus', 'terminal', 'link']))
     expect(view.conversations.filter((c) => c.live).map((c) => c.activity)).toEqual(['working', 'waiting', undefined])
-    expect(new Set(view.conversations.flatMap((c) => c.withheld ?? []))).toEqual(new Set(['title', 'opening', 'prompt']))
+    expect(new Set(view.conversations.flatMap((c) => c.withheld ?? []))).toEqual(new Set(['title', 'opening', 'prompt', 'reply']))
     expect(view.tools.map((t) => t.tool)).toEqual(['claude', 'codex', 'cursor'])
     for (const source of view.tools) expect(view.conversations.filter((c) => c.tool === source.tool)).toHaveLength(source.shown)
   })

@@ -396,6 +396,9 @@ function ConversationRow({ conversation, now, editor, canOpen, opened, onOpened 
       <div className="conversation-body">
         <h3 className="conversation-title">{title.shell ? <code>{title.text}</code> : title.text}</h3>
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
+        {withheld.includes('reply')
+          ? <Withheld label={withheldLabel('reply')} />
+          : conversation.reply && <p className="conversation-reply" title={conversation.reply}><span className="sr-only">Latest reply: </span>{conversation.reply}</p>}
         <p className="conversation-meta">
           {conversation.live && <LiveBadge conversation={conversation} now={now} />}
           <StateBadge conversation={conversation} />

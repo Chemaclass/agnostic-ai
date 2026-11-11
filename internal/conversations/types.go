@@ -4,11 +4,11 @@
 // or the editor panel or desktop app it came from, and deletes an
 // archived Claude Code session from this machine.
 //
-// A list row needs a title, the opening lines of the first prompt and
-// the latest prompt. Each is withheld when it may hold a credential, and
-// transcripts never leave the server. A name the person chose in the
-// marks file replaces the tool's title. The JSON contract is mirrored in
-// ui/src/contract.ts. Change both together.
+// A list row needs a title, the opening lines of the first prompt, the
+// latest prompt and the agent's latest reply. Each is withheld when it
+// may hold a credential, and transcripts never leave the server. A name
+// the person chose in the marks file replaces the tool's title. The JSON
+// contract is mirrored in ui/src/contract.ts. Change both together.
 package conversations
 
 import "time"
@@ -68,6 +68,7 @@ const (
 	FieldTitle   = "title"
 	FieldOpening = "opening"
 	FieldPrompt  = "prompt"
+	FieldReply   = "reply"
 )
 
 // View is one page of the Conversations list.
@@ -133,9 +134,12 @@ type Conversation struct {
 	UpdatedAt string   `json:"updatedAt"`
 	Opening   []string `json:"opening,omitempty"`
 	Prompt    string   `json:"prompt,omitempty"`
-	Withheld  []string `json:"withheld,omitempty"`
-	Live      bool     `json:"live,omitempty"`
-	Activity  Activity `json:"activity,omitempty"`
+	// Reply is the agent's latest message since the latest prompt, as one
+	// line: the question it asks, or the start of the message.
+	Reply    string   `json:"reply,omitempty"`
+	Withheld []string `json:"withheld,omitempty"`
+	Live     bool     `json:"live,omitempty"`
+	Activity Activity `json:"activity,omitempty"`
 	// QuietSince is set when the wait was read from silence, not reported
 	// by the tool: the time of the last write, since when nothing came.
 	QuietSince string `json:"quietSince,omitempty"`
@@ -145,7 +149,7 @@ type Conversation struct {
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
 	// DeleteUnsupported says why an archived conversation cannot be
-	// deleted from here; set only on completed rows.
+	// deleted from here; set only on completed and dormant rows.
 	DeleteUnsupported string `json:"deleteUnsupported,omitempty"`
 	Open              Route  `json:"open"`
 

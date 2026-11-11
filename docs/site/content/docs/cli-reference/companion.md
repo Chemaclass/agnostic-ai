@@ -53,9 +53,10 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - Clicking a running chat selects the Terminal or Ghostty tab that runs it, through the same server route as the web interface. When only the app can come forward, the list stays open and says where the chat runs. macOS asks once to let the companion control each of those apps.
 - When a chat does not open, the reason stays above the list until you dismiss it or open another chat. When a chat could not be resumed, **Copy resume command** copies the command to run in a terminal. A Claude Code, Codex or `cursor-agent` chat still running in a terminal never offers it: that command would start a second copy.
 - A row names the conversation's folder when it has one; a cloud session has none. When two folders in the list end in the same name, the row adds the parent folders that tell them apart, such as `shop/api` and `billing/api`. The row's tooltip and screen-reader description give the full path.
+- Under its title, a row shows the agent's latest reply in one line: the question it asks you, or the start of its last message. Local Claude Code and Codex chats show it. Cursor chats and cloud sessions do not yet. A reply older than your latest prompt is not shown, and a reply that may hold a password or key is left out. See [`reply`](@/docs/cli-reference/serve-api.md#get-api-views-conversations).
 - **Rename…** saves the name in `conversation-marks.json` through that server, so every `serve` on the machine shows it and finds it in a search. Enter saves it, and Escape keeps the old one. Right-clicking does not open the conversation or mark it as read. A new message keeps the name. A running conversation's Terminal or Ghostty tab takes the name as its title, and keeps it after the session ends.
 - **Mark as read** saves the same seen mark that opening a conversation saves, through that server. The conversation leaves Needs you in the companion and the web interface without being opened, and moves where an opened one would: Active, or Archived when it is not running and was last written more than a day ago. Its next write brings it back. If the save fails, the row stays and the list shows why.
-- **Delete permanently…** removes a chat you archived from this computer, after a confirmation. See [Delete an archived chat](#delete-an-archived-chat).
+- **Delete permanently…** removes a chat under Archived from this computer, after a confirmation. See [Delete an archived chat](#delete-an-archived-chat).
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute. The archive is cleared in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
 - **Hide Agnostic AI companion**, in the list's ⋯ menu, takes the circle off the screen and stops that server. Nothing is read or asked until the shortcut brings the companion back.
 - **Animate companion**, in the circle's right-click menu, turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
@@ -66,7 +67,8 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 
 Right-click a chat under Archived and choose **Delete permanently…**. The confirmation names the chat and what goes. Nothing is sent until you confirm, and **Cancel** or Escape keeps it.
 
-- It is offered only on a chat you marked complete that no process holds. A chat that went quiet by itself sits under Archived too, but is not offered it.
+- It is offered on any chat under Archived that no process holds: one you marked complete, or one that went quiet by itself more than a day ago.
+- A chat that went quiet by itself is checked again when you confirm. If anything was written in it since you last looked at the list, or while the delete runs, it is not deleted.
 - Afterwards the list says how much space it freed.
 - A refused or partial delete keeps the row. The reason stays above the list until you dismiss it, with any folder still on disk.
 

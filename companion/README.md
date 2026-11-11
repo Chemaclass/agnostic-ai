@@ -65,6 +65,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - A row names the chat's folder when it has one. When two folders in the list end in the
   same name, the row adds the parent folders that tell them apart, such as
   `shop/api` and `billing/api`. Hover a row for its full folder path.
+- Under its title, a row shows the agent's latest reply in one line: the
+  question it asks you, or the start of its last message. Local Claude Code
+  and Codex chats show it. Cursor chats and cloud sessions do not yet.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
   A running chat comes up in the Terminal or Ghostty tab that runs it, ready
   for typing. When only the app can come forward, the list comes back and
@@ -87,7 +90,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.
   Right-clicking alone does not open the chat or mark it as read.
-- On a chat you archived, the same menu offers **Delete permanently…**. It
+- On a chat under Archived, the same menu offers **Delete permanently…**. It
   asks first, then removes the chat from this computer. Only local Claude
   Code chats can be deleted for now; the others say why. See
   [what is removed and what stays](../docs/site/content/docs/cli-reference/companion.md#delete-an-archived-chat).

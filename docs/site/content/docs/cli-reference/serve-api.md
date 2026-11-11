@@ -95,7 +95,7 @@ Query:
 - `&q=<words>`: a search.
 - `&tool=claude`, `codex` or `cursor`: list one tool.
 
-A search keeps the conversations of every age where each word appears in the title, folder, branch, latest prompt, tool or app, as the row shows them. Case is ignored.
+A search keeps the conversations of every age where each word appears in the title, folder, branch, latest prompt, latest reply, tool or app, as the row shows them. Case is ignored.
 
 - A withheld field does not match.
 - Its pages hold only matches, and the page adds `matches`, the count across all pages.
@@ -113,7 +113,7 @@ The route lists Claude Code, Codex and Cursor conversations from each tool's own
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, withheld?, live?, activity?, quietSince?, deleteUnsupported?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, quietSince?, deleteUnsupported?, open}`.
 
 Conversation fields:
 
@@ -122,9 +122,11 @@ Conversation fields:
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
-- `deleteUnsupported` is set only on a `completed` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
+- `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
-- Any of `title`, `opening` and `prompt` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses.
+- `reply` is the agent's latest message since the latest prompt, as one line of at most 200 characters. When the agent asks a question, the line is the question. Otherwise it is the start of the message. It never holds tool calls, tool results or subagent output.
+- Only local Claude Code and Codex conversations have a `reply`. Cursor conversations and cloud sessions have none.
+- Any of `title`, `opening`, `prompt` and `reply` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses. The check reads the whole title and prompts, and the first 4 KB of a reply.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
   - `focus` switches to the Terminal or Ghostty tab that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
@@ -212,11 +214,11 @@ Replies:
 
 Body: `{tool, id}` with `Content-Type: application/json`, from the server's own origin.
 
-Deletes one archived conversation from this machine for good. Only a local Claude Code session can be deleted, and only when all of these hold:
+Deletes one conversation under Archived from this machine for good. Only a local Claude Code session can be deleted, and only when all of these hold:
 
-- Its `state` is `completed`. A `dormant` row is not, even though the companion shows it under Archived.
+- Its `state` is `completed` or `dormant`, read from a fresh scan. A `dormant` row written after you last looked at the list is `unread` instead, so it is refused.
 - No Claude Code process or background job holds it. The server asks again right before it removes anything, and once more before the transcript.
-- None of its files was written after you archived it, or in the same second. Archiving it again makes a new mark.
+- None of its files was written at or after the moment it was archived. For `completed` that is your archive mark: archiving it again makes a new mark. For `dormant` it is the moment the server read the row for this request, so a write in that second or later is refused.
 - Its session id names exactly one transcript.
 
 What it removes, each only when its name is exactly the session id:
@@ -246,7 +248,7 @@ Replies:
 - 200 `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file.
 - 400 for an unknown tool or any other field.
 - 404 for a conversation outside the list, or one you hid.
-- 409 `{error, reason}` with `reason` `not-archived` (not `completed` now), `running` (a process or job holds it) or `changed` (a file was written after the archive).
+- 409 `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it) or `changed` (a file was written at or after the moment it was archived).
 - 422 `{error, reason: "unsupported"}`: Codex threads (Codex deletes a thread even while it is open, so close it first and run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions, and any session on Windows, where the server cannot tell whether a session still runs. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link.
 - 500 `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept.
 

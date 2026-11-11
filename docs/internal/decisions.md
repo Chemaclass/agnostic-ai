@@ -106,6 +106,8 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 
 **Accepted limits:** A session that starts in the moment between the last check and the removal is not seen. A forked Claude Code session may still point at its parent's saved tool output under `projects/<project>/<parent id>/tool-results/`, and deleting the parent removes it. On one machine 0 of 182 transcripts pointed at another session's folder, so no scan was added. A clock set back after the archive can make a later write look older than the mark, so the delete goes ahead. A resume that recreates an empty side folder, such as `session-env/<id>`, and exits without writing the transcript is not caught, because only file times are compared.
 
+[Decision 012](#012-a-dormant-conversation-is-archived-at-the-moment-of-its-delete) extends the delete to `dormant` rows.
+
 ## 011: Model tier descriptions render after the instructions, sorted by name
 
 **Date:** 2026-11-11
@@ -115,3 +117,15 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 **Decision:** Sync appends one marked line after each entry point's instructions body, once the per-file view is built, and lists the described tiers sorted by name. `sync --global` puts the same line, without markers, in the block it manages. Import drops the marked line.
 
 **Why:** Appending after the view keeps the text out of the `AGNOSTIC_AI.md` layer that `lint` and `explain --file` report, and keeps a `CLAUDE.md` that imports `AGENTS.md` as it is. Config file order is lost once tiers decode into a map; keeping it needs an order-aware decode in three loaders. Sorted order is stable at no cost.
+
+## 012: A dormant conversation is archived at the moment of its delete
+
+**Date:** 2026-11-11
+
+**Context:** The companion shows `dormant` rows under Archived, beside `completed` ones, but only `completed` could be deleted ([#3288](https://github.com/Chemaclass/agnostic-ai/issues/3288)). The oldest chats often hold the most disk space, and the companion has no way to archive a row that already sits under Archived.
+
+**Decision:** A row under Archived can be deleted when it is not running and none of its files was written at or after the moment it was archived. For `completed` that moment is the archive mark. For `dormant` it is the moment the server read the row in the fresh scan of the delete request, in whole seconds. Every other check of decision 010 applies unchanged: a fresh scan, the state read again on the server, the running check before the state, the baseline read before the measure, the process table read again before the removal and before the transcript, links refused, and the transcript last. No new state, mark, field or status code.
+
+**Why:** Confirming the delete is the person's statement that they are done with the chat, as the archive mark is for `completed`. A message written before the server read the row makes the row `unread`, not `dormant`, so the server refuses it as not archived. A file written after the read is at or after the cutoff, so the server refuses it as changed. A later moment, such as when the marks lock is taken, would let a write between the read and that moment through. Two alternatives were rejected. Offering Archive on a dormant row costs a second step on a row already shown as archived, and checks nothing more, since the new mark would also be the moment of the click. Measuring against the last look instead would refuse every later delete when a resumed session wrote only bookkeeping, and the companion has no action to refresh that time.
+
+**Accepted limits:** A dormant session that wrote only bookkeeping lines after the person last looked, and before the server read the row, is deleted. The list's time counts only messages from the person or the agent, so only a message makes the row `unread`. A chat taken back out of the archive whose last write is older than a day is `dormant` again: it is still listed under Archived and can be deleted, also from a page loaded before it was taken back.

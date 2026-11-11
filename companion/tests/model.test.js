@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -17,14 +17,16 @@ test('groups rows by state, in list order, and leaves empty groups out', () => {
 test('offers Mark as read only on a row that needs the person, and Rename on every row', () => {
   assert.deepEqual(
     ['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => rowMenuOf(row('a', state))),
-    [['read', 'rename'], ['read', 'rename'], ['rename'], ['rename'], ['rename', 'delete'], ['rename']],
+    [['read', 'rename'], ['read', 'rename'], ['rename'], ['rename'], ['rename', 'delete'], ['rename', 'delete']],
   )
 })
 
-test('offers Delete only on a chat archived by hand that no process holds', () => {
+test('offers Delete only on a chat under Archived that no process holds', () => {
   assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'delete'])
   assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename'])
 })
 
 test('the delete confirmation names the chat and the data it removes, or says why it cannot be deleted', () => {
@@ -39,6 +41,16 @@ test('the delete confirmation names the chat and the data it removes, or says wh
   assert.equal(deleteConfirmOf(row('a', 'completed', { title: '' }), now).title, 'Delete "Untitled conversation" permanently?')
   const unsupported = 'Cursor keeps every chat in one shared database and has no command to delete one. Delete it in Cursor.'
   assert.deepEqual(deleteConfirmOf(row('a', 'completed', { tool: 'cursor', deleteUnsupported: unsupported }), now), { unsupported })
+})
+
+test('the delete confirmation for a chat that went quiet names it and says the delete cannot be undone', () => {
+  const now = Date.parse('2026-11-09T14:00:00Z')
+  const confirm = deleteConfirmOf(row('a', 'dormant', { title: 'Sketch the pricing page', folder: '/Users/me/site', updatedAt: '2026-11-01T14:00:00Z' }), now)
+  assert.equal(confirm.title, 'Delete "Sketch the pricing page" permanently?')
+  assert.match(confirm.details, /^Claude Code · site · /)
+  assert.match(confirm.body, /^This removes the session from this computer: its transcript, .* It cannot be undone\./)
+  const unsupported = 'Cursor keeps every chat in one shared database and has no command to delete one. Delete it in Cursor.'
+  assert.deepEqual(deleteConfirmOf(row('a', 'dormant', { tool: 'cursor', deleteUnsupported: unsupported }), now), { unsupported })
 })
 
 test('says how much a delete freed', () => {
@@ -231,4 +243,10 @@ test('a failed open keeps its reason, and the resume command only when the serve
     message: 'macOS blocked opening Terminal.',
     command: "cd '/tmp/app' && claude --resume x",
   })
+})
+
+test('shows the agent\'s latest reply the server sent, and nothing for a row without one', () => {
+  assert.equal(replyOf(row('a', 'blocked', { reply: ' Should I run the migration first? ' })), 'Should I run the migration first?')
+  assert.equal(replyOf(row('a', 'active')), '')
+  assert.equal(replyOf(row('a', 'active', { reply: 42 })), '')
 })

@@ -475,6 +475,7 @@ body {
 }
 
 .title,
+.reply,
 .meta {
   white-space: nowrap;
   overflow: hidden;
@@ -501,6 +502,13 @@ body {
   font-size: 11.5px;
   line-height: 15px;
   color: var(--paper-faint);
+}
+
+.reply {
+  margin-top: 1px;
+  font-size: 11.5px;
+  line-height: 15px;
+  color: var(--paper-dim);
 }
 
 .meta .why {
