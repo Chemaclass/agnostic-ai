@@ -55,7 +55,7 @@ func TestCurrentSession_SkipsASessionFileOfAnEarlierProcess(t *testing.T) {
 	_, stores := testScanner(t, noSQLite, fakeProcesses{})
 	writeLiveSessionFile(t, stores, "98", "Fri Nov  6 08:00:00 2026", idParent)
 	writeLiveSessionFile(t, stores, "96", started, idChild)
-	table := chain("agnostic-ai", "/bin/zsh", "claude", "/bin/zsh", "claude", "/bin/zsh")
+	table := chain("agnostic-ai", "/bin/zsh", "/bin/zsh", "/bin/zsh", "claude", "/bin/zsh")
 
 	ref, pid, err := CurrentSession(fakeProcesses{table: table}, stores, env(nil), 100)
 
@@ -123,6 +123,35 @@ func TestCurrentSession_RefusesWithoutAKnownSession(t *testing.T) {
 		_, _, err := CurrentSession(fakeProcesses{table: tc.table}, stores, env(nil), 100)
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: err = %v, want %q", name, err, tc.want)
+		}
+	}
+}
+
+func TestCurrentSession_StopsAtAToolItCannotResolve(t *testing.T) {
+	_, stores := testScanner(t, noSQLite, fakeProcesses{})
+	writeLiveSessionFile(t, stores, "96", started, idParent)
+	locks := writeCodexLocks(t, stores, idChild, idSide)
+	for name, tc := range map[string]struct {
+		processes fakeProcesses
+		getenv    func(string) string
+		want      string
+	}{
+		"cursor agent in its bundled node, inside Claude Code": {
+			fakeProcesses{table: chain("agnostic-ai", "/bin/zsh", "/Users/me/.local/share/cursor-agent/versions/1/node", "/bin/zsh", "claude", "/bin/zsh")},
+			env(nil), "Cursor terminal agent is not supported yet",
+		},
+		"Claude Code with no session file, inside Codex": {
+			fakeProcesses{table: chain("agnostic-ai", "/bin/zsh", "claude", "/bin/zsh", "codex")},
+			env(map[string]string{"CODEX_THREAD_ID": idChild}), "runs under Claude Code, but process 98 has no session file",
+		},
+		"Codex inside Codex with the outer thread's variable": {
+			fakeProcesses{table: chain("agnostic-ai", "/bin/zsh", "codex", "/bin/zsh", "codex"), held: map[string]int{locks[0]: 98, locks[1]: 96}},
+			env(map[string]string{"CODEX_THREAD_ID": idSide}), "CODEX_THREAD_ID names another thread",
+		},
+	} {
+		ref, _, err := CurrentSession(tc.processes, stores, tc.getenv, 100)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: ref %+v err %v, want %q", name, ref, err, tc.want)
 		}
 	}
 }

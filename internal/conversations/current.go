@@ -30,6 +30,8 @@ var errNoSession = errors.New("cannot tell which conversation this runs in: no C
 //     inherits the outer one's variables. Without it, a Codex process
 //     that holds exactly one thread names that one.
 //   - Cursor's terminal agent is refused.
+//
+// A tool ancestor that cannot be resolved ends the walk with an error.
 func CurrentSession(processes Processes, stores Stores, getenv func(string) string, pid int) (Ref, int, error) {
 	table, err := processes.Table()
 	if err != nil {
@@ -51,12 +53,16 @@ func currentSession(table []ProcessInfo, processes Processes, stores Stores, get
 		if id, ok := claudeSessionOf(stores, process); ok {
 			return Ref{Tool: ToolClaude, ID: id}, process.PID, nil
 		}
-		switch filepath.Base(process.Command) {
-		case "codex":
+		// A tool ancestor ends the walk even when it cannot be resolved:
+		// going on would name an outer session this command does not run in.
+		switch {
+		case isCursorAgent(process.Command):
+			return Ref{}, 0, errors.New("the Cursor terminal agent is not supported yet: starting a linked conversation from it has not been checked")
+		case filepath.Base(process.Command) == "claude":
+			return Ref{}, 0, fmt.Errorf("this command runs under Claude Code, but process %d has no session file that matches it, so the conversation cannot be named", process.PID)
+		case filepath.Base(process.Command) == "codex":
 			ref, err := codexThreadOf(processes, stores, getenv, process.PID)
 			return ref, process.PID, err
-		case "cursor-agent":
-			return Ref{}, 0, errors.New("the Cursor terminal agent is not supported yet: starting a linked conversation from it has not been checked")
 		}
 		if process.PPID <= 1 {
 			break
@@ -64,6 +70,12 @@ func currentSession(table []ProcessInfo, processes Processes, stores Stores, get
 		process, found = byPID[process.PPID]
 	}
 	return Ref{}, 0, errNoSession
+}
+
+// isCursorAgent reports whether command runs cursor-agent: its own
+// binary, or the node bundled under its install folder.
+func isCursorAgent(command string) bool {
+	return filepath.Base(command) == "cursor-agent" || strings.Contains(filepath.ToSlash(command), "/cursor-agent/")
 }
 
 // claudeSessionOf reads the session Claude Code process process runs,
@@ -84,10 +96,9 @@ func claudeSessionOf(stores Stores, process ProcessInfo) (string, bool) {
 }
 
 // codexThreadOf names the thread a Codex process runs the command for.
+// A variable that names another thread than the one process holds was
+// inherited from an outer Codex, so it is refused.
 func codexThreadOf(processes Processes, stores Stores, getenv func(string) string, pid int) (Ref, error) {
-	if id := getenv("CODEX_THREAD_ID"); sessionIDPattern.MatchString(id) {
-		return Ref{Tool: ToolCodex, ID: id}, nil
-	}
 	locks, _ := filepath.Glob(filepath.Join(stores.CodexDir, "thread-writer-locks", "*.lock"))
 	var held []string
 	for path, holder := range processes.Holders(locks) {
@@ -95,6 +106,12 @@ func codexThreadOf(processes Processes, stores Stores, getenv func(string) strin
 		if holder == pid && sessionIDPattern.MatchString(id) {
 			held = append(held, id)
 		}
+	}
+	if id := getenv("CODEX_THREAD_ID"); sessionIDPattern.MatchString(id) {
+		if len(held) == 1 && held[0] != id {
+			return Ref{}, fmt.Errorf("CODEX_THREAD_ID names another thread than the one Codex process %d holds; it may come from an outer Codex, so the conversation cannot be named", pid)
+		}
+		return Ref{Tool: ToolCodex, ID: id}, nil
 	}
 	switch len(held) {
 	case 1:
