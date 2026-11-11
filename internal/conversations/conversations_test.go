@@ -34,7 +34,9 @@ type fakeProcesses struct {
 func (f fakeProcesses) Holders(paths []string) map[string]int {
 	held := map[string]int{}
 	for _, path := range paths {
-		if pid, ok := f.held[filepath.Base(path)]; ok {
+		if pid, ok := f.held[path]; ok {
+			held[path] = pid
+		} else if pid, ok := f.held[filepath.Base(path)]; ok {
 			held[path] = pid
 		}
 	}
@@ -712,6 +714,55 @@ func TestScan_MarksTheCursorChatsOpenInAWindow(t *testing.T) {
 	}
 }
 
+func TestScan_MarksRunningCursorAgentChatsLive(t *testing.T) {
+	running, ended := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+	metaOf := func(id string) string {
+		return hex.EncodeToString([]byte(`{"agentId":"` + id + `","name":"Chat ` + id[:1] + `","createdAt":1762500000000}`))
+	}
+	sqlite := func(_ context.Context, path, query string) ([]json.RawMessage, error) {
+		switch {
+		case filepath.Base(path) == "store.db" && strings.Contains(query, "FROM meta"):
+			return []json.RawMessage{json.RawMessage(`{"value":"` + metaOf(filepath.Base(filepath.Dir(path))) + `"}`)}, nil
+		case filepath.Base(path) == "state.vscdb":
+			return nil, nil
+		}
+		return nil, errors.New("unexpected query on " + filepath.Base(path))
+	}
+	dir := t.TempDir()
+	store := func(id string) string {
+		return filepath.Join(dir, "cursor", "chats", md5Hex("/tmp/app"), id, "store.db")
+	}
+	scanner, stores := testScanner(t, sqlite, fakeProcesses{held: map[string]int{store(running): 4242}, alive: map[int]bool{4242: true}, table: []ProcessInfo{
+		{PID: 400, PPID: 1, Command: "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"},
+		{PID: 401, PPID: 400, TTY: "/dev/ttys004", Command: "/usr/bin/login"},
+		{PID: 4242, PPID: 401, TTY: "/dev/ttys004", Command: "node"},
+	}})
+	stores.CursorDir = filepath.Join(dir, "cursor")
+	scanner.Stores = stores
+	scanner.Now = time.Now
+	write(t, stores.CursorDB, "")
+	for _, id := range []string{running, ended} {
+		write(t, store(id), "")
+	}
+
+	view := scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}})
+
+	if !byID(t, view, running).Live || byID(t, view, ended).Live {
+		t.Errorf("only the chat a process holds is live: %s", asJSON(t, view.Conversations))
+	}
+	if open := byID(t, view, running).Open; open.Kind != RouteFocus || open.Label != "Switch to Terminal" {
+		t.Errorf("a running chat switches to its terminal, actual %s", asJSON(t, open))
+	}
+	if open := byID(t, view, ended).Open; open.Kind != RouteTerminal || open.Command != "cd '/tmp/app' && cursor-agent --resume "+ended {
+		t.Errorf("an ended chat resumes, actual %s", asJSON(t, open))
+	}
+	launcher := &fakeLauncher{focusOK: true}
+	reply := Open(context.Background(), byID(t, view, running), scanner.Processes, launcher)
+	if strings.Join(launcher.calls, ";") != "focus Terminal /dev/ttys004" || !reply.Opened || reply.Command != "" {
+		t.Errorf("opening it must switch to its tab, not resume it again: calls %v, reply %s", launcher.calls, asJSON(t, reply))
+	}
+}
+
 func paged(id, updated string, live bool) Conversation {
 	return Conversation{Tool: ToolClaude, ID: id, UpdatedAt: updated, Live: live}
 }
@@ -939,6 +990,17 @@ func TestFolderOpenIn_DecodesTheEditorsFolderURIs(t *testing.T) {
 		if actual := folderOpenIn(storage, folder); actual != want {
 			t.Errorf("folderOpenIn(%q) = %v, want %v", folder, actual, want)
 		}
+	}
+}
+
+func TestParseHolders_SkipsASqliteReader(t *testing.T) {
+	store := "/home/me/.cursor/chats/abc/id/store.db"
+	out := "p4242\ncnode\nf11\nn" + store + "\np5151\ncsqlite3\nf3\nn" + store + "\n"
+
+	held := parseHolders(out, map[string]string{store: store})
+
+	if held[store] != 4242 {
+		t.Errorf("the chat's own process holds it, not the sqlite3 reader: %v", held)
 	}
 }
 
