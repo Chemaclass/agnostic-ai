@@ -184,6 +184,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 | Target | Native key | Accepted values |
 |---|---|---|
+| Augment | `defaultThinkingLevel` in `.augment/settings.json`, read by Auggie 1.x | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` |
 | Claude Code | `effortLevel` in `.claude/settings.json` | `low`, `medium`, `high`, `xhigh` |
 | Copilot | `effortLevel` in `.github/copilot/settings.json` | `low`, `medium`, `high`, `xhigh` |
 | Codex | `model_reasoning_effort` in `.codex/config.toml` | any string; `outputs.codex.config.model-reasoning-effort` and the captured overlay win |
@@ -201,7 +202,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 | Factory | `Bash` rules only; `ask` goes to `commandDenylist` (which prompts), `deny` to `commandBlocklist` | yes |
 | Codex | `Bash` rules via `outputs.codex.exec-policies-from-permissions` ([translation](@/docs/targets/codex-reference.md#translate-bash-permissions)); otherwise a note | yes |
 | Windsurf | yes | no |
-| Augment | `allow` and `deny` only, for whole `read`, `edit`, and `write` tools | no |
+| Augment | `allow` and `deny` only, for whole `read`, `edit`, and `write` tools | `defaultModel`, read by Auggie 1.x |
 | Cursor | `allow` and `deny` in `.cursor/cli.json`, for the Cursor CLI ([details](@/docs/targets/cursor.md#permissions)) | no |
 | Copilot, Junie, Gemini, Kiro | no; Copilot, Junie, and Kiro report the whole policy in a note | yes |
 

@@ -5,8 +5,8 @@ import (
 )
 
 // importFromAugment restores the Augment surfaces sync can own safely:
-// the workspace indexing exclusions and the committed tool permission
-// policy. The rest of Augment's configuration has no native importer.
+// the workspace indexing exclusions, the committed tool permission
+// policy, and the default model and effort. The rest of Augment's configuration has no native importer.
 func importFromAugment(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Settings); err != nil {
 		return err

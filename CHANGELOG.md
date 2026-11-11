@@ -31,6 +31,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - LINT061 warns when a target ignores its `outputs.<target>.rules-mode` value (#3243).
 - Builds use Go 1.27.4 to fix the `net/http` vulnerability [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859).
 
+### By tool
+
+#### Augment
+
+- Settings `model` and `effort` write Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; Auggie 0.x ignores both keys. `import augment` reads them back (#3265).
+
 ### Site
 
 - The Qwen page says a `FileChanged` hook can also replace or clear the paths registered through `watchPaths` (#3263).

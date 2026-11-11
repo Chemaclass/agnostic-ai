@@ -664,6 +664,38 @@ func TestSyncGlobal_AugmentUserSettingsGetHooksMCPAndKeys(t *testing.T) {
 	}
 }
 
+func TestSyncGlobal_AugmentUserSettingsGetDefaultModelAndEffort(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model: sonnet-4\neffort: high\n")
+	path := filepath.Join(home, ".augment", "settings.json")
+	original := "{\n  \"indexing\": true\n}\n"
+	mustWriteGlobalTest(t, path, original)
+
+	if _, w, err := runGlobalAgentTest("--only", "augment"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["defaultModel"] != "sonnet-4" || doc["defaultThinkingLevel"] != "high" || doc["indexing"] != true {
+		t.Errorf("settings.json = %v", doc)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "augment", "--check"); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+
+	if err := os.RemoveAll(filepath.Join(source, "settings")); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "augment"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("removal must restore settings.json:\n%s", got)
+	}
+}
+
 func TestSyncGlobal_AugmentAdoptsEmptyMatcherSessionHook(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "event: SessionStart\ncommand: ~/s.sh\n")

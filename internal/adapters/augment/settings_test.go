@@ -216,9 +216,27 @@ func TestEmit_SettingsLayersInSourceOrder(t *testing.T) {
 	}
 }
 
-// Augment documents no model key in this file, so a portable model
-// must not be invented, and must not vanish silently either.
-func TestEmit_SettingsModelSurfacesCoverageNote(t *testing.T) {
+// Auggie 1.x reads `defaultModel` and `defaultThinkingLevel` from this
+// file; 0.x drops the unknown keys and still loads the rest.
+func TestEmit_SettingsModelAndEffortWriteDefaults(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"model": "sonnet-4", "effort": "high"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := settingsDoc(t, dir)
+	if got["defaultModel"] != "sonnet-4" || got["defaultThinkingLevel"] != "high" {
+		t.Errorf("settings = %#v, want defaultModel and defaultThinkingLevel", got)
+	}
+	if _, wrote := got["model"]; wrote {
+		t.Errorf("settings = %#v, want no `model` key", got)
+	}
+}
+
+// An effort Auggie does not list stays out of the file with a note.
+func TestEmit_SettingsRejectedEffortSurfacesCoverageNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
 	t.Cleanup(emit.ResetCoverageNotes)
@@ -228,17 +246,32 @@ func TestEmit_SettingsModelSurfacesCoverageNote(t *testing.T) {
 	t.Cleanup(func() { emit.Warner = prev })
 
 	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"model": "sonnet"}},
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"effort": "max"}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	emit.FlushCoverageNotes()
-	if note := buf.String(); !strings.Contains(note, "`model`") {
-		t.Errorf("expected a model coverage note, got: %s", note)
+	if note := buf.String(); !strings.Contains(note, "`effort`") || !strings.Contains(note, "xhigh") {
+		t.Errorf("expected an effort coverage note naming the accepted levels, got: %s", note)
 	}
 	if _, err := os.Stat(filepath.Join(dir, defaultSettingsFile)); !os.IsNotExist(err) {
-		t.Errorf("a model-only settings spec must write no settings file, got err=%v", err)
+		t.Errorf("a rejected effort must write no settings file, got err=%v", err)
+	}
+}
+
+// `x-augment.defaultModel` overrides the portable model.
+func TestEmit_SettingsCustomDefaultModelWins(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{
+		"model":     "sonnet-4",
+		"x-augment": map[string]any{"defaultModel": "opus-4"},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := settingsDoc(t, dir)["defaultModel"]; got != "opus-4" {
+		t.Errorf("defaultModel = %#v, want the x-augment value", got)
 	}
 }
 
