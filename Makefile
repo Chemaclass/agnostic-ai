@@ -184,7 +184,9 @@ doctor-dev:
 	@SKIP_JETBRAINS=$(SKIP_JETBRAINS) scripts/doctor-dev.sh
 
 # hooks installs the lefthook git hooks defined in lefthook.yml. Run
-# once after cloning. Requires `make tools` first.
+# once after cloning. Requires `make tools` first. lefthook 2 refuses to
+# install while core.hooksPath points elsewhere, which a linked worktree
+# hits: `lefthook install --reset-hooks-path` unsets it.
 hooks:
 	lefthook install
 
