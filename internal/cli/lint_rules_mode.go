@@ -10,7 +10,7 @@ import (
 
 // lintRulesModes reports an outputs.<target>.rules-mode value sync
 // ignores (LINT061).
-func lintRulesModes(cfg *config.Config, configPath string) []lintFinding {
+func lintRulesModes(cfg *config.Config, configPaths []string) []lintFinding {
 	if cfg == nil {
 		return nil
 	}
@@ -24,7 +24,7 @@ func lintRulesModes(cfg *config.Config, configPath string) []lintFinding {
 		if want, ok := config.RulesModes[target]; ok {
 			message = fmt.Sprintf("outputs.%s.rules-mode: %q has no effect: %s reads only %q", target, mode, target, want)
 		}
-		findings = append(findings, lintFinding{Code: "LINT061", Severity: lintWarn, Path: configPath, Message: message})
+		findings = append(findings, lintFinding{Code: "LINT061", Severity: lintWarn, Path: outputKeySource(configPaths, target, "rules-mode"), Message: message})
 	}
 	return findings
 }
