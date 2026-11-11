@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -41,6 +42,12 @@ func TestSplitLink_KeepsALookAlikeAsText(t *testing.T) {
 		"no id":               "Continues claude:\nWrite the notes",
 		"line not first":      "Write the notes\nContinues claude:" + idParent,
 		"plain sentence":      "Continues the work from yesterday",
+		"leading spaces":      "  Continues claude:" + idParent + "\nWrite the notes",
+		"two spaces":          "Continues  claude:" + idParent + "\nWrite the notes",
+		"tab":                 "Continues\tclaude:" + idParent + "\nWrite the notes",
+		"carriage return":     "Continues claude:" + idParent + "\r\nWrite the notes",
+		"wrapped":             "<user_query>Continues claude:" + idParent + "</user_query>\nWrite the notes",
+		"after a reminder":    "<system-reminder>x</system-reminder>\nContinues claude:" + idParent + "\nWrite the notes",
 	} {
 		if ref, rest, ok := splitLink(prompt); ok || ref != (Ref{}) || rest != prompt {
 			t.Errorf("%s: ref = %+v ok %v rest %q, want the text kept", name, ref, ok, rest)
@@ -194,5 +201,26 @@ func TestScan_ArchivingHidingOrRenamingAParentLeavesItsChild(t *testing.T) {
 
 	if after := asJSON(t, byID(t, scanner.Scan(context.Background(), ScanOptions{}), idChild)); after != before {
 		t.Errorf("the child changed:\nbefore %s\nafter  %s", before, after)
+	}
+}
+
+func TestShowTexts_ReadsTheLinkOnlyFromTheRawFirstLine(t *testing.T) {
+	for _, prompt := range []string{
+		"  Continues claude:" + idParent + "\nWrite the notes",
+		"Continues\tclaude:" + idParent + "\nWrite the notes",
+		"<user_query>Continues claude:" + idParent + "</user_query>\nWrite the notes",
+	} {
+		shown := showTexts(texts{firstPrompt: prompt, lastPrompt: prompt})
+		if shown.parent != nil || !strings.HasPrefix(shown.title, "Continues") || !strings.HasPrefix(shown.prompt, "Continues") {
+			t.Errorf("%q: parent %+v title %q prompt %q", prompt, shown.parent, shown.title, shown.prompt)
+		}
+	}
+}
+
+func TestShowTexts_GivesNoParentForAnIDThatMayBeACredential(t *testing.T) {
+	prompt := "Continues cursor:ghp_abcdefghijklmnopqrstuvwxyz0123456789\n\nhello there"
+	shown := showTexts(texts{firstPrompt: prompt, lastPrompt: prompt})
+	if shown.parent != nil || len(shown.opening) != 0 || shown.prompt != "" {
+		t.Errorf("parent %+v opening %q prompt %q withheld %q", shown.parent, shown.opening, shown.prompt, shown.withheld)
 	}
 }

@@ -41,9 +41,10 @@ func readLink(line string) (Ref, bool) {
 	return Ref{Tool: Tool(tool), ID: id}, true
 }
 
-// splitLink reads the link line off the start of a prompt as typedText
-// gives it, and returns the rest. ok is false when the first line is
-// not a link line; rest is then the prompt as it was.
+// splitLink reads the link line off the start of a prompt as the store
+// keeps it, so a line with spaces before it, a tab, or a wrapper stays
+// text. It returns the rest. ok is false when the first line is not a
+// link line; rest is then the prompt as it was.
 func splitLink(prompt string) (ref Ref, rest string, ok bool) {
 	first, after, _ := strings.Cut(prompt, "\n")
 	ref, ok = readLink(first)
@@ -53,9 +54,9 @@ func splitLink(prompt string) (ref Ref, rest string, ok bool) {
 	return ref, strings.TrimSpace(after), true
 }
 
-// cutLink drops ref's link line from the start of text, when text
-// starts with that whole line: Codex keeps the first prompt as the
-// thread's title, and a conversation of one prompt has it as its latest.
+// cutLink drops ref's link line from the start of a title that starts
+// with that whole line: Codex keeps the first prompt as the thread's
+// title.
 func cutLink(text string, ref Ref) string {
 	line := linkLine(ref)
 	if text == line {

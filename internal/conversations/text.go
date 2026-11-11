@@ -172,11 +172,16 @@ func showTextsOf(t texts, readLinks bool) shownTexts {
 	last := typedText(t.lastPrompt)
 	title := oneLine(t.title)
 	opening := first
-	if ref, rest, ok := splitLink(first); ok && readLinks {
+	// The link is read from the stored first line, before any unwrapping,
+	// and an id that may be a credential is no parent: the API would
+	// serve it while the texts that hold it are withheld.
+	if ref, rest, ok := splitLink(t.firstPrompt); ok && readLinks && !mayHoldCredential(linkLine(ref)) {
 		shown.parent = &ref
-		opening = rest
+		opening = typedText(rest)
 		title = cutLink(title, ref)
-		last = cutLink(last, ref)
+		if again, rest, ok := splitLink(t.lastPrompt); ok && again == ref {
+			last = typedText(rest)
+		}
 	}
 	if title == "" && opening != "" {
 		title = strings.SplitN(opening, "\n", 2)[0]
