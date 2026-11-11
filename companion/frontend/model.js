@@ -229,18 +229,6 @@ export function stillWaits(view, shown) {
 }
 
 /**
- * Whether a row shown under Needs you may still be marked read: the latest list holds it unchanged
- * and still needing the person. A row that got a new message since it was drawn holds something
- * the person has not seen, so it stays. So does a row the latest list does not hold, or no list:
- * a new message can take a row out of a search, so what is missing may be what changed.
- */
-export function stillWaits(view, shown) {
-  const key = keyOf(shown)
-  const current = view?.conversations.find((conversation) => keyOf(conversation) === key)
-  return current !== undefined && Boolean(NEEDS_PERSON[current.state]) && current.updatedAt === shown.updatedAt
-}
-
-/**
  * A wait the server read from silence carries `quietSince`: it says how long nothing came,
  * not that the agent asked. "Waiting for you" stays for a tool that reports its wait.
  */
