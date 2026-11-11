@@ -106,9 +106,19 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 
 **Accepted limits:** A session that starts in the moment between the last check and the removal is not seen. A forked Claude Code session may still point at its parent's saved tool output under `projects/<project>/<parent id>/tool-results/`, and deleting the parent removes it. On one machine 0 of 182 transcripts pointed at another session's folder, so no scan was added. A clock set back after the archive can make a later write look older than the mark, so the delete goes ahead. A resume that recreates an empty side folder, such as `session-env/<id>`, and exits without writing the transcript is not caught, because only file times are compared.
 
-[Decision 011](#011-a-dormant-conversation-is-archived-at-the-moment-of-its-delete) extends the delete to `dormant` rows.
+[Decision 012](#012-a-dormant-conversation-is-archived-at-the-moment-of-its-delete) extends the delete to `dormant` rows.
 
-## 011: A dormant conversation is archived at the moment of its delete
+## 011: Model tier descriptions render after the instructions, sorted by name
+
+**Date:** 2026-11-11
+
+**Context:** A model tier's `description` says when to use it, and the main agent needs that text in its instructions ([#3286](https://github.com/Chemaclass/agnostic-ai/issues/3286)).
+
+**Decision:** Sync appends one marked line after each entry point's instructions body, once the per-file view is built, and lists the described tiers sorted by name. `sync --global` puts the same line, without markers, in the block it manages. Import drops the marked line.
+
+**Why:** Appending after the view keeps the text out of the `AGNOSTIC_AI.md` layer that `lint` and `explain --file` report, and keeps a `CLAUDE.md` that imports `AGENTS.md` as it is. Config file order is lost once tiers decode into a map; keeping it needs an order-aware decode in three loaders. Sorted order is stable at no cost.
+
+## 012: A dormant conversation is archived at the moment of its delete
 
 **Date:** 2026-11-11
 

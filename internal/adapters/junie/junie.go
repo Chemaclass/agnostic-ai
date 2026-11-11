@@ -301,8 +301,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 }
 
 // emitEntryPoint writes .junie/AGENTS.md: the canonical pointer body
-// (see entryPointBody) with the sentinel-marked rules appendix
-// appended. Uses the same WriteSection rendering (`### <name>` +
+// (see entryPointBody) with the model tiers and the sentinel-marked
+// rules appendix appended. Uses the same WriteSection rendering (`### <name>` +
 // source comment + optional description + body) every other inlining
 // target's entry-point carries. Agents no longer inline here (#604);
 // they emit natively via emitAgents instead. The project-local
@@ -313,6 +313,7 @@ func emitEntryPoint(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
+	body = emit.AppendModelTiers(body, emit.RenderModelTiers(cfg.Models))
 	if emit.InlinesRulesIntoEntryPoint(target) {
 		body = emit.AppendRulesAppendix(body, emit.RenderRulesAppendix(b))
 	}

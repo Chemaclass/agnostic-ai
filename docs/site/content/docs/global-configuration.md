@@ -41,7 +41,7 @@ targets: [claude, codex, cursor]
 - `sync --global`, `lint --global`, and `validate --global` then use only those targets. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one.
 - `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`.
 - A target with no user-level files, such as `aider` or `continue`, is skipped with one warning. An unknown name stops the run.
-- [`builtins`](@/docs/configuration.md#built-ins), [`requires`](@/docs/configuration.md#requires), `lint`, and [`models`](@/docs/configuration.md#models) work as in a project. For each key, `local/agnostic-ai.yaml` replaces the shared value, and a `models` tier replaces the entire shared tier of the same name.
+- [`builtins`](@/docs/configuration.md#built-ins), [`requires`](@/docs/configuration.md#requires), `lint`, and [`models`](@/docs/configuration.md#models) work as in a project. For each key, `local/agnostic-ai.yaml` replaces the shared value, and a `models` tier replaces the entire shared tier of the same name. `sync --global` lists the tiers that have a `description` in the instructions block it manages.
 - When a file's tiers do not load, `sync --global` stops. With `-t`, it warns, skips that file's tiers, and omits the `model` of any spec that names one.
 - [`on-unsupported`](@/docs/configuration.md#on-unsupported) (`warn`, `error`, or `silent`) sets what `sync --global` does with a skill line that Claude Code expands and other targets read as plain text. See [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax).
 - Other keys except `version` print a warning and are ignored.

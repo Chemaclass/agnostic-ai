@@ -91,6 +91,9 @@ type MergedOpts struct {
 	// local is the project-local text appended last in its marked
 	// block. Set by EmitLegacyRulesFile only.
 	local string
+	// tiers is the model tiers block written after the intro. Set by
+	// EmitLegacyRulesFile only.
+	tiers string
 }
 
 // MergedDocument writes a single markdown file with rules, agents, and
@@ -99,10 +102,11 @@ type MergedOpts struct {
 //
 // Returns nil without writing when the bundle has no rules, agents, or
 // skills, so a fresh `init` followed by `sync` does not pollute the
-// project root with empty stub files. Local text alone still writes the
-// file: an entry point this document owns has no other writer.
+// project root with empty stub files. Local text or model tiers alone
+// still write the file: an entry point this document owns has no other
+// writer.
 func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
-	if len(b.Rules) == 0 && len(b.Agents) == 0 && len(b.Skills) == 0 && strings.TrimSpace(opts.local) == "" {
+	if len(b.Rules) == 0 && len(b.Agents) == 0 && len(b.Skills) == 0 && strings.TrimSpace(opts.local) == "" && opts.tiers == "" {
 		return nil
 	}
 	if opts.RulesHeading == "" {
@@ -122,6 +126,9 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 	sb.WriteString("# " + opts.Title + "\n\n")
 	if opts.Intro != "" {
 		sb.WriteString(opts.Intro + "\n\n")
+	}
+	if opts.tiers != "" {
+		sb.WriteString(opts.tiers + "\n")
 	}
 
 	if len(b.Rules) > 0 {
