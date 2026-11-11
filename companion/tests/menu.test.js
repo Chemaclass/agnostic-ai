@@ -23,11 +23,6 @@ test('the menu shows the six items in the list order, with the values in effect'
   assert.deepEqual(rows.map((row) => row.label), items.map((item) => item.label))
 })
 
-test('one separator comes before the first action', () => {
-  const rows = menuRowsOf(items, { preferences, appearance })
-  assert.deepEqual(rows.filter((row) => row.separatorBefore).map((row) => row.id), ['pause'])
-})
-
 test('a switch with no value in either reply is refused', () => {
   assert.throws(() => menuRowsOf([{ id: 'sparkle', label: 'Sparkle', kind: 'switch' }], { preferences, appearance }), /no value for sparkle/)
 })

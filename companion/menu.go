@@ -89,6 +89,9 @@ func (s *shell) bubbleMenu() error {
 	return s.fillBubbleMenu(application.NewContextMenu(bubbleMenuName).Menu, items)
 }
 
+// shownIDs are the items refreshNative keeps current; the list must hold each.
+var shownIDs = []string{"animate", "dimWhenIdle", "startAtLogin", "shortcut", "pause"}
+
 // fillBubbleMenu adds the shared list to the circle's menu, with a
 // separator before the actions, and shows the values in effect.
 func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
@@ -119,6 +122,11 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 		// the menu after, so a refused one shows the old value again.
 		added.OnClick(func(clicked *application.Context) { act(clicked.IsChecked()) })
 		native[item.ID] = added
+	}
+	for _, id := range shownIDs {
+		if native[id] == nil {
+			return fmt.Errorf("the menu list has no %q item", id)
+		}
 	}
 	s.nativeMu.Lock()
 	s.native = native

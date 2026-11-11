@@ -468,12 +468,12 @@ const MENU_KINDS = new Set(['switch', 'shortcut', 'action'])
 
 /**
  * The settings menu's rows, from menu.json and the shell's two replies:
- * {id, label, kind, hint?, value, separatorBefore}. A switch's value is its
+ * {id, label, kind, hint?, value}. A switch's value is its
  * entry in the appearance or the preferences; the shortcut's is its keys.
  */
 export function menuRowsOf(items, { preferences, appearance }) {
   const values = { ...appearance, ...preferences }
-  return items.map((item, index) => {
+  return items.map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value
     if (item.kind === 'switch') {
@@ -481,7 +481,6 @@ export function menuRowsOf(items, { preferences, appearance }) {
       value = values[item.id]
     }
     if (item.kind === 'shortcut') value = preferences.shortcut
-    const separatorBefore = item.kind === 'action' && index > 0 && items[index - 1].kind !== 'action'
-    return { ...item, value, separatorBefore }
+    return { ...item, value }
   })
 }

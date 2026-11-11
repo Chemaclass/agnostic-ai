@@ -83,6 +83,36 @@ func TestBubbleMenu_RefusesAnItemWithNoHandler(t *testing.T) {
 	}
 }
 
+func TestBubbleMenu_RefusesAnUnknownKind(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+
+	err := s.fillBubbleMenu(application.NewMenu(), []menuItem{{ID: "quit", Label: "Quit", Kind: "slider"}})
+
+	if err == nil || !strings.Contains(err.Error(), `"slider"`) {
+		t.Errorf("err = %v; want one naming the kind", err)
+	}
+}
+
+func TestBubbleMenu_RefusesAListWithoutAnItemItShows(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+	items, err := readMenu(embedded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var withoutPause []menuItem
+	for _, item := range items {
+		if item.ID != "pause" {
+			withoutPause = append(withoutPause, item)
+		}
+	}
+
+	err = s.fillBubbleMenu(application.NewMenu(), withoutPause)
+
+	if err == nil || !strings.Contains(err.Error(), `"pause"`) {
+		t.Errorf("err = %v; want one naming the missing item", err)
+	}
+}
+
 func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 	s, _, _, menu := menuShell(t)
 	s.settings.Shortcut = "Ctrl+Alt+Space"
@@ -104,6 +134,9 @@ func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 		shortcutLabel("Ctrl+Alt+Space", runtime.GOOS == "darwin"), "---", "Pause Agnostic AI companion", "Quit Agnostic AI companion"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("menu = %q\nwant %q", got, want)
+	}
+	if !s.native["quit"].Enabled() {
+		t.Error("Quit cannot be chosen")
 	}
 }
 
