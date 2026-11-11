@@ -92,7 +92,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	var keyOrder []matcherKey
-	var claudeMatchers int
+	var claudeMatchers, droppedMatchers int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -105,6 +105,9 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 		}
 		matcher, _ := h.Meta["matcher"].(string)
 		if sessionOnlyEvents[event] {
+			if matcher != "" {
+				droppedMatchers++
+			}
 			matcher = ""
 		} else if claudeToolNames[matcher] {
 			claudeMatchers++
@@ -127,6 +130,8 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
 		"Augment names its own tools (launch-process, str-replace-editor, save-file, ...), so a Claude-style matcher parses but matches nothing; use one of Augment's own tool names, `.*`, or a regex over them")
+	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", droppedMatchers,
+		"Stop, SessionStart, SessionEnd, PromptSubmit, and Notification take no matcher in Augment, so it is left out")
 	if len(keyOrder) == 0 {
 		return nil
 	}

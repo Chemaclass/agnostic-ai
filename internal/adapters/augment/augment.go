@@ -95,12 +95,10 @@
 // (see hooks.go and emitSettings below): "Project-scoped settings
 // (`.augment/settings.json` and `.augment/settings.local.json`) allow
 // repositories to ship hook configurations that apply automatically to
-// all contributors" (docs.augmentcode.com/cli/hooks). Five events,
-// re-verified fresh 2026-09-10: `PreToolUse`, `PostToolUse`, `Stop`,
-// `SessionStart`, `SessionEnd` (the vendor's `hook_event_name` field
-// also lists `Notification` as a possible value, but it has no
-// configuration section of its own, so it is not a sixth registrable
-// event). `timeout` reaches the file in **milliseconds**: the shared
+// all contributors" (docs.augmentcode.com/cli/hooks). Seven events
+// in Auggie 1.x: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`,
+// `SessionEnd`, `PromptSubmit`, `Notification` (the 0.x reference
+// documents the first five; see hookLifecycle in hooks.go). `timeout` reaches the file in **milliseconds**: the shared
 // hook spec's own `timeout` field is documented in seconds
 // (docs/site/content/docs/spec-format/hooks.md), so this adapter multiplies by 1000
 // before writing it, unlike factory, goose, and qoder's seconds-native

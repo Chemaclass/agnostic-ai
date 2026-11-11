@@ -242,7 +242,8 @@ func gooseMatches(matcher, value string) (bool, error) {
 	return re.MatchString(value), nil
 }
 
-// buildAugment writes Auggie's payload: no prompt event, edits through
+// buildAugment writes Auggie's payload for tool events and SessionStart;
+// PromptSubmit and Notification take --payload. Edits go through
 // str-replace-editor or save-file with paths relative to the workspace
 // root, and file_changes on PostToolUse.
 func buildAugment(event, matcher, root string, in Input) (Payload, error) {
