@@ -1,6 +1,7 @@
 package conversations
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -13,10 +14,16 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // briefLimit bounds a brief, the new conversation's first prompt.
 const briefLimit = 4096
+
+// briefFileLimit bounds what the runner reads of a brief file. JSON
+// writes a control character as six bytes, so a full brief can grow to
+// six times its size.
+const briefFileLimit = 8 * briefLimit
 
 // briefsKept is how long a brief no tab ran stays before a later start
 // removes it.
@@ -105,6 +112,9 @@ func (s Starter) Start(ctx context.Context, req StartRequest) (StartReply, error
 	brief := strings.TrimSpace(req.Brief)
 	if brief == "" {
 		return StartReply{}, errors.New("no brief: a conversation never starts without one; pass it on standard input or with --brief-file")
+	}
+	if strings.ContainsRune(brief, 0) || !utf8.ValidString(brief) {
+		return StartReply{}, errors.New("the brief holds a null byte or text that is not UTF-8; a tool cannot take it as its first prompt")
 	}
 	if len(brief) > briefLimit {
 		return StartReply{}, fmt.Errorf("the brief is %d bytes; keep it to %d", len(brief), briefLimit)
@@ -228,8 +238,10 @@ func (s Starter) writeBrief(brief storedBrief) (string, error) {
 	if err := s.briefsFolder(); err != nil {
 		return "", err
 	}
-	data, err := json.Marshal(brief)
-	if err != nil {
+	var data bytes.Buffer
+	encoder := json.NewEncoder(&data)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(brief); err != nil {
 		return "", err
 	}
 	random := make([]byte, 16)
@@ -242,7 +254,7 @@ func (s Starter) writeBrief(brief storedBrief) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, err = file.Write(data)
+	_, err = file.Write(data.Bytes())
 	if closeErr := file.Close(); err == nil {
 		err = closeErr
 	}
@@ -282,12 +294,18 @@ type BriefRunner struct {
 }
 
 // Run starts the brief id names. The id is checked before any path is
-// built from it.
+// built from it. The brief is removed only once it is read whole and its
+// tool is found, just before the tool replaces this process, so it runs
+// once and a failed check leaves it for another try.
 func (r BriefRunner) Run(id string) error {
 	if !briefID.MatchString(id) {
 		return fmt.Errorf("%q is not a brief id", id)
 	}
-	brief, err := r.take(filepath.Join(r.BriefsDir, id+".json"))
+	if r.BriefsDir == "" {
+		return errors.New("no folder for briefs on this system; nothing started")
+	}
+	path := filepath.Join(r.BriefsDir, id+".json")
+	brief, err := readBriefFile(path)
 	if err != nil {
 		return err
 	}
@@ -295,16 +313,19 @@ func (r BriefRunner) Run(id string) error {
 	if !ok || !strings.HasPrefix(brief.Prompt, linkWord) {
 		return errors.New("the brief names no tool this version starts")
 	}
-	path, err := r.LookPath(command)
+	found, err := r.LookPath(command)
 	if err != nil {
-		return fmt.Errorf("%s is not installed: no %s command on PATH", toolLabels[brief.Tool], command)
+		return fmt.Errorf("%s is not installed: no %s command on PATH; the brief is kept for a day", toolLabels[brief.Tool], command)
 	}
-	return r.Exec(path, []string{command, brief.Prompt}, r.Environ())
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	return r.Exec(found, []string{command, brief.Prompt}, r.Environ())
 }
 
-// take reads the brief at path and removes it, so it runs once. It
-// refuses a link, a file of another user, and one others can read.
-func (r BriefRunner) take(path string) (storedBrief, error) {
+// readBriefFile reads the brief at path. It refuses a link, a file of
+// another user, and one others can read.
+func readBriefFile(path string) (storedBrief, error) {
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return storedBrief{}, errors.New("this brief was already used or has expired; nothing started")
@@ -329,12 +350,12 @@ func (r BriefRunner) take(path string) (storedBrief, error) {
 	if err != nil || !os.SameFile(info, opened) {
 		return storedBrief{}, fmt.Errorf("%s changed while it was read; nothing started", path)
 	}
-	data, err := io.ReadAll(io.LimitReader(file, 4*briefLimit))
+	data, err := io.ReadAll(io.LimitReader(file, briefFileLimit+1))
 	if err != nil {
 		return storedBrief{}, err
 	}
-	if err := os.Remove(path); err != nil {
-		return storedBrief{}, err
+	if len(data) > briefFileLimit {
+		return storedBrief{}, fmt.Errorf("%s is larger than a brief; nothing started", path)
 	}
 	var brief storedBrief
 	if err := json.Unmarshal(data, &brief); err != nil {

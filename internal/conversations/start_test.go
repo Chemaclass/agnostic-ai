@@ -366,3 +366,60 @@ func TestRunBrief_RefusesABadIDOrAnUnsafeFile(t *testing.T) {
 		t.Errorf("a linked brief: err %v exec %q", err, ran.path)
 	}
 }
+
+func TestRunBrief_KeepsABriefWhoseJSONGrows(t *testing.T) {
+	for _, brief := range []string{strings.Repeat("<", 3000), strings.Repeat("é", 2048), strings.Repeat("\x01", 4000)} {
+		start := newFakeStart(t, ghosttyChain(), "codex")
+		if _, err := start.starter.Start(context.Background(), request(ToolCodex, brief)); err != nil {
+			t.Fatalf("%q: %v", brief[:2], err)
+		}
+		var ran fakeExec
+		id := tabLine.FindStringSubmatch(start.launcher.calls[0])[1]
+		if err := runner(t, start.starter.BriefsDir, &ran).Run(id); err != nil || len(ran.argv) != 2 || ran.argv[1] != "Continues claude:"+idParent+"\n\n"+brief {
+			t.Errorf("%q: err %v argv ok %v", brief[:2], err, len(ran.argv) == 2 && ran.argv[1] == "Continues claude:"+idParent+"\n\n"+brief)
+		}
+	}
+}
+
+func TestStart_RefusesABriefWithANullByteOrBrokenText(t *testing.T) {
+	for _, brief := range []string{"a\x00b", "bad\xff\xfetext"} {
+		start := newFakeStart(t, ghosttyChain(), "claude")
+		_, err := start.starter.Start(context.Background(), request("", brief))
+		if err == nil || !strings.Contains(err.Error(), "the brief holds") || len(briefFiles(t, start.starter.BriefsDir)) != 0 {
+			t.Errorf("%q: err %v files %q", brief, err, briefFiles(t, start.starter.BriefsDir))
+		}
+	}
+}
+
+func TestRunBrief_KeepsTheBriefWhenTheToolIsMissing(t *testing.T) {
+	dir, id := startedBrief(t)
+	var ran fakeExec
+	missing := runner(t, dir, &ran)
+	missing.LookPath = func(string) (string, error) { return "", exec.ErrNotFound }
+
+	if err := missing.Run(id); err == nil || !strings.Contains(err.Error(), "Codex is not installed") || ran.path != "" {
+		t.Errorf("err %v exec %q", err, ran.path)
+	}
+	if files := briefFiles(t, dir); len(files) != 1 {
+		t.Errorf("the brief was removed: %q", files)
+	}
+	if err := runner(t, dir, &ran).Run(id); err != nil {
+		t.Errorf("the brief no longer runs once the tool is there: %v", err)
+	}
+}
+
+func TestRunBrief_RefusesWithoutABriefsFolder(t *testing.T) {
+	dir := t.TempDir()
+	id := strings.Repeat("a", 32)
+	planted := filepath.Join(dir, id+".json")
+	write(t, planted, `{"tool":"claude","prompt":"Continues claude:`+idParent+`\n\nplanted"}`)
+	if err := os.Chmod(planted, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	var ran fakeExec
+
+	if err := runner(t, "", &ran).Run(id); err == nil || ran.path != "" {
+		t.Errorf("err %v exec %q", err, ran.path)
+	}
+}

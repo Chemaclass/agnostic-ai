@@ -64,7 +64,8 @@ It exits with code 1 and starts nothing when:
 
 - It cannot tell which session it runs in: no Claude Code or Codex session is among its parent processes, or the Codex process holds several threads and does not say which.
 - The tool is not installed: its command is not on `PATH`.
-- The brief is empty or longer than 4096 bytes, or standard input is a terminal and no `--brief-file` was given.
+- The brief is empty, longer than 4096 bytes, holds a null byte or text that is not UTF-8, or standard input is a terminal and no `--brief-file` was given.
+- The folder or the path of `agnostic-ai` holds a control character, which a terminal would act on as it is typed.
 - No tab can be opened. The message then gives the line that starts it by hand.
 
 ### The link line
@@ -85,4 +86,4 @@ Write the release notes for the parser change.
 
 ### What runs where
 
-The brief never becomes part of a shell or AppleScript string. The command saves it to a one-time file in agnostic-ai's own settings folder (`conversation-briefs/`, readable by you only, under a random name). The new tab runs a fixed line, `cd '<folder>' && '<agnostic-ai>' conversations run <id>`. That reads the brief, removes the file, and starts the tool with the brief as its one argument. Running the line a second time starts nothing. A brief no tab ran is removed after a day.
+The brief never becomes part of a shell or AppleScript string. The command saves it to a one-time file in agnostic-ai's own settings folder (`conversation-briefs/`, readable by you only, under a random name). The new tab runs a fixed line, `cd '<folder>' && '<agnostic-ai>' conversations run <id>`. That reads the brief, finds the tool, removes the file, and starts the tool with the brief as its one argument. Running the line a second time starts nothing. When the tool is missing from that tab's `PATH`, the brief is kept, so the line works once the tool is there. A brief no tab ran is removed after a day.
