@@ -48,7 +48,8 @@ func TestHookWorktreeRefresh_CancelsReadyDescendant(t *testing.T) {
 		cancel()
 		if !finished {
 			select {
-			case <-done:
+			case err := <-done:
+				t.Logf("refresh stopped during cleanup: %v", err)
 			case <-time.After(5 * time.Second):
 				t.Error("refresh did not stop during test cleanup")
 			}
