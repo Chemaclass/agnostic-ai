@@ -281,3 +281,21 @@ func TestEmit_NoSettingsJSONWhenNoHooksOrMCPs(t *testing.T) {
 		t.Errorf("expected no .augment/settings.json when no hook or MCP entries, err=%v", err)
 	}
 }
+
+func TestEmit_Hook_DroppedMatcherOnMatcherlessEventRaisesNote(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "ping", Meta: map[string]any{
+			"event": "Notification", "matcher": "foo", "command": "hooks/ping.sh",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected one coverage note for the dropped matcher, got %d", n)
+	}
+}
