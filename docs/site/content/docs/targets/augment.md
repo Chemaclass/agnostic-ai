@@ -100,7 +100,7 @@ Settings spec permissions merge into the same file under `toolPermissions`, whic
 - Bare tool names map onto Augment's six tools (`Read` to `read`, `Bash` to `terminal`, `WebFetch` to `web-fetch`, ...).
 - `Bash(prefix:*)` becomes a `terminal` rule with `shellInputRegex: ^prefix`. An exact `Bash(command)` is anchored at both ends. `mcp__<server>__<tool>` becomes `{tool-name}_{server-name}`.
 
-`model` becomes `defaultModel` and `effort` becomes `defaultThinkingLevel` (`off`, `minimal`, `low`, `medium`, `high`, or `xhigh`; another value raises a sync note). Auggie 1.x reads both keys ([settings docs](https://docs.augmentcode.com/cli/settings.md)); Auggie 0.x ignores them and reads its own `model` key, which you can set with `x-augment: {model: ...}`.
+`model` becomes `defaultModel` and `effort` becomes `defaultThinkingLevel` (`off`, `minimal`, `low`, `medium`, `high`, or `xhigh`; another value raises a sync note). Auggie 1.x reads both keys ([settings docs](https://docs.augmentcode.com/cli/settings.md)); Auggie 0.x ignores them and reads only `model`, which you can set with `x-augment: {model: ...}`. Auggie 1.x also reads `model` when `defaultModel` is absent.
 
 These are not written and raise a sync note:
 
