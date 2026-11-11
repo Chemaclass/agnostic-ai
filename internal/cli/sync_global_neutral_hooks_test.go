@@ -190,3 +190,27 @@ func TestSyncGlobal_WindowsHookUsesCopiedTargetScript(t *testing.T) {
 		})
 	}
 }
+
+// Auggie hands a command without args to a shell, so a shared script
+// path in a home with spaces reaches it quoted.
+func TestSyncGlobal_AugmentNeutralHookExecutesFromHomeWithSpaces(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires a POSIX shell")
+	}
+	home, source := globalAgentTestHome(t)
+	home = filepath.Join(home, "user home")
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nprintf '%s\\n' shared-hook\n")
+	if err := os.Chmod(filepath.Join(source, "scripts", "guard.sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "event: SessionStart\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	if _, _, err := runGlobalAgentTest("--only", "augment"); err != nil {
+		t.Fatal(err)
+	}
+	command := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".augment", "settings.json")), "SessionStart")["command"].(string)
+	if got, err := exec.Command("sh", "-c", command).CombinedOutput(); err != nil || string(got) != "shared-hook\n" {
+		t.Errorf("execute %q = %q, %v", command, got, err)
+	}
+}

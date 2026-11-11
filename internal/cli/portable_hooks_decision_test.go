@@ -11,8 +11,8 @@ import (
 )
 
 // A hook that prints {"decision": "deny"} and exits 0 blocks on every
-// tool that maps before-tool and can run the wrapper; Augment runs only a
-// bare script path, so validate names it.
+// tool that maps before-tool and gets the wrapper; Augment gets none, so
+// validate names it.
 func TestHookRun_StdoutDecisionBlocksOnEveryBeforeToolTarget(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
@@ -43,7 +43,7 @@ func TestHookRun_StdoutDecisionBlocksOnEveryBeforeToolTarget(t *testing.T) {
 	}
 
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, augment]\n")
-	if out, err := runCLI(t, "validate"); err == nil || !strings.Contains(out, "augment runs a hook command only as a bare script path") {
+	if out, err := runCLI(t, "validate"); err == nil || !strings.Contains(out, "sync writes augment hooks without the wrapper") {
 		t.Errorf("validate must name augment: %v\n%s", err, out)
 	}
 }

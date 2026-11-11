@@ -81,7 +81,7 @@ Servers merge into `.augment/settings.json` under `mcpServers`. Stdio uses `comm
 Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported events: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using Auggie's event data, shell, and timeout.
 
 - `timeout` is in **milliseconds**: the spec's seconds times 1000 (vendor default 60000).
-- `command` must be a script ending in `.sh`, `.ps1`, `.cmd`, or `.bat`, because Augment never runs an inline shell string. Other commands are written as is with a sync note. A hook with `args` is skipped with a note, because Augment has no shell to fold them into.
+- `args` is written as its own array, and Auggie runs the command with those arguments and no shell. A command without `args` runs as written: Auggie 1.x hands it to a shell, and 0.x splits it into words or runs it with `bash -c` when it has shell syntax.
 - `matcher` is optional on `PreToolUse` and `PostToolUse` (vendor default `.*`) and left out on the session events.
 - Matchers use Augment's tool names (`launch-process`, `str-replace-editor`, `save-file`, ...). A Claude-style matcher (`Bash`, `Write`, ...) matches nothing and raises a sync note.
 

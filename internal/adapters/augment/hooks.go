@@ -2,7 +2,6 @@ package augment
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -47,15 +46,6 @@ var claudeToolNames = map[string]bool{
 	"Glob": true, "Grep": true, "WebFetch": true, "WebSearch": true,
 }
 
-// scriptExtensions are the four extensions docs.augmentcode.com/cli/hooks'
-// "Script Requirements" section documents as the only ones Augment
-// dispatches: ".sh" runs directly on Unix via its own shebang line,
-// ".ps1" is dispatched to `powershell.exe -Command` on Windows, and
-// ".cmd"/".bat" are dispatched to `cmd.exe /c` on Windows. A command
-// missing one of these four never runs; unlike Claude Code, Codex, or
-// Qoder, Augment does not also accept an inline shell string.
-var scriptExtensions = []string{".sh", ".ps1", ".cmd", ".bat"}
-
 // hookGroup mirrors one `{matcher, hooks}` object inside a
 // `.augment/settings.json` hooks event array. Not the shared
 // claudehooks.Group: that struct's Matcher field has no `omitempty`, so
@@ -71,9 +61,9 @@ type hookGroup struct {
 
 // buildHooksBlock renders the value merged under the top-level `hooks`
 // key in `.augment/settings.json`: `{"<Event>": [{"matcher"?, "hooks":
-// [{"type", "command", "timeout"?}]}]}`. Only three fields are
-// documented on a hook entry (`type`, always "command", the only type a
-// generic command spec can express; `command`; and `timeout`), so this
+// [{"type", "command", "args"?, "timeout"?}]}]}`. A hook entry takes
+// `type` (always "command", the only type a generic command spec can
+// express), `command`, `args`, and `timeout`, so this
 // reuses claudehooks.CommandEntry for that level: every field this
 // adapter never sets (statusMessage, async, shell, ...) stays absent
 // via `omitempty`, the same reuse openhands and qoder already make for
@@ -86,18 +76,18 @@ type hookGroup struct {
 // never sets `timeout` produces 0, which `omitempty` drops, and
 // Augment's own default takes over.
 //
-// `command` reaching the file without a recognized script extension
-// (see scriptExtensions) still emits verbatim, no guessed rename, but
-// buffers a coverage note: Augment silently never runs it. A matcher
-// equal to one of Claude Code's tool names does the same (see
-// claudeToolNames).
+// `args` stays apart: Auggie 1.x runs the command with them and no
+// shell, and 0.37.1 reads the same field. A command without args runs
+// as written; Auggie 1.x hands it to a shell, and 0.37.1 splits it into
+// words or runs it with bash -c. A matcher equal to one of Claude
+// Code's tool names buffers a coverage note (see claudeToolNames).
 //
 // Returns nil when no hook spec produces an entry.
 func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	var keyOrder []matcherKey
-	var badExtension, claudeMatchers, execForm int
+	var claudeMatchers int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -108,10 +98,6 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 		if len(commands) == 0 {
 			continue
 		}
-		if ExecFormHook(h) {
-			execForm++
-			continue
-		}
 		matcher, _ := h.Meta["matcher"].(string)
 		if sessionOnlyEvents[event] {
 			matcher = ""
@@ -119,27 +105,21 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 			claudeMatchers++
 		}
 		timeoutMs := emit.HookIntMeta(h.Meta, "timeout") * 1000
+		args := emit.HookArgs(target, h.Meta)
 
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
 		}
 		for _, command := range commands {
-			command = emit.RewriteHookPath(command, target, h.Meta)
-			if !hasScriptExtension(command) {
-				badExtension++
-			}
 			byKey[k] = append(byKey[k], claudehooks.CommandEntry{
 				Type:    "command",
-				Command: command,
+				Command: emit.RewriteHookPath(command, target, h.Meta),
+				Args:    args,
 				Timeout: timeoutMs,
 			})
 		}
 	}
-	emit.NoteCoverageGap(target, spec.KindHook, execForm,
-		"Augment runs a hook command as a script path, with no shell to read `args` and no field for them, so a hook with `args` is skipped")
-	emit.NoteFieldNoOp(target, spec.KindHook, "command", badExtension,
-		"Augment only runs a hook command that is a path to a script ending in .sh, .ps1, .cmd, or .bat, not an inline shell string; a command missing one of these extensions is written but never executes")
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
 		"Augment names its own tools (launch-process, str-replace-editor, save-file, ...), so a Claude-style matcher parses but matches nothing; use one of Augment's own tool names, `.*`, or a regex over them")
 	if len(keyOrder) == 0 {
@@ -166,28 +146,13 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	return doc
 }
 
-// hasScriptExtension reports whether command ends in one of the four
-// extensions Augment dispatches (see scriptExtensions).
-func hasScriptExtension(command string) bool {
-	for _, ext := range scriptExtensions {
-		if strings.HasSuffix(command, ext) {
-			return true
-		}
-	}
-	return false
-}
-
 // SessionOnlyEvent reports whether event takes no matcher, so a user
 // hooks entry for it leaves the key out, as the vendor examples do.
 func SessionOnlyEvent(event string) bool { return sessionOnlyEvents[event] }
 
-// ExecFormHook reports whether h sets `args`, which Augment cannot run:
-// sync writes no hook for it, in the project or the user settings.
-func ExecFormHook(h spec.Entry) bool { return len(emit.HookArgs(target, h.Meta)) > 0 }
-
-// NoteUserHookGaps raises the coverage notes the project hooks block
-// raises (a command that is not a script path, a Claude-style matcher)
-// for hooks sync --global writes to ~/.augment/settings.json.
+// NoteUserHookGaps raises the coverage note the project hooks block
+// raises for a Claude-style matcher, for hooks sync --global writes to
+// ~/.augment/settings.json.
 func NoteUserHookGaps(hooks []spec.Entry) { buildHooksBlock(hooks) }
 
 // HookTimeout converts a spec's timeout in seconds to the milliseconds

@@ -280,14 +280,3 @@ func buildAugment(event, matcher, root string, in Input) (Payload, error) {
 	}
 	return marshal(p, doc)
 }
-
-// AugmentRuns reports whether Auggie runs command at all: "Path to the
-// script to execute (must use a supported script extension: .ps1, .cmd,
-// .bat, or .sh)".
-func AugmentRuns(command string) bool {
-	switch strings.ToLower(filepath.Ext(strings.TrimSpace(command))) {
-	case ".sh", ".ps1", ".cmd", ".bat":
-		return true
-	}
-	return false
-}

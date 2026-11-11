@@ -1,8 +1,10 @@
 package augment
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -102,10 +104,9 @@ func TestEmit_Hook_ScriptExtensionCommandNoCoverageNote(t *testing.T) {
 	}
 }
 
-// A command with no recognized script extension still emits verbatim
-// (no guessed rename) but surfaces a coverage note: Augment silently
-// never runs it (docs.augmentcode.com/cli/hooks, "Script Requirements").
-func TestEmit_Hook_InlineCommandSurfacesCoverageNote(t *testing.T) {
+// Auggie runs an inline command too: 1.x through a shell, 0.37.1 by
+// splitting it into words or through bash -c. No note.
+func TestEmit_Hook_InlineCommandRaisesNoNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
 	t.Cleanup(emit.ResetCoverageNotes)
@@ -122,8 +123,47 @@ func TestEmit_Hook_InlineCommandSurfacesCoverageNote(t *testing.T) {
 	if !strings.Contains(got, `"command": "gofmt -w"`) {
 		t.Errorf("expected the command to still emit verbatim, got %s", got)
 	}
-	if n := emit.PendingCoverageNotesCount(); n != 1 {
-		t.Errorf("expected one field no-op note for the missing script extension, got %d", n)
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note for an inline command, got %d", n)
+	}
+}
+
+// Auggie 0.37.1 and 1.x both read a handler's `args` and start the
+// command with them and no shell.
+func TestEmit_Hook_ArgsReachTheHandler(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "check", Meta: map[string]any{
+			"event": "PreToolUse", "command": "node", "args": []any{"check.js", "--strict"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Hooks []struct {
+				Command string   `json:"command"`
+				Args    []string `json:"args"`
+			} `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".augment/settings.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	groups := doc.Hooks["PreToolUse"]
+	if len(groups) != 1 || len(groups[0].Hooks) != 1 {
+		t.Fatalf("hooks = %#v", doc.Hooks)
+	}
+	h := groups[0].Hooks[0]
+	if h.Command != "node" || !reflect.DeepEqual(h.Args, []string{"check.js", "--strict"}) {
+		t.Errorf("handler = %#v, want node with its args", h)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note, got %d", n)
 	}
 }
 

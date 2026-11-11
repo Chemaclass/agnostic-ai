@@ -104,14 +104,9 @@
 // hook spec's own `timeout` field is documented in seconds
 // (docs/site/content/docs/spec-format/hooks.md), so this adapter multiplies by 1000
 // before writing it, unlike factory, goose, and qoder's seconds-native
-// renderers; the vendor default when the key is absent is 60000. A
-// hook's `command` must additionally be a path to a script ending in
-// `.sh`, `.ps1`, `.cmd`, or `.bat`: "Path to the script to execute
-// (must use a supported script extension: .ps1, .cmd, .bat, or .sh)".
-// Unlike Claude Code, Codex, and Qoder, Augment never runs an inline
-// shell string; a command missing one of the four extensions still
-// emits verbatim (no guessed rename) but surfaces a coverage note.
-// `matcher` is optional even for `PreToolUse`/`PostToolUse` (vendor
+// renderers; the vendor default when the key is absent is 60000.
+// `args` stays a separate array, which Auggie 0.37.1 and 1.x both run
+// with no shell. `matcher` is optional even for `PreToolUse`/`PostToolUse` (vendor
 // default `.*`) and unused for the three session events, whose own
 // example omits the key outright rather than writing an empty string,
 // so this adapter never sets it there either. Augment's own matcher

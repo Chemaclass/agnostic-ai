@@ -55,7 +55,7 @@ exit 0
 	}
 }
 
-func TestHookRun_AugmentSkipsAnInlineCommand(t *testing.T) {
+func TestHookRun_AugmentRunsAnInlineCommand(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment, trae]\n")
@@ -65,7 +65,7 @@ func TestHookRun_AugmentSkipsAnInlineCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "augment: not run (Augment runs only a hook command that is a .sh") {
+	if strings.Contains(out, "augment: not run") || !strings.Contains(out, "augment: allow") {
 		t.Errorf("output = %s", out)
 	}
 }

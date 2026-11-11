@@ -19,7 +19,7 @@ func RewriteHookPath(cmd, target string, metadata ...map[string]any) string {
 		return cmd
 	}
 	meta := hookRootMeta(target, metadata)
-	return RewriteHookRoot(RewriteHookDirectories(cmd, target, len(StringSlice(meta["args"])) > 0 || target == "augment"), target, metadata...)
+	return RewriteHookRoot(RewriteHookDirectories(cmd, target, len(StringSlice(meta["args"])) > 0), target, metadata...)
 }
 
 func RewriteHookDirectories(cmd, target string, literal ...bool) string {
@@ -165,7 +165,7 @@ func rewriteHookPathPrefix(command, prefix, dir string, directPath bool, literal
 
 func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[string]any) string {
 	meta := hookRootMeta(target, metadata)
-	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
+	literal := len(StringSlice(meta["args"])) > 0
 	command = stripNeutralHookRoots(command, literal)
 	if target == "grok" {
 		command = stripHookPathRoots(command, HookScriptsDir(target)+"/", literal)
