@@ -132,10 +132,11 @@ effort:
 | vibe | `~/.vibe/config.toml` | `active_model` |
 | kimi | `~/.kimi-code/config.toml` | `default_model`, `default_plan_mode`, `telemetry` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
+| augment | `~/.augment/settings.json` | `defaultModel`, `defaultThinkingLevel` (Auggie 1.x) |
 
-Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini and Kimi Code. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`. Except for Kiro CLI's literal dotted keys, a dotted key is a nested JSON object: for `model.name`, sync sets `name` inside `model` and leaves the other keys alone.
+Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini and Kimi Code. Augment also takes `x-augment` keys, such as `shell`. Except for Kiro CLI's literal dotted keys, a dotted key is a nested JSON object: for `model.name`, sync sets `name` inside `model` and leaves the other keys alone.
 
-Accepted `effort` values: Claude and Copilot take `low`, `medium`, `high`, `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max`; Codex takes any string; for CodeBuddy Code see [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits). `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+Accepted `effort` values: Claude and Copilot take `low`, `medium`, `high`, `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max`; Augment takes `off`, `minimal`, `low`, `medium`, `high`, `xhigh`; Codex takes any string; for CodeBuddy Code see [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits). `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
 
 Claude Code reads `effortLevel` in `~/.claude/settings.json` on Opus 5, Fable 5.1, and earlier models only. Opus 5.5 and later models ignore it and need a level saved per model with `/effort`. `sync --global` writes the key and prints a note. In project settings, `effortLevel` applies to every model.
 

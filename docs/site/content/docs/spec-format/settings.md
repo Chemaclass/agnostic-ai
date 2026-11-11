@@ -180,10 +180,11 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 ## Effort by target
 
-`effort` reaches the tools below. A value the tool does not accept, or `effort` on any other tool, raises a sync note instead. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. `import` fills `effort` from these keys when the tool accepts the value and no other settings spec for that tool sets it; otherwise the value goes under `x-<target>`. Kimi import does not read effort.
+`effort` reaches the tools below. A value the tool does not accept, or `effort` on any other tool, raises a sync note instead. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. `import` fills `effort` from these keys when the tool accepts the value and no other settings spec for that tool sets it; otherwise the value goes under `x-<target>`. Augment and Kimi import do not read effort.
 
 | Target | Native key | Accepted values |
 |---|---|---|
+| Augment | `defaultThinkingLevel` in `.augment/settings.json`, read by Auggie 1.x | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` |
 | Claude Code | `effortLevel` in `.claude/settings.json` | `low`, `medium`, `high`, `xhigh` |
 | Copilot | `effortLevel` in `.github/copilot/settings.json` | `low`, `medium`, `high`, `xhigh` |
 | Codex | `model_reasoning_effort` in `.codex/config.toml` | any string; `outputs.codex.config.model-reasoning-effort` and the captured overlay win |
@@ -201,7 +202,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 | Factory | `Bash` rules only; `ask` goes to `commandDenylist` (which prompts), `deny` to `commandBlocklist` | yes |
 | Codex | `Bash` rules via `outputs.codex.exec-policies-from-permissions` ([translation](@/docs/targets/codex-reference.md#translate-bash-permissions)); otherwise a note | yes |
 | Windsurf | yes | no |
-| Augment | `allow` and `deny` only, for whole `read`, `edit`, and `write` tools | no |
+| Augment | `allow` and `deny` only, for whole `read`, `edit`, and `write` tools | `defaultModel`, read by Auggie 1.x |
 | Cursor | `allow` and `deny` in `.cursor/cli.json`, for the Cursor CLI ([details](@/docs/targets/cursor.md#permissions)) | no |
 | Copilot, Junie, Gemini, Kiro | no; Copilot, Junie, and Kiro report the whole policy in a note | yes |
 

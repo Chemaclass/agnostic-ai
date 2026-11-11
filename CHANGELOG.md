@@ -28,6 +28,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - LINT061 warns when a target ignores its `outputs.<target>.rules-mode` value (#3243).
 - Builds use Go 1.27.4 to fix the `net/http` vulnerability [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859).
 
+### By tool
+
+#### Augment
+
+- Settings `model` and `effort` write Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; Auggie 0.x ignores both keys (#3265).
+
 ### Site
 
 - `serve`, the local API, `companion`, `doctor`, `import`, and the `sync` and `gitignore` settings have their own reference pages; old links redirect.

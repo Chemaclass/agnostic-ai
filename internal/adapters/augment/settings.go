@@ -2,6 +2,7 @@ package augment
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -28,8 +29,30 @@ const askNoTypeReason = "Augment's permission types are allow, deny, webhook-pol
 // into every file on disk.
 const rulesUnmappableReason = "rule(s) scoping a path or URL have no Augment matcher (only terminal takes one, shellInputRegex), so flattening them would widen the rule; set x-augment.toolPermissions for those"
 
-// modelNoKeyReason explains why a portable model reaches nothing here.
-const modelNoKeyReason = "no vendor-documented model key in .augment/settings.json"
+// effortLevels are the values Auggie 1.x lists for defaultThinkingLevel.
+var effortLevels = []string{"off", "minimal", "low", "medium", "high", "xhigh"}
+
+// SettingsEffortLevels lists the values defaultThinkingLevel accepts.
+func (Adapter) SettingsEffortLevels() []string { return effortLevels }
+
+// mergeSettingsDefaults writes the portable model and effort as Auggie
+// 1.x's defaultModel and defaultThinkingLevel. Auggie 0.x drops both
+// unknown keys and still loads the rest of the file.
+func mergeSettingsDefaults(keys map[string]any, settings []spec.Entry) {
+	if model := emit.SettingsModel(settings, target); model != "" {
+		keys["defaultModel"] = model
+	}
+	if level := emit.SettingsEffortLevel(settings, target, effortLevels); level != "" {
+		keys["defaultThinkingLevel"] = level
+	}
+}
+
+// hasSettingsDefaults reports whether mergeSettingsDefaults writes a
+// key, without raising its coverage note.
+func hasSettingsDefaults(settings []spec.Entry) bool {
+	level, _ := emit.SettingsEffort(settings, target).(string)
+	return emit.SettingsModel(settings, target) != "" || slices.Contains(effortLevels, level)
+}
 
 // buildToolPermissions renders the portable allow and deny lists as
 // Augment's ordered rule array, and reports how many settings specs
@@ -142,20 +165,16 @@ func mcpToolName(rule string) (string, bool) {
 }
 
 // noteSettingsGaps records the portable settings fields that reach
-// nothing on Augment: `model`, which has no documented key in this
-// file, and the `ask` list, which has no permission type there.
+// nothing on Augment: the `ask` list, which has no permission type
+// there, and rules with no Augment matcher.
 func noteSettingsGaps(settings []spec.Entry, droppedRules int) {
-	model, ask := 0, 0
+	ask := 0
 	for _, entry := range settings {
-		if emit.SettingsModel([]spec.Entry{entry}, target) != "" {
-			model++
-		}
 		permissions, _ := entry.Meta["permissions"].(map[string]any)
 		if len(emit.StringSlice(permissions["ask"])) > 0 {
 			ask++
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindSettings, "model", model, modelNoKeyReason)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions.ask", ask, askNoTypeReason)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", droppedRules, rulesUnmappableReason)
 }

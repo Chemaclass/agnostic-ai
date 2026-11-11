@@ -138,9 +138,11 @@
 // load-bearing too ("first match wins"), so deny rules emit ahead of
 // allow rules; see buildToolPermissions.
 //
-// Three portable things reach nothing here and each surfaces a
-// coverage note rather than a guess. `model` has no documented key in
-// this file. The `ask` list has no Augment permission type: the four
+// The portable `model` and `effort` become `defaultModel` and
+// `defaultThinkingLevel`, which Auggie 1.x reads and 0.x ignores.
+//
+// Two portable things reach nothing here and each surfaces a
+// coverage note rather than a guess. The `ask` list has no Augment permission type: the four
 // are allow, deny, webhook-policy, and script-policy, and none of them
 // prompts. And a path- or URL-scoped rule such as `Read(src/**)` has
 // no Augment matcher, since only `terminal` takes one
@@ -178,16 +180,18 @@ const (
 	defaultCommandsDir = ".augment/commands"
 	defaultIgnoreFile  = ".augmentignore"
 	// defaultSettingsFile is the project-tier settings file (see the
-	// package doc). This adapter sets the `mcpServers`, `hooks`, and
-	// `toolPermissions` keys on it; every other key (shell,
+	// package doc). This adapter sets the `mcpServers`, `hooks`,
+	// `toolPermissions`, `defaultModel`, and `defaultThinkingLevel`
+	// keys on it; every other key (shell,
 	// startupScript, theme, plugin keys) is left alone by
 	// emit.MergeJSONFile.
 	defaultSettingsFile = ".augment/settings.json"
 )
 
 var caps = emit.Capabilities{
-	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	Target:         target,
+	Supports:       []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	SettingsFields: []string{"effort"},
 }
 
 // Adapter emits Augment configs.
@@ -210,7 +214,7 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 	keys := map[string]any{}
 	emit.MergeSettingsCustomKeys(keys, settings, target, toolPermissionsKey, mcpServersKey)
 	emit.MergeSettingsCustomRecordMap(keys, settings, target, mcpServersKey)
-	return len(permissions) > 0 || len(keys) > 0
+	return len(permissions) > 0 || len(keys) > 0 || hasSettingsDefaults(settings)
 }
 
 // Emit writes one `.augment/rules/<name>.md` per rule, one
@@ -324,6 +328,7 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	if len(rules) > 0 {
 		keys[toolPermissionsKey] = rules
 	}
+	mergeSettingsDefaults(keys, settings)
 	// An `x-augment` block on a settings spec carries the keys this
 	// adapter does not model, `shell` and `startupScript` among them,
 	// into the same write. `toolPermissions` is excluded:
