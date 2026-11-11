@@ -872,4 +872,7 @@
 # of #3234; the budget is that plus 8192, rounded up to a multiple of 4096.
 # Both together measured 25764000 bytes locally on Go 1.27.4; the budget
 # is that plus 8192, rounded up to a multiple of 4096.
-25776128
+# #3247 rebuilds the installed companion on upgrade; with main it
+# measured 25772192 bytes locally; the budget is that plus 8192, rounded
+# up to a multiple of 4096.
+25784320
