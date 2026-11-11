@@ -60,7 +60,7 @@ export const readPreferences = () => call('/api/preferences')
 export const saveShortcut = (shortcut) => post('/api/preferences/shortcut', { shortcut })
 export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-login', { enabled })
 
-/** How the pages look: {animate}. */
+/** How the pages look: {animate, dimWhenIdle}. */
 export const readAppearance = () => call('/api/appearance')
 
 /** Opens the full web interface in the browser. */

@@ -102,6 +102,10 @@ are at the top:
   off, a still ring shows that an agent is working, and the number keeps
   updating. Hover and press feedback stay. Your system's reduce motion setting
   still applies when it is on.
+- **Dim when idle** fades the circle while nothing needs you, so it stays out
+  of your way. It comes back to full color when you point at it, even with
+  another app in front, and while any conversation needs you. A working agent
+  alone does not bring it back. It stays easy to click and drag while faded.
 
 ## Stop it and remove it
 
@@ -195,8 +199,8 @@ Both are in the `agnostic-ai` folder of your user configuration folder
 - `conversation-marks.json`: what you saw, what you archived and the names
   you gave chats, shared with `agnostic-ai serve`. Tool names, ids, times
   and those names only, never chat text.
-- `companion.json`: where you left the circle, your shortcut, and whether it
-  animates.
+- `companion.json`: where you left the circle, your shortcut, whether it
+  animates, and whether it dims when idle.
 
 ## When it reads
 
@@ -223,13 +227,14 @@ What you see is never older than this:
 - `server.go`: starts and stops the companion's `agnostic-ai serve`, and calls it.
 - `inbox.go`: asks the server every 5 seconds whether the list changed, keeps the latest one, and hands the pages' opens and marks to the server.
 - `preferences.go`: the shortcut and the start-at-login setting.
-- `appearance.go`: the circle's right-click menu and the animation setting.
+- `appearance.go`: the circle's right-click menu and the animation and dim settings.
+- `hover_darwin.go`: tells the circle on macOS when the pointer is over it, even while another app is in front.
 - `dashboard.go`: opens the full web interface.
 - `place.go`: where the list opens beside the circle, and whether a saved place is still on a screen.
 - `settings.go`: what the companion remembers between runs.
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
   `model.js` holds the logic and has no DOM in it. `look.js` turns your
-  settings into how the pages look, and `motion.js` applies it to each page.
+  settings into how the pages look, and `motion.js` applies both choices to each page.
 
 This folder is its own Go module, so [Wails](https://wails.io), which draws the
 windows, is not a dependency of the `agnostic-ai` command and adds nothing to

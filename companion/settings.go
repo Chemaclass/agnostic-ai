@@ -23,6 +23,8 @@ type settings struct {
 	Shortcut string `json:"shortcut,omitempty"`
 	// Animate is whether the circle and the list move; nil means they do.
 	Animate *bool `json:"animate,omitempty"`
+	// DimWhenIdle fades the circle while nothing needs the person.
+	DimWhenIdle bool `json:"dimWhenIdle,omitempty"`
 }
 
 // shortcut is the saved shortcut, or the default before one was saved.

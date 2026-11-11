@@ -1,13 +1,14 @@
-// Sets data-motion on the page, from the person's choice, and keeps it current.
-// Each change is announced as a `motion` event on the document.
+// Sets data-motion and data-dim on the page, from the person's choices, and keeps
+// them current. Each change is announced as a `motion` event on the document.
 import { Events } from '/wails/runtime.js'
 import { CallError, readAppearance } from '/api.js'
-import { motionOf } from '/look.js'
+import { dimOf, motionOf } from '/look.js'
 
 let told = false
 
 function apply(appearance) {
   document.documentElement.dataset.motion = motionOf(appearance)
+  document.documentElement.dataset.dim = dimOf(appearance)
   document.dispatchEvent(new Event('motion'))
 }
 
