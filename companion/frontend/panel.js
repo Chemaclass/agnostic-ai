@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
+import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -140,7 +140,7 @@ function stateMark(conversation) {
   return element('span', 'state is-' + (MARK_OF[conversation.state] ?? conversation.state))
 }
 
-function rowOf(conversation, order) {
+function rowOf(conversation, order, folderNames) {
   const key = keyOf(conversation)
   const needsYou = conversation.state === 'blocked' || conversation.state === 'unread'
   const quiet = conversation.state === 'completed' || conversation.state === 'dormant'
@@ -152,7 +152,8 @@ function rowOf(conversation, order) {
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
   row.setAttribute('role', 'option')
   row.setAttribute('aria-selected', String(key === state.activeKey))
-  row.title = conversation.open.label
+  row.title = conversation.folder ? conversation.open.label + '\n' + conversation.folder : conversation.open.label
+  if (conversation.folder) row.setAttribute('aria-description', row.title)
 
   const text = element('div', 'text')
   const renaming = state.renaming?.key === key ? state.renaming : undefined
@@ -172,7 +173,7 @@ function rowOf(conversation, order) {
     if (reason) {
       meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
     }
-    meta.append(detailsOf(conversation, now))
+    meta.append(detailsOf(conversation, now, folderNames))
   }
   text.append(meta)
 
@@ -311,12 +312,13 @@ function draw({ force } = { force: false }) {
     if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
     return
   }
+  const folderNames = folderNamesOf(view.conversations.map((conversation) => conversation.folder))
   let order = 0
   for (const group of groups) {
     list.append(groupHead(group))
     if (isFolded(group)) continue
     for (const conversation of group.rows) {
-      list.append(rowOf(conversation, order))
+      list.append(rowOf(conversation, order, folderNames))
       order += 1
     }
   }
