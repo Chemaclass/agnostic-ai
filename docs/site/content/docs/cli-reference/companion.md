@@ -74,7 +74,7 @@ Right-click a chat under Archived and choose **Delete permanently…**. The conf
 | Chat | Can be deleted |
 |------|----------------|
 | Claude Code, on this computer | Yes |
-| Codex | Not yet. Run `codex delete <id>` in a terminal. |
+| Codex | No. Codex deletes a thread even while it is open. Close it first, then run `codex delete <id>` in a terminal. |
 | Cursor editor chat | No. Cursor keeps every chat in one shared database. Delete it in Cursor. |
 | `cursor-agent` | Not yet. |
 | Any cloud session | No. Delete it where it runs. |

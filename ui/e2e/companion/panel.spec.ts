@@ -456,7 +456,7 @@ test('a chat the server cannot delete says why and sends nothing', async ({ page
   await deleteItem(page).click()
 
   await expect(deleteDialog(page)).toBeHidden()
-  await expect(page.getByRole('region', { name: 'Why it cannot be deleted' })).toContainText('Deleting Codex threads from here is not supported yet.')
+  await expect(page.getByRole('region', { name: 'Why it cannot be deleted' })).toContainText('Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open.')
   await expect(row(page, 'Bump the Go version')).toBeVisible()
   expect(sent).toEqual([])
 })

@@ -9,7 +9,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - The companion and the web interface show the agent's latest reply under each chat's title: the question it asks, or the start of its last message. Local Claude Code and Codex chats show it; Cursor chats and cloud sessions do not yet. `reply` holds it in the API, and a search matches it (#3283).
-- Delete an archived Claude Code chat for good from the companion's right-click menu, after a confirmation: its transcript, subagent transcripts, tool output, file backups and pasted images leave the disk. Other tools say why they cannot be deleted yet (#3275).
+- The new `wrap-up` built-in adds a skill that ends a session with what changed, what is still open, and a note to share; `handoff` now points to it (#3284).
+- Delete an archived Claude Code chat for good from the companion's right-click menu, after a confirmation: its transcript, subagent transcripts, tool output, file backups and pasted images leave the disk. Other tools say why they cannot be deleted (#3275).
 - The companion and the web interface show a `cursor-agent` chat that still runs as open. Opening it switches to its terminal instead of starting a second copy (#3274).
 - The web interface no longer offers Copy command on a session that still runs; running it would start a second copy (#3272).
 - `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3262).

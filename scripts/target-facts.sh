@@ -248,6 +248,7 @@ tests/integration/builtin
 tests/integration/fixtures/builtin-
 tests/integration/fixtures/golden/builtin-
 docs/site/content/docs/handoff.md
+docs/site/content/docs/wrap-up.md
 docs/site/content/docs/configuration.md
 docs/site/content/docs/global-configuration.md
 docs/site/content/docs/spec-format/hooks.md

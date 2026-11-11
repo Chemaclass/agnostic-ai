@@ -42,6 +42,7 @@ export const BUILTIN_OWNERS: Record<string, string> = {
   'antigravity-memory-index': 'memory',
   caveman: 'caveman',
   handoff: 'handoff',
+  'wrap-up': 'wrap-up',
 }
 
 export function builtinOwner(source: string): string | undefined {
