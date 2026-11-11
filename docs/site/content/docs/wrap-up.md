@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Session wrap-ups
 
-Use the built-in `wrap-up` skill to end a session with a short summary for people. To pass a task to the next agent instead, use a [session handoff](@/docs/handoff.md).
+Use the built-in `wrap-up` skill to end a session with a short summary for people. To pass a task to the next agent instead, use a [session handoff](@/docs/handoff.md). To start a second task while this one goes on, use a [side conversation](@/docs/side-conversation.md).
 
 ## Enable the skill
 

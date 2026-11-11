@@ -7,7 +7,7 @@ description: Write an end-of-session summary for people. Use when asked to "wrap
 
 Write a short end-of-session summary for people when the user asks to "wrap up" or "write a wrap-up". Never run at session start, at session end, or after a task without a request.
 
-A wrap-up is for people, when the work ends. For the next agent that continues the work, use the `handoff` skill if it is installed.
+A wrap-up is for people, when the work ends. For the next agent that continues the work, use the `handoff` skill if it is installed. To start a second task in its own conversation, use the `side-conversation` skill if it is installed.
 
 ## Gather
 

@@ -29,7 +29,13 @@ const (
 
 // injectedBlocks are wrappers a tool adds around or beside what the
 // person typed: editor context, reminders, command output.
-var injectedBlocks = regexp.MustCompile(`(?s)<(system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions)\b[^>]*>.*?</(?:system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions)>`)
+const injectedNames = `system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions`
+
+var injectedBlocks = regexp.MustCompile(`(?s)<(` + injectedNames + `)\b[^>]*>.*?</(?:` + injectedNames + `)>`)
+
+// injectedTag is an open or close tag of an injected block that removal
+// left behind: a block nested in another ends the match early.
+var injectedTag = regexp.MustCompile(`</?(` + injectedNames + `)\b[^>]*>`)
 
 // typedWrappers hold what the person typed: keep their content.
 var typedWrappers = regexp.MustCompile(`</?(user_query|command-name|command-args)\b[^>]*>`)
@@ -149,24 +155,41 @@ type texts struct {
 }
 
 // shownTexts are what a row shows of its texts once any that may hold a
-// credential are withheld.
+// credential are withheld, and the conversation its link line names.
 type shownTexts struct {
 	title    string
 	opening  []string
 	prompt   string
 	reply    string
 	withheld []string
+	parent   *Ref
 }
 
 // showTexts withholds any text that may hold a credential. A row with no
-// title takes the first line of its first prompt.
-func showTexts(t texts) shownTexts {
+// title takes the first line of its first prompt. A link line at the
+// start of the first prompt names the parent and is cut from the title,
+// the opening and the latest prompt; the credential check still reads
+// the whole prompt.
+func showTexts(t texts) shownTexts { return showTextsOf(t, true) }
+
+func showTextsOf(t texts, readLinks bool) shownTexts {
 	var shown shownTexts
 	first := typedText(t.firstPrompt)
 	last := typedText(t.lastPrompt)
 	title := oneLine(t.title)
-	if title == "" && first != "" {
-		title = strings.SplitN(first, "\n", 2)[0]
+	opening := first
+	// An id that may be a credential is no parent: the API would serve
+	// it while the texts that hold it are withheld.
+	if ref, rest, ok := linkOf(t.firstPrompt); ok && readLinks && !mayHoldCredential(linkLine(ref)) {
+		shown.parent = &ref
+		opening = typedText(rest)
+		title = cutLink(title, ref)
+		if again, rest, ok := linkOf(t.lastPrompt); ok && again == ref {
+			last = typedText(rest)
+		}
+	}
+	if title == "" && opening != "" {
+		title = strings.SplitN(opening, "\n", 2)[0]
 	}
 
 	if mayHoldCredential(title) {
@@ -178,7 +201,7 @@ func showTexts(t texts) shownTexts {
 		if mayHoldCredential(typedLayout(t.firstPrompt)) || mayHoldCredential(first) {
 			shown.withheld = append(shown.withheld, FieldOpening)
 		} else {
-			shown.opening = openingOf(first)
+			shown.opening = openingOf(opening)
 		}
 	}
 	if last != "" {
@@ -242,12 +265,17 @@ func (c *shownCache) get(t texts) shownTexts {
 	return shown
 }
 
-// fill sets the row's title, opening, prompt and reply from t. The
+// fill sets the row's title, opening, prompt, reply and parent from t. The
 // reply is looked up on its own: a working agent writes a new one every
 // few seconds, which must not check the other texts again.
 func (s *Scanner) fill(c *Conversation, t texts) {
-	shown := s.shown.get(texts{title: t.title, firstPrompt: t.firstPrompt, lastPrompt: t.lastPrompt})
-	c.Title, c.Opening, c.Prompt, c.Withheld = shown.title, shown.opening, shown.prompt, shown.withheld
+	prompts := texts{title: t.title, firstPrompt: t.firstPrompt, lastPrompt: t.lastPrompt}
+	shown := s.shown.get(prompts)
+	if shown.parent != nil && *shown.parent == (Ref{Tool: c.Tool, ID: c.ID}) {
+		// A conversation cannot continue itself: its line stays text.
+		shown = showTextsOf(prompts, false)
+	}
+	c.Title, c.Opening, c.Prompt, c.Withheld, c.Parent = shown.title, shown.opening, shown.prompt, shown.withheld, shown.parent
 	if t.reply != "" || t.question != "" {
 		said := s.shown.get(texts{reply: t.reply, question: t.question})
 		c.Reply = said.reply

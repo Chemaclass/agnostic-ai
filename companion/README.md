@@ -68,6 +68,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - Under its title, a row shows the agent's latest reply in one line: the
   question it asks you, or the start of its last message. Local Claude Code
   and Codex chats show it. Cursor chats and cloud sessions do not yet.
+- A chat started with `agnostic-ai conversations start` names the chat it
+  came from. The list reads that link, but does not yet show the new chat
+  under its parent.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
   A running chat comes up in the Terminal or Ghostty tab that runs it, ready
   for typing. When only the app can come forward, the list comes back and

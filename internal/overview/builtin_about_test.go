@@ -38,3 +38,16 @@ func TestBuiltinAbout_UnknownBuiltinHasNone(t *testing.T) {
 		t.Error("unknown built-in got an about, want none")
 	}
 }
+
+func TestBuiltinItems_SideConversationClaimsNoNestedRowsYet(t *testing.T) {
+	for _, item := range builtinItems(Inputs{}) {
+		if item.Name != "side-conversation" {
+			continue
+		}
+		for _, text := range append([]string{item.Description, item.About.Summary}, item.About.Points...) {
+			if strings.Contains(text, "under this one") {
+				t.Errorf("text %q promises a nested row the list does not draw yet", text)
+			}
+		}
+	}
+}

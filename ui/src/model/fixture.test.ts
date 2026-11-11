@@ -57,7 +57,7 @@ describe(`overview fixture (${OVERVIEW_FIXTURE})`, () => {
 
   it('lists every built-in with its state', () => {
     const builtins = overview.sections.find((s) => s.id === 'settings')?.items.filter((it) => it.kind === 'builtin') ?? []
-    expect(builtins.map((b) => b.name)).toEqual(expect.arrayContaining(['memory', 'handoff', 'handoff-hook', 'rtk', 'caveman', 'wrap-up']))
+    expect(builtins.map((b) => b.name)).toEqual(expect.arrayContaining(['memory', 'handoff', 'handoff-hook', 'rtk', 'caveman', 'side-conversation', 'wrap-up']))
     for (const b of builtins) expect(typeof b.enabled, b.name).toBe('boolean')
   })
 
