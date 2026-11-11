@@ -13,7 +13,7 @@ and an upgrade of agnostic-ai is an upgrade of what the companion shows.
 ## Get it
 
 ```sh
-agnostic-ai companion install     # build it on this machine; again after each upgrade
+agnostic-ai companion install     # build it on this machine
 agnostic-ai companion             # start it
 agnostic-ai companion stop        # end it
 agnostic-ai companion uninstall   # remove it from this machine
@@ -34,6 +34,14 @@ Codex and Cursor chats need the `sqlite3` command, as in the web interface.
 To work on the companion itself, from the repository root: `make companion-run`
 builds it and the CLI and starts it on that CLI. `make companion` only builds
 `bin/agnostic-ai-companion`.
+
+## Upgrade
+
+`agnostic-ai upgrade` also rebuilds an installed companion from the updated CLI's commit. It prints each build step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
+
+If the companion update fails, the CLI stays upgraded and the old companion stays usable. The command explains the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
+
+After upgrading directly through Homebrew or npm, run `agnostic-ai companion install`. On the next companion/server start, the panel shows a notice if their versions differ, with that command. Starting through `agnostic-ai companion` also prints a warning. A companion and server already running before an external upgrade can keep their old versions until restarted.
 
 ## Use it
 

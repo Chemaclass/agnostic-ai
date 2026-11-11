@@ -20,7 +20,7 @@ agnostic-ai companion stop
 agnostic-ai companion uninstall
 ```
 
-The companion is a separate program that is built on your machine. Run `companion install` first, and again after each upgrade of agnostic-ai. It builds the companion from the same commit as the `agnostic-ai` you run and prints each step. It needs:
+The companion is a separate program that is built on your machine. Run `companion install` first. `agnostic-ai upgrade` then rebuilds an installed companion when its version differs. It builds the companion from the same commit as the `agnostic-ai` you run and prints each step. It needs:
 
 | System | Status | Needs |
 |--------|--------|-------|
@@ -56,6 +56,14 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - **Hide Agnostic AI companion**, in the list's ⋯ menu, takes the circle off the screen and stops that server. Nothing is read or asked until the shortcut brings the companion back.
 - **Animate companion**, in the circle's right-click menu, turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
 - **Dim when idle**, in the same menu, fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
+
+## Upgrade the companion
+
+`agnostic-ai upgrade` uses the updated CLI to rebuild an installed companion. It prints progress and restarts the companion only if it was running. Settings and Start at login stay as they were. It does not build a companion if none is installed. `upgrade --check` and `upgrade --requires` do not rebuild it.
+
+A companion update failure leaves the CLI upgraded and the old companion usable. The error names the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
+
+After a direct Homebrew or npm upgrade, run `agnostic-ai companion install`. A fresh companion/server start shows a panel notice when their versions differ, including the command to run. Starting through the CLI also prints a warning. A companion and server already running before an external upgrade can keep their old versions until restarted.
 
 ## Cloud sessions {#claude-code-cloud-sessions}
 

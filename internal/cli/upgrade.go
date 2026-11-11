@@ -112,13 +112,14 @@ func newUpgradeCmd() *cobra.Command {
 }
 
 type upgradeDeps struct {
-	detect  func(string) (upgradeInfo, error)
-	run     func(io.Writer, string) error
-	install func(io.Writer, string, string, string, *http.Client) error
+	companion *upgradeCompanionDeps
+	detect    func(string) (upgradeInfo, error)
+	run       func(io.Writer, string) error
+	install   func(io.Writer, string, string, string, *http.Client) error
 }
 
 func defaultUpgradeDeps() upgradeDeps {
-	return upgradeDeps{detect: detectUpgrade, run: execShell, install: installReleaseBinary}
+	return upgradeDeps{detect: detectUpgrade, run: execShell, install: installReleaseBinary, companion: defaultUpgradeCompanionDeps()}
 }
 
 func newUpgradeCmdWithDeps(deps upgradeDeps) *cobra.Command {
@@ -144,7 +145,9 @@ binary) and upgrades it to the latest release. Package-manager installs
 use their package manager. Standalone binaries on macOS and Linux are
 downloaded, verified against release checksums and, when the GitHub CLI
 (gh) is installed and logged in, against the release's build provenance,
-then replaced in place.
+then replaced in place. An installed companion is rebuilt through the updated
+CLI and restarted if it was running. A companion update failure leaves the
+CLI upgrade installed and gives a command to retry the companion update.
 
 Pass --version to install one specific release instead of the latest,
 which is how a project pinned to an older version gets there in one
@@ -232,6 +235,32 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 	if err != nil {
 		return err
 	}
+	want := requestedVersion
+	if want == "" {
+		want = info.Latest
+	}
+	willInstall := !checkOnly && (want == "" || !versionsEqual(info.Version, want))
+	var installed bool
+	var companionErr error
+	if willInstall && deps.companion != nil {
+		installed, companionErr = deps.companion.installed()
+	}
+	if err := runDetectedUpgrade(out, checkOnly, requestedVersion, info, deps); err != nil {
+		return err
+	}
+	if !willInstall || deps.companion == nil {
+		return nil
+	}
+	if companionErr == nil && installed {
+		companionErr = refreshUpgradedCompanion(out, info, want, *deps.companion)
+	}
+	if companionErr != nil {
+		return &companionUpgradeError{cause: companionErr}
+	}
+	return nil
+}
+
+func runDetectedUpgrade(out io.Writer, checkOnly bool, requestedVersion string, info upgradeInfo, deps upgradeDeps) error {
 	printUpgradeInfo(out, info, requestedVersion)
 	if checkOnly {
 		return nil

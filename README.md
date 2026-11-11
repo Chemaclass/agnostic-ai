@@ -64,6 +64,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [Import an existing setup](https://agnostic-ai.org/docs/migration/): review your current tool files before the first sync.
 - [What you can share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when): rules, skills, agents, hooks, MCP servers, settings, and memory.
 - [Supported tools](https://agnostic-ai.org/docs/targets/): what each tool receives, and where.
+- [Use the floating companion](https://agnostic-ai.org/docs/cli-reference/companion/): `agnostic-ai upgrade` also rebuilds your installed companion.
 - [Open the web interface](https://agnostic-ai.org/docs/cli-reference/serve/#serve): view context size and edit hooks, MCP servers, and settings with `agnostic-ai ui`.
 - [Save a session handoff](https://agnostic-ai.org/docs/handoff/): switch tools mid-task, or automate Git snapshots with Claude hooks.
 - [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` names its source.

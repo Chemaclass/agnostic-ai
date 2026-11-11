@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `upgrade` rebuilds an installed companion with the new CLI and restarts it if it was running; failed builds keep the old companion usable (#3247).
 - Right-click the companion's circle to turn its animation off or dim it while nothing needs you; both choices are kept (#3237, #3246).
 - `memory import --skip <file>` and `--skip-rest` decline facts you do not want, so LINT043 stops counting them; the dry run shows each fact's state (#3235).
 - Right-click a chat in the companion and choose Rename; the web interface shows the same name and search finds it (#3236).

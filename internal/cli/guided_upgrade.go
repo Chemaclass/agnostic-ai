@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -110,10 +111,8 @@ func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 			info.Latest = latest
 			deps := defaultUpgradeDeps()
 			deps.detect = func(string) (upgradeInfo, error) { return info, nil }
-			if err := runUpgradeWithDeps(out, false, "", current, deps); err != nil {
-				return "", err
-			}
-			return info.LinkPath, nil
+			err = runUpgradeWithDeps(out, false, "", current, deps)
+			return info.LinkPath, err
 		},
 		run: runUpdatedBinary,
 	}
@@ -162,7 +161,11 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 	}
 	path, err := deps.install(out, current, offer.Latest)
 	if err != nil {
-		return true, fmt.Errorf("guided upgrade installation failed; project migrations did not start. Run agnostic-ai upgrade to retry: %w", err)
+		var companionErr *companionUpgradeError
+		if !errors.As(err, &companionErr) {
+			return true, fmt.Errorf("guided upgrade installation failed; project migrations did not start. Run agnostic-ai upgrade to retry: %w", err)
+		}
+		_, _ = fmt.Fprintln(out, companionErr)
 	}
 	actual, err := deps.run(path, "", []string{"--version"}, io.Discard)
 	fields := strings.Fields(actual)
