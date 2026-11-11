@@ -376,7 +376,12 @@ func shellQuote(path string) string {
 }
 
 // resumeIn runs command in folder, or as is when the folder is unknown.
+// A folder with control characters gives no line: a person who copies
+// it would paste them into a terminal.
 func resumeIn(folder, command string) string {
+	if hasControl(folder) {
+		return ""
+	}
 	if folder == "" {
 		return command
 	}

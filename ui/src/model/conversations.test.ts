@@ -223,6 +223,8 @@ describe('conversation words', () => {
     const terminal = { kind: 'terminal', label: 'Open in Terminal', command: 'claude --resume a' } as const
     expect(rowCommand(focus)).toBeUndefined()
     expect(rowCommand(terminal)).toBe('claude --resume a')
+    expect(rowCommand({ kind: 'terminal', label: 'Open in Terminal' })).toBeUndefined()
+    expect(replyCommand({ opened: false, message: 'Its folder name holds control characters.' }, { kind: 'terminal', label: 'Open in Terminal' })).toBeUndefined()
     expect(replyCommand({ opened: false, message: 'The session ended; no terminal app found.', command: 'claude --resume a' }, focus)).toBe('claude --resume a')
   })
 })

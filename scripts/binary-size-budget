@@ -891,4 +891,8 @@
 # Code and Codex readers and the rebuilt web bundle) measured 25866400
 # bytes locally on 2026-11-11, 28672 above main c30c8e29; the budget is
 # that plus 8192, rounded up to a multiple of 4096.
-25878528
+# #3285 (conversations start, the brief runner, the side-conversation
+# built-in and the rebuilt web bundle) measured 25911456 bytes locally on
+# 2026-11-11; the budget is that plus 8192, rounded up to a multiple of
+# 4096.
+25923584
