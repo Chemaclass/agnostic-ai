@@ -149,6 +149,35 @@ func TestStart_QuotesAFolderAndBinaryWithSpacesAndQuotes(t *testing.T) {
 	if call := start.launcher.calls[0]; !strings.HasPrefix(call, `new tab Ghostty cd '/tmp/it'\''s here' && '/Apps/my tools/agnostic-ai' conversations run `) {
 		t.Errorf("call = %q", call)
 	}
+
+	for name, req := range map[string]StartRequest{
+		"folder": {Folder: "/tmp/a\x03\rtouch pwned\r\x1b[201~", Self: self},
+		"binary": {Folder: "/tmp/app", Self: "/opt/agnostic\x7f-ai"},
+		"tab":    {Folder: "/tmp/a\tb", Self: self},
+	} {
+		start := newFakeStart(t, ghosttyChain(), "claude")
+		req.Brief, req.PID = "Write the notes", 100
+		_, err := start.starter.Start(context.Background(), req)
+		if err == nil || !strings.Contains(err.Error(), "control character") {
+			t.Errorf("%s: err = %v", name, err)
+		}
+		if len(start.launcher.calls) != 0 || len(briefFiles(t, start.starter.BriefsDir)) != 0 {
+			t.Errorf("%s: calls %q files %q", name, start.launcher.calls, briefFiles(t, start.starter.BriefsDir))
+		}
+	}
+}
+
+func TestOpen_NeverTypesAResumeLineWithControlCharacters(t *testing.T) {
+	for _, tab := range []*terminalHost{nil, {App: "Ghostty"}, {App: "Terminal"}} {
+		launcher := &fakeLauncher{}
+		c := Conversation{Tool: ToolClaude, ID: idSafari, App: AppCLI, Open: Route{Kind: RouteTerminal, Command: resumeIn("/tmp/a\x03\rtouch pwned\r", "claude --resume "+idSafari)}, lastTab: tab}
+
+		reply := Open(context.Background(), c, fakeProcesses{}, launcher)
+
+		if reply.Opened || reply.Command != "" || len(launcher.calls) != 0 || !strings.Contains(reply.Message, "control characters") {
+			t.Errorf("tab %+v: reply %+v calls %q", tab, reply, launcher.calls)
+		}
+	}
 }
 
 func TestStart_RefusesBeforeWritingOrOpeningAnything(t *testing.T) {

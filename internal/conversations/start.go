@@ -97,6 +97,11 @@ func (s Starter) Start(ctx context.Context, req StartRequest) (StartReply, error
 	if _, known := startCommands[req.Tool]; req.Tool != "" && !known {
 		return StartReply{}, fmt.Errorf("unknown tool %q: use claude or codex", req.Tool)
 	}
+	for what, value := range map[string]string{"folder": req.Folder, "agnostic-ai path": req.Self} {
+		if hasControl(value) {
+			return StartReply{}, fmt.Errorf("the %s %q holds a control character, which a terminal would act on as it is typed; nothing started", what, value)
+		}
+	}
 	brief := strings.TrimSpace(req.Brief)
 	if brief == "" {
 		return StartReply{}, errors.New("no brief: a conversation never starts without one; pass it on standard input or with --brief-file")

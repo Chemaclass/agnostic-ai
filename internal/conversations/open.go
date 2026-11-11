@@ -40,6 +40,16 @@ type Launcher interface {
 // errNotHere means this OS has no supported way to run the route.
 var errNotHere = errors.New("not supported on this system")
 
+// errControlCharacters means a command holds a byte a terminal acts on
+// as it is typed: single quotes stop the shell, not the terminal, so a
+// carriage return or escape in a folder name would run what follows.
+var errControlCharacters = errors.New("holds control characters")
+
+// hasControl reports whether text holds a byte below 0x20 or 0x7f.
+func hasControl(text string) bool {
+	return strings.IndexFunc(text, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0
+}
+
 // errAutomationDenied means macOS refused to let the server control a
 // terminal app; the person allows it once per app in System Settings.
 var errAutomationDenied = errors.New("macOS blocked controlling the app")
@@ -274,6 +284,8 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 		return OpenReply{Opened: true, Message: "Resumed in a new Terminal window."}
 	case opened.err == nil:
 		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", opened.app)}
+	case errors.Is(opened.err, errControlCharacters):
+		return OpenReply{Message: "Its folder name holds control characters, which a terminal would act on as they are typed, so it is not resumed from here."}
 	case errors.Is(opened.err, errAutomationDenied):
 		return byHand(allowControl("opening", opened.app, "or run this command yourself"))
 	case opened.window && errors.Is(opened.err, errNotHere):
@@ -305,6 +317,9 @@ type tabOpening struct {
 // in new tab, so a failed Terminal tab falls back to a window; a refused
 // or unanswered permission does not, since the window needs it too.
 func openInTab(ctx context.Context, launcher Launcher, app, command string) tabOpening {
+	if hasControl(command) {
+		return tabOpening{app: app, err: errControlCharacters}
+	}
 	if tabApps[app] {
 		err := launcher.RunInNewTab(ctx, app, command)
 		if err == nil || app != "Terminal" || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) {
