@@ -9,6 +9,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - The web interface no longer offers Copy command on a session that still runs; running it would start a second copy (#3272).
+- `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3262).
 - The companion's row button and "Archive all" now read "Mark complete" and "Mark all complete"; marking one chat complete turns its tick green for a moment.
 - When the companion cannot open a chat, the reason stays until you dismiss it, and a chat that could not be resumed offers **Copy resume command**. Opening a Claude Code or Codex chat that still runs in a terminal no longer replies with a resume command (#3256).
 - Mark a chat as read from the companion's right-click menu, without opening it; the next reply brings it back (#3250).
@@ -31,6 +32,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
+- The Qwen page says a `FileChanged` hook can also replace or clear the paths registered through `watchPaths` (#3263).
 - `serve`, the local API, `companion`, `doctor`, `import`, and the `sync` and `gitignore` settings have their own reference pages; old links redirect.
 - The companion page says Windows and Linux are not supported and links the issues.
 
