@@ -16,7 +16,9 @@ function show({ view, note }) {
   const count = view.needsYou
   const working = view.conversations.some((conversation) => conversation.state === 'working')
   bubble.classList.toggle('is-working', working)
-  bubble.classList.toggle('is-troubled', Boolean(view.marksNote || note))
+  const troubled = Boolean(view.marksNote || note)
+  bubble.classList.toggle('is-troubled', troubled)
+  bubble.classList.toggle('is-idle', count === 0 && !troubled)
   bubble.setAttribute('aria-label', count === 0 ? 'Conversations: none needs you' : `Conversations: ${count} need you`)
   badge.hidden = count === 0
   badge.textContent = badgeText(count)
@@ -39,6 +41,7 @@ document.addEventListener('motion', () => {
 function showTrouble(message) {
   bubble.classList.remove('is-working')
   bubble.classList.add('is-troubled')
+  bubble.classList.remove('is-idle')
   bubble.setAttribute('aria-label', 'Conversations: ' + message)
   badge.hidden = true
   shownCount = 0
@@ -92,5 +95,7 @@ bubble.addEventListener('click', (event) => {
   if (press.dragged || event.ctrlKey) return
   togglePanel()
 })
+// The shell reports the pointer while another app is in front, where :hover may not fire.
+Events.On('pointer', (event) => bubble.classList.toggle('is-hovered', event.data === true))
 Events.On('inbox', refresh)
 refresh()

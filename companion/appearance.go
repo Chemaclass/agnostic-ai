@@ -15,32 +15,50 @@ const bubbleMenuName = "bubble"
 const settingsHeader = "Settings"
 
 type appearance struct {
-	Animate bool `json:"animate"`
+	Animate     bool `json:"animate"`
+	DimWhenIdle bool `json:"dimWhenIdle"`
+}
+
+func (s settings) appearance() appearance {
+	return appearance{Animate: s.animate(), DimWhenIdle: s.DimWhenIdle}
 }
 
 func (s *shell) appearance() appearance {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return appearance{Animate: s.settings.animate()}
+	return s.settings.appearance()
 }
 
-// setAnimate saves whether the pages move and tells them the appearance
-// in effect: the new one, or the old one when the save failed.
+// setAnimate saves whether the pages move.
 func (s *shell) setAnimate(on bool) error {
-	s.mu.Lock()
-	before := s.settings.Animate
-	s.settings.Animate = &on
-	err := writeSettings(s.settingsPath, s.settings)
-	if err != nil {
-		s.settings.Animate = before
-	}
-	looks := appearance{Animate: s.settings.animate()}
-	s.mu.Unlock()
-	s.tell(looks)
-	if err != nil {
+	if err := s.changeLook(func(saved *settings) { saved.Animate = &on }); err != nil {
 		return fmt.Errorf("save the animation choice: %w", err)
 	}
 	return nil
+}
+
+// setDimWhenIdle saves whether the circle fades while nothing needs the person.
+func (s *shell) setDimWhenIdle(on bool) error {
+	if err := s.changeLook(func(saved *settings) { saved.DimWhenIdle = on }); err != nil {
+		return fmt.Errorf("save the dim choice: %w", err)
+	}
+	return nil
+}
+
+// changeLook saves a change to the settings and tells the pages the
+// appearance in effect: the new one, or the old one when the save failed.
+func (s *shell) changeLook(change func(*settings)) error {
+	s.mu.Lock()
+	before := s.settings
+	change(&s.settings)
+	err := writeSettings(s.settingsPath, s.settings)
+	if err != nil {
+		s.settings = before
+	}
+	looks := s.settings.appearance()
+	s.mu.Unlock()
+	s.tell(looks)
+	return err
 }
 
 func (s *shell) getAppearance(w http.ResponseWriter, _ *http.Request) {
@@ -64,6 +82,13 @@ func (s *shell) bubbleMenu() {
 		if err := s.setAnimate(clicked.IsChecked()); err != nil {
 			log.Print(err)
 			animate.SetChecked(s.appearance().Animate)
+		}
+	})
+	dim := menu.AddCheckbox("Dim when idle", s.appearance().DimWhenIdle)
+	dim.OnClick(func(clicked *application.Context) {
+		if err := s.setDimWhenIdle(clicked.IsChecked()); err != nil {
+			log.Print(err)
+			dim.SetChecked(s.appearance().DimWhenIdle)
 		}
 	})
 }

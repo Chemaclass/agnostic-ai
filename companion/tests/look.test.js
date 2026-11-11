@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { motionOf } from '../frontend/look.js'
+import { dimOf, motionOf } from '../frontend/look.js'
 
 test('stops motion only when the person turned animation off', () => {
   assert.equal(motionOf({ animate: false }), 'off')
@@ -10,4 +10,17 @@ test('stops motion only when the person turned animation off', () => {
 test('keeps motion on when the appearance could not be read', () => {
   assert.equal(motionOf(undefined), 'on')
   assert.equal(motionOf({}), 'on')
+})
+
+test('dims only when the person turned it on', () => {
+  assert.equal(dimOf({ dimWhenIdle: true }), 'on')
+  assert.equal(dimOf({ dimWhenIdle: false }), 'off')
+  assert.equal(dimOf({}), 'off')
+  assert.equal(dimOf(undefined), 'off')
+})
+
+test('dim and motion do not change each other', () => {
+  assert.equal(motionOf({ animate: false, dimWhenIdle: true }), 'off')
+  assert.equal(dimOf({ animate: false, dimWhenIdle: true }), 'on')
+  assert.equal(motionOf({ animate: true, dimWhenIdle: true }), 'on')
 })
