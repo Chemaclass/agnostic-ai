@@ -60,11 +60,23 @@ func ValidateModels(tiers map[string]ModelTier, source string) error {
 		if !validTierEffort(tier.Effort) {
 			return errs.Coded(errs.CodeConfigDecode, "%s: models.%s.effort must be a scalar or a map of target to scalar", source, name)
 		}
-		if strings.ContainsAny(tier.Description, "\n\r") || strings.Contains(tier.Description, "<!--") || strings.Contains(tier.Description, "-->") {
-			return errs.Coded(errs.CodeConfigDecode, "%s: models.%s.description must be one line without HTML comment markers", source, name)
+		if tier.Description == "" {
+			continue
+		}
+		if !renderableTierText(name) {
+			return errs.Coded(errs.CodeConfigDecode, "%s: models.%s: tier name must be one line without backticks or HTML comment markers when the tier has a description", source, name)
+		}
+		if !renderableTierText(tier.Description) {
+			return errs.Coded(errs.CodeConfigDecode, "%s: models.%s.description must be one line without backticks or HTML comment markers", source, name)
 		}
 	}
 	return nil
+}
+
+// renderableTierText reports whether text can sit in the one-line tier
+// list sync writes inside marked blocks.
+func renderableTierText(text string) bool {
+	return !strings.ContainsAny(text, "\n\r`") && !strings.Contains(text, "<!--") && !strings.Contains(text, "-->")
 }
 
 func validTierEffort(effort any) bool {

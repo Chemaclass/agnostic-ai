@@ -25,12 +25,12 @@ func syncProjectOK(t *testing.T) {
 }
 
 func TestSync_ListsDescribedTiersInEveryInstructionsFile(t *testing.T) {
-	dir := budgetProject(t, "targets: [claude, codex, gemini, copilot, zed]\n"+describedTiersConfig)
+	dir := budgetProject(t, "targets: [claude, codex, gemini, copilot, zed, junie]\n"+describedTiersConfig)
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
 
 	syncProjectOK(t)
 
-	for _, path := range []string{"AGENTS.md", "GEMINI.md", ".github/copilot-instructions.md", ".rules"} {
+	for _, path := range []string{"AGENTS.md", "GEMINI.md", ".github/copilot-instructions.md", ".rules", ".junie/AGENTS.md"} {
 		got := readFileString(t, filepath.Join(dir, path))
 		if strings.Count(got, describedTiersLine) != 1 {
 			t.Errorf("%s should list the described tiers once:\n%s", path, got)
@@ -224,4 +224,45 @@ func readGlobalManaged(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return globalBlock(data)
+}
+
+func TestSync_RulesFileThatOwnsTheEntryPointListsTheTiers(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex]\noutputs:\n  codex: {rules-file: AGENTS.md}\n"+describedTiersConfig)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+
+	syncProjectOK(t)
+
+	agents := readFileString(t, filepath.Join(dir, "AGENTS.md"))
+	if strings.Count(agents, describedTiersLine) != 1 || !strings.Contains(agents, "Keep it short.") {
+		t.Errorf("AGENTS.md should hold the rules and the tiers once:\n%s", agents)
+	}
+	if strings.Index(agents, describedTiersLine) > strings.Index(agents, "## Rules") {
+		t.Errorf("the tiers should come before the rules:\n%s", agents)
+	}
+}
+
+func TestSync_RulesFileBesideTheEntryPointGetsNoTiers(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex]\noutputs:\n  codex: {rules-file: CODEX_RULES.md}\n"+describedTiersConfig)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+
+	syncProjectOK(t)
+
+	if got := readFileString(t, filepath.Join(dir, "CODEX_RULES.md")); strings.Contains(got, "Model tiers") {
+		t.Errorf("a rules file that is not the entry point should not list the tiers:\n%s", got)
+	}
+}
+
+func TestSyncGlobal_RejectsADescribedTierNamedLikeAMarker(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nmodels:\n  \"<!-- agnostic-ai:global:end -->\": {claude: opus, description: for all}\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
+
+	_, _, err := runGlobalCheck("sync")
+
+	if err == nil || !strings.Contains(err.Error(), "tier name") {
+		t.Errorf("sync --global error = %v, want the tier name rejected", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(home, ".claude", "CLAUDE.md")); statErr == nil {
+		t.Error("sync --global wrote instructions despite the bad tier")
+	}
 }
