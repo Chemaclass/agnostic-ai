@@ -247,7 +247,7 @@ Replies:
 - 400 for an unknown tool or any other field.
 - 404 for a conversation outside the list, or one you hid.
 - 409 `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it) or `changed` (a file was written at or after the moment it was archived).
-- 422 `{error, reason: "unsupported"}`: Codex threads (run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions, and any session on Windows, where the server cannot tell whether a session still runs. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link.
+- 422 `{error, reason: "unsupported"}`: Codex threads (Codex deletes a thread even while it is open, so close it first and run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions, and any session on Windows, where the server cannot tell whether a session still runs. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link.
 - 500 `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept.
 
 `error` is always a complete sentence.

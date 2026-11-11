@@ -190,7 +190,7 @@ func (s *Scanner) deleteUnsupported(c Conversation) string {
 	case c.App == AppCloud:
 		return "This conversation is stored in the tool's cloud, not on this computer. Delete it there."
 	case c.Tool == ToolCodex:
-		return "Deleting Codex threads from here is not supported yet. To delete it, run this in a terminal: codex delete " + c.ID
+		return "Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open. Close it, then run this in a terminal: codex delete " + c.ID
 	case c.Tool == ToolCursor && c.store != "":
 		return "Deleting cursor-agent chats is not supported yet."
 	case c.Tool == ToolCursor:

@@ -40,7 +40,7 @@ function archived(now) {
     conversation(now, 'claude', 'done-2', 'Tidy the old branches', 'completed', { minutesAgo: 3 * 24 * 60 }),
     conversation(now, 'codex', 'done-3', 'Bump the Go version', 'completed', {
       minutesAgo: 2 * 24 * 60,
-      deleteUnsupported: 'Deleting Codex threads from here is not supported yet. To delete it, run this in a terminal: codex delete done-3',
+      deleteUnsupported: 'Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open. Close it, then run this in a terminal: codex delete done-3',
     }),
     conversation(now, 'claude', 'old-2', 'Sketch the pricing page', 'dormant', { folder: '/Users/you/Code/site', minutesAgo: 9 * 24 * 60 }),
     conversation(now, 'cursor', 'old-3', 'Rename the config keys', 'dormant', {

@@ -441,7 +441,7 @@ func TestDelete_SaysWhichStoresItCannotDelete(t *testing.T) {
 		id     string
 		reason string
 	}{
-		{ToolCodex, codexThread, "Deleting Codex threads from here is not supported yet. To delete it, run this in a terminal: codex delete " + codexThread},
+		{ToolCodex, codexThread, "Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open. Close it, then run this in a terminal: codex delete " + codexThread},
 		{ToolCursor, cursorChat, "Cursor keeps every chat in one shared database and has no command to delete one. Delete it in Cursor."},
 		{ToolClaude, "cse_a1", "This conversation is stored in the tool's cloud, not on this computer. Delete it there."},
 	} {
@@ -488,7 +488,7 @@ func TestScan_SaysOnAnArchivedRowWhyItCannotBeDeleted(t *testing.T) {
 
 	view := scanner.Scan(context.Background(), ScanOptions{})
 
-	if c := byID(t, view, codexDone); c.State != StateCompleted || !strings.HasPrefix(c.DeleteUnsupported, "Deleting Codex threads from here is not supported yet.") {
+	if c := byID(t, view, codexDone); c.State != StateCompleted || !strings.HasPrefix(c.DeleteUnsupported, "Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open.") {
 		t.Errorf("archived Codex thread: %s", asJSON(t, c))
 	}
 	for _, id := range []string{codexOpen, idSafari} {
