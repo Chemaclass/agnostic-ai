@@ -198,10 +198,32 @@ const ACTIVITY_BADGES = {
   waiting: { label: 'Waiting for you', tone: 'approval', description: 'Open now: the agent is waiting for you' },
 } satisfies Partial<Record<ConversationActivity, LiveBadge>>
 
-/** The status chip of an open chat: only Working or Waiting, since the Open now group already says it is open. */
-export function liveBadge(activity: ConversationActivity | undefined): LiveBadge | undefined {
-  if (activity === 'working' || activity === 'waiting') return ACTIVITY_BADGES[activity]
+/** The status chip of an open chat: only Working or Waiting, since the Open now group already says it is open. A wait read from silence says how long nothing came instead. */
+export function liveBadge(conversation: Conversation, now: Date): LiveBadge | undefined {
+  const { activity } = conversation
+  if (activity === 'waiting') return quietBadge(conversation, now) ?? ACTIVITY_BADGES.waiting
+  if (activity === 'working') return ACTIVITY_BADGES[activity]
   return undefined
+}
+
+function quietBadge(conversation: Conversation, now: Date): LiveBadge | undefined {
+  const quiet = quietFor(conversation, now)
+  if (!quiet) return undefined
+  if (quiet.minutes < 1) return { label: 'No activity', tone: 'approval', description: 'Open now: nothing written lately, so it may be waiting for you' }
+  return { label: `No activity for ${quiet.short}`, tone: 'approval', description: `Open now: nothing written for ${quiet.long}, so it may be waiting for you` }
+}
+
+/** How long a wait read from silence has lasted: "7m" and "7 minutes". Undefined for a wait the tool reported. */
+function quietFor(conversation: Conversation, now: Date): { minutes: number; short: string; long: string } | undefined {
+  if (!conversation.quietSince) return undefined
+  const since = new Date(conversation.quietSince).getTime()
+  if (Number.isNaN(since)) return undefined
+  const minutes = Math.floor((now.getTime() - since) / 60_000)
+  if (minutes < 60) return { minutes, short: `${minutes}m`, long: plural(minutes, 'minute') }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return { minutes, short: `${hours}h`, long: plural(hours, 'hour') }
+  const days = Math.floor(hours / 24)
+  return { minutes, short: `${days}d`, long: plural(days, 'day') }
 }
 
 const STATE_BADGES = {
@@ -249,10 +271,15 @@ export function replyCommand(reply: ConversationOpenReply, route: ConversationRo
 export function conversationsVerdict(conversations: Conversation[], now: Date, olderWeeks: boolean): string {
   const open = conversations.filter((conversation) => conversation.live)
   if (open.length > 0) {
-    const waiting = open.filter((conversation) => conversation.activity === 'waiting').length
-    if (open.length === 1) return waiting ? 'One chat is open and waits for you.' : 'One chat is open now.'
-    const lead = `${open.length} chats are open now`
-    return waiting ? `${lead}; ${waiting} ${waiting === 1 ? 'waits' : 'wait'} for you.` : `${lead}.`
+    // A wait read from silence is not said as a certain wait.
+    const waits = open.filter((conversation) => conversation.activity === 'waiting')
+    const quiet = waits.filter((conversation) => quietFor(conversation, now)).length
+    const waiting = waits.length - quiet
+    if (open.length === 1) return waiting ? 'One chat is open and waits for you.' : quiet ? 'One chat is open with no recent activity.' : 'One chat is open now.'
+    const parts = [`${open.length} chats are open now`]
+    if (waiting) parts.push(`${waiting} ${waiting === 1 ? 'waits' : 'wait'} for you`)
+    if (quiet) parts.push(`${quiet} ${quiet === 1 ? 'has' : 'have'} no recent activity`)
+    return `${parts.join('; ')}.`
   }
   const newest = conversations[0]
   if (newest) {

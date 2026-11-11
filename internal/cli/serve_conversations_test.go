@@ -601,3 +601,83 @@ func TestConversationsHandler_AnArchivedConversationThatWorksShowsWorkingOnEvery
 		t.Errorf("the other archived conversation on the dashboard: state %s", c.State)
 	}
 }
+
+// holdingProcesses has a Codex process hold the thread locks it names, with every other answer of stillProcesses.
+type holdingProcesses struct {
+	stillProcesses
+	held map[string]int
+}
+
+func (h holdingProcesses) Holders(paths []string) map[string]int {
+	holders := map[string]int{}
+	for _, path := range paths {
+		if pid, ok := h.held[filepath.Base(path)]; ok {
+			holders[path] = pid
+		}
+	}
+	return holders
+}
+
+func TestConversationsHandler_EveryServerSaysWhenACodexWaitIsReadFromSilence(t *testing.T) {
+	const thread = "44444444-4444-4444-8444-444444444444"
+	companion, _, project := conversationsFixture(t, true)
+	shared := companion.scanner
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	rollout := filepath.Join(shared.Stores.CodexDir, "sessions", "2026", "11", "07", "rollout-"+thread+".jsonl")
+	for path, content := range map[string]string{
+		filepath.Join(shared.Stores.CodexDir, "state_5.sqlite"):                      "",
+		filepath.Join(shared.Stores.CodexDir, "thread-writer-locks", thread+".lock"): "",
+		rollout: `{"type":"event_msg","payload":{"type":"task_started"}}` + "\n",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	silent := now.Add(-7 * time.Minute)
+	if err := os.Chtimes(rollout, silent, silent); err != nil {
+		t.Fatal(err)
+	}
+	threads, err := json.Marshal([]map[string]any{{
+		"id": thread, "cwd": project, "created_at_ms": silent.Add(-time.Hour).UnixMilli(), "updated_at_ms": silent.UnixMilli(),
+		"originator": "codex-tui", "source": "cli", "name": "Quiet turn", "rollout_path": rollout,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	shared.SQLite = func(_ context.Context, path, query string) ([]json.RawMessage, error) {
+		if filepath.Base(path) != "state_5.sqlite" || !strings.Contains(query, "FROM threads") {
+			return nil, errors.New("no sqlite3 here")
+		}
+		var rows []json.RawMessage
+		return rows, json.Unmarshal(threads, &rows)
+	}
+	shared.Processes = holdingProcesses{held: map[string]int{thread + ".lock": 4242}}
+	shared.Now = func() time.Time { return now }
+	dashboard := &conversationsHandler{root: companion.root, global: true, scanner: &conversations.Scanner{
+		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now,
+	}, worktrees: companion.worktrees}
+
+	want := silent.UTC().Format(time.RFC3339)
+	for name, h := range map[string]http.Handler{"companion": companion, "dashboard": dashboard} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath, nil))
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"quietSince":"`+want+`"`) {
+			t.Fatalf("%s: GET = %d %s, want quietSince %s", name, rec.Code, rec.Body, want)
+		}
+		var view conversations.View
+		if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range view.Conversations {
+			if c.ID == thread && (c.Activity != conversations.ActivityWaiting || c.QuietSince != want) {
+				t.Errorf("%s: activity %q quiet since %q", name, c.Activity, c.QuietSince)
+			}
+			if c.ID != thread && c.QuietSince != "" {
+				t.Errorf("%s: %s carries quiet since %q", name, c.ID, c.QuietSince)
+			}
+		}
+	}
+}

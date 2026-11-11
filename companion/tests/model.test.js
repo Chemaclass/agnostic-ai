@@ -28,6 +28,19 @@ test('says why a row needs the person, and nothing for a quiet one', () => {
   assert.equal(reasonOf(row('a', 'active')), undefined)
 })
 
+test('says how long a chat has been silent when its wait is read from that silence, not reported', () => {
+  const now = Date.parse('2026-11-09T12:00:00Z')
+  const quiet = (since) => row('a', 'blocked', { tool: 'codex', activity: 'waiting', quietSince: since })
+  assert.equal(reasonOf(quiet('2026-11-09T11:55:00Z'), now), 'No activity for 5m')
+  assert.equal(reasonOf(quiet('2026-11-09T11:53:00Z'), now), 'No activity for 7m')
+  assert.equal(reasonOf(quiet('2026-11-09T09:00:00Z'), now), 'No activity for 3h')
+  // A clock that runs behind the server's must not say "for now".
+  assert.equal(reasonOf(quiet('2026-11-09T12:00:30Z'), now), 'No activity')
+  assert.equal(reasonOf(row('a', 'blocked', { tool: 'codex', activity: 'waiting' }), now), 'Waiting for you')
+  assert.equal(reasonOf(quiet('not a time'), now), 'Waiting for you')
+  assert.equal(reasonOf(row('a', 'unread', { tool: 'codex', quietSince: '2026-11-09T11:53:00Z' }), now), 'New reply')
+})
+
 test('offers archive on a chat that is not archived, hide on one that is, and nothing on a working one', () => {
   assert.deepEqual(
     ['blocked', 'unread', 'active', 'working', 'completed', 'dormant'].map((state) => rowActionOf(row('a', state))),

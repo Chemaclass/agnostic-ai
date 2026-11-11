@@ -374,7 +374,7 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
         <h3 className="conversation-title">{title.shell ? <code>{title.text}</code> : title.text}</h3>
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
         <p className="conversation-meta">
-          {conversation.live && <LiveBadge conversation={conversation} />}
+          {conversation.live && <LiveBadge conversation={conversation} now={now} />}
           <StateBadge conversation={conversation} />
           <span className="conversation-tool" title={`${toolName(conversation.tool)}, ${appLabel(conversation.app)}`}>{toolName(conversation.tool)}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}
@@ -403,8 +403,8 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
   )
 }
 
-function LiveBadge({ conversation }: { conversation: Conversation }) {
-  const badge = liveBadge(conversation.activity)
+function LiveBadge({ conversation, now }: { conversation: Conversation; now: Date }) {
+  const badge = liveBadge(conversation, now)
   if (!badge) return null
   return (
     <Badge tone={badge.tone} className="conversation-live" title={badge.description}>
