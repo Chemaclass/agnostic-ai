@@ -826,6 +826,25 @@
           "findings": []
         },
         {
+          "kind": "builtin",
+          "name": "wrap-up",
+          "label": "Wrap-up",
+          "description": "Ends a session with a short summary to share with people.",
+          "path": "builtin:wrap-up",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "about": {
+            "summary": "Adds the wrap-up skill, which ends a session with a short summary for people.",
+            "points": [
+              "Say \"wrap up\" to get what changed, what is still open, and a short note to paste into a chat or a PR.",
+              "Facts come from the session and local Git. It makes no network call and never guesses a PR number.",
+              "The result shows in the conversation. Nothing is posted, committed or written unless you ask."
+            ]
+          },
+          "findings": []
+        },
+        {
           "kind": "config",
           "name": "agnostic-ai.yaml",
           "label": "agnostic-ai.yaml",

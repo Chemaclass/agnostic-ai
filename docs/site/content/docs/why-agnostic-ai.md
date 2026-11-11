@@ -53,6 +53,7 @@ Start with the project note. Add another kind of spec only when you need it:
 | Guidance for code review bots | [Reviews](@/docs/spec-format/reviews.md) | Flag missing tests |
 | Facts every tool can recall | [Shared memory](@/docs/memory.md) | A decision and its reason |
 | Work you pick up in another tool | [Session handoffs](@/docs/handoff.md) | One private note per branch |
+| A summary for people when the work ends | [Session wrap-ups](@/docs/wrap-up.md) | What changed, what is open, a note to paste |
 | Shorter command output and replies | [RTK and Caveman](@/docs/rtk-and-caveman.md) | Fewer tokens per session |
 
 MCP (Model Context Protocol) is how coding tools connect to other tools and data. An MCP spec names the environment variables that hold credentials, so keys stay out of the repository. Each tool supports a different set of features; the [capability matrix](@/docs/targets/_index.md#capability-matrix) shows what each one gets.

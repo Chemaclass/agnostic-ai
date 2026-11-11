@@ -5,7 +5,7 @@ description: Write or resume a session handoff between AI tools.
 
 # handoff
 
-Write or resume a portable session handoff when the user requests it. Choose the mode from the request: "write a handoff" writes; "resume" or "continue where Codex left off" reads. An explicit argument can select the mode, but is never required. Do not read a handoff at session start without a request. The lead asks each delegate to "write a handoff for <branch>" before it returns.
+Write or resume a portable session handoff when the user requests it. Choose the mode from the request: "write a handoff" writes; "resume" or "continue where Codex left off" reads. An explicit argument can select the mode, but is never required. Do not read a handoff at session start without a request. The lead asks each delegate to "write a handoff for <branch>" before it returns. A handoff is for the next agent that continues the work; for a summary for people when the work ends, use the `wrap-up` skill if it is installed.
 
 Resolve the current project root, including when this skill is installed globally. For root lookup, use canonical paths for the current directory, candidate ancestors, and the effective global source root (`AGNOSTIC_AI_HOME` when nonempty, otherwise `~/.agnostic-ai`). Find the nearest ancestor containing `agnostic-ai.yaml` or the legacy `agnostic.config.yaml`, but exclude the effective global source root: its home config never identifies a project. If none exists, use `git rev-parse --show-toplevel` for the current checkout. Do not replace a configured subproject root with its Git worktree root. Use portable Markdown.
 
