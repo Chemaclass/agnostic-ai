@@ -301,8 +301,8 @@ func TestDelete_RefusesASessionWhoseFilesChangedAfterTheArchive(t *testing.T) {
 	assertFiles(t, target, true)
 }
 
-// startsLater answers that no process runs until question number
-// from, and that pid runs from then on; from 0 means the second.
+// startsLater lists pid in its process table from question number from
+// on, and no process before.
 type startsLater struct {
 	fakeProcesses
 	mu    sync.Mutex
@@ -311,27 +311,21 @@ type startsLater struct {
 	from  int
 }
 
-func (s *startsLater) AliveAmong(processes []ProcessRef) map[int]bool {
+func (s *startsLater) Table() ([]ProcessInfo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.asked++
-	if s.asked < max(s.from, 2) {
-		return map[int]bool{}
+	if s.asked < s.from {
+		return nil, nil
 	}
-	alive := map[int]bool{}
-	for _, process := range processes {
-		if process.PID == s.pid {
-			alive[process.PID] = true
-		}
-	}
-	return alive
+	return []ProcessInfo{{PID: s.pid, Command: "claude"}}, nil
 }
 
 func TestDelete_StopsBeforeTheTranscriptWhenTheSessionStartsDuringTheRemoval(t *testing.T) {
 	scanner, stores, target, _ := deleteScanner(t, fakeProcesses{})
 	writeClaudeProcess(t, stores, 4242, idSafari, "idle")
-	// The read, then the check before the removal, answer closed; the check before the transcript sees it run.
-	scanner.Processes = &startsLater{pid: 4242, from: 3}
+	// The check before the removal finds nothing; the one before the transcript sees it run.
+	scanner.Processes = &startsLater{pid: 4242, from: 2}
 	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
 
 	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
@@ -389,7 +383,7 @@ func TestDelete_RefusesAWriteInTheSecondOfTheArchive(t *testing.T) {
 func TestDelete_RefusesASessionThatStartsBetweenTheReadAndTheRemoval(t *testing.T) {
 	scanner, stores, target, _ := deleteScanner(t, fakeProcesses{})
 	writeClaudeProcess(t, stores, 4242, idSafari, "idle")
-	scanner.Processes = &startsLater{pid: 4242}
+	scanner.Processes = &startsLater{pid: 4242, from: 1}
 
 	_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
 
@@ -646,4 +640,59 @@ func TestDelete_SaysWhenTheMarksCouldNotBeClearedAfterTheData(t *testing.T) {
 		t.Errorf("= %s %v", asJSON(t, reply), err)
 	}
 	assertFiles(t, target, false)
+}
+
+func TestDelete_RefusesASessionThatWritesBetweenItsReads(t *testing.T) {
+	scanner, stores, _, _ := deleteScanner(t, fakeProcesses{})
+	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+	// A resume that appends and exits leaves no process for the later checks to see.
+	scanner.betweenReads = func() {
+		resumed, err := os.OpenFile(transcript, os.O_APPEND|os.O_WRONLY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resumed.Close()
+		if _, err := resumed.WriteString(`{"type":"assistant"}` + "\n"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteChanged {
+		t.Errorf("refusal = %+v", refusal)
+	}
+	if data, err := os.ReadFile(transcript); err != nil || !strings.HasSuffix(string(data), `{"type":"assistant"}`+"\n") {
+		t.Errorf("the resumed transcript = %q (%v)", data, err)
+	}
+}
+
+// tableOnly lists running processes in its table, but its lookup by
+// pid always answers that none runs, as a failed ps does.
+type tableOnly struct{ fakeProcesses }
+
+func (tableOnly) AliveAmong([]ProcessRef) map[int]bool { return map[int]bool{} }
+
+func TestDelete_DecidesWhetherTheSessionRunsFromTheTableItRead(t *testing.T) {
+	scanner, stores, target, _ := deleteScanner(t, fakeProcesses{})
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "4242.json"), `{"pid":4242,"sessionId":"`+idSafari+`","procStart":"Sat Nov  7 08:00:00 2026"}`)
+	scanner.Processes = tableOnly{fakeProcesses{table: []ProcessInfo{{PID: 4242, Started: "Sat Nov  7 08:00:00 2026", Command: "claude"}}}}
+
+	_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteRunning {
+		t.Errorf("refusal = %+v", refusal)
+	}
+	assertFiles(t, target, true)
+}
+
+func TestDelete_ReadsAReusedPidAsAnotherProcess(t *testing.T) {
+	scanner, stores, _, _ := deleteScanner(t, fakeProcesses{})
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "4242.json"), `{"pid":4242,"sessionId":"`+idSafari+`","procStart":"Sat Nov  7 08:00:00 2026"}`)
+	dateBefore(t, stores.ClaudeDir, archivedAt.Add(-time.Hour))
+	scanner.Processes = tableOnly{fakeProcesses{table: []ProcessInfo{{PID: 4242, Started: "Sat Nov  7 11:30:00 2026", Command: "node"}}}}
+
+	if reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); err != nil || !reply.Deleted {
+		t.Errorf("= %s %v", asJSON(t, reply), err)
+	}
 }

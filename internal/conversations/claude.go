@@ -319,9 +319,28 @@ func claudeContentText(raw json.RawMessage) (text string, typed bool) {
 // process that wrote it. The sibling *.key files hold credentials and
 // are never read.
 func (s *Scanner) claudeLiveSessions() map[string]liveSession {
+	entries := s.claudeLiveEntries()
+	var processes []ProcessRef
+	for _, entry := range entries {
+		processes = append(processes, ProcessRef{PID: entry.PID, ProcStart: entry.ProcStart})
+	}
+	// One question for every session: asking about each in turn starts
+	// a ps per open session on every scan.
+	alive := s.Processes.AliveAmong(processes)
+	live := map[string]liveSession{}
+	for _, entry := range entries {
+		if alive[entry.PID] {
+			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint}
+		}
+	}
+	return live
+}
+
+// claudeLiveEntries reads sessions/<pid>.json, which a Claude Code
+// process writes while it runs and may leave behind when it dies.
+func (s *Scanner) claudeLiveEntries() []claudeLive {
 	files, _ := filepath.Glob(filepath.Join(s.Stores.ClaudeDir, "sessions", "*.json"))
 	var entries []claudeLive
-	var processes []ProcessRef
 	for _, file := range files {
 		if !liveSessionFile.MatchString(filepath.Base(file)) {
 			continue
@@ -335,18 +354,8 @@ func (s *Scanner) claudeLiveSessions() map[string]liveSession {
 			continue
 		}
 		entries = append(entries, entry)
-		processes = append(processes, ProcessRef{PID: entry.PID, ProcStart: entry.ProcStart})
 	}
-	// One question for every session: asking about each in turn starts
-	// a ps per open session on every scan.
-	alive := s.Processes.AliveAmong(processes)
-	live := map[string]liveSession{}
-	for _, entry := range entries {
-		if alive[entry.PID] {
-			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint}
-		}
-	}
-	return live
+	return entries
 }
 
 // claudeActiveJobs maps session ids to the background job that holds

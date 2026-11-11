@@ -110,6 +110,14 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if err != nil {
 		return DeleteReply{}, &DeleteError{Kind: DeleteUnsupported, Message: "agnostic-ai cannot verify which files belong to it, so it deletes none: " + err.Error(), Cause: err}
 	}
+	// The baseline comes first: a write after it moves the newest time, or differs from it later.
+	transcript, err := os.Lstat(c.file)
+	if err != nil {
+		return DeleteReply{}, &DeleteError{Kind: DeleteFailed, Message: "Nothing was deleted: " + err.Error(), Cause: err}
+	}
+	if s.betweenReads != nil {
+		s.betweenReads()
+	}
 	freed, newest, err := measure(paths)
 	var linked *linkedError
 	if errors.As(err, &linked) {
@@ -121,10 +129,6 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	// Marks keep whole seconds, so a write in the mark's own second may have come after it.
 	if !newest.Truncate(time.Second).Before(parseStamp(entry.CompletedAt)) {
 		return DeleteReply{}, refuse(DeleteChanged, "Something was written in this conversation after you archived it. Archive it again if you still want to delete it.")
-	}
-	transcript, err := os.Lstat(c.file)
-	if err != nil {
-		return DeleteReply{}, &DeleteError{Kind: DeleteFailed, Message: "Nothing was deleted: " + err.Error(), Cause: err}
 	}
 	if refusal := s.stillClosed(c, transcript); refusal != nil {
 		return DeleteReply{}, refusal
@@ -271,11 +275,22 @@ func measure(paths []string) (bytes int64, newest time.Time, err error) {
 // or a job took the session, or its transcript changed since it was
 // measured. A process that starts in the moment after is not seen.
 func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo) *DeleteError {
-	// A process list that cannot be read answers that nothing runs: prove it can be read first.
-	if _, err := s.Processes.Table(); err != nil {
+	// A lookup that fails answers that nothing runs, so the answer comes from a table that was read.
+	table, err := s.Processes.Table()
+	if err != nil {
 		return &DeleteError{Kind: DeleteFailed, Message: "agnostic-ai could not check whether this session still runs, so it deleted nothing.", Cause: err}
 	}
-	_, live := s.claudeLiveSessions()[c.ID]
+	started := map[int]string{}
+	for _, process := range table {
+		started[process.PID] = process.Started
+	}
+	live := false
+	for _, entry := range s.claudeLiveEntries() {
+		start, runs := started[entry.PID]
+		if entry.SessionID == c.ID && runs && (entry.ProcStart == "" || start == strings.TrimSpace(entry.ProcStart)) {
+			live = true
+		}
+	}
 	_, job := s.claudeActiveJobs()[c.ID]
 	if live || job {
 		return refuse(DeleteRunning, "This conversation is still running. Close it in Claude Code, then delete it.")

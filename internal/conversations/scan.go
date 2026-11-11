@@ -91,6 +91,10 @@ type Scanner struct {
 	// codexLiveRollouts are the rollouts of the Codex threads a process
 	// had loaded at the last read.
 	codexLiveRollouts []string
+
+	// betweenReads runs between the two reads Delete makes of a session's
+	// files, where a resumed session can write; nil runs nothing.
+	betweenReads func()
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
