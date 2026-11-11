@@ -76,6 +76,11 @@ func (l *recordingLauncher) RunInNewTab(context.Context, string, string) error {
 	return errors.New("unexpected tab")
 }
 
+func (l *recordingLauncher) TitleTab(_ context.Context, app, tty, title string) (bool, error) {
+	l.calls = append(l.calls, "title "+app+" "+tty+" "+title)
+	return true, nil
+}
+
 func realDir(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.EvalSymlinks(t.TempDir())

@@ -549,6 +549,38 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 	}
 }
 
+func TestTitleTab_NamesOnlyTheTabOfALiveSession(t *testing.T) {
+	at := func(host terminalHost) Conversation {
+		return Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: host}}
+	}
+	alive := fakeProcesses{alive: map[int]bool{42: true}}
+	for name, tc := range map[string]struct {
+		conversation Conversation
+		processes    fakeProcesses
+		launcher     fakeLauncher
+		calls        string
+		fails        bool
+	}{
+		"Ghostty tab":        {conversation: at(terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}), processes: alive, launcher: fakeLauncher{focusOK: true}, calls: "title Ghostty /dev/ttys004 Fix login"},
+		"Terminal tab":       {conversation: at(terminalHost{App: "Terminal", TTY: "/dev/ttys018"}), processes: alive, launcher: fakeLauncher{focusOK: true}, calls: "title Terminal /dev/ttys018 Fix login"},
+		"tab gone":           {conversation: at(terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}), processes: alive, calls: "title Ghostty /dev/ttys004 Fix login", fails: true},
+		"app without tabs":   {conversation: at(terminalHost{App: "iTerm", TTY: "/dev/ttys040"}), processes: alive},
+		"session ended":      {conversation: at(terminalHost{App: "Ghostty", TTY: "/dev/ttys004"})},
+		"terminal not found": {conversation: Conversation{Tool: ToolClaude, process: &liveProcess{PID: 42}}, processes: alive},
+	} {
+		t.Run(name, func(t *testing.T) {
+			launcher := tc.launcher
+			err := TitleTab(context.Background(), tc.conversation, tc.processes, &launcher, "Fix login")
+			if (err != nil) != tc.fails {
+				t.Errorf("err = %v, want failure %v", err, tc.fails)
+			}
+			if actual := strings.Join(launcher.calls, "; "); actual != tc.calls {
+				t.Errorf("calls = %q, want %q", actual, tc.calls)
+			}
+		})
+	}
+}
+
 func TestOpen_EndedSessionOpensANewTabInTheAppItRanIn(t *testing.T) {
 	tab := terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}
 	ended := Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &tab}
@@ -649,6 +681,7 @@ func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 	for _, app := range []string{"Terminal", "Ghostty"} {
 		cases["focus "+app] = focusTabArgs(app, hostile)
 		cases["new tab "+app] = runInNewTabArgs(app, hostile)
+		cases["title "+app] = titleTabArgs(app, "/dev/ttys004", hostile)
 	}
 	for name, args := range cases {
 		if len(args) < 3 || args[0] != "-e" || args[1] != "on run argv" {

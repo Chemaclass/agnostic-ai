@@ -237,7 +237,8 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 		return
 	}
-	if _, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions("")); !ok {
+	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(""))
+	if !ok {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
 		return
 	}
@@ -246,6 +247,12 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+	// The saved name is the rename. The tab follows after the reply, since
+	// an unanswered Automation prompt holds osascript; a tab that cannot
+	// take the name keeps its own.
+	go func(ctx context.Context) {
+		_ = conversations.TitleTab(ctx, conversation, h.scanner.Processes, h.launcher, title)
+	}(context.WithoutCancel(r.Context()))
 }
 
 func (h *conversationsHandler) scanOptions(editor string) conversations.ScanOptions {

@@ -32,6 +32,9 @@ type Launcher interface {
 	FocusTab(ctx context.Context, app, tty string) (ok bool, err error)
 	// RunInNewTab opens a tab of app that runs command.
 	RunInNewTab(ctx context.Context, app, command string) error
+	// TitleTab names the tab of app that shows tty; ok is false when no
+	// tab shows that tty.
+	TitleTab(ctx context.Context, app, tty, title string) (ok bool, err error)
 }
 
 // errNotHere means this OS has no supported way to run the route.
@@ -327,6 +330,20 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	return switchThere(fmt.Sprintf("Brought %s to the front, but its tab cannot be selected from outside. It runs on %s (process %d).", app, tty, pid))
 }
 
+// TitleTab gives the tab that runs a live session the name the person
+// chose. It does nothing for a session that ended or runs where no tab
+// can be named.
+func TitleTab(ctx context.Context, c Conversation, processes Processes, launcher Launcher, title string) error {
+	if c.process == nil || c.placed == nil || !tabApps[c.placed.host.App] || !processes.Alive(c.process.PID, c.process.ProcStart) {
+		return nil
+	}
+	ok, err := launcher.TitleTab(ctx, c.placed.host.App, c.placed.host.TTY, title)
+	if err == nil && !ok {
+		err = fmt.Errorf("no %s tab shows %s", c.placed.host.App, shortTTY(c.placed.host.TTY))
+	}
+	return err
+}
+
 func shortTTY(tty string) string { return strings.TrimPrefix(tty, "/dev/") }
 
 func shortTTYs(ttys []string) []string {
@@ -436,6 +453,43 @@ var tabScripts = map[string]struct{ open, match, close []string }{
 	},
 }
 
+// titleTabLines name the tab whose terminal's tty is item 1 of argv
+// after item 2. Ghostty names a tab, not the terminal inside it.
+var titleTabLines = map[string][]string{
+	"Terminal": {
+		`tell application "Terminal"`,
+		"repeat with w in windows",
+		"repeat with t in tabs of w",
+		"if tty of t is (item 1 of argv) then",
+		"set custom title of t to (item 2 of argv)",
+		`return "ok"`,
+		"end if",
+		"end repeat",
+		"end repeat",
+		"end tell",
+		`return "missing"`,
+	},
+	"Ghostty": {
+		`tell application "Ghostty"`,
+		"repeat with w in windows",
+		"repeat with k in tabs of w",
+		"repeat with t in terminals of k",
+		"if tty of t is (item 1 of argv) then",
+		"set name override of k to (item 2 of argv)",
+		`return "ok"`,
+		"end if",
+		"end repeat",
+		"end repeat",
+		"end repeat",
+		"end tell",
+		`return "missing"`,
+	},
+}
+
+func titleTabArgs(app, tty, title string) []string {
+	return append(script(titleTabLines[app]...), tty, title)
+}
+
 func focusTabArgs(app, tty string) []string {
 	tabs := tabScripts[app]
 	lines := append(append([]string{}, tabs.open...), tabs.match...)
@@ -494,6 +548,17 @@ func (macLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) 
 	return out == "ok", nil
 }
 
+func (macLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, error) {
+	if _, ok := titleTabLines[app]; !ok {
+		return false, errNotHere
+	}
+	out, err := run(ctx, "osascript", titleTabArgs(app, tty, title)...)
+	if err != nil {
+		return false, err
+	}
+	return out == "ok", nil
+}
+
 func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
 	if _, ok := newTabLines[app]; !ok {
 		return errNotHere
@@ -524,6 +589,10 @@ func (linuxLauncher) FocusTab(context.Context, string, string) (bool, error) {
 
 func (linuxLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
 
+func (linuxLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
+	return false, errNotHere
+}
+
 type unsupportedLauncher struct{}
 
 func (unsupportedLauncher) OpenLink(context.Context, string) error { return errNotHere }
@@ -539,3 +608,7 @@ func (unsupportedLauncher) FocusTab(context.Context, string, string) (bool, erro
 }
 
 func (unsupportedLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
+
+func (unsupportedLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
+	return false, errNotHere
+}

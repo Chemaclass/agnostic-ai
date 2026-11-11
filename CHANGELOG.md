@@ -12,6 +12,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Right-click the companion's circle to stop its animation or dim it when nothing needs you (#3237, #3246).
 - `memory import --skip <file>` and `--skip-rest` decline facts you do not want, and LINT043 stops counting them (#3235).
 - Rename a chat from the companion's right-click menu; the web interface shows the new name (#3236).
+- Renaming a running chat also names its Terminal or Ghostty tab.
 - An archived or hidden chat that starts working again moves back to Working (#3239).
 - On macOS, `companion install` makes an app with the agnostic-ai icon that still starts at login (#3238).
 - Cursor chat titles show what you typed, without the tags Cursor adds (#3241).
