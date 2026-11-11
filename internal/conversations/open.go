@@ -274,7 +274,8 @@ func newTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenRep
 }
 
 // focusTerminal switches to the exact tab that runs a live session. It
-// never starts a second copy: that would compete with the running one.
+// never starts a second copy, and never offers the resume command for
+// one: that would compete with the running one.
 // Only a selected tab counts as opened; an app brought forward with
 // another tab in front says where the session is instead. A session
 // that ended since the scan resumes as an ended one does.
@@ -283,7 +284,7 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 		return resumeTerminal(ctx, c, launcher)
 	}
 	switchThere := func(message string) OpenReply {
-		return OpenReply{Message: message, Command: c.Open.Command}
+		return OpenReply{Message: message}
 	}
 	placed := c.placed
 	// A thread the Codex daemon holds is live even with no client in

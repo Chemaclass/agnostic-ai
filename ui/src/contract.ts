@@ -961,7 +961,7 @@ export interface ConversationMarkRequest {
   as: 'seen' | 'completed' | 'open' | 'hidden'
 }
 
-/** opened is false when the server could not open it here; message says why and command, when set, resumes it by hand. */
+/** opened is false when the server could not open it here; message says why and command, when set, resumes it by hand; a Claude Code or Codex session that still runs in a terminal gets none. */
 export interface ConversationOpenReply {
   opened: boolean
   message: string

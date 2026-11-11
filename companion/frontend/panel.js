@@ -1,11 +1,16 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
+import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
 const clearButton = document.getElementById('clear')
 const note = document.getElementById('note')
+const notice = document.getElementById('notice')
+const noticeMessage = document.getElementById('notice-message')
+const noticeCommand = document.getElementById('notice-command')
+const noticeResult = document.getElementById('notice-result')
+const noticeCopy = document.getElementById('notice-copy')
 const places = document.getElementById('places')
 const list = document.getElementById('list')
 const summary = document.getElementById('summary')
@@ -13,7 +18,7 @@ const toast = document.getElementById('toast')
 
 /** How long typing must pause before a search is sent. */
 const SEARCH_PAUSE_MS = 300
-/** How long the answer to an open stays on screen. */
+/** How long a short answer, such as a failed mark, stays on screen. */
 const TOAST_MS = 3200
 /** Only the first rows rise one after another; the rest arrive with the last of them. */
 const STAGGERED_ROWS = 12
@@ -42,8 +47,10 @@ const state = {
   problem: undefined,
   /** What the companion itself has to say, such as a version mismatch. */
   note: undefined,
-  /** Why a conversation did not open, said once the panel shows again. */
-  reopenedToSay: undefined,
+  /** Why the last open failed, as {message, command?}; shown until dismissed or the next open. */
+  openFailure: undefined,
+  /** The panel comes back from a failed open: the highlight stays on its row. */
+  returning: false,
   query: '',
   /** Group ids the person folded or unfolded, over each group's start. */
   folded: new Map(GROUPS.map((group) => [group.id, group.startsFolded])),
@@ -404,23 +411,63 @@ async function refresh() {
 // The panel never activates its app, so while it shows it keeps the keys
 // even after the terminal comes to the front. It hides first, and comes
 // back to say why only when the conversation did not open.
+let latestOpen = 0
+
 async function openRow(conversation) {
+  const thisOpen = ++latestOpen
+  showOpenFailure(undefined)
   await hidePanel().catch(() => {})
-  let message
+  let failure
   try {
-    const reply = await openConversation(conversation)
-    if (reply.opened) return
-    message = reply.message
+    failure = openFailureOf(await openConversation(conversation))
   } catch (error) {
     if (!(error instanceof CallError)) throw error
-    message = error.message
+    failure = { message: error.message }
   }
-  state.reopenedToSay = message
+  // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
+  if (!failure || thisOpen !== latestOpen) return
+  showOpenFailure(failure)
+  state.returning = true
   await showPanel().catch((error) => {
-    state.reopenedToSay = undefined
+    state.returning = false
     sayFailure(error)
   })
 }
+
+function showOpenFailure(failure) {
+  state.openFailure = failure
+  notice.hidden = failure === undefined
+  noticeMessage.textContent = failure?.message ?? ''
+  noticeCommand.textContent = failure?.command ?? ''
+  noticeCommand.hidden = noticeCopy.hidden = !failure?.command
+  noticeResult.hidden = true
+}
+
+function sayCopied(message, problem) {
+  noticeResult.textContent = message
+  noticeResult.classList.toggle('is-problem', problem)
+  noticeResult.hidden = false
+}
+
+noticeCopy.addEventListener('click', async () => {
+  const failure = state.openFailure
+  if (!failure?.command) return
+  let copied = true
+  try {
+    await navigator.clipboard.writeText(failure.command)
+  } catch {
+    copied = false
+  }
+  // A newer open may have replaced the notice while the clipboard answered.
+  if (state.openFailure !== failure) return
+  if (copied) sayCopied('Copied. Paste it in a terminal.', false)
+  else sayCopied('Could not copy it. Select the command above and copy it by hand.', true)
+})
+
+document.getElementById('notice-dismiss').addEventListener('click', () => {
+  showOpenFailure(undefined)
+  queryInput.focus()
+})
 
 async function markRow(conversation, mark) {
   try {
@@ -708,7 +755,8 @@ document.addEventListener('keydown', (event) => {
     moveActive(step)
     return
   }
-  if (event.key === 'Enter') {
+  // A focused notice button takes Enter as its own click.
+  if (event.key === 'Enter' && !event.target.closest('#notice button')) {
     const conversation = activeConversation()
     if (conversation) openRow(conversation)
   }
@@ -723,14 +771,11 @@ function opened(from) {
     card.classList.add('is-opening')
   }
   toast.hidden = true
-  // Back from a conversation that did not open: the highlight stays on its row.
-  const returning = state.reopenedToSay
-  state.reopenedToSay = undefined
-  if (returning) say(returning)
   closeMenu()
   closeRowMenu()
   state.renaming = undefined
-  if (!returning) state.activeKey = undefined
+  if (!state.returning) state.activeKey = undefined
+  state.returning = false
   queryInput.focus()
   queryInput.select()
   draw({ force: true })

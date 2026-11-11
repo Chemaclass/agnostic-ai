@@ -489,43 +489,49 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 		"iTerm2, not supported yet": {
 			conversation: at(terminalHost{App: "iTerm", TTY: "/dev/ttys040"}),
 			launcher:     fakeLauncher{focusOK: true},
-			reply:        OpenReply{Message: "Brought iTerm to the front, but its tab cannot be selected from outside. It runs on ttys040 (process 42).", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "Brought iTerm to the front, but its tab cannot be selected from outside. It runs on ttys040 (process 42)."},
 			calls:        "activate iTerm",
 		},
 		"tab not found": {
 			conversation: at(ghostty),
-			reply:        OpenReply{Message: "It runs in Ghostty on ttys004 (process 42), but no tab shows that terminal. Switch to it there.", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "It runs in Ghostty on ttys004 (process 42), but no tab shows that terminal. Switch to it there."},
 			calls:        "focus Ghostty /dev/ttys004",
 		},
 		"Automation refused": {
 			conversation: at(ghostty),
 			launcher:     fakeLauncher{err: errAutomationDenied},
-			reply:        OpenReply{Message: "macOS blocked switching to Ghostty. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, then click again.", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "macOS blocked switching to Ghostty. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, then click again."},
 			calls:        "focus Ghostty /dev/ttys004",
 		},
 		"Automation prompt unanswered": {
 			conversation: at(ghostty),
 			launcher:     fakeLauncher{err: context.DeadlineExceeded},
-			reply:        OpenReply{Message: "macOS is waiting for you to allow control of Ghostty. Answer its prompt, then click again.", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "macOS is waiting for you to allow control of Ghostty. Answer its prompt, then click again."},
 			calls:        "focus Ghostty /dev/ttys004",
 		},
 		"editor's terminal": {
 			conversation: at(terminalHost{App: "Cursor", TTY: "/dev/ttys020"}),
-			reply:        OpenReply{Message: "Brought its Cursor window to the front, but the terminal inside it cannot be selected from outside. It runs on ttys020 (process 42).", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "Brought its Cursor window to the front, but the terminal inside it cannot be selected from outside. It runs on ttys020 (process 42)."},
 			calls:        "folder Cursor /tmp/app",
 		},
 		"Warp": {
 			conversation: at(terminalHost{App: "Warp", TTY: "/dev/ttys021"}),
-			reply:        OpenReply{Message: "Brought Warp to the front, but its tab cannot be selected from outside. It runs on ttys021 (process 42).", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "Brought Warp to the front, but its tab cannot be selected from outside. It runs on ttys021 (process 42)."},
 			calls:        "activate Warp",
 		},
 		"unknown app": {
 			conversation: at(terminalHost{TTY: "/dev/ttys022"}),
-			reply:        OpenReply{Message: "It runs on ttys022 (process 42) in an app this version cannot switch to. Switch to it there.", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "It runs on ttys022 (process 42) in an app this version cannot switch to. Switch to it there."},
 		},
 		"no terminal found": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}},
-			reply:        OpenReply{Message: "It is open (process 42), but the terminal that runs it could not be found. Switch to it there.", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "It is open (process 42), but the terminal that runs it could not be found. Switch to it there."},
+		},
+		"ended since the scan, Automation refused": {
+			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 43}},
+			launcher:     fakeLauncher{err: errAutomationDenied},
+			reply:        OpenReply{Message: "macOS blocked opening Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "claude --resume x"},
+			calls:        "terminal claude --resume x",
 		},
 		"two Codex clients could hold it": {
 			conversation: Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{ttys: []string{"/dev/ttys002", "/dev/ttys007"}}},

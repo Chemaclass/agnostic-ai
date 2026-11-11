@@ -23,6 +23,17 @@
       </button>
     </header>
     <p class="note" id="note" role="status" hidden></p>
+    <section class="notice" id="notice" aria-label="Why it did not open" hidden>
+      <p class="notice-message" id="notice-message" role="status"></p>
+      <button class="icon-button notice-dismiss" id="notice-dismiss" type="button" aria-label="Dismiss" title="Dismiss">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+      </button>
+      <code class="notice-command" id="notice-command" hidden></code>
+      <div class="notice-actions">
+        <button class="notice-copy" id="notice-copy" type="button" hidden>Copy resume command</button>
+        <p class="notice-result" id="notice-result" role="status" hidden></p>
+      </div>
+    </section>
     <div class="list" id="list" role="listbox" aria-label="Conversations" tabindex="-1"></div>
     <footer class="foot">
       <div class="places" id="places" role="group" aria-label="Where the conversations run"></div>
