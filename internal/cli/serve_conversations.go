@@ -246,9 +246,13 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
-	// The saved name is the rename; a tab that cannot take it keeps its own.
-	_ = conversations.TitleTab(r.Context(), conversation, h.scanner.Processes, h.launcher, title)
 	w.WriteHeader(http.StatusNoContent)
+	// The saved name is the rename. The tab follows after the reply, since
+	// an unanswered Automation prompt holds osascript; a tab that cannot
+	// take the name keeps its own.
+	go func(ctx context.Context) {
+		_ = conversations.TitleTab(ctx, conversation, h.scanner.Processes, h.launcher, title)
+	}(context.WithoutCancel(r.Context()))
 }
 
 func (h *conversationsHandler) scanOptions(editor string) conversations.ScanOptions {
