@@ -8,7 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
-- Delete an archived Claude Code chat for good from the companion's right-click menu, after a confirmation: its transcript, subagent transcripts, tool output, file backups and pasted images leave the disk. Other tools say why they cannot be deleted yet (#3275).
+- Delete an archived Claude Code chat for good from the companion's right-click menu, after a confirmation: its transcript, subagent transcripts, tool output, file backups and pasted images leave the disk. Other tools say why they cannot be deleted (#3275).
 - The companion and the web interface show a `cursor-agent` chat that still runs as open. Opening it switches to its terminal instead of starting a second copy (#3274).
 - The web interface no longer offers Copy command on a session that still runs; running it would start a second copy (#3272).
 - `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3262).
