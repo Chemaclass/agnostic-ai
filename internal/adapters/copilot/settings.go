@@ -67,7 +67,7 @@ func emitSettings(sess *emit.Session, settings, mcps []spec.Entry, dryRun bool) 
 	if model := emit.SettingsModel(settings, target); model != "" {
 		keys["model"] = model
 	}
-	if level := emit.SettingsEffortLevel(settings, target, effortLevels); level != "" {
+	if level := emit.SettingsEffortLevel(settings, target, settingsEffortLevels); level != "" {
 		keys["effortLevel"] = level
 	}
 	if names := disabledMCPNames(mcps); len(names) > 0 {

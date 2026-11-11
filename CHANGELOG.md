@@ -52,6 +52,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Settings `model` and `effort` write Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; Auggie 0.x ignores both keys. `import augment` reads them back (#3265).
 - Hooks with `args` reach `.augment/settings.json` and `~/.augment/settings.json` with their arguments, instead of being skipped. An inline command no longer raises a "never executes" note, and `hook run` runs it (#3264).
 
+#### Copilot
+
+- Copilot settings take the effort values `none`, `minimal` and `max`, as the project `.github/copilot/settings.json` and the global `~/.copilot/settings.json` both accept them. Per-agent effort keeps `low`, `medium`, `high` and `xhigh` (#3307).
+
 #### Qwen Code
 
 - A Qwen command hook with a `timeout` of 1000 seconds or more is now written in milliseconds, which Qwen reads from 1000 up; `timeout: 1200` became a 1.2 second limit before. Lower values are unchanged (#3309).

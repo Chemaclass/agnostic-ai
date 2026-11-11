@@ -440,7 +440,7 @@ func TestImportCopilot_KeepsPluginDefaultsBesideAnOverriddenEffort(t *testing.T)
 func TestImportCopilot_KeepsHandWrittenHatchKeysOnReimport(t *testing.T) {
 	dir := importEffortProject(t, "copilot")
 	specPath := filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")
-	writeFile(t, specPath, "x-copilot:\n  deniedUrls: [evil.example]\n  respectGitignore: true\n  effortLevel: max\n")
+	writeFile(t, specPath, "x-copilot:\n  deniedUrls: [evil.example]\n  respectGitignore: true\n  effortLevel: ultra\n")
 	execCLI(t, "sync")
 	settingsPath := filepath.Join(dir, ".github", "copilot", "settings.json")
 	var native map[string]any
@@ -457,7 +457,7 @@ func TestImportCopilot_KeepsHandWrittenHatchKeysOnReimport(t *testing.T) {
 	execCLI(t, "import", "copilot")
 
 	spec := readFile(t, specPath)
-	for _, want := range []string{"evil.example", "respectGitignore: true", "effortLevel: max", "team@mkt: true"} {
+	for _, want := range []string{"evil.example", "respectGitignore: true", "effortLevel: ultra", "team@mkt: true"} {
 		if !strings.Contains(spec, want) {
 			t.Errorf("re-import must keep %q in x-copilot:\n%s", want, spec)
 		}
