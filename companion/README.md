@@ -292,7 +292,7 @@ about conversations comes over the server's API, documented under
 
 ```sh
 make companion-test   # Go vet, Go tests and the page logic tests
-make companion-e2e    # the list's search, open, rename, mark as read and failure flows in headless Chromium
+make companion-e2e    # the list's search, open, rename, mark as read and failure flows, and its ⋯ menu, in headless Chromium
 ```
 
 CI runs the page tests and the browser tests. It does not run the Go tests yet,

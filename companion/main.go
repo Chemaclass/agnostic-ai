@@ -135,9 +135,21 @@ func (s *shell) hide() {
 	s.server.rest()
 }
 
+// quitRestWait is how long quit waits for the server to stop. A server
+// still starting holds it longer; it ends with this process anyway.
+const quitRestWait = time.Second
+
 // quit stops the server, then ends the app.
 func (s *shell) quit() {
-	s.server.rest()
+	rested := make(chan struct{})
+	go func() {
+		s.server.rest()
+		close(rested)
+	}()
+	select {
+	case <-rested:
+	case <-time.After(quitRestWait):
+	}
 	s.end()
 }
 

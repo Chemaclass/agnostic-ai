@@ -1,31 +1,41 @@
 package main
 
 import (
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// quittingShell is a shell whose end only counts the calls.
-func quittingShell(t *testing.T) (*shell, *int) {
+// closer records whether the server's input was closed.
+type closer struct{ closed bool }
+
+func (c *closer) Close() error {
+	c.closed = true
+	return nil
+}
+
+// quittingShell is a shell with a running server whose end only counts the calls.
+func quittingShell(t *testing.T) (*shell, *closer, *int) {
 	t.Helper()
 	s := shellWith(t, &fakeShortcuts{})
+	input := &closer{}
 	s.server = newServer()
+	s.server.base, s.server.input = "http://127.0.0.1:1", input
 	ended := 0
 	s.end = func() { ended++ }
-	return s, &ended
+	return s, input, &ended
 }
 
 func TestQuit_StopsTheServerThenEndsTheApp(t *testing.T) {
-	s, ended := quittingShell(t)
+	s, input, ended := quittingShell(t)
 	s.end = func() {
 		*ended++
-		if _, err := s.server.address(); !errors.Is(err, errResting) {
-			t.Errorf("the app ended while a server could still start: %v", err)
+		if !s.server.resting || !input.closed {
+			t.Errorf("the app ended first: resting %v, input closed %v", s.server.resting, input.closed)
 		}
 	}
 
@@ -36,8 +46,30 @@ func TestQuit_StopsTheServerThenEndsTheApp(t *testing.T) {
 	}
 }
 
+func TestQuit_EndsTheAppWhileTheServerIsStillStarting(t *testing.T) {
+	s, _, ended := quittingShell(t)
+	// address holds the lock for the whole start of a server.
+	s.server.mu.Lock()
+	t.Cleanup(s.server.mu.Unlock)
+
+	done := make(chan struct{})
+	go func() {
+		s.quit()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(quitRestWait + time.Second):
+		t.Fatal("quit waited for the server to finish starting")
+	}
+	if *ended != 1 {
+		t.Errorf("end was called %d times; want once", *ended)
+	}
+}
+
 func TestQuitRoute_AnswersNoContentAndQuits(t *testing.T) {
-	s, ended := quittingShell(t)
+	s, input, ended := quittingShell(t)
 	routes := s.routes(&inbox{}, fstest.MapFS{})
 
 	rec := httptest.NewRecorder()
@@ -49,8 +81,8 @@ func TestQuitRoute_AnswersNoContentAndQuits(t *testing.T) {
 	if *ended != 1 {
 		t.Errorf("end was called %d times; want once", *ended)
 	}
-	if _, err := s.server.address(); !errors.Is(err, errResting) {
-		t.Errorf("a server can still start after quit: %v", err)
+	if !s.server.resting || !input.closed {
+		t.Errorf("the server still runs: resting %v, input closed %v", s.server.resting, input.closed)
 	}
 }
 
