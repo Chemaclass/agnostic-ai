@@ -753,6 +753,24 @@ func TestScan_LeavesOutCodexThreadsNobodyTypedIn(t *testing.T) {
 	}
 }
 
+func TestScan_KeepsCodexThreadsWithNoPromptTextWhenTheRepliesCannotBeRead(t *testing.T) {
+	empty := "55555555-5555-4555-8555-555555555555"
+	written := codexWrittenAt(time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC))
+	// Only the prompts query is answered, so the replies query fails.
+	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
+		"state_5.sqlite|FROM threads":       `[{"id":"` + empty + `","cwd":"/tmp/app","created_at_ms":` + written + `,"updated_at_ms":` + written + `,"originator":"codex-tui","source":"cli","name":"","title":"","first_user_message":""}]`,
+		"thread_history_1.sqlite|$.content": `[]`,
+	}), fakeProcesses{})
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	write(t, filepath.Join(stores.CodexDir, "thread_history_1.sqlite"), "")
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if view.Tools[1].Note == "" || len(view.Conversations) != 1 {
+		t.Errorf("a thread whose reply could not be read may hold one, so it must stay: note %q, rows %s", view.Tools[1].Note, asJSON(t, view.Conversations))
+	}
+}
+
 // The circle counts every chat that needs the person, while the first
 // page holds a week and the open chats. An unread chat older than that
 // keeps the count above zero after every listed row is marked read.
