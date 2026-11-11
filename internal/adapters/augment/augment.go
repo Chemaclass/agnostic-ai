@@ -107,7 +107,7 @@
 // renderers; the vendor default when the key is absent is 60000.
 // `args` stays a separate array, which Auggie 0.37.1 and 1.x both run
 // with no shell. `matcher` is optional even for `PreToolUse`/`PostToolUse` (vendor
-// default `.*`) and unused for the three session events, whose own
+// default `.*`) and unused for the events that take none (`Stop`, `SessionStart`, `SessionEnd`, and in Auggie 1.x `PromptSubmit` and `Notification`), whose own
 // example omits the key outright rather than writing an empty string,
 // so this adapter never sets it there either. Augment's own matcher
 // vocabulary is its tool names (`launch-process`, `str-replace-editor`,

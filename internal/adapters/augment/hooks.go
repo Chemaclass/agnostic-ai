@@ -12,22 +12,27 @@ import (
 const hooksKey = "hooks"
 
 // hookLifecycle is the event order docs.augmentcode.com/cli/hooks' own
-// "Hook Events" section lists: PreToolUse, PostToolUse, Stop,
-// SessionStart, SessionEnd. Five events total, re-verified fresh
-// 2026-09-10, superseding an earlier audit comment that read six off a
-// stale fetch: the vendor's `hook_event_name` common field lists
-// `Notification` as one more possible value, but it has no
-// configuration section of its own in the same page, so it is not a
-// sixth event a settings.json hook can register against. Events
-// outside this list follow in first-seen order.
-var hookLifecycle = []string{"PreToolUse", "PostToolUse", "Stop", "SessionStart", "SessionEnd"}
+// "Hook Events" section lists for Auggie 1.x: PreToolUse, PostToolUse,
+// Stop, SessionStart, SessionEnd, PromptSubmit, Notification. The 0.x
+// reference documents the first five as events with a section and
+// Notification only as a `hook_event_name` value; the settings file is
+// shared, so one list serves both. Events outside this list follow in
+// first-seen order.
+var hookLifecycle = []string{"PreToolUse", "PostToolUse", "Stop", "SessionStart", "SessionEnd", "PromptSubmit", "Notification"}
 
-// sessionOnlyEvents are the three events whose vendor field table marks
-// matcher "Not used ... (SessionStart, SessionEnd, Stop)". The vendor's
-// own SessionStart example omits the "matcher" key outright rather than
-// writing an empty string, so this adapter never sets Matcher for these
-// three regardless of what a hook spec's matcher field carries.
-var sessionOnlyEvents = map[string]bool{"Stop": true, "SessionStart": true, "SessionEnd": true}
+// HookEvents lists the events a hook spec may name for this target.
+func HookEvents() []string { return append([]string(nil), hookLifecycle...) }
+
+// sessionOnlyEvents are the events the vendor documents as taking no
+// matcher: Stop, SessionStart, SessionEnd, and, in Auggie 1.x,
+// PromptSubmit and Notification. The vendor's own SessionStart example
+// omits the "matcher" key outright rather than writing an empty string,
+// so this adapter never sets Matcher for these events regardless of what
+// a hook spec's matcher field carries.
+var sessionOnlyEvents = map[string]bool{
+	"Stop": true, "SessionStart": true, "SessionEnd": true,
+	"PromptSubmit": true, "Notification": true,
+}
 
 // claudeToolNames are the Claude-style matcher values Augment's own
 // PreToolUse/PostToolUse tool vocabulary does not answer to
@@ -50,7 +55,7 @@ var claudeToolNames = map[string]bool{
 // `.augment/settings.json` hooks event array. Not the shared
 // claudehooks.Group: that struct's Matcher field has no `omitempty`, so
 // it always writes `"matcher": ""` on a matcher-less event. Augment's
-// own vendor examples omit the key outright for the three session
+// own vendor examples omit the key outright for the matcher-less
 // events, and treat it as genuinely optional (default `.*`) rather than
 // required on PreToolUse/PostToolUse too, so this adapter holds its own
 // wrapper with `omitempty` to reproduce that shape exactly.
