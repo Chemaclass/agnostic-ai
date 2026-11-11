@@ -116,6 +116,26 @@ func TestQwen_ImportSyncNativeProject(t *testing.T) {
 	}
 }
 
+func TestQwen_FileChangedMatcherPassesStrictLint(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\nbuiltins: []\n")
+	writeFile(t, filepath.Join(dir, ".qwen/settings.json"), `{"hooks":{"FileChanged":[{"matcher":".envrc","hooks":[{"type":"command","command":"echo changed"}]}]}}`)
+	for _, args := range [][]string{{"import", "qwen"}, {"sync"}, {"sync", "--check"}, {"lint", "--strict"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".qwen/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"FileChanged"`, `".envrc"`, "echo changed"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("settings lost %s: %s", want, data)
+		}
+	}
+}
+
 func TestQwen_GlobalOwnershipAndRoot(t *testing.T) {
 	for _, existing := range []bool{false, true} {
 		t.Run(map[bool]string{false: "created", true: "existing"}[existing], func(t *testing.T) {
