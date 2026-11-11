@@ -105,6 +105,7 @@ type shell struct {
 	// shortcuts takes and gives back the keys that open the list from anywhere.
 	shortcuts shortcuts
 	tell      func(appearance)
+	end       func()
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -132,6 +133,12 @@ func (s *shell) hide() {
 	s.bubble.Hide()
 	s.inbox.stop()
 	s.server.rest()
+}
+
+// quit stops the server, then ends the app.
+func (s *shell) quit() {
+	s.server.rest()
+	s.end()
 }
 
 // comeBack puts the bubble back and reads a new list. It reports
@@ -300,6 +307,10 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 		s.hide()
 	})
+	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+		s.quit()
+	})
 	mux.Handle("/", application.BundledAssetFileServer(pages))
 	return mux
 }
@@ -380,7 +391,7 @@ func main() {
 			OnSecondInstanceLaunch: func(second application.SecondInstanceData) {
 				switch asked(second.Args) {
 				case askQuit:
-					s.app.Quit()
+					s.quit()
 				case askLoginOff:
 					// The companion that asked ended inside New and cannot do it.
 					if err := s.app.Autostart.Disable(); err != nil {
@@ -397,6 +408,7 @@ func main() {
 			},
 		},
 	})
+	s.end = s.app.Quit
 	// A companion started while another runs hands over its arguments and
 	// ends inside New, so from here on this is the only one.
 	switch ask {
