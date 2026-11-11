@@ -90,7 +90,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.
   Right-clicking alone does not open the chat or mark it as read.
-- On a chat you archived, the same menu offers **Delete permanently…**. It
+- On a chat under Archived, the same menu offers **Delete permanently…**. It
   asks first, then removes the chat from this computer. Only local Claude
   Code chats can be deleted for now; the others say why. See
   [what is removed and what stays](../docs/site/content/docs/cli-reference/companion.md#delete-an-archived-chat).

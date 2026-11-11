@@ -149,7 +149,7 @@ type Conversation struct {
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
 	// DeleteUnsupported says why an archived conversation cannot be
-	// deleted from here; set only on completed rows.
+	// deleted from here; set only on completed and dormant rows.
 	DeleteUnsupported string `json:"deleteUnsupported,omitempty"`
 	Open              Route  `json:"open"`
 

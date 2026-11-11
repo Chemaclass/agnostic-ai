@@ -282,7 +282,7 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 	}(context.WithoutCancel(r.Context()))
 }
 
-// delete removes an archived conversation from this machine for good.
+// delete removes a conversation under Archived from this machine for good.
 // It answers 200 only once the conversation's transcript is gone.
 func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {

@@ -260,8 +260,9 @@ describe('conversations normalization', () => {
   })
 
   it('keeps why an archived row cannot be deleted and drops a value that is not a sentence', () => {
-    const reason = (deleteUnsupported: unknown) => normalizeConversationsView({ conversations: [{ tool: 'cursor', app: 'ide', id: 'x', updatedAt: '2026-11-07T15:00:00Z', state: 'completed', deleteUnsupported, open: {} }] }).conversations[0].deleteUnsupported
+    const reason = (deleteUnsupported: unknown, state = 'completed') => normalizeConversationsView({ conversations: [{ tool: 'cursor', app: 'ide', id: 'x', updatedAt: '2026-11-07T15:00:00Z', state, deleteUnsupported, open: {} }] }).conversations[0].deleteUnsupported
     expect(reason('Delete it in Cursor.')).toBe('Delete it in Cursor.')
+    expect(reason('Delete it in Cursor.', 'dormant')).toBe('Delete it in Cursor.')
     expect(reason(42)).toBeUndefined()
     expect(reason('')).toBeUndefined()
   })

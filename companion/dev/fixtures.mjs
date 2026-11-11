@@ -38,7 +38,7 @@ function mixed(now) {
   ]
 }
 
-/** Archived chats: one Claude Code session that can be deleted, and others that cannot or are not archived by hand. */
+/** Archived chats: Claude Code sessions that can be deleted, archived by hand or quiet for days, and others that cannot. */
 function archived(now) {
   return [
     conversation(now, 'claude', 'active-3', 'Write the migration guide', 'active', { minutesAgo: 30 }),
@@ -48,6 +48,10 @@ function archived(now) {
       deleteUnsupported: 'Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open. Close it, then run this in a terminal: codex delete done-3',
     }),
     conversation(now, 'claude', 'old-2', 'Sketch the pricing page', 'dormant', { folder: '/Users/you/Code/site', minutesAgo: 9 * 24 * 60 }),
+    conversation(now, 'cursor', 'old-3', 'Rename the config keys', 'dormant', {
+      minutesAgo: 12 * 24 * 60,
+      deleteUnsupported: 'Cursor keeps every chat in one shared database and has no command to delete one. Delete it in Cursor.',
+    }),
   ]
 }
 

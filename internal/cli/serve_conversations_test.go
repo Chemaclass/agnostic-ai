@@ -747,6 +747,50 @@ func TestConversationsHandler_DeletesAnArchivedConversation(t *testing.T) {
 	}
 }
 
+func TestConversationsHandler_DeletesADormantConversationButNotAnUnreadOne(t *testing.T) {
+	for name, tc := range map[string]struct {
+		marksBegin time.Time
+		status     int
+		reply      string
+	}{
+		"quiet before the list began": {time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC), http.StatusOK, ""},
+		"written after the list began": {time.Date(2026, 11, 7, 7, 0, 0, 0, time.UTC), http.StatusConflict,
+			`{"error":"Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.","reason":"not-archived"}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, _, _ := conversationsFixture(t, false)
+			h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+			written := time.Date(2026, 11, 7, 8, 0, 0, 0, time.UTC)
+			err := filepath.WalkDir(h.scanner.Stores.ClaudeDir, func(path string, _ os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				return os.Chtimes(path, written, written)
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			now := tc.marksBegin
+			h.scanner.Now = func() time.Time { return now }
+			listConversations(t, h)
+			now = time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+			transcripts, err := filepath.Glob(filepath.Join(h.scanner.Stores.ClaudeDir, "projects", "*", inProject+".jsonl"))
+			if err != nil || len(transcripts) != 1 {
+				t.Fatalf("transcripts = %v (%v)", transcripts, err)
+			}
+
+			rec := postEdit(t, h, conversationDeletePath, `{"tool":"claude","id":"`+inProject+`"}`, nil)
+
+			if rec.Code != tc.status || (tc.reply != "" && strings.TrimSpace(rec.Body.String()) != tc.reply) {
+				t.Fatalf("delete = %d %s", rec.Code, rec.Body)
+			}
+			if _, err := os.Stat(transcripts[0]); (err == nil) == (tc.status == http.StatusOK) {
+				t.Errorf("transcript after a %d: %v", rec.Code, err)
+			}
+		})
+	}
+}
+
 func TestConversationsHandler_RefusesADeleteItCannotMake(t *testing.T) {
 	for name, tc := range map[string]struct {
 		body    string
@@ -759,7 +803,7 @@ func TestConversationsHandler_RefusesADeleteItCannotMake(t *testing.T) {
 		"an extra field":      {body: `{"tool":"claude","id":"` + inProject + `","path":"/"}`, status: http.StatusBadRequest, reply: `{"error":"send {tool, id}"}`},
 		"two objects":         {body: `{"tool":"claude","id":"` + inProject + `"}{}`, status: http.StatusBadRequest, reply: `{"error":"send one JSON object"}`},
 		"not archived": {body: `{"tool":"claude","id":"` + inWorktree + `"}`, status: http.StatusConflict,
-			reply: `{"error":"Only an archived conversation can be deleted. This one is not archived any more: something was written in it, or it was opened. Refresh the list.","reason":"not-archived"}`},
+			reply: `{"error":"Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.","reason":"not-archived"}`},
 		"running": {body: `{"tool":"claude","id":"` + inProject + `"}`, status: http.StatusConflict,
 			prepare: func(t *testing.T, h *conversationsHandler) {
 				sessions := filepath.Join(h.scanner.Stores.ClaudeDir, "sessions")

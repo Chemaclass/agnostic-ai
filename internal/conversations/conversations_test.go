@@ -387,6 +387,7 @@ func TestScan_ListsCursorChatsInTheProjectWithTheirPrompts(t *testing.T) {
   ],
   "prompt": "Add benchmarks",
   "state": "dormant",
+  "deleteUnsupported": "Cursor keeps every chat in one shared database and has no command to delete one. Delete it in Cursor.",
   "open": {
     "kind": "link",
     "label": "Open in Cursor",
