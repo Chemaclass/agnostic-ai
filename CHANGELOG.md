@@ -31,6 +31,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
+- The Qwen page says a `FileChanged` hook can also replace or clear the paths registered through `watchPaths` (#3263).
 - `serve`, the local API, `companion`, `doctor`, `import`, and the `sync` and `gitignore` settings have their own reference pages; old links redirect.
 - The companion page says Windows and Linux are not supported and links the issues.
 
