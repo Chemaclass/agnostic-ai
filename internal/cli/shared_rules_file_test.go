@@ -191,3 +191,103 @@ func TestSync_AdapterFileOnAnInstructionsFile_StopsAndNamesBoth(t *testing.T) {
 		t.Error("sync must stop before it writes AGENTS.md")
 	}
 }
+
+// Two writers whose merged files differ still collide when a reader
+// keeps their rules: neither merged file survives sync, but they differ.
+func TestSync_TwoKeptRulesFilesWithDifferentContent_Collide(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp, crush]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n  amp:\n    rules-file: AGENTS.md\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "pair.md"), "---\nname: pair\ntargets: [codex, crush]\n---\nPair rule.\n")
+
+	_, err := runCLI(t, "sync", "--gitignore=off")
+
+	if err == nil || !strings.Contains(err.Error(), "AGENTS.md ← amp, codex") {
+		t.Fatalf("want the output collision naming amp and codex, got %v", err)
+	}
+}
+
+// A rules-file on another target's instructions file keeps working when
+// the owner still loads it: Claude imports it from CLAUDE.md, and the
+// file sync writes there carries the rules.
+func TestSync_RulesFileOnAnotherTargetsInstructionsFile_KeptWhenTheOwnerImportsIt(t *testing.T) {
+	for _, tc := range []struct{ peer, path string }{{"codex", "AGENTS.md"}, {"amp", "AGENTS.md"}, {"gemini", "GEMINI.md"}} {
+		t.Run(tc.peer, func(t *testing.T) {
+			dir := sharedRulesFileProject(t, "targets: [claude, "+tc.peer+"]\noutputs:\n  claude:\n    rules-file: "+tc.path+"\n")
+			notes := captureNotes(t)
+
+			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+			if !strings.Contains(string(claude), "@"+tc.path) {
+				t.Errorf("CLAUDE.md must import %s, got:\n%s", tc.path, claude)
+			}
+			if !strings.Contains(notes.String(), "outputs.claude.rules-file has no effect on "+tc.path) {
+				t.Errorf("sync must say the key has no effect, got:\n%s", notes.String())
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check: %v\n%s", err, out)
+			}
+			if out, err := runCLI(t, "validate"); err != nil {
+				t.Errorf("validate: %v\n%s", err, out)
+			}
+		})
+	}
+}
+
+// When the owner does not read the file, its merged rules reach no one
+// once sync replaces them, and validate agrees with sync.
+func TestValidate_RulesFileOnAnotherTargetsInstructionsFile_LostWhenTheOwnerDoesNotReadIt(t *testing.T) {
+	for name, config := range map[string]string{
+		"codex on CLAUDE.md":  "targets: [claude, codex]\noutputs:\n  codex:\n    rules-file: CLAUDE.md\n",
+		"gemini on AGENTS.md": "targets: [gemini, codex]\noutputs:\n  gemini:\n    rules-file: AGENTS.md\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			sharedRulesFileProject(t, config)
+
+			if out, err := runCLI(t, "validate"); err == nil || !strings.Contains(out, "rules-file") {
+				t.Errorf("validate must reject it: %v\n%s", err, out)
+			}
+			if _, err := runCLI(t, "sync", "--gitignore=off"); err == nil || !strings.Contains(err.Error(), "loses those rules") {
+				t.Errorf("sync must stop: %v", err)
+			}
+		})
+	}
+}
+
+// A run that writes no instructions file on the path leaves the merged
+// file in place, so it says nothing about the key and checks the merged
+// file.
+func TestSync_PartialRunWithoutTheReaderKeepsTheMergedFile(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "hand edit\n")
+
+	if out, err := runCLI(t, "sync", "--check", "--target", "codex"); err == nil {
+		t.Errorf("sync --check --target codex must see the hand edit:\n%s", out)
+	}
+
+	notes := captureNotes(t)
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--target", "codex"); err != nil {
+		t.Fatalf("sync --target codex: %v\n%s", err, out)
+	}
+	if strings.Contains(notes.String(), "has no effect") {
+		t.Errorf("a run that keeps the merged file must not call the key ineffective:\n%s", notes.String())
+	}
+	if out, err := runCLI(t, "sync", "--check", "--target", "codex"); err != nil {
+		t.Errorf("sync --check --target codex after sync --target codex: %v\n%s", err, out)
+	}
+}
+
+// An external adapter's merged file cannot be read for rules, so sync
+// stops instead of guessing it is safe to replace.
+func TestSync_ExternalRulesFileOnASharedInstructionsFile_Stops(t *testing.T) {
+	sharedRulesFileProject(t, "targets: [codex, foo]\noutputs:\n  foo:\n    file: AGENTS.md\n    rules-file: AGENTS.md\n")
+	externalRulesFileAdapterOnPath(t, "foo", "AGENTS.md")
+
+	if _, err := runCLI(t, "sync", "--gitignore=off"); err == nil || !strings.Contains(err.Error(), "outputs.foo.rules-file") {
+		t.Fatalf("sync must stop and name outputs.foo.rules-file, got %v", err)
+	}
+}

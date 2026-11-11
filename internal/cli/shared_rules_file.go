@@ -11,17 +11,20 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// sharedRulesFile is a target whose merged rules-file is its own
-// instructions file while sync also writes that file for other readers.
-// Sync writes instructions files after every adapter, so the readers'
-// version replaces the merged file. It holds no AGNOSTIC_AI.md body and
-// only the owner's rules, so it cannot win either (#3302).
+// sharedRulesFile is a target whose merged rules-file is a file sync also
+// writes as other targets' instructions file. Sync writes instructions
+// files after every adapter, so their version replaces the merged file.
+// The merged file holds no AGNOSTIC_AI.md body and only the owner's
+// rules, so it cannot win either (#3302).
 type sharedRulesFile struct {
 	path    string
 	owner   string
 	readers []string
-	// lost names the owner's rules the readers' version leaves out.
-	lost []string
+	// kept is set when the owner still loads the file and the readers'
+	// version carries every rule the merged file would hold.
+	kept bool
+	// missing names the owner's rules the readers' version leaves out.
+	missing []string
 }
 
 // sharedRulesFiles finds every sharedRulesFile among files, the
@@ -29,21 +32,32 @@ type sharedRulesFile struct {
 func sharedRulesFiles(cfg *config.Config, b spec.Bundle, files []entryPointFile) []sharedRulesFile {
 	var out []sharedRulesFile
 	for _, owner := range slices.Sorted(slices.Values(cfg.Targets)) {
-		if !adapters.LegacyRulesFileOwnsEntryPoint(cfg, owner) {
+		if !adapters.HasLegacyRulesFile(cfg, owner) {
 			continue
 		}
-		path := adapters.EntryPointPath(cfg, owner)
+		path := cfg.Outputs[owner].RulesFile
 		if cfg.IsUnmanaged(path) {
 			continue
 		}
-		at := slices.IndexFunc(files, func(f entryPointFile) bool { return filepath.Clean(f.Path) == filepath.Clean(path) })
+		at := slices.IndexFunc(files, func(f entryPointFile) bool { return samePath(f.Path, path) })
 		if at < 0 {
 			continue
 		}
-		readers := files[at].Readers
-		out = append(out, sharedRulesFile{path: path, owner: owner, readers: readers, lost: rulesLeftOut(cfg, b, owner, readers)})
+		readers := slices.DeleteFunc(slices.Clone(files[at].Readers), func(t string) bool { return t == owner })
+		s := sharedRulesFile{path: path, owner: owner, readers: readers}
+		if adapters.WritesRulesFile(owner) && loadsRulesFile(cfg, owner) {
+			s.missing = rulesLeftOut(cfg, b, owner, files[at].Readers)
+			s.kept = len(s.missing) == 0
+		}
+		out = append(out, s)
 	}
 	return out
+}
+
+// loadsRulesFile reports whether owner reads its own rules-file: as its
+// instructions file, or through the import its instructions file gains.
+func loadsRulesFile(cfg *config.Config, owner string) bool {
+	return adapters.LegacyRulesFileOwnsEntryPoint(cfg, owner) || adapters.RenderLegacyRulesFileImportAppendix(cfg, owner) != ""
 }
 
 // rulesLeftOut names the rules owner's merged file holds that the rules
@@ -71,8 +85,12 @@ func (s sharedRulesFile) conflict() string {
 	if len(s.readers) == 1 {
 		fileKey = "outputs." + s.readers[0] + ".file"
 	}
-	return fmt.Sprintf("%s: outputs.%s.rules-file puts %s's merged rules there, and sync also writes it as the instructions file of %s, which leaves out %s's rules %s. Point outputs.%s.rules-file elsewhere, remove it, or set %s",
-		s.path, s.owner, s.owner, names, s.owner, strings.Join(s.lost, ", "), s.owner, fileKey)
+	detail := ""
+	if len(s.missing) > 0 {
+		detail = " (" + names + " leave out " + strings.Join(s.missing, ", ") + ")"
+	}
+	return fmt.Sprintf("%s: outputs.%s.rules-file puts %s's merged rules there, but sync writes that file last as the instructions file of %s, so %s loses those rules%s. Point outputs.%s.rules-file elsewhere, remove it, or set %s",
+		s.path, s.owner, s.owner, names, s.owner, detail, s.owner, fileKey)
 }
 
 func (s sharedRulesFile) noEffect() string {
@@ -81,12 +99,12 @@ func (s sharedRulesFile) noEffect() string {
 }
 
 // sharedRulesFileConflicts is the message for each sharedRulesFile that
-// loses rules, for a project whose instructions files cannot be rendered
-// it is none.
+// loses rules. A project whose instructions files cannot be rendered has
+// none here; sync reports that error itself.
 func sharedRulesFileConflicts(cfg *config.Config, b spec.Bundle, targets []string) []string {
 	var out []string
 	for _, s := range projectSharedRulesFiles(cfg, b, targets) {
-		if len(s.lost) > 0 {
+		if !s.kept {
 			out = append(out, s.conflict())
 		}
 	}
@@ -102,14 +120,20 @@ func projectSharedRulesFiles(cfg *config.Config, b spec.Bundle, targets []string
 	return sharedRulesFiles(cfg, b, files)
 }
 
-// replacedRulesFiles maps each owner whose merged rules-file sync
-// replaces, with no rule lost, to that path. Drift checks compare the
-// path against the instructions file sync leaves there, not the merged
-// file the adapter renders.
+// replacedRulesFiles maps each owner whose merged rules-file a run over
+// targets replaces with no rule lost to that path. A drift check compares
+// the path with the instructions file that run writes there, not the
+// merged file the adapter renders. A run that writes no instructions
+// file there leaves the merged file in place.
 func replacedRulesFiles(cfg *config.Config, b spec.Bundle, targets []string) map[string]string {
+	cfg = cfg.WithAdditionalTargets(targets...)
+	runFiles, err := renderEntryPointFiles(cfg, b, targets, "")
+	if err != nil {
+		return nil
+	}
 	out := map[string]string{}
-	for _, s := range projectSharedRulesFiles(cfg, b, targets) {
-		if len(s.lost) == 0 {
+	for _, s := range projectSharedRulesFiles(cfg, b, nil) {
+		if s.kept && slices.ContainsFunc(runFiles, func(f entryPointFile) bool { return samePath(f.Path, s.path) }) {
 			out[s.owner] = filepath.Clean(s.path)
 		}
 	}

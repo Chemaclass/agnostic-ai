@@ -56,7 +56,7 @@ var lintCodes = map[string]lintCode{
 	"LINT063": {
 		Severity: lintWarn,
 		Title:    "rules-file replaced by a shared instructions file",
-		Cause:    "`outputs.<target>.rules-file` names the target's own instructions file, and another enabled target reads the same file. Sync writes that file for the other target after the merged one, so the merged file never survives. The other target's version already carries every rule the merged file would hold, so nothing is lost.",
+		Cause:    "`outputs.<target>.rules-file` names a file that sync also writes as another enabled target's instructions file. Sync writes that file after the merged one, so the merged file never survives. The target still reads the file, and the other target's version carries every rule the merged file would hold, so nothing is lost.",
 		Fix:      "Remove the key, or point it at another path.",
 	},
 	"LINT062": {

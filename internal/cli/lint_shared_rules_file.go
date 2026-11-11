@@ -14,7 +14,7 @@ func lintSharedRulesFiles(cfg *config.Config, b spec.Bundle, targets, configPath
 	}
 	var findings []lintFinding
 	for _, s := range projectSharedRulesFiles(cfg, b, targets) {
-		if len(s.lost) > 0 {
+		if !s.kept {
 			continue
 		}
 		findings = append(findings, lintFinding{Code: "LINT063", Severity: lintWarn, Path: outputKeySource(configPaths, s.owner, "rules-file"), Message: s.noEffect()})

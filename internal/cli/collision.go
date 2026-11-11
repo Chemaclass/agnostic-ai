@@ -58,7 +58,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 	shared := sharedRulesFiles(cfg, b, entryFiles)
 	var conflicts []string
 	for _, s := range shared {
-		if len(s.lost) > 0 {
+		if !s.kept {
 			conflicts = append(conflicts, s.conflict())
 		}
 	}
@@ -108,8 +108,17 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 			written[f.Path][t] = f.Content
 		}
 	}
+	// A partial run writes the instructions files of its own targets only;
+	// a merged rules-file elsewhere stays as the adapter writes it.
+	runFiles, err := renderEntryPointFiles(cfg, b, targets, "")
+	if err != nil {
+		return nil, err
+	}
 	overwritten := maps.Clone(owners)
 	for _, s := range shared {
+		if !slices.ContainsFunc(runFiles, func(f entryPointFile) bool { return samePath(f.Path, s.path) }) {
+			continue
+		}
 		for path, ts := range overwritten {
 			if filepath.Clean(path) == filepath.Clean(s.path) && slices.Contains(ts, s.owner) {
 				adapters.NoteProject(s.noEffect())
@@ -117,7 +126,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 			}
 		}
 	}
-	if err := entryPointOverwrites(cfg, entryFiles, overwritten); err != nil {
+	if err := entryPointOverwrites(cfg, runFiles, overwritten); err != nil {
 		return nil, err
 	}
 	if policy == "prefer-spec" {

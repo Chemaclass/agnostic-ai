@@ -278,7 +278,7 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 	}
 	sess := adapters.NewSession()
 	sess.SetCollisionWinners(winners)
-	replaced := replacedRulesFiles(readerCfg, b, targets)
+	replaced := replacedRulesFiles(readerCfg, b, entryPointTargets)
 	sums := state.OutputSums
 	emitted := map[string]bool{}
 	outputSums := map[string]string{}
