@@ -68,6 +68,11 @@ It exits with code 1 and starts nothing when:
 - The folder or the path of `agnostic-ai` holds a control character (C0, DEL or C1) or text that is not UTF-8, which a terminal would act on as it is typed.
 - No tab can be opened. The message then gives the line that starts it by hand.
 
+### Limits
+
+- A Claude Code process is recognised by its session file, or by the name `claude`. An install that runs as `node` and has no session file is not recognised. Started inside a Codex session, the command then names the Codex thread as the parent, not that Claude Code session.
+- Codex as a parent needs `CODEX_THREAD_ID`, or a Codex process that holds one thread.
+
 ### The link line
 
 The new conversation's first prompt starts with one line that names the session it came from, then a blank line, then your brief:
