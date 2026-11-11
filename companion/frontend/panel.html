@@ -34,6 +34,15 @@
         <p class="notice-result" id="notice-result" role="status" hidden></p>
       </div>
     </section>
+    <section class="notice confirm" id="delete-confirm" role="alertdialog" aria-labelledby="delete-title" aria-describedby="delete-body" hidden>
+      <p class="confirm-title" id="delete-title"></p>
+      <p class="confirm-details" id="delete-details"></p>
+      <p class="confirm-body" id="delete-body"></p>
+      <div class="notice-actions confirm-actions">
+        <button class="confirm-cancel" id="delete-cancel" type="button">Cancel</button>
+        <button class="confirm-delete" id="delete-go" type="button">Delete permanently</button>
+      </div>
+    </section>
     <div class="list" id="list" role="listbox" aria-label="Conversations" tabindex="-1"></div>
     <footer class="foot">
       <div class="places" id="places" role="group" aria-label="Where the conversations run"></div>
@@ -57,6 +66,7 @@
     <div class="menu row-menu" id="row-menu" role="menu" aria-label="Conversation" hidden>
       <button class="menu-item" id="mark-read" type="button" role="menuitem" title="Takes it out of Needs you without opening it, until something new is written">Mark as read</button>
       <button class="menu-item" id="rename" type="button" role="menuitem">Rename…</button>
+      <button class="menu-item is-danger" id="delete" type="button" role="menuitem" title="Removes the chat from this computer. It cannot be undone.">Delete permanently…</button>
     </div>
     <p class="toast" id="toast" role="status" hidden></p>
   </main>

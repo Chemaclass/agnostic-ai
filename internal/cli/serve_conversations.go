@@ -21,6 +21,7 @@ const (
 	conversationOpenPath   = "/api/conversations/open"
 	conversationMarkPath   = "/api/conversations/mark"
 	conversationRenamePath = "/api/conversations/rename"
+	conversationDeletePath = "/api/conversations/delete"
 )
 
 // maxConversationOpenBytes bounds an open request: a tool, an id and an editor.
@@ -45,6 +46,30 @@ type conversationRenameRequest struct {
 	Tool  conversations.Tool `json:"tool"`
 	ID    string             `json:"id"`
 	Title string             `json:"title"`
+}
+
+type conversationDeleteRequest struct {
+	Tool conversations.Tool `json:"tool"`
+	ID   string             `json:"id"`
+}
+
+// conversationDeleteRefusal is a refused delete: error is a complete
+// sentence on its own; removed and remaining are set when a removal
+// failed part of the way.
+type conversationDeleteRefusal struct {
+	Error     string                      `json:"error"`
+	Reason    conversations.DeleteRefusal `json:"reason,omitempty"`
+	Removed   []string                    `json:"removed,omitempty"`
+	Remaining []string                    `json:"remaining,omitempty"`
+}
+
+var deleteRefusalStatus = map[conversations.DeleteRefusal]int{
+	conversations.DeleteNotListed:   http.StatusNotFound,
+	conversations.DeleteNotArchived: http.StatusConflict,
+	conversations.DeleteRunning:     http.StatusConflict,
+	conversations.DeleteChanged:     http.StatusConflict,
+	conversations.DeleteUnsupported: http.StatusUnprocessableEntity,
+	conversations.DeleteFailed:      http.StatusInternalServerError,
 }
 
 // conversationsHandler lists the coding tools' conversations and
@@ -81,6 +106,8 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.mark(w, r)
 	case conversationRenamePath:
 		h.rename(w, r)
+	case conversationDeletePath:
+		h.delete(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})
 	}
@@ -253,6 +280,46 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 	go func(ctx context.Context) {
 		_ = conversations.TitleTab(ctx, conversation, h.scanner.Processes, h.launcher, title)
 	}(context.WithoutCancel(r.Context()))
+}
+
+// delete removes an archived conversation from this machine for good.
+// It answers 200 only once the conversation's transcript is gone.
+func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
+	if status, message := editRequestGuard(r); status != 0 {
+		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	var req conversationDeleteRequest
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id}"})
+		return
+	}
+	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
+		return
+	}
+	if !knownConversationTool(req.Tool) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+		return
+	}
+	reply, err := h.scanner.Delete(r.Context(), req.Tool, req.ID, h.scanOptions(""))
+	var refusal *conversations.DeleteError
+	switch {
+	case err == nil:
+		writeEditJSON(w, http.StatusOK, reply)
+	case errors.As(err, &refusal) && refusal.Kind == conversations.DeleteNotListed:
+		writeEditJSON(w, http.StatusNotFound, editError{Error: refusal.Message})
+	case errors.As(err, &refusal):
+		status, known := deleteRefusalStatus[refusal.Kind]
+		if !known {
+			status = http.StatusInternalServerError
+		}
+		writeEditJSON(w, status, conversationDeleteRefusal{Error: refusal.Message, Reason: refusal.Kind, Removed: refusal.Removed, Remaining: refusal.Remaining})
+	default:
+		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
+	}
 }
 
 func (h *conversationsHandler) scanOptions(editor string) conversations.ScanOptions {

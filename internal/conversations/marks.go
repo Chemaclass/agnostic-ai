@@ -229,6 +229,9 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			c.State = stateOf(c, entry, since, now)
 			c.SeenAt = entry.SeenAt
 			c.CompletedAt = entry.CompletedAt
+			if c.State == StateCompleted {
+				c.DeleteUnsupported = s.deleteUnsupported(c)
+			}
 			if needsPerson(c.State) {
 				needsYou++
 			}

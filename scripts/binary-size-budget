@@ -881,4 +881,7 @@
 # #3280 (Auggie 1.x default model and effort, import read-back) measured
 # 25796768 bytes in CI; the budget is that plus 8192, rounded up to a
 # multiple of 4096.
-25808896
+# #3275 (delete an archived Claude Code conversation: the endpoint, its
+# checks and the rebuilt web bundle) measured 25825440 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+25837568

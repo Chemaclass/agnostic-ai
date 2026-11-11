@@ -55,11 +55,33 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - A row names the conversation's folder when it has one; a cloud session has none. When two folders in the list end in the same name, the row adds the parent folders that tell them apart, such as `shop/api` and `billing/api`. The row's tooltip and screen-reader description give the full path.
 - **Rename…** saves the name in `conversation-marks.json` through that server, so every `serve` on the machine shows it and finds it in a search. Enter saves it, and Escape keeps the old one. Right-clicking does not open the conversation or mark it as read. A new message keeps the name. A running conversation's Terminal or Ghostty tab takes the name as its title, and keeps it after the session ends.
 - **Mark as read** saves the same seen mark that opening a conversation saves, through that server. The conversation leaves Needs you in the companion and the web interface without being opened, and moves where an opened one would: Active, or Archived when it is not running and was last written more than a day ago. Its next write brings it back. If the save fails, the row stays and the list shows why.
+- **Delete permanently…** removes a chat you archived from this computer, after a confirmation. See [Delete an archived chat](#delete-an-archived-chat).
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute. The archive is cleared in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
 - **Hide Agnostic AI companion**, in the list's ⋯ menu, takes the circle off the screen and stops that server. Nothing is read or asked until the shortcut brings the companion back.
 - **Animate companion**, in the circle's right-click menu, turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
 - A local Codex chat that wrote nothing for 5 minutes moves to Needs you as "No activity for 7m", not "Waiting for you": Codex does not say when it waits, so the silence is all the server knows. A tool that reports its wait shows "Waiting for you". The web interface uses the same words.
 - **Dim when idle**, in the same menu, fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
+
+## Delete an archived chat
+
+Right-click a chat under Archived and choose **Delete permanently…**. The confirmation names the chat and what goes. Nothing is sent until you confirm, and **Cancel** or Escape keeps it.
+
+- It is offered only on a chat you marked complete that no process holds. A chat that went quiet by itself sits under Archived too, but is not offered it.
+- Afterwards the list says how much space it freed.
+- A refused or partial delete keeps the row. The reason stays above the list until you dismiss it, with any folder still on disk.
+
+| Chat | Can be deleted |
+|------|----------------|
+| Claude Code, on this computer | Yes |
+| Codex | Not yet. Run `codex delete <id>` in a terminal. |
+| Cursor editor chat | No. Cursor keeps every chat in one shared database. Delete it in Cursor. |
+| `cursor-agent` | Not yet. |
+| Any cloud session | No. Delete it where it runs. |
+| Any chat on Windows | No. The server cannot tell whether a session still runs. |
+
+A chat that cannot be deleted says why when you choose the item, and sends nothing. [`POST /api/conversations/delete`](@/docs/cli-reference/serve-api.md#post-api-conversations-delete) lists what is removed and what stays, such as Claude Code's own prompt history.
+
+Two limits are accepted. A session that starts in the moment between the last check and the removal is not seen. A forked Claude Code session may still point at saved tool output in its parent's folder, and deleting the parent removes that output.
 
 ## Upgrade the companion
 

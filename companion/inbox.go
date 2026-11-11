@@ -22,6 +22,7 @@ const (
 	serverOpenPath   = "/api/conversations/open"
 	serverMarkPath   = "/api/conversations/mark"
 	serverRenamePath = "/api/conversations/rename"
+	serverDeletePath = "/api/conversations/delete"
 )
 
 // inbox keeps the latest list of conversations for the pages. It holds
@@ -203,7 +204,7 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 
 // pass hands a page's request to the server's endpoint at path as it
 // came, and the server's answer back. The server checks the request; it
-// is the one that opens, marks and renames. A call that worked asks for a new
+// is the one that opens, marks, renames and deletes. A call that worked asks for a new
 // list.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

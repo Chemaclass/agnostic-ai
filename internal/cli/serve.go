@@ -230,6 +230,7 @@ func newServeMuxWithCloud(load authority.Loader, opts authority.HandlerOptions, 
 	mux.Handle(conversationOpenPath, conversationsHandler)
 	mux.Handle(conversationMarkPath, conversationsHandler)
 	mux.Handle(conversationRenamePath, conversationsHandler)
+	mux.Handle(conversationDeletePath, conversationsHandler)
 	mux.Handle(sourceViewPath, newSourceHandler(opts.Global))
 	var peer *switchPeer
 	if switches != nil {
@@ -260,7 +261,7 @@ func serializeAPI(next http.Handler) http.Handler {
 		// their own scanner, so a slow scan does not hold up the overview.
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath && r.URL.Path != switchPath &&
 			r.URL.Path != conversationsViewPath && r.URL.Path != conversationOpenPath && r.URL.Path != conversationMarkPath &&
-			r.URL.Path != conversationRenamePath {
+			r.URL.Path != conversationRenamePath && r.URL.Path != conversationDeletePath {
 			mu.Lock()
 			defer mu.Unlock()
 		}

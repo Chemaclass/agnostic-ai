@@ -155,6 +155,21 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     emit('inbox')
   }
 
+  async function remove(request, response) {
+    const body = await bodyOf(request)
+    logCall('/api/delete', body)
+    if (state.fixture.deleteProblem) return sendJSON(response, 500, { error: state.fixture.deleteProblem, reason: 'failed' })
+    const row = find(body)
+    if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this list any more. Refresh the page.' })
+    if (row.state !== 'completed') {
+      return sendJSON(response, 409, { error: 'Only an archived conversation can be deleted. This one is not archived any more: something was written in it, or it was opened. Refresh the list.', reason: 'not-archived' })
+    }
+    if (row.deleteUnsupported) return sendJSON(response, 422, { error: row.deleteUnsupported, reason: 'unsupported' })
+    state.conversations = state.conversations.filter((other) => other !== row)
+    sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000 })
+    emit('inbox')
+  }
+
   async function open(request, response) {
     // A held open answers from the fixture it started under, even if another is chosen meanwhile.
     const fixture = state.fixture
@@ -211,6 +226,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/open': open,
     'POST /api/mark': mark,
     'POST /api/rename': rename,
+    'POST /api/delete': remove,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); noContent(response); emit('panel-shown', 'bottom-right') },
     'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
     'POST /api/panel/show': (request, response) => { logCall('/api/panel/show'); noContent(response); emit('panel-shown', 'bottom-right') },

@@ -359,3 +359,96 @@ test('the circle counts the conversations that need you', async ({ page }) => {
   await expect(page.locator('#badge')).toHaveText('2')
   await expect(page.getByRole('button', { name: 'Conversations: 2 need you' })).toBeVisible()
 })
+
+const deleteItem = (page: Page) => page.getByRole('menuitem', { name: 'Delete permanently…' })
+const deleteDialog = (page: Page) => page.getByRole('alertdialog')
+
+async function openArchived(page: Page, fixture = 'archived') {
+  await openPanel(page, fixture)
+  await groupTitle(page, 'Archived').click()
+  await expect(row(page, 'Tidy the old branches')).toBeVisible()
+}
+
+function deletesSent(page: Page) {
+  const sent: unknown[] = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/delete')) sent.push(request.postDataJSON())
+  })
+  return sent
+}
+
+test('the row menu offers Delete permanently only on a chat archived by hand', async ({ page }) => {
+  await openArchived(page)
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await expect(deleteItem(page)).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  for (const title of ['Write the migration guide', 'Sketch the pricing page']) {
+    await row(page, title).click({ button: 'right' })
+    await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
+    await expect(deleteItem(page)).toBeHidden()
+    await page.keyboard.press('Escape')
+  }
+})
+
+test('the delete confirmation names the chat and what goes, and Cancel or Escape sends nothing', async ({ page }) => {
+  await openArchived(page)
+  const sent = deletesSent(page)
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await deleteItem(page).click()
+
+  await expect(deleteDialog(page)).toContainText('Delete "Tidy the old branches" permanently?')
+  await expect(deleteDialog(page)).toContainText('Claude Code · agnostic-ai · 3d')
+  await expect(deleteDialog(page)).toContainText('its transcript, its subagent transcripts, saved tool output, file backups and pasted images')
+  await expect(deleteDialog(page)).toContainText('It cannot be undone.')
+  await expect(deleteDialog(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await deleteDialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await expect(deleteDialog(page)).toBeHidden()
+
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await deleteItem(page).click()
+  await expect(deleteDialog(page)).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(deleteDialog(page)).toBeHidden()
+  await expect(row(page, 'Tidy the old branches')).toBeVisible()
+  expect(sent).toEqual([])
+})
+
+test('confirming a delete removes the row and says what it freed', async ({ page }) => {
+  await openArchived(page)
+  const sent = deletesSent(page)
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await deleteItem(page).click()
+  await deleteDialog(page).getByRole('button', { name: 'Delete permanently' }).click()
+
+  await expect(page.getByRole('status').filter({ hasText: 'Deleted. Freed 12 MB.' })).toBeVisible()
+  await expect(row(page, 'Tidy the old branches')).toHaveCount(0)
+  await expect(deleteDialog(page)).toBeHidden()
+  expect(sent).toEqual([{ tool: 'claude', id: 'done-2' }])
+})
+
+test('a refused delete keeps the row and its reason stays on screen', async ({ page }) => {
+  await openArchived(page, 'delete-failure')
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await deleteItem(page).click()
+  await deleteDialog(page).getByRole('button', { name: 'Delete permanently' }).click()
+
+  const reason = page.getByRole('region', { name: 'Why it was not deleted' })
+  await expect(reason).toContainText('Deleted 1 of 4 locations, then stopped: permission denied. Still on disk:')
+  // The toast was gone after 3.2 seconds; the reason is not.
+  await page.waitForTimeout(3_500)
+  await expect(reason).toBeVisible()
+  await expect(row(page, 'Tidy the old branches')).toBeVisible()
+})
+
+test('a chat the server cannot delete says why and sends nothing', async ({ page }) => {
+  await openArchived(page)
+  const sent = deletesSent(page)
+  await row(page, 'Bump the Go version').click({ button: 'right' })
+  await deleteItem(page).click()
+
+  await expect(deleteDialog(page)).toBeHidden()
+  await expect(page.getByRole('region', { name: 'Why it cannot be deleted' })).toContainText('Deleting Codex threads from here is not supported yet.')
+  await expect(row(page, 'Bump the Go version')).toBeVisible()
+  expect(sent).toEqual([])
+})

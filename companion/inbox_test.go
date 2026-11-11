@@ -21,6 +21,13 @@ type fakeAgnosticAI struct {
 	reads int
 	// posts are the bodies sent to each path.
 	posts map[string][]string
+	// answers replies to a post at a path with its status and body; a path without one answers 204.
+	answers map[string]fakeAnswer
+}
+
+type fakeAnswer struct {
+	status int
+	body   string
 }
 
 func (f *fakeAgnosticAI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -30,6 +37,12 @@ func (f *fakeAgnosticAI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			f.posts = map[string][]string{}
 		}
 		f.posts[r.URL.Path] = append(f.posts[r.URL.Path], r.Header.Get("Content-Type")+" "+string(body))
+		if answer, ok := f.answers[r.URL.Path]; ok && !strings.Contains(string(body), "gone") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(answer.status)
+			_, _ = w.Write([]byte(answer.body))
+			return
+		}
 		if strings.Contains(string(body), "gone") {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(`{"error":"That conversation is not in this list any more. Refresh the page."}`))
@@ -279,5 +292,40 @@ func TestServer_SaysWhenTheCommandIsMissing(t *testing.T) {
 
 	if err == nil || !strings.HasPrefix(err.Error(), "AGNOSTIC_AI_BIN: ") {
 		t.Errorf("err = %v", err)
+	}
+}
+
+func TestInbox_PassesADeleteToTheServerAndItsAnswerBack(t *testing.T) {
+	for name, tc := range map[string]struct {
+		answer  fakeAnswer
+		refresh bool
+	}{
+		"deleted": {fakeAnswer{http.StatusOK, `{"deleted":true,"freedBytes":12000000}`}, true},
+		"refused": {fakeAnswer{http.StatusConflict, `{"error":"This conversation is still running. Close it in Claude Code, then delete it.","reason":"running"}`}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverDeletePath: tc.answer}}
+			in, _ := connected(t, fake)
+			routes := (&shell{}).routes(in, fstest.MapFS{})
+			rec := httptest.NewRecorder()
+
+			routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/delete", strings.NewReader(`{"tool":"claude","id":"a"}`)))
+
+			if rec.Code != tc.answer.status || rec.Body.String() != tc.answer.body {
+				t.Errorf("= %d %s", rec.Code, rec.Body)
+			}
+			if sent := fake.posts[serverDeletePath]; len(sent) != 1 || sent[0] != `application/json {"tool":"claude","id":"a"}` {
+				t.Errorf("the server received %q", sent)
+			}
+			asked := false
+			select {
+			case <-in.refresh:
+				asked = true
+			default:
+			}
+			if asked != tc.refresh {
+				t.Errorf("asked for a new list: %t", asked)
+			}
+		})
 	}
 }

@@ -277,6 +277,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/open", in.pass(serverOpenPath))
 	mux.HandleFunc("POST /api/mark", in.pass(serverMarkPath))
 	mux.HandleFunc("POST /api/rename", in.pass(serverRenamePath))
+	mux.HandleFunc("POST /api/delete", in.pass(serverDeletePath))
 	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, _ *http.Request) {
 		s.togglePanel()
 		w.WriteHeader(http.StatusNoContent)

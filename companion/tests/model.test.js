@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -17,8 +17,39 @@ test('groups rows by state, in list order, and leaves empty groups out', () => {
 test('offers Mark as read only on a row that needs the person, and Rename on every row', () => {
   assert.deepEqual(
     ['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => rowMenuOf(row('a', state))),
-    [['read', 'rename'], ['read', 'rename'], ['rename'], ['rename'], ['rename'], ['rename']],
+    [['read', 'rename'], ['read', 'rename'], ['rename'], ['rename'], ['rename', 'delete'], ['rename']],
   )
+})
+
+test('offers Delete only on a chat archived by hand that no process holds', () => {
+  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename'])
+})
+
+test('the delete confirmation names the chat and the data it removes, or says why it cannot be deleted', () => {
+  const now = Date.parse('2026-11-09T14:00:00Z')
+  assert.deepEqual(deleteConfirmOf(row('a', 'completed', { title: 'Fix the parser', folder: '/Users/me/api' }), now), {
+    title: 'Delete "Fix the parser" permanently?',
+    details: 'Claude Code · api · 2h',
+    body:
+      'This removes the session from this computer: its transcript, its subagent transcripts, saved tool output, file backups and pasted images, and its name and marks in agnostic-ai. ' +
+      "It cannot be undone. The prompts you typed stay in Claude Code's own prompt history.",
+  })
+  assert.equal(deleteConfirmOf(row('a', 'completed', { title: '' }), now).title, 'Delete "Untitled conversation" permanently?')
+  const unsupported = 'Cursor keeps every chat in one shared database and has no command to delete one. Delete it in Cursor.'
+  assert.deepEqual(deleteConfirmOf(row('a', 'completed', { tool: 'cursor', deleteUnsupported: unsupported }), now), { unsupported })
+})
+
+test('says how much a delete freed', () => {
+  assert.equal(freedOf(undefined), '')
+  assert.equal(freedOf(0), '')
+  assert.equal(freedOf(512), 'Freed 512 bytes')
+  assert.equal(freedOf(1_500), 'Freed 1.5 KB')
+  assert.equal(freedOf(12_345_678), 'Freed 12 MB')
+  assert.equal(freedOf(2_400_000_000), 'Freed 2.4 GB')
+  assert.deepEqual(deletedOf({ deleted: true, freedBytes: 12_345_678 }), { message: 'Deleted. Freed 12 MB.', note: undefined })
+  assert.deepEqual(deletedOf({ deleted: true, note: 'The session data is gone.' }), { message: 'Deleted.', note: 'The session data is gone.' })
 })
 
 test('says why a row needs the person, and nothing for a quiet one', () => {
@@ -186,6 +217,7 @@ test('lets an input method confirm its candidate without saving', () => {
 })
 
 test('closes the nearest thing on Escape: the row menu, a rename, the settings, then the panel', () => {
+  assert.equal(escapeTarget({ deleteConfirmOpen: true, rowMenuOpen: true, renaming: true, settingsOpen: true }), 'delete-confirm')
   assert.equal(escapeTarget({ rowMenuOpen: true, renaming: true, settingsOpen: true }), 'row-menu')
   assert.equal(escapeTarget({ rowMenuOpen: false, renaming: true, settingsOpen: true }), 'rename')
   assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: true }), 'settings')
