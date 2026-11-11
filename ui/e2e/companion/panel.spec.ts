@@ -164,6 +164,27 @@ test('the next open replaces the notice', async ({ page }) => {
   await expect(notice(page)).toBeHidden()
 })
 
+test('a held failed open that answers after a newer open leaves the newer notice alone', async ({ page }) => {
+  await openPanel(page, 'held-open-failure')
+  const heldAnswer = page.waitForResponse((response) => response.url().endsWith('/api/open') && response.request().postDataJSON().id === 'active-2')
+  await row(page, 'Plan the sync dry run').click()
+  // The preview holds this open under its fixture before the switch below.
+  await expect.poll(async () => (await (await page.request.get('/dev/calls')).json()).some((call: { path: string }) => call.path === '/api/open')).toBe(true)
+
+  expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
+  expect((await page.request.post('/dev/fixture', { data: { name: 'open-failure' } })).ok()).toBe(true)
+  await row(page, 'Fix the login redirect').click()
+  await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
+
+  expect(await (await page.request.post('/dev/release-opens')).json()).toEqual({ released: 1 })
+  expect((await (await heldAnswer).json()).command).toBe(RESUME)
+  // Nothing on screen marks an answer the panel ignored, so give it time to wrongly show one.
+  await page.waitForTimeout(300)
+  await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
+  await expect(notice(page)).not.toContainText(RESUME)
+  await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toHaveCount(0)
+})
+
 test('copy resume command writes the exact command and says so', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openFailing(page, 'resume-failure')

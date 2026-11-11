@@ -889,7 +889,7 @@ export interface ConversationRoute {
   kind: 'focus' | 'terminal' | 'link'
   /** Button text, such as "Open in Terminal" or "Open in Cursor". */
   label: string
-  /** The shell command that resumes it, for copying; set for terminal and focus routes. */
+  /** The shell command that resumes it; set for terminal and focus routes. A focus route's command only resumes a session that ended since the scan, so rows read it through `rowCommand`, which offers none on a focus route. */
   command?: string
   link?: string
 }

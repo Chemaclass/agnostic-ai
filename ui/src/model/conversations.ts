@@ -260,10 +260,16 @@ export function relativeTime(iso: string, now: Date): string {
   return date.toLocaleDateString(undefined, sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+/** The resume command a row offers to copy. A running session gets none: running it would start a second copy. */
+export function rowCommand(route: ConversationRoute): string | undefined {
+  if (route.kind === 'focus') return undefined
+  return route.command
+}
+
 /** The command a failed open offers to copy, unless the row already offers the same one. */
 export function replyCommand(reply: ConversationOpenReply, route: ConversationRoute): string | undefined {
   if (reply.opened || !reply.command) return undefined
-  if (reply.command === route.command) return undefined
+  if (reply.command === rowCommand(route)) return undefined
   return reply.command
 }
 

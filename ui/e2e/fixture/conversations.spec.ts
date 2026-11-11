@@ -110,7 +110,7 @@ test.describe('conversations', () => {
     await expect(working.getByRole('button', { name: /^Open in Terminal/ })).toHaveClass(/button-primary/)
     await expect(working.locator('.conversation-tool')).toHaveText('Claude Code, Terminal')
     await expect(working.getByRole('button', { name: 'Open in Terminal: Add a Conversations page to the local UI' })).toBeVisible()
-    await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toBeVisible()
+    await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toHaveCount(0)
 
     const waiting = row(page, 'Plan the sync --global dry run').locator('.conversation-live')
     await expect(waiting).toHaveText('Waiting for youOpen now: the agent is waiting for you')
@@ -288,6 +288,38 @@ test.describe('conversations', () => {
     await expect(open).toBeEnabled()
     await expect(open).toBeFocused()
     expect(mocks.opens).toEqual([{ body: { tool: 'claude', id: '6f1c2a4e-8b3d-4c1e-9a7f-2d5e8b1c4a90', editor: 'cursor' }, contentType: 'application/json' }])
+  })
+
+  test('hides the resume command of a chat it opened, since it may run now', async ({ page }) => {
+    let answer!: () => void
+    const answered = new Promise<void>((resolve) => { answer = resolve })
+    const mocks = await mockServer(page, async () => {
+      await answered
+      return { json: { opened: true, message: 'Resumed it in a new Terminal tab.' } }
+    })
+    await page.goto('/')
+    const sqlite = row(page, 'Speed up the sqlite reader')
+    const copy = sqlite.getByRole('button', { name: /^Copy the command that resumes/ })
+    const open = sqlite.getByRole('button', { name: /^Open in Terminal/ })
+    await open.click()
+    await page.keyboard.press('Tab')
+    await expect(copy).toBeFocused()
+
+    answer()
+    await expect(sqlite.getByRole('status')).toHaveText('Resumed it in a new Terminal tab.')
+    await expect(copy).toHaveCount(0)
+    // The button it hid held the focus, so the focus moves to Open.
+    await expect(open).toBeFocused()
+    await expect(row(page, 'Summarize failing CI jobs').getByRole('button', { name: /^Copy the command that resumes/ })).toHaveCount(1)
+
+    // A return to the page redraws the kept list; the chat is still not reported open, so it still offers none.
+    const nav = page.getByRole('navigation', { name: 'Configuration sections' })
+    await nav.getByRole('link', { name: /^Context/ }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Context', exact: true })).toBeFocused()
+    await nav.getByRole('link', { name: /^Conversations/ }).click()
+    await expect.poll(() => mocks.views.length).toBe(2)
+    await expect(sqlite.getByRole('button', { name: /^Open in Terminal/ })).toBeVisible()
+    await expect(copy).toHaveCount(0)
   })
 
   test('offers the command to copy when the server cannot open it', async ({ page, context }) => {

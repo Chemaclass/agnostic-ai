@@ -222,6 +222,19 @@ func TestLintHookMatcherMisuse_SessionEndMatcherStaysClean(t *testing.T) {
 	}
 }
 
+// Qwen Code and Claude Code read a FileChanged matcher as the literal
+// filenames to watch, separated by |.
+func TestLintHookMatcherMisuse_FileChangedMatcherStaysClean(t *testing.T) {
+	for _, matcher := range []string{".envrc", ".envrc|.env"} {
+		hooks := []spec.Entry{
+			{Kind: spec.KindHook, Name: "watch", Path: "hooks/watch.yaml", Meta: map[string]any{"event": "FileChanged", "matcher": matcher}},
+		}
+		if got := lintHookMatcherMisuse(hooks); len(got) != 0 {
+			t.Errorf("expected no finding for FileChanged matcher %q, got %+v", matcher, got)
+		}
+	}
+}
+
 func TestLintHookMatcherMisuse_NoFindingsOnCleanHooks(t *testing.T) {
 	hooks := []spec.Entry{
 		{Kind: spec.KindHook, Name: "a", Path: "hooks/a.yaml", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash"}},
