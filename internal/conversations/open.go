@@ -283,6 +283,10 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 	if c.lastTab != nil {
 		app = c.lastTab.App
 	}
+	controlled := OpenReply{Message: "Its folder name holds control characters, which a terminal would act on as they are typed, so it is not resumed from here."}
+	if c.Open.Command == "" {
+		return controlled
+	}
 	opened := openInTab(ctx, launcher, app, c.Open.Command)
 	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: c.Open.Command} }
 	switch {
@@ -291,7 +295,7 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 	case opened.err == nil:
 		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", opened.app)}
 	case errors.Is(opened.err, errControlCharacters):
-		return OpenReply{Message: "Its folder name holds control characters, which a terminal would act on as they are typed, so it is not resumed from here."}
+		return controlled
 	case errors.Is(opened.err, errAutomationDenied):
 		return byHand(allowControl("opening", opened.app, "or run this command yourself"))
 	case opened.window && errors.Is(opened.err, errNotHere):

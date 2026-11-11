@@ -436,3 +436,21 @@ func TestHasControl_RefusesC0C1AndBrokenText(t *testing.T) {
 		}
 	}
 }
+
+func TestScan_OffersNoResumeCommandForAFolderWithControlCharacters(t *testing.T) {
+	if resumeIn("/tmp/a\x1b[31mb", "codex resume x") != "" || resumeIn("/tmp/a\u009bb", "codex resume x") != "" {
+		t.Error("resumeIn built a line for a folder with control characters")
+	}
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	writeSession(t, stores, idSafari, obj{"type": "user", "cwd": "/tmp/a\rtouch pwned", "entrypoint": "cli", "timestamp": "2026-11-07T08:00:00.000Z", "message": obj{"role": "user", "content": "Fix the parser"}})
+
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari)
+
+	if c.Open.Kind != RouteTerminal || c.Open.Command != "" {
+		t.Fatalf("route = %+v", c.Open)
+	}
+	launcher := &fakeLauncher{}
+	if reply := Open(context.Background(), c, fakeProcesses{}, launcher); reply.Opened || reply.Command != "" || len(launcher.calls) != 0 || !strings.Contains(reply.Message, "control characters") {
+		t.Errorf("reply %+v calls %q", reply, launcher.calls)
+	}
+}
