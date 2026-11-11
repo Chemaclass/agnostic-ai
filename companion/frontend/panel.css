@@ -420,6 +420,68 @@ body {
   stroke: var(--ink);
 }
 
+/* A chat just marked complete: its tick turns green, draws itself and lets one ring go.
+   With animation off the tick is green and still. Mark all complete shows none of this. */
+
+.row.is-completing .actions {
+  opacity: 1;
+  transform: none;
+}
+
+.action.is-done,
+.action.is-done:hover {
+  position: relative;
+  background: var(--calm-soft);
+  animation: done-pop 420ms var(--ease-spring);
+}
+
+.action.is-done svg,
+.action.is-done:hover svg {
+  stroke: var(--calm);
+}
+
+/* The tick is 14.5 long, so one dash of 15 is the whole of it. */
+.action.is-done path {
+  stroke-dasharray: 15;
+  animation: done-draw 300ms var(--ease-out) 60ms backwards;
+}
+
+.action.is-done::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 1.5px var(--calm);
+  opacity: 0;
+  animation: done-ring 480ms var(--ease-out);
+}
+
+@keyframes done-pop {
+  0% {
+    transform: scale(0.86);
+  }
+  60% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes done-draw {
+  from {
+    stroke-dashoffset: 15;
+  }
+}
+
+@keyframes done-ring {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
 /* Something the list lacks that the person need not act on now, such as a cloud that did not answer. */
 
 .aside {

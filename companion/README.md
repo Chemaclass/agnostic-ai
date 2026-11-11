@@ -69,10 +69,11 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   A running chat comes up in the Terminal or Ghostty tab that runs it, ready
   for typing. When only the app can come forward, the list comes back and
   says where the chat runs. macOS asks once to let the companion control each app.
-- Hover a row for its one button: **archive** a chat, or **hide** one that
-  is already archived. A working chat has no button, since the work would
-  bring it back at once. **Archive all** beside Active archives every active
-  chat at once.
+- Hover a row for its one button: **mark complete** a chat, which archives
+  it, or **hide** one that is already archived. A working chat has no button,
+  since the work would bring it back at once. The tick turns green for a
+  moment when you mark a chat complete. **Mark all complete** beside Active
+  archives every active chat at once, with no tick.
 - **Right-click** a row and choose **Rename…** to give the chat your own
   name. **Enter** saves it and **Esc** keeps the old one. An empty name is
   refused. The web interface shows the same name, and a search finds it.

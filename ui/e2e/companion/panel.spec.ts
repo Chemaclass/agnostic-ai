@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 // The real companion pages, served by companion/dev/preview.mjs with fixture data.
 // Every test starts from a fixture; the preview holds one state, so tests run one at a time.
@@ -73,14 +73,48 @@ test('a refused rename keeps the typed name in focus and says why', async ({ pag
   await expect(row(page, 'Plan the sync dry run')).toBeVisible()
 })
 
-test('a failed archive keeps the row and says why', async ({ page }) => {
+const completeButton = (target: Locator) => target.getByRole('button', { name: /^Mark complete,/ })
+const groupTitle = (page: Page, name: string) => page.locator('.group-title').filter({ hasText: name })
+
+test('marking one chat complete shows a green tick, then archives it', async ({ page }) => {
+  await openPanel(page)
+  const target = row(page, 'Fix the login redirect')
+  await target.hover()
+  await completeButton(target).click()
+
+  await expect(target.locator('.action.is-done')).toBeVisible()
+  // Archived starts folded; unfolded, the chat is in it with the button archived chats have.
+  await expect(target).toBeHidden()
+  await groupTitle(page, 'Archived').click()
+  await expect(target.getByRole('button', { name: /^Hide from agnostic-ai,/ })).toBeAttached()
+})
+
+test('a refused mark complete gives the tick back, keeps the row and says why', async ({ page }) => {
   await openPanel(page, 'mark-failure')
   const target = row(page, 'Fix the login redirect')
   await target.hover()
-  await target.getByRole('button', { name: /^Archive,/ }).click()
+  await completeButton(target).click()
 
   await expect(page.getByRole('status').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
   await expect(target).toBeVisible()
+  await expect(target.locator('.action.is-done')).toHaveCount(0)
+})
+
+test('mark all complete archives every active chat and shows no tick', async ({ page }) => {
+  await openPanel(page)
+  const ticks: number[] = []
+  await page.exposeFunction('tickSeen', () => ticks.push(1))
+  await page.evaluate(() => {
+    const seen = new MutationObserver(() => {
+      if (document.querySelector('.action.is-done')) (window as unknown as { tickSeen: () => void }).tickSeen()
+    })
+    seen.observe(document.getElementById('list')!, { subtree: true, attributes: true, attributeFilter: ['class'] })
+  })
+  await expect(groupTitle(page, 'Active')).toBeVisible()
+  await page.getByRole('button', { name: 'Mark all complete' }).click()
+
+  await expect(groupTitle(page, 'Active')).toHaveCount(0)
+  expect(ticks).toHaveLength(0)
 })
 
 const needsYou = (page: Page) => page.locator('.row.needs-you')
