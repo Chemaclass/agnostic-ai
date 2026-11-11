@@ -895,4 +895,8 @@
 # built-in and the rebuilt web bundle) measured 25911456 bytes locally on
 # 2026-11-11; the budget is that plus 8192, rounded up to a multiple of
 # 4096.
-25923584
+# #3285 slice 2 (nested conversation rows in the web bundle, on top of
+# #3300's mark all as read) measured 25923744 bytes locally on
+# 2026-11-11; the budget is that plus 8192, rounded up to a multiple of
+# 4096.
+25935872
