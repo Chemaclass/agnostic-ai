@@ -165,8 +165,8 @@ func TestArgv_MoreTargets(t *testing.T) {
 		{"openhands", "windows", "echo hi", []string{"cmd.exe", "/c", "echo hi"}},
 		{"goose", "windows", "echo hi", []string{"sh", "-c", "echo hi"}},
 		{"augment", "linux", ".augment/hooks/guard.sh", []string{"/bin/sh", "-c", ".augment/hooks/guard.sh"}},
-		{"augment", "windows", ".augment/hooks/guard.ps1", []string{"powershell.exe", "-Command", ".augment/hooks/guard.ps1"}},
-		{"augment", "windows", ".augment/hooks/guard.cmd", []string{"cmd.exe", "/c", ".augment/hooks/guard.cmd"}},
+		{"augment", "windows", ".augment/hooks/guard.ps1", []string{"cmd.exe", "/d", "/s", "/c", ".augment/hooks/guard.ps1"}},
+		{"augment", "windows", ".augment/hooks/guard.cmd", []string{"cmd.exe", "/d", "/s", "/c", ".augment/hooks/guard.cmd"}},
 	} {
 		if got := Argv(tc.target, tc.goos, Handler{Command: tc.command}); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("%s on %s: Argv = %q, want %q", tc.target, tc.goos, got, tc.want)
@@ -206,6 +206,8 @@ func TestOtherArgv_Augment(t *testing.T) {
 		{"windows", Handler{Command: "guard.sh", Args: []string{"x"}}, []string{"bash.exe", "guard.sh", "x"}},
 		{"windows", Handler{Command: "guard.ps1", Args: []string{"x"}}, []string{"powershell.exe", "-File", "guard.ps1", "x"}},
 		{"windows", Handler{Command: "echo hi"}, []string{"cmd.exe", "/d", "/s", "/c", "echo hi"}},
+		{"windows", Handler{Command: "guard.ps1"}, []string{"cmd.exe", "/d", "/s", "/c", "guard.ps1"}},
+		{"windows", Handler{Command: "guard.bat", Args: []string{"a&b", "x y"}}, []string{"cmd.exe", "/d", "/s", "/v:off", "/c", "guard.bat", "a^&b", "x y"}},
 	} {
 		got, ok := otherArgv("augment", tc.goos, tc.h)
 		if !ok || !slices.Equal(got, tc.want) {

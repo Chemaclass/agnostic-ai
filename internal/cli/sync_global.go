@@ -1283,7 +1283,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 		if err := adapters.ReportHookProjectRoot(target, hooks, onUnsupported, true); err != nil {
 			return nil, next, err
 		}
-		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks), scriptsDir: scriptsDir}
+		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks), scriptsDir: scriptsDir, goos: platform}
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {
@@ -2094,6 +2094,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			claudeHooks = append(claudeHooks, hook)
 		}
 		for _, command := range commands {
+			source := command
 			rewrite := func(command string, meta ...map[string]any) string {
 				if target.scriptsDir != "" {
 					return adapters.RewriteGlobalHookPath(command, target.name, filepath.ToSlash(target.scriptsDir), meta...)
@@ -2109,7 +2110,11 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			switch format {
 			case "augment":
 				// Augment documents type, command, args, and timeout (ms)
-				// on a hook, and a matcher only on tool events.
+				// on a hook, and a matcher only on tool events. Without
+				// args, Auggie hands the command to cmd.exe on Windows.
+				if target.goos == "windows" && len(args) == 0 && !wraps && target.scriptsDir != "" {
+					command = adapters.RewriteGlobalHookRoot(adapters.RewriteGlobalWindowsHookPath(source, filepath.ToSlash(target.scriptsDir)), target.name, entry.Meta)
+				}
 				commandHook := map[string]any{"type": "command", "command": command}
 				if len(args) > 0 && !wraps {
 					commandHook["args"] = args
@@ -2767,6 +2772,8 @@ func removeEqual(items []any, want any) ([]any, bool) {
 // target's globalTarget.hookTarget says.
 type globalHookTarget struct {
 	scriptsDir string
+	// goos is the platform the user files are written for.
+	goos       string
 	name, mode string
 	// timeout converts the spec's timeout, when the target reads
 	// another unit than seconds.

@@ -81,29 +81,44 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 }
 
 func augmentArgv(goos string, h Handler) []string {
-	ext := strings.ToLower(filepath.Ext(h.Command))
 	if len(h.Args) == 0 {
-		switch {
-		case goos != "windows":
-			return []string{"/bin/sh", "-c", h.Command}
-		case ext == ".ps1":
-			return []string{"powershell.exe", "-Command", h.Command}
-		case ext == ".cmd" || ext == ".bat":
-			return []string{"cmd.exe", "/c", h.Command}
+		if goos == "windows" {
+			return []string{"cmd.exe", "/d", "/s", "/c", h.Command}
 		}
-		return []string{"cmd.exe", "/d", "/s", "/c", h.Command}
+		return []string{"/bin/sh", "-c", h.Command}
 	}
 	if goos == "windows" {
-		switch ext {
+		switch strings.ToLower(filepath.Ext(h.Command)) {
 		case ".sh":
 			return append([]string{"bash.exe", h.Command}, h.Args...)
 		case ".ps1":
 			return append([]string{"powershell.exe", "-File", h.Command}, h.Args...)
 		case ".cmd", ".bat":
-			return append([]string{"cmd.exe", "/d", "/s", "/c", h.Command}, h.Args...)
+			argv := []string{"cmd.exe", "/d", "/s", "/v:off", "/c", h.Command}
+			for _, arg := range h.Args {
+				argv = append(argv, cmdEscapeArg(arg))
+			}
+			return argv
 		}
 	}
 	return append([]string{h.Command}, h.Args...)
+}
+
+// cmdEscapeArg keeps cmd.exe from reading an argument as a command
+// separator or redirect. An argument with a space or tab reaches cmd.exe
+// quoted, where these characters are already literal.
+func cmdEscapeArg(arg string) string {
+	if strings.ContainsAny(arg, " \t") {
+		return arg
+	}
+	var out strings.Builder
+	for _, r := range arg {
+		if strings.ContainsRune("^&|<>()%!", r) {
+			out.WriteByte('^')
+		}
+		out.WriteRune(r)
+	}
+	return out.String()
 }
 
 // DecideHandler is Decide for one handler, whose own failure policy can
