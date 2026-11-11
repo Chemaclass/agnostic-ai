@@ -263,24 +263,27 @@ func allowControl(verb, app, then string) string {
 // last ran in. Its old tab is never typed into: a shell waiting in a
 // builtin such as read looks the same as one at its prompt.
 func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
-	tab := c.lastTab
-	if tab == nil || !tabApps[tab.App] {
-		return newTerminal(ctx, c, launcher)
+	app := ""
+	if c.lastTab != nil {
+		app = c.lastTab.App
 	}
+	opened := openInTab(ctx, launcher, app, c.Open.Command)
 	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: c.Open.Command} }
-	err := launcher.RunInNewTab(ctx, tab.App, c.Open.Command)
 	switch {
-	case err == nil:
-		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", tab.App)}
-	case errors.Is(err, errAutomationDenied):
-		return byHand(allowControl("opening", tab.App, "or run this command yourself"))
-	case errors.Is(err, context.DeadlineExceeded):
-		return byHand(waitingForPrompt(tab.App))
-	case tab.App == "Terminal":
-		// Terminal before macOS 26 has no do script in new tab.
-		return newTerminal(ctx, c, launcher)
+	case opened.err == nil && opened.window:
+		return OpenReply{Opened: true, Message: "Resumed in a new Terminal window."}
+	case opened.err == nil:
+		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", opened.app)}
+	case errors.Is(opened.err, errAutomationDenied):
+		return byHand(allowControl("opening", opened.app, "or run this command yourself"))
+	case opened.window && errors.Is(opened.err, errNotHere):
+		return byHand("This system cannot open a terminal from the page. Run this command in a terminal.")
+	case opened.window:
+		return byHand("Could not open a Terminal window. Run this command in a terminal.")
+	case errors.Is(opened.err, context.DeadlineExceeded):
+		return byHand(waitingForPrompt(opened.app))
 	default:
-		return byHand(fmt.Sprintf("Could not open a %s tab. Run this command in a terminal.", tab.App))
+		return byHand(fmt.Sprintf("Could not open a %s tab. Run this command in a terminal.", opened.app))
 	}
 }
 
@@ -288,18 +291,27 @@ func waitingForPrompt(app string) string {
 	return fmt.Sprintf("macOS is waiting for you to allow control of %s. Answer its prompt, then click again.", app)
 }
 
-func newTerminal(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
-	err := launcher.RunInNewTerminal(ctx, c.Open.Command)
-	switch {
-	case err == nil:
-		return OpenReply{Opened: true, Message: "Resumed in a new Terminal window."}
-	case errors.Is(err, errAutomationDenied):
-		return OpenReply{Message: allowControl("opening", "Terminal", "or run this command yourself"), Command: c.Open.Command}
-	case errors.Is(err, errNotHere):
-		return OpenReply{Message: "This system cannot open a terminal from the page. Run this command in a terminal.", Command: c.Open.Command}
-	default:
-		return OpenReply{Message: "Could not open a Terminal window. Run this command in a terminal.", Command: c.Open.Command}
+// tabOpening is where openInTab ran a command, or why it could not.
+type tabOpening struct {
+	// app got the command: the app asked for, or Terminal for a window.
+	app string
+	// window is true when it went to a new Terminal window.
+	window bool
+	err    error
+}
+
+// openInTab runs command in a new tab of app when app takes one, else
+// in a new Terminal window. Terminal before macOS 26 has no do script
+// in new tab, so a failed Terminal tab falls back to a window; a refused
+// or unanswered permission does not, since the window needs it too.
+func openInTab(ctx context.Context, launcher Launcher, app, command string) tabOpening {
+	if tabApps[app] {
+		err := launcher.RunInNewTab(ctx, app, command)
+		if err == nil || app != "Terminal" || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) {
+			return tabOpening{app: app, err: err}
+		}
 	}
+	return tabOpening{app: "Terminal", window: true, err: launcher.RunInNewTerminal(ctx, command)}
 }
 
 // focusTerminal switches to the exact tab that runs a live session. It
