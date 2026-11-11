@@ -304,6 +304,10 @@
                   }
                 ],
                 "description": "Effort the tier carries: a scalar, or a map of target name (or default) to a scalar."
+              },
+              "description": {
+                "type": "string",
+                "description": "When to use this tier, in one line. sync lists the tiers that have one in the generated instructions."
               }
             },
             "additionalProperties": {
@@ -311,10 +315,10 @@
               "minLength": 1
             },
             "type": "object",
-            "description": "A model tier: target name (or default) to that target's model id, plus an optional effort."
+            "description": "A model tier: target name (or default) to that target's model id, plus an optional effort and description."
           },
           "type": "object",
-          "description": "Model tiers by name. A spec whose model names a tier gets that tier's model and effort for each target."
+          "description": "Model tiers by name. A spec whose model names a tier gets that tier's model and effort for each target. A tier's description says when to use it; sync lists it in the generated instructions."
         },
         "on-unsupported": {
           "type": "string",

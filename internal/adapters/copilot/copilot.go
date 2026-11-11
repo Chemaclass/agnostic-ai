@@ -443,7 +443,7 @@ func emitLegacyRulesFile(sess *emit.Session, b spec.Bundle, cfg *config.Config, 
 	if err != nil {
 		return err
 	}
-	// With no always-on rule, only a local block keeps the file: the
+	// With no always-on rule, only a tiers or local block keeps the file: the
 	// central writer skips an entry point this document owns.
 	if len(alwaysOn) == 0 && content == sb.String() {
 		return nil

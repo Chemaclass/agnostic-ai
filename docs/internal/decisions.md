@@ -105,3 +105,13 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 **Why:** Claude Code keeps a session in files named by its full id, so ownership can be checked by name alone. Removing the transcript last means any failure leaves the row listed and archived, and the delete can be retried; the reply is 200 only once the transcript is gone. A file newer than the mark catches a resumed session that wrote only bookkeeping lines, which the list's own time ignores. Cursor keeps every chat in one shared database it holds open, with no delete command. `codex delete --force` removes a thread's row, history and rollout file, but it also deletes a thread a process has loaded, with exit 0 and no warning (tested 2026-11-11 on codex-cli 0.167.1, #3287). The removal is done by Codex, so agnostic-ai cannot check again right before it. On Windows the server cannot see running processes, so "cannot tell" would read as "not running". The process list must be readable before anything is removed, since a failed `ps` reads as "nothing runs". The session is checked again before its transcript, because the side folders can take a while.
 
 **Accepted limits:** A session that starts in the moment between the last check and the removal is not seen. A forked Claude Code session may still point at its parent's saved tool output under `projects/<project>/<parent id>/tool-results/`, and deleting the parent removes it. On one machine 0 of 182 transcripts pointed at another session's folder, so no scan was added. A clock set back after the archive can make a later write look older than the mark, so the delete goes ahead. A resume that recreates an empty side folder, such as `session-env/<id>`, and exits without writing the transcript is not caught, because only file times are compared.
+
+## 011: Model tier descriptions render after the instructions, sorted by name
+
+**Date:** 2026-11-11
+
+**Context:** A model tier's `description` says when to use it, and the main agent needs that text in its instructions ([#3286](https://github.com/Chemaclass/agnostic-ai/issues/3286)).
+
+**Decision:** Sync appends one marked line after each entry point's instructions body, once the per-file view is built, and lists the described tiers sorted by name. `sync --global` puts the same line, without markers, in the block it manages. Import drops the marked line.
+
+**Why:** Appending after the view keeps the text out of the `AGNOSTIC_AI.md` layer that `lint` and `explain --file` report, and keeps a `CLAUDE.md` that imports `AGENTS.md` as it is. Config file order is lost once tiers decode into a map; keeping it needs an order-aware decode in three loaders. Sorted order is stable at no cost.

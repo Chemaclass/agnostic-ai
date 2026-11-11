@@ -884,8 +884,11 @@
 # #3275 (delete an archived Claude Code conversation: the endpoint, its
 # checks and the rebuilt web bundle) measured 25825440 bytes locally; the
 # budget is that plus 8192, rounded up to a multiple of 4096.
+# #3284 (wrap-up built-in) and #3286 (model tier descriptions) together
+# measured 25837728 bytes locally; the budget is that plus 8192, rounded
+# up to a multiple of 4096.
 # #3283 (the agent's latest reply on each conversation row: the Claude
-# Code and Codex readers and the rebuilt web bundle) measured 25858208
-# bytes locally on 2026-11-11, 28672 above main 6e745cb2; the budget is
+# Code and Codex readers and the rebuilt web bundle) measured 25862304
+# bytes locally on 2026-11-11, 24576 above main c3a0e79a; the budget is
 # that plus 8192, rounded up to a multiple of 4096.
-25870336
+25874432

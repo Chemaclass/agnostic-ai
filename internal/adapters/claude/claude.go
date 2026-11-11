@@ -767,7 +767,7 @@ func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryR
 		if err != nil {
 			return err
 		}
-		// With no rules, only a local block keeps the file: the central
+		// With no rules, only a tiers or local block keeps the file: the central
 		// writer skips an entry point this document owns.
 		if len(rules) == 0 && content == sb.String() {
 			return nil
