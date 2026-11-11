@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
@@ -471,6 +472,7 @@ var globalTargets = map[string]globalTarget{
 		mcp:         globalMCPFile{path: globalPathHome + ".augment/settings.json", format: "json", key: "mcpServers"},
 		settings: globalSettingsFile{
 			path: globalPathHome + ".augment/settings.json", format: "json",
+			model: "defaultModel", effort: "defaultThinkingLevel", effortLevel: augment.Adapter{}.SettingsEffortLevels,
 			reserved: map[string]string{
 				"hooks":           "sync --global writes hooks from hook specs",
 				"mcpServers":      "sync --global writes MCP servers from MCP specs",

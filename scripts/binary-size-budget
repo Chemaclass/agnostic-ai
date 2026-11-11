@@ -878,4 +878,7 @@
 # Built-in Details text (summary, points, docs links) and the rebuilt
 # web bundle measured 25784480 bytes locally, 8192 above main ed0eccd3;
 # the budget is that plus 8192, rounded up to a multiple of 4096.
-25796608
+# #3280 (Auggie 1.x default model and effort, import read-back) measured
+# 25796768 bytes in CI; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+25808896

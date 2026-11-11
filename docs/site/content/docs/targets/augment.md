@@ -23,7 +23,7 @@ Select `augment` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-
 
 MCP and permission settings on this page apply to Auggie CLI. The IDE reads the project rules and skills, and runs project hooks from `.augment/settings.json` once you trust the workspace ([Augment changelog](https://www.augmentcode.com/changelog)).
 
-For an existing setup, [import](#import) reads ignore patterns and selected permission rules only. Review the remaining native files before syncing.
+For an existing setup, [import](#import) reads ignore patterns, selected permission rules, and the default model and effort only. Review the remaining native files before syncing.
 
 ## Verify
 
@@ -39,7 +39,7 @@ AGENTS.md                     # entry-point pointer body + rules (written by syn
 ├── rules/<name>.md           # one per rule the root AGENTS.md does not carry, and per agent_requested rule
 ├── agents/<name>.md          # one per agent
 ├── commands/<name>.md        # one per command; nested source scope becomes a namespace
-└── settings.json             # mcpServers + hooks + toolPermissions, merged; only with MCP, hook, or settings specs
+└── settings.json             # mcpServers, hooks, toolPermissions, and default model and effort, merged; only with MCP, hook, or settings specs
 .agents/skills/<name>/SKILL.md  # one folder per skill (shared cross-tool tree)
 .augmentignore                # workspace indexing exclusions
 .augment-guidelines           # opt-in legacy joined rules, only when rules-file is set
@@ -93,16 +93,17 @@ The IDE keeps the memory rule. See [shared memory](@/docs/memory.md#load-at-sess
 
 ### Permissions
 
-Settings specs merge into the same file under `toolPermissions`, which Auggie CLI and Cosmos cloud agents follow. Augment recommends committing `.augment/settings.json` so the policy applies to every cloud agent in the repo ([permissions docs](https://docs.augmentcode.com/cli/permissions)).
+Settings spec permissions merge into the same file under `toolPermissions`, which Auggie CLI and Cosmos cloud agents follow. Augment recommends committing `.augment/settings.json` so the policy applies to every cloud agent in the repo ([permissions docs](https://docs.augmentcode.com/cli/permissions)).
 
 - Rules are an ordered array and the first match wins, so deny rules come first.
 - Each `permission` is an **object** such as `{ "type": "deny" }`. Augment ignores a bare-string permission.
 - Bare tool names map onto Augment's six tools (`Read` to `read`, `Bash` to `terminal`, `WebFetch` to `web-fetch`, ...).
 - `Bash(prefix:*)` becomes a `terminal` rule with `shellInputRegex: ^prefix`. An exact `Bash(command)` is anchored at both ends. `mcp__<server>__<tool>` becomes `{tool-name}_{server-name}`.
 
+`model` becomes `defaultModel` and `effort` becomes `defaultThinkingLevel` (`off`, `minimal`, `low`, `medium`, `high`, or `xhigh`; another value raises a sync note). Auggie 1.x reads both keys ([settings docs](https://docs.augmentcode.com/cli/settings.md)); Auggie 0.x ignores them and reads only `model`, which you can set with `x-augment: {model: ...}`. Auggie 1.x also reads `model` when `defaultModel` is absent.
+
 These are not written and raise a sync note:
 
-- `model`: the file has no documented key.
 - The `ask` list: none of Augment's types (`allow`, `deny`, `webhook-policy`, `script-policy`) prompts.
 - Path- or URL-scoped rules such as `Read(src/**)`: only `terminal` takes a matcher, and a bare `read` would cover every file.
 
@@ -124,7 +125,7 @@ These are not written and raise a sync note:
 
 ## Import
 
-`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). Nothing else is imported.
+`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment`, or `x-augment.defaultModel` when another settings spec sets a different Augment model. `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). Nothing else is imported.
 
 ## Protected paths
 

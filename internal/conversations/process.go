@@ -178,9 +178,8 @@ func (SystemProcesses) Cwds(pids []int) map[int]string {
 }
 
 func (SystemProcesses) Holders(paths []string) map[string]int {
-	held := map[string]int{}
 	if len(paths) == 0 {
-		return held
+		return map[string]int{}
 	}
 	// lsof names each open file by its resolved path, so a path under a
 	// symlinked folder, such as a linked ~/.codex, is looked up by its target.
@@ -195,21 +194,42 @@ func (SystemProcesses) Holders(paths []string) map[string]int {
 	ctx, cancel := context.WithTimeout(context.Background(), psTimeout)
 	defer cancel()
 	// lsof exits 1 when none of the files is open; its output still lists
-	// the ones that are: a "p<pid>" line, then one "n<path>" line for
-	// each file that process has open.
-	out, _ := exec.CommandContext(ctx, "lsof", append([]string{"-F", "pn", "--"}, paths...)...).Output()
-	pid := 0
-	for _, line := range strings.Split(string(out), "\n") {
+	// the ones that are.
+	out, _ := exec.CommandContext(ctx, "lsof", append([]string{"-F", "pcn", "--"}, paths...)...).Output()
+	return parseHolders(string(out), asked)
+}
+
+// parseHolders reads `lsof -F pcn` output: a "p<pid>" line and a
+// "c<command>" line for each process, then one "n<path>" line for each
+// file it has open. A sqlite3 reader, such as the scan's own query on a
+// cursor-agent chat, holds the file only for a moment and is not the
+// process that runs the chat. When several processes hold a file, an
+// agent's own runtime wins over a tool that only has it open.
+func parseHolders(out string, asked map[string]string) map[string]int {
+	held := map[string]int{}
+	byAgent := map[string]bool{}
+	pid, command := 0, ""
+	for _, line := range strings.Split(out, "\n") {
 		if field, ok := strings.CutPrefix(line, "p"); ok {
 			pid, _ = strconv.Atoi(field)
+			command = ""
+		} else if name, ok := strings.CutPrefix(line, "c"); ok {
+			command = name
 		} else if open, ok := strings.CutPrefix(line, "n"); ok {
-			if path, ok := asked[open]; ok && pid > 0 {
-				held[path] = pid
+			path, ok := asked[open]
+			if !ok || pid <= 0 || command == "sqlite3" || (byAgent[path] && !agentCommands[command]) {
+				continue
 			}
+			held[path] = pid
+			byAgent[path] = agentCommands[command]
 		}
 	}
 	return held
 }
+
+// agentCommands are the process names an agent runs as: cursor-agent
+// runs in its bundled node.
+var agentCommands = map[string]bool{"node": true, "cursor-agent": true}
 
 // AppRunning looks for the app's main executable in the process list:
 // on macOS its command is the full path inside the app bundle, such as

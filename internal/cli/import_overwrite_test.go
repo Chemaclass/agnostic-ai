@@ -385,7 +385,7 @@ func TestImport_StopsOnSettingsWithNoNativeEffortOrPermissions(t *testing.T) {
 		{target: "claude", file: "claude", mine: "model:\n  codex: gpt-5.5\n", native: ".claude/settings.json", data: `{"effortLevel":"high"}`},
 		{target: "codex", file: "codex", mine: "model:\n  claude: sonnet\n", native: ".codex/config.toml", data: "model_reasoning_effort = \"high\"\n"},
 		{target: "windsurf", file: "permissions", mine: "model: native-model\n", native: ".devin/config.json", data: `{"permissions":{"allow":["read"]}}`},
-		{target: "augment", file: "permissions-augment", mine: "model: native-model\n", native: ".augment/settings.json", data: `{"toolPermissions":[{"toolName":"read","permission":{"type":"allow"}}]}`},
+		{target: "augment", file: "permissions-augment", mine: "effort: max\n", native: ".augment/settings.json", data: `{"toolPermissions":[{"toolName":"read","permission":{"type":"allow"}}]}`},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())

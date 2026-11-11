@@ -1,4 +1,5 @@
 {
+  "defaultModel": "example-model",
   "hooks": {
     "PreToolUse": [
       {

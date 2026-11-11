@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- The companion and the web interface show a `cursor-agent` chat that still runs as open. Opening it switches to its terminal instead of starting a second copy (#3274).
 - The web interface no longer offers Copy command on a session that still runs; running it would start a second copy (#3272).
 - `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3262).
 - The companion's row button and "Archive all" now read "Mark complete" and "Mark all complete"; marking one chat complete turns its tick green for a moment.
@@ -34,6 +35,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Augment
 
+- Settings `model` and `effort` write Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; Auggie 0.x ignores both keys. `import augment` reads them back (#3265).
 - Hooks with `args` reach `.augment/settings.json` and `~/.augment/settings.json` with their arguments, instead of being skipped. An inline command no longer raises a "never executes" note, and `hook run` runs it (#3264).
 
 ### Site

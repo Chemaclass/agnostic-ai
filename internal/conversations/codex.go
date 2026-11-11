@@ -115,9 +115,9 @@ func codexExec(thread codexThread) bool {
 	return thread.Originator == "codex_exec" || thread.Source == "exec"
 }
 
-// codexLiveWindow bounds which threads are checked for a live process:
-// one untouched for a week is not in use.
-const codexLiveWindow = 7 * 24 * time.Hour
+// liveWindow bounds which chats are checked for a live process: one
+// untouched for a week is not in use.
+const liveWindow = 7 * 24 * time.Hour
 
 // markLiveCodexThreads marks the threads a running Codex process has
 // loaded. Codex keeps thread-writer-locks/<id>.lock open while a process
@@ -127,7 +127,7 @@ const codexLiveWindow = 7 * 24 * time.Hour
 // A loaded thread whose rollout says a turn runs is working.
 func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string) {
 	var liveRollouts []string
-	cutoff := s.Now().Add(-codexLiveWindow).UTC().Format(time.RFC3339)
+	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
 	lockOf := map[string]int{}
 	var locks []string
 	for i, c := range conversations {
