@@ -19,10 +19,12 @@ const (
 	openingLines = 3
 	promptRunes  = 300
 	replyRunes   = 200
-	// replyKeptBytes is what a reader keeps of an agent message for the
+	// replyCheckedBytes is what a reader keeps of an agent message for the
 	// credential check, cut at a space so a token is checked whole or
-	// never shown.
-	replyKeptBytes = 1024
+	// never shown. Titles and prompts are checked whole; a reply is
+	// capped because the check costs about 3 ms a kilobyte and a working
+	// agent writes a new one every few seconds.
+	replyCheckedBytes = 4096
 )
 
 // injectedBlocks are wrappers a tool adds around or beside what the
@@ -78,25 +80,27 @@ func openingOf(prompt string) []string {
 }
 
 // agentSaid cuts an agent message to what a row keeps of it: its start
-// and, when it asks one, its question. asked is a question the store marks.
-func agentSaid(message, asked string) (reply, question string) {
-	reply = keptStart(strings.TrimSpace(message))
+// and, when it asks one, its question. start and ending are the
+// message's first and last part, the whole message when the reader has
+// it; asked is a question the store marks.
+func agentSaid(start, ending, asked string) (reply, question string) {
+	reply = keptStart(strings.TrimSpace(start))
 	if asked = strings.TrimSpace(asked); asked != "" {
 		return reply, keptStart(asked)
 	}
-	return reply, closingQuestion(message)
+	return reply, closingQuestion(ending)
 }
 
-// keptStart cuts text to replyKeptBytes at the last space before the
+// keptStart cuts text to replyCheckedBytes at the last space before the
 // limit, or at a rune boundary when there is none.
 func keptStart(text string) string {
-	if len(text) <= replyKeptBytes {
+	if len(text) <= replyCheckedBytes {
 		return text
 	}
-	if cut := strings.LastIndexFunc(text[:replyKeptBytes+1], unicode.IsSpace); cut > 0 {
+	if cut := strings.LastIndexFunc(text[:replyCheckedBytes+1], unicode.IsSpace); cut > 0 {
 		return strings.TrimSpace(text[:cut])
 	}
-	cut := replyKeptBytes
+	cut := replyCheckedBytes
 	for cut > 0 && !utf8.RuneStart(text[cut]) {
 		cut--
 	}
@@ -107,7 +111,7 @@ func keptStart(text string) string {
 func closingQuestion(message string) string {
 	lines := strings.Split(strings.TrimSpace(message), "\n")
 	last := strings.Trim(lines[len(lines)-1], " \t*_`")
-	if !strings.HasSuffix(last, "?") || len(last) > replyKeptBytes {
+	if !strings.HasSuffix(last, "?") || len(last) > replyCheckedBytes {
 		return ""
 	}
 	return last
@@ -122,6 +126,17 @@ func replyLine(text string) string {
 	text = markupStart.ReplaceAllString(text, "")
 	text = strings.NewReplacer("**", "", "`", "").Replace(text)
 	return oneLine(text)
+}
+
+// replyMayHoldCredential checks a reply as stored and, when it holds the
+// markup replyLine drops, as shown: dropping a code span's backticks or
+// bold's asterisks can join a token's pieces. The rest of replyLine
+// only moves spaces, which joins nothing.
+func replyMayHoldCredential(text string) bool {
+	if mayHoldCredential(text) {
+		return true
+	}
+	return (strings.Contains(text, "`") || strings.Contains(text, "**")) && mayHoldCredential(replyLine(text))
 }
 
 // texts are the raw strings a reader found for one conversation.
@@ -174,7 +189,7 @@ func showTexts(t texts) shownTexts {
 		}
 	}
 	if t.reply != "" || t.question != "" {
-		if mayHoldCredential(t.reply) || mayHoldCredential(t.question) {
+		if replyMayHoldCredential(t.reply) || replyMayHoldCredential(t.question) {
 			shown.withheld = append(shown.withheld, FieldReply)
 		} else {
 			shown.reply = truncate(replyLine(firstNonEmpty(t.question, t.reply)), replyRunes)

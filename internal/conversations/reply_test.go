@@ -2,7 +2,10 @@ package conversations
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -80,7 +83,7 @@ func TestScan_ShowsTheQuestionAnAgentAsks(t *testing.T) {
 }
 
 func TestShowTexts_CutsALongReplyWithAnEllipsis(t *testing.T) {
-	long := "## Summary\n\n- I changed **the cookie** in `middleware.go`.\n" + strings.Repeat("Then I ran the whole suite again. ", 60)
+	long := "## Summary\n\n- I changed **the cookie** in `middleware.go`.\n" + strings.Repeat("Then I ran the whole suite again. ", 150)
 
 	shown := showTexts(texts{reply: long})
 
@@ -90,9 +93,9 @@ func TestShowTexts_CutsALongReplyWithAnEllipsis(t *testing.T) {
 	if !strings.HasPrefix(shown.reply, "Summary I changed the cookie in middleware.go. Then") {
 		t.Errorf("markup must not show, actual %q", shown.reply)
 	}
-	reply, _ := agentSaid(long, "")
-	if len(reply) > replyKeptBytes || len(reply) < replyKeptBytes-40 || !strings.HasPrefix(long, reply) || long[len(reply)] != ' ' {
-		t.Errorf("a reader keeps whole words up to %d bytes, actual %d bytes: %q", replyKeptBytes, len(reply), reply)
+	reply, _ := agentSaid(long, long, "")
+	if len(reply) > replyCheckedBytes || len(reply) < replyCheckedBytes-40 || !strings.HasPrefix(long, reply) || long[len(reply)] != ' ' {
+		t.Errorf("a reader keeps whole words up to %d bytes, actual %d bytes: %q", replyCheckedBytes, len(reply), reply)
 	}
 }
 
@@ -172,9 +175,8 @@ func TestScan_ReadsCodexRepliesFromTheLatestTurn(t *testing.T) {
 	]`
 	prompts := `[{"thread_id":"` + working + `","content":"[{\"type\":\"text\",\"text\":\"Now the API page\"}]"}]`
 	replies := `[
-		{"thread_id":"` + answered + `","item":"{\"type\":\"agentMessage\",\"text\":\"Done, the tests pass.\",\"phase\":\"final_answer\"}"},
-		{"thread_id":"` + asking + `","item":"{\"type\":\"agentMessage\",\"text\":\"Two queues fit.\",\"phase\":\"final_answer\",\"questions\":[{\"title\":\"Which queue should the jobs use?\",\"options\":[]}]}"},
-		{"thread_id":"` + working + `","item":""}
+		{"thread_id":"` + answered + `","start":"Done, the tests pass.","ending":"Done, the tests pass.","length":21,"asked":""},
+		{"thread_id":"` + asking + `","start":"Two queues fit.","ending":"Two queues fit.","length":15,"asked":"Which queue should the jobs use?"}
 	]`
 	scan := func(answers map[string]string) View {
 		scanner, stores := testScanner(t, fakeStores(t, answers), fakeProcesses{})
@@ -183,14 +185,14 @@ func TestScan_ReadsCodexRepliesFromTheLatestTurn(t *testing.T) {
 		return scanner.Scan(context.Background(), ScanOptions{})
 	}
 
-	view := scan(map[string]string{"state_5.sqlite|FROM threads": threads, "thread_history_1.sqlite|userMessage": prompts, "thread_history_1.sqlite|thread_turns": replies})
+	view := scan(map[string]string{"state_5.sqlite|FROM threads": threads, "thread_history_1.sqlite|$.content": prompts, "thread_history_1.sqlite|$.questions": replies})
 
 	for id, want := range map[string]string{answered: "Done, the tests pass.", asking: "Which queue should the jobs use?", working: ""} {
 		if c := byID(t, view, id); c.Reply != want {
 			t.Errorf("thread %s: reply = %q, want %q", id[:4], c.Reply, want)
 		}
 	}
-	failed := scan(map[string]string{"state_5.sqlite|FROM threads": threads, "thread_history_1.sqlite|userMessage": prompts})
+	failed := scan(map[string]string{"state_5.sqlite|FROM threads": threads, "thread_history_1.sqlite|$.content": prompts})
 	if c := byID(t, failed, working); c.Reply != "" || c.Prompt != "Now the API page" || len(failed.Conversations) != 3 {
 		t.Errorf("a failed reply query must leave the rows and prompts: %s", asJSON(t, failed.Conversations))
 	}
@@ -275,5 +277,148 @@ func TestScan_KeepsTheChosenNameOverARowWithAReply(t *testing.T) {
 
 	if c.Title != "Safari login" || c.Reply != "Done." {
 		t.Errorf("title %q reply %q", c.Title, c.Reply)
+	}
+}
+
+// codexHistory writes a history store with the tables and indexes the
+// reply query relies on, and an item per row: thread, turn, ordinal,
+// type and the item's JSON.
+func codexHistory(t *testing.T, path string, items [][5]string) {
+	t.Helper()
+	if _, err := exec.LookPath("sqlite3"); err != nil {
+		t.Skip("sqlite3 is not installed")
+	}
+	sql := []string{
+		`CREATE TABLE thread_items (thread_id TEXT NOT NULL, turn_id TEXT NOT NULL, item_id TEXT NOT NULL, rollout_ordinal INTEGER NOT NULL, created_at_ms INTEGER NOT NULL, item_json TEXT NOT NULL, item_type TEXT NOT NULL DEFAULT '', PRIMARY KEY (thread_id, turn_id, item_id))`,
+		`CREATE UNIQUE INDEX idx_thread_items_page ON thread_items(thread_id, rollout_ordinal)`,
+		`CREATE INDEX idx_thread_items_user_messages ON thread_items(thread_id, rollout_ordinal) WHERE item_type = 'userMessage'`,
+	}
+	for i, item := range items {
+		sql = append(sql, fmt.Sprintf(`INSERT INTO thread_items VALUES ('%s', '%s', 'item-%d', %s, 0, '%s', '%s')`, item[0], item[1], i, item[2], strings.ReplaceAll(item[4], "'", "''"), item[3]))
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("sqlite3", path, strings.Join(sql, ";\n")+";").CombinedOutput(); err != nil {
+		t.Fatalf("sqlite3: %v: %s", err, out)
+	}
+}
+
+func codexAgentItem(text string, question string) string {
+	item := obj{"type": "agentMessage", "text": text, "phase": "final_answer"}
+	if question != "" {
+		item["questions"] = []obj{{"title": question, "options": []obj{}}}
+	}
+	data, _ := json.Marshal(item)
+	return string(data)
+}
+
+func TestScan_ReadsTheCodexReplyThatFollowsTheLatestPrompt(t *testing.T) {
+	ids := []string{"11111111-0000-4000-8000-000000000001", "11111111-0000-4000-8000-000000000002", "11111111-0000-4000-8000-000000000003", "11111111-0000-4000-8000-000000000004", "11111111-0000-4000-8000-000000000005", "11111111-0000-4000-8000-000000000006"}
+	answered, typedDuringTurn, quietTurn, asking, long, unlisted := ids[0], ids[1], ids[2], ids[3], ids[4], ids[5]
+	prompt := `{"type":"userMessage","content":[{"type":"text","text":"Go on"}]}`
+	longText := strings.Repeat("The migration ran on every table and the counts match. ", 400) + "\n\nShould I drop the old tables now?"
+	scanner, stores := testScanner(t, nil, fakeProcesses{})
+	codexHistory(t, filepath.Join(stores.CodexDir, "thread_history_1.sqlite"), [][5]string{
+		{answered, "t1", "1", "userMessage", prompt},
+		{answered, "t1", "2", "agentMessage", codexAgentItem("Done, the tests pass.", "")},
+		{typedDuringTurn, "t1", "1", "userMessage", prompt},
+		{typedDuringTurn, "t1", "2", "agentMessage", codexAgentItem("An answer to the first prompt.", "")},
+		{typedDuringTurn, "t1", "3", "userMessage", prompt},
+		{typedDuringTurn, "t1", "4", "commandExecution", `{"type":"commandExecution"}`},
+		{quietTurn, "t1", "1", "userMessage", prompt},
+		{quietTurn, "t1", "2", "agentMessage", codexAgentItem("The earlier turn's answer.", "")},
+		{quietTurn, "t2", "3", "reasoning", `{"type":"reasoning"}`},
+		{asking, "t1", "1", "userMessage", prompt},
+		{asking, "t1", "2", "agentMessage", codexAgentItem("Two queues fit.", "Which queue should the jobs use?")},
+		{long, "t1", "1", "userMessage", prompt},
+		{long, "t1", "2", "agentMessage", codexAgentItem(longText, "")},
+		{unlisted, "t1", "1", "userMessage", prompt},
+		{unlisted, "t1", "2", "agentMessage", codexAgentItem("Not listed.", "")},
+	})
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	var threads []string
+	for _, id := range ids[:5] {
+		threads = append(threads, `{"id":"`+id+`","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762500000000,"originator":"codex-tui","source":"cli","title":"Thread","first_user_message":"Start"}`)
+	}
+	state := fakeStores(t, map[string]string{"state_5.sqlite|FROM threads": "[" + strings.Join(threads, ",") + "]"})
+	var replyRows int
+	scanner.SQLite = func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if filepath.Base(path) == "state_5.sqlite" {
+			return state(ctx, path, query)
+		}
+		rows, err := RunSQLite(ctx, path, query)
+		if strings.Contains(query, "$.questions") {
+			replyRows = len(rows)
+			for _, row := range rows {
+				if len(row) > 3*replyCheckedBytes {
+					t.Errorf("a reply row must be bounded, it has %d bytes", len(row))
+				}
+			}
+		}
+		return rows, err
+	}
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	for id, want := range map[string]string{
+		answered:        "Done, the tests pass.",
+		typedDuringTurn: "",
+		quietTurn:       "The earlier turn's answer.",
+		asking:          "Which queue should the jobs use?",
+		long:            "Should I drop the old tables now?",
+	} {
+		if c := byID(t, view, id); c.Reply != want {
+			t.Errorf("thread %s: reply = %q, want %q", id[len(id)-1:], c.Reply, want)
+		}
+	}
+	if replyRows > 5 {
+		t.Errorf("the query must read only the listed threads, it returned %d rows", replyRows)
+	}
+}
+
+func TestShowTexts_WithholdsATokenThatMarkupSplits(t *testing.T) {
+	for _, reply := range []string{
+		"The key is `ghp_`AbCd1234EfGh5678IjKl here.",
+		"Use **sk-ant-**api03-AbCd1234EfGh5678 for it.",
+	} {
+		if shown := showTexts(texts{reply: reply}); shown.reply != "" || strings.Join(shown.withheld, ",") != FieldReply {
+			t.Errorf("reply %q shows %q, withheld %v", reply, shown.reply, shown.withheld)
+		}
+		if shown := showTexts(texts{reply: "Two keys fit.", question: reply}); shown.reply != "" || strings.Join(shown.withheld, ",") != FieldReply {
+			t.Errorf("question %q shows %q, withheld %v", reply, shown.reply, shown.withheld)
+		}
+	}
+}
+
+func TestAgentSaid_KeepsTheTextTheCheckReadsUpToItsCap(t *testing.T) {
+	secret := strings.Repeat("The run is long and the log is longer. ", 60) + "Then use password hunter2 for the staging login."
+	if len(secret) > replyCheckedBytes {
+		t.Fatalf("the fixture must fit the cap, it has %d bytes", len(secret))
+	}
+	if shown := showTexts(texts{reply: secret}); shown.reply != "" {
+		t.Errorf("a credential past the first kilobyte must withhold the reply, shown %q", shown.reply)
+	}
+}
+
+func TestScan_KeepsTheReplyWhenABackgroundTaskReports(t *testing.T) {
+	c := replyOfSession(t,
+		typedPrompt("Run the suite in the background"),
+		agentLine(textPart("The suite runs; I will report when it ends.")),
+		obj{"type": "user", "origin": obj{"kind": "task-notification"}, "promptSource": "system", "message": obj{"role": "user", "content": "<task-notification>\n<task-id>b1</task-id>\n<status>completed</status>\n</task-notification>"}},
+	)
+	if c.Reply != "The suite runs; I will report when it ends." {
+		t.Errorf("a task notification is no prompt, reply = %q", c.Reply)
+	}
+	asked := replyOfSession(t,
+		typedPrompt("Pick a database"),
+		agentLine(askPart("Which database should the app use?")),
+		obj{"type": "user", "origin": obj{"kind": "task-notification"}, "message": obj{"role": "user", "content": "<task-notification>done</task-notification>"}},
+	)
+	if asked.Reply != "Which database should the app use?" {
+		t.Errorf("a task notification does not answer a question, reply = %q", asked.Reply)
+	}
+	if c := replyOfSession(t, typedPrompt("Fix it"), agentLine(textPart("Done.")), obj{"type": "user", "origin": obj{"kind": "human"}, "message": obj{"role": "user", "content": "Now the docs"}}); c.Reply != "" {
+		t.Errorf("a prompt the person typed still clears the reply, actual %q", c.Reply)
 	}
 }

@@ -63,7 +63,12 @@ type claudeLine struct {
 	IsSidechain bool   `json:"isSidechain"`
 	IsMeta      bool   `json:"isMeta"`
 	IsAPIError  bool   `json:"isApiErrorMessage"`
-	Message     *struct {
+	// Origin says who wrote a user line; Claude Code leaves it out on
+	// tool results and on lines from older versions.
+	Origin *struct {
+		Kind string `json:"kind"`
+	} `json:"origin"`
+	Message *struct {
 		Role    string          `json:"role"`
 		Model   string          `json:"model"`
 		Content json.RawMessage `json:"content"`
@@ -120,13 +125,18 @@ func (r *claudeReplies) visit(line claudeLine) {
 			r.message, r.known = strings.Join(parts, "\n"), true
 		}
 	case "user":
-		// A tool result or a prompt answers an open question.
-		r.asked = ""
-		if line.IsMeta || (r.known && r.message == "") {
+		// A background task's report or a peer's message is no prompt.
+		if line.IsMeta || (line.Origin != nil && line.Origin.Kind != "human") || (r.asked == "" && r.known && r.message == "") {
 			return
 		}
-		if text, typed := claudeContentText(line.Message.Content); typed && typedText(text) != "" {
-			r.message, r.known = "", true
+		text, typed := claudeContentText(line.Message.Content)
+		if !typed {
+			// A tool result answers an open question.
+			r.asked = ""
+			return
+		}
+		if typedText(text) != "" {
+			r.message, r.asked, r.known = "", "", true
 		}
 	}
 }
@@ -327,7 +337,7 @@ func claudeReplyAtEnd(file string, size int64) (reply, question string) {
 	}
 	var replies claudeReplies
 	eachClaudeLine(tail, replies.visit)
-	return agentSaid(replies.message, replies.asked)
+	return agentSaid(replies.message, replies.message, replies.asked)
 }
 
 func eachClaudeLine(data []byte, visit func(claudeLine)) {
@@ -390,7 +400,7 @@ func parseClaudeSession(head, tail []byte) (meta claudeMeta, replyKnown bool) {
 	meta.branch = firstNonEmpty(tailBranch, meta.branch)
 	meta.entrypoint = firstNonEmpty(tailEntry, meta.entrypoint)
 	meta.updated = firstNonEmpty(lastMessage, lastAny)
-	meta.reply, meta.question = agentSaid(replies.message, replies.asked)
+	meta.reply, meta.question = agentSaid(replies.message, replies.message, replies.asked)
 	return meta, replies.known
 }
 
