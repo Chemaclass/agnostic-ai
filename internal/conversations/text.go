@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/chemaclass/agnostic-ai/internal/preview"
@@ -17,6 +18,11 @@ const (
 	openingRunes = 160
 	openingLines = 3
 	promptRunes  = 300
+	replyRunes   = 200
+	// replyKeptBytes is what a reader keeps of an agent message for the
+	// credential check, cut at a space so a token is checked whole or
+	// never shown.
+	replyKeptBytes = 1024
 )
 
 // injectedBlocks are wrappers a tool adds around or beside what the
@@ -71,11 +77,60 @@ func openingOf(prompt string) []string {
 	return lines
 }
 
+// agentSaid cuts an agent message to what a row keeps of it: its start
+// and, when it asks one, its question. asked is a question the store marks.
+func agentSaid(message, asked string) (reply, question string) {
+	reply = keptStart(strings.TrimSpace(message))
+	if asked = strings.TrimSpace(asked); asked != "" {
+		return reply, keptStart(asked)
+	}
+	return reply, closingQuestion(message)
+}
+
+// keptStart cuts text to replyKeptBytes at the last space before the
+// limit, or at a rune boundary when there is none.
+func keptStart(text string) string {
+	if len(text) <= replyKeptBytes {
+		return text
+	}
+	if cut := strings.LastIndexFunc(text[:replyKeptBytes+1], unicode.IsSpace); cut > 0 {
+		return strings.TrimSpace(text[:cut])
+	}
+	cut := replyKeptBytes
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return text[:cut]
+}
+
+// closingQuestion is the message's last line when it asks something.
+func closingQuestion(message string) string {
+	lines := strings.Split(strings.TrimSpace(message), "\n")
+	last := strings.Trim(lines[len(lines)-1], " \t*_`")
+	if !strings.HasSuffix(last, "?") || len(last) > replyKeptBytes {
+		return ""
+	}
+	return last
+}
+
+// markupStart is a heading, quote or list marker at the start of a line.
+var markupStart = regexp.MustCompile(`(?m)^[ \t]*[#>*-]+[ \t]+`)
+
+// replyLine is an agent message as one line of plain text: it drops the
+// Markdown marks that would show as noise, and renders nothing else.
+func replyLine(text string) string {
+	text = markupStart.ReplaceAllString(text, "")
+	text = strings.NewReplacer("**", "", "`", "").Replace(text)
+	return oneLine(text)
+}
+
 // texts are the raw strings a reader found for one conversation.
 type texts struct {
 	title       string
 	firstPrompt string
 	lastPrompt  string
+	reply       string
+	question    string
 }
 
 // shownTexts are what a row shows of its texts once any that may hold a
@@ -84,6 +139,7 @@ type shownTexts struct {
 	title    string
 	opening  []string
 	prompt   string
+	reply    string
 	withheld []string
 }
 
@@ -117,6 +173,13 @@ func showTexts(t texts) shownTexts {
 			shown.prompt = truncate(oneLine(last), promptRunes)
 		}
 	}
+	if t.reply != "" || t.question != "" {
+		if mayHoldCredential(t.reply) || mayHoldCredential(t.question) {
+			shown.withheld = append(shown.withheld, FieldReply)
+		} else {
+			shown.reply = truncate(replyLine(firstNonEmpty(t.question, t.reply)), replyRunes)
+		}
+	}
 	return shown
 }
 
@@ -127,6 +190,9 @@ func showTexts(t texts) shownTexts {
 // search between two lists would otherwise pay for every row again.
 type shownCache struct {
 	last, next map[texts]shownTexts
+	// lastAsked is how many texts the latest scan asked for, the size of
+	// the next scan's map.
+	lastAsked int
 }
 
 // maxShownKept bounds the cache. Past it, only what the latest scan
@@ -134,10 +200,11 @@ type shownCache struct {
 // otherwise pile up for as long as the server runs.
 const maxShownKept = 20000
 
-func (c *shownCache) start() { c.next = map[texts]shownTexts{} }
+func (c *shownCache) start() { c.next = make(map[texts]shownTexts, c.lastAsked) }
 
 // finish adds what this scan asked for to what the cache held.
 func (c *shownCache) finish() {
+	c.lastAsked = len(c.next)
 	if c.last == nil || len(c.last)+len(c.next) > maxShownKept {
 		c.last, c.next = c.next, nil
 		return
@@ -160,10 +227,19 @@ func (c *shownCache) get(t texts) shownTexts {
 	return shown
 }
 
-// fill sets the row's title, opening and prompt from t.
+// fill sets the row's title, opening, prompt and reply from t. The
+// reply is looked up on its own: a working agent writes a new one every
+// few seconds, which must not check the other texts again.
 func (s *Scanner) fill(c *Conversation, t texts) {
-	shown := s.shown.get(t)
+	shown := s.shown.get(texts{title: t.title, firstPrompt: t.firstPrompt, lastPrompt: t.lastPrompt})
 	c.Title, c.Opening, c.Prompt, c.Withheld = shown.title, shown.opening, shown.prompt, shown.withheld
+	if t.reply != "" || t.question != "" {
+		said := s.shown.get(texts{reply: t.reply, question: t.question})
+		c.Reply = said.reply
+		if len(said.withheld) > 0 {
+			c.Withheld = append(slices.Clone(c.Withheld), said.withheld...)
+		}
+	}
 	c.showChosenName()
 }
 
@@ -206,12 +282,12 @@ func queryWords(query string) []string {
 }
 
 // matching keeps the conversations whose row text holds every word:
-// title, folder, branch, latest prompt, tool and app, the fields a row
-// shows. A withheld field is not shown, so it does not match either.
+// title, folder, branch, latest prompt, latest reply, tool and app, the
+// fields a row shows. A withheld field is not shown, so it does not match either.
 func matching(list []Conversation, words []string) []Conversation {
 	var kept []Conversation
 	for _, c := range list {
-		if holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+		if holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), c.Reply, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
 			kept = append(kept, c)
 		}
 	}

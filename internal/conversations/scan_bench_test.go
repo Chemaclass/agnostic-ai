@@ -23,7 +23,7 @@ var benchReply = strings.Repeat("The cookie was dropped because the redirect set
 func benchTexts() []texts {
 	list := make([]texts, benchSessions)
 	for i := range list {
-		list[i] = texts{title: fmt.Sprintf("Session %d", i), firstPrompt: benchPrompt + fmt.Sprint(i), lastPrompt: fmt.Sprint(i) + benchPrompt}
+		list[i] = texts{title: fmt.Sprintf("Session %d", i), firstPrompt: benchPrompt + fmt.Sprint(i), lastPrompt: fmt.Sprint(i) + benchPrompt, reply: fmt.Sprint(i) + benchReply}
 	}
 	return list
 }

@@ -32,6 +32,14 @@ test('search, select and open names the chosen conversation', async ({ page }) =
   expect((await opened).postDataJSON()).toEqual({ tool: 'cursor', id: 'active-1' })
 })
 
+test('a row shows the agent\'s latest reply under its title, and a row without one shows none', async ({ page }) => {
+  await openPanel(page)
+  const waiting = row(page, 'Approve the database migration')
+  await expect(waiting.locator('.text > *')).toHaveClass(['title', 'reply', /meta/])
+  await expect(waiting.locator('.reply')).toHaveText('Should I run the migration on the staging copy first?')
+  await expect(row(page, 'Fix the login redirect').locator('.reply')).toHaveCount(0)
+})
+
 test('rename then Escape keeps the old name and gives the keys back to the list', async ({ page }) => {
   await openPanel(page)
   const renames: string[] = []

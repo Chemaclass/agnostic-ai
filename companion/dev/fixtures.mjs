@@ -4,10 +4,11 @@
 
 const MINUTE = 60 * 1000
 
-function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported } = {}) {
+function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply } = {}) {
   const cloud = app === 'cloud'
   return {
     ...(deleteUnsupported ? { deleteUnsupported } : {}),
+    ...(reply ? { reply } : {}),
     tool,
     app,
     id,
@@ -22,9 +23,13 @@ function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/a
 
 function mixed(now) {
   return [
-    conversation(now, 'claude', 'waits-1', 'Approve the database migration', 'blocked', { folder: '/Users/you/Code/shop', minutesAgo: 2 }),
-    conversation(now, 'codex', 'reply-1', 'Draft the release notes', 'unread', { minutesAgo: 12 }),
-    conversation(now, 'claude', 'work-1', 'Refactor the search index', 'working', { minutesAgo: 0 }),
+    conversation(now, 'claude', 'waits-1', 'Approve the database migration', 'blocked', {
+      folder: '/Users/you/Code/shop',
+      minutesAgo: 2,
+      reply: 'Should I run the migration on the staging copy first?',
+    }),
+    conversation(now, 'codex', 'reply-1', 'Draft the release notes', 'unread', { minutesAgo: 12, reply: 'The draft is ready in CHANGES.md, with one section per area.' }),
+    conversation(now, 'claude', 'work-1', 'Refactor the search index', 'working', { minutesAgo: 0, reply: 'Moving the tokenizer into its own package.' }),
     conversation(now, 'cursor', 'active-1', 'Fix the login redirect', 'active', { folder: '/Users/you/Code/shop', minutesAgo: 180 }),
     conversation(now, 'claude', 'active-2', 'Plan the sync dry run', 'active', { minutesAgo: 300 }),
     conversation(now, 'claude', 'cloud-1', 'Write the onboarding guide', 'active', { app: 'cloud', minutesAgo: 60 }),

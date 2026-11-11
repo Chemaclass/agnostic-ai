@@ -63,6 +63,11 @@ const TOOL_LABELS = {
   cursor: 'Cursor',
 }
 
+/** The agent's latest reply as the server sent it, or '' when it sent none. */
+export function replyOf(conversation) {
+  return typeof conversation.reply === 'string' ? conversation.reply.trim() : ''
+}
+
 /** Ids are unique within a tool, not across tools. */
 export function keyOf(conversation) {
   return conversation.tool + ':' + conversation.id

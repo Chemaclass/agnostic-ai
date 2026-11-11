@@ -59,6 +59,27 @@ FROM thread_items t
 JOIN (SELECT thread_id, max(rollout_ordinal) AS ordinal FROM thread_items WHERE item_type = 'userMessage' GROUP BY thread_id) newest
   ON t.thread_id = newest.thread_id AND t.rollout_ordinal = newest.ordinal`
 
+type codexLastReply struct {
+	ThreadID string          `json:"thread_id"`
+	Item     json.RawMessage `json:"item"`
+}
+
+// The last agent message of each thread's latest turn, through the
+// unique index on turns and the index on items by turn. A turn begins
+// with a prompt, so a turn the agent has not answered yet gives none.
+const codexLastRepliesQuery = `SELECT t.thread_id AS thread_id,
+  coalesce((SELECT i.item_json FROM thread_items i
+            WHERE i.thread_id = t.thread_id AND i.turn_id = t.turn_id AND i.item_type = 'agentMessage'
+            ORDER BY i.rollout_ordinal DESC LIMIT 1), '') AS item
+FROM thread_turns t
+JOIN (SELECT thread_id, max(rollout_ordinal) AS ordinal FROM thread_turns GROUP BY thread_id) newest
+  ON t.thread_id = newest.thread_id AND t.rollout_ordinal = newest.ordinal`
+
+// codexSaid is the part of an agent message a row keeps.
+type codexSaid struct {
+	reply, question string
+}
+
 func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult {
 	statePath := newestNumbered(s.Stores.CodexDir, codexStatePattern)
 	if statePath == "" {
@@ -72,6 +93,7 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		return missing(ToolCodex, "Could not read Codex's thread index "+filepath.Base(statePath))
 	}
 	lastPrompts := s.codexLastPrompts(ctx)
+	lastReplies := s.codexLastReplies(ctx)
 	editor := extensionEditor(s.Stores.Home, "openai.chatgpt", opts.Editor)
 	conversations := make([]Conversation, 0, len(threads))
 	rollouts := map[string]string{}
@@ -83,7 +105,8 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 			Tool: ToolCodex, ID: thread.ID, Folder: thread.Cwd, Branch: thread.GitBranch,
 			StartedAt: timeFromMillis(thread.CreatedAtMs), UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
 		}
-		s.fill(&c, texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]})
+		said := lastReplies[thread.ID]
+		s.fill(&c, texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID], reply: said.reply, question: said.question})
 		codexRoute(&c, thread, editor)
 		conversations = append(conversations, c)
 		rollouts[thread.ID] = thread.RolloutPath
@@ -280,6 +303,51 @@ func (s *Scanner) codexLastPrompts(ctx context.Context) map[string]string {
 		prompts[row.ThreadID] = codexContentText(row.Content)
 	}
 	return prompts
+}
+
+// codexLastReplies maps thread ids to their agent's latest message. It
+// is a query of its own, so a history store without turns still shows
+// the prompts.
+func (s *Scanner) codexLastReplies(ctx context.Context) map[string]codexSaid {
+	replies := map[string]codexSaid{}
+	historyPath := newestNumbered(s.Stores.CodexDir, codexHistoryPattern)
+	if historyPath == "" {
+		return replies
+	}
+	rows, err := queryRows[codexLastReply](ctx, s.SQLite, historyPath, codexLastRepliesQuery)
+	if err != nil {
+		return replies
+	}
+	for _, row := range rows {
+		if said, ok := codexAgentSaid(row.Item); ok {
+			replies[row.ThreadID] = said
+		}
+	}
+	return replies
+}
+
+// codexAgentSaid reads an agent message item, which sqlite3 returns as
+// a JSON string holding the item.
+func codexAgentSaid(raw json.RawMessage) (codexSaid, bool) {
+	var encoded string
+	if json.Unmarshal(raw, &encoded) != nil || encoded == "" {
+		return codexSaid{}, false
+	}
+	var item struct {
+		Text      string `json:"text"`
+		Questions []struct {
+			Title string `json:"title"`
+		} `json:"questions"`
+	}
+	if json.Unmarshal([]byte(encoded), &item) != nil {
+		return codexSaid{}, false
+	}
+	var asked string
+	if len(item.Questions) > 0 {
+		asked = item.Questions[0].Title
+	}
+	reply, question := agentSaid(item.Text, asked)
+	return codexSaid{reply: reply, question: question}, reply != "" || question != ""
 }
 
 // codexContentText joins the text parts of a user message. sqlite3
