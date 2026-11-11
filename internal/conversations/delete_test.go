@@ -600,6 +600,35 @@ func TestDelete_RefusesALocationThatIsALink(t *testing.T) {
 	assertFiles(t, target, true)
 }
 
+func TestDelete_RefusesLinkedParentFolders(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic links need extra rights on Windows")
+	}
+	for _, relative := range []string{"file-history", "projects", filepath.Join("projects", "-tmp-app")} {
+		t.Run(relative, func(t *testing.T) {
+			scanner, stores, target, other := deleteScanner(t, fakeProcesses{})
+			parent := filepath.Join(stores.ClaudeDir, relative)
+			outside := filepath.Join(t.TempDir(), "relocated")
+			if err := os.Rename(parent, outside); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(outside, parent); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+			if err == nil {
+				t.Error("delete accepted a linked parent folder")
+			} else if refusal := deleteRefusal(t, err); refusal.Kind != DeleteUnsupported || !strings.Contains(refusal.Message, parent) {
+				t.Errorf("refusal = %+v", refusal)
+			}
+			assertFiles(t, target, true)
+			assertFiles(t, other, true)
+		})
+	}
+}
+
 func TestDelete_RefusesALinkInsideTheSessionFolder(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symbolic links need extra rights on Windows")

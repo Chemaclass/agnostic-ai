@@ -200,6 +200,9 @@ func (s *Scanner) claudeSessionPaths(c Conversation) ([]string, error) {
 	if err != nil || len(strings.Split(rel, string(filepath.Separator))) != 2 || strings.HasPrefix(rel, "..") {
 		return nil, fmt.Errorf("the transcript %q is not in a project folder of %s", c.file, projects)
 	}
+	if err := rejectLinkedParents(s.Stores.ClaudeDir, c.file); err != nil {
+		return nil, err
+	}
 	matches, err := filepath.Glob(filepath.Join(projects, "*", c.ID+".jsonl"))
 	if err != nil || len(matches) != 1 || matches[0] != c.file {
 		return nil, fmt.Errorf("the session id is in %d project folders", len(matches))
@@ -218,6 +221,9 @@ func (s *Scanner) claudeSessionPaths(c Conversation) ([]string, error) {
 		filepath.Join(s.Stores.ClaudeDir, "uploads", c.ID),
 		strings.TrimSuffix(c.file, ".jsonl"),
 	} {
+		if err := rejectLinkedParents(s.Stores.ClaudeDir, candidate); err != nil {
+			return nil, err
+		}
 		info, err := os.Lstat(candidate)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
@@ -231,6 +237,26 @@ func (s *Scanner) claudeSessionPaths(c Conversation) ([]string, error) {
 		paths = append(paths, candidate)
 	}
 	return append(paths, c.file), nil
+}
+
+func rejectLinkedParents(root, path string) error {
+	root = filepath.Clean(root)
+	for parent := filepath.Dir(path); parent != root; parent = filepath.Dir(parent) {
+		if parent == filepath.Dir(parent) {
+			return fmt.Errorf("%s is outside %s", path, root)
+		}
+		info, err := os.Lstat(parent)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if info.Mode()&fs.ModeSymlink != 0 {
+			return &linkedError{path: parent}
+		}
+	}
+	return nil
 }
 
 // linkedError names a link inside a session's folders: what it points
