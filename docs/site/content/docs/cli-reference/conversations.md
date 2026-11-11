@@ -11,7 +11,7 @@ group = "Reference"
 
 ## conversations start
 
-Start a second conversation from inside a running session, in a new terminal tab, in the same folder. The brief you pass becomes its first prompt. The session you run it from goes on with its own task. The [Conversations page](@/docs/cli-reference/serve.md#view) and the [companion](@/docs/cli-reference/companion.md#companion) can then show where the new conversation came from.
+Start a second conversation from inside a running session, in a new terminal tab, in the same folder. The brief you pass becomes its first prompt. The session you run it from goes on with its own task. The [conversations API](@/docs/cli-reference/serve-api.md) then names the session it came from as the new row's `parent`.
 
 The [`side-conversation` skill](@/docs/side-conversation.md) tells the agent when to run it and how to write the brief.
 
@@ -62,7 +62,7 @@ The first time, macOS may ask whether the terminal that runs the command may con
 
 It exits with code 1 and starts nothing when:
 
-- It cannot tell which session it runs in: no Claude Code or Codex session is among its parent processes, or the Codex process holds several threads and does not say which.
+- It cannot tell which session it runs in: no Claude Code or Codex session is among its parent processes, the nearest tool among them cannot be resolved, or the Codex process holds several threads and does not say which.
 - The tool is not installed: its command is not on `PATH`.
 - The brief is empty, longer than 4096 bytes, holds a null byte or text that is not UTF-8, or standard input is a terminal and no `--brief-file` was given.
 - The folder or the path of `agnostic-ai` holds a control character, which a terminal would act on as it is typed.

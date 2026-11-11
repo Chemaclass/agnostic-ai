@@ -581,7 +581,7 @@ var builtinAbouts = map[string]BuiltinAbout{
 		Summary: "Adds the side-conversation skill, which starts a second task in its own conversation while this one goes on.",
 		Points: []string{
 			`Say "spin this off" to start a new conversation in a new terminal tab, in the same folder, with a short brief as its first prompt.`,
-			"The new conversation shows under this one in the Conversations list. Nothing comes back to this session.",
+			"The new conversation names this one as its parent. Nothing comes back to this session; you talk to the new conversation.",
 			"Runs agnostic-ai conversations start, from a Claude Code or Codex session on macOS. It opens a tab only when you ask.",
 		},
 	},

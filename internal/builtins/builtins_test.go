@@ -573,7 +573,7 @@ func TestMaterialize_LoadsSideConversationAsOneSkill(t *testing.T) {
 			t.Errorf("skill is missing rule %q", rule)
 		}
 	}
-	for _, banned := range []string{"hooks/", "osascript", "Claude", "Codex", "Cursor", "\u2013", "\u2014"} {
+	for _, banned := range []string{"hooks/", "osascript", "under this one", "Claude", "Codex", "Cursor", "\u2013", "\u2014"} {
 		if strings.Contains(skill.Body, banned) {
 			t.Errorf("skill contains %q", banned)
 		}
