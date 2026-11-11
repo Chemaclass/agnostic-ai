@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Both companion menus offer the same settings: Animate, Dim when idle, Start at login, the shortcut, Pause and Quit. A change in one shows in the other (#3299).
 - `sync` no longer loses a target's rules when its `rules-file` is an instructions file another enabled target reads, such as `outputs.codex.rules-file: AGENTS.md` with Cline. It stops with AAI-102, and `validate` reports it: point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool. Where the other tool's file already carries those rules, as with Amp, sync writes what it wrote before and `lint` warns with LINT063. An adapter file on a path sync also writes as another target's instructions file, such as an external adapter's `AGENTS.md`, now stops `sync` with AAI-102 too (#3302).
 - **Mark all as read** on the companion's Needs you header takes every chat it shows out of the group, after the search and the All, Local or Cloud choice. Rows no longer repeat their group as "New reply" or "Working", and a Codex thread opened and never typed in no longer shows as "Untitled conversation" (#3300).
 - Hide in the companion's ⋯ menu is now Pause: the circle stays at 10% and reads nothing until you click it or press the shortcut (#3298).
@@ -52,6 +53,14 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Settings `permissions.ask` writes `ask-user` rules to `.augment/settings.json`, between deny and allow rules; `import augment` reads them back (#3266).
 - Settings `model` and `effort` write Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; Auggie 0.x ignores both keys. `import augment` reads them back (#3265).
 - Hooks with `args` reach `.augment/settings.json` and `~/.augment/settings.json` with their arguments, instead of being skipped. An inline command no longer raises a "never executes" note, and `hook run` runs it (#3264).
+
+#### Copilot
+
+- Copilot settings take the effort values `none`, `minimal` and `max`, as the project `.github/copilot/settings.json` and the global `~/.copilot/settings.json` both accept them. Per-agent effort keeps `low`, `medium`, `high` and `xhigh` (#3307).
+
+#### Qwen Code
+
+- A Qwen command hook with a `timeout` of 1000 seconds or more is now written in milliseconds, which Qwen reads from 1000 up; `timeout: 1200` became a 1.2 second limit before. Lower values are unchanged (#3309).
 
 ### Site
 
