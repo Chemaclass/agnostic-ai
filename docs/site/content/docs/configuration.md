@@ -460,6 +460,8 @@ When `<path>` is also the instructions file sync writes for another enabled targ
 
 These targets write it: `aider`, `amp`, `antigravity`, `augment`, `claude`, `codex`, `copilot`, `gemini`, `goose`, `kimi`, `opencode`, `pi`, `qwen`, `vibe`, `warp`, and `zed`. On any other target sync ignores the key and `lint` warns with LINT062. That target keeps its entry-point file and its rules as if the key were unset.
 
+</details>
+
 ### Per-target paragraphs
 
 `.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/_index.md#per-target-body-fences), with the same rules for shared entry-point files.
