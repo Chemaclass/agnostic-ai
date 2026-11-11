@@ -19,10 +19,7 @@ var toolCapabilities = emit.ToolCapabilityTable{
 func (Adapter) ToolCapabilities() emit.ToolCapabilityTable { return toolCapabilities }
 
 func (Adapter) TranslatePermission(list, rule string) ([]string, bool) {
-	if list == "ask" {
-		return nil, false
-	}
-	translated, ok := augmentRule(rule, list)
+	translated, ok := augmentRule(rule, nativePermissionType[list])
 	if !ok {
 		return nil, false
 	}
@@ -30,8 +27,8 @@ func (Adapter) TranslatePermission(list, rule string) ([]string, bool) {
 }
 
 func (Adapter) TranslatePermissionContext(list, rule string, _ spec.Entry, settings []spec.Entry, _ *config.Config) emit.CapabilityTranslation {
-	translated, ok := augmentRule(rule, list)
-	if list == "ask" || !ok {
+	translated, ok := augmentRule(rule, nativePermissionType[list])
+	if !ok {
 		return emit.CapabilityTranslation{}
 	}
 	result := emit.CapabilityTranslation{Supported: true}

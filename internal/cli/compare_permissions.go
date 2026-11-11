@@ -348,7 +348,7 @@ func permissionDecisionMeaning(value string) string {
 	switch value {
 	case "forbidden":
 		return "deny"
-	case "prompt":
+	case "prompt", "ask-user":
 		return "ask"
 	default:
 		return value

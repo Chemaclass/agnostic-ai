@@ -75,10 +75,42 @@ func TestEmit_SettingsOrdersDenyBeforeAllow(t *testing.T) {
 	}
 }
 
+// Auggie asks before an `ask-user` tool call and denies it with no
+// interactive UI. Rules run first match wins, so ask rules sit between
+// deny and allow: a deny still wins, and an ask beats a broad allow.
+func TestEmit_SettingsAskWritesAskUserBetweenDenyAndAllow(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	entries := []spec.Entry{
+		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+			"allow": []any{"Bash"},
+			"ask":   []any{"Bash(git push:*)", "WebFetch"},
+			"deny":  []any{"Bash(rm -rf:*)"},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	rules, _ := settingsDoc(t, dir)["toolPermissions"].([]any)
+	want := []any{
+		map[string]any{"toolName": "terminal", "shellInputRegex": `^rm -rf`, "permission": map[string]any{"type": "deny"}},
+		map[string]any{"toolName": "terminal", "shellInputRegex": `^git push`, "permission": map[string]any{"type": "ask-user"}},
+		map[string]any{"toolName": "web-fetch", "permission": map[string]any{"type": "ask-user"}},
+		map[string]any{"toolName": "terminal", "permission": map[string]any{"type": "allow"}},
+	}
+	if !reflect.DeepEqual(rules, want) {
+		t.Errorf("toolPermissions =\n%#v\nwant\n%#v", rules, want)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note, got %d", n)
+	}
+}
+
 // A path-scoped rule has no Augment form: `read`, `edit`, and `write`
 // take no path matcher, so flattening one onto the bare tool would
-// broaden it into every file. It drops with a note instead. So does
-// `ask`, which has no Augment permission type at all.
+// broaden it into every file. It drops with a note instead, from the
+// ask list as from the others.
 func TestEmit_SettingsUnmappableRulesSurfaceCoverageNotes(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
@@ -91,7 +123,7 @@ func TestEmit_SettingsUnmappableRulesSurfaceCoverageNotes(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
 			"allow": []any{"Read(src/**)", "Read"},
-			"ask":   []any{"Bash(git push:*)"},
+			"ask":   []any{"Edit(secrets/**)"},
 		}}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
@@ -99,10 +131,13 @@ func TestEmit_SettingsUnmappableRulesSurfaceCoverageNotes(t *testing.T) {
 	}
 	emit.FlushCoverageNotes()
 	note := buf.String()
-	for _, want := range []string{"`permissions`", "`permissions.ask`", "augment", "x-augment"} {
+	for _, want := range []string{"`permissions`", "augment", "x-augment"} {
 		if !strings.Contains(note, want) {
 			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
 		}
+	}
+	if strings.Contains(note, "permissions.ask") {
+		t.Errorf("the ask list has a native type now, got: %s", note)
 	}
 	rules, _ := settingsDoc(t, dir)["toolPermissions"].([]any)
 	if len(rules) != 1 {

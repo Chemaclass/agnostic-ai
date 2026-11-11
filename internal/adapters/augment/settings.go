@@ -17,10 +17,10 @@ const toolPermissionsKey = "toolPermissions"
 // never match the tool it was written for.
 const mcpToolNameLimit = 64
 
-// askNoTypeReason explains why the portable ask list reaches nothing.
-// Augment's four permission types are allow, deny, webhook-policy, and
-// script-policy; none of them prompts the user.
-const askNoTypeReason = "Augment's permission types are allow, deny, webhook-policy, and script-policy; none of them prompts"
+// nativePermissionType maps each portable list onto Augment's
+// permission type. `ask-user` asks before the call, and denies it when
+// there is no interactive UI; Auggie 0.37.1 and 1.x both read it.
+var nativePermissionType = map[string]string{"deny": "deny", "ask": "ask-user", "allow": "allow"}
 
 // rulesUnmappableReason explains, in the flushed coverage note, why
 // some rules did not reach the file. Augment gates `read`, `edit`,
@@ -54,14 +54,14 @@ func hasSettingsDefaults(settings []spec.Entry) bool {
 	return emit.SettingsModel(settings, target) != "" || slices.Contains(effortLevels, level)
 }
 
-// buildToolPermissions renders the portable allow and deny lists as
-// Augment's ordered rule array, and reports how many settings specs
+// buildToolPermissions renders the portable deny, ask, and allow lists
+// as Augment's ordered rule array, and reports how many settings specs
 // carried at least one rule with no Augment form.
 //
 // Order is load-bearing: "Rules are evaluated in order from top to
 // bottom" and "The first matching rule determines the permission", so
-// deny rules precede allow rules or a broad allow shadows a narrow
-// deny. An explicit `x-augment.toolPermissions` array comes first of
+// deny rules come first, then ask rules, then allow rules, or a broad
+// allow shadows a narrow deny or ask. An explicit `x-augment.toolPermissions` array comes first of
 // all, ahead of anything translated, so a native rule an author wrote
 // directly is never shadowed by a generated one. Specs layer in source
 // order and a repeated rule emits once, matching how the same lists
@@ -78,7 +78,7 @@ func buildToolPermissions(settings []spec.Entry) ([]any, int) {
 	}
 	dropped := map[int]bool{}
 	seen := map[string]bool{}
-	for _, list := range []string{"deny", "allow"} {
+	for _, list := range []string{"deny", "ask", "allow"} {
 		for i, entry := range settings {
 			permissions, _ := entry.Meta["permissions"].(map[string]any)
 			for _, rule := range emit.StringSlice(permissions[list]) {
@@ -86,7 +86,7 @@ func buildToolPermissions(settings []spec.Entry) ([]any, int) {
 					continue
 				}
 				seen[list+"\x00"+rule] = true
-				mapped, ok := augmentRule(rule, list)
+				mapped, ok := augmentRule(rule, nativePermissionType[list])
 				if !ok {
 					dropped[i] = true
 					continue
@@ -164,17 +164,8 @@ func mcpToolName(rule string) (string, bool) {
 	return name, true
 }
 
-// noteSettingsGaps records the portable settings fields that reach
-// nothing on Augment: the `ask` list, which has no permission type
-// there, and rules with no Augment matcher.
-func noteSettingsGaps(settings []spec.Entry, droppedRules int) {
-	ask := 0
-	for _, entry := range settings {
-		permissions, _ := entry.Meta["permissions"].(map[string]any)
-		if len(emit.StringSlice(permissions["ask"])) > 0 {
-			ask++
-		}
-	}
-	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions.ask", ask, askNoTypeReason)
+// noteSettingsGaps records the settings specs whose rules have no
+// Augment matcher.
+func noteSettingsGaps(droppedRules int) {
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", droppedRules, rulesUnmappableReason)
 }

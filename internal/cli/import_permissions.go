@@ -147,14 +147,17 @@ func importAugmentPermissions(root, dstDir string) (int, error) {
 		return 0, fmt.Errorf("parse %s: %w", src, err)
 	}
 	lists := map[string][]string{}
+	matched := map[string]bool{}
 	for _, entry := range doc.ToolPermissions {
 		if entry.ShellRegex != "" {
 			continue
 		}
 		portable, ok := augmentBareTool[entry.ToolName]
-		if !ok {
+		if !ok || matched[entry.ToolName] {
 			continue
 		}
+		// The first rule for a tool decides, so later ones never apply.
+		matched[entry.ToolName] = true
 		list, ok := augmentPermissionList(entry.Permission)
 		if !ok {
 			continue
@@ -208,6 +211,8 @@ func augmentPermissionList(raw json.RawMessage) (string, bool) {
 	switch obj.Type {
 	case "allow", "deny":
 		return obj.Type, true
+	case "ask-user":
+		return "ask", true
 	}
 	return "", false
 }

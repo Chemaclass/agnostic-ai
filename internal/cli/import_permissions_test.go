@@ -168,6 +168,55 @@ func TestImportAugment_DropsAModelOtherSpecsAlreadySet(t *testing.T) {
 	}
 }
 
+// An ask-user rule comes back as the portable ask list, and sync writes
+// the same rule again.
+func TestImportAugment_ReadsAskUserRulesBack(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	mustWriteFile(t, ".augment/settings.json", `{"toolPermissions":[{"toolName":"write","permission":{"type":"ask-user"}},{"toolName":"read","permission":{"type":"allow"}}]}`)
+
+	if _, err := runCLI(t, "import", "augment"); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	got := readFile(t, ".agnostic-ai/settings/permissions-augment.yaml")
+	if !strings.Contains(got, "ask:\n        - write\n") {
+		t.Errorf("settings spec = %q, want write in the ask list", got)
+	}
+	runSyncOK(t)
+	var doc struct {
+		ToolPermissions []map[string]any `json:"toolPermissions"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, ".augment/settings.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	first := doc.ToolPermissions[0]
+	if first["toolName"] != "write" || first["permission"].(map[string]any)["type"] != "ask-user" {
+		t.Errorf("toolPermissions after sync = %v", doc.ToolPermissions)
+	}
+	if _, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
+	}
+}
+
+// Auggie applies the first rule that matches a tool, so a later rule
+// for the same tool is not imported.
+func TestImportAugmentPermissions_KeepsTheFirstRuleForATool(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".augment", "settings.json"), `{"toolPermissions":[
+	  {"toolName": "write", "permission": {"type": "ask-user"}},
+	  {"toolName": "write", "permission": {"type": "allow"}}
+	]}`)
+	dst := filepath.Join(root, "settings")
+	if _, err := importAugmentPermissions(root, dst); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	got := readFileString(t, filepath.Join(dst, "permissions-augment.yaml"))
+	if !strings.Contains(got, "ask:") || strings.Contains(got, "allow:") {
+		t.Errorf("spec = %q, want only the first rule", got)
+	}
+}
+
 func readFileString(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)

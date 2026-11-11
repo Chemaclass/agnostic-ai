@@ -81,8 +81,8 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 // kind augment does not declare in caps.Supports (Review). Settings
 // moved out of this set in #856: the ordered first-match array is not
 // losslessly interchangeable with the shared grouped lists, but the
-// parts that do not survive (the ask list, a path-scoped rule) each
-// raise a coverage note now, which is the same bar every other
+// part that does not survive (a path-scoped rule) raises a coverage
+// note now, which is the same bar every other
 // partial mapping in this repo meets. A future caps.Supports expansion
 // needs to delete the matching row here and demonstrate the emit path
 // that backs the new claim.

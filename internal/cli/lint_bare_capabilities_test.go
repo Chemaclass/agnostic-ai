@@ -173,7 +173,7 @@ func TestBareCapabilityPermissions_FollowsAdapterTranslation(t *testing.T) {
 
 func TestLintBareCapabilities_SkipsTargetsWithoutNativePermissions(t *testing.T) {
 	entry := spec.Entry{Kind: spec.KindSettings, Meta: map[string]any{"permissions": map[string]any{"allow": []any{"shell", "mcp:github"}, "ask": []any{"web"}}}}
-	if got := lintBareCapabilities([]spec.Entry{entry}, []string{"kiro", "factory", "augment"}); len(got) != 1 || !strings.Contains(got[0].Message, "augment: terminal") {
-		t.Errorf("findings = %v, want only Augment terminal allow", got)
+	if got := lintBareCapabilities([]spec.Entry{entry}, []string{"kiro", "factory", "augment"}); len(got) != 2 || !strings.Contains(got[0].Message, "augment: terminal") || !strings.Contains(got[1].Message, "augment: web-fetch, web-search") {
+		t.Errorf("findings = %v, want only Augment terminal allow and web ask", got)
 	}
 }
