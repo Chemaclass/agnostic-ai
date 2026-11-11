@@ -71,7 +71,7 @@ export const readAppearance = () => call('/api/appearance')
 
 /** Opens the full web interface in the browser. */
 export const openDashboard = () => post('/api/dashboard')
-/** Takes the companion off the screen; the shortcut brings it back. */
-export const hideCompanion = () => post('/api/hide')
+/** Fades the circle and stops reading; a click on the circle or the shortcut wakes it. */
+export const pauseCompanion = () => post('/api/pause')
 /** Ends the companion and its server. */
 export const quitCompanion = () => post('/api/quit')

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -39,8 +40,10 @@ type server struct {
 	client *http.Client
 
 	mu sync.Mutex
-	// resting is set while the companion hides: no call starts a server then.
-	resting bool
+	// resting is set while the companion is paused or quits: no call
+	// starts a server then. It is outside mu so a pause never waits for
+	// a server that is still starting.
+	resting atomic.Bool
 	// base is the running server's address, such as
 	// http://127.0.0.1:52000; empty while none runs.
 	base string
@@ -51,7 +54,7 @@ type server struct {
 	input io.Closer
 }
 
-var errResting = errors.New("the companion is hidden and asks agnostic-ai nothing")
+var errResting = errors.New("the companion is paused and asks agnostic-ai nothing")
 
 func newServer() *server {
 	return &server{client: &http.Client{Timeout: callTimeout}}
@@ -61,7 +64,7 @@ func newServer() *server {
 func (s *server) address() (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.resting {
+	if s.resting.Load() {
 		return "", errResting
 	}
 	if s.base != "" {
@@ -124,6 +127,11 @@ func (s *server) address() (string, error) {
 			}
 			return "", fmt.Errorf("agnostic-ai serve stopped before it listened: %s", problems.String())
 		}
+		if s.resting.Load() {
+			// The companion paused while this server started.
+			_ = input.Close()
+			return "", errResting
+		}
 		s.base, s.process, s.input = address, process, input
 	case <-time.After(serverStartWait):
 		_ = input.Close()
@@ -153,9 +161,13 @@ func (s *server) readVersion(base string) string {
 // rest ends the server this companion started, if one runs, and lets no
 // call start another until resume.
 func (s *server) rest() {
+	s.resting.Store(true)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.resting = true
+	if !s.resting.Load() {
+		// Resumed while this waited for a server to finish starting.
+		return
+	}
 	if s.input != nil {
 		_ = s.input.Close()
 	}
@@ -164,9 +176,7 @@ func (s *server) rest() {
 
 // resume lets the next call start a server again.
 func (s *server) resume() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.resting = false
+	s.resting.Store(false)
 }
 
 // runningVersion is the release of the server that runs now; empty when none runs.

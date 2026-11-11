@@ -55,6 +55,17 @@ function archived(now) {
   ]
 }
 
+/** Four chats that need the person, three here and one in the cloud, two of them about the parser. */
+function needsYou(now) {
+  return [
+    conversation(now, 'claude', 'wait-2', 'Approve the schema change', 'blocked', { minutesAgo: 3, reply: 'Should I add the new column as nullable first?' }),
+    conversation(now, 'codex', 'reply-2', 'Split the parser module', 'unread', { minutesAgo: 8 }),
+    conversation(now, 'cursor', 'reply-3', 'Review the parser tests', 'unread', { folder: '/Users/you/Code/shop', minutesAgo: 20 }),
+    conversation(now, 'claude', 'cloud-2', 'Write the support guide', 'unread', { app: 'cloud', minutesAgo: 40 }),
+    conversation(now, 'claude', 'active-5', 'Plan the next release', 'active', { minutesAgo: 90 }),
+  ]
+}
+
 const STATES = ['blocked', 'unread', 'working', 'active', 'active', 'completed', 'dormant']
 const TOOLS = ['claude', 'codex', 'cursor']
 
@@ -107,6 +118,12 @@ export const FIXTURES = {
     label: 'Rename failure',
     conversations: mixed,
     renameProblem: 'agnostic-ai could not save the name: the marks file is read-only.',
+  },
+  'needs-you': { label: 'Four chats that need you, one in the cloud', conversations: needsYou },
+  'needs-you-mark-failure': {
+    label: 'Mark all as read failure',
+    conversations: needsYou,
+    markProblem: 'agnostic-ai could not save the mark: the marks file is read-only.',
   },
   'mark-failure': {
     label: 'Archive and hide failure',

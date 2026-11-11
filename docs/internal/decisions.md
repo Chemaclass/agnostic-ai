@@ -141,3 +141,13 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 **Why:** Every reader already exposes the first prompt, so the link works across tools with no shared state, and a person can type the line by hand. A link file kept by agnostic-ai would need the new conversation's id, and only Claude Code lets the caller choose it. The fixed line keeps the brief out of every shell and AppleScript string. Variables leak from an outer tool into a tool started inside it, so a tool's variable is trusted only under that tool's process.
 
 **Accepted limits:** The tools' own history shows the link line at the start of a child. A child of a parent that is hidden, older than the page, filtered out or deleted shows as a normal row. A Codex process that holds several threads, without `CODEX_THREAD_ID`, cannot be a parent. Cursor's terminal agent is unchecked on a real install.
+
+## 014: A paused companion fades and reads nothing
+
+**Date:** 2026-11-11
+
+**Context:** Hide took the circle off the screen, and only the shortcut or a second `agnostic-ai companion` brought it back. A person who forgot the shortcut could not find it ([#3298](https://github.com/Chemaclass/agnostic-ai/issues/3298)).
+
+**Decision:** Hide becomes **Pause Agnostic AI companion**. The circle stays where it is at 10% opacity, also under the pointer, with no count and no arc. The companion's server stops and nothing polls, as before. A click on the circle, the shortcut or a second start wakes it with a new read. The paused state is not saved, so a restart starts awake.
+
+**Why:** Pause is kept apart from Dim when idle. Dim is a saved setting that fades to 55% while nothing needs you and keeps watching. Pause is the off mode you can still see and click: it costs no reads. "Pause" names a state that lasts until you resume it, and it carries the companion's name so nobody reads it as pausing the agents.

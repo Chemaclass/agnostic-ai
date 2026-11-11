@@ -175,8 +175,8 @@ func needsPerson(state State) bool {
 }
 
 // applyMarks sets the state and marks of every conversation in
-// results, in place, takes out the ones the person hid, and returns how
-// many need the person. A completion or a hiding that a later write
+// results, in place, takes out the ones the person hid and the empty
+// ones the person did not name, and returns how many need the person. A completion or a hiding that a later write
 // overtook, or whose conversation its tool reported working in a read
 // that began after the mark, is cleared in the file, so the file holds only those that still stand, and a
 // conversation that worked is not completed or hidden again once the
@@ -221,7 +221,7 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 				file.Marks[key] = entry
 				changed = true
 			}
-			if entry.HiddenAt != "" {
+			if entry.HiddenAt != "" || (c.untyped && entry.Title == "") {
 				continue
 			}
 			c.renamed = entry.Title
