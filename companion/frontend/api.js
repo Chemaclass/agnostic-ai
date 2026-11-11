@@ -73,3 +73,5 @@ export const readAppearance = () => call('/api/appearance')
 export const openDashboard = () => post('/api/dashboard')
 /** Takes the companion off the screen; the shortcut brings it back. */
 export const hideCompanion = () => post('/api/hide')
+/** Ends the companion and its server. */
+export const quitCompanion = () => post('/api/quit')

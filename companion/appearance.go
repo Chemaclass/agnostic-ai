@@ -14,6 +14,8 @@ const bubbleMenuName = "bubble"
 
 const settingsHeader = "Settings"
 
+const quitLabel = "Quit Agnostic AI companion"
+
 type appearance struct {
 	Animate     bool `json:"animate"`
 	DimWhenIdle bool `json:"dimWhenIdle"`
@@ -75,8 +77,11 @@ func addSettingsHeader(menu *application.Menu) {
 }
 
 func (s *shell) bubbleMenu() {
-	menu := application.NewContextMenu(bubbleMenuName)
-	addSettingsHeader(menu.Menu)
+	s.fillBubbleMenu(application.NewContextMenu(bubbleMenuName).Menu)
+}
+
+func (s *shell) fillBubbleMenu(menu *application.Menu) {
+	addSettingsHeader(menu)
 	animate := menu.AddCheckbox("Animate companion", s.appearance().Animate)
 	animate.OnClick(func(clicked *application.Context) {
 		if err := s.setAnimate(clicked.IsChecked()); err != nil {
@@ -91,4 +96,6 @@ func (s *shell) bubbleMenu() {
 			dim.SetChecked(s.appearance().DimWhenIdle)
 		}
 	})
+	menu.AddSeparator()
+	menu.Add(quitLabel).OnClick(func(*application.Context) { s.quit() })
 }
