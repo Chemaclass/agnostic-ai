@@ -496,11 +496,21 @@ export interface SectionItem {
   enabled?: boolean
   /** For a built-in: the personal config turns it on or off against the shared list. */
   local?: boolean
+  /** For a built-in: what turning it on does and gives you. */
+  about?: BuiltinAbout
   /** For a personal settings file: the dotted keys it sets itself. */
   localKeys?: string[]
   /** For an MCP server: the tools `agnostic-ai mcp tools` last listed. */
   tools?: ToolListing
   findings: ItemFinding[]
+}
+
+export interface BuiltinAbout {
+  summary: string
+  points: string[]
+  /** The official page of the tool the built-in wraps. */
+  docsUrl?: string
+  docsLabel?: string
 }
 
 export interface ToolListing {

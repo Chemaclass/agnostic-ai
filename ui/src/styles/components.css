@@ -2278,6 +2278,15 @@ textarea:focus {
   margin: 0;
 }
 
+.builtin-about p {
+  margin: 0;
+}
+
+.builtin-about ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
 @media (max-width: 760px) {
   .row-details > div {
     grid-template-columns: minmax(0, 1fr);
