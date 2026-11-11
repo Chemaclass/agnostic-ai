@@ -325,12 +325,20 @@ test('mark all as read marks every Needs you row from the keyboard, and the circ
   await bubble.goto('/index.html')
   await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 4 need you')
   const marks = markBodies(page)
+  const opens: string[] = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/open')) opens.push(request.url())
+  })
 
+  // A highlighted row must not open when Enter presses the header button.
+  await page.keyboard.press('ArrowDown')
+  await expect(selected(page)).toHaveCount(1)
   await expect(markAllRead(page)).toHaveCount(1)
   await markAllRead(page).focus()
   await page.keyboard.press('Enter')
 
   await expect(groupTitle(page, 'Needs you')).toHaveCount(0)
+  expect(opens).toEqual([])
   expect(marks).toEqual([seen('claude', 'wait-2'), seen('codex', 'reply-2'), seen('cursor', 'reply-3'), seen('claude', 'cloud-2')])
   await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: none needs you')
 
@@ -388,6 +396,35 @@ test('mark all as read skips a row that got a new message after it was drawn', a
   expect(marks).toEqual([seen('claude', 'wait-2'), seen('cursor', 'reply-3'), seen('claude', 'cloud-2')])
 })
 
+test('mark all as read leaves a row that a new search took out of the list', async ({ page }) => {
+  await openPanel(page, 'needs-you')
+  const marks = markBodies(page)
+  let release: () => void = () => {}
+  const held = new Promise<void>((done) => { release = done })
+  let first = true
+  await page.route('**/api/mark', async (route) => {
+    if (first) {
+      first = false
+      await held
+    }
+    await route.continue()
+  })
+  const search = page.getByLabel('Search every conversation')
+  await search.fill('parser')
+  await expect(page.getByRole('option')).toHaveCount(2)
+  await markAllRead(page).click()
+  await expect.poll(() => marks.length).toBe(1)
+
+  await search.fill('schema')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  release()
+
+  await search.fill('')
+  await expect(needsYou(page)).toHaveCount(3)
+  expect(marks).toEqual([seen('codex', 'reply-2')])
+  await expect(needsYou(page).filter({ hasText: 'Review the parser tests' })).toHaveCount(1)
+})
+
 test('a second press while mark all as read runs starts no second run', async ({ page }) => {
   await openPanel(page, 'needs-you')
   const marks = markBodies(page)
@@ -410,12 +447,14 @@ test('a second press while mark all as read runs starts no second run', async ({
   expect(marks).toEqual([seen('claude', 'wait-2'), seen('codex', 'reply-2'), seen('cursor', 'reply-3'), seen('claude', 'cloud-2')])
 })
 
-test('a failed mark all as read keeps the rows in Needs you and says why', async ({ page }) => {
+test('a failed mark all as read stops at the first refused mark, keeps the rows and says why', async ({ page }) => {
   await openPanel(page, 'needs-you-mark-failure')
+  const marks = markBodies(page)
   await markAllRead(page).click()
 
   await expect(page.getByRole('status').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
   await expect(needsYou(page)).toHaveCount(4)
+  expect(marks).toEqual([seen('claude', 'wait-2')])
 })
 
 test('only Needs you offers mark all as read, and its rows do not repeat the header', async ({ page }) => {

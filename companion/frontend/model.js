@@ -130,13 +130,13 @@ export function grouped(conversations) {
 /**
  * Whether a row shown under Needs you may still be marked read: the latest list holds it unchanged
  * and still needing the person. A row that got a new message since it was drawn holds something
- * the person has not seen, so it stays. A row the latest list does not hold is marked as shown.
+ * the person has not seen, so it stays. So does a row the latest list does not hold, or no list:
+ * a new message can take a row out of a search, so what is missing may be what changed.
  */
 export function stillWaits(view, shown) {
   const key = keyOf(shown)
   const current = view?.conversations.find((conversation) => keyOf(conversation) === key)
-  if (current === undefined) return true
-  return Boolean(NEEDS_PERSON[current.state]) && current.updatedAt === shown.updatedAt
+  return current !== undefined && Boolean(NEEDS_PERSON[current.state]) && current.updatedAt === shown.updatedAt
 }
 
 /**

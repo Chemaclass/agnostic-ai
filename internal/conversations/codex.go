@@ -119,16 +119,11 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		if !sessionIDPattern.MatchString(thread.ID) || codexExec(thread) {
 			continue
 		}
-		t := texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]}
-		// A thread opened and never typed in has nothing to show, as an empty Claude Code session.
-		if t.title == "" && t.firstPrompt == "" && t.lastPrompt == "" {
-			continue
-		}
 		c := Conversation{
 			Tool: ToolCodex, ID: thread.ID, Folder: thread.Cwd, Branch: thread.GitBranch,
 			StartedAt: timeFromMillis(thread.CreatedAtMs), UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
 		}
-		textsOf[thread.ID] = t
+		textsOf[thread.ID] = texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]}
 		codexRoute(&c, thread, editor)
 		conversations = append(conversations, c)
 		rollouts[thread.ID] = thread.RolloutPath
@@ -143,6 +138,8 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	for i := range conversations {
 		t, said := textsOf[conversations[i].ID], lastReplies[conversations[i].ID]
 		t.reply, t.question = said.reply, said.question
+		// A prompt with no text, such as an image, still gets a reply, so only a thread with neither is empty.
+		conversations[i].untyped = t == texts{}
 		s.fill(&conversations[i], t)
 	}
 	result := found(ToolCodex, conversations)

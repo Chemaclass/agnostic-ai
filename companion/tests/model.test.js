@@ -91,9 +91,14 @@ test('a row shown as needing the person is still marked read only while nothing 
   assert.equal(stillWaits(view(row('a', 'blocked')), shown), true)
   assert.equal(stillWaits(view(row('a', 'unread', { updatedAt: '2026-11-09T12:05:00Z' })), shown), false)
   assert.equal(stillWaits(view(row('a', 'active')), shown), false)
-  assert.equal(stillWaits(view(row('a', 'unread', { tool: 'codex' })), shown), true)
-  assert.equal(stillWaits(view(), shown), true)
-  assert.equal(stillWaits(undefined, shown), true)
+})
+
+test('a row the latest list does not hold is not marked read: a new message may have taken it out of the search', () => {
+  const shown = row('a', 'unread')
+  assert.equal(stillWaits({ conversations: [row('a', 'unread', { tool: 'codex' })] }, shown), false)
+  assert.equal(stillWaits({ conversations: [] }, shown), false)
+  // A list that could not be read says nothing about the row.
+  assert.equal(stillWaits(undefined, shown), false)
 })
 
 test('a row with no title shows a neutral label', () => {
