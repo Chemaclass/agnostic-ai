@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Both companion menus offer the same settings: Animate, Dim when idle, Start at login, the shortcut, Pause and Quit. A change in one shows in the other (#3299).
 - **Mark all as read** on the companion's Needs you header takes every chat it shows out of the group, after the search and the All, Local or Cloud choice. Rows no longer repeat their group as "New reply" or "Working", and a Codex thread opened and never typed in no longer shows as "Untitled conversation" (#3300).
 - Hide in the companion's ⋯ menu is now Pause: the circle stays at 10% and reads nothing until you click it or press the shortcut (#3298).
 - `outputs.<target>.rules-file` on a target that writes no merged rules file, such as Cline or Kiro, no longer stops `sync` from writing that target's instructions file and rules. `lint` warns about the key with LINT062 (#3295).

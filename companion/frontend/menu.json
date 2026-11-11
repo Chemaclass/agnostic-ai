@@ -1,0 +1,8 @@
+[
+  { "id": "animate", "label": "Animate companion", "kind": "switch" },
+  { "id": "dimWhenIdle", "label": "Dim when idle", "kind": "switch" },
+  { "id": "startAtLogin", "label": "Start at login", "kind": "switch" },
+  { "id": "shortcut", "label": "Open from anywhere", "kind": "shortcut", "hint": "Change the shortcut" },
+  { "id": "pause", "label": "Pause Agnostic AI companion", "kind": "action", "hint": "Stops reading and fades the circle. Click the circle or press the shortcut to resume." },
+  { "id": "quit", "label": "Quit Agnostic AI companion", "kind": "action", "hint": "Ends the companion and its reading. Start it again with agnostic-ai companion." }
+]

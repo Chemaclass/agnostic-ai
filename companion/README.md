@@ -122,32 +122,9 @@ opens its list. It also wakes a paused companion.
 
 ## Settings
 
-The ⋯ button at the foot of the list holds them:
-
-- **Start at login** starts the companion when you log in. The system keeps this
-  setting. On macOS the app shows under System Settings > General > Login Items,
-  in Open at Login, with its name and icon. Elsewhere it points at the
-  companion where it is now, so turn it off and on again after you move the
-  file.
-- **Open from anywhere** shows the shortcut. Click it, then press the new keys:
-  at least one of Ctrl, Alt or Cmd (the Windows or Super key elsewhere), and a
-  letter, digit, Space, an arrow or a function key. A shortcut takes its keys
-  away from every other app, so pick one nothing else uses. Keys another app
-  already holds are refused and the old shortcut stays. macOS, Windows and X11
-  ask for no permission; a Wayland desktop asks you once to approve it.
-- **Pause Agnostic AI companion** fades the circle to 10% and stops the
-  companion's server. The circle stays where it is, with no number and no
-  arc, and pointing at it does not brighten it. Nothing reads or asks
-  anything until you wake it. You can still drag it. Click it, press the
-  shortcut, or run `agnostic-ai companion` to wake it with a new list. A
-  restart always starts awake. Pause is not **Dim when idle**: dimming keeps
-  watching, pausing reads nothing.
-- **Quit Agnostic AI companion** ends the companion and its server, as
-  `agnostic-ai companion stop` does. **Start at login** stays as you set it.
-  `agnostic-ai companion` starts it again.
-
-Right-click the circle (Ctrl+click on a Mac) for its own menu. The settings
-are at the top, and **Quit Agnostic AI companion** is at the bottom:
+Both menus hold the same settings, in the same order: the ⋯ button at the
+foot of the list, and a right-click on the circle (Ctrl+click on a Mac). A
+change made in one shows in the other.
 
 - **Animate companion** turns movement on and off: the turning arc, the
   breathing dot in the list, the badge's pop and the list's opening. When it is
@@ -158,6 +135,31 @@ are at the top, and **Quit Agnostic AI companion** is at the bottom:
   of your way. It comes back to full color when you point at it, even with
   another app in front, and while any conversation needs you. A working agent
   alone does not bring it back. It stays easy to click and drag while faded.
+- **Start at login** starts the companion when you log in. The system keeps this
+  setting. On macOS the app shows under System Settings > General > Login Items,
+  in Open at Login, with its name and icon. Elsewhere it points at the
+  companion where it is now, so turn it off and on again after you move the
+  file. A change made in System Settings shows in the right-click menu once
+  the ⋯ menu was opened or another setting changed.
+- **Open from anywhere** shows the shortcut. In the ⋯ menu, click it, then
+  press the new keys: at least one of Ctrl, Alt or Cmd (the Windows or Super
+  key elsewhere), and a letter, digit, Space, an arrow or a function key. In
+  the right-click menu it shows the keys; choosing it opens the list on its ⋯
+  menu, ready to change them. A shortcut takes its keys away from every other
+  app, so pick one nothing else uses. Keys another app already holds are
+  refused and the old shortcut stays. macOS, Windows and X11 ask for no
+  permission; a Wayland desktop asks you once to approve it.
+- **Pause Agnostic AI companion** fades the circle to 10% and stops the
+  companion's server. The circle stays where it is, with no number and no
+  arc, and pointing at it does not brighten it. Nothing reads or asks
+  anything until you wake it. You can still drag it. Click it, press the
+  shortcut, or run `agnostic-ai companion` to wake it with a new list. A
+  restart always starts awake. Pause is not **Dim when idle**: dimming keeps
+  watching, pausing reads nothing. In the right-click menu it is greyed while
+  paused.
+- **Quit Agnostic AI companion** ends the companion and its server, as
+  `agnostic-ai companion stop` does. **Start at login** stays as you set it.
+  `agnostic-ai companion` starts it again.
 
 ## Stop it and remove it
 
@@ -284,13 +286,15 @@ What you see is never older than this:
 - `server.go`: starts and stops the companion's `agnostic-ai serve`, and calls it.
 - `inbox.go`: asks the server every 5 seconds whether the list changed, keeps the latest one, and hands the pages' opens and marks to the server.
 - `preferences.go`: the shortcut and the start-at-login setting.
-- `appearance.go`: the circle's right-click menu and the animation and dim settings.
+- `appearance.go`: the animation and dim settings, and whether the companion is paused.
+- `menu.go`: the circle's right-click menu, built from `frontend/menu.json`.
 - `hover_darwin.go`: tells the circle on macOS when the pointer is over it, even while another app is in front.
 - `dashboard.go`: opens the full web interface.
 - `place.go`: where the list opens beside the circle, and whether a saved place is still on a screen.
 - `settings.go`: what the companion remembers between runs.
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
-  `model.js` holds the logic and has no DOM in it. `look.js` turns your
+  `menu.json` lists the settings both menus show, in order, so they cannot drift
+  apart. `model.js` holds the logic and has no DOM in it. `look.js` turns your
   settings and whether the companion is paused into how the pages look, and
   `motion.js` applies them to each page.
 - `dev/`: the browser preview behind `make companion-preview` and `make companion-e2e`.

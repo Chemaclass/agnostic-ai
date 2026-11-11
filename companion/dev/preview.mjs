@@ -247,12 +247,24 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/preferences/shortcut': async (request, response) => {
       state.preferences.shortcut = (await bodyOf(request)).shortcut
       sendJSON(response, 200, state.preferences)
+      emit('preferences', state.preferences)
     },
     'POST /api/preferences/start-at-login': async (request, response) => {
       state.preferences.startAtLogin = (await bodyOf(request)).enabled === true
       sendJSON(response, 200, state.preferences)
+      emit('preferences', state.preferences)
     },
     'GET /api/appearance': (request, response) => sendJSON(response, 200, state.appearance),
+    'POST /api/appearance/animate': async (request, response) => {
+      state.appearance.animate = (await bodyOf(request)).enabled === true
+      sendJSON(response, 200, state.appearance)
+      emit('appearance', state.appearance)
+    },
+    'POST /api/appearance/dim-when-idle': async (request, response) => {
+      state.appearance.dimWhenIdle = (await bodyOf(request)).enabled === true
+      sendJSON(response, 200, state.appearance)
+      emit('appearance', state.appearance)
+    },
     'POST /api/dashboard': (request, response) => { logCall('/api/dashboard'); noContent(response) },
     'POST /api/pause': (request, response) => {
       logCall('/api/pause')
@@ -273,6 +285,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       heldOpens = []
       for (const release of released) release()
       sendJSON(response, 200, { released: released.length })
+    },
+    // Stands in for Open from anywhere in the circle's right-click menu.
+    'POST /dev/open-settings': (request, response) => {
+      noContent(response)
+      emit('settings-shown', 'bottom-right')
     },
     // Stands in for the circle's right-click menu, which the preview has not.
     'POST /dev/appearance': async (request, response) => {

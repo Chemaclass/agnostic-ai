@@ -29,6 +29,8 @@ test('the keys move through the menu and end on Quit, after Pause', async ({ pag
   await page.getByRole('button', { name: 'Settings', exact: true }).focus()
   const menu = page.getByRole('region', { name: 'Settings', exact: true })
   const order = [
+    menu.getByRole('switch', { name: 'Animate companion' }),
+    menu.getByRole('switch', { name: 'Dim when idle' }),
     menu.getByRole('switch', { name: 'Start at login' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
     menu.getByRole('button', { name: 'Pause Agnostic AI companion' }),
@@ -131,4 +133,67 @@ test('a pause wins over Dim when idle: 10%, not 55%', async ({ page }) => {
   await page.request.post('/api/pause')
 
   await expect(circle(page)).toHaveCSS('opacity', '0.1')
+})
+
+const settingsMenu = (page: Page) => page.getByRole('region', { name: 'Settings', exact: true })
+
+test('the menu shows the shared list, in its order, with the values in effect', async ({ page }) => {
+  const items: { label: string }[] = await (await page.request.get('/menu.json')).json()
+  await openPanel(page)
+  await openSettings(page)
+
+  const labels = await settingsMenu(page).locator('.menu-label, .menu-item').allTextContents()
+  expect(labels).toEqual(items.map((item) => item.label))
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'true')
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'false')
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Start at login' })).toHaveAttribute('aria-checked', 'false')
+})
+
+test('switching Animate in the menu stops the circle on its own page', async ({ page, context }) => {
+  await openPanel(page)
+  const circlePage = await context.newPage()
+  await circlePage.goto('/')
+  await expect(circlePage.locator('html')).toHaveAttribute('data-motion', 'on')
+  await openSettings(page)
+
+  const saved = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/appearance/animate')
+  await settingsMenu(page).getByRole('switch', { name: 'Animate companion' }).click()
+  expect((await saved).postDataJSON()).toEqual({ enabled: false })
+
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'false')
+  await expect(circlePage.locator('html')).toHaveAttribute('data-motion', 'off')
+})
+
+test('switching Dim when idle in the menu saves it', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+
+  await settingsMenu(page).getByRole('switch', { name: 'Dim when idle' }).click()
+
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'true')
+  expect((await (await page.request.get('/api/appearance')).json()).dimWhenIdle).toBe(true)
+})
+
+test('a change made in the right-click menu shows in the open menu', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+
+  // The tests post what the right-click menu would change.
+  await page.request.post('/dev/appearance', { data: { animate: false, dimWhenIdle: true } })
+  await page.request.post('/api/preferences/start-at-login', { data: { enabled: true } })
+
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'false')
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'true')
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Start at login' })).toHaveAttribute('aria-checked', 'true')
+})
+
+test('Open from anywhere in the right-click menu opens the menu on the shortcut, without recording', async ({ page }) => {
+  await openPanel(page)
+
+  await page.request.post('/dev/open-settings')
+
+  await expect(settingsMenu(page)).toBeVisible()
+  const shortcut = settingsMenu(page).getByRole('button', { name: 'Open from anywhere' })
+  await expect(shortcut).toBeFocused()
+  await expect(shortcut).not.toHaveClass(/is-recording/)
 })
