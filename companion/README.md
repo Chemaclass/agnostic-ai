@@ -64,6 +64,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - **Right-click** a row and choose **Rename…** to give the chat your own
   name. **Enter** saves it and **Esc** keeps the old one. An empty name is
   refused. The web interface shows the same name, and a search finds it.
+  A running chat's Terminal or Ghostty tab takes the name too, in place of
+  the title the tool sets.
   Right-clicking does not open the chat or mark it as read.
 - An archived chat comes back when you open it, when something new is
   written in it, or when it starts working. A hidden chat leaves every list

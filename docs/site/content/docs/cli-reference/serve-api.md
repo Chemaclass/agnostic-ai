@@ -198,6 +198,7 @@ Body: `{tool, id, title}` with `Content-Type: application/json`, from the server
 - Saves `title` as the conversation's name in the marks file. Every server that shares the file shows it and finds it in a search.
 - The name stays after new messages. It leaves the seen, completed and hidden marks as they were.
 - Spaces and line breaks are joined into one line.
+- On macOS, a running session's Terminal or Ghostty tab takes the name as its title. A tab that cannot be named keeps its title, and the reply is still 204.
 
 Replies:
 

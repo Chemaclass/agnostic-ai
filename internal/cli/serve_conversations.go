@@ -237,7 +237,8 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 		return
 	}
-	if _, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions("")); !ok {
+	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(""))
+	if !ok {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
 		return
 	}
@@ -245,6 +246,8 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
+	// The saved name is the rename; a tab that cannot take it keeps its own.
+	_ = conversations.TitleTab(r.Context(), conversation, h.scanner.Processes, h.launcher, title)
 	w.WriteHeader(http.StatusNoContent)
 }
 
