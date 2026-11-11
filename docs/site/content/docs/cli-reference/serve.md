@@ -97,7 +97,7 @@ In the browser:
   - When the global setup does not exist yet, create it with **Open global settings** first.
 - **Conversations** (`/`) is the page the interface opens on. A static snapshot has no server to read chats, so it opens on **Context** instead.
   - It lists recent Claude Code, Codex and Cursor chats from each tool's own store.
-  - Open chats come first under **Open now**, with **Working** or **Waiting for you** when Claude Code reports it. The rest follow by day, newest last message first.
+  - Open chats come first under **Open now**, with **Working** or **Waiting for you** when the tool reports it. A local Codex chat that wrote nothing for 5 minutes shows **No activity for 7m** instead, since Codex does not say when it waits. The rest follow by day, newest last message first.
   - It loads the past week. It loads the week before each time you scroll to the end, or with **Load the week before**.
   - The tool filter beside the search shows one tool's chats. Search covers every conversation, loaded or not.
   - Each row's action reopens the chat where it lives: the Terminal or Ghostty tab that runs it, a new tab in the app it last ran in, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.

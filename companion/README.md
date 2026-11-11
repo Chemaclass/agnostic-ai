@@ -163,7 +163,7 @@ What each tool reports:
 | --- | --- | --- |
 | Claude Code, local and cloud | yes | yes |
 | Codex cloud | yes | yes |
-| Codex local | yes, from the turn that runs in its session file | inferred: a turn that wrote nothing for 5 minutes |
+| Codex local | yes, from the turn that runs in its session file | inferred: a turn that wrote nothing for 5 minutes, shown as No activity for 5m |
 | Cursor | no | no |
 
 A chat whose tool does not report waiting reaches Needs you when something new
@@ -173,8 +173,10 @@ comes back only with a new message.
 Local Codex does not write down that it asks for an approval or for input, and
 a turn that hangs never says so. All of those look the same: a turn that began
 and a session file that holds still. So a turn that wrote nothing for 5 minutes
-shows as Waiting for you. A command that runs longer than that reads as a wait
-too; open the chat and it leaves Needs you until it writes again.
+goes to Needs you, and its row says how long it has been silent, such as No
+activity for 7m, instead of Waiting for you. A command that runs longer than
+that reads the same way; open the chat and it leaves Needs you until it writes
+again. The time updates about once a minute.
 
 When a status counts:
 

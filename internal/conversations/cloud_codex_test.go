@@ -67,19 +67,21 @@ func TestCodexCloud_ListsThreadsAsConversations(t *testing.T) {
 		id, title, started, updated string
 		live                        bool
 		activity                    Activity
+		quietSince                  string
 	}
+	// A cloud task that reports a wait says so itself: it carries no quiet time.
 	want := []shown{
-		{codexIdle, "Fix the parser", "2026-11-09T22:40:00Z", "2026-11-09T22:43:20Z", false, ""},
-		{codexBusy, "Add a test", "", "2026-11-09T22:45:00Z", true, ActivityWorking},
-		{codexWaiting, "Rename the flag", "", "2026-11-09T22:46:40Z", true, ActivityWaiting},
+		{codexIdle, "Fix the parser", "2026-11-09T22:40:00Z", "2026-11-09T22:43:20Z", false, "", ""},
+		{codexBusy, "Add a test", "", "2026-11-09T22:45:00Z", true, ActivityWorking, ""},
+		{codexWaiting, "Rename the flag", "", "2026-11-09T22:46:40Z", true, ActivityWaiting, ""},
 		// A status this version does not know is not live.
-		{codexNew, "Something new", "", "2026-11-09T22:48:20Z", false, ""},
+		{codexNew, "Something new", "", "2026-11-09T22:48:20Z", false, "", ""},
 	}
 	if len(rows) != len(want) {
 		t.Fatalf("rows = %s", asJSON(t, rows))
 	}
 	for i, row := range rows {
-		got := shown{row.ID, row.Title, row.StartedAt, row.UpdatedAt, row.Live, row.Activity}
+		got := shown{row.ID, row.Title, row.StartedAt, row.UpdatedAt, row.Live, row.Activity, row.QuietSince}
 		if got != want[i] {
 			t.Errorf("row %d = %+v, want %+v", i, got, want[i])
 		}
@@ -267,7 +269,7 @@ func TestOpen_SendsACodexCloudThreadToTheCodexApp(t *testing.T) {
 }
 
 func TestScan_ALoadedCodexThreadIsWorkingWhileItsRolloutSaysATurnRuns(t *testing.T) {
-	const busy, done, fresh, long = "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777", "88888888-8888-4888-8888-888888888888"
+	const busy, done, fresh, long, quiet = "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777", "88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999"
 	dir := t.TempDir()
 	codexDir := filepath.Join(dir, ".codex")
 	rollout := func(id string) string {
@@ -281,13 +283,14 @@ func TestScan_ALoadedCodexThreadIsWorkingWhileItsRolloutSaysATurnRuns(t *testing
 		"state_5.sqlite|FROM threads": "[" + strings.Join([]string{
 			thread(busy, "Busy", rollout(busy)), thread(done, "Done", rollout(done)),
 			thread(fresh, "Fresh", rollout(fresh)), thread(long, "Long", outside),
+			thread(quiet, "Quiet", rollout(quiet)),
 		}, ",") + "]",
-	}), fakeProcesses{held: map[string]int{busy + ".lock": 1, done + ".lock": 2, fresh + ".lock": 3, long + ".lock": 4}})
+	}), fakeProcesses{held: map[string]int{busy + ".lock": 1, done + ".lock": 2, fresh + ".lock": 3, long + ".lock": 4, quiet + ".lock": 5}})
 	stores.CodexDir = codexDir
 	scanner.Stores = stores
 	scanner.Now = func() time.Time { return time.UnixMilli(1762520000000) }
 	write(t, filepath.Join(codexDir, "state_5.sqlite"), "")
-	for _, id := range []string{busy, done, fresh, long} {
+	for _, id := range []string{busy, done, fresh, long, quiet} {
 		write(t, filepath.Join(codexDir, "thread-writer-locks", id+".lock"), "")
 	}
 	started, completed := `{"type":"event_msg","payload":{"type":"task_started"}}`, `{"type":"event_msg","payload":{"type":"task_complete"}}`
@@ -295,15 +298,27 @@ func TestScan_ALoadedCodexThreadIsWorkingWhileItsRolloutSaysATurnRuns(t *testing
 	write(t, rollout(busy), strings.Join([]string{started, completed, started, other, other}, "\n")+"\n")
 	write(t, rollout(done), strings.Join([]string{started, other, completed}, "\n")+"\n")
 	write(t, rollout(fresh), other+"\n")
+	write(t, rollout(quiet), strings.Join([]string{started, other}, "\n")+"\n")
+	silent := scanner.Now().Add(-7 * time.Minute)
+	if err := os.Chtimes(rollout(quiet), silent, silent); err != nil {
+		t.Fatal(err)
+	}
 	// A rollout outside Codex's folder is never opened, whatever it says.
 	write(t, outside, started+"\n")
 
 	view := scanner.Scan(context.Background(), ScanOptions{})
 
-	want := map[string]Activity{busy: ActivityWorking, done: "", fresh: "", long: ""}
+	want := map[string]Activity{busy: ActivityWorking, done: "", fresh: "", long: "", quiet: ActivityWaiting}
 	for id, activity := range want {
 		if c := byID(t, view, id); !c.Live || c.Activity != activity {
 			t.Errorf("%s: live %t, activity %q, want live with %q", c.Title, c.Live, c.Activity, activity)
+		}
+	}
+	// Codex never says it waits: the wait is read from silence, so the row
+	// carries when the silence began and the others carry nothing.
+	for id, since := range map[string]string{busy: "", done: "", fresh: "", long: "", quiet: silent.UTC().Format(time.RFC3339)} {
+		if c := byID(t, view, id); c.QuietSince != since {
+			t.Errorf("%s: quiet since %q, want %q", c.Title, c.QuietSince, since)
 		}
 	}
 	if state := byID(t, view, busy).State; state != StateWorking {
@@ -336,34 +351,52 @@ func TestCodexTurnRuns_ReadsATailThatHoldsNoTurnEventAsTheMiddleOfATurn(t *testi
 	}
 }
 
-func TestCodexActivity_ATurnThatWroteNothingForAWhileWaitsForThePerson(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "rollout.jsonl")
-	if err := os.WriteFile(path, []byte(`{"type":"event_msg","payload":{"type":"task_started"}}`+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+func TestCodexActivity_ATurnThatWroteNothingForAWhileIsQuietSinceItsLastWrite(t *testing.T) {
+	started := `{"type":"event_msg","payload":{"type":"task_started"}}`
+	command := `{"type":"response_item","payload":{"type":"function_call","name":"shell","call_id":"call_1"}}`
 	written := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
-	if err := os.Chtimes(path, written, written); err != nil {
-		t.Fatal(err)
-	}
-	for _, tc := range []struct {
-		after time.Duration
-		want  Activity
-	}{
-		{time.Second, ActivityWorking},
-		{codexQuietSpan - time.Second, ActivityWorking},
-		{codexQuietSpan, ActivityWaiting},
-		{time.Hour, ActivityWaiting},
+	for _, rollout := range map[string]string{
+		"a turn that began":               started,
+		"a turn that runs a long command": started + "\n" + command,
 	} {
-		if got := codexActivity(path, written.Add(tc.after)); got != tc.want {
-			t.Errorf("%s after its last write: %q, want %q", tc.after, got, tc.want)
+		path := filepath.Join(t.TempDir(), "rollout.jsonl")
+		if err := os.WriteFile(path, []byte(rollout+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(path, written, written); err != nil {
+			t.Fatal(err)
+		}
+		for _, tc := range []struct {
+			after time.Duration
+			want  Activity
+			quiet time.Time
+		}{
+			{time.Second, ActivityWorking, time.Time{}},
+			{codexQuietSpan - time.Second, ActivityWorking, time.Time{}},
+			{codexQuietSpan, ActivityWaiting, written},
+			{time.Hour, ActivityWaiting, written},
+		} {
+			got, quiet := codexActivity(path, written.Add(tc.after))
+			if got != tc.want || !quiet.Equal(tc.quiet) {
+				t.Errorf("%s after its last write: %q quiet since %s, want %q quiet since %s", tc.after, got, quiet, tc.want, tc.quiet)
+			}
+		}
+
+		resumed := written.Add(time.Hour)
+		if err := os.Chtimes(path, resumed, resumed); err != nil {
+			t.Fatal(err)
+		}
+		if got, quiet := codexActivity(path, resumed.Add(time.Minute)); got != ActivityWorking || !quiet.IsZero() {
+			t.Errorf("a new write: %q quiet since %s, want working and not quiet", got, quiet)
 		}
 	}
 
+	path := filepath.Join(t.TempDir(), "rollout.jsonl")
 	if err := os.WriteFile(path, []byte(`{"type":"event_msg","payload":{"type":"task_complete"}}`+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := codexActivity(path, time.Now().Add(time.Hour)); got != "" {
-		t.Errorf("between turns, however long ago: %q, want nothing", got)
+	if got, quiet := codexActivity(path, time.Now().Add(time.Hour)); got != "" || !quiet.IsZero() {
+		t.Errorf("between turns, however long ago: %q quiet since %s, want nothing", got, quiet)
 	}
 }
 

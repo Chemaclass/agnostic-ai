@@ -56,6 +56,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute. The archive is cleared in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
 - **Hide Agnostic AI companion**, in the list's ⋯ menu, takes the circle off the screen and stops that server. Nothing is read or asked until the shortcut brings the companion back.
 - **Animate companion**, in the circle's right-click menu, turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
+- A local Codex chat that wrote nothing for 5 minutes moves to Needs you as "No activity for 7m", not "Waiting for you": Codex does not say when it waits, so the silence is all the server knows. A tool that reports its wait shows "Waiting for you". The web interface uses the same words.
 - **Dim when idle**, in the same menu, fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
 
 ## Upgrade the companion

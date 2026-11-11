@@ -112,7 +112,15 @@ export function grouped(conversations) {
   })).filter((group) => group.rows.length > 0)
 }
 
-export function reasonOf(conversation) {
+/**
+ * A wait the server read from silence carries `quietSince`: it says how long nothing came,
+ * not that the agent asked. "Waiting for you" stays for a tool that reports its wait.
+ */
+export function reasonOf(conversation, now) {
+  if (conversation.state === 'blocked' && !Number.isNaN(Date.parse(conversation.quietSince))) {
+    const quiet = ago(conversation.quietSince, now)
+    return quiet === 'now' ? 'No activity' : 'No activity for ' + quiet
+  }
   return REASON_OF_STATE[conversation.state]
 }
 
