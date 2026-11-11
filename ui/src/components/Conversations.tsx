@@ -10,7 +10,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationRoute, ConversationSource, ConversationsView } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
@@ -352,6 +352,7 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
   const withheld = conversation.withheld ?? []
   const prompt = withheld.includes('prompt') ? undefined : shownPrompt(title, conversation.prompt)
   const route = conversation.open
+  const command = rowCommand(route)
 
   const open = async () => {
     if (pending) return
@@ -389,9 +390,9 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
         <button type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={open}>
           {route.label}
         </button>
-        {route.command && (
+        {command && (
           <RowActions label={title.text}>
-            <CopyButton text={route.command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />
+            <CopyButton text={command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />
           </RowActions>
         )}
       </div>

@@ -110,7 +110,7 @@ test.describe('conversations', () => {
     await expect(working.getByRole('button', { name: /^Open in Terminal/ })).toHaveClass(/button-primary/)
     await expect(working.locator('.conversation-tool')).toHaveText('Claude Code, Terminal')
     await expect(working.getByRole('button', { name: 'Open in Terminal: Add a Conversations page to the local UI' })).toBeVisible()
-    await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toBeVisible()
+    await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toHaveCount(0)
 
     const waiting = row(page, 'Plan the sync --global dry run').locator('.conversation-live')
     await expect(waiting).toHaveText('Waiting for youOpen now: the agent is waiting for you')

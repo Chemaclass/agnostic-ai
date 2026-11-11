@@ -153,9 +153,13 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   }
 
   async function open(request, response) {
+    // A slow open answers from the fixture it started under, even if another is chosen meanwhile.
+    const fixture = state.fixture
     const body = await bodyOf(request)
     logCall('/api/open', body)
-    if (state.fixture.openProblem) return sendJSON(response, 200, { opened: false, message: state.fixture.openProblem, command: state.fixture.openCommand })
+    const wait = fixture.slowOpens?.[body.id] ?? 0
+    if (wait > 0) await new Promise((done) => setTimeout(done, wait))
+    if (fixture.openProblem) return sendJSON(response, 200, { opened: false, message: fixture.openProblem, command: fixture.openCommand })
     const row = find(body)
     if (row && NEEDS_PERSON[row.state]) row.state = 'active'
     sendJSON(response, 200, { opened: true })

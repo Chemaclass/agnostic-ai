@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Conversation, ConversationSource, ConversationsView } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, sameFirstPage, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
+import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Local times, so the day groups hold in any time zone the tests run in.
@@ -215,6 +215,14 @@ describe('conversation words', () => {
     expect(replyCommand({ opened: false, message: 'No terminal app found.', command: 'claude --resume a' }, terminal)).toBeUndefined()
     expect(replyCommand({ opened: false, message: 'Not found.' }, link)).toBeUndefined()
     expect(replyCommand({ opened: true, message: 'Opened.', command: 'claude --resume a' }, link)).toBeUndefined()
+  })
+
+  it('offers no resume command on a row that still runs, since running it starts a second copy', () => {
+    const focus = { kind: 'focus', label: 'Open in Terminal', command: 'claude --resume a' } as const
+    const terminal = { kind: 'terminal', label: 'Open in Terminal', command: 'claude --resume a' } as const
+    expect(rowCommand(focus)).toBeUndefined()
+    expect(rowCommand(terminal)).toBe('claude --resume a')
+    expect(replyCommand({ opened: false, message: 'The session ended; no terminal app found.', command: 'claude --resume a' }, focus)).toBe('claude --resume a')
   })
 })
 
