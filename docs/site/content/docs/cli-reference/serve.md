@@ -101,7 +101,7 @@ In the browser:
   - It loads the past week. It loads the week before each time you scroll to the end, or with **Load the week before**.
   - The tool filter beside the search shows one tool's chats. Search covers every conversation, loaded or not.
   - Each row's action reopens the chat where it lives: the Terminal or Ghostty tab that runs it, a new tab in the app it last ran in, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.
-  - **Copy command** copies the command that resumes an ended chat in a terminal. A chat that still runs has none, because that command would start a second copy.
+  - **Copy command** copies the command that resumes an ended chat in a terminal. A chat that still runs, or that you just opened from the page, has none, because that command would start a second copy.
   - The first time, macOS asks to let agnostic-ai control each terminal app.
   - Codex and Cursor chats need the `sqlite3` command.
   - See [`/api/views/conversations`](@/docs/cli-reference/serve-api.md).

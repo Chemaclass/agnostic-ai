@@ -67,7 +67,7 @@ function duplicateProjects(now) {
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
  * markProblem, renameProblem, openProblem (a conversation that did not open) with its openCommand,
  * slowQueries (queries that contain the word wait that many milliseconds),
- * and slowOpens (opens of the conversation with that id wait that many milliseconds).
+ * and heldOpens (opens of these conversation ids wait until POST /dev/release-opens).
  */
 export const FIXTURES = {
   mixed: { label: 'Mixed waiting and working', conversations: mixed },
@@ -116,12 +116,12 @@ export const FIXTURES = {
     conversations: mixed,
     slowQueries: { release: 1500 },
   },
-  'slow-open-failure': {
-    label: 'Slow open failure for "Plan the sync dry run"',
+  'held-open-failure': {
+    label: 'Open failure for "Plan the sync dry run", held until /dev/release-opens',
     conversations: mixed,
     openProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
     openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume active-2",
-    slowOpens: { 'active-2': 1500 },
+    heldOpens: ['active-2'],
   },
 }
 

@@ -164,27 +164,22 @@ test('the next open replaces the notice', async ({ page }) => {
   await expect(notice(page)).toBeHidden()
 })
 
-test('a slow failed open that answers after a newer open leaves the newer notice alone', async ({ page }) => {
-  await openPanel(page, 'slow-open-failure')
-  let answered = false
-  const slowAnswer = page.waitForResponse((response) => {
-    const slow = response.url().endsWith('/api/open') && response.request().postDataJSON().id === 'active-2'
-    if (slow) answered = true
-    return slow
-  })
+test('a held failed open that answers after a newer open leaves the newer notice alone', async ({ page }) => {
+  await openPanel(page, 'held-open-failure')
+  const heldAnswer = page.waitForResponse((response) => response.url().endsWith('/api/open') && response.request().postDataJSON().id === 'active-2')
   await row(page, 'Plan the sync dry run').click()
-  // The preview took the slow open under its fixture before the switch below.
+  // The preview holds this open under its fixture before the switch below.
   await expect.poll(async () => (await (await page.request.get('/dev/calls')).json()).some((call: { path: string }) => call.path === '/api/open')).toBe(true)
 
   expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
   expect((await page.request.post('/dev/fixture', { data: { name: 'open-failure' } })).ok()).toBe(true)
   await row(page, 'Fix the login redirect').click()
   await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
-  // The newer notice came first, so the slow answer below is the one the guard must ignore.
-  expect(answered).toBe(false)
 
-  expect((await (await slowAnswer).json()).command).toBe(RESUME)
-  await page.waitForTimeout(200)
+  expect(await (await page.request.post('/dev/release-opens')).json()).toEqual({ released: 1 })
+  expect((await (await heldAnswer).json()).command).toBe(RESUME)
+  // Nothing on screen marks an answer the panel ignored, so give it time to wrongly show one.
+  await page.waitForTimeout(300)
   await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
   await expect(notice(page)).not.toContainText(RESUME)
   await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toHaveCount(0)

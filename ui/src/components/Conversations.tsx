@@ -53,6 +53,10 @@ const LOAD_AHEAD = '0px 0px 400px 0px'
 const firstPages = new Map<string, ConversationsView>()
 const firstPageKey = (source: DataSource, editor: string) => `${JSON.stringify(source)} ${editor}`
 
+// Chats opened from this page may run now, so they offer no resume command
+// until a fresh list reports them open. Kept beside the first pages, which a return redraws.
+const openedChats = new Set<string>()
+
 const SKELETON_TOOLS = 3
 const SKELETON_ROWS = 4
 
@@ -72,6 +76,11 @@ export function ConversationsPage() {
   // The search goes to the server, which searches every conversation, once typing pauses.
   const [searched, setSearched] = useState(query.trim())
   const [searching, setSearching] = useState(false)
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set(openedChats))
+  const markOpened = (key: string) => {
+    openedChats.add(key)
+    setOpened(new Set(openedChats))
+  }
   const olderRequest = useRef<AbortController | undefined>(undefined)
   const sentinel = useRef<HTMLDivElement>(null)
   const olderButton = useRef<HTMLButtonElement>(null)
@@ -103,6 +112,10 @@ export function ConversationsPage() {
       (loaded) => {
         if (controller.signal.aborted) return
         setSearching(false)
+        for (const conversation of loaded.data.conversations) {
+          if (conversation.live) openedChats.delete(rowKey(conversation))
+        }
+        setOpened(new Set(openedChats))
         if (cached && sameFirstPage(cached, loaded.data)) return
         if (!searched) firstPages.set(cacheKey, loaded.data)
         // A week loaded or loading after the kept page may leave a gap
@@ -225,7 +238,7 @@ export function ConversationsPage() {
             <h2 id={headingId}>{group.label} <span className="muted kind-count">{group.conversations.length}</span></h2>
             <ul className="conversation-list">
               {group.conversations.map((conversation) => (
-                <ConversationRow key={`${conversation.tool}:${conversation.id}`} conversation={conversation} now={now} editor={editor} canOpen={canOpen} />
+                <ConversationRow key={rowKey(conversation)} conversation={conversation} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} />
               ))}
             </ul>
           </section>
@@ -345,14 +358,18 @@ function openStatus(outcome: ConversationOpenOutcome, route: ConversationRoute):
   return { tone: reply.opened ? 'opened' : 'not-opened', message: reply.message, command: replyCommand(reply, route) }
 }
 
-function ConversationRow({ conversation, now, editor, canOpen }: { conversation: Conversation; now: Date; editor: string; canOpen: boolean }) {
+const rowKey = (conversation: Conversation) => `${conversation.tool}:${conversation.id}`
+
+function ConversationRow({ conversation, now, editor, canOpen, opened, onOpened }: { conversation: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void }) {
   const [pending, setPending] = useState(false)
   const [status, setStatus] = useState<OpenStatus>()
+  const openButton = useRef<HTMLButtonElement>(null)
+  const actions = useRef<HTMLDivElement>(null)
   const title = chatText(conversation.title || 'Untitled')
   const withheld = conversation.withheld ?? []
   const prompt = withheld.includes('prompt') ? undefined : shownPrompt(title, conversation.prompt)
   const route = conversation.open
-  const command = rowCommand(route)
+  const command = opened ? undefined : rowCommand(route)
 
   const open = async () => {
     if (pending) return
@@ -365,6 +382,11 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
     const outcome = await openConversation({ tool: conversation.tool, id: conversation.id, editor })
     setStatus(openStatus(outcome, route))
     setPending(false)
+    if (outcome.kind === 'reply' && outcome.reply.opened) {
+      // The command it hides may hold the focus.
+      if (actions.current?.contains(document.activeElement) && document.activeElement !== openButton.current) openButton.current?.focus()
+      onOpened()
+    }
   }
 
   // Open now rows always show the ink pill; the others turn their link into it on hover and focus.
@@ -386,8 +408,8 @@ function ConversationRow({ conversation, now, editor, canOpen }: { conversation:
           ? <Withheld label={withheldLabel('prompt')} />
           : prompt && <p className="conversation-prompt" title={prompt.text}><span className="conversation-label">Last prompt:</span> {prompt.shell ? <code>{prompt.text}</code> : prompt.text}</p>}
       </div>
-      <div className="conversation-actions">
-        <button type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={open}>
+      <div className="conversation-actions" ref={actions}>
+        <button ref={openButton} type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={open}>
           {route.label}
         </button>
         {command && (
