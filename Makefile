@@ -6,8 +6,8 @@ PKG := ./cmd/agnostic-ai
 # Pinned to match the golangci-lint-action version in
 # .github/workflows/ci.yml. Bump both together;
 # tests/integration/toolchain_pins_test.go holds them level.
-GOLANGCI_LINT_VERSION := v2.14.0
-LEFTHOOK_VERSION := v1.10.10
+GOLANGCI_LINT_VERSION := v2.15.0
+LEFTHOOK_VERSION := v2.2.2
 ZOLA_VERSION := 0.23.6
 
 ui-build:
@@ -175,7 +175,7 @@ endif
 # bump.
 tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
-	go install github.com/evilmartians/lefthook@$(LEFTHOOK_VERSION)
+	go install github.com/evilmartians/lefthook/v2@$(LEFTHOOK_VERSION)
 
 # doctor-dev lists each contributor tool with the version found and the
 # version wanted, and fails when one is missing or wrong. Run it before a

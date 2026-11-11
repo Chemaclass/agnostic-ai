@@ -452,7 +452,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.14.0
+          version: v2.15.0
 
   vulncheck:
     name: Vulnerability scan
@@ -610,8 +610,8 @@ jobs:
       # before it runs, instead of piping an install script into bash.
       - name: Install bashunit
         env:
-          BASHUNIT_VERSION: 0.51.0
-          BASHUNIT_SHA256: 307e3a84d5561d1a1d8b5d378184bb1dfda3e7a7856c4a9435d63a53853cf72c
+          BASHUNIT_VERSION: 0.53.0
+          BASHUNIT_SHA256: 21661108a5d7a396c16ffb74af14c43affcc18d7f68cd0fb3d8768559cc2d690
         run: |
           curl -fsSL -o /usr/local/bin/bashunit "https://github.com/TypedDevs/bashunit/releases/download/${BASHUNIT_VERSION}/bashunit"
           echo "${BASHUNIT_SHA256}  /usr/local/bin/bashunit" | sha256sum -c -
