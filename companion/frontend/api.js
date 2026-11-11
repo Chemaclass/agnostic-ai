@@ -66,8 +66,12 @@ export const readPreferences = () => call('/api/preferences')
 export const saveShortcut = (shortcut) => post('/api/preferences/shortcut', { shortcut })
 export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-login', { enabled })
 
-/** How the pages look: {animate, dimWhenIdle}. */
+/** How the pages look: {animate, dimWhenIdle, paused}. */
 export const readAppearance = () => call('/api/appearance')
+export const saveAnimate = (enabled) => post('/api/appearance/animate', { enabled })
+export const saveDimWhenIdle = (enabled) => post('/api/appearance/dim-when-idle', { enabled })
+/** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
+export const readMenu = () => call('/menu.json')
 
 /** Opens the full web interface in the browser. */
 export const openDashboard = () => post('/api/dashboard')

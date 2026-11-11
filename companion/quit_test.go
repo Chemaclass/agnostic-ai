@@ -8,8 +8,6 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // closer records whether the server's input was closed.
@@ -85,36 +83,6 @@ func TestQuitRoute_AnswersNoContentAndQuits(t *testing.T) {
 	}
 	if !s.server.resting.Load() || !input.closed {
 		t.Errorf("the server still runs: resting %v, input closed %v", s.server.resting.Load(), input.closed)
-	}
-}
-
-func TestBubbleMenu_EndsWithQuitAfterTheSettings(t *testing.T) {
-	s, _ := toldShell(t)
-	menu := application.NewMenu()
-
-	s.fillBubbleMenu(menu)
-
-	var labels []string
-	for i := 0; menu.ItemAt(i) != nil; i++ {
-		item := menu.ItemAt(i)
-		if item.IsSeparator() {
-			labels = append(labels, "---")
-			continue
-		}
-		labels = append(labels, item.Label())
-	}
-	want := []string{settingsHeader, "Animate companion", "Dim when idle", "---", quitLabel}
-	if len(labels) != len(want) {
-		t.Fatalf("menu = %q; want %q", labels, want)
-	}
-	for i := range want {
-		if labels[i] != want[i] {
-			t.Fatalf("menu = %q; want %q", labels, want)
-		}
-	}
-	quit := menu.ItemAt(len(want) - 1)
-	if !quit.Enabled() || quit.IsCheckbox() {
-		t.Errorf("quit item: enabled %v, checkbox %v; want an enabled plain item", quit.Enabled(), quit.IsCheckbox())
 	}
 }
 

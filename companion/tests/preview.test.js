@@ -169,3 +169,23 @@ test('a list that asks to show itself while paused stays paused', async (t) => {
   assert.equal(shown.status, 204)
   assert.equal((await (await fetch(preview.url + '/api/appearance')).json()).paused, true)
 })
+
+test('the menu list is served with the pages', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  const menu = await fetch(preview.url + '/menu.json')
+  assert.equal(menu.status, 200)
+  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'startAtLogin', 'shortcut', 'pause', 'quit'])
+})
+
+test('the list menu turns animation and dimming on and off and answers the appearance', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+
+  const animate = await postJSON(preview.url + '/api/appearance/animate', { enabled: false })
+  assert.equal(animate.status, 200)
+  assert.equal((await animate.json()).animate, false)
+  const dim = await postJSON(preview.url + '/api/appearance/dim-when-idle', { enabled: true })
+  assert.deepEqual(await dim.json(), { animate: false, dimWhenIdle: true, paused: false })
+  assert.deepEqual(await (await fetch(preview.url + '/api/appearance')).json(), { animate: false, dimWhenIdle: true, paused: false })
+})

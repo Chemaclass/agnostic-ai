@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hidePanel, markConversation, openConversation, openDashboard, pauseCompanion, quitCompanion, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
+import { CallError, GivenUp, deleteConversation, hidePanel, markConversation, openConversation, openDashboard, pauseCompanion, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
+import { GROUPS, PLACES, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -775,29 +775,97 @@ clearButton.addEventListener('click', () => {
 
 const menu = document.getElementById('menu')
 const menuButton = document.getElementById('menu-button')
-const loginSwitch = document.getElementById('login')
-const shortcutButton = document.getElementById('shortcut')
 const menuProblem = document.getElementById('menu-problem')
 const isMac = System.IsMac()
 
 const settings = {
+  /** menu.json, read on the first open. */
+  items: undefined,
+  /** Each row's control by its id in menu.json. */
+  controls: new Map(),
   /** What the shell last said: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
   preferences: undefined,
+  /** How the pages look: {animate, dimWhenIdle, paused}. */
+  appearance: undefined,
   /** True while the next key press becomes the shortcut. */
   recording: false,
   /** Why the last change was refused; shown until the next change. */
   refusal: undefined,
 }
 
-function drawSettings() {
-  const preferences = settings.preferences
-  loginSwitch.setAttribute('aria-checked', String(preferences.startAtLogin))
-  shortcutButton.classList.toggle('is-recording', settings.recording)
-  if (settings.recording) {
-    shortcutButton.replaceChildren('Press the new keys')
-  } else {
-    shortcutButton.replaceChildren(...keycapsOf(preferences.shortcut, isMac).map((keycap) => element('kbd', '', keycap)))
+/** Saves one setting and shows what the shell now holds, or why it refused. */
+async function change(key, save) {
+  try {
+    settings[key] = await save()
+    settings.refusal = undefined
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    settings.refusal = error.message
   }
+  drawSettings()
+}
+
+const flip = (id) => !menuRowsOf(settings.items, settings).find((row) => row.id === id).value
+
+const MENU_ACTIONS = {
+  animate: () => change('appearance', () => saveAnimate(flip('animate'))),
+  dimWhenIdle: () => change('appearance', () => saveDimWhenIdle(flip('dimWhenIdle'))),
+  startAtLogin: () => change('preferences', () => saveStartAtLogin(flip('startAtLogin'))),
+  shortcut: () => {
+    settings.recording = !settings.recording
+    drawSettings()
+  },
+  pause: () => pauseCompanion(),
+  // The app can end before its answer arrives.
+  quit: () => quitCompanion().catch(() => {}),
+}
+
+/** Builds the rows once, in menu.json order; drawSettings fills in their values. */
+function buildMenu(rows) {
+  for (const row of rows) {
+    const act = MENU_ACTIONS[row.id]
+    if (!act) throw new Error(`the menu item ${row.id} has no action here`)
+    let control
+    let placed
+    if (row.kind === 'action') {
+      control = element('button', 'menu-item', row.label)
+      placed = control
+    } else {
+      const labelId = `menu-${row.id}-label`
+      const label = element('span', 'menu-label', row.label)
+      label.id = labelId
+      control = element('button', row.kind === 'switch' ? 'switch' : 'shortcut')
+      control.setAttribute('aria-labelledby', labelId)
+      if (row.kind === 'switch') {
+        control.setAttribute('role', 'switch')
+        control.append(element('span', ''))
+      }
+      placed = element('div', 'menu-row')
+      placed.append(label, control)
+    }
+    control.type = 'button'
+    if (row.hint) control.title = row.hint
+    control.addEventListener('click', act)
+    settings.controls.set(row.id, control)
+    // The problem line sits between the settings and the actions.
+    if (row.kind === 'action') menu.append(placed)
+    else menu.insertBefore(placed, menuProblem)
+  }
+}
+
+function drawSettings() {
+  for (const row of menuRowsOf(settings.items, settings)) {
+    const control = settings.controls.get(row.id)
+    if (row.kind === 'switch') control.setAttribute('aria-checked', String(row.value))
+    if (row.kind !== 'shortcut') continue
+    control.classList.toggle('is-recording', settings.recording)
+    if (settings.recording) {
+      control.replaceChildren('Press the new keys')
+    } else {
+      control.replaceChildren(...keycapsOf(row.value, isMac).map((keycap) => element('kbd', '', keycap)))
+    }
+  }
+  const preferences = settings.preferences
   const problem = settings.refusal ?? preferences.shortcutProblem ?? preferences.startAtLoginProblem
   menuProblem.hidden = problem === undefined
   menuProblem.textContent = problem ?? ''
@@ -809,9 +877,16 @@ function closeMenu() {
   menuButton.setAttribute('aria-expanded', 'false')
 }
 
-async function openMenu() {
+/** Opens the menu with the values in effect; `focus` names the row to focus. */
+async function openMenu(focus) {
   try {
-    settings.preferences = await readPreferences()
+    const [items, preferences, appearance] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance()])
+    if (!settings.items) {
+      settings.items = items
+      buildMenu(menuRowsOf(items, { preferences, appearance }))
+    }
+    settings.preferences = preferences
+    settings.appearance = appearance
   } catch (error) {
     sayFailure(error)
     return
@@ -820,34 +895,23 @@ async function openMenu() {
   drawSettings()
   menu.hidden = false
   menuButton.setAttribute('aria-expanded', 'true')
+  if (focus) settings.controls.get(focus)?.focus()
 }
 
-/** Saves one setting and shows what the shell now holds, or why it refused. */
-async function change(save) {
-  try {
-    settings.preferences = await save()
-    settings.refusal = undefined
-  } catch (error) {
-    if (!(error instanceof CallError)) throw error
-    settings.refusal = error.message
-  }
-  drawSettings()
+/** A change made in the right-click menu shows in an open menu at once. */
+function heard(key, value) {
+  settings[key] = value
+  if (!menu.hidden) drawSettings()
 }
 
 menuButton.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()))
-loginSwitch.addEventListener('click', () => change(() => saveStartAtLogin(!settings.preferences.startAtLogin)))
-shortcutButton.addEventListener('click', () => {
-  settings.recording = !settings.recording
-  drawSettings()
-})
 document.addEventListener('mousedown', (event) => {
   if (!rowMenu.hidden && !rowMenu.contains(event.target)) closeRowMenu()
   if (menu.hidden || menu.contains(event.target) || menuButton.contains(event.target)) return
   closeMenu()
 })
-document.getElementById('pause').addEventListener('click', () => pauseCompanion())
-// The app can end before its answer arrives.
-document.getElementById('quit').addEventListener('click', () => quitCompanion().catch(() => {}))
+Events.On('appearance', (event) => heard('appearance', event.data))
+Events.On('preferences', (event) => heard('preferences', event.data))
 document.getElementById('dashboard').addEventListener('click', async () => {
   try {
     await openDashboard()
@@ -880,7 +944,7 @@ document.addEventListener('keydown', (event) => {
     const shortcut = shortcutOf(event, isMac)
     if (shortcut === undefined) return
     settings.recording = false
-    change(() => saveShortcut(shortcut))
+    change('preferences', () => saveShortcut(shortcut))
     return
   }
   const step = KEY_STEPS[event.key]
@@ -929,4 +993,9 @@ document.addEventListener('motion', () => {
 drawPlaces()
 Events.On('inbox', refresh)
 Events.On('panel-shown', (event) => opened(event.data))
+// Open from anywhere in the right-click menu: the list opens on its menu, ready to change the keys.
+Events.On('settings-shown', (event) => {
+  opened(event.data)
+  openMenu('shortcut')
+})
 refresh()

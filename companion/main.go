@@ -81,6 +81,10 @@ const (
 	eventAppearance = "appearance"
 	// eventPointer says the pointer entered or left the bubble window; its data is true while it is over it.
 	eventPointer = "pointer"
+	// eventPreferences says the shortcut or the login setting changed; its data is the new preferences.
+	eventPreferences = "preferences"
+	// eventSettingsShown says the panel opened on its settings; its data is the corner nearest the bubble.
+	eventSettingsShown = "settings-shown"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -104,12 +108,19 @@ type shell struct {
 
 	// shortcuts takes and gives back the keys that open the list from anywhere.
 	shortcuts shortcuts
-	tell      func(appearance)
-	end       func()
-	endOnce   sync.Once
+	// login is the system's start at login setting.
+	login           autostart
+	tell            func(appearance)
+	tellPreferences func(preferences)
+	end             func()
+	endOnce         sync.Once
 	// pausing keeps a pause and a wake from interleaving their server and
 	// poll changes.
 	pausing sync.Mutex
+	// native holds the right-click menu's items by their id in menu.json.
+	// nativeMu keeps two refreshes from interleaving.
+	native   map[string]*application.MenuItem
+	nativeMu sync.Mutex
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -156,6 +167,7 @@ func (s *shell) setPaused(on bool) bool {
 		s.inbox.start()
 	}
 	s.tell(looks)
+	s.refreshNative()
 	return true
 }
 
@@ -210,11 +222,17 @@ func (s *shell) togglePanel() {
 
 // showPanel opens the list beside the bubble and gives it the keys.
 func (s *shell) showPanel() {
+	s.showPanelOn(eventPanelShown)
+}
+
+// showPanelOn opens the panel beside the bubble and tells it with event,
+// whose data is the corner nearest the bubble.
+func (s *shell) showPanelOn(event string) {
 	x, y, nearest := placePanel(windowRect(s.bubble), s.workArea(), panelWidth, panelHeight)
 	s.panel.SetPosition(x, y)
 	s.panel.Show()
 	s.panel.Focus()
-	s.panel.EmitEvent(eventPanelShown, string(nearest))
+	s.panel.EmitEvent(event, string(nearest))
 }
 
 func windowRect(w application.Window) rect {
@@ -340,6 +358,8 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/preferences/shortcut", s.setShortcut)
 	mux.HandleFunc("POST /api/preferences/start-at-login", s.setStartAtLogin)
 	mux.HandleFunc("GET /api/appearance", s.getAppearance)
+	mux.HandleFunc("POST /api/appearance/animate", s.setAppearanceSwitch(s.setAnimate))
+	mux.HandleFunc("POST /api/appearance/dim-when-idle", s.setAppearanceSwitch(s.setDimWhenIdle))
 	mux.HandleFunc("POST /api/dashboard", dashboard)
 	mux.HandleFunc("POST /api/pause", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -432,11 +452,11 @@ func main() {
 					s.quit()
 				case askLoginOff:
 					// The companion that asked ended inside New and cannot do it.
-					if err := s.app.Autostart.Disable(); err != nil {
+					if err := s.changeStartAtLogin(false); err != nil {
 						log.Print(err)
 					}
 				case askLoginOn:
-					if err := s.app.Autostart.Enable(); err != nil {
+					if err := s.changeStartAtLogin(true); err != nil {
 						log.Print(err)
 					}
 				default:
@@ -465,7 +485,13 @@ func main() {
 	}
 
 	s.shortcuts = s.app.GlobalShortcut
-	s.bubbleMenu()
+	s.login = s.app.Autostart
+	s.tellPreferences = func(prefs preferences) {
+		s.app.Event.Emit(eventPreferences, prefs)
+	}
+	if err := s.bubbleMenu(); err != nil {
+		log.Fatal(err)
+	}
 	s.bubble = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
 		Name:   "bubble",
 		Title:  "agnostic-ai",
