@@ -65,7 +65,7 @@ function duplicateProjects(now) {
 /**
  * Each fixture is a list plus the ways its calls fail:
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
- * markProblem, renameProblem, openProblem (a conversation that did not open),
+ * markProblem, renameProblem, openProblem (a conversation that did not open) with its openCommand,
  * and slowQueries (queries that contain the word wait that many milliseconds).
  */
 export const FIXTURES = {
@@ -93,6 +93,12 @@ export const FIXTURES = {
     label: 'Open failure',
     conversations: mixed,
     openProblem: 'Codex runs in an app that cannot be brought forward. Open it from the Codex app.',
+  },
+  'resume-failure': {
+    label: 'Resume failure with a command',
+    conversations: mixed,
+    openProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
+    openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume active-2",
   },
   'list-failure': {
     label: 'List cannot be read',

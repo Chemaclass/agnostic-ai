@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, detailsOf, escapeTarget, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -147,4 +147,13 @@ test('closes the nearest thing on Escape: the row menu, a rename, the settings, 
   assert.equal(escapeTarget({ rowMenuOpen: false, renaming: true, settingsOpen: true }), 'rename')
   assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: true }), 'settings')
   assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: false }), 'panel')
+})
+
+test('a failed open keeps its reason, and the resume command only when the server sent one', () => {
+  assert.equal(openFailureOf({ opened: true, message: 'Switched to the Ghostty tab that runs it.' }), undefined)
+  assert.deepEqual(openFailureOf({ opened: false, message: 'It runs in Warp on ttys021 (process 42).' }), { message: 'It runs in Warp on ttys021 (process 42).' })
+  assert.deepEqual(openFailureOf({ opened: false, message: 'macOS blocked opening Terminal.', command: "cd '/tmp/app' && claude --resume x" }), {
+    message: 'macOS blocked opening Terminal.',
+    command: "cd '/tmp/app' && claude --resume x",
+  })
 })

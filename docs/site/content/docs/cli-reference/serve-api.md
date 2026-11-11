@@ -165,7 +165,7 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 
 - Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?}`.
 - For a `focus` route, `opened` is true only when the session's own tab came to the front. A running session is never started a second time.
-- `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes it by hand; a Codex thread still open in the background gets none.
+- `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A session that still runs in a terminal gets none, because running it would start a second copy.
 - Not supported yet: iTerm2, tmux, WezTerm, kitty and Warp. For their sessions the app comes forward, or `message` names the terminal device.
 - The route comes from the server's own scan, never from the request.
 - A conversation outside the list returns 404.

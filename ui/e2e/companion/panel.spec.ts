@@ -82,6 +82,73 @@ test('a failed archive keeps the row and says why', async ({ page }) => {
   await expect(target).toBeVisible()
 })
 
+const RESUME = "cd '/Users/you/Code/agnostic-ai' && claude --resume active-2"
+const notice = (page: Page) => page.getByRole('region', { name: 'Why it did not open' })
+
+async function openFailing(page: Page, fixture: string) {
+  await openPanel(page, fixture)
+  await row(page, 'Plan the sync dry run').click()
+  await expect(notice(page)).toBeVisible()
+}
+
+test('a failed open keeps its reason on screen, with no copy button when the server sent no command', async ({ page }) => {
+  await openFailing(page, 'open-failure')
+  await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward. Open it from the Codex app.')
+  await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toHaveCount(0)
+  await expect(selected(page)).toContainText('Plan the sync dry run')
+  // The toast this replaces was gone after 3.2 seconds.
+  await page.waitForTimeout(3_500)
+  await expect(notice(page)).toBeVisible()
+  // The panel hides when it loses focus; showing it again keeps the notice.
+  expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
+  await expect(notice(page)).toBeVisible()
+
+  const opens: string[] = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/open')) opens.push(request.url())
+  })
+  await notice(page).getByRole('button', { name: 'Dismiss' }).press('Enter')
+  await expect(notice(page)).toBeHidden()
+  await expect(page.getByLabel('Search every conversation')).toBeFocused()
+  expect(opens).toEqual([])
+})
+
+test('the next open replaces the notice', async ({ page }) => {
+  await openFailing(page, 'resume-failure')
+  await expect(notice(page)).toContainText(RESUME)
+
+  expect((await page.request.post('/dev/fixture', { data: { name: 'open-failure' } })).ok()).toBe(true)
+  await row(page, 'Fix the login redirect').click()
+  await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
+  await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toHaveCount(0)
+
+  expect((await page.request.post('/dev/fixture', { data: { name: 'mixed' } })).ok()).toBe(true)
+  await row(page, 'Fix the login redirect').click()
+  await expect(notice(page)).toBeHidden()
+})
+
+test('copy resume command writes the exact command and says so', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await openFailing(page, 'resume-failure')
+  await expect(notice(page)).toContainText('macOS blocked opening Terminal.')
+  await expect(notice(page)).toContainText(RESUME)
+
+  await notice(page).getByRole('button', { name: 'Copy resume command' }).press('Enter')
+  await expect(notice(page)).toContainText('Copied. Paste it in a terminal.')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(RESUME)
+})
+
+test('a refused clipboard says so and keeps the notice', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.reject(new Error('Write permission denied.')) } })
+  })
+  await openFailing(page, 'resume-failure')
+
+  await notice(page).getByRole('button', { name: 'Copy resume command' }).click()
+  await expect(notice(page)).toContainText('Could not copy it. Select the command above and copy it by hand.')
+  await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toBeVisible()
+})
+
 test('a new list while navigating keeps the highlighted row', async ({ page }) => {
   await openPanel(page)
   for (let step = 0; step < 3; step += 1) await page.keyboard.press('ArrowDown')
