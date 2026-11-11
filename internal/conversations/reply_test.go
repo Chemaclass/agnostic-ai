@@ -196,6 +196,39 @@ func TestScan_ReadsCodexRepliesFromTheLatestTurn(t *testing.T) {
 	if c := byID(t, failed, working); c.Reply != "" || c.Prompt != "Now the API page" || len(failed.Conversations) != 3 {
 		t.Errorf("a failed reply query must leave the rows and prompts: %s", asJSON(t, failed.Conversations))
 	}
+	if note := failed.Tools[1].Note; note != "Could not read Codex's latest replies from thread_history_1.sqlite" {
+		t.Errorf("a failed reply query must say so, note = %q", note)
+	}
+}
+
+func TestScan_AsksForCodexRepliesInBatches(t *testing.T) {
+	var threads []string
+	for i := range 1200 {
+		threads = append(threads, fmt.Sprintf(`{"id":"%08x-0000-4000-8000-000000000000","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762500000000,"originator":"codex-tui","source":"cli","title":"Thread","first_user_message":"Start"}`, i))
+	}
+	state := fakeStores(t, map[string]string{"state_5.sqlite|FROM threads": "[" + strings.Join(threads, ",") + "]"})
+	var batches []int
+	scanner, stores := testScanner(t, func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if filepath.Base(path) == "state_5.sqlite" {
+			return state(ctx, path, query)
+		}
+		if strings.Contains(query, "$.questions") {
+			batches = append(batches, strings.Count(query, "-0000-4000-8000-"))
+			return []json.RawMessage{json.RawMessage(`{"thread_id":"00000000-0000-4000-8000-000000000000","start":"Done.","ending":"Done.","length":5,"asked":""}`)}, nil
+		}
+		return nil, nil
+	}, fakeProcesses{})
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	write(t, filepath.Join(stores.CodexDir, "thread_history_1.sqlite"), "")
+
+	view := scanner.Scan(context.Background(), ScanOptions{Query: "thread"})
+
+	if fmt.Sprint(batches) != "[500 500 200]" {
+		t.Errorf("batches of ids = %v", batches)
+	}
+	if c := byID(t, view, "00000000-0000-4000-8000-000000000000"); c.Reply != "Done." {
+		t.Errorf("reply = %q", c.Reply)
+	}
 }
 
 func TestScan_ShowsNoReplyForCursorAndCloudRows(t *testing.T) {
@@ -314,9 +347,12 @@ func codexAgentItem(text string, question string) string {
 }
 
 func TestScan_ReadsTheCodexReplyThatFollowsTheLatestPrompt(t *testing.T) {
-	ids := []string{"11111111-0000-4000-8000-000000000001", "11111111-0000-4000-8000-000000000002", "11111111-0000-4000-8000-000000000003", "11111111-0000-4000-8000-000000000004", "11111111-0000-4000-8000-000000000005", "11111111-0000-4000-8000-000000000006"}
-	answered, typedDuringTurn, quietTurn, asking, long, unlisted := ids[0], ids[1], ids[2], ids[3], ids[4], ids[5]
+	ids := []string{"11111111-0000-4000-8000-000000000001", "11111111-0000-4000-8000-000000000002", "11111111-0000-4000-8000-000000000003", "11111111-0000-4000-8000-000000000004", "11111111-0000-4000-8000-000000000005", "11111111-0000-4000-8000-000000000006", "11111111-0000-4000-8000-000000000007"}
+	answered, typedDuringTurn, quietTurn, asking, long, unlisted, cutLine := ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], ids[6]
 	prompt := `{"type":"userMessage","content":[{"type":"text","text":"Go on"}]}`
+	// The end slice of this message starts inside its last line, which
+	// is too long to be a question and must not pass as one.
+	cutLineText := "Done.\n" + strings.Repeat("x", 5000) + " password hunter2" + strings.Repeat(" ", 4088) + "?\n"
 	longText := strings.Repeat("The migration ran on every table and the counts match. ", 400) + "\n\nShould I drop the old tables now?"
 	scanner, stores := testScanner(t, nil, fakeProcesses{})
 	codexHistory(t, filepath.Join(stores.CodexDir, "thread_history_1.sqlite"), [][5]string{
@@ -333,12 +369,14 @@ func TestScan_ReadsTheCodexReplyThatFollowsTheLatestPrompt(t *testing.T) {
 		{asking, "t1", "2", "agentMessage", codexAgentItem("Two queues fit.", "Which queue should the jobs use?")},
 		{long, "t1", "1", "userMessage", prompt},
 		{long, "t1", "2", "agentMessage", codexAgentItem(longText, "")},
+		{cutLine, "t1", "1", "userMessage", prompt},
+		{cutLine, "t1", "2", "agentMessage", codexAgentItem(cutLineText, "")},
 		{unlisted, "t1", "1", "userMessage", prompt},
 		{unlisted, "t1", "2", "agentMessage", codexAgentItem("Not listed.", "")},
 	})
 	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
 	var threads []string
-	for _, id := range ids[:5] {
+	for _, id := range append(ids[:5:5], cutLine) {
 		threads = append(threads, `{"id":"`+id+`","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762500000000,"originator":"codex-tui","source":"cli","title":"Thread","first_user_message":"Start"}`)
 	}
 	state := fakeStores(t, map[string]string{"state_5.sqlite|FROM threads": "[" + strings.Join(threads, ",") + "]"})
@@ -367,12 +405,13 @@ func TestScan_ReadsTheCodexReplyThatFollowsTheLatestPrompt(t *testing.T) {
 		quietTurn:       "The earlier turn's answer.",
 		asking:          "Which queue should the jobs use?",
 		long:            "Should I drop the old tables now?",
+		cutLine:         "Done.",
 	} {
 		if c := byID(t, view, id); c.Reply != want {
 			t.Errorf("thread %s: reply = %q, want %q", id[len(id)-1:], c.Reply, want)
 		}
 	}
-	if replyRows > 5 {
+	if replyRows > 6 {
 		t.Errorf("the query must read only the listed threads, it returned %d rows", replyRows)
 	}
 }
@@ -420,5 +459,12 @@ func TestScan_KeepsTheReplyWhenABackgroundTaskReports(t *testing.T) {
 	}
 	if c := replyOfSession(t, typedPrompt("Fix it"), agentLine(textPart("Done.")), obj{"type": "user", "origin": obj{"kind": "human"}, "message": obj{"role": "user", "content": "Now the docs"}}); c.Reply != "" {
 		t.Errorf("a prompt the person typed still clears the reply, actual %q", c.Reply)
+	}
+}
+
+func TestScan_ReadsNoQuestionFromALineTooLongToKeep(t *testing.T) {
+	message := "Done.\n" + strings.Repeat("x", 5000) + " password hunter2" + strings.Repeat(" ", 4088) + "?\n"
+	if c := replyOfSession(t, typedPrompt("Fix it"), agentLine(textPart(message))); c.Reply != "Done." {
+		t.Errorf("reply = %q", c.Reply)
 	}
 }

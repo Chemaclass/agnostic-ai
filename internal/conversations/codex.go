@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -132,13 +134,17 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	for _, c := range conversations {
 		ids = append(ids, c.ID)
 	}
-	lastReplies := s.codexLastReplies(ctx, ids)
+	lastReplies, err := s.codexLastReplies(ctx, ids)
 	for i := range conversations {
 		t, said := textsOf[conversations[i].ID], lastReplies[conversations[i].ID]
 		t.reply, t.question = said.reply, said.question
 		s.fill(&conversations[i], t)
 	}
-	return found(ToolCodex, conversations)
+	result := found(ToolCodex, conversations)
+	if err != nil {
+		result.source.Note = "Could not read Codex's latest replies from " + filepath.Base(newestNumbered(s.Stores.CodexDir, codexHistoryPattern))
+	}
+	return result
 }
 
 // codexRoute opens a thread where it started: the editor extension, the
@@ -331,33 +337,46 @@ func (s *Scanner) codexLastPrompts(ctx context.Context) map[string]string {
 	return prompts
 }
 
+// codexReplyBatch bounds how many thread ids one reply query names, so
+// the query stays far below the size of one command-line argument.
+const codexReplyBatch = 500
+
 // codexLastReplies maps thread ids to their agent's latest message. It
 // is a query of its own, so a history store it cannot read still shows
 // the prompts. threads are ids that passed sessionIDPattern, so they
 // are safe inside the query.
-func (s *Scanner) codexLastReplies(ctx context.Context, threads []string) map[string]codexSaid {
+func (s *Scanner) codexLastReplies(ctx context.Context, threads []string) (map[string]codexSaid, error) {
 	replies := map[string]codexSaid{}
 	historyPath := newestNumbered(s.Stores.CodexDir, codexHistoryPattern)
-	if historyPath == "" || len(threads) == 0 {
-		return replies
+	if historyPath == "" {
+		return replies, nil
 	}
-	rows, err := queryRows[codexLastReply](ctx, s.SQLite, historyPath, codexLastRepliesQuery(threads))
-	if err != nil {
-		return replies
-	}
-	for _, row := range rows {
-		ending := row.Ending
-		// A cut ending that holds no line break may start mid-line, so
-		// its last line is not known whole.
-		if utf8.RuneCountInString(ending) < row.Length && !strings.Contains(ending, "\n") {
-			ending = ""
+	for batch := range slices.Chunk(threads, codexReplyBatch) {
+		rows, err := queryRows[codexLastReply](ctx, s.SQLite, historyPath, codexLastRepliesQuery(batch))
+		if err != nil {
+			return replies, fmt.Errorf("read Codex's latest replies from %s: %w", filepath.Base(historyPath), err)
 		}
-		reply, question := agentSaid(row.Start, ending, row.Asked)
-		if reply != "" || question != "" {
-			replies[row.ThreadID] = codexSaid{reply: reply, question: question}
+		for _, row := range rows {
+			reply, question := agentSaid(row.Start, row.wholeLines(), row.Asked)
+			if reply != "" || question != "" {
+				replies[row.ThreadID] = codexSaid{reply: reply, question: question}
+			}
 		}
 	}
-	return replies
+	return replies, nil
+}
+
+// wholeLines is the row's ending without the line it may start inside:
+// a slice cut from a longer message, whose first line is then partial.
+func (row codexLastReply) wholeLines() string {
+	if utf8.RuneCountInString(row.Ending) >= row.Length {
+		return row.Ending
+	}
+	_, rest, found := strings.Cut(row.Ending, "\n")
+	if !found || strings.TrimSpace(rest) == "" {
+		return ""
+	}
+	return rest
 }
 
 // codexContentText joins the text parts of a user message. sqlite3
