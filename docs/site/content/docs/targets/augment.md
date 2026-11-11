@@ -82,7 +82,7 @@ Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported event
 
 - `timeout` is in **milliseconds**: the spec's seconds times 1000 (vendor default 60000).
 - `args` is written as its own array, and Auggie runs the command with those arguments and no shell. A command without `args` runs as written: Auggie 1.x hands it to a shell, and 0.x splits it into words or runs it with `bash -c` when it has shell syntax.
-- `matcher` is optional on `PreToolUse` and `PostToolUse` (vendor default `.*`) and left out on `Stop`, `SessionStart`, `SessionEnd`, `PromptSubmit`, and `Notification`, which take none.
+- `matcher` is optional on `PreToolUse` and `PostToolUse` (vendor default `.*`) and left out on `Stop`, `SessionStart`, `SessionEnd`, `PromptSubmit`, and `Notification`, which take none; `sync` prints a note when it leaves one out.
 - Matchers use Augment's tool names (`launch-process`, `str-replace-editor`, `save-file`, ...). A Claude-style matcher (`Bash`, `Write`, ...) matches nothing and raises a sync note.
 
 ### Shared memory
