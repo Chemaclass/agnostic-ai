@@ -326,7 +326,9 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	// Unlike toggle, show skips the reopen guard: the page hid the panel itself.
+	// A list shown over a paused companion could ask nothing, so it wakes.
 	mux.HandleFunc("POST /api/panel/show", func(w http.ResponseWriter, _ *http.Request) {
+		s.comeBack()
 		s.showPanel()
 		w.WriteHeader(http.StatusNoContent)
 	})

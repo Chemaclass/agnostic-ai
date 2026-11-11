@@ -73,7 +73,7 @@ async function openCircle(page: Page, fixture = 'mixed') {
 
 const circle = (page: Page) => page.locator('#bubble')
 
-test('Pause in the menu asks the shell to pause and closes nothing else', async ({ page }) => {
+test('Pause in the menu asks the shell to pause', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)
 

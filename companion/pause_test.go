@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 
@@ -27,6 +28,15 @@ func (w *fakeWindow) Hide() application.Window {
 func (w *fakeWindow) Show() application.Window {
 	w.shows++
 	return w
+}
+
+func (w *fakeWindow) Position() (int, int)          { return 1000, 700 }
+func (w *fakeWindow) Size() (int, int)              { return bubbleSide, bubbleSide }
+func (w *fakeWindow) SetPosition(int, int)          {}
+func (w *fakeWindow) Focus()                        {}
+func (w *fakeWindow) EmitEvent(string, ...any) bool { return true }
+func (w *fakeWindow) GetScreen() (*application.Screen, error) {
+	return &application.Screen{WorkArea: application.Rect{Width: 1440, Height: 900}}, nil
 }
 
 // held is the list the inbox holds now.
@@ -246,5 +256,44 @@ func TestServer_AWakeWhileAPauseWaitsKeepsTheNewServer(t *testing.T) {
 	<-rested
 	if address, err := server.address(); err != nil || address != "http://127.0.0.1:1" {
 		t.Errorf("the pause that waited stopped the new server: %q, %v", address, err)
+	}
+}
+
+func TestInbox_StartReadsANewListNotOneHeldFromBefore(t *testing.T) {
+	// A list answered after a pause stays held; the wake must not send its tag.
+	in, _ := connected(t, &fakeAgnosticAI{})
+	var changes atomic.Int32
+	in.changed = func() { changes.Add(1) }
+	in.latest, in.tag = []byte(`{"needsYou":9}`), `"v1"`
+	t.Cleanup(in.stop)
+
+	in.start()
+
+	waitFor(t, "the pages to be told of a new list", func() bool { return changes.Load() > 0 })
+	if got := string(held(in)); got != `{"needsYou":2}` {
+		t.Errorf("held %s; want a new read", got)
+	}
+}
+
+func TestShowRoute_WakesAPausedCompanion(t *testing.T) {
+	// The list shows itself again after an open failed; over a paused
+	// companion every call would answer that it is paused.
+	s, told, _ := pausableShell(t)
+	panel, bubble := &fakeWindow{}, &fakeWindow{}
+	s.panel, s.bubble = panel, bubble
+	s.setPaused(true)
+	routes := s.routes(s.inbox, fstest.MapFS{})
+
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/panel/show", nil))
+
+	if rec.Code != http.StatusNoContent || panel.shows != 1 {
+		t.Errorf("POST /api/panel/show = %d, list shown %d times", rec.Code, panel.shows)
+	}
+	if s.appearance().Paused || s.server.resting.Load() {
+		t.Error("the list showed over a paused companion")
+	}
+	if last := (*told)[len(*told)-1]; last.Paused {
+		t.Errorf("the pages were last told %+v; want awake", last)
 	}
 }

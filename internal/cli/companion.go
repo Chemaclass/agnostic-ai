@@ -679,7 +679,7 @@ func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir,
 	if err := startInstalledCompanion(tools, installed); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintln(out, "The companion is on your screen. Its ⋯ menu hides it, its shortcut brings it back, and `agnostic-ai companion stop` ends it.")
+	_, _ = fmt.Fprintln(out, "The companion is on your screen. Its ⋯ menu pauses it or quits it, and a click or its shortcut wakes it. `agnostic-ai companion stop` ends it.")
 	if builtFor := tools.builtFor(ctx, installed); builtFor != version {
 		_, _ = fmt.Fprintf(out, "! It was built for agnostic-ai %q and this is %s. Build it again with: agnostic-ai companion install\n", builtFor, version)
 	}
