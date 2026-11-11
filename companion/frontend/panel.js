@@ -22,6 +22,8 @@ const SEARCH_PAUSE_MS = 300
 const TOAST_MS = 3200
 /** Only the first rows rise one after another; the rest arrive with the last of them. */
 const STAGGERED_ROWS = 12
+/** How long a row marked complete keeps its green tick before it moves to Archived. */
+const DONE_MS = 520
 
 const PLACE_KEY = 'place'
 
@@ -60,6 +62,8 @@ const state = {
   drawn: '',
   /** The row whose name is being typed: {key, draft, problem?, saving?}; undefined otherwise. */
   renaming: undefined,
+  /** Keys of the rows showing the green tick of a chat just marked complete. */
+  completing: new Set(),
 }
 
 /** The list as the place switch narrows it; undefined before the first one arrived. */
@@ -94,7 +98,7 @@ function drawPlaces() {
 
 const ICONS = {
   chevron: 'M2.5 1.5L5.5 4L2.5 6.5',
-  archive: 'M2 3.5h12v3H2zM3 6.5v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-6M6.5 9.5h3',
+  complete: 'M3 8.5l3 3 7-7.5',
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
 }
 
@@ -127,7 +131,7 @@ function visibleKeys() {
     .flatMap((group) => group.rows.map(keyOf))
 }
 
-function actionButton(iconName, label, conversation, mark) {
+function actionButton(iconName, label, press) {
   const button = element('button', 'action')
   button.type = 'button'
   button.title = label
@@ -135,7 +139,7 @@ function actionButton(iconName, label, conversation, mark) {
   button.append(icon(iconName, '0 0 16 16'))
   button.addEventListener('click', (event) => {
     event.stopPropagation()
-    markRow(conversation, mark)
+    press(button)
   })
   return button
 }
@@ -188,9 +192,9 @@ function rowOf(conversation, order, folderNames) {
   // Opening an archived chat, a new message in it, or its tool starting work brings it back.
   const action = rowActionOf(conversation)
   if (action === 'hide') {
-    actions.append(actionButton('hide', 'Hide from agnostic-ai, until something new is written or it starts working', conversation, 'hidden'))
+    actions.append(actionButton('hide', 'Hide from agnostic-ai, until something new is written or it starts working', () => markRow(conversation, 'hidden')))
   } else if (action === 'archive') {
-    actions.append(actionButton('archive', 'Archive, until something new is written or it starts working', conversation, 'completed'))
+    actions.append(actionButton('complete', 'Mark complete, until something new is written or it starts working', (button) => completeRow(conversation, row, button)))
   }
 
   row.append(stateMark(conversation), text, actions)
@@ -253,10 +257,10 @@ function groupHead(group) {
   const head = element('div', 'group-head')
   head.append(title)
   if (group.id === 'active') {
-    const all = element('button', 'group-action', 'Archive all')
+    const all = element('button', 'group-action', 'Mark all complete')
     all.type = 'button'
-    all.title = 'Archive every active conversation, until something new is written in it or it starts working'
-    all.addEventListener('click', () => archiveAll(group.rows))
+    all.title = 'Mark every active conversation complete, until something new is written in it or it starts working'
+    all.addEventListener('click', () => completeAll(group.rows))
     head.append(all)
   }
   return head
@@ -280,6 +284,8 @@ function cloudAside(view) {
 function draw({ force } = { force: false }) {
   // A new list would take the name being typed away; it waits until the rename ends.
   if (state.renaming && !force) return
+  // A new list would redraw a row in the middle of its green tick; it waits until the tick is over.
+  if (state.completing.size > 0 && !force) return
   const view = shownView()
   // What could not be read comes first, then what the companion and the server have to say.
   // A cloud that is missing is not a problem with the list: it gets a quiet line under the rows.
@@ -479,6 +485,34 @@ async function markRow(conversation, mark) {
   await refresh()
 }
 
+/**
+ * Marks one row complete. Its tick turns green and stays for DONE_MS, then
+ * the list moves the row to Archived. A refused mark gives the tick back.
+ */
+async function completeRow(conversation, row, button) {
+  const key = keyOf(conversation)
+  // A second press while the tick shows would mark the same chat twice.
+  if (state.completing.has(key)) return
+  state.completing.add(key)
+  row.classList.add('is-completing')
+  button.classList.add('is-done')
+  const tickShown = new Promise((resolve) => setTimeout(resolve, DONE_MS))
+  try {
+    await markConversation(conversation, 'completed')
+  } catch (error) {
+    state.completing.delete(key)
+    row.classList.remove('is-completing')
+    button.classList.remove('is-done')
+    sayFailure(error)
+    // A list that arrived while the tick showed was held back; it shows now.
+    draw()
+    return
+  }
+  await tickShown
+  state.completing.delete(key)
+  await refresh()
+}
+
 // Rename
 
 const rowMenu = document.getElementById('row-menu')
@@ -608,8 +642,8 @@ list.addEventListener('scroll', () => {
   if (!rowMenu.hidden) closeRowMenu()
 })
 
-/** Archives each of the rows, one mark after the other, then reads the list once. */
-async function archiveAll(rows) {
+/** Marks each of the rows complete, one mark after the other, then reads the list once. No row shows a tick: this is tidying up. */
+async function completeAll(rows) {
   try {
     for (const conversation of rows) {
       await markConversation(conversation, 'completed')

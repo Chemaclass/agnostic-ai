@@ -73,10 +73,11 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   When a chat could not be resumed, **Copy resume command** copies the command
   to run in a terminal. A Claude Code or Codex chat still running in a
   terminal never offers it, because that command would start a second copy.
-- Hover a row for its one button: **archive** a chat, or **hide** one that
-  is already archived. A working chat has no button, since the work would
-  bring it back at once. **Archive all** beside Active archives every active
-  chat at once.
+- Hover a row for its one button: **mark complete** a chat, which archives
+  it, or **hide** one that is already archived. A working chat has no button,
+  since the work would bring it back at once. The tick turns green for a
+  moment when you mark a chat complete. **Mark all complete** beside Active
+  archives every active chat at once, with no tick.
 - **Right-click** a row and choose **Rename…** to give the chat your own
   name. **Enter** saves it and **Esc** keeps the old one. An empty name is
   refused. The web interface shows the same name, and a search finds it.
