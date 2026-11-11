@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -64,10 +64,10 @@ test('says how much a delete freed', () => {
   assert.deepEqual(deletedOf({ deleted: true, note: 'The session data is gone.' }), { message: 'Deleted.', note: 'The session data is gone.' })
 })
 
-test('says why a row needs the person, and nothing for a quiet one', () => {
+test('says why a row waits for the person, and nothing its group header already says', () => {
   assert.equal(reasonOf(row('a', 'blocked')), 'Waiting for you')
-  assert.equal(reasonOf(row('a', 'unread')), 'New reply')
-  assert.equal(reasonOf(row('a', 'working')), 'Working')
+  assert.equal(reasonOf(row('a', 'unread')), undefined)
+  assert.equal(reasonOf(row('a', 'working')), undefined)
   assert.equal(reasonOf(row('a', 'active')), undefined)
 })
 
@@ -81,7 +81,29 @@ test('says how long a chat has been silent when its wait is read from that silen
   assert.equal(reasonOf(quiet('2026-11-09T12:00:30Z'), now), 'No activity')
   assert.equal(reasonOf(row('a', 'blocked', { tool: 'codex', activity: 'waiting' }), now), 'Waiting for you')
   assert.equal(reasonOf(quiet('not a time'), now), 'Waiting for you')
-  assert.equal(reasonOf(row('a', 'unread', { tool: 'codex', quietSince: '2026-11-09T11:53:00Z' }), now), 'New reply')
+  assert.equal(reasonOf(row('a', 'unread', { tool: 'codex', quietSince: '2026-11-09T11:53:00Z' }), now), undefined)
+})
+
+test('a row shown as needing the person is still marked read only while nothing new came in', () => {
+  const shown = row('a', 'unread')
+  const view = (...conversations) => ({ conversations })
+  assert.equal(stillWaits(view(shown), shown), true)
+  assert.equal(stillWaits(view(row('a', 'blocked')), shown), true)
+  assert.equal(stillWaits(view(row('a', 'unread', { updatedAt: '2026-11-09T12:05:00Z' })), shown), false)
+  assert.equal(stillWaits(view(row('a', 'active')), shown), false)
+})
+
+test('a row the latest list does not hold is not marked read: a new message may have taken it out of the search', () => {
+  const shown = row('a', 'unread')
+  assert.equal(stillWaits({ conversations: [row('a', 'unread', { tool: 'codex' })] }, shown), false)
+  assert.equal(stillWaits({ conversations: [] }, shown), false)
+  // A list that could not be read says nothing about the row.
+  assert.equal(stillWaits(undefined, shown), false)
+})
+
+test('a row with no title shows a neutral label', () => {
+  assert.equal(titleOf(row('a', 'active', { title: 'Fix the parser' })), 'Fix the parser')
+  assert.equal(titleOf(row('a', 'active', { title: '' })), 'Untitled conversation')
 })
 
 test('offers archive on a chat that is not archived, hide on one that is, and nothing on a working one', () => {

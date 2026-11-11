@@ -50,11 +50,9 @@ const GROUP_OF_STATE = {
   dormant: 'archived',
 }
 
-/** Why a row is where it is, said before the tool's name; states that need no words have none. */
+/** Why a row is where it is, said before the tool's name, only where its group header does not say it already. */
 const REASON_OF_STATE = {
   blocked: 'Waiting for you',
-  unread: 'New reply',
-  working: 'Working',
 }
 
 const TOOL_LABELS = {
@@ -66,6 +64,11 @@ const TOOL_LABELS = {
 /** The agent's latest reply as the server sent it, or '' when it sent none. */
 export function replyOf(conversation) {
   return typeof conversation.reply === 'string' ? conversation.reply.trim() : ''
+}
+
+/** The title a row shows; a chat whose tool gave none, or whose title may hold a credential, gets a neutral label. */
+export function titleOf(conversation) {
+  return conversation.title === '' ? 'Untitled conversation' : conversation.title
 }
 
 /** Ids are unique within a tool, not across tools. */
@@ -125,6 +128,18 @@ export function grouped(conversations) {
 }
 
 /**
+ * Whether a row shown under Needs you may still be marked read: the latest list holds it unchanged
+ * and still needing the person. A row that got a new message since it was drawn holds something
+ * the person has not seen, so it stays. So does a row the latest list does not hold, or no list:
+ * a new message can take a row out of a search, so what is missing may be what changed.
+ */
+export function stillWaits(view, shown) {
+  const key = keyOf(shown)
+  const current = view?.conversations.find((conversation) => keyOf(conversation) === key)
+  return current !== undefined && Boolean(NEEDS_PERSON[current.state]) && current.updatedAt === shown.updatedAt
+}
+
+/**
  * A wait the server read from silence carries `quietSince`: it says how long nothing came,
  * not that the agent asked. "Waiting for you" stays for a tool that reports its wait.
  */
@@ -168,9 +183,8 @@ const DELETED_DATA = {
  */
 export function deleteConfirmOf(conversation, now, names) {
   if (conversation.deleteUnsupported) return { unsupported: conversation.deleteUnsupported }
-  const title = conversation.title === '' ? 'Untitled conversation' : conversation.title
   return {
-    title: `Delete "${title}" permanently?`,
+    title: `Delete "${titleOf(conversation)}" permanently?`,
     details: detailsOf(conversation, now, names),
     body: DELETED_DATA[conversation.tool] ?? 'This removes the conversation from this computer. It cannot be undone.',
   }
