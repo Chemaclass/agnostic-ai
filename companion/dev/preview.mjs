@@ -110,6 +110,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     calls = [{ path, body }, ...calls].slice(0, 50)
   }
 
+  // Opens a fixture holds, answered when a test releases them.
+  let heldOpens = []
+
   function find(body) {
     return state.conversations.find((row) => row.tool === body.tool && row.id === body.id)
   }
@@ -153,9 +156,22 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   }
 
   async function open(request, response) {
+    // A held open answers from the fixture it started under, even if another is chosen meanwhile.
+    const fixture = state.fixture
     const body = await bodyOf(request)
     logCall('/api/open', body)
-    if (state.fixture.openProblem) return sendJSON(response, 200, { opened: false, message: state.fixture.openProblem, command: state.fixture.openCommand })
+    if (fixture.heldOpens?.includes(body.id)) {
+      // A page that closes first, such as a test that failed, leaves nothing held for the next one.
+      await new Promise((release) => {
+        heldOpens.push(release)
+        response.on('close', () => {
+          heldOpens = heldOpens.filter((held) => held !== release)
+          release()
+        })
+      })
+    }
+    if (response.destroyed) return
+    if (fixture.openProblem) return sendJSON(response, 200, { opened: false, message: fixture.openProblem, command: fixture.openCommand })
     const row = find(body)
     if (row && NEEDS_PERSON[row.state]) row.state = 'active'
     sendJSON(response, 200, { opened: true })
@@ -217,6 +233,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       sendJSON(response, 200, { chosen: state.name, fixtures: Object.entries(FIXTURES).map(([name, { label }]) => ({ name, label })) }),
     'GET /dev/calls': (request, response) => sendJSON(response, 200, calls),
     'POST /dev/fixture': chooseFixture,
+    'POST /dev/release-opens': (request, response) => {
+      const released = heldOpens
+      heldOpens = []
+      for (const release of released) release()
+      sendJSON(response, 200, { released: released.length })
+    },
     'POST /dev/arrive': (request, response) => {
       state.conversations = [arrival(timeOf()), ...state.conversations.filter((row) => row.id !== 'arrived-1')]
       noContent(response)
