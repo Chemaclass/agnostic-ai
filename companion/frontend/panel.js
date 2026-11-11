@@ -409,7 +409,10 @@ async function openRow(conversation) {
     message = error.message
   }
   state.reopenedToSay = message
-  await showPanel().catch(sayFailure)
+  await showPanel().catch((error) => {
+    state.reopenedToSay = undefined
+    sayFailure(error)
+  })
 }
 
 async function markRow(conversation, mark) {
@@ -676,12 +679,14 @@ function opened(from) {
     card.classList.add('is-opening')
   }
   toast.hidden = true
-  if (state.reopenedToSay) say(state.reopenedToSay)
+  // Back from a conversation that did not open: the highlight stays on its row.
+  const returning = state.reopenedToSay
   state.reopenedToSay = undefined
+  if (returning) say(returning)
   closeMenu()
   closeRowMenu()
   state.renaming = undefined
-  state.activeKey = undefined
+  if (!returning) state.activeKey = undefined
   queryInput.focus()
   queryInput.select()
   draw({ force: true })
