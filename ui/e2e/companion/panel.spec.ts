@@ -152,6 +152,34 @@ test('a refused clipboard says so and keeps the notice', async ({ page }) => {
   await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toBeVisible()
 })
 
+for (const settle of ['resolve', 'reject'] as const) {
+  test(`a copy that settles (${settle}) after the next open leaves the new notice alone`, async ({ page }) => {
+    await page.addInitScript(() => {
+      const pending: { resolve: () => void; reject: (error: Error) => void }[] = []
+      Object.assign(window, { pendingCopies: pending })
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: () => new Promise<void>((resolve, reject) => pending.push({ resolve, reject })) },
+      })
+    })
+    await openFailing(page, 'resume-failure')
+    await notice(page).getByRole('button', { name: 'Copy resume command' }).click()
+    await expect.poll(() => page.evaluate(() => (window as unknown as { pendingCopies: unknown[] }).pendingCopies.length)).toBe(1)
+
+    expect((await page.request.post('/dev/fixture', { data: { name: 'open-failure' } })).ok()).toBe(true)
+    await row(page, 'Fix the login redirect').click()
+    await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
+
+    await page.evaluate((how) => {
+      const copy = (window as unknown as { pendingCopies: { resolve: () => void; reject: (error: Error) => void }[] }).pendingCopies[0]
+      if (how === 'resolve') copy.resolve()
+      else copy.reject(new Error('Write permission denied.'))
+    }, settle)
+    await page.waitForTimeout(200)
+    await expect(notice(page)).not.toContainText('Copied')
+    await expect(notice(page)).not.toContainText('Could not copy it')
+  })
+}
+
 const needsYou = (page: Page) => page.locator('.row.needs-you')
 
 for (const [kind, title, id, tool] of [

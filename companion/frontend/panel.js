@@ -450,14 +450,18 @@ function sayCopied(message, problem) {
 }
 
 noticeCopy.addEventListener('click', async () => {
-  const command = state.openFailure?.command
-  if (!command) return
+  const failure = state.openFailure
+  if (!failure?.command) return
+  let copied = true
   try {
-    await navigator.clipboard.writeText(command)
-    sayCopied('Copied. Paste it in a terminal.', false)
+    await navigator.clipboard.writeText(failure.command)
   } catch {
-    sayCopied('Could not copy it. Select the command above and copy it by hand.', true)
+    copied = false
   }
+  // A newer open may have replaced the notice while the clipboard answered.
+  if (state.openFailure !== failure) return
+  if (copied) sayCopied('Copied. Paste it in a terminal.', false)
+  else sayCopied('Could not copy it. Select the command above and copy it by hand.', true)
 })
 
 document.getElementById('notice-dismiss').addEventListener('click', () => {
