@@ -91,8 +91,8 @@ type globalTarget struct {
 	// target reads, for a target that reads another one. Nil keeps it.
 	hookTimeout func(meta map[string]any) (any, bool)
 	// hookArgs marks a Claude-shaped hooks file whose command handler
-	// takes `args`, the exec form (claude, qoder). Other targets have no
-	// such field.
+	// takes `args`, the exec form (claude, qoder). The augment format
+	// writes `args` on its own.
 	hookArgs bool
 	// hookFoldArgs marks a target with no `args` field (codex, cursor,
 	// gemini): the args fold into the command, each quoted for a POSIX

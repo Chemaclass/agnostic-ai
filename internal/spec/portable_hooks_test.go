@@ -98,8 +98,8 @@ func TestNativeHook_WrapsAStdoutDecisionOnEveryTargetThatRunsIt(t *testing.T) {
 			t.Errorf("%s: decision: must not reach the adapter", target)
 		}
 	}
-	if _, reason := h.NativeHook("augment"); !strings.Contains(reason, "bare script path") {
-		t.Errorf("augment cannot run the wrapper, got %q", reason)
+	if _, reason := h.NativeHook("augment"); !strings.Contains(reason, "without the wrapper") {
+		t.Errorf("augment gets no wrapper, got %q", reason)
 	}
 	prompt, _ := portableHook(map[string]any{"on": "prompt-submit"}).NativeHook("cursor")
 	if prompt.Meta["event"] != "beforeSubmitPrompt" || strings.Join(prompt.WrapperOptions("cursor"), " ") != "--prompt" {

@@ -83,7 +83,7 @@ Stdout carries only the decision, so print logs to stderr. At exit 0:
 
 Only the top level counts, so a nested `decision` never overrides the verdict. Raw NUL and SOH bytes block, and so does stdout over 1,000,000 bytes, more than 10,000 values, or more than 64 nested containers. A `\u` escape outside ASCII reads as `?`. A non-zero exit keeps its usual meaning.
 
-No tool reads this object itself: on every tool, each `x-gemini.hooks` command handler included, sync runs the command through a bash wrapper that turns the decision into that tool's block. So `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. Augment runs only a bare script path, so it cannot run the wrapper, and `validate` names a `decision: stdout` hook that reaches it.
+No tool reads this object itself: on every tool, each `x-gemini.hooks` command handler included, sync runs the command through a bash wrapper that turns the decision into that tool's block. So `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. Sync writes Augment hooks without the wrapper, so `validate` names a `decision: stdout` hook that reaches it.
 
 ### Hooks Cursor and Copilot also read {#claude-settings-copies}
 
@@ -124,7 +124,7 @@ Sync keeps hook entries you wrote. In `.claude/settings.json`, `.codex/hooks.jso
 | `event` | `on` or `event` | none | Hook event, written as is. See [events](@/docs/spec-format/hook-reference.md#events). |
 | `matcher` | no | empty | Regex on the tool name, or another selector the event uses. |
 | `command` | command handlers only | none | Shell command, or a list where each entry becomes its own handler. |
-| `args` | no | empty | **Exec form**: `command` runs as a program with these arguments and no shell, so spaces, `$`, and backticks pass through. Leave unset when the command needs a pipe or `&&`. Claude Code, Qoder, Copilot, and OpenCode V2 on macOS and Linux keep `args` apart; other tools append them to `command`, each quoted for a POSIX shell, which Trae's PowerShell and OpenHands' cmd.exe on Windows can read differently (sync notes it). Augment skips a hook with `args`, with a note. |
+| `args` | no | empty | **Exec form**: `command` runs as a program with these arguments and no shell, so spaces, `$`, and backticks pass through. Leave unset when the command needs a pipe or `&&`. Claude Code, Qoder, Copilot, Augment, and OpenCode V2 on macOS and Linux keep `args` apart; other tools append them to `command`, each quoted for a POSIX shell, which Trae's PowerShell and OpenHands' cmd.exe on Windows can read differently (sync notes it). |
 | `type` | no | `command` | `command`, `http`, `mcp_tool`, or `prompt`, where the tool supports it. |
 | `timeout` | no | none | Seconds before the tool cancels the hook. Tool defaults are in the [shell and timeout table](@/docs/cli-reference/hook-diagnostics.md#hook-run). |
 | `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; OpenCode and Kilo write no plugin module; other tools write the hook unchanged. |

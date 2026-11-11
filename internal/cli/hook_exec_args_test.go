@@ -2,8 +2,10 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -115,9 +117,8 @@ func TestSync_NotesExecFormArgsWindowsCannotRead(t *testing.T) {
 	}
 }
 
-// Augment starts a hook command as a script path, so it cannot pass
-// args: sync writes no hook and names `args` in a note.
-func TestSync_SkipsExecFormHooksOnAugmentWithANote(t *testing.T) {
+// Auggie reads a handler's `args`, so sync writes them apart.
+func TestSync_WritesExecFormHookArgsOnAugment(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	captureLogOut(t)
 	var notes bytes.Buffer
@@ -128,25 +129,65 @@ func TestSync_SkipsExecFormHooksOnAugmentWithANote(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), execFormHook)
 	mustSync(t)
 
-	if body, err := os.ReadFile(filepath.Join(dir, ".augment", "settings.json")); err == nil && strings.Contains(string(body), "echo") {
-		t.Errorf("augment got the exec-form hook:\n%s", body)
+	body, err := os.ReadFile(filepath.Join(dir, ".augment", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(notes.String(), "1 hook reaches augment only in the source dir") || !strings.Contains(notes.String(), "a hook with `args` is skipped") {
-		t.Errorf("want a note naming args, got:\n%s", notes.String())
+	if !strings.Contains(string(body), `"command": "echo"`) || !strings.Contains(string(body), `"two words"`) {
+		t.Errorf("augment did not get the exec-form hook with its args:\n%s", body)
+	}
+	if strings.Contains(notes.String(), "args") {
+		t.Errorf("want no args note, got:\n%s", notes.String())
 	}
 }
 
-func TestSyncGlobal_SkipsExecFormHooksOnAugmentWithANote(t *testing.T) {
+func TestSyncGlobal_WritesExecFormHookArgsOnAugment(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), execFormHook)
 	_, warnings, err := runGlobalAgentTest("--only", "augment")
 	if err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, warnings)
 	}
-	if body, err := os.ReadFile(filepath.Join(home, ".augment", "settings.json")); err == nil && strings.Contains(string(body), "echo") {
-		t.Errorf("augment got the exec-form hook:\n%s", body)
+	path := filepath.Join(home, ".augment", "settings.json")
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(warnings, "a hook with `args` is skipped") {
-		t.Errorf("want a note naming args, got:\n%s", warnings)
+	hooks, _ := doc["hooks"].(map[string]any)
+	groups, _ := hooks["PreToolUse"].([]any)
+	if len(groups) != 1 {
+		t.Fatalf("hooks = %v", doc["hooks"])
+	}
+	handler := groups[0].(map[string]any)["hooks"].([]any)[0].(map[string]any)
+	if handler["command"] != "echo" || !reflect.DeepEqual(handler["args"], []any{"shared", "two words"}) {
+		t.Errorf("handler = %v, want echo with its args", handler)
+	}
+	if strings.Contains(warnings, "args") {
+		t.Errorf("want no args note, got:\n%s", warnings)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "augment", "--check"); err != nil {
+		t.Errorf("check: %v", err)
+	}
+}
+
+// A shared script inside a command line gets its Augment path, as it
+// does on other targets that run a command through a shell.
+func TestSync_AugmentRewritesASharedScriptInsideACommandLine(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	captureLogOut(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "scripts", "check.sh"), "#!/bin/sh\nexit 0\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: bash .agnostic-ai/scripts/check.sh --flag\n")
+	mustSync(t)
+
+	body, err := os.ReadFile(filepath.Join(dir, ".augment", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"command": "bash .augment/hooks/check.sh --flag"`) {
+		t.Errorf("settings.json = %s", body)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".augment", "hooks", "check.sh")); err != nil {
+		t.Errorf("shared script not materialized: %v", err)
 	}
 }

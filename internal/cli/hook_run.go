@@ -269,11 +269,6 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			add(run)
 			continue
 		}
-		if target == "augment" && !slices.ContainsFunc(handlers, func(h hookrun.Handler) bool { return hookrun.AugmentRuns(h.Command) }) {
-			run.Reason = "Augment runs only a hook command that is a .sh, .ps1, .cmd, or .bat script path"
-			add(run)
-			continue
-		}
 		payload, err := hookrun.Build(target, event, matcher, root, in)
 		var unbuilt hookrun.Unbuilt
 		if errors.As(err, &unbuilt) {
@@ -345,9 +340,6 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			}
 			shown := shownHookCommand(h)
 			h.Command = hookrun.ExpandCommand(target, runtime.GOOS, h.Command, root)
-			if target == "augment" && !hookrun.AugmentRuns(h.Command) {
-				continue
-			}
 			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), prompt: hookrun.PayloadPrompt(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
 			dir := root
 			if target == "copilot" {
