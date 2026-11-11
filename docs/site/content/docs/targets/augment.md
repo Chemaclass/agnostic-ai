@@ -23,7 +23,7 @@ Select `augment` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-
 
 MCP and permission settings on this page apply to Auggie CLI. The IDE reads the project rules and skills, and runs project hooks from `.augment/settings.json` once you trust the workspace ([Augment changelog](https://www.augmentcode.com/changelog)).
 
-For an existing setup, [import](#import) reads ignore patterns and selected permission rules only. Review the remaining native files before syncing.
+For an existing setup, [import](#import) reads ignore patterns, selected permission rules, and the default model and effort only. Review the remaining native files before syncing.
 
 ## Verify
 
@@ -125,7 +125,7 @@ These are not written and raise a sync note:
 
 ## Import
 
-`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). Nothing else is imported.
+`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment` and `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). Nothing else is imported.
 
 ## Protected paths
 

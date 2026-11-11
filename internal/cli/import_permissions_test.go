@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // Devin's committed project policy comes back as a Settings spec, with
@@ -92,6 +94,35 @@ func TestImportAugmentPermissions_SkipsWhatCannotRoundTrip(t *testing.T) {
 	// `terminal`, which maps to Bash. Neither may produce a rule.
 	if strings.Contains(got, "Bash") || strings.Contains(got, "shell") {
 		t.Errorf("imported a rule that cannot round-trip:\n%s", got)
+	}
+}
+
+// defaultModel and defaultThinkingLevel come back as the portable
+// model and effort, so a re-sync writes the same file.
+func TestImportAugment_ReadsDefaultModelAndEffort(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	native := `{"defaultModel":"sonnet-4","defaultThinkingLevel":"high"}`
+	mustWriteFile(t, ".augment/settings.json", native)
+
+	if _, err := runCLI(t, "import", "augment"); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	got := readFile(t, ".agnostic-ai/settings/permissions-augment.yaml")
+	if !strings.Contains(got, "augment: sonnet-4") || !strings.Contains(got, "effort: high") {
+		t.Errorf("settings spec = %q, want model and effort", got)
+	}
+	runSyncOK(t)
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, ".augment/settings.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["defaultModel"] != "sonnet-4" || doc["defaultThinkingLevel"] != "high" {
+		t.Errorf("settings.json after sync = %v", doc)
+	}
+	if _, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
 	}
 }
 

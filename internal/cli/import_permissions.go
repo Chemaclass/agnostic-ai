@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -119,7 +120,9 @@ var augmentBareTool = map[string]string{
 // importAugmentPermissions reads `toolPermissions` from
 // `.augment/settings.json`, the file Augment calls "the recommended way
 // to enforce an organizational policy ... on every cloud agent that
-// runs there", and writes the entries that have a portable spelling.
+// runs there", and writes the entries that have a portable spelling,
+// plus defaultModel and defaultThinkingLevel as the portable model and
+// effort.
 // Entries carrying a `shellInputRegex` are skipped: reversing a regex
 // into a command rule would invent a boundary the project never wrote.
 func importAugmentPermissions(root, dstDir string) (int, error) {
@@ -129,6 +132,8 @@ func importAugmentPermissions(root, dstDir string) (int, error) {
 			Permission json.RawMessage `json:"permission"`
 			ShellRegex string          `json:"shellInputRegex"`
 		} `json:"toolPermissions"`
+		DefaultModel         string `json:"defaultModel"`
+		DefaultThinkingLevel string `json:"defaultThinkingLevel"`
 	}
 	src := filepath.Join(root, ".augment", "settings.json")
 	data, err := os.ReadFile(src)
@@ -156,8 +161,20 @@ func importAugmentPermissions(root, dstDir string) (int, error) {
 		}
 		lists[list] = appendUnique(lists[list], portable)
 	}
-	return writePermissionsSpec(dstDir, "permissions-augment", lists)
+	extra := map[string]any{}
+	if doc.DefaultModel != "" {
+		extra["model"] = map[string]any{"augment": doc.DefaultModel}
+	}
+	plan, level, err := planSettingsEffort("augment", doc.DefaultThinkingLevel, dstDir, augmentSettingsSpec+".yaml")
+	if err != nil {
+		return 0, err
+	}
+	maps.Copy(extra, settingsEffortSpec(plan, "augment", "defaultThinkingLevel", level))
+	return writeSettingsSpecWith(dstDir, augmentSettingsSpec, lists, extra)
 }
+
+// augmentSettingsSpec is the settings spec `import augment` writes.
+const augmentSettingsSpec = "permissions-augment"
 
 // augmentPermissionList reads the permission type. Augment requires an
 // object with a `type` field: "A rule with a bare-string permission is
@@ -180,9 +197,12 @@ func augmentPermissionList(raw json.RawMessage) (string, bool) {
 // writePermissionsSpec writes one Settings spec holding the three
 // lists, or nothing when every list is empty.
 func writePermissionsSpec(dstDir, name string, lists map[string][]string) (int, error) {
-	if len(lists) == 0 {
-		return 0, nil
-	}
+	return writeSettingsSpecWith(dstDir, name, lists, nil)
+}
+
+// writeSettingsSpecWith writes one Settings spec holding the three lists
+// and the extra keys, or nothing when both are empty.
+func writeSettingsSpecWith(dstDir, name string, lists map[string][]string, extra map[string]any) (int, error) {
 	permissions := map[string][]string{}
 	for list, rules := range lists {
 		if len(rules) > 0 {
@@ -193,10 +213,17 @@ func writePermissionsSpec(dstDir, name string, lists map[string][]string) (int, 
 			permissions[list] = neutral
 		}
 	}
-	if len(permissions) == 0 {
+	doc := maps.Clone(extra)
+	if doc == nil {
+		doc = map[string]any{}
+	}
+	if len(permissions) > 0 {
+		doc["permissions"] = permissions
+	}
+	if len(doc) == 0 {
 		return 0, nil
 	}
-	body, err := yaml.Marshal(map[string]any{"permissions": permissions})
+	body, err := yaml.Marshal(doc)
 	if err != nil {
 		return 0, err
 	}
