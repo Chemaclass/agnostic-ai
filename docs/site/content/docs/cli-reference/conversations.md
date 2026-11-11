@@ -65,7 +65,7 @@ It exits with code 1 and starts nothing when:
 - It cannot tell which session it runs in: no Claude Code or Codex session is among its parent processes, the nearest tool among them cannot be resolved, or the Codex process holds several threads and does not say which.
 - The tool is not installed: its command is not on `PATH`.
 - The brief is empty, longer than 4096 bytes, holds a null byte or text that is not UTF-8, or standard input is a terminal and no `--brief-file` was given.
-- The folder or the path of `agnostic-ai` holds a control character, which a terminal would act on as it is typed.
+- The folder or the path of `agnostic-ai` holds a control character (C0, DEL or C1) or text that is not UTF-8, which a terminal would act on as it is typed.
 - No tab can be opened. The message then gives the line that starts it by hand.
 
 ### The link line

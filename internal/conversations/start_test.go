@@ -151,9 +151,11 @@ func TestStart_QuotesAFolderAndBinaryWithSpacesAndQuotes(t *testing.T) {
 	}
 
 	for name, req := range map[string]StartRequest{
-		"folder": {Folder: "/tmp/a\x03\rtouch pwned\r\x1b[201~", Self: self},
-		"binary": {Folder: "/tmp/app", Self: "/opt/agnostic\x7f-ai"},
-		"tab":    {Folder: "/tmp/a\tb", Self: self},
+		"folder":    {Folder: "/tmp/a\x03\rtouch pwned\r\x1b[201~", Self: self},
+		"binary":    {Folder: "/tmp/app", Self: "/opt/agnostic\x7f-ai"},
+		"tab":       {Folder: "/tmp/a\tb", Self: self},
+		"c1 csi":    {Folder: "/tmp/a\u009b201~b", Self: self},
+		"not utf-8": {Folder: "/tmp/a\xffb", Self: self},
 	} {
 		start := newFakeStart(t, ghosttyChain(), "claude")
 		req.Brief, req.PID = "Write the notes", 100
@@ -421,5 +423,16 @@ func TestRunBrief_RefusesWithoutABriefsFolder(t *testing.T) {
 
 	if err := runner(t, "", &ran).Run(id); err == nil || ran.path != "" {
 		t.Errorf("err %v exec %q", err, ran.path)
+	}
+}
+
+func TestHasControl_RefusesC0C1AndBrokenText(t *testing.T) {
+	for text, want := range map[string]bool{
+		"/tmp/app": false, "/tmp/caf\u00e9": false, "/tmp/\u00a0x": false,
+		"/tmp/a\rb": true, "/tmp/\x7f": true, "/tmp/\u0080": true, "/tmp/\u009b": true, "/tmp/\xff": true,
+	} {
+		if got := hasControl(text); got != want {
+			t.Errorf("%q: hasControl = %v, want %v", text, got, want)
+		}
 	}
 }

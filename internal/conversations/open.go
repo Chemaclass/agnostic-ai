@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Launcher runs what reopens a conversation.
@@ -40,14 +41,19 @@ type Launcher interface {
 // errNotHere means this OS has no supported way to run the route.
 var errNotHere = errors.New("not supported on this system")
 
-// errControlCharacters means a command holds a byte a terminal acts on
-// as it is typed: single quotes stop the shell, not the terminal, so a
+// errControlCharacters means a command holds a character a terminal
+// acts on as it is typed: single quotes stop the shell, not the terminal, so a
 // carriage return or escape in a folder name would run what follows.
 var errControlCharacters = errors.New("holds control characters")
 
-// hasControl reports whether text holds a byte below 0x20 or 0x7f.
+// hasControl reports whether text holds a control character, C0, DEL
+// or C1 (some terminals read U+009B as CSI), or is not valid UTF-8,
+// which a terminal may decode as one.
 func hasControl(text string) bool {
-	return strings.IndexFunc(text, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0
+	if !utf8.ValidString(text) {
+		return true
+	}
+	return strings.IndexFunc(text, func(r rune) bool { return r < 0x20 || (r >= 0x7f && r <= 0x9f) }) >= 0
 }
 
 // errAutomationDenied means macOS refused to let the server control a
