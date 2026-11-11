@@ -95,18 +95,21 @@ func LocalInstructionsView(cfg *config.Config, readers []string) (string, error)
 	return EntryPointView(cfg, readers, ProjectLocalEntryPointPath, local)
 }
 
-// AppendLegacyEntryPointLocal appends the project-local block to content,
-// the legacy concatenated rules document of target, when that document
-// is target's own entry point. The central writer skips such a file (see
-// LegacyRulesFileOwnsEntryPoint), so the adapter write is the only one
-// that can carry the block. Returns content unchanged in any other
-// layout.
+// AppendLegacyEntryPointLocal appends the model tiers and the
+// project-local block to content, the legacy concatenated rules document
+// of target, when that document is target's own entry point. The central
+// writer skips such a file (see LegacyRulesFileOwnsEntryPoint), so the
+// adapter write is the only one that can carry the blocks. Returns
+// content unchanged in any other layout.
 func AppendLegacyEntryPointLocal(cfg *config.Config, target, content string) (string, error) {
+	if !LegacyRulesFileOwnsEntryPoint(cfg, target) {
+		return content, nil
+	}
 	local, err := legacyEntryPointLocal(cfg, target)
 	if err != nil {
 		return "", err
 	}
-	return AppendLocalInstructions(content, local), nil
+	return AppendLocalInstructions(AppendModelTiers(content, RenderModelTiers(cfg.Models)), local), nil
 }
 
 // legacyEntryPointLocal returns the project-local text as the readers of

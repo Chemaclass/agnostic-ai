@@ -266,3 +266,31 @@ func TestSyncGlobal_RejectsADescribedTierNamedLikeAMarker(t *testing.T) {
 		t.Error("sync --global wrote instructions despite the bad tier")
 	}
 }
+
+func TestSync_AdapterWrittenRulesFileListsTheTiers(t *testing.T) {
+	cases := map[string]string{"claude": "CLAUDE.md", "copilot": ".github/copilot-instructions.md"}
+	for target, path := range cases {
+		for _, withRule := range []bool{true, false} {
+			name := target + "/tiers only"
+			if withRule {
+				name = target + "/with a rule"
+			}
+			t.Run(name, func(t *testing.T) {
+				dir := budgetProject(t, "targets: ["+target+"]\noutputs:\n  "+target+": {rules-file: "+path+"}\n"+describedTiersConfig)
+				if withRule {
+					mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+				}
+
+				syncProjectOK(t)
+
+				got := readFileString(t, filepath.Join(dir, path))
+				if strings.Count(got, describedTiersLine) != 1 {
+					t.Errorf("%s should list the tiers once:\n%s", path, got)
+				}
+				if withRule && !strings.Contains(got, "Keep it short.") {
+					t.Errorf("%s lost the rule:\n%s", path, got)
+				}
+			})
+		}
+	}
+}
