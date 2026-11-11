@@ -476,3 +476,44 @@ func TestBuiltinHandoff(t *testing.T) {
 		}
 	})
 }
+
+func TestBuiltinWrapUp(t *testing.T) {
+	binary := builtCandidateBinary(t, "0.80.0")
+	run := func(t *testing.T, dir string, args ...string) string {
+		t.Helper()
+		cmd := exec.Command(binary, args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		return string(out)
+	}
+	dir := t.TempDir()
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	cfg := filepath.Join(dir, "agnostic-ai.yaml")
+	must(t, os.WriteFile(cfg, []byte("version: 1\ntargets: [claude, codex]\nbuiltins: [wrap-up]\n"), 0o644))
+	run(t, dir, "sync", "--gitignore=off")
+	paths := []string{".claude/skills/wrap-up/SKILL.md", ".agents/skills/wrap-up/SKILL.md"}
+	for _, path := range paths {
+		assertContains(t, filepath.Join(dir, filepath.FromSlash(path)), "## Note to share")
+	}
+	for _, path := range []string{".claude/settings.json", ".codex/hooks.json"} {
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("wrap-up wrote hook output %s: %v", path, err)
+		}
+	}
+	if out := run(t, dir, "list"); !strings.Contains(out, "skill\twrap-up\tbuiltin") {
+		t.Errorf("list did not report the builtin: %s", out)
+	}
+	run(t, dir, "explain", "builtin:wrap-up")
+	run(t, dir, "sync", "--check", "--gitignore=off")
+	must(t, os.WriteFile(cfg, []byte("version: 1\ntargets: [claude, codex]\nbuiltins: []\n"), 0o644))
+	run(t, dir, "sync", "--gitignore=off")
+	for _, path := range paths {
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("orphan %s remains: %v", path, err)
+		}
+	}
+	run(t, dir, "sync", "--check", "--gitignore=off")
+}
