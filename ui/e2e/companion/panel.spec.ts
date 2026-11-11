@@ -12,6 +12,8 @@ async function openPanel(page: Page, fixture = 'mixed') {
   await page.clock.setFixedTime(NOW)
   await page.goto('/panel.html')
   await expect(page.getByLabel('Search every conversation')).toBeFocused()
+  // The search takes focus before the first list arrives; keys pressed earlier have no rows to move through.
+  await expect(page.locator('#list > .row, #list > .empty').first()).toBeVisible()
 }
 
 const row = (page: Page, title: string) => page.getByRole('option').filter({ hasText: title })
