@@ -216,7 +216,7 @@ Deletes one conversation under Archived from this machine for good. Only a local
 
 - Its `state` is `completed` or `dormant`, read from a fresh scan. A `dormant` row written after you last looked at the list is `unread` instead, so it is refused.
 - No Claude Code process or background job holds it. The server asks again right before it removes anything, and once more before the transcript.
-- None of its files was written at or after the moment it was archived. For `completed` that is your archive mark: archiving it again makes a new mark. For `dormant` it is the delete request, so only a write in that same second is refused.
+- None of its files was written at or after the moment it was archived. For `completed` that is your archive mark: archiving it again makes a new mark. For `dormant` it is the moment the server read the row for this request, so a write in that second or later is refused.
 - Its session id names exactly one transcript.
 
 What it removes, each only when its name is exactly the session id:

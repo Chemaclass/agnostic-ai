@@ -67,7 +67,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 Right-click a chat under Archived and choose **Delete permanently…**. The confirmation names the chat and what goes. Nothing is sent until you confirm, and **Cancel** or Escape keeps it.
 
 - It is offered on any chat under Archived that no process holds: one you marked complete, or one that went quiet by itself more than a day ago.
-- A chat that went quiet by itself is checked at the moment you confirm. If anything was written in it since you last looked at the list, it has left Archived and is not deleted.
+- A chat that went quiet by itself is checked again when you confirm. If anything was written in it since you last looked at the list, or while the delete runs, it is not deleted.
 - Afterwards the list says how much space it freed.
 - A refused or partial delete keeps the row. The reason stays above the list until you dismiss it, with any folder still on disk.
 

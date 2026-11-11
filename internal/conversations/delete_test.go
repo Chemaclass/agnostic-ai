@@ -942,9 +942,12 @@ func TestDelete_RefusesADormantSessionWhenItCannotTellWhetherItRuns(t *testing.T
 	assertFiles(t, target, true)
 }
 
-func TestDelete_RefusesADormantWriteInTheSecondOfTheRequest(t *testing.T) {
+func TestDelete_RefusesADormantWriteInTheSecondOfTheRead(t *testing.T) {
 	scanner, stores, target := dormantScanner(t, fakeProcesses{})
-	same := archivedAt.Add(time.Minute + 800*time.Millisecond)
+	// Marks keep whole seconds: a write earlier in the read's own second may have come after the read.
+	read := archivedAt.Add(time.Minute + 800*time.Millisecond)
+	scanner.Now = func() time.Time { return read }
+	same := archivedAt.Add(time.Minute + 200*time.Millisecond)
 	if err := os.Chtimes(filepath.Join(stores.ClaudeDir, "session-env", idSafari, "hook-1.sh"), same, same); err != nil {
 		t.Fatal(err)
 	}
@@ -1001,5 +1004,56 @@ func TestScan_SaysOnADormantRowWhyItCannotBeDeleted(t *testing.T) {
 		if c := byID(t, view, id); c.State != state || c.DeleteUnsupported != "" {
 			t.Errorf("%s is %s and says %q", id, c.State, c.DeleteUnsupported)
 		}
+	}
+}
+
+// writesDuringTheRead appends a message to a transcript while the scan
+// lists the cloud, after the Claude Code sessions were read, and moves the
+// clock on, as a resume that writes and exits during a slow scan does.
+type writesDuringTheRead struct {
+	t          *testing.T
+	transcript string
+	now        *time.Time
+}
+
+func (w writesDuringTheRead) List(context.Context) ([]Conversation, error) {
+	at := w.now.Add(time.Second)
+	resumed, err := os.OpenFile(w.transcript, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	if _, err := resumed.WriteString(`{"type":"user","cwd":"/tmp/app","entrypoint":"cli","timestamp":"` + at.Format(time.RFC3339) + `","message":{"role":"user","content":"One more thing"}}` + "\n"); err != nil {
+		w.t.Fatal(err)
+	}
+	if err := resumed.Close(); err != nil {
+		w.t.Fatal(err)
+	}
+	if err := os.Chtimes(w.transcript, at, at); err != nil {
+		w.t.Fatal(err)
+	}
+	*w.now = w.now.Add(5 * time.Second)
+	return nil, nil
+}
+
+func TestDelete_RefusesADormantSessionWrittenAfterItsRowWasRead(t *testing.T) {
+	scanner, stores, _ := dormantScanner(t, fakeProcesses{})
+	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+	now := archivedAt.Add(time.Minute)
+	scanner.Now = func() time.Time { return now }
+	scanner.Cloud = writesDuringTheRead{t: t, transcript: transcript, now: &now}
+
+	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteChanged || reply.Deleted {
+		t.Errorf("= %s %+v", asJSON(t, reply), refusal)
+	}
+	if data, err := os.ReadFile(transcript); err != nil || !strings.Contains(string(data), "One more thing") {
+		t.Errorf("the transcript = %q (%v)", data, err)
+	}
+}
+
+func TestArchivedAsOf_RefusesADormantRowWithNoReadTime(t *testing.T) {
+	if at, _, ok := archivedAsOf(StateDormant, markEntry{}, time.Time{}); ok {
+		t.Errorf("a dormant row with no read time is archived as of %s", at)
 	}
 }

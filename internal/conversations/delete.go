@@ -100,7 +100,7 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if c.Live || c.App == AppBackground {
 		return DeleteReply{}, refuse(DeleteRunning, "This conversation is still running. Close it in Claude Code, then delete it.")
 	}
-	archived, changed, ok := archivedAsOf(stateOf(c, entry, parseStamp(file.Since), now), entry, now)
+	archived, changed, ok := archivedAsOf(stateOf(c, entry, parseStamp(file.Since), now), entry, c.readAt)
 	if !ok {
 		return DeleteReply{}, refuse(DeleteNotArchived, "Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.")
 	}
@@ -154,14 +154,15 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 
 // archivedAsOf is the moment a conversation under Archived was archived,
 // and the sentence for a write at or after it. A dormant conversation
-// was never archived by hand: the delete request is its archive.
-func archivedAsOf(state State, entry markEntry, now time.Time) (at time.Time, changed string, ok bool) {
+// was never archived by hand: the read behind the delete is its archive,
+// since a message written before that read makes the row unread.
+func archivedAsOf(state State, entry markEntry, readAt time.Time) (at time.Time, changed string, ok bool) {
 	switch state {
 	case StateCompleted:
 		at = parseStamp(entry.CompletedAt)
 		changed = "Something was written in this conversation after you archived it. Archive it again if you still want to delete it."
 	case StateDormant:
-		at = now.Truncate(time.Second)
+		at = readAt.Truncate(time.Second)
 		changed = "Something was written in this conversation just now, so it was not deleted. Refresh the list."
 	}
 	return at, changed, !at.IsZero()
