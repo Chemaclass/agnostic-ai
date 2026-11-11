@@ -54,6 +54,7 @@ export function renameConversation(conversation, title) {
 
 export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
+export const showPanel = () => post('/api/panel/show')
 
 /** The settings menu's values: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
 export const readPreferences = () => call('/api/preferences')

@@ -1,5 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin } from '/api.js'
+import { CallError, GivenUp, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
 import { GROUPS, PLACES, confirmsCandidate, detailsOf, escapeTarget, grouped, keyOf, keycapsOf, neighbour, reasonOf, renameOf, rowActionOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
@@ -42,6 +42,8 @@ const state = {
   problem: undefined,
   /** What the companion itself has to say, such as a version mismatch. */
   note: undefined,
+  /** Why a conversation did not open, said once the panel shows again. */
+  reopenedToSay: undefined,
   query: '',
   /** Group ids the person folded or unfolded, over each group's start. */
   folded: new Map(GROUPS.map((group) => [group.id, group.startsFolded])),
@@ -392,14 +394,25 @@ async function refresh() {
   draw()
 }
 
+// The panel never activates its app, so while it shows it keeps the keys
+// even after the terminal comes to the front. It hides first, and comes
+// back to say why only when the conversation did not open.
 async function openRow(conversation) {
+  await hidePanel().catch(() => {})
+  let message
   try {
     const reply = await openConversation(conversation)
-    say(reply.message)
-    if (reply.opened) await hidePanel()
+    if (reply.opened) return
+    message = reply.message
   } catch (error) {
-    sayFailure(error)
+    if (!(error instanceof CallError)) throw error
+    message = error.message
   }
+  state.reopenedToSay = message
+  await showPanel().catch((error) => {
+    state.reopenedToSay = undefined
+    sayFailure(error)
+  })
 }
 
 async function markRow(conversation, mark) {
@@ -666,10 +679,14 @@ function opened(from) {
     card.classList.add('is-opening')
   }
   toast.hidden = true
+  // Back from a conversation that did not open: the highlight stays on its row.
+  const returning = state.reopenedToSay
+  state.reopenedToSay = undefined
+  if (returning) say(returning)
   closeMenu()
   closeRowMenu()
   state.renaming = undefined
-  state.activeKey = undefined
+  if (!returning) state.activeKey = undefined
   queryInput.focus()
   queryInput.select()
   draw({ force: true })

@@ -16,6 +16,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - On macOS, `companion install` makes an app with the agnostic-ai icon that still starts at login (#3238).
 - Cursor chat titles show what you typed, without the tags Cursor adds (#3241).
 - Clicking a running session opens its Terminal or Ghostty tab; an ended session resumes in a new tab (#3242).
+- Clicking a running session in the companion leaves its terminal ready for typing.
 - Cursor and Windsurf load each always-on rule once, from `AGENTS.md`; Trae opts in with `outputs.trae.rules-mode: entry-point` (#3243).
 - LINT061 warns when a target ignores its `outputs.<target>.rules-mode` value (#3243).
 - Builds use Go 1.27.4 to fix the `net/http` vulnerability [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859).
