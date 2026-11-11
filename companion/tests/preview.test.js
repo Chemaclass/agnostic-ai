@@ -64,6 +64,22 @@ test('a fixture can refuse renames and marks', async (t) => {
   assert.equal(marked.status, 502)
 })
 
+test('a new message brings a chat marked read back to Needs you', async (t) => {
+  const now = Date.parse('2026-11-07T15:30:00Z')
+  const preview = await startPreview({ port: 0, fixture: 'needs-you', now })
+  t.after(preview.close)
+  assert.equal((await inbox(preview.url)).body.view.needsYou, 4)
+  assert.equal((await postJSON(preview.url + '/api/mark', { tool: 'codex', id: 'reply-2', as: 'seen' })).status, 204)
+  assert.equal((await inbox(preview.url)).body.view.needsYou, 3)
+
+  assert.equal((await postJSON(preview.url + '/dev/write', { tool: 'codex', id: 'reply-2' })).status, 204)
+  const after = await inbox(preview.url)
+  const written = after.body.view.conversations.find((row) => row.id === 'reply-2')
+  assert.equal(written.state, 'unread')
+  assert.equal(written.updatedAt, new Date(now).toISOString())
+  assert.equal(after.body.view.needsYou, 4)
+})
+
 test('searches the fixture rows', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)
@@ -125,4 +141,31 @@ test('quit answers with no content and shows in the calls', async (t) => {
   assert.equal(quit.status, 204)
   const calls = await (await fetch(preview.url + '/dev/calls')).json()
   assert.equal(calls[0].path, '/api/quit')
+})
+
+test('pause sets paused in the appearance, and a click on the circle clears it', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  const appearance = async () => (await fetch(preview.url + '/api/appearance')).json()
+  assert.equal((await appearance()).paused, false)
+
+  const paused = await fetch(preview.url + '/api/pause', { method: 'POST' })
+  assert.equal(paused.status, 204)
+  assert.equal((await appearance()).paused, true)
+  const calls = await (await fetch(preview.url + '/dev/calls')).json()
+  assert.equal(calls[0].path, '/api/pause')
+
+  await fetch(preview.url + '/api/panel/toggle', { method: 'POST' })
+  assert.equal((await appearance()).paused, false)
+})
+
+test('a list that asks to show itself while paused stays paused', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  await fetch(preview.url + '/api/pause', { method: 'POST' })
+
+  const shown = await fetch(preview.url + '/api/panel/show', { method: 'POST' })
+
+  assert.equal(shown.status, 204)
+  assert.equal((await (await fetch(preview.url + '/api/appearance')).json()).paused, true)
 })

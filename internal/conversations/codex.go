@@ -138,6 +138,9 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	for i := range conversations {
 		t, said := textsOf[conversations[i].ID], lastReplies[conversations[i].ID]
 		t.reply, t.question = said.reply, said.question
+		// A prompt with no text, such as an image, still gets a reply, so only a thread with neither is empty.
+		// Replies that could not be read leave it unknown, and unknown is kept.
+		conversations[i].untyped = err == nil && t == texts{}
 		s.fill(&conversations[i], t)
 	}
 	result := found(ToolCodex, conversations)

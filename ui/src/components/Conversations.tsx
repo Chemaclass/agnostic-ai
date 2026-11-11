@@ -238,7 +238,7 @@ export function ConversationsPage() {
             <h2 id={headingId}>{group.label} <span className="muted kind-count">{group.conversations.length}</span></h2>
             <ul className="conversation-list">
               {group.conversations.map((conversation) => (
-                <ConversationRow key={rowKey(conversation)} conversation={conversation} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} />
+                <ConversationRow key={rowKey(conversation)} conversation={conversation} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} />
               ))}
             </ul>
           </section>
@@ -360,7 +360,7 @@ function openStatus(outcome: ConversationOpenOutcome, route: ConversationRoute):
 
 const rowKey = (conversation: Conversation) => `${conversation.tool}:${conversation.id}`
 
-function ConversationRow({ conversation, now, editor, canOpen, opened, onOpened }: { conversation: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void }) {
+function ConversationRow({ conversation, under, now, editor, canOpen, opened, onOpened }: { conversation: Conversation; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void }) {
   const [pending, setPending] = useState(false)
   const [status, setStatus] = useState<OpenStatus>()
   const openButton = useRef<HTMLButtonElement>(null)
@@ -391,10 +391,11 @@ function ConversationRow({ conversation, now, editor, canOpen, opened, onOpened 
 
   // Open now rows always show the ink pill; the others turn their link into it on hover and focus.
   return (
-    <li className={`conversation row-hover${conversation.live ? ' is-live' : ''}`} data-tool={conversation.tool}>
+    <li className={`conversation row-hover${conversation.live ? ' is-live' : ''}${under ? ' is-nested' : ''}`} data-tool={conversation.tool}>
       <span aria-hidden="true"><ToolAvatar target={conversation.tool} /></span>
       <div className="conversation-body">
         <h3 className="conversation-title">{title.shell ? <code>{title.text}</code> : title.text}</h3>
+        {under && <p className="sr-only">Started from {chatText(under.title || 'Untitled').text}</p>}
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
         {withheld.includes('reply')
           ? <Withheld label={withheldLabel('reply')} />

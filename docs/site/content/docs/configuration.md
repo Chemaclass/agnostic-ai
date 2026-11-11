@@ -458,6 +458,8 @@ When `<path>` is the target's own entry-point file (`outputs.claude.rules-file: 
 
 These targets write it: `aider`, `amp`, `antigravity`, `augment`, `claude`, `codex`, `copilot`, `gemini`, `goose`, `kimi`, `opencode`, `pi`, `qwen`, `vibe`, `warp`, and `zed`. On any other target sync ignores the key and `lint` warns with LINT062. That target keeps its entry-point file and its rules as if the key were unset.
 
+These targets write it: `aider`, `amp`, `antigravity`, `augment`, `claude`, `codex`, `copilot`, `gemini`, `goose`, `kimi`, `opencode`, `pi`, `qwen`, `vibe`, `warp`, and `zed`. On any other target sync ignores the key and `lint` warns with LINT062. That target keeps its entry-point file and its rules as if the key were unset.
+
 </details>
 
 ### Per-target paragraphs

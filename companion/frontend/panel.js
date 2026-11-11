@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '/model.js'
+import { CallError, GivenUp, deleteConversation, hidePanel, markConversation, openConversation, openDashboard, pauseCompanion, quitCompanion, readInbox, readPreferences, renameConversation, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
+import { GROUPS, PLACES, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -151,7 +151,7 @@ function stateMark(conversation) {
   return element('span', 'state is-' + (MARK_OF[conversation.state] ?? conversation.state))
 }
 
-function rowOf(conversation, order, folderNames) {
+function rowOf(conversation, order, folderNames, under) {
   const key = keyOf(conversation)
   const needsYou = conversation.state === 'blocked' || conversation.state === 'unread'
   const quiet = conversation.state === 'completed' || conversation.state === 'dormant'
@@ -159,19 +159,21 @@ function rowOf(conversation, order, folderNames) {
   row.classList.toggle('needs-you', needsYou)
   row.classList.toggle('is-quiet', quiet)
   row.classList.toggle('is-active', key === state.activeKey)
+  row.classList.toggle('is-nested', under !== undefined)
   row.dataset.key = key
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
   row.setAttribute('role', 'option')
   row.setAttribute('aria-selected', String(key === state.activeKey))
   row.title = conversation.folder ? conversation.open.label + '\n' + conversation.folder : conversation.open.label
-  if (conversation.folder) row.setAttribute('aria-description', row.title)
+  const described = [under && startedFromOf(under), conversation.folder && row.title].filter(Boolean)
+  if (described.length > 0) row.setAttribute('aria-description', described.join('\n'))
 
   const text = element('div', 'text')
   const renaming = state.renaming?.key === key ? state.renaming : undefined
   if (renaming) {
     text.append(renameField(conversation, renaming))
   } else {
-    text.append(element('div', 'title', conversation.title === '' ? 'Untitled conversation' : conversation.title))
+    text.append(element('div', 'title', titleOf(conversation)))
   }
   const reply = replyOf(conversation)
   if (reply) text.append(element('div', 'reply', reply))
@@ -258,11 +260,18 @@ function groupHead(group) {
   })
   const head = element('div', 'group-head')
   head.append(title)
+  if (group.id === 'needs-you') {
+    const all = element('button', 'group-action', 'Mark all as read')
+    all.type = 'button'
+    all.title = 'Take every conversation shown here out of Needs you without opening it, until something new is written in it'
+    all.addEventListener('click', () => markAll(group.rows, 'seen', (conversation) => stillWaits(state.view, conversation)))
+    head.append(all)
+  }
   if (group.id === 'active') {
     const all = element('button', 'group-action', 'Mark all complete')
     all.type = 'button'
     all.title = 'Mark every active conversation complete, until something new is written in it or it starts working'
-    all.addEventListener('click', () => completeAll(group.rows))
+    all.addEventListener('click', () => markAll(group.rows, 'completed'))
     head.append(all)
   }
   return head
@@ -333,7 +342,7 @@ function draw({ force } = { force: false }) {
     list.append(groupHead(group))
     if (isFolded(group)) continue
     for (const conversation of group.rows) {
-      list.append(rowOf(conversation, order, folderNames))
+      list.append(rowOf(conversation, order, folderNames, group.under.get(keyOf(conversation))))
       order += 1
     }
   }
@@ -719,14 +728,25 @@ deleteGo.addEventListener('click', async () => {
   await refresh()
 })
 
-/** Marks each of the rows complete, one mark after the other, then reads the list once. No row shows a tick: this is tidying up. */
-async function completeAll(rows) {
+/** A Mark all run is on its way, so another press does nothing. Each mark redraws the list, so the button cannot hold this. */
+let markingAll = false
+
+/**
+ * Gives each of the rows `mark`, one after the other, then reads the list once. A row `keep` turns down
+ * is left as it is. The first refused mark stops the run and says why; the rows after it keep their place.
+ * No row shows a tick: this is tidying up.
+ */
+async function markAll(rows, mark, keep = () => true) {
+  if (markingAll) return
+  markingAll = true
   try {
     for (const conversation of rows) {
-      await markConversation(conversation, 'completed')
+      if (keep(conversation)) await markConversation(conversation, mark)
     }
   } catch (error) {
     sayFailure(error)
+  } finally {
+    markingAll = false
   }
   await refresh()
 }
@@ -825,7 +845,7 @@ document.addEventListener('mousedown', (event) => {
   if (menu.hidden || menu.contains(event.target) || menuButton.contains(event.target)) return
   closeMenu()
 })
-document.getElementById('hide').addEventListener('click', () => hideCompanion())
+document.getElementById('pause').addEventListener('click', () => pauseCompanion())
 // The app can end before its answer arrives.
 document.getElementById('quit').addEventListener('click', () => quitCompanion().catch(() => {}))
 document.getElementById('dashboard').addEventListener('click', async () => {
@@ -869,8 +889,8 @@ document.addEventListener('keydown', (event) => {
     moveActive(step)
     return
   }
-  // A focused notice button takes Enter as its own click.
-  if (event.key === 'Enter' && !event.target.closest('#notice button')) {
+  // A focused notice or group header button takes Enter as its own click.
+  if (event.key === 'Enter' && !event.target.closest('#notice button, .group-head button')) {
     const conversation = activeConversation()
     if (conversation) openRow(conversation)
   }

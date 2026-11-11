@@ -175,6 +175,9 @@ type Conversation struct {
 	file string
 	// renamed is the name the person chose, shown over the tool's title.
 	renamed string
+	// untyped is a thread opened and never written in: no title, prompt
+	// or reply. The list leaves it out unless the person named it.
+	untyped bool
 	// readAt is when the read that gave this row began. A kept result
 	// or a cloud list can be older than the scan that shows it.
 	readAt time.Time
