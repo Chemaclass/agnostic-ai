@@ -321,7 +321,7 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 		for _, name := range adapters.Names() {
 			if !adapters.InlinesRulesIntoEntryPoint(name) && adapters.RuleInEntryPoint(cfg, b, name, e) {
 				addContribution(&configured, &extra, configuredSet, contribution{
-					Target: name, Path: adapters.EntryPointPath(cfg, name), Section: e.Name, Mode: "section",
+					Target: name, Path: adapters.RootInstructionsPath(cfg, name), Section: e.Name, Mode: "section",
 				})
 			}
 		}

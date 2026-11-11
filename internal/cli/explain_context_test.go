@@ -330,17 +330,13 @@ func TestExplainContext_CursorWithAlwaysOnRuleMatchesWhatSyncWrites(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	mdc, err := os.ReadFile(filepath.Join(dir, ".cursor", "rules", "style.mdc"))
-	if err != nil {
-		t.Fatalf("sync must write the Cursor rule file: %v", err)
+	if exists(filepath.Join(dir, ".cursor", "rules", "style.mdc")) {
+		t.Error("sync must leave the always-on rule to AGENTS.md, which Cursor reads too")
 	}
-	_, mdcBody, _ := strings.Cut(strings.TrimPrefix(string(mdc), "---\n"), "\n---\n")
-	_, mdcBody, _ = strings.Cut(mdcBody, "-->")
-	// Sync writes the rule into AGENTS.md and again as a Cursor .mdc file,
-	// so the always-on body counts twice. The skill description is 5 words.
-	want := wordsIn(string(agents)) + wordsIn(mdcBody) + 5
+	// The rule loads once, from AGENTS.md. The skill description is 5 words.
+	want := wordsIn(string(agents)) + 5
 	if got := contextReport(t, "cursor").Startup.Words; got != want {
-		t.Errorf("cursor startup %d words, want AGENTS.md + rule body + skill description = %d", got, want)
+		t.Errorf("cursor startup %d words, want AGENTS.md + skill description = %d", got, want)
 	}
 }
 

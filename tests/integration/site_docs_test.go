@@ -1273,3 +1273,27 @@ func TestSiteDocs_EveryAdapterHasATargetPage(t *testing.T) {
 		}
 	}
 }
+
+// Each tool that may load a rule from AGENTS.md and from its own rule
+// file states what it loads at session start, with the vendor source
+// (#3230).
+func TestSiteDocs_TargetsStateWhatLoadsAtSessionStart(t *testing.T) {
+	for target, vendor := range map[string]string{
+		"cursor":   "https://cursor.com/docs/",
+		"windsurf": "https://docs.devin.ai/",
+		"trae":     "https://docs.trae.ai/",
+	} {
+		page, err := os.ReadFile(filepath.Join(siteDocsContentDir, "targets", target+".md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		section, ok := markdownSection(string(page), "loaded-at-session-start")
+		if !ok {
+			t.Errorf("%s.md has no \"Loaded at session start\" section", target)
+			continue
+		}
+		if !strings.Contains(section, "AGENTS.md") || !strings.Contains(section, "]("+vendor) {
+			t.Errorf("%s.md: the section must name AGENTS.md and link %s:\n%s", target, vendor, section)
+		}
+	}
+}

@@ -86,12 +86,14 @@ func (r *syncReport) markTarget(target string) {
 
 // entryWritesRead returns the entry-point writes target reads. Sync writes a
 // shared file such as AGENTS.md once and records it under no target, so each
-// reader claims it here.
-func entryWritesRead(target string, writes []adapters.WrittenFile, files []entryPointFile) []adapters.WrittenFile {
+// reader claims it here. Cursor writes no entry point but reads the root
+// AGENTS.md another target writes.
+func entryWritesRead(cfg *config.Config, target string, writes []adapters.WrittenFile, files []entryPointFile) []adapters.WrittenFile {
+	root := adapters.RootInstructionsPath(cfg, target)
 	var out []adapters.WrittenFile
 	for _, w := range writes {
 		for _, f := range files {
-			if filepath.ToSlash(f.Path) == filepath.ToSlash(w.Path) && slices.Contains(f.Readers, target) {
+			if filepath.ToSlash(f.Path) == filepath.ToSlash(w.Path) && (slices.Contains(f.Readers, target) || f.Path == root) {
 				out = append(out, w)
 				break
 			}

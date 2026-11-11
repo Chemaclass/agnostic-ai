@@ -23,6 +23,10 @@ var GlobalNameClashModes = []string{"warn", "ignore"}
 // the ones Codex's `sandbox_mode` takes.
 var CodexSandboxModes = []string{"read-only", "workspace-write", "danger-full-access"}
 
+// RulesModes maps each target that reads outputs.<target>.rules-mode to
+// the one value it reads.
+var RulesModes = map[string]string{"claude": "import", "trae": "entry-point"}
+
 // File names recognized by Load.
 const (
 	ConfigFileName        = "agnostic-ai.yaml"
@@ -305,7 +309,7 @@ type Output struct {
 	EnvironmentFile             string            `yaml:"environment-file,omitempty"         json:"environment-file,omitempty"`
 	SetupFile                   string            `yaml:"setup-file,omitempty"               json:"setup-file,omitempty"`
 	IgnoreFile                  string            `yaml:"ignore-file,omitempty"              json:"ignore-file,omitempty"`
-	RulesMode                   string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
+	RulesMode                   string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty" jsonschema:"enum=import,enum=entry-point"`
 	MCPFile                     string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
 	CLIMCPFile                  string            `yaml:"cli-mcp-file,omitempty"             json:"cli-mcp-file,omitempty"`
 	RootMCPFile                 string            `yaml:"root-mcp-file,omitempty"            json:"root-mcp-file,omitempty"`

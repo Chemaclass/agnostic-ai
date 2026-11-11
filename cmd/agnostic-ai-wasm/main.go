@@ -116,17 +116,21 @@ func render(_ js.Value, args []js.Value) any {
 		// per-rule file; AGENTS.md points at the source dir). Skipped
 		// when the target opted into a legacy concatenated rules-file
 		// (the adapter owns the entry-point write in that case).
-		if path := adapters.EntryPointPath(cfg, t); path != "" && !adapters.HasLegacyRulesFile(cfg, t) {
-			content := adapters.RenderEntryPoint()
-			// Targets with no native rules directory (codex, amp, warp,
-			// gemini, aider, opencode) inline the rule bodies into their
-			// entry-point file, and a target reading another's inlined
-			// block there skips its own rule file. Mirror that here so
-			// the playground shows the rule reaching the tool.
-			inliner := t
-			if !adapters.InlinesRulesIntoEntryPoint(t) {
-				inliner = adapters.EntryPointRuleInliner(cfg, t)
+		path := adapters.EntryPointPath(cfg, t)
+		// Targets with no native rules directory (codex, amp, warp,
+		// gemini, aider, opencode) inline the rule bodies into their
+		// entry-point file, and a target reading another's inlined
+		// block there skips its own rule file. Mirror that here so
+		// the playground shows the rule reaching the tool.
+		inliner := t
+		if !adapters.InlinesRulesIntoEntryPoint(t) {
+			inliner = adapters.EntryPointRuleInliner(cfg, t)
+			if inliner != "" {
+				path = adapters.RootInstructionsPath(cfg, t)
 			}
+		}
+		if path != "" && !adapters.HasLegacyRulesFile(cfg, t) {
+			content := adapters.RenderEntryPoint()
 			if inliner != "" {
 				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(adapters.EntryPointRules(bundle, inliner, cfg)))
 			}

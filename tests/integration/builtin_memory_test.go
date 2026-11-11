@@ -97,7 +97,6 @@ func TestBuiltinMemory(t *testing.T) {
 				".claude/rules/shared-memory-policy.md",
 				".claude/skills/shared-memory/SKILL.md",
 				".agents/skills/shared-memory/SKILL.md",
-				".cursor/rules/shared-memory-policy.mdc",
 			}
 			output := map[string]string{}
 			for _, path := range paths {
@@ -112,6 +111,9 @@ func TestBuiltinMemory(t *testing.T) {
 				updateGolden(t, expectedDir, output)
 			} else {
 				compareGolden(t, expectedDir, output, "builtin-memory")
+			}
+			if _, err := os.Stat(filepath.Join(dir, ".cursor", "rules", "shared-memory-policy.mdc")); err == nil {
+				t.Error("Cursor reads the memory rule from AGENTS.md; a .cursor/rules copy loads it twice")
 			}
 			run(t, dir, "sync", "--check", "--gitignore=off")
 		})
