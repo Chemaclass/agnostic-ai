@@ -119,7 +119,7 @@ Conversation fields:
 
 - `app` is `cli`, `ide`, `desktop`, `background` or `cloud`.
 - `folder` is where the conversation started and where it resumes.
-- `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a Cursor window shows it selected, or a cloud provider reports an active session.
+- `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.

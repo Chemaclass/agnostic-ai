@@ -34,7 +34,9 @@ type fakeProcesses struct {
 func (f fakeProcesses) Holders(paths []string) map[string]int {
 	held := map[string]int{}
 	for _, path := range paths {
-		if pid, ok := f.held[filepath.Base(path)]; ok {
+		if pid, ok := f.held[path]; ok {
+			held[path] = pid
+		} else if pid, ok := f.held[filepath.Base(path)]; ok {
 			held[path] = pid
 		}
 	}
@@ -712,6 +714,70 @@ func TestScan_MarksTheCursorChatsOpenInAWindow(t *testing.T) {
 	}
 }
 
+// terminalProcesses has pid running in Terminal on /dev/ttys004.
+func terminalProcesses(pid int, held map[string]int, args map[int]string) fakeProcesses {
+	return fakeProcesses{held: held, args: args, alive: map[int]bool{pid: true}, table: []ProcessInfo{
+		{PID: 400, PPID: 1, Command: "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"},
+		{PID: 401, PPID: 400, TTY: "/dev/ttys004", Command: "/usr/bin/login"},
+		{PID: pid, PPID: 401, TTY: "/dev/ttys004", Command: "node"},
+	}}
+}
+
+// cursorAgentScanner lists a cursor-agent chat in /tmp/app for each of
+// ids; store gives each chat's store.db.
+func cursorAgentScanner(t *testing.T, processes Processes, ids ...string) (scanner *Scanner, store func(id string) string) {
+	t.Helper()
+	metaOf := func(id string) string {
+		return hex.EncodeToString([]byte(`{"agentId":"` + id + `","name":"Chat ` + id[:1] + `","createdAt":1762500000000}`))
+	}
+	sqlite := func(_ context.Context, path, query string) ([]json.RawMessage, error) {
+		switch {
+		case filepath.Base(path) == "store.db" && strings.Contains(query, "FROM meta"):
+			return []json.RawMessage{json.RawMessage(`{"value":"` + metaOf(filepath.Base(filepath.Dir(path))) + `"}`)}, nil
+		case filepath.Base(path) == "state.vscdb":
+			return nil, nil
+		}
+		return nil, errors.New("unexpected query on " + filepath.Base(path))
+	}
+	dir := t.TempDir()
+	store = func(id string) string {
+		return filepath.Join(dir, "cursor", "chats", md5Hex("/tmp/app"), id, "store.db")
+	}
+	scanner, stores := testScanner(t, sqlite, processes)
+	stores.CursorDir = filepath.Join(dir, "cursor")
+	scanner.Stores = stores
+	scanner.Now = time.Now
+	write(t, stores.CursorDB, "")
+	for _, id := range ids {
+		write(t, store(id), "")
+	}
+	return scanner, store
+}
+
+func TestScan_MarksRunningCursorAgentChatsLive(t *testing.T) {
+	running, ended := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+	held := map[string]int{}
+	scanner, store := cursorAgentScanner(t, terminalProcesses(4242, held, nil), running, ended)
+	held[store(running)] = 4242
+
+	view := scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}})
+
+	if !byID(t, view, running).Live || byID(t, view, ended).Live {
+		t.Errorf("only the chat a process holds is live: %s", asJSON(t, view.Conversations))
+	}
+	if open := byID(t, view, running).Open; open.Kind != RouteFocus || open.Label != "Switch to Terminal" {
+		t.Errorf("a running chat switches to its terminal, actual %s", asJSON(t, open))
+	}
+	if open := byID(t, view, ended).Open; open.Kind != RouteTerminal || open.Command != "cd '/tmp/app' && cursor-agent --resume "+ended {
+		t.Errorf("an ended chat resumes, actual %s", asJSON(t, open))
+	}
+	launcher := &fakeLauncher{focusOK: true}
+	reply := Open(context.Background(), byID(t, view, running), scanner.Processes, launcher)
+	if strings.Join(launcher.calls, ";") != "focus Terminal /dev/ttys004" || !reply.Opened || reply.Command != "" {
+		t.Errorf("opening it must switch to its tab, not resume it again: calls %v, reply %s", launcher.calls, asJSON(t, reply))
+	}
+}
+
 func paged(id, updated string, live bool) Conversation {
 	return Conversation{Tool: ToolClaude, ID: id, UpdatedAt: updated, Live: live}
 }
@@ -938,6 +1004,52 @@ func TestFolderOpenIn_DecodesTheEditorsFolderURIs(t *testing.T) {
 	} {
 		if actual := folderOpenIn(storage, folder); actual != want {
 			t.Errorf("folderOpenIn(%q) = %v, want %v", folder, actual, want)
+		}
+	}
+}
+
+func TestParseHolders_SkipsASqliteReader(t *testing.T) {
+	store := "/home/me/.cursor/chats/abc/id/store.db"
+	out := "p4242\ncnode\nf11\nn" + store + "\np5151\ncsqlite3\nf3\nn" + store + "\n"
+
+	held := parseHolders(out, map[string]string{store: store})
+
+	if held[store] != 4242 {
+		t.Errorf("the chat's own process holds it, not the sqlite3 reader: %v", held)
+	}
+}
+
+func TestParseHolders_PrefersTheAgentOverAnotherHolder(t *testing.T) {
+	store := "/home/me/.cursor/chats/abc/id/store.db"
+	out := "p4242\ncnode\nf11\nn" + store + "\np6161\ncrg\nf9\nn" + store + "\n"
+
+	held := parseHolders(out, map[string]string{store: store})
+
+	if held[store] != 4242 {
+		t.Errorf("the agent holds it, not another reader: %v", held)
+	}
+}
+
+func TestReopen_SwitchesToACursorAgentChatThatStartedAfterTheScan(t *testing.T) {
+	started, ended, viewed := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+	held := map[string]int{}
+	args := map[int]string{4242: "/Users/me/.local/share/cursor-agent/node --use-system-ca index.js", 5151: "/Applications/DB Browser.app/Contents/MacOS/DB"}
+	scanner, store := cursorAgentScanner(t, terminalProcesses(4242, held, args), started, ended, viewed)
+	opts := ScanOptions{Within: []string{"/tmp/app"}}
+	scanner.Scan(context.Background(), opts)
+	held[store(started)] = 4242
+	held[store(viewed)] = 5151
+
+	launcher := &fakeLauncher{focusOK: true}
+	reply, _ := scanner.Reopen(context.Background(), ToolCursor, started, opts, launcher)
+	if strings.Join(launcher.calls, ";") != "focus Terminal /dev/ttys004" || !reply.Opened || reply.Command != "" {
+		t.Errorf("a chat that runs now must switch to its tab, not resume again: calls %v, reply %s", launcher.calls, asJSON(t, reply))
+	}
+	for _, id := range []string{ended, viewed} {
+		launcher := &fakeLauncher{}
+		scanner.Reopen(context.Background(), ToolCursor, id, opts, launcher)
+		if want := "terminal cd '/tmp/app' && cursor-agent --resume " + id; strings.Join(launcher.calls, ";") != want {
+			t.Errorf("a chat no agent holds resumes: calls %v, want %q", launcher.calls, want)
 		}
 	}
 }

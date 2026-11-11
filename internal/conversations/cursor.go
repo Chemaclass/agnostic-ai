@@ -315,7 +315,8 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		c := Conversation{
 			Tool: ToolCursor, App: AppCLI, ID: meta.AgentID, Folder: folder,
 			StartedAt: timeFromMillis(meta.CreatedAt), UpdatedAt: updated,
-			Open: Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
+			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
+			store: store,
 		}
 		s.fill(&c, texts{title: title, firstPrompt: first, lastPrompt: last})
 		chats = append(chats, c)
@@ -324,7 +325,35 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		forget(s.cursorAgents, seen)
 		forget(s.cursorTranscripts, seen)
 	}
+	s.markLiveCursorAgentChats(chats)
 	return chats
+}
+
+// markLiveCursorAgentChats marks the chats a running cursor-agent has
+// open. It keeps the chat's store.db open while the chat runs, and the
+// file stays after it exits, so the test is whether a process still has
+// it open. A running chat switches to its terminal, since a second
+// resume would compete with it.
+func (s *Scanner) markLiveCursorAgentChats(chats []Conversation) {
+	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
+	chatOf := map[string]int{}
+	var recent []string
+	for i, c := range chats {
+		if c.UpdatedAt >= cutoff {
+			chatOf[c.store] = i
+			recent = append(recent, c.store)
+		}
+	}
+	for store, pid := range s.Processes.Holders(recent) {
+		i, ok := chatOf[store]
+		if !ok {
+			continue
+		}
+		c := &chats[i]
+		c.Live = true
+		c.process = &liveProcess{PID: pid}
+		c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: c.Open.Command}
+	}
 }
 
 // cursorAgentMeta reads the chat's metadata from its store.db, or from
