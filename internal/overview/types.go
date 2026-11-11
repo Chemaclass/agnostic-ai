@@ -281,6 +281,8 @@ type SectionItem struct {
 	// Local is set for a built-in the personal config turns on or off
 	// against the team's list.
 	Local bool `json:"local,omitempty"`
+	// About is set for a built-in: what turning it on does and gives you.
+	About *BuiltinAbout `json:"about,omitempty"`
 	// LocalKeys are the dotted keys a personal settings file sets itself,
 	// so each can be reset.
 	LocalKeys []string `json:"localKeys,omitempty"`
@@ -289,6 +291,17 @@ type SectionItem struct {
 	Tools *ToolListing `json:"tools,omitempty"`
 	// Findings are the check results that name this item's file.
 	Findings []ItemFinding `json:"findings"`
+}
+
+// BuiltinAbout explains a built-in in its Details panel.
+type BuiltinAbout struct {
+	// Summary says in one sentence what turning the built-in on does.
+	Summary string `json:"summary"`
+	// Points say what you get and what it changes in your tools.
+	Points []string `json:"points"`
+	// DocsURL links the official page of the tool the built-in wraps.
+	DocsURL   string `json:"docsUrl,omitempty"`
+	DocsLabel string `json:"docsLabel,omitempty"`
 }
 
 // Value types, which tell a client how to render a value.

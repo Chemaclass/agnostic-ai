@@ -131,7 +131,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
   )
 }
 
-/** A built-in: name, one line and its switch. The name config files use folds under Details. */
+/** A built-in: name, one line and its switch. What it does, its docs and the name config files use fold under Details. */
 function BuiltinHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
   const audience = useViewAudience()
   const [open, setOpen] = useState(false)
@@ -153,6 +153,23 @@ function BuiltinHeading({ item, control }: { item: SectionItem; control: ReactNo
         </div>
       </div>
       <dl id={detailsId} className="row-details" hidden={!open}>
+        {item.about && (
+          <div>
+            <dt>When on</dt>
+            <dd className="builtin-about">
+              <p>{item.about.summary}</p>
+              <ul>
+                {item.about.points.map((point) => <li key={point}>{point}</li>)}
+              </ul>
+            </dd>
+          </div>
+        )}
+        {item.about?.docsUrl && (
+          <div>
+            <dt>Docs</dt>
+            <dd><a href={item.about.docsUrl} target="_blank" rel="noopener noreferrer" aria-label={`${item.about.docsLabel ?? item.about.docsUrl} (opens in a new tab)`}>{item.about.docsLabel ?? item.about.docsUrl}</a></dd>
+          </div>
+        )}
         <div>
           <dt>Name in config</dt>
           <dd><code>{item.name}</code></dd>

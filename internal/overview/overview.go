@@ -528,6 +528,63 @@ var builtinDescriptions = map[string]string{
 	"caveman":      "Terse replies to cut output tokens.",
 }
 
+// builtinAbouts explains each built-in in its Details panel. Keep each
+// line true to what the built-in's files under internal/builtins/data emit.
+var builtinAbouts = map[string]BuiltinAbout{
+	"memory": {
+		Summary: "Sets up project and personal memory that your coding tools read when a session starts.",
+		Points: []string{
+			"A fact one tool saves, the next tool already knows.",
+			"Team facts live in .agnostic-ai/memory/ in Git. Personal facts stay on your machine, out of Git.",
+			"Adds a rule on when to save a fact, a shared-memory skill, and a step that loads the memory list at session start.",
+		},
+	},
+	"handoff": {
+		Summary: "Adds the handoff skill, which saves a task note so the next session can pick it up.",
+		Points: []string{
+			"Move a task to another tool on the same machine without explaining it again.",
+			`Say "write a handoff" to save the goal, progress and next steps. Say "resume the handoff" in the next tool.`,
+			"Notes stay in .agnostic-ai/local/handoffs/, which Git ignores.",
+		},
+	},
+	"handoff-hook": {
+		Summary: "Adds hooks that save a Git snapshot when a session ends or its history is shortened, and tell you about saved handoffs when a session starts.",
+		Points: []string{
+			"With the handoff built-in on, you can resume from the last snapshot even when no one wrote a note.",
+			"Adds hooks to Claude Code, Codex, Gemini CLI, Qoder and Factory.",
+			"Nothing resumes until you ask.",
+		},
+	},
+	"rtk": {
+		Summary: "Adds a Claude Code hook that runs supported shell commands through RTK, which shortens their output.",
+		Points: []string{
+			"The agent reads shorter command output. In our small test, RTK cost the least on larger tasks.",
+			"Adds a hook to Claude Code settings that runs before each Bash command, on macOS and Linux. Other tools get nothing.",
+			"agnostic-ai does not install RTK. Without it, commands run as normal.",
+		},
+		DocsURL:   "https://github.com/rtk-ai/rtk",
+		DocsLabel: "RTK on GitHub",
+	},
+	"caveman": {
+		Summary: "Adds the Caveman skill, which makes the agent answer in fewer words.",
+		Points: []string{
+			"Answers are shorter and quicker to read. Our small test found no cost saving.",
+			"Code, commands and error text stay exact.",
+			`Adds a caveman skill to every tool that supports skills. Type /caveman to start it and say "stop caveman" to end it.`,
+		},
+		DocsURL:   "https://github.com/JuliusBrussee/caveman",
+		DocsLabel: "Caveman on GitHub",
+	},
+}
+
+func builtinAbout(name string) *BuiltinAbout {
+	about, ok := builtinAbouts[name]
+	if !ok {
+		return nil
+	}
+	return &about
+}
+
 // builtinLabels names each built-in for people; the id stays the key
 // written in the builtins list.
 var builtinLabels = map[string]string{
@@ -567,7 +624,7 @@ func builtinItems(in Inputs) []SectionItem {
 		}
 		on := slices.Contains(enabled, name)
 		local := in.BuiltinsLocal && on != slices.Contains(in.BuiltinsTeam, name)
-		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: builtinLabel(name), Description: description, Path: "builtin:" + name, Layer: builtinLayer, Enabled: &on, Local: local})
+		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: builtinLabel(name), Description: description, Path: "builtin:" + name, Layer: builtinLayer, Enabled: &on, Local: local, About: builtinAbout(name)})
 	}
 	return items
 }

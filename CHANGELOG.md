@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface's Built-ins tab, Details now says what each built-in does when on and links RTK and Caveman to their official pages (#3261).
 - `upgrade` also updates an installed companion and restarts it if it was running (#3247).
 - Right-click the companion's circle to stop its animation or dim it when nothing needs you (#3237, #3246).
 - `memory import --skip <file>` and `--skip-rest` decline facts you do not want, and LINT043 stops counting them (#3235).

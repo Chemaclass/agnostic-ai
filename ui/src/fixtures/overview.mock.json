@@ -735,6 +735,16 @@
           "layer": "builtin",
           "values": [],
           "enabled": false,
+          "about": {
+            "summary": "Adds the Caveman skill, which makes the agent answer in fewer words.",
+            "points": [
+              "Answers are shorter and quicker to read. Our small test found no cost saving.",
+              "Code, commands and error text stay exact.",
+              "Adds a caveman skill to every tool that supports skills. Type /caveman to start it and say \"stop caveman\" to end it."
+            ],
+            "docsUrl": "https://github.com/JuliusBrussee/caveman",
+            "docsLabel": "Caveman on GitHub"
+          },
           "findings": []
         },
         {
@@ -746,6 +756,14 @@
           "layer": "builtin",
           "values": [],
           "enabled": false,
+          "about": {
+            "summary": "Adds the handoff skill, which saves a task note so the next session can pick it up.",
+            "points": [
+              "Move a task to another tool on the same machine without explaining it again.",
+              "Say \"write a handoff\" to save the goal, progress and next steps. Say \"resume the handoff\" in the next tool.",
+              "Notes stay in .agnostic-ai/local/handoffs/, which Git ignores."
+            ]
+          },
           "findings": []
         },
         {
@@ -757,6 +775,14 @@
           "layer": "builtin",
           "values": [],
           "enabled": false,
+          "about": {
+            "summary": "Adds hooks that save a Git snapshot when a session ends or its history is shortened, and tell you about saved handoffs when a session starts.",
+            "points": [
+              "With the handoff built-in on, you can resume from the last snapshot even when no one wrote a note.",
+              "Adds hooks to Claude Code, Codex, Gemini CLI, Qoder and Factory.",
+              "Nothing resumes until you ask."
+            ]
+          },
           "findings": []
         },
         {
@@ -768,6 +794,14 @@
           "layer": "builtin",
           "values": [],
           "enabled": false,
+          "about": {
+            "summary": "Sets up project and personal memory that your coding tools read when a session starts.",
+            "points": [
+              "A fact one tool saves, the next tool already knows.",
+              "Team facts live in .agnostic-ai/memory/ in Git. Personal facts stay on your machine, out of Git.",
+              "Adds a rule on when to save a fact, a shared-memory skill, and a step that loads the memory list at session start."
+            ]
+          },
           "findings": []
         },
         {
@@ -779,6 +813,16 @@
           "layer": "builtin",
           "values": [],
           "enabled": false,
+          "about": {
+            "summary": "Adds a Claude Code hook that runs supported shell commands through RTK, which shortens their output.",
+            "points": [
+              "The agent reads shorter command output. In our small test, RTK cost the least on larger tasks.",
+              "Adds a hook to Claude Code settings that runs before each Bash command, on macOS and Linux. Other tools get nothing.",
+              "agnostic-ai does not install RTK. Without it, commands run as normal."
+            ],
+            "docsUrl": "https://github.com/rtk-ai/rtk",
+            "docsLabel": "RTK on GitHub"
+          },
           "findings": []
         },
         {
