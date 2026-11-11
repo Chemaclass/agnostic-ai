@@ -144,9 +144,14 @@ func nativeHookHandlers(h spec.Entry, raw any) []map[string]any {
 // as milliseconds; below it the value is seconds.
 const millisecondTimeoutFloor = 1000
 
+// maxTimerMilliseconds is the longest delay a timer takes; above it Qwen's
+// timer fires after 1 ms.
+const maxTimerMilliseconds = 1<<31 - 1
+
 // HookTimeout returns a command hook's timeout in the unit Qwen reads it
 // in. The spec's seconds stay seconds below 1000; from 1000 up Qwen takes
-// the number as milliseconds, so they are sent times 1000. `x-qwen.timeout`
+// the number as milliseconds, so they are sent times 1000, capped at
+// maxTimerMilliseconds (about 24.8 days). `x-qwen.timeout`
 // goes out as written, since namespaced fields use native units.
 func HookTimeout(meta map[string]any) (any, bool) {
 	native, _ := meta["x-qwen"].(map[string]any)
@@ -155,7 +160,7 @@ func HookTimeout(meta map[string]any) (any, bool) {
 	}
 	if timeout, ok := emit.IntField(meta, "timeout"); ok {
 		if timeout >= millisecondTimeoutFloor {
-			return timeout * 1000, true
+			return min(timeout*1000, maxTimerMilliseconds), true
 		}
 		return timeout, true
 	}

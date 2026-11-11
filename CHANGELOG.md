@@ -8,7 +8,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
-- A Qwen command hook with a `timeout` of 1000 seconds or more is now written in milliseconds, which Qwen reads from 1000 up; `timeout: 1200` became a 1.2 second limit before. Lower values are unchanged (#3309).
 - Quit the companion from its ⋯ menu or the circle's right-click menu (#3297).
 - `agnostic-ai conversations start` starts a new conversation from inside a Claude Code or Codex session, in a new terminal tab in the same folder, with a brief as its first prompt. Its first line, `Continues <tool>:<id>`, gives the row a `parent` in the conversations API. The new `side-conversation` built-in adds a skill that tells the agent when to run it and how to write the brief (#3285).
 - The companion and the web interface show the agent's latest reply under each chat's title: the question it asks, or the start of its last message. Local Claude Code and Codex chats show it; Cursor chats and cloud sessions do not yet. `reply` holds it in the API, and a search matches it (#3283).
@@ -46,6 +45,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Settings `permissions.ask` writes `ask-user` rules to `.augment/settings.json`, between deny and allow rules; `import augment` reads them back (#3266).
 - Settings `model` and `effort` write Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; Auggie 0.x ignores both keys. `import augment` reads them back (#3265).
 - Hooks with `args` reach `.augment/settings.json` and `~/.augment/settings.json` with their arguments, instead of being skipped. An inline command no longer raises a "never executes" note, and `hook run` runs it (#3264).
+
+#### Qwen Code
+
+- A Qwen command hook with a `timeout` of 1000 seconds or more is now written in milliseconds, which Qwen reads from 1000 up; `timeout: 1200` became a 1.2 second limit before. Lower values are unchanged (#3309).
 
 ### Site
 

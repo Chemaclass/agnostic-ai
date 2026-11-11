@@ -54,6 +54,9 @@ func TestEmit_CommandHookTimeoutUnit(t *testing.T) {
 		{999, 999},
 		{1000, 1000000},
 		{1200, 1200000},
+		{2147483, 2147483000},
+		{2147484, 2147483647},
+		{9000000, 2147483647},
 	} {
 		handlers := emitQwenHooks(t, sessionStartHook("long", map[string]any{"command": "sleep 2", "timeout": tc.seconds}))
 		if got := handlers[0]["timeout"]; got != tc.want {
