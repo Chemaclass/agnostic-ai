@@ -67,9 +67,13 @@ func mapType(t reflect.Type) *jsonschema.Schema {
 			AdditionalProperties: &jsonschema.Schema{OneOf: scalar()},
 		}),
 	})
+	props.Set("description", &jsonschema.Schema{
+		Type:        "string",
+		Description: "When to use this tier, in one line. sync lists the tiers that have one in the generated instructions.",
+	})
 	return &jsonschema.Schema{
 		Type:                 "object",
-		Description:          "A model tier: target name (or default) to that target's model id, plus an optional effort.",
+		Description:          "A model tier: target name (or default) to that target's model id, plus an optional effort and description.",
 		Properties:           props,
 		AdditionalProperties: &jsonschema.Schema{Type: "string", MinLength: ptr(uint64(1))},
 	}

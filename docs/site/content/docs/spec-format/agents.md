@@ -161,7 +161,7 @@ Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonne
 
 ## Model tiers {#model-tiers}
 
-A [tier](@/docs/configuration.md#models) names a model role once in `agnostic-ai.yaml`, such as `strong: {claude: opus, codex: sol, effort: high}`. Write `model: strong` in an agent, and each target the tier names gets its model; the others keep their default. For `model`, the first match wins:
+A [tier](@/docs/configuration.md#models) names a model role once in `agnostic-ai.yaml`, such as `strong: {claude: opus, codex: sol, effort: high}`. Write `model: strong` in an agent, and each target the tier names gets its model; the others keep their default. A tier's [`description`](@/docs/configuration.md#models) tells the main agent when to pick it. For `model`, the first match wins:
 
 1. `x-<target>.model`
 2. `model.<target>` in the spec

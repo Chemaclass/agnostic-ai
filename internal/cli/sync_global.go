@@ -305,7 +305,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
 		}
 	}
-	instructions, err := globalInstructions(source, bundle.Rules)
+	instructions, err := globalInstructions(source, tiers, bundle.Rules)
 	if err != nil {
 		return err
 	}
