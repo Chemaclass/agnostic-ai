@@ -783,8 +783,15 @@ jobs:
         working-directory: .
         run: go build -o agnostic-ai ./cmd/agnostic-ai
 
+      - name: Companion page tests
+        working-directory: companion
+        run: node --test tests/*.test.js
+
       - name: Install browser
         run: npx playwright install chromium
+
+      - name: Companion browser tests
+        run: npx playwright test --config playwright.companion.config.ts
 
       - name: Fixture browser tests
         env:

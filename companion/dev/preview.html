@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Companion preview</title>
+  <style>
+    :root { color-scheme: light dark; --page: #f2efe9; --text: #1d1b18; --muted: #6b665e; --line: #d8d2c8; }
+    @media (prefers-color-scheme: dark) { :root { --page: #24221f; --text: #f2ede5; --muted: #a39d93; --line: #3a3733; } }
+    body { margin: 0; padding: 16px; background: var(--page); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+    header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+    h1 { font-size: 16px; margin: 0; }
+    p { margin: 0; color: var(--muted); }
+    .stage { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+    figure { margin: 0; }
+    figcaption { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    iframe { border: 1px dashed var(--line); background: transparent; display: block; }
+    .bubble { width: 84px; height: 84px; }
+    .panel { width: 432px; height: 624px; max-width: calc(100vw - 32px); }
+    ol { margin: 0; padding-left: 20px; font: 12px/1.5 ui-monospace, monospace; max-height: 560px; overflow: auto; }
+    .calls { min-width: 240px; flex: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Companion preview</h1>
+    <label>Fixture <select id="fixture"></select></label>
+    <p>The real pages with fixture data. Calls stay in this process. Native focus, window placement and the shortcut need the app: <code>make companion-run</code>.</p>
+  </header>
+  <div class="stage">
+    <figure><figcaption>Bubble</figcaption><iframe class="bubble" src="/" title="Bubble"></iframe></figure>
+    <figure><figcaption>Panel</figcaption><iframe class="panel" src="/panel.html" title="Panel"></iframe></figure>
+    <figure class="calls"><figcaption>Calls the pages made</figcaption><ol id="calls"></ol></figure>
+  </div>
+  <script type="module">
+    const select = document.getElementById('fixture')
+    const calls = document.getElementById('calls')
+    const { chosen, fixtures } = await (await fetch('/dev/fixtures')).json()
+    for (const { name, label } of fixtures) select.append(new Option(label, name, false, name === chosen))
+    select.addEventListener('change', () => {
+      fetch('/dev/fixture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: select.value }) })
+    })
+    // Asked every second rather than streamed: each frame already holds one stream,
+    // and a browser keeps only six connections open to one host.
+    async function showCalls() {
+      try {
+        const made = await (await fetch('/dev/calls')).json()
+        calls.replaceChildren(...made.map(({ path, body }) => {
+          const item = document.createElement('li')
+          item.textContent = path + (body ? ' ' + JSON.stringify(body) : '')
+          return item
+        }))
+      } catch {
+        // The preview stopped; the next try shows the calls again once it is back.
+      }
+    }
+    showCalls()
+    setInterval(showCalls, 1000)
+  </script>
+</body>
+</html>
