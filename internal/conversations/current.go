@@ -35,6 +35,10 @@ func CurrentSession(processes Processes, stores Stores, getenv func(string) stri
 	if err != nil {
 		return Ref{}, 0, fmt.Errorf("could not read the process table: %w", err)
 	}
+	return currentSession(table, processes, stores, getenv, pid)
+}
+
+func currentSession(table []ProcessInfo, processes Processes, stores Stores, getenv func(string) string, pid int) (Ref, int, error) {
 	byPID := make(map[int]ProcessInfo, len(table))
 	for _, process := range table {
 		byPID[process.PID] = process
