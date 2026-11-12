@@ -375,7 +375,11 @@ func (a app) start(args []string) (string, error) {
 	}
 	runID := hex.EncodeToString(id)
 	if *out == "" {
-		*out = filepath.Join(a.root, "local/target-audit", time.Now().UTC().Format("2006-01-02T150405Z")+"-"+runID)
+		evidence, err := a.evidenceDirectory()
+		if err != nil {
+			return "", err
+		}
+		*out = filepath.Join(evidence, time.Now().UTC().Format("2006-01-02T150405Z")+"-"+runID)
 	}
 	abs, err := filepath.Abs(*out)
 	if err != nil {
@@ -938,9 +942,11 @@ func (a app) finalize(m *manifest) (string, error) {
 
 func (a app) run(args []string) (string, error) {
 	if len(args) == 0 {
-		return "", errors.New("usage: start|capture|resume|checkpoint|checkpoints|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
+		return "", errors.New("usage: isolate|start|capture|resume|checkpoint|checkpoints|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
 	}
 	switch args[0] {
+	case "isolate":
+		return a.isolate(args[1:])
 	case "start":
 		return a.start(args[1:])
 	case "checkpoint":

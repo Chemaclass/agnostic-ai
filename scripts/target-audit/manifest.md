@@ -4,12 +4,33 @@
 
 This development helper needs Go. JSON comparison hashes also need `jq` when the fetched bytes were normalized with it. Fetch-only vendor-watch runs do not use the helper or need a manifest.
 
-## Start and fetch
+## Isolate before starting
 
-Start before fetching. Initialize the run metrics before the fetch using the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md). Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md): one revision, or the per-target `<target>=<rev>,...` list from `scripts/target-facts.sh --builtins-baseline local/target-audit/*.md`. `start` resolves each revision to its full commit and rejects an unknown or repeated target. Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable. A target the list omits has no baseline and cannot take a fast path.
+Build the helper once outside the checkout, then create a dedicated worktree before fetching:
 
 ```bash
-run=$(go run ./scripts/audit-manifest start --builtins-since <commit> claude zed)
+go build -o /tmp/agnostic-audit-manifest ./scripts/audit-manifest
+worktree=$(/tmp/agnostic-audit-manifest isolate --out /tmp/agnostic-audit-research)
+cd "$worktree"
+evidence=$(jq -r .evidence_directory "$(git rev-parse --git-path target-audit-isolation.json)")
+export DOCFETCH_RUNS="$evidence"
+export DOCFETCH_SNAPSHOTS="$evidence/snapshots"
+```
+
+Choose a new absolute worktree path for each audit. `isolate` checks out the current commit detached and prints the worktree path. Dirty tracked or untracked inputs, including ignored built-in assets, require committing them first or explicitly choosing `--commit <revision>`. That option audits committed inputs only. It never copies working changes. Record that choice in the report.
+
+The helper records the selected commit and original evidence directory in the new worktree's Git administration directory. Subsequent `start` calls through the built helper default to the original checkout's `local/target-audit/`, so existing baseline reports, text snapshots, blobs, and new reports stay together. An explicit `start --out` still chooses a different fresh run directory. The exported fetch paths keep comparison snapshots and retained raw bodies beside the persistent runs. Use absolute paths to prior reports when selecting a baseline or resuming. Resume still requires a new fresh fetch and matching repository context; isolation does not authorize reuse across worktrees.
+
+Run the built helper with `--root "$worktree"` or from that directory for every manifest command. Use that checkout's fetch/facts scripts and source lock. Generate native instructions there with `go run ./cmd/agnostic-ai sync` before starting the manifest, then keep inputs fixed. Canonical instructions are already tracked and readable before generation. Finalization still rejects changes within the research worktree.
+
+Keep the worktree while research, resume, or maintenance delivery remains pending. After finalization, create a delivery branch there and commit the validated maintenance changes. Publish that branch through the normal maintenance PR. Never copy its lock over a concurrently changed starting checkout. Preserve the evidence directory and report links after delivery; remove only the owned worktree after its changes are merged or otherwise safely retained. A removed worktree's old manifest remains historical evidence, not a resumable live checkout.
+
+## Start and fetch
+
+Start before fetching. Initialize the run metrics before the fetch using the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md). Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md): one revision, or the per-target `<target>=<rev>,...` list from `scripts/target-facts.sh --builtins-baseline "$evidence"/*.md`. `start` resolves each revision to its full commit and rejects an unknown or repeated target. Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable. A target the list omits has no baseline and cannot take a fast path.
+
+```bash
+run=$(/tmp/agnostic-audit-manifest start --builtins-since <commit> claude zed)
 provenance=$(jq '{audited_commit, targets, builtin_baseline: .builtins_since, source_lock: .lock_baseline_sha256}' "$run/audit.json")
 scripts/audit-metrics.sh init "$run" "$(jq -r .run_id "$run/audit.json")" "$provenance"
 scripts/docfetch.sh --out "$run" claude zed

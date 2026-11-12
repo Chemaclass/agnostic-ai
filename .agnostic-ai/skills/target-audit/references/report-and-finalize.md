@@ -1,6 +1,6 @@
 # Report and finalize
 
-Write `local/target-audit/<YYYY-MM-DD>.md`. Preserve an existing same-day report or deliberately update it as a continuation. Include audited commit, window, target coverage, counts, source dates, issue/PR links, and research limits. Add a `Built-ins` line naming each target whose built-in behavior this run checked, but only when `scripts/target-facts.sh --changed <run>/docfetch.tsv --builtins-since HEAD` prints no `builtin-deep:` line, so the files audited match the recorded commit. Write it as `- Built-ins: <target> <target> ...` with nothing else on the line; put any note on the next line. A continuation section adds its own `Audited commit` and `Built-ins` lines rather than editing the earlier ones. The next run takes each target's baseline from the newest report whose line names it, so a target this run did not check keeps its older baseline or none.
+Write `<persistent-evidence-directory>/<YYYY-MM-DD>.md`, beside the isolated run and existing reports. Preserve an existing same-day report or deliberately update it as a continuation. Include audited commit, window, target coverage, counts, source dates, issue/PR links, and research limits. Add a `Built-ins` line naming each target whose built-in behavior this run checked, but only when `scripts/target-facts.sh --changed <run>/docfetch.tsv --builtins-since HEAD` prints no `builtin-deep:` line, so the files audited match the recorded commit. Write it as `- Built-ins: <target> <target> ...` with nothing else on the line; put any note on the next line. A continuation section adds its own `Audited commit` and `Built-ins` lines rather than editing the earlier ones. The next run takes each target's baseline from the newest report whose line names it, so a target this run did not check keeps its older baseline or none.
 
 Include `audit-manifest result-report <run>` for ingested target coverage and observed timings. Manually recorded or reused targets retain their existing coverage records; their timing is not inferred.
 
@@ -36,3 +36,7 @@ With `--fix`, finish synthesis and settle all buckets before launching isolated 
 
 Finish with the top findings, recommended next actions, report link, and issue/PR links. State validation limits accurately. Stop at reviewable PRs; merging belongs to the human.
 
+
+## Isolated delivery
+
+Keep the research worktree until coverage is finalized and maintenance changes have a delivery branch. Commit and publish those changes from that worktree through the maintenance bucket; do not overwrite the original checkout's lock or source files. Preserve the persistent evidence directory when cleaning up a merged worktree. Pending research and unpushed maintenance commits keep their worktree. The isolation entry and retention rules are in `scripts/target-audit/manifest.md`.

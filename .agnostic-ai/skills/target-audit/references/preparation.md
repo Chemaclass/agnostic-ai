@@ -1,6 +1,8 @@
 # Prepare an audit run
 
-Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state, and open PRs before delegating.
+Create a dedicated audit worktree first using the isolation entry command in `scripts/target-audit/manifest.md`. Keep evidence in the persistent directory it records. Generate native instructions before starting the manifest. Record whether the audit uses the current committed tree or an explicitly selected revision; never silently omit requested working changes.
+
+Run `scripts/target-facts.sh --list` inside that worktree. Record the audited commit, worktree state, and open PRs before delegating.
 
 Take the newest date from the latest completed local report, legacy `extra.audit_marker`, audit issue creation, or commit that records an audit's source corrections in `.agnostic-ai/skills/target-audit/references/sources.md`. A commit that only trims or restructures that file, such as #1109's, is not an audit and does not move the window. Widen it slightly for changelog overlap and record the chosen window. Scratch reproductions and incomplete runs are not completed reports.
 
