@@ -181,8 +181,9 @@ change made in one shows in the other.
 - **Quit Agnostic AI companion**, in the list's ⋯ menu or the circle's
   right-click menu, asks first, then ends the companion and its server.
 - `agnostic-ai companion stop` does the same from a terminal, without asking.
-  So do `install`, `upgrade` and `uninstall`, and logging out. It says so
-  when none runs. **Start at login** stays as you set it.
+  It says so when none runs. **Start at login** stays as you set it.
+  `install`, `upgrade`, `uninstall` and logging out also end it without
+  asking.
 - `agnostic-ai companion uninstall` ends the companion, turns off **Start at
   login**, and deletes the built program, `companion.json` and
   `companion-command`. Your read and archive marks stay, because

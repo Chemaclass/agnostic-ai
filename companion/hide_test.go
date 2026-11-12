@@ -288,23 +288,36 @@ func listWith(extra string, ids ...string) []byte {
 }
 
 func TestHidden_AListThatReadLessIsANewBaselineNotNews(t *testing.T) {
-	for name, gap := range map[string]string{
-		"marks":       `"marksNote":"could not read the marks"`,
-		"cloud":       `"cloudNote":"no claude.ai sign-in"`,
-		"cursor read": `"tools":[{"tool":"cursor","found":false,"note":"locked"}]`,
+	for name, tc := range map[string]struct{ row, gap string }{
+		"marks":       {`{"tool":"claude","app":"cli","id":"a","state":"blocked"}`, `"marksNote":"could not read the marks",`},
+		"cloud":       {`{"tool":"claude","app":"cloud","id":"a","state":"blocked"}`, `"cloudNote":"claude.ai did not answer",`},
+		"cursor read": {`{"tool":"cursor","app":"ide","id":"a","state":"blocked"}`, `"tools":[{"tool":"cursor","found":false,"note":"locked"}],`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			s, _ := placedShell(t)
-			s.listRead(listWaiting(1, "a"))
+			full := []byte(`{"tools":[{"tool":"cursor","found":true}],"conversations":[` + tc.row + `]}`)
+			s.listRead(full)
 			s.setPresence(hidden)
 
-			s.listRead(listWith(gap))
-			s.listRead(listWaiting(1, "a"))
+			s.listRead([]byte(`{` + tc.gap + `"conversations":[]}`))
+			s.listRead(full)
 
 			if got := s.presenceNow(); got != hidden {
 				t.Errorf("presence = %q; want hidden: the full list again is nothing new", got)
 			}
 		})
+	}
+}
+
+func TestHidden_ALocalWaitInTheReadWhereTheCloudFlipsStillBringsItBack(t *testing.T) {
+	s, _ := placedShell(t)
+	s.listRead(listWaiting(1, "a"))
+	s.setPresence(hidden)
+
+	s.listRead(listWith(`"cloudNote":"no claude.ai sign-in"`, "a", "b"))
+
+	if got := s.presenceNow(); got != fadedBack {
+		t.Errorf("presence = %q; want faded: b is local and the local store read the same", got)
 	}
 }
 
@@ -522,17 +535,19 @@ func TestShowRoute_LeavesAHiddenOrFadedCompanionAlone(t *testing.T) {
 }
 
 func TestWaiting_Gained(t *testing.T) {
-	ab := waiting{ids: map[string]bool{"a": true, "b": true}}
+	ab := waiting{ids: map[string]string{"a": "claude", "b": "claude"}}
 	cases := []struct {
 		name string
 		now  waiting
 		want bool
 	}{
 		{"same", ab, false},
-		{"one fewer", waiting{ids: map[string]bool{"a": true}}, false},
-		{"one more", waiting{ids: map[string]bool{"a": true, "b": true, "c": true}}, true},
-		{"one swapped", waiting{ids: map[string]bool{"a": true, "c": true}}, true},
-		{"one more, read differently", waiting{ids: map[string]bool{"a": true, "b": true, "c": true}, gaps: "cloud:down"}, false},
+		{"one fewer", waiting{ids: map[string]string{"a": "claude"}}, false},
+		{"one more", waiting{ids: map[string]string{"a": "claude", "b": "claude", "c": "claude"}}, true},
+		{"one swapped", waiting{ids: map[string]string{"a": "claude", "c": "claude"}}, true},
+		{"one more, its source read differently", waiting{ids: map[string]string{"a": "claude", "b": "claude", "c": "claude"}, health: map[string]string{"claude": "false:locked"}}, false},
+		{"one more, another source read differently", waiting{ids: map[string]string{"a": "claude", "b": "claude", "c": "claude"}, health: map[string]string{cloudSource: "down"}}, true},
+		{"one more, marks read differently", waiting{ids: map[string]string{"a": "claude", "b": "claude", "c": "claude"}, marks: "locked"}, false},
 	}
 	for _, tc := range cases {
 		if got := tc.now.gained(ab); got != tc.want {
@@ -543,7 +558,7 @@ func TestWaiting_Gained(t *testing.T) {
 
 func TestWaitingIn_ReadsBlockedAndUnreadRows(t *testing.T) {
 	got, ok := waitingIn([]byte(`{"needsYou":5,"conversations":[{"tool":"claude","id":"a","state":"blocked"},{"tool":"codex","id":"b","state":"unread"},{"tool":"claude","id":"c","state":"working"}]}`))
-	if !ok || len(got.ids) != 2 || !got.ids["claude:a"] || !got.ids["codex:b"] {
+	if !ok || len(got.ids) != 2 || got.ids["claude:a"] != "claude" || got.ids["codex:b"] != "codex" {
 		t.Errorf("waitingIn = %+v, %v", got, ok)
 	}
 }
@@ -598,7 +613,11 @@ echo "Serving agnostic-ai at `+fake.URL+`/"
 cat > /dev/null`)
 	s, told := placedShell(t)
 	t.Cleanup(func() {
-		s.inbox.stop()
+		s.inbox.mu.Lock()
+		if s.inbox.stopPoll != nil {
+			s.inbox.stopPoll()
+		}
+		s.inbox.mu.Unlock()
 		s.server.rest()
 	})
 	return s, told, started

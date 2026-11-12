@@ -65,16 +65,6 @@ func (in *inbox) start() {
 	go in.poll(ctx)
 }
 
-// stop ends the asking.
-func (in *inbox) stop() {
-	in.mu.Lock()
-	defer in.mu.Unlock()
-	if in.stopPoll != nil {
-		in.stopPoll()
-		in.stopPoll = nil
-	}
-}
-
 func (in *inbox) poll(ctx context.Context) {
 	ticker := time.NewTicker(pollEvery)
 	defer ticker.Stop()

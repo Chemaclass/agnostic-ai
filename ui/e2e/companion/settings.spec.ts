@@ -123,6 +123,42 @@ for (const [how, cancel] of [
   })
 }
 
+test('Enter on Quit with a row selected asks, and neither opens the row nor hides the list', async ({ page }) => {
+  await openPanel(page)
+  const opens = sent(page, '/api/open')
+  const hides = sent(page, '/api/panel/hide')
+  await page.getByLabel('Search every conversation').focus()
+  await page.keyboard.press('ArrowDown')
+  await openSettings(page)
+
+  await page.getByRole('button', { name: 'Quit Agnostic AI companion' }).focus()
+  await page.keyboard.press('Enter')
+
+  await expect(quitQuestion(page)).toBeVisible()
+  await page.waitForTimeout(200)
+  expect(opens).toEqual([])
+  expect(hides).toEqual([])
+})
+
+test('the quit question keeps the keys: Tab goes round its three buttons', async ({ page }) => {
+  await openPanel(page)
+  const marks = sent(page, '/api/mark')
+  await askQuit(page)
+  const question = quitQuestion(page)
+
+  const order = ['Hide instead', 'Quit', 'Cancel', 'Hide instead']
+  for (const name of order) {
+    await page.keyboard.press('Tab')
+    await expect(question.getByRole('button', { name, exact: true })).toBeFocused()
+  }
+  await page.keyboard.press('Shift+Tab')
+  await expect(question.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await page.keyboard.press('Enter')
+
+  await expect(question).toBeHidden()
+  expect(marks).toEqual([])
+})
+
 test('Quit in the right-click menu opens the list on the question', async ({ page }) => {
   await openPanel(page)
   const quits = sent(page, '/api/quit')

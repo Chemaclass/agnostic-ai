@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"strconv"
-	"strings"
 )
 
 // presence is how the companion sits on the screen. It is never saved:
@@ -21,14 +20,20 @@ const (
 )
 
 // waiting is what needs the person in one list: its blocked and unread
-// conversations by tool and id (the list holds every one of any age),
-// and what the list says it could not read.
+// conversations (the list holds every one of any age), and how well the
+// list could read each place they come from.
 type waiting struct {
-	ids map[string]bool
-	// gaps names the marks, cloud sessions and tool stores the list could
-	// not read. Two lists with different gaps saw different conversations.
-	gaps string
+	// ids holds each waiting conversation, by tool and id, with its source.
+	ids map[string]string
+	// health says, for each source, what could not be read there: a
+	// tool's store, or the cloud sessions. Empty when all of it was read.
+	health map[string]string
+	// marks says why the marks could not be read; it changes every row.
+	marks string
 }
+
+// cloudSource is where cloud sessions come from, whatever their tool.
+const cloudSource = "cloud"
 
 // waitingIn reads what waits from a list as the server sent it. It
 // reports false for a list it cannot read.
@@ -43,6 +48,7 @@ func waitingIn(list json.RawMessage) (waiting, bool) {
 		} `json:"tools"`
 		Conversations []struct {
 			Tool  string `json:"tool"`
+			App   string `json:"app"`
 			ID    string `json:"id"`
 			State string `json:"state"`
 		} `json:"conversations"`
@@ -50,28 +56,35 @@ func waitingIn(list json.RawMessage) (waiting, bool) {
 	if len(list) == 0 || json.Unmarshal(list, &view) != nil {
 		return waiting{}, false
 	}
-	gaps := []string{"marks:" + view.MarksNote, "cloud:" + view.CloudNote}
+	now := waiting{ids: map[string]string{}, health: map[string]string{cloudSource: view.CloudNote}, marks: view.MarksNote}
 	for _, tool := range view.Tools {
-		gaps = append(gaps, tool.Tool+":"+strconv.FormatBool(tool.Found)+":"+tool.Note)
+		now.health[tool.Tool] = strconv.FormatBool(tool.Found) + ":" + tool.Note
 	}
-	now := waiting{ids: map[string]bool{}, gaps: strings.Join(gaps, "\n")}
 	for _, conversation := range view.Conversations {
-		if conversation.State == "blocked" || conversation.State == "unread" {
-			now.ids[conversation.Tool+":"+conversation.ID] = true
+		if conversation.State != "blocked" && conversation.State != "unread" {
+			continue
 		}
+		source := conversation.Tool
+		if conversation.App == cloudSource {
+			source = cloudSource
+		}
+		now.ids[conversation.Tool+":"+conversation.ID] = source
 	}
 	return now, true
 }
 
 // gained reports whether a conversation waits now that did not in
-// before, even while another stopped waiting. Lists that could not read
-// the same things are not compared: the fuller one would look new.
+// before, even while another stopped waiting. A source read differently
+// in the two lists is not compared: what it read more would look new.
 func (w waiting) gained(before waiting) bool {
-	if w.gaps != before.gaps {
+	if w.marks != before.marks {
 		return false
 	}
-	for id := range w.ids {
-		if !before.ids[id] {
+	for id, source := range w.ids {
+		if w.health[source] != before.health[source] {
+			continue
+		}
+		if _, was := before.ids[id]; !was {
 			return true
 		}
 	}

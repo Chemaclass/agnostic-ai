@@ -681,6 +681,14 @@ document.getElementById('quit-go').addEventListener('click', () => quitCompanion
 document.addEventListener('mousedown', (event) => {
   if (!quitConfirm.hidden && !quitConfirm.contains(event.target)) closeQuitConfirm()
 })
+// The question keeps the keys: Tab goes round its three buttons.
+quitConfirm.addEventListener('keydown', (event) => {
+  if (event.key !== 'Tab') return
+  event.preventDefault()
+  const buttons = [...quitConfirm.querySelectorAll('button')]
+  const at = buttons.indexOf(document.activeElement)
+  buttons[(at + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length].focus()
+})
 
 // Delete permanently
 
@@ -983,8 +991,8 @@ document.addEventListener('keydown', (event) => {
     moveActive(step)
     return
   }
-  // A focused notice or group header button takes Enter as its own click.
-  if (event.key === 'Enter' && !event.target.closest('#notice button, .group-head button')) {
+  // A focused notice, group header or settings menu button takes Enter as its own click.
+  if (event.key === 'Enter' && !event.target.closest('#notice button, .group-head button, #menu')) {
     const conversation = activeConversation()
     if (conversation) openRow(conversation)
   }
