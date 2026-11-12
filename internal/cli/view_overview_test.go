@@ -582,13 +582,15 @@ func TestProbeViewServer_IgnoresUnrelatedService(t *testing.T) {
 func freeLoopbackAddrs(t *testing.T, n int) []string {
 	t.Helper()
 	var addrs []string
+	// Each listener stays open until all are taken: closing one first lets
+	// the system hand out the same port again.
 	for range n {
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer ln.Close()
 		addrs = append(addrs, ln.Addr().String())
-		_ = ln.Close()
 	}
 	return addrs
 }
