@@ -93,6 +93,11 @@ const (
 // arrives after; without the guard it would open again.
 const reopenGuard = 250 * time.Millisecond
 
+// returnSettle is how long after a hidden companion comes back the
+// circle's moves leave its list open: the window system may still be
+// placing it.
+const returnSettle = 500 * time.Millisecond
+
 // savePause is how long the bubble must rest before its place is saved.
 const savePause = 500 * time.Millisecond
 
@@ -115,8 +120,10 @@ type shell struct {
 	end             func()
 	endOnce         sync.Once
 	// hiding keeps a hide and a return from interleaving their server,
-	// poll and window changes.
+	// poll and window changes. It guards hiddenAt.
 	hiding sync.Mutex
+	// hiddenAt is where the circle was when it was hidden.
+	hiddenAt point
 	// native holds the right-click menu's items by their id in menu.json.
 	// nativeMu keeps two refreshes from interleaving.
 	native   map[string]*application.MenuItem
@@ -140,13 +147,12 @@ type shell struct {
 	// only the shortcut listens then, and nothing reads or asks anything.
 	// It is never saved, so a restart starts on the screen.
 	hidden bool
-	// hiddenAt is where the circle was when it was hidden.
-	hiddenAt point
+	// shownAgainAt is when a hidden companion last came back.
+	shownAgainAt time.Time
 }
 
 // hide takes the circle and the list off the screen and stops the
-// server, until the shortcut, a second start or the settings item brings
-// them back.
+// server, until the shortcut or a second start brings them back.
 func (s *shell) hide() {
 	s.setHidden(true)
 }
@@ -160,6 +166,9 @@ func (s *shell) setHidden(on bool) bool {
 	s.mu.Lock()
 	changed := s.hidden != on
 	s.hidden = on
+	if changed && !on {
+		s.shownAgainAt = time.Now()
+	}
 	looks := s.settings.appearance()
 	looks.Hidden = on
 	s.mu.Unlock()
@@ -233,9 +242,24 @@ func (s *shell) secondStart(second application.SecondInstanceData) {
 			log.Print(err)
 		}
 	default:
-		s.comeBack()
-		s.showPanel()
+		s.bringBack()
 	}
+}
+
+// bringBack shows a hidden companion again and opens its list.
+func (s *shell) bringBack() {
+	s.comeBack()
+	s.showPanel()
+}
+
+// appReopened answers macOS reopening the running app, from Finder or
+// `open`. Wails would show the hidden windows itself, behind the shell's back.
+func (s *shell) appReopened(cancel func()) {
+	if !s.appearance().Hidden {
+		return
+	}
+	cancel()
+	go s.bringBack()
 }
 
 // togglePanel answers a click on the bubble and the shortcut.
@@ -333,7 +357,11 @@ func (s *shell) placeBubble(saved *point) {
 // bubbleMoved closes the panel, which no longer sits beside the bubble,
 // and saves the bubble's new place once it rests.
 func (s *shell) bubbleMoved() {
-	if s.panel.IsVisible() {
+	s.mu.Lock()
+	settled := time.Since(s.shownAgainAt) >= returnSettle
+	s.mu.Unlock()
+	// A circle shown again can report moves after the list opened beside it.
+	if settled && s.panel.IsVisible() {
 		s.panel.Hide()
 	}
 	s.mu.Lock()
@@ -382,7 +410,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	})
 	// Unlike toggle, show skips the reopen guard: the page hid the panel itself.
 	// The page asks after an open fails, which can come long after a hide;
-	// only the shortcut, a second start or the settings item brings it back.
+	// only the shortcut or a second start brings it back.
 	mux.HandleFunc("POST /api/panel/show", func(w http.ResponseWriter, _ *http.Request) {
 		if s.appearance().Hidden {
 			w.WriteHeader(http.StatusNoContent)
@@ -534,6 +562,9 @@ func main() {
 	s.bubble.OnWindowEvent(events.Common.WindowDidMove, func(*application.WindowEvent) { s.bubbleMoved() })
 	s.panel.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) { s.panelLostFocus() })
 
+	s.app.Event.RegisterApplicationEventHook(events.Mac.ApplicationShouldHandleReopen, func(event *application.ApplicationEvent) {
+		s.appReopened(event.Cancel)
+	})
 	s.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		s.placeBubble(saved.Bubble)
 		watchPointer(s.bubble.NativeWindow(), func(over bool) {

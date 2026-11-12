@@ -10,13 +10,16 @@ import (
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // fakeWindow counts what the shell asks of a window; anything else panics.
+// mu lets a test watch a window the shell changes from another goroutine.
 type fakeWindow struct {
 	application.Window
+	mu           sync.Mutex
 	hides, shows int
 	visible      bool
 	// x and y are where the window is; moves counts SetPosition calls.
@@ -24,6 +27,8 @@ type fakeWindow struct {
 	moves int
 	// showsAt, when set, is where the system puts the window when it shows again.
 	showsAt *point
+	// reportedMoves counts the moves the window system reports later.
+	reportedMoves int
 }
 
 func newFakeWindow() *fakeWindow {
@@ -31,25 +36,43 @@ func newFakeWindow() *fakeWindow {
 }
 
 func (w *fakeWindow) Hide() application.Window {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.hides++
 	w.visible = false
 	return w
 }
 
 func (w *fakeWindow) Show() application.Window {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.shows++
 	w.visible = true
 	if w.showsAt != nil {
 		w.x, w.y = w.showsAt.X, w.showsAt.Y
+		w.reportedMoves++
 	}
 	return w
 }
 
-func (w *fakeWindow) IsVisible() bool      { return w.visible }
-func (w *fakeWindow) Position() (int, int) { return w.x, w.y }
-func (w *fakeWindow) Size() (int, int)     { return bubbleSide, bubbleSide }
+func (w *fakeWindow) IsVisible() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.visible
+}
+
+func (w *fakeWindow) Position() (int, int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.x, w.y
+}
+
+func (w *fakeWindow) Size() (int, int) { return bubbleSide, bubbleSide }
 func (w *fakeWindow) SetPosition(x, y int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.moves++
+	w.reportedMoves++
 	w.x, w.y = x, y
 }
 func (w *fakeWindow) Focus()                        {}
@@ -299,6 +322,62 @@ func TestOpenSettings_BringsAHiddenCompanionBack(t *testing.T) {
 	}
 }
 
+func TestShortcut_KeepsTheListOpenThoughTheReturningCircleReportsMoves(t *testing.T) {
+	s, _, _ := hideableShell(t)
+	bubble := s.bubble.(*fakeWindow)
+	bubble.showsAt = &point{X: 0, Y: 0}
+	s.setHidden(true)
+
+	s.togglePanel()
+	for range bubble.reportedMoves {
+		s.bubbleMoved()
+	}
+
+	if !s.panel.IsVisible() {
+		t.Error("the circle's return closed the list the shortcut opened")
+	}
+}
+
+func TestBubbleMoved_StillClosesTheListOnceTheReturnSettled(t *testing.T) {
+	s, _, _ := hideableShell(t)
+	s.setHidden(true)
+	s.togglePanel()
+	s.mu.Lock()
+	s.shownAgainAt = time.Now().Add(-returnSettle)
+	s.mu.Unlock()
+
+	s.bubbleMoved()
+
+	if s.panel.IsVisible() {
+		t.Error("dragging the circle left the list open")
+	}
+}
+
+func TestAppReopened_BringsAHiddenCompanionBackInsteadOfTheSystem(t *testing.T) {
+	s, _, _ := hideableShell(t)
+	s.setHidden(true)
+	cancelled := false
+
+	s.appReopened(func() { cancelled = true })
+
+	if !cancelled {
+		t.Error("the system was left to show the windows itself")
+	}
+	waitFor(t, "the companion to come back", func() bool { return !s.appearance().Hidden })
+	waitFor(t, "the list to open", s.panel.IsVisible)
+}
+
+func TestAppReopened_LeavesAShownCompanionToTheSystem(t *testing.T) {
+	s, _, _ := hideableShell(t)
+	cancelled := false
+
+	s.appReopened(func() { cancelled = true })
+
+	if cancelled {
+		t.Error("a reopen of a shown companion was cancelled")
+	}
+}
+
 func TestGetAppearance_SaysWhenHidden(t *testing.T) {
 	s, _, _ := hideableShell(t)
 	s.setHidden(true)
@@ -401,7 +480,7 @@ func TestInbox_StartReadsANewListNotOneHeldFromBefore(t *testing.T) {
 
 func TestShowRoute_LeavesAHiddenCompanionHidden(t *testing.T) {
 	// The list asks to show itself again when an open fails, which can be
-	// long after hiding. Only the shortcut, a second start or the settings item brings it back.
+	// long after hiding. Only the shortcut or a second start brings it back.
 	s, told, _ := hideableShell(t)
 	panel := s.panel.(*fakeWindow)
 	s.setHidden(true)

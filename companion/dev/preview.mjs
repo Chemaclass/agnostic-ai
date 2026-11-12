@@ -293,9 +293,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     },
     // Stands in for the circle's right-click menu, which the preview has not.
     'POST /dev/appearance': async (request, response) => {
-      const { animate, dimWhenIdle } = await bodyOf(request)
+      const { animate, dimWhenIdle, hidden } = await bodyOf(request)
       if (typeof animate === 'boolean') state.appearance.animate = animate
       if (typeof dimWhenIdle === 'boolean') state.appearance.dimWhenIdle = dimWhenIdle
+      if (typeof hidden === 'boolean') state.appearance.hidden = hidden
       noContent(response)
       emit('appearance', state.appearance)
     },

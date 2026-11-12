@@ -113,6 +113,19 @@ test('a hidden circle drops its count, and the shortcut brings it back with a ne
   await expect(page.getByRole('button', { name: 'Conversations: 2 need you' })).toBeVisible()
 })
 
+test('a circle shown again reads a new list even before any news of one', async ({ page }) => {
+  await openCircle(page)
+  await expect(page.locator('#badge')).toHaveText('2')
+  await page.request.post('/api/hide')
+  await expect(page.locator('#badge')).toBeHidden()
+
+  const inboxRead = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/inbox')
+  // Only the appearance changes here: no inbox event follows.
+  await page.request.post('/dev/appearance', { data: { hidden: false } })
+  await inboxRead
+  await expect(page.locator('#badge')).toHaveText('2')
+})
+
 test('a hidden circle reads nothing when told the list changed', async ({ page }) => {
   await openCircle(page)
   await expect(page.locator('#badge')).toHaveText('2')

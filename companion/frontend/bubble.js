@@ -33,9 +33,13 @@ function show({ view, note }) {
 
 // A pop left over would play again when animation is turned back on.
 badge.addEventListener('animationend', () => badge.classList.remove('is-new'))
+let wasHidden = false
 document.addEventListener('motion', () => {
   if (document.documentElement.dataset.motion === 'off') badge.classList.remove('is-new')
   if (isHidden()) showHidden()
+  // The news of a new list can arrive before the page hears it is shown again.
+  else if (wasHidden) refresh()
+  wasHidden = isHidden()
 })
 
 function isHidden() {
@@ -44,7 +48,8 @@ function isHidden() {
 
 /** Hidden: nothing is read, so no old count waits for the return; the first list after it draws a new one. */
 function showHidden() {
-  bubble.classList.remove('is-working', 'is-troubled', 'is-idle')
+  // The pointer may leave while the circle is off the screen, unreported.
+  bubble.classList.remove('is-working', 'is-troubled', 'is-idle', 'is-hovered')
   bubble.setAttribute('aria-label', 'Conversations: reading a new list')
   badge.hidden = true
   badge.classList.remove('is-new')
