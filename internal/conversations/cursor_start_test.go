@@ -151,10 +151,13 @@ func TestStart_StartsCursorAgentFromClaudeCodeAndCodex(t *testing.T) {
 		if reply.Parent != tc.parent || reply.Tool != ToolCursor || !strings.HasPrefix(reply.Message, "Started Cursor in a new Ghostty tab") {
 			t.Errorf("%s: reply = %+v", name, reply)
 		}
-		var ran fakeExec
-		if err := runner(t, dir, &ran).Run(id); err != nil || ran.path != "/opt/bin/cursor-agent" || len(ran.argv) != 2 || ran.argv[0] != "cursor-agent" || ran.argv[1] != linkLine(tc.parent)+"\n\nWrite the notes" {
-			t.Errorf("%s: exec %q %q err %v", name, ran.path, ran.argv, err)
-		}
+		t.Run(name+" execution", func(t *testing.T) {
+			requireBriefExecution(t)
+			var ran fakeExec
+			if err := runner(t, dir, &ran).Run(id); err != nil || ran.path != "/opt/bin/cursor-agent" || len(ran.argv) != 2 || ran.argv[0] != "cursor-agent" || ran.argv[1] != linkLine(tc.parent)+"\n\nWrite the notes" {
+				t.Errorf("%s: exec %q %q err %v", name, ran.path, ran.argv, err)
+			}
+		})
 	}
 }
 

@@ -638,8 +638,7 @@ func TestSync_HandEditCopiedToABackupThatIsAnotherOutput_IsKept(t *testing.T) {
 	}
 }
 
-// Through a linked folder, docs/../AGENTS.md is another file than
-// AGENTS.md, so --check must still compare it and see an edit there.
+// Keep .. uncleaned: Unix follows the link first, Windows normalizes first.
 func TestSync_DotDotRulesFileThroughALinkedFolder_ChecksThatFile(t *testing.T) {
 	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: docs/../AGENTS.md\n")
 	if err := os.MkdirAll(filepath.Join(dir, "sub", "child"), 0o755); err != nil {
@@ -651,11 +650,12 @@ func TestSync_DotDotRulesFileThroughALinkedFolder_ChecksThatFile(t *testing.T) {
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "sub", "AGENTS.md"))
+	rulesFile := dir + string(os.PathSeparator) + "docs/../AGENTS.md"
+	data, err := os.ReadFile(rulesFile)
 	if err != nil {
-		t.Fatalf("setup: sync must write sub/AGENTS.md: %v", err)
+		t.Fatalf("setup: sync must write %s: %v", rulesFile, err)
 	}
-	mustWriteFile(t, filepath.Join(dir, "sub", "AGENTS.md"), string(data)+"\nUSER EDIT\n")
+	mustWriteFile(t, rulesFile, string(data)+"\nUSER EDIT\n")
 
 	out, err := runCLI(t, "sync", "--check")
 
