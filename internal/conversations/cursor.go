@@ -170,7 +170,8 @@ func (s *Scanner) fillPending(ctx context.Context, page []Conversation) {
 	for i := range page {
 		c := &page[i]
 		if c.pending != nil {
-			t := withPrompts(*c.pending, prompts[c.ID])
+			t := prompts[c.ID]
+			t.title = c.pending.title
 			c.pending = nil
 			s.fill(c, t)
 		}
@@ -190,14 +191,15 @@ func (s *Scanner) searchAll(ctx context.Context, all []Conversation, words []str
 	var maybe []Conversation
 	for _, c := range all {
 		if c.pending != nil {
-			t := withPrompts(*c.pending, prompts[c.ID])
-			if !holdsAll(strings.Join([]string{c.renamed, t.title, t.firstPrompt, t.lastPrompt, replySearched(t), c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+			t := prompts[c.ID]
+			t.title = c.pending.title
+			if !holdsAll(searchText(c, c.renamed+"\n"+t.title, t.firstPrompt+"\n"+t.lastPrompt, replySearched(t)), words) {
 				continue
 			}
 			c.pending = nil
 			s.fill(&c, t)
 		}
-		if c.pendingReply != nil && holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), replySearched(*c.pendingReply), toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+		if c.pendingReply != nil && holdsAll(searchText(c, asShown(c.Title), asShown(c.Prompt), replySearched(*c.pendingReply)), words) {
 			s.fillReply(&c, *c.pendingReply)
 			c.pendingReply = nil
 		}
@@ -224,7 +226,7 @@ func pendingRows(list []Conversation) []Conversation {
 
 func withPrompts(t texts, prompts cursorPrompts) texts {
 	t.firstPrompt, t.lastPrompt = cursorTyped(prompts.First), cursorTyped(prompts.Last)
-	t.reply, t.question = agentSaid(prompts.Start, prompts.wholeLines(), "")
+	t.reply, t.question = prompts.said("")
 	return t
 }
 
@@ -304,25 +306,24 @@ const cursorPromptBatch = 300
 // queries only the ones that are new or changed. A chat open in Cursor
 // is read on every call, and once more after it closes: nothing shows
 // that Cursor moves that time when only the agent writes.
-func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) map[string]cursorPrompts {
+func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) map[string]texts {
 	if s.cursorPrompts == nil {
-		s.cursorPrompts = map[string]cached[cursorPrompts]{}
+		s.cursorPrompts = map[string]cached[texts]{}
 	}
-	prompts := map[string]cursorPrompts{}
+	prompts := map[string]texts{}
+	stamps := map[string]string{}
 	var missing []string
 	for _, c := range list {
 		if c.App != AppIDE {
 			continue
 		}
-		if hit, ok := s.cursorPrompts[c.ID]; ok && hit.stamp == cursorPromptsStamp(c) && !c.Live {
+		stamp, reusable := cursorPromptsStamp(c)
+		if hit, ok := s.cursorPrompts[c.ID]; ok && reusable && hit.stamp == stamp {
 			prompts[c.ID] = hit.value
 			continue
 		}
+		stamps[c.ID] = stamp
 		missing = append(missing, c.ID)
-	}
-	stamps := map[string]string{}
-	for _, c := range list {
-		stamps[c.ID] = cursorPromptsStamp(c)
 	}
 	for start := 0; start < len(missing); start += cursorPromptBatch {
 		batch := missing[start:min(start+cursorPromptBatch, len(missing))]
@@ -341,8 +342,8 @@ func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) 
 		}
 		// A chat with no prompt rows is cached too, so it is not asked again.
 		for _, id := range batch {
-			prompts[id] = found[id]
-			s.cursorPrompts[id] = cached[cursorPrompts]{stamp: stamps[id], value: found[id]}
+			prompts[id] = withPrompts(texts{}, found[id])
+			s.cursorPrompts[id] = cached[texts]{stamp: stamps[id], value: prompts[id]}
 		}
 	}
 	return prompts
@@ -350,11 +351,11 @@ func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) 
 
 // cursorPromptsStamp keys a chat's cached texts. A read made while the
 // chat was open is never reused, even after it closes.
-func cursorPromptsStamp(c Conversation) string {
+func cursorPromptsStamp(c Conversation) (stamp string, reusable bool) {
 	if c.Live {
-		return "live"
+		return "live", false
 	}
-	return c.UpdatedAt
+	return c.UpdatedAt, true
 }
 
 // cursorAgentMeta is the hex-encoded JSON under key "0" of a cursor-agent
@@ -387,7 +388,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 	s.addCursorProjectFolders(byHash, stores)
 	if s.cursorAgents == nil {
 		s.cursorAgents = map[string]cached[cursorAgentMeta]{}
-		s.cursorTranscripts = map[string]cached[cursorAgentTexts]{}
+		s.cursorTranscripts = map[string]cached[texts]{}
 	}
 	seen := map[string]bool{}
 	transcripts := map[string]string{}
@@ -418,7 +419,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resume},
 			store: store,
 		}
-		s.fill(&c, texts{title: title, firstPrompt: transcript.first, lastPrompt: transcript.last})
+		s.fill(&c, texts{title: title, firstPrompt: transcript.firstPrompt, lastPrompt: transcript.lastPrompt})
 		if transcript.reply != "" || transcript.question != "" {
 			c.pendingReply = &texts{reply: transcript.reply, question: transcript.question}
 		}
@@ -511,12 +512,6 @@ func decodeCursorAgentMeta(rows []cursorAgentMetaRow) cursorAgentMeta {
 	return meta
 }
 
-// cursorAgentTexts are what a row keeps of a cursor-agent transcript.
-type cursorAgentTexts struct {
-	first, last     string
-	reply, question string
-}
-
 // cursorAgentLine is one line of a cursor-agent transcript.
 type cursorAgentLine struct {
 	Role    string `json:"role"`
@@ -533,12 +528,12 @@ type cursorAgentLine struct {
 // and the agent's latest message after the last prompt, or all of them
 // from the cache while the transcript is unchanged. It adds the
 // transcript to seen and returns its path.
-func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) (texts cursorAgentTexts, transcript string) {
+func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) (texts, string) {
 	matches, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "projects", "*", "agent-transcripts", id, id+".jsonl"))
 	if len(matches) == 0 {
-		return cursorAgentTexts{}, ""
+		return texts{}, ""
 	}
-	transcript = matches[0]
+	transcript := matches[0]
 	seen[transcript] = true
 	stamp := fileStamp(transcript)
 	if entry, ok := s.cursorTranscripts[transcript]; ok && entry.stamp == stamp {
@@ -546,47 +541,29 @@ func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) (texts 
 	}
 	info, err := os.Stat(transcript)
 	if err != nil {
-		return cursorAgentTexts{}, transcript
+		return texts{}, transcript
 	}
 	head, tail, err := readEnds(transcript, info.Size(), claudeWindow)
 	if err != nil {
-		return cursorAgentTexts{}, transcript
+		return texts{}, transcript
 	}
-	var kept cursorAgentTexts
+	var kept texts
 	if prompts, _ := cursorAgentLines(head); len(prompts) > 0 {
-		kept.first = prompts[0]
+		kept.firstPrompt = prompts[0]
 	}
 	prompts, message := cursorAgentLines(tail)
-	if len(prompts) > 0 {
-		kept.last = prompts[len(prompts)-1]
-	}
-	if len(prompts) == 0 && message == "" && info.Size() > 2*claudeWindow {
-		var before []string
-		before, message = cursorAgentReplyAtEnd(transcript, info.Size())
-		if len(before) > 0 {
-			kept.last = before[len(before)-1]
+	// A tail cut inside a long final message holds neither.
+	if len(prompts) == 0 && message == "" {
+		if lines, ok := lookBack(transcript, info.Size()); ok {
+			prompts, message = cursorAgentLines(lines)
 		}
 	}
+	if len(prompts) > 0 {
+		kept.lastPrompt = prompts[len(prompts)-1]
+	}
 	kept.reply, kept.question = agentSaid(message, message, "")
-	s.cursorTranscripts[transcript] = cached[cursorAgentTexts]{stamp: stamp, value: kept}
+	s.cursorTranscripts[transcript] = cached[texts]{stamp: stamp, value: kept}
 	return kept, transcript
-}
-
-// cursorAgentReplyAtEnd reads the prompts and the agent's latest message
-// after the last of them in the last claudeReplyWindow bytes of a
-// transcript whose tail held neither, such as one cut inside a long
-// final message.
-func cursorAgentReplyAtEnd(transcript string, size int64) (prompts []string, message string) {
-	f, err := os.Open(transcript)
-	if err != nil {
-		return nil, ""
-	}
-	defer func() { _ = f.Close() }()
-	tail, err := readTail(f, size, claudeReplyWindow)
-	if err != nil {
-		return nil, ""
-	}
-	return cursorAgentLines(tail)
 }
 
 // cursorAgentLines returns the prompts in data and the agent's latest
