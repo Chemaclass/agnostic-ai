@@ -113,67 +113,81 @@ func caskConfig(t *testing.T) map[string]any {
 	return doc.HomebrewCasks[0]
 }
 
-// TestGoreleaserCask_AvoidsTheDeprecatedPostflightStanza keeps the cask
-// off Homebrew's deprecated `postflight` block.
+// caskPostInstallSteps returns the cask's hooks.post.install_steps body.
+func caskPostInstallSteps(t *testing.T) string {
+	t.Helper()
+	hooks, _ := caskConfig(t)["hooks"].(map[string]any)
+	post, _ := hooks["post"].(map[string]any)
+	steps, _ := post["install_steps"].(string)
+	return steps
+}
+
+// TestGoreleaserCask_UsesTheNativePostflightSteps keeps the cask off
+// Homebrew's deprecated `postflight` block.
 //
-// goreleaser's `hooks` key renders raw Ruby as `postflight do`, which
-// Homebrew deprecated in favor of the declarative `postflight_steps`
-// DSL. Every `brew` command touching the tap then prints a warning
-// naming our tap and asking the user to report it to us (#933).
+// goreleaser renders `hooks.post.install` as raw Ruby in `postflight do`,
+// which Homebrew deprecated in favor of the declarative
+// `postflight_steps` DSL. Every `brew` command touching the tap then
+// prints a warning naming our tap and asking the user to report it to us
+// (#933). `hooks.post.install_steps` renders `postflight_steps` instead,
+// so a hand-written `custom_block` is no longer needed.
 //
 // Nothing else catches a regression here. The cask is only generated at
-// tag time, so switching back to `hooks` would look fine in CI and
-// surface as a warning on every user's machine after the release.
-func TestGoreleaserCask_AvoidsTheDeprecatedPostflightStanza(t *testing.T) {
+// tag time, so switching back would look fine in CI and surface as a
+// warning on every user's machine after the release.
+func TestGoreleaserCask_UsesTheNativePostflightSteps(t *testing.T) {
 	cask := caskConfig(t)
-	if _, ok := cask["hooks"]; ok {
-		t.Error("homebrew_casks has a `hooks` key; goreleaser renders it as Homebrew's deprecated `postflight do`, so use `custom_block` with `postflight_steps` instead")
+	if _, ok := cask["custom_block"]; ok {
+		t.Error("homebrew_casks has a `custom_block`; strip quarantine through `hooks.post.install_steps` instead")
 	}
-	block, _ := cask["custom_block"].(string)
-	if !strings.Contains(block, "postflight_steps do") {
-		t.Errorf("custom_block does not declare postflight_steps:\n%s", block)
+	hooks, _ := cask["hooks"].(map[string]any)
+	for _, phase := range []string{"pre", "post"} {
+		hook, _ := hooks[phase].(map[string]any)
+		for _, key := range []string{"install", "uninstall"} {
+			if _, ok := hook[key]; ok {
+				t.Errorf("homebrew_casks has `hooks.%s.%s`; goreleaser renders it as Homebrew's deprecated raw flight block, so use `%s_steps`", phase, key, key)
+			}
+		}
+	}
+	if strings.TrimSpace(caskPostInstallSteps(t)) == "" {
+		t.Error("homebrew_casks has no `hooks.post.install_steps`, so goreleaser renders no `postflight_steps` block")
 	}
 }
 
-// TestGoreleaserCask_StripsQuarantine pins the reason the block exists
-// at all.
+// TestGoreleaserCask_StripsQuarantineOnMacOS pins the reason the
+// postflight steps exist at all.
 //
 // Homebrew propagates com.apple.quarantine from the downloaded archive
 // to the extracted files, and the `binary` artifact only chmods +x, so
 // it never strips it. Without this call macOS Gatekeeper blocks the
-// unsigned binary on first run. Deleting the block is the obvious way
-// to silence the deprecation warning and it breaks every macOS install.
-func TestGoreleaserCask_StripsQuarantine(t *testing.T) {
-	block, _ := caskConfig(t)["custom_block"].(string)
-	for _, want := range []string{"xattr", "com.apple.quarantine"} {
-		if !strings.Contains(block, want) {
-			t.Errorf("custom_block no longer strips quarantine, missing %q:\n%s", want, block)
-		}
+// unsigned binary on first run. Deleting the steps is the obvious way to
+// silence a cask warning and it breaks every macOS install.
+func TestGoreleaserCask_StripsQuarantineOnMacOS(t *testing.T) {
+	steps := caskPostInstallSteps(t)
+	const strip = `run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/agnostic-ai"]`
+	macOS := strings.Index(steps, "on_macos do")
+	at := strings.Index(steps, strip)
+	if macOS < 0 || at < macOS || !strings.Contains(steps[at:], "end") {
+		t.Errorf("hooks.post.install_steps must call %s inside `on_macos do ... end`:\n%s", strip, steps)
 	}
 }
 
-// TestGoreleaserCask_EscapesHomebrewsStagedPathToken guards a failure
-// that can only happen at tag time.
+// TestGoreleaserCask_LetsGoreleaserEmitTheStagedPathToken guards a
+// failure that can only happen at tag time.
 //
 // goreleaser renders the cask and then runs the whole file through its
 // own Go template engine a second time. Homebrew's `{{staged_path}}` is
-// not a goreleaser variable, so a bare token aborts the release with
-// `function "staged_path" not defined`. Wrapping it in a goreleaser
-// template that yields the literal string survives that pass.
-//
-// Verified by reverting the wrapper locally: `goreleaser release
-// --snapshot` fails with exactly that error, and no CI job would have
-// caught it, because CI never renders the cask.
-func TestGoreleaserCask_EscapesHomebrewsStagedPathToken(t *testing.T) {
-	block, _ := caskConfig(t)["custom_block"].(string)
-	const wrapped = `{{ "{{staged_path}}" }}`
-	if !strings.Contains(block, wrapped) {
-		t.Fatalf("custom_block must reference Homebrew's staged path as %s:\n%s", wrapped, block)
+// not a goreleaser function, so a bare token aborts the release with
+// `function "staged_path" not defined`. `{{ .StagedPath }}` is the field
+// goreleaser exposes in that pass to emit the token, so the steps need
+// neither the bare token nor the old hand-escaped form.
+func TestGoreleaserCask_LetsGoreleaserEmitTheStagedPathToken(t *testing.T) {
+	steps := caskPostInstallSteps(t)
+	if strings.Contains(steps, "staged_path") {
+		t.Errorf("hooks.post.install_steps names Homebrew's staged_path token directly; use {{ .StagedPath }}:\n%s", steps)
 	}
-	// A bare token anywhere outside the wrapper breaks the release the
-	// same way, so check none survives once the wrapped form is removed.
-	if rest := strings.ReplaceAll(block, wrapped, ""); strings.Contains(rest, "{{staged_path}}") {
-		t.Errorf("custom_block has a bare {{staged_path}}; goreleaser templates the rendered cask, so it fails the release at tag time:\n%s", block)
+	if !strings.Contains(steps, "{{ .StagedPath }}") {
+		t.Errorf("hooks.post.install_steps does not reference {{ .StagedPath }}:\n%s", steps)
 	}
 }
 
