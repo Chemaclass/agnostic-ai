@@ -368,7 +368,8 @@ func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map
 
 // backupPathCollisions refuses an output at another output's
 // `<path>.bak`: sync saves a hand edit to the first there, and the
-// second then writes over that backup, so the edit is lost.
+// second then writes over that backup, so the edit is lost. Paths match
+// without regard to case, since some filesystems store both as one file.
 func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile) error {
 	names := map[string][]string{}
 	add := func(path, name string) {
@@ -390,16 +391,20 @@ func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryF
 	for _, f := range entryFiles {
 		add(f.Path, "the instructions file of "+strings.Join(f.Readers, ", "))
 	}
+	spellings := map[string][]string{}
+	for path := range names {
+		key := strings.ToLower(path)
+		spellings[key] = append(spellings[key], path)
+	}
+	label := func(path string) string {
+		ns := slices.Sorted(slices.Values(names[path]))
+		return fmt.Sprintf("%s (%s)", filepath.ToSlash(path), strings.Join(ns, ", "))
+	}
 	var lines []string
-	for path, base := range names {
-		backup, ok := names[path+".bak"]
-		if !ok {
-			continue
+	for path := range names {
+		for _, backup := range spellings[strings.ToLower(path+".bak")] {
+			lines = append(lines, fmt.Sprintf("  %s is the backup sync saves for %s", label(backup), label(path)))
 		}
-		slices.Sort(base)
-		slices.Sort(backup)
-		lines = append(lines, fmt.Sprintf("  %s (%s) is the backup sync saves for %s (%s)",
-			filepath.ToSlash(path)+".bak", strings.Join(backup, ", "), filepath.ToSlash(path), strings.Join(base, ", ")))
 	}
 	if len(lines) == 0 {
 		return nil

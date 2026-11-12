@@ -110,3 +110,25 @@ func agentsActions(t *testing.T, out string) []string {
 	}
 	return actions
 }
+
+// rules.md.BAK names RULES.md.bak on a case-insensitive filesystem.
+func TestSync_OutputOnAnotherOutputsBackupInOtherCase_Stops(t *testing.T) {
+	for _, args := range [][]string{{"sync", "--gitignore=off", "--jobs=1"}, {"sync", "--check"}, {"sync", "--dry-run"}, {"validate"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: rules.md.BAK\n")
+
+			out, err := runCLI(t, args...)
+
+			msg := out
+			if err != nil {
+				msg += err.Error()
+			}
+			if err == nil || !strings.Contains(msg, "rules.md.BAK") || !strings.Contains(msg, "outputs.codex.rules-file") {
+				t.Fatalf("%v must stop and name both outputs, got %v\n%s", args, err, out)
+			}
+		})
+	}
+}
