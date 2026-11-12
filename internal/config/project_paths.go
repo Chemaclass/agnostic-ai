@@ -135,13 +135,15 @@ func (o *Output) outputPaths() map[string]*string {
 func cleanOutputPaths(cfg *Config) {
 	for target, o := range cfg.Outputs {
 		for _, p := range o.outputPaths() {
-			*p = cleanOutputPath(*p)
+			*p = CleanOutputPath(*p)
 		}
 		cfg.Outputs[target] = o
 	}
 }
 
-func cleanOutputPath(p string) string {
+// CleanOutputPath is the one spelling of a relative output path: slash
+// separated and clean. An absolute path stays as written.
+func CleanOutputPath(p string) string {
 	if p == "" || filepath.IsAbs(p) {
 		return p
 	}

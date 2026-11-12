@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -368,6 +369,48 @@ func TestSync_RulesFileOnASharedInstructionsFile_BacksUpAHandEditOnce(t *testing
 	}
 	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
 		t.Errorf("sync must restore AGENTS.md, got:\n%s", got)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+// Two syncs before #3329 left codex's merged file in AGENTS.md, amp's
+// file in AGENTS.md.bak, and a ledger with both spellings. The ledger
+// recorded the merged bytes under `./AGENTS.md`, so sync may replace them.
+func TestSync_DotSlashRulesFileStuckOnAnOldBackup_Heals(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: ./AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	amp, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--target", "codex"); err != nil {
+		t.Fatalf("sync --target codex: %v\n%s", err, out)
+	}
+	merged, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if string(merged) == string(amp) {
+		t.Fatal("setup: AGENTS.md must hold codex's merged file")
+	}
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), string(amp))
+	state := readStateFile(".")
+	state.Outputs = append(state.Outputs, "./AGENTS.md")
+	state.OutputSums["./AGENTS.md"] = adapters.ContentSum(string(merged))
+	state.OutputSums["AGENTS.md"] = adapters.ContentSum(string(amp))
+	state.Backups = map[string]string{"./AGENTS.md.bak": adapters.ContentSum(string(amp))}
+	if err := replaceStateFile(".", state); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runCLI(t, "sync", "--gitignore=off")
+
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "hand edit") {
+		t.Errorf("sync must not take its own merged file for a hand edit:\n%s", out)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(amp) {
+		t.Errorf("AGENTS.md must hold amp's file again, got:\n%s", got)
 	}
 	if out, err := runCLI(t, "sync", "--check"); err != nil {
 		t.Errorf("sync --check: %v\n%s", err, out)
