@@ -165,12 +165,50 @@ func TestGoreleaserCask_UsesTheNativePostflightSteps(t *testing.T) {
 // silence a cask warning and it breaks every macOS install.
 func TestGoreleaserCask_StripsQuarantineOnMacOS(t *testing.T) {
 	steps := caskPostInstallSteps(t)
-	const strip = `run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/agnostic-ai"]`
-	macOS := strings.Index(steps, "on_macos do")
-	at := strings.Index(steps, strip)
-	if macOS < 0 || at < macOS || !strings.Contains(steps[at:], "end") {
-		t.Errorf("hooks.post.install_steps must call %s inside `on_macos do ... end`:\n%s", strip, steps)
+	if problem := quarantineStripProblem(steps); problem != "" {
+		t.Errorf("hooks.post.install_steps: %s:\n%s", problem, steps)
 	}
+}
+
+// TestGoreleaserCask_QuarantineStripCheckRejectsBrokenSteps proves the
+// check reads the steps as code, so a strip that never runs fails it.
+func TestGoreleaserCask_QuarantineStripCheckRejectsBrokenSteps(t *testing.T) {
+	cases := map[string]string{
+		"commented out":    "on_macos do\n  # " + quarantineStrip + "\nend\n",
+		"outside on_macos": "on_macos do\nend\n" + quarantineStrip + "\n",
+		"another path":     "on_macos do\n  " + strings.Replace(quarantineStrip, "/agnostic-ai", "/other", 1) + "\nend\n",
+		"missing":          "",
+	}
+	for name, steps := range cases {
+		if quarantineStripProblem(steps) == "" {
+			t.Errorf("%s: the check accepted steps that strip nothing:\n%s", name, steps)
+		}
+	}
+	if problem := quarantineStripProblem("\non_macos do\n  # strip quarantine\n  " + quarantineStrip + "\nend\n"); problem != "" {
+		t.Errorf("the check rejected valid steps with a comment and blank lines: %s", problem)
+	}
+}
+
+const quarantineStrip = `run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/agnostic-ai"]`
+
+// quarantineStripProblem says why the install steps do not strip
+// quarantine from the staged binary on macOS, or returns "" when they do.
+// Comments and blank lines are dropped first, so text that never runs
+// does not count.
+func quarantineStripProblem(steps string) string {
+	var code []string
+	for _, line := range strings.Split(steps, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		code = append(code, line)
+	}
+	want := []string{"on_macos do", quarantineStrip, "end"}
+	if !slices.Equal(code, want) {
+		return fmt.Sprintf("want exactly %q, got %q", want, code)
+	}
+	return ""
 }
 
 // TestGoreleaserCask_LetsGoreleaserEmitTheStagedPathToken guards a
@@ -200,54 +238,139 @@ func TestGoreleaserCask_LetsGoreleaserEmitTheStagedPathToken(t *testing.T) {
 // so pinning one fails the release at tag time. A floating pin such as
 // `latest` or `~> v2` can move without a diff here, so it must be exact.
 func TestGoreleaserRuns_PinAVersionThatKnowsInstallSteps(t *testing.T) {
-	const action = "goreleaser/goreleaser-action@"
-	minimum := [3]int{2, 19, 0}
-	exact := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
-	workflows, err := filepath.Glob(filepath.Join("..", "..", ".github", "workflows", "*.yml"))
-	if err != nil {
-		t.Fatal(err)
+	problems, pins := goreleaserPinProblemsUnder(t, filepath.Join("..", ".."))
+	for _, problem := range problems {
+		t.Error(problem)
 	}
+	if pins == 0 {
+		t.Errorf("no workflow or composite action step uses %s; update this test if goreleaser now runs another way", goreleaserAction)
+	}
+}
+
+// TestGoreleaserRuns_PinCheckScansEveryWorkflowAndAction proves an old
+// or floating pin is caught in each place GitHub Actions reads steps
+// from, not only in `.yml` workflows.
+func TestGoreleaserRuns_PinCheckScansEveryWorkflowAndAction(t *testing.T) {
+	workflow := func(version string) string {
+		return "jobs:\n  release:\n    steps:\n      - uses: " + goreleaserAction + "abc\n        with:\n          version: " + version + "\n"
+	}
+	action := func(version string) string {
+		return "runs:\n  using: composite\n  steps:\n    - uses: " + goreleaserAction + "abc\n      with:\n        version: " + version + "\n"
+	}
+	root := t.TempDir()
+	files := map[string]string{
+		".github/workflows/release.yml":        workflow("v2.20.1"),
+		".github/workflows/old.yaml":           workflow("v2.18.0"),
+		".github/workflows/numeric.yml":        workflow("v2.9.0"),
+		".github/actions/floating/action.yml":  action("latest"),
+		".github/actions/range/action.yaml":    action("'~> v2'"),
+		".github/actions/unpinned/action.yaml": "runs:\n  using: composite\n  steps:\n    - uses: " + goreleaserAction + "abc\n",
+	}
+	for path, content := range files {
+		full := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	problems, pins := goreleaserPinProblemsUnder(t, root)
+	if pins != len(files) {
+		t.Errorf("found %d goreleaser steps, want %d", pins, len(files))
+	}
+	for _, bad := range []string{"old.yaml", "numeric.yml", "floating", "range", "unpinned"} {
+		if !slices.ContainsFunc(problems, func(p string) bool { return strings.Contains(p, bad) }) {
+			t.Errorf("no problem reported for %s, got %q", bad, problems)
+		}
+	}
+	if slices.ContainsFunc(problems, func(p string) bool { return strings.Contains(p, "release.yml") }) {
+		t.Errorf("v2.20.1 was rejected: %q", problems)
+	}
+}
+
+const goreleaserAction = "goreleaser/goreleaser-action@"
+
+// goreleaserPinProblemsUnder checks every goreleaser step in the
+// workflows and composite actions under root, and returns the problems
+// and the number of steps it found.
+func goreleaserPinProblemsUnder(t *testing.T, root string) ([]string, int) {
+	t.Helper()
+	var files []string
+	for _, pattern := range []string{
+		".github/workflows/*.yml",
+		".github/workflows/*.yaml",
+		".github/actions/*/action.yml",
+		".github/actions/*/action.yaml",
+	} {
+		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, matches...)
+	}
+	var problems []string
 	pins := 0
-	for _, path := range workflows {
+	for _, path := range files {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}
-		// Only steps are decoded: the shared workflowJob shape does not
-		// fit every workflow's matrix.
-		var doc struct {
-			Jobs map[string]struct {
-				Steps []workflowStep `yaml:"steps"`
-			} `yaml:"jobs"`
-		}
-		if err := yaml.Unmarshal(data, &doc); err != nil {
+		found, n, err := goreleaserPinProblems(path, data)
+		if err != nil {
 			t.Fatalf("parse %s: %v", path, err)
 		}
-		for name, job := range doc.Jobs {
-			for _, step := range job.Steps {
-				if !strings.HasPrefix(step.Uses, action) {
-					continue
-				}
-				pins++
-				version := fmt.Sprint(step.With["version"])
-				m := exact.FindStringSubmatch(version)
-				if m == nil {
-					t.Errorf("%s job %q runs goreleaser at %q; pin an exact version of at least v%d.%d.%d, which the cask's install_steps needs", path, name, version, minimum[0], minimum[1], minimum[2])
-					continue
-				}
-				var got [3]int
-				for i := range got {
-					got[i], _ = strconv.Atoi(m[i+1])
-				}
-				if slices.Compare(got[:], minimum[:]) < 0 {
-					t.Errorf("%s job %q runs goreleaser %s; the cask's hooks.post.install_steps needs v%d.%d.%d or later, or the release fails at tag time with `field install_steps not found`", path, name, version, minimum[0], minimum[1], minimum[2])
-				}
+		problems = append(problems, found...)
+		pins += n
+	}
+	return problems, pins
+}
+
+// goreleaserPinProblems checks the goreleaser steps of one workflow or
+// composite action. Only steps are decoded: the shared workflowJob shape
+// does not fit every workflow's matrix.
+func goreleaserPinProblems(path string, data []byte) ([]string, int, error) {
+	var doc struct {
+		Jobs map[string]struct {
+			Steps []workflowStep `yaml:"steps"`
+		} `yaml:"jobs"`
+		Runs struct {
+			Steps []workflowStep `yaml:"steps"`
+		} `yaml:"runs"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, 0, err
+	}
+	steps := map[string][]workflowStep{"composite action": doc.Runs.Steps}
+	for name, job := range doc.Jobs {
+		steps["job "+strconv.Quote(name)] = job.Steps
+	}
+	minimum := []int{2, 19, 0}
+	exact := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
+	var problems []string
+	pins := 0
+	for where, list := range steps {
+		for _, step := range list {
+			if !strings.HasPrefix(step.Uses, goreleaserAction) {
+				continue
+			}
+			pins++
+			version, _ := step.With["version"].(string)
+			m := exact.FindStringSubmatch(version)
+			if m == nil {
+				problems = append(problems, fmt.Sprintf("%s %s runs goreleaser at %q; pin an exact version of at least v2.19.0, which the cask's install_steps needs", path, where, version))
+				continue
+			}
+			got := make([]int, 3)
+			for i := range got {
+				got[i], _ = strconv.Atoi(m[i+1])
+			}
+			if slices.Compare(got, minimum) < 0 {
+				problems = append(problems, fmt.Sprintf("%s %s runs goreleaser %s; the cask's hooks.post.install_steps needs v2.19.0 or later, or the release fails at tag time with `field install_steps not found`", path, where, version))
 			}
 		}
 	}
-	if pins == 0 {
-		t.Errorf("no workflow step uses %s; update this test if goreleaser now runs another way", action)
-	}
+	return problems, pins, nil
 }
 
 // TestReleaseWorkflow_PublishesWithProvenance keeps the npm publish
