@@ -98,9 +98,11 @@ Enter or `0` exits without taking action. Every option keeps the original error 
 
 Two or more enabled targets would write different content to the same path, so sync stops instead of letting the last one win. Sync also stops when an adapter writes a file that sync then writes as another target's instructions file, such as an external adapter's `AGENTS.md`, or a merged `rules-file` that loses rules there, such as `outputs.codex.rules-file: AGENTS.md` while Cline reads `AGENTS.md`. `sync.collision-policy` does not settle those cases, since the instructions file is written last. Sync and `validate` also stop when one output sits at another output's `<path>.bak`, such as `outputs.claude.rules-file: RULES.md.bak` next to `outputs.codex.rules-file: RULES.md`: sync saves a hand edit to `RULES.md` there, and the other output would write over it. Letter case does not count here, since some filesystems store `rules.md.BAK` and `RULES.md.bak` as one file. Folder settings such as `skills-dir` get no `.bak`, so they never match.
 
-Sync also stops when an output sits on a `.bak` that sync saved earlier and that still exists, such as `rules-file: RULES.md.bak` after a hand edit to `RULES.md` was saved there. `validate` does not read the sync ledger, so only sync reports this case.
+Sync also stops when an output sits on a `.bak` that sync saved earlier and that still exists, such as `rules-file: RULES.md.bak` after a hand edit to `RULES.md` was saved there. `sync`, `sync --check` and `status` report this case; `validate` does not read the sync ledger.
 
 On a filesystem that ignores letter case, as on macOS and Windows by default, sync, `status` and `validate` also stop when two outputs differ only in case, such as `outputs.codex.rules-file: agents.md` next to the `AGENTS.md` that Amp reads. Both names are one file there, so the outputs would fight over it.
+
+These checks compare paths as written, with letter case ignored, so a path reached through a symlinked folder or a different Unicode spelling of the same name is not caught.
 
 **Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`. For a shared instructions file, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool. For a saved `.bak`, keep what you need from it, then move or delete it, or point the output elsewhere. For outputs that differ only in case, spell both paths the same way.
 
