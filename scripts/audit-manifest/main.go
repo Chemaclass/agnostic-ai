@@ -55,28 +55,29 @@ type fetch struct {
 }
 
 type manifest struct {
-	Version           int          `json:"version"`
-	ResearchVersion   int          `json:"research_version"`
-	ResumeFrom        string       `json:"resume_prior_run_id,omitempty"`
-	Reused            []reuse      `json:"reused,omitempty"`
-	RunID             string       `json:"run_id"`
-	Directory         string       `json:"directory"`
-	Repository        string       `json:"repository"`
-	SourceLock        string       `json:"source_lock"`
-	Created           string       `json:"created"`
-	Commit            string       `json:"audited_commit"`
-	Context           string       `json:"audited_context_sha256"`
-	BuiltinsSince     string       `json:"builtins_since"`
-	BuiltinsInventory artifact     `json:"builtins_inventory"`
-	BuiltinDeep       []string     `json:"builtin_deep_targets"`
-	SourceList        string       `json:"source_list_sha256"`
-	LockBaseline      string       `json:"lock_baseline_sha256"`
-	Targets           []string     `json:"targets"`
-	Inventory         []source     `json:"inventory"`
-	Sources           []source     `json:"sources"`
-	Assignments       []assignment `json:"assignments"`
-	RowsSHA256        string       `json:"rows_sha256,omitempty"`
-	Finalized         string       `json:"finalized,omitempty"`
+	Results           []targetResult `json:"results,omitempty"`
+	Version           int            `json:"version"`
+	ResearchVersion   int            `json:"research_version"`
+	ResumeFrom        string         `json:"resume_prior_run_id,omitempty"`
+	Reused            []reuse        `json:"reused,omitempty"`
+	RunID             string         `json:"run_id"`
+	Directory         string         `json:"directory"`
+	Repository        string         `json:"repository"`
+	SourceLock        string         `json:"source_lock"`
+	Created           string         `json:"created"`
+	Commit            string         `json:"audited_commit"`
+	Context           string         `json:"audited_context_sha256"`
+	BuiltinsSince     string         `json:"builtins_since"`
+	BuiltinsInventory artifact       `json:"builtins_inventory"`
+	BuiltinDeep       []string       `json:"builtin_deep_targets"`
+	SourceList        string         `json:"source_list_sha256"`
+	LockBaseline      string         `json:"lock_baseline_sha256"`
+	Targets           []string       `json:"targets"`
+	Inventory         []source       `json:"inventory"`
+	Sources           []source       `json:"sources"`
+	Assignments       []assignment   `json:"assignments"`
+	RowsSHA256        string         `json:"rows_sha256,omitempty"`
+	Finalized         string         `json:"finalized,omitempty"`
 }
 
 func main() {
@@ -934,7 +935,7 @@ func (a app) finalize(m *manifest) (string, error) {
 
 func (a app) run(args []string) (string, error) {
 	if len(args) == 0 {
-		return "", errors.New("usage: start|capture|resume|checkpoint|checkpoints|assign|complete|record|validate|finalize (see scripts/target-audit/manifest.md)")
+		return "", errors.New("usage: start|capture|resume|checkpoint|checkpoints|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
 	}
 	switch args[0] {
 	case "start":
@@ -951,6 +952,18 @@ func (a app) run(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if args[0] == "result-template" {
+		if len(args) != 3 {
+			return "", errors.New("result-template requires run and target")
+		}
+		return resultTemplate(m, args[2])
+	}
+	if args[0] == "result-report" {
+		if len(args) != 2 {
+			return "", errors.New("result-report requires only a run directory")
+		}
+		return resultSummary(m), nil
+	}
 	guard := filepath.Join(m.Directory, ".audit-writing")
 	if err = os.Mkdir(guard, 0o700); err != nil {
 		return "", fmt.Errorf("%s: run state is busy or was interrupted: %w", guard, err)
@@ -964,6 +977,11 @@ func (a app) run(args []string) (string, error) {
 		return "", errors.New("run already finalized")
 	}
 	switch args[0] {
+	case "ingest":
+		if len(args) != 3 {
+			return "", errors.New("ingest requires run and result JSON path")
+		}
+		return a.ingest(m, args[2])
 	case "resume":
 		if len(args) != 3 {
 			return "", errors.New("resume requires fresh captured run and explicit prior run directory")

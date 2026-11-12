@@ -73,6 +73,31 @@ Assignment completion and page dispositions are separate. Complete one assignmen
 
 A `fast-path` needs a usable built-in baseline, a target outside the computed `builtin-deep` set, an artifact recording the proof, and its justification. Preserve the audit skill's other fast-path conditions. A failed fetch requires `research-limit`; it never advances its hash. A fetch recovered by the fetcher's ladder is captured with its final successful evidence and can be reviewed normally. Manual recovery after capture can support findings, but advancing that source requires a fresh run and fetch. A successful page that cannot be reviewed also takes `research-limit` with the reason and attempted routes in its artifact.
 
+## Ingest a target result
+
+Build the helper once from the audited checkout and use that binary for coordinator and auditor commands. For example, `audit_tools=$(mktemp -d)` followed by `go build -o "$audit_tools/audit-manifest" ./scripts/audit-manifest`. The temporary tools directory is outside the audited repository. Keep it until the run finishes.
+
+After assigning a target and checkpointing its finished report, create its result template:
+
+```bash
+"$audit_tools/audit-manifest" result-template "$run" claude > "$run/claude-result.json"
+```
+
+The template fills run identity, owner, source identities, captured evidence hashes, and the report hash. It deliberately leaves dispositions and reasons empty. The auditor fills the target outcome and every source outcome from the completed review. Each outcome uses the existing `disposition`, `reason`, and `artifact` fields. Keep `evidence` unchanged: it identifies the exact captured source bytes, not the normalized comparison hash.
+
+The version 1 result has `version`, `run_id`, `target`, `owner`, `outcome`, and `sources`. Each source has `kind`, `url`, `evidence`, and `outcome`. Optional `timing` contains observed Unix-second `queued`, `start`, and `end` values (null when unknown), and an optional nonnegative `attempt`. Known times must be ordered. Owner names the assigned worker; timing records describe that target, not total audit wall time. Token usage remains in the existing metrics recorder.
+
+The coordinator accepts the completed record:
+
+```bash
+"$audit_tools/audit-manifest" ingest "$run" "$run/claude-result.json"
+"$audit_tools/audit-manifest" result-report "$run"
+```
+
+Ingestion validates all target sources and artifacts before one atomic manifest write. It requires a matching unfinished assignment and an unchanged checkpointed target report. Unknown fields, missing or duplicate sources, stale evidence, invalid outcomes, and conflicting ownership reject the whole result without changing coverage or the lock. Failed fetches still require `research-limit`; built-in review requirements still block fast paths. An identical accepted result can be retried without rewriting the manifest; a changed result is rejected.
+
+Accepted results live in `audit.json`, alongside the existing assignment and source outcomes. `result-report` reads their coverage and observed timing, including after finalization. Unknown timing stays unknown; the report never sums overlapping durations. It does not establish that a reviewer understood the sources. Manual commands remain supported, but do not mix manual completion or page recording with ingestion for the same target. Explicit resume continues to copy validated assignment/source coverage; prior timing remains in the prior run's accepted records rather than becoming a new observation.
+
 ## Validate and finalize
 
 ```bash

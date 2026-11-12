@@ -2,6 +2,8 @@
 
 Write `local/target-audit/<YYYY-MM-DD>.md`. Preserve an existing same-day report or deliberately update it as a continuation. Include audited commit, window, target coverage, counts, source dates, issue/PR links, and research limits. Add a `Built-ins` line naming each target whose built-in behavior this run checked, but only when `scripts/target-facts.sh --changed <run>/docfetch.tsv --builtins-since HEAD` prints no `builtin-deep:` line, so the files audited match the recorded commit. Write it as `- Built-ins: <target> <target> ...` with nothing else on the line; put any note on the next line. A continuation section adds its own `Audited commit` and `Built-ins` lines rather than editing the earlier ones. The next run takes each target's baseline from the newest report whose line names it, so a target this run did not check keeps its older baseline or none.
 
+Include `audit-manifest result-report <run>` for ingested target coverage and observed timings. Manually recorded or reused targets retain their existing coverage records; their timing is not inferred.
+
 Include the metrics summary and artifact links per `.agnostic-ai/skills/target-audit/references/metrics.md`. End the audit interval before later implementation or merge work; state unavailable measurements as unknown.
 
 The report is the decision view. For each finding write the heading, kind, severity, one paragraph of impact and smallest fix, the issue or PR link, and a relative link to its run-directory file, for example `local/target-audit/<date>-run/claude-mcp.md`. Vendor quotes, repository lines, and reproduction commands live once, in that file. Do not paste a run-directory file into the report.

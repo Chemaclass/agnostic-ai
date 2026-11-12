@@ -96,6 +96,8 @@ finished target, and a relaunch assigns only the rest. Never edit a report
 after its checkpoint; a later correction goes in a separate file you name in
 your reply.
 
+Use the coordinator-supplied manifest binary to create and fill `<run>/<target>-result.json` after checkpointing, following `scripts/target-audit/manifest.md`. Return its path with the report. Leave coordinator ingestion to the coordinator.
+
 Account for every assigned target and source page in its report, with its
 evidence artifact, review outcome, or research limit, so the coordinator can
 record coverage from the file alone. Return at most 20 lines: the artifact

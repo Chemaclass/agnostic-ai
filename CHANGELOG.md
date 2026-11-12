@@ -6,6 +6,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### Tooling
+
+- Target audits ingest a complete target result in one validated write and report recorded coverage and timings (#3370).
+
 ## v0.94.0 - 2026-11-12
 
 ### Highlights
