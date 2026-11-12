@@ -904,4 +904,8 @@
 # measured 25956512 bytes locally on 2026-11-11, on top of main
 # a8023e46; the budget is that plus 8192, rounded up to a multiple of
 # 4096.
-25968640
+# #3329 (one spelling for output paths in the config and the ledger)
+# measured 25972896 bytes locally on 2026-11-12; main 51a96ce0 alone
+# measured 25968800, already over. The budget is that plus 8192, rounded
+# up to a multiple of 4096.
+25985024
