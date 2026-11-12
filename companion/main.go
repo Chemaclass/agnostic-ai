@@ -124,8 +124,9 @@ type shell struct {
 	tellPreferences func(preferences)
 	end             func()
 	endOnce         sync.Once
-	// placing keeps two presence changes from interleaving their window
-	// changes. It guards hiddenAt and waitingSeen.
+	// placing keeps presence changes and opening the list from
+	// interleaving their window changes. It guards hiddenAt and
+	// waitingSeen. Take it before mu, never while holding mu.
 	placing sync.Mutex
 	// hiddenAt is where the circle was when it was hidden.
 	hiddenAt point
@@ -189,6 +190,11 @@ func (s *shell) setPresence(to presence) bool {
 func (s *shell) changePresence(from, to presence) bool {
 	s.placing.Lock()
 	defer s.placing.Unlock()
+	return s.changePresenceLocked(from, to)
+}
+
+// changePresenceLocked is changePresence for a caller holding placing.
+func (s *shell) changePresenceLocked(from, to presence) bool {
 	s.mu.Lock()
 	was := s.presenceLocked()
 	if was == to || (from != "" && was != from) {
@@ -301,8 +307,16 @@ func (s *shell) secondStart(second application.SecondInstanceData) {
 
 // bringBack shows the companion at full color and opens its list.
 func (s *shell) bringBack() {
-	s.comeBack()
-	s.showPanel()
+	s.comeBackOpenedOn(eventPanelShown)
+}
+
+// comeBackOpenedOn puts the companion back at full color and opens the
+// list on event, with no Hide in between.
+func (s *shell) comeBackOpenedOn(event string) {
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	s.changePresenceLocked("", shown)
+	s.showPanelOn(event)
 }
 
 // appReopened answers macOS reopening the running app, from Finder or
@@ -317,8 +331,10 @@ func (s *shell) appReopened(cancel func()) {
 
 // togglePanel answers a click on the bubble and the shortcut.
 func (s *shell) togglePanel() {
-	if s.comeBack() {
-		s.showPanel()
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	if s.changePresenceLocked("", shown) {
+		s.showPanelOn(eventPanelShown)
 		return
 	}
 	if s.panel.IsVisible() {
@@ -331,16 +347,21 @@ func (s *shell) togglePanel() {
 	if justDismissed {
 		return
 	}
-	s.showPanel()
-}
-
-// showPanel opens the list beside the bubble and gives it the keys.
-func (s *shell) showPanel() {
 	s.showPanelOn(eventPanelShown)
 }
 
+// showPanelWhileShown opens the list unless the companion is hidden or faded.
+func (s *shell) showPanelWhileShown() {
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	if s.presenceNow() == shown {
+		s.showPanelOn(eventPanelShown)
+	}
+}
+
 // showPanelOn opens the panel beside the bubble and tells it with event,
-// whose data is the corner nearest the bubble.
+// whose data is the corner nearest the bubble. The caller holds placing,
+// so a Hide cannot land between the presence it checked and the show.
 func (s *shell) showPanelOn(event string) {
 	x, y, nearest := placePanel(windowRect(s.bubble), s.workArea(), panelWidth, panelHeight)
 	s.panel.SetPosition(x, y)
@@ -465,11 +486,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	// The page asks after an open fails, which can come long after a hide;
 	// only the shortcut or a second start brings it back.
 	mux.HandleFunc("POST /api/panel/show", func(w http.ResponseWriter, _ *http.Request) {
-		if s.presenceNow() != shown {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		s.showPanel()
+		s.showPanelWhileShown()
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/preferences", s.getPreferences)
