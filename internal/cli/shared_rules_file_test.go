@@ -629,8 +629,8 @@ func TestSync_HandEditCopiedToABackupThatIsAnotherOutput_IsKept(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, "RULES.md.bak"), edited)
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: RULES.md.bak\n")
 
-	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
-		t.Fatalf("sync: %v\n%s", err, out)
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err == nil {
+		t.Fatalf("sync must stop on an output at RULES.md.bak:\n%s", out)
 	}
 
 	if got, _ := os.ReadFile(filepath.Join(dir, "RULES.md")); string(got) != edited {
