@@ -90,7 +90,7 @@ Read-only means no source, generated configuration, or GitHub changes. Write evi
 
 Finish one target before starting the next. Save its evidence-contract report
 at `<run>/<target>.md`, then mark it done with
-`go run ./scripts/audit-manifest checkpoint <run> <target>`. The marker holds
+`<manifest-binary> checkpoint <run> <target>` using the coordinator-supplied binary. The marker holds
 the report's hash, so a batch stopped by a usage limit or a crash keeps every
 finished target, and a relaunch assigns only the rest. Never edit a report
 after its checkpoint; a later correction goes in a separate file you name in

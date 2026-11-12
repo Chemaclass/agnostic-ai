@@ -9,8 +9,9 @@ This development helper needs Go. JSON comparison hashes also need `jq` when the
 Build the helper once outside the checkout, then create a dedicated worktree before fetching:
 
 ```bash
-go build -o /tmp/agnostic-audit-manifest ./scripts/audit-manifest
-worktree=$(/tmp/agnostic-audit-manifest isolate --out /tmp/agnostic-audit-research)
+audit_tools=$(mktemp -d)
+go build -o "$audit_tools/audit-manifest" ./scripts/audit-manifest
+worktree=$("$audit_tools/audit-manifest" isolate --out /tmp/agnostic-audit-research)
 cd "$worktree"
 evidence=$(jq -r .evidence_directory "$(git rev-parse --git-path target-audit-isolation.json)")
 export DOCFETCH_RUNS="$evidence"
@@ -34,7 +35,7 @@ run=$(/tmp/agnostic-audit-manifest start --builtins-since <commit> claude zed)
 provenance=$(jq '{audited_commit, targets, builtin_baseline: .builtins_since, source_lock: .lock_baseline_sha256}' "$run/audit.json")
 scripts/audit-metrics.sh init "$run" "$(jq -r .run_id "$run/audit.json")" "$provenance"
 scripts/docfetch.sh --out "$run" claude zed
-go run ./scripts/audit-manifest capture "$run"
+"$audit_tools/audit-manifest" capture "$run"
 ```
 
 Omit the target arguments from both commands to audit every registered target. `start` prints a unique run directory under ignored `local/target-audit/`. `--out <directory>` selects another fresh directory, either outside the checkout or ignored by Git. An existing directory is rejected. A new invocation always starts a new run and fetches every requested source fresh.
@@ -50,9 +51,9 @@ In a run that has `audit.json` under `local/target-audit/`, the fetch stores eac
 An auditor checkpoints each target as soon as its report is finished, before it starts the next target:
 
 ```bash
-go run ./scripts/audit-manifest checkpoint "$run" claude
-go run ./scripts/audit-manifest checkpoints "$run"
-go run ./scripts/audit-manifest checkpoints --pending "$run" claude zed
+"$audit_tools/audit-manifest" checkpoint "$run" claude
+"$audit_tools/audit-manifest" checkpoints "$run"
+"$audit_tools/audit-manifest" checkpoints --pending "$run" claude zed
 ```
 
 `checkpoint` requires a requested target and its report at `<run>/<target>.md`, and atomically writes `<run>/<target>.done` with the report's SHA-256. It does not take the coordinator's write guard, so parallel auditors can checkpoint while the coordinator records progress, and it never changes `audit.json`. A finalized run rejects it. `checkpoints` prints one `<target>\t<state>` row per requested target, or per named target when targets follow the run directory: `completed` when the manifest holds its assignment outcome, `done` when a marker matches its report, `stale` when the report changed or vanished after its marker, and `pending` otherwise. `--pending` prints only the `pending` and `stale` targets on one line. Name the stopped batch's targets so the relaunch never takes another batch's live targets.
@@ -64,12 +65,12 @@ A marker is a claim by the auditor, not coverage. When a batch stops, confirm it
 Explicit resume selects one prior run directory. Start a new run with the independently requested target list and baseline, fetch every requested source fresh, and capture it before selecting reuse:
 
 ```bash
-run=$(go run ./scripts/audit-manifest start --builtins-since <commit> claude zed)
+run=$("$audit_tools/audit-manifest" start --builtins-since <commit> claude zed)
 provenance=$(jq '{audited_commit, targets, builtin_baseline: .builtins_since, source_lock: .lock_baseline_sha256}' "$run/audit.json")
 scripts/audit-metrics.sh init "$run" "$(jq -r .run_id "$run/audit.json")" "$provenance"
 scripts/docfetch.sh --out "$run" claude zed
-go run ./scripts/audit-manifest capture "$run"
-go run ./scripts/audit-manifest resume "$run" <prior-run-directory>
+"$audit_tools/audit-manifest" capture "$run"
+"$audit_tools/audit-manifest" resume "$run" <prior-run-directory>
 ```
 
 Resume runs once before assignments or page dispositions are added. It validates both runs in the same checkout, including the repository commit, staged index, working and untracked files, embedded ignored built-ins, policy/extraction version, source inventory, exact lock baseline and built-in baseline. Any unknown context change rejects reuse for the whole run. It does not adopt a prior run's requested targets or baseline. Old manifests without the research version cannot resume.
@@ -85,9 +86,9 @@ This is local research continuation for one checkout. Resume does not execute is
 One coordinator writes progress. Assign every requested target exactly once, including targets taking a fast path. Owners can be an auditor name, a batch name, or the coordinator.
 
 ```bash
-go run ./scripts/audit-manifest assign "$run" claude batch-1
-go run ./scripts/audit-manifest complete "$run" claude reviewed claude.md 'Checked emitted paths and built-ins'
-go run ./scripts/audit-manifest record "$run" claude docs <source-url> reviewed claude.md 'Verified current page against repository claims'
+"$audit_tools/audit-manifest" assign "$run" claude batch-1
+"$audit_tools/audit-manifest" complete "$run" claude reviewed claude.md 'Checked emitted paths and built-ins'
+"$audit_tools/audit-manifest" record "$run" claude docs <source-url> reviewed claude.md 'Verified current page against repository claims'
 ```
 
 Assignment completion and page dispositions are separate. Complete one assignment per target and record one disposition per expected target-kind-URL. Each command takes `reviewed`, `fast-path`, or `research-limit`, followed by an artifact path relative to the run directory and a nonempty reason. Finish each artifact before recording it; later edits invalidate its digest. A target artifact can explain several pages. Unknown targets, unknown sources, repeated assignments and repeated completions are rejected.
@@ -96,7 +97,7 @@ A `fast-path` needs a usable built-in baseline, a target outside the computed `b
 
 ## Ingest a target result
 
-Build the helper once from the audited checkout and use that binary for coordinator and auditor commands. For example, `audit_tools=$(mktemp -d)` followed by `go build -o "$audit_tools/audit-manifest" ./scripts/audit-manifest`. The temporary tools directory is outside the audited repository. Keep it until the run finishes.
+Reuse the helper built before isolation for coordinator and auditor commands. The temporary tools directory is outside the audited repository. Keep it until the run finishes.
 
 After assigning a target and checkpointing its finished report, create its result template:
 
@@ -122,7 +123,7 @@ Accepted results live in `audit.json`, alongside the existing assignment and sou
 ## Validate and finalize
 
 ```bash
-go run ./scripts/audit-manifest validate "$run"
+"$audit_tools/audit-manifest" validate "$run"
 scripts/docfetch.sh --update "$run/docfetch.tsv"
 ```
 
