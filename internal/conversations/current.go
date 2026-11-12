@@ -21,7 +21,7 @@ const maxSessionAncestors = 32
 var errNoSession = errors.New("cannot tell which conversation this runs in: no Claude Code, Codex or Cursor terminal agent session is among its parent processes; run it from inside a session")
 
 // errCursorEditor says the command runs in the Cursor editor with no
-// session it can name in between. A tool it cannot recognise, such as
+// session it can name in between. A tool it cannot recognize, such as
 // a Claude Code that runs as node, may sit in between.
 var errCursorEditor = errors.New("cannot tell which conversation this runs in: it runs inside the Cursor editor, and no Claude Code, Codex or cursor-agent session it can name is in between; a Cursor editor chat cannot start a linked conversation, since it does not run in a terminal tab")
 
