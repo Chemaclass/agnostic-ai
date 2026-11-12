@@ -31,7 +31,7 @@ Keep the worktree while research, resume, or maintenance delivery remains pendin
 Start before fetching. Initialize the run metrics before the fetch using the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md). Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md): one revision, or the per-target `<target>=<rev>,...` list from `scripts/target-facts.sh --builtins-baseline "$evidence"/*.md`. `start` resolves each revision to its full commit and rejects an unknown or repeated target. Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable. A target the list omits has no baseline and cannot take a fast path.
 
 ```bash
-run=$(/tmp/agnostic-audit-manifest start --builtins-since <commit> claude zed)
+run=$("$audit_tools/audit-manifest" start --builtins-since <commit> claude zed)
 provenance=$(jq '{audited_commit, targets, builtin_baseline: .builtins_since, source_lock: .lock_baseline_sha256}' "$run/audit.json")
 scripts/audit-metrics.sh init "$run" "$(jq -r .run_id "$run/audit.json")" "$provenance"
 scripts/docfetch.sh --out "$run" claude zed
