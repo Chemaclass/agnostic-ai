@@ -10,7 +10,9 @@ export function dimOf(appearance) {
   return appearance?.dimWhenIdle === true ? 'on' : 'off'
 }
 
-/** `on` only while the shell says the companion is paused; an unread appearance is awake. */
-export function pausedOf(appearance) {
-  return appearance?.paused === true ? 'on' : 'off'
+const PRESENCES = new Set(['shown', 'hidden', 'faded'])
+
+/** How the companion sits on the screen: `shown`, `hidden`, or `faded` when it came back on its own. An unread appearance is shown. */
+export function presenceOf(appearance) {
+  return PRESENCES.has(appearance?.presence) ? appearance.presence : 'shown'
 }

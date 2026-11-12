@@ -39,7 +39,7 @@ exit 0
 		"trae: block (exit 2", "event: PreToolUse (RunCommand)", "env:trae",
 		"openhands: block (exit 2", "event: PreToolUse (terminal)", "env:openhands",
 		"goose: block (exit 2", "event: PreToolUse (shell)", "env:goosegoose",
-		"augment: block (exit 2", "event: PreToolUse (launch-process)", "env:augment",
+		"augment: block (exit 2", "event: PreToolUse (bash)", "env:augment",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)

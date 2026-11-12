@@ -265,7 +265,7 @@ func TestPortableHookTargets_TranslationTable(t *testing.T) {
 		"qoder":     {"SessionStart UserPromptSubmit PreToolUse - - Stop SessionEnd", "Bash", "Edit|Write|NotebookEdit", "Read", "WebFetch|WebSearch", "mcp__s__.*"},
 		"openhands": {"SessionStart UserPromptSubmit PreToolUse - - Stop SessionEnd", "terminal", "-", "-", "-", "-"},
 		"goose":     {"SessionStart - PreToolUse - - Stop SessionEnd", "^shell$", "^(write|edit)$", "-", "-", "-"},
-		"augment":   {"SessionStart - PreToolUse - - - SessionEnd", "^launch-process$", "^(str-replace-editor|save-file)$", "-", "^(web-fetch|web-search)$", "-"},
+		"augment":   {"SessionStart - PreToolUse - - - SessionEnd", "^(bash|launch-process)$", "^(edit|write|str-replace-editor|save-file)$", "-", "^(web-fetch|web-search)$", "-"},
 		"crush":     {"- - PreToolUse - - - -", "^bash$", "^(edit|multiedit|write)$", "-", "-", "-"},
 		"windsurf":  {"- UserPromptSubmit PreToolUse - - Stop -", "^exec$", "^(edit|write|apply_patch)$", "^read$", "^(webfetch|web_search)$", "-"},
 		"cursor":    {"sessionStart beforeSubmitPrompt preToolUse - - - sessionEnd", "^Shell$", "^Write$", "^Read$", "-", "-"},

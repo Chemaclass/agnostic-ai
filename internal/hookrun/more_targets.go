@@ -244,9 +244,9 @@ func gooseMatches(matcher, value string) (bool, error) {
 
 var augmentInputlessEvents = []string{"Stop", "SessionEnd", "Notification"}
 
-// buildAugment writes Auggie's payload. Edits go through
-// str-replace-editor or save-file with paths relative to the workspace
-// root, and file_changes on PostToolUse. --prompt builds PromptSubmit.
+// buildAugment writes Auggie 1.x's payload. Edits go through edit or
+// write with paths relative to the workspace root, and file_changes on
+// PostToolUse. --prompt builds PromptSubmit.
 func buildAugment(event, matcher, root string, in Input) (Payload, error) {
 	if err := checkAugmentInput(event, in); err != nil {
 		return Payload{}, err
@@ -278,15 +278,15 @@ func buildAugment(event, matcher, root string, in Input) (Payload, error) {
 	var input map[string]any
 	var err error
 	if in.Bash != "" {
-		p.Trigger = "launch-process"
-		p.Fires, err = unanchoredMatches(matcher, p.Trigger)
+		p.Trigger = "bash"
+		p.Fires, err = augmentToolMatches(matcher, p.Trigger)
 		input = map[string]any{"command": in.Bash}
 	} else {
 		path := relPath(root, in.Edit)
-		p.Trigger, p.Fires, err = firstMatch(unanchoredMatches, matcher, []string{"str-replace-editor", "save-file"})
+		p.Trigger, p.Fires, err = firstMatch(augmentToolMatches, matcher, []string{"edit", "write"})
 		input = map[string]any{"path": path}
-		if p.Trigger == "str-replace-editor" {
-			input["old_str_1"], input["new_str_1"] = "", ""
+		if p.Trigger == "edit" {
+			input["edits"] = []map[string]any{{"oldText": "", "newText": ""}}
 		}
 		if event == "PostToolUse" {
 			doc["file_changes"] = []map[string]any{{"path": path, "changeType": "edit", "content": "", "oldContent": ""}}
@@ -298,8 +298,37 @@ func buildAugment(event, matcher, root string, in Input) (Payload, error) {
 	doc["tool_name"], doc["tool_input"], doc["is_mcp_tool"] = p.Trigger, input, false
 	if event == "PostToolUse" {
 		doc["tool_output"], doc["tool_error"] = "", nil
+		doc["tool_result"], doc["tool_is_error"] = []any{}, false
 	}
 	return marshal(p, doc)
+}
+
+// augmentLegacyTools are the Auggie 0.x names that 1.x matchers still
+// match for its renamed tools.
+var augmentLegacyTools = map[string]string{
+	"bash": "launch-process", "read": "view", "edit": "str-replace-editor", "write": "save-file",
+}
+
+// augmentToolMatches follows Auggie 1.x for built-in tools: the matcher
+// is a case-insensitive unanchored regular expression, and it also
+// matches a tool through its 0.x name. The `mcp:` prefix rules are not
+// modeled.
+func augmentToolMatches(matcher, value string) (bool, error) {
+	matcher = strings.TrimSpace(matcher)
+	if matcher == "" || matcher == "*" {
+		return true, nil
+	}
+	names := []string{value}
+	if legacy := augmentLegacyTools[strings.ToLower(value)]; legacy != "" {
+		names = append(names, legacy)
+	}
+	re, err := regexp.Compile("(?i)" + matcher)
+	return slices.ContainsFunc(names, func(name string) bool {
+		if err != nil {
+			return strings.EqualFold(matcher, name)
+		}
+		return re.MatchString(name)
+	}), nil
 }
 
 func checkAugmentInput(event string, in Input) error {

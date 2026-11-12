@@ -41,18 +41,12 @@ var sessionOnlyEvents = map[string]bool{
 	"PromptSubmit": true, "Notification": true,
 }
 
-// claudeToolNames are the Claude-style matcher values Augment's own
-// PreToolUse/PostToolUse tool vocabulary does not answer to
-// (`launch-process`, `str-replace-editor`, `save-file`, `remove-files`,
-// `view`, `web-fetch`, `web-search`, `codebase-retrieval`, `github-api`,
-// `linear`; see the package doc's agent `tools` section for the same
-// list). A matcher carried over from a Claude spec parses as a valid
-// regex and then matches nothing, so it earns a coverage note rather
-// than a silent pass-through, the same treatment openhands and windsurf
-// give their own mismatched tool vocabularies. No mapping is attempted:
-// there is no vendor-stated Augment counterpart for `Read`, `Grep`, or
-// the rest, so guessing one would swap a visible miss for an invisible
-// one.
+// claudeToolNames are Claude-style matcher values. Auggie 1.x matches
+// case-insensitively, so Bash, Read, Edit, Write, and Grep reach its
+// bash, read, edit, write, and grep tools, but Auggie 0.x names its
+// tools launch-process, view, str-replace-editor, and save-file, so
+// they match nothing there; that earns a coverage note. No mapping is
+// attempted, since one matcher value cannot serve both versions.
 var claudeToolNames = map[string]bool{
 	"Bash": true, "Read": true, "Write": true, "Edit": true,
 	"Glob": true, "Grep": true, "WebFetch": true, "WebSearch": true,
@@ -145,7 +139,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
-		"Augment names its own tools (launch-process, str-replace-editor, save-file, ...), so a Claude-style matcher parses but matches nothing; use one of Augment's own tool names, `.*`, or a regex over them")
+		"Auggie 1.x names its tools bash, read, edit, write, grep, find, web-fetch, ... and matches case-insensitively, so Bash, Read, Edit, Write, and Grep match there but Glob, WebFetch, and WebSearch match nothing; Auggie 0.x (launch-process, view, str-replace-editor, save-file, ...) matches case-sensitively, so none of them match; use Augment's own tool names, `.*`, or a regex over them")
 	emit.NoteCoverageGap(target, spec.KindHook, promptHooks, UserPromptSubmitHint)
 	emit.NoteCoverageGap(target, spec.KindHook, otherEvents,
 		"Auggie has no such hook event; use PreToolUse, PostToolUse, Stop, SessionStart, SessionEnd, PromptSubmit, or Notification")

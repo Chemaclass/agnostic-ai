@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-// The list's ⋯ menu and the paused circle, on the real companion pages served by companion/dev/preview.mjs.
+// The list's ⋯ menu, the quit question and the hidden circle, on the real companion pages served by companion/dev/preview.mjs.
 
 async function openPanel(page: Page) {
   const reset = await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
@@ -22,7 +22,7 @@ function sent(page: Page, path: string) {
   return paths
 }
 
-test('the keys move through the menu and end on Quit, after Pause', async ({ page }) => {
+test('the keys move through the menu and end on Quit, after Hide', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)
 
@@ -33,7 +33,7 @@ test('the keys move through the menu and end on Quit, after Pause', async ({ pag
     menu.getByRole('switch', { name: 'Dim when idle' }),
     menu.getByRole('switch', { name: 'Start at login' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
-    menu.getByRole('button', { name: 'Pause Agnostic AI companion' }),
+    menu.getByRole('button', { name: /^Hide Agnostic AI companion/ }),
     menu.getByRole('button', { name: 'Quit Agnostic AI companion' }),
   ]
   for (const item of order) {
@@ -57,14 +57,117 @@ test('Escape closes the menu and keeps the list; a second Escape hides the list'
   await hidden
 })
 
-test('Quit asks the shell to end the companion', async ({ page }) => {
-  await openPanel(page)
+const quitQuestion = (page: Page) => page.getByRole('alertdialog', { name: 'Quit Agnostic AI companion?' })
+
+async function askQuit(page: Page) {
   await openSettings(page)
+  await page.getByRole('button', { name: 'Quit Agnostic AI companion' }).click()
+  await expect(quitQuestion(page)).toBeVisible()
+}
+
+test('Quit asks first, says how to start again, and focuses Cancel', async ({ page }) => {
+  await openPanel(page)
+  const quits = sent(page, '/api/quit')
+
+  await askQuit(page)
+
+  await expect(quitQuestion(page)).toContainText('the shortcut will not bring it back')
+  await expect(quitQuestion(page)).toContainText('run agnostic-ai companion, or ask your AI tool to run it')
+  await expect(quitQuestion(page)).toContainText('The shortcut works only after Hide.')
+  await expect(quitQuestion(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeHidden()
+  expect(quits).toEqual([])
+})
+
+test('Quit in the question asks the shell to end the companion', async ({ page }) => {
+  await openPanel(page)
+  await askQuit(page)
 
   const quit = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/quit')
-  await page.getByRole('button', { name: 'Quit Agnostic AI companion' }).click()
+  await quitQuestion(page).getByRole('button', { name: 'Quit', exact: true }).click()
   await quit
   await expect.poll(async () => (await (await page.request.get('/dev/calls')).json())[0]?.path).toBe('/api/quit')
+})
+
+test('Hide instead hides the companion and does not quit', async ({ page }) => {
+  await openPanel(page)
+  const quits = sent(page, '/api/quit')
+  await askQuit(page)
+
+  const hidden = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/hide')
+  await quitQuestion(page).getByRole('button', { name: 'Hide instead' }).click()
+  await hidden
+  await expect(quitQuestion(page)).toBeHidden()
+  expect((await (await page.request.get('/api/appearance')).json()).presence).toBe('hidden')
+  expect(quits).toEqual([])
+})
+
+for (const [how, cancel] of [
+  ['Cancel', (page: Page) => quitQuestion(page).getByRole('button', { name: 'Cancel' }).click()],
+  ['Escape', (page: Page) => page.keyboard.press('Escape')],
+  ['a click away', (page: Page) => page.getByLabel('Search every conversation').click()],
+] as const) {
+  test(`${how} answers the quit question with no change`, async ({ page }) => {
+    await openPanel(page)
+    const quits = sent(page, '/api/quit')
+    const hides = sent(page, '/api/hide')
+    await askQuit(page)
+
+    await cancel(page)
+
+    await expect(quitQuestion(page)).toBeHidden()
+    await expect(page.getByLabel('Search every conversation')).toBeVisible()
+    expect(quits).toEqual([])
+    expect(hides).toEqual([])
+    expect((await (await page.request.get('/api/appearance')).json()).presence).toBe('shown')
+  })
+}
+
+test('Enter on Quit with a row selected asks, and neither opens the row nor hides the list', async ({ page }) => {
+  await openPanel(page)
+  const opens = sent(page, '/api/open')
+  const hides = sent(page, '/api/panel/hide')
+  await page.getByLabel('Search every conversation').focus()
+  await page.keyboard.press('ArrowDown')
+  await openSettings(page)
+
+  await page.getByRole('button', { name: 'Quit Agnostic AI companion' }).focus()
+  await page.keyboard.press('Enter')
+
+  await expect(quitQuestion(page)).toBeVisible()
+  await page.waitForTimeout(200)
+  expect(opens).toEqual([])
+  expect(hides).toEqual([])
+})
+
+test('the quit question keeps the keys: Tab goes round its three buttons', async ({ page }) => {
+  await openPanel(page)
+  const marks = sent(page, '/api/mark')
+  await askQuit(page)
+  const question = quitQuestion(page)
+
+  const order = ['Hide instead', 'Quit', 'Cancel', 'Hide instead']
+  for (const name of order) {
+    await page.keyboard.press('Tab')
+    await expect(question.getByRole('button', { name, exact: true })).toBeFocused()
+  }
+  await page.keyboard.press('Shift+Tab')
+  await expect(question.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await page.keyboard.press('Enter')
+
+  await expect(question).toBeHidden()
+  expect(marks).toEqual([])
+})
+
+test('Quit in the right-click menu opens the list on the question', async ({ page }) => {
+  await openPanel(page)
+  const quits = sent(page, '/api/quit')
+
+  await page.request.post('/dev/ask-quit')
+
+  await expect(quitQuestion(page)).toBeVisible()
+  await expect(quitQuestion(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
+  expect(quits).toEqual([])
 })
 
 async function openCircle(page: Page, fixture = 'mixed') {
@@ -75,64 +178,89 @@ async function openCircle(page: Page, fixture = 'mixed') {
 
 const circle = (page: Page) => page.locator('#bubble')
 
-test('Pause in the menu asks the shell to pause', async ({ page }) => {
+test('Hide in the menu names the shortcut and asks the shell to hide', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)
 
-  const paused = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/pause')
-  await page.getByRole('button', { name: 'Pause Agnostic AI companion' }).click()
-  await paused
+  const hide = page.getByRole('button', { name: 'Hide Agnostic AI companion (⌃⌥Space brings it back)' })
+  await expect(hide).toBeVisible()
+  const hidden = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/hide')
+  await hide.click()
+  await hidden
   const appearance = await (await page.request.get('/api/appearance')).json()
-  expect(appearance.paused).toBe(true)
+  expect(appearance.presence).toBe('hidden')
 })
 
-test('a paused circle fades to 10% with no count, and a click wakes it with a new count', async ({ page }) => {
-  await openCircle(page)
-  await expect(page.locator('#badge')).toHaveText('2')
-  await expect(circle(page)).toHaveCSS('opacity', '1')
+test('Hide follows a new shortcut', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
 
-  expect((await page.request.post('/api/pause')).status()).toBe(204)
+  await page.request.post('/api/preferences/shortcut', { data: { shortcut: 'Ctrl+Shift+K' } })
 
-  await expect(circle(page)).toHaveCSS('opacity', '0.1')
-  await expect(page.locator('#badge')).toBeHidden()
-  await expect(page.locator('.ring')).toBeHidden()
-  await expect(page.getByRole('button', { name: 'Conversations: paused. Click to resume.' })).toBeVisible()
-  await circle(page).hover()
-  await expect(circle(page)).toHaveCSS('opacity', '0.1')
-
-  const inboxRead = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/inbox')
-  await circle(page).click()
-  await inboxRead
-  await expect(circle(page)).toHaveCSS('opacity', '1')
-  await expect(page.locator('#badge')).toHaveText('2')
-  await expect(page.getByRole('button', { name: 'Conversations: 2 need you' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hide Agnostic AI companion (⌃⇧K brings it back)' })).toBeVisible()
 })
 
-test('a paused circle reads nothing when told the list changed', async ({ page }) => {
+test('hidden, a chat that starts waiting brings the circle back at 25% with its count', async ({ page }) => {
   await openCircle(page)
   await expect(page.locator('#badge')).toHaveText('2')
-  await page.request.post('/api/pause')
-  await expect(circle(page)).toHaveCSS('opacity', '0.1')
+  expect((await page.request.post('/api/hide')).status()).toBe(204)
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'hidden')
 
-  let reads = 0
-  page.on('request', (request) => {
-    if (new URL(request.url()).pathname === '/api/inbox') reads++
-  })
   await page.request.post('/dev/arrive')
-  // The arrival's news reaches the page over the event stream; give it time to answer.
-  await page.waitForTimeout(300)
-  expect(reads).toBe(0)
-  await expect(page.locator('#badge')).toBeHidden()
+
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'faded')
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
+  await expect(page.locator('#badge')).toHaveText('3')
+  await circle(page).hover()
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
 })
 
-test('a pause wins over Dim when idle: 10%, not 55%', async ({ page }) => {
+test('a click on the faded circle brings back full color, and it stays', async ({ page }) => {
+  await openCircle(page)
+  await page.request.post('/api/hide')
+  await page.request.post('/dev/arrive')
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
+
+  await circle(page).click()
+
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'shown')
+  await expect(circle(page)).toHaveCSS('opacity', '1')
+  await page.request.post('/dev/write', { data: { tool: 'claude', id: 'arrived-1' } })
+  await expect(circle(page)).toHaveCSS('opacity', '1')
+})
+
+test('chats already waiting keep a hidden circle hidden, and Hide hides a faded one again', async ({ page }) => {
+  await openCircle(page)
+  await page.request.post('/api/hide')
+  await page.request.post('/dev/arrive')
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'faded')
+
+  await page.request.post('/api/hide')
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'hidden')
+  // The same chat, still waiting, is listed again: nothing new waits.
+  await page.request.post('/dev/arrive')
+  await page.waitForTimeout(300)
+
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'hidden')
+})
+
+test('Dim when idle does not lift a hidden idle circle to 55%', async ({ page }) => {
   await openCircle(page, 'empty')
   await page.request.post('/dev/appearance', { data: { dimWhenIdle: true } })
   await expect(circle(page)).toHaveCSS('opacity', '0.55')
 
-  await page.request.post('/api/pause')
+  await page.request.post('/api/hide')
 
-  await expect(circle(page)).toHaveCSS('opacity', '0.1')
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
+})
+
+test('the faded circle stays at 25% with Dim when idle on', async ({ page }) => {
+  await openCircle(page)
+  await page.request.post('/dev/appearance', { data: { dimWhenIdle: true } })
+  await page.request.post('/api/hide')
+  await page.request.post('/dev/arrive')
+
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
 })
 
 const settingsMenu = (page: Page) => page.getByRole('region', { name: 'Settings', exact: true })
@@ -143,7 +271,7 @@ test('the menu shows the shared list, in its order, with the values in effect', 
   await openSettings(page)
 
   const labels = await settingsMenu(page).locator('.menu-label, .menu-item').allTextContents()
-  expect(labels).toEqual(items.map((item) => item.label))
+  expect(labels).toEqual(items.map((item) => (item.label.startsWith('Hide') ? `${item.label} (⌃⌥Space brings it back)` : item.label)))
   await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'true')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'false')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Start at login' })).toHaveAttribute('aria-checked', 'false')

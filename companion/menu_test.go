@@ -99,16 +99,16 @@ func TestBubbleMenu_RefusesAListWithoutAnItemItShows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var withoutPause []menuItem
+	var withoutHide []menuItem
 	for _, item := range items {
-		if item.ID != "pause" {
-			withoutPause = append(withoutPause, item)
+		if item.ID != "hide" {
+			withoutHide = append(withoutHide, item)
 		}
 	}
 
-	err = s.fillBubbleMenu(application.NewMenu(), withoutPause)
+	err = s.fillBubbleMenu(application.NewMenu(), withoutHide)
 
-	if err == nil || !strings.Contains(err.Error(), `"pause"`) {
+	if err == nil || !strings.Contains(err.Error(), `"hide"`) {
 		t.Errorf("err = %v; want one naming the missing item", err)
 	}
 }
@@ -131,7 +131,7 @@ func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 		}
 	}
 	want := []string{settingsHeader, "[x] Animate companion", "[x] Dim when idle", "[x] Start at login",
-		shortcutLabel("Ctrl+Alt+Space", runtime.GOOS == "darwin"), "---", "Pause Agnostic AI companion", "Quit Agnostic AI companion"}
+		shortcutLabel("Ctrl+Alt+Space", runtime.GOOS == "darwin"), "---", hideLabel("Hide Agnostic AI companion", s.preferences(), runtime.GOOS == "darwin"), "Quit Agnostic AI companion"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("menu = %q\nwant %q", got, want)
 	}
@@ -284,22 +284,62 @@ func TestGetPreferences_ShowsALoginChangeMadeElsewhere(t *testing.T) {
 	}
 }
 
-func TestPauseItem_IsGreyedWhilePaused(t *testing.T) {
-	s, _, _ := pausableShell(t)
+func TestHideLabel_NamesTheWayBack(t *testing.T) {
+	cases := []struct {
+		name  string
+		prefs preferences
+		mac   bool
+		want  string
+	}{
+		{"mac shortcut", preferences{Shortcut: "Ctrl+Alt+Space"}, true, "Hide Agnostic AI companion (⌃⌥Space brings it back)"},
+		{"other shortcut", preferences{Shortcut: "Ctrl+Alt+Space"}, false, "Hide Agnostic AI companion (Ctrl+Alt+Space brings it back)"},
+		{"no working shortcut", preferences{Shortcut: "Ctrl+Alt+Space", ShortcutProblem: "Ctrl+Alt+Space is not active: taken"}, true, "Hide Agnostic AI companion (agnostic-ai companion brings it back)"},
+	}
+	for _, tc := range cases {
+		if got := hideLabel("Hide Agnostic AI companion", tc.prefs, tc.mac); got != tc.want {
+			t.Errorf("%s: hideLabel = %q; want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestHideItem_FollowsTheShortcut(t *testing.T) {
+	s, _, _, _ := menuShell(t)
+	mac := runtime.GOOS == "darwin"
+	routes := s.routes(&inbox{}, fstest.MapFS{})
+
+	routes.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/preferences/shortcut", strings.NewReader(`{"shortcut":"Cmd+Shift+K"}`)))
+	if got, want := s.native["hide"].Label(), hideLabel("Hide Agnostic AI companion", preferences{Shortcut: "Cmd+Shift+K"}, mac); got != want {
+		t.Errorf("label = %q; want %q", got, want)
+	}
+
+	s.mu.Lock()
+	s.shortcutProblem = "Cmd+Shift+K is not active: taken"
+	s.mu.Unlock()
+	s.refreshNative()
+	if got := s.native["hide"].Label(); !strings.Contains(got, "agnostic-ai companion brings it back") {
+		t.Errorf("label = %q; want the other way back", got)
+	}
+}
+
+func TestHideItem_NamesTheCommandWhenTheShortcutIsRefusedAtStart(t *testing.T) {
+	s, _, _, _ := menuShell(t)
+	s.shortcuts = &fakeShortcuts{refused: map[string]bool{defaultShortcut: true}}
+
+	s.registerShortcut()
+
+	if got := s.native["hide"].Label(); !strings.Contains(got, "agnostic-ai companion brings it back") {
+		t.Errorf("label = %q; want the command as the way back", got)
+	}
+}
+
+func TestMenuList_QuitSaysTheShortcutStops(t *testing.T) {
 	items, err := readMenu(embedded)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.fillBubbleMenu(application.NewMenu(), items); err != nil {
-		t.Fatal(err)
-	}
-
-	s.setPaused(true)
-	if s.native["pause"].Enabled() {
-		t.Error("Pause can be chosen while paused")
-	}
-	s.setPaused(false)
-	if !s.native["pause"].Enabled() {
-		t.Error("Pause stays greyed after waking")
+	for _, item := range items {
+		if item.ID == "quit" && !strings.Contains(item.Hint, "shortcut stops working") {
+			t.Errorf("the Quit hint %q does not say the shortcut stops working", item.Hint)
+		}
 	}
 }
