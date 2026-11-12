@@ -310,6 +310,9 @@ jobs:
 
   # Split the macOS CLI race tests by name to stay within the job timeout.
   # The last shard skips the first two, so new tests land in exactly one shard.
+  # The cli race suite uses the same shards as windows-full, so each stays
+  # well under the ten-minute limit on a slow macOS runner. The last shard
+  # skips the earlier ones, so a new test lands in exactly one shard.
   macos-cli:
     name: Test cli (macos-latest, ${{ matrix.shard }})
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -319,15 +322,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - shard: a-h
-            run: '^Test[A-H]'
+          - shard: a-c
+            run: '^Test[A-C]'
+            skip: ''
+          - shard: d-h
+            run: '^Test[D-H]'
+            skip: ''
+          - shard: import
+            run: '^TestImport_'
             skip: ''
           - shard: i-l
             run: '^Test[I-L]'
+            skip: '^TestImport_'
+          - shard: sync
+            run: '^TestSync_'
             skip: ''
           - shard: m-z
             run: ''
-            skip: '^Test[A-L]'
+            skip: '^Test([A-L]|Sync_)'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
