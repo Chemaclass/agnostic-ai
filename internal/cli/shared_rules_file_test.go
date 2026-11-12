@@ -291,3 +291,103 @@ func TestSync_ExternalRulesFileOnASharedInstructionsFile_Stops(t *testing.T) {
 		t.Fatalf("sync must stop and name outputs.foo.rules-file, got %v", err)
 	}
 }
+
+// Every spelling of AGENTS.md is one file: the ledger holds one entry
+// and the next sync finds nothing to change (#3329).
+func TestSync_RulesFileOnASharedInstructionsFile_SettlesWhateverItsSpelling(t *testing.T) {
+	for _, spelling := range []string{"AGENTS.md", "./AGENTS.md", "./sub/../AGENTS.md", "AGENTS.md/"} {
+		t.Run(spelling, func(t *testing.T) {
+			dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: "+spelling+"\n")
+
+			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check: %v\n%s", err, out)
+			}
+			first, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+				t.Fatalf("second sync: %v\n%s", err, out)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "AGENTS.md.bak")); err == nil {
+				t.Error("the second sync must not save AGENTS.md.bak")
+			}
+			if second, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(second) != string(first) {
+				t.Errorf("the second sync must not change AGENTS.md:\nfirst:\n%s\nsecond:\n%s", first, second)
+			}
+			assertLedgerSpellsAGENTSmdOnce(t, readStateFile("."))
+		})
+	}
+}
+
+// A ledger written before #3329 holds both spellings. The next sync must
+// settle to the clean one without a backup and keep the live file.
+func TestSync_DotSlashRulesFileWithAStaleLedgerEntry_Settles(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: ./AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	state := readStateFile(".")
+	state.Outputs = append(state.Outputs, "./AGENTS.md")
+	state.OutputSums["./AGENTS.md"] = "3af4330a8a25f3ef8f926b6cc1ea6b616a0eba92f98e391ac45ce2ea742cd2af"
+	if err := replaceStateFile(".", state); err != nil {
+		t.Fatal(err)
+	}
+
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync over the stale ledger: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md.bak")); err == nil {
+		t.Error("sync must not save AGENTS.md.bak")
+	}
+	if got, err := os.ReadFile(filepath.Join(dir, "AGENTS.md")); err != nil || string(got) != string(want) {
+		t.Errorf("sync must keep AGENTS.md as it was (err %v):\nwant:\n%s\ngot:\n%s", err, want, got)
+	}
+	assertLedgerSpellsAGENTSmdOnce(t, readStateFile("."))
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+func TestSync_RulesFileOnASharedInstructionsFile_BacksUpAHandEditOnce(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "HAND-EDIT\n")
+
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync after the edit: %v\n%s", err, out)
+	}
+
+	if bak, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md.bak")); string(bak) != "HAND-EDIT\n" {
+		t.Errorf("AGENTS.md.bak must hold the edit, got %q", bak)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
+		t.Errorf("sync must restore AGENTS.md, got:\n%s", got)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+func assertLedgerSpellsAGENTSmdOnce(t *testing.T, state syncStateFile) {
+	t.Helper()
+	var spellings []string
+	for _, p := range state.Outputs {
+		if strings.HasSuffix(p, "AGENTS.md") || strings.HasSuffix(p, "AGENTS.md/") {
+			spellings = append(spellings, p)
+		}
+	}
+	if len(spellings) != 1 || spellings[0] != "AGENTS.md" {
+		t.Errorf("the ledger must list AGENTS.md once, got %q", spellings)
+	}
+	for p := range state.OutputSums {
+		if p != "AGENTS.md" && strings.Contains(p, "AGENTS.md") {
+			t.Errorf("the ledger must not hold a sum for %q", p)
+		}
+	}
+}

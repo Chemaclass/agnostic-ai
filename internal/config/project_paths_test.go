@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -18,6 +19,8 @@ func TestLoad_RefusesPathsOutsideTheProject(t *testing.T) {
 		{"gitignore allow with a newline", "gitignore:\n  allow: [\"x\\ntouch PWNED\"]\n", "gitignore.allow"},
 		{"gitignore allow with a carriage return", "gitignore:\n  allow: [\"x\\rtouch PWNED\"]\n", "gitignore.allow"},
 		{"output dir above the root", "outputs:\n  codex:\n    dir: ../elsewhere\n", "outputs.codex.dir"},
+		{"rules file above the root", "outputs:\n  codex:\n    rules-file: ../outside.md\n", "outputs.codex.rules-file"},
+		{"rules file climbing out after a clean", "outputs:\n  codex:\n    rules-file: ./a/../../outside.md\n", "outputs.codex.rules-file"},
 		{"mcp file above the root", "outputs:\n  claude:\n    mcp-file: tools/../../m.json\n", "outputs.claude.mcp-file"},
 		{"setup file in the git hooks", "outputs:\n  amp:\n    setup-file: .git/hooks/post-checkout\n", "outputs.amp.setup-file"},
 		{"rules dir reaching the git folder in another case", "outputs:\n  claude:\n    rules-dir: x/../.Git/hooks\n", "outputs.claude.rules-dir"},
@@ -53,6 +56,44 @@ func TestLoad_AcceptsProjectRelativeOutputAndGitignorePaths(t *testing.T) {
 	}
 	if cfg.Outputs["claude"].RulesDir != "tools/r" || cfg.Gitignore.Path != "sub/.gitignore" {
 		t.Errorf("paths changed: %+v %+v", cfg.Outputs["claude"], cfg.Gitignore)
+	}
+}
+
+func TestLoad_CleansRelativeOutputPaths(t *testing.T) {
+	dir := t.TempDir()
+	inside := filepath.ToSlash(filepath.Join(dir, "tools", "rules"))
+	writeConfig(t, dir, "version: 1\ntargets: [claude, codex]\n"+
+		"outputs:\n  codex:\n    rules-file: ./AGENTS.md\n    dir: .codex/\n    skills-dir: a//b/../skills\n"+
+		"  claude:\n    rules-dir: \""+inside+"\"\n    file: CLAUDE.md\n")
+
+	cfg, err := config.Load(dir)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	codex := cfg.Outputs["codex"]
+	if codex.RulesFile != "AGENTS.md" || codex.Dir != ".codex" || codex.SkillsDir != "a/skills" {
+		t.Errorf("codex paths not cleaned: rules-file %q, dir %q, skills-dir %q", codex.RulesFile, codex.Dir, codex.SkillsDir)
+	}
+	if claude := cfg.Outputs["claude"]; claude.RulesDir != inside || claude.File != "CLAUDE.md" {
+		t.Errorf("claude paths changed: rules-dir %q, file %q", claude.RulesDir, claude.File)
+	}
+}
+
+func TestLoad_CleansBackslashOutputPathsOnWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("a backslash separates folders only on Windows")
+	}
+	dir := t.TempDir()
+	writeConfig(t, dir, "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: '.\\docs\\AGENTS.md'\n")
+
+	cfg, err := config.Load(dir)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Outputs["codex"].RulesFile; got != "docs/AGENTS.md" {
+		t.Errorf("rules-file = %q, want docs/AGENTS.md", got)
 	}
 }
 

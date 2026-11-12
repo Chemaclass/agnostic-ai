@@ -539,6 +539,7 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	if err := validateProjectPaths(cfg, root, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
+	cleanOutputPaths(cfg)
 	if err := validateRequires(cfg.Requires, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}

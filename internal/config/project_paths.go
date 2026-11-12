@@ -116,17 +116,36 @@ func DotGitName(seg string) bool {
 }
 
 // outputPaths lists the path-valued keys of one outputs.<target> entry.
-func (o Output) outputPaths() map[string]string {
-	return map[string]string{
-		"dir": o.Dir, "file": o.File, "rules-file": o.RulesFile, "rules-dir": o.RulesDir,
-		"review-file": o.ReviewFile, "environment-file": o.EnvironmentFile, "setup-file": o.SetupFile,
-		"ignore-file": o.IgnoreFile, "mcp-file": o.MCPFile, "cli-mcp-file": o.CLIMCPFile,
-		"root-mcp-file": o.RootMCPFile, "agents-dir": o.AgentsDir, "skills-dir": o.SkillsDir,
-		"instructions-dir": o.InstructionsDir, "commands-dir": o.CommandsDir, "chatmodes-dir": o.ChatmodesDir,
-		"workflows-dir": o.WorkflowsDir, "assistants-dir": o.AssistantsDir, "tasks-file": o.TasksFile,
-		"conf-file": o.ConfFile, "mcp-dir": o.MCPDir, "exec-policies-file": o.ExecPoliciesFile,
-		"hooks-file": o.HooksFile, "hooks-dir": o.HooksDir,
+func (o *Output) outputPaths() map[string]*string {
+	return map[string]*string{
+		"dir": &o.Dir, "file": &o.File, "rules-file": &o.RulesFile, "rules-dir": &o.RulesDir,
+		"review-file": &o.ReviewFile, "environment-file": &o.EnvironmentFile, "setup-file": &o.SetupFile,
+		"ignore-file": &o.IgnoreFile, "mcp-file": &o.MCPFile, "cli-mcp-file": &o.CLIMCPFile,
+		"root-mcp-file": &o.RootMCPFile, "agents-dir": &o.AgentsDir, "skills-dir": &o.SkillsDir,
+		"instructions-dir": &o.InstructionsDir, "commands-dir": &o.CommandsDir, "chatmodes-dir": &o.ChatmodesDir,
+		"workflows-dir": &o.WorkflowsDir, "assistants-dir": &o.AssistantsDir, "tasks-file": &o.TasksFile,
+		"conf-file": &o.ConfFile, "mcp-dir": &o.MCPDir, "exec-policies-file": &o.ExecPoliciesFile,
+		"hooks-file": &o.HooksFile, "hooks-dir": &o.HooksDir,
 	}
+}
+
+// cleanOutputPaths rewrites each relative outputs.<target> path in the
+// slash-separated clean form the built-in defaults use, so `./AGENTS.md`
+// and `AGENTS.md` reach the writer and the ledger as one file.
+func cleanOutputPaths(cfg *Config) {
+	for target, o := range cfg.Outputs {
+		for _, p := range o.outputPaths() {
+			*p = cleanOutputPath(*p)
+		}
+		cfg.Outputs[target] = o
+	}
+}
+
+func cleanOutputPath(p string) string {
+	if p == "" || filepath.IsAbs(p) {
+		return p
+	}
+	return path.Clean(filepath.ToSlash(p))
 }
 
 // validateProjectPaths refuses config paths that point outside the
@@ -140,14 +159,15 @@ func validateProjectPaths(cfg *Config, root, source string) error {
 	}
 	slices.Sort(targets)
 	for _, target := range targets {
-		paths := cfg.Outputs[target].outputPaths()
+		o := cfg.Outputs[target]
+		paths := o.outputPaths()
 		keys := make([]string, 0, len(paths))
 		for key := range paths {
 			keys = append(keys, key)
 		}
 		slices.Sort(keys)
 		for _, key := range keys {
-			if p := paths[key]; p != "" && unsafeOutputPath(root, p) {
+			if p := *paths[key]; p != "" && unsafeOutputPath(root, p) {
 				return errs.Coded(errs.CodeConfigDecode, "%s: outputs.%s.%s: %q is outside the project or inside .git; use a path relative to the project root", source, target, key, p)
 			}
 		}
