@@ -1613,7 +1613,9 @@ test('live Settings keeps a draft when a delayed overview contains a newer value
     await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('low')
     await effort.getByRole('button', { name: 'Preview', exact: true }).click()
     await page.getByRole('region', { name: 'Reasoning effort change preview' }).getByRole('button', { name: 'Apply', exact: true }).click()
-    await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: sonnet\neffort: low\n')
+    // The server writes the source before it verifies the generated files, so an edit before this status fails the apply.
+    await expect(page.getByRole('status').filter({ hasText: 'applied and verified in the generated files' })).toBeVisible()
+    expect(await readFile(f.settings, 'utf8')).toBe('name: native\nmodel: sonnet\neffort: low\n')
     await put(f.settings, 'name: native\nmodel: opus\neffort: low\n')
     const refreshed = page.waitForResponse('**/api/views/overview')
     release()
