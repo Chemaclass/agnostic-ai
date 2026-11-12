@@ -916,4 +916,9 @@
 # and cursor-agent chat folders found from their project) measured
 # 25997472 bytes locally on 2026-11-12, on top of main c1458b45; the
 # budget is that plus 8192, rounded up to a multiple of 4096.
-26009600
+# #3345 (a .bak sync saved heals a stuck file, one ledger reader, and a
+# ledger from a newer release refused by writers and warned about by
+# reports) measured 26013856 bytes locally on 2026-11-12, on top of main
+# 8506e2a6; the budget is that plus 8192, rounded up to a multiple of
+# 4096.
+26025984
