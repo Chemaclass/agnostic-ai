@@ -131,6 +131,9 @@ func newSyncCmd() *cobra.Command {
 				tree = entered
 				defer tree.leave()
 			}
+			if err := readLedger(".").refuseNewer(); err != nil {
+				return err
+			}
 			if !check && !plan && !dryRun {
 				command := "sync"
 				if watch {

@@ -87,3 +87,32 @@ func TestReadLedger_RefusesANewerLedgerThatDoesNotDecode(t *testing.T) {
 		t.Errorf("a newer ledger must be refused even when a field does not decode, got %v", err)
 	}
 }
+
+func TestSync_RefusesANewerLedgerBeforeWritingAnything(t *testing.T) {
+	for _, args := range [][]string{{"sync", "--gitignore=off"}, {"sync", "--json"}, {"use", "codex"}} {
+		for _, ledger := range []string{`{"version":99}`, `{"synced_at":0,"version":99}`} {
+			t.Run(strings.Join(args, " ")+" "+ledger, func(t *testing.T) {
+				dir := testutil.TempCwd(t)
+				silence(t)
+				mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+				mustWriteFile(t, stateFilePath("."), ledger)
+				mustWriteFile(t, filepath.Join(dir, ".gitignore"), "my-user-ignore\n")
+
+				out, err := runCLI(t, args...)
+
+				if err == nil || !strings.Contains(err.Error(), "newer agnostic-ai") {
+					t.Fatalf("%v must refuse the ledger, got %v\n%s", args, err, out)
+				}
+				if got, _ := os.ReadFile(filepath.Join(dir, ".gitignore")); string(got) != "my-user-ignore\n" {
+					t.Errorf(".gitignore must stay as it was:\n%s", got)
+				}
+				if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", ".command-lock")); err == nil {
+					t.Error("the refusal must come before the command lock")
+				}
+				if got, _ := os.ReadFile(stateFilePath(".")); string(got) != ledger {
+					t.Errorf("the ledger must stay as it was:\n%s", got)
+				}
+			})
+		}
+	}
+}
