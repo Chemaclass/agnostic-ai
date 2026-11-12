@@ -294,11 +294,13 @@ func (s *Scanner) Mark(tool Tool, id string, mark Mark) error {
 	if !known {
 		return fmt.Errorf("unknown mark %q", mark)
 	}
-	return s.changeMark(tool, id, change)
+	return s.changeMark(tool, id, change, mark != MarkHidden)
 }
 
 // changeMark applies change to one conversation's marks and saves them.
-func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry, now string)) error {
+// With withCloud, a shared row's cloud id gets the same change, so its
+// cloud row says the same once the local session ends.
+func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry, now string), withCloud bool) error {
 	if s.MarksPath == "" {
 		return errors.New("this server keeps no conversation marks")
 	}
@@ -316,10 +318,15 @@ func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry,
 	if err != nil {
 		return err
 	}
-	key := markKey(tool, id)
-	entry := file.Marks[key]
-	change(&entry, stamp(now))
-	file.Marks[key] = entry
+	keys := []string{markKey(tool, id)}
+	if cloud := s.sharedClouds[keys[0]]; withCloud && cloud != "" {
+		keys = append(keys, markKey(tool, cloud))
+	}
+	for _, key := range keys {
+		entry := file.Marks[key]
+		change(&entry, stamp(now))
+		file.Marks[key] = entry
+	}
 	return writeMarks(s.MarksPath, file)
 }
 
@@ -330,7 +337,7 @@ func (s *Scanner) Rename(tool Tool, id, title string) error {
 	if err != nil {
 		return err
 	}
-	return s.changeMark(tool, id, func(entry *markEntry, _ string) { entry.Title = title })
+	return s.changeMark(tool, id, func(entry *markEntry, _ string) { entry.Title = title }, false)
 }
 
 // Reopen finds one conversation, opens it where it lives, marks it seen
@@ -339,7 +346,7 @@ func (s *Scanner) Rename(tool Tool, id, title string) error {
 // lists it. The open has already happened when the mark is saved, so a
 // mark that cannot be saved is said beside the reply, not instead of it.
 func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (reply OpenReply, found bool) {
-	conversation, found := s.Find(ctx, tool, id, opts)
+	conversation, found := s.find(ctx, tool, id, opts, true)
 	if !found {
 		return OpenReply{}, false
 	}
@@ -348,7 +355,7 @@ func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 		return reply, true
 	}
 	reopened := func(entry *markEntry, now string) { entry.SeenAt, entry.CompletedAt = now, "" }
-	if err := s.changeMark(tool, id, reopened); err != nil {
+	if err := s.changeMark(tool, id, reopened, true); err != nil {
 		reply.Message += " It could not be marked as seen: " + err.Error()
 	}
 	return reply, true

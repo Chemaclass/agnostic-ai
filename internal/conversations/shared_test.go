@@ -170,10 +170,6 @@ func TestFind_ASharedRowsCloudIDOpensItsClaudeAIPage(t *testing.T) {
 	if !ok || local.App != AppCLI {
 		t.Fatalf("local = %v %s", ok, asJSON(t, local))
 	}
-	web, ok := scanner.Find(context.Background(), ToolClaude, "cse_01AbCd", ScanOptions{})
-	if !ok || web.App != AppCloud || web.Open.Link != "https://claude.ai/code/session_01AbCd" {
-		t.Fatalf("cloud = %v %s", ok, asJSON(t, web))
-	}
 	launcher := &fakeLauncher{}
 	reply, found := scanner.Reopen(context.Background(), ToolClaude, "cse_01AbCd", ScanOptions{}, launcher)
 	if !found || !reply.Opened || len(launcher.calls) != 1 || launcher.calls[0] != "link https://claude.ai/code/session_01AbCd" {
@@ -225,5 +221,94 @@ func TestScan_HidingASharedRowHidesBoth(t *testing.T) {
 	}
 	if view := scanner.Scan(context.Background(), ScanOptions{}); len(view.Conversations) != 0 {
 		t.Errorf("rows = %s", asJSON(t, view.Conversations))
+	}
+}
+
+// sharedScanner lists idSafari, live as pid 71 with Remote Control on,
+// beside its cloud row cse_01AbCd written at 11:30.
+func sharedScanner(t *testing.T) (*Scanner, Stores, *time.Time) {
+	t.Helper()
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{71: true}})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "marks.json")
+	at := time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return at }
+	writeMarkedSession(t, stores, idSafari, "2026-11-07T11:00:00Z")
+	writeBridgedSession(t, stores, 71, idSafari, "idle", "session_01AbCd")
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:30:00Z"))
+	scanner.Scan(context.Background(), ScanOptions{})
+	at = time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	return scanner, stores, &at
+}
+
+func TestMark_OnASharedRowAlsoMarksItsCloudRow(t *testing.T) {
+	for name, end := range map[string]func(t *testing.T, scanner *Scanner, stores Stores){
+		"the session ends": func(t *testing.T, scanner *Scanner, _ Stores) {
+			scanner.Processes = fakeProcesses{}
+		},
+		"Remote Control is turned off": func(t *testing.T, _ *Scanner, stores Stores) {
+			writeBridgedSession(t, stores, 71, idSafari, "idle", "")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores, _ := sharedScanner(t)
+			if view := scanner.Scan(context.Background(), ScanOptions{}); view.NeedsYou != 1 || byID(t, view, idSafari).Cloud == nil {
+				t.Fatalf("before the mark: needs you %d, rows %s", view.NeedsYou, asJSON(t, view.Conversations))
+			}
+			if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+				t.Fatal(err)
+			}
+			if view := scanner.Scan(context.Background(), ScanOptions{}); view.NeedsYou != 0 {
+				t.Fatalf("after the mark: needs you %d", view.NeedsYou)
+			}
+			end(t, scanner, stores)
+
+			view := scanner.Scan(context.Background(), ScanOptions{})
+
+			if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateActive || cloud.SeenAt != "2026-11-07T12:00:00Z" {
+				t.Errorf("cloud row = %s", asJSON(t, cloud))
+			}
+			if view.NeedsYou != 0 {
+				t.Errorf("needs you = %d", view.NeedsYou)
+			}
+		})
+	}
+}
+
+func TestMark_TakingACompletionBackOnASharedRowTakesItBackOnItsCloudRow(t *testing.T) {
+	scanner, _, at := sharedScanner(t)
+	*at = time.Date(2026, 11, 7, 11, 15, 0, 0, time.UTC)
+	if err := scanner.Mark(ToolClaude, idSafari, MarkCompleted); err != nil {
+		t.Fatal(err)
+	}
+	if err := scanner.Mark(ToolClaude, idSafari, MarkOpen); err != nil {
+		t.Fatal(err)
+	}
+	scanner.Processes = fakeProcesses{}
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateUnread || cloud.CompletedAt != "" {
+		t.Errorf("cloud row = %s", asJSON(t, cloud))
+	}
+}
+
+func TestReopen_ASharedRowMarksItsCloudRowSeen(t *testing.T) {
+	scanner, stores, _ := sharedScanner(t)
+	// The desktop app opens it by link, which the fake launcher takes.
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "71.json"), `{"pid":71,"sessionId":"`+idSafari+`","status":"idle","entrypoint":"claude-desktop","bridgeSessionId":"session_01AbCd"}`)
+	if reply, found := scanner.Reopen(context.Background(), ToolClaude, idSafari, ScanOptions{}, &fakeLauncher{}); !found || !reply.Opened {
+		t.Fatalf("found %v, reply %+v", found, reply)
+	}
+	scanner.Processes = fakeProcesses{}
+
+	if cloud := byID(t, scanner.Scan(context.Background(), ScanOptions{}), "cse_01AbCd"); cloud.State != StateActive || cloud.SeenAt != "2026-11-07T12:00:00Z" {
+		t.Errorf("cloud row = %s", asJSON(t, cloud))
+	}
+}
+
+func TestFind_DoesNotListTheCloudIDOfASharedRow(t *testing.T) {
+	scanner, _, _ := sharedScanner(t)
+	if _, ok := scanner.Find(context.Background(), ToolClaude, "cse_01AbCd", ScanOptions{}); ok {
+		t.Error("a mark or a rename could name a row nobody sees")
 	}
 }

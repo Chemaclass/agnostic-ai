@@ -87,6 +87,9 @@ type Scanner struct {
 	shown         shownCache
 	keptSources   map[Tool]keptSource
 	keptClouds    map[Tool]*keptCloud
+	// sharedClouds maps the mark key of each shared row of the last read
+	// to the cloud id it took in, so a mark on it reaches both.
+	sharedClouds map[string]string
 
 	// rolloutsMu guards codexLiveRollouts and cursorLiveTranscripts apart
 	// from mu: Stamp reads them without waiting for a scan to end.
@@ -194,6 +197,12 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 
 // Find returns one conversation of any age from a fresh read.
 func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptions) (Conversation, bool) {
+	return s.find(ctx, tool, id, opts, false)
+}
+
+// find is Find that, with sharedPage, also gives the cloud row a shared
+// row took in: only opening its page names that row.
+func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, sharedPage bool) (Conversation, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	results, _ := s.readAll(ctx, opts)
@@ -202,7 +211,7 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 			if c.Tool == tool && c.ID == id {
 				return c, true
 			}
-			if c.Cloud != nil && c.Tool == tool && c.Cloud.ID == id {
+			if sharedPage && c.Cloud != nil && c.Tool == tool && c.Cloud.ID == id {
 				return *c.Cloud.row, true
 			}
 		}
@@ -216,6 +225,15 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	claude := readAt(s.Now(), s.scanClaude(ctx, opts))
 	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
 	claude.conversations = shareCloud(append(claude.conversations, claudeCloud...))
+	s.sharedClouds = nil
+	for _, c := range claude.conversations {
+		if c.Cloud != nil {
+			if s.sharedClouds == nil {
+				s.sharedClouds = map[string]string{}
+			}
+			s.sharedClouds[markKey(c.Tool, c.ID)] = c.Cloud.ID
+		}
+	}
 	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })
 	codexCloud, codexNote := s.cloudRows(ctx, opts, ToolCodex, s.CodexCloud)
 	codex.conversations = append(codex.conversations, codexCloud...)

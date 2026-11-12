@@ -873,3 +873,32 @@ func TestServeMux_ADeleteSkipsTheAPIQueue(t *testing.T) {
 	}
 	_ = resp.Body.Close()
 }
+
+type oneCloudSession struct{ row conversations.Conversation }
+
+func (c oneCloudSession) List(context.Context) ([]conversations.Conversation, error) {
+	return []conversations.Conversation{c.row}, nil
+}
+
+func TestConversationsHandler_OnlyOpenNamesTheCloudIDOfASharedRow(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, true)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	h.scanner.Processes = runningProcesses{pid: 71}
+	writeFile(t, filepath.Join(h.scanner.Stores.ClaudeDir, "sessions", "71.json"), `{"pid":71,"sessionId":"`+inProject+`","status":"idle","bridgeSessionId":"session_01AbCd"}`)
+	link := "https://claude.ai/code/session_01AbCd"
+	h.scanner.Cloud = oneCloudSession{conversations.Conversation{Tool: conversations.ToolClaude, App: conversations.AppCloud, ID: "cse_01AbCd", Title: "Fix the parser", UpdatedAt: "2026-11-07T11:30:00Z", Open: conversations.Route{Kind: conversations.RouteLink, Label: "Open on claude.ai", Link: link}}}
+
+	for path, body := range map[string]string{
+		conversationMarkPath:   `{"tool":"claude","id":"cse_01AbCd","as":"seen"}`,
+		conversationRenamePath: `{"tool":"claude","id":"cse_01AbCd","title":"Parser fix"}`,
+	} {
+		rec := postEdit(t, h, path, body, nil)
+		if rec.Code != http.StatusNotFound || strings.TrimSpace(rec.Body.String()) != `{"error":"That conversation is not in this list any more. Refresh the page."}` {
+			t.Errorf("%s = %d %s", path, rec.Code, rec.Body)
+		}
+	}
+	rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"cse_01AbCd"}`, nil)
+	if rec.Code != http.StatusOK || strings.Join(launcher.calls, ";") != "link "+link {
+		t.Errorf("open = %d %s after %v", rec.Code, rec.Body, launcher.calls)
+	}
+}
