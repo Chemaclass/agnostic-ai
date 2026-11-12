@@ -50,7 +50,7 @@ The draft, and any change you were unsure about.
 BRIEF
 ```
 
-Add `--tool claude` or `--tool codex` only when the user names the tool. Without it, the new conversation uses this session's tool.
+Add `--tool claude`, `--tool codex` or `--tool cursor` only when the user names the tool. Without it, the new conversation uses this session's tool.
 
 ## After
 

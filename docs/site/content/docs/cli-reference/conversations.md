@@ -35,7 +35,7 @@ Started Claude Code in a new Ghostty tab in /Users/me/shop, linked to claude:2f0
 
 | Flag | Description |
 |------|-------------|
-| `--tool <name>` | Start the new conversation in `claude` or `codex`. Without it, the new conversation uses the tool the command runs in. |
+| `--tool <name>` | Start the new conversation in `claude`, `codex` or `cursor` (Cursor's terminal agent, `cursor-agent`). Without it, the new conversation uses the tool the command runs in. |
 | `--brief-file <path>` | Read the brief from a file instead of standard input. |
 
 The brief must not be empty and must fit in 4096 bytes. Start it with the goal as one plain sentence: it becomes the new conversation's title.
@@ -46,7 +46,8 @@ The brief must not be empty and must fit in 4096 bytes. Start it with the goal a
 |---|---|
 | Claude Code | Works. The command finds the session from its parent processes. |
 | Codex | Works when Codex sets `CODEX_THREAD_ID` for commands. Without it, it works only when the Codex process that runs the command holds one thread. |
-| Cursor's terminal agent | Refused for now: it has not been checked on a real install. `--tool cursor` is refused too. |
+| Cursor's terminal agent (`cursor-agent`) | Works. `cursor-agent` sets `CURSOR_CONVERSATION_ID` for the commands it runs. Without it, it works only when the `cursor-agent` process that runs the command has one chat open. |
+| A Cursor editor chat | Refused: an editor chat does not run in a terminal tab. Run the command from `cursor-agent`, Claude Code or Codex. |
 
 | Terminal | New conversation |
 |---|---|
@@ -62,7 +63,8 @@ The first time, macOS may ask whether the terminal that runs the command may con
 
 It exits with code 1 and starts nothing when:
 
-- It cannot tell which session it runs in: no Claude Code or Codex session is among its parent processes, the nearest tool among them cannot be resolved, or the Codex process holds several threads and does not say which.
+- It cannot tell which session it runs in: no Claude Code, Codex or `cursor-agent` session is among its parent processes, the nearest tool among them cannot be resolved, or the Codex or `cursor-agent` process holds several threads or chats and does not say which.
+- It runs in the Cursor editor, such as from a Cursor editor chat or its terminal: an editor chat does not run in a terminal tab.
 - The tool is not installed: its command is not on `PATH`.
 - The brief is empty, longer than 4096 bytes, holds a null byte or text that is not UTF-8, or standard input is a terminal and no `--brief-file` was given.
 - The folder or the path of `agnostic-ai` holds a control character (C0, DEL or C1) or text that is not UTF-8, which a terminal would act on as it is typed.
@@ -72,6 +74,7 @@ It exits with code 1 and starts nothing when:
 
 - A Claude Code process is recognised by its session file, or by the name `claude`. An install that runs as `node` and has no session file is not recognised. Started inside a Codex session, the command then names the Codex thread as the parent, not that Claude Code session.
 - Codex as a parent needs `CODEX_THREAD_ID`, or a Codex process that holds one thread.
+- `cursor-agent` as a parent needs `CURSOR_CONVERSATION_ID`, or a `cursor-agent` process that has one chat open.
 
 ### The link line
 
