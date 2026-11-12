@@ -146,7 +146,7 @@ func TestCurrentSession_StopsAtAToolItCannotResolve(t *testing.T) {
 		},
 		"Codex inside Codex with the outer thread's variable": {
 			fakeProcesses{table: chain("agnostic-ai", "/bin/zsh", "codex", "/bin/zsh", "codex"), held: map[string]int{locks[0]: 98, locks[1]: 96}},
-			env(map[string]string{"CODEX_THREAD_ID": idSide}), "CODEX_THREAD_ID names another thread",
+			env(map[string]string{"CODEX_THREAD_ID": idSide}), "CODEX_THREAD_ID names a thread that Codex process 98 does not hold",
 		},
 	} {
 		ref, _, err := CurrentSession(tc.processes, stores, tc.getenv, 100)

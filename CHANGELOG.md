@@ -106,7 +106,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Cursor
 
-- `cursor-agent` chats are listed even when Cursor's editor has no chat index, or an older one; they were all left out before (#3342).
+- `cursor-agent` chats are listed, with their folder, even when Cursor's editor has no chat index or an older one; they were left out before (#3342).
 
 #### Qwen Code
 

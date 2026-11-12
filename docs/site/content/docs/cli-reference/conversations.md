@@ -64,7 +64,7 @@ The first time, macOS may ask whether the terminal that runs the command may con
 It exits with code 1 and starts nothing when:
 
 - It cannot tell which session it runs in: no Claude Code, Codex or `cursor-agent` session is among its parent processes, the nearest tool among them cannot be resolved, or the Codex or `cursor-agent` process holds several threads or chats and does not say which.
-- It runs in the Cursor editor, such as from a Cursor editor chat or its terminal: an editor chat does not run in a terminal tab.
+- It runs inside the Cursor editor with no session it can name in between, such as from a Cursor editor chat: an editor chat does not run in a terminal tab.
 - The tool is not installed: its command is not on `PATH`.
 - The brief is empty, longer than 4096 bytes, holds a null byte or text that is not UTF-8, or standard input is a terminal and no `--brief-file` was given.
 - The folder or the path of `agnostic-ai` holds a control character (C0, DEL or C1) or text that is not UTF-8, which a terminal would act on as it is typed.

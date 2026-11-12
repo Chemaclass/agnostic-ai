@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -365,6 +366,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 	for _, root := range roots {
 		byHash[md5Hex(root)] = root
 	}
+	s.addCursorProjectFolders(byHash, stores)
 	if s.cursorAgents == nil {
 		s.cursorAgents = map[string]cached[cursorAgentMeta]{}
 		s.cursorTranscripts = map[string]cached[cursorAgentTexts]{}
@@ -611,4 +613,84 @@ func modTime(path string) string {
 		return ""
 	}
 	return newest.UTC().Format(time.RFC3339)
+}
+
+var cursorSlugGap = regexp.MustCompile(`[^A-Za-z0-9]+`)
+
+// cursorSlug is how cursor-agent names a folder's project under
+// ~/.cursor/projects: each run of other characters than letters and
+// digits becomes one hyphen.
+func cursorSlug(path string) string {
+	return strings.Trim(cursorSlugGap.ReplaceAllString(path, "-"), "-")
+}
+
+// cursorSlugReads bounds the folders read to turn one slug back into a
+// path, since a slug may match several.
+const cursorSlugReads = 64
+
+// addCursorProjectFolders adds to byHash the folders of the chats in
+// stores that it does not name yet. A slug cannot be turned back into a
+// path, so the folders that give it are found by walking down from the
+// root, and one is kept only when its hash names a chat's folder.
+func (s *Scanner) addCursorProjectFolders(byHash map[string]string, stores []string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	unknown := map[string]bool{}
+	for _, store := range stores {
+		if hash := filepath.Base(filepath.Dir(filepath.Dir(store))); byHash[hash] == "" {
+			unknown[hash] = true
+		}
+	}
+	if len(unknown) == 0 {
+		return
+	}
+	projects, _ := os.ReadDir(filepath.Join(s.Stores.CursorDir, "projects"))
+	if s.cursorSlugs == nil {
+		s.cursorSlugs = map[string][]string{}
+	}
+	for _, project := range projects {
+		slug := project.Name()
+		folders, ok := s.cursorSlugs[slug]
+		if !ok {
+			reads := cursorSlugReads
+			folders = slugFolders(string(filepath.Separator), slug, &reads)
+			s.cursorSlugs[slug] = folders
+		}
+		for _, folder := range folders {
+			if hash := md5Hex(folder); unknown[hash] {
+				byHash[hash] = folder
+			}
+		}
+	}
+}
+
+// slugFolders lists the folders under dir whose path below it gives
+// rest as a slug.
+func slugFolders(dir, rest string, reads *int) []string {
+	if rest == "" {
+		return []string{dir}
+	}
+	if *reads <= 0 {
+		return nil
+	}
+	*reads--
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var found []string
+	for _, entry := range entries {
+		name := cursorSlug(entry.Name())
+		after, ok := strings.CutPrefix(rest, name)
+		if name == "" || !ok || (after != "" && after[0] != '-') {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		if info, err := os.Stat(path); err != nil || !info.IsDir() {
+			continue
+		}
+		found = append(found, slugFolders(path, strings.TrimPrefix(after, "-"), reads)...)
+	}
+	return found
 }

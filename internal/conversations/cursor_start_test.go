@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -68,10 +69,11 @@ func TestCurrentSession_RefusesACursorChatItCannotName(t *testing.T) {
 		getenv func(string) string
 		want   string
 	}{
-		"an outer cursor-agent's variable": {map[string]int{dbs[0]: 98, dbs[1]: 96}, env(map[string]string{cursorChatVariable: cursorOther}), "CURSOR_CONVERSATION_ID names another chat than the one Cursor process 98 holds"},
-		"several chats, no variable":       {map[string]int{dbs[0]: 98, dbs[1]: 98}, env(nil), "holds 2 chats, and CURSOR_CONVERSATION_ID is not set"},
-		"no chat, no variable":             {nil, env(nil), "its process 98 holds no chat"},
-		"a variable that is no chat id":    {nil, env(map[string]string{cursorChatVariable: "../x"}), "its process 98 holds no chat"},
+		"an outer cursor-agent's variable":                 {map[string]int{dbs[0]: 98, dbs[1]: 96}, env(map[string]string{cursorChatVariable: cursorOther}), "CURSOR_CONVERSATION_ID names a chat that Cursor process 98 does not hold"},
+		"a variable that names none of the chats it holds": {map[string]int{dbs[0]: 98, dbs[1]: 98}, env(map[string]string{cursorChatVariable: "e2e2e2e2-e2e2-4e2e-8e2e-e2e2e2e2e2e2"}), "CURSOR_CONVERSATION_ID names a chat that Cursor process 98 does not hold"},
+		"several chats, no variable":                       {map[string]int{dbs[0]: 98, dbs[1]: 98}, env(nil), "holds 2 chats, and CURSOR_CONVERSATION_ID is not set"},
+		"no chat, no variable":                             {nil, env(nil), "its process 98 holds no chat"},
+		"a variable that is no chat id":                    {nil, env(map[string]string{cursorChatVariable: "../x"}), "its process 98 holds no chat"},
 	} {
 		ref, _, err := CurrentSession(fakeProcesses{table: table, held: tc.held}, stores, tc.getenv, 100)
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -217,5 +219,50 @@ func TestScan_ListsCursorAgentChatsWithoutTheEditorIndex(t *testing.T) {
 		if !source.Found || !strings.HasPrefix(source.Note, tc.note) || len(view.Conversations) != 1 || view.Conversations[0].ID != cursorChat {
 			t.Errorf("%s: source %+v rows %d", name, source, len(view.Conversations))
 		}
+	}
+}
+
+func TestCurrentSession_RefusesACodexThreadIDItsProcessDoesNotHold(t *testing.T) {
+	_, stores := testScanner(t, noSQLite, fakeProcesses{})
+	locks := writeCodexLocks(t, stores, idParent, idChild)
+	table := chain("agnostic-ai", "/bin/zsh", "codex")
+	several := fakeProcesses{table: table, held: map[string]int{locks[0]: 98, locks[1]: 98}}
+
+	ref, _, err := CurrentSession(several, stores, env(map[string]string{"CODEX_THREAD_ID": idSide}), 100)
+	if err == nil || !strings.Contains(err.Error(), "CODEX_THREAD_ID names a thread that Codex process 98 does not hold") {
+		t.Errorf("a thread it does not hold: ref %+v err %v", ref, err)
+	}
+
+	ref, _, err = CurrentSession(several, stores, env(map[string]string{"CODEX_THREAD_ID": idChild}), 100)
+	if err != nil || ref != (Ref{Tool: ToolCodex, ID: idChild}) {
+		t.Errorf("one of the threads it holds: ref %+v err %v", ref, err)
+	}
+}
+
+func TestScan_FindsTheFolderOfACursorAgentChatFromItsProject(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("cursor-agent project folders are read on macOS and Linux")
+	}
+	folder := filepath.Join(t.TempDir(), "-my_app.v2", "web-ui")
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scanner, _ := cursorAgentScanner(t, fakeProcesses{})
+	_ = os.Remove(scanner.Stores.CursorDB)
+	write(t, filepath.Join(scanner.Stores.CursorDir, "chats", md5Hex(folder), cursorChat, "store.db"), "")
+	write(t, filepath.Join(scanner.Stores.CursorDir, "projects", cursorSlug(folder), "agent-transcripts", cursorChat, cursorChat+".jsonl"), "")
+	write(t, filepath.Join(scanner.Stores.CursorDir, "projects", "no-such-folder-anywhere", "agent-transcripts", cursorOther, cursorOther+".jsonl"), "")
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if len(view.Conversations) != 1 || view.Conversations[0].Folder != folder || !strings.HasPrefix(view.Conversations[0].Open.Command, "cd ") {
+		t.Fatalf("rows %+v", view.Conversations)
+	}
+}
+
+func TestCursorSlug_IsThePathWithEachRunOfOtherCharactersAsOneHyphen(t *testing.T) {
+	got := cursorSlug("/private/tmp/claude-501/-Users-me/a_b.c/app")
+	if got != "private-tmp-claude-501-Users-me-a-b-c-app" {
+		t.Errorf("slug = %q", got)
 	}
 }

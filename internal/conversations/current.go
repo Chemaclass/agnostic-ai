@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -19,9 +20,10 @@ const maxSessionAncestors = 32
 // errNoSession says the command runs inside no session it can name.
 var errNoSession = errors.New("cannot tell which conversation this runs in: no Claude Code, Codex or Cursor terminal agent session is among its parent processes; run it from inside a session")
 
-// errCursorEditor says the command runs in the Cursor editor, whose
-// chats do not run in a terminal tab.
-var errCursorEditor = errors.New("this command runs in the Cursor editor, and a Cursor editor chat cannot start a linked conversation: it does not run in a terminal tab; run it from Cursor's terminal agent (cursor-agent), Claude Code or Codex")
+// errCursorEditor says the command runs in the Cursor editor with no
+// session it can name in between. A tool it cannot recognise, such as
+// a Claude Code that runs as node, may sit in between.
+var errCursorEditor = errors.New("cannot tell which conversation this runs in: it runs inside the Cursor editor, and no Claude Code, Codex or cursor-agent session it can name is in between; a Cursor editor chat cannot start a linked conversation, since it does not run in a terminal tab")
 
 // CurrentSession finds the conversation that the process pid runs in,
 // and the pid of the tool process that holds it. The nearest tool among
@@ -158,13 +160,12 @@ type heldSession struct {
 // heldBy names the session among held, the ones the tool process pid
 // holds. The variable is trusted only under that process, since a tool
 // started inside another inherits the outer one's variables; one that
-// names another session than the one pid holds was inherited, so it
-// is refused.
+// names a session pid does not hold was inherited, so it is refused.
 func heldBy(kind heldSession, getenv func(string) string, pid int, held []string) (Ref, error) {
 	label := toolLabels[kind.tool]
 	if id := getenv(kind.variable); kind.pattern.MatchString(id) {
-		if len(held) == 1 && held[0] != id {
-			return Ref{}, fmt.Errorf("%s names another %s than the one %s process %d holds; it may come from an outer %s, so the conversation cannot be named", kind.variable, kind.noun, label, pid, label)
+		if len(held) > 0 && !slices.Contains(held, id) {
+			return Ref{}, fmt.Errorf("%s names a %s that %s process %d does not hold; it may come from an outer %s, so the conversation cannot be named", kind.variable, kind.noun, label, pid, label)
 		}
 		return Ref{Tool: kind.tool, ID: id}, nil
 	}

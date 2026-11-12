@@ -80,10 +80,13 @@ type Scanner struct {
 	claude            map[string]claudeCacheEntry
 	cursorAgents      map[string]cached[cursorAgentMeta]
 	cursorTranscripts map[string]cached[cursorAgentTexts]
-	cursorPrompts     map[string]cached[cursorPrompts]
-	shown             shownCache
-	keptSources       map[Tool]keptSource
-	keptClouds        map[Tool]*keptCloud
+	// cursorSlugs caches the folders each cursor-agent project slug
+	// gives, since finding them reads folders from the root down.
+	cursorSlugs   map[string][]string
+	cursorPrompts map[string]cached[cursorPrompts]
+	shown         shownCache
+	keptSources   map[Tool]keptSource
+	keptClouds    map[Tool]*keptCloud
 
 	// rolloutsMu guards codexLiveRollouts apart from mu: Stamp reads
 	// them without waiting for a scan to end.
