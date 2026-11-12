@@ -34,7 +34,11 @@ type inbox struct {
 	// changed tells the pages that the latest list is new.
 	changed func()
 
-	mu sync.Mutex
+	// reading lets one read at a time run, from naming the held tag to
+	// telling changed, so an older answer never replaces a newer one.
+	// Take it before mu; changed takes mu through held.
+	reading sync.Mutex
+	mu      sync.Mutex
 	// latest is the server's last list; nil before the first one and
 	// after a failed read, so the pages never show an old list as new.
 	latest json.RawMessage
@@ -83,6 +87,25 @@ func (in *inbox) poll(ctx context.Context) {
 // server answers "unchanged" while no store was written and the minute
 // has not turned, which costs it a look at the files' sizes and times.
 func (in *inbox) read(ctx context.Context) {
+	in.reading.Lock()
+	defer in.reading.Unlock()
+	in.readLocked(ctx)
+}
+
+// readFirst reads unless a read already ran, such as the poller's
+// first one while a page waited for it.
+func (in *inbox) readFirst(ctx context.Context) {
+	in.reading.Lock()
+	defer in.reading.Unlock()
+	in.mu.Lock()
+	ran := in.latest != nil || in.problem != ""
+	in.mu.Unlock()
+	if !ran {
+		in.readLocked(ctx)
+	}
+}
+
+func (in *inbox) readLocked(ctx context.Context) {
 	in.mu.Lock()
 	held := in.tag
 	in.mu.Unlock()
@@ -185,7 +208,7 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 	in.mu.Unlock()
 	if latest == nil && problem == "" {
 		// Nothing read yet: read now instead of answering with nothing.
-		in.read(r.Context())
+		in.readFirst(r.Context())
 		in.mu.Lock()
 		latest, problem = in.latest, in.problem
 		in.mu.Unlock()
