@@ -1003,12 +1003,12 @@ document.addEventListener('keydown', (event) => {
     moveActive(step)
     return
   }
-  // A focused notice, group header or settings menu button takes Enter as its own click.
-  if (event.target.closest('#notice button, .group-head button, #menu')) return
+  // A focused notice, group header, row button or settings menu button takes Enter as its own click.
+  if (event.target.closest('#notice button, .group-head button, .action, #menu')) return
   if (event.key === 'Enter') {
     const conversation = activeConversation()
     if (conversation) openRow(conversation)
-  } else if (startsRename(event)) {
+  } else if (startsRename(event) && menu.hidden && list.querySelector('.row.is-active')) {
     const conversation = activeConversation()
     if (!conversation) return
     event.preventDefault()

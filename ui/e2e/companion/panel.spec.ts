@@ -91,6 +91,18 @@ test('the pencil starts the rename and opens nothing; Escape cancels it', async 
   expect(calls).not.toContain('/api/rename')
 })
 
+test('Enter on the focused pencil starts the rename and opens nothing', async ({ page }) => {
+  await openPanel(page)
+  const target = row(page, 'Plan the sync dry run')
+  await target.hover()
+  await target.getByRole('button', { name: 'Rename', exact: true }).press('Enter')
+
+  await expect(page.getByLabel('New name')).toBeFocused()
+  const calls = await calledPaths(page)
+  expect(calls).not.toContain('/api/open')
+  expect(calls).not.toContain('/api/panel/hide')
+})
+
 test('F2 renames the selected row and Enter saves the name', async ({ page }) => {
   await openPanel(page)
   await page.getByLabel('Search every conversation').fill('sync dry run')
