@@ -64,17 +64,43 @@ func benchCursorAgentSQLite(_ context.Context, path, query string) ([]json.RawMe
 	return []json.RawMessage{json.RawMessage(`{"value":"` + meta + `"}`)}, nil
 }
 
-// BenchmarkScan_CursorAgentChatsCold times a first scan of that many
-// cursor-agent chats, so every transcript is read.
-func BenchmarkScan_CursorAgentChatsCold(b *testing.B) {
+// BenchmarkScan_CursorAgentChats times a scan of that many cursor-agent
+// chats: a first scan that reads every transcript (uncached), a scan in
+// a new span that reads them again through the caches (in use), and a
+// scan in the same span that reuses the kept result (kept).
+func BenchmarkScan_CursorAgentChats(b *testing.B) {
 	stores := benchCursorAgentStores(b)
-	for b.Loop() {
-		scanner := &Scanner{Stores: stores, SQLite: benchCursorAgentSQLite, Processes: fakeProcesses{}, Now: time.Now}
+	scan := func(b *testing.B, scanner *Scanner) {
 		view := scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}})
 		if len(view.Tools) < 3 || view.Tools[2].Count != benchCursorAgentChats {
 			b.Fatalf("Cursor source = %+v", view.Tools)
 		}
 	}
+	newScanner := func(now func() time.Time) *Scanner {
+		return &Scanner{Stores: stores, SQLite: benchCursorAgentSQLite, Processes: fakeProcesses{}, Now: now}
+	}
+	b.Run("uncached", func(b *testing.B) {
+		for b.Loop() {
+			scan(b, newScanner(time.Now))
+		}
+	})
+	b.Run("in_use", func(b *testing.B) {
+		now := time.Now()
+		scanner := newScanner(func() time.Time { return now })
+		scan(b, scanner)
+		for b.Loop() {
+			now = now.Add(freshSpan)
+			scan(b, scanner)
+		}
+	})
+	b.Run("kept", func(b *testing.B) {
+		now := time.Now()
+		scanner := newScanner(func() time.Time { return now })
+		scan(b, scanner)
+		for b.Loop() {
+			scan(b, scanner)
+		}
+	})
 }
 
 // cursorFilesBeforeTranscripts is cursorFiles before it named the
