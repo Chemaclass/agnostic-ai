@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -129,7 +130,7 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 		folders[header.Folder] = true
 		editorChats = append(editorChats, Conversation{
 			Tool: ToolCursor, App: AppIDE, ID: header.ID, Folder: header.Folder, Branch: header.Branch,
-			StartedAt: timeFromMillis(header.CreatedAt), UpdatedAt: timeFromMillis(header.Recency), Live: open[header.ID],
+			StartedAt: timeFromMillis(header.CreatedAt), UpdatedAt: timeFromMillis(header.Recency), Live: open[header.ID], recency: header.Recency,
 			Open:    Route{Kind: RouteLink, Label: "Open in Cursor", Link: "cursor://anysphere.cursor-deeplink/agent?id=" + header.ID},
 			pending: &texts{title: header.Name},
 		})
@@ -355,7 +356,7 @@ func cursorPromptsStamp(c Conversation) (stamp string, reusable bool) {
 	if c.Live {
 		return "live", false
 	}
-	return c.UpdatedAt, true
+	return strconv.FormatInt(c.recency, 10), true
 }
 
 // cursorAgentMeta is the hex-encoded JSON under key "0" of a cursor-agent

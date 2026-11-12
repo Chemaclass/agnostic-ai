@@ -525,6 +525,9 @@ func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs
 	// A stub written over a ledger that does not parse would hide it from
 	// sync's warning and the check, so the records wait for the next sync.
 	state, err := readStateFileStrict(root)
+	if newer := new(newerLedgerError); errors.As(err, &newer) {
+		return err
+	}
 	if err != nil {
 		return nil
 	}

@@ -623,3 +623,21 @@ func TestRevert_RestoresRemovedEditWithItsMode(t *testing.T) {
 		})
 	}
 }
+
+// A .bak the user made is not one sync saved, so it does not vouch for
+// the edit, even with the same bytes.
+func TestSync_KeepsAHandEditTheUserCopiedToABackup(t *testing.T) {
+	handEditProject(t, "claude")
+	edited := readFile(t, handEditSkill) + "my local tweak\n"
+	mustWriteFile(t, handEditSkill, edited)
+	mustWriteFile(t, handEditSkill+".bak", edited)
+
+	runSyncOK(t)
+
+	if got := readFile(t, handEditSkill); got != edited {
+		t.Errorf("sync must keep the hand edit, got %q", got)
+	}
+	if _, ok := readStateFile(".").Backups[handEditSkill+".bak"]; ok {
+		t.Error("the ledger must not record the user's copy as a backup sync saved")
+	}
+}

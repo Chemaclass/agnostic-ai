@@ -131,16 +131,29 @@ func newSyncCmd() *cobra.Command {
 				tree = entered
 				defer tree.leave()
 			}
+			// The state file lists every output, so one read serves the
+			// whole run. --against reads the trees it enters instead.
+			var read *ledgerSnapshot
 			if !check && !plan && !dryRun {
 				command := "sync"
 				if watch {
 					command += " --watch"
 				}
-				lock, err := acquireProjectLock(".", command)
+				lock, err := openProjectLock(".", command)
 				if err != nil {
 					return err
 				}
 				defer func() { _ = lock.Close() }()
+				if tree == nil {
+					l := readLedger(".")
+					if err := l.refuseNewer(); err != nil {
+						return err
+					}
+					read = &l
+				}
+				if err := ensureManagedGitignore("."); err != nil {
+					return fmt.Errorf("ignore project lock: %w", err)
+				}
 			}
 			firstLoadOut := logOut
 			if verbosity == levelVerbose && !check && !plan && !dryRun && !jsonOut {
@@ -208,10 +221,7 @@ func newSyncCmd() *cobra.Command {
 				}
 				return nil
 			}
-			// The state file lists every output, so one read serves the
-			// whole run. --against reads the trees it enters instead.
-			var read *ledgerSnapshot
-			if tree == nil {
+			if tree == nil && read == nil {
 				l := readLedger(".")
 				read = &l
 			}
@@ -254,6 +264,9 @@ func newSyncCmd() *cobra.Command {
 			// A preview of a tool use has not imported yet would pass while
 			// the next write would replace its native config.
 			if tree == nil {
+				if err := ledger().refuseNewer(); err != nil {
+					return err
+				}
 				if err := stopOnPendingImports(ledger().state, cfg); err != nil {
 					return err
 				}

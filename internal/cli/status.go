@@ -56,6 +56,7 @@ func newStatusCmd() *cobra.Command {
   # Output as JSON for editor extensions or dashboards
   agnostic-ai status --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			readLedger(".").warnNewer()
 			r, err := gatherStatus(".")
 			if err != nil {
 				return err

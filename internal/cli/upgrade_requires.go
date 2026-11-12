@@ -38,7 +38,7 @@ func runUpgradeRequires() error {
 	if _, _, err := config.ResolveConfigPath("."); err != nil {
 		return err
 	}
-	lock, err := acquireProjectLock(".", "upgrade --requires")
+	lock, err := acquireLedgerLock(".", "upgrade --requires")
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func reconcileGuidedRequires(root, version string) error {
 	if err := validateGuidedProjectConfigs(root); err != nil {
 		return err
 	}
-	lock, err := acquireProjectLock(root, "guided upgrade")
+	lock, err := acquireLedgerLock(root, "guided upgrade")
 	if err != nil {
 		return err
 	}

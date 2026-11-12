@@ -44,7 +44,7 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			lock, err := acquireProjectLock(".", "use")
+			lock, err := acquireLedgerLock(".", "use")
 			if err != nil {
 				return err
 			}
@@ -114,6 +114,9 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 			return nil, err
 		}
 		return tools, startProject(cmd, tools)
+	}
+	if err := readLedger(".").refuseNewer(); err != nil {
+		return nil, err
 	}
 	cfg, err := config.Load(".")
 	if err != nil {
@@ -590,6 +593,9 @@ func setPendingImports(tools []string) error {
 	// Writing over a ledger that does not parse would lose it, and the
 	// marker this writes is what keeps a sync off unimported config.
 	state, err := readStateFileStrict(".")
+	if newer := new(newerLedgerError); errors.As(err, &newer) {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("%w; fix or delete it, then run agnostic-ai use again", err)
 	}

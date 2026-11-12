@@ -272,13 +272,18 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 	defer release()
 	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)
 	renders := newTargetRenders(readerCfg, b)
-	winners, err := detectRenderedCollisions(renders, readerCfg, targets)
+	found, err := findRenderedCollisions(renders, readerCfg, targets)
 	if err != nil {
 		return nil, err
 	}
+	winners := found.winners
 	sess := adapters.NewSession()
 	sess.SetCollisionWinners(winners)
-	replaced := replacedRulesFiles(readerCfg, b, entryPointTargets)
+	runFiles := found.runFiles
+	if !slices.Equal(entryPointTargets, targets) {
+		runFiles, _ = renderEntryPointFiles(readerCfg, b, entryPointTargets, "")
+	}
+	replaced := replacedRulesFiles(found.shared, runFiles)
 	sums := state.OutputSums
 	emitted := map[string]bool{}
 	outputSums := map[string]string{}
@@ -302,7 +307,11 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 			return nil, fmt.Errorf("%s: %w", t, render.err)
 		}
 		files := slices.DeleteFunc(slices.Clone(render.files), func(f adapters.CapturedFile) bool {
-			return replaced[t] == filepath.Clean(f.Path)
+			if replaced[t] != filepath.Clean(f.Path) || !sameFileOnDisk(f.Path, replaced[t]) {
+				return false
+			}
+			emitted[f.Path] = true
+			return true
 		})
 		for _, f := range files {
 			emitted[f.Path] = true
@@ -790,6 +799,13 @@ func newDoctorCmd() *cobra.Command {
 			}
 			if jsonOut && fix {
 				return errs.Coded(errs.CodeFlagConflict, "--json is read-only and cannot be combined with --fix")
+			}
+			if fix {
+				if err := readLedger(".").refuseNewer(); err != nil {
+					return err
+				}
+			} else {
+				readLedger(".").warnNewer()
 			}
 
 			// JSON mode: emit only the drift report, skip human-readable sections.
@@ -1280,4 +1296,18 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		}
 	}
 	return written, nil
+}
+
+// sameFileOnDisk reports whether a and b name one file. A `..` after a
+// linked folder leads elsewhere, so lexical cleaning cannot tell.
+func sameFileOnDisk(a, b string) bool {
+	if a == b {
+		return true
+	}
+	ai, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	bi, err := os.Stat(b)
+	return err == nil && os.SameFile(ai, bi)
 }
