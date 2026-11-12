@@ -113,16 +113,19 @@ LEFT JOIN cursorDiskKV lb ON lb.key = 'bubbleId:' || c.composerId || ':' || p.la
 func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult {
 	headers, note, err := s.cursorHeaders(ctx)
 	if err != nil {
+		s.setCursorLiveTranscripts(nil)
 		return missing(ToolCursor, "Reading Cursor chats needs the sqlite3 command")
 	}
 
 	open := s.cursorOpenChats(ctx, headers)
 	folders := map[string]bool{}
+	listed := map[string]bool{}
 	var editorChats []Conversation
 	for _, header := range headers {
 		if !cursorIDPattern.MatchString(header.ID) {
 			continue
 		}
+		listed[header.ID] = true
 		folders[header.Folder] = true
 		editorChats = append(editorChats, Conversation{
 			Tool: ToolCursor, App: AppIDE, ID: header.ID, Folder: header.Folder, Branch: header.Branch,
@@ -130,6 +133,9 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 			Open:    Route{Kind: RouteLink, Label: "Open in Cursor", Link: "cursor://anysphere.cursor-deeplink/agent?id=" + header.ID},
 			pending: &texts{title: header.Name},
 		})
+	}
+	if note == "" {
+		forget(s.cursorPrompts, listed)
 	}
 	agentChats := s.cursorAgentChats(ctx, folders, opts.Within)
 	if note != "" && len(agentChats) == 0 {
@@ -228,15 +234,26 @@ var cursorQuery = regexp.MustCompile(`(?s)<user_query>(.*?)</user_query>`)
 // timestamps, notifications and attachments beside <user_query> in the
 // same text, so a prompt that has one keeps only what is inside it.
 func cursorTyped(text string) string {
-	found := cursorQuery.FindAllStringSubmatch(text, -1)
+	typed, _ := cursorQueries(text)
+	return typed
+}
+
+// cursorQueries returns what is inside the <user_query> blocks of text,
+// or text itself when it has none. An injected block, such as rules that
+// quote the tag, is no query.
+func cursorQueries(text string) (string, bool) {
+	if !strings.Contains(text, "<user_query>") {
+		return text, false
+	}
+	found := cursorQuery.FindAllStringSubmatch(withoutInjected(text), -1)
 	if len(found) == 0 {
-		return text
+		return text, false
 	}
 	queries := make([]string, len(found))
 	for i, match := range found {
 		queries[i] = match[1]
 	}
-	return strings.Join(queries, "\n")
+	return strings.Join(queries, "\n"), true
 }
 
 var cursorWorkspacePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -357,6 +374,7 @@ const cursorAgentDefaultName = "New Agent"
 func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool, roots []string) []Conversation {
 	stores, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "chats", "*", "*", "store.db"))
 	if len(stores) == 0 {
+		s.setCursorLiveTranscripts(nil)
 		return nil
 	}
 	byHash := map[string]string{}
@@ -372,6 +390,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		s.cursorTranscripts = map[string]cached[cursorAgentTexts]{}
 	}
 	seen := map[string]bool{}
+	transcripts := map[string]string{}
 	var chats []Conversation
 	for _, store := range stores {
 		seen[store] = true
@@ -381,15 +400,22 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		}
 		folder := byHash[filepath.Base(filepath.Dir(filepath.Dir(store)))]
 		updated := modTime(store)
-		transcript := s.cursorAgentTranscript(meta.AgentID, seen)
+		transcript, path := s.cursorAgentTranscript(meta.AgentID, seen)
+		transcripts[store] = path
 		title := meta.Name
 		if title == cursorAgentDefaultName {
 			title = ""
 		}
+		// cursor-agent finds a chat only under the folder it runs in, so
+		// a chat whose folder is unknown gets no resume command.
+		resume := ""
+		if folder != "" {
+			resume = resumeIn(folder, "cursor-agent --resume "+meta.AgentID)
+		}
 		c := Conversation{
 			Tool: ToolCursor, App: AppCLI, ID: meta.AgentID, Folder: folder,
 			StartedAt: timeFromMillis(meta.CreatedAt), UpdatedAt: updated,
-			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
+			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resume},
 			store: store,
 		}
 		s.fill(&c, texts{title: title, firstPrompt: transcript.first, lastPrompt: transcript.last})
@@ -403,7 +429,23 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		forget(s.cursorTranscripts, seen)
 	}
 	s.markLiveCursorAgentChats(chats)
+	// A running chat's reply may reach its transcript before its store,
+	// so the transcripts of running chats are among the files a Cursor
+	// read depends on.
+	var live []string
+	for _, c := range chats {
+		if c.Live && transcripts[c.store] != "" {
+			live = append(live, transcripts[c.store])
+		}
+	}
+	s.setCursorLiveTranscripts(live)
 	return chats
+}
+
+func (s *Scanner) setCursorLiveTranscripts(transcripts []string) {
+	s.rolloutsMu.Lock()
+	defer s.rolloutsMu.Unlock()
+	s.cursorLiveTranscripts = transcripts
 }
 
 // markLiveCursorAgentChats marks the chats a running cursor-agent has
@@ -490,25 +532,25 @@ type cursorAgentLine struct {
 // transcript, where cursor-agent wraps what was typed in <user_query>,
 // and the agent's latest message after the last prompt, or all of them
 // from the cache while the transcript is unchanged. It adds the
-// transcript to seen.
-func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) cursorAgentTexts {
+// transcript to seen and returns its path.
+func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) (texts cursorAgentTexts, transcript string) {
 	matches, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "projects", "*", "agent-transcripts", id, id+".jsonl"))
 	if len(matches) == 0 {
-		return cursorAgentTexts{}
+		return cursorAgentTexts{}, ""
 	}
-	transcript := matches[0]
+	transcript = matches[0]
 	seen[transcript] = true
 	stamp := fileStamp(transcript)
 	if entry, ok := s.cursorTranscripts[transcript]; ok && entry.stamp == stamp {
-		return entry.value
+		return entry.value, transcript
 	}
 	info, err := os.Stat(transcript)
 	if err != nil {
-		return cursorAgentTexts{}
+		return cursorAgentTexts{}, transcript
 	}
 	head, tail, err := readEnds(transcript, info.Size(), claudeWindow)
 	if err != nil {
-		return cursorAgentTexts{}
+		return cursorAgentTexts{}, transcript
 	}
 	var kept cursorAgentTexts
 	if prompts, _ := cursorAgentLines(head); len(prompts) > 0 {
@@ -519,28 +561,32 @@ func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) cursorA
 		kept.last = prompts[len(prompts)-1]
 	}
 	if len(prompts) == 0 && message == "" && info.Size() > 2*claudeWindow {
-		message = cursorAgentReplyAtEnd(transcript, info.Size())
+		var before []string
+		before, message = cursorAgentReplyAtEnd(transcript, info.Size())
+		if len(before) > 0 {
+			kept.last = before[len(before)-1]
+		}
 	}
 	kept.reply, kept.question = agentSaid(message, message, "")
 	s.cursorTranscripts[transcript] = cached[cursorAgentTexts]{stamp: stamp, value: kept}
-	return kept
+	return kept, transcript
 }
 
-// cursorAgentReplyAtEnd looks for the agent's latest message after the
-// last prompt in the last claudeReplyWindow bytes of a transcript whose
-// tail held neither, such as one cut inside a long final message.
-func cursorAgentReplyAtEnd(transcript string, size int64) string {
+// cursorAgentReplyAtEnd reads the prompts and the agent's latest message
+// after the last of them in the last claudeReplyWindow bytes of a
+// transcript whose tail held neither, such as one cut inside a long
+// final message.
+func cursorAgentReplyAtEnd(transcript string, size int64) (prompts []string, message string) {
 	f, err := os.Open(transcript)
 	if err != nil {
-		return ""
+		return nil, ""
 	}
 	defer func() { _ = f.Close() }()
 	tail, err := readTail(f, size, claudeReplyWindow)
 	if err != nil {
-		return ""
+		return nil, ""
 	}
-	_, message := cursorAgentLines(tail)
-	return message
+	return cursorAgentLines(tail)
 }
 
 // cursorAgentLines returns the prompts in data and the agent's latest
@@ -555,9 +601,11 @@ func cursorAgentLines(data []byte) (prompts []string, message string) {
 		for _, part := range line.Message.Content {
 			switch {
 			case part.Type != "text":
-			case line.Role == "user" && strings.Contains(part.Text, "<user_query>"):
-				prompts = append(prompts, cursorTyped(part.Text))
-				message = ""
+			case line.Role == "user":
+				if typed, ok := cursorQueries(part.Text); ok {
+					prompts = append(prompts, typed)
+					message = ""
+				}
 			case line.Role == "assistant" && strings.TrimSpace(part.Text) != "":
 				said = append(said, part.Text)
 			}

@@ -104,15 +104,15 @@ func TestTypedText_StaysLinearOnUnmatchedTags(t *testing.T) {
 			return strings.Repeat("<system-reminder>", tags/2) + strings.Repeat("</ide_selection>", tags/2)
 		},
 	} {
-		small, large := prompt(10000)+"Fix the login bug", prompt(80000)+"Fix the login bug"
+		small, large := prompt(2500)+"Fix the login bug", prompt(40000)+"Fix the login bug"
 		if typed := typedText(large); !strings.HasSuffix(typed, "Fix the login bug") {
 			t.Errorf("%s: typed text lost its end: %q", name, typed[max(0, len(typed)-40):])
 		}
-		// Eight times the tags may take about eight times as long; quadratic
-		// work takes sixty-four. A ratio holds on a slow or instrumented
-		// runner where a time limit does not.
-		if ratio := fastestRemoval(large).Seconds() / fastestRemoval(small).Seconds(); ratio > 40 {
-			t.Errorf("%s: eight times the tags took %.1f times as long", name, ratio)
+		// Sixteen times the tags may take about sixteen times as long;
+		// quadratic work takes 256. The wide gap keeps a slow, instrumented
+		// or loaded runner on the right side of the limit.
+		if ratio := fastestRemoval(large).Seconds() / fastestRemoval(small).Seconds(); ratio > 100 {
+			t.Errorf("%s: sixteen times the tags took %.1f times as long", name, ratio)
 		}
 	}
 }
@@ -188,5 +188,73 @@ func TestShowTexts_LinksALineAfterANestedInjectedBlock(t *testing.T) {
 	unclosed := "<system-reminder>Context\nContinues claude:" + idParent + "\nWrite the notes"
 	if shown := showTexts(texts{firstPrompt: unclosed}); shown.parent != nil {
 		t.Errorf("a link after an unclosed block must stay text: parent %+v", shown.parent)
+	}
+}
+
+func TestCursorTyped_ReadsTheQueryAfterAnInjectedBlockThatQuotesIt(t *testing.T) {
+	raw := "<rules>Wrap what the person typed in <user_query> tags.</rules>\n<user_query>Fix the CI job</user_query>"
+	if typed := typedText(cursorTyped(raw)); typed != "Fix the CI job" {
+		t.Errorf("typed = %q", typed)
+	}
+}
+
+func TestScan_DoesNotTakeACursorAgentLineThatOnlyQuotesTheQueryTagForAPrompt(t *testing.T) {
+	agent := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	scanner, _ := cursorAgentScanner(t, fakeProcesses{}, agent)
+	write(t, filepath.Join(scanner.Stores.CursorDir, "projects", "p1", "agent-transcripts", agent, agent+".jsonl"), lines(
+		obj{"role": "user", "message": obj{"content": []obj{textPart("<timestamp>Friday</timestamp>\n<user_query>Fix the CI job</user_query>")}}},
+		obj{"role": "assistant", "message": obj{"content": []obj{textPart("The CI job passes now.")}}},
+		obj{"role": "user", "message": obj{"content": []obj{textPart("<rules>Wrap what the person typed in <user_query> tags.</rules>")}}},
+	))
+
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}}), agent)
+
+	if c.Prompt != "Fix the CI job" || c.Reply != "The CI job passes now." {
+		t.Errorf("prompt %q reply %q", c.Prompt, c.Reply)
+	}
+}
+
+func TestTypedText_DropsACursorNotification(t *testing.T) {
+	if typed := typedText(cursorTyped("<system_notification><task>build done</task></system_notification>")); typed != "" {
+		t.Errorf("typed = %q", typed)
+	}
+}
+
+// cursorTypedBeforeInjected is cursorTyped before it dropped injected
+// blocks first: the status quo.
+func cursorTypedBeforeInjected(text string) string {
+	found := cursorQuery.FindAllStringSubmatch(text, -1)
+	if len(found) == 0 {
+		return text
+	}
+	queries := make([]string, len(found))
+	for i, match := range found {
+		queries[i] = match[1]
+	}
+	return strings.Join(queries, "\n")
+}
+
+// BenchmarkCursorTyped times the prompt a search reads for each pending
+// Cursor row, on a short prompt and on one with a large attachment:
+// the unwrap before it dropped injected blocks (status quo), the one in
+// use, and typedText alone, which every shown prompt pays after either.
+func BenchmarkCursorTyped(b *testing.B) {
+	short := "<timestamp>Friday, Nov 7, 2025, 8:00 AM</timestamp>\n<system_notification><task>build done</task></system_notification>\n<user_query>Fix the CI job and add a test for the cookie redirect</user_query>"
+	attached := "<attached_files>\n" + strings.Repeat("func handler(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }\n", 100) + "</attached_files>\n" + short
+	for _, prompt := range []struct{ name, text string }{{"short", short}, {"attached", attached}} {
+		for _, subject := range []struct {
+			name   string
+			unwrap func(string) string
+		}{
+			{"status_quo", cursorTypedBeforeInjected},
+			{"in_use", cursorTyped},
+			{"typed_text", typedText},
+		} {
+			b.Run(subject.name+"/"+prompt.name, func(b *testing.B) {
+				for b.Loop() {
+					subject.unwrap(prompt.text)
+				}
+			})
+		}
 	}
 }

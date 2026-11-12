@@ -48,13 +48,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Latest reply
 
-- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code, Codex and Cursor chats (#3283, #3321).
+- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code, Codex and Cursor chats (#3283, #3333, #3349).
 - The API's `reply` field holds that line, and a search matches it; cloud sessions have none yet (#3283).
 
 #### Chat names and states
 
 - Rename a chat from the companion's right-click menu; the web interface and a running chat's Terminal or Ghostty tab show the new name (#3236, #3258).
-- Chat titles show what you typed, without the tags Cursor and other tools add, even when one tag holds another (#3241, #3339).
+- Chat titles show what you typed, without the tags Cursor and other tools add, even when one tag holds another (#3241, #3339, #3349).
 - The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
 - A silent local Codex chat shows "No activity for 7m", not "Waiting for you", in the companion and the web interface; the API sets `quietSince` (#3251).
 - An archived or hidden chat that starts working again moves back to Working (#3239).
@@ -63,6 +63,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - A running session opens in its Terminal or Ghostty tab, which the companion leaves ready for typing; an ended session resumes in a new tab (#3242, #3249).
 - A running `cursor-agent` chat shows as open in the companion and the web interface; opening it switches to its terminal, not a second copy (#3274).
+- A `cursor-agent` chat whose folder is unknown offers no resume command, since `cursor-agent` resumes a chat only from its own folder (#3349).
 - When the companion cannot open a chat, the reason stays until you dismiss it, and a chat that could not resume offers **Copy resume command** (#3256).
 - Opening a Claude Code or Codex chat that still runs in a terminal no longer replies with a resume command (#3256).
 - The web interface no longer offers Copy command on a session that still runs, since running it would start a second copy (#3272).

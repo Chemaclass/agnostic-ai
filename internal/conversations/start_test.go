@@ -172,7 +172,8 @@ func TestStart_QuotesAFolderAndBinaryWithSpacesAndQuotes(t *testing.T) {
 func TestOpen_NeverTypesAResumeLineWithControlCharacters(t *testing.T) {
 	for _, tab := range []*terminalHost{nil, {App: "Ghostty"}, {App: "Terminal"}} {
 		launcher := &fakeLauncher{}
-		c := Conversation{Tool: ToolClaude, ID: idSafari, App: AppCLI, Open: Route{Kind: RouteTerminal, Command: resumeIn("/tmp/a\x03\rtouch pwned\r", "claude --resume "+idSafari)}, lastTab: tab}
+		folder := "/tmp/a\x03\rtouch pwned\r"
+		c := Conversation{Tool: ToolClaude, ID: idSafari, App: AppCLI, Folder: folder, Open: Route{Kind: RouteTerminal, Command: resumeIn(folder, "claude --resume "+idSafari)}, lastTab: tab}
 
 		reply := Open(context.Background(), c, fakeProcesses{}, launcher)
 
