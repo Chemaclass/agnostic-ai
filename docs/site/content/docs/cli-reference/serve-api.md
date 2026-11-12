@@ -103,7 +103,7 @@ A search keeps the conversations of every age where each word appears in the tit
 
 The route lists Claude Code, Codex and Cursor conversations from each tool's own store. The newest come first, by the last message from the person or the agent.
 
-- Each page holds one week. The first page holds every open conversation, every blocked or unread one, and the past week, so it holds every conversation `needsYou` counts. A later page leaves those out.
+- Each page holds one week. The first page holds every open conversation, every blocked or unread one, and the past week, so, without a search or tool filter, it holds every conversation `needsYou` counts. A later page leaves those out.
 - A page asked for with `before` holds the week before that time, and reaches past weeks with no conversation.
 - The page returns `from` and `to`, and `next`, the `before` value of the following page, absent when no older conversation remains.
 - A `before` that is not an RFC 3339 time is a 400.
@@ -132,7 +132,7 @@ Conversation fields:
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
   - `focus` switches to the Terminal or Ghostty tab that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
-  - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal or Ghostty. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. `label` then names the app, such as `Open in Ghostty`.
+  - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal or Ghostty. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. `label` then names the app, such as `Open in Ghostty`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 
 Codex and Cursor stores are read with the `sqlite3` command.

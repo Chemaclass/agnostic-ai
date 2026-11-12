@@ -48,7 +48,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Latest reply
 
-- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code, Codex and Cursor chats (#3283, #3321).
+- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code, Codex and Cursor chats (#3283, #3333).
 - The API's `reply` field holds that line, and a search matches it; cloud sessions have none yet (#3283).
 
 #### Chat names and states
