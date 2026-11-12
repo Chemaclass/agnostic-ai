@@ -22,20 +22,19 @@ test('the menu shows the six items in the list order, with the values in effect'
   )
   assert.deepEqual(
     rows.map((row) => row.label),
-    items.map((item) => (item.id === 'hide' ? `${item.label} (Ctrl+Alt+Space brings it back)` : item.label)),
+    items.map((item) => item.label),
   )
 })
 
-test('Hide names the shortcut that brings the companion back, as each system writes it', () => {
-  assert.equal(hideLabelOf('Hide Agnostic AI companion', preferences, true), 'Hide Agnostic AI companion (⌃⌥Space brings it back)')
-  assert.equal(hideLabelOf('Hide Agnostic AI companion', preferences, false), 'Hide Agnostic AI companion (Ctrl+Alt+Space brings it back)')
+test('Hide stays plain while the shortcut works: the item above shows it', () => {
+  assert.equal(hideLabelOf('Hide Agnostic AI companion', preferences), 'Hide Agnostic AI companion')
   const rows = menuRowsOf(items, { preferences: { ...preferences, shortcut: 'Cmd+Shift+K' }, appearance }, true)
-  assert.equal(rows.find((row) => row.id === 'hide').label, 'Hide Agnostic AI companion (⌘⇧K brings it back)')
+  assert.equal(rows.find((row) => row.id === 'hide').label, 'Hide Agnostic AI companion')
 })
 
 test('Hide names the command when the shortcut does not work', () => {
   const refused = { ...preferences, shortcutProblem: 'Ctrl+Alt+Space is not active: another app holds these keys' }
-  assert.equal(hideLabelOf('Hide Agnostic AI companion', refused, true), 'Hide Agnostic AI companion (agnostic-ai companion brings it back)')
+  assert.equal(hideLabelOf('Hide Agnostic AI companion', refused), 'Hide Agnostic AI companion (agnostic-ai companion brings it back)')
 })
 
 test('Quit says it asks first and the shortcut stops working', () => {
