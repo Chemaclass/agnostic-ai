@@ -106,16 +106,13 @@ LEFT JOIN replies r ON r.composerId = c.composerId AND r.fromEnd = 1
 LEFT JOIN cursorDiskKV fb ON fb.key = 'bubbleId:' || c.composerId || ':' || p.firstBubble
 LEFT JOIN cursorDiskKV lb ON lb.key = 'bubbleId:' || c.composerId || ':' || p.lastBubble`
 
+// scanCursor lists Cursor's editor chats and cursor-agent chats. A
+// machine may run cursor-agent with no editor, or with an editor whose
+// index predates the chat headers, so its chats are listed either way.
 func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult {
-	if _, err := os.Stat(s.Stores.CursorDB); err != nil {
-		return missing(ToolCursor, "No Cursor chat index at "+s.Stores.CursorDB)
-	}
-	headers, err := queryRows[cursorHeader](ctx, s.SQLite, s.Stores.CursorDB, cursorHeadersQuery)
-	if errors.Is(err, errNoSQLite) {
-		return missing(ToolCursor, "Reading Cursor chats needs the sqlite3 command")
-	}
+	headers, note, err := s.cursorHeaders(ctx)
 	if err != nil {
-		return missing(ToolCursor, "Could not read Cursor's chat index")
+		return missing(ToolCursor, "Reading Cursor chats needs the sqlite3 command")
 	}
 
 	open := s.cursorOpenChats(ctx, headers)
@@ -133,8 +130,29 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 			pending: &texts{title: header.Name},
 		})
 	}
-	all := append(within(editorChats, opts.Within), within(s.cursorAgentChats(ctx, folders, opts.Within), opts.Within)...)
-	return found(ToolCursor, all)
+	agentChats := s.cursorAgentChats(ctx, folders, opts.Within)
+	if note != "" && len(agentChats) == 0 {
+		return missing(ToolCursor, note)
+	}
+	result := found(ToolCursor, append(within(editorChats, opts.Within), within(agentChats, opts.Within)...))
+	result.source.Note = note
+	return result
+}
+
+// cursorHeaders reads the editor's chat headers. The note says why
+// there are none; the error is errNoSQLite, which stops every read.
+func (s *Scanner) cursorHeaders(ctx context.Context) (headers []cursorHeader, note string, err error) {
+	if _, err := os.Stat(s.Stores.CursorDB); err != nil {
+		return nil, "No Cursor chat index at " + s.Stores.CursorDB, nil
+	}
+	headers, err = queryRows[cursorHeader](ctx, s.SQLite, s.Stores.CursorDB, cursorHeadersQuery)
+	if errors.Is(err, errNoSQLite) {
+		return nil, "", err
+	}
+	if err != nil {
+		return nil, "Could not read Cursor's chat index", nil
+	}
+	return headers, "", nil
 }
 
 // fillPending reads the prompts of the page's Cursor editor chats, the

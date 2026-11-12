@@ -3,6 +3,8 @@ package conversations
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -182,5 +184,38 @@ func TestScan_ReadsTheParentOfACursorAgentChatFromItsFirstPrompt(t *testing.T) {
 
 	if c.Parent == nil || *c.Parent != (Ref{Tool: ToolClaude, ID: idParent}) || c.Title != "Write the release notes" {
 		t.Errorf("parent %+v title %q", c.Parent, c.Title)
+	}
+}
+
+func TestScan_ListsCursorAgentChatsWithoutTheEditorIndex(t *testing.T) {
+	for name, tc := range map[string]struct {
+		breakIndex func(*Scanner)
+		note       string
+	}{
+		"no index": {func(s *Scanner) { _ = os.Remove(s.Stores.CursorDB) }, "No Cursor chat index at "},
+		"an index without chat headers": {func(s *Scanner) {
+			query := s.SQLite
+			s.SQLite = func(ctx context.Context, path, sql string) ([]json.RawMessage, error) {
+				if path == s.Stores.CursorDB {
+					return nil, errors.New("no such table: composerHeaders")
+				}
+				return query(ctx, path, sql)
+			}
+		}, "Could not read Cursor's chat index"},
+	} {
+		scanner, _ := cursorAgentScanner(t, fakeProcesses{}, cursorChat)
+		tc.breakIndex(scanner)
+
+		view := scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}})
+
+		var source Source
+		for _, s := range view.Tools {
+			if s.Tool == ToolCursor {
+				source = s
+			}
+		}
+		if !source.Found || !strings.HasPrefix(source.Note, tc.note) || len(view.Conversations) != 1 || view.Conversations[0].ID != cursorChat {
+			t.Errorf("%s: source %+v rows %d", name, source, len(view.Conversations))
+		}
 	}
 }
