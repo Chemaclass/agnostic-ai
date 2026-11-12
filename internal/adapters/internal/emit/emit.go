@@ -157,10 +157,10 @@ type Session struct {
 	// them as `<path>.bak` and records the path in overwrote (see
 	// BackUpEditsSince). merging holds the paths a merged write is
 	// writing, which hold user keys by design.
-	backupSums      map[string]string
+	backupSums map[string]string
 	// savedBackups are the `<path>.bak` sums the last sync recorded as
 	// backups it saved.
-	savedBackups map[string]string
+	savedBackups    map[string]string
 	priorPaths      map[string]string
 	priorCandidates []string
 	priorAliases    filealias.Cache
