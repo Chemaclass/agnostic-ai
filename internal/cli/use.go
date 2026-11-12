@@ -44,10 +44,7 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := readLedger(".").refuseNewer(); err != nil {
-				return err
-			}
-			lock, err := acquireProjectLock(".", "use")
+			lock, err := acquireLedgerLock(".", "use")
 			if err != nil {
 				return err
 			}

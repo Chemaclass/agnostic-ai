@@ -89,7 +89,7 @@ func TestReadLedger_RefusesANewerLedgerThatDoesNotDecode(t *testing.T) {
 }
 
 func TestSync_RefusesANewerLedgerBeforeWritingAnything(t *testing.T) {
-	for _, args := range [][]string{{"sync", "--gitignore=off"}, {"sync", "--json"}, {"use", "codex"}} {
+	for _, args := range [][]string{{"sync", "--gitignore=off"}, {"sync", "--json"}, {"use", "codex"}, {"import", "claude"}} {
 		for _, ledger := range []string{`{"version":99}`, `{"synced_at":0,"version":99}`} {
 			t.Run(strings.Join(args, " ")+" "+ledger, func(t *testing.T) {
 				dir := testutil.TempCwd(t)
@@ -148,7 +148,7 @@ func TestWritingCommands_RefuseALedgerFromANewerRelease(t *testing.T) {
 
 // Commands that only report run and say the ledger is newer.
 func TestReadingCommands_WarnAboutALedgerFromANewerRelease(t *testing.T) {
-	for _, args := range [][]string{{"status"}, {"status", "--json"}, {"why", "AGENTS.md"}, {"doctor"}, {"doctor", "--json"}, {"cleanup", "--dry-run"}} {
+	for _, args := range [][]string{{"status"}, {"status", "--json"}, {"why", "AGENTS.md"}, {"doctor"}, {"doctor", "--json"}, {"cleanup", "--dry-run"}, {"revert", "--dry-run"}, {"revert", "--dry-run", "--json"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			newerLedgerProject(t)
 			var warned strings.Builder
@@ -164,5 +164,37 @@ func TestReadingCommands_WarnAboutALedgerFromANewerRelease(t *testing.T) {
 				t.Errorf("%v must say a newer release wrote the ledger, got:\n%s%s", args, warned.String(), out)
 			}
 		})
+	}
+}
+
+func TestUpgradeRequires_RefusesANewerLedgerBeforeWritingAnything(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	config := "version: 1\nrequires: \">=0.90.0\"\ntargets: [amp]\n"
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), config)
+	mustWriteFile(t, stateFilePath("."), `{"version":99}`)
+	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "mine\n")
+
+	err := executeUpgradeRequiresForTest(t, "v0.93.0")
+
+	if err == nil || !strings.Contains(err.Error(), "newer agnostic-ai") {
+		t.Fatalf("upgrade --requires must refuse the ledger, got %v", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml")); string(got) != config {
+		t.Errorf("agnostic-ai.yaml must stay as it was:\n%s", got)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, ".gitignore")); string(got) != "mine\n" {
+		t.Errorf(".gitignore must stay as it was:\n%s", got)
+	}
+}
+
+// A newer release that writes the ledger while import waits must still
+// stop import's records.
+func TestRecordImportedSpecFiles_RefusesALedgerFromANewerRelease(t *testing.T) {
+	testutil.TempCwd(t)
+	mustWriteFile(t, stateFilePath("."), `{"version":99}`)
+
+	if err := recordImportedSpecFiles(".", nil, nil); err == nil || !strings.Contains(err.Error(), "newer agnostic-ai") {
+		t.Errorf("recordImportedSpecFiles must refuse the ledger, got %v", err)
 	}
 }

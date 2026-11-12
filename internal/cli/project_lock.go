@@ -25,6 +25,25 @@ func acquireProjectLock(root, command string) (*os.File, error) {
 	return file, nil
 }
 
+// acquireLedgerLock is acquireProjectLock for a command that acts on the
+// ledger: under the lock, before anything is written, it refuses a
+// ledger a newer release wrote.
+func acquireLedgerLock(root, command string) (*os.File, error) {
+	file, err := openProjectLock(root, command)
+	if err != nil {
+		return nil, err
+	}
+	if err := readLedger(root).refuseNewer(); err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	if err := ensureManagedGitignore(root); err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("ignore project lock: %w", err)
+	}
+	return file, nil
+}
+
 // openProjectLock creates and holds the lock without touching ignore files.
 func openProjectLock(root, command string) (*os.File, error) {
 	dir := filepath.Join(root, defaultBaseDir)
