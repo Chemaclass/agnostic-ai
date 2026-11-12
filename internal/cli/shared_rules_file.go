@@ -123,8 +123,9 @@ func projectSharedRulesFiles(cfg *config.Config, b spec.Bundle, targets []string
 // replacedRulesFiles maps each owner whose merged rules-file a run over
 // targets replaces with no rule lost to that path. A drift check compares
 // the path with the instructions file that run writes there, not the
-// merged file the adapter renders. A run that writes no instructions
-// file there leaves the merged file in place.
+// owner's render. A run that writes no instructions file there checks
+// the owner's render, which the collision winners already give the
+// instructions file's bytes.
 func replacedRulesFiles(cfg *config.Config, b spec.Bundle, targets []string) map[string]string {
 	cfg = cfg.WithAdditionalTargets(targets...)
 	runFiles, err := renderEntryPointFiles(cfg, b, targets, "")

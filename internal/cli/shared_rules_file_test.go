@@ -256,29 +256,110 @@ func TestValidate_RulesFileOnAnotherTargetsInstructionsFile_LostWhenTheOwnerDoes
 	}
 }
 
-// A run that writes no instructions file on the path leaves the merged
-// file in place, so it says nothing about the key and checks the merged
-// file.
-func TestSync_PartialRunWithoutTheReaderKeepsTheMergedFile(t *testing.T) {
+// The bytes of a shared rules-file follow the configured targets, not the
+// targets one run writes: a run of the owner alone leaves the file as the
+// full run wrote it (#3330).
+func TestSync_PartialRunOfTheOwnerKeepsTheFullRunsFile(t *testing.T) {
 	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+
+	for _, target := range []string{"codex", "amp"} {
+		if out, err := runCLI(t, "sync", "--check", "--target", target); err != nil {
+			t.Errorf("sync --check --target %s after a full sync: %v\n%s", target, err, out)
+		}
+		if out, err := runCLI(t, "sync", "--gitignore=off", "--target", target); err != nil {
+			t.Fatalf("sync --target %s: %v\n%s", target, err, out)
+		}
+		if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
+			t.Errorf("sync --target %s must leave AGENTS.md as the full sync wrote it, got:\n%s", target, got)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "AGENTS.md.bak")); err == nil {
+			t.Errorf("sync --target %s must not back up AGENTS.md", target)
+		}
+		if out, err := runCLI(t, "sync", "--check"); err != nil {
+			t.Errorf("sync --check after sync --target %s: %v\n%s", target, err, out)
+		}
+	}
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil || strings.Contains(out, "AGENTS.md") {
+		t.Errorf("a full sync after the partial ones must change nothing (err %v):\n%s", err, out)
+	}
+}
+
+// Only the targets that read the shared file decide its bytes, so another
+// target's instructions file cannot stop a run of the owner.
+func TestSync_PartialRunOfTheOwnerIgnoresAnotherTargetsBrokenImport(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp, gemini]\noutputs:\n  codex:\n    rules-file: AGENTS.md\nsync:\n  resolve-imports: inline\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nSHARED-BODY\n\n::target gemini\n@docs/gemini-only.md\n::\n")
+	mustWriteFile(t, filepath.Join(dir, "docs", "gemini-only.md"), "Gemini only.\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err := os.Remove(filepath.Join(dir, "docs", "gemini-only.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, args := range [][]string{{"sync", "--dry-run"}, {"sync", "--check"}, {"sync", "--gitignore=off"}} {
+		if out, err := runCLI(t, append(args, "--target", "codex")...); err != nil {
+			t.Errorf("%v --target codex: %v\n%s", args, err, out)
+		}
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
+		t.Errorf("sync --target codex must leave AGENTS.md as the full sync wrote it, got:\n%s", got)
+	}
+}
+
+func TestSync_PartialRunOfTheOwnerStillSeesAHandEdit(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
 	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "hand edit\n")
 
 	if out, err := runCLI(t, "sync", "--check", "--target", "codex"); err == nil {
 		t.Errorf("sync --check --target codex must see the hand edit:\n%s", out)
 	}
-
-	notes := captureNotes(t)
 	if out, err := runCLI(t, "sync", "--gitignore=off", "--target", "codex"); err != nil {
 		t.Fatalf("sync --target codex: %v\n%s", err, out)
 	}
-	if strings.Contains(notes.String(), "has no effect") {
-		t.Errorf("a run that keeps the merged file must not call the key ineffective:\n%s", notes.String())
+	if bak, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md.bak")); string(bak) != "hand edit\n" {
+		t.Errorf("AGENTS.md.bak must hold the edit, got %q", bak)
 	}
-	if out, err := runCLI(t, "sync", "--check", "--target", "codex"); err != nil {
-		t.Errorf("sync --check --target codex after sync --target codex: %v\n%s", err, out)
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
+		t.Errorf("sync --target codex must restore the full run's AGENTS.md, got:\n%s", got)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+// With the reader out of targets, no instructions file replaces the
+// merged one, so a run of the owner keeps writing it.
+func TestSync_RulesFileWithoutAnotherReaderKeepsTheMergedFile(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--target", "codex"); err != nil {
+		t.Fatalf("sync --target codex: %v\n%s", err, out)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if strings.Contains(string(data), "SHARED-BODY") || !strings.Contains(string(data), "Use tabs.") {
+		t.Errorf("AGENTS.md must hold codex's merged rules file, got:\n%s", data)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+func TestSync_PartialRunOfTheOwnerStopsWhenRulesAreLost(t *testing.T) {
+	sharedRulesFileProject(t, "targets: [codex, cline]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+
+	out, err := runCLI(t, "sync", "--gitignore=off", "--target", "codex")
+
+	if err == nil || !strings.Contains(err.Error()+out, "AAI-102") && !strings.Contains(err.Error()+out, "loses those rules") {
+		t.Errorf("sync --target codex must stop like a full sync (err %v):\n%s", err, out)
 	}
 }
 
@@ -384,15 +465,18 @@ func TestSync_DotSlashRulesFileStuckOnAnOldBackup_Heals(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	amp, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
-	if out, err := runCLI(t, "sync", "--gitignore=off", "--target", "codex"); err != nil {
-		t.Fatalf("sync --target codex: %v\n%s", err, out)
+	state := readStateFile(".")
+	config, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: ./AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync codex alone: %v\n%s", err, out)
 	}
 	merged, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
 	if string(merged) == string(amp) {
 		t.Fatal("setup: AGENTS.md must hold codex's merged file")
 	}
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), string(config))
 	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), string(amp))
-	state := readStateFile(".")
 	state.Outputs = append(state.Outputs, "./AGENTS.md")
 	state.OutputSums["./AGENTS.md"] = adapters.ContentSum(string(merged))
 	state.OutputSums["AGENTS.md"] = adapters.ContentSum(string(amp))
