@@ -22,7 +22,7 @@ builtins: [side-conversation]
 
 It is off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
 
-The skill runs [`agnostic-ai conversations start`](@/docs/cli-reference/conversations.md#conversations-start), so `agnostic-ai` must be on `PATH`. It works from Claude Code and Codex sessions on macOS; the command page lists [where it runs](@/docs/cli-reference/conversations.md#where-it-runs).
+The skill runs [`agnostic-ai conversations start`](@/docs/cli-reference/conversations.md#conversations-start), so `agnostic-ai` must be on `PATH`. It works from Claude Code, Codex and Cursor terminal agent (`cursor-agent`) sessions on macOS; the command page lists [where it runs](@/docs/cli-reference/conversations.md#where-it-runs).
 
 ## Start one
 

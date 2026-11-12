@@ -9,7 +9,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### Highlights
 
 - Delete an archived Claude Code chat for good from the companion, including one that went quiet on its own (#3275, #3288).
-- `agnostic-ai conversations start` opens a linked conversation in a new terminal tab, from inside Claude Code or Codex (#3285, #3304).
+- `agnostic-ai conversations start` opens a linked conversation in a new terminal tab, from inside Claude Code, Codex or `cursor-agent` (#3285, #3304, #3342).
 - The companion and the web interface show the agent's latest reply or question under each chat's title (#3283).
 - Both companion menus offer the same settings, plus Pause and Quit (#3237, #3246, #3297, #3298, #3299).
 - `sync` no longer loses a target's rules because of `outputs.<target>.rules-file` (#3295, #3302).
@@ -28,6 +28,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `agnostic-ai conversations start`, run inside Claude Code or Codex, opens a chat in a new tab of the same folder, with a brief as its first prompt (#3285).
 - The new chat's first line, `Continues <tool>:<id>`, gives its row a `parent` in the conversations API (#3285).
 - The web interface and the companion show it indented under the one it came from while both are in the same group (#3285).
+- `conversations start` works from Cursor's terminal agent too, and `--tool cursor` starts a `cursor-agent` chat; Cursor editor chats are refused (#3342).
 - The new `side-conversation` built-in adds a skill that tells the agent when to start one and how to write the brief (#3285).
 
 #### Deleting archived chats
@@ -108,6 +109,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `model` and `effort` set Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; 0.x ignores them, `import` reads them (#3265).
 - Hooks with `args` reach `.augment/settings.json` and `~/.augment/settings.json` with their arguments, instead of being skipped (#3264).
 - An inline hook command no longer raises a "never executes" note, and `hook run` runs it (#3264).
+
+#### Cursor
+
+- `cursor-agent` chats are listed, with their folder, even when Cursor's editor has no chat index or an older one; they were left out before (#3342).
 
 #### Qwen Code
 

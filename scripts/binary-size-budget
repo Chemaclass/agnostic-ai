@@ -912,8 +912,8 @@
 # and old ledger entries read in that spelling) builds to 25993376 bytes
 # at c1458b45, measured on 2026-11-12. The budget came from an earlier
 # build of 25985184 bytes, plus 8192, rounded up to a multiple of 4096.
-# The sync ledger fixes after #3343 (a file whose .bak holds its bytes
-# heals, one ledger reader, and a newer ledger refused) measured
-# 25997472 bytes locally on 2026-11-12, on top of main f190f62a; the
+# #3342 (conversations start in cursor-agent, the chat variable check,
+# and cursor-agent chat folders found from their project) measured
+# 25997472 bytes locally on 2026-11-12, on top of main c1458b45; the
 # budget is that plus 8192, rounded up to a multiple of 4096.
 26009600

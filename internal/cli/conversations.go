@@ -57,7 +57,7 @@ func newConversationsStartCmd() *cobra.Command {
 		Short: "Start a new conversation in a new terminal tab, linked to this one",
 		Long: `Start a new conversation in a new terminal tab, in this folder, with the brief as its first prompt.
 
-Run it from inside a Claude Code or Codex session. The new conversation's first line names that session, so the Conversations page can show where it came from. Pass the brief on standard input or with --brief-file.`,
+Run it from inside a Claude Code, Codex or Cursor terminal agent (cursor-agent) session. The new conversation's first line names that session, so the Conversations page can show where it came from. Pass the brief on standard input or with --brief-file.`,
 		Example: `  agnostic-ai conversations start <<'EOF'
   Write the release notes for the parser change.
   EOF
@@ -86,7 +86,7 @@ Run it from inside a Claude Code or Codex session. The new conversation's first 
 			return err
 		},
 	}
-	cmd.Flags().StringVar(&tool, "tool", "", "tool for the new conversation: claude or codex (default: the tool this runs in)")
+	cmd.Flags().StringVar(&tool, "tool", "", "tool for the new conversation: claude, codex or cursor (default: the tool this runs in)")
 	cmd.Flags().StringVar(&briefFile, "brief-file", "", "read the brief from this file instead of standard input")
 	return cmd
 }
