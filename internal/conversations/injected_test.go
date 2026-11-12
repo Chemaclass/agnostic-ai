@@ -47,9 +47,14 @@ func TestTypedText_StaysLinearOnUnmatchedTags(t *testing.T) {
 		strings.Repeat("<rules>", 50000) + strings.Repeat("</rules>", 49999) + "Fix the login bug",
 	} {
 		start := time.Now()
-		typed := typedText(prompt)
-		if elapsed := time.Since(start); elapsed > 2*time.Second {
-			t.Errorf("removal took %s on %d bytes", elapsed, len(prompt))
+		injectedTag.FindAllStringSubmatchIndex(prompt, -1)
+		scan := time.Since(start)
+		start = time.Now()
+		typed := withoutInjected(prompt)
+		// Measured against one pass of the tag scan on the same machine, so
+		// a slow or busy runner does not fail it; quadratic work is far over.
+		if removal := time.Since(start); removal > 20*scan+50*time.Millisecond {
+			t.Errorf("removal took %s, one tag scan %s, on %d bytes", removal, scan, len(prompt))
 		}
 		if !strings.HasSuffix(typed, "Fix the login bug") {
 			t.Errorf("typed text lost its end: %q", typed[max(0, len(typed)-40):])
