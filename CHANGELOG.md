@@ -73,7 +73,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - For `outputs.codex.rules-file: AGENTS.md` with Cline, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool (#3302).
 - When the other tool's file already has the rules, as with Amp, `sync` and `sync --target <owner>` keep its file; `lint` warns with LINT063 (#3302, #3343).
 - A `rules-file` on another target's instructions file, such as Amp's `AGENTS.md`, stops saving a `.bak` on each sync; `./AGENTS.md` is that same file (#3329).
-- `sync` writes over a hand-edited file whose `.bak` holds the same bytes, so a project v0.93.0 left stuck on `AGENTS.md` heals on the next sync.
+- `sync` writes over a hand-edited file whose `.bak` holds the same bytes, so a project v0.93.0 left stuck on `AGENTS.md` heals on the next sync (#3345).
 
 #### Shared instructions files
 
@@ -82,8 +82,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync ledger
 
-- `sync`, `doctor` and `use` stop on a `.sync-state` that a newer agnostic-ai wrote and ask you to upgrade, rather than misread it.
-- Upgrade every copy of agnostic-ai that syncs a project together: v0.93.0 and older do not check, and strip merged keys when an `outputs` path starts with `./`.
+- `sync`, `doctor` and `use` stop on a `.sync-state` that a newer agnostic-ai wrote and ask you to upgrade, rather than misread it (#3345).
+- Upgrade every copy of agnostic-ai that syncs a project together: v0.93.0 and older do not check, and strip merged keys when an `outputs` path starts with `./` (#3345).
 
 #### Built-ins and settings
 
