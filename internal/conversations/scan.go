@@ -88,12 +88,15 @@ type Scanner struct {
 	keptSources   map[Tool]keptSource
 	keptClouds    map[Tool]*keptCloud
 
-	// rolloutsMu guards codexLiveRollouts apart from mu: Stamp reads
-	// them without waiting for a scan to end.
+	// rolloutsMu guards codexLiveRollouts and cursorLiveTranscripts apart
+	// from mu: Stamp reads them without waiting for a scan to end.
 	rolloutsMu sync.Mutex
 	// codexLiveRollouts are the rollouts of the Codex threads a process
 	// had loaded at the last read.
 	codexLiveRollouts []string
+	// cursorLiveTranscripts are the transcripts of the cursor-agent chats
+	// a process held at the last read.
+	cursorLiveTranscripts []string
 
 	// betweenReads runs between the two reads Delete makes of a session's
 	// files, where a resumed session can write; nil runs nothing.
