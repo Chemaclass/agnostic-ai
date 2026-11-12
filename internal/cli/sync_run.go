@@ -721,7 +721,7 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, backup, keepEdits); err != nil {
 		return nil, nil, err
 	}
-	winners, err := detectRenderedCollisions(renders, cfg, targets)
+	winners, err := detectRenderedCollisions(renders, cfg, targets, root, prior.state.Backups)
 	if err != nil {
 		return nil, nil, err
 	}

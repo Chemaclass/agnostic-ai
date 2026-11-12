@@ -432,6 +432,7 @@ func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 	path := cur.path
 	s.mu.Lock()
 	sum := s.priorChecksum(path, s.backupSums)
+	sums := s.backupSums
 	merging := s.merging[path]
 	committed := s.committedSum
 	s.mu.Unlock()
@@ -449,7 +450,7 @@ func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 		return false
 	}
 	// A checkout or pull, not the user, changed a file that matches Git.
-	return !MatchesSum(existing, sum) && (committed == nil || !MatchesSum(existing, committed(path)))
+	return !MatchesSum(existing, sum) && (committed == nil || !MatchesSum(existing, committed(path))) && !matchesAliasSum(path, existing, sums)
 }
 
 // TrustBackupsSince sets the sums of the `<path>.bak` files the last
@@ -490,6 +491,7 @@ func (s *Session) KeptEdits() []string {
 func (s *Session) keepsEdit(path, content string) (string, bool) {
 	s.mu.Lock()
 	sum := s.priorChecksum(path, s.keepSums)
+	sums := s.keepSums
 	keeping := s.keepSums != nil
 	committed := s.committedSum
 	s.mu.Unlock()
@@ -503,7 +505,7 @@ func (s *Session) keepsEdit(path, content string) (string, bool) {
 	if sum == "" && committed != nil {
 		sum = committed(path)
 	}
-	if sum == "" || MatchesSum(existing, sum) {
+	if sum == "" || MatchesSum(existing, sum) || matchesAliasSum(path, existing, sums) {
 		return "", false
 	}
 	return sum, true
