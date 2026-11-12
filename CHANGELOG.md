@@ -11,15 +11,16 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Delete an archived Claude Code chat for good from the companion, including one that went quiet on its own (#3275, #3288).
 - `agnostic-ai conversations start` opens a linked conversation in a new terminal tab, from inside Claude Code, Codex or `cursor-agent` (#3285, #3304, #3342).
 - The companion and the web interface show the agent's latest reply or question under each chat's title (#3283).
-- Both companion menus offer the same settings, plus Pause and Quit (#3237, #3246, #3297, #3298, #3299).
+- Both companion menus offer the same settings, plus Hide and a Quit that asks first (#3237, #3246, #3297, #3298, #3299, #3351).
 - `sync` no longer loses a target's rules because of `outputs.<target>.rules-file` (#3295, #3302).
 
 ### General
 
 #### Companion menus and app
 
-- Both companion menus offer Animate, Dim when idle, Start at login, the shortcut, Pause and Quit, kept in step (#3237, #3246, #3297, #3299).
-- Pause replaces Hide: the circle stays at 10% and reads nothing until you click it or press the shortcut (#3298).
+- Both companion menus offer Animate, Dim when idle, Start at login, the shortcut, Hide and Quit, kept in step (#3237, #3246, #3297, #3299, #3351).
+- Hide takes the companion off the screen; the shortcut, a new start or a newly waiting chat (dimmed to 25%) brings it back (#3298, #3351).
+- Quit asks first and offers Hide instead, since the shortcut cannot bring a quit companion back (#3351).
 - `upgrade` also updates an installed companion and restarts it if it was running (#3247).
 - On macOS, `companion install` makes an app with the agnostic-ai icon that still starts at login (#3238).
 
