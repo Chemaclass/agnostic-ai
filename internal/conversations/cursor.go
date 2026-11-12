@@ -166,19 +166,25 @@ func (s *Scanner) searchAll(ctx context.Context, all []Conversation, words []str
 	for _, c := range all {
 		if c.pending != nil {
 			t := withPrompts(*c.pending, prompts[c.ID])
-			if !holdsAll(strings.Join([]string{c.renamed, t.title, t.firstPrompt, t.lastPrompt, t.reply, t.question, c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+			if !holdsAll(strings.Join([]string{c.renamed, t.title, t.firstPrompt, t.lastPrompt, replySearched(t), c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
 				continue
 			}
 			c.pending = nil
 			s.fill(&c, t)
 		}
-		if c.pendingReply != nil && holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), c.pendingReply.reply, c.pendingReply.question, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+		if c.pendingReply != nil && holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), replySearched(*c.pendingReply), toolLabels[c.Tool], string(c.App)}, "\n"), words) {
 			s.fillReply(&c, *c.pendingReply)
 			c.pendingReply = nil
 		}
 		maybe = append(maybe, c)
 	}
 	return matching(maybe, words)
+}
+
+// replySearched is the reply and question as the row shows them, before
+// the credential check, so a search reads the words a person sees.
+func replySearched(t texts) string {
+	return replyLine(t.reply) + "\n" + replyLine(t.question)
 }
 
 func pendingRows(list []Conversation) []Conversation {
@@ -260,8 +266,8 @@ const cursorPromptBatch = 300
 // reply of the editor chats among list. A chat's texts are kept until
 // its last activity time changes, so a search over thousands of chats
 // queries only the ones that are new or changed. A chat open in Cursor
-// is read on every call: nothing shows that Cursor moves that time when
-// only the agent writes.
+// is read on every call, and once more after it closes: nothing shows
+// that Cursor moves that time when only the agent writes.
 func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) map[string]cursorPrompts {
 	if s.cursorPrompts == nil {
 		s.cursorPrompts = map[string]cached[cursorPrompts]{}
@@ -272,7 +278,7 @@ func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) 
 		if c.App != AppIDE {
 			continue
 		}
-		if hit, ok := s.cursorPrompts[c.ID]; ok && hit.stamp == c.UpdatedAt && !c.Live {
+		if hit, ok := s.cursorPrompts[c.ID]; ok && hit.stamp == cursorPromptsStamp(c) && !c.Live {
 			prompts[c.ID] = hit.value
 			continue
 		}
@@ -280,7 +286,7 @@ func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) 
 	}
 	stamps := map[string]string{}
 	for _, c := range list {
-		stamps[c.ID] = c.UpdatedAt
+		stamps[c.ID] = cursorPromptsStamp(c)
 	}
 	for start := 0; start < len(missing); start += cursorPromptBatch {
 		batch := missing[start:min(start+cursorPromptBatch, len(missing))]
@@ -304,6 +310,15 @@ func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) 
 		}
 	}
 	return prompts
+}
+
+// cursorPromptsStamp keys a chat's cached texts. A read made while the
+// chat was open is never reused, even after it closes.
+func cursorPromptsStamp(c Conversation) string {
+	if c.Live {
+		return "live"
+	}
+	return c.UpdatedAt
 }
 
 // cursorAgentMeta is the hex-encoded JSON under key "0" of a cursor-agent

@@ -313,7 +313,7 @@ func cursorEditorStore(t *testing.T, path string, recency int64, chats map[strin
 }
 
 func TestScan_ReadsTheCursorEditorReplyThatFollowsTheLatestPrompt(t *testing.T) {
-	answered, stale, asking, secret, long, chunked, silent, manyChunks := "a1111111", "s1111111", "q1111111", "k1111111", "l1111111", "c1111111", "n1111111", "c2222222"
+	answered, stale, asking, secret, long, chunked, silent, manyChunks, markdown := "a1111111", "s1111111", "q1111111", "k1111111", "l1111111", "c1111111", "n1111111", "c2222222", "m1111111"
 	var turns []cursorBubble
 	for i := range 10 {
 		turns = append(turns, cursorUser(fmt.Sprintf("Prompt %d", i)), cursorAgent(fmt.Sprintf("Answer %d.", i)))
@@ -335,6 +335,7 @@ func TestScan_ReadsTheCursorEditorReplyThatFollowsTheLatestPrompt(t *testing.T) 
 		long:     {cursorUser("Migrate"), cursorAgent(strings.Repeat("The migration ran on every table. ", 200))},
 		chunked:  {cursorUser("Fix the build"), cursorAgent("An old answer."), cursorUser("Run it again"), cursorAgent(""), cursorAgent("The webhook build passes now.")},
 		silent:   {cursorUser("Wait for it")},
+		markdown: {cursorUser("Fix the page"), cursorAgent("The **dash**board loads again.")},
 		// Eleven chunks: chunk 10 must sort after chunk 9.
 		manyChunks: append(turns, cursorUser("Newest prompt"), cursorAgent("")),
 	})
@@ -366,8 +367,11 @@ func TestScan_ReadsTheCursorEditorReplyThatFollowsTheLatestPrompt(t *testing.T) 
 	if c := byID(t, view, manyChunks); c.Prompt != "Newest prompt" || len(c.Opening) == 0 || c.Opening[0] != "Prompt 0" {
 		t.Errorf("a chat over ten chunks must read its prompts in order: %s", asJSON(t, c))
 	}
-	if found := scanner.Scan(context.Background(), ScanOptions{Query: "webhook"}); found.Matches == nil || *found.Matches != 1 {
-		t.Errorf("search must reach a Cursor reply: %s", asJSON(t, found))
+	for query, want := range map[string]string{"webhook": chunked, "dashboard": markdown, "hunter2": ""} {
+		found := scanner.Scan(context.Background(), ScanOptions{Query: query})
+		if want == "" && len(found.Conversations) != 0 || want != "" && (len(found.Conversations) != 1 || found.Conversations[0].ID != want) {
+			t.Errorf("search %q found %s", query, asJSON(t, found.Conversations))
+		}
 	}
 	if chosen != 1 {
 		t.Errorf("an unchanged chat is read once, read %d times", chosen)
@@ -378,6 +382,7 @@ func TestScan_RereadsTheReplyOfACursorChatOpenInAWindow(t *testing.T) {
 	open, closed := "88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999"
 	reads := map[string]int{}
 	answer := "I am looking."
+	selected := open
 	scanner, stores := testScanner(t, func(_ context.Context, _, query string) ([]json.RawMessage, error) {
 		switch {
 		case strings.Contains(query, "FROM composerHeaders"):
@@ -386,7 +391,7 @@ func TestScan_RereadsTheReplyOfACursorChatOpenInAWindow(t *testing.T) {
 				json.RawMessage(`{"id":"` + closed + `","workspace_id":"ws1","created_at":1794049200000,"recency":1794049200000,"name":"Closed chat","folder":"/tmp/app"}`),
 			}, nil
 		case strings.Contains(query, "ItemTable"):
-			return []json.RawMessage{json.RawMessage(`{"value":"{\"selectedComposerIds\":[\"` + open + `\"]}"}`)}, nil
+			return []json.RawMessage{json.RawMessage(`{"value":"{\"selectedComposerIds\":[\"` + selected + `\"]}"}`)}, nil
 		case strings.Contains(query, "chosen(composerId)"):
 			var rows []json.RawMessage
 			for _, id := range []string{open, closed} {
@@ -412,6 +417,14 @@ func TestScan_RereadsTheReplyOfACursorChatOpenInAWindow(t *testing.T) {
 	if reads[closed] != 1 || byID(t, view, closed).Reply != "I am looking." {
 		t.Errorf("a closed chat is read once until its recency changes, read %d times", reads[closed])
 	}
+
+	answer, selected = "Done.", ""
+	write(t, filepath.Join(filepath.Dir(stores.CursorDB), "storage.json"), `{"windowsState":{"openedWindows":[]}}`)
+	scanner.Scan(context.Background(), ScanOptions{})
+	view = scanner.Scan(context.Background(), ScanOptions{})
+	if c := byID(t, view, open); c.Live || c.Reply != "Done." || reads[open] != 3 {
+		t.Errorf("a chat closed since its last read is read once more, then cached: read %d times, %s", reads[open], asJSON(t, c))
+	}
 }
 
 func TestScan_ReadsAFinalCursorAgentReplyLargerThanTheTail(t *testing.T) {
@@ -433,8 +446,8 @@ func TestScan_ReadsAFinalCursorAgentReplyLargerThanTheTail(t *testing.T) {
 }
 
 func TestScan_ReadsTheCursorAgentReplyThatFollowsTheLatestPrompt(t *testing.T) {
-	answered, stale, asking, secret, long := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "cccccccc-cccc-4ccc-8ccc-cccccccccccc", "dddddddd-dddd-4ddd-8ddd-dddddddddddd", "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
-	scanner, _ := cursorAgentScanner(t, fakeProcesses{}, answered, stale, asking, secret, long)
+	answered, stale, asking, secret, long, markdown := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "cccccccc-cccc-4ccc-8ccc-cccccccccccc", "dddddddd-dddd-4ddd-8ddd-dddddddddddd", "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", "ffffffff-ffff-4fff-8fff-ffffffffffff"
+	scanner, _ := cursorAgentScanner(t, fakeProcesses{}, answered, stale, asking, secret, long, markdown)
 	prompt := func(text string) obj {
 		return obj{"role": "user", "message": obj{"content": []obj{textPart("<timestamp>Friday</timestamp>\n<user_query>" + text + "</user_query>")}}}
 	}
@@ -446,6 +459,7 @@ func TestScan_ReadsTheCursorAgentReplyThatFollowsTheLatestPrompt(t *testing.T) {
 		asking:   {obj{"role": "user", "message": obj{"content": []obj{textPart("<user_info>os</user_info>")}}}, prompt("Split it"), said(textPart("I can split it.\n\nShould I also rename the package?"))},
 		secret:   {prompt("Deploy"), said(textPart("Use password hunter2 for the staging login."))},
 		long:     {prompt("Migrate"), said(textPart(strings.Repeat("The migration ran on every table. ", 200)))},
+		markdown: {prompt("Fix the page"), said(textPart("The **dash**board loads again."))},
 	}
 	for id, values := range transcripts {
 		write(t, filepath.Join(scanner.Stores.CursorDir, "projects", "p1", "agent-transcripts", id, id+".jsonl"), lines(values...))
@@ -469,7 +483,7 @@ func TestScan_ReadsTheCursorAgentReplyThatFollowsTheLatestPrompt(t *testing.T) {
 	if c := byID(t, view, long); utf8.RuneCountInString(c.Reply) != replyRunes || !strings.HasSuffix(c.Reply, "…") {
 		t.Errorf("a long reply is cut to %d runes, actual %q", replyRunes, c.Reply)
 	}
-	for query, want := range map[string]string{"passes now": answered, "hunter2": ""} {
+	for query, want := range map[string]string{"passes now": answered, "dashboard": markdown, "hunter2": ""} {
 		found := scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}, Query: query})
 		if want == "" && len(found.Conversations) != 0 || want != "" && (len(found.Conversations) != 1 || found.Conversations[0].ID != want || found.Conversations[0].Reply == "") {
 			t.Errorf("search %q found %s", query, asJSON(t, found.Conversations))
