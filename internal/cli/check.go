@@ -307,7 +307,7 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 			return nil, fmt.Errorf("%s: %w", t, render.err)
 		}
 		files := slices.DeleteFunc(slices.Clone(render.files), func(f adapters.CapturedFile) bool {
-			if replaced[t] != filepath.Clean(f.Path) {
+			if replaced[t] != filepath.Clean(f.Path) || !sameFileOnDisk(f.Path, replaced[t]) {
 				return false
 			}
 			emitted[f.Path] = true
@@ -1292,4 +1292,18 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		}
 	}
 	return written, nil
+}
+
+// sameFileOnDisk reports whether a and b name one file. A `..` after a
+// linked folder leads elsewhere, so lexical cleaning cannot tell.
+func sameFileOnDisk(a, b string) bool {
+	if a == b {
+		return true
+	}
+	ai, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	bi, err := os.Stat(b)
+	return err == nil && os.SameFile(ai, bi)
 }
