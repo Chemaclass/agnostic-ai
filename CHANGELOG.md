@@ -108,6 +108,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Augment
 
+- `hook run` replaces `${VAR}` and `${VAR:-default}` in a hook's command and `args` before it runs them, as Auggie 1.x does, so a default that blocks now reports block. A `${...}` form the Augment reference does not describe runs but is not counted (#3355).
 - `sync` skips a hook on an event Auggie never fires, such as `UserPromptSubmit`, with a note that names `x-augment: {event: PromptSubmit}`, instead of writing it to `.augment/settings.json`. `validate` now reads each target's `x-<target>` event, so it accepts that override and rejects a hook whose targets all lack its event (#3348).
 - `hook run` reads a block reply on `SessionStart`, `SessionEnd`, `PromptSubmit` and `Notification` as allow, with a note, since Auggie runs those hooks in the background and cannot block them (#3346).
 - `hook run --bash` and `--edit` send Auggie 1.x's tool names (`bash`, `edit`, `write`) and match as Auggie 1.x does: case-insensitively, with the 0.x names still matching. A protected-path hook now reads the path of a 1.x `edit` or `write` call before the edit, portable `shell` and `edit` hooks match both the 1.x and 0.x names, and the sync note on a Claude-style matcher names the 1.x tools (#3347).

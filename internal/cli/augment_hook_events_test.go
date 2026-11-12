@@ -136,6 +136,47 @@ func TestAugmentHooks_XAugmentEventOverrideSyncsValidatesAndRuns(t *testing.T) {
 	}
 }
 
+func augmentArgsProject(t *testing.T, arg string) {
+	t.Helper()
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, ".agnostic-ai/hooks/probe.yaml", "name: probe\nevent: PreToolUse\ncommand: /bin/sh\nargs:\n  - '-c'\n  - 'if [ \"$1\" = block ]; then exit 2; fi'\n  - 'probe'\n  - '"+arg+"'\n")
+}
+
+func TestAugmentHooks_HookRunExpandsArgsAsAuggieDoes(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	t.Setenv("AAI_PROBE_UNSET", "")
+	if err := os.Unsetenv("AAI_PROBE_UNSET"); err != nil {
+		t.Fatal(err)
+	}
+	augmentArgsProject(t, "${AAI_PROBE_UNSET:-block}")
+	if out, err := runRoot(t, "validate"); err != nil {
+		t.Fatalf("validate: %v\n%s", err, out)
+	}
+	syncNotes(t)
+	data, err := os.ReadFile(".augment/settings.json")
+	if err != nil || !strings.Contains(string(data), `"${AAI_PROBE_UNSET:-block}"`) {
+		t.Fatalf("sync must write the reference for Auggie to expand: %s, %v", data, err)
+	}
+	if out, err := runHookRun(t, "probe", "--bash", "true", "--expect", "block"); err != nil || !strings.Contains(out, "augment: block") {
+		t.Errorf("hook run: %v\n%s", err, out)
+	}
+	if out, err := runHookRun(t, "probe", "--bash", "true", "--expect", "allow"); err == nil {
+		t.Errorf("expect allow must fail:\n%s", out)
+	}
+}
+
+func TestAugmentHooks_HookRunDoesNotCountAnArgFormTheReferenceLeavesOpen(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	t.Setenv("AAI_PROBE_EMPTY", "")
+	augmentArgsProject(t, "${AAI_PROBE_EMPTY:-block}")
+	syncNotes(t)
+	out, _ := runHookRun(t, "probe", "--bash", "true")
+	if !strings.Contains(out, "not counted: Augment's hooks reference") {
+		t.Errorf("hook run must not count the result:\n%s", out)
+	}
+}
+
 func TestValidate_HookScopedToATargetWithoutHooksChecksEveryTarget(t *testing.T) {
 	testutil.TempCwd(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, aider]\n")

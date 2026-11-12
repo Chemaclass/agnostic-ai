@@ -1,9 +1,11 @@
 package hookrun
 
 import (
+	"cmp"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -102,6 +104,97 @@ func augmentArgv(goos string, h Handler) []string {
 		}
 	}
 	return append([]string{h.Command}, h.Args...)
+}
+
+// augmentHookEnv are the variables Auggie sets for a hook. Its reference
+// does not say whether the expansion of args sees them.
+var augmentHookEnv = []string{"AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME"}
+
+var augmentReference = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)(:-([^${}]*))?$`)
+
+// AugmentExpand expands ${VAR} and ${VAR:-default} in the command and
+// args of a handler with args, from env, as Auggie 1.x does before it
+// starts the program. A variable that is not set and has no default
+// stays as written, and \${ is a literal ${. It also returns why the
+// result cannot be counted when a reference takes a form Augment's
+// hooks reference does not describe, or "".
+func AugmentExpand(h Handler, env []string) (Handler, string) {
+	if len(h.Args) == 0 {
+		return h, ""
+	}
+	var unmodeled string
+	expand := func(word string) string {
+		out, why := augmentExpandWord(word, env)
+		if unmodeled == "" {
+			unmodeled = why
+		}
+		return out
+	}
+	h.Command = expand(h.Command)
+	args := make([]string, len(h.Args))
+	for i, arg := range h.Args {
+		args[i] = expand(arg)
+	}
+	h.Args = args
+	return h, unmodeled
+}
+
+func augmentExpandWord(word string, env []string) (string, string) {
+	var out strings.Builder
+	var unmodeled string
+	for i := 0; i < len(word); {
+		if strings.HasPrefix(word[i:], `\${`) {
+			out.WriteString("${")
+			i += 3
+			continue
+		}
+		if !strings.HasPrefix(word[i:], "${") {
+			out.WriteByte(word[i])
+			i++
+			continue
+		}
+		end := strings.IndexByte(word[i:], '}')
+		if end < 0 {
+			out.WriteString(word[i:])
+			return out.String(), "Augment's hooks reference does not say how Auggie reads a ${ with no closing }"
+		}
+		reference := word[i : i+end+1]
+		i += end + 1
+		match := augmentReference.FindStringSubmatch(reference[2 : len(reference)-1])
+		if match == nil {
+			out.WriteString(reference)
+			unmodeled = cmp.Or(unmodeled, "Augment's hooks reference does not say how Auggie expands "+reference)
+			continue
+		}
+		name, hasDefault, fallback := match[1], match[2] != "", match[3]
+		if slices.Contains(augmentHookEnv, name) {
+			unmodeled = cmp.Or(unmodeled, "Augment's hooks reference does not say whether "+reference+" in args sees the variables Auggie sets for the hook")
+		}
+		value, set := lookupEnv(env, name)
+		switch {
+		case set && value == "" && hasDefault:
+			out.WriteString(fallback)
+			unmodeled = cmp.Or(unmodeled, "Augment's hooks reference does not say whether "+reference+" takes its default when "+name+" is set but empty")
+		case set:
+			out.WriteString(value)
+		case hasDefault:
+			out.WriteString(fallback)
+		default:
+			out.WriteString(reference)
+		}
+	}
+	return out.String(), unmodeled
+}
+
+// lookupEnv finds key in env, where a later entry wins as it does for
+// the started process.
+func lookupEnv(env []string, key string) (string, bool) {
+	for i := len(env) - 1; i >= 0; i-- {
+		if k, v, ok := strings.Cut(env[i], "="); ok && k == key {
+			return v, true
+		}
+	}
+	return "", false
 }
 
 // cmdEscapeArg keeps cmd.exe from reading an argument as a command

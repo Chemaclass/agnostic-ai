@@ -95,7 +95,7 @@ Commands come from the spec, so a command that calls a hook script needs a `sync
 | Trae | `bash -c`, or PowerShell on Windows | 30 seconds |
 | OpenHands | `/bin/sh -c`, or `cmd.exe /c` on Windows | 60 seconds |
 | Goose | `sh -c` on every platform | 30 seconds |
-| Augment | A command with `args` runs with no shell; on Windows a `.sh`, `.ps1`, `.cmd`, or `.bat` script runs through `bash.exe`, `powershell.exe -File`, or `cmd.exe`. A command without `args` runs with `/bin/sh -c`, or with `cmd.exe` on Windows. | 60 seconds |
+| Augment | A command with `args` runs with no shell; on Windows a `.sh`, `.ps1`, `.cmd`, or `.bat` script runs through `bash.exe`, `powershell.exe -File`, or `cmd.exe`. As Auggie does, `${VAR}` and `${VAR:-default}` in the command and every argument are first replaced from the hook's environment; an unset variable with no default stays as written, and `\${` is a literal `${`. Another `${...}` form, a default on a set but empty variable, or a reference to a variable Auggie sets for the hook runs but is not counted. A command without `args` runs with `/bin/sh -c`, or with `cmd.exe` on Windows. | 60 seconds |
 | Cursor | Script path only | Assumed 30 seconds |
 | Crush | Crush's embedded POSIX shell, on every platform. A path starting with `./`, `../`, or `/` runs through its shebang interpreter, or with no shebang as shell source. A path without that prefix, such as `hooks/guard.sh`, starts as a program; on macOS and Linux one without a shebang then fails with exit 1. | 30 seconds |
 | Copilot | Exec-form `args` with no shell. A `command` is script path only. | 30 seconds |
