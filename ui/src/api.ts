@@ -126,8 +126,8 @@ export const CONVERSATIONS_NEED_SERVER = 'Conversations need agnostic-ai running
 
 /**
  * One week of chats from the server, with routes for the editor chosen in
- * Settings: without `before` the first page (every open chat and the past
- * week), with it the week before that time. The mock fixture is a single
+ * Settings: without `before` the first page (every open, blocked or unread
+ * chat and the past week), with it the week before that time. The mock fixture is a single
  * page with no next; a static snapshot has none.
  */
 /** Which page of the list to load: the week before `before`, matching `query` and `tool`. */

@@ -40,6 +40,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Chat list
 
 - **Mark all as read** on the companion's Needs you header marks every chat the group shows, after the search and the All, Local or Cloud choice (#3300).
+- The list shows every unread or waiting chat of any age, so Mark all as read brings the companion's circle to zero (#3326).
 - The companion's buttons now read "Mark complete" and "Mark all complete", and a chat marked complete shows a green tick for a moment (#3273).
 - Mark a chat as read from the companion's right-click menu, without opening it; the next reply brings it back (#3250).
 - Companion rows no longer repeat their group as "New reply" or "Working", and a Codex thread opened and never typed in is left out (#3300).

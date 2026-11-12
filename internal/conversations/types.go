@@ -78,7 +78,7 @@ type View struct {
 	SchemaVersion string `json:"schemaVersion"`
 	GeneratedAt   string `json:"generatedAt"`
 	// From and To bound the page: conversations last written in [From, To),
-	// plus, on the first page, every open one.
+	// plus, on the first page, every open, blocked or unread one.
 	From string `json:"from"`
 	To   string `json:"to"`
 	// Next is the Before time of the following page; empty when no older

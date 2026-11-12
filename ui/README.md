@@ -163,7 +163,7 @@ Tabs support Left/Right, Home, and End. The `tab` URL parameter survives refresh
 
 ## Conversations
 
-The page reads `GET /api/views/conversations?editor=<id>` using the editor chosen in Settings. The first page includes all open chats and the past week. Each response's `next` supplies the next `before=<time>`, skipping empty weeks.
+The page reads `GET /api/views/conversations?editor=<id>` using the editor chosen in Settings. The first page includes all open chats, every blocked or unread chat, and the past week. Each response's `next` supplies the next `before=<time>`, skipping empty weeks.
 
 An `IntersectionObserver` near the list's end loads the next week, one request at a time. **Load the week before** provides the same action by click or keyboard and works without the observer. While loading it reads **Loading the week before…**. A failed request keeps the loaded rows and offers **Try again** for that week; no `next` ends the list with **That's every conversation.** Rows merge by tool and id, with the later copy winning, newest first, and open chats on top.
 

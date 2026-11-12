@@ -931,11 +931,11 @@ export interface Conversation {
   open: ConversationRoute
 }
 
-/** One page of the list. The first page holds every open conversation and the past week; each later page, asked for with `before`, the week before it, reaching past weeks with no conversation. */
+/** One page of the list. The first page holds every open conversation, every blocked or unread one, and the past week; each later page, asked for with `before`, the week before it, reaching past weeks with no conversation. */
 export interface ConversationsView {
   schemaVersion: 'conversations/v1'
   generatedAt: string
-  /** The page covers conversations last written from `from` up to `to`, plus, on the first page, every open one. */
+  /** The page covers conversations last written from `from` up to `to`, plus, on the first page, every open, blocked or unread one. */
   from: string
   to: string
   /** The `before` value of the next page; absent when no older conversation remains. */

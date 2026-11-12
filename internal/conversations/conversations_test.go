@@ -771,11 +771,7 @@ func TestScan_KeepsCodexThreadsWithNoPromptTextWhenTheRepliesCannotBeRead(t *tes
 	}
 }
 
-// The circle counts every chat that needs the person, while the first
-// page holds a week and the open chats. An unread chat older than that
-// keeps the count above zero after every listed row is marked read.
-// Known limit, not fixed here.
-func TestScan_NeedsYouCountsAnUnreadChatOlderThanTheFirstPage(t *testing.T) {
+func TestScan_TheFirstPageHoldsEveryChatTheCircleCounts(t *testing.T) {
 	recent, old := "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666"
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	scanner := codexUnreadScanner(t, `[
@@ -784,16 +780,27 @@ func TestScan_NeedsYouCountsAnUnreadChatOlderThanTheFirstPage(t *testing.T) {
 	]`, "", "")
 
 	view := scanner.Scan(context.Background(), ScanOptions{})
-	if len(view.Conversations) != 1 || view.Conversations[0].ID != recent || view.NeedsYou != 2 {
-		t.Fatalf("first page = %s, needsYou %d", asJSON(t, view.Conversations), view.NeedsYou)
+	if len(view.Conversations) != 2 || byID(t, view, old).State != StateUnread || view.NeedsYou != 2 || view.Next != "" {
+		t.Fatalf("the first page must hold the unread chat older than a week: %s, needsYou %d, next %q", asJSON(t, view.Conversations), view.NeedsYou, view.Next)
 	}
-
-	if err := scanner.Mark(ToolCodex, recent, MarkSeen); err != nil {
+	before, err := time.Parse(time.RFC3339, view.From)
+	if err != nil {
 		t.Fatal(err)
 	}
+	if older := scanner.Scan(context.Background(), ScanOptions{Before: before}); len(older.Conversations) != 0 {
+		t.Errorf("a later page must not list again what the first page holds: %s", asJSON(t, older.Conversations))
+	}
+
+	for _, c := range view.Conversations {
+		if needsPerson(c.State) {
+			if err := scanner.Mark(c.Tool, c.ID, MarkSeen); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	view = scanner.Scan(context.Background(), ScanOptions{})
-	if byID(t, view, recent).State != StateActive || view.NeedsYou != 1 {
-		t.Errorf("after marking every listed row read, the count holds the older chat: state %s, needsYou %d", byID(t, view, recent).State, view.NeedsYou)
+	if view.NeedsYou != 0 || len(view.Conversations) != 1 || view.Conversations[0].ID != recent || view.Next == "" {
+		t.Errorf("after marking every listed row read, nothing needs the person and the old chat moves to a later page: needsYou %d, next %q, %s", view.NeedsYou, view.Next, asJSON(t, view.Conversations))
 	}
 }
 
@@ -885,6 +892,12 @@ func paged(id, updated string, live bool) Conversation {
 	return Conversation{Tool: ToolClaude, ID: id, UpdatedAt: updated, Live: live}
 }
 
+func pagedIn(id, updated string, live bool, state State) Conversation {
+	c := paged(id, updated, live)
+	c.State = state
+	return c
+}
+
 func TestWeekPage_ShowsOpenConversationsThenAWeekAtATime(t *testing.T) {
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	all := []Conversation{
@@ -895,6 +908,8 @@ func TestWeekPage_ShowsOpenConversationsThenAWeekAtATime(t *testing.T) {
 		paged("after-a-gap", "2026-10-01T10:00:00Z", false),
 		paged("gap-week", "2026-09-26T10:00:00Z", false),
 		paged("undated", "", false),
+		pagedIn("unread-old", "2026-09-27T10:00:00Z", false, StateUnread),
+		pagedIn("blocked-old", "2026-09-02T10:00:00Z", true, StateBlocked),
 	}
 	ids := func(list []Conversation) string {
 		var out []string
@@ -905,7 +920,7 @@ func TestWeekPage_ShowsOpenConversationsThenAWeekAtATime(t *testing.T) {
 	}
 
 	page, from, more := weekPage(all, now, true)
-	if ids(page) != "open-but-old,today,six-days" || !from.Equal(now.Add(-pageSpan)) || !more {
+	if ids(page) != "open-but-old,unread-old,blocked-old,today,six-days" || !from.Equal(now.Add(-pageSpan)) || !more {
 		t.Errorf("first page = %s from %s more %v", ids(page), from, more)
 	}
 	page, from, more = weekPage(all, from, false)
