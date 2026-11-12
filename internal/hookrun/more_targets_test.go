@@ -245,3 +245,34 @@ func TestBuild_AugmentEditPicksTheToolTheMatcherNames(t *testing.T) {
 		}
 	}
 }
+
+// docs.augmentcode.com/cli/hooks.md: "Note that only `PreToolUse` can
+// block tool execution. `Stop`, `SessionStart`, `SessionEnd`,
+// `PromptSubmit`, and `Notification` hooks run in the background".
+func TestDecide_AugmentBackgroundEventsCannotBlock(t *testing.T) {
+	block := Result{Stdout: `{"decision":"block","continue":false,"hookSpecificOutput":{"permissionDecision":"deny","decision":"block"}}`}
+	for _, tc := range []struct {
+		event string
+		want  Decision
+		note  string
+	}{
+		{"PreToolUse", Block, ""},
+		{"PostToolUse", Block, ""},
+		{"Stop", Block, "Auggie 1.x runs Stop hooks in the background"},
+		{"SessionStart", Allow, "Auggie runs SessionStart hooks in the background and cannot block them"},
+		{"SessionEnd", Allow, "Auggie runs SessionEnd hooks in the background and cannot block them"},
+		{"PromptSubmit", Allow, "Auggie runs PromptSubmit hooks in the background and cannot block them"},
+		{"Notification", Allow, "Auggie runs Notification hooks in the background and cannot block them"},
+	} {
+		if got := DecideHandler("augment", tc.event, Handler{}, block); got != tc.want {
+			t.Errorf("%s = %s, want %s", tc.event, got, tc.want)
+		}
+		note := AugmentNote(tc.event, block)
+		if tc.note == "" && note != "" || !strings.Contains(note, tc.note) {
+			t.Errorf("%s note = %q, want %q", tc.event, note, tc.note)
+		}
+		if note := AugmentNote(tc.event, Result{}); note != "" {
+			t.Errorf("%s allow reply note = %q, want none", tc.event, note)
+		}
+	}
+}

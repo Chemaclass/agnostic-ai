@@ -82,3 +82,20 @@ func TestHookRun_GooseFailClosedTurnsAFailureIntoABlock(t *testing.T) {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
 }
+
+func TestHookRun_AugmentPromptSubmitBlockReplyReadsAsAllow(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+		"name: guard\nevent: PromptSubmit\ntargets: [augment]\ncommand: 'echo {\\\"continue\\\":false}'\n")
+	mustSync(t)
+
+	out, err := runHookRun(t, "guard", "--prompt", "hi", "--expect", "allow")
+	if err != nil {
+		t.Fatalf("err = %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "augment: allow") || !strings.Contains(out, "cannot block them; read as allow") {
+		t.Errorf("output = %s", out)
+	}
+}
