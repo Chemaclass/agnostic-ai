@@ -921,4 +921,8 @@
 # reports) measured 26013856 bytes locally on 2026-11-12, on top of main
 # 8506e2a6; the budget is that plus 8192, rounded up to a multiple of
 # 4096.
-26025984
+# #3345 then also refused an output at another output's .bak and a newer
+# ledger under the lock in every writer: 26030240 bytes measured
+# locally on 2026-11-12, on top of main a29886a5; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+26042368
