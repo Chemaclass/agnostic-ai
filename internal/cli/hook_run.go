@@ -345,6 +345,10 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			shown := shownHookCommand(h)
 			h.Command = hookrun.ExpandCommand(target, runtime.GOOS, h.Command, root)
 			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), prompt: hookrun.PayloadPrompt(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
+			var unmodeled string
+			if target == "augment" {
+				h, unmodeled = hookrun.AugmentExpand(h, env)
+			}
 			dir := root
 			if target == "copilot" {
 				dir = hookrun.CopilotDir(root, h)
@@ -382,7 +386,7 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			case "windsurf":
 				note, uncounted = hookrun.WindsurfNote(event, r), hookrun.WindsurfUncounted(event, r)
 			case "augment":
-				note = hookrun.AugmentNote(event, r)
+				note, uncounted = hookrun.AugmentNote(event, r), unmodeled
 			case "cline":
 				run.Notes = append(run.Notes, hookrun.ClineNotes(event, r)...)
 			}
