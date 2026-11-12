@@ -13,7 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// respellLedger rewrites the ledger as releases before #3329 left it: the
+// respellLedger rewrites the ledger as releases up to v0.93.0 left it: the
 // output at clean recorded under the spelling the config used.
 func respellLedger(t *testing.T, clean, typed string) {
 	t.Helper()

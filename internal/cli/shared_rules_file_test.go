@@ -402,7 +402,7 @@ func TestSync_RulesFileOnASharedInstructionsFile_SettlesWhateverItsSpelling(t *t
 	}
 }
 
-// A ledger written before #3329 holds both spellings. The next sync must
+// A ledger written by v0.93.0 or older holds both spellings. The next sync must
 // settle to the clean one without a backup and keep the live file.
 func TestSync_DotSlashRulesFileWithAStaleLedgerEntry_Settles(t *testing.T) {
 	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: ./AGENTS.md\n")
@@ -456,7 +456,7 @@ func TestSync_RulesFileOnASharedInstructionsFile_BacksUpAHandEditOnce(t *testing
 	}
 }
 
-// Two syncs before #3329 left codex's merged file in AGENTS.md, amp's
+// Two syncs on v0.93.0 or older left codex's merged file in AGENTS.md, amp's
 // file in AGENTS.md.bak, and a ledger with both spellings. The ledger
 // recorded the merged bytes under `./AGENTS.md`, so sync may replace them.
 func TestSync_DotSlashRulesFileStuckOnAnOldBackup_Heals(t *testing.T) {
