@@ -145,6 +145,16 @@ func TestRead_OtherTargetsReportTheirEditedFile(t *testing.T) {
 		},
 		{
 			target:  "augment",
+			payload: `{"hook_event_name":"PreToolUse","tool_name":"edit","tool_input":{"path":"src/auth.ts","edits":[{"oldText":"a","newText":"b"}]}}`,
+			want:    Payload{Changes: []Change{{Action: ActionUpdate, Path: "src/auth.ts"}}},
+		},
+		{
+			target:  "augment",
+			payload: `{"hook_event_name":"PreToolUse","tool_name":"write","tool_input":{"path":"src/new.ts"}}`,
+			want:    Payload{Changes: []Change{{Action: ActionUpdate, Path: "src/new.ts"}}},
+		},
+		{
+			target:  "augment",
 			payload: `{"hook_event_name":"PreToolUse","tool_name":"str-replace-editor","tool_input":{"path":"src/auth.ts","old_str_1":"a","new_str_1":"b"}}`,
 			want:    Payload{Changes: []Change{{Action: ActionUpdate, Path: "src/auth.ts"}}},
 		},

@@ -33,7 +33,7 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 
 | Check | Reports |
 |-------|------------|
-| Hook events | A hook with neither `on:` nor `event:`, or an event no configured target supports. The report lists the supported events. |
+| Hook events | A hook with neither `on:` nor `event:`, or an event no target the hook emits to supports, after its `x-<target>` event. The report lists the supported events. |
 | Unused spec kinds | Hook or MCP specs that no enabled target reads. The line names the targets that would. |
 | Declared sources | A `sources.<kind>` path in `agnostic-ai.yaml` with no directory. It prints a `note:` on stderr, loads the kind empty, and passes. |
 | Tool-specific instruction blocks | A `::target` or `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is neither a built-in target nor an external adapter listed in `targets`. Also a tool that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |

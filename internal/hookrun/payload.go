@@ -352,8 +352,10 @@ func matches(matcher, value string) (bool, error) {
 
 func toolMatcher(target string) matchFunc {
 	switch target {
-	case "gemini", "trae", "augment":
+	case "gemini", "trae":
 		return geminiToolMatches
+	case "augment":
+		return augmentToolMatches
 	case "openhands":
 		return func(matcher, value string) (bool, error) { return openHandsMatches(matcher, value) }
 	}

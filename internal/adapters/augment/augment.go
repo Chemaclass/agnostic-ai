@@ -107,13 +107,10 @@
 // with no shell. `matcher` is optional even for `PreToolUse`/`PostToolUse` (vendor
 // default `.*`) and unused for the events that take none (`Stop`, `SessionStart`, `SessionEnd`, and in Auggie 1.x `PromptSubmit` and `Notification`), whose own
 // example omits the key outright rather than writing an empty string,
-// so this adapter never sets it there either. Augment's own matcher
-// vocabulary is its tool names (`launch-process`, `str-replace-editor`,
-// `save-file`, ...), the same set `x-augment.tools` already documents
-// above, so a Claude-style matcher (`Bash`, `Write`, ...) parses and
-// then matches nothing; that case surfaces a coverage note too, the
-// same treatment openhands and windsurf give their own mismatched tool
-// vocabularies. See hooks.go for the field-level detail.
+// so this adapter never sets it there either. Matchers take Augment's
+// tool names (`bash`, `edit`, `write`, ... in 1.x; `launch-process`,
+// `str-replace-editor`, `save-file`, ... in 0.x), so a Claude-style
+// matcher surfaces a coverage note. See hooks.go for the detail.
 //
 // Settings specs merge into that same file under `toolPermissions`, in
 // the same one emitSettings write: "`toolPermissions` is honored by the

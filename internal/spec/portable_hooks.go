@@ -115,7 +115,7 @@ var portableHookTargets = map[string]nativeHookNames{
 	},
 	"augment": {
 		events:     pickEvents("session-start", "before-tool", "session-end"),
-		tools:      map[string]string{"shell": "^launch-process$", "edit": "^(str-replace-editor|save-file)$", "web": "^(web-fetch|web-search)$", "any": ""},
+		tools:      map[string]string{"shell": "^(bash|launch-process)$", "edit": "^(edit|write|str-replace-editor|save-file)$", "web": "^(web-fetch|web-search)$", "any": ""},
 		noDecision: "sync writes augment hooks without the wrapper that reads decision: stdout",
 	},
 	"crush": {

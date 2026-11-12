@@ -38,7 +38,7 @@ Portable mappings require Claude Code exit behavior: exit 0 continues, and exit 
 | Qoder | `session-start`, `prompt-submit`, `before-tool`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write\|NotebookEdit`, `read` `Read`, `web` `WebFetch\|WebSearch`, `mcp:<server>` `mcp__<server>__.*` |
 | OpenHands | `session-start`, `prompt-submit`, `before-tool`, `stop`, `session-end` | `shell` `terminal` |
 | Goose | `session-start`, `before-tool`, `stop`, `session-end` | `shell` `^shell$`, `edit` `^(write\|edit)$` |
-| Augment | `session-start`, `before-tool`, `session-end` | `shell` `^launch-process$`, `edit` `^(str-replace-editor\|save-file)$`, `web` `^(web-fetch\|web-search)$` |
+| Augment | `session-start`, `before-tool`, `session-end` | `shell` `^(bash\|launch-process)$`, `edit` `^(edit\|write\|str-replace-editor\|save-file)$`, `web` `^(web-fetch\|web-search)$` |
 | Crush | `before-tool` | `shell` `^bash$`, `edit` `^(edit\|multiedit\|write)$` |
 | Windsurf | `prompt-submit`, `before-tool`, `stop` | `shell` `^exec$`, `edit` `^(edit\|write\|apply_patch)$`, `read` `^read$`, `web` `^(webfetch\|web_search)$` |
 | Cursor | `session-start`, `prompt-submit`, `before-tool`, `session-end` | `shell` `^Shell$`, `edit` `^Write$`, `read` `^Read$` |
@@ -217,7 +217,7 @@ agnostic-ai hook paths --json     # [{"action": "update", "path": "src/app.go"}]
 | Gemini | `tool_input.file_path` of `write_file` and `replace`, a relative path starting at `cwd` |
 | Factory | `tool_input.file_path` of `Create` and `Edit`; a Factory `ApplyPatch` prints nothing, since its input is undocumented |
 | Qoder | `tool_input.file_path` of `Write`; `Edit` fails, since the docs show none of its `tool_input` fields |
-| Augment | `file_changes[].path` with its `changeType`; before the edit, `tool_input.path` of `str-replace-editor` and `save-file` |
+| Augment | `file_changes[].path` with its `changeType`; before the edit, `tool_input.path` of `edit` and `write` (Auggie 1.x) or `str-replace-editor` and `save-file` (0.x) |
 
 Factory and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their own spec and pass `--target`.
 
