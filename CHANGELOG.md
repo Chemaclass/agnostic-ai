@@ -13,6 +13,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### Tooling
 
 - Target audits ingest a complete target result in one validated write and report recorded coverage and timings (#3370).
+- Target audits refill idle reviewers with pending targets and confirm completed findings while other reviews continue (#3371).
 
 ## v0.94.0 - 2026-11-12
 

@@ -152,3 +152,28 @@ HTML comparison text no longer includes `<template>` content or a site banner `<
 GitHub release indexes now start with `# docfetch-release-index-v2` and retain note bodies as well as tags and publication dates, so edits to old release notes change the hash. Existing version-one lock rows deliberately report changed on the first fetch. Review that delta before advancing the lock through the normal validated audit. There is no automatic migration or baseline promotion. Without a valid API array or `jq`, the comparison retains the entire response rather than omitting possibly changed notes.
 
 Download the workflow's `vendor-watch-pages` artifact to inspect each reported `.delta`, its sibling `.body`, and its normalized `.txt` comparison. The issue report names raw delta paths, explains suppressed counters when other changes are reported, and marks historical additions as unreviewed. A counter-only run creates no actionable issue; its classification and raw evidence remain in the artifact. URL/hash deduplication is unchanged. A page that fails the same way as on a run in the last 30 days is a known block: it is reported once, then stays quiet while it keeps failing that way. A new HTTP code is reported again, and for a page that loads but fails on content, so is a new fetch mode such as `soft-404`.
+
+## Schedule pending deep reviews
+
+Build the manifest helper once per run and use that binary below. After applying triage and preserving resumed results, initialize a queue with only pending deep targets. Capacity is the number of auditor slots available, excluding the coordinator. One target per assignment keeps long reviews from holding up unrelated work.
+
+```bash
+"$audit_tools/audit-manifest" schedule "$run" 3 claude codex zed
+"$audit_tools/audit-manifest" dispatch "$run" Frodo
+"$audit_tools/audit-manifest" dispatch "$run" Sam
+```
+
+Each dispatch returns a JSON target, owner, attempt number and observed start time. Give that attempt number to the worker; scheduled checkpoints require `checkpoint <run> <target> --attempt <number>`. Their marker includes the attempt number, so an earlier marker cannot complete a retry. Unscheduled markers keep their existing format. It records ownership atomically under the existing manifest write guard. A busy worker or full capacity rejects dispatch; an empty response means no unassigned work remains. Recovery work ranks first, then built-in work and changed evidence size; input order breaks ties. These estimates affect order only, never required coverage.
+
+When a worker checkpoints, inspect its report and ingest its structured result with the same owner. Begin independent confirmation immediately, then dispatch the next target to the freed worker while other reviews continue. A checkpoint frees its slot without waiting for final synthesis. Record confirmation intervals through the existing metrics recorder. Finish cross-target synthesis and coverage before publication or fixers.
+
+The manifest's `review_queue` stores the observed queued time and per-target attempts, owners, starts, ends and status. Ingestion and finalization refresh completed attempts, so no final empty dispatch is required. Completion time comes from the checkpoint marker's timestamp when available; missing times remain unknown. Do not add overlapping intervals as elapsed time.
+
+A worker that loses contact can still be writing. Confirm it has exited before releasing its unfinished assignment:
+
+```bash
+"$audit_tools/audit-manifest" release "$run" claude --stopped
+"$audit_tools/audit-manifest" dispatch "$run" Frodo
+```
+
+Release records the observed interruption time and preserves the assignment for a new attempt. A checkpoint that became stale still requires stopped-worker confirmation, even if its attempt was previously completed. Release archives an existing marker as `<target>.attempt-<number>.done` before retry; reports and evidence remain in place. A valid checkpoint or completed outcome never re-enters pending work. A fresh explicit resume starts a new queue containing only its validated pending targets. The queue does not replay external actions or authorize publication.
