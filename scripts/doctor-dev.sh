@@ -216,7 +216,7 @@ main() {
   if [ "${SKIP_JETBRAINS:-}" = 1 ]; then
     report java "" "$java_want" skipped ""
   else
-    # The JetBrains build asks Gradle for a Java 21 toolchain and does not download one.
+    # The JetBrains build asks Gradle for a Java 25 toolchain and does not download one.
     check_major java "$(found_java)" "$java_want" "install JDK $java_want, or run 'mise install', or set JAVA_HOME to it; without Java, run 'make doctor-dev SKIP_JETBRAINS=1' and 'make ci-local SKIP_JETBRAINS=1'" wrong
   fi
   check_exact zola "$(found_zola)" "$zola_want" "run 'mise install', or download Zola $zola_want from https://github.com/getzola/zola/releases"
