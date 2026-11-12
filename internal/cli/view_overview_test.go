@@ -589,7 +589,7 @@ func freeLoopbackAddrs(t *testing.T, n int) []string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer ln.Close()
+		defer func() { _ = ln.Close() }()
 		addrs = append(addrs, ln.Addr().String())
 	}
 	return addrs
