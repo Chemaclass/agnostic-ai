@@ -131,19 +131,29 @@ func newSyncCmd() *cobra.Command {
 				tree = entered
 				defer tree.leave()
 			}
-			if err := readLedger(".").refuseNewer(); err != nil {
-				return err
-			}
+			// The state file lists every output, so one read serves the
+			// whole run. --against reads the trees it enters instead.
+			var read *ledgerSnapshot
 			if !check && !plan && !dryRun {
 				command := "sync"
 				if watch {
 					command += " --watch"
 				}
-				lock, err := acquireProjectLock(".", command)
+				lock, err := openProjectLock(".", command)
 				if err != nil {
 					return err
 				}
 				defer func() { _ = lock.Close() }()
+				if tree == nil {
+					l := readLedger(".")
+					if err := l.refuseNewer(); err != nil {
+						return err
+					}
+					read = &l
+				}
+				if err := ensureManagedGitignore("."); err != nil {
+					return fmt.Errorf("ignore project lock: %w", err)
+				}
 			}
 			firstLoadOut := logOut
 			if verbosity == levelVerbose && !check && !plan && !dryRun && !jsonOut {
@@ -211,10 +221,7 @@ func newSyncCmd() *cobra.Command {
 				}
 				return nil
 			}
-			// The state file lists every output, so one read serves the
-			// whole run. --against reads the trees it enters instead.
-			var read *ledgerSnapshot
-			if tree == nil {
+			if tree == nil && read == nil {
 				l := readLedger(".")
 				read = &l
 			}

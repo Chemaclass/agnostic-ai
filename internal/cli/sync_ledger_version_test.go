@@ -106,9 +106,6 @@ func TestSync_RefusesANewerLedgerBeforeWritingAnything(t *testing.T) {
 				if got, _ := os.ReadFile(filepath.Join(dir, ".gitignore")); string(got) != "my-user-ignore\n" {
 					t.Errorf(".gitignore must stay as it was:\n%s", got)
 				}
-				if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", ".command-lock")); err == nil {
-					t.Error("the refusal must come before the command lock")
-				}
 				if got, _ := os.ReadFile(stateFilePath(".")); string(got) != ledger {
 					t.Errorf("the ledger must stay as it was:\n%s", got)
 				}
