@@ -50,11 +50,9 @@ const GROUP_OF_STATE = {
   dormant: 'archived',
 }
 
-/** Why a row is where it is, said before the tool's name; states that need no words have none. */
+/** Why a row is where it is, said before the tool's name, only where its group header does not say it already. */
 const REASON_OF_STATE = {
   blocked: 'Waiting for you',
-  unread: 'New reply',
-  working: 'Working',
 }
 
 const TOOL_LABELS = {
@@ -66,6 +64,11 @@ const TOOL_LABELS = {
 /** The agent's latest reply as the server sent it, or '' when it sent none. */
 export function replyOf(conversation) {
   return typeof conversation.reply === 'string' ? conversation.reply.trim() : ''
+}
+
+/** The title a row shows; a chat whose tool gave none, or whose title may hold a credential, gets a neutral label. */
+export function titleOf(conversation) {
+  return conversation.title === '' ? 'Untitled conversation' : conversation.title
 }
 
 /** Ids are unique within a tool, not across tools. */
@@ -116,12 +119,113 @@ export function withTitle(view, key, title) {
   return { ...view, conversations }
 }
 
-/** The rows of each group that has any, in list order. */
+/**
+ * The rows of each group that has any, in list order, except that a conversation started from another
+ * one in the same group comes right after it. `under` maps such a row's key to the row it sits under.
+ */
 export function grouped(conversations) {
   return GROUPS.map((group) => ({
     ...group,
-    rows: conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id),
+    ...nested(conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)),
   })).filter((group) => group.rows.length > 0)
+}
+
+// A walk that meets a loop gives no top, so every row on it stays a normal row.
+const LOOP = Symbol('loop')
+
+/**
+ * The top of each row's family in `rows`: the last of its parents, walking up, that is in `rows`,
+ * or the row itself. Each walk stops at a row already worked out, so the whole list costs one pass.
+ */
+function topsOf(rows) {
+  const tops = new Map()
+  return (conversation) => {
+    const path = []
+    const onPath = new Set()
+    let at = conversation
+    let top
+    for (;;) {
+      const key = keyOf(at)
+      if (tops.has(key)) {
+        top = tops.get(key)
+        break
+      }
+      path.push(key)
+      onPath.add(key)
+      const above = at.parent && rows.get(at.parent.tool + ':' + at.parent.id)
+      if (!above) {
+        top = at
+        break
+      }
+      if (onPath.has(keyOf(above))) {
+        top = LOOP
+        break
+      }
+      at = above
+    }
+    for (const key of path) tops.set(key, top)
+    return top
+  }
+}
+
+/** When a child started: startedAt, else its last write. A time that does not parse counts as the oldest. */
+function startedAt(conversation) {
+  const time = Date.parse(conversation.startedAt ?? conversation.updatedAt)
+  return Number.isNaN(time) ? -Infinity : time
+}
+
+/** Oldest start first, then by tool and id, so a new message moves no child. Each time is read once. */
+function byStart(family) {
+  return family
+    .map((conversation) => ({ conversation, time: startedAt(conversation), key: keyOf(conversation) }))
+    .sort((a, b) => (a.time !== b.time ? (a.time < b.time ? -1 : 1) : a.key === b.key ? 0 : a.key < b.key ? -1 : 1))
+    .map((entry) => entry.conversation)
+}
+
+/**
+ * One group's rows as the list draws them: every descendant right after the root it sits under,
+ * oldest first, one level deep. The first row with a tool and id owns its children, so as many rows come out as go in.
+ */
+function nested(rows) {
+  const byKey = new Map()
+  for (const conversation of rows) {
+    if (!byKey.has(keyOf(conversation))) byKey.set(keyOf(conversation), conversation)
+  }
+  const topOf = topsOf(byKey)
+  const under = new Map()
+  const children = new Map()
+  for (const conversation of rows) {
+    const top = topOf(conversation)
+    if (top === LOOP || keyOf(top) === keyOf(conversation)) continue
+    under.set(keyOf(conversation), top)
+    const family = children.get(top)
+    if (family) family.push(conversation)
+    else children.set(top, [conversation])
+  }
+  const drawn = []
+  for (const conversation of rows) {
+    if (under.has(keyOf(conversation))) continue
+    drawn.push(conversation)
+    for (const child of byStart(children.get(conversation) ?? [])) drawn.push(child)
+  }
+  return { rows: drawn, under }
+}
+
+/** What a nested row tells a screen reader about the row it sits under. */
+export function startedFromOf(parent) {
+  return 'Started from ' + titleOf(parent)
+}
+
+/**
+ * Whether a row shown under Needs you may still be marked read: the latest list holds it unchanged
+ * and still needing the person. A row that got a new message since it was drawn holds something
+ * the person has not seen, so it stays. So does a row the latest list does not hold, or no list:
+ * a new message can take a row out of a search, so what is missing may be what changed.
+ */
+export function stillWaits(view, shown) {
+  const key = keyOf(shown)
+  const current = view?.conversations.find((conversation) => keyOf(conversation) === key)
+  return current !== undefined && Boolean(NEEDS_PERSON[current.state]) && current.updatedAt === shown.updatedAt
 }
 
 /**
@@ -168,9 +272,8 @@ const DELETED_DATA = {
  */
 export function deleteConfirmOf(conversation, now, names) {
   if (conversation.deleteUnsupported) return { unsupported: conversation.deleteUnsupported }
-  const title = conversation.title === '' ? 'Untitled conversation' : conversation.title
   return {
-    title: `Delete "${title}" permanently?`,
+    title: `Delete "${titleOf(conversation)}" permanently?`,
     details: detailsOf(conversation, now, names),
     body: DELETED_DATA[conversation.tool] ?? 'This removes the conversation from this computer. It cannot be undone.',
   }
@@ -281,6 +384,17 @@ export function ago(stamp, now) {
   return Math.floor(age / (7 * DAY)) + 'w'
 }
 
+/**
+ * The view with a later page's rows after its own. A row both hold, which
+ * the first page keeps for needing the person while a later read finds it
+ * read, shows once: the later copy, read last.
+ */
+export function afterPage(view, later) {
+  const again = new Set(later.conversations.map(keyOf))
+  const kept = view.conversations.filter((conversation) => !again.has(keyOf(conversation)))
+  return { ...view, next: later.next, conversations: [...kept, ...later.conversations] }
+}
+
 /** The line at the foot: how the search went. Empty without a search. */
 export function summaryOf(view, query) {
   if (query !== '') {
@@ -359,4 +473,25 @@ export function keycapsOf(shortcut, isMac) {
   const parts = shortcut.split('+')
   if (!isMac) return parts
   return parts.map((part) => MAC_KEYCAPS[part] ?? part)
+}
+
+const MENU_KINDS = new Set(['switch', 'shortcut', 'action'])
+
+/**
+ * The settings menu's rows, from menu.json and the shell's two replies:
+ * {id, label, kind, hint?, value}. A switch's value is its
+ * entry in the appearance or the preferences; the shortcut's is its keys.
+ */
+export function menuRowsOf(items, { preferences, appearance }) {
+  const values = { ...appearance, ...preferences }
+  return items.map((item) => {
+    if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
+    let value
+    if (item.kind === 'switch') {
+      if (typeof values[item.id] !== 'boolean') throw new Error(`no value for ${item.id}`)
+      value = values[item.id]
+    }
+    if (item.kind === 'shortcut') value = preferences.shortcut
+    return { ...item, value }
+  })
 }

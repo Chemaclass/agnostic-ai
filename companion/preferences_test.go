@@ -37,7 +37,13 @@ func (f *fakeShortcuts) Unregister(keys string) error {
 
 func shellWith(t *testing.T, keys *fakeShortcuts) *shell {
 	t.Helper()
-	return &shell{shortcuts: keys, settingsPath: filepath.Join(t.TempDir(), "companion.json")}
+	return &shell{
+		shortcuts:       keys,
+		login:           &fakeAutostart{},
+		settingsPath:    filepath.Join(t.TempDir(), "companion.json"),
+		tell:            func(appearance) {},
+		tellPreferences: func(preferences) {},
+	}
 }
 
 func TestChangeShortcut_TriesTheSameKeysAgainAfterTheyWereRefused(t *testing.T) {

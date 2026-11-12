@@ -54,11 +54,17 @@ func agentPath(dir, name string) string {
 	return suffixed
 }
 
-// effortLevels are the values Copilot documents for effortLevel.
+// effortLevels are the values written to a per-agent effortLevel. The
+// vendor documents that key as a plain string without a value list, so
+// it keeps the four values it has always carried.
 var effortLevels = []string{"low", "medium", "high", "xhigh"}
 
+// settingsEffortLevels are the values the settings reference lists for
+// the top-level effortLevel; which ones work depends on the model.
+var settingsEffortLevels = []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"}
+
 // SettingsEffortLevels returns the values the repository effortLevel accepts.
-func (Adapter) SettingsEffortLevels() []string { return effortLevels }
+func (Adapter) SettingsEffortLevels() []string { return settingsEffortLevels }
 
 // AgentEffortLevels maps each agent name to the portable effort that
 // belongs in `subagents.agents.<name>.effortLevel`, skipping agents with

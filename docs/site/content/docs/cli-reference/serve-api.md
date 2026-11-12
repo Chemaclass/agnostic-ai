@@ -103,17 +103,18 @@ A search keeps the conversations of every age where each word appears in the tit
 
 The route lists Claude Code, Codex and Cursor conversations from each tool's own store. The newest come first, by the last message from the person or the agent.
 
-- Each page holds one week. The first page holds every open conversation and the past week.
+- Each page holds one week. The first page holds every open conversation, every blocked or unread one, and the past week, so it holds every conversation `needsYou` counts. A later page leaves those out.
 - A page asked for with `before` holds the week before that time, and reaches past weeks with no conversation.
 - The page returns `from` and `to`, and `next`, the `before` value of the following page, absent when no older conversation remains.
 - A `before` that is not an RFC 3339 time is a 400.
 - A project server lists the conversations started in the project or one of its Git worktrees. A global server lists them all.
 - Runs a program started (Claude Code SDK sessions, `codex exec`) are left out.
+- A Claude Code session or Codex thread that was opened and never typed in is left out: it has no title and no prompt to show. A Codex thread stays when the agent replied, or when you named it with `POST /api/conversations/rename`. A left-out one is not counted in `needsYou` or a tool's `count`.
 
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, quietSince?, deleteUnsupported?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, quietSince?, deleteUnsupported?, parent?, open}`.
 
 Conversation fields:
 
@@ -124,8 +125,9 @@ Conversation fields:
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
+- `parent` is `{tool, id}`, the conversation this one continues. It is read from the line `Continues <tool>:<id>` that starts the first prompt, which [`conversations start`](@/docs/cli-reference/conversations.md#conversations-start) writes. That line is cut from `title`, `opening` and `prompt`. The parent may be on no page: hidden, older than the page, of another tool than the filter, or deleted. Hiding, archiving or renaming a parent never changes its children.
 - `reply` is the agent's latest message since the latest prompt, as one line of at most 200 characters. When the agent asks a question, the line is the question. Otherwise it is the start of the message. It never holds tool calls, tool results or subagent output.
-- Only local Claude Code and Codex conversations have a `reply`. Cursor conversations and cloud sessions have none.
+- Only local Claude Code, Codex and Cursor conversations have a `reply`. Cloud sessions have none.
 - Any of `title`, `opening`, `prompt` and `reply` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses. The check reads the whole title and prompts, and the first 4 KB of a reply.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:

@@ -26,13 +26,42 @@ func (s *shell) preferences() preferences {
 	s.mu.Lock()
 	prefs := preferences{Shortcut: s.settings.shortcut(), ShortcutProblem: s.shortcutProblem}
 	s.mu.Unlock()
-	enabled, err := s.app.Autostart.IsEnabled()
+	enabled, err := s.login.IsEnabled()
 	if err != nil {
 		prefs.StartAtLoginProblem = err.Error()
 		return prefs
 	}
 	prefs.StartAtLogin = enabled
 	return prefs
+}
+
+// autostart starts the companion when the person logs in; the system keeps it.
+type autostart interface {
+	Enable() error
+	Disable() error
+	IsEnabled() (bool, error)
+}
+
+// changeStartAtLogin turns starting at login on or off, then shows the
+// value in effect in both menus.
+func (s *shell) changeStartAtLogin(on bool) error {
+	change := s.login.Disable
+	if on {
+		change = s.login.Enable
+	}
+	err := change()
+	s.preferencesChanged()
+	if err != nil {
+		return fmt.Errorf("change start at login: %w", err)
+	}
+	return nil
+}
+
+// preferencesChanged tells the list and the right-click menu the
+// preferences in effect.
+func (s *shell) preferencesChanged() {
+	s.tellPreferences(s.preferences())
+	s.refreshNative()
 }
 
 // shortcuts takes keys away from every other app so they open the
@@ -101,8 +130,11 @@ func readBody[T any](w http.ResponseWriter, r *http.Request, shape string) (T, b
 }
 
 // getPreferences answers GET /api/preferences.
+// The list asks each time its menu opens, which also catches a login
+// change made in the system's settings for the right-click menu.
 func (s *shell) getPreferences(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.preferences())
+	s.refreshNative()
 }
 
 // setShortcut answers POST /api/preferences/shortcut.
@@ -121,6 +153,7 @@ func (s *shell) setShortcut(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, apiError{Error: err.Error()})
 		return
 	}
+	s.preferencesChanged()
 	writeJSON(w, http.StatusOK, s.preferences())
 }
 
@@ -136,11 +169,7 @@ func (s *shell) setStartAtLogin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: "send {enabled}"})
 		return
 	}
-	change := s.app.Autostart.Disable
-	if *body.Enabled {
-		change = s.app.Autostart.Enable
-	}
-	if err := change(); err != nil {
+	if err := s.changeStartAtLogin(*body.Enabled); err != nil {
 		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
 		return
 	}

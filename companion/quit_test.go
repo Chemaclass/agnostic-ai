@@ -8,8 +8,6 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // closer records whether the server's input was closed.
@@ -36,8 +34,8 @@ func TestQuit_StopsTheServerThenEndsTheApp(t *testing.T) {
 	s, input, ended := quittingShell(t)
 	s.end = func() {
 		*ended++
-		if !s.server.resting || !input.closed {
-			t.Errorf("the app ended first: resting %v, input closed %v", s.server.resting, input.closed)
+		if !s.server.resting.Load() || !input.closed {
+			t.Errorf("the app ended first: resting %v, input closed %v", s.server.resting.Load(), input.closed)
 		}
 	}
 
@@ -83,38 +81,8 @@ func TestQuitRoute_AnswersNoContentAndQuits(t *testing.T) {
 	if *ended != 1 {
 		t.Errorf("end was called %d times; want once", *ended)
 	}
-	if !s.server.resting || !input.closed {
-		t.Errorf("the server still runs: resting %v, input closed %v", s.server.resting, input.closed)
-	}
-}
-
-func TestBubbleMenu_EndsWithQuitAfterTheSettings(t *testing.T) {
-	s, _ := toldShell(t)
-	menu := application.NewMenu()
-
-	s.fillBubbleMenu(menu)
-
-	var labels []string
-	for i := 0; menu.ItemAt(i) != nil; i++ {
-		item := menu.ItemAt(i)
-		if item.IsSeparator() {
-			labels = append(labels, "---")
-			continue
-		}
-		labels = append(labels, item.Label())
-	}
-	want := []string{settingsHeader, "Animate companion", "Dim when idle", "---", quitLabel}
-	if len(labels) != len(want) {
-		t.Fatalf("menu = %q; want %q", labels, want)
-	}
-	for i := range want {
-		if labels[i] != want[i] {
-			t.Fatalf("menu = %q; want %q", labels, want)
-		}
-	}
-	quit := menu.ItemAt(len(want) - 1)
-	if !quit.Enabled() || quit.IsCheckbox() {
-		t.Errorf("quit item: enabled %v, checkbox %v; want an enabled plain item", quit.Enabled(), quit.IsCheckbox())
+	if !s.server.resting.Load() || !input.closed {
+		t.Errorf("the server still runs: resting %v, input closed %v", s.server.resting.Load(), input.closed)
 	}
 }
 
@@ -140,18 +108,15 @@ func TestRestBriefly_GivesUpWhileTheServerIsStillStarting(t *testing.T) {
 	deadline := time.Now().Add(time.Second)
 	for {
 		s.server.mu.Lock()
-		resting := s.server.resting
+		closed := input.closed
 		s.server.mu.Unlock()
-		if resting {
+		if closed {
 			break
 		}
 		if time.Now().After(deadline) {
 			t.Fatal("the server never rested after the start let go")
 		}
 		time.Sleep(10 * time.Millisecond)
-	}
-	if !input.closed {
-		t.Error("the server's input was not closed")
 	}
 }
 

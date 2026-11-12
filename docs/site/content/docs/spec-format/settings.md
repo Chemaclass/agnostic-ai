@@ -186,7 +186,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 |---|---|---|
 | Augment | `defaultThinkingLevel` in `.augment/settings.json`, read by Auggie 1.x | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` |
 | Claude Code | `effortLevel` in `.claude/settings.json` | `low`, `medium`, `high`, `xhigh` |
-| Copilot | `effortLevel` in `.github/copilot/settings.json` | `low`, `medium`, `high`, `xhigh` |
+| Copilot | `effortLevel` in `.github/copilot/settings.json` | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; each model accepts a subset |
 | Codex | `model_reasoning_effort` in `.codex/config.toml` | any string; `outputs.codex.config.model-reasoning-effort` and the captured overlay win |
 | CodeBuddy | `reasoningEffort` in `.codebuddy/settings.json` | `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
 | Factory | `reasoningEffort` in `.factory/settings.json` | `none`, `dynamic`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; each model accepts a subset |

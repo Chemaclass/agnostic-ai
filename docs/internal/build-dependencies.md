@@ -4,7 +4,7 @@ For a dependency alert, find the workflow below that uses the package. Check its
 
 | Workflow | Inputs and verification | Alert review |
 | --- | --- | --- |
-| VS Code packaging | Exact @vscode/vsce 4.0.0 and the committed npm lock, built with Node 22. Its dependencies no longer include the braces package; package checks still scan for secrets. | Run a fresh dependency scan after merging and include development dependencies. |
+| VS Code packaging | Exact @vscode/vsce 4.0.0 and the committed npm lock, built with Node 26. Its dependencies no longer include the braces package; package checks still scan for secrets. | Run a fresh dependency scan after merging and include development dependencies. |
 | JetBrains bootstrap | The committed Gradle 9 wrapper matches its official checksum. CI validates wrapper changes before execution. The distribution has its official SHA-256 pin. | Review the intentional committed binary alert against this evidence. |
 | Local npm smoke | Validate seven locally packed package names, versions and exact platform pins. Install parent and host tarballs with an empty offline cache and scripts disabled. Compare installed binary bytes with the local build. | Review the variable local-path warning after the real package smoke passes. |
 | Released npm install | Resolve the latest GitHub release, validate its exact version, wait for that version in npm, and pass it as a quoted shell argument. Compare the full reported CLI version with that release. | Preserve discovery of new releases between runs. Review the variable-version warning against the recorded version. |
@@ -18,7 +18,7 @@ These checks do not record dismissed alerts. For each alert, record a confirmed 
 
 The [npm audit workflow](../../.github/workflows/npm-audit.yml) scans every tracked `package-lock.json` on pull requests, pushes to main, and daily. It includes development and optional dependencies, fails on findings outside the exact temporary exception below, and reads the lockfiles without installing packages. Dependabot alerts and security updates are enabled for the repository.
 
-Repeat a scan locally with Node 22:
+Repeat a scan locally with Node 26:
 
 ```sh
 npm audit --prefix editors/vscode --package-lock-only --ignore-scripts --include=dev --include=optional --audit-level=low

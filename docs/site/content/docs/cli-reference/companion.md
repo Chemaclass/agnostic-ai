@@ -41,7 +41,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 |------|-------------|
 | `install --source` | Build from this folder instead of fetching the source. It is the `companion` folder of an agnostic-ai checkout. |
 
-`agnostic-ai companion` starts the companion and returns. Run it again to bring a hidden companion back and open its list. It tells you when the companion was built for another release.
+`agnostic-ai companion` starts the companion and returns. Run it again to wake a paused companion and open its list. It tells you when the companion was built for another release.
 
 | Command | What it does |
 |---------|--------------|
@@ -53,16 +53,22 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - Clicking a running chat selects the Terminal or Ghostty tab that runs it, through the same server route as the web interface. When only the app can come forward, the list stays open and says where the chat runs. macOS asks once to let the companion control each of those apps.
 - When a chat does not open, the reason stays above the list until you dismiss it or open another chat. When a chat could not be resumed, **Copy resume command** copies the command to run in a terminal. A Claude Code, Codex or `cursor-agent` chat still running in a terminal never offers it: that command would start a second copy.
 - A row names the conversation's folder when it has one; a cloud session has none. When two folders in the list end in the same name, the row adds the parent folders that tell them apart, such as `shop/api` and `billing/api`. The row's tooltip and screen-reader description give the full path.
-- Under its title, a row shows the agent's latest reply in one line: the question it asks you, or the start of its last message. Local Claude Code and Codex chats show it. Cursor chats and cloud sessions do not yet. A reply older than your latest prompt is not shown, and a reply that may hold a password or key is left out. See [`reply`](@/docs/cli-reference/serve-api.md#get-api-views-conversations).
+- Under its title, a row shows the agent's latest reply in one line: the question it asks you, or the start of its last message. Local Claude Code, Codex and Cursor chats show it. Cloud sessions do not yet. A reply older than your latest prompt is not shown, and a reply that may hold a password or key is left out. See [`reply`](@/docs/cli-reference/serve-api.md#get-api-views-conversations).
 - **Rename…** saves the name in `conversation-marks.json` through that server, so every `serve` on the machine shows it and finds it in a search. Enter saves it, and Escape keeps the old one. Right-clicking does not open the conversation or mark it as read. A new message keeps the name. A running conversation's Terminal or Ghostty tab takes the name as its title, and keeps it after the session ends.
 - **Mark as read** saves the same seen mark that opening a conversation saves, through that server. The conversation leaves Needs you in the companion and the web interface without being opened, and moves where an opened one would: Active, or Archived when it is not running and was last written more than a day ago. Its next write brings it back. If the save fails, the row stays and the list shows why.
+- **Mark all as read**, beside Needs you, saves that mark for each conversation the group shows, after the search and the All, Local or Cloud choice, one after the other. A conversation written in since the list was drawn is skipped and stays. The first failed save stops the run and says why. The list holds every blocked and unread conversation of any age. The circle counts them all, whatever the search or place, so with **All** chosen and no search it shows zero after the run until something new is written.
+- A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits indented under the chat it came from while both are in the same group. A child that waits for you stays under Needs you, even when its parent is active or archived.
+- Under Needs you, a row says why only when the agent waits: "Waiting for you", or "No activity for 7m" for local Codex. A new reply needs no words, and a row under Working does not repeat "Working".
 - **Delete permanently…** removes a chat under Archived from this computer, after a confirmation. See [Delete an archived chat](#delete-an-archived-chat).
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute. The archive is cleared in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
-- **Hide Agnostic AI companion**, in the list's ⋯ menu, takes the circle off the screen and stops that server. Nothing is read or asked until the shortcut brings the companion back.
-- **Quit Agnostic AI companion**, in the list's ⋯ menu and at the bottom of the circle's right-click menu, ends the companion and its server, as `companion stop` does. Start at login stays as you set it. `agnostic-ai companion` starts it again.
-- **Animate companion**, in the circle's right-click menu, turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
+- The list's ⋯ menu and the circle's right-click menu hold the same settings, in the same order. A change in one shows in the other:
+  - **Animate companion** turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
+  - **Dim when idle** fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
+  - **Start at login** starts the companion when you log in.
+  - **Open from anywhere** shows the shortcut. In the right-click menu, choosing it opens the list on its ⋯ menu to change the keys.
+  - **Pause Agnostic AI companion** fades the circle to 10% and stops that server. The circle shows no count and can still be dragged. Nothing is read or asked until a click on the circle, the shortcut or `agnostic-ai companion` wakes it with a new list. A restart starts awake. Unlike **Dim when idle**, a paused companion does not keep watching.
+  - **Quit Agnostic AI companion** ends the companion and its server, as `companion stop` does. Start at login stays as you set it. `agnostic-ai companion` starts it again.
 - A local Codex chat that wrote nothing for 5 minutes moves to Needs you as "No activity for 7m", not "Waiting for you": Codex does not say when it waits, so the silence is all the server knows. A tool that reports its wait shows "Waiting for you". The web interface uses the same words.
-- **Dim when idle**, in the same menu, fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
 
 ## Delete an archived chat
 

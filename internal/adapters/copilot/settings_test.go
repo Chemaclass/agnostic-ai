@@ -365,6 +365,52 @@ func TestEmit_SettingsWritesRepositoryEffortLevel(t *testing.T) {
 	}
 }
 
+func TestEmit_SettingsWritesEveryDocumentedEffortLevel(t *testing.T) {
+	for _, level := range []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"} {
+		t.Run(level, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"effort": level}}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(filepath.Join(dir, defaultSettingsFile))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got["effortLevel"] != level {
+				t.Errorf("effortLevel = %#v, want %s", got["effortLevel"], level)
+			}
+		})
+	}
+}
+
+func TestEmit_SettingsDropsUndocumentedEffortLevel(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"effort": "ultra"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, defaultSettingsFile)); err == nil {
+		t.Error("an undocumented effort must not reach the settings file")
+	}
+}
+
+func TestAgentEffortLevels_KeepsTheFourValuesCopilotLists(t *testing.T) {
+	agents := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "a", Meta: map[string]any{"effort": "xhigh"}},
+		{Kind: spec.KindAgent, Name: "b", Meta: map[string]any{"effort": "none"}},
+		{Kind: spec.KindAgent, Name: "c", Meta: map[string]any{"effort": "max"}},
+	}
+	got := Adapter{}.AgentEffortLevels(agents)
+	if !reflect.DeepEqual(got, map[string]string{"a": "xhigh"}) {
+		t.Errorf("agent efforts = %#v, want only a: xhigh", got)
+	}
+}
+
 func emitCwdHook(t *testing.T, meta map[string]any) map[string]any {
 	t.Helper()
 	dir := testutil.TempCwd(t)

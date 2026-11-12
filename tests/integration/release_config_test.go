@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -113,68 +114,263 @@ func caskConfig(t *testing.T) map[string]any {
 	return doc.HomebrewCasks[0]
 }
 
-// TestGoreleaserCask_AvoidsTheDeprecatedPostflightStanza keeps the cask
-// off Homebrew's deprecated `postflight` block.
+// caskPostInstallSteps returns the cask's hooks.post.install_steps body.
+func caskPostInstallSteps(t *testing.T) string {
+	t.Helper()
+	hooks, _ := caskConfig(t)["hooks"].(map[string]any)
+	post, _ := hooks["post"].(map[string]any)
+	steps, _ := post["install_steps"].(string)
+	return steps
+}
+
+// TestGoreleaserCask_UsesTheNativePostflightSteps keeps the cask off
+// Homebrew's deprecated `postflight` block.
 //
-// goreleaser's `hooks` key renders raw Ruby as `postflight do`, which
-// Homebrew deprecated in favor of the declarative `postflight_steps`
-// DSL. Every `brew` command touching the tap then prints a warning
-// naming our tap and asking the user to report it to us (#933).
+// goreleaser renders `hooks.post.install` as raw Ruby in `postflight do`,
+// which Homebrew deprecated in favor of the declarative
+// `postflight_steps` DSL. Every `brew` command touching the tap then
+// prints a warning naming our tap and asking the user to report it to us
+// (#933). `hooks.post.install_steps` renders `postflight_steps` instead,
+// so a hand-written `custom_block` is no longer needed.
 //
 // Nothing else catches a regression here. The cask is only generated at
-// tag time, so switching back to `hooks` would look fine in CI and
-// surface as a warning on every user's machine after the release.
-func TestGoreleaserCask_AvoidsTheDeprecatedPostflightStanza(t *testing.T) {
+// tag time, so switching back would look fine in CI and surface as a
+// warning on every user's machine after the release.
+func TestGoreleaserCask_UsesTheNativePostflightSteps(t *testing.T) {
 	cask := caskConfig(t)
-	if _, ok := cask["hooks"]; ok {
-		t.Error("homebrew_casks has a `hooks` key; goreleaser renders it as Homebrew's deprecated `postflight do`, so use `custom_block` with `postflight_steps` instead")
+	if _, ok := cask["custom_block"]; ok {
+		t.Error("homebrew_casks has a `custom_block`; strip quarantine through `hooks.post.install_steps` instead")
 	}
-	block, _ := cask["custom_block"].(string)
-	if !strings.Contains(block, "postflight_steps do") {
-		t.Errorf("custom_block does not declare postflight_steps:\n%s", block)
+	hooks, _ := cask["hooks"].(map[string]any)
+	for _, phase := range []string{"pre", "post"} {
+		hook, _ := hooks[phase].(map[string]any)
+		for _, key := range []string{"install", "uninstall"} {
+			if _, ok := hook[key]; ok {
+				t.Errorf("homebrew_casks has `hooks.%s.%s`; goreleaser renders it as Homebrew's deprecated raw flight block, so use `%s_steps`", phase, key, key)
+			}
+		}
+	}
+	if strings.TrimSpace(caskPostInstallSteps(t)) == "" {
+		t.Error("homebrew_casks has no `hooks.post.install_steps`, so goreleaser renders no `postflight_steps` block")
 	}
 }
 
-// TestGoreleaserCask_StripsQuarantine pins the reason the block exists
-// at all.
+// TestGoreleaserCask_StripsQuarantineOnMacOS pins the reason the
+// postflight steps exist at all.
 //
 // Homebrew propagates com.apple.quarantine from the downloaded archive
 // to the extracted files, and the `binary` artifact only chmods +x, so
 // it never strips it. Without this call macOS Gatekeeper blocks the
-// unsigned binary on first run. Deleting the block is the obvious way
-// to silence the deprecation warning and it breaks every macOS install.
-func TestGoreleaserCask_StripsQuarantine(t *testing.T) {
-	block, _ := caskConfig(t)["custom_block"].(string)
-	for _, want := range []string{"xattr", "com.apple.quarantine"} {
-		if !strings.Contains(block, want) {
-			t.Errorf("custom_block no longer strips quarantine, missing %q:\n%s", want, block)
-		}
+// unsigned binary on first run. Deleting the steps is the obvious way to
+// silence a cask warning and it breaks every macOS install.
+func TestGoreleaserCask_StripsQuarantineOnMacOS(t *testing.T) {
+	steps := caskPostInstallSteps(t)
+	if problem := quarantineStripProblem(steps); problem != "" {
+		t.Errorf("hooks.post.install_steps: %s:\n%s", problem, steps)
 	}
 }
 
-// TestGoreleaserCask_EscapesHomebrewsStagedPathToken guards a failure
-// that can only happen at tag time.
+// TestGoreleaserCask_QuarantineStripCheckRejectsBrokenSteps proves the
+// check reads the steps as code, so a strip that never runs fails it.
+func TestGoreleaserCask_QuarantineStripCheckRejectsBrokenSteps(t *testing.T) {
+	cases := map[string]string{
+		"commented out":    "on_macos do\n  # " + quarantineStrip + "\nend\n",
+		"outside on_macos": "on_macos do\nend\n" + quarantineStrip + "\n",
+		"another path":     "on_macos do\n  " + strings.Replace(quarantineStrip, "/agnostic-ai", "/other", 1) + "\nend\n",
+		"missing":          "",
+	}
+	for name, steps := range cases {
+		if quarantineStripProblem(steps) == "" {
+			t.Errorf("%s: the check accepted steps that strip nothing:\n%s", name, steps)
+		}
+	}
+	if problem := quarantineStripProblem("\non_macos do\n  # strip quarantine\n  " + quarantineStrip + "\nend\n"); problem != "" {
+		t.Errorf("the check rejected valid steps with a comment and blank lines: %s", problem)
+	}
+}
+
+const quarantineStrip = `run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/agnostic-ai"]`
+
+// quarantineStripProblem says why the install steps do not strip
+// quarantine from the staged binary on macOS, or returns "" when they do.
+// Comments and blank lines are dropped first, so text that never runs
+// does not count.
+func quarantineStripProblem(steps string) string {
+	var code []string
+	for _, line := range strings.Split(steps, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		code = append(code, line)
+	}
+	want := []string{"on_macos do", quarantineStrip, "end"}
+	if !slices.Equal(code, want) {
+		return fmt.Sprintf("want exactly %q, got %q", want, code)
+	}
+	return ""
+}
+
+// TestGoreleaserCask_LetsGoreleaserEmitTheStagedPathToken guards a
+// failure that can only happen at tag time.
 //
 // goreleaser renders the cask and then runs the whole file through its
 // own Go template engine a second time. Homebrew's `{{staged_path}}` is
-// not a goreleaser variable, so a bare token aborts the release with
-// `function "staged_path" not defined`. Wrapping it in a goreleaser
-// template that yields the literal string survives that pass.
+// not a goreleaser function, so a bare token aborts the release with
+// `function "staged_path" not defined`. `{{ .StagedPath }}` is the field
+// goreleaser exposes in that pass to emit the token, so the steps need
+// neither the bare token nor the old hand-escaped form.
+func TestGoreleaserCask_LetsGoreleaserEmitTheStagedPathToken(t *testing.T) {
+	steps := caskPostInstallSteps(t)
+	if strings.Contains(steps, "staged_path") {
+		t.Errorf("hooks.post.install_steps names Homebrew's staged_path token directly; use {{ .StagedPath }}:\n%s", steps)
+	}
+	if !strings.Contains(steps, "{{ .StagedPath }}") {
+		t.Errorf("hooks.post.install_steps does not reference {{ .StagedPath }}:\n%s", steps)
+	}
+}
+
+// TestGoreleaserRuns_PinAVersionThatKnowsInstallSteps keeps every
+// goreleaser run on a version that can parse the cask config.
 //
-// Verified by reverting the wrapper locally: `goreleaser release
-// --snapshot` fails with exactly that error, and no CI job would have
-// caught it, because CI never renders the cask.
-func TestGoreleaserCask_EscapesHomebrewsStagedPathToken(t *testing.T) {
-	block, _ := caskConfig(t)["custom_block"].(string)
-	const wrapped = `{{ "{{staged_path}}" }}`
-	if !strings.Contains(block, wrapped) {
-		t.Fatalf("custom_block must reference Homebrew's staged path as %s:\n%s", wrapped, block)
+// `hooks.post.install_steps` arrived in goreleaser 2.19.0. Older
+// versions reject the whole config with `field install_steps not found`,
+// so pinning one fails the release at tag time. A floating pin such as
+// `latest` or `~> v2` can move without a diff here, so it must be exact.
+func TestGoreleaserRuns_PinAVersionThatKnowsInstallSteps(t *testing.T) {
+	problems, pins := goreleaserPinProblemsUnder(t, filepath.Join("..", ".."))
+	for _, problem := range problems {
+		t.Error(problem)
 	}
-	// A bare token anywhere outside the wrapper breaks the release the
-	// same way, so check none survives once the wrapped form is removed.
-	if rest := strings.ReplaceAll(block, wrapped, ""); strings.Contains(rest, "{{staged_path}}") {
-		t.Errorf("custom_block has a bare {{staged_path}}; goreleaser templates the rendered cask, so it fails the release at tag time:\n%s", block)
+	if pins == 0 {
+		t.Errorf("no workflow or composite action step uses %s; update this test if goreleaser now runs another way", goreleaserAction)
 	}
+}
+
+// TestGoreleaserRuns_PinCheckScansEveryWorkflowAndAction proves an old
+// or floating pin is caught in each place GitHub Actions reads steps
+// from, not only in `.yml` workflows.
+func TestGoreleaserRuns_PinCheckScansEveryWorkflowAndAction(t *testing.T) {
+	workflow := func(version string) string {
+		return "jobs:\n  release:\n    steps:\n      - uses: " + goreleaserAction + "abc\n        with:\n          version: " + version + "\n"
+	}
+	action := func(version string) string {
+		return "runs:\n  using: composite\n  steps:\n    - uses: " + goreleaserAction + "abc\n      with:\n        version: " + version + "\n"
+	}
+	root := t.TempDir()
+	files := map[string]string{
+		".github/workflows/release.yml":        workflow("v2.20.1"),
+		".github/workflows/old.yaml":           workflow("v2.18.0"),
+		".github/workflows/numeric.yml":        workflow("v2.9.0"),
+		".github/actions/floating/action.yml":  action("latest"),
+		".github/actions/range/action.yaml":    action("'~> v2'"),
+		".github/actions/unpinned/action.yaml": "runs:\n  using: composite\n  steps:\n    - uses: " + goreleaserAction + "abc\n",
+	}
+	for path, content := range files {
+		full := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	problems, pins := goreleaserPinProblemsUnder(t, root)
+	if pins != len(files) {
+		t.Errorf("found %d goreleaser steps, want %d", pins, len(files))
+	}
+	for _, bad := range []string{"old.yaml", "numeric.yml", "floating", "range", "unpinned"} {
+		if !slices.ContainsFunc(problems, func(p string) bool { return strings.Contains(p, bad) }) {
+			t.Errorf("no problem reported for %s, got %q", bad, problems)
+		}
+	}
+	if slices.ContainsFunc(problems, func(p string) bool { return strings.Contains(p, "release.yml") }) {
+		t.Errorf("v2.20.1 was rejected: %q", problems)
+	}
+}
+
+const goreleaserAction = "goreleaser/goreleaser-action@"
+
+// goreleaserPinProblemsUnder checks every goreleaser step in the
+// workflows and composite actions under root, and returns the problems
+// and the number of steps it found.
+func goreleaserPinProblemsUnder(t *testing.T, root string) ([]string, int) {
+	t.Helper()
+	var files []string
+	for _, pattern := range []string{
+		".github/workflows/*.yml",
+		".github/workflows/*.yaml",
+		".github/actions/*/action.yml",
+		".github/actions/*/action.yaml",
+	} {
+		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, matches...)
+	}
+	var problems []string
+	pins := 0
+	for _, path := range files {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		found, n, err := goreleaserPinProblems(path, data)
+		if err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		problems = append(problems, found...)
+		pins += n
+	}
+	return problems, pins
+}
+
+// goreleaserPinProblems checks the goreleaser steps of one workflow or
+// composite action. Only steps are decoded: the shared workflowJob shape
+// does not fit every workflow's matrix.
+func goreleaserPinProblems(path string, data []byte) ([]string, int, error) {
+	var doc struct {
+		Jobs map[string]struct {
+			Steps []workflowStep `yaml:"steps"`
+		} `yaml:"jobs"`
+		Runs struct {
+			Steps []workflowStep `yaml:"steps"`
+		} `yaml:"runs"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, 0, err
+	}
+	steps := map[string][]workflowStep{"composite action": doc.Runs.Steps}
+	for name, job := range doc.Jobs {
+		steps["job "+strconv.Quote(name)] = job.Steps
+	}
+	minimum := []int{2, 19, 0}
+	exact := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
+	var problems []string
+	pins := 0
+	for where, list := range steps {
+		for _, step := range list {
+			if !strings.HasPrefix(step.Uses, goreleaserAction) {
+				continue
+			}
+			pins++
+			version, _ := step.With["version"].(string)
+			m := exact.FindStringSubmatch(version)
+			if m == nil {
+				problems = append(problems, fmt.Sprintf("%s %s runs goreleaser at %q; pin an exact version of at least v2.19.0, which the cask's install_steps needs", path, where, version))
+				continue
+			}
+			got := make([]int, 3)
+			for i := range got {
+				got[i], _ = strconv.Atoi(m[i+1])
+			}
+			if slices.Compare(got, minimum) < 0 {
+				problems = append(problems, fmt.Sprintf("%s %s runs goreleaser %s; the cask's hooks.post.install_steps needs v2.19.0 or later, or the release fails at tag time with `field install_steps not found`", path, where, version))
+			}
+		}
+	}
+	return problems, pins, nil
 }
 
 // TestReleaseWorkflow_PublishesWithProvenance keeps the npm publish

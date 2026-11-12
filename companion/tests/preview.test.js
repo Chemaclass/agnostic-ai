@@ -64,6 +64,22 @@ test('a fixture can refuse renames and marks', async (t) => {
   assert.equal(marked.status, 502)
 })
 
+test('a new message brings a chat marked read back to Needs you', async (t) => {
+  const now = Date.parse('2026-11-07T15:30:00Z')
+  const preview = await startPreview({ port: 0, fixture: 'needs-you', now })
+  t.after(preview.close)
+  assert.equal((await inbox(preview.url)).body.view.needsYou, 4)
+  assert.equal((await postJSON(preview.url + '/api/mark', { tool: 'codex', id: 'reply-2', as: 'seen' })).status, 204)
+  assert.equal((await inbox(preview.url)).body.view.needsYou, 3)
+
+  assert.equal((await postJSON(preview.url + '/dev/write', { tool: 'codex', id: 'reply-2' })).status, 204)
+  const after = await inbox(preview.url)
+  const written = after.body.view.conversations.find((row) => row.id === 'reply-2')
+  assert.equal(written.state, 'unread')
+  assert.equal(written.updatedAt, new Date(now).toISOString())
+  assert.equal(after.body.view.needsYou, 4)
+})
+
 test('searches the fixture rows', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)
@@ -104,8 +120,13 @@ test('tells open pages to reload after a frontend file changes, and ends their s
       seen += decoder.decode(value)
     }
   })()
-  await writeFile(join(copy, 'panel.css'), '/* edited */\n', { flag: 'a' })
-  await reloaded
+  // The watcher can miss a write that lands before the system starts reporting changes.
+  let seenReload = false
+  reloaded.then(() => { seenReload = true }, () => {})
+  while (!seenReload) {
+    await writeFile(join(copy, 'panel.css'), '/* edited */\n', { flag: 'a' })
+    await Promise.race([reloaded, new Promise((r) => setTimeout(r, 250))])
+  }
   await preview.close()
   let ended = false
   while (!ended) ended = (await reader.read()).done
@@ -125,4 +146,51 @@ test('quit answers with no content and shows in the calls', async (t) => {
   assert.equal(quit.status, 204)
   const calls = await (await fetch(preview.url + '/dev/calls')).json()
   assert.equal(calls[0].path, '/api/quit')
+})
+
+test('pause sets paused in the appearance, and a click on the circle clears it', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  const appearance = async () => (await fetch(preview.url + '/api/appearance')).json()
+  assert.equal((await appearance()).paused, false)
+
+  const paused = await fetch(preview.url + '/api/pause', { method: 'POST' })
+  assert.equal(paused.status, 204)
+  assert.equal((await appearance()).paused, true)
+  const calls = await (await fetch(preview.url + '/dev/calls')).json()
+  assert.equal(calls[0].path, '/api/pause')
+
+  await fetch(preview.url + '/api/panel/toggle', { method: 'POST' })
+  assert.equal((await appearance()).paused, false)
+})
+
+test('a list that asks to show itself while paused stays paused', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  await fetch(preview.url + '/api/pause', { method: 'POST' })
+
+  const shown = await fetch(preview.url + '/api/panel/show', { method: 'POST' })
+
+  assert.equal(shown.status, 204)
+  assert.equal((await (await fetch(preview.url + '/api/appearance')).json()).paused, true)
+})
+
+test('the menu list is served with the pages', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  const menu = await fetch(preview.url + '/menu.json')
+  assert.equal(menu.status, 200)
+  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'startAtLogin', 'shortcut', 'pause', 'quit'])
+})
+
+test('the list menu turns animation and dimming on and off and answers the appearance', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+
+  const animate = await postJSON(preview.url + '/api/appearance/animate', { enabled: false })
+  assert.equal(animate.status, 200)
+  assert.equal((await animate.json()).animate, false)
+  const dim = await postJSON(preview.url + '/api/appearance/dim-when-idle', { enabled: true })
+  assert.deepEqual(await dim.json(), { animate: false, dimWhenIdle: true, paused: false })
+  assert.deepEqual(await (await fetch(preview.url + '/api/appearance')).json(), { animate: false, dimWhenIdle: true, paused: false })
 })

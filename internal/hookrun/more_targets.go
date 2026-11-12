@@ -242,16 +242,37 @@ func gooseMatches(matcher, value string) (bool, error) {
 	return re.MatchString(value), nil
 }
 
-// buildAugment writes Auggie's payload: no prompt event, edits through
+var augmentInputlessEvents = []string{"Stop", "SessionEnd", "Notification"}
+
+// buildAugment writes Auggie's payload. Edits go through
 // str-replace-editor or save-file with paths relative to the workspace
-// root, and file_changes on PostToolUse.
+// root, and file_changes on PostToolUse. --prompt builds PromptSubmit.
 func buildAugment(event, matcher, root string, in Input) (Payload, error) {
-	if err := checkInput("augment", event, "PreToolUse", "PostToolUse", "", in); err != nil {
+	if err := checkAugmentInput(event, in); err != nil {
 		return Payload{}, err
 	}
-	doc := map[string]any{"hook_event_name": event, "conversation_id": SessionID, "workspace_roots": []string{root}}
+	doc := map[string]any{
+		"hook_event_name": event, "hook_type": event, "cwd": root,
+		"conversation_id": SessionID, "workspace_roots": []string{root},
+	}
 	p := Payload{Fires: true, Trigger: "session"}
-	if event == "SessionStart" {
+	switch event {
+	case "SessionStart", "SessionEnd":
+		return marshal(p, doc)
+	case "PromptSubmit":
+		if in.Prompt == "" {
+			return Payload{}, fmt.Errorf("%s needs --prompt <text> or --payload <file>", event)
+		}
+		p.Trigger = "prompt"
+		doc["user_prompt"] = in.Prompt
+		return marshal(p, doc)
+	case "Stop":
+		p.Trigger = "stop"
+		doc["agent_stop_cause"] = "end_turn"
+		return marshal(p, doc)
+	case "Notification":
+		p.Trigger = "notification"
+		doc["notification_type"], doc["notification_message"] = "info", ""
 		return marshal(p, doc)
 	}
 	var input map[string]any
@@ -279,4 +300,17 @@ func buildAugment(event, matcher, root string, in Input) (Payload, error) {
 		doc["tool_output"], doc["tool_error"] = "", nil
 	}
 	return marshal(p, doc)
+}
+
+func checkAugmentInput(event string, in Input) error {
+	if !slices.Contains(augmentInputlessEvents, event) {
+		return checkInput("augment", event, "PreToolUse", "PostToolUse", "PromptSubmit", in)
+	}
+	switch {
+	case in.Edit != "" || in.Bash != "":
+		return fmt.Errorf("--edit and --bash build tool events, not %s", event)
+	case in.Prompt != "":
+		return fmt.Errorf("--prompt builds PromptSubmit, not %s", event)
+	}
+	return nil
 }

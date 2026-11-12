@@ -306,6 +306,170 @@ test('a failed mark as read keeps the row in Needs you and says why', async ({ p
   await expect(needsYou(page).filter({ hasText: 'Draft the release notes' })).toBeVisible()
 })
 
+const markAllRead = (page: Page) => page.getByRole('button', { name: 'Mark all as read' })
+
+/** The bodies of every /api/mark the page sends, in order. */
+function markBodies(page: Page) {
+  const marks: unknown[] = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/mark')) marks.push(request.postDataJSON())
+  })
+  return marks
+}
+
+const seen = (tool: string, id: string) => ({ tool, id, as: 'seen' })
+
+test('mark all as read marks every Needs you row from the keyboard, and the circle follows', async ({ page, context }) => {
+  await openPanel(page, 'needs-you')
+  const bubble = await context.newPage()
+  await bubble.goto('/index.html')
+  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 4 need you')
+  const marks = markBodies(page)
+  const opens: string[] = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/open')) opens.push(request.url())
+  })
+
+  // A highlighted row must not open when Enter presses the header button.
+  await page.keyboard.press('ArrowDown')
+  await expect(selected(page)).toHaveCount(1)
+  await expect(markAllRead(page)).toHaveCount(1)
+  await markAllRead(page).focus()
+  await page.keyboard.press('Enter')
+
+  await expect(groupTitle(page, 'Needs you')).toHaveCount(0)
+  expect(opens).toEqual([])
+  expect(marks).toEqual([seen('claude', 'wait-2'), seen('codex', 'reply-2'), seen('cursor', 'reply-3'), seen('claude', 'cloud-2')])
+  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: none needs you')
+
+  // A new message brings a chat back.
+  expect((await page.request.post('/dev/write', { data: { tool: 'codex', id: 'reply-2' } })).ok()).toBe(true)
+  await expect(needsYou(page)).toHaveCount(1)
+  await expect(needsYou(page)).toContainText('Split the parser module')
+  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 1 need you')
+})
+
+test('mark all as read on Local leaves the cloud chat in Needs you', async ({ page }) => {
+  await openPanel(page, 'needs-you')
+  const marks = markBodies(page)
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect(needsYou(page)).toHaveCount(3)
+  await markAllRead(page).click()
+
+  await expect(groupTitle(page, 'Needs you')).toHaveCount(0)
+  expect(marks).toEqual([seen('claude', 'wait-2'), seen('codex', 'reply-2'), seen('cursor', 'reply-3')])
+  await page.getByRole('button', { name: 'All', exact: true }).click()
+  await expect(needsYou(page)).toHaveCount(1)
+  await expect(needsYou(page)).toContainText('Write the support guide')
+})
+
+test('mark all as read during a search marks only the matching rows', async ({ page }) => {
+  await openPanel(page, 'needs-you')
+  const marks = markBodies(page)
+  await page.getByLabel('Search every conversation').fill('parser')
+  await expect(page.getByRole('option')).toHaveCount(2)
+  await markAllRead(page).click()
+
+  await expect(groupTitle(page, 'Needs you')).toHaveCount(0)
+  expect(marks).toEqual([seen('codex', 'reply-2'), seen('cursor', 'reply-3')])
+  await page.getByLabel('Search every conversation').fill('')
+  await expect(needsYou(page)).toHaveCount(2)
+})
+
+test('mark all as read skips a row that got a new message after it was drawn', async ({ page }) => {
+  await openPanel(page, 'needs-you')
+  const marks = markBodies(page)
+  let first = true
+  await page.route('**/api/mark', async (route) => {
+    if (first) {
+      first = false
+      // Split the parser module gets a new message while the first mark is on its way.
+      expect((await page.request.post('/dev/write', { data: { tool: 'codex', id: 'reply-2' } })).ok()).toBe(true)
+      await expect(row(page, 'Split the parser module')).toContainText('now')
+    }
+    await route.continue()
+  })
+  await markAllRead(page).click()
+
+  await expect(needsYou(page)).toHaveCount(1)
+  await expect(needsYou(page)).toContainText('Split the parser module')
+  expect(marks).toEqual([seen('claude', 'wait-2'), seen('cursor', 'reply-3'), seen('claude', 'cloud-2')])
+})
+
+test('mark all as read leaves a row that a new search took out of the list', async ({ page }) => {
+  await openPanel(page, 'needs-you')
+  const marks = markBodies(page)
+  let release: () => void = () => {}
+  const held = new Promise<void>((done) => { release = done })
+  let first = true
+  await page.route('**/api/mark', async (route) => {
+    if (first) {
+      first = false
+      await held
+    }
+    await route.continue()
+  })
+  const search = page.getByLabel('Search every conversation')
+  await search.fill('parser')
+  await expect(page.getByRole('option')).toHaveCount(2)
+  await markAllRead(page).click()
+  await expect.poll(() => marks.length).toBe(1)
+
+  await search.fill('schema')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  release()
+
+  await search.fill('')
+  await expect(needsYou(page)).toHaveCount(3)
+  expect(marks).toEqual([seen('codex', 'reply-2')])
+  await expect(needsYou(page).filter({ hasText: 'Review the parser tests' })).toHaveCount(1)
+})
+
+test('a second press while mark all as read runs starts no second run', async ({ page }) => {
+  await openPanel(page, 'needs-you')
+  const marks = markBodies(page)
+  let release: () => void = () => {}
+  const held = new Promise<void>((done) => { release = done })
+  let first = true
+  await page.route('**/api/mark', async (route) => {
+    if (first) {
+      first = false
+      await held
+    }
+    await route.continue()
+  })
+  await markAllRead(page).click()
+  await expect.poll(() => marks.length).toBe(1)
+  await markAllRead(page).click()
+  release()
+
+  await expect(groupTitle(page, 'Needs you')).toHaveCount(0)
+  expect(marks).toEqual([seen('claude', 'wait-2'), seen('codex', 'reply-2'), seen('cursor', 'reply-3'), seen('claude', 'cloud-2')])
+})
+
+test('a failed mark all as read stops at the first refused mark, keeps the rows and says why', async ({ page }) => {
+  await openPanel(page, 'needs-you-mark-failure')
+  const marks = markBodies(page)
+  await markAllRead(page).click()
+
+  await expect(page.getByRole('status').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
+  await expect(needsYou(page)).toHaveCount(4)
+  expect(marks).toEqual([seen('claude', 'wait-2')])
+})
+
+test('only Needs you offers mark all as read, and its rows do not repeat the header', async ({ page }) => {
+  await openPanel(page)
+  await expect(markAllRead(page)).toHaveCount(1)
+  await expect(groupTitle(page, 'Needs you').locator('..')).toContainText('Mark all as read')
+  await expect(groupTitle(page, 'Active').locator('..')).toContainText('Mark all complete')
+  await expect(groupTitle(page, 'Active').locator('..')).not.toContainText('Mark all as read')
+
+  await expect(page.locator('#list')).not.toContainText('New reply')
+  await expect(row(page, 'Approve the database migration').locator('.meta')).toHaveText('Waiting for you · Claude Code · shop · 2m')
+  await expect(row(page, 'Draft the release notes').locator('.meta')).toHaveText('Codex · agnostic-ai · 12m')
+  await expect(row(page, 'Refactor the search index').locator('.meta')).toHaveText('Claude Code · agnostic-ai · now')
+})
+
 test('a new list while navigating keeps the highlighted row', async ({ page }) => {
   await openPanel(page)
   for (let step = 0; step < 3; step += 1) await page.keyboard.press('ArrowDown')
@@ -474,4 +638,69 @@ test('a chat the server cannot delete says why and sends nothing', async ({ page
   await expect(page.getByRole('region', { name: 'Why it cannot be deleted' })).toContainText('Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open.')
   await expect(row(page, 'Bump the Go version')).toBeVisible()
   expect(sent).toEqual([])
+})
+
+const titles = (page: Page) => page.getByRole('option').locator('.title')
+const nestedRows = (page: Page) => page.locator('.row.is-nested')
+
+test('a chat started from another sits under it while both are in the same group, and is a normal row elsewhere', async ({ page }) => {
+  await openPanel(page, 'nested')
+  await expect(titles(page)).toHaveText([
+    'Check the docs links', 'Approve the API change', 'Update the API docs',
+    'Plan the docs site', 'Write the docs index', 'Draft the API guide', 'Try the API guide examples', 'Tidy the docs styles',
+  ])
+  await expect(nestedRows(page).locator('.title')).toHaveText(['Update the API docs', 'Write the docs index', 'Try the API guide examples'])
+  await expect(groupTitle(page, 'Needs you').locator('.count')).toHaveText('3')
+  await expect(row(page, 'Update the API docs')).toHaveAttribute('aria-description', /^Started from Approve the API change\n/)
+  await expect(row(page, 'Check the docs links')).not.toHaveAttribute('aria-description', /Started from/)
+  await expect(row(page, 'Write the docs index').getByRole('button')).toHaveCount(await row(page, 'Plan the docs site').getByRole('button').count())
+  const indent = async (title: string) => (await row(page, title).locator('.state').boundingBox())!.x
+  expect(await indent('Write the docs index')).toBeGreaterThan(await indent('Plan the docs site'))
+
+  // The arrow keys follow the drawn order.
+  for (const title of ['Check the docs links', 'Approve the API change', 'Update the API docs', 'Plan the docs site']) {
+    await page.keyboard.press('ArrowDown')
+    await expect(selected(page)).toContainText(title)
+  }
+
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect(row(page, 'Try the API guide examples')).not.toHaveClass(/is-nested/)
+  await page.getByRole('button', { name: 'All', exact: true }).click()
+
+  await page.getByLabel('Search every conversation').fill('docs')
+  await expect(titles(page)).toHaveText(['Check the docs links', 'Update the API docs', 'Plan the docs site', 'Write the docs index', 'Tidy the docs styles'])
+  await expect(nestedRows(page).locator('.title')).toHaveText(['Write the docs index'])
+})
+
+test('archiving, renaming or hiding a parent never changes its child', async ({ page }) => {
+  await openPanel(page, 'nested')
+  await row(page, 'Approve the API change').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Rename…' }).click()
+  await page.getByLabel('New name').fill('Approve the API field change')
+  await page.getByLabel('New name').press('Enter')
+  await expect(row(page, 'Update the API docs')).toHaveAttribute('aria-description', /^Started from Approve the API field change\n/)
+  await expect(row(page, 'Update the API docs')).toHaveClass(/is-nested/)
+
+  const parent = row(page, 'Plan the docs site')
+  await parent.hover()
+  await completeButton(parent).click()
+  await expect(parent).toBeHidden()
+  await expect(row(page, 'Write the docs index')).toBeVisible()
+  await expect(row(page, 'Write the docs index')).not.toHaveClass(/is-nested/)
+  await expect(row(page, 'Check the docs links')).not.toHaveClass(/is-nested/)
+
+  await groupTitle(page, 'Archived').click()
+  await parent.hover()
+  await parent.getByRole('button', { name: /^Hide from agnostic-ai,/ }).click()
+  await expect(parent).toHaveCount(0)
+  await expect(row(page, 'Write the docs index')).toBeVisible()
+  await expect(row(page, 'Write the docs index')).not.toHaveClass(/is-nested/)
+})
+
+test('mark all as read marks every Needs you row, the nested one included', async ({ page }) => {
+  await openPanel(page, 'nested')
+  const marks = markBodies(page)
+  await markAllRead(page).click()
+  await expect(groupTitle(page, 'Needs you')).toHaveCount(0)
+  expect(marks).toEqual([seen('claude', 'nest-blocked'), seen('claude', 'nest-wait'), seen('codex', 'nest-reply')])
 })

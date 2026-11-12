@@ -70,7 +70,7 @@ func TestBuild_PromptAndSessionEvents(t *testing.T) {
 		t.Errorf("goose prompt = %s fires=%v, %v", gp.Body, gp.Fires, err)
 	}
 	if _, err := Build("augment", "UserPromptSubmit", "", root, Input{Prompt: "hi"}); err == nil {
-		t.Error("augment built a prompt event it does not have")
+		t.Error("augment built UserPromptSubmit, an event it does not have")
 	}
 	// OpenHands matches a matcher only against a tool name; with none,
 	// only `*` or an empty matcher runs (hooks/config.py HookMatcher).

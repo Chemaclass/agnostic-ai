@@ -4,6 +4,6 @@
 # them level.
 [tools]
 go = "1.27.4"
-node = "22"
-java = "temurin-21"
+node = "26"
+java = "temurin-25"
 zola = "0.23.6"

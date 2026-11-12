@@ -99,7 +99,7 @@ With `outputs.copilot.chatmodes-dir` set, each agent is also written as a VS Cod
 `.github/copilot/settings.json` keeps its other keys and gets:
 
 - the last portable `model`, as the Copilot CLI repository default.
-- a portable `effort` of `low`, `medium`, `high`, or `xhigh`, as `effortLevel`. Other values get a sync note.
+- a portable `effort` of `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`, as `effortLevel`; each model accepts a subset. Other values get a sync note.
 - a settings spec's `x-copilot` block, for keys agnostic-ai has no field for, such as `respectGitignore`.
 - `x-copilot.enabledPlugins` and `x-copilot.extraKnownMarketplaces`, the repository's default plugins and plugin marketplaces. Copilot CLI and Copilot in the cloud both read them. Repository values override personal ones for `enabledPlugins`; a marketplace's `autoUpdate` has no effect at this level ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)).
 - `x-copilot.deniedUrls`, Copilot's blocked URL list. No portable rule sets it. `allowedUrls` works only in your personal settings.

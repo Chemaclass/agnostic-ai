@@ -146,6 +146,28 @@ func TestImportCopilot_PromotesEffortLevelIntoSettings(t *testing.T) {
 	assertSettingsEffort(t, dir, "copilot.yaml", "xhigh")
 }
 
+func TestImportCopilot_RoundTripsEveryDocumentedEffortLevel(t *testing.T) {
+	for _, level := range []string{"none", "minimal", "max"} {
+		t.Run(level, func(t *testing.T) {
+			dir := importEffortProject(t, "copilot")
+			native := filepath.Join(dir, ".github", "copilot", "settings.json")
+			writeFile(t, native, `{"effortLevel": "`+level+`"}`)
+
+			execCLI(t, "import", "copilot")
+
+			assertSettingsEffort(t, dir, "copilot.yaml", level)
+			if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "copilot.yaml")); strings.Contains(got, "x-copilot") {
+				t.Errorf("a documented value must import as portable effort:\n%s", got)
+			}
+			execCLI(t, "sync")
+			if got := readFile(t, native); !strings.Contains(got, `"effortLevel": "`+level+`"`) {
+				t.Errorf("sync must write %s back:\n%s", level, got)
+			}
+			execCLI(t, "sync", "--check")
+		})
+	}
+}
+
 func TestImportFactory_PromotesReasoningEffortIntoSettings(t *testing.T) {
 	dir := importEffortProject(t, "factory")
 	writeFile(t, filepath.Join(dir, ".factory", "settings.json"), `{"model": "claude-opus-5-5", "reasoningEffort": "max"}`)

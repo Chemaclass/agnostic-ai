@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 )
 
 // Codex indexes its threads in state_<n>.sqlite and keeps each prompt in
@@ -64,10 +63,8 @@ JOIN (SELECT thread_id, max(rollout_ordinal) AS ordinal FROM thread_items WHERE 
 
 type codexLastReply struct {
 	ThreadID string `json:"thread_id"`
-	Start    string `json:"start"`
-	Ending   string `json:"ending"`
-	Length   int    `json:"length"`
-	Asked    string `json:"asked"`
+	replyEnds
+	Asked string `json:"asked"`
 }
 
 // codexLastRepliesQuery reads, for each listed thread, the last agent
@@ -77,13 +74,9 @@ type codexLastReply struct {
 // at most the first and last replyCheckedBytes+1 characters of the
 // message, so a long reply costs a fixed amount.
 func codexLastRepliesQuery(threads []string) string {
-	text := `coalesce(json_extract(a.item_json, '$.text'), '')`
-	part := strconv.Itoa(replyCheckedBytes + 1)
 	return `SELECT a.thread_id AS thread_id,
-  substr(` + text + `, 1, ` + part + `) AS start,
-  substr(` + text + `, -` + part + `) AS ending,
-  length(` + text + `) AS length,
-  substr(coalesce(json_extract(a.item_json, '$.questions[0].title'), ''), 1, ` + part + `) AS asked
+  ` + replyEndsColumns(`coalesce(json_extract(a.item_json, '$.text'), '')`) + `,
+  substr(coalesce(json_extract(a.item_json, '$.questions[0].title'), ''), 1, ` + strconv.Itoa(replyCheckedBytes+1) + `) AS asked
 FROM (SELECT p.thread_id AS thread_id,
         (SELECT max(i.rollout_ordinal) FROM thread_items i
          WHERE i.thread_id = p.thread_id AND i.rollout_ordinal > p.ordinal AND i.item_type = 'agentMessage') AS ordinal
@@ -138,6 +131,9 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	for i := range conversations {
 		t, said := textsOf[conversations[i].ID], lastReplies[conversations[i].ID]
 		t.reply, t.question = said.reply, said.question
+		// A prompt with no text, such as an image, still gets a reply, so only a thread with neither is empty.
+		// Replies that could not be read leave it unknown, and unknown is kept.
+		conversations[i].untyped = err == nil && t == texts{}
 		s.fill(&conversations[i], t)
 	}
 	result := found(ToolCodex, conversations)
@@ -364,19 +360,6 @@ func (s *Scanner) codexLastReplies(ctx context.Context, threads []string) (map[s
 		}
 	}
 	return replies, nil
-}
-
-// wholeLines is the row's ending without the line it may start inside:
-// a slice cut from a longer message, whose first line is then partial.
-func (row codexLastReply) wholeLines() string {
-	if utf8.RuneCountInString(row.Ending) >= row.Length {
-		return row.Ending
-	}
-	_, rest, found := strings.Cut(row.Ending, "\n")
-	if !found || strings.TrimSpace(rest) == "" {
-		return ""
-	}
-	return rest
 }
 
 // codexContentText joins the text parts of a user message. sqlite3

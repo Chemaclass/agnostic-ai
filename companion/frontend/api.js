@@ -26,8 +26,8 @@ function post(path, body) {
 }
 
 /**
- * The list, as `{view, note?}`. `view` is the server's answer: every open
- * conversation and the past week, or every match of `query`. `note` is
+ * The list, as `{view, note?}`. `view` is the server's answer: every open,
+ * blocked or unread conversation and the past week, or every match of `query`. `note` is
  * something the companion itself has to say, such as a version mismatch.
  */
 export function readInbox(query, before, signal) {
@@ -66,12 +66,16 @@ export const readPreferences = () => call('/api/preferences')
 export const saveShortcut = (shortcut) => post('/api/preferences/shortcut', { shortcut })
 export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-login', { enabled })
 
-/** How the pages look: {animate, dimWhenIdle}. */
+/** How the pages look: {animate, dimWhenIdle, paused}. */
 export const readAppearance = () => call('/api/appearance')
+export const saveAnimate = (enabled) => post('/api/appearance/animate', { enabled })
+export const saveDimWhenIdle = (enabled) => post('/api/appearance/dim-when-idle', { enabled })
+/** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
+export const readMenu = () => call('/menu.json')
 
 /** Opens the full web interface in the browser. */
 export const openDashboard = () => post('/api/dashboard')
-/** Takes the companion off the screen; the shortcut brings it back. */
-export const hideCompanion = () => post('/api/hide')
+/** Fades the circle and stops reading; a click on the circle or the shortcut wakes it. */
+export const pauseCompanion = () => post('/api/pause')
 /** Ends the companion and its server. */
 export const quitCompanion = () => post('/api/quit')

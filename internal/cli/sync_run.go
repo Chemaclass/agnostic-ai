@@ -171,6 +171,7 @@ func readLedger(root string) ledgerSnapshot {
 	}
 	l.parseErr = json.Unmarshal(data, &l.state)
 	l.state.dropEscapingEntries(root, l.path)
+	l.state.mergeSpellings(root, config.CleanOutputPath)
 	return l
 }
 
@@ -310,6 +311,7 @@ func readStateFileStrict(projectRoot string) (syncStateFile, error) {
 		return s, fmt.Errorf("parse %s: %w", p, err)
 	}
 	s.dropEscapingEntries(projectRoot, p)
+	s.mergeSpellings(projectRoot, config.CleanOutputPath)
 	return s, nil
 }
 

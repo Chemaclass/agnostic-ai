@@ -3,6 +3,7 @@ package cli
 import (
 	"maps"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
@@ -135,16 +136,10 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"Elicitation", "ElicitationResult",
 		"TaskCreated", "TaskCompleted", "TeammateIdle", "Setup",
 	),
-	// The five events docs.augmentcode.com/cli/hooks' own "Hook Events"
-	// section documents, re-verified fresh 2026-09-10 (superseding an
-	// earlier audit comment that read six off a stale fetch): the
-	// vendor's `hook_event_name` field also lists `Notification` as a
-	// possible value, but it has no configuration section of its own,
-	// so it is not a sixth registrable event (#629).
-	"augment": setOf(
-		"PreToolUse", "PostToolUse",
-		"Stop", "SessionStart", "SessionEnd",
-	),
+	// The seven events docs.augmentcode.com/cli/hooks lists for Auggie
+	// 1.x: the five 0.x documents plus PromptSubmit and Notification
+	// (#3308).
+	"augment": setOf(augment.HookEvents()...),
 	// The six events docs.trae.ai/ide/automate-actions-with-hooks' own
 	// "Hook events" table lists for TraeCode's `.trae/hooks.json`
 	// (target-audit 2026-09-11, #729).

@@ -2,23 +2,14 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
-
-// bubbleMenuName is the circle's right-click menu; bubble.css names it in
-// --custom-contextmenu.
-const bubbleMenuName = "bubble"
-
-const settingsHeader = "Settings"
-
-const quitLabel = "Quit Agnostic AI companion"
 
 type appearance struct {
 	Animate     bool `json:"animate"`
 	DimWhenIdle bool `json:"dimWhenIdle"`
+	// Paused is the shell's state, never saved: a restart starts awake.
+	Paused bool `json:"paused"`
 }
 
 func (s settings) appearance() appearance {
@@ -28,7 +19,9 @@ func (s settings) appearance() appearance {
 func (s *shell) appearance() appearance {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.settings.appearance()
+	looks := s.settings.appearance()
+	looks.Paused = s.paused
+	return looks
 }
 
 // setAnimate saves whether the pages move.
@@ -58,44 +51,13 @@ func (s *shell) changeLook(change func(*settings)) error {
 		s.settings = before
 	}
 	looks := s.settings.appearance()
+	looks.Paused = s.paused
 	s.mu.Unlock()
 	s.tell(looks)
+	s.refreshNative()
 	return err
 }
 
 func (s *shell) getAppearance(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.appearance())
-}
-
-// addSettingsHeader adds a native section heading where the system has
-// one (macOS 14 and later), and a disabled item elsewhere.
-func addSettingsHeader(menu *application.Menu) {
-	menu.AddSectionHeader(settingsHeader)
-	if menu.FindByLabel(settingsHeader) == nil {
-		menu.Add(settingsHeader).SetEnabled(false)
-	}
-}
-
-func (s *shell) bubbleMenu() {
-	s.fillBubbleMenu(application.NewContextMenu(bubbleMenuName).Menu)
-}
-
-func (s *shell) fillBubbleMenu(menu *application.Menu) {
-	addSettingsHeader(menu)
-	animate := menu.AddCheckbox("Animate companion", s.appearance().Animate)
-	animate.OnClick(func(clicked *application.Context) {
-		if err := s.setAnimate(clicked.IsChecked()); err != nil {
-			log.Print(err)
-			animate.SetChecked(s.appearance().Animate)
-		}
-	})
-	dim := menu.AddCheckbox("Dim when idle", s.appearance().DimWhenIdle)
-	dim.OnClick(func(clicked *application.Context) {
-		if err := s.setDimWhenIdle(clicked.IsChecked()); err != nil {
-			log.Print(err)
-			dim.SetChecked(s.appearance().DimWhenIdle)
-		}
-	})
-	menu.AddSeparator()
-	menu.Add(quitLabel).OnClick(func(*application.Context) { s.quit() })
 }

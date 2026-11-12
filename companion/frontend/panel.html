@@ -51,18 +51,9 @@
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>
       </button>
     </footer>
+    <!-- panel.js builds the rows from menu.json, which the right-click menu shows too. -->
     <section class="menu" id="menu" aria-label="Settings" hidden>
-      <div class="menu-row">
-        <span class="menu-label" id="login-label">Start at login</span>
-        <button class="switch" id="login" type="button" role="switch" aria-checked="false" aria-labelledby="login-label"><span></span></button>
-      </div>
-      <div class="menu-row">
-        <span class="menu-label" id="shortcut-label">Open from anywhere</span>
-        <button class="shortcut" id="shortcut" type="button" aria-labelledby="shortcut-label" title="Change the shortcut"></button>
-      </div>
       <p class="menu-problem" id="menu-problem" role="status" hidden></p>
-      <button class="menu-item" id="hide" type="button" title="Takes the companion off the screen and stops its reading. The shortcut brings it back.">Hide Agnostic AI companion</button>
-      <button class="menu-item" id="quit" type="button" title="Ends the companion and its reading. Start it again with agnostic-ai companion.">Quit Agnostic AI companion</button>
     </section>
     <div class="menu row-menu" id="row-menu" role="menu" aria-label="Conversation" hidden>
       <button class="menu-item" id="mark-read" type="button" role="menuitem" title="Takes it out of Needs you without opening it, until something new is written">Mark as read</button>

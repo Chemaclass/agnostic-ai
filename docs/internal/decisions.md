@@ -129,3 +129,25 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 **Why:** Confirming the delete is the person's statement that they are done with the chat, as the archive mark is for `completed`. A message written before the server read the row makes the row `unread`, not `dormant`, so the server refuses it as not archived. A file written after the read is at or after the cutoff, so the server refuses it as changed. A later moment, such as when the marks lock is taken, would let a write between the read and that moment through. Two alternatives were rejected. Offering Archive on a dormant row costs a second step on a row already shown as archived, and checks nothing more, since the new mark would also be the moment of the click. Measuring against the last look instead would refuse every later delete when a resumed session wrote only bookkeeping, and the companion has no action to refresh that time.
 
 **Accepted limits:** A dormant session that wrote only bookkeeping lines after the person last looked, and before the server read the row, is deleted. The list's time counts only messages from the person or the agent, so only a message makes the row `unread`. A chat taken back out of the archive whose last write is older than a day is `dormant` again: it is still listed under Archived and can be deleted, also from a page loaded before it was taken back.
+
+## 013: A conversation names its parent in its own first prompt
+
+**Date:** 2026-11-11
+
+**Context:** `agnostic-ai conversations start` opens a new conversation from inside a running one, and the list shows where it came from ([#3285](https://github.com/Chemaclass/agnostic-ai/issues/3285)).
+
+**Decision:** The new conversation's first prompt starts with the whole line `Continues <tool>:<id>`. The scan reads it as the row's `parent` and cuts it from the title, opening and latest prompt. The brief goes to a one-time file, mode 0600 in a 0700 folder, under a random hex name. The new tab runs a fixed line, `cd '<folder>' && '<agnostic-ai>' conversations run <id>`, and the runner starts the tool with the brief as one argument. The parent is the nearest tool among the command's parent processes: a Claude Code session file whose start time matches, or a Codex process with `CODEX_THREAD_ID` or exactly one thread, or a `cursor-agent` process with `CURSOR_CONVERSATION_ID` or exactly one open chat `store.db`. On `cursor-agent` 2026.11.11-b912975 (tested 2026-11-12, #3327), that variable, the chat folder name and the `agentId` in its `store.db` are the same id, and a first prompt passed as an argument is stored inside `<user_query>`. A Cursor editor chat is refused.
+
+**Why:** Every reader already exposes the first prompt, so the link works across tools with no shared state, and a person can type the line by hand. A link file kept by agnostic-ai would need the new conversation's id, and only Claude Code lets the caller choose it. The fixed line keeps the brief out of every shell and AppleScript string. Variables leak from an outer tool into a tool started inside it, so a tool's variable is trusted only under that tool's process.
+
+**Accepted limits:** The tools' own history shows the link line at the start of a child. A child shows under its parent only when both sit in the same group, so a waiting child stays under Needs you. A child of a parent in another group, or one that is hidden, older than the page, filtered out or deleted, shows as a normal row. A Codex process that holds several threads, without `CODEX_THREAD_ID`, cannot be a parent. Neither can a `cursor-agent` process with several chats open and no `CURSOR_CONVERSATION_ID`.
+
+## 014: A paused companion fades and reads nothing
+
+**Date:** 2026-11-11
+
+**Context:** Hide took the circle off the screen, and only the shortcut or a second `agnostic-ai companion` brought it back. A person who forgot the shortcut could not find it ([#3298](https://github.com/Chemaclass/agnostic-ai/issues/3298)).
+
+**Decision:** Hide becomes **Pause Agnostic AI companion**. The circle stays where it is at 10% opacity, also under the pointer, with no count and no arc. The companion's server stops and nothing polls, as before. A click on the circle, the shortcut or a second start wakes it with a new read. The paused state is not saved, so a restart starts awake.
+
+**Why:** Pause is kept apart from Dim when idle. Dim is a saved setting that fades to 55% while nothing needs you and keeps watching. Pause is the off mode you can still see and click: it costs no reads. "Pause" names a state that lasts until you resume it, and it carries the companion's name so nobody reads it as pausing the agents.

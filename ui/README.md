@@ -42,7 +42,7 @@ For an unbundled development build, run `npm run build` in `ui/` and pass `--ui 
 
 ## Update the bundled client
 
-Use Node.js 22 from the repository root:
+Use Node.js 26 from the repository root:
 
 ```sh
 make ui-build
@@ -163,19 +163,21 @@ Tabs support Left/Right, Home, and End. The `tab` URL parameter survives refresh
 
 ## Conversations
 
-The page reads `GET /api/views/conversations?editor=<id>` using the editor chosen in Settings. The first page includes all open chats and the past week. Each response's `next` supplies the next `before=<time>`, skipping empty weeks.
+The page reads `GET /api/views/conversations?editor=<id>` using the editor chosen in Settings. The first page includes all open chats, every blocked or unread chat, and the past week. Each response's `next` supplies the next `before=<time>`, skipping empty weeks.
 
 An `IntersectionObserver` near the list's end loads the next week, one request at a time. **Load the week before** provides the same action by click or keyboard and works without the observer. While loading it reads **Loading the week before…**. A failed request keeps the loaded rows and offers **Try again** for that week; no `next` ends the list with **That's every conversation.** Rows merge by tool and id, with the later copy winning, newest first, and open chats on top.
 
 `conversationsVerdict` reports open chats, those waiting for you and those with no recent activity, or when the last chat ran. The facts line counts loaded chats. Tool filters show **All** and an `aria-pressed` toggle for each detected store, with its loaded count and a tooltip such as "12 of 66 Codex chats loaded." Pressing the selected tool restores All. Missing stores are omitted.
 
-Chats open in a process or editor window appear under **Open now**, newest first. Others group by the last user or agent message in local time: Today, Yesterday, This week, Earlier. Each row shows a title; the agent's latest reply, as one line under the title (local Claude Code and Codex chats only); tool, folder, branch, and time; and the last prompt unless it repeats the title. The tool's tooltip names the app, such as Terminal or Desktop app. Shell input such as `<bash-input>gl</bash-input>` renders as `! gl` in monospace.
+Chats open in a process or editor window appear under **Open now**, newest first. Others group by the last user or agent message in local time: Today, Yesterday, This week, Earlier. Each row shows a title; the agent's latest reply, as one line under the title (local Claude Code, Codex and Cursor chats only); tool, folder, branch, and time; and the last prompt unless it repeats the title. The tool's tooltip names the app, such as Terminal or Desktop app. Shell input such as `<bash-input>gl</bash-input>` renders as `! gl` in monospace.
 
 Open chats show **Working** or **Waiting for you** in amber when the tool reports activity, as Claude Code does. A local Codex wait is read from 5 minutes of silence, so its row carries `quietSince` and shows **No activity for 7m** instead. `stateBadge` maps the row's `state` to **New reply** when a message arrived since the last open, or **Archived**; other states need no badge. The server excludes SDK sessions and Codex exec runs. Withheld fields read **Hidden: may hold a credential**. A title may be a name chosen in the companion; the server sends it as `title`, so the page and its search need no change.
 
 Search sends `q` after a 300 ms typing pause and covers chats of every age, including unloaded weeks. Every word must match the displayed title, folder, branch, last prompt, latest reply, tool, or app. Results page by week and report the total match count, with **Searching…** while loading. Tool filters narrow the returned rows; scrolling still loads more matches. Only the unfiltered list is cached for a quick return. Mock mode applies the same matching rule.
 
 The primary action, such as **Open in Terminal** or **Switch to Ghostty**, becomes a filled button on hover or keyboard focus and stays filled for open chats. **Copy command** sits beside it, or in the ⋯ menu on touch screens and phones. Opening posts `{tool, id, editor}` to `POST /api/conversations/open`; the row displays the server's reply. For editor extensions, the server first opens the chat's folder, waiting about one second for an existing window or up to five for a new one. If opening fails and the server supplies a command, **Copy command** offers it.
+
+A chat whose `parent` is in the same group sits right after it, indented, and screen readers hear "Started from" and the parent's title. Children of children sit under the same parent, oldest first, one level deep. A parent in another group, on a week not loaded yet, or filtered out leaves the child as a normal row; when the parent's week loads, the child moves under it. A loop typed by hand draws each row as a normal one.
 
 Helpers live in `src/model/conversations.ts`. Mock mode uses `src/fixtures/conversations.mock.json` as one week and sends no open requests. Snapshots explain that Conversations needs a running server.
 

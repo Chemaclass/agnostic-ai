@@ -827,6 +827,25 @@
         },
         {
           "kind": "builtin",
+          "name": "side-conversation",
+          "label": "Side conversation",
+          "description": "Starts a second task in a new terminal tab, linked to this session.",
+          "path": "builtin:side-conversation",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "about": {
+            "summary": "Adds the side-conversation skill, which starts a second task in its own conversation while this one goes on.",
+            "points": [
+              "Say \"spin this off\" to start a new conversation in a new terminal tab, in the same folder, with a short brief as its first prompt.",
+              "The new conversation shows under this one in the Conversations list while both are in the same group. Nothing comes back to this session; you talk to the new conversation.",
+              "Runs agnostic-ai conversations start, from a Claude Code or Codex session on macOS. It opens a tab only when you ask."
+            ]
+          },
+          "findings": []
+        },
+        {
+          "kind": "builtin",
           "name": "wrap-up",
           "label": "Wrap-up",
           "description": "Ends a session with a short summary to share with people.",

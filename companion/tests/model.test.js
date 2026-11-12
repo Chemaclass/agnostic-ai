@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, summaryOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, afterPage, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -12,6 +12,71 @@ test('groups rows by state, in list order, and leaves empty groups out', () => {
     ['archived', ['a', 'e']],
   ])
   assert.deepEqual(groups.map((group) => group.startsFolded), [false, false, true])
+})
+
+const child = (id, state, parent, extra = {}) => row(id, state, { parent: { tool: 'claude', id: parent }, ...extra })
+const drawn = (groups) => groups.map((group) => [group.id, group.rows.map((r) => [r.id, group.under.get(keyOf(r))?.id ?? null])])
+
+test('draws a child under its parent in the same group, whatever its tool, and keeps the group\'s count', () => {
+  const groups = grouped([row('other', 'active'), child('kid', 'active', 'parent', { tool: 'codex' }), row('parent', 'active')])
+  assert.deepEqual(drawn(groups), [['active', [['other', null], ['parent', null], ['kid', 'parent']]]])
+})
+
+test('a child whose parent sits in another group is a normal row in its own group: a waiting child stays under Needs you', () => {
+  for (const parentState of ['active', 'working', 'completed', 'dormant']) {
+    const groups = grouped([child('kid', 'blocked', 'parent'), row('parent', parentState)])
+    assert.deepEqual(drawn(groups)[0], ['needs-you', [['kid', null]]])
+    assert.equal(groups.find((group) => group.id === 'needs-you').rows.length, 1)
+  }
+})
+
+test('a child is a normal row when its parent is not in the list: hidden, of another place, or not matching the search', () => {
+  assert.deepEqual(drawn(grouped([child('kid', 'active', 'parent')])), [['active', [['kid', null]]]])
+  const view = { conversations: [child('kid', 'active', 'parent'), row('parent', 'active', { app: 'cloud' })] }
+  assert.deepEqual(drawn(grouped(viewIn(view, 'local').conversations)), [['active', [['kid', null]]]])
+  assert.deepEqual(drawn(grouped(view.conversations)), [['active', [['parent', null], ['kid', 'parent']]]])
+})
+
+test('draws a chain at one level under the root in the group, oldest first', () => {
+  const groups = grouped([
+    child('grandchild', 'active', 'kid', { updatedAt: '2026-11-09T12:20:00Z' }),
+    child('kid', 'active', 'root', { updatedAt: '2026-11-09T12:10:00Z' }),
+    row('root', 'active', { updatedAt: '2026-11-09T11:00:00Z' }),
+  ])
+  assert.deepEqual(drawn(groups), [['active', [['root', null], ['kid', 'root'], ['grandchild', 'root']]]])
+})
+
+test('orders the children by when they started, then by when they were written, then by id, so a new message moves none', () => {
+  const groups = grouped([
+    child('late-start', 'active', 'root', { updatedAt: '2026-11-09T12:25:00Z', startedAt: '2026-11-09T12:05:00Z' }),
+    child('early-start', 'active', 'root', { updatedAt: '2026-11-09T12:20:00Z', startedAt: '2026-11-09T11:30:00Z' }),
+    child('b-no-start', 'active', 'root', { updatedAt: '2026-11-09T11:50:00Z' }),
+    child('a-no-start', 'active', 'root', { updatedAt: '2026-11-09T11:50:00Z' }),
+    row('root', 'active', { updatedAt: '2026-11-09T11:00:00Z', startedAt: '2026-11-09T11:00:00Z' }),
+  ])
+  assert.deepEqual(drawn(groups), [['active', [['root', null], ['early-start', 'root'], ['a-no-start', 'root'], ['b-no-start', 'root'], ['late-start', 'root']]]])
+})
+
+test('draws as many rows as it is given when two rows share a tool and id: the first owns the children', () => {
+  const [group] = grouped([row('parent', 'active'), child('kid', 'active', 'parent'), row('parent', 'active', { title: 'A second copy' })])
+  assert.deepEqual(group.rows.map((r) => [r.id, r.title]), [['parent', 'parent'], ['kid', 'kid'], ['parent', 'A second copy']])
+})
+
+test('draws every row of a loop made by hand as a normal row, and a row naming itself too', () => {
+  const groups = grouped([child('a', 'active', 'b'), child('b', 'active', 'a'), child('c', 'active', 'a'), child('self', 'active', 'self')])
+  assert.deepEqual(drawn(groups), [['active', [['a', null], ['b', null], ['c', null], ['self', null]]]])
+})
+
+test('the arrow keys move through the rows in the order they are drawn', () => {
+  const rows = grouped([row('other', 'active'), child('kid', 'active', 'parent'), row('parent', 'active')]).flatMap((group) => group.rows.map(keyOf))
+  assert.equal(neighbour(rows, 'claude:parent', 1), 'claude:kid')
+  assert.equal(neighbour(rows, 'claude:kid', 1), 'claude:kid')
+  assert.equal(neighbour(rows, 'claude:other', 1), 'claude:parent')
+})
+
+test('says which conversation a nested row was started from', () => {
+  assert.equal(startedFromOf(row('parent', 'active', { title: 'Plan the release' })), 'Started from Plan the release')
+  assert.equal(startedFromOf(row('parent', 'active', { title: '' })), 'Started from Untitled conversation')
 })
 
 test('offers Mark as read only on a row that needs the person, and Rename on every row', () => {
@@ -64,10 +129,10 @@ test('says how much a delete freed', () => {
   assert.deepEqual(deletedOf({ deleted: true, note: 'The session data is gone.' }), { message: 'Deleted.', note: 'The session data is gone.' })
 })
 
-test('says why a row needs the person, and nothing for a quiet one', () => {
+test('says why a row waits for the person, and nothing its group header already says', () => {
   assert.equal(reasonOf(row('a', 'blocked')), 'Waiting for you')
-  assert.equal(reasonOf(row('a', 'unread')), 'New reply')
-  assert.equal(reasonOf(row('a', 'working')), 'Working')
+  assert.equal(reasonOf(row('a', 'unread')), undefined)
+  assert.equal(reasonOf(row('a', 'working')), undefined)
   assert.equal(reasonOf(row('a', 'active')), undefined)
 })
 
@@ -81,7 +146,29 @@ test('says how long a chat has been silent when its wait is read from that silen
   assert.equal(reasonOf(quiet('2026-11-09T12:00:30Z'), now), 'No activity')
   assert.equal(reasonOf(row('a', 'blocked', { tool: 'codex', activity: 'waiting' }), now), 'Waiting for you')
   assert.equal(reasonOf(quiet('not a time'), now), 'Waiting for you')
-  assert.equal(reasonOf(row('a', 'unread', { tool: 'codex', quietSince: '2026-11-09T11:53:00Z' }), now), 'New reply')
+  assert.equal(reasonOf(row('a', 'unread', { tool: 'codex', quietSince: '2026-11-09T11:53:00Z' }), now), undefined)
+})
+
+test('a row shown as needing the person is still marked read only while nothing new came in', () => {
+  const shown = row('a', 'unread')
+  const view = (...conversations) => ({ conversations })
+  assert.equal(stillWaits(view(shown), shown), true)
+  assert.equal(stillWaits(view(row('a', 'blocked')), shown), true)
+  assert.equal(stillWaits(view(row('a', 'unread', { updatedAt: '2026-11-09T12:05:00Z' })), shown), false)
+  assert.equal(stillWaits(view(row('a', 'active')), shown), false)
+})
+
+test('a row the latest list does not hold is not marked read: a new message may have taken it out of the search', () => {
+  const shown = row('a', 'unread')
+  assert.equal(stillWaits({ conversations: [row('a', 'unread', { tool: 'codex' })] }, shown), false)
+  assert.equal(stillWaits({ conversations: [] }, shown), false)
+  // A list that could not be read says nothing about the row.
+  assert.equal(stillWaits(undefined, shown), false)
+})
+
+test('a row with no title shows a neutral label', () => {
+  assert.equal(titleOf(row('a', 'active', { title: 'Fix the parser' })), 'Fix the parser')
+  assert.equal(titleOf(row('a', 'active', { title: '' })), 'Untitled conversation')
 })
 
 test('offers archive on a chat that is not archived, hide on one that is, and nothing on a working one', () => {
@@ -249,4 +336,13 @@ test('shows the agent\'s latest reply the server sent, and nothing for a row wit
   assert.equal(replyOf(row('a', 'blocked', { reply: ' Should I run the migration first? ' })), 'Should I run the migration first?')
   assert.equal(replyOf(row('a', 'active')), '')
   assert.equal(replyOf(row('a', 'active', { reply: 42 })), '')
+})
+
+test('joins a later search page after the rows read so far, keeping the later copy of a row both pages hold', () => {
+  const first = { next: '2026-11-02T12:00:00Z', matches: 3, conversations: [row('new', 'active'), row('old', 'unread')] }
+  const later = { next: '2026-10-26T12:00:00Z', conversations: [row('old', 'active'), row('older', 'dormant')] }
+  const joined = afterPage(first, later)
+  assert.deepEqual(joined.conversations.map((r) => [r.id, r.state]), [['new', 'active'], ['old', 'active'], ['older', 'dormant']])
+  assert.equal(joined.next, '2026-10-26T12:00:00Z')
+  assert.equal(joined.matches, 3)
 })

@@ -315,7 +315,7 @@ A tool that lacks the input a flag needs is not run, and the other tools still r
 
 ### Augment sample events
 
-`--bash` calls `launch-process`; `--edit` calls `str-replace-editor` or `save-file`. Augment has no prompt event.
+`--bash` calls `launch-process`; `--edit` calls `str-replace-editor` or `save-file`. `--prompt` builds `PromptSubmit`, with the text in `user_prompt`. `Stop`, `SessionEnd`, and `Notification` need no input: `Stop` sends `agent_stop_cause: "end_turn"`, and `Notification` sends `notification_type: "info"` with an empty `notification_message`. Every event carries `hook_event_name`, `hook_type`, `cwd`, `conversation_id`, and `workspace_roots`.
 
 ## Matcher and plugin limits
 

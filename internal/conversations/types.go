@@ -7,8 +7,10 @@
 // A list row needs a title, the opening lines of the first prompt, the
 // latest prompt and the agent's latest reply. Each is withheld when it
 // may hold a credential, and transcripts never leave the server. A name
-// the person chose in the marks file replaces the tool's title. The JSON
-// contract is mirrored in ui/src/contract.ts. Change both together.
+// the person chose in the marks file replaces the tool's title. A first
+// prompt that starts with a link line names the conversation it
+// continues (see link.go). The JSON contract is mirrored in
+// ui/src/contract.ts. Change both together.
 package conversations
 
 import "time"
@@ -76,7 +78,7 @@ type View struct {
 	SchemaVersion string `json:"schemaVersion"`
 	GeneratedAt   string `json:"generatedAt"`
 	// From and To bound the page: conversations last written in [From, To),
-	// plus, on the first page, every open one.
+	// plus, on the first page, every open, blocked or unread one.
 	From string `json:"from"`
 	To   string `json:"to"`
 	// Next is the Before time of the following page; empty when no older
@@ -151,7 +153,10 @@ type Conversation struct {
 	// DeleteUnsupported says why an archived conversation cannot be
 	// deleted from here; set only on completed and dormant rows.
 	DeleteUnsupported string `json:"deleteUnsupported,omitempty"`
-	Open              Route  `json:"open"`
+	// Parent is the conversation this one continues, read from the link
+	// line of its own first prompt. The parent may be on no page.
+	Parent *Ref  `json:"parent,omitempty"`
+	Open   Route `json:"open"`
 
 	// process is the live process that holds it, for a focus route.
 	process *liveProcess
@@ -170,12 +175,24 @@ type Conversation struct {
 	file string
 	// renamed is the name the person chose, shown over the tool's title.
 	renamed string
+	// untyped is a thread opened and never written in: no title, prompt
+	// or reply. The list leaves it out unless the person named it.
+	untyped bool
 	// readAt is when the read that gave this row began. A kept result
 	// or a cloud list can be older than the scan that shows it.
 	readAt time.Time
 	// pending holds what fill still needs once the row lands on a page,
 	// for a store whose prompts are read only for the rows shown.
 	pending *texts
+	// pendingReply is a reply whose credential check waits for a page,
+	// for a store that lists thousands of rows with their replies.
+	pendingReply *texts
+}
+
+// Ref names one conversation of any tool.
+type Ref struct {
+	Tool Tool   `json:"tool"`
+	ID   string `json:"id"`
 }
 
 // liveProcess is a running process that has a conversation open.

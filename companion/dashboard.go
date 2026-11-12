@@ -77,7 +77,7 @@ func findBinary() (string, error) {
 // configuration, which lists every conversation as the companion does.
 // `agnostic-ai view` reuses a server that already serves that page or
 // starts one, apart from the companion's own, and that server keeps
-// running after the companion hides.
+// running after the companion pauses or quits.
 func openDashboard() error {
 	binary, err := findBinary()
 	if err != nil {

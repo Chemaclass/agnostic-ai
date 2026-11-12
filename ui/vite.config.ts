@@ -15,7 +15,8 @@ export default defineConfig({
   server: { proxy: api },
   preview: { proxy: api },
   test: {
-    include: ['src/**/*.test.ts'],
+    // BENCH=1 npx vitest run runs the benchmarks instead of the tests.
+    include: process.env.BENCH ? ['src/**/*.bench.ts'] : ['src/**/*.test.ts'],
     environment: 'node',
   },
 })

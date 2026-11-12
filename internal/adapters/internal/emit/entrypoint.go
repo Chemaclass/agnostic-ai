@@ -104,13 +104,92 @@ func EntryPointPath(cfg *config.Config, target string) string {
 	return entryPointPaths[target]
 }
 
+// rulesFileWriters says, for each built-in target, whether its adapter
+// writes outputs.<target>.rules-file. On a built-in that does not, the
+// key has no effect: sync delivers rules and writes the entry point as
+// if it were unset, and lint reports it (LINT062). A name missing here
+// is an external adapter, which receives outputs and may write the
+// file, so the key keeps its meaning for it.
+// TestRulesFileWriters_MatchAdapters keeps this table in step with the
+// adapters.
+var rulesFileWriters = map[string]bool{
+	"aider":       true,
+	"amp":         true,
+	"antigravity": true,
+	"augment":     true,
+	"claude":      true,
+	"cline":       false,
+	"codebuddy":   false,
+	"codex":       true,
+	"continue":    false,
+	"copilot":     true,
+	"crush":       false,
+	"cursor":      false,
+	"ellipsis":    false,
+	"factory":     false,
+	"gemini":      true,
+	"goose":       true,
+	"grok":        false,
+	"jules":       false,
+	"junie":       false,
+	"kilo":        false,
+	"kimi":        true,
+	"kiro":        false,
+	"opencode":    true,
+	"openhands":   false,
+	"pi":          true,
+	"qoder":       false,
+	"qwen":        true,
+	"trae":        false,
+	"vibe":        true,
+	"warp":        true,
+	"windsurf":    false,
+	"zed":         true,
+}
+
+// WritesRulesFile reports whether target's adapter writes
+// outputs.<target>.rules-file.
+func WritesRulesFile(target string) bool {
+	return rulesFileWriters[target]
+}
+
+// IgnoresRulesFile reports whether target is a built-in whose adapter
+// writes no outputs.<target>.rules-file, so sync ignores the key.
+func IgnoresRulesFile(target string) bool {
+	writes, builtin := rulesFileWriters[target]
+	return builtin && !writes
+}
+
+// RulesFileWriters returns, sorted, the built-in targets that write
+// outputs.<target>.rules-file.
+func RulesFileWriters() []string {
+	var out []string
+	for t, writes := range rulesFileWriters {
+		if writes {
+			out = append(out, t)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// RulesFileTargets returns, sorted, every target rulesFileWriters names.
+func RulesFileTargets() []string {
+	out := make([]string, 0, len(rulesFileWriters))
+	for t := range rulesFileWriters {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // HasLegacyRulesFile reports whether the user opted into the legacy
-// concatenated rules-file layout for target. When true, the adapter
-// owns rule delivery: it concatenates rule bodies into
-// outputs.<target>.rules-file and the central sync layer neither
+// concatenated rules-file layout for a target that may write one. When
+// true, the adapter owns rule delivery: it concatenates rule bodies
+// into outputs.<target>.rules-file and the central sync layer neither
 // inlines nor `@`-imports them anywhere else.
 func HasLegacyRulesFile(cfg *config.Config, target string) bool {
-	if cfg == nil {
+	if cfg == nil || IgnoresRulesFile(target) {
 		return false
 	}
 	o, ok := cfg.Outputs[target]

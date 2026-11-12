@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -50,8 +51,19 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		return nil, err
 	}
 	readers := append(append([]string(nil), cfg.Targets...), targets...)
-	if _, err := renderEntryPointFiles(cfg, b, readers, ""); err != nil {
+	entryFiles, err := renderEntryPointFiles(cfg, b, readers, "")
+	if err != nil {
 		return nil, err
+	}
+	shared := sharedRulesFiles(cfg, b, entryFiles)
+	var conflicts []string
+	for _, s := range shared {
+		if !s.kept {
+			conflicts = append(conflicts, s.conflict())
+		}
+	}
+	if len(conflicts) > 0 {
+		return nil, errs.Coded(errs.CodeOutputCollision, "output collision: %s", strings.Join(conflicts, "\n"))
 	}
 	policy := cfg.Sync.CollisionPolicy
 	if policy == "" {
@@ -96,6 +108,26 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 			written[f.Path][t] = f.Content
 		}
 	}
+	runFiles, err := renderEntryPointFiles(cfg, b, targets, "")
+	if err != nil {
+		return nil, err
+	}
+	overwritten := maps.Clone(owners)
+	for _, s := range shared {
+		for path, ts := range overwritten {
+			if filepath.Clean(path) == filepath.Clean(s.path) && slices.Contains(ts, s.owner) {
+				adapters.NoteProject(s.noEffect())
+				overwritten[path] = slices.DeleteFunc(slices.Clone(ts), func(t string) bool { return t == s.owner })
+			}
+		}
+	}
+	if err := entryPointOverwrites(cfg, runFiles, overwritten); err != nil {
+		return nil, err
+	}
+	replaced, err := replacedRulesFileWinners(cfg, b, shared)
+	if err != nil {
+		return nil, err
+	}
 	if policy == "prefer-spec" {
 		for path, variants := range contents {
 			if len(variants) > 1 {
@@ -106,7 +138,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 			}
 		}
 		noteCollisionWinners(writers, contents, lastOwner, written)
-		return winners, nil
+		return withWinners(winners, replaced), nil
 	}
 	warnSharedAgentsTreeReaders(owners, targets)
 
@@ -121,7 +153,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		lines = append(lines, fmt.Sprintf("  %s ← %s", path, strings.Join(ts, ", ")))
 	}
 	if len(lines) == 0 {
-		return nil, nil
+		return replaced, nil
 	}
 	sort.Strings(lines)
 
@@ -139,6 +171,53 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
 	}
 	return nil, errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
+}
+
+// replacedRulesFileWinners maps each kept shared rules-file to the
+// instructions file its configured readers write there. The owner's
+// adapter then writes those bytes in every run, so a run of the owner
+// alone leaves the file as the full run wrote it, and a later sync finds
+// no change there and no hand edit to back up. Only those readers are
+// rendered, so another target's instructions file cannot stop the run.
+func replacedRulesFileWinners(cfg *config.Config, b spec.Bundle, shared []sharedRulesFile) (map[string]string, error) {
+	var out map[string]string
+	var body *string
+	for _, s := range shared {
+		if !s.kept {
+			continue
+		}
+		if body == nil {
+			resolved, err := previewAgnosticBody()
+			if err != nil {
+				return nil, err
+			}
+			body = &resolved
+		}
+		files, err := renderEntryPointFiles(cfg, b, append(slices.Clone(s.readers), s.owner), *body)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range files {
+			if samePath(f.Path, s.path) {
+				if out == nil {
+					out = map[string]string{}
+				}
+				out[filepath.Clean(f.Path)] = f.Content
+			}
+		}
+	}
+	return out, nil
+}
+
+func withWinners(winners, more map[string]string) map[string]string {
+	if len(more) == 0 {
+		return winners
+	}
+	if winners == nil {
+		winners = map[string]string{}
+	}
+	maps.Copy(winners, more)
+	return winners
 }
 
 // noteCollisionWinners names, per winning target, the contested paths it won
@@ -237,4 +316,32 @@ func warnSharedAgentsTreeReaders(owners map[string][]string, targets []string) {
 	}
 	adapters.NoteProject(fmt.Sprintf("%d agent file%s in %s written by %s %s also read by Devin; shared profiles may lack allowed-tools restrictions (check discovered profiles for duplicate names)",
 		files, plural(files), sharedAgentsTree, strings.Join(names, ", "), verb))
+}
+
+// entryPointOverwrites stops a run in which a target's adapter writes a
+// file that sync then writes again as another target's instructions file.
+// The collision policy cannot settle it: sync writes instructions files
+// after every adapter, so the adapter's version would never survive.
+func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map[string][]string) error {
+	byPath := map[string][]string{}
+	for path, ts := range owners {
+		byPath[filepath.Clean(path)] = ts
+	}
+	var lines []string
+	for _, f := range files {
+		ts := byPath[filepath.Clean(f.Path)]
+		if len(ts) == 0 || cfg.IsUnmanaged(f.Path) {
+			continue
+		}
+		ts = slices.Clone(ts)
+		sort.Strings(ts)
+		lines = append(lines, fmt.Sprintf("  %s ← %s, and the instructions file of %s", f.Path, strings.Join(ts, ", "), strings.Join(f.Readers, ", ")))
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	sort.Strings(lines)
+	return errs.Coded(errs.CodeOutputCollision,
+		"output collision: an adapter writes a file sync also writes as an instructions file\n%s\n"+
+			"point that output elsewhere, or set outputs.<target>.file for the readers", strings.Join(lines, "\n"))
 }

@@ -79,11 +79,14 @@ type Scanner struct {
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
 	cursorAgents      map[string]cached[cursorAgentMeta]
-	cursorTranscripts map[string]cached[[2]string]
-	cursorPrompts     map[string]cached[cursorPrompts]
-	shown             shownCache
-	keptSources       map[Tool]keptSource
-	keptClouds        map[Tool]*keptCloud
+	cursorTranscripts map[string]cached[cursorAgentTexts]
+	// cursorSlugs caches the folders each cursor-agent project slug
+	// gives, since finding them reads folders from the root down.
+	cursorSlugs   map[string][]string
+	cursorPrompts map[string]cached[cursorPrompts]
+	shown         shownCache
+	keptSources   map[Tool]keptSource
+	keptClouds    map[Tool]*keptCloud
 
 	// rolloutsMu guards codexLiveRollouts apart from mu: Stamp reads
 	// them without waiting for a scan to end.
@@ -111,8 +114,8 @@ type ScanOptions struct {
 	// these folders. Empty keeps every conversation.
 	Within []string
 	// Before asks for the page of conversations last written before
-	// this time. Zero asks for the first page: the open conversations
-	// and the past week.
+	// this time. Zero asks for the first page: the open conversations,
+	// the ones that need the person, and the past week.
 	Before time.Time
 	// Query keeps the conversations of every age whose shown text holds
 	// each of its words; the pages then hold only those.
@@ -122,7 +125,8 @@ type ScanOptions struct {
 }
 
 // Scan returns one page of conversations, newest first. The first page
-// holds every open conversation and the week before now; each later
+// holds every open conversation, every one that needs the person, and
+// the week before now; each later
 // page holds the week before its Before time, reaching further back
 // past weeks with no conversation, so a page is never empty while older
 // ones remain. View.Next asks for the following page.
@@ -226,15 +230,18 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 
 // weekPage picks one page from all: below to, from a week earlier, or
 // from a week before the newest conversation when that week is empty.
-// The first page also holds every open conversation, whatever its age,
-// and takes rows dated after to, which a skewed clock can write.
+// The first page also holds every open conversation and every one that
+// needs the person, whatever its age, so the rows under Needs you are the
+// ones View.NeedsYou counts. It takes rows dated after to, which a skewed
+// clock can write.
 func weekPage(all []Conversation, to time.Time, first bool) (page []Conversation, from time.Time, more bool) {
 	var older []Conversation
 	for _, c := range all {
+		pinned := c.Live || needsPerson(c.State)
 		switch {
-		case c.Live && first:
+		case pinned && first:
 			page = append(page, c)
-		case c.Live:
+		case pinned:
 			// The first page already showed it.
 		case first || lastWritten(c).Before(to):
 			older = append(older, c)
@@ -376,7 +383,12 @@ func shellQuote(path string) string {
 }
 
 // resumeIn runs command in folder, or as is when the folder is unknown.
+// A folder with control characters gives no line: a person who copies
+// it would paste them into a terminal.
 func resumeIn(folder, command string) string {
+	if hasControl(folder) {
+		return ""
+	}
 	if folder == "" {
 		return command
 	}

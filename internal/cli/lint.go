@@ -304,7 +304,15 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	}
 	findings = append(findings, lintModels(scope.models, configPath, scope.targets, scope.support, scope.bundle)...)
 	findings = append(findings, lintTargetRefusals(scope.cfg, scope.targets, scope.bundle, configPath)...)
-	findings = append(findings, lintRulesModes(scope.cfg, configPath)...)
+	outputPaths := []string{configPath, config.LocalOverrideFileName}
+	if scope.global {
+		outputPaths = globalConfigPaths(scope.source)
+	}
+	findings = append(findings, lintRulesModes(scope.cfg, outputPaths)...)
+	findings = append(findings, lintRulesFiles(scope.cfg, outputPaths)...)
+	if !scope.global {
+		findings = append(findings, lintSharedRulesFiles(scope.cfg, scope.bundle, scope.targets, outputPaths)...)
+	}
 	return withoutBuiltinFindings(findings, scope.bundle), accepted, nil
 }
 

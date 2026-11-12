@@ -134,6 +134,7 @@ builtins: [handoff]
 | `memory` | Shared project and personal memory | [Shared memory](@/docs/memory.md) |
 | `rtk` | A Claude Code hook that shortens command output; install RTK separately | [RTK setup](@/docs/rtk-and-caveman.md#turn-them-on) |
 | `caveman` | An on-demand response skill from a fixed upstream version; no separate program needed | [Caveman setup](@/docs/rtk-and-caveman.md#turn-them-on) |
+| `side-conversation` | A skill to start a second task in a new terminal tab, linked to this session | [Side conversations](@/docs/side-conversation.md) |
 | `wrap-up` | A skill to end a session with a summary to share | [Session wrap-ups](@/docs/wrap-up.md) |
 
 Before you enable RTK or Caveman, [check for an existing copy](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman).
@@ -454,6 +455,10 @@ When the file is missing, sync creates it with one line saying the tool files ar
 Setting `outputs.<target>.rules-file: <path>` restores the legacy layout: the adapter writes one merged document at `<path>`, including the built-in skill instructions. Two adapters writing different content to one path fail unless you set `sync.collision-policy: prefer-spec`.
 
 When `<path>` is the target's own entry-point file (`outputs.claude.rules-file: CLAUDE.md`), sync skips the pointer body. Any other path keeps the entry-point file, and for `claude` the pointer body also gains an `@<path>` import.
+
+When `<path>` is also the instructions file sync writes for another enabled target, sync writes that instructions file there instead of the merged one. The merged file holds neither the `AGNOSTIC_AI.md` body nor the other target's rules, so it never wins. If the target still reads that file (as its own entry point, or through Claude's `@<path>` import) and the other target's version carries all its rules, as Amp's `AGENTS.md` does, sync writes what it wrote before, notes that the key has no effect, and `lint` warns with LINT063. A run of that target alone, such as `sync --target codex`, writes the same file. Otherwise the rules are lost, as with `outputs.codex.rules-file: AGENTS.md` next to Cline, so `sync` stops with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) and `validate` reports it.
+
+These targets write it: `aider`, `amp`, `antigravity`, `augment`, `claude`, `codex`, `copilot`, `gemini`, `goose`, `kimi`, `opencode`, `pi`, `qwen`, `vibe`, `warp`, and `zed`. On any other target sync ignores the key and `lint` warns with LINT062. That target keeps its entry-point file and its rules as if the key were unset.
 
 </details>
 
