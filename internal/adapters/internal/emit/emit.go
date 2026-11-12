@@ -158,6 +158,9 @@ type Session struct {
 	// BackUpEditsSince). merging holds the paths a merged write is
 	// writing, which hold user keys by design.
 	backupSums      map[string]string
+	// savedBackups are the `<path>.bak` sums the last sync recorded as
+	// backups it saved.
+	savedBackups map[string]string
 	priorPaths      map[string]string
 	priorCandidates []string
 	priorAliases    filealias.Cache
@@ -447,6 +450,15 @@ func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 	}
 	// A checkout or pull, not the user, changed a file that matches Git.
 	return !MatchesSum(existing, sum) && (committed == nil || !MatchesSum(existing, committed(path)))
+}
+
+// TrustBackupsSince sets the sums of the `<path>.bak` files the last
+// sync saved. A hand edit whose bytes such a backup still holds is
+// written over, since the backup keeps them.
+func (s *Session) TrustBackupsSince(sums map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.savedBackups = sums
 }
 
 // SetCommittedSum sets the lookup KeepEditsSince falls back on for a path
@@ -1033,7 +1045,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		backupPath = path + ".bak"
 		err := backUpEdit(cur, backupPath)
 		switch {
-		case errors.Is(err, fs.ErrExist) && backupHolds(cur, backupPath):
+		case errors.Is(err, fs.ErrExist) && s.backupHolds(cur, backupPath):
 		case errors.Is(err, fs.ErrExist):
 			s.mu.Lock()
 			s.noteKeptEditLocked(&s.backedUp, WrittenFile{Path: path, Bytes: len(content), Sum: s.priorChecksum(path, s.backupSums)}, detailing)
@@ -1218,8 +1230,16 @@ func backUpEdit(cur *onDisk, backup string) error {
 }
 
 // backupHolds reports whether backup is a separate regular file that
-// already holds cur's bytes, so writing over cur loses nothing.
-func backupHolds(cur *onDisk, backup string) bool {
+// the last sync saved, still unchanged, and holding cur's bytes, so
+// writing over cur loses nothing. A copy the user made proves nothing:
+// it may be another output this run writes over.
+func (s *Session) backupHolds(cur *onDisk, backup string) bool {
+	s.mu.Lock()
+	sum := s.savedBackups[filepath.ToSlash(filepath.Clean(backup))]
+	s.mu.Unlock()
+	if sum == "" {
+		return false
+	}
 	info, err := os.Lstat(backup)
 	if err != nil || !info.Mode().IsRegular() {
 		return false
@@ -1232,7 +1252,7 @@ func backupHolds(cur *onDisk, backup string) bool {
 		return false
 	}
 	existing, err := cur.bytes()
-	return err == nil && bytes.Equal(saved, existing)
+	return err == nil && MatchesSum(saved, sum) && bytes.Equal(saved, existing)
 }
 
 // createUntrackedFileExclusive atomically claims path as a brand-new

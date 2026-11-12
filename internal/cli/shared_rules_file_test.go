@@ -530,6 +530,11 @@ func TestSync_RulesFileStuckOnABackupOfTheSameBytes_Heals(t *testing.T) {
 	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
 	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "MERGED\n")
 	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MERGED\n")
+	state := readStateFile(".")
+	state.Backups = map[string]string{"AGENTS.md.bak": adapters.ContentSum("MERGED\n")}
+	if err := replaceStateFile(".", state); err != nil {
+		t.Fatal(err)
+	}
 
 	out, err := runCLI(t, "sync", "--gitignore=off")
 
@@ -551,6 +556,9 @@ func TestSync_HandEditWithADifferentOrLinkedBackup_IsKept(t *testing.T) {
 	for name, plant := range map[string]func(t *testing.T, dir string){
 		"older backup": func(t *testing.T, dir string) {
 			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "EARLIER-EDIT\n")
+		},
+		"same bytes, not saved by sync": func(t *testing.T, dir string) {
+			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "HAND-EDIT\n")
 		},
 		"hard link": func(t *testing.T, dir string) {
 			if err := os.Link(filepath.Join(dir, "AGENTS.md"), filepath.Join(dir, "AGENTS.md.bak")); err != nil {
@@ -602,5 +610,30 @@ func TestSync_DotDotRulesFileOnASharedInstructionsFile_Settles(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md.bak")); err == nil {
 		t.Error("sync must not save AGENTS.md.bak")
+	}
+}
+
+// Only a backup the ledger says sync saved vouches for a hand edit: a
+// copy the user made may be another output this run writes over.
+func TestSync_HandEditCopiedToABackupThatIsAnotherOutput_IsKept(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nKeep changes small.\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "RULES.md"))
+	edited := string(data) + "\nUNIQUE USER NOTE\n"
+	mustWriteFile(t, filepath.Join(dir, "RULES.md"), edited)
+	mustWriteFile(t, filepath.Join(dir, "RULES.md.bak"), edited)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: RULES.md.bak\n")
+
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	if got, _ := os.ReadFile(filepath.Join(dir, "RULES.md")); string(got) != edited {
+		t.Errorf("sync must keep the hand edit in RULES.md, got:\n%s", got)
 	}
 }

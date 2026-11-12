@@ -1222,8 +1222,9 @@ func unmanagedSkips(sessions []*adapters.Session) []string {
 // last sync: --keep-edits leaves it in place, and otherwise sync keeps it
 // as `<path>.bak` before writing over it.
 type editGuard struct {
-	keep bool
-	sums map[string]string
+	keep    bool
+	sums    map[string]string
+	backups map[string]string
 }
 
 // editGuardFor compares outputs against the sums the last sync recorded.
@@ -1234,7 +1235,7 @@ func editGuardFor(keepEdits bool, prev syncStateFile) editGuard {
 	if keepEdits && prev.OutputSums == nil {
 		return editGuard{keep: true, sums: map[string]string{}}
 	}
-	return editGuard{keep: keepEdits, sums: prev.OutputSums}
+	return editGuard{keep: keepEdits, sums: prev.OutputSums, backups: prev.Backups}
 }
 
 func (g editGuard) apply(sess *adapters.Session) {
@@ -1244,6 +1245,7 @@ func (g editGuard) apply(sess *adapters.Session) {
 		sess.SetCommittedSum(committedSum)
 	case g.sums != nil:
 		sess.BackUpEditsSince(g.sums)
+		sess.TrustBackupsSince(g.backups)
 		sess.SetCommittedSum(committedSum)
 	}
 }
