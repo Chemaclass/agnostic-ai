@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -122,7 +123,7 @@ func TestUpgradeCompanion_UsesHomebrewStablePath(t *testing.T) {
 	if err := refreshUpgradedCompanion(io.Discard, info, "2.0.0", deps); err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"/brew/bin/agnostic-ai", "/brew/bin/agnostic-ai"}; !reflect.DeepEqual(paths, want) {
+	if want := []string{filepath.FromSlash("/brew/bin/agnostic-ai"), filepath.FromSlash("/brew/bin/agnostic-ai")}; !reflect.DeepEqual(paths, want) {
 		t.Errorf("paths = %v, want %v", paths, want)
 	}
 }
