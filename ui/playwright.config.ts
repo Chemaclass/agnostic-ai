@@ -6,9 +6,9 @@ import { defineConfig, devices } from '@playwright/test'
 // E2E_PREVIEW=1 builds the client and starts `vite preview` on 4173.
 const preview = process.env.E2E_PREVIEW === '1'
 const baseURL = process.env.E2E_BASE_URL ?? (preview ? 'http://127.0.0.1:4173' : 'http://127.0.0.1:4310')
-// The preinstalled Chromium matches @playwright/test 1.56.1. Set
+// The preinstalled Chromium matches @playwright/test 1.60.0. Set
 // E2E_CHROMIUM_PATH only if the default launch cannot find it, for
-// example /opt/pw-browsers/chromium-1194/chrome-linux/chrome.
+// example /opt/pw-browsers/chromium-1223/chrome-linux64/chrome.
 const executablePath = process.env.E2E_CHROMIUM_PATH
 
 export default defineConfig({

@@ -904,8 +904,12 @@
 # measured 25956512 bytes locally on 2026-11-11, on top of main
 # a8023e46; the budget is that plus 8192, rounded up to a multiple of
 # 4096.
-# #3329 (one spelling for output paths in the config and the ledger)
-# measured 25972896 bytes locally on 2026-11-12; main 51a96ce0 alone
-# measured 25968800, already over. The budget is that plus 8192, rounded
-# up to a multiple of 4096.
-25985024
+# #3331 (hook run builds Augment PromptSubmit, Stop, SessionEnd and
+# Notification payloads) measured 25968800 bytes locally on 2026-11-12,
+# 8192 above main f054802c; the budget is that plus 8192, rounded up to
+# a multiple of 4096.
+# #3329 (one spelling for output paths in the config and the ledger,
+# and old ledger entries read in that spelling) measured 25985184 bytes
+# locally on 2026-11-12, on top of main 51a96ce0; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+25997312

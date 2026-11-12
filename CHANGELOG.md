@@ -46,8 +46,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Latest reply
 
-- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code and Codex chats (#3283).
-- The API's `reply` field holds that line, and a search matches it; Cursor chats and cloud sessions have none yet (#3283).
+- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code, Codex and Cursor chats (#3283, #3321).
+- The API's `reply` field holds that line, and a search matches it; cloud sessions have none yet (#3283).
 
 #### Chat names and states
 
@@ -95,6 +95,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Augment
 
+- `hook run` builds Augment `PromptSubmit` from `--prompt`, and `Stop`, `SessionEnd` and `Notification` with no flag, instead of asking for `--payload`. Every payload `hook run` builds now carries `hook_type` and `cwd` (#3331).
 - `validate` and `sync` accept Auggie 1.x's `PromptSubmit` and `Notification` hooks; `sync` drops a matcher on any event that takes none and says so (#3308).
 - Settings `permissions.ask` writes `ask-user` rules to `.augment/settings.json`, between deny and allow rules; `import augment` reads them back (#3266).
 - `model` and `effort` set Auggie 1.x's `defaultModel` and `defaultThinkingLevel` in project and global settings; 0.x ignores them, `import` reads them (#3265).

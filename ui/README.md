@@ -42,7 +42,7 @@ For an unbundled development build, run `npm run build` in `ui/` and pass `--ui 
 
 ## Update the bundled client
 
-Use Node.js 22 from the repository root:
+Use Node.js 26 from the repository root:
 
 ```sh
 make ui-build
@@ -169,7 +169,7 @@ An `IntersectionObserver` near the list's end loads the next week, one request a
 
 `conversationsVerdict` reports open chats, those waiting for you and those with no recent activity, or when the last chat ran. The facts line counts loaded chats. Tool filters show **All** and an `aria-pressed` toggle for each detected store, with its loaded count and a tooltip such as "12 of 66 Codex chats loaded." Pressing the selected tool restores All. Missing stores are omitted.
 
-Chats open in a process or editor window appear under **Open now**, newest first. Others group by the last user or agent message in local time: Today, Yesterday, This week, Earlier. Each row shows a title; the agent's latest reply, as one line under the title (local Claude Code and Codex chats only); tool, folder, branch, and time; and the last prompt unless it repeats the title. The tool's tooltip names the app, such as Terminal or Desktop app. Shell input such as `<bash-input>gl</bash-input>` renders as `! gl` in monospace.
+Chats open in a process or editor window appear under **Open now**, newest first. Others group by the last user or agent message in local time: Today, Yesterday, This week, Earlier. Each row shows a title; the agent's latest reply, as one line under the title (local Claude Code, Codex and Cursor chats only); tool, folder, branch, and time; and the last prompt unless it repeats the title. The tool's tooltip names the app, such as Terminal or Desktop app. Shell input such as `<bash-input>gl</bash-input>` renders as `! gl` in monospace.
 
 Open chats show **Working** or **Waiting for you** in amber when the tool reports activity, as Claude Code does. A local Codex wait is read from 5 minutes of silence, so its row carries `quietSince` and shows **No activity for 7m** instead. `stateBadge` maps the row's `state` to **New reply** when a message arrived since the last open, or **Archived**; other states need no badge. The server excludes SDK sessions and Codex exec runs. Withheld fields read **Hidden: may hold a credential**. A title may be a name chosen in the companion; the server sends it as `title`, so the page and its search need no change.
 

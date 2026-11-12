@@ -184,6 +184,9 @@ type Conversation struct {
 	// pending holds what fill still needs once the row lands on a page,
 	// for a store whose prompts are read only for the rows shown.
 	pending *texts
+	// pendingReply is a reply whose credential check waits for a page,
+	// for a store that lists thousands of rows with their replies.
+	pendingReply *texts
 }
 
 // Ref names one conversation of any tool.
