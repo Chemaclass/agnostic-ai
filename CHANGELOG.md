@@ -102,6 +102,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `hook run` reads a block reply on `SessionStart`, `SessionEnd`, `PromptSubmit` and `Notification` as allow, with a note, since Auggie runs those hooks in the background and cannot block them (#3346).
 - `hook run --bash` and `--edit` send Auggie 1.x's tool names (`bash`, `edit`, `write`) and match as Auggie 1.x does: case-insensitively, with the 0.x names still matching. A protected-path hook now reads the path of a 1.x `edit` or `write` call before the edit, portable `shell` and `edit` hooks match both the 1.x and 0.x names, and the sync note on a Claude-style matcher names the 1.x tools (#3347).
+- The next `sync` rewrites the matchers of portable `shell` and `edit` hooks in `.augment/settings.json` so they match Auggie 1.x and 0.x tool names (#3353).
 - `hook run` builds Augment `PromptSubmit` from `--prompt`, and `Stop`, `SessionEnd` and `Notification` with no flag, instead of asking for `--payload`. Every payload `hook run` builds now carries `hook_type` and `cwd` (#3331).
 - `validate` and `sync` accept Auggie 1.x's `PromptSubmit` and `Notification` hooks; `sync` drops a matcher on any event that takes none and says so (#3308).
 - Settings `permissions.ask` writes `ask-user` rules to `.augment/settings.json`, between deny and allow rules; `import augment` reads them back (#3266).
