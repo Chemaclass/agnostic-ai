@@ -93,6 +93,11 @@ func (a app) ingest(m *manifest, path string) (string, error) {
 	}
 	assigned.Outcome = &r.Outcome
 	m.Results = append(m.Results, r)
+	if m.Queue != nil {
+		if err = refreshQueue(m); err != nil {
+			return "", err
+		}
+	}
 	if err = save(m); err != nil {
 		return "", err
 	}
@@ -113,7 +118,7 @@ func validateTargetResult(m *manifest, r *targetResult) error {
 	if err != nil {
 		return fmt.Errorf("checkpoint %s: %w", r.Target, err)
 	}
-	if r.Outcome.Artifact != report || string(marker) != report.SHA256+"  "+report.Path+"\n" {
+	if r.Outcome.Artifact != report || string(marker) != checkpointContents(m, r.Target, report) {
 		return errors.New("result must reference an unchanged checkpointed target report")
 	}
 	deep := slices.Contains(m.BuiltinDeep, r.Target)

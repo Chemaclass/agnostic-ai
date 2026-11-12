@@ -55,6 +55,7 @@ type fetch struct {
 }
 
 type manifest struct {
+	Queue             *reviewQueue   `json:"review_queue,omitempty"`
 	Results           []targetResult `json:"results,omitempty"`
 	Version           int            `json:"version"`
 	ResearchVersion   int            `json:"research_version"`
@@ -942,7 +943,8 @@ func (a app) finalize(m *manifest) (string, error) {
 
 func (a app) run(args []string) (string, error) {
 	if len(args) == 0 {
-		return "", errors.New("usage: isolate|start|capture|resume|checkpoint|checkpoints|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
+		return "", errors.New("usage: isolate|start|capture|resume|checkpoint|checkpoints|schedule|dispatch|release|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
+
 	}
 	switch args[0] {
 	case "isolate":
@@ -1001,6 +1003,16 @@ func (a app) run(args []string) (string, error) {
 			return "", errors.New("capture requires only a run directory")
 		}
 		return "", a.capture(m)
+	case "schedule":
+		if err := a.schedule(m, args[2:]); err != nil {
+			return "", err
+		}
+	case "dispatch":
+		return a.dispatch(m, args[2:])
+	case "release":
+		if err := releaseReview(m, args[2:]); err != nil {
+			return "", err
+		}
 	case "assign":
 		if len(args) != 4 || !slices.Contains(m.Targets, args[2]) || strings.TrimSpace(args[3]) == "" {
 			return "", errors.New("assign requires run, requested target and owner")
@@ -1059,6 +1071,11 @@ func (a app) run(args []string) (string, error) {
 			return "", errors.New("finalization targets differ from fixed requested targets")
 		}
 		if args[0] == "finalize" {
+			if m.Queue != nil && m.Finalized == "" {
+				if err = refreshQueue(m); err != nil {
+					return "", err
+				}
+			}
 			return a.finalize(m)
 		}
 		return "coverage valid\n", a.validate(m)

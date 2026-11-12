@@ -96,6 +96,8 @@ finished target, and a relaunch assigns only the rest. Never edit a report
 after its checkpoint; a later correction goes in a separate file you name in
 your reply.
 
+For a scheduled target, checkpoint with `checkpoint <run> <target> --attempt <number>`, using the attempt number from your dispatch. A stale attempt cannot checkpoint a newer assignment. Unscheduled reviews keep the existing two-argument command.
+
 Use the coordinator-supplied manifest binary to create and fill `<run>/<target>-result.json` after checkpointing, following `scripts/target-audit/manifest.md`. Return its path with the report. Leave coordinator ingestion to the coordinator.
 
 Account for every assigned target and source page in its report, with its

@@ -31,13 +31,15 @@ When no pending target needs deep review, record justified fast paths and skip t
 
 Otherwise follow `.agnostic-ai/skills/target-audit/references/triage.md` before dispatch. Deep review remains the default. All-built-in deep work uses offline triage; Jev cannot exempt it.
 
-## 2. Investigate bounded batches
+## 2. Investigate pending targets
 
 Read `.agnostic-ai/skills/target-audit/references/evidence-and-output.md` before research or delegation. The coordinator owns shared inputs, routing, coverage, synthesis, publication, finalization, and metrics. Auditors own per-target investigation and evidence artifacts.
 
-Numbered routing lines are deep batches, at most five. Queue `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order to fit worker capacity. Use minimal context and the batch handoff in the preparation reference. Auditors checkpoint each finished target; read findings from those reports, not from agent replies, and relaunch a stopped batch with only its unfinished targets. Record eligible unchanged `sweep` targets without an agent.
+Treat numbered routing lines as the pending deep set, not fixed worker assignments. After triage, initialize the manifest's review schedule for only those targets, using available auditor capacity. Reuse `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas. Dispatch one target to each idle worker; the helper prioritizes recovery, built-in work and changed evidence size. It never grants a fast path. See `scripts/target-audit/manifest.md` for commands.
 
-For fewer than six deep targets, or when auditor delegation is unavailable, investigate inline using `.agnostic-ai/agents/target-auditor.md`. Coordinator-authored behavior claims still need a separate checker under the behavior contract; without one, keep them unconfirmed. Reuse one current binary for isolated reproductions; no broad tests during research.
+As each target checkpoints, read its artifact, ingest its structured result, and begin independent confirmation while other workers continue. Refill the freed slot immediately. Keep final cross-target synthesis, coverage finalization and publication after complete requested coverage. Relaunch unfinished work only after confirming its previous worker has stopped; record its interrupted attempt before reassigning it. Never assign reused or completed targets again.
+
+Choose inline review when only light work remains or delegation is unavailable; target count alone does not decide. Several recovery tasks or behavior reproductions justify delegation even below six targets. Inline behavior claims still require a separate checker; without one, keep them unconfirmed. Reuse one current binary for isolated reproductions; no broad tests during research.
 
 Finish artifacts before recording hashes. Complete assignments and record page dispositions separately through the manifest. A research limit accounts for coverage but retains the prior source hash. Pending built-in checks block Clean even when vendor text is unchanged.
 

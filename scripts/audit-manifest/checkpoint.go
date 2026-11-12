@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -16,7 +17,7 @@ func checkpointMarker(target string) string { return target + ".done" }
 func checkpointReport(target string) string { return target + ".md" }
 
 func (a app) checkpoint(args []string) (string, error) {
-	if len(args) != 2 {
+	if len(args) != 2 && len(args) != 4 {
 		return "", errors.New("checkpoint requires run and target")
 	}
 	m, err := load(args[0])
@@ -30,11 +31,19 @@ func (a app) checkpoint(args []string) (string, error) {
 	if !slices.Contains(m.Targets, target) {
 		return "", fmt.Errorf("%s: not a requested target", target)
 	}
+	attempt := latestAttempt(m, target)
+	if attempt != nil {
+		if len(args) != 4 || args[2] != "--attempt" || args[3] != strconv.Itoa(attempt.Attempt) || (attempt.Status != "running" && attempt.Status != "completed") {
+			return "", fmt.Errorf("%s: checkpoint requires the active --attempt number", target)
+		}
+	} else if len(args) != 2 || (m.Queue != nil && slices.Contains(m.Queue.Targets, target)) {
+		return "", fmt.Errorf("%s: no active scheduled attempt", target)
+	}
 	report, err := getArtifact(m.Directory, checkpointReport(target))
 	if err != nil {
 		return "", err
 	}
-	line := report.SHA256 + "  " + report.Path + "\n"
+	line := checkpointContents(m, target, report)
 	return "", atomicWrite(filepath.Join(m.Directory, checkpointMarker(target)), []byte(line))
 }
 
@@ -53,7 +62,7 @@ func checkpointState(m *manifest, target string) (string, error) {
 		return "", fmt.Errorf("%s: %w", marker, err)
 	}
 	report, err := getArtifact(m.Directory, checkpointReport(target))
-	if err != nil || string(b) != report.SHA256+"  "+report.Path+"\n" {
+	if err != nil || string(b) != checkpointContents(m, target, report) {
 		return "stale", nil
 	}
 	return "done", nil
@@ -95,4 +104,12 @@ func (a app) checkpoints(args []string) (string, error) {
 		return strings.Join(pending, " ") + "\n", nil
 	}
 	return strings.Join(rows, "\n") + "\n", nil
+}
+
+func checkpointContents(m *manifest, target string, report artifact) string {
+	line := report.SHA256 + "  " + report.Path + "\n"
+	if attempt := latestAttempt(m, target); attempt != nil {
+		line += fmt.Sprintf("attempt %d\n", attempt.Attempt)
+	}
+	return line
 }
