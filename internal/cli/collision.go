@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/charmbracelet/x/term"
 
@@ -40,12 +41,13 @@ import (
 // overrides diverge), which would otherwise cause silent last-writer-wins
 // and perpetual drift in `sync --check`.
 func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winners map[string]string, err error) {
-	return detectRenderedCollisions(newTargetRenders(cfg, b), cfg, targets)
+	return detectRenderedCollisions(newTargetRenders(cfg, b), cfg, targets, ".", readStateFile(".").Backups)
 }
 
-// detectRenderedCollisions is detectCollisions over the run's renders.
-func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string) (map[string]string, error) {
-	found, err := findRenderedCollisions(renders, cfg, targets)
+// detectRenderedCollisions is detectCollisions over the run's renders,
+// for the project at root whose ledger records backups.
+func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string, root string, backups map[string]string) (map[string]string, error) {
+	found, err := findRenderedCollisions(renders, cfg, targets, root, backups)
 	return found.winners, err
 }
 
@@ -57,7 +59,7 @@ type renderedCollisions struct {
 	runFiles []entryPointFile
 }
 
-func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string) (found renderedCollisions, err error) {
+func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string, root string, backups map[string]string) (found renderedCollisions, err error) {
 	b := renders.b
 	cfg = cfg.WithAdditionalTargets(targets...)
 	if err := adapters.ValidateScopedRules(cfg, b, targets); err != nil {
@@ -127,7 +129,7 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 		return found, err
 	}
 	found.runFiles = runFiles
-	if err := backupPathCollisions(cfg, owners, entryFiles); err != nil {
+	if err := outputPathCollisions(root, cfg, owners, entryFiles, backups); err != nil {
 		return found, err
 	}
 	overwritten := maps.Clone(owners)
@@ -366,10 +368,13 @@ func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map
 			"point that output elsewhere, or set outputs.<target>.file for the readers", strings.Join(lines, "\n"))
 }
 
-// backupPathCollisions refuses an output at another output's
-// `<path>.bak`: sync saves a hand edit to the first there, and the
-// second then writes over that backup, so the edit is lost.
-func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile) error {
+// outputPathCollisions refuses outputs that would destroy a hand edit or
+// fight over one file: an output at another output's `<path>.bak`, where
+// sync saves a hand edit to the first; an output on a backup the ledger
+// records, which holds a saved edit; and, where the filesystem ignores
+// letter case, two outputs whose paths differ only in case. Backup paths
+// match without regard to case on every filesystem.
+func outputPathCollisions(root string, cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile, backups map[string]string) error {
 	names := map[string][]string{}
 	add := func(path, name string) {
 		key := filepath.Clean(filepath.FromSlash(path))
@@ -378,7 +383,9 @@ func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryF
 		}
 	}
 	for key, path := range cfg.ConfiguredOutputPaths() {
-		add(path, key)
+		if !directorySetting(key) {
+			add(path, key)
+		}
 	}
 	for path, ts := range owners {
 		for _, t := range ts {
@@ -388,22 +395,123 @@ func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryF
 	for _, f := range entryFiles {
 		add(f.Path, "the instructions file of "+strings.Join(f.Readers, ", "))
 	}
+	spellings := map[string][]string{}
+	for path := range names {
+		key := strings.ToLower(path)
+		spellings[key] = append(spellings[key], path)
+	}
+	label := func(path string) string {
+		ns := slices.Sorted(slices.Values(names[path]))
+		return fmt.Sprintf("%s (%s)", filepath.ToSlash(path), strings.Join(ns, ", "))
+	}
+	if lines := caseAliasLines(root, spellings, label); len(lines) > 0 {
+		return errs.Coded(errs.CodeOutputCollision,
+			"output collision: outputs differ only in letter case, and this filesystem stores them as one file\n%s\n"+
+				"spell both paths the same way, or point one of them elsewhere", strings.Join(lines, "\n"))
+	}
 	var lines []string
-	for path, base := range names {
-		backup, ok := names[path+".bak"]
-		if !ok {
+	for path := range names {
+		for _, backup := range spellings[strings.ToLower(path+".bak")] {
+			lines = append(lines, fmt.Sprintf("  %s is the backup sync saves for %s", label(backup), label(path)))
+		}
+	}
+	if len(lines) > 0 {
+		sort.Strings(lines)
+		return errs.Coded(errs.CodeOutputCollision,
+			"output collision: an output sits where sync saves another output's hand edit\n%s\n"+
+				"point one of them elsewhere", strings.Join(lines, "\n"))
+	}
+	for bak := range backups {
+		if filepath.IsAbs(bak) {
 			continue
 		}
-		slices.Sort(base)
-		slices.Sort(backup)
-		lines = append(lines, fmt.Sprintf("  %s (%s) is the backup sync saves for %s (%s)",
-			filepath.ToSlash(path)+".bak", strings.Join(backup, ", "), filepath.ToSlash(path), strings.Join(base, ", ")))
+		if _, err := os.Lstat(filepath.Join(root, bak)); err != nil {
+			continue
+		}
+		for _, path := range spellings[strings.ToLower(filepath.Clean(filepath.FromSlash(bak)))] {
+			lines = append(lines, fmt.Sprintf("  %s is a backup sync saved for %s", label(path), filepath.ToSlash(strings.TrimSuffix(bak, ".bak"))))
+		}
 	}
 	if len(lines) == 0 {
 		return nil
 	}
 	sort.Strings(lines)
 	return errs.Coded(errs.CodeOutputCollision,
-		"output collision: an output sits where sync saves another output's hand edit\n%s\n"+
-			"point one of them elsewhere", strings.Join(lines, "\n"))
+		"output collision: an output sits on a backup that holds a saved hand edit\n%s\n"+
+			"move or delete that backup once you have kept what you need from it, or point the output elsewhere", strings.Join(lines, "\n"))
+}
+
+// caseAliasLines lists each group of spellings that name one file, when
+// the filesystem at root ignores letter case.
+func caseAliasLines(root string, spellings map[string][]string, label func(string) string) []string {
+	var lines []string
+	for _, group := range spellings {
+		if len(group) < 2 {
+			continue
+		}
+		if !caseInsensitiveFS(root) {
+			return nil
+		}
+		group = slices.Sorted(slices.Values(group))
+		labels := make([]string, len(group))
+		for i, p := range group {
+			labels[i] = label(p)
+		}
+		lines = append(lines, "  "+strings.Join(labels, " and "))
+	}
+	sort.Strings(lines)
+	return lines
+}
+
+// directorySetting reports whether an outputs.<target>.<key> names a
+// folder. Sync writes files beneath it and never backs the folder up.
+func directorySetting(key string) bool {
+	return strings.HasSuffix(key, ".dir") || strings.HasSuffix(key, "-dir")
+}
+
+// caseInsensitiveFS reports whether the filesystem holding root finds an
+// entry under a name that differs only in letter case. It probes an entry
+// of root, or failing that, root and its parents.
+func caseInsensitiveFS(root string) bool {
+	if entries, err := os.ReadDir(root); err == nil {
+		for _, e := range entries {
+			if found, ok := findsOtherCase(root, e.Name()); ok {
+				return found
+			}
+		}
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	for dir := abs; filepath.Dir(dir) != dir; dir = filepath.Dir(dir) {
+		if found, ok := findsOtherCase(filepath.Dir(dir), filepath.Base(dir)); ok {
+			return found
+		}
+	}
+	return false
+}
+
+// findsOtherCase reports whether dir finds name with its letter case
+// swapped, and false for ok when name has no letter to swap.
+func findsOtherCase(dir, name string) (found, ok bool) {
+	swapped := swapCase(name)
+	if swapped == name {
+		return false, false
+	}
+	a, err := os.Lstat(filepath.Join(dir, name))
+	if err != nil {
+		return false, true
+	}
+	b, err := os.Lstat(filepath.Join(dir, swapped))
+	return err == nil && os.SameFile(a, b), true
+}
+
+func swapCase(s string) string {
+	return strings.Map(func(r rune) rune {
+		if u := unicode.ToUpper(r); u != r {
+			return u
+		}
+		return unicode.ToLower(r)
+	}, s)
 }

@@ -926,4 +926,9 @@
 # reports) measured 26038432 bytes locally on 2026-11-12, on top of
 # main ecd8394e; the budget is that plus 8192, rounded up to a multiple
 # of 4096.
-26050560
+# The sync review follow-up (outputs that differ only in letter case
+# stop sync, an output on a saved backup stops sync, revert restores a
+# shared file once and takes the project lock) measured 26058912 bytes
+# locally on 2026-11-12, on top of main 54d201ba; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+26071040
