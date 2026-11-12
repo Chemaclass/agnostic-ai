@@ -90,6 +90,9 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 		for _, conflict := range sharedRulesFileConflicts(scope.cfg, scope.bundle, scope.targets) {
 			scopeIssues = append(scopeIssues, validationIssue{Path: config.ConfigFileName, Field: "rules-file", Message: conflict})
 		}
+		if err := backupPathCollisions(scope.cfg.WithAdditionalTargets(scope.targets...), nil, nil); err != nil {
+			scopeIssues = append(scopeIssues, validationIssue{Path: config.ConfigFileName, Field: "outputs", Message: err.Error()})
+		}
 	}
 	if len(entries) == 0 {
 		return scopeIssues

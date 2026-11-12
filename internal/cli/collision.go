@@ -127,6 +127,9 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 		return found, err
 	}
 	found.runFiles = runFiles
+	if err := backupPathCollisions(cfg, owners, entryFiles); err != nil {
+		return found, err
+	}
 	overwritten := maps.Clone(owners)
 	for _, s := range shared {
 		for path, ts := range overwritten {
@@ -361,4 +364,46 @@ func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map
 	return errs.Coded(errs.CodeOutputCollision,
 		"output collision: an adapter writes a file sync also writes as an instructions file\n%s\n"+
 			"point that output elsewhere, or set outputs.<target>.file for the readers", strings.Join(lines, "\n"))
+}
+
+// backupPathCollisions refuses an output at another output's
+// `<path>.bak`: sync saves a hand edit to the first there, and the
+// second then writes over that backup, so the edit is lost.
+func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile) error {
+	names := map[string][]string{}
+	add := func(path, name string) {
+		key := filepath.Clean(filepath.FromSlash(path))
+		if !slices.Contains(names[key], name) {
+			names[key] = append(names[key], name)
+		}
+	}
+	for key, path := range cfg.ConfiguredOutputPaths() {
+		add(path, key)
+	}
+	for path, ts := range owners {
+		for _, t := range ts {
+			add(path, t)
+		}
+	}
+	for _, f := range entryFiles {
+		add(f.Path, "the instructions file of "+strings.Join(f.Readers, ", "))
+	}
+	var lines []string
+	for path, base := range names {
+		backup, ok := names[path+".bak"]
+		if !ok {
+			continue
+		}
+		slices.Sort(base)
+		slices.Sort(backup)
+		lines = append(lines, fmt.Sprintf("  %s (%s) is the backup sync saves for %s (%s)",
+			filepath.ToSlash(path)+".bak", strings.Join(backup, ", "), filepath.ToSlash(path), strings.Join(base, ", ")))
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	sort.Strings(lines)
+	return errs.Coded(errs.CodeOutputCollision,
+		"output collision: an output sits where sync saves another output's hand edit\n%s\n"+
+			"point one of them elsewhere", strings.Join(lines, "\n"))
 }

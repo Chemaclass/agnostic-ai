@@ -129,6 +129,21 @@ func (o *Output) outputPaths() map[string]*string {
 	}
 }
 
+// ConfiguredOutputPaths maps each outputs.<target>.<key> path an enabled
+// target sets to that path.
+func (c *Config) ConfiguredOutputPaths() map[string]string {
+	out := map[string]string{}
+	for _, target := range c.Targets {
+		o := c.Outputs[target]
+		for key, p := range o.outputPaths() {
+			if *p != "" {
+				out["outputs."+target+"."+key] = *p
+			}
+		}
+	}
+	return out
+}
+
 // cleanOutputPaths rewrites each outputs.<target> path in the spelling
 // CleanOutputPath gives, so `./AGENTS.md` and `AGENTS.md` reach the
 // writer and the ledger as one file.
