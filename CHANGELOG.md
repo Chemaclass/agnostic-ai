@@ -46,8 +46,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Latest reply
 
-- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code and Codex chats (#3283).
-- The API's `reply` field holds that line, and a search matches it; Cursor chats and cloud sessions have none yet (#3283).
+- The reply line shows the question the agent asks, or the start of its last message, for local Claude Code, Codex and Cursor chats (#3283, #3321).
+- The API's `reply` field holds that line, and a search matches it; cloud sessions have none yet (#3283).
 
 #### Chat names and states
 
@@ -109,6 +109,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Copilot
 
 - Project and global settings accept the effort values `none`, `minimal` and `max`; per-agent effort keeps `low`, `medium`, `high` and `xhigh` (#3307).
+
+#### Claude Code
+
+- A chat whose first line is a background task's report takes its title and opening from what you typed, not `<task-notification>` (#3335).
 
 ### Site
 
