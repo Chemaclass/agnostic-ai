@@ -983,3 +983,22 @@ func TestImportGlobal_AntigravityMCPRoundTrip(t *testing.T) {
 		t.Fatalf("check: %v", err)
 	}
 }
+
+func TestSyncGlobal_AugmentSkipsAnEventAuggieNeverFires(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "prompt.yaml"), "event: UserPromptSubmit\ncommand: ~/bin/prompt.sh\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "event: SessionStart\ncommand: ~/bin/start.sh\n")
+	path := filepath.Join(home, ".augment", "settings.json")
+
+	_, warnings, err := runGlobalAgentTest("--only", "augment")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	got := readGlobalTest(t, path)
+	if strings.Contains(got, "UserPromptSubmit") || !strings.Contains(got, "SessionStart") {
+		t.Errorf("settings.json = %s", got)
+	}
+	if !strings.Contains(warnings, "x-augment") {
+		t.Errorf("no note names the event to use:\n%s", warnings)
+	}
+}

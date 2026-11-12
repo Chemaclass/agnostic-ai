@@ -1,6 +1,7 @@
 package augment
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
@@ -16,12 +17,18 @@ const hooksKey = "hooks"
 // Stop, SessionStart, SessionEnd, PromptSubmit, Notification. The 0.x
 // reference documents the first five as events with a section and
 // Notification only as a `hook_event_name` value; the settings file is
-// shared, so one list serves both. Events outside this list follow in
-// first-seen order.
+// shared, so one list serves both. A hook on another event is skipped,
+// since Auggie never fires it.
 var hookLifecycle = []string{"PreToolUse", "PostToolUse", "Stop", "SessionStart", "SessionEnd", "PromptSubmit", "Notification"}
 
 // HookEvents lists the events a hook spec may name for this target.
 func HookEvents() []string { return append([]string(nil), hookLifecycle...) }
+
+// UserPromptSubmitHint says what to write instead of Claude Code's
+// UserPromptSubmit, which Auggie does not fire.
+const UserPromptSubmitHint = "Auggie has no UserPromptSubmit event; its PromptSubmit passes the prompt as user_prompt and cannot block, so set `x-augment: {event: PromptSubmit}` if the hook fits that"
+
+func knownHookEvent(event string) bool { return slices.Contains(hookLifecycle, event) }
 
 // sessionOnlyEvents are the events the vendor documents as taking no
 // matcher: Stop, SessionStart, SessionEnd, and, in Auggie 1.x,
@@ -86,11 +93,20 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	var keyOrder []matcherKey
-	var claudeMatchers, droppedMatchers int
+	var claudeMatchers, droppedMatchers, promptHooks, otherEvents int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
-		if event == "" {
+		switch {
+		case event == "":
+			continue
+		case event == "UserPromptSubmit":
+			promptHooks++
+			emit.NoteEntryOmitted(target, spec.KindHook, h.Name)
+			continue
+		case !knownHookEvent(event):
+			otherEvents++
+			emit.NoteEntryOmitted(target, spec.KindHook, h.Name)
 			continue
 		}
 		commands := emit.HookCommands(h.Meta["command"])
@@ -124,6 +140,9 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
 		"Auggie 1.x names its tools bash, read, edit, write, grep, find, web-fetch, ... and matches case-insensitively, so Bash, Read, Edit, Write, and Grep match there but Glob, WebFetch, and WebSearch match nothing; Auggie 0.x (launch-process, view, str-replace-editor, save-file, ...) matches case-sensitively, so none of them match; use Augment's own tool names, `.*`, or a regex over them")
+	emit.NoteCoverageGap(target, spec.KindHook, promptHooks, UserPromptSubmitHint)
+	emit.NoteCoverageGap(target, spec.KindHook, otherEvents,
+		"Auggie has no such hook event; use PreToolUse, PostToolUse, Stop, SessionStart, SessionEnd, PromptSubmit, or Notification")
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", droppedMatchers,
 		"Stop, SessionStart, SessionEnd, PromptSubmit, and Notification take no matcher in Augment, so it is left out")
 	if len(keyOrder) == 0 {

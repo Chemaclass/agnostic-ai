@@ -213,14 +213,12 @@ const (
 	issueMissingName
 )
 
-// lintHookEvents flags hook specs whose `event:` value is unknown to
-// every configured target. The union approach avoids false positives
-// when a project enables several targets that each understand a
-// disjoint subset (e.g. claude's `Notification` is fine when claude is
-// in targets even though codex doesn't know it).
+// lintHookEvents flags hook specs whose event, after each target's
+// `x-<target>` override, no target the hook emits to knows. One target
+// knowing it is enough, as sync writes it there and notes the others
+// (e.g. claude's `Notification` is fine beside codex).
 func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 	var out []validationIssue
-	allowed := unionEvents(targets)
 	for _, e := range entries {
 		if e.Kind != spec.KindHook {
 			continue
@@ -238,13 +236,16 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 			})
 			continue
 		}
+		scoped := hookTargetsFor(e, targets)
+		allowed := unionEvents(scoped)
 		if len(allowed) == 0 {
 			continue // no hook-aware target enabled; the orphan-kind lint covers this
 		}
-		if knownHookEvent(targets, event) {
+		if knownHookEventFor(e, scoped) {
 			continue
 		}
-		if target, canonical, ok := hookEventAlias(targets, event); ok {
+		event = overriddenHookEvent(e, scoped, event)
+		if target, canonical, ok := hookEventAlias(scoped, event); ok {
 			out = append(out, validationIssue{
 				Path:    e.Path,
 				Field:   "event",
@@ -263,7 +264,7 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 		out = append(out, validationIssue{
 			Path:    e.Path,
 			Field:   "event",
-			Message: "unknown hook event " + quote(event) + " for enabled targets " + commaList(targets) + "; supported events: " + commaList(sortedKeys(allowed)),
+			Message: "unknown hook event " + quote(event) + " for targets " + commaList(scoped) + "; supported events: " + commaList(sortedKeys(allowed)),
 		})
 	}
 	return out

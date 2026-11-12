@@ -165,7 +165,7 @@ func TestValidateGlobal_ChecksHookEventsAgainstConfiguredTargets(t *testing.T) {
 	if err == nil {
 		t.Fatalf("validate --global must reject an event the configured targets never fire:\n%s", out)
 	}
-	if !strings.Contains(out, hook) || !strings.Contains(out, "for enabled targets claude, cursor") {
+	if !strings.Contains(out, hook) || !strings.Contains(out, "for targets claude, cursor") {
 		t.Errorf("expected the event checked against claude and cursor on %s, got:\n%s", hook, out)
 	}
 }

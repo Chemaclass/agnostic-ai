@@ -75,6 +75,94 @@ func TestAugmentHooks_ToolEventsKeepTheirMatcher(t *testing.T) {
 	}
 }
 
+// Auggie has no UserPromptSubmit event. Its PromptSubmit passes the
+// prompt as user_prompt and cannot block, so sync skips the hook with
+// a note instead of renaming the event (#3348).
+func TestAugmentHooks_SyncSkipsUserPromptSubmitAsValidateRejectsIt(t *testing.T) {
+	augmentHookProject(t, "UserPromptSubmit", "targets: [augment]\n")
+	if out, err := runRoot(t, "validate"); err == nil {
+		t.Fatalf("validate accepted UserPromptSubmit for augment:\n%s", out)
+	}
+	notes := strings.Join(syncNotes(t), "\n")
+	if !strings.Contains(notes, "PromptSubmit") || !strings.Contains(notes, "x-augment") {
+		t.Errorf("sync note does not name the event to use:\n%s", notes)
+	}
+	if data, err := os.ReadFile(".augment/settings.json"); err == nil && strings.Contains(string(data), "UserPromptSubmit") {
+		t.Errorf("sync wrote an event Auggie never fires: %s", data)
+	}
+	out, _ := runHookRun(t, "probe", "--prompt", "hi")
+	if !strings.Contains(out, "augment: not run") || !strings.Contains(out, "PromptSubmit") {
+		t.Errorf("hook run output = %s", out)
+	}
+}
+
+func TestAugmentHooks_SyncReplacesAUserPromptSubmitEntryBesideAnotherHook(t *testing.T) {
+	augmentHookProject(t, "UserPromptSubmit", "")
+	writeFile(t, ".agnostic-ai/hooks/other.yaml", "name: other\nevent: Stop\ncommand: echo other\n")
+	writeFile(t, ".augment/settings.json", `{
+  "theme": "dark",
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "echo probe"}]}]
+  }
+}`)
+	syncNotes(t)
+	data, err := os.ReadFile(".augment/settings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	if strings.Contains(got, "UserPromptSubmit") || !strings.Contains(got, "echo other") {
+		t.Errorf("hooks = %s, want only the Stop hook", got)
+	}
+	if !strings.Contains(got, `"theme"`) {
+		t.Errorf("sync dropped the user's own setting: %s", got)
+	}
+	syncNotes(t, "--check")
+}
+
+func TestAugmentHooks_XAugmentEventOverrideSyncsValidatesAndRuns(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	augmentHookProject(t, "UserPromptSubmit", "x-augment:\n  event: PromptSubmit\n")
+	if out, err := runRoot(t, "validate"); err != nil {
+		t.Fatalf("validate rejected the x-augment event: %v\n%s", err, out)
+	}
+	syncNotes(t)
+	data, err := os.ReadFile(".augment/settings.json")
+	if err != nil || !strings.Contains(string(data), `"PromptSubmit"`) || strings.Contains(string(data), "UserPromptSubmit") {
+		t.Fatalf("settings = %s, %v", data, err)
+	}
+	if out, err := runHookRun(t, "probe", "--prompt", "hi", "--expect", "allow"); err != nil || !strings.Contains(out, "augment: allow") {
+		t.Errorf("hook run: %v\n%s", err, out)
+	}
+}
+
+func TestValidate_HookScopedToATargetWithoutHooksChecksEveryTarget(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, aider]\n")
+	writeFile(t, ".agnostic-ai/hooks/probe.yaml", "name: probe\nevent: PreToolUse\ntargets: [aider]\ncommand: echo probe\n")
+	if out, err := runRoot(t, "validate"); strings.Contains(out, "unknown hook event") {
+		t.Errorf("validate: %v\n%s", err, out)
+	}
+}
+
+func TestValidate_HookScopedToCursorSuggestsCursorsEvent(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, ".agnostic-ai/hooks/probe.yaml", "name: probe\nevent: PreToolUse\ntargets: [cursor]\ncommand: echo probe\n")
+	out, err := runRoot(t, "validate")
+	if err == nil || !strings.Contains(out, "did you mean preToolUse?") {
+		t.Errorf("validate: %v\n%s", err, out)
+	}
+}
+
+func TestValidate_QuotesTheXTargetEventThatDecided(t *testing.T) {
+	augmentHookProject(t, "UserPromptSubmit", "x-augment:\n  event: PromptSubmt\n")
+	out, err := runRoot(t, "validate")
+	if err == nil || !strings.Contains(out, `"PromptSubmt"`) || strings.Contains(out, `"UserPromptSubmit"`) {
+		t.Errorf("validate: %v\n%s", err, out)
+	}
+}
+
 func TestAugmentHooks_ClaudeStyleMatcherNoteNamesTheAuggie1Tools(t *testing.T) {
 	augmentHookProject(t, "PreToolUse", "matcher: Bash\n")
 	notes := strings.Join(syncNotes(t), "\n")
