@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/charmbracelet/x/term"
 
@@ -367,11 +368,12 @@ func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map
 			"point that output elsewhere, or set outputs.<target>.file for the readers", strings.Join(lines, "\n"))
 }
 
-// outputPathCollisions refuses outputs that would destroy a hand edit:
-// an output at another output's `<path>.bak`, where sync saves a hand
-// edit to the first, and an output on a backup the ledger records, which
-// holds a saved edit. Backup paths match without regard to case, since
-// some filesystems store both spellings as one file.
+// outputPathCollisions refuses outputs that would destroy a hand edit or
+// fight over one file: an output at another output's `<path>.bak`, where
+// sync saves a hand edit to the first; an output on a backup the ledger
+// records, which holds a saved edit; and, where the filesystem ignores
+// letter case, two outputs whose paths differ only in case. Backup paths
+// match without regard to case on every filesystem.
 func outputPathCollisions(root string, cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile, backups map[string]string) error {
 	names := map[string][]string{}
 	add := func(path, name string) {
@@ -401,6 +403,11 @@ func outputPathCollisions(root string, cfg *config.Config, owners map[string][]s
 	label := func(path string) string {
 		ns := slices.Sorted(slices.Values(names[path]))
 		return fmt.Sprintf("%s (%s)", filepath.ToSlash(path), strings.Join(ns, ", "))
+	}
+	if lines := caseAliasLines(root, spellings, label); len(lines) > 0 {
+		return errs.Coded(errs.CodeOutputCollision,
+			"output collision: outputs differ only in letter case, and this filesystem stores them as one file\n%s\n"+
+				"spell both paths the same way, or point one of them elsewhere", strings.Join(lines, "\n"))
 	}
 	var lines []string
 	for path := range names {
@@ -434,8 +441,77 @@ func outputPathCollisions(root string, cfg *config.Config, owners map[string][]s
 			"move or delete that backup once you have kept what you need from it, or point the output elsewhere", strings.Join(lines, "\n"))
 }
 
+// caseAliasLines lists each group of spellings that name one file, when
+// the filesystem at root ignores letter case.
+func caseAliasLines(root string, spellings map[string][]string, label func(string) string) []string {
+	var lines []string
+	for _, group := range spellings {
+		if len(group) < 2 {
+			continue
+		}
+		if !caseInsensitiveFS(root) {
+			return nil
+		}
+		group = slices.Sorted(slices.Values(group))
+		labels := make([]string, len(group))
+		for i, p := range group {
+			labels[i] = label(p)
+		}
+		lines = append(lines, "  "+strings.Join(labels, " and "))
+	}
+	sort.Strings(lines)
+	return lines
+}
+
 // directorySetting reports whether an outputs.<target>.<key> names a
 // folder. Sync writes files beneath it and never backs the folder up.
 func directorySetting(key string) bool {
 	return strings.HasSuffix(key, ".dir") || strings.HasSuffix(key, "-dir")
+}
+
+// caseInsensitiveFS reports whether the filesystem holding root finds an
+// entry under a name that differs only in letter case. It probes an entry
+// of root, or failing that, root and its parents.
+func caseInsensitiveFS(root string) bool {
+	if entries, err := os.ReadDir(root); err == nil {
+		for _, e := range entries {
+			if found, ok := findsOtherCase(root, e.Name()); ok {
+				return found
+			}
+		}
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	for dir := abs; filepath.Dir(dir) != dir; dir = filepath.Dir(dir) {
+		if found, ok := findsOtherCase(filepath.Dir(dir), filepath.Base(dir)); ok {
+			return found
+		}
+	}
+	return false
+}
+
+// findsOtherCase reports whether dir finds name with its letter case
+// swapped, and false for ok when name has no letter to swap.
+func findsOtherCase(dir, name string) (found, ok bool) {
+	swapped := swapCase(name)
+	if swapped == name {
+		return false, false
+	}
+	a, err := os.Lstat(filepath.Join(dir, name))
+	if err != nil {
+		return false, true
+	}
+	b, err := os.Lstat(filepath.Join(dir, swapped))
+	return err == nil && os.SameFile(a, b), true
+}
+
+func swapCase(s string) string {
+	return strings.Map(func(r rune) rune {
+		if u := unicode.ToUpper(r); u != r {
+			return u
+		}
+		return unicode.ToLower(r)
+	}, s)
 }

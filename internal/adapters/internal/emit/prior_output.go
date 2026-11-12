@@ -1,6 +1,10 @@
 package emit
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"strings"
+)
 
 func (s *Session) resolvePriorOutput(path string) error {
 	s.mu.Lock()
@@ -38,4 +42,23 @@ func (s *Session) priorChecksum(path string, sums map[string]string) string {
 		return sum
 	}
 	return sums[s.priorPaths[path]]
+}
+
+// matchesAliasSum reports whether existing holds the bytes the last sync
+// recorded under another spelling of path that names the same file, as
+// `agents.md` and `AGENTS.md` do where letter case does not count.
+func matchesAliasSum(path string, existing []byte, sums map[string]string) bool {
+	for prior, sum := range sums {
+		if prior == path || !strings.EqualFold(prior, path) || !MatchesSum(existing, sum) {
+			continue
+		}
+		a, err := os.Stat(prior)
+		if err != nil {
+			continue
+		}
+		if b, err := os.Stat(path); err == nil && os.SameFile(a, b) {
+			return true
+		}
+	}
+	return false
 }

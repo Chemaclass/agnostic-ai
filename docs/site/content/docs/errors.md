@@ -100,7 +100,9 @@ Two or more enabled targets would write different content to the same path, so s
 
 Sync also stops when an output sits on a `.bak` that sync saved earlier and that still exists, such as `rules-file: RULES.md.bak` after a hand edit to `RULES.md` was saved there. `validate` does not read the sync ledger, so only sync reports this case.
 
-**Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`. For a shared instructions file, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool. For a saved `.bak`, keep what you need from it, then move or delete it, or point the output elsewhere.
+On a filesystem that ignores letter case, as on macOS and Windows by default, sync, `status` and `validate` also stop when two outputs differ only in case, such as `outputs.codex.rules-file: agents.md` next to the `AGENTS.md` that Amp reads. Both names are one file there, so the outputs would fight over it.
+
+**Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`. For a shared instructions file, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool. For a saved `.bak`, keep what you need from it, then move or delete it, or point the output elsewhere. For outputs that differ only in case, spell both paths the same way.
 
 <a id="aai-103-hand-authored-ignore-file-cannot-be-safely-overwritten"></a>
 

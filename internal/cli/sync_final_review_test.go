@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -203,5 +204,87 @@ func TestRevertCmd_StopsWhileTheProjectIsLocked(t *testing.T) {
 				t.Errorf("revert --dry-run must not need the lock: %v\n%s", err, out)
 			}
 		})
+	}
+}
+
+// agents.md and AGENTS.md are one file where case does not count.
+func TestSync_OutputsThatDifferOnlyInCase(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: agents.md\n")
+
+	if caseInsensitiveFS(".") {
+		for _, args := range [][]string{{"sync", "--gitignore=off", "--jobs=1"}, {"sync", "--check"}, {"status"}, {"validate"}} {
+			out, err := runCLI(t, args...)
+			msg := out
+			if err != nil {
+				msg += err.Error()
+			}
+			if err == nil || !strings.Contains(msg, "agents.md") || !strings.Contains(msg, "AGENTS.md") || !strings.Contains(msg, "letter case") {
+				t.Errorf("%v must stop and name both spellings, got %v\n%s", args, err, out)
+			}
+		}
+		if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err == nil {
+			t.Errorf("sync must write nothing")
+		}
+		return
+	}
+	for range 2 {
+		if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
+			t.Fatalf("sync: %v\n%s", err, out)
+		}
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Fatalf("sync --check: %v\n%s", err, out)
+	}
+	for _, p := range []string{"agents.md.bak", "AGENTS.md.bak"} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err == nil {
+			t.Errorf("an unchanged sync must not save %s", p)
+		}
+	}
+}
+
+// v0.93.0 with rules-file: agents.md recorded the one file under both
+// spellings. Once the config names AGENTS.md, sync takes the bytes the
+// ledger recorded under agents.md as its own, not as a hand edit.
+func TestSync_HealsAFileRecordedUnderAnotherCase(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	if !caseInsensitiveFS(".") {
+		t.Skip("letter case names distinct files here")
+	}
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	merged := "# Codex rules\n\nUse tabs.\n"
+	var ledger map[string]any
+	data, _ := os.ReadFile(stateFilePath("."))
+	if err := json.Unmarshal(data, &ledger); err != nil {
+		t.Fatal(err)
+	}
+	ledger["output_sums"].(map[string]any)["agents.md"] = adapters.ContentSum(merged)
+	ledger["outputs"] = append(ledger["outputs"].([]any), "agents.md")
+	data, _ = json.Marshal(ledger)
+	mustWriteFile(t, stateFilePath("."), string(data))
+	mustWriteFile(t, filepath.Join(dir, "agents.md"), merged)
+
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
+		t.Errorf("sync must restore the instructions file, got:\n%s", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md.bak")); err == nil {
+		t.Errorf("bytes sync wrote are no hand edit to back up")
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
 	}
 }
