@@ -912,4 +912,8 @@
 # and old ledger entries read in that spelling) measured 25985184 bytes
 # locally on 2026-11-12, on top of main 51a96ce0; the budget is that plus
 # 8192, rounded up to a multiple of 4096.
-25997312
+# #3342 (conversations start in cursor-agent, the chat variable check,
+# and cursor-agent chat folders found from their project) measured
+# 25997472 bytes locally on 2026-11-12, on top of main c1458b45; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+26009600

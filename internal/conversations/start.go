@@ -36,10 +36,7 @@ var briefID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 // startCommands are the tools a conversation can start in, by the
 // command that starts each with a first prompt as its one argument.
-// Cursor's terminal agent has not been checked on a real install.
-var startCommands = map[Tool]string{ToolClaude: "claude", ToolCodex: "codex"}
-
-var errCursorStart = errors.New("the Cursor terminal agent is not supported yet: starting a linked conversation in it has not been checked")
+var startCommands = map[Tool]string{ToolClaude: "claude", ToolCodex: "codex", ToolCursor: "cursor-agent"}
 
 // DefaultBriefsDir is where one-time briefs wait for their tab, beside
 // the marks file.
@@ -98,11 +95,8 @@ type StartReply struct {
 // When the tab cannot be opened, the error holds the line that runs
 // the brief by hand.
 func (s Starter) Start(ctx context.Context, req StartRequest) (StartReply, error) {
-	if req.Tool == ToolCursor {
-		return StartReply{}, errCursorStart
-	}
 	if _, known := startCommands[req.Tool]; req.Tool != "" && !known {
-		return StartReply{}, fmt.Errorf("unknown tool %q: use claude or codex", req.Tool)
+		return StartReply{}, fmt.Errorf("unknown tool %q: use claude, codex or cursor", req.Tool)
 	}
 	for what, value := range map[string]string{"folder": req.Folder, "agnostic-ai path": req.Self} {
 		if hasControl(value) {
@@ -133,7 +127,7 @@ func (s Starter) Start(ctx context.Context, req StartRequest) (StartReply, error
 	}
 	command, ok := startCommands[tool]
 	if !ok {
-		return StartReply{}, errCursorStart
+		return StartReply{}, fmt.Errorf("a conversation cannot start in %s", tool)
 	}
 	if _, err := s.LookPath(command); err != nil {
 		return StartReply{}, fmt.Errorf("%s is not installed: no %s command on PATH", toolLabels[tool], command)

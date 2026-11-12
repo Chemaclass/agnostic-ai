@@ -193,7 +193,6 @@ func TestStart_RefusesBeforeWritingOrOpeningAnything(t *testing.T) {
 		"tool not installed": {ghosttyChain(), nil, request(ToolCodex, "Write the notes"), "Codex is not installed: no codex command on PATH"},
 		"empty brief":        {ghosttyChain(), []string{"claude"}, request("", " \n\t "), "no brief"},
 		"long brief":         {ghosttyChain(), []string{"claude"}, request("", strings.Repeat("x", briefLimit+1)), "the brief is 4097 bytes"},
-		"cursor":             {ghosttyChain(), []string{"cursor-agent"}, request(ToolCursor, "Write the notes"), "Cursor terminal agent is not supported yet"},
 		"unknown tool":       {ghosttyChain(), []string{"claude"}, request("gemini", "Write the notes"), `unknown tool "gemini"`},
 	} {
 		start := newFakeStart(t, tc.table, tc.installed...)

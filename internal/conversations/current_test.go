@@ -117,7 +117,7 @@ func TestCurrentSession_RefusesWithoutAKnownSession(t *testing.T) {
 		want  string
 	}{
 		"no tool ancestor": {chain("agnostic-ai", "/bin/zsh", "/Applications/Ghostty.app/Contents/MacOS/ghostty"), "cannot tell which conversation"},
-		"cursor agent":     {chain("agnostic-ai", "/bin/zsh", "cursor-agent", "/bin/zsh"), "Cursor terminal agent is not supported yet"},
+		"cursor agent":     {chain("agnostic-ai", "/bin/zsh", "cursor-agent", "/bin/zsh"), "holds no chat and CURSOR_CONVERSATION_ID is not set"},
 		"pid not listed":   {chain("/bin/zsh"), "cannot tell which conversation"},
 	} {
 		_, _, err := CurrentSession(fakeProcesses{table: tc.table}, stores, env(nil), 100)
@@ -138,7 +138,7 @@ func TestCurrentSession_StopsAtAToolItCannotResolve(t *testing.T) {
 	}{
 		"cursor agent in its bundled node, inside Claude Code": {
 			fakeProcesses{table: chain("agnostic-ai", "/bin/zsh", "/Users/me/.local/share/cursor-agent/versions/1/node", "/bin/zsh", "claude", "/bin/zsh")},
-			env(nil), "Cursor terminal agent is not supported yet",
+			env(nil), "runs under Cursor, but its process 98 holds no chat",
 		},
 		"Claude Code with no session file, inside Codex": {
 			fakeProcesses{table: chain("agnostic-ai", "/bin/zsh", "claude", "/bin/zsh", "codex")},
@@ -146,7 +146,7 @@ func TestCurrentSession_StopsAtAToolItCannotResolve(t *testing.T) {
 		},
 		"Codex inside Codex with the outer thread's variable": {
 			fakeProcesses{table: chain("agnostic-ai", "/bin/zsh", "codex", "/bin/zsh", "codex"), held: map[string]int{locks[0]: 98, locks[1]: 96}},
-			env(map[string]string{"CODEX_THREAD_ID": idSide}), "CODEX_THREAD_ID names another thread",
+			env(map[string]string{"CODEX_THREAD_ID": idSide}), "CODEX_THREAD_ID names a thread that Codex process 98 does not hold",
 		},
 	} {
 		ref, _, err := CurrentSession(tc.processes, stores, tc.getenv, 100)

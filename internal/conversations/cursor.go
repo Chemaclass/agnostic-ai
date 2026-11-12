@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -106,16 +107,13 @@ LEFT JOIN replies r ON r.composerId = c.composerId AND r.fromEnd = 1
 LEFT JOIN cursorDiskKV fb ON fb.key = 'bubbleId:' || c.composerId || ':' || p.firstBubble
 LEFT JOIN cursorDiskKV lb ON lb.key = 'bubbleId:' || c.composerId || ':' || p.lastBubble`
 
+// scanCursor lists Cursor's editor chats and cursor-agent chats. A
+// machine may run cursor-agent with no editor, or with an editor whose
+// index predates the chat headers, so its chats are listed either way.
 func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult {
-	if _, err := os.Stat(s.Stores.CursorDB); err != nil {
-		return missing(ToolCursor, "No Cursor chat index at "+s.Stores.CursorDB)
-	}
-	headers, err := queryRows[cursorHeader](ctx, s.SQLite, s.Stores.CursorDB, cursorHeadersQuery)
-	if errors.Is(err, errNoSQLite) {
-		return missing(ToolCursor, "Reading Cursor chats needs the sqlite3 command")
-	}
+	headers, note, err := s.cursorHeaders(ctx)
 	if err != nil {
-		return missing(ToolCursor, "Could not read Cursor's chat index")
+		return missing(ToolCursor, "Reading Cursor chats needs the sqlite3 command")
 	}
 
 	open := s.cursorOpenChats(ctx, headers)
@@ -133,8 +131,29 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 			pending: &texts{title: header.Name},
 		})
 	}
-	all := append(within(editorChats, opts.Within), within(s.cursorAgentChats(ctx, folders, opts.Within), opts.Within)...)
-	return found(ToolCursor, all)
+	agentChats := s.cursorAgentChats(ctx, folders, opts.Within)
+	if note != "" && len(agentChats) == 0 {
+		return missing(ToolCursor, note)
+	}
+	result := found(ToolCursor, append(within(editorChats, opts.Within), within(agentChats, opts.Within)...))
+	result.source.Note = note
+	return result
+}
+
+// cursorHeaders reads the editor's chat headers. The note says why
+// there are none; the error is errNoSQLite, which stops every read.
+func (s *Scanner) cursorHeaders(ctx context.Context) (headers []cursorHeader, note string, err error) {
+	if _, err := os.Stat(s.Stores.CursorDB); err != nil {
+		return nil, "No Cursor chat index at " + s.Stores.CursorDB, nil
+	}
+	headers, err = queryRows[cursorHeader](ctx, s.SQLite, s.Stores.CursorDB, cursorHeadersQuery)
+	if errors.Is(err, errNoSQLite) {
+		return nil, "", err
+	}
+	if err != nil {
+		return nil, "Could not read Cursor's chat index", nil
+	}
+	return headers, "", nil
 }
 
 // fillPending reads the prompts of the page's Cursor editor chats, the
@@ -347,6 +366,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 	for _, root := range roots {
 		byHash[md5Hex(root)] = root
 	}
+	s.addCursorProjectFolders(byHash, stores)
 	if s.cursorAgents == nil {
 		s.cursorAgents = map[string]cached[cursorAgentMeta]{}
 		s.cursorTranscripts = map[string]cached[cursorAgentTexts]{}
@@ -593,4 +613,84 @@ func modTime(path string) string {
 		return ""
 	}
 	return newest.UTC().Format(time.RFC3339)
+}
+
+var cursorSlugGap = regexp.MustCompile(`[^A-Za-z0-9]+`)
+
+// cursorSlug is how cursor-agent names a folder's project under
+// ~/.cursor/projects: each run of other characters than letters and
+// digits becomes one hyphen.
+func cursorSlug(path string) string {
+	return strings.Trim(cursorSlugGap.ReplaceAllString(path, "-"), "-")
+}
+
+// cursorSlugReads bounds the folders read to turn one slug back into a
+// path, since a slug may match several.
+const cursorSlugReads = 64
+
+// addCursorProjectFolders adds to byHash the folders of the chats in
+// stores that it does not name yet. A slug cannot be turned back into a
+// path, so the folders that give it are found by walking down from the
+// root, and one is kept only when its hash names a chat's folder.
+func (s *Scanner) addCursorProjectFolders(byHash map[string]string, stores []string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	unknown := map[string]bool{}
+	for _, store := range stores {
+		if hash := filepath.Base(filepath.Dir(filepath.Dir(store))); byHash[hash] == "" {
+			unknown[hash] = true
+		}
+	}
+	if len(unknown) == 0 {
+		return
+	}
+	projects, _ := os.ReadDir(filepath.Join(s.Stores.CursorDir, "projects"))
+	if s.cursorSlugs == nil {
+		s.cursorSlugs = map[string][]string{}
+	}
+	for _, project := range projects {
+		slug := project.Name()
+		folders, ok := s.cursorSlugs[slug]
+		if !ok {
+			reads := cursorSlugReads
+			folders = slugFolders(string(filepath.Separator), slug, &reads)
+			s.cursorSlugs[slug] = folders
+		}
+		for _, folder := range folders {
+			if hash := md5Hex(folder); unknown[hash] {
+				byHash[hash] = folder
+			}
+		}
+	}
+}
+
+// slugFolders lists the folders under dir whose path below it gives
+// rest as a slug.
+func slugFolders(dir, rest string, reads *int) []string {
+	if rest == "" {
+		return []string{dir}
+	}
+	if *reads <= 0 {
+		return nil
+	}
+	*reads--
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var found []string
+	for _, entry := range entries {
+		name := cursorSlug(entry.Name())
+		after, ok := strings.CutPrefix(rest, name)
+		if name == "" || !ok || (after != "" && after[0] != '-') {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		if info, err := os.Stat(path); err != nil || !info.IsDir() {
+			continue
+		}
+		found = append(found, slugFolders(path, strings.TrimPrefix(after, "-"), reads)...)
+	}
+	return found
 }
