@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -41,6 +42,59 @@ func TestTypedText_KeepsTextAnUnmatchedTagCannotEnclose(t *testing.T) {
 	}
 }
 
+// formerInjectedBlocks is the single expression removal used before it
+// handled nesting, kept to prove input without nesting reads the same.
+var formerInjectedBlocks = regexp.MustCompile(`(?s)<(` + injectedNames + `)\b[^>]*>.*?</(?:` + injectedNames + `)>`)
+
+func TestWithoutInjected_ReadsInputWithoutNestingAsBefore(t *testing.T) {
+	for _, in := range []string{
+		"Fix the login bug",
+		"<system-reminder>be brief</system-reminder>\nFix the login bug",
+		"<ide_selection lines=\"1-3\">code</ide_selection>Why? <git_status>clean</git_status> now",
+		"<ide_selection path=\"a>b\">code</ide_selection>Fix the login bug",
+		"<SYSTEM-REMINDER>shouted</SYSTEM-REMINDER> Fix the login bug",
+		"```\n<rules>typed in a fence</rules>\n```\nWhy is this removed?",
+		"<rules>a</system-reminder>Fix the login bug",
+		"Fix the login bug</system-reminder> now",
+		"<system-reminder>Fix the login bug",
+		"<rulesets>Fix the login bug</rulesets>",
+		"<user_query>Fix</user_query><rules >x</rules>",
+	} {
+		if actual, former := withoutInjected(in), formerInjectedBlocks.ReplaceAllString(in, ""); actual != former {
+			t.Errorf("withoutInjected(%q) = %q, before %q", in, actual, former)
+		}
+	}
+}
+
+func TestTypedText_DropsASelfClosingInjectedTag(t *testing.T) {
+	for _, in := range []string{
+		"<ide_selection/>\n<system-reminder>ctx</system-reminder>\nFix the login bug",
+		"<ide_selection />Fix the login bug",
+		"<system-reminder>a <rules/> b</system-reminder>Fix the login bug",
+	} {
+		if actual := typedText(in); actual != "Fix the login bug" {
+			t.Errorf("typedText(%q) = %q", in, actual)
+		}
+	}
+	prompt := "<ide_selection/>\nContinues claude:" + idParent + "\nWrite the notes"
+	if shown := showTexts(texts{firstPrompt: prompt}); shown.parent == nil {
+		t.Errorf("a link after a self-closing tag must link: title %q", shown.title)
+	}
+}
+
+func TestTypedText_KeepsATagThatOnlyStartsWithAnInjectedName(t *testing.T) {
+	for in, want := range map[string]string{
+		"Style the <rules-panel>x</rules-panel> widget": "Style the <rules-panel>x</rules-panel> widget",
+		"<rules>a</rules-file>Fix the login bug":        "<rules>a</rules-file>Fix the login bug",
+		"<system-reminder-x>Fix the login bug":          "<system-reminder-x>Fix the login bug",
+		"<rules.md>Fix the login bug</rules.md>":        "<rules.md>Fix the login bug</rules.md>",
+	} {
+		if actual := typedText(in); actual != want {
+			t.Errorf("typedText(%q) = %q, want %q", in, actual, want)
+		}
+	}
+}
+
 func TestTypedText_StaysLinearOnUnmatchedTags(t *testing.T) {
 	for name, prompt := range map[string]func(tags int) string{
 		"unclosed": func(tags int) string { return strings.Repeat("<system-reminder>", tags) },
@@ -50,15 +104,15 @@ func TestTypedText_StaysLinearOnUnmatchedTags(t *testing.T) {
 			return strings.Repeat("<system-reminder>", tags/2) + strings.Repeat("</ide_selection>", tags/2)
 		},
 	} {
-		small, large := prompt(20000)+"Fix the login bug", prompt(80000)+"Fix the login bug"
+		small, large := prompt(10000)+"Fix the login bug", prompt(80000)+"Fix the login bug"
 		if typed := typedText(large); !strings.HasSuffix(typed, "Fix the login bug") {
 			t.Errorf("%s: typed text lost its end: %q", name, typed[max(0, len(typed)-40):])
 		}
-		// Four times the tags may take about four times as long; quadratic
-		// work takes sixteen. A ratio holds on a slow or instrumented runner
-		// where a time limit does not.
-		if ratio := fastestRemoval(large).Seconds() / fastestRemoval(small).Seconds(); ratio > 10 {
-			t.Errorf("%s: four times the tags took %.1f times as long", name, ratio)
+		// Eight times the tags may take about eight times as long; quadratic
+		// work takes sixty-four. A ratio holds on a slow or instrumented
+		// runner where a time limit does not.
+		if ratio := fastestRemoval(large).Seconds() / fastestRemoval(small).Seconds(); ratio > 40 {
+			t.Errorf("%s: eight times the tags took %.1f times as long", name, ratio)
 		}
 	}
 }

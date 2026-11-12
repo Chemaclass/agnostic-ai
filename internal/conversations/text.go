@@ -32,12 +32,13 @@ const (
 // person typed: editor context, reminders, command output.
 const injectedNames = `system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions`
 
-var injectedTag = regexp.MustCompile(`</?(` + injectedNames + `)\b[^>]*>`)
+var injectedTag = regexp.MustCompile(`</?(` + injectedNames + `)(?:[\s/][^>]*)?>`)
 
 // withoutInjected drops each outermost injected block whole, however
 // deep blocks nest. A tag closes the nearest open block of its name, or
-// the innermost one when none has it. An opening tag that never closes
-// and a closing tag with nothing open stay as text.
+// the innermost one when none has it. A self-closing tag is a block of
+// its own. An opening tag that never closes and a closing tag with
+// nothing open stay as text.
 func withoutInjected(text string) string {
 	type open struct {
 		start int
@@ -48,6 +49,10 @@ func withoutInjected(text string) string {
 	var blocks [][2]int
 	for _, tag := range injectedTag.FindAllStringSubmatchIndex(text, -1) {
 		name := text[tag[2]:tag[3]]
+		if text[tag[1]-2] == '/' {
+			blocks = append(blocks, [2]int{tag[0], tag[1]})
+			continue
+		}
 		if text[tag[0]+1] != '/' {
 			opened = append(opened, open{tag[0], name})
 			openNames[name]++
