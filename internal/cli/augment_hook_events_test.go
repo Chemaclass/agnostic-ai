@@ -154,3 +154,11 @@ func TestValidate_HookScopedToCursorSuggestsCursorsEvent(t *testing.T) {
 		t.Errorf("validate: %v\n%s", err, out)
 	}
 }
+
+func TestValidate_QuotesTheXTargetEventThatDecided(t *testing.T) {
+	augmentHookProject(t, "UserPromptSubmit", "x-augment:\n  event: PromptSubmt\n")
+	out, err := runRoot(t, "validate")
+	if err == nil || !strings.Contains(out, `"PromptSubmt"`) || strings.Contains(out, `"UserPromptSubmit"`) {
+		t.Errorf("validate: %v\n%s", err, out)
+	}
+}

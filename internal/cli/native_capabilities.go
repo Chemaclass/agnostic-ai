@@ -353,6 +353,18 @@ func hookTargetsFor(e spec.Entry, targets []string) []string {
 	return out
 }
 
+// overriddenHookEvent returns the first `x-<target>` event among
+// targets that differs from event, so a message quotes the value that
+// decided; event when no override sets one.
+func overriddenHookEvent(e spec.Entry, targets []string, event string) string {
+	for _, target := range targets {
+		if resolved, _ := adapters.ResolveMeta(e.Meta, target)["event"].(string); resolved != "" && resolved != event {
+			return resolved
+		}
+	}
+	return event
+}
+
 // knownHookEventFor reports whether one of targets knows the event the
 // hook writes there, after its `x-<target>` override, as sync reads it.
 func knownHookEventFor(e spec.Entry, targets []string) bool {

@@ -89,6 +89,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `memory import --skip <file>` and `--skip-rest` decline facts you do not want, and LINT043 stops counting them (#3235).
 - In the web interface's Built-ins tab, Details says what each built-in does when on and links RTK and Caveman to their official pages (#3261).
 - `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3262).
+- Behavior change: `validate` fails a hook scoped with `targets:` to a tool that does not know its event, such as `PreToolUse` scoped to Cursor. Before, `sync` wrote or dropped it silently. Use that tool's event name or an `x-<target>` event (#3348).
 
 #### Security
 

@@ -244,6 +244,7 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 		if knownHookEventFor(e, scoped) {
 			continue
 		}
+		event = overriddenHookEvent(e, scoped, event)
 		if target, canonical, ok := hookEventAlias(scoped, event); ok {
 			out = append(out, validationIssue{
 				Path:    e.Path,
@@ -263,7 +264,7 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 		out = append(out, validationIssue{
 			Path:    e.Path,
 			Field:   "event",
-			Message: "unknown hook event " + quote(event) + " for enabled targets " + commaList(scoped) + "; supported events: " + commaList(sortedKeys(allowed)),
+			Message: "unknown hook event " + quote(event) + " for targets " + commaList(scoped) + "; supported events: " + commaList(sortedKeys(allowed)),
 		})
 	}
 	return out
