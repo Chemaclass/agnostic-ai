@@ -8,6 +8,8 @@ Take the newest date from the latest completed local report, legacy `extra.audit
 
 Select the built-in baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`, then start a unique audit run using `scripts/target-audit/manifest.md`. Freeze the requested target-kind-URL set before fetching and use that run path below wherever `<date>-run` appears.
 
+Reuse the `scripts/audit-manifest` binary built for isolation, as `scripts/target-audit/manifest.md` describes. Give its absolute path to auditors and reuse it for coordinator commands. Ingest each completed structured target result instead of transcribing its individual source outcomes; keep manual recording for fast paths and older checkpoints.
+
 Initialize the run metrics before fetching, using `.agnostic-ai/skills/target-audit/references/metrics.md`. Record observed stages, routing decisions, usage, and outcomes there, including a no-change early return.
 
 Fetch once and capture the fetched evidence using `scripts/target-audit/manifest.md`. The fetch saves fresh bodies, comparison hashes and statuses against `scripts/target-audit/sources.lock`. Read its summary and failed rows before delegating. Fetch-only watcher runs do not need a manifest.

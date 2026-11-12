@@ -70,6 +70,8 @@ Use `None` when the batch produced no capability signals. The coordinator owns t
 `.agnostic-ai/skills/target-audit/references/capability-intelligence.md`
 for the detailed signal contract.
 
+After checkpointing the report, fill `<run>/<target>-result.json` using the `result-template` command in `scripts/target-audit/manifest.md`. Set every outcome and reason from reviewed evidence. Do not infer dispositions from fetch success. The coordinator alone runs `ingest`; it validates the complete record before saving coverage. Keep the report immutable.
+
 End with:
 
 ```

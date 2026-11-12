@@ -10,6 +10,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Target audits can start in an isolated worktree and retain evidence outside it, so concurrent checkout changes do not restart research (#3369).
 
+### Tooling
+
+- Target audits ingest a complete target result in one validated write and report recorded coverage and timings (#3370).
+
 ## v0.94.0 - 2026-11-12
 
 ### Highlights
