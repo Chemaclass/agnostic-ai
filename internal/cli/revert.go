@@ -56,18 +56,22 @@ func newRevertCmd() *cobra.Command {
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err
 			}
+			cfg, b, err := loadProject(".")
+			if err != nil {
+				return err
+			}
 			if dryRun {
 				readLedger(".").warnNewer()
 			} else {
-				lock, err := acquireLedgerLock(".", "revert")
+				// Not acquireLedgerLock: revert leaves .gitignore alone.
+				lock, err := openProjectLock(".", "revert")
 				if err != nil {
 					return err
 				}
 				defer func() { _ = lock.Close() }()
-			}
-			cfg, b, err := loadProject(".")
-			if err != nil {
-				return err
+				if err := readLedger(".").refuseNewer(); err != nil {
+					return err
+				}
 			}
 			base := targets
 			if len(base) == 0 {

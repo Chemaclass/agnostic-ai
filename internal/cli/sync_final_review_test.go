@@ -288,3 +288,45 @@ func TestSync_HealsAFileRecordedUnderAnotherCase(t *testing.T) {
 		t.Errorf("sync --check: %v\n%s", err, out)
 	}
 }
+
+// revert leaves .gitignore as it is, and in a folder with no config it
+// stops before creating anything.
+func TestRevertCmd_LeavesGitignoreAlone(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "node_modules/\n")
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
+
+	if out, err := runCLI(t, "revert", "--force"); err != nil {
+		t.Fatalf("revert: %v\n%s", err, out)
+	}
+
+	if got, _ := os.ReadFile(filepath.Join(dir, ".gitignore")); string(got) != "node_modules/\n" {
+		t.Errorf("revert must leave .gitignore alone, got:\n%s", got)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != "MINE\n" {
+		t.Errorf("revert must restore AGENTS.md, got %q", got)
+	}
+}
+
+func TestRevertCmd_WithoutAConfigCreatesNothing(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+
+	if _, err := runCLI(t, "revert"); err == nil {
+		t.Fatal("revert must stop without a config")
+	}
+
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		names := make([]string, len(entries))
+		for i, e := range entries {
+			names[i] = e.Name()
+		}
+		t.Errorf("revert must create nothing, found %v", names)
+	}
+}
