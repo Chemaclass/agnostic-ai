@@ -31,11 +31,55 @@ const (
 // person typed: editor context, reminders, command output.
 const injectedNames = `system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions`
 
-var injectedBlocks = regexp.MustCompile(`(?s)<(` + injectedNames + `)\b[^>]*>.*?</(?:` + injectedNames + `)>`)
-
-// injectedTag is an open or close tag of an injected block that removal
-// left behind: a block nested in another ends the match early.
 var injectedTag = regexp.MustCompile(`</?(` + injectedNames + `)\b[^>]*>`)
+
+// withoutInjected drops each outermost injected block whole, however
+// deep blocks nest. A tag closes the nearest open block of its name, or
+// the innermost one when none has it. An opening tag that never closes
+// and a closing tag with nothing open stay as text.
+func withoutInjected(text string) string {
+	type open struct {
+		start int
+		name  string
+	}
+	var opened []open
+	openNames := map[string]int{}
+	var blocks [][2]int
+	for _, tag := range injectedTag.FindAllStringSubmatchIndex(text, -1) {
+		name := text[tag[2]:tag[3]]
+		if text[tag[0]+1] != '/' {
+			opened = append(opened, open{tag[0], name})
+			openNames[name]++
+			continue
+		}
+		if len(opened) == 0 {
+			continue
+		}
+		var start int
+		for closed := false; !closed; {
+			top := opened[len(opened)-1]
+			opened = opened[:len(opened)-1]
+			openNames[top.name]--
+			start = top.start
+			closed = top.name == name || openNames[name] == 0
+		}
+		for len(blocks) > 0 && blocks[len(blocks)-1][0] >= start {
+			blocks = blocks[:len(blocks)-1]
+		}
+		blocks = append(blocks, [2]int{start, tag[1]})
+	}
+	if len(blocks) == 0 {
+		return text
+	}
+	var kept strings.Builder
+	end := 0
+	for _, block := range blocks {
+		kept.WriteString(text[end:block[0]])
+		end = block[1]
+	}
+	kept.WriteString(text[end:])
+	return kept.String()
+}
 
 // typedWrappers hold what the person typed: keep their content.
 var typedWrappers = regexp.MustCompile(`</?(user_query|command-name|command-args)\b[^>]*>`)
@@ -45,8 +89,7 @@ var spaceRun = regexp.MustCompile(`[ \t]+`)
 // typedLayout is what the person typed, without the blocks tools
 // inject, keeping its indentation for the credential check.
 func typedLayout(text string) string {
-	text = injectedBlocks.ReplaceAllString(text, "")
-	return typedWrappers.ReplaceAllString(text, " ")
+	return typedWrappers.ReplaceAllString(withoutInjected(text), " ")
 }
 
 // typedText is what the person typed, without the blocks tools inject.
