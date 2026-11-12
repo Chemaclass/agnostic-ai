@@ -224,6 +224,9 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			if entry.HiddenAt != "" || (c.untyped && entry.Title == "") {
 				continue
 			}
+			if c.Cloud != nil {
+				entry.SeenAt = laterStamp(entry.SeenAt, file.Marks[markKey(c.Tool, c.Cloud.ID)].SeenAt)
+			}
 			c.renamed = entry.Title
 			c.showChosenName()
 			c.State = stateOf(c, entry, since, now)
@@ -243,6 +246,14 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 		err = writeMarks(s.MarksPath, file)
 	}
 	return needsYou, err
+}
+
+// laterStamp is the later of two marks; an empty one is never later.
+func laterStamp(a, b string) string {
+	if parseStamp(b).After(parseStamp(a)) {
+		return b
+	}
+	return a
 }
 
 // overtaken reports whether something was written after a mark made at

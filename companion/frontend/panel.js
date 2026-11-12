@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, afterPage, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, PLACES, SHARED_TITLE, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -99,6 +99,7 @@ function drawPlaces() {
 const ICONS = {
   chevron: 'M2.5 1.5L5.5 4L2.5 6.5',
   complete: 'M3 8.5l3 3 7-7.5',
+  web: 'M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v4h-9v-9h4',
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
 }
 
@@ -165,7 +166,7 @@ function rowOf(conversation, order, folderNames, under) {
   row.setAttribute('role', 'option')
   row.setAttribute('aria-selected', String(key === state.activeKey))
   row.title = conversation.folder ? conversation.open.label + '\n' + conversation.folder : conversation.open.label
-  const described = [under && startedFromOf(under), conversation.folder && row.title].filter(Boolean)
+  const described = [under && startedFromOf(under), conversation.folder && row.title, conversation.cloud && SHARED_TITLE].filter(Boolean)
   if (described.length > 0) row.setAttribute('aria-description', described.join('\n'))
 
   const text = element('div', 'text')
@@ -189,6 +190,7 @@ function rowOf(conversation, order, folderNames, under) {
       meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
     }
     meta.append(detailsOf(conversation, now, folderNames))
+    if (conversation.cloud) meta.title = SHARED_TITLE
   }
   text.append(meta)
 
@@ -200,6 +202,8 @@ function rowOf(conversation, order, folderNames, under) {
   } else if (action === 'archive') {
     actions.append(actionButton('complete', 'Mark complete, until something new is written or it starts working', (button) => completeRow(conversation, row, button)))
   }
+  const page = cloudPageOf(conversation)
+  if (page) actions.prepend(actionButton('web', CLOUD_PAGE_LABEL, () => openRow(page)))
 
   row.append(stateMark(conversation), text, actions)
   row.addEventListener('click', () => openRow(conversation))
@@ -531,7 +535,7 @@ async function completeRow(conversation, row, button) {
 
 const rowMenu = document.getElementById('row-menu')
 const renameItem = document.getElementById('rename')
-const menuItems = { read: document.getElementById('mark-read'), rename: renameItem, delete: document.getElementById('delete') }
+const menuItems = { read: document.getElementById('mark-read'), rename: renameItem, delete: document.getElementById('delete'), web: document.getElementById('open-web') }
 /** The conversation the row menu was opened on. */
 let rowMenuFor
 
@@ -651,6 +655,12 @@ menuItems.read.addEventListener('click', () => {
   if (!conversation) return
   // Seen is the mark opening a chat sets, so the chat stays closed and a later write brings it back.
   markRow(conversation, 'seen')
+})
+menuItems.web.addEventListener('click', () => {
+  const conversation = rowMenuTarget('web')
+  closeRowMenu()
+  queryInput.focus()
+  if (conversation) openRow(cloudPageOf(conversation))
 })
 list.addEventListener('scroll', () => {
   if (!rowMenu.hidden) closeRowMenu()

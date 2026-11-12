@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, afterPage, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -345,4 +345,28 @@ test('joins a later search page after the rows read so far, keeping the later co
   assert.deepEqual(joined.conversations.map((r) => [r.id, r.state]), [['new', 'active'], ['old', 'active'], ['older', 'dormant']])
   assert.equal(joined.next, '2026-10-26T12:00:00Z')
   assert.equal(joined.matches, 3)
+})
+
+const shared = (id, state, extra = {}) =>
+  row(id, state, { app: 'cli', live: true, cloud: { id: 'cse_a1', link: 'https://claude.ai/code/session_a1' }, ...extra })
+
+test('says Shared for a local session that is also open on claude.ai', () => {
+  const now = Date.parse('2026-11-09T12:05:00Z')
+  assert.equal(detailsOf(shared('a', 'active', { folder: '/tmp/app' }), now), 'Claude Code · Shared · app · 5m')
+})
+
+test('a shared row shows under Local and under Cloud, and counts once in each', () => {
+  const view = { needsYou: 2, conversations: [shared('a', 'blocked'), row('b', 'unread', { app: 'cloud' }), row('c', 'active', { app: 'cli' })] }
+  assert.deepEqual(viewIn(view, 'local').conversations.map((r) => r.id), ['a', 'c'])
+  assert.deepEqual(viewIn(view, 'cloud').conversations.map((r) => r.id), ['a', 'b'])
+  assert.equal(viewIn(view, 'local').needsYou, 1)
+  assert.equal(viewIn(view, 'cloud').needsYou, 2)
+})
+
+test('offers Open on claude.ai only on a shared row, and names its cloud session', () => {
+  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'web'])
+  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'web'])
+  assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename'])
+  assert.deepEqual(cloudPageOf(shared('a', 'active')), { tool: 'claude', id: 'cse_a1' })
+  assert.equal(cloudPageOf(row('a', 'active')), undefined)
 })

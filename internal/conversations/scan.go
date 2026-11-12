@@ -202,6 +202,9 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 			if c.Tool == tool && c.ID == id {
 				return c, true
 			}
+			if c.Cloud != nil && c.Tool == tool && c.Cloud.ID == id {
+				return *c.Cloud.row, true
+			}
 		}
 	}
 	return Conversation{}, false
@@ -212,7 +215,7 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
 	claude := readAt(s.Now(), s.scanClaude(ctx, opts))
 	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
-	claude.conversations = append(claude.conversations, claudeCloud...)
+	claude.conversations = shareCloud(append(claude.conversations, claudeCloud...))
 	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })
 	codexCloud, codexNote := s.cloudRows(ctx, opts, ToolCodex, s.CodexCloud)
 	codex.conversations = append(codex.conversations, codexCloud...)

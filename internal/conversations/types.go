@@ -155,8 +155,11 @@ type Conversation struct {
 	DeleteUnsupported string `json:"deleteUnsupported,omitempty"`
 	// Parent is the conversation this one continues, read from the link
 	// line of its own first prompt. The parent may be on no page.
-	Parent *Ref  `json:"parent,omitempty"`
-	Open   Route `json:"open"`
+	Parent *Ref `json:"parent,omitempty"`
+	// Cloud is the claude.ai session that shows this live local one too,
+	// with Remote Control on. Its cloud row is not listed apart.
+	Cloud *CloudRef `json:"cloud,omitempty"`
+	Open  Route     `json:"open"`
 
 	// process is the live process that holds it, for a focus route.
 	process *liveProcess
@@ -188,6 +191,8 @@ type Conversation struct {
 	// pending holds what fill still needs once the row lands on a page,
 	// for a store whose prompts are read only for the rows shown.
 	pending *texts
+	// bridge is the Remote Control id a live Claude Code session wrote.
+	bridge string
 	// pendingReply is a reply whose credential check waits for a page,
 	// for a store that lists thousands of rows with their replies.
 	pendingReply *texts
@@ -197,6 +202,14 @@ type Conversation struct {
 type Ref struct {
 	Tool Tool   `json:"tool"`
 	ID   string `json:"id"`
+}
+
+// CloudRef is a cloud session a local row also stands for, and its page.
+type CloudRef struct {
+	ID   string `json:"id"`
+	Link string `json:"link"`
+	// row is the cloud row the local one took in, which opens on claude.ai.
+	row *Conversation
 }
 
 // liveProcess is a running process that has a conversation open.
