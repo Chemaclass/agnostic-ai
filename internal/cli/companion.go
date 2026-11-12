@@ -679,7 +679,7 @@ func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir,
 	if err := startInstalledCompanion(tools, installed); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintln(out, "The companion is on your screen. Its ⋯ menu pauses it or quits it, and a click or its shortcut wakes it. `agnostic-ai companion stop` ends it.")
+	_, _ = fmt.Fprintln(out, "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.")
 	if builtFor := tools.builtFor(ctx, installed); builtFor != version {
 		_, _ = fmt.Fprintf(out, "! It was built for agnostic-ai %q and this is %s. Build it again with: agnostic-ai companion install\n", builtFor, version)
 	}
@@ -698,8 +698,8 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			"Claude Code, Codex and Cursor conversations that wait for you, with a searchable " +
 			"list that opens each one where it lives. It asks a server of its own, " +
 			"`agnostic-ai serve --global`, which it starts when it needs a list and stops when " +
-			"you pause it. The companion is built on your machine first, with " +
-			"`agnostic-ai companion install`. Starting it again wakes a paused companion. " +
+			"it quits. The companion is built on your machine first, with " +
+			"`agnostic-ai companion install`. Starting it again brings back a hidden companion. " +
 			"`agnostic-ai companion stop` ends it and `agnostic-ai companion uninstall` removes it.",
 		Example: `  # Build the companion for this machine, once and after each upgrade
   agnostic-ai companion install

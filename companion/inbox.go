@@ -60,24 +60,9 @@ func (in *inbox) start() {
 	if in.stopPoll != nil {
 		return
 	}
-	// What a page asked while the companion was paused is no news now: a
-	// failure, or a list that answered after the pause. The first list
-	// after a start is a new read.
-	in.latest, in.tag, in.problem = nil, "", ""
 	ctx, stop := context.WithCancel(context.Background())
 	in.stopPoll = stop
 	go in.poll(ctx)
-}
-
-// stop ends the asking and forgets the list, so the next start reads a new one.
-func (in *inbox) stop() {
-	in.mu.Lock()
-	defer in.mu.Unlock()
-	if in.stopPoll != nil {
-		in.stopPoll()
-		in.stopPoll = nil
-	}
-	in.latest, in.tag, in.problem = nil, "", ""
 }
 
 func (in *inbox) poll(ctx context.Context) {
@@ -103,7 +88,6 @@ func (in *inbox) read(ctx context.Context) {
 	in.mu.Unlock()
 	answer, err := in.server.call(ctx, http.MethodGet, serverListPath, nil, held)
 	if ctx.Err() != nil {
-		// Stopped meanwhile: stop has already forgotten the list.
 		return
 	}
 	if err == nil && answer.status == http.StatusNotModified {
@@ -129,6 +113,13 @@ func errorOf(answer reply) string {
 		return "agnostic-ai answered " + http.StatusText(answer.status) + "."
 	}
 	return refused.Error
+}
+
+// held is the latest list; nil when none is.
+func (in *inbox) held() json.RawMessage {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+	return in.latest
 }
 
 func (in *inbox) refreshSoon() {

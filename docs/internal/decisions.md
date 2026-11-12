@@ -151,3 +151,13 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 **Decision:** Hide becomes **Pause Agnostic AI companion**. The circle stays where it is at 10% opacity, also under the pointer, with no count and no arc. The companion's server stops and nothing polls, as before. A click on the circle, the shortcut or a second start wakes it with a new read. The paused state is not saved, so a restart starts awake.
 
 **Why:** Pause is kept apart from Dim when idle. Dim is a saved setting that fades to 55% while nothing needs you and keeps watching. Pause is the off mode you can still see and click: it costs no reads. "Pause" names a state that lasts until you resume it, and it carries the companion's name so nobody reads it as pausing the agents.
+
+## 015: Hide replaces Pause, comes back dimmed, and Quit asks
+
+**Date:** 2026-11-12
+
+**Context:** Pause (014) left a faint circle on the screen, so it did not get the companion out of the way, and Quit ended the program, so the shortcut no longer brought it back ([#3344](https://github.com/Chemaclass/agnostic-ai/issues/3344)).
+
+**Decision:** The companion has one presence state: shown, hidden or back dimmed. **Hide Agnostic AI companion** takes the circle and the list off the screen; the program keeps running and reading. Its label names the way back: the shortcut's keys, or `agnostic-ai companion` while the shortcut is not active. The shortcut, `agnostic-ai companion` or opening the app again shows the circle where it was, at full color, with the list. While hidden, a conversation that starts waiting brings the circle back at 25% with its count, without the list or the keys; a click or the shortcut brings back full color. The presence is never saved. **Quit** in either menu asks first, in the list, with Quit, Hide instead and Cancel; `stop`, install, upgrade, uninstall and logout never ask.
+
+**Why:** A hidden companion that reads can call the person back when it matters, which 014's problem (a forgotten shortcut) needed. "Starts waiting" compares the waiting conversations of each list with the previous one, by tool and id; the list holds every waiting one of any age. A count alone would miss one conversation that starts waiting while another stops. Two lists are compared only when they could not read the same things (marks, cloud sessions, each tool's store): a list that read more becomes the new baseline instead of news, and a standing note, such as no claude.ai sign-in, still lets a new wait through. Quit asks because it is the only menu entry the shortcut cannot undo.

@@ -79,11 +79,11 @@ type Scanner struct {
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
 	cursorAgents      map[string]cached[cursorAgentMeta]
-	cursorTranscripts map[string]cached[cursorAgentTexts]
+	cursorTranscripts map[string]cached[texts]
 	// cursorSlugs caches the folders each cursor-agent project slug
 	// gives, since finding them reads folders from the root down.
 	cursorSlugs   map[string][]string
-	cursorPrompts map[string]cached[cursorPrompts]
+	cursorPrompts map[string]cached[texts]
 	shown         shownCache
 	keptSources   map[Tool]keptSource
 	keptClouds    map[Tool]*keptCloud

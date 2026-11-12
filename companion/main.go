@@ -7,6 +7,7 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
@@ -85,6 +86,8 @@ const (
 	eventPreferences = "preferences"
 	// eventSettingsShown says the panel opened on its settings; its data is the corner nearest the bubble.
 	eventSettingsShown = "settings-shown"
+	// eventQuitAsked says the panel opened on the question whether to quit; its data is the corner nearest the bubble.
+	eventQuitAsked = "quit-asked"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -92,6 +95,11 @@ const (
 // click itself takes the focus, the panel hides first and the click
 // arrives after; without the guard it would open again.
 const reopenGuard = 250 * time.Millisecond
+
+// returnSettle is how long after a hidden companion comes back the
+// circle's moves leave its list open: the window system may still be
+// placing it.
+const returnSettle = 500 * time.Millisecond
 
 // savePause is how long the bubble must rest before its place is saved.
 const savePause = 500 * time.Millisecond
@@ -106,6 +114,8 @@ type shell struct {
 
 	settingsPath string
 
+	// screens lists the displays.
+	screens func() []*application.Screen
 	// shortcuts takes and gives back the keys that open the list from anywhere.
 	shortcuts shortcuts
 	// login is the system's start at login setting.
@@ -114,13 +124,22 @@ type shell struct {
 	tellPreferences func(preferences)
 	end             func()
 	endOnce         sync.Once
-	// pausing keeps a pause and a wake from interleaving their server and
-	// poll changes.
-	pausing sync.Mutex
+	// placing keeps two presence changes from interleaving their window
+	// changes. It guards hiddenAt and waitingSeen.
+	placing sync.Mutex
+	// hiddenAt is where the circle was when it was hidden.
+	hiddenAt point
+	// waitingSeen is what waited in the last list read; known is false
+	// until one was read.
+	waitingSeen      waiting
+	waitingSeenKnown bool
 	// native holds the right-click menu's items by their id in menu.json.
 	// nativeMu keeps two refreshes from interleaving.
 	native   map[string]*application.MenuItem
 	nativeMu sync.Mutex
+	// hideBase is the Hide item's label in menu.json, before the way back.
+	// nativeMu guards it too.
+	hideBase string
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -133,42 +152,101 @@ type shell struct {
 	// hiddenByFocusAt is when the panel last hid because it lost focus.
 	hiddenByFocusAt time.Time
 	save            *time.Timer
-	// paused is set while the circle is faded: only the shortcut and
-	// the circle listen then, and nothing reads or asks anything.
-	paused bool
+	// presence is how the companion sits on the screen; the zero value is shown.
+	presence presence
+	// shownAgainAt is when a hidden companion last came back.
+	shownAgainAt time.Time
 }
 
-// pause fades the circle, closes the list and stops the server, until
-// a click, the shortcut or a second start wakes it.
-func (s *shell) pause() {
-	s.setPaused(true)
-	s.panel.Hide()
-}
-
-// setPaused stops or starts the reading and tells the pages. It reports
-// whether the state changed.
-func (s *shell) setPaused(on bool) bool {
-	s.pausing.Lock()
-	defer s.pausing.Unlock()
+// presenceNow is the companion's presence, shown before any change.
+func (s *shell) presenceNow() presence {
 	s.mu.Lock()
-	changed := s.paused != on
-	s.paused = on
-	looks := s.settings.appearance()
-	looks.Paused = on
-	s.mu.Unlock()
-	if !changed {
+	defer s.mu.Unlock()
+	return s.presenceLocked()
+}
+
+func (s *shell) presenceLocked() presence {
+	if s.presence == "" {
+		return shown
+	}
+	return s.presence
+}
+
+// hide takes the circle and the list off the screen, until the shortcut
+// or a second start brings them back, or something new waits.
+func (s *shell) hide() {
+	s.setPresence(hidden)
+}
+
+// setPresence puts the windows where to says and tells the pages. It
+// reports whether the presence changed.
+func (s *shell) setPresence(to presence) bool {
+	return s.changePresence("", to)
+}
+
+// changePresence is setPresence, only while the presence is from; an
+// empty from means any.
+func (s *shell) changePresence(from, to presence) bool {
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	s.mu.Lock()
+	was := s.presenceLocked()
+	if was == to || (from != "" && was != from) {
+		s.mu.Unlock()
 		return false
 	}
-	if on {
-		s.inbox.stop()
-		s.restBriefly()
-	} else {
-		s.server.resume()
-		s.inbox.start()
+	s.presence = to
+	if was == hidden {
+		s.shownAgainAt = time.Now()
 	}
+	looks := s.settings.appearance()
+	looks.Presence = to
+	s.mu.Unlock()
 	s.tell(looks)
+	switch {
+	case to == hidden:
+		x, y := s.bubble.Position()
+		s.hiddenAt = point{X: x, Y: y}
+		s.panel.Hide()
+		s.bubble.Hide()
+	case was == hidden:
+		s.bubble.Show()
+		s.placeReturningBubble()
+	}
 	s.refreshNative()
 	return true
+}
+
+// placeReturningBubble puts a circle shown again where it was hidden.
+// Some window systems place a window again when it shows; a place no
+// screen shows any more, such as on a display unplugged meanwhile,
+// gives way to the default one.
+func (s *shell) placeReturningBubble() {
+	areas := s.workAreas()
+	if len(areas) > 0 && !onScreen(rect{X: s.hiddenAt.X, Y: s.hiddenAt.Y, Width: bubbleSide, Height: bubbleSide}, areas) {
+		x, y := defaultBubblePosition(areas[0], bubbleSide)
+		s.bubble.SetPosition(x, y)
+		return
+	}
+	if x, y := s.bubble.Position(); x != s.hiddenAt.X || y != s.hiddenAt.Y {
+		s.bubble.SetPosition(s.hiddenAt.X, s.hiddenAt.Y)
+	}
+}
+
+// listRead notes what waits in a new list. While hidden, something new
+// waiting brings the circle back faded, without the list or the keys.
+func (s *shell) listRead(list json.RawMessage) {
+	now, ok := waitingIn(list)
+	if !ok {
+		return
+	}
+	s.placing.Lock()
+	before, known := s.waitingSeen, s.waitingSeenKnown
+	s.waitingSeen, s.waitingSeenKnown = now, true
+	s.placing.Unlock()
+	if known && now.gained(before) {
+		s.changePresence(hidden, fadedBack)
+	}
 }
 
 // quitRestWait is how long the companion waits for its server to stop
@@ -195,10 +273,46 @@ func (s *shell) quit() {
 	s.endOnce.Do(s.end)
 }
 
-// comeBack wakes a paused companion and reads a new list. It reports
-// whether the companion was paused.
+// comeBack puts a hidden or faded companion back at full color. It
+// reports whether it was hidden or faded.
 func (s *shell) comeBack() bool {
-	return s.setPaused(false)
+	return s.setPresence(shown)
+}
+
+// secondStart answers a companion started while this one runs, which
+// hands over its arguments and ends.
+func (s *shell) secondStart(second application.SecondInstanceData) {
+	switch asked(second.Args) {
+	case askQuit:
+		s.quit()
+	case askLoginOff:
+		// The companion that asked ended inside New and cannot do it.
+		if err := s.changeStartAtLogin(false); err != nil {
+			log.Print(err)
+		}
+	case askLoginOn:
+		if err := s.changeStartAtLogin(true); err != nil {
+			log.Print(err)
+		}
+	default:
+		s.bringBack()
+	}
+}
+
+// bringBack shows the companion at full color and opens its list.
+func (s *shell) bringBack() {
+	s.comeBack()
+	s.showPanel()
+}
+
+// appReopened answers macOS reopening the running app, from Finder or
+// `open`. Wails would show the hidden windows itself, behind the shell's back.
+func (s *shell) appReopened(cancel func()) {
+	if s.presenceNow() == shown {
+		return
+	}
+	cancel()
+	go s.bringBack()
 }
 
 // togglePanel answers a click on the bubble and the shortcut.
@@ -260,11 +374,11 @@ const screensWait = 2 * time.Second
 // the primary screen first. It is empty when none was listed in time.
 func (s *shell) workAreas() []rect {
 	deadline := time.Now().Add(screensWait)
-	for len(s.app.Screen.GetAll()) == 0 && time.Now().Before(deadline) {
+	for len(s.screens()) == 0 && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	var primary, others []rect
-	for _, screen := range s.app.Screen.GetAll() {
+	for _, screen := range s.screens() {
 		work := rect{X: screen.WorkArea.X, Y: screen.WorkArea.Y, Width: screen.WorkArea.Width, Height: screen.WorkArea.Height}
 		if screen.IsPrimary {
 			primary = append(primary, work)
@@ -296,7 +410,11 @@ func (s *shell) placeBubble(saved *point) {
 // bubbleMoved closes the panel, which no longer sits beside the bubble,
 // and saves the bubble's new place once it rests.
 func (s *shell) bubbleMoved() {
-	if s.panel.IsVisible() {
+	s.mu.Lock()
+	settled := time.Since(s.shownAgainAt) >= returnSettle
+	s.mu.Unlock()
+	// A circle shown again can report moves after the list opened beside it.
+	if settled && s.panel.IsVisible() {
 		s.panel.Hide()
 	}
 	s.mu.Lock()
@@ -344,10 +462,10 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	// Unlike toggle, show skips the reopen guard: the page hid the panel itself.
-	// The page asks after an open fails, which can come long after a pause;
-	// only a click, the shortcut or a second start wakes the companion.
+	// The page asks after an open fails, which can come long after a hide;
+	// only the shortcut or a second start brings it back.
 	mux.HandleFunc("POST /api/panel/show", func(w http.ResponseWriter, _ *http.Request) {
-		if s.appearance().Paused {
+		if s.presenceNow() != shown {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -361,9 +479,9 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/appearance/animate", s.setAppearanceSwitch(s.setAnimate))
 	mux.HandleFunc("POST /api/appearance/dim-when-idle", s.setAppearanceSwitch(s.setDimWhenIdle))
 	mux.HandleFunc("POST /api/dashboard", dashboard)
-	mux.HandleFunc("POST /api/pause", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-		s.pause()
+		s.hide()
 	})
 	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -429,6 +547,7 @@ func main() {
 	s := &shell{settingsPath: path, settings: saved, server: newServer()}
 	s.inbox = newInbox(s.server, version, func() {
 		s.app.Event.Emit(eventInbox)
+		s.listRead(s.inbox.held())
 	})
 	s.tell = func(looks appearance) {
 		s.app.Event.Emit(eventAppearance, looks)
@@ -445,25 +564,8 @@ func main() {
 		// One companion at a time. Starting it again brings back the one
 		// that runs and opens its list, instead of a second circle.
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: instanceID,
-			OnSecondInstanceLaunch: func(second application.SecondInstanceData) {
-				switch asked(second.Args) {
-				case askQuit:
-					s.quit()
-				case askLoginOff:
-					// The companion that asked ended inside New and cannot do it.
-					if err := s.changeStartAtLogin(false); err != nil {
-						log.Print(err)
-					}
-				case askLoginOn:
-					if err := s.changeStartAtLogin(true); err != nil {
-						log.Print(err)
-					}
-				default:
-					s.comeBack()
-					s.showPanel()
-				}
-			},
+			UniqueID:               instanceID,
+			OnSecondInstanceLaunch: s.secondStart,
 		},
 	})
 	s.end = s.app.Quit
@@ -484,6 +586,7 @@ func main() {
 		return
 	}
 
+	s.screens = s.app.Screen.GetAll
 	s.shortcuts = s.app.GlobalShortcut
 	s.login = s.app.Autostart
 	s.tellPreferences = func(prefs preferences) {
@@ -514,6 +617,9 @@ func main() {
 	s.bubble.OnWindowEvent(events.Common.WindowDidMove, func(*application.WindowEvent) { s.bubbleMoved() })
 	s.panel.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) { s.panelLostFocus() })
 
+	s.app.Event.RegisterApplicationEventHook(events.Mac.ApplicationShouldHandleReopen, func(event *application.ApplicationEvent) {
+		s.appReopened(event.Cancel)
+	})
 	s.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		s.placeBubble(saved.Bubble)
 		watchPointer(s.bubble.NativeWindow(), func(over bool) {

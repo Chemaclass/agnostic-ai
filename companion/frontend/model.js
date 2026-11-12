@@ -98,8 +98,9 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-/** What Escape closes: a delete confirmation, then the row menu, then a rename, then the settings menu, then the panel. */
-export function escapeTarget({ deleteConfirmOpen, rowMenuOpen, renaming, settingsOpen }) {
+/** What Escape closes: the quit question, then a delete confirmation, then the row menu, then a rename, then the settings menu, then the panel. */
+export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, rowMenuOpen, renaming, settingsOpen }) {
+  if (quitConfirmOpen) return 'quit-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
   if (rowMenuOpen) return 'row-menu'
   if (renaming) return 'rename'
@@ -478,11 +479,21 @@ export function keycapsOf(shortcut, isMac) {
 const MENU_KINDS = new Set(['switch', 'shortcut', 'action'])
 
 /**
+ * The Hide item's label with what brings the companion back: the shortcut while it works,
+ * otherwise the command. The shell's hideLabel says the same in the right-click menu.
+ */
+export function hideLabelOf(label, preferences, isMac) {
+  const way = preferences.shortcutProblem ? 'agnostic-ai companion' : keycapsOf(preferences.shortcut, isMac).join(isMac ? '' : '+')
+  return `${label} (${way} brings it back)`
+}
+
+/**
  * The settings menu's rows, from menu.json and the shell's two replies:
  * {id, label, kind, hint?, value}. A switch's value is its
  * entry in the appearance or the preferences; the shortcut's is its keys.
+ * Hide's label names the way back.
  */
-export function menuRowsOf(items, { preferences, appearance }) {
+export function menuRowsOf(items, { preferences, appearance }, isMac = false) {
   const values = { ...appearance, ...preferences }
   return items.map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
@@ -492,6 +503,7 @@ export function menuRowsOf(items, { preferences, appearance }) {
       value = values[item.id]
     }
     if (item.kind === 'shortcut') value = preferences.shortcut
+    if (item.id === 'hide') return { ...item, label: hideLabelOf(item.label, preferences, isMac), value }
     return { ...item, value }
   })
 }

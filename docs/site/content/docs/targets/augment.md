@@ -84,6 +84,7 @@ Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported event
 - `args` is written as its own array, and Auggie runs the command with those arguments and no shell. A command without `args` runs as written: Auggie 1.x hands it to a shell, and 0.x splits it into words or runs it with `bash -c` when it has shell syntax.
 - `matcher` is optional on `PreToolUse` and `PostToolUse` (vendor default `.*`) and left out on `Stop`, `SessionStart`, `SessionEnd`, `PromptSubmit`, and `Notification`, which take none; `sync` prints a note when it leaves one out.
 - Matchers use Augment's tool names (`launch-process`, `str-replace-editor`, `save-file`, ...). A Claude-style matcher (`Bash`, `Write`, ...) matches nothing and raises a sync note.
+- Only `PreToolUse` stops a tool: exit 2 or `permissionDecision: "deny"`. A `PostToolUse` `decision: "block"` sends its reason to the agent; the tool has already run. `Stop` blocks in Auggie 0.x only; Auggie 1.x runs `Stop`, `SessionStart`, `SessionEnd`, `PromptSubmit`, and `Notification` hooks in the background, where a block reply does nothing. `hook run` reports block on `PostToolUse` and `Stop`, with a note on `Stop`, and reads a block reply on the other four as allow, with a note.
 
 ### Shared memory
 
