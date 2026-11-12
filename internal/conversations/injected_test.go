@@ -258,3 +258,26 @@ func BenchmarkCursorTyped(b *testing.B) {
 		}
 	}
 }
+
+func TestTypedText_KeepsATagThatOnlyStartsWithAWrapperName(t *testing.T) {
+	for in, want := range map[string]string{
+		"<command-name-x>/review</command-name-x>":            "<command-name-x>/review</command-name-x>",
+		"<user_query-notes>Fix the login bug":                 "<user_query-notes>Fix the login bug",
+		"<user_query.md>Fix the login bug":                    "<user_query.md>Fix the login bug",
+		"<command-name>/review</command-name>":                "/review",
+		"<user_query id=\"1\">Fix the login bug</user_query>": "Fix the login bug",
+	} {
+		if actual := typedText(in); actual != want {
+			t.Errorf("typedText(%q) = %q, want %q", in, actual, want)
+		}
+	}
+}
+
+func TestLinkOf_ReadsALinkLineOnlyInsideAWrapper(t *testing.T) {
+	if _, _, ok := linkOf("<user_query-x>Continues claude:" + idSafari + "\nGo on</user_query-x>"); ok {
+		t.Error("a tag that only starts with a wrapper name is text, so the line is not first")
+	}
+	if ref, _, ok := linkOf("<user_query>Continues claude:" + idSafari + "\nGo on</user_query>"); !ok || ref.ID != idSafari {
+		t.Errorf("ref %+v ok %v", ref, ok)
+	}
+}

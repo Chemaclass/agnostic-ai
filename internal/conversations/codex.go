@@ -86,11 +86,6 @@ FROM (SELECT p.thread_id AS thread_id,
 JOIN thread_items a ON a.thread_id = latest.thread_id AND a.rollout_ordinal = latest.ordinal`
 }
 
-// codexSaid is the part of an agent message a row keeps.
-type codexSaid struct {
-	reply, question string
-}
-
 func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult {
 	statePath := newestNumbered(s.Stores.CodexDir, codexStatePattern)
 	if statePath == "" {
@@ -341,8 +336,8 @@ const codexReplyBatch = 500
 // is a query of its own, so a history store it cannot read still shows
 // the prompts. threads are ids that passed sessionIDPattern, so they
 // are safe inside the query.
-func (s *Scanner) codexLastReplies(ctx context.Context, threads []string) (map[string]codexSaid, error) {
-	replies := map[string]codexSaid{}
+func (s *Scanner) codexLastReplies(ctx context.Context, threads []string) (map[string]texts, error) {
+	replies := map[string]texts{}
 	historyPath := newestNumbered(s.Stores.CodexDir, codexHistoryPattern)
 	if historyPath == "" {
 		return replies, nil
@@ -353,9 +348,8 @@ func (s *Scanner) codexLastReplies(ctx context.Context, threads []string) (map[s
 			return replies, fmt.Errorf("read Codex's latest replies from %s: %w", filepath.Base(historyPath), err)
 		}
 		for _, row := range rows {
-			reply, question := agentSaid(row.Start, row.wholeLines(), row.Asked)
-			if reply != "" || question != "" {
-				replies[row.ThreadID] = codexSaid{reply: reply, question: question}
+			if reply, question := row.said(row.Asked); reply != "" || question != "" {
+				replies[row.ThreadID] = texts{reply: reply, question: question}
 			}
 		}
 	}

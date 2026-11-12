@@ -139,3 +139,82 @@ func BenchmarkCursorPromptsQuery(b *testing.B) {
 		}
 	}
 }
+
+// benchSearchChats is a heavy Cursor user's editor chat count.
+const benchSearchChats = 5000
+
+// benchCursorPrompts is what the prompts query returns for one chat:
+// wrapped prompts and a long reply cut to its two ends.
+func benchCursorPrompts(n int) cursorPrompts {
+	prompt := func(text string) string {
+		return "<timestamp>Friday, Nov 7, 2025, 8:00 AM</timestamp>\n<user_query>" + text + "</user_query>"
+	}
+	reply := strings.Repeat("The cookie was dropped on the redirect, so I changed SameSite and added a test. ", 60)
+	return cursorPrompts{
+		ID:    fmt.Sprintf("chat%05d", n),
+		First: prompt(fmt.Sprintf("Fix the login bug %d", n)),
+		Last:  prompt("Now add a test for the redirect"),
+		replyEnds: replyEnds{
+			Start:  reply[:replyCheckedBytes+1],
+			Ending: reply[len(reply)-replyCheckedBytes-1:] + "\n\nShould I also update the docs?",
+			Length: len(reply) + 32,
+		},
+	}
+}
+
+// BenchmarkCursorSearchTexts times the part of a search that turns each
+// pending editor chat's cached store texts into the texts a prefilter
+// reads, over that many chats: from the raw ends the cache holds now
+// (status quo), from texts computed once when cached (proposed), and
+// from the store with no cache (uncached; its texts are shorter).
+func BenchmarkCursorSearchTexts(b *testing.B) {
+	words := queryWords("redirect docs")
+	raw := map[string]cursorPrompts{}
+	computed := map[string]texts{}
+	ids := make([]string, benchSearchChats)
+	for n := range ids {
+		row := benchCursorPrompts(n)
+		ids[n] = row.ID
+		raw[row.ID] = row
+		computed[row.ID] = withPrompts(texts{}, row)
+	}
+	c := Conversation{Tool: ToolCursor, App: AppIDE, Folder: "/tmp/app"}
+	search := func(t texts) bool {
+		return holdsAll(searchText(c, t.title, t.firstPrompt+"\n"+t.lastPrompt, replySearched(t)), words)
+	}
+	b.Run("status_quo", func(b *testing.B) {
+		for b.Loop() {
+			for _, id := range ids {
+				search(withPrompts(texts{title: "Chat"}, raw[id]))
+			}
+		}
+	})
+	b.Run("proposed", func(b *testing.B) {
+		for b.Loop() {
+			for _, id := range ids {
+				t := computed[id]
+				t.title = "Chat"
+				search(t)
+			}
+		}
+	})
+	b.Run("uncached", func(b *testing.B) {
+		path, _ := cursorBenchStore(b, benchSearchChats, 30)
+		for b.Loop() {
+			for start := 0; start < len(ids); start += cursorPromptBatch {
+				batch := ids[start:min(start+cursorPromptBatch, len(ids))]
+				values := make([]string, len(batch))
+				for i, id := range batch {
+					values[i] = "('" + id + "')"
+				}
+				rows, err := queryRows[cursorPrompts](context.Background(), RunSQLite, path, fmt.Sprintf(cursorPromptsQuery, strings.Join(values, ",")))
+				if err != nil || len(rows) != len(batch) {
+					b.Fatalf("%d rows: %v", len(rows), err)
+				}
+				for _, row := range rows {
+					search(withPrompts(texts{title: "Chat"}, row))
+				}
+			}
+		}
+	})
+}

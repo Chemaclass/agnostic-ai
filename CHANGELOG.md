@@ -55,6 +55,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Rename a chat from the companion's right-click menu; the web interface and a running chat's Terminal or Ghostty tab show the new name (#3236, #3258).
 - Chat titles show what you typed, without the tags Cursor and other tools add, even when one tag holds another (#3241, #3339, #3349).
+- A tag that only starts with a wrapper name, such as `<command-name-x>`, now stays in the shown prompt (#3352).
 - The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
 - A silent local Codex chat shows "No activity for 7m", not "Waiting for you", in the companion and the web interface; the API sets `quietSince` (#3251).
 - An archived or hidden chat that starts working again moves back to Working (#3239).
@@ -99,6 +100,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Augment
 
 - `sync` skips a hook on an event Auggie never fires, such as `UserPromptSubmit`, with a note that names `x-augment: {event: PromptSubmit}`, instead of writing it to `.augment/settings.json`. `validate` now reads each target's `x-<target>` event, so it accepts that override and rejects a hook whose targets all lack its event (#3348).
+- `hook run` reads a block reply on `SessionStart`, `SessionEnd`, `PromptSubmit` and `Notification` as allow, with a note, since Auggie runs those hooks in the background and cannot block them (#3346).
 - `hook run` builds Augment `PromptSubmit` from `--prompt`, and `Stop`, `SessionEnd` and `Notification` with no flag, instead of asking for `--payload`. Every payload `hook run` builds now carries `hook_type` and `cwd` (#3331).
 - `validate` and `sync` accept Auggie 1.x's `PromptSubmit` and `Notification` hooks; `sync` drops a matcher on any event that takes none and says so (#3308).
 - Settings `permissions.ask` writes `ask-user` rules to `.augment/settings.json`, between deny and allow rules; `import augment` reads them back (#3266).

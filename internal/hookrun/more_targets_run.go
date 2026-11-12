@@ -233,7 +233,7 @@ func decideGoose(event string, h Handler, r Result) Decision {
 // decideAugment follows the Augment hooks reference: exit 2 blocks on
 // PreToolUse only, another non-zero exit is a non-blocking error, and on
 // exit 0 permissionDecision deny, hookSpecificOutput.decision block, or
-// continue false blocks.
+// continue false blocks on augmentBlockingEvents.
 func decideAugment(event string, r Result) Decision {
 	switch {
 	case r.TimedOut:
@@ -244,14 +244,38 @@ func decideAugment(event string, r Result) Decision {
 		return Block
 	case r.Exit != 0:
 		return Error
-	}
-	// Stop and PostToolUse nest their decision in hookSpecificOutput.
-	reply, ok := readReply(r)
-	if ok && (reply.HookSpecificOutput.PermissionDecision == "deny" || reply.HookSpecificOutput.Decision == "block" ||
-		reply.Decision == "block" || (reply.Continue != nil && !*reply.Continue)) {
+	case augmentReplyBlocks(r) && slices.Contains(augmentBlockingEvents, event):
 		return Block
 	}
 	return Allow
+}
+
+// augmentBlockingEvents act on a block reply: PreToolUse in Auggie 0.x
+// and 1.x, PostToolUse as feedback to the agent, and Stop in 0.x only.
+var augmentBlockingEvents = []string{"PreToolUse", "PostToolUse", "Stop"}
+
+func augmentReplyBlocks(r Result) bool {
+	if r.TimedOut || r.StartErr != nil || r.Exit != 0 {
+		return false
+	}
+	// Stop and PostToolUse nest their decision in hookSpecificOutput.
+	reply, ok := readReply(r)
+	return ok && (reply.HookSpecificOutput.PermissionDecision == "deny" || reply.HookSpecificOutput.Decision == "block" ||
+		reply.Decision == "block" || (reply.Continue != nil && !*reply.Continue))
+}
+
+// AugmentNote explains a block reply Auggie does not act on, or is ""
+// when the reply needs no note.
+func AugmentNote(event string, r Result) string {
+	switch {
+	case !augmentReplyBlocks(r):
+		return ""
+	case event == "Stop":
+		return "replied block: Auggie 0.x keeps the agent working, but Auggie 1.x runs Stop hooks in the background and does not act on it; read as block"
+	case !slices.Contains(augmentBlockingEvents, event):
+		return "replied block: Auggie runs " + event + " hooks in the background and cannot block them; read as allow"
+	}
+	return ""
 }
 
 // PayloadTool is the tool_name a payload names, "" for an event with no

@@ -381,6 +381,8 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 				note, uncounted = hookrun.KiroNote(event, r), hookrun.KiroUncounted(event, r)
 			case "windsurf":
 				note, uncounted = hookrun.WindsurfNote(event, r), hookrun.WindsurfUncounted(event, r)
+			case "augment":
+				note = hookrun.AugmentNote(event, r)
 			case "cline":
 				run.Notes = append(run.Notes, hookrun.ClineNotes(event, r)...)
 			}

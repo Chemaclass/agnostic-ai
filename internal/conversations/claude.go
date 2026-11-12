@@ -271,8 +271,12 @@ func (s *Scanner) claudeMeta(file string) (claudeMeta, bool) {
 		return claudeMeta{}, false
 	}
 	meta, replyKnown := parseClaudeSession(head, tail)
-	if !replyKnown && info.Size() > 2*claudeWindow {
-		meta.reply, meta.question = claudeReplyAtEnd(file, info.Size())
+	if !replyKnown {
+		if lines, ok := lookBack(file, info.Size()); ok {
+			var replies claudeReplies
+			eachClaudeLine(lines, replies.visit)
+			meta.reply, meta.question = agentSaid(replies.message, replies.message, replies.asked)
+		}
 	}
 	if meta.cwd == "" || meta.entrypoint == "" {
 		streamClaudeMetadata(file, &meta)
@@ -328,21 +332,20 @@ func readTail(f *os.File, size, window int64) ([]byte, error) {
 	return tail, nil
 }
 
-// claudeReplyAtEnd looks for the agent's latest message in the last
-// claudeReplyWindow bytes of a session file.
-func claudeReplyAtEnd(file string, size int64) (reply, question string) {
-	f, err := os.Open(file)
+// lookBack returns the complete lines in the last claudeReplyWindow
+// bytes of a file larger than the two ends readEnds read; ok is false
+// for a file readEnds read whole. A file that cannot be read gives none.
+func lookBack(path string, size int64) (lines []byte, ok bool) {
+	if size <= 2*claudeWindow {
+		return nil, false
+	}
+	f, err := os.Open(path)
 	if err != nil {
-		return "", ""
+		return nil, true
 	}
 	defer func() { _ = f.Close() }()
-	tail, err := readTail(f, size, claudeReplyWindow)
-	if err != nil {
-		return "", ""
-	}
-	var replies claudeReplies
-	eachClaudeLine(tail, replies.visit)
-	return agentSaid(replies.message, replies.message, replies.asked)
+	lines, _ = readTail(f, size, claudeReplyWindow)
+	return lines, true
 }
 
 func eachClaudeLine(data []byte, visit func(claudeLine)) {
