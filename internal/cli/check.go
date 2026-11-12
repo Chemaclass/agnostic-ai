@@ -272,7 +272,7 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 	defer release()
 	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)
 	renders := newTargetRenders(readerCfg, b)
-	found, err := findRenderedCollisions(renders, readerCfg, targets)
+	found, err := findRenderedCollisions(renders, readerCfg, targets, ".", state.Backups)
 	if err != nil {
 		return nil, err
 	}

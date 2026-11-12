@@ -79,6 +79,7 @@ Each list shows three paths (`-vv` lists all). A `config` spec means `agnostic-a
 <summary>Hand edits: existing backups and merged settings</summary>
 
 - When `<path>.bak` already exists, sync leaves the new edit in place and says so. An earlier backup is never replaced. One exception: when that `.bak` is a backup sync saved itself, unchanged since, and it holds the same bytes as the edited file, sync writes the file, since the backup already keeps those bytes.
+- Sync never writes an output onto a `.bak` it saved earlier, or onto another output's `<path>.bak`: it stops with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) first.
 - A key you add to a merged settings file, such as `.claude/settings.json`, is kept in place, not backed up.
 
 </details>

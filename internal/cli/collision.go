@@ -40,12 +40,13 @@ import (
 // overrides diverge), which would otherwise cause silent last-writer-wins
 // and perpetual drift in `sync --check`.
 func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winners map[string]string, err error) {
-	return detectRenderedCollisions(newTargetRenders(cfg, b), cfg, targets)
+	return detectRenderedCollisions(newTargetRenders(cfg, b), cfg, targets, ".", readStateFile(".").Backups)
 }
 
-// detectRenderedCollisions is detectCollisions over the run's renders.
-func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string) (map[string]string, error) {
-	found, err := findRenderedCollisions(renders, cfg, targets)
+// detectRenderedCollisions is detectCollisions over the run's renders,
+// for the project at root whose ledger records backups.
+func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string, root string, backups map[string]string) (map[string]string, error) {
+	found, err := findRenderedCollisions(renders, cfg, targets, root, backups)
 	return found.winners, err
 }
 
@@ -57,7 +58,7 @@ type renderedCollisions struct {
 	runFiles []entryPointFile
 }
 
-func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string) (found renderedCollisions, err error) {
+func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string, root string, backups map[string]string) (found renderedCollisions, err error) {
 	b := renders.b
 	cfg = cfg.WithAdditionalTargets(targets...)
 	if err := adapters.ValidateScopedRules(cfg, b, targets); err != nil {
@@ -127,7 +128,7 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 		return found, err
 	}
 	found.runFiles = runFiles
-	if err := backupPathCollisions(cfg, owners, entryFiles); err != nil {
+	if err := outputPathCollisions(root, cfg, owners, entryFiles, backups); err != nil {
 		return found, err
 	}
 	overwritten := maps.Clone(owners)
@@ -366,11 +367,12 @@ func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map
 			"point that output elsewhere, or set outputs.<target>.file for the readers", strings.Join(lines, "\n"))
 }
 
-// backupPathCollisions refuses an output at another output's
-// `<path>.bak`: sync saves a hand edit to the first there, and the
-// second then writes over that backup, so the edit is lost. Paths match
-// without regard to case, since some filesystems store both as one file.
-func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile) error {
+// outputPathCollisions refuses outputs that would destroy a hand edit:
+// an output at another output's `<path>.bak`, where sync saves a hand
+// edit to the first, and an output on a backup the ledger records, which
+// holds a saved edit. Backup paths match without regard to case, since
+// some filesystems store both spellings as one file.
+func outputPathCollisions(root string, cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile, backups map[string]string) error {
 	names := map[string][]string{}
 	add := func(path, name string) {
 		key := filepath.Clean(filepath.FromSlash(path))
@@ -406,13 +408,30 @@ func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryF
 			lines = append(lines, fmt.Sprintf("  %s is the backup sync saves for %s", label(backup), label(path)))
 		}
 	}
+	if len(lines) > 0 {
+		sort.Strings(lines)
+		return errs.Coded(errs.CodeOutputCollision,
+			"output collision: an output sits where sync saves another output's hand edit\n%s\n"+
+				"point one of them elsewhere", strings.Join(lines, "\n"))
+	}
+	for bak := range backups {
+		if filepath.IsAbs(bak) {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(root, bak)); err != nil {
+			continue
+		}
+		for _, path := range spellings[strings.ToLower(filepath.Clean(filepath.FromSlash(bak)))] {
+			lines = append(lines, fmt.Sprintf("  %s is a backup sync saved for %s", label(path), filepath.ToSlash(strings.TrimSuffix(bak, ".bak"))))
+		}
+	}
 	if len(lines) == 0 {
 		return nil
 	}
 	sort.Strings(lines)
 	return errs.Coded(errs.CodeOutputCollision,
-		"output collision: an output sits where sync saves another output's hand edit\n%s\n"+
-			"point one of them elsewhere", strings.Join(lines, "\n"))
+		"output collision: an output sits on a backup that holds a saved hand edit\n%s\n"+
+			"move or delete that backup once you have kept what you need from it, or point the output elsewhere", strings.Join(lines, "\n"))
 }
 
 // directorySetting reports whether an outputs.<target>.<key> names a

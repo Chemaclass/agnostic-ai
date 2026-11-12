@@ -98,7 +98,9 @@ Enter or `0` exits without taking action. Every option keeps the original error 
 
 Two or more enabled targets would write different content to the same path, so sync stops instead of letting the last one win. Sync also stops when an adapter writes a file that sync then writes as another target's instructions file, such as an external adapter's `AGENTS.md`, or a merged `rules-file` that loses rules there, such as `outputs.codex.rules-file: AGENTS.md` while Cline reads `AGENTS.md`. `sync.collision-policy` does not settle those cases, since the instructions file is written last. Sync and `validate` also stop when one output sits at another output's `<path>.bak`, such as `outputs.claude.rules-file: RULES.md.bak` next to `outputs.codex.rules-file: RULES.md`: sync saves a hand edit to `RULES.md` there, and the other output would write over it. Letter case does not count here, since some filesystems store `rules.md.BAK` and `RULES.md.bak` as one file. Folder settings such as `skills-dir` get no `.bak`, so they never match.
 
-**Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`. For a shared instructions file, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool.
+Sync also stops when an output sits on a `.bak` that sync saved earlier and that still exists, such as `rules-file: RULES.md.bak` after a hand edit to `RULES.md` was saved there. `validate` does not read the sync ledger, so only sync reports this case.
+
+**Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`. For a shared instructions file, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool. For a saved `.bak`, keep what you need from it, then move or delete it, or point the output elsewhere.
 
 <a id="aai-103-hand-authored-ignore-file-cannot-be-safely-overwritten"></a>
 

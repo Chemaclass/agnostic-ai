@@ -132,3 +132,42 @@ func TestSync_OutputOnAnotherOutputsBackupInOtherCase_Stops(t *testing.T) {
 		})
 	}
 }
+
+// After a hand edit is saved as RULES.md.bak, moving the output there
+// would write over the only copy of the edit.
+func TestSync_OutputMovedOntoARecordedBackup_Stops(t *testing.T) {
+	for _, args := range [][]string{{"sync", "--gitignore=off", "--jobs=1"}, {"sync", "--check"}, {"sync", "--dry-run"}, {"sync", "--json", "--gitignore=off"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
+			if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			data, _ := os.ReadFile(filepath.Join(dir, "RULES.md"))
+			edited := string(data) + "\nUNIQUE USER NOTE\n"
+			mustWriteFile(t, filepath.Join(dir, "RULES.md"), edited)
+			if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if bak, _ := os.ReadFile(filepath.Join(dir, "RULES.md.bak")); string(bak) != edited {
+				t.Fatalf("sync must save the edit as RULES.md.bak, got:\n%s", bak)
+			}
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md.bak\n")
+
+			out, err := runCLI(t, args...)
+
+			msg := out
+			if err != nil {
+				msg += err.Error()
+			}
+			if err == nil || !strings.Contains(msg, "RULES.md.bak") || !strings.Contains(msg, "outputs.codex.rules-file") {
+				t.Fatalf("%v must stop and name the backup, got %v\n%s", args, err, out)
+			}
+			if bak, _ := os.ReadFile(filepath.Join(dir, "RULES.md.bak")); string(bak) != edited {
+				t.Errorf("RULES.md.bak must keep the saved edit, got:\n%s", bak)
+			}
+		})
+	}
+}
