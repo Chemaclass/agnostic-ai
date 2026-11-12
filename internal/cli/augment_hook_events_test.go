@@ -146,7 +146,9 @@ func augmentArgsProject(t *testing.T, arg string) {
 func TestAugmentHooks_HookRunExpandsArgsAsAuggieDoes(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	t.Setenv("AAI_PROBE_UNSET", "")
-	os.Unsetenv("AAI_PROBE_UNSET")
+	if err := os.Unsetenv("AAI_PROBE_UNSET"); err != nil {
+		t.Fatal(err)
+	}
 	augmentArgsProject(t, "${AAI_PROBE_UNSET:-block}")
 	if out, err := runRoot(t, "validate"); err != nil {
 		t.Fatalf("validate: %v\n%s", err, out)
