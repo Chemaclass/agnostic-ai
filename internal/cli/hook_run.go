@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
@@ -252,6 +253,9 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 		}
 		if _, ok := hookEventsByTarget[target][event]; !ok {
 			run.Reason = fmt.Sprintf("%s has no %s event", target, event)
+			if target == "augment" && event == "UserPromptSubmit" {
+				run.Reason = augment.UserPromptSubmitHint
+			}
 			add(run)
 			continue
 		}

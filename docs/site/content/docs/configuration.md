@@ -378,6 +378,7 @@ Setting the named key clears the note. `sync -vv` shows every note.
 | `kilo` | agents with `tools` | None. Use `x-kilo: {permission: {...}}`. |
 | `gemini` | agents with `tools` beyond Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch | None. Use `x-gemini: {tools: [...]}` or drop `tools`. |
 | `crush` | unknown hook events | Use one of the [13 native lifecycle events](@/docs/targets/crush.md#hooks). Matchers require a tool event. |
+| `augment` | hooks on an event Auggie never fires, such as `UserPromptSubmit` | Use one of its [seven events](@/docs/targets/augment.md#hooks), or `x-augment: {event: PromptSubmit}`. |
 
 ## `coverage`
 

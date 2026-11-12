@@ -98,6 +98,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Augment
 
+- `sync` skips a hook on an event Auggie never fires, such as `UserPromptSubmit`, with a note that names `x-augment: {event: PromptSubmit}`, instead of writing it to `.augment/settings.json`. `validate` now reads each target's `x-<target>` event, so it accepts that override and rejects a hook whose targets all lack its event (#3348).
 - `hook run` builds Augment `PromptSubmit` from `--prompt`, and `Stop`, `SessionEnd` and `Notification` with no flag, instead of asking for `--payload`. Every payload `hook run` builds now carries `hook_type` and `cwd` (#3331).
 - `validate` and `sync` accept Auggie 1.x's `PromptSubmit` and `Notification` hooks; `sync` drops a matcher on any event that takes none and says so (#3308).
 - Settings `permissions.ask` writes `ask-user` rules to `.augment/settings.json`, between deny and allow rules; `import augment` reads them back (#3266).

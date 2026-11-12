@@ -2063,7 +2063,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	var claudeHooks []spec.Entry
 	for i, entry := range entries {
 		event, _ := entry.Meta["event"].(string)
-		if event == "" {
+		if event == "" || format == "augment" && !slices.Contains(augment.HookEvents(), event) {
 			continue
 		}
 		if format == "copilot" {

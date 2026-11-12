@@ -2,7 +2,9 @@ package cli
 
 import (
 	"maps"
+	"slices"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
@@ -334,6 +336,30 @@ func projectKindSupport(cfg *config.Config) kindSupport {
 		}
 	}
 	return out
+}
+
+// hookTargetsFor narrows targets to the hook-writing ones the hook
+// emits to, or returns them all when it emits to none of them.
+func hookTargetsFor(e spec.Entry, targets []string) []string {
+	var out []string
+	for _, target := range targets {
+		if _, writes := hookEventsByTarget[target]; writes && e.EmitsTo(target) {
+			out = append(out, target)
+		}
+	}
+	if len(out) == 0 {
+		return targets
+	}
+	return out
+}
+
+// knownHookEventFor reports whether one of targets knows the event the
+// hook writes there, after its `x-<target>` override, as sync reads it.
+func knownHookEventFor(e spec.Entry, targets []string) bool {
+	return slices.ContainsFunc(targets, func(target string) bool {
+		event, _ := adapters.ResolveMeta(e.Meta, target)["event"].(string)
+		return knownHookEvent([]string{target}, event)
+	})
 }
 
 func knownHookEvent(targets []string, event string) bool {
