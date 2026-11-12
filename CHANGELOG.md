@@ -6,6 +6,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.94.0 - 2026-11-12
+
 ### Highlights
 
 - **Breaking:** `validate` fails a hook scoped with `targets:` to a tool that does not know its event; `sync` used to drop it silently (#3354).
@@ -42,7 +44,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Companion menus and app
 
 - Both companion menus offer Animate, Dim when idle, Start at login, the shortcut, Hide and Quit (#3237, #3246, #3303, #3317).
-- Hide takes the companion off the screen until the shortcut or a waiting chat brings it back; Quit asks first and offers Hide (#3306, #3351, #3356).
+- Rename a chat from the pencil button on its row or with F2, not only from the right-click menu (#3368).
+- Hide takes the companion off the screen until the shortcut or a waiting chat brings it back, and names `agnostic-ai companion` while the shortcut does not work; Quit asks first and offers Hide (#3306, #3351, #3356, #3366).
 - `upgrade` also updates an installed companion and restarts it if it was running (#3247).
 - On macOS, `companion install` makes an app with the agnostic-ai icon that still starts at login (#3238).
 
@@ -52,6 +55,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The companion's buttons read "Mark complete" and "Mark all complete", and a chat marked complete shows a green tick for a moment (#3273).
 - Rows no longer repeat their group as "New reply" or "Working", and same-named folders such as `shop/api` and `billing/api` are told apart (#3305, #3269).
 - A silent local Codex chat shows "No activity for 7m", not "Waiting for you", and the API sets `quietSince` (#3267).
+- The companion and the web interface show a Claude Code session with Remote Control on as one row, marked Shared, instead of a local row and a Cloud row. A click opens it here; Open on claude.ai opens its web page (#3363).
 
 #### Chat names, replies and states
 
