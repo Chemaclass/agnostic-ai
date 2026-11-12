@@ -171,3 +171,37 @@ func TestSync_OutputMovedOntoARecordedBackup_Stops(t *testing.T) {
 		})
 	}
 }
+
+// A revert that writes waits for no one: it stops while another command
+// holds the project lock, before touching a file.
+func TestRevertCmd_StopsWhileTheProjectIsLocked(t *testing.T) {
+	for _, args := range [][]string{{"revert"}, {"revert", "--json"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
+			lock, err := acquireProjectLock(".", "sync")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = lock.Close() }()
+
+			out, err := runCLI(t, args...)
+
+			if err == nil || !strings.Contains(err.Error()+out, "locked") {
+				t.Fatalf("%v must stop on the lock, got %v\n%s", args, err, out)
+			}
+			if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md.bak")); string(got) != "MINE\n" {
+				t.Errorf("%v must leave AGENTS.md.bak alone, got %q", args, got)
+			}
+			if out, err := runCLI(t, "revert", "--dry-run"); err != nil {
+				t.Errorf("revert --dry-run must not need the lock: %v\n%s", err, out)
+			}
+		})
+	}
+}

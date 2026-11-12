@@ -58,8 +58,12 @@ func newRevertCmd() *cobra.Command {
 			}
 			if dryRun {
 				readLedger(".").warnNewer()
-			} else if err := readLedger(".").refuseNewer(); err != nil {
-				return err
+			} else {
+				lock, err := acquireLedgerLock(".", "revert")
+				if err != nil {
+					return err
+				}
+				defer func() { _ = lock.Close() }()
 			}
 			cfg, b, err := loadProject(".")
 			if err != nil {
