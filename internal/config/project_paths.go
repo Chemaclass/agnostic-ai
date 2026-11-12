@@ -129,9 +129,9 @@ func (o *Output) outputPaths() map[string]*string {
 	}
 }
 
-// cleanOutputPaths rewrites each relative outputs.<target> path in the
-// slash-separated clean form the built-in defaults use, so `./AGENTS.md`
-// and `AGENTS.md` reach the writer and the ledger as one file.
+// cleanOutputPaths rewrites each outputs.<target> path in the spelling
+// CleanOutputPath gives, so `./AGENTS.md` and `AGENTS.md` reach the
+// writer and the ledger as one file.
 func cleanOutputPaths(cfg *Config) {
 	for target, o := range cfg.Outputs {
 		for _, p := range o.outputPaths() {
@@ -141,13 +141,22 @@ func cleanOutputPaths(cfg *Config) {
 	}
 }
 
-// CleanOutputPath is the one spelling of a relative output path: slash
-// separated and clean. An absolute path stays as written.
+// CleanOutputPath drops `.` segments, repeated slashes and a trailing
+// slash from a relative output path. It keeps the spelling of a path
+// that the cleaning could point at another file: one with a `..`
+// segment, which a linked folder resolves differently, or one with a
+// backslash on Windows, where writers join paths with backslashes and
+// the ledger keeps them.
 func CleanOutputPath(p string) string {
-	if p == "" || filepath.IsAbs(p) {
+	return CleanOutputPathOn(p, runtime.GOOS)
+}
+
+// CleanOutputPathOn is CleanOutputPath as it runs on goos.
+func CleanOutputPathOn(p, goos string) string {
+	if p == "" || filepath.IsAbs(p) || goos == "windows" && strings.Contains(p, `\`) || slices.Contains(strings.Split(p, "/"), "..") {
 		return p
 	}
-	return path.Clean(filepath.ToSlash(p))
+	return path.Clean(p)
 }
 
 // validateProjectPaths refuses config paths that point outside the

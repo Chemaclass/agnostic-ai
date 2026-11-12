@@ -2,7 +2,6 @@ package config_test
 
 import (
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -63,7 +62,7 @@ func TestLoad_CleansRelativeOutputPaths(t *testing.T) {
 	dir := t.TempDir()
 	inside := filepath.ToSlash(filepath.Join(dir, "tools", "rules"))
 	writeConfig(t, dir, "version: 1\ntargets: [claude, codex]\n"+
-		"outputs:\n  codex:\n    rules-file: ./AGENTS.md\n    dir: .codex/\n    skills-dir: a//b/../skills\n"+
+		"outputs:\n  codex:\n    rules-file: ./AGENTS.md\n    dir: .codex/\n    skills-dir: a//b/./skills/\n    rules-dir: x/../rules\n"+
 		"  claude:\n    rules-dir: \""+inside+"\"\n    file: CLAUDE.md\n")
 
 	cfg, err := config.Load(dir)
@@ -72,28 +71,31 @@ func TestLoad_CleansRelativeOutputPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	codex := cfg.Outputs["codex"]
-	if codex.RulesFile != "AGENTS.md" || codex.Dir != ".codex" || codex.SkillsDir != "a/skills" {
+	if codex.RulesFile != "AGENTS.md" || codex.Dir != ".codex" || codex.SkillsDir != "a/b/skills" {
 		t.Errorf("codex paths not cleaned: rules-file %q, dir %q, skills-dir %q", codex.RulesFile, codex.Dir, codex.SkillsDir)
+	}
+	if codex.RulesDir != "x/../rules" {
+		t.Errorf("a path with .. must keep its spelling, got rules-dir %q", codex.RulesDir)
 	}
 	if claude := cfg.Outputs["claude"]; claude.RulesDir != inside || claude.File != "CLAUDE.md" {
 		t.Errorf("claude paths changed: rules-dir %q, file %q", claude.RulesDir, claude.File)
 	}
 }
 
-func TestLoad_CleansBackslashOutputPathsOnWindows(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("a backslash separates folders only on Windows")
-	}
-	dir := t.TempDir()
-	writeConfig(t, dir, "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: '.\\docs\\AGENTS.md'\n")
-
-	cfg, err := config.Load(dir)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := cfg.Outputs["codex"].RulesFile; got != "docs/AGENTS.md" {
-		t.Errorf("rules-file = %q, want docs/AGENTS.md", got)
+// Writers join paths with backslashes on Windows and the ledger keeps
+// them, so cleaning must not turn one into a slash there.
+func TestCleanOutputPathOn_KeepsSpellingsThatCouldNameAnotherFile(t *testing.T) {
+	for _, tc := range []struct{ in, goos, want string }{
+		{"./AGENTS.md", "windows", "AGENTS.md"},
+		{"AGENTS.md/", "linux", "AGENTS.md"},
+		{`.\docs\AGENTS.md`, "windows", `.\docs\AGENTS.md`},
+		{`.claude\settings.json`, "windows", `.claude\settings.json`},
+		{`./a\b`, "linux", `a\b`},
+		{"alias/../settings.json", "linux", "alias/../settings.json"},
+	} {
+		if got := config.CleanOutputPathOn(tc.in, tc.goos); got != tc.want {
+			t.Errorf("CleanOutputPathOn(%q, %s) = %q, want %q", tc.in, tc.goos, got, tc.want)
+		}
 	}
 }
 

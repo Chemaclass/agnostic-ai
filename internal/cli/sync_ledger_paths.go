@@ -58,80 +58,91 @@ func (s *syncStateFile) dropEscapingEntries(projectRoot, statePath string) {
 	}
 }
 
-// mergeSpellings rewrites every output path the ledger holds in the
-// spelling config.CleanOutputPath gives the config's own paths. Releases
-// before #3329 stored `./AGENTS.md` as typed, so without this a renamed
-// entry reads as a file sync stopped writing, and its merged keys are
-// taken out or the file removed.
-func (s *syncStateFile) mergeSpellings(projectRoot string) {
-	s.Outputs = respelledList(s.Outputs)
-	s.Orphans = respelledList(s.Orphans)
-	s.Unledgered = respelledList(s.Unledgered)
-	s.OutputSums = respelledSums(projectRoot, s.OutputSums)
-	s.Backups = respelledSums(projectRoot, s.Backups)
-	s.Merged = respelled(s.Merged, func(string, []string) string { return "" })
+// mergeSpellings rewrites every output path the ledger holds with clean,
+// the spelling the config's own paths get. Releases before #3329 stored
+// `./AGENTS.md` as typed, so without this a renamed entry reads as a
+// file sync stopped writing, and its merged keys are taken out or the
+// file removed.
+func (s *syncStateFile) mergeSpellings(projectRoot string, clean func(string) string) {
+	s.Outputs = respelledList(s.Outputs, clean)
+	s.Orphans = respelledList(s.Orphans, clean)
+	s.Unledgered = respelledList(s.Unledgered, clean)
+	s.OutputSums = respelled(s.OutputSums, clean, func(file string, sums []string) string {
+		return matchingSum(projectRoot, file, sums)
+	})
+	s.Backups = respelled(s.Backups, clean, func(file string, sums []string) string {
+		return matchingSum(projectRoot, file, sums)
+	})
+	s.Merged = respelled(s.Merged, clean, unionMerged)
 }
 
-func respelledList(paths []string) []string {
-	if !slices.ContainsFunc(paths, misspelled) {
-		return paths
-	}
+func respelledList(paths []string, clean func(string) string) []string {
 	out := make([]string, 0, len(paths))
 	seen := map[string]bool{}
 	for _, p := range paths {
-		if c := config.CleanOutputPath(p); !seen[c] {
+		if c := clean(p); !seen[c] {
 			seen[c] = true
 			out = append(out, c)
 		}
 	}
+	if len(out) == 0 {
+		return paths
+	}
 	return out
 }
 
-// respelledSums keeps, for a file recorded under several spellings, the
-// sum its bytes on disk still match, so the ledger vouches for what sync
-// last wrote there.
-func respelledSums(projectRoot string, sums map[string]string) map[string]string {
-	return respelled(sums, func(clean string, spellings []string) string {
-		data, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(clean)))
-		if err != nil {
-			return ""
-		}
-		for _, p := range spellings {
-			if adapters.MatchesSum(data, sums[p]) {
-				return p
+// matchingSum is the sum the bytes of file still match, so the ledger
+// vouches for what sync last wrote there; else the first sum.
+func matchingSum(projectRoot, file string, sums []string) string {
+	data, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(file)))
+	if err == nil {
+		for _, sum := range sums {
+			if adapters.MatchesSum(data, sum) {
+				return sum
 			}
 		}
-		return ""
-	})
+	}
+	return sums[0]
+}
+
+// unionMerged keeps every claim the spellings of one file hold, so a key
+// sync set under either stays sync's to release.
+func unionMerged(_ string, records []mergedOutput) mergedOutput {
+	out := records[0]
+	for _, m := range records[1:] {
+		out.Keys = withMergedKeys(out.Keys, m.Keys)
+		out.Created = out.Created || m.Created
+		out.Unrecorded = out.Unrecorded || m.Unrecorded
+	}
+	return out
 }
 
 // respelled rekeys m by clean spelling. When several keys name one file,
-// pick chooses among them; otherwise the clean spelling wins, then the
-// first in sort order.
-func respelled[V any](m map[string]V, pick func(clean string, spellings []string) string) map[string]V {
-	if !slices.ContainsFunc(slices.Collect(maps.Keys(m)), misspelled) {
+// combine gets their values, the clean spelling's first.
+func respelled[V any](m map[string]V, clean func(string) string, combine func(file string, values []V) V) map[string]V {
+	if !slices.ContainsFunc(slices.Collect(maps.Keys(m)), func(p string) bool { return clean(p) != p }) {
 		return m
 	}
 	byClean := map[string][]string{}
 	for _, p := range slices.Sorted(maps.Keys(m)) {
-		c := config.CleanOutputPath(p)
-		byClean[c] = append(byClean[c], p)
+		c := clean(p)
+		if p == c {
+			byClean[c] = append([]string{p}, byClean[c]...)
+		} else {
+			byClean[c] = append(byClean[c], p)
+		}
 	}
 	out := make(map[string]V, len(byClean))
 	for c, spellings := range byClean {
-		chosen := spellings[0]
-		if len(spellings) > 1 {
-			if p := pick(c, spellings); p != "" {
-				chosen = p
-			} else if slices.Contains(spellings, c) {
-				chosen = c
-			}
+		values := make([]V, len(spellings))
+		for i, p := range spellings {
+			values[i] = m[p]
 		}
-		out[c] = m[chosen]
+		if len(values) == 1 {
+			out[c] = values[0]
+		} else {
+			out[c] = combine(c, values)
+		}
 	}
 	return out
-}
-
-func misspelled(p string) bool {
-	return config.CleanOutputPath(p) != p
 }

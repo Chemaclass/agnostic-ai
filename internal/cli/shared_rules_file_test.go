@@ -296,7 +296,7 @@ func TestSync_ExternalRulesFileOnASharedInstructionsFile_Stops(t *testing.T) {
 // Every spelling of AGENTS.md is one file: the ledger holds one entry
 // and the next sync finds nothing to change (#3329).
 func TestSync_RulesFileOnASharedInstructionsFile_SettlesWhateverItsSpelling(t *testing.T) {
-	for _, spelling := range []string{"AGENTS.md", "./AGENTS.md", "./sub/../AGENTS.md", "AGENTS.md/"} {
+	for _, spelling := range []string{"AGENTS.md", "./AGENTS.md", ".//AGENTS.md", "AGENTS.md/"} {
 		t.Run(spelling, func(t *testing.T) {
 			dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: "+spelling+"\n")
 
