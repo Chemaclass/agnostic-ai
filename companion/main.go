@@ -200,7 +200,6 @@ func (s *shell) changePresence(from, to presence) bool {
 	looks := s.settings.appearance()
 	looks.Presence = to
 	s.mu.Unlock()
-	// The pages hear the new look first, so a circle coming back faded never flashes at full color.
 	s.tell(looks)
 	switch {
 	case to == hidden:
@@ -210,13 +209,26 @@ func (s *shell) changePresence(from, to presence) bool {
 		s.bubble.Hide()
 	case was == hidden:
 		s.bubble.Show()
-		// Some window systems place a window again when it shows.
-		if x, y := s.bubble.Position(); x != s.hiddenAt.X || y != s.hiddenAt.Y {
-			s.bubble.SetPosition(s.hiddenAt.X, s.hiddenAt.Y)
-		}
+		s.placeReturningBubble()
 	}
 	s.refreshNative()
 	return true
+}
+
+// placeReturningBubble puts a circle shown again where it was hidden.
+// Some window systems place a window again when it shows; a place no
+// screen shows any more, such as on a display unplugged meanwhile,
+// gives way to the default one.
+func (s *shell) placeReturningBubble() {
+	area := s.workArea()
+	if !onScreen(rect{X: s.hiddenAt.X, Y: s.hiddenAt.Y, Width: bubbleSide, Height: bubbleSide}, []rect{area}) {
+		x, y := defaultBubblePosition(area, bubbleSide)
+		s.bubble.SetPosition(x, y)
+		return
+	}
+	if x, y := s.bubble.Position(); x != s.hiddenAt.X || y != s.hiddenAt.Y {
+		s.bubble.SetPosition(s.hiddenAt.X, s.hiddenAt.Y)
+	}
 }
 
 // listRead notes what waits in a new list. While hidden, something new
@@ -294,7 +306,7 @@ func (s *shell) bringBack() {
 // appReopened answers macOS reopening the running app, from Finder or
 // `open`. Wails would show the hidden windows itself, behind the shell's back.
 func (s *shell) appReopened(cancel func()) {
-	if s.presenceNow() != hidden {
+	if s.presenceNow() == shown {
 		return
 	}
 	cancel()

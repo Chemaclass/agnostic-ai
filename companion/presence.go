@@ -16,45 +16,42 @@ const (
 	fadedBack presence = "faded"
 )
 
-// waiting is what needs the person in one list: the blocked and unread
-// conversations it shows, and how many need the person of every age.
-type waiting struct {
-	ids   map[string]bool
-	count int
-}
+// waiting is what needs the person in one list: its blocked and unread
+// conversations, by tool and id. The list holds every one of any age.
+type waiting map[string]bool
 
 // waitingIn reads what waits from a list as the server sent it. It
-// reports false for a list it cannot read.
+// reports false for a list it cannot read, and for one that says its
+// marks or its cloud sessions could not be read: what waits there is
+// not what waits, and taking it as the last list would make the next
+// full one look new.
 func waitingIn(list json.RawMessage) (waiting, bool) {
 	var view struct {
-		NeedsYou      int `json:"needsYou"`
+		MarksNote     string `json:"marksNote"`
+		CloudNote     string `json:"cloudNote"`
 		Conversations []struct {
 			Tool  string `json:"tool"`
 			ID    string `json:"id"`
 			State string `json:"state"`
 		} `json:"conversations"`
 	}
-	if len(list) == 0 || json.Unmarshal(list, &view) != nil {
-		return waiting{}, false
+	if len(list) == 0 || json.Unmarshal(list, &view) != nil || view.MarksNote != "" || view.CloudNote != "" {
+		return nil, false
 	}
-	now := waiting{ids: map[string]bool{}, count: view.NeedsYou}
+	now := waiting{}
 	for _, conversation := range view.Conversations {
 		if conversation.State == "blocked" || conversation.State == "unread" {
-			now.ids[conversation.Tool+":"+conversation.ID] = true
+			now[conversation.Tool+":"+conversation.ID] = true
 		}
 	}
 	return now, true
 }
 
-// gained reports whether something waits now that did not in before: a
-// conversation that was not waiting, even while another stopped, or a
-// higher count, which also covers one older than the list shows.
+// gained reports whether a conversation waits now that did not in
+// before, even while another stopped waiting.
 func (w waiting) gained(before waiting) bool {
-	if w.count > before.count {
-		return true
-	}
-	for id := range w.ids {
-		if !before.ids[id] {
+	for id := range w {
+		if !before[id] {
 			return true
 		}
 	}

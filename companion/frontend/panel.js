@@ -673,8 +673,8 @@ function closeQuitConfirm() {
 
 quitCancel.addEventListener('click', closeQuitConfirm)
 document.getElementById('quit-hide').addEventListener('click', () => {
-  quitConfirm.hidden = true
-  hideCompanion()
+  closeQuitConfirm()
+  hideCompanion().catch(sayFailure)
 })
 // The app can end before its answer arrives.
 document.getElementById('quit-go').addEventListener('click', () => quitCompanion().catch(() => {}))
@@ -841,7 +841,7 @@ const MENU_ACTIONS = {
     settings.recording = !settings.recording
     drawSettings()
   },
-  hide: () => hideCompanion(),
+  hide: () => hideCompanion().catch(sayFailure),
   quit: () => {
     closeMenu()
     openQuitConfirm()
@@ -966,7 +966,7 @@ document.addEventListener('keydown', (event) => {
     closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden })]()
     return
   }
-  // The open row menu and the delete confirmation take Enter and Space on their own buttons.
+  // The open row menu, the delete confirmation and the quit question take Enter and Space on their own buttons.
   if (!rowMenu.hidden || !deleteConfirm.hidden || !quitConfirm.hidden || state.renaming) return
   if (settings.recording) {
     // Every key belongs to the new shortcut until one is complete.

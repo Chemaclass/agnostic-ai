@@ -275,15 +275,20 @@ func TestHidden_OneWaitingWhileAnotherStopsStillBringsItBack(t *testing.T) {
 	}
 }
 
-func TestHidden_ACountRiseOutsideTheListBringsItBack(t *testing.T) {
-	s, _ := placedShell(t)
-	s.listRead(listWaiting(1, "a"))
-	s.setPresence(hidden)
+func TestHidden_AListThatCouldNotReadItsMarksOrCloudChangesNothing(t *testing.T) {
+	for _, note := range []string{"marksNote", "cloudNote"} {
+		t.Run(note, func(t *testing.T) {
+			s, _ := placedShell(t)
+			s.listRead(listWaiting(1, "a"))
+			s.setPresence(hidden)
 
-	s.listRead(listWaiting(2, "a"))
+			s.listRead([]byte(`{"needsYou":0,"` + note + `":"could not read","conversations":[]}`))
+			s.listRead(listWaiting(1, "a"))
 
-	if got := s.presenceNow(); got != fadedBack {
-		t.Errorf("presence = %q; want faded", got)
+			if got := s.presenceNow(); got != hidden {
+				t.Errorf("presence = %q; want hidden: the full list again is nothing new", got)
+			}
+		})
 	}
 }
 
@@ -488,21 +493,19 @@ func TestShowRoute_LeavesAHiddenOrFadedCompanionAlone(t *testing.T) {
 }
 
 func TestWaiting_Gained(t *testing.T) {
-	ab := waiting{ids: map[string]bool{"a": true, "b": true}, count: 2}
+	ab := waiting{"a": true, "b": true}
 	cases := []struct {
-		name   string
-		now    waiting
-		before waiting
-		want   bool
+		name string
+		now  waiting
+		want bool
 	}{
-		{"same", ab, ab, false},
-		{"one fewer", waiting{ids: map[string]bool{"a": true}, count: 1}, ab, false},
-		{"one more", waiting{ids: map[string]bool{"a": true, "b": true, "c": true}, count: 3}, ab, true},
-		{"one swapped", waiting{ids: map[string]bool{"a": true, "c": true}, count: 2}, ab, true},
-		{"count up only", waiting{ids: map[string]bool{"a": true, "b": true}, count: 3}, ab, true},
+		{"same", ab, false},
+		{"one fewer", waiting{"a": true}, false},
+		{"one more", waiting{"a": true, "b": true, "c": true}, true},
+		{"one swapped", waiting{"a": true, "c": true}, true},
 	}
 	for _, tc := range cases {
-		if got := tc.now.gained(tc.before); got != tc.want {
+		if got := tc.now.gained(ab); got != tc.want {
 			t.Errorf("%s: gained = %v; want %v", tc.name, got, tc.want)
 		}
 	}
@@ -510,9 +513,35 @@ func TestWaiting_Gained(t *testing.T) {
 
 func TestWaitingIn_ReadsBlockedAndUnreadRows(t *testing.T) {
 	got, ok := waitingIn([]byte(`{"needsYou":5,"conversations":[{"tool":"claude","id":"a","state":"blocked"},{"tool":"codex","id":"b","state":"unread"},{"tool":"claude","id":"c","state":"working"}]}`))
-	if !ok || got.count != 5 || len(got.ids) != 2 || !got.ids["claude:a"] || !got.ids["codex:b"] {
+	if !ok || len(got) != 2 || !got["claude:a"] || !got["codex:b"] {
 		t.Errorf("waitingIn = %+v, %v", got, ok)
 	}
+}
+
+func TestShowingAgain_PutsACircleNoScreenShowsAtTheDefaultPlace(t *testing.T) {
+	s, _ := placedShell(t)
+	bubble := s.bubble.(*fakeWindow)
+	bubble.x, bubble.y = 5000, 5000
+
+	s.setPresence(hidden)
+	s.comeBack()
+
+	wantX, wantY := defaultBubblePosition(rect{Width: 1440, Height: 900}, bubbleSide)
+	if bubble.x != wantX || bubble.y != wantY {
+		t.Errorf("circle at %d,%d; want the default place %d,%d", bubble.x, bubble.y, wantX, wantY)
+	}
+}
+
+func TestAppReopened_BringsAFadedCompanionBackToFullColor(t *testing.T) {
+	s, _ := placedShell(t)
+	s.listRead(listWaiting(0))
+	s.setPresence(hidden)
+	s.listRead(listWaiting(1, "new"))
+
+	s.appReopened(func() {})
+
+	waitFor(t, "full color", func() bool { return s.presenceNow() == shown })
+	waitFor(t, "the list to open", s.panel.IsVisible)
 }
 
 // hideableShell is a placedShell whose server, once started, is a fake agnostic-ai.
