@@ -37,7 +37,7 @@ function fixtureState(name, now) {
     fixture,
     conversations: fixture.conversations(now),
     preferences: { shortcut: 'Ctrl+Alt+Space', startAtLogin: false },
-    appearance: { animate: true, dimWhenIdle: false, paused: false },
+    appearance: { animate: true, dimWhenIdle: false, hidden: false },
   }
 }
 
@@ -110,10 +110,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     calls = [{ path, body }, ...calls].slice(0, 50)
   }
 
-  /** A click on the circle or the shortcut wakes a paused companion, which reads a new list. */
-  function wake() {
-    if (!state.appearance.paused) return
-    state.appearance.paused = false
+  /** The shortcut brings a hidden companion back, which reads a new list. */
+  function comeBack() {
+    if (!state.appearance.hidden) return
+    state.appearance.hidden = false
     emit('appearance', state.appearance)
     emit('inbox')
   }
@@ -235,13 +235,13 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/mark': mark,
     'POST /api/rename': rename,
     'POST /api/delete': remove,
-    'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); wake(); noContent(response); emit('panel-shown', 'bottom-right') },
+    'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); comeBack(); noContent(response); emit('panel-shown', 'bottom-right') },
     'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
-    // Like the shell: a paused companion does not show the list for the page.
+    // Like the shell: a hidden companion does not show the list for the page.
     'POST /api/panel/show': (request, response) => {
       logCall('/api/panel/show')
       noContent(response)
-      if (!state.appearance.paused) emit('panel-shown', 'bottom-right')
+      if (!state.appearance.hidden) emit('panel-shown', 'bottom-right')
     },
     'GET /api/preferences': (request, response) => sendJSON(response, 200, state.preferences),
     'POST /api/preferences/shortcut': async (request, response) => {
@@ -266,9 +266,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       emit('appearance', state.appearance)
     },
     'POST /api/dashboard': (request, response) => { logCall('/api/dashboard'); noContent(response) },
-    'POST /api/pause': (request, response) => {
-      logCall('/api/pause')
-      state.appearance.paused = true
+    'POST /api/hide': (request, response) => {
+      logCall('/api/hide')
+      state.appearance.hidden = true
       noContent(response)
       emit('appearance', state.appearance)
     },

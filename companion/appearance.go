@@ -8,8 +8,8 @@ import (
 type appearance struct {
 	Animate     bool `json:"animate"`
 	DimWhenIdle bool `json:"dimWhenIdle"`
-	// Paused is the shell's state, never saved: a restart starts awake.
-	Paused bool `json:"paused"`
+	// Hidden is the shell's state, never saved: a restart starts on the screen.
+	Hidden bool `json:"hidden"`
 }
 
 func (s settings) appearance() appearance {
@@ -20,7 +20,7 @@ func (s *shell) appearance() appearance {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	looks := s.settings.appearance()
-	looks.Paused = s.paused
+	looks.Hidden = s.hidden
 	return looks
 }
 
@@ -51,7 +51,7 @@ func (s *shell) changeLook(change func(*settings)) error {
 		s.settings = before
 	}
 	looks := s.settings.appearance()
-	looks.Paused = s.paused
+	looks.Hidden = s.hidden
 	s.mu.Unlock()
 	s.tell(looks)
 	s.refreshNative()

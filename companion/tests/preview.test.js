@@ -148,31 +148,31 @@ test('quit answers with no content and shows in the calls', async (t) => {
   assert.equal(calls[0].path, '/api/quit')
 })
 
-test('pause sets paused in the appearance, and a click on the circle clears it', async (t) => {
+test('hide sets hidden in the appearance, and the shortcut clears it', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)
   const appearance = async () => (await fetch(preview.url + '/api/appearance')).json()
-  assert.equal((await appearance()).paused, false)
+  assert.equal((await appearance()).hidden, false)
 
-  const paused = await fetch(preview.url + '/api/pause', { method: 'POST' })
-  assert.equal(paused.status, 204)
-  assert.equal((await appearance()).paused, true)
+  const hidden = await fetch(preview.url + '/api/hide', { method: 'POST' })
+  assert.equal(hidden.status, 204)
+  assert.equal((await appearance()).hidden, true)
   const calls = await (await fetch(preview.url + '/dev/calls')).json()
-  assert.equal(calls[0].path, '/api/pause')
+  assert.equal(calls[0].path, '/api/hide')
 
   await fetch(preview.url + '/api/panel/toggle', { method: 'POST' })
-  assert.equal((await appearance()).paused, false)
+  assert.equal((await appearance()).hidden, false)
 })
 
-test('a list that asks to show itself while paused stays paused', async (t) => {
+test('a list that asks to show itself while hidden stays hidden', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)
-  await fetch(preview.url + '/api/pause', { method: 'POST' })
+  await fetch(preview.url + '/api/hide', { method: 'POST' })
 
   const shown = await fetch(preview.url + '/api/panel/show', { method: 'POST' })
 
   assert.equal(shown.status, 204)
-  assert.equal((await (await fetch(preview.url + '/api/appearance')).json()).paused, true)
+  assert.equal((await (await fetch(preview.url + '/api/appearance')).json()).hidden, true)
 })
 
 test('the menu list is served with the pages', async (t) => {
@@ -180,7 +180,7 @@ test('the menu list is served with the pages', async (t) => {
   t.after(preview.close)
   const menu = await fetch(preview.url + '/menu.json')
   assert.equal(menu.status, 200)
-  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'startAtLogin', 'shortcut', 'pause', 'quit'])
+  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'startAtLogin', 'shortcut', 'hide', 'quit'])
 })
 
 test('the list menu turns animation and dimming on and off and answers the appearance', async (t) => {
@@ -191,6 +191,6 @@ test('the list menu turns animation and dimming on and off and answers the appea
   assert.equal(animate.status, 200)
   assert.equal((await animate.json()).animate, false)
   const dim = await postJSON(preview.url + '/api/appearance/dim-when-idle', { enabled: true })
-  assert.deepEqual(await dim.json(), { animate: false, dimWhenIdle: true, paused: false })
-  assert.deepEqual(await (await fetch(preview.url + '/api/appearance')).json(), { animate: false, dimWhenIdle: true, paused: false })
+  assert.deepEqual(await dim.json(), { animate: false, dimWhenIdle: true, hidden: false })
+  assert.deepEqual(await (await fetch(preview.url + '/api/appearance')).json(), { animate: false, dimWhenIdle: true, hidden: false })
 })

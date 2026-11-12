@@ -66,7 +66,7 @@ export const readPreferences = () => call('/api/preferences')
 export const saveShortcut = (shortcut) => post('/api/preferences/shortcut', { shortcut })
 export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-login', { enabled })
 
-/** How the pages look: {animate, dimWhenIdle, paused}. */
+/** How the pages look: {animate, dimWhenIdle, hidden}. */
 export const readAppearance = () => call('/api/appearance')
 export const saveAnimate = (enabled) => post('/api/appearance/animate', { enabled })
 export const saveDimWhenIdle = (enabled) => post('/api/appearance/dim-when-idle', { enabled })
@@ -75,7 +75,7 @@ export const readMenu = () => call('/menu.json')
 
 /** Opens the full web interface in the browser. */
 export const openDashboard = () => post('/api/dashboard')
-/** Fades the circle and stops reading; a click on the circle or the shortcut wakes it. */
-export const pauseCompanion = () => post('/api/pause')
+/** Takes the circle and the list off the screen and stops reading; the shortcut brings them back. */
+export const hideCompanion = () => post('/api/hide')
 /** Ends the companion and its server. */
 export const quitCompanion = () => post('/api/quit')

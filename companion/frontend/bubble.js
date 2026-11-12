@@ -35,17 +35,17 @@ function show({ view, note }) {
 badge.addEventListener('animationend', () => badge.classList.remove('is-new'))
 document.addEventListener('motion', () => {
   if (document.documentElement.dataset.motion === 'off') badge.classList.remove('is-new')
-  if (isPaused()) showPaused()
+  if (isHidden()) showHidden()
 })
 
-function isPaused() {
-  return document.documentElement.dataset.paused === 'on'
+function isHidden() {
+  return document.documentElement.dataset.hidden === 'on'
 }
 
-/** Paused: nothing is read, so no count shows; the first list after waking draws a new one. */
-function showPaused() {
+/** Hidden: nothing is read, so no old count waits for the return; the first list after it draws a new one. */
+function showHidden() {
   bubble.classList.remove('is-working', 'is-troubled', 'is-idle')
-  bubble.setAttribute('aria-label', 'Conversations: paused. Click to resume.')
+  bubble.setAttribute('aria-label', 'Conversations: reading a new list')
   badge.hidden = true
   badge.classList.remove('is-new')
   shownCount = 0
@@ -62,18 +62,18 @@ function showTrouble(message) {
 }
 
 async function refresh() {
-  // A paused companion asks nothing.
-  if (isPaused()) return
+  // A hidden companion asks nothing.
+  if (isHidden()) return
   let reply
   try {
     reply = await readInbox('')
   } catch (error) {
     if (!(error instanceof CallError)) throw error
-    // Paused while the list was on its way: the failure is the pause.
-    if (!isPaused()) showTrouble(error.message)
+    // Hidden while the list was on its way: the failure is the hiding.
+    if (!isHidden()) showTrouble(error.message)
     return
   }
-  if (isPaused()) return
+  if (isHidden()) return
   show(reply)
 }
 

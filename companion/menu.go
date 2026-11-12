@@ -60,12 +60,12 @@ func (s *shell) menuActions() map[string]func(on bool) {
 			}
 		},
 		"shortcut": func(bool) { s.openSettings() },
-		"pause":    func(bool) { s.pause() },
+		"hide":     func(bool) { s.hide() },
 		"quit":     func(bool) { s.quit() },
 	}
 }
 
-// openSettings wakes a paused companion and opens the list on its menu,
+// openSettings brings a hidden companion back and opens the list on its menu,
 // where the shortcut can be changed.
 func (s *shell) openSettings() {
 	s.comeBack()
@@ -90,7 +90,7 @@ func (s *shell) bubbleMenu() error {
 }
 
 // shownIDs are the items refreshNative keeps current; the list must hold each.
-var shownIDs = []string{"animate", "dimWhenIdle", "startAtLogin", "shortcut", "pause"}
+var shownIDs = []string{"animate", "dimWhenIdle", "startAtLogin", "shortcut", "hide"}
 
 // fillBubbleMenu adds the shared list to the circle's menu, with a
 // separator before the actions, and shows the values in effect.
@@ -130,6 +130,7 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 	}
 	s.nativeMu.Lock()
 	s.native = native
+	s.hideBase = native["hide"].Label()
 	s.nativeMu.Unlock()
 	s.refreshNative()
 	return nil
@@ -149,27 +150,42 @@ func (s *shell) refreshNative() {
 	s.native["dimWhenIdle"].SetChecked(looks.DimWhenIdle)
 	s.native["startAtLogin"].SetChecked(prefs.StartAtLogin)
 	s.native["shortcut"].SetLabel(shortcutLabel(prefs.Shortcut, runtime.GOOS == "darwin"))
-	s.native["pause"].SetEnabled(!looks.Paused)
+	s.native["hide"].SetLabel(hideLabel(s.hideBase, prefs, runtime.GOOS == "darwin"))
 }
 
 // macKeycaps is how each part of a shortcut reads on a Mac; model.js
 // keycapsOf shows the same in the list.
 var macKeycaps = map[string]string{"Ctrl": "⌃", "Alt": "⌥", "Shift": "⇧", "Cmd": "⌘", "Super": "⌘"}
 
-// shortcutLabel names the shortcut item with its keys: "⌃⌥Space" on a
+// keysOf writes a shortcut as each system shows it: "⌃⌥Space" on a
 // Mac, "Ctrl+Alt+Space" elsewhere.
-func shortcutLabel(shortcut string, isMac bool) string {
-	keys := shortcut
-	if isMac {
-		parts := strings.Split(shortcut, "+")
-		for i, part := range parts {
-			if symbol, ok := macKeycaps[part]; ok {
-				parts[i] = symbol
-			}
-		}
-		keys = strings.Join(parts, "")
+func keysOf(shortcut string, isMac bool) string {
+	if !isMac {
+		return shortcut
 	}
-	return "Open from anywhere: " + keys + "…"
+	parts := strings.Split(shortcut, "+")
+	for i, part := range parts {
+		if symbol, ok := macKeycaps[part]; ok {
+			parts[i] = symbol
+		}
+	}
+	return strings.Join(parts, "")
+}
+
+// shortcutLabel names the shortcut item with its keys.
+func shortcutLabel(shortcut string, isMac bool) string {
+	return "Open from anywhere: " + keysOf(shortcut, isMac) + "…"
+}
+
+// hideLabel adds to the Hide item what brings the companion back: the
+// shortcut while it works, otherwise the command. model.js hideLabelOf
+// says the same in the list.
+func hideLabel(base string, prefs preferences, isMac bool) string {
+	way := "agnostic-ai companion"
+	if prefs.ShortcutProblem == "" {
+		way = keysOf(prefs.Shortcut, isMac)
+	}
+	return base + " (" + way + " brings it back)"
 }
 
 // setAppearanceSwitch answers a POST that turns one look on or off, with

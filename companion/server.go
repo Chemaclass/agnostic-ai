@@ -40,8 +40,8 @@ type server struct {
 	client *http.Client
 
 	mu sync.Mutex
-	// resting is set while the companion is paused or quits: no call
-	// starts a server then. It is outside mu so a pause never waits for
+	// resting is set while the companion is hidden or quits: no call
+	// starts a server then. It is outside mu so a hide never waits for
 	// a server that is still starting.
 	resting atomic.Bool
 	// base is the running server's address, such as
@@ -54,7 +54,7 @@ type server struct {
 	input io.Closer
 }
 
-var errResting = errors.New("the companion is paused and asks agnostic-ai nothing")
+var errResting = errors.New("the companion is hidden and asks agnostic-ai nothing")
 
 func newServer() *server {
 	return &server{client: &http.Client{Timeout: callTimeout}}
@@ -128,7 +128,7 @@ func (s *server) address() (string, error) {
 			return "", fmt.Errorf("agnostic-ai serve stopped before it listened: %s", problems.String())
 		}
 		if s.resting.Load() {
-			// The companion paused while this server started.
+			// The companion was hidden while this server started.
 			_ = input.Close()
 			return "", errResting
 		}

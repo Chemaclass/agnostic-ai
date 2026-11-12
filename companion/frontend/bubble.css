@@ -31,19 +31,6 @@ body {
   transition-duration: 90ms;
 }
 
-/* Paused: the circle stays findable but faint, even under the pointer, and
-   counts nothing. bubble.js drops is-idle then, so the dim rule below never
-   lifts it to 55%. */
-:root[data-paused='on'] .bubble {
-  opacity: 0.1;
-  filter: saturate(0.25);
-}
-
-:root[data-paused='on'] .badge,
-:root[data-paused='on'] .ring {
-  display: none;
-}
-
 /* Nothing needs the person, so the circle steps back until the pointer is on it. */
 :root[data-dim='on'] .bubble.is-idle:not(:hover, .is-hovered) {
   opacity: 0.55;

@@ -1,5 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hidePanel, markConversation, openConversation, openDashboard, pauseCompanion, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
+import { CallError, GivenUp, deleteConversation, hidePanel, markConversation, openConversation, openDashboard, hideCompanion, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
 import { GROUPS, PLACES, afterPage, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
@@ -785,7 +785,7 @@ const settings = {
   controls: new Map(),
   /** What the shell last said: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
   preferences: undefined,
-  /** How the pages look: {animate, dimWhenIdle, paused}. */
+  /** How the pages look: {animate, dimWhenIdle, hidden}. */
   appearance: undefined,
   /** True while the next key press becomes the shortcut. */
   recording: false,
@@ -815,7 +815,7 @@ const MENU_ACTIONS = {
     settings.recording = !settings.recording
     drawSettings()
   },
-  pause: () => pauseCompanion(),
+  hide: () => hideCompanion(),
   // The app can end before its answer arrives.
   quit: () => quitCompanion().catch(() => {}),
 }
@@ -854,8 +854,9 @@ function buildMenu(rows) {
 }
 
 function drawSettings() {
-  for (const row of menuRowsOf(settings.items, settings)) {
+  for (const row of menuRowsOf(settings.items, settings, isMac)) {
     const control = settings.controls.get(row.id)
+    if (row.kind === 'action') control.textContent = row.label
     if (row.kind === 'switch') control.setAttribute('aria-checked', String(row.value))
     if (row.kind !== 'shortcut') continue
     control.classList.toggle('is-recording', settings.recording)
@@ -883,7 +884,7 @@ async function openMenu(focus) {
     const [items, preferences, appearance] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance()])
     if (!settings.items) {
       settings.items = items
-      buildMenu(menuRowsOf(items, { preferences, appearance }))
+      buildMenu(menuRowsOf(items, { preferences, appearance }, isMac))
     }
     settings.preferences = preferences
     settings.appearance = appearance

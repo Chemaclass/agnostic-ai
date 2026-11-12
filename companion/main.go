@@ -114,13 +114,16 @@ type shell struct {
 	tellPreferences func(preferences)
 	end             func()
 	endOnce         sync.Once
-	// pausing keeps a pause and a wake from interleaving their server and
-	// poll changes.
-	pausing sync.Mutex
+	// hiding keeps a hide and a return from interleaving their server,
+	// poll and window changes.
+	hiding sync.Mutex
 	// native holds the right-click menu's items by their id in menu.json.
 	// nativeMu keeps two refreshes from interleaving.
 	native   map[string]*application.MenuItem
 	nativeMu sync.Mutex
+	// hideBase is the Hide item's label in menu.json, before the way back.
+	// nativeMu guards it too.
+	hideBase string
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -133,36 +136,49 @@ type shell struct {
 	// hiddenByFocusAt is when the panel last hid because it lost focus.
 	hiddenByFocusAt time.Time
 	save            *time.Timer
-	// paused is set while the circle is faded: only the shortcut and
-	// the circle listen then, and nothing reads or asks anything.
-	paused bool
+	// hidden is set while the circle and the list are off the screen:
+	// only the shortcut listens then, and nothing reads or asks anything.
+	// It is never saved, so a restart starts on the screen.
+	hidden bool
+	// hiddenAt is where the circle was when it was hidden.
+	hiddenAt point
 }
 
-// pause fades the circle, closes the list and stops the server, until
-// a click, the shortcut or a second start wakes it.
-func (s *shell) pause() {
-	s.setPaused(true)
-	s.panel.Hide()
+// hide takes the circle and the list off the screen and stops the
+// server, until the shortcut, a second start or the settings item brings
+// them back.
+func (s *shell) hide() {
+	s.setHidden(true)
 }
 
-// setPaused stops or starts the reading and tells the pages. It reports
-// whether the state changed.
-func (s *shell) setPaused(on bool) bool {
-	s.pausing.Lock()
-	defer s.pausing.Unlock()
+// setHidden takes the windows off the screen or puts them back, stops or
+// starts the reading, and tells the pages. It reports whether the state
+// changed.
+func (s *shell) setHidden(on bool) bool {
+	s.hiding.Lock()
+	defer s.hiding.Unlock()
 	s.mu.Lock()
-	changed := s.paused != on
-	s.paused = on
+	changed := s.hidden != on
+	s.hidden = on
 	looks := s.settings.appearance()
-	looks.Paused = on
+	looks.Hidden = on
 	s.mu.Unlock()
 	if !changed {
 		return false
 	}
 	if on {
+		x, y := s.bubble.Position()
+		s.hiddenAt = point{X: x, Y: y}
+		s.panel.Hide()
+		s.bubble.Hide()
 		s.inbox.stop()
 		s.restBriefly()
 	} else {
+		s.bubble.Show()
+		// Some window systems place a window again when it shows.
+		if x, y := s.bubble.Position(); x != s.hiddenAt.X || y != s.hiddenAt.Y {
+			s.bubble.SetPosition(s.hiddenAt.X, s.hiddenAt.Y)
+		}
 		s.server.resume()
 		s.inbox.start()
 	}
@@ -195,10 +211,31 @@ func (s *shell) quit() {
 	s.endOnce.Do(s.end)
 }
 
-// comeBack wakes a paused companion and reads a new list. It reports
-// whether the companion was paused.
+// comeBack puts a hidden companion back on the screen and reads a new
+// list. It reports whether the companion was hidden.
 func (s *shell) comeBack() bool {
-	return s.setPaused(false)
+	return s.setHidden(false)
+}
+
+// secondStart answers a companion started while this one runs, which
+// hands over its arguments and ends.
+func (s *shell) secondStart(second application.SecondInstanceData) {
+	switch asked(second.Args) {
+	case askQuit:
+		s.quit()
+	case askLoginOff:
+		// The companion that asked ended inside New and cannot do it.
+		if err := s.changeStartAtLogin(false); err != nil {
+			log.Print(err)
+		}
+	case askLoginOn:
+		if err := s.changeStartAtLogin(true); err != nil {
+			log.Print(err)
+		}
+	default:
+		s.comeBack()
+		s.showPanel()
+	}
 }
 
 // togglePanel answers a click on the bubble and the shortcut.
@@ -344,10 +381,10 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	// Unlike toggle, show skips the reopen guard: the page hid the panel itself.
-	// The page asks after an open fails, which can come long after a pause;
-	// only a click, the shortcut or a second start wakes the companion.
+	// The page asks after an open fails, which can come long after a hide;
+	// only the shortcut, a second start or the settings item brings it back.
 	mux.HandleFunc("POST /api/panel/show", func(w http.ResponseWriter, _ *http.Request) {
-		if s.appearance().Paused {
+		if s.appearance().Hidden {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -361,9 +398,9 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/appearance/animate", s.setAppearanceSwitch(s.setAnimate))
 	mux.HandleFunc("POST /api/appearance/dim-when-idle", s.setAppearanceSwitch(s.setDimWhenIdle))
 	mux.HandleFunc("POST /api/dashboard", dashboard)
-	mux.HandleFunc("POST /api/pause", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-		s.pause()
+		s.hide()
 	})
 	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -445,25 +482,8 @@ func main() {
 		// One companion at a time. Starting it again brings back the one
 		// that runs and opens its list, instead of a second circle.
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: instanceID,
-			OnSecondInstanceLaunch: func(second application.SecondInstanceData) {
-				switch asked(second.Args) {
-				case askQuit:
-					s.quit()
-				case askLoginOff:
-					// The companion that asked ended inside New and cannot do it.
-					if err := s.changeStartAtLogin(false); err != nil {
-						log.Print(err)
-					}
-				case askLoginOn:
-					if err := s.changeStartAtLogin(true); err != nil {
-						log.Print(err)
-					}
-				default:
-					s.comeBack()
-					s.showPanel()
-				}
-			},
+			UniqueID:               instanceID,
+			OnSecondInstanceLaunch: s.secondStart,
 		},
 	})
 	s.end = s.app.Quit

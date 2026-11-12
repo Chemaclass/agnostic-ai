@@ -218,7 +218,7 @@ func TestRunCompanion_StartsItAndSaysWhenItWasBuiltForAnotherRelease(t *testing.
 	if err != nil || started != installed || !pointsBack {
 		t.Fatalf("err %v, started %q, told where agnostic-ai is: %t", err, started, pointsBack)
 	}
-	want := "The companion is on your screen. Its ⋯ menu pauses it or quits it, and a click or its shortcut wakes it. `agnostic-ai companion stop` ends it.\n" +
+	want := "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.\n" +
 		"! It was built for agnostic-ai \"1.2.3\" and this is 1.3.0. Build it again with: agnostic-ai companion install\n"
 	if out.String() != want {
 		t.Errorf("output:\n%s", out.String())

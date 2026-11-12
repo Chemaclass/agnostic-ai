@@ -118,7 +118,7 @@ turns around the circle while an agent is working. With animation off, a still
 ice blue ring shows instead.
 
 Starting the companion a second time brings back the one that already runs and
-opens its list. It also wakes a paused companion.
+opens its list, even when it is hidden.
 
 ## Settings
 
@@ -149,17 +149,17 @@ change made in one shows in the other.
   app, so pick one nothing else uses. Keys another app already holds are
   refused and the old shortcut stays. macOS, Windows and X11 ask for no
   permission; a Wayland desktop asks you once to approve it.
-- **Pause Agnostic AI companion** fades the circle to 10% and stops the
-  companion's server. The circle stays where it is, with no number and no
-  arc, and pointing at it does not brighten it. Nothing reads or asks
-  anything until you wake it. You can still drag it. Click it, press the
-  shortcut, or run `agnostic-ai companion` to wake it with a new list. A
-  restart always starts awake. Pause is not **Dim when idle**: dimming keeps
-  watching, pausing reads nothing. In the right-click menu it is greyed while
-  paused.
+- **Hide Agnostic AI companion** takes the circle and the list off the
+  screen and stops the companion's server. The program keeps running, so the
+  shortcut still works. The entry names the way back: the shortcut's keys, or
+  `agnostic-ai companion` while the shortcut is not active. Press the
+  shortcut, run `agnostic-ai companion`, or open the app again: the circle
+  comes back where it was and the list opens with a new read. Nothing reads
+  or asks anything while hidden. A restart always starts on the screen.
 - **Quit Agnostic AI companion** ends the companion and its server, as
-  `agnostic-ai companion stop` does. **Start at login** stays as you set it.
-  `agnostic-ai companion` starts it again.
+  `agnostic-ai companion stop` does. The shortcut stops working until you
+  start it again with `agnostic-ai companion`. **Start at login** stays as
+  you set it.
 
 ## Stop it and remove it
 
@@ -265,7 +265,7 @@ Both are in the `agnostic-ai` folder of your user configuration folder
 
 | The companion is | What runs |
 | --- | --- |
-| Paused | The shortcut listener and the faded circle. No server, no timer, no reads. |
+| Hidden | The shortcut listener. No circle, no list, no server, no timer, no reads. |
 | On screen | Every 5 seconds it asks its server whether the list changed. The server compares the files' sizes and times and answers "unchanged" without reading a chat. It reads only when a chat or a mark changed, and once when a new minute begins. |
 | Searching | One read for each search, and again when a chat changes while the search shows. |
 
@@ -278,7 +278,7 @@ What you see is never older than this:
   most 65 seconds.
 - A list that could not be read is not shown. The circle loses its number and
   the list says why, instead of showing the last one as if it were current.
-- After the companion was paused, the first list is a new read.
+- After the companion was hidden, the first list is a new read.
 
 ## Layout
 
@@ -286,7 +286,7 @@ What you see is never older than this:
 - `server.go`: starts and stops the companion's `agnostic-ai serve`, and calls it.
 - `inbox.go`: asks the server every 5 seconds whether the list changed, keeps the latest one, and hands the pages' opens and marks to the server.
 - `preferences.go`: the shortcut and the start-at-login setting.
-- `appearance.go`: the animation and dim settings, and whether the companion is paused.
+- `appearance.go`: the animation and dim settings, and whether the companion is hidden.
 - `menu.go`: the circle's right-click menu, built from `frontend/menu.json`.
 - `hover_darwin.go`: tells the circle on macOS when the pointer is over it, even while another app is in front.
 - `dashboard.go`: opens the full web interface.
@@ -295,7 +295,7 @@ What you see is never older than this:
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
   `menu.json` lists the settings both menus show, in order, so they cannot drift
   apart. `model.js` holds the logic and has no DOM in it. `look.js` turns your
-  settings and whether the companion is paused into how the pages look, and
+  settings and whether the companion is hidden into how the pages look, and
   `motion.js` applies them to each page.
 - `dev/`: the browser preview behind `make companion-preview` and `make companion-e2e`.
   It is outside `frontend/`, so no build of the companion holds it.
@@ -310,7 +310,7 @@ about conversations comes over the server's API, documented under
 
 ```sh
 make companion-test   # Go vet, Go tests and the page logic tests
-make companion-e2e    # the list's search, open, rename, mark as read and failure flows, its ⋯ menu, and the paused circle, in headless Chromium
+make companion-e2e    # the list's search, open, rename, mark as read and failure flows, its ⋯ menu, and the hidden circle, in headless Chromium
 ```
 
 CI runs the page tests and the browser tests. It does not run the Go tests yet,

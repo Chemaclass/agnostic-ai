@@ -60,8 +60,8 @@ func (in *inbox) start() {
 	if in.stopPoll != nil {
 		return
 	}
-	// What a page asked while the companion was paused is no news now: a
-	// failure, or a list that answered after the pause. The first list
+	// What a page asked while the companion was hidden is no news now: a
+	// failure, or a list that answered after the hide. The first list
 	// after a start is a new read.
 	in.latest, in.tag, in.problem = nil, "", ""
 	ctx, stop := context.WithCancel(context.Background())
