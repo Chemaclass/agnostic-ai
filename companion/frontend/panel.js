@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hidePanel, markConversation, openConversation, openDashboard, pauseCompanion, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { GROUPS, PLACES, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
+import { GROUPS, PLACES, afterPage, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -394,7 +394,7 @@ async function readEveryPage(asked, signal) {
   if (asked === '') return reply
   for (let pages = 1; reply.view.next && pages < MAX_SEARCH_PAGES; pages += 1) {
     const older = await readInbox(asked, reply.view.next, signal)
-    reply = { ...reply, view: { ...reply.view, next: older.view.next, conversations: [...reply.view.conversations, ...older.view.conversations] } }
+    reply = { ...reply, view: afterPage(reply.view, older.view) }
   }
   return reply
 }
