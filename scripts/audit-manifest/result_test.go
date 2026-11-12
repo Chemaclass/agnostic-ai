@@ -207,3 +207,70 @@ func TestIngestedCoverageRemainsReusable(t *testing.T) {
 		t.Error("old timing was presented as a new observation")
 	}
 }
+
+func TestStoredResultsRejectConflictingCoverageEverywhere(t *testing.T) {
+	a, run := fixture(t)
+	fetched(t, a, run, "changed")
+	for _, target := range []string{"alpha", "beta"} {
+		r := resultFixture(t, a, run, target)
+		if target == "alpha" {
+			s := r["sources"].([]map[string]any)
+			o := s[0]["outcome"].(outcome)
+			o.Disposition = "research-limit"
+			s[0]["outcome"] = o
+		}
+		call(t, a, "ingest", run, writeResult(t, run, r))
+	}
+	mutate(t, run, func(m map[string]any) {
+		r := m["results"].([]any)[0].(map[string]any)
+		s := r["sources"].([]any)[0].(map[string]any)
+		s["outcome"].(map[string]any)["disposition"] = "reviewed"
+	})
+	fresh := filepath.Join(t.TempDir(), "run")
+	call(t, a, "start", "--out", fresh, "--builtins-since", "HEAD", "alpha", "beta")
+	fetched(t, a, fresh, "changed")
+	lock, _ := os.ReadFile(a.lock)
+	for _, args := range [][]string{{"result-report", run}, {"validate", run}, {"ingest", run, filepath.Join(run, "result.json")}, {"resume", fresh, run}, {"finalize", run}} {
+		if _, err := a.run(args); err == nil {
+			t.Errorf("accepted inconsistent stored coverage: %v", args)
+		}
+	}
+	after, _ := os.ReadFile(a.lock)
+	if string(lock) != string(after) {
+		t.Error("inconsistent stored result advanced lock")
+	}
+}
+
+func TestStoredResultsRejectMalformedRecords(t *testing.T) {
+	cases := []struct {
+		name   string
+		change func(map[string]any)
+	}{
+		{"version", func(m map[string]any) { m["results"].([]any)[0].(map[string]any)["version"] = 2 }},
+		{"duplicate target", func(m map[string]any) { r := m["results"].([]any); m["results"] = append(r, r[0]) }},
+		{"missing assignment", func(m map[string]any) { m["assignments"] = []any{} }},
+		{"assignment owner", func(m map[string]any) { m["assignments"].([]any)[0].(map[string]any)["owner"] = "different" }},
+		{"missing source", func(m map[string]any) { m["results"].([]any)[0].(map[string]any)["sources"] = []any{} }},
+		{"negative timing", func(m map[string]any) {
+			m["results"].([]any)[0].(map[string]any)["timing"] = map[string]any{"start": -1}
+		}},
+		{"reversed timing", func(m map[string]any) {
+			m["results"].([]any)[0].(map[string]any)["timing"] = map[string]any{"start": 20, "end": 10}
+		}},
+		{"short fetch row", func(m map[string]any) {
+			m["sources"].([]any)[0].(map[string]any)["fetch"].(map[string]any)["row"] = []any{}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a, run := fixture(t)
+			fetched(t, a, run, "changed")
+			r := resultFixture(t, a, run, "alpha")
+			call(t, a, "ingest", run, writeResult(t, run, r))
+			mutate(t, run, tc.change)
+			if _, err := a.run([]string{"result-report", run}); err == nil {
+				t.Error("reported malformed stored result")
+			}
+		})
+	}
+}

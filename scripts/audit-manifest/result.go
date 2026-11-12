@@ -50,7 +50,10 @@ func (a app) ingest(m *manifest, path string) (string, error) {
 	if err = dec.Decode(&extra); err != io.EOF {
 		return "", fmt.Errorf("parse %s: trailing JSON", path)
 	}
-	if err = a.validateResult(m, &r); err != nil {
+	if err = a.validateEvidence(m, m.LockBaseline); err != nil {
+		return "", err
+	}
+	if err = validateTargetResult(m, &r); err != nil {
 		return "", fmt.Errorf("%s: %w", path, err)
 	}
 	for _, prior := range m.Results {
@@ -95,12 +98,9 @@ func (a app) ingest(m *manifest, path string) (string, error) {
 	}
 	return resultSummary(m), nil
 }
-func (a app) validateResult(m *manifest, r *targetResult) error {
+func validateTargetResult(m *manifest, r *targetResult) error {
 	if r.Version != 1 || r.RunID != m.RunID || !slices.Contains(m.Targets, r.Target) || strings.TrimSpace(r.Owner) == "" {
 		return errors.New("invalid result version, run, target or owner")
-	}
-	if err := a.validateEvidence(m, m.LockBaseline); err != nil {
-		return err
 	}
 	if err := validateOutcome(m, &r.Outcome); err != nil {
 		return err
@@ -123,7 +123,11 @@ func (a app) validateResult(m *manifest, r *targetResult) error {
 	expected := map[string]source{}
 	for _, s := range m.Sources {
 		if s.Target == r.Target {
-			expected[s.Kind+"\t"+s.URL] = s
+			key := s.Kind + "\t" + s.URL
+			if _, exists := expected[key]; exists {
+				return fmt.Errorf("%s: duplicate captured source", key)
+			}
+			expected[key] = s
 		}
 	}
 	seen := map[string]bool{}
@@ -134,8 +138,11 @@ func (a app) validateResult(m *manifest, r *targetResult) error {
 			return fmt.Errorf("%s: unknown or duplicate source", key)
 		}
 		seen[key] = true
-		if current.Fetch == nil || s.Evidence != current.Fetch.Evidence {
+		if current.Fetch == nil || len(current.Fetch.Row) != 10 || s.Evidence != current.Fetch.Evidence {
 			return fmt.Errorf("%s: evidence differs from capture", key)
+		}
+		if err := checkArtifact(m.Directory, s.Evidence); err != nil {
+			return err
 		}
 		if err := validateOutcome(m, &s.Outcome); err != nil {
 			return fmt.Errorf("%s: %w", key, err)
@@ -221,4 +228,37 @@ func resultTemplate(m *manifest, target string) (string, error) {
 		return "", fmt.Errorf("target result: %w", err)
 	}
 	return string(b) + "\n", nil
+}
+
+func validateStoredResults(m *manifest) error {
+	seen := map[string]bool{}
+	for i := range m.Results {
+		r := &m.Results[i]
+		if seen[r.Target] {
+			return fmt.Errorf("%s: duplicate stored result", r.Target)
+		}
+		seen[r.Target] = true
+		if err := validateTargetResult(m, r); err != nil {
+			return fmt.Errorf("stored result %s: %w", r.Target, err)
+		}
+		count := 0
+		for _, as := range m.Assignments {
+			if as.Target == r.Target {
+				count++
+				if as.Owner != r.Owner || as.Outcome == nil || !reflect.DeepEqual(*as.Outcome, r.Outcome) {
+					return fmt.Errorf("%s: stored result differs from assignment", r.Target)
+				}
+			}
+		}
+		if count != 1 {
+			return fmt.Errorf("%s: stored result requires one assignment", r.Target)
+		}
+		for _, rs := range r.Sources {
+			current := findSource(m.Sources, strings.Join([]string{r.Target, rs.Kind, rs.URL}, "\t"))
+			if current == nil || current.Outcome == nil || !reflect.DeepEqual(*current.Outcome, rs.Outcome) {
+				return fmt.Errorf("%s: stored result differs from source coverage", r.Target)
+			}
+		}
+	}
+	return nil
 }

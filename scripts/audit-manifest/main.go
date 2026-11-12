@@ -326,6 +326,9 @@ func load(dir string) (*manifest, error) {
 	if idErr != nil || len(m.RunID) != 32 || m.Directory != abs || m.Created == "" {
 		return nil, fmt.Errorf("%s: invalid run identity", path)
 	}
+	if err = validateStoredResults(&m); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return &m, nil
 }
 
