@@ -28,7 +28,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version: '26'
 
       - name: Check the bundled client against its sources
         run: |
@@ -155,7 +155,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version: '26'
 
       - name: Download the Linux archive
         env:
@@ -199,7 +199,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version: '26'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Verify and install the npm publishing toolchain
@@ -265,7 +265,7 @@ jobs:
         if: env.NPM_TOKEN_CONFIGURED == 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version: '26'
 
       - name: Verify and install the npm verifier
         if: env.NPM_TOKEN_CONFIGURED == 'true'

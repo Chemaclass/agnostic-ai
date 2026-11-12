@@ -42,7 +42,7 @@ For an unbundled development build, run `npm run build` in `ui/` and pass `--ui 
 
 ## Update the bundled client
 
-Use Node.js 22 from the repository root:
+Use Node.js 26 from the repository root:
 
 ```sh
 make ui-build

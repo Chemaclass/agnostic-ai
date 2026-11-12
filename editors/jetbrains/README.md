@@ -22,8 +22,9 @@ Open a project containing `agnostic-ai.yaml`, edit a source spec, and use **Rend
   platform build).
 - The `agnostic-ai` binary on `PATH`. Install from
   [the project README](https://github.com/Chemaclass/agnostic-ai#install).
-- JDK 21+ (for local development; the wrapper auto-downloads if
-  missing using Gradle's JDK download support).
+- JDK 25 for local development, on `PATH` or in `JAVA_HOME`. Gradle
+  does not download it. The build still emits Java 21 bytecode, which
+  IDE 2024.2 runs.
 
 ## Settings
 
@@ -47,7 +48,7 @@ cd editors/jetbrains
                             # recommended IDE versions
 ```
 
-The Gradle wrapper bootstraps Gradle 9.0.0 on first run and checks the download against its pinned SHA-256 checksum. CI validates the committed wrapper JAR against Gradle's published checksums before running it.
+The Gradle wrapper bootstraps Gradle 9.9.1 on first run and checks the download against its pinned SHA-256 checksum. CI validates the committed wrapper JAR against Gradle's published checksums before running it.
 
 ## Publish
 

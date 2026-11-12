@@ -67,7 +67,7 @@ or the CLI is too old, it says what to run instead.
 
 ## Develop
 
-Use Node.js 22 or newer. The packaging tool requires Node 22; the extension still supports VS Code 1.85 or newer.
+Use Node.js 26, the version CI uses. The packaging tool requires Node 22 or newer; the extension still supports VS Code 1.85 or newer.
 
 ```bash
 cd editors/vscode
