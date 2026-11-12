@@ -378,7 +378,9 @@ func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryF
 		}
 	}
 	for key, path := range cfg.ConfiguredOutputPaths() {
-		add(path, key)
+		if !directorySetting(key) {
+			add(path, key)
+		}
 	}
 	for path, ts := range owners {
 		for _, t := range ts {
@@ -406,4 +408,10 @@ func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryF
 	return errs.Coded(errs.CodeOutputCollision,
 		"output collision: an output sits where sync saves another output's hand edit\n%s\n"+
 			"point one of them elsewhere", strings.Join(lines, "\n"))
+}
+
+// directorySetting reports whether an outputs.<target>.<key> names a
+// folder. Sync writes files beneath it and never backs the folder up.
+func directorySetting(key string) bool {
+	return strings.HasSuffix(key, ".dir") || strings.HasSuffix(key, "-dir")
 }
