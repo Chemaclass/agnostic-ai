@@ -103,7 +103,7 @@ A search keeps the conversations of every age where each word appears in the tit
 
 The route lists Claude Code, Codex and Cursor conversations from each tool's own store. The newest come first, by the last message from the person or the agent.
 
-- Each page holds one week. The first page holds every open conversation and the past week.
+- Each page holds one week. The first page holds every open conversation, every blocked or unread one, and the past week, so it holds every conversation `needsYou` counts. A later page leaves those out.
 - A page asked for with `before` holds the week before that time, and reaches past weeks with no conversation.
 - The page returns `from` and `to`, and `next`, the `before` value of the following page, absent when no older conversation remains.
 - A `before` that is not an RFC 3339 time is a 400.
