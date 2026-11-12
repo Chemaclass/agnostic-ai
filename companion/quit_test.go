@@ -8,6 +8,8 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // closer records whether the server's input was closed.
@@ -138,4 +140,57 @@ func TestQuit_TwoAtOnceEndTheAppOnce(t *testing.T) {
 	if n := ended.Load(); n != 1 {
 		t.Errorf("end was called %d times; want once", n)
 	}
+}
+
+func TestNativeQuit_AsksInTheListAndEndsNothing(t *testing.T) {
+	s, input, ended := quittingShell(t)
+	panel := newFakeWindow()
+	panel.visible = false
+	s.bubble, s.panel = newFakeWindow(), panel
+	var asked []string
+	s.panel = &askingWindow{fakeWindow: panel, events: &asked}
+
+	s.menuActions()["quit"](false)
+
+	if *ended != 0 || input.closed {
+		t.Error("Quit in the right-click menu ended the companion without asking")
+	}
+	if !panel.IsVisible() || len(asked) != 1 || asked[0] != eventQuitAsked {
+		t.Errorf("list visible %v, told %v; want it open on the question", panel.IsVisible(), asked)
+	}
+}
+
+func TestNativeQuit_BringsAHiddenOrFadedCompanionBackToAsk(t *testing.T) {
+	s, _, ended := quittingShell(t)
+	panel := newFakeWindow()
+	panel.visible = false
+	s.bubble, s.panel = newFakeWindow(), panel
+	s.setPresence(fadedBack)
+
+	s.menuActions()["quit"](false)
+
+	if s.presenceNow() != shown || *ended != 0 {
+		t.Errorf("presence %q, ended %d; want shown and asking", s.presenceNow(), *ended)
+	}
+}
+
+func TestSecondStart_AskedToQuitEndsWithoutAQuestion(t *testing.T) {
+	s, input, ended := quittingShell(t)
+
+	s.secondStart(application.SecondInstanceData{Args: []string{"companion", askQuit}})
+
+	if *ended != 1 || !input.closed {
+		t.Errorf("ended %d, server stopped %v; want ended once without asking", *ended, input.closed)
+	}
+}
+
+// askingWindow records the events the shell sends a window.
+type askingWindow struct {
+	*fakeWindow
+	events *[]string
+}
+
+func (w *askingWindow) EmitEvent(name string, _ ...any) bool {
+	*w.events = append(*w.events, name)
+	return true
 }

@@ -41,7 +41,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 |------|-------------|
 | `install --source` | Build from this folder instead of fetching the source. It is the `companion` folder of an agnostic-ai checkout. |
 
-`agnostic-ai companion` starts the companion and returns. Run it again to wake a paused companion and open its list. It tells you when the companion was built for another release.
+`agnostic-ai companion` starts the companion and returns. Run it again to bring back a hidden companion and open its list. It tells you when the companion was built for another release.
 
 | Command | What it does |
 |---------|--------------|
@@ -66,8 +66,9 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
   - **Dim when idle** fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
   - **Start at login** starts the companion when you log in.
   - **Open from anywhere** shows the shortcut. In the right-click menu, choosing it opens the list on its ⋯ menu to change the keys.
-  - **Pause Agnostic AI companion** fades the circle to 10% and stops that server. The circle shows no count and can still be dragged. Nothing is read or asked until a click on the circle, the shortcut or `agnostic-ai companion` wakes it with a new list. A restart starts awake. Unlike **Dim when idle**, a paused companion does not keep watching.
-  - **Quit Agnostic AI companion** ends the companion and its server, as `companion stop` does. Start at login stays as you set it. `agnostic-ai companion` starts it again.
+  - **Hide Agnostic AI companion** takes the circle and the list off the screen. The companion keeps running and reading. The entry names what brings it back: the shortcut, or `agnostic-ai companion` while the shortcut is not active. The shortcut, `agnostic-ai companion` or opening the app again shows the circle where it was and opens the list.
+  - **Quit Agnostic AI companion** asks first: the program stops, so the shortcut will not bring it back, and `agnostic-ai companion` (or your AI tool running it) starts it again. The question offers **Quit**, **Hide instead** and **Cancel**; Escape or a click elsewhere cancels. Quit ends the companion and its server, as `companion stop` does. `stop`, `install`, `upgrade`, `uninstall` and logging out never ask. Start at login stays as you set it.
+- The companion is shown, hidden, or back dimmed. While hidden, a conversation that starts waiting for you brings the circle back on its own at 25%, with its count, without opening the list. On macOS it does not take the keys. Conversations that already waited when you hid it do not bring it back. A click on the circle or the shortcut brings back full color. **Dim when idle** does not change a dimmed circle, and **Animate companion** still applies to it. None of the three states is saved: a restart starts shown.
 - A local Codex chat that wrote nothing for 5 minutes moves to Needs you as "No activity for 7m", not "Waiting for you": Codex does not say when it waits, so the silence is all the server knows. A tool that reports its wait shows "Waiting for you". The web interface uses the same words.
 
 ## Delete an archived chat

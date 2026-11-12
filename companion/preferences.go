@@ -81,11 +81,12 @@ func (s *shell) registerShortcut() {
 	s.mu.Unlock()
 	err := s.shortcuts.Register(keys, s.togglePanel)
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.shortcutProblem = ""
 	if err != nil {
 		s.shortcutProblem = fmt.Sprintf("%s is not active: %v", keys, err)
 	}
+	s.mu.Unlock()
+	s.refreshNative()
 }
 
 // changeShortcut swaps the shortcut for keys. The new keys are taken
