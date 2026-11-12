@@ -79,7 +79,7 @@ type Scanner struct {
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
 	cursorAgents      map[string]cached[cursorAgentMeta]
-	cursorTranscripts map[string]cached[[2]string]
+	cursorTranscripts map[string]cached[cursorAgentTexts]
 	cursorPrompts     map[string]cached[cursorPrompts]
 	shown             shownCache
 	keptSources       map[Tool]keptSource
