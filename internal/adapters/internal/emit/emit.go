@@ -4,6 +4,7 @@
 package emit
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -1030,7 +1031,9 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	var backupPath string
 	if editBackup {
 		backupPath = path + ".bak"
-		switch err := backUpEdit(cur, backupPath); {
+		err := backUpEdit(cur, backupPath)
+		switch {
+		case errors.Is(err, fs.ErrExist) && backupHolds(cur, backupPath):
 		case errors.Is(err, fs.ErrExist):
 			s.mu.Lock()
 			s.noteKeptEditLocked(&s.backedUp, WrittenFile{Path: path, Bytes: len(content), Sum: s.priorChecksum(path, s.backupSums)}, detailing)
@@ -1040,7 +1043,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			return fmt.Errorf("backup %s: %w", path, err)
 		}
 		s.noteBackup(path)
-		if transacting {
+		if transacting && err == nil {
 			// A rollback removes it, so a retry does not take it for an
 			// earlier backup and leave the edit stuck in place.
 			s.mu.Lock()
@@ -1212,6 +1215,24 @@ func backUpEdit(cur *onDisk, backup string) error {
 		_ = os.Remove(backup)
 	}
 	return err
+}
+
+// backupHolds reports whether backup is a separate regular file that
+// already holds cur's bytes, so writing over cur loses nothing.
+func backupHolds(cur *onDisk, backup string) bool {
+	info, err := os.Lstat(backup)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	if own, err := cur.lstat(); err != nil || os.SameFile(own, info) {
+		return false
+	}
+	saved, err := readFile(backup)
+	if err != nil {
+		return false
+	}
+	existing, err := cur.bytes()
+	return err == nil && bytes.Equal(saved, existing)
 }
 
 // createUntrackedFileExclusive atomically claims path as a brand-new

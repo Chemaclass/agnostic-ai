@@ -518,3 +518,67 @@ func assertLedgerSpellsAGENTSmdOnce(t *testing.T, state syncStateFile) {
 		}
 	}
 }
+
+// Three syncs on v0.93.0 with `rules-file: AGENTS.md` left codex's merged
+// file in both AGENTS.md and AGENTS.md.bak. The backup holds those exact
+// bytes, so writing AGENTS.md loses nothing.
+func TestSync_RulesFileStuckOnABackupOfTheSameBytes_Heals(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "MERGED\n")
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MERGED\n")
+
+	out, err := runCLI(t, "sync", "--gitignore=off")
+
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
+		t.Errorf("AGENTS.md must hold amp's file again, got:\n%s", got)
+	}
+	if bak, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md.bak")); string(bak) != "MERGED\n" {
+		t.Errorf("AGENTS.md.bak must keep its bytes, got %q", bak)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+func TestSync_HandEditWithADifferentOrLinkedBackup_IsKept(t *testing.T) {
+	for name, plant := range map[string]func(t *testing.T, dir string){
+		"older backup": func(t *testing.T, dir string) {
+			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "EARLIER-EDIT\n")
+		},
+		"hard link": func(t *testing.T, dir string) {
+			if err := os.Link(filepath.Join(dir, "AGENTS.md"), filepath.Join(dir, "AGENTS.md.bak")); err != nil {
+				t.Skip(err)
+			}
+		},
+		"symlink": func(t *testing.T, dir string) {
+			if err := os.Symlink("AGENTS.md", filepath.Join(dir, "AGENTS.md.bak")); err != nil {
+				t.Skip(err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "HAND-EDIT\n")
+			plant(t, dir)
+
+			out, err := runCLI(t, "sync", "--gitignore=off")
+
+			if err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != "HAND-EDIT\n" {
+				t.Errorf("sync must keep the hand edit, got:\n%s", got)
+			}
+		})
+	}
+}
