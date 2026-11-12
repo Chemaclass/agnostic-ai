@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Target audits review ordinary CLI comment changes once, with recorded source evidence, while keeping runtime changes under deep review (#3372).
 - Target audits can start in an isolated worktree and retain evidence outside it, so concurrent checkout changes do not restart research (#3369).
 
 ### Tooling

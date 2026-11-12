@@ -6,12 +6,13 @@ Save the work behind the assignment before delegating:
 scripts/target-facts.sh --review-reasons <run>/docfetch.tsv --builtins-since <rev> > <run>/review-reasons.tsv
 ```
 
-Use the same run file and built-in baseline as `--changed`, including a per-target `<target>=<rev>,...` list; each row's `baseline` is that target's commit. Omit `--builtins-since` when no completed audit proves a baseline. This output explains the existing deep batches. It changes no assignment, required page coverage or fast-path eligibility, and establishes no speedup.
+Use the same run file and built-in baseline as `--changed`, including a per-target `<target>=<rev>,...` list; each row's `baseline` is that target's commit. Omit `--builtins-since` when no completed audit proves a baseline. This output explains required runtime checks and shared comment reviews. A comment-only proof can replace repeated runtime review with one recorded prose review; vendor page coverage and evidence thresholds stay unchanged.
 
 The TSV has `target`, `reason`, `baseline`, `evidence`, `state` and `checklist` columns. A target can have several work items. Pass each batch only its targets' rows, together with `builtins.txt`. The rows identify required work; they do not track its completion or prove native support.
 
 | Reason | Evidence and required work |
 |---|---|
+| `comment-only` | An existing regular CLI Go file whose raw source parses and whose noncomment tokens and token line positions are identical. The coordinator completes `shared-comment-review` once for each baseline/path pair: inspect the saved old/new source, check changed prose for native claims against fresh evidence, and record its conclusion with `review-comment`. The manifest blocks fast paths and finalization while this review is missing or stale. |
 | `vendor-delta` | A new or changed vendor URL. `baseline` is the lock's previous content hash, or `-` if absent. `vendor-review`: read the delta and relevant current text using the auditor's normal method. |
 | `built-in` | A shipped built-in path, including assets and registration. `baseline` is the resolved repository commit. `built-in-review`: apply the existing skill and hook checklist in `.agnostic-ai/skills/target-audit/references/builtins.md`. |
 | `shared-repository` | A shared runtime, selection, config, emission, test or documented claim, or a target's own adapter or page. `target-claims`: trace the changed repository claim to current vendor evidence. Also complete `built-in-review`. |
@@ -25,4 +26,4 @@ For repository rows, `state` is `added`, `changed` or `removed` relative to the 
 
 A missing or unusable baseline produces `built-in` rows with `evidence=baseline-unavailable`. Their state is `missing`, `invalid` or `compare-failed`. `baseline-recovery` means recover a qualifying baseline under the built-ins reference or complete the full built-in review for each target with that row; with a per-target list, only the targets it omits get one. A vendor lock update cannot establish that baseline.
 
-Keep vendor and repository evidence separate in the assignment and result. Unchanged vendor text clears no pending built-in or shared repository check. A target with pending built-in checks cannot be Clean or take either fast path. Any future coverage reduction needs validated completion accounting and demonstrated equivalent coverage in a separate change.
+Keep vendor and repository evidence separate in the assignment and result. Unchanged vendor text clears no pending built-in or shared repository check. A target with pending built-in checks cannot be Clean or take either fast path. Only the documented token proof can replace a runtime check with shared prose review. Preserve every finding or unresolved claim from that review in synthesis; comment-only never means the changed prose is true. The manifest binds each review to its baseline, path, affected targets, exact before/after bytes, and reviewer artifact. Other coverage reductions need validated completion accounting and demonstrated equivalent coverage in a separate change.

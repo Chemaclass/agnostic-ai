@@ -23,6 +23,16 @@ export GIT_CONFIG_COUNT=3 \
   GIT_CONFIG_KEY_1=gc.auto GIT_CONFIG_VALUE_1=0 \
   GIT_CONFIG_KEY_2=core.fsmonitor GIT_CONFIG_VALUE_2=false
 
+function set_up_before_script() {
+  COMMENT_HELPER=$(mktemp)
+  go -C "$FACTS_ROOT" build -o "$COMMENT_HELPER" ./scripts/audit-manifest
+  export TARGET_FACTS_REVIEW_HELPER="$COMMENT_HELPER"
+}
+
+function tear_down_after_script() {
+  rm -f "$COMMENT_HELPER"
+}
+
 # ---- list_targets ------------------------------------------------------------
 
 function test_list_targets_matches_the_registry() {
@@ -671,13 +681,20 @@ function test_builtin_regression_cli_source_invalidates_and_cli_tests_do_not() {
   assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }
 
-function test_builtin_regression_cli_file_that_stops_naming_builtins_invalidates() {
+function test_builtin_regression_cli_comment_removal_requires_shared_review() {
   builtin_regression_fixture
   printf 'package cli\n// enables builtins in new projects\n' >"$ROOT/internal/cli/init_scaffold.go"
   git -C "$ROOT" add .
   git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm cli
   BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
   printf 'package cli\n' >"$ROOT/internal/cli/init_scaffold.go"
+  assert_equals 'sweep: factory claude continue' "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+  local reasons target
+  reasons=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  for target in factory claude continue; do
+    assert_contains "$(printf '%s\tcomment-only\t%s\tinternal/cli/init_scaffold.go\tchanged\tshared-comment-review' "$target" "$BUILTIN_BASE")" "$reasons"
+  done
+  printf 'package cli\nvar enabled = false\n' >"$ROOT/internal/cli/init_scaffold.go"
   assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }
 
@@ -920,4 +937,42 @@ function test_builtins_since_map_rejects_an_unknown_target() {
   local status=0
   main --changed "$CHANGED_RUN" 2 --builtins-since "claud=$BUILTIN_BASE" >/dev/null 2>&1 || status=$?
   assert_not_equals 0 "$status"
+}
+
+function test_builtin_comment_only_change_requires_shared_prose_review() {
+  builtin_regression_fixture
+  local file="$ROOT/internal/cli/settings_json_edit.go"
+  printf 'package cli\n// Check docs/check.md.\nfunc enabled() bool { return true }\n' >"$file"
+  git -C "$ROOT" add .
+  git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm comment-baseline
+  BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
+  printf 'package cli\n// Check docs/lint-codes.md.\nfunc enabled() bool { return true }\n' >"$file"
+  assert_equals 'sweep: factory claude continue' "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+  assert_contains $'claude\tcomment-only\t'"$BUILTIN_BASE"$'\tinternal/cli/settings_json_edit.go\tchanged\tshared-comment-review' "$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")"
+  write_run "factory docs https://f/1 changed" "claude docs https://c/1 unchanged" "continue docs https://n/1 failed"
+  local out
+  out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+  assert_contains '1: factory' "$out"
+  assert_contains '2: continue' "$out"
+  assert_contains 'sweep: claude' "$out"
+  printf 'package cli\n// Check docs/lint-codes.md.\nfunc enabled() bool { return false }\n' >"$file"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_builtin_comment_proof_failure_keeps_deep_review() {
+  builtin_regression_fixture
+  local file="$ROOT/internal/cli/settings_json_edit.go"
+  printf 'package cli\n// old prose\nfunc enabled() bool { return true }\n' >"$file"
+  git -C "$ROOT" add .
+  git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm comment-baseline
+  BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
+  printf 'package cli\n// new prose\nfunc enabled() bool { return true }\n' >"$file"
+  TARGET_FACTS_REVIEW_HELPER=/nonexistent/comment-helper
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+  TARGET_FACTS_REVIEW_HELPER="$COMMENT_HELPER"
+  chmod +x "$file"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+  chmod -x "$file"
+  printf 'package cli\n// new prose\nfunc enabled() bool { return tr\000ue }\n' >"$file"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }
