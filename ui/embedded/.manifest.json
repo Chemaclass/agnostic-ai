@@ -2,8 +2,8 @@
   "version": 1,
   "inputs": {
     "index.html": "3b3569dcd7291e7f2713e587a24ca800fabee2dddc9e5a475a5633f1ff5fd0fe",
-    "package-lock.json": "1ba42155947c196967a0926e1827910ad40acc174771a4a0e7852379d52e2cc7",
-    "package.json": "4867e46c808f39a418bcb2168eeef2add4a87355f6988b24f3d6f8b049272556",
+    "package-lock.json": "b18e5964278b25e3ab9ffa0db4ab15940fc58526914fc2579b3b1b6e4265c83d",
+    "package.json": "5b050eb1705e0cb7b443e672db0c1ebbd49ee75605192f8caeda63e027ba9ef8",
     "scripts/bundle.mjs": "d580dd23e3dadb91a9f9a9bcd550cd40336b2ff1a7e359e61007c4684cea86c6",
     "scripts/computed-styles.mjs": "e2e6a50fdd20eec92232a81c11af34fe181f215ddbb80efd85e70fa8e4f8d30c",
     "src/App.tsx": "c8276c6bf318bfcfbf9b3a95f0bad996cee252ea94085d7fbb4a94dc6cf41b48",
