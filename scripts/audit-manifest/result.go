@@ -39,7 +39,7 @@ func (a app) ingest(m *manifest, path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var r targetResult
 	dec := json.NewDecoder(f)
 	dec.DisallowUnknownFields()
