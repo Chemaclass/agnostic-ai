@@ -582,3 +582,25 @@ func TestSync_HandEditWithADifferentOrLinkedBackup_IsKept(t *testing.T) {
 		})
 	}
 }
+
+// The ledger keeps `..` as written, since a linked folder resolves it
+// elsewhere, so it lists docs/../AGENTS.md beside AGENTS.md. Sync writes
+// both, so --check must not report the first as a leftover.
+func TestSync_DotDotRulesFileOnASharedInstructionsFile_Settles(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: docs/../AGENTS.md\n")
+	if err := os.MkdirAll(filepath.Join(dir, "docs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	out, err := runCLI(t, "sync", "--check")
+
+	if err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md.bak")); err == nil {
+		t.Error("sync must not save AGENTS.md.bak")
+	}
+}
