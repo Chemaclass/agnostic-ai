@@ -137,3 +137,33 @@ func TestStamp_ChangesWhenANewSpanBegins(t *testing.T) {
 		t.Errorf("the stamp held into the next %s, so a process that ended would never show", freshSpan)
 	}
 }
+
+func TestScan_SeesTheReplyARunningCursorAgentChatAddsToItsTranscript(t *testing.T) {
+	agent := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	held := map[string]int{}
+	scanner, store := cursorAgentScanner(t, terminalProcesses(4242, held, nil), agent)
+	held[store(agent)] = 4242
+	now := time.Now()
+	scanner.Now = func() time.Time { return now }
+	transcript := filepath.Join(scanner.Stores.CursorDir, "projects", "p1", "agent-transcripts", agent, agent+".jsonl")
+	turn := []any{
+		obj{"role": "user", "message": obj{"content": []obj{textPart("<user_query>Fix the CI job</user_query>")}}},
+		obj{"role": "assistant", "message": obj{"content": []obj{textPart("Looking.")}}},
+	}
+	write(t, transcript, lines(turn...))
+	scan := func() Conversation {
+		return byID(t, scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}}), agent)
+	}
+	scan()
+	scan()
+	before := scanner.Stamp()
+
+	write(t, transcript, lines(append(turn, obj{"role": "assistant", "message": obj{"content": []obj{textPart("Fixed and tested.")}}})...))
+
+	if scanner.Stamp() == before {
+		t.Error("the stamp must change when a running chat's transcript grows")
+	}
+	if c := scan(); c.Reply != "Fixed and tested." {
+		t.Errorf("a running chat's new reply must show before its store changes, actual %q", c.Reply)
+	}
+}

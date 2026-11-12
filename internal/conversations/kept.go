@@ -93,8 +93,8 @@ func (s *Scanner) codexFiles() []string {
 }
 
 // cursorFiles are the files a Cursor read depends on: the chat index,
-// the open windows, each workspace's chat selection and each
-// cursor-agent chat.
+// the open windows, each workspace's chat selection, each cursor-agent
+// chat, and the transcripts of the chats a process held at the last read.
 func (s *Scanner) cursorFiles() []string {
 	globalStorage := filepath.Dir(s.Stores.CursorDB)
 	workspaces, _ := filepath.Glob(filepath.Join(filepath.Dir(globalStorage), "workspaceStorage", "*", "state.vscdb"))
@@ -102,7 +102,10 @@ func (s *Scanner) cursorFiles() []string {
 	files := withWAL(s.Stores.CursorDB)
 	files = append(files, filepath.Join(globalStorage, "storage.json"))
 	files = append(files, withWAL(workspaces...)...)
-	return append(files, withWAL(agents...)...)
+	files = append(files, withWAL(agents...)...)
+	s.rolloutsMu.Lock()
+	defer s.rolloutsMu.Unlock()
+	return append(files, s.cursorLiveTranscripts...)
 }
 
 // claudeFiles are the files a Claude Code read depends on: each

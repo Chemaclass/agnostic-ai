@@ -266,3 +266,49 @@ func TestCursorSlug_IsThePathWithEachRunOfOtherCharactersAsOneHyphen(t *testing.
 		t.Errorf("slug = %q", got)
 	}
 }
+
+func TestScan_GivesACursorAgentChatInAnUnknownFolderNoResumeCommand(t *testing.T) {
+	scanner, _ := cursorAgentScanner(t, fakeProcesses{})
+	write(t, filepath.Join(scanner.Stores.CursorDir, "chats", md5Hex("/no/such/folder"), cursorChat, "store.db"), "")
+
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), cursorChat)
+
+	if c.Folder != "" || c.Open.Command != "" {
+		t.Fatalf("cursor-agent finds a chat only from its own folder, so a resume from elsewhere opens none: %+v", c.Open)
+	}
+	reply := Open(context.Background(), c, scanner.Processes, &fakeLauncher{})
+	if reply.Opened || !strings.Contains(reply.Message, "folder it started in") {
+		t.Errorf("reply = %+v", reply)
+	}
+}
+
+// askedProcesses records the files Holders is asked about.
+type askedProcesses struct {
+	fakeProcesses
+	asked *[]string
+}
+
+func (p askedProcesses) Holders(paths []string) map[string]int {
+	*p.asked = append(*p.asked, paths...)
+	return p.fakeProcesses.Holders(paths)
+}
+
+func TestCurrentSession_AsksOnlyAboutRecentCursorChatStores(t *testing.T) {
+	_, stores := testScanner(t, noSQLite, fakeProcesses{})
+	dbs := writeCursorChatStores(t, stores, cursorChat, cursorOther)
+	old := time.Now().Add(-2 * liveWindow)
+	if err := os.Chtimes(dbs[1], old, old); err != nil {
+		t.Fatal(err)
+	}
+	var asked []string
+	processes := askedProcesses{fakeProcesses{table: cursorAgentChain(), held: map[string]int{dbs[0]: 98}}, &asked}
+
+	ref, _, err := CurrentSession(processes, stores, env(nil), 100)
+
+	if err != nil || ref != (Ref{Tool: ToolCursor, ID: cursorChat}) {
+		t.Fatalf("ref %+v err %v", ref, err)
+	}
+	if strings.Join(asked, ",") != dbs[0] {
+		t.Errorf("asked about %v, want only the recent store", asked)
+	}
+}

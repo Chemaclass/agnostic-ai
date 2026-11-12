@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // maxSessionAncestors bounds the walk up from a command to its tool. A
@@ -132,11 +133,19 @@ func codexThreadOf(processes Processes, stores Stores, getenv func(string) strin
 const cursorChatVariable = "CURSOR_CONVERSATION_ID"
 
 // cursorChatOf names the chat a cursor-agent process runs the command
-// for. A running chat holds chats/<folder hash>/<chat id>/store.db.
+// for. A running chat holds chats/<folder hash>/<chat id>/store.db; as
+// in a scan, only stores written within liveWindow are asked about.
 func cursorChatOf(processes Processes, stores Stores, getenv func(string) string, pid int) (Ref, error) {
 	dbs, _ := filepath.Glob(filepath.Join(stores.CursorDir, "chats", "*", "*", "store.db"))
+	cutoff := time.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
+	var recent []string
+	for _, db := range dbs {
+		if modTime(db) >= cutoff {
+			recent = append(recent, db)
+		}
+	}
 	var held []string
-	for path, holder := range processes.Holders(dbs) {
+	for path, holder := range processes.Holders(recent) {
 		id := filepath.Base(filepath.Dir(path))
 		if holder == pid && cursorIDPattern.MatchString(id) {
 			held = append(held, id)

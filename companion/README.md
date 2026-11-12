@@ -66,8 +66,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   same name, the row adds the parent folders that tell them apart, such as
   `shop/api` and `billing/api`. Hover a row for its full folder path.
 - Under its title, a row shows the agent's latest reply in one line: the
-  question it asks you, or the start of its last message. Local Claude Code
-  and Codex chats show it. Cursor chats and cloud sessions do not yet.
+  question it asks you, or the start of its last message. Local Claude Code,
+  Codex and Cursor chats show it. Cloud sessions do not yet.
 - A chat started with `agnostic-ai conversations start` sits indented under
   the chat it came from while both are in the same group. A child that waits
   for you stays under Needs you, even when its parent is active or archived.
@@ -77,8 +77,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   says where the chat runs. macOS asks once to let the companion control each app.
   The reason stays above the list until you dismiss it or open another chat.
   When a chat could not be resumed, **Copy resume command** copies the command
-  to run in a terminal. A Claude Code or Codex chat still running in a
-  terminal never offers it, because that command would start a second copy.
+  to run in a terminal. A Claude Code, Codex or `cursor-agent` chat still
+  running in a terminal never offers it, because that command would start a
+  second copy.
 - Hover a row for its one button: **mark complete** a chat, which archives
   it, or **hide** one that is already archived. A working chat has no button,
   since the work would bring it back at once. The tick turns green for a
@@ -97,8 +98,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   group shows, after the search and the All, Local or Cloud choice. A chat
   that got a new message since the list was drawn keeps its place. If a mark
   fails, the run stops there, those rows stay, and the list says why. The
-  circle's count can stay above zero: it also counts unread chats older
-  than the week the list shows.
+  list holds every unread or waiting chat of any age, so with All chosen and
+  no search the circle shows zero after the run.
 - On a chat under Archived, the same menu offers **Delete permanently…**. It
   asks first, then removes the chat from this computer. Only local Claude
   Code chats can be deleted for now; the others say why. See
