@@ -31,22 +31,19 @@ body {
   transition-duration: 90ms;
 }
 
-/* Paused: the circle stays findable but faint, even under the pointer, and
-   counts nothing. bubble.js drops is-idle then, so the dim rule below never
-   lifts it to 55%. */
-:root[data-paused='on'] .bubble {
-  opacity: 0.1;
+/* Nothing needs the person, so the circle steps back until the pointer is on it. */
+:root[data-dim='on'][data-presence='shown'] .bubble.is-idle:not(:hover, .is-hovered) {
+  opacity: 0.55;
   filter: saturate(0.25);
 }
 
-:root[data-paused='on'] .badge,
-:root[data-paused='on'] .ring {
-  display: none;
-}
-
-/* Nothing needs the person, so the circle steps back until the pointer is on it. */
-:root[data-dim='on'] .bubble.is-idle:not(:hover, .is-hovered) {
-  opacity: 0.55;
+/* Back on its own while hidden, because something new waits: faint, with its
+   count, even under the pointer. Dim when idle applies only when shown. Hidden
+   looks the same, so the window never shows at full color before the page
+   hears it came back faded. */
+:root[data-presence='faded'] .bubble,
+:root[data-presence='hidden'] .bubble {
+  opacity: 0.25;
   filter: saturate(0.25);
 }
 

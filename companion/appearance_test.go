@@ -161,7 +161,7 @@ func TestGetAppearance_AnswersTheSavedValues(t *testing.T) {
 	rec := httptest.NewRecorder()
 	s.getAppearance(rec, httptest.NewRequest(http.MethodGet, "/api/appearance", nil))
 
-	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || body != `{"animate":false,"dimWhenIdle":false,"paused":false}` {
+	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || body != `{"animate":false,"dimWhenIdle":false,"presence":"shown"}` {
 		t.Errorf("appearance = %d %s", rec.Code, body)
 	}
 }
