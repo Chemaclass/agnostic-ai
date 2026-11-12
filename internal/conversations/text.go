@@ -6,6 +6,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -95,6 +96,36 @@ func agentSaid(start, ending, asked string) (reply, question string) {
 		return reply, keptStart(asked)
 	}
 	return reply, closingQuestion(ending)
+}
+
+// replyEnds is an agent message as a query reads it: at most the first
+// and last replyCheckedBytes+1 characters, so a long reply costs a fixed
+// amount, and its whole length.
+type replyEnds struct {
+	Start  string `json:"start"`
+	Ending string `json:"ending"`
+	Length int    `json:"length"`
+}
+
+// replyEndsColumns selects the replyEnds of the message text is.
+func replyEndsColumns(text string) string {
+	part := strconv.Itoa(replyCheckedBytes + 1)
+	return `substr(` + text + `, 1, ` + part + `) AS start,
+  substr(` + text + `, -` + part + `) AS ending,
+  length(` + text + `) AS length`
+}
+
+// wholeLines is the ending without the line it may start inside: a
+// slice cut from a longer message, whose first line is then partial.
+func (ends replyEnds) wholeLines() string {
+	if utf8.RuneCountInString(ends.Ending) >= ends.Length {
+		return ends.Ending
+	}
+	_, rest, found := strings.Cut(ends.Ending, "\n")
+	if !found || strings.TrimSpace(rest) == "" {
+		return ""
+	}
+	return rest
 }
 
 // keptStart cuts text to replyCheckedBytes at the last space before the

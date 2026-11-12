@@ -46,35 +46,51 @@ type cursorPrompts struct {
 	ID    string `json:"id"`
 	First string `json:"first_text"`
 	Last  string `json:"last_text"`
+	replyEnds
 }
 
 // cursorPromptsQuery finds the first and last user message of the given
-// chats. Older chats list their message headers inline; newer ones keep
-// them in composerConvHeaders:<id>:<chunk> keys.
-const cursorPromptsQuery = `WITH chosen(composerId) AS (VALUES %s),
+// chats, and the agent's latest message with text after the last one.
+// Older chats list their message headers inline; newer ones keep them in
+// composerConvHeaders:<id>:<chunk> keys. A header whose grouping lacks
+// hasText is a tool call or thinking, so its bubble is not read.
+var cursorPromptsQuery = `WITH chosen(composerId) AS (VALUES %s),
 headers AS (
-  SELECT c.composerId, '' AS chunk, CAST(h.key AS INTEGER) AS seq, json_extract(h.value, '$.bubbleId') AS bubbleId
+  SELECT c.composerId, '' AS chunk, CAST(h.key AS INTEGER) AS seq, json_extract(h.value, '$.type') AS type, json_extract(h.value, '$.bubbleId') AS bubbleId
   FROM chosen c
   JOIN cursorDiskKV d ON d.key = 'composerData:' || c.composerId,
        json_each(d.value, '$.fullConversationHeadersOnly') h
-  WHERE json_extract(h.value, '$.type') = 1
+  WHERE json_extract(h.value, '$.type') = 1 OR (json_extract(h.value, '$.type') = 2 AND coalesce(json_extract(h.value, '$.grouping.hasText'), json_type(h.value, '$.grouping') IS NULL))
   UNION ALL
-  SELECT c.composerId, k.key AS chunk, CAST(h.key AS INTEGER) AS seq, json_extract(h.value, '$.bubbleId') AS bubbleId
+  SELECT c.composerId, k.key AS chunk, CAST(h.key AS INTEGER) AS seq, json_extract(h.value, '$.type') AS type, json_extract(h.value, '$.bubbleId') AS bubbleId
   FROM chosen c
   JOIN cursorDiskKV k ON k.key >= 'composerConvHeaders:' || c.composerId || ':'
                      AND k.key <  'composerConvHeaders:' || c.composerId || ';',
        json_each(k.value) h
-  WHERE json_extract(h.value, '$.type') = 1
+  WHERE json_extract(h.value, '$.type') = 1 OR (json_extract(h.value, '$.type') = 2 AND coalesce(json_extract(h.value, '$.grouping.hasText'), json_type(h.value, '$.grouping') IS NULL))
+),
+prompts AS (
+  SELECT composerId,
+    (SELECT bubbleId FROM headers h2 WHERE h2.composerId = h.composerId AND h2.type = 1 ORDER BY chunk, seq LIMIT 1) AS firstBubble,
+    (SELECT bubbleId FROM headers h2 WHERE h2.composerId = h.composerId AND h2.type = 1 ORDER BY chunk DESC, seq DESC LIMIT 1) AS lastBubble,
+    (SELECT chunk FROM headers h2 WHERE h2.composerId = h.composerId AND h2.type = 1 ORDER BY chunk DESC, seq DESC LIMIT 1) AS lastChunk,
+    (SELECT seq FROM headers h2 WHERE h2.composerId = h.composerId AND h2.type = 1 ORDER BY chunk DESC, seq DESC LIMIT 1) AS lastSeq
+  FROM headers h GROUP BY composerId
 ),
 ends AS (
-  SELECT composerId,
-    (SELECT bubbleId FROM headers h2 WHERE h2.composerId = h.composerId ORDER BY chunk, seq LIMIT 1) AS firstBubble,
-    (SELECT bubbleId FROM headers h2 WHERE h2.composerId = h.composerId ORDER BY chunk DESC, seq DESC LIMIT 1) AS lastBubble
-  FROM headers h GROUP BY composerId
+  SELECT p.*,
+    (SELECT json_extract(b.value, '$.text') FROM headers h2
+     JOIN cursorDiskKV b ON b.key = 'bubbleId:' || h2.composerId || ':' || h2.bubbleId
+     WHERE h2.composerId = p.composerId AND h2.type = 2
+       AND (p.lastBubble IS NULL OR h2.chunk > p.lastChunk OR (h2.chunk = p.lastChunk AND h2.seq > p.lastSeq))
+       AND coalesce(json_extract(b.value, '$.text'), '') <> ''
+     ORDER BY h2.chunk DESC, h2.seq DESC LIMIT 1) AS reply
+  FROM prompts p
 )
 SELECT e.composerId AS id,
   coalesce(json_extract(fb.value, '$.text'), '') AS first_text,
-  coalesce(json_extract(lb.value, '$.text'), '') AS last_text
+  coalesce(json_extract(lb.value, '$.text'), '') AS last_text,
+  ` + replyEndsColumns(`coalesce(e.reply, '')`) + `
 FROM ends e
 LEFT JOIN cursorDiskKV fb ON fb.key = 'bubbleId:' || e.composerId || ':' || e.firstBubble
 LEFT JOIN cursorDiskKV lb ON lb.key = 'bubbleId:' || e.composerId || ':' || e.lastBubble`
@@ -134,7 +150,7 @@ func (s *Scanner) searchAll(ctx context.Context, all []Conversation, words []str
 	for _, c := range all {
 		if c.pending != nil {
 			t := withPrompts(*c.pending, prompts[c.ID])
-			if !holdsAll(strings.Join([]string{c.renamed, t.title, t.firstPrompt, t.lastPrompt, c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+			if !holdsAll(strings.Join([]string{c.renamed, t.title, t.firstPrompt, t.lastPrompt, t.reply, t.question, c.Folder, c.Branch, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
 				continue
 			}
 			c.pending = nil
@@ -157,6 +173,7 @@ func pendingRows(list []Conversation) []Conversation {
 
 func withPrompts(t texts, prompts cursorPrompts) texts {
 	t.firstPrompt, t.lastPrompt = cursorTyped(prompts.First), cursorTyped(prompts.Last)
+	t.reply, t.question = agentSaid(prompts.Start, prompts.wholeLines(), "")
 	return t
 }
 
@@ -295,7 +312,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 	}
 	if s.cursorAgents == nil {
 		s.cursorAgents = map[string]cached[cursorAgentMeta]{}
-		s.cursorTranscripts = map[string]cached[[2]string]{}
+		s.cursorTranscripts = map[string]cached[cursorAgentTexts]{}
 	}
 	seen := map[string]bool{}
 	var chats []Conversation
@@ -307,7 +324,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		}
 		folder := byHash[filepath.Base(filepath.Dir(filepath.Dir(store)))]
 		updated := modTime(store)
-		first, last := s.cursorAgentPrompts(meta.AgentID, seen)
+		transcript := s.cursorAgentTranscript(meta.AgentID, seen)
 		title := meta.Name
 		if title == cursorAgentDefaultName {
 			title = ""
@@ -318,7 +335,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
 			store: store,
 		}
-		s.fill(&c, texts{title: title, firstPrompt: first, lastPrompt: last})
+		s.fill(&c, texts{title: title, firstPrompt: transcript.first, lastPrompt: transcript.last, reply: transcript.reply, question: transcript.question})
 		chats = append(chats, c)
 	}
 	if ctx.Err() == nil {
@@ -392,60 +409,84 @@ func decodeCursorAgentMeta(rows []cursorAgentMetaRow) cursorAgentMeta {
 	return meta
 }
 
-// cursorAgentPrompts reads the first and last prompt from the chat's
+// cursorAgentTexts are what a row keeps of a cursor-agent transcript.
+type cursorAgentTexts struct {
+	first, last     string
+	reply, question string
+}
+
+// cursorAgentLine is one line of a cursor-agent transcript.
+type cursorAgentLine struct {
+	Role    string `json:"role"`
+	Message struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	} `json:"message"`
+}
+
+// cursorAgentTranscript reads the first and last prompt from the chat's
 // transcript, where cursor-agent wraps what was typed in <user_query>,
-// or from the cache while the transcript is unchanged. It adds the
+// and the agent's latest message after the last prompt, or all of them
+// from the cache while the transcript is unchanged. It adds the
 // transcript to seen.
-func (s *Scanner) cursorAgentPrompts(id string, seen map[string]bool) (first, last string) {
+func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) cursorAgentTexts {
 	matches, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "projects", "*", "agent-transcripts", id, id+".jsonl"))
 	if len(matches) == 0 {
-		return "", ""
+		return cursorAgentTexts{}
 	}
 	transcript := matches[0]
 	seen[transcript] = true
 	stamp := fileStamp(transcript)
 	if entry, ok := s.cursorTranscripts[transcript]; ok && entry.stamp == stamp {
-		return entry.value[0], entry.value[1]
+		return entry.value
 	}
 	info, err := os.Stat(transcript)
 	if err != nil {
-		return "", ""
+		return cursorAgentTexts{}
 	}
 	head, tail, err := readEnds(transcript, info.Size(), claudeWindow)
 	if err != nil {
-		return "", ""
+		return cursorAgentTexts{}
 	}
-	prompts := func(data []byte) []string {
-		var found []string
-		for _, raw := range bytes.Split(data, []byte("\n")) {
-			var line struct {
-				Role    string `json:"role"`
-				Message struct {
-					Content []struct {
-						Type string `json:"type"`
-						Text string `json:"text"`
-					} `json:"content"`
-				} `json:"message"`
-			}
-			if json.Unmarshal(raw, &line) != nil || line.Role != "user" {
-				continue
-			}
-			for _, part := range line.Message.Content {
-				if part.Type == "text" && strings.Contains(part.Text, "<user_query>") {
-					found = append(found, cursorTyped(part.Text))
-				}
+	var kept cursorAgentTexts
+	if prompts, _ := cursorAgentLines(head); len(prompts) > 0 {
+		kept.first = prompts[0]
+	}
+	prompts, message := cursorAgentLines(tail)
+	if len(prompts) > 0 {
+		kept.last = prompts[len(prompts)-1]
+	}
+	kept.reply, kept.question = agentSaid(message, message, "")
+	s.cursorTranscripts[transcript] = cached[cursorAgentTexts]{stamp: stamp, value: kept}
+	return kept
+}
+
+// cursorAgentLines returns the prompts in data and the agent's latest
+// message after the last of them.
+func cursorAgentLines(data []byte) (prompts []string, message string) {
+	for _, raw := range bytes.Split(data, []byte("\n")) {
+		var line cursorAgentLine
+		if json.Unmarshal(raw, &line) != nil {
+			continue
+		}
+		var said []string
+		for _, part := range line.Message.Content {
+			switch {
+			case part.Type != "text":
+			case line.Role == "user" && strings.Contains(part.Text, "<user_query>"):
+				prompts = append(prompts, cursorTyped(part.Text))
+				message = ""
+			case line.Role == "assistant" && strings.TrimSpace(part.Text) != "":
+				said = append(said, part.Text)
 			}
 		}
-		return found
+		if len(said) > 0 {
+			message = strings.Join(said, "\n")
+		}
 	}
-	if all := prompts(head); len(all) > 0 {
-		first = all[0]
-	}
-	if all := prompts(tail); len(all) > 0 {
-		last = all[len(all)-1]
-	}
-	s.cursorTranscripts[transcript] = cached[[2]string]{stamp: stamp, value: [2]string{first, last}}
-	return first, last
+	return prompts, message
 }
 
 // cached is a value read from files, kept while their fileStamp holds.

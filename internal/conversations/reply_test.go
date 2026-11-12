@@ -231,14 +231,8 @@ func TestScan_AsksForCodexRepliesInBatches(t *testing.T) {
 	}
 }
 
-func TestScan_ShowsNoReplyForCursorAndCloudRows(t *testing.T) {
-	agent := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-	scanner, stores := testScanner(t, fakeStores(t, map[string]string{}), fakeProcesses{})
-	write(t, filepath.Join(stores.CursorDir, "projects", "p1", "agent-transcripts", agent, agent+".jsonl"), lines(
-		obj{"role": "user", "message": obj{"content": []obj{textPart("<user_query>Fix the CI job</user_query>")}}},
-		obj{"role": "assistant", "message": obj{"content": []obj{textPart("The CI job passes now.")}}},
-	))
-	write(t, filepath.Join(stores.CursorDir, "chats", md5Hex("/tmp/app"), agent, "store.db"), "")
+func TestScan_ShowsNoReplyForCloudRows(t *testing.T) {
+	scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
 	scanner.Cloud = &countingCloud{answers: []func() ([]Conversation, error){
 		func() ([]Conversation, error) {
 			return []Conversation{cloudRow("cse_a1", "Fix the parser", "2026-11-07T11:30:00Z")}, nil
@@ -254,6 +248,157 @@ func TestScan_ShowsNoReplyForCursorAndCloudRows(t *testing.T) {
 		if c.Reply != "" || slices.Contains(c.Withheld, FieldReply) {
 			t.Errorf("%s row %s must have no reply line: %s", c.Tool, c.ID, asJSON(t, c))
 		}
+	}
+}
+
+// cursorBubble is one message of a Cursor editor chat: its header and
+// its bubble. A message with no text, such as a tool call, has a
+// header that says so.
+type cursorBubble struct {
+	kind int
+	text string
+}
+
+func cursorUser(text string) cursorBubble  { return cursorBubble{kind: 1, text: text} }
+func cursorAgent(text string) cursorBubble { return cursorBubble{kind: 2, text: text} }
+
+// cursorEditorStore writes a Cursor state database with the tables the
+// chat queries read. Chats whose id starts with "c" keep their message
+// headers in composerConvHeaders chunks, the others inline.
+func cursorEditorStore(t *testing.T, path string, recency int64, chats map[string][]cursorBubble) {
+	t.Helper()
+	if _, err := exec.LookPath("sqlite3"); err != nil {
+		t.Skip("sqlite3 is not installed")
+	}
+	quote := func(value any) string {
+		data, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return "'" + strings.ReplaceAll(string(data), "'", "''") + "'"
+	}
+	sql := []string{
+		`CREATE TABLE composerHeaders (composerId TEXT PRIMARY KEY, workspaceId TEXT, createdAt INTEGER, recency INTEGER, isSubagent INTEGER, isArchived INTEGER, value TEXT)`,
+		`CREATE TABLE cursorDiskKV (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)`,
+	}
+	for id, bubbles := range chats {
+		sql = append(sql, fmt.Sprintf(`INSERT INTO composerHeaders VALUES ('%s', 'ws1', %d, %d, 0, 0, %s)`, id, recency, recency, quote(obj{"name": "Chat " + id[:2], "workspaceIdentifier": obj{"uri": obj{"fsPath": "/tmp/app"}}})))
+		var headers []obj
+		for i, bubble := range bubbles {
+			bubbleID := fmt.Sprintf("b%d", i)
+			header := obj{"bubbleId": bubbleID, "type": bubble.kind, "grouping": obj{"isRenderable": true}}
+			if bubble.text != "" {
+				header["grouping"] = obj{"isRenderable": true, "hasText": true}
+			}
+			headers = append(headers, header)
+			sql = append(sql, fmt.Sprintf(`INSERT INTO cursorDiskKV VALUES ('bubbleId:%s:%s', %s)`, id, bubbleID, quote(obj{"_v": 3, "type": bubble.kind, "bubbleId": bubbleID, "text": bubble.text})))
+		}
+		if strings.HasPrefix(id, "c") {
+			sql = append(sql, fmt.Sprintf(`INSERT INTO cursorDiskKV VALUES ('composerData:%s', %s)`, id, quote(obj{"_v": 10})))
+			for start := 0; start < len(headers); start += 2 {
+				sql = append(sql, fmt.Sprintf(`INSERT INTO cursorDiskKV VALUES ('composerConvHeaders:%s:%d', %s)`, id, start/2, quote(headers[start:min(start+2, len(headers))])))
+			}
+			continue
+		}
+		sql = append(sql, fmt.Sprintf(`INSERT INTO cursorDiskKV VALUES ('composerData:%s', %s)`, id, quote(obj{"_v": 10, "fullConversationHeadersOnly": headers})))
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(path)
+	if out, err := exec.Command("sqlite3", path, strings.Join(sql, ";\n")+";").CombinedOutput(); err != nil {
+		t.Fatalf("sqlite3: %v: %s", err, out)
+	}
+}
+
+func TestScan_ReadsTheCursorEditorReplyThatFollowsTheLatestPrompt(t *testing.T) {
+	answered, stale, asking, secret, long, chunked, silent := "a1111111", "s1111111", "q1111111", "k1111111", "l1111111", "c1111111", "n1111111"
+	recency := time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC).UnixMilli()
+	scanner, stores := testScanner(t, nil, fakeProcesses{})
+	chosen := 0
+	scanner.SQLite = func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if strings.Contains(query, "chosen(composerId)") {
+			chosen++
+		}
+		return RunSQLite(ctx, path, query)
+	}
+	cursorEditorStore(t, stores.CursorDB, recency, map[string][]cursorBubble{
+		answered: {cursorUser("Fix the login"), cursorAgent("I will look."), cursorAgent(""), cursorAgent("Done, the tests pass."), cursorAgent("")},
+		stale:    {cursorUser("Fix the login"), cursorAgent("An answer to the first prompt."), cursorUser("Now the docs"), cursorAgent("")},
+		asking:   {cursorUser("Split the parser"), cursorAgent("I can split the parser.\n\nShould I also rename the package?")},
+		secret:   {cursorUser("Deploy the app"), cursorAgent("Use password hunter2 for the staging login.")},
+		long:     {cursorUser("Migrate"), cursorAgent(strings.Repeat("The migration ran on every table. ", 200))},
+		chunked:  {cursorUser("Fix the build"), cursorAgent("An old answer."), cursorUser("Run it again"), cursorAgent(""), cursorAgent("The webhook build passes now.")},
+		silent:   {cursorUser("Wait for it")},
+	})
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	for id, want := range map[string]string{
+		answered: "Done, the tests pass.",
+		stale:    "",
+		asking:   "Should I also rename the package?",
+		secret:   "",
+		chunked:  "The webhook build passes now.",
+		silent:   "",
+	} {
+		if c := byID(t, view, id); c.Reply != want {
+			t.Errorf("chat %s: reply = %q, want %q", id, c.Reply, want)
+		}
+	}
+	if c := byID(t, view, secret); strings.Join(c.Withheld, ",") != FieldReply {
+		t.Errorf("a reply naming a password must be withheld: %s", asJSON(t, c))
+	}
+	if c := byID(t, view, long); utf8.RuneCountInString(c.Reply) != replyRunes || !strings.HasSuffix(c.Reply, "…") {
+		t.Errorf("a long reply is cut to %d runes, actual %q", replyRunes, c.Reply)
+	}
+	if c := byID(t, view, chunked); c.Prompt != "Run it again" {
+		t.Errorf("chunked chat prompt = %q", c.Prompt)
+	}
+	if found := scanner.Scan(context.Background(), ScanOptions{Query: "webhook"}); found.Matches == nil || *found.Matches != 1 {
+		t.Errorf("search must reach a Cursor reply: %s", asJSON(t, found))
+	}
+	if chosen != 1 {
+		t.Errorf("an unchanged chat is read once, read %d times", chosen)
+	}
+}
+
+func TestScan_ReadsTheCursorAgentReplyThatFollowsTheLatestPrompt(t *testing.T) {
+	answered, stale, asking, secret, long := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "cccccccc-cccc-4ccc-8ccc-cccccccccccc", "dddddddd-dddd-4ddd-8ddd-dddddddddddd", "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+	scanner, _ := cursorAgentScanner(t, fakeProcesses{}, answered, stale, asking, secret, long)
+	prompt := func(text string) obj {
+		return obj{"role": "user", "message": obj{"content": []obj{textPart("<timestamp>Friday</timestamp>\n<user_query>" + text + "</user_query>")}}}
+	}
+	said := func(parts ...obj) obj { return obj{"role": "assistant", "message": obj{"content": parts}} }
+	tool := obj{"type": "tool_use", "name": "Shell", "input": obj{"command": "go test ./..."}}
+	transcripts := map[string][]any{
+		answered: {prompt("Fix the CI job"), said(textPart("I will look."), tool), said(textPart("The CI job passes now.")), said(tool)},
+		stale:    {prompt("Fix the CI job"), said(textPart("Done.")), prompt("Now the docs"), said(tool)},
+		asking:   {obj{"role": "user", "message": obj{"content": []obj{textPart("<user_info>os</user_info>")}}}, prompt("Split it"), said(textPart("I can split it.\n\nShould I also rename the package?"))},
+		secret:   {prompt("Deploy"), said(textPart("Use password hunter2 for the staging login."))},
+		long:     {prompt("Migrate"), said(textPart(strings.Repeat("The migration ran on every table. ", 200)))},
+	}
+	for id, values := range transcripts {
+		write(t, filepath.Join(scanner.Stores.CursorDir, "projects", "p1", "agent-transcripts", id, id+".jsonl"), lines(values...))
+	}
+
+	view := scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}})
+
+	for id, want := range map[string]string{
+		answered: "The CI job passes now.",
+		stale:    "",
+		asking:   "Should I also rename the package?",
+		secret:   "",
+	} {
+		if c := byID(t, view, id); c.Reply != want {
+			t.Errorf("chat %s: reply = %q, want %q", id[:1], c.Reply, want)
+		}
+	}
+	if c := byID(t, view, secret); strings.Join(c.Withheld, ",") != FieldReply {
+		t.Errorf("a reply naming a password must be withheld: %s", asJSON(t, c))
+	}
+	if c := byID(t, view, long); utf8.RuneCountInString(c.Reply) != replyRunes || !strings.HasSuffix(c.Reply, "…") {
+		t.Errorf("a long reply is cut to %d runes, actual %q", replyRunes, c.Reply)
 	}
 }
 
