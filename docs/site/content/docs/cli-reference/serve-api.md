@@ -127,7 +127,7 @@ Conversation fields:
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - `parent` is `{tool, id}`, the conversation this one continues. It is read from the line `Continues <tool>:<id>` that starts the first prompt, which [`conversations start`](@/docs/cli-reference/conversations.md#conversations-start) writes. That line is cut from `title`, `opening` and `prompt`. The parent may be on no page: hidden, older than the page, of another tool than the filter, or deleted. Hiding, archiving or renaming a parent never changes its children.
 - `reply` is the agent's latest message since the latest prompt, as one line of at most 200 characters. When the agent asks a question, the line is the question. Otherwise it is the start of the message. It never holds tool calls, tool results or subagent output.
-- Only local Claude Code and Codex conversations have a `reply`. Cursor conversations and cloud sessions have none.
+- Only local Claude Code, Codex and Cursor conversations have a `reply`. Cloud sessions have none.
 - Any of `title`, `opening`, `prompt` and `reply` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses. The check reads the whole title and prompts, and the first 4 KB of a reply.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
