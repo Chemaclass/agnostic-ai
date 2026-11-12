@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, PLACES, SHARED_TITLE, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, PLACES, SHARED_TITLE, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, startsRename, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -99,6 +99,7 @@ function drawPlaces() {
 const ICONS = {
   chevron: 'M2.5 1.5L5.5 4L2.5 6.5',
   complete: 'M3 8.5l3 3 7-7.5',
+  rename: 'M10.5 2.5l3 3-8 8h-3v-3zM8.5 4.5l3 3',
   web: 'M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v4h-9v-9h4',
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
 }
@@ -204,6 +205,7 @@ function rowOf(conversation, order, folderNames, under) {
   }
   const page = cloudPageOf(conversation)
   if (page) actions.prepend(actionButton('web', CLOUD_PAGE_LABEL, () => openRow(page)))
+  actions.prepend(actionButton('rename', 'Rename', () => startRename(conversation)))
 
   row.append(stateMark(conversation), text, actions)
   row.addEventListener('click', () => openRow(conversation))
@@ -1002,9 +1004,15 @@ document.addEventListener('keydown', (event) => {
     return
   }
   // A focused notice, group header or settings menu button takes Enter as its own click.
-  if (event.key === 'Enter' && !event.target.closest('#notice button, .group-head button, #menu')) {
+  if (event.target.closest('#notice button, .group-head button, #menu')) return
+  if (event.key === 'Enter') {
     const conversation = activeConversation()
     if (conversation) openRow(conversation)
+  } else if (startsRename(event)) {
+    const conversation = activeConversation()
+    if (!conversation) return
+    event.preventDefault()
+    startRename(conversation)
   }
 })
 

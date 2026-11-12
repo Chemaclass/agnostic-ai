@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startsRename, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -313,6 +313,16 @@ test('lets an input method confirm its candidate without saving', () => {
   assert.equal(confirmsCandidate({ key: 'Enter', isComposing: true, keyCode: 13 }), true)
   assert.equal(confirmsCandidate({ key: 'Enter', isComposing: false, keyCode: 229 }), true)
   assert.equal(confirmsCandidate({ key: 'Enter', isComposing: false, keyCode: 13 }), false)
+})
+
+test('F2 alone starts a rename, as in a file manager', () => {
+  assert.equal(startsRename({ key: 'F2' }), true)
+  assert.equal(startsRename({ key: 'F2', metaKey: true }), false)
+  assert.equal(startsRename({ key: 'F2', ctrlKey: true }), false)
+  assert.equal(startsRename({ key: 'F2', altKey: true }), false)
+  assert.equal(startsRename({ key: 'F2', shiftKey: true }), false)
+  assert.equal(startsRename({ key: 'F2', repeat: true }), false)
+  assert.equal(startsRename({ key: 'Enter' }), false)
 })
 
 test('closes the nearest thing on Escape: the row menu, a rename, the settings, then the panel', () => {

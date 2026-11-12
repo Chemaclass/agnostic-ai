@@ -108,6 +108,11 @@ export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, rowMenuOpen, 
   return 'panel'
 }
 
+/** F2 on the selected row starts a rename, as in a file manager. */
+export function startsRename(event) {
+  return event.key === 'F2' && !event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+}
+
 /** What a failed open leaves on screen: the reason, and the command to resume by hand only when the server sent one. */
 export function openFailureOf(reply) {
   if (reply.opened) return undefined
