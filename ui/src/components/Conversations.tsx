@@ -371,7 +371,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
   const route = conversation.open
   const command = opened ? undefined : rowCommand(route)
 
-  const open = async () => {
+  const open = async (id = conversation.id) => {
     if (pending) return
     if (!canOpen) {
       setStatus({ tone: 'not-opened', message: MOCK_OPEN_MESSAGE })
@@ -379,7 +379,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
     }
     setPending(true)
     setStatus(undefined)
-    const outcome = await openConversation({ tool: conversation.tool, id: conversation.id, editor })
+    const outcome = await openConversation({ tool: conversation.tool, id, editor })
     setStatus(openStatus(outcome, route))
     setPending(false)
     if (outcome.kind === 'reply' && outcome.reply.opened) {
@@ -404,6 +404,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
           {conversation.live && <LiveBadge conversation={conversation} now={now} />}
           <StateBadge conversation={conversation} />
           <span className="conversation-tool" title={`${toolName(conversation.tool)}, ${appLabel(conversation.app)}`}>{toolName(conversation.tool)}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
+          {conversation.cloud && <span className="conversation-shared" title="Also open on claude.ai">Shared<span className="sr-only">: also open on claude.ai</span></span>}
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}
           {conversation.branch && <span className="conversation-branch">{conversation.branch}</span>}
           <time dateTime={conversation.updatedAt} title={formatTime(conversation.updatedAt)}>{relativeTime(conversation.updatedAt, now)}</time>
@@ -413,9 +414,14 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
           : prompt && <p className="conversation-prompt" title={prompt.text}><span className="conversation-label">Last prompt:</span> {prompt.shell ? <code>{prompt.text}</code> : prompt.text}</p>}
       </div>
       <div className="conversation-actions" ref={actions}>
-        <button ref={openButton} type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={open}>
+        <button ref={openButton} type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={() => open()}>
           {route.label}
         </button>
+        {conversation.cloud && (
+          <button type="button" className="button conversation-open" aria-disabled={pending || undefined} aria-label={`Open on claude.ai: ${title.text}`} onClick={() => open(conversation.cloud?.id)}>
+            Open on claude.ai
+          </button>
+        )}
         {command && (
           <RowActions label={title.text}>
             <CopyButton text={command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />

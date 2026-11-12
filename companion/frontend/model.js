@@ -22,7 +22,7 @@ export const PLACES = [
 const IN_PLACE = {
   all: () => true,
   local: (conversation) => conversation.app !== 'cloud',
-  cloud: (conversation) => conversation.app === 'cloud',
+  cloud: (conversation) => conversation.app === 'cloud' || conversation.cloud !== undefined,
 }
 
 const NEEDS_PERSON = { blocked: true, unread: true }
@@ -257,8 +257,18 @@ export function rowActionOf(conversation) {
 export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] ? ['read', 'rename'] : ['rename']
   if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
+  if (conversation.cloud) offered.push('web')
   return offered
 }
+
+/** What the open request names to show a shared row's claude.ai page; undefined on a row that is not shared. */
+export function cloudPageOf(conversation) {
+  return conversation.cloud ? { tool: conversation.tool, id: conversation.cloud.id } : undefined
+}
+
+/** What a shared row's marker and second action say. */
+export const SHARED_TITLE = 'Also open on claude.ai'
+export const CLOUD_PAGE_LABEL = 'Open on claude.ai'
 
 /** What the server deletes for each tool it can delete, as the confirmation says it. */
 const DELETED_DATA = {
@@ -308,12 +318,12 @@ const PLACE_LABELS = {
 }
 
 /**
- * "Claude Code · agnostic-ai · 5m": the tool, where it runs when not here, the folder's name and how long ago it was written.
+ * "Claude Code · agnostic-ai · 5m": the tool, where it runs when not here or Shared when also on claude.ai, the folder's name and how long ago it was written.
  * `names` holds what folderNamesOf gave for the folders in view; without one the folder shows its last name.
  */
 export function detailsOf(conversation, now, names = new Map()) {
   const parts = [TOOL_LABELS[conversation.tool]]
-  const place = PLACE_LABELS[conversation.app]
+  const place = conversation.cloud ? 'Shared' : PLACE_LABELS[conversation.app]
   if (place) parts.push(place)
   if (conversation.folder) parts.push(names.get(conversation.folder) ?? folderName(conversation.folder))
   parts.push(ago(conversation.updatedAt, now))

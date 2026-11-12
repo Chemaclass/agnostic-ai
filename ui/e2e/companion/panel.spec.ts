@@ -704,3 +704,36 @@ test('mark all as read marks every Needs you row, the nested one included', asyn
   await expect(groupTitle(page, 'Needs you')).toHaveCount(0)
   expect(marks).toEqual([seen('claude', 'nest-blocked'), seen('claude', 'nest-wait'), seen('codex', 'nest-reply')])
 })
+
+test('a local chat also open on claude.ai is one row that opens here, and its second action opens claude.ai', async ({ page }) => {
+  await openPanel(page, 'shared')
+  const shared = row(page, 'Review the payment retries')
+  await expect(page.getByRole('option')).toHaveCount(3)
+  await expect(shared.locator('.meta')).toContainText('Claude Code · Shared · agnostic-ai')
+  await expect(shared.locator('.meta')).toHaveAttribute('title', 'Also open on claude.ai')
+  await expect(shared).toHaveAccessibleDescription(/Also open on claude\.ai/)
+
+  for (const place of ['Local', 'Cloud']) {
+    await page.getByRole('button', { name: place, exact: true }).click()
+    await expect(shared).toHaveCount(1)
+  }
+  await page.getByRole('button', { name: 'All', exact: true }).click()
+
+  const web = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await shared.hover()
+  await shared.getByRole('button', { name: 'Open on claude.ai' }).click()
+  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1' })
+
+  await page.goto('/panel.html')
+  const local = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await row(page, 'Review the payment retries').click({ position: { x: 40, y: 10 } })
+  expect((await local).postDataJSON()).toEqual({ tool: 'claude', id: 'rc-1' })
+})
+
+test('the row menu of a shared chat opens its claude.ai page', async ({ page }) => {
+  await openPanel(page, 'shared')
+  await row(page, 'Review the payment retries').click({ button: 'right' })
+  const web = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await page.getByRole('menuitem', { name: 'Open on claude.ai' }).click()
+  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1' })
+})

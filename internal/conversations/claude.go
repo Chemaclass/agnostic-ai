@@ -157,6 +157,8 @@ type claudeLive struct {
 	// Entrypoint is where this process runs it, which can differ from
 	// where the session began: a plugin session resumed in a terminal.
 	Entrypoint string `json:"entrypoint"`
+	// BridgeSessionID is session_<id> while Remote Control shares it.
+	BridgeSessionID string `json:"bridgeSessionId"`
 }
 
 // claudeActivity maps a live session's status to what the page shows.
@@ -172,6 +174,7 @@ type liveSession struct {
 	process    liveProcess
 	activity   Activity
 	entrypoint string
+	bridge     string
 }
 
 type claudeJob struct {
@@ -216,6 +219,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity
+		c.bridge = session.bridge
 		entrypoint := meta.entrypoint
 		if isLive && session.entrypoint != "" {
 			entrypoint = session.entrypoint
@@ -455,7 +459,7 @@ func (s *Scanner) claudeLiveSessions() map[string]liveSession {
 	live := map[string]liveSession{}
 	for _, entry := range entries {
 		if alive[entry.PID] {
-			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint}
+			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID}
 		}
 	}
 	return live

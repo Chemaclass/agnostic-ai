@@ -4,12 +4,13 @@
 
 const MINUTE = 60 * 1000
 
-function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent } = {}) {
+function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent, shared } = {}) {
   const cloud = app === 'cloud'
   return {
     ...(deleteUnsupported ? { deleteUnsupported } : {}),
     ...(reply ? { reply } : {}),
     ...(parent ? { parent } : {}),
+    ...(shared ? { live: true, cloud: { id: shared, link: 'https://claude.ai/code/' + shared.replace(/^cse_/, 'session_') } } : {}),
     tool,
     app,
     id,
@@ -53,6 +54,15 @@ function archived(now) {
       minutesAgo: 12 * 24 * 60,
       deleteUnsupported: 'Cursor keeps every chat in one shared database and has no command to delete one. Delete it in Cursor.',
     }),
+  ]
+}
+
+/** A local session that Remote Control also shows on claude.ai, beside a plain cloud row and a plain local one. */
+function shared(now) {
+  return [
+    conversation(now, 'claude', 'rc-1', 'Review the payment retries', 'blocked', { minutesAgo: 3, shared: 'cse_rc1' }),
+    conversation(now, 'claude', 'cloud-3', 'Write the onboarding guide', 'active', { app: 'cloud', minutesAgo: 60 }),
+    conversation(now, 'claude', 'local-3', 'Plan the sync dry run', 'active', { minutesAgo: 300 }),
   ]
 }
 
@@ -140,6 +150,7 @@ export const FIXTURES = {
   },
   'needs-you': { label: 'Four chats that need you, one in the cloud', conversations: needsYou },
   nested: { label: 'Chats started from other chats', conversations: nested },
+  shared: { label: 'A local chat also open on claude.ai', conversations: shared },
   'needs-you-mark-failure': {
     label: 'Mark all as read failure',
     conversations: needsYou,

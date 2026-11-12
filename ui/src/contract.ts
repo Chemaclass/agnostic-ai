@@ -928,6 +928,8 @@ export interface Conversation {
   deleteUnsupported?: string
   /** The conversation this one continues, read from the line `Continues <tool>:<id>` that starts its first prompt. That line is cut from the title, opening and prompt. The parent may be on no page: hidden, older, filtered out or deleted. */
   parent?: { tool: ConversationTool; id: string }
+  /** Set on a live local Claude Code session that Remote Control also shows on claude.ai: that cloud session's id and its page. Its cloud row is not listed apart. Open its page with `POST /api/conversations/open` and the cloud id. */
+  cloud?: { id: string; link: string }
   open: ConversationRoute
 }
 
