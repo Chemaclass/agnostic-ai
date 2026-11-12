@@ -3,6 +3,8 @@
 # =============================================================================
 /agnostic-ai
 /agnostic-ai.exe
+/companion/companion
+/companion/companion.exe
 /dist/
 /build/
 /bin/
