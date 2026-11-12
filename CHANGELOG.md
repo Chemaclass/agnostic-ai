@@ -76,12 +76,19 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `sync` stops with AAI-102, which `validate` reports, when a `rules-file` that another enabled target reads as instructions would lose rules (#3302).
 - For `outputs.codex.rules-file: AGENTS.md` with Cline, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool (#3302).
 - When the other tool's file already has the rules, as with Amp, `sync` and `sync --target <owner>` keep its file; `lint` warns with LINT063 (#3302, #3343).
-- A `rules-file` on another target's instructions file, such as Amp's `AGENTS.md`, stops saving a `.bak` on each sync; `./AGENTS.md` is that same file (#3329). If `sync` still keeps a hand edit there, delete that file and its `.bak`, then run `agnostic-ai sync`.
+- A `rules-file` on another target's instructions file, such as Amp's `AGENTS.md`, stops saving a `.bak` on each sync; `./AGENTS.md` is that same file (#3329).
+- `sync` writes over a hand-edited file whose `.bak` holds the same bytes, so a project v0.93.0 left stuck on `AGENTS.md` heals on the next sync (#3345).
 
 #### Shared instructions files
 
 - `sync` also stops with AAI-102 when an adapter writes another target's instructions file, such as an external adapter's `AGENTS.md` (#3302).
 - Cursor and Windsurf load each always-on rule once, from `AGENTS.md`; Trae opts in with `rules-mode: entry-point`, and LINT061 flags an ignored value (#3243).
+
+#### Sync ledger
+
+- `sync` and `validate` stop with AAI-102 when an output sits at another output's `<path>.bak`, where it would write over a saved hand edit (#3345).
+- `sync`, `doctor --fix` and other writers stop on a `.sync-state` from a newer agnostic-ai and ask you to upgrade; `status` and `doctor` warn (#3345).
+- Upgrade every copy that syncs a project together: v0.93.0 and older skip this check and strip merged keys of an `outputs` path that starts with `./` (#3345).
 
 #### Built-ins and settings
 

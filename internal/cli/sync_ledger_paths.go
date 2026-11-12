@@ -59,7 +59,7 @@ func (s *syncStateFile) dropEscapingEntries(projectRoot, statePath string) {
 }
 
 // mergeSpellings rewrites every output path the ledger holds with clean,
-// the spelling the config's own paths get. Releases before #3329 stored
+// the spelling the config's own paths get. Releases up to v0.93.0 stored
 // `./AGENTS.md` as typed, so without this a renamed entry reads as a
 // file sync stopped writing, and its merged keys are taken out or the
 // file removed.

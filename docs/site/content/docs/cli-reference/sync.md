@@ -78,7 +78,7 @@ Each list shows three paths (`-vv` lists all). A `config` spec means `agnostic-a
 <details>
 <summary>Hand edits: existing backups and merged settings</summary>
 
-- When `<path>.bak` already exists, sync leaves the new edit in place and says so. An earlier backup is never replaced.
+- When `<path>.bak` already exists, sync leaves the new edit in place and says so. An earlier backup is never replaced. One exception: when that `.bak` is a backup sync saved itself, unchanged since, and it holds the same bytes as the edited file, sync writes the file, since the backup already keeps those bytes.
 - A key you add to a merged settings file, such as `.claude/settings.json`, is kept in place, not backed up.
 
 </details>
@@ -87,7 +87,7 @@ Each list shows three paths (`-vv` lists all). A `config` spec means `agnostic-a
 
 **Hand-written instructions.** `sync`, `--check`, `--plan`, and `--json --dry-run` stop when an instructions file such as `CLAUDE.md` or `AGENTS.md` holds text agnostic-ai did not write and neither `.agnostic-ai/AGNOSTIC_AI.md` nor `.agnostic-ai/local/` has, and name the `import` that keeps it. `sync --backup` replaces the file and keeps the old one as `<path>.bak`, unless that `.bak` exists. A file an earlier sync wrote, or with the generated header, never stops it, nor does a tracked file under `--keep-edits`.
 
-**Remove leftover files.** `sync` records output paths and checksums in `.agnostic-ai/.sync-state`. A full run deletes files it no longer writes, then empty directories, when a generated-file header or recorded hash proves ownership. A generated file edited since sync is backed up as `<path>.bak` before removal. A headerless file edited since sync, or one with no recorded checksum, stays with `~ kept orphan <path>` and a reason.
+**Remove leftover files.** `sync` records output paths and checksums in `.agnostic-ai/.sync-state`. A `.sync-state` written by a newer agnostic-ai stops every command that writes, such as `sync` and `doctor --fix`, until you upgrade; `status`, `why` and `doctor` warn. A full run deletes files it no longer writes, then empty directories, when a generated-file header or recorded hash proves ownership. A generated file edited since sync is backed up as `<path>.bak` before removal. A headerless file edited since sync, or one with no recorded checksum, stays with `~ kept orphan <path>` and a reason.
 
 While `targets` is empty, `sync`, `status`, and `doctor --fix` warn and keep every file. This also applies to `sync -t`, which ignores that filter while `targets` is empty. Use `sync --allow-empty-targets` to remove the files. `sync --check` fails with AAI-303 while generated files remain, since it cannot check them.
 

@@ -50,6 +50,11 @@ Pair with --dry-run to preview the deletions without touching disk.`,
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err
 			}
+			if dryRun {
+				readLedger(".").warnNewer()
+			} else if err := readLedger(".").refuseNewer(); err != nil {
+				return err
+			}
 			return runCleanupBackups(".", dryRun)
 		},
 	}

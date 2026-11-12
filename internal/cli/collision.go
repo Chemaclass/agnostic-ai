@@ -44,18 +44,32 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winn
 }
 
 // detectRenderedCollisions is detectCollisions over the run's renders.
-func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string) (winners map[string]string, err error) {
+func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string) (map[string]string, error) {
+	found, err := findRenderedCollisions(renders, cfg, targets)
+	return found.winners, err
+}
+
+// renderedCollisions is what findRenderedCollisions saw: the winners, the
+// shared rules-files, and the instructions files the run writes.
+type renderedCollisions struct {
+	winners  map[string]string
+	shared   []sharedRulesFile
+	runFiles []entryPointFile
+}
+
+func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets []string) (found renderedCollisions, err error) {
 	b := renders.b
 	cfg = cfg.WithAdditionalTargets(targets...)
 	if err := adapters.ValidateScopedRules(cfg, b, targets); err != nil {
-		return nil, err
+		return found, err
 	}
 	readers := append(append([]string(nil), cfg.Targets...), targets...)
 	entryFiles, err := renderEntryPointFiles(cfg, b, readers, "")
 	if err != nil {
-		return nil, err
+		return found, err
 	}
 	shared := sharedRulesFiles(cfg, b, entryFiles)
+	found.shared = shared
 	var conflicts []string
 	for _, s := range shared {
 		if !s.kept {
@@ -63,7 +77,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		}
 	}
 	if len(conflicts) > 0 {
-		return nil, errs.Coded(errs.CodeOutputCollision, "output collision: %s", strings.Join(conflicts, "\n"))
+		return found, errs.Coded(errs.CodeOutputCollision, "output collision: %s", strings.Join(conflicts, "\n"))
 	}
 	policy := cfg.Sync.CollisionPolicy
 	if policy == "" {
@@ -92,7 +106,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 			if policy == "prefer-spec" {
 				continue
 			}
-			return nil, fmt.Errorf("%s: %w", t, err)
+			return found, fmt.Errorf("%s: %w", t, err)
 		}
 		for _, f := range render.files {
 			owners[f.Path] = append(owners[f.Path], t)
@@ -110,7 +124,11 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 	}
 	runFiles, err := renderEntryPointFiles(cfg, b, targets, "")
 	if err != nil {
-		return nil, err
+		return found, err
+	}
+	found.runFiles = runFiles
+	if err := backupPathCollisions(cfg, owners, entryFiles); err != nil {
+		return found, err
 	}
 	overwritten := maps.Clone(owners)
 	for _, s := range shared {
@@ -122,23 +140,24 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		}
 	}
 	if err := entryPointOverwrites(cfg, runFiles, overwritten); err != nil {
-		return nil, err
+		return found, err
 	}
 	replaced, err := replacedRulesFileWinners(cfg, b, shared)
 	if err != nil {
-		return nil, err
+		return found, err
 	}
 	if policy == "prefer-spec" {
 		for path, variants := range contents {
 			if len(variants) > 1 {
-				if winners == nil {
-					winners = map[string]string{}
+				if found.winners == nil {
+					found.winners = map[string]string{}
 				}
-				winners[filepath.Clean(path)] = last[path]
+				found.winners[filepath.Clean(path)] = last[path]
 			}
 		}
 		noteCollisionWinners(writers, contents, lastOwner, written)
-		return withWinners(winners, replaced), nil
+		found.winners = withWinners(found.winners, replaced)
+		return found, nil
 	}
 	warnSharedAgentsTreeReaders(owners, targets)
 
@@ -153,12 +172,13 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		lines = append(lines, fmt.Sprintf("  %s ← %s", path, strings.Join(ts, ", ")))
 	}
 	if len(lines) == 0 {
-		return replaced, nil
+		found.winners = replaced
+		return found, nil
 	}
 	sort.Strings(lines)
 
 	if policy == "fail" {
-		return nil, errs.Coded(errs.CodeOutputCollision,
+		return found, errs.Coded(errs.CodeOutputCollision,
 			"output collision: targets emit to the same path\n%s",
 			strings.Join(lines, "\n"))
 	}
@@ -170,7 +190,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 	if !term.IsTerminal(os.Stdin.Fd()) {
 		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
 	}
-	return nil, errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
+	return found, errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
 }
 
 // replacedRulesFileWinners maps each kept shared rules-file to the
@@ -344,4 +364,46 @@ func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map
 	return errs.Coded(errs.CodeOutputCollision,
 		"output collision: an adapter writes a file sync also writes as an instructions file\n%s\n"+
 			"point that output elsewhere, or set outputs.<target>.file for the readers", strings.Join(lines, "\n"))
+}
+
+// backupPathCollisions refuses an output at another output's
+// `<path>.bak`: sync saves a hand edit to the first there, and the
+// second then writes over that backup, so the edit is lost.
+func backupPathCollisions(cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile) error {
+	names := map[string][]string{}
+	add := func(path, name string) {
+		key := filepath.Clean(filepath.FromSlash(path))
+		if !slices.Contains(names[key], name) {
+			names[key] = append(names[key], name)
+		}
+	}
+	for key, path := range cfg.ConfiguredOutputPaths() {
+		add(path, key)
+	}
+	for path, ts := range owners {
+		for _, t := range ts {
+			add(path, t)
+		}
+	}
+	for _, f := range entryFiles {
+		add(f.Path, "the instructions file of "+strings.Join(f.Readers, ", "))
+	}
+	var lines []string
+	for path, base := range names {
+		backup, ok := names[path+".bak"]
+		if !ok {
+			continue
+		}
+		slices.Sort(base)
+		slices.Sort(backup)
+		lines = append(lines, fmt.Sprintf("  %s (%s) is the backup sync saves for %s (%s)",
+			filepath.ToSlash(path)+".bak", strings.Join(backup, ", "), filepath.ToSlash(path), strings.Join(base, ", ")))
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	sort.Strings(lines)
+	return errs.Coded(errs.CodeOutputCollision,
+		"output collision: an output sits where sync saves another output's hand edit\n%s\n"+
+			"point one of them elsewhere", strings.Join(lines, "\n"))
 }

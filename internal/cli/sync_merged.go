@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -346,8 +346,11 @@ func updateStateFile(root string, update func(*syncStateFile)) error {
 	if err != nil {
 		return nil
 	}
-	var state syncStateFile
-	if err := json.Unmarshal(data, &state); err != nil {
+	state, err := decodeLedger(root, p, data)
+	if newer := new(newerLedgerError); errors.As(err, &newer) {
+		return err
+	}
+	if err != nil {
 		return fmt.Errorf("parse %s: %w", p, err)
 	}
 	update(&state)

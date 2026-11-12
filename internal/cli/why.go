@@ -64,6 +64,7 @@ func newWhyCmd() *cobra.Command {
 			if format != "" && format != "text" && format != "json" {
 				return fmt.Errorf("--format: expected 'text' or 'json', got %q", format)
 			}
+			readLedger(".").warnNewer()
 			cfg, bundle, err := loadProject(".")
 			if err != nil {
 				return err

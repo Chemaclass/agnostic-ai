@@ -908,10 +908,10 @@
 # Notification payloads) measured 25968800 bytes locally on 2026-11-12,
 # 8192 above main f054802c; the budget is that plus 8192, rounded up to
 # a multiple of 4096.
-# #3329 (one spelling for output paths in the config and the ledger,
-# and old ledger entries read in that spelling) measured 25985184 bytes
-# locally on 2026-11-12, on top of main 51a96ce0; the budget is that plus
-# 8192, rounded up to a multiple of 4096.
+# #3337 (one spelling for output paths in the config and the ledger,
+# and old ledger entries read in that spelling) builds to 25993376 bytes
+# at c1458b45, measured on 2026-11-12. The budget came from an earlier
+# build of 25985184 bytes, plus 8192, rounded up to a multiple of 4096.
 # #3342 (conversations start in cursor-agent, the chat variable check,
 # and cursor-agent chat folders found from their project) measured
 # 25997472 bytes locally on 2026-11-12, on top of main c1458b45; the
@@ -920,4 +920,10 @@
 # reads each target's x-<target> hook event) measured 26009760 bytes
 # locally on 2026-11-12, on top of main 6bc63897; the budget is that
 # plus 8192, rounded up to a multiple of 4096.
-26021888
+# #3345 (a .bak sync saved heals a stuck file, an output at another
+# output's .bak stops sync, one ledger reader, and a ledger from a newer
+# release refused by writers under the lock and warned about by
+# reports) measured 26038432 bytes locally on 2026-11-12, on top of
+# main ecd8394e; the budget is that plus 8192, rounded up to a multiple
+# of 4096.
+26050560

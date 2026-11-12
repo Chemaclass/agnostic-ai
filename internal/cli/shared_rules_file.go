@@ -120,20 +120,15 @@ func projectSharedRulesFiles(cfg *config.Config, b spec.Bundle, targets []string
 	return sharedRulesFiles(cfg, b, files)
 }
 
-// replacedRulesFiles maps each owner whose merged rules-file a run over
-// targets replaces with no rule lost to that path. A drift check compares
-// the path with the instructions file that run writes there, not the
-// owner's render. A run that writes no instructions file there checks
-// the owner's render, which the collision winners already give the
-// instructions file's bytes.
-func replacedRulesFiles(cfg *config.Config, b spec.Bundle, targets []string) map[string]string {
-	cfg = cfg.WithAdditionalTargets(targets...)
-	runFiles, err := renderEntryPointFiles(cfg, b, targets, "")
-	if err != nil {
-		return nil
-	}
+// replacedRulesFiles maps each owner whose kept shared rules-file is one
+// of runFiles, the instructions files a run writes, to that path. A drift
+// check compares the path with the instructions file that run writes
+// there, not the owner's render. A run that writes no instructions file
+// there checks the owner's render, which the collision winners already
+// give the instructions file's bytes.
+func replacedRulesFiles(shared []sharedRulesFile, runFiles []entryPointFile) map[string]string {
 	out := map[string]string{}
-	for _, s := range projectSharedRulesFiles(cfg, b, nil) {
+	for _, s := range shared {
 		if s.kept && slices.ContainsFunc(runFiles, func(f entryPointFile) bool { return samePath(f.Path, s.path) }) {
 			out[s.owner] = filepath.Clean(s.path)
 		}

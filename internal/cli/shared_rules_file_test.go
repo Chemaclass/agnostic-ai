@@ -402,7 +402,7 @@ func TestSync_RulesFileOnASharedInstructionsFile_SettlesWhateverItsSpelling(t *t
 	}
 }
 
-// A ledger written before #3329 holds both spellings. The next sync must
+// A ledger written by v0.93.0 or older holds both spellings. The next sync must
 // settle to the clean one without a backup and keep the live file.
 func TestSync_DotSlashRulesFileWithAStaleLedgerEntry_Settles(t *testing.T) {
 	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: ./AGENTS.md\n")
@@ -456,7 +456,7 @@ func TestSync_RulesFileOnASharedInstructionsFile_BacksUpAHandEditOnce(t *testing
 	}
 }
 
-// Two syncs before #3329 left codex's merged file in AGENTS.md, amp's
+// Two syncs on v0.93.0 or older left codex's merged file in AGENTS.md, amp's
 // file in AGENTS.md.bak, and a ledger with both spellings. The ledger
 // recorded the merged bytes under `./AGENTS.md`, so sync may replace them.
 func TestSync_DotSlashRulesFileStuckOnAnOldBackup_Heals(t *testing.T) {
@@ -516,5 +516,150 @@ func assertLedgerSpellsAGENTSmdOnce(t *testing.T, state syncStateFile) {
 		if p != "AGENTS.md" && strings.Contains(p, "AGENTS.md") {
 			t.Errorf("the ledger must not hold a sum for %q", p)
 		}
+	}
+}
+
+// Three syncs on v0.93.0 with `rules-file: AGENTS.md` left codex's merged
+// file in both AGENTS.md and AGENTS.md.bak. The backup holds those exact
+// bytes, so writing AGENTS.md loses nothing.
+func TestSync_RulesFileStuckOnABackupOfTheSameBytes_Heals(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "MERGED\n")
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MERGED\n")
+	state := readStateFile(".")
+	state.Backups = map[string]string{"AGENTS.md.bak": adapters.ContentSum("MERGED\n")}
+	if err := replaceStateFile(".", state); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runCLI(t, "sync", "--gitignore=off")
+
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
+		t.Errorf("AGENTS.md must hold amp's file again, got:\n%s", got)
+	}
+	if bak, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md.bak")); string(bak) != "MERGED\n" {
+		t.Errorf("AGENTS.md.bak must keep its bytes, got %q", bak)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+func TestSync_HandEditWithADifferentOrLinkedBackup_IsKept(t *testing.T) {
+	for name, plant := range map[string]func(t *testing.T, dir string){
+		"older backup": func(t *testing.T, dir string) {
+			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "EARLIER-EDIT\n")
+		},
+		"same bytes, not saved by sync": func(t *testing.T, dir string) {
+			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "HAND-EDIT\n")
+		},
+		"hard link": func(t *testing.T, dir string) {
+			if err := os.Link(filepath.Join(dir, "AGENTS.md"), filepath.Join(dir, "AGENTS.md.bak")); err != nil {
+				t.Skip(err)
+			}
+		},
+		"symlink": func(t *testing.T, dir string) {
+			if err := os.Symlink("AGENTS.md", filepath.Join(dir, "AGENTS.md.bak")); err != nil {
+				t.Skip(err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "HAND-EDIT\n")
+			plant(t, dir)
+
+			out, err := runCLI(t, "sync", "--gitignore=off")
+
+			if err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != "HAND-EDIT\n" {
+				t.Errorf("sync must keep the hand edit, got:\n%s", got)
+			}
+		})
+	}
+}
+
+// The ledger keeps `..` as written, since a linked folder resolves it
+// elsewhere, so it lists docs/../AGENTS.md beside AGENTS.md. Sync writes
+// both, so --check must not report the first as a leftover.
+func TestSync_DotDotRulesFileOnASharedInstructionsFile_Settles(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: docs/../AGENTS.md\n")
+	if err := os.MkdirAll(filepath.Join(dir, "docs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	out, err := runCLI(t, "sync", "--check")
+
+	if err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md.bak")); err == nil {
+		t.Error("sync must not save AGENTS.md.bak")
+	}
+}
+
+// Only a backup the ledger says sync saved vouches for a hand edit: a
+// copy the user made may be another output this run writes over.
+func TestSync_HandEditCopiedToABackupThatIsAnotherOutput_IsKept(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nKeep changes small.\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "RULES.md"))
+	edited := string(data) + "\nUNIQUE USER NOTE\n"
+	mustWriteFile(t, filepath.Join(dir, "RULES.md"), edited)
+	mustWriteFile(t, filepath.Join(dir, "RULES.md.bak"), edited)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: RULES.md.bak\n")
+
+	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err == nil {
+		t.Fatalf("sync must stop on an output at RULES.md.bak:\n%s", out)
+	}
+
+	if got, _ := os.ReadFile(filepath.Join(dir, "RULES.md")); string(got) != edited {
+		t.Errorf("sync must keep the hand edit in RULES.md, got:\n%s", got)
+	}
+}
+
+// Through a linked folder, docs/../AGENTS.md is another file than
+// AGENTS.md, so --check must still compare it and see an edit there.
+func TestSync_DotDotRulesFileThroughALinkedFolder_ChecksThatFile(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: docs/../AGENTS.md\n")
+	if err := os.MkdirAll(filepath.Join(dir, "sub", "child"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("sub", "child"), filepath.Join(dir, "docs")); err != nil {
+		t.Skip(err)
+	}
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "sub", "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("setup: sync must write sub/AGENTS.md: %v", err)
+	}
+	mustWriteFile(t, filepath.Join(dir, "sub", "AGENTS.md"), string(data)+"\nUSER EDIT\n")
+
+	out, err := runCLI(t, "sync", "--check")
+
+	if err == nil {
+		t.Errorf("sync --check must report the edit behind the link, got %v:\n%s", err, out)
 	}
 }
