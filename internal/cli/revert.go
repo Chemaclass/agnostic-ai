@@ -56,6 +56,9 @@ func newRevertCmd() *cobra.Command {
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err
 			}
+			if err := readLedger(".").refuseNewer(); err != nil {
+				return err
+			}
 			cfg, b, err := loadProject(".")
 			if err != nil {
 				return err

@@ -83,7 +83,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync ledger
 
-- `sync`, `doctor` and `use` stop on a `.sync-state` that a newer agnostic-ai wrote and ask you to upgrade, rather than misread it (#3345).
+- Commands that write, such as `sync` and `doctor --fix`, stop on a `.sync-state` a newer agnostic-ai wrote and ask you to upgrade; `status` and `doctor` warn (#3345).
 - Upgrade every copy of agnostic-ai that syncs a project together: v0.93.0 and older do not check, and strip merged keys when an `outputs` path starts with `./` (#3345).
 
 #### Built-ins and settings

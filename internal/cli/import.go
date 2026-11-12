@@ -127,6 +127,9 @@ func newImportCmd() *cobra.Command {
 			if dryRun {
 				return dryRunImport(args, nil, overwrite)
 			}
+			if err := readLedger(".").refuseNewer(); err != nil {
+				return err
+			}
 			lock, err := acquireProjectLock(".", "import")
 			if err != nil {
 				return err

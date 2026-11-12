@@ -31,11 +31,10 @@ import (
 // Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
 // when OutputSums and Orphans were added, to 4 when SpecSums was added,
 // to 5 when Unledgered was added, to 6 when Merged was added, and to 7
-// when Merged covered Aider's YAML config, and to 8 when every path took
-// the spelling the config's own paths get.
+// when Merged covered Aider's YAML config.
 // Readers tolerate older versions by treating missing fields as zero
 // values, and refuse a newer one.
-const syncStateVersion = 8
+const syncStateVersion = mergedYAMLLedgerVersion
 
 // newerLedgerError is a state file a newer release wrote. Its paths or
 // claims may mean something this release misreads, and acting on them
@@ -46,7 +45,11 @@ type newerLedgerError struct {
 }
 
 func (e *newerLedgerError) Error() string {
-	return fmt.Sprintf("%s was written by a newer agnostic-ai (ledger version %d, this release reads up to %d); upgrade agnostic-ai with `agnostic-ai upgrade`, then run the command again",
+	return e.reason() + "; upgrade agnostic-ai with `agnostic-ai upgrade`, then run the command again"
+}
+
+func (e *newerLedgerError) reason() string {
+	return fmt.Sprintf("%s was written by a newer agnostic-ai (ledger version %d, this release reads up to %d)",
 		filepath.ToSlash(e.path), e.version, syncStateVersion)
 }
 
@@ -200,16 +203,24 @@ func (l ledgerSnapshot) refuseNewer() error {
 	return nil
 }
 
+// warnNewer tells a command that only reports that a newer release
+// wrote the state file, so the report may be wrong.
+func (l ledgerSnapshot) warnNewer() {
+	if newer := new(newerLedgerError); errors.As(l.readErr, &newer) {
+		_, _ = fmt.Fprintf(ledgerWarnOut, "warning: %s; this report may be wrong until you upgrade agnostic-ai with `agnostic-ai upgrade`\n", newer.reason())
+	}
+}
+
 // decodeLedger is every read of the state file: entries outside the
 // project dropped, each path in the spelling the config's own paths get.
 // A file that does not parse keeps what decoded before the error.
 func decodeLedger(root, path string, data []byte) (syncStateFile, error) {
 	var s syncStateFile
 	err := json.Unmarshal(data, &s)
+	s.dropEscapingEntries(root, path)
 	if s.Version > syncStateVersion {
 		return s, &newerLedgerError{path: path, version: s.Version}
 	}
-	s.dropEscapingEntries(root, path)
 	s.mergeSpellings(root, config.CleanOutputPath)
 	return s, err
 }

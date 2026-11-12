@@ -116,3 +116,56 @@ func TestSync_RefusesANewerLedgerBeforeWritingAnything(t *testing.T) {
 		}
 	}
 }
+
+func newerLedgerProject(t *testing.T) string {
+	t.Helper()
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
+	mustWriteFile(t, stateFilePath("."), `{"version":99,"synced_at":"2026-11-12T00:00:00Z","outputs":["AGENTS.md"],"backups":{"AGENTS.md.bak":"x"}}`)
+	return dir
+}
+
+// Commands that write refuse a newer ledger.
+func TestWritingCommands_RefuseALedgerFromANewerRelease(t *testing.T) {
+	for _, args := range [][]string{{"revert"}, {"cleanup"}, {"import", "claude"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := newerLedgerProject(t)
+
+			out, err := runCLI(t, args...)
+
+			if err == nil || !strings.Contains(err.Error(), "newer agnostic-ai") {
+				t.Fatalf("%v must refuse the ledger, got %v\n%s", args, err, out)
+			}
+			if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md.bak")); string(got) != "MINE\n" {
+				t.Errorf("%v must leave AGENTS.md.bak alone, got %q", args, got)
+			}
+		})
+	}
+}
+
+// Commands that only report run and say the ledger is newer.
+func TestReadingCommands_WarnAboutALedgerFromANewerRelease(t *testing.T) {
+	for _, args := range [][]string{{"status"}, {"status", "--json"}, {"why", "AGENTS.md"}, {"doctor"}, {"doctor", "--json"}, {"cleanup", "--dry-run"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			newerLedgerProject(t)
+			var warned strings.Builder
+			ledgerWarnOut = &warned
+			t.Cleanup(func() { ledgerWarnOut = os.Stderr })
+
+			out, err := runCLI(t, args...)
+
+			if err != nil && strings.Contains(err.Error(), "newer agnostic-ai") {
+				t.Fatalf("%v must not refuse a ledger it only reads, got %v\n%s", args, err, out)
+			}
+			if !strings.Contains(warned.String()+out, "newer agnostic-ai") {
+				t.Errorf("%v must say a newer release wrote the ledger, got:\n%s%s", args, warned.String(), out)
+			}
+		})
+	}
+}
