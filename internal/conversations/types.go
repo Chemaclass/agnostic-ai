@@ -171,6 +171,10 @@ type Conversation struct {
 	// store is a cursor-agent chat's store.db, which its running process
 	// holds open.
 	store string
+	// recency is a Cursor editor chat's last activity in milliseconds.
+	// UpdatedAt keeps only the second, so two writes within one second
+	// would share a cache key.
+	recency int64
 	// file is a Claude Code session's transcript, as the scan found it.
 	file string
 	// renamed is the name the person chose, shown over the tool's title.

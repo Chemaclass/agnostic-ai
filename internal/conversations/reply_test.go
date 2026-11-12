@@ -427,6 +427,42 @@ func TestScan_RereadsTheReplyOfACursorChatOpenInAWindow(t *testing.T) {
 	}
 }
 
+func TestScan_RereadsACursorChatWrittenTwiceInOneSecond(t *testing.T) {
+	open, closed := "88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999"
+	recency, answer := int64(1794049200100), "I am looking."
+	scanner, stores := testScanner(t, func(_ context.Context, _, query string) ([]json.RawMessage, error) {
+		switch {
+		case strings.Contains(query, "FROM composerHeaders"):
+			return []json.RawMessage{
+				json.RawMessage(`{"id":"` + open + `","workspace_id":"ws1","created_at":1794049200000,"recency":1794049200000,"name":"Open chat","folder":"/tmp/app"}`),
+				json.RawMessage(`{"id":"` + closed + `","workspace_id":"ws1","created_at":1794049200000,"recency":` + fmt.Sprint(recency) + `,"name":"Closed chat","folder":"/tmp/app"}`),
+			}, nil
+		case strings.Contains(query, "ItemTable"):
+			return []json.RawMessage{json.RawMessage(`{"value":"{\"selectedComposerIds\":[\"` + open + `\"]}"}`)}, nil
+		case strings.Contains(query, "chosen(composerId)"):
+			var rows []json.RawMessage
+			for _, id := range []string{open, closed} {
+				if strings.Contains(query, id) {
+					rows = append(rows, json.RawMessage(`{"id":"`+id+`","first_text":"Fix it","last_text":"Fix it","start":"`+answer+`","ending":"`+answer+`","length":`+fmt.Sprint(len(answer))+`}`))
+				}
+			}
+			return rows, nil
+		}
+		return nil, errors.New("unexpected query")
+	}, fakeProcesses{running: map[string]bool{"Cursor": true}})
+	write(t, stores.CursorDB, "first")
+	write(t, filepath.Join(filepath.Dir(stores.CursorDB), "storage.json"), `{"windowsState":{"openedWindows":[{"folder":"file:///tmp/app"}]}}`)
+
+	scanner.Scan(context.Background(), ScanOptions{})
+	recency, answer = 1794049200900, "The tests pass now."
+	write(t, stores.CursorDB, "second write")
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if c := byID(t, view, closed); c.Live || c.Reply != "The tests pass now." {
+		t.Errorf("a closed chat written again within the same second must be read again: %s", asJSON(t, c))
+	}
+}
+
 func TestScan_ReadsAFinalCursorAgentReplyLargerThanTheTail(t *testing.T) {
 	agent := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 	scanner, _ := cursorAgentScanner(t, fakeProcesses{}, agent)
