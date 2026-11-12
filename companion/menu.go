@@ -155,7 +155,7 @@ func (s *shell) refreshNative() {
 	s.native["dimWhenIdle"].SetChecked(looks.DimWhenIdle)
 	s.native["startAtLogin"].SetChecked(prefs.StartAtLogin)
 	s.native["shortcut"].SetLabel(shortcutLabel(prefs.Shortcut, runtime.GOOS == "darwin"))
-	s.native["hide"].SetLabel(hideLabel(s.hideBase, prefs, runtime.GOOS == "darwin"))
+	s.native["hide"].SetLabel(hideLabel(s.hideBase, prefs))
 }
 
 // macKeycaps is how each part of a shortcut reads on a Mac; model.js
@@ -182,15 +182,14 @@ func shortcutLabel(shortcut string, isMac bool) string {
 	return "Open from anywhere: " + keysOf(shortcut, isMac) + "…"
 }
 
-// hideLabel adds to the Hide item what brings the companion back: the
-// shortcut while it works, otherwise the command. model.js hideLabelOf
-// says the same in the list.
-func hideLabel(base string, prefs preferences, isMac bool) string {
-	way := "agnostic-ai companion"
+// hideLabel names the command that brings the companion back while the
+// shortcut does not work; a working shortcut already shows on the item
+// above. model.js hideLabelOf says the same in the list.
+func hideLabel(base string, prefs preferences) string {
 	if prefs.ShortcutProblem == "" {
-		way = keysOf(prefs.Shortcut, isMac)
+		return base
 	}
-	return base + " (" + way + " brings it back)"
+	return base + " (agnostic-ai companion brings it back)"
 }
 
 // setAppearanceSwitch answers a POST that turns one look on or off, with

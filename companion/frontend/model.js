@@ -489,12 +489,11 @@ export function keycapsOf(shortcut, isMac) {
 const MENU_KINDS = new Set(['switch', 'shortcut', 'action'])
 
 /**
- * The Hide item's label with what brings the companion back: the shortcut while it works,
- * otherwise the command. The shell's hideLabel says the same in the right-click menu.
+ * The Hide item's label: plain while the shortcut works, which the item above already shows,
+ * otherwise with the command that brings the companion back. The shell's hideLabel says the same.
  */
-export function hideLabelOf(label, preferences, isMac) {
-  const way = preferences.shortcutProblem ? 'agnostic-ai companion' : keycapsOf(preferences.shortcut, isMac).join(isMac ? '' : '+')
-  return `${label} (${way} brings it back)`
+export function hideLabelOf(label, preferences) {
+  return preferences.shortcutProblem ? `${label} (agnostic-ai companion brings it back)` : label
 }
 
 /**
@@ -513,7 +512,7 @@ export function menuRowsOf(items, { preferences, appearance }, isMac = false) {
       value = values[item.id]
     }
     if (item.kind === 'shortcut') value = preferences.shortcut
-    if (item.id === 'hide') return { ...item, label: hideLabelOf(item.label, preferences, isMac), value }
+    if (item.id === 'hide') return { ...item, label: hideLabelOf(item.label, preferences), value }
     return { ...item, value }
   })
 }
