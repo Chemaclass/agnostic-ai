@@ -87,8 +87,11 @@ func withoutInjected(text string) string {
 	return kept.String()
 }
 
-// typedWrappers hold what the person typed: keep their content.
-var typedWrappers = regexp.MustCompile(`</?(user_query|command-name|command-args)\b[^>]*>`)
+// typedNames are the wrappers that hold what the person typed: their
+// content is kept. A tag takes the same tail as an injected one.
+const typedNames = `user_query|command-name|command-args`
+
+var typedWrappers = regexp.MustCompile(`</?(` + typedNames + `)(?:[\s/][^>]*)?>`)
 
 var spaceRun = regexp.MustCompile(`[ \t]+`)
 
@@ -161,6 +164,12 @@ func replyEndsColumns(text string) string {
 	return `substr(` + text + `, 1, ` + part + `) AS start,
   substr(` + text + `, -` + part + `) AS ending,
   length(` + text + `) AS length`
+}
+
+// said is what a row keeps of the message: agentSaid of its start and
+// its whole last lines.
+func (ends replyEnds) said(asked string) (reply, question string) {
+	return agentSaid(ends.Start, ends.wholeLines(), asked)
 }
 
 // wholeLines is the ending without the line it may start inside: a
@@ -415,11 +424,17 @@ func queryWords(query string) []string {
 func matching(list []Conversation, words []string) []Conversation {
 	var kept []Conversation
 	for _, c := range list {
-		if holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), c.Reply, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+		if holdsAll(searchText(c, asShown(c.Title), asShown(c.Prompt), c.Reply), words) {
 			kept = append(kept, c)
 		}
 	}
 	return kept
+}
+
+// searchText is the text a search reads of a row: the given title,
+// prompt and reply, and the row's folder, branch, tool and app.
+func searchText(c Conversation, title, prompt, reply string) string {
+	return strings.Join([]string{title, c.Folder, c.Branch, prompt, reply, toolLabels[c.Tool], string(c.App)}, "\n")
 }
 
 // typedShell is a command typed with Claude Code's ! prefix, which the

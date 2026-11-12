@@ -45,8 +45,8 @@ func readLink(line string) (Ref, bool) {
 // dropped, and a closing one ends the line, so the link line before it
 // stays whole.
 var (
-	typedOpen  = regexp.MustCompile(`<(user_query|command-name|command-args)\b[^>]*>`)
-	typedClose = regexp.MustCompile(`</(user_query|command-name|command-args)>`)
+	typedOpen  = regexp.MustCompile(`<(` + typedNames + `)(?:[\s/][^>]*)?>`)
+	typedClose = regexp.MustCompile(`</(` + typedNames + `)>`)
 )
 
 // linkOf reads the link line off what the person typed: the stored
