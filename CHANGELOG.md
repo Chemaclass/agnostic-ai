@@ -52,7 +52,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Chat names and states
 
 - Rename a chat from the companion's right-click menu; the web interface and a running chat's Terminal or Ghostty tab show the new name (#3236, #3258).
-- Cursor chat titles show what you typed, without the tags Cursor adds (#3241).
+- Chat titles show what you typed, without the tags Cursor and other tools add, even when one tag holds another (#3241, #3339).
 - The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
 - A silent local Codex chat shows "No activity for 7m", not "Waiting for you", in the companion and the web interface; the API sets `quietSince` (#3251).
 - An archived or hidden chat that starts working again moves back to Working (#3239).

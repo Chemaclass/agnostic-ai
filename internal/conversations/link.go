@@ -53,10 +53,10 @@ var (
 // prompt without the blocks a tool injects and the wrappers it adds,
 // and without blank lines before it. The line itself is kept as typed,
 // so spaces before it, two spaces or a tab stay text. When removal leaves
-// an injected tag behind, a block was nested in another and the line
-// may be text the tool added, so nothing links.
+// an injected tag behind, a block has no end and the line may be text
+// the tool added, so nothing links.
 func linkOf(prompt string) (ref Ref, rest string, ok bool) {
-	typed := injectedBlocks.ReplaceAllString(prompt, "")
+	typed := withoutInjected(prompt)
 	if injectedTag.MatchString(typed) {
 		return Ref{}, prompt, false
 	}
