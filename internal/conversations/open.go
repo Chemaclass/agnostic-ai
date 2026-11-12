@@ -284,6 +284,9 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 		app = c.lastTab.App
 	}
 	controlled := OpenReply{Message: "Its folder name holds control characters, which a terminal would act on as they are typed, so it is not resumed from here."}
+	if c.Open.Command == "" && c.Folder == "" {
+		return OpenReply{Message: "Its folder is not known, and it resumes only from the folder it started in, so it is not resumed from here."}
+	}
 	if c.Open.Command == "" {
 		return controlled
 	}

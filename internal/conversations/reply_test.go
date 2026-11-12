@@ -702,3 +702,52 @@ func TestScan_ReadsNoQuestionFromALineTooLongToKeep(t *testing.T) {
 		t.Errorf("reply = %q", c.Reply)
 	}
 }
+
+func TestScan_KeepsTheLatestCursorAgentPromptFoundBehindALargeFinalReply(t *testing.T) {
+	agent := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	scanner, _ := cursorAgentScanner(t, fakeProcesses{}, agent)
+	big := strings.Repeat("The migration ran on every table. ", 3*claudeWindow/34)
+	write(t, filepath.Join(scanner.Stores.CursorDir, "projects", "p1", "agent-transcripts", agent, agent+".jsonl"), lines(
+		obj{"role": "user", "message": obj{"content": []obj{textPart("<user_query>" + strings.Repeat("Start. ", claudeWindow/7) + "</user_query>")}}},
+		obj{"role": "user", "message": obj{"content": []obj{textPart("<user_query>Migrate</user_query>")}}},
+		obj{"role": "assistant", "message": obj{"content": []obj{textPart(big)}}},
+	))
+
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}}), agent)
+
+	if c.Prompt != "Migrate" {
+		t.Errorf("the latest prompt found behind the final reply must show, actual %q", c.Prompt)
+	}
+}
+
+func TestScan_ForgetsTheTextsOfCursorChatsTheIndexNoLongerLists(t *testing.T) {
+	kept, gone := "88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999"
+	header := func(id string) string {
+		return `{"id":"` + id + `","workspace_id":"ws1","created_at":1762500000000,"recency":1762600000000,"name":"Chat ` + id[:2] + `","folder":"/tmp/app","branch":""}`
+	}
+	headers := "[" + header(kept) + "," + header(gone) + "]"
+	sqlite := func(_ context.Context, _, query string) ([]json.RawMessage, error) {
+		switch {
+		case strings.Contains(query, "FROM composerHeaders"):
+			var rows []json.RawMessage
+			return rows, json.Unmarshal([]byte(headers), &rows)
+		case strings.Contains(query, "chosen(composerId)"):
+			return []json.RawMessage{json.RawMessage(`{"id":"` + kept + `","first_text":"Hi","last_text":"Hi"}`), json.RawMessage(`{"id":"` + gone + `","first_text":"Hi","last_text":"Hi"}`)}, nil
+		}
+		return nil, nil
+	}
+	scanner, stores := testScanner(t, sqlite, fakeProcesses{})
+	write(t, stores.CursorDB, "")
+	scanner.Scan(context.Background(), ScanOptions{Query: "hi"})
+	if len(scanner.cursorPrompts) != 2 {
+		t.Fatalf("a search reads both chats, cached %d", len(scanner.cursorPrompts))
+	}
+
+	headers = "[" + header(kept) + "]"
+	write(t, stores.CursorDB+"-wal", "the chat was deleted")
+	scanner.Scan(context.Background(), ScanOptions{})
+
+	if _, ok := scanner.cursorPrompts[gone]; ok || len(scanner.cursorPrompts) != 1 {
+		t.Errorf("a deleted chat's texts must be dropped, cached %d", len(scanner.cursorPrompts))
+	}
+}
