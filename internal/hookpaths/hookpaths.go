@@ -311,7 +311,7 @@ func readAugment(raw []byte) (Payload, error) {
 		}
 		p.Changes = append(p.Changes, Change{Action: action, Path: fc.Path})
 	}
-	if len(in.FileChanges) == 0 && (in.ToolName == "str-replace-editor" || in.ToolName == "save-file") {
+	if len(in.FileChanges) == 0 && slices.Contains([]string{"edit", "write", "str-replace-editor", "save-file"}, in.ToolName) {
 		edit, err := in.editInput()
 		if err != nil {
 			return Payload{}, err
