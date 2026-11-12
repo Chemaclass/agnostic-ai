@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -188,6 +189,64 @@ func TestGoreleaserCask_LetsGoreleaserEmitTheStagedPathToken(t *testing.T) {
 	}
 	if !strings.Contains(steps, "{{ .StagedPath }}") {
 		t.Errorf("hooks.post.install_steps does not reference {{ .StagedPath }}:\n%s", steps)
+	}
+}
+
+// TestGoreleaserRuns_PinAVersionThatKnowsInstallSteps keeps every
+// goreleaser run on a version that can parse the cask config.
+//
+// `hooks.post.install_steps` arrived in goreleaser 2.19.0. Older
+// versions reject the whole config with `field install_steps not found`,
+// so pinning one fails the release at tag time. A floating pin such as
+// `latest` or `~> v2` can move without a diff here, so it must be exact.
+func TestGoreleaserRuns_PinAVersionThatKnowsInstallSteps(t *testing.T) {
+	const action = "goreleaser/goreleaser-action@"
+	minimum := [3]int{2, 19, 0}
+	exact := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
+	workflows, err := filepath.Glob(filepath.Join("..", "..", ".github", "workflows", "*.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pins := 0
+	for _, path := range workflows {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		// Only steps are decoded: the shared workflowJob shape does not
+		// fit every workflow's matrix.
+		var doc struct {
+			Jobs map[string]struct {
+				Steps []workflowStep `yaml:"steps"`
+			} `yaml:"jobs"`
+		}
+		if err := yaml.Unmarshal(data, &doc); err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		for name, job := range doc.Jobs {
+			for _, step := range job.Steps {
+				if !strings.HasPrefix(step.Uses, action) {
+					continue
+				}
+				pins++
+				version := fmt.Sprint(step.With["version"])
+				m := exact.FindStringSubmatch(version)
+				if m == nil {
+					t.Errorf("%s job %q runs goreleaser at %q; pin an exact version of at least v%d.%d.%d, which the cask's install_steps needs", path, name, version, minimum[0], minimum[1], minimum[2])
+					continue
+				}
+				var got [3]int
+				for i := range got {
+					got[i], _ = strconv.Atoi(m[i+1])
+				}
+				if slices.Compare(got[:], minimum[:]) < 0 {
+					t.Errorf("%s job %q runs goreleaser %s; the cask's hooks.post.install_steps needs v%d.%d.%d or later, or the release fails at tag time with `field install_steps not found`", path, name, version, minimum[0], minimum[1], minimum[2])
+				}
+			}
+		}
+	}
+	if pins == 0 {
+		t.Errorf("no workflow step uses %s; update this test if goreleaser now runs another way", action)
 	}
 }
 
