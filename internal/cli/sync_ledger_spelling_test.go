@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -168,5 +169,60 @@ func TestSync_LedgerSpelling_UnitesTheClaimsOfTwoSpellings(t *testing.T) {
 	}
 	if !slices.Equal(state.Outputs, []string{"settings.json"}) {
 		t.Errorf("outputs = %q", state.Outputs)
+	}
+}
+
+func rawLedger(t *testing.T) syncStateFile {
+	t.Helper()
+	data, err := os.ReadFile(stateFilePath("."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state syncStateFile
+	if err := json.Unmarshal(data, &state); err != nil {
+		t.Fatal(err)
+	}
+	return state
+}
+
+// doctor --fix releases the merged keys of a dropped target. Over an old
+// ledger it must release the claim under every spelling, or a later sync
+// takes back a key the user adds again.
+func TestDoctorFix_LedgerSpelling_ReleasesAnOldSpellingsClaim(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\noutputs:\n  amp:\n    mcp-file: ./.amp/settings.json\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml"), "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
+	mustWriteFile(t, filepath.Join(dir, ".amp", "settings.json"), "{\"amp.theme\": \"dark\"}\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	respellLedger(t, ".amp/settings.json", "./.amp/settings.json")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  amp:\n    mcp-file: ./.amp/settings.json\n")
+
+	out, err := runCLI(t, "doctor", "--fix")
+
+	if data, _ := os.ReadFile(filepath.Join(dir, ".amp", "settings.json")); strings.Contains(string(data), "gh-mcp") {
+		t.Fatalf("doctor --fix must take out the gh server (err %v):\n%s\n%s", err, out, data)
+	}
+	for p := range rawLedger(t).Merged {
+		if strings.Contains(p, ".amp/settings.json") {
+			t.Errorf("the ledger must not claim keys in %q after doctor --fix", p)
+		}
+	}
+}
+
+func TestRecordOutputSums_RewritesAnOldSpelling(t *testing.T) {
+	testutil.TempCwd(t)
+	if err := replaceStateFile(".", syncStateFile{Version: syncStateVersion, Outputs: []string{"./AGENTS.md"}, OutputSums: map[string]string{"./AGENTS.md": "old"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := recordOutputSums(".", map[string]string{"AGENTS.md": "new"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := rawLedger(t).OutputSums; len(got) != 1 || got["AGENTS.md"] != "new" {
+		t.Errorf("the ledger must hold one sum under AGENTS.md, got %v", got)
 	}
 }

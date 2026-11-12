@@ -169,10 +169,19 @@ func readLedger(root string) ledgerSnapshot {
 		l.readErr = err
 		return l
 	}
-	l.parseErr = json.Unmarshal(data, &l.state)
-	l.state.dropEscapingEntries(root, l.path)
-	l.state.mergeSpellings(root, config.CleanOutputPath)
+	l.state, l.parseErr = decodeLedger(root, l.path, data)
 	return l
+}
+
+// decodeLedger is every read of the state file: entries outside the
+// project dropped, each path in the spelling the config's own paths get.
+// A file that does not parse keeps what decoded before the error.
+func decodeLedger(root, path string, data []byte) (syncStateFile, error) {
+	var s syncStateFile
+	err := json.Unmarshal(data, &s)
+	s.dropEscapingEntries(root, path)
+	s.mergeSpellings(root, config.CleanOutputPath)
+	return s, err
 }
 
 // missing is ledgerMissing for this read.
@@ -298,20 +307,18 @@ func priorStateFile() syncStateFile {
 // readStateFileStrict is readStateFile that reports a state file that
 // exists but cannot be read or parsed, for a caller about to write it.
 func readStateFileStrict(projectRoot string) (syncStateFile, error) {
-	var s syncStateFile
 	p := stateFilePath(projectRoot)
 	data, err := os.ReadFile(p)
 	if errors.Is(err, fs.ErrNotExist) {
-		return s, nil
+		return syncStateFile{}, nil
 	}
 	if err != nil {
-		return s, fmt.Errorf("read %s: %w", p, err)
+		return syncStateFile{}, fmt.Errorf("read %s: %w", p, err)
 	}
-	if err := json.Unmarshal(data, &s); err != nil {
+	s, err := decodeLedger(projectRoot, p, data)
+	if err != nil {
 		return s, fmt.Errorf("parse %s: %w", p, err)
 	}
-	s.dropEscapingEntries(projectRoot, p)
-	s.mergeSpellings(projectRoot, config.CleanOutputPath)
 	return s, nil
 }
 
@@ -346,12 +353,13 @@ func recordOutputSums(projectRoot string, sums map[string]string) error {
 	if len(sums) == 0 {
 		return nil
 	}
-	data, err := os.ReadFile(stateFilePath(projectRoot))
+	p := stateFilePath(projectRoot)
+	data, err := os.ReadFile(p)
 	if err != nil {
 		return nil
 	}
-	var s syncStateFile
-	if json.Unmarshal(data, &s) != nil {
+	s, err := decodeLedger(projectRoot, p, data)
+	if err != nil {
 		return nil
 	}
 	if s.OutputSums == nil {
