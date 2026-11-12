@@ -81,7 +81,7 @@ func sameComments(before, after []byte) bool {
 }
 
 func (a app) commentSource(baseline, path string) ([]byte, []byte, error) {
-	if !strings.HasPrefix(path, "internal/cli/") || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.ContainsAny(path, "\r\n\t\\") || filepath.Clean(path) != path {
+	if !strings.HasPrefix(path, "internal/cli/") || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.ContainsAny(path, "\r\n\t\\") || filepath.ToSlash(filepath.Clean(path)) != path {
 		return nil, nil, fmt.Errorf("%s: outside comment-only scope", path)
 	}
 	full := filepath.Join(a.root, path)

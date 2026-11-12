@@ -54,6 +54,9 @@ func commentCaptureFixture(t *testing.T) (app, string) {
 	if err := os.WriteFile(path, []byte("package cli\n// Check the updated docs link.\nfunc enabled() bool { return true }\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	if _, _, err := a.commentSource("HEAD", "internal/cli/settings.go"); err != nil {
+		t.Fatalf("canonical Git path must retain comment-only proof: %v", err)
+	}
 	run := call(t, a, "start", "--out", filepath.Join(t.TempDir(), "run"), "--builtins-since", "HEAD", "alpha", "beta")
 	fetched(t, a, run, "unchanged")
 	return a, run
