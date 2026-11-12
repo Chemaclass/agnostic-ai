@@ -47,10 +47,7 @@ func writeEntryPointFiles(sess *adapters.Session, cfg *config.Config, b spec.Bun
 		if source, err := codebuddy.RootInstructionSource(b.For("codebuddy").Rules); err != nil {
 			return nil, err
 		} else if source != "" {
-			preview := adapters.NewSession()
-			preview.StartCapture()
-			body, err := resolveAgnosticBody(preview, false)
-			preview.StopCapture()
+			body, err := previewAgnosticBody()
 			if err != nil {
 				return nil, err
 			}
@@ -639,6 +636,15 @@ func warnOnHandAuthoredEntryPoint(path, captured string) {
 	}
 	summaryf("  ! %s appears hand-authored (no agnostic-ai header) — overwriting with the canonical pointer body. Move custom content into %s first to keep it.\n",
 		path, adapters.AgnosticEntryPointPath)
+}
+
+// previewAgnosticBody is the body resolveAgnosticBody returns, without
+// seeding a missing AGNOSTIC_AI.md.
+func previewAgnosticBody() (string, error) {
+	preview := adapters.NewSession()
+	preview.StartCapture()
+	defer preview.StopCapture()
+	return resolveAgnosticBody(preview, false)
 }
 
 // resolveAgnosticBody returns the raw (no header) body for entry-point files.

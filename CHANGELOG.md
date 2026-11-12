@@ -41,6 +41,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Chat list
 
 - **Mark all as read** on the companion's Needs you header marks every chat the group shows, after the search and the All, Local or Cloud choice (#3300).
+- The list shows every unread or waiting chat of any age, so Mark all as read with All chosen and no search empties the companion's circle (#3341).
 - The companion's buttons now read "Mark complete" and "Mark all complete", and a chat marked complete shows a green tick for a moment (#3273).
 - Mark a chat as read from the companion's right-click menu, without opening it; the next reply brings it back (#3250).
 - Companion rows no longer repeat their group as "New reply" or "Working", and a Codex thread opened and never typed in is left out (#3300).
@@ -53,7 +54,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Chat names and states
 
 - Rename a chat from the companion's right-click menu; the web interface and a running chat's Terminal or Ghostty tab show the new name (#3236, #3258).
-- Cursor chat titles show what you typed, without the tags Cursor adds (#3241).
+- Chat titles show what you typed, without the tags Cursor and other tools add, even when one tag holds another (#3241, #3339).
 - The companion tells same-named folders apart, such as `shop/api` and `billing/api`, and shows the full path when you hover a row (#3254).
 - A silent local Codex chat shows "No activity for 7m", not "Waiting for you", in the companion and the web interface; the API sets `quietSince` (#3251).
 - An archived or hidden chat that starts working again moves back to Working (#3239).
@@ -68,11 +69,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### The rules-file setting
 
-- `sync` ignores `outputs.<target>.rules-file` on a target that writes no merged rules file, such as Cline or Kiro, and writes its usual files (#3295).
-- `lint` warns with LINT062 about a `rules-file` on such a target (#3295).
+- `sync` ignores `outputs.<target>.rules-file` on a target that writes no merged rules file, such as Cline or Kiro, and `lint` warns with LINT062 (#3295).
 - `sync` stops with AAI-102, which `validate` reports, when a `rules-file` that another enabled target reads as instructions would lose rules (#3302).
 - For `outputs.codex.rules-file: AGENTS.md` with Cline, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool (#3302).
 - When the other tool's file already has the rules, as with Amp, `sync` writes what it wrote before and `lint` warns with LINT063 (#3302).
+- A `rules-file` on another target's instructions file, such as Amp's `AGENTS.md`, stops saving a `.bak` on each sync; `./AGENTS.md` is that same file (#3329). If `sync` still keeps a hand edit there, delete that file and its `.bak`, then run `agnostic-ai sync`.
 
 #### Shared instructions files
 

@@ -26,8 +26,8 @@ function post(path, body) {
 }
 
 /**
- * The list, as `{view, note?}`. `view` is the server's answer: every open
- * conversation and the past week, or every match of `query`. `note` is
+ * The list, as `{view, note?}`. `view` is the server's answer: every open,
+ * blocked or unread conversation and the past week, or every match of `query`. `note` is
  * something the companion itself has to say, such as a version mismatch.
  */
 export function readInbox(query, before, signal) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PLACES, ago, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
+import { PLACES, ago, afterPage, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -336,4 +336,13 @@ test('shows the agent\'s latest reply the server sent, and nothing for a row wit
   assert.equal(replyOf(row('a', 'blocked', { reply: ' Should I run the migration first? ' })), 'Should I run the migration first?')
   assert.equal(replyOf(row('a', 'active')), '')
   assert.equal(replyOf(row('a', 'active', { reply: 42 })), '')
+})
+
+test('joins a later search page after the rows read so far, keeping the later copy of a row both pages hold', () => {
+  const first = { next: '2026-11-02T12:00:00Z', matches: 3, conversations: [row('new', 'active'), row('old', 'unread')] }
+  const later = { next: '2026-10-26T12:00:00Z', conversations: [row('old', 'active'), row('older', 'dormant')] }
+  const joined = afterPage(first, later)
+  assert.deepEqual(joined.conversations.map((r) => [r.id, r.state]), [['new', 'active'], ['old', 'active'], ['older', 'dormant']])
+  assert.equal(joined.next, '2026-10-26T12:00:00Z')
+  assert.equal(joined.matches, 3)
 })

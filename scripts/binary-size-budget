@@ -908,4 +908,8 @@
 # Notification payloads) measured 25968800 bytes locally on 2026-11-12,
 # 8192 above main f054802c; the budget is that plus 8192, rounded up to
 # a multiple of 4096.
-25980928
+# #3329 (one spelling for output paths in the config and the ledger,
+# and old ledger entries read in that spelling) measured 25985184 bytes
+# locally on 2026-11-12, on top of main 51a96ce0; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+25997312

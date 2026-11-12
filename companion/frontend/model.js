@@ -384,6 +384,17 @@ export function ago(stamp, now) {
   return Math.floor(age / (7 * DAY)) + 'w'
 }
 
+/**
+ * The view with a later page's rows after its own. A row both hold, which
+ * the first page keeps for needing the person while a later read finds it
+ * read, shows once: the later copy, read last.
+ */
+export function afterPage(view, later) {
+  const again = new Set(later.conversations.map(keyOf))
+  const kept = view.conversations.filter((conversation) => !again.has(keyOf(conversation)))
+  return { ...view, next: later.next, conversations: [...kept, ...later.conversations] }
+}
+
 /** The line at the foot: how the search went. Empty without a search. */
 export function summaryOf(view, query) {
   if (query !== '') {

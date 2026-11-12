@@ -129,6 +129,10 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 	if err := entryPointOverwrites(cfg, runFiles, overwritten); err != nil {
 		return nil, err
 	}
+	replaced, err := replacedRulesFileWinners(cfg, b, targets, shared, runFiles)
+	if err != nil {
+		return nil, err
+	}
 	if policy == "prefer-spec" {
 		for path, variants := range contents {
 			if len(variants) > 1 {
@@ -139,7 +143,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 			}
 		}
 		noteCollisionWinners(writers, contents, lastOwner, written)
-		return winners, nil
+		return withWinners(winners, replaced), nil
 	}
 	warnSharedAgentsTreeReaders(owners, targets)
 
@@ -154,7 +158,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		lines = append(lines, fmt.Sprintf("  %s ← %s", path, strings.Join(ts, ", ")))
 	}
 	if len(lines) == 0 {
-		return nil, nil
+		return replaced, nil
 	}
 	sort.Strings(lines)
 
@@ -172,6 +176,48 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
 	}
 	return nil, errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
+}
+
+// replacedRulesFileWinners maps each kept shared rules-file this run
+// writes an instructions file on to that file's content. The owner's
+// adapter then writes the same bytes the instructions file lands with,
+// so a later sync finds no change there and no hand edit to back up.
+func replacedRulesFileWinners(cfg *config.Config, b spec.Bundle, targets []string, shared []sharedRulesFile, runFiles []entryPointFile) (map[string]string, error) {
+	var paths []string
+	for _, s := range shared {
+		if s.kept && slices.ContainsFunc(runFiles, func(f entryPointFile) bool { return samePath(f.Path, s.path) }) {
+			paths = append(paths, s.path)
+		}
+	}
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	body, err := previewAgnosticBody()
+	if err != nil {
+		return nil, err
+	}
+	files, err := renderEntryPointFiles(cfg, b, targets, body)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for _, f := range files {
+		if slices.ContainsFunc(paths, func(p string) bool { return samePath(f.Path, p) }) {
+			out[filepath.Clean(f.Path)] = f.Content
+		}
+	}
+	return out, nil
+}
+
+func withWinners(winners, more map[string]string) map[string]string {
+	if len(more) == 0 {
+		return winners
+	}
+	if winners == nil {
+		winners = map[string]string{}
+	}
+	maps.Copy(winners, more)
+	return winners
 }
 
 // noteCollisionWinners names, per winning target, the contested paths it won
