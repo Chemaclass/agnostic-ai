@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -833,8 +834,10 @@ func TestMemoryImport_SkipRecordsADeclineAndCopiesNothing(t *testing.T) {
 	if !strings.HasPrefix(record, "claude/old.md\tsha256:") || strings.Count(record, "\n") != 1 {
 		t.Errorf(".declined = %q", record)
 	}
-	if info, err := os.Stat(filepath.Join(personalStore, ".declined")); err != nil || info.Mode().Perm() != 0o600 {
-		t.Errorf(".declined mode: %v %v", info, err)
+	if info, err := os.Stat(filepath.Join(personalStore, ".declined")); err != nil {
+		t.Errorf(".declined stat: %v", err)
+	} else if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf(".declined mode: %v", info.Mode().Perm())
 	}
 	if !strings.Contains(out, "Declined 1 fact(s)") || !strings.Contains(out, "  old.md") {
 		t.Errorf("output:\n%s", out)
