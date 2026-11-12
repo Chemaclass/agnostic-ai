@@ -99,10 +99,9 @@ func newRevertCmd() *cobra.Command {
 				summaryf("← revert %s\n", t)
 				var restored, removed, preserved int
 				for _, f := range files {
-					if seen[f.Path] {
+					if alreadyHandled(seen, f.Path) {
 						continue
 					}
-					seen[f.Path] = true
 					action, err := revertOne(f.Path, dryRun, force)
 					if err != nil {
 						return fmt.Errorf("%s: %w", t, err)
@@ -129,7 +128,9 @@ func newRevertCmd() *cobra.Command {
 			summaryf("← revert entry-points\n")
 			var preserved int
 			for _, p := range paths {
-				seen[p] = true
+				if alreadyHandled(seen, p) {
+					continue
+				}
 				action, err := revertOne(p, dryRun, force)
 				if err != nil {
 					return fmt.Errorf("entry-point: %w", err)
@@ -146,14 +147,16 @@ func newRevertCmd() *cobra.Command {
 				return err
 			}
 			for _, p := range companions {
-				seen[p] = true
+				if alreadyHandled(seen, p) {
+					continue
+				}
 				if _, err := revertOne(p, dryRun, false); err != nil {
 					return fmt.Errorf("claude: %w", err)
 				}
 			}
 			if len(targets) == 0 && len(only) == 0 && len(except) == 0 {
 				for _, p := range missingRecordedBackups(cfg) {
-					if seen[p] {
+					if alreadyHandled(seen, p) {
 						continue
 					}
 					if _, err := revertOne(p, dryRun, false); err != nil {
@@ -290,10 +293,9 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 		}
 		files := sess.StopCapture()
 		for _, f := range files {
-			if seen[f.Path] {
+			if alreadyHandled(seen, f.Path) {
 				continue
 			}
-			seen[f.Path] = true
 			action, err := revertOne(f.Path, dryRun, force)
 			if err != nil {
 				out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
@@ -311,7 +313,9 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 	// Entry-point files are written outside adapter emission; revert them
 	// too so the JSON report matches the text path.
 	for _, p := range entryPointPaths(cfg, targets) {
-		seen[p] = true
+		if alreadyHandled(seen, p) {
+			continue
+		}
 		action, err := revertOne(p, dryRun, force)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
@@ -329,7 +333,9 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 		out.Errors = append(out.Errors, errorRecord{Target: "claude", Message: err.Error()})
 	}
 	for _, p := range companions {
-		seen[p] = true
+		if alreadyHandled(seen, p) {
+			continue
+		}
 		action, err := revertOne(p, dryRun, false)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "claude", Message: err.Error()})
@@ -341,7 +347,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 	}
 	if all {
 		for _, p := range missingRecordedBackups(cfg) {
-			if seen[p] {
+			if alreadyHandled(seen, p) {
 				continue
 			}
 			action, err := revertOne(p, dryRun, false)
@@ -355,6 +361,18 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 		}
 	}
 	return emitJSON(cmd, out)
+}
+
+// alreadyHandled reports whether revert already handled path, and marks it
+// handled. A second pass over a restored file finds no backup, so with
+// --force it would delete the bytes the first pass put back.
+func alreadyHandled(seen map[string]bool, path string) bool {
+	key := filepath.Clean(path)
+	if seen[key] {
+		return true
+	}
+	seen[key] = true
+	return false
 }
 
 // missingRecordedBackups finds intact sync backups whose output no longer exists.
