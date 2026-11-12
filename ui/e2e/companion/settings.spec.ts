@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-// The list's ⋯ menu and the hidden circle, on the real companion pages served by companion/dev/preview.mjs.
+// The list's ⋯ menu, the quit question and the hidden circle, on the real companion pages served by companion/dev/preview.mjs.
 
 async function openPanel(page: Page) {
   const reset = await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
@@ -57,14 +57,81 @@ test('Escape closes the menu and keeps the list; a second Escape hides the list'
   await hidden
 })
 
-test('Quit asks the shell to end the companion', async ({ page }) => {
-  await openPanel(page)
+const quitQuestion = (page: Page) => page.getByRole('alertdialog', { name: 'Quit Agnostic AI companion?' })
+
+async function askQuit(page: Page) {
   await openSettings(page)
+  await page.getByRole('button', { name: 'Quit Agnostic AI companion' }).click()
+  await expect(quitQuestion(page)).toBeVisible()
+}
+
+test('Quit asks first, says how to start again, and focuses Cancel', async ({ page }) => {
+  await openPanel(page)
+  const quits = sent(page, '/api/quit')
+
+  await askQuit(page)
+
+  await expect(quitQuestion(page)).toContainText('the shortcut will not bring it back')
+  await expect(quitQuestion(page)).toContainText('run agnostic-ai companion, or ask your AI tool to run it')
+  await expect(quitQuestion(page)).toContainText('The shortcut works only after Hide.')
+  await expect(quitQuestion(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeHidden()
+  expect(quits).toEqual([])
+})
+
+test('Quit in the question asks the shell to end the companion', async ({ page }) => {
+  await openPanel(page)
+  await askQuit(page)
 
   const quit = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/quit')
-  await page.getByRole('button', { name: 'Quit Agnostic AI companion' }).click()
+  await quitQuestion(page).getByRole('button', { name: 'Quit', exact: true }).click()
   await quit
   await expect.poll(async () => (await (await page.request.get('/dev/calls')).json())[0]?.path).toBe('/api/quit')
+})
+
+test('Hide instead hides the companion and does not quit', async ({ page }) => {
+  await openPanel(page)
+  const quits = sent(page, '/api/quit')
+  await askQuit(page)
+
+  const hidden = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/hide')
+  await quitQuestion(page).getByRole('button', { name: 'Hide instead' }).click()
+  await hidden
+  await expect(quitQuestion(page)).toBeHidden()
+  expect((await (await page.request.get('/api/appearance')).json()).presence).toBe('hidden')
+  expect(quits).toEqual([])
+})
+
+for (const [how, cancel] of [
+  ['Cancel', (page: Page) => quitQuestion(page).getByRole('button', { name: 'Cancel' }).click()],
+  ['Escape', (page: Page) => page.keyboard.press('Escape')],
+  ['a click away', (page: Page) => page.getByLabel('Search every conversation').click()],
+] as const) {
+  test(`${how} answers the quit question with no change`, async ({ page }) => {
+    await openPanel(page)
+    const quits = sent(page, '/api/quit')
+    const hides = sent(page, '/api/hide')
+    await askQuit(page)
+
+    await cancel(page)
+
+    await expect(quitQuestion(page)).toBeHidden()
+    await expect(page.getByLabel('Search every conversation')).toBeVisible()
+    expect(quits).toEqual([])
+    expect(hides).toEqual([])
+    expect((await (await page.request.get('/api/appearance')).json()).presence).toBe('shown')
+  })
+}
+
+test('Quit in the right-click menu opens the list on the question', async ({ page }) => {
+  await openPanel(page)
+  const quits = sent(page, '/api/quit')
+
+  await page.request.post('/dev/ask-quit')
+
+  await expect(quitQuestion(page)).toBeVisible()
+  await expect(quitQuestion(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
+  expect(quits).toEqual([])
 })
 
 async function openCircle(page: Page, fixture = 'mixed') {
@@ -85,7 +152,7 @@ test('Hide in the menu names the shortcut and asks the shell to hide', async ({ 
   await hide.click()
   await hidden
   const appearance = await (await page.request.get('/api/appearance')).json()
-  expect(appearance.hidden).toBe(true)
+  expect(appearance.presence).toBe('hidden')
 })
 
 test('Hide follows a new shortcut', async ({ page }) => {
@@ -97,50 +164,57 @@ test('Hide follows a new shortcut', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Hide Agnostic AI companion (⌃⇧K brings it back)' })).toBeVisible()
 })
 
-test('a hidden circle drops its count, and the shortcut brings it back with a new count', async ({ page }) => {
+test('hidden, a chat that starts waiting brings the circle back at 25% with its count', async ({ page }) => {
   await openCircle(page)
   await expect(page.locator('#badge')).toHaveText('2')
-
   expect((await page.request.post('/api/hide')).status()).toBe(204)
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'hidden')
 
-  await expect(page.locator('html')).toHaveAttribute('data-hidden', 'on')
-  await expect(page.locator('#badge')).toBeHidden()
-
-  const inboxRead = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/inbox')
-  await page.request.post('/api/panel/toggle')
-  await inboxRead
-  await expect(page.locator('#badge')).toHaveText('2')
-  await expect(page.getByRole('button', { name: 'Conversations: 2 need you' })).toBeVisible()
-})
-
-test('a circle shown again reads a new list even before any news of one', async ({ page }) => {
-  await openCircle(page)
-  await expect(page.locator('#badge')).toHaveText('2')
-  await page.request.post('/api/hide')
-  await expect(page.locator('#badge')).toBeHidden()
-
-  const inboxRead = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/inbox')
-  // Only the appearance changes here: no inbox event follows.
-  await page.request.post('/dev/appearance', { data: { hidden: false } })
-  await inboxRead
-  await expect(page.locator('#badge')).toHaveText('2')
-})
-
-test('a hidden circle reads nothing when told the list changed', async ({ page }) => {
-  await openCircle(page)
-  await expect(page.locator('#badge')).toHaveText('2')
-  await page.request.post('/api/hide')
-  await expect(page.locator('html')).toHaveAttribute('data-hidden', 'on')
-
-  let reads = 0
-  page.on('request', (request) => {
-    if (new URL(request.url()).pathname === '/api/inbox') reads++
-  })
   await page.request.post('/dev/arrive')
-  // The arrival's news reaches the page over the event stream; give it time to answer.
+
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'faded')
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
+  await expect(page.locator('#badge')).toHaveText('3')
+  await circle(page).hover()
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
+})
+
+test('a click on the faded circle brings back full color, and it stays', async ({ page }) => {
+  await openCircle(page)
+  await page.request.post('/api/hide')
+  await page.request.post('/dev/arrive')
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
+
+  await circle(page).click()
+
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'shown')
+  await expect(circle(page)).toHaveCSS('opacity', '1')
+  await page.request.post('/dev/write', { data: { tool: 'claude', id: 'arrived-1' } })
+  await expect(circle(page)).toHaveCSS('opacity', '1')
+})
+
+test('chats already waiting keep a hidden circle hidden, and Hide hides a faded one again', async ({ page }) => {
+  await openCircle(page)
+  await page.request.post('/api/hide')
+  await page.request.post('/dev/arrive')
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'faded')
+
+  await page.request.post('/api/hide')
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'hidden')
+  // The same chat, still waiting, is listed again: nothing new waits.
+  await page.request.post('/dev/arrive')
   await page.waitForTimeout(300)
-  expect(reads).toBe(0)
-  await expect(page.locator('#badge')).toBeHidden()
+
+  await expect(page.locator('html')).toHaveAttribute('data-presence', 'hidden')
+})
+
+test('the faded circle stays at 25% with Dim when idle on', async ({ page }) => {
+  await openCircle(page)
+  await page.request.post('/dev/appearance', { data: { dimWhenIdle: true } })
+  await page.request.post('/api/hide')
+  await page.request.post('/dev/arrive')
+
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
 })
 
 const settingsMenu = (page: Page) => page.getByRole('region', { name: 'Settings', exact: true })

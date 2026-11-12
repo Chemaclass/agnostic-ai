@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -22,6 +22,7 @@ type fakeWindow struct {
 	mu           sync.Mutex
 	hides, shows int
 	visible      bool
+	focused      bool
 	// x and y are where the window is; moves counts SetPosition calls.
 	x, y  int
 	moves int
@@ -61,6 +62,12 @@ func (w *fakeWindow) IsVisible() bool {
 	return w.visible
 }
 
+func (w *fakeWindow) Focus() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.focused = true
+}
+
 func (w *fakeWindow) Position() (int, int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -75,30 +82,15 @@ func (w *fakeWindow) SetPosition(x, y int) {
 	w.reportedMoves++
 	w.x, w.y = x, y
 }
-func (w *fakeWindow) Focus()                        {}
 func (w *fakeWindow) EmitEvent(string, ...any) bool { return true }
 func (w *fakeWindow) GetScreen() (*application.Screen, error) {
 	return &application.Screen{WorkArea: application.Rect{Width: 1440, Height: 900}}, nil
 }
 
-// held is the list the inbox holds now.
-func held(in *inbox) []byte {
-	in.mu.Lock()
-	defer in.mu.Unlock()
-	return in.latest
-}
-
-// hideableShell is a shell whose server, once started, is a fake agnostic-ai,
-// with stand-in windows. It reports where the stand-in command leaves a mark
-// each time it starts.
-func hideableShell(t *testing.T) (*shell, *[]appearance, string) {
+// placedShell is a shell with stand-in windows, the list closed, that
+// records what the pages are told.
+func placedShell(t *testing.T) (*shell, *[]appearance) {
 	t.Helper()
-	fake := httptest.NewServer(&fakeAgnosticAI{})
-	t.Cleanup(fake.Close)
-	started := filepath.Join(t.TempDir(), "started")
-	fakeCommand(t, `echo x >> "`+started+`"
-echo "Serving agnostic-ai at `+fake.URL+`/"
-cat > /dev/null`)
 	s := shellWith(t, &fakeShortcuts{})
 	s.server = newServer()
 	s.inbox = newInbox(s.server, "", func() {})
@@ -112,174 +104,274 @@ cat > /dev/null`)
 		defer mu.Unlock()
 		told = append(told, looks)
 	}
-	t.Cleanup(func() {
-		s.inbox.stop()
-		s.server.rest()
-	})
-	return s, &told, started
+	return s, &told
 }
 
-func starts(t *testing.T, mark string) int {
-	t.Helper()
-	data, err := os.ReadFile(mark)
-	if os.IsNotExist(err) {
-		return 0
+// listWaiting is a list where the conversations named by ids wait for the person.
+func listWaiting(count int, ids ...string) []byte {
+	rows := []string{`{"tool":"claude","id":"calm","state":"active"}`}
+	for _, id := range ids {
+		rows = append(rows, `{"tool":"claude","id":"`+id+`","state":"blocked"}`)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	return strings.Count(string(data), "x")
+	return []byte(`{"needsYou":` + strconv.Itoa(count) + `,"conversations":[` + strings.Join(rows, ",") + `]}`)
 }
 
-func TestSetHidden_StopsTheServerAndTheReadingAndTellsThePages(t *testing.T) {
-	s, told, started := hideableShell(t)
-	s.inbox.start()
-	waitFor(t, "the first list", func() bool { return len(held(s.inbox)) > 0 })
+func TestPresence_StartsShown(t *testing.T) {
+	s, _ := placedShell(t)
+	if got := s.appearance().Presence; got != shown {
+		t.Errorf("presence = %q; want shown", got)
+	}
+}
 
-	if changed := s.setHidden(true); !changed {
+func TestHide_TakesTheCircleAndTheListOffTheScreenAndTellsThePages(t *testing.T) {
+	s, told := placedShell(t)
+	bubble := s.bubble.(*fakeWindow)
+	s.panel.Show()
+
+	if !s.setPresence(hidden) {
 		t.Error("hiding a shown companion reported no change")
 	}
 
-	if !s.server.resting.Load() || s.server.runningVersion() != "" {
-		t.Error("the server still runs while hidden")
-	}
-	s.inbox.mu.Lock()
-	polling := s.inbox.stopPoll != nil
-	s.inbox.mu.Unlock()
-	if polling {
-		t.Error("the poll still runs while hidden")
-	}
-	if last := (*told)[len(*told)-1]; !last.Hidden {
-		t.Errorf("the pages were last told %+v; want hidden", last)
-	}
-	if !s.appearance().Hidden {
-		t.Error("the appearance does not say hidden")
-	}
-	if n := starts(t, started); n != 1 {
-		t.Errorf("the server started %d times; want once, before hiding", n)
-	}
-	if s.setHidden(true) {
-		t.Error("hiding a hidden companion reported a change")
-	}
-}
-
-func TestSetHidden_TakesTheCircleAndTheListOffTheScreen(t *testing.T) {
-	s, _, _ := hideableShell(t)
-	bubble, panel := s.bubble.(*fakeWindow), s.panel.(*fakeWindow)
-
-	s.setHidden(true)
-
-	if bubble.visible || panel.visible {
-		t.Errorf("circle visible %v, list visible %v; want both off the screen", bubble.visible, panel.visible)
+	if bubble.IsVisible() || s.panel.IsVisible() {
+		t.Errorf("circle visible %v, list visible %v; want both off the screen", bubble.IsVisible(), s.panel.IsVisible())
 	}
 	if bubble.moves != 0 {
 		t.Errorf("hiding moved the circle %d times", bubble.moves)
 	}
+	if last := (*told)[len(*told)-1]; last.Presence != hidden {
+		t.Errorf("the pages were last told %+v; want hidden", last)
+	}
+	if s.setPresence(hidden) {
+		t.Error("hiding a hidden companion reported a change")
+	}
 }
 
-func TestSetHidden_ShowingAgainPutsTheCircleWhereItWas(t *testing.T) {
+func TestHide_KeepsReading(t *testing.T) {
 	s, _, _ := hideableShell(t)
+	s.inbox.start()
+	waitFor(t, "the first list", func() bool { return len(s.inbox.held()) > 0 })
+
+	s.setPresence(hidden)
+
+	if s.server.resting.Load() {
+		t.Error("the server stopped when the companion hid")
+	}
+	s.inbox.mu.Lock()
+	polling := s.inbox.stopPoll != nil
+	s.inbox.mu.Unlock()
+	if !polling || len(s.inbox.held()) == 0 {
+		t.Error("the reading stopped when the companion hid")
+	}
+}
+
+func TestShowingAgain_PutsTheCircleWhereItWas(t *testing.T) {
+	s, _ := placedShell(t)
 	bubble := s.bubble.(*fakeWindow)
 	bubble.x, bubble.y = 300, 200
 
-	s.setHidden(true)
-	s.setHidden(false)
+	s.setPresence(hidden)
+	s.comeBack()
 
-	if !bubble.visible || bubble.x != 300 || bubble.y != 200 {
-		t.Errorf("circle visible %v at %d,%d; want shown at 300,200", bubble.visible, bubble.x, bubble.y)
+	if !bubble.IsVisible() || bubble.x != 300 || bubble.y != 200 {
+		t.Errorf("circle visible %v at %d,%d; want shown at 300,200", bubble.IsVisible(), bubble.x, bubble.y)
 	}
 	if bubble.moves != 0 {
 		t.Errorf("the circle was moved %d times though the system kept its place", bubble.moves)
 	}
 }
 
-func TestSetHidden_ShowingAgainUndoesASystemThatMovedTheCircle(t *testing.T) {
-	s, _, _ := hideableShell(t)
+func TestShowingAgain_UndoesASystemThatMovedTheCircle(t *testing.T) {
+	s, _ := placedShell(t)
 	bubble := s.bubble.(*fakeWindow)
 	bubble.x, bubble.y = 300, 200
 	bubble.showsAt = &point{X: 0, Y: 0}
 
-	s.setHidden(true)
-	s.setHidden(false)
+	s.setPresence(hidden)
+	s.comeBack()
 
 	if bubble.x != 300 || bubble.y != 200 {
 		t.Errorf("circle at %d,%d; want back at 300,200", bubble.x, bubble.y)
 	}
 }
 
-func TestSetHidden_IsNeverSaved(t *testing.T) {
-	s, _, _ := hideableShell(t)
-	s.setHidden(true)
-	if err := s.setDimWhenIdle(true); err != nil {
-		t.Fatal(err)
-	}
+func TestPresence_IsNeverSaved(t *testing.T) {
+	for _, p := range []presence{hidden, fadedBack} {
+		t.Run(string(p), func(t *testing.T) {
+			s, _ := placedShell(t)
+			s.listRead(listWaiting(0))
+			s.setPresence(hidden)
+			if p == fadedBack {
+				s.listRead(listWaiting(1, "new"))
+			}
+			if got := s.presenceNow(); got != p {
+				t.Fatalf("presence = %q; want %q", got, p)
+			}
+			if err := s.setDimWhenIdle(true); err != nil {
+				t.Fatal(err)
+			}
 
-	saved, err := readSettings(s.settingsPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if saved.appearance().Hidden {
-		t.Error("a restart would start hidden")
-	}
-	data, err := os.ReadFile(s.settingsPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(data), "hidden") {
-		t.Errorf("the settings file holds the hidden state: %s", data)
+			data, err := os.ReadFile(s.settingsPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(data), "presence") || strings.Contains(string(data), string(p)) {
+				t.Errorf("the settings file holds the presence: %s", data)
+			}
+			saved, err := readSettings(s.settingsPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if saved.appearance().Presence != shown {
+				t.Error("a restart would not start shown")
+			}
+		})
 	}
 }
 
-func TestSetHidden_AListAskedWhileHiddenStartsNoServer(t *testing.T) {
-	s, _, started := hideableShell(t)
-	s.setHidden(true)
-	routes := s.routes(s.inbox, fstest.MapFS{})
+func TestHidden_ANewWaitingConversationBringsTheCircleBackFadedWithoutTheList(t *testing.T) {
+	s, told := placedShell(t)
+	bubble, panel := s.bubble.(*fakeWindow), s.panel.(*fakeWindow)
+	s.listRead(listWaiting(1, "old"))
+	s.setPresence(hidden)
 
-	rec := httptest.NewRecorder()
-	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/inbox", nil))
+	s.listRead(listWaiting(2, "old", "new"))
 
-	if rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), errResting.Error()) {
-		t.Errorf("list while hidden = %d %s", rec.Code, rec.Body)
+	if got := s.presenceNow(); got != fadedBack {
+		t.Fatalf("presence = %q; want faded", got)
 	}
-	if n := starts(t, started); n != 0 {
-		t.Errorf("a hidden companion started the server %d times", n)
+	if !bubble.IsVisible() || bubble.focused {
+		t.Errorf("circle visible %v, focused %v; want shown without the keys", bubble.IsVisible(), bubble.focused)
+	}
+	if panel.IsVisible() || panel.focused {
+		t.Error("the list opened or took the keys")
+	}
+	if last := (*told)[len(*told)-1]; last.Presence != fadedBack {
+		t.Errorf("the pages were last told %+v; want faded", last)
 	}
 }
 
-func TestSetHidden_ShowingAgainReadsANewListAndForgetsTheHiddenMessage(t *testing.T) {
-	s, told, _ := hideableShell(t)
-	s.setHidden(true)
-	routes := s.routes(s.inbox, fstest.MapFS{})
-	routes.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/inbox", nil))
+func TestHidden_ConversationsAlreadyWaitingKeepItHidden(t *testing.T) {
+	s, _ := placedShell(t)
+	s.listRead(listWaiting(2, "a", "b"))
+	s.setPresence(hidden)
 
-	if changed := s.setHidden(false); !changed {
-		t.Error("showing a hidden companion reported no change")
-	}
+	s.listRead(listWaiting(2, "a", "b"))
+	s.listRead(listWaiting(1, "a"))
 
-	s.inbox.mu.Lock()
-	problem := s.inbox.problem
-	s.inbox.mu.Unlock()
-	if problem == errResting.Error() {
-		t.Error("the hidden message outlived the hiding")
+	if got := s.presenceNow(); got != hidden {
+		t.Errorf("presence = %q; want hidden", got)
 	}
-	if last := (*told)[len(*told)-1]; last.Hidden {
+}
+
+func TestHidden_OneWaitingWhileAnotherStopsStillBringsItBack(t *testing.T) {
+	s, _ := placedShell(t)
+	s.listRead(listWaiting(1, "a"))
+	s.setPresence(hidden)
+
+	s.listRead(listWaiting(1, "b"))
+
+	if got := s.presenceNow(); got != fadedBack {
+		t.Errorf("presence = %q; want faded: b started waiting as a stopped", got)
+	}
+}
+
+func TestHidden_ACountRiseOutsideTheListBringsItBack(t *testing.T) {
+	s, _ := placedShell(t)
+	s.listRead(listWaiting(1, "a"))
+	s.setPresence(hidden)
+
+	s.listRead(listWaiting(2, "a"))
+
+	if got := s.presenceNow(); got != fadedBack {
+		t.Errorf("presence = %q; want faded", got)
+	}
+}
+
+func TestHidden_AnUnreadableListChangesNothing(t *testing.T) {
+	s, _ := placedShell(t)
+	s.listRead(listWaiting(1, "a"))
+	s.setPresence(hidden)
+
+	s.listRead(nil)
+	s.listRead([]byte(`not json`))
+	s.listRead(listWaiting(1, "a"))
+
+	if got := s.presenceNow(); got != hidden {
+		t.Errorf("presence = %q; want hidden", got)
+	}
+}
+
+func TestHidden_TheFirstListAfterAStartDoesNotBringItBack(t *testing.T) {
+	s, _ := placedShell(t)
+	s.setPresence(hidden)
+
+	s.listRead(listWaiting(3, "a", "b", "c"))
+
+	if got := s.presenceNow(); got != hidden {
+		t.Errorf("presence = %q; want hidden: nothing was known to wait before", got)
+	}
+}
+
+func TestShown_ANewWaitingConversationChangesNothing(t *testing.T) {
+	s, _ := placedShell(t)
+	s.listRead(listWaiting(0))
+
+	s.listRead(listWaiting(1, "new"))
+
+	if got := s.presenceNow(); got != shown {
+		t.Errorf("presence = %q; want shown", got)
+	}
+}
+
+func TestFaded_AClickOrTheShortcutRestoresFullColorWithTheList(t *testing.T) {
+	s, told := placedShell(t)
+	s.listRead(listWaiting(0))
+	s.setPresence(hidden)
+	s.listRead(listWaiting(1, "new"))
+
+	s.togglePanel()
+
+	if got := s.presenceNow(); got != shown {
+		t.Errorf("presence = %q; want shown", got)
+	}
+	if !s.panel.IsVisible() {
+		t.Error("the list did not open")
+	}
+	if last := (*told)[len(*told)-1]; last.Presence != shown {
 		t.Errorf("the pages were last told %+v; want shown", last)
 	}
-	waitFor(t, "a new list after showing again", func() bool { return len(held(s.inbox)) > 0 })
-	if s.setHidden(false) {
-		t.Error("showing a shown companion reported a change")
+	s.listRead(listWaiting(2, "new", "newer"))
+	if got := s.presenceNow(); got != shown {
+		t.Errorf("presence = %q after more waiting; want it to stay shown", got)
+	}
+}
+
+func TestFaded_HidingAgainHidesIt(t *testing.T) {
+	s, _ := placedShell(t)
+	s.listRead(listWaiting(0))
+	s.setPresence(hidden)
+	s.listRead(listWaiting(1, "new"))
+
+	s.hide()
+
+	if got := s.presenceNow(); got != hidden || s.bubble.IsVisible() {
+		t.Errorf("presence = %q, circle visible %v; want hidden", got, s.bubble.IsVisible())
+	}
+	s.listRead(listWaiting(1, "new"))
+	if got := s.presenceNow(); got != hidden {
+		t.Errorf("presence = %q; the same waiting brought it back again", got)
 	}
 }
 
 func TestHideRoute_AnswersNoContentAndHides(t *testing.T) {
-	s, _, _ := hideableShell(t)
+	s, _ := placedShell(t)
 	routes := s.routes(s.inbox, fstest.MapFS{})
 
 	rec := httptest.NewRecorder()
 	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/hide", nil))
 
-	if rec.Code != http.StatusNoContent || !s.appearance().Hidden {
-		t.Errorf("POST /api/hide = %d, hidden %v", rec.Code, s.appearance().Hidden)
+	if rec.Code != http.StatusNoContent || s.presenceNow() != hidden {
+		t.Errorf("POST /api/hide = %d, presence %q", rec.Code, s.presenceNow())
 	}
 	if s.bubble.IsVisible() || s.panel.IsVisible() {
 		t.Error("the circle or the list stayed on the screen")
@@ -287,46 +379,32 @@ func TestHideRoute_AnswersNoContentAndHides(t *testing.T) {
 }
 
 func TestShortcut_BringsAHiddenCompanionBackWithItsList(t *testing.T) {
-	s, _, _ := hideableShell(t)
-	s.setHidden(true)
+	s, _ := placedShell(t)
+	s.setPresence(hidden)
 
 	s.togglePanel()
 
-	if s.appearance().Hidden || !s.bubble.IsVisible() || !s.panel.IsVisible() {
-		t.Errorf("after the shortcut: hidden %v, circle %v, list %v; want shown with the list", s.appearance().Hidden, s.bubble.IsVisible(), s.panel.IsVisible())
-	}
-	if s.server.resting.Load() {
-		t.Error("the server still rests after showing again")
+	if s.presenceNow() != shown || !s.bubble.IsVisible() || !s.panel.IsVisible() {
+		t.Errorf("after the shortcut: presence %q, circle %v, list %v; want shown with the list", s.presenceNow(), s.bubble.IsVisible(), s.panel.IsVisible())
 	}
 }
 
 func TestSecondStart_BringsAHiddenCompanionBack(t *testing.T) {
-	s, _, _ := hideableShell(t)
-	s.setHidden(true)
+	s, _ := placedShell(t)
+	s.setPresence(hidden)
 
 	s.secondStart(application.SecondInstanceData{Args: []string{"companion"}})
 
-	if s.appearance().Hidden || !s.bubble.IsVisible() || !s.panel.IsVisible() {
-		t.Errorf("after a second start: hidden %v, circle %v, list %v; want shown with the list", s.appearance().Hidden, s.bubble.IsVisible(), s.panel.IsVisible())
-	}
-}
-
-func TestOpenSettings_BringsAHiddenCompanionBack(t *testing.T) {
-	s, _, _ := hideableShell(t)
-	s.setHidden(true)
-
-	s.openSettings()
-
-	if s.appearance().Hidden || !s.bubble.IsVisible() || !s.panel.IsVisible() {
-		t.Error("opening the settings left the companion hidden")
+	if s.presenceNow() != shown || !s.bubble.IsVisible() || !s.panel.IsVisible() {
+		t.Errorf("after a second start: presence %q, circle %v, list %v; want shown with the list", s.presenceNow(), s.bubble.IsVisible(), s.panel.IsVisible())
 	}
 }
 
 func TestShortcut_KeepsTheListOpenThoughTheReturningCircleReportsMoves(t *testing.T) {
-	s, _, _ := hideableShell(t)
+	s, _ := placedShell(t)
 	bubble := s.bubble.(*fakeWindow)
 	bubble.showsAt = &point{X: 0, Y: 0}
-	s.setHidden(true)
+	s.setPresence(hidden)
 
 	s.togglePanel()
 	for range bubble.reportedMoves {
@@ -339,8 +417,8 @@ func TestShortcut_KeepsTheListOpenThoughTheReturningCircleReportsMoves(t *testin
 }
 
 func TestBubbleMoved_StillClosesTheListOnceTheReturnSettled(t *testing.T) {
-	s, _, _ := hideableShell(t)
-	s.setHidden(true)
+	s, _ := placedShell(t)
+	s.setPresence(hidden)
 	s.togglePanel()
 	s.mu.Lock()
 	s.shownAgainAt = time.Now().Add(-returnSettle)
@@ -354,8 +432,8 @@ func TestBubbleMoved_StillClosesTheListOnceTheReturnSettled(t *testing.T) {
 }
 
 func TestAppReopened_BringsAHiddenCompanionBackInsteadOfTheSystem(t *testing.T) {
-	s, _, _ := hideableShell(t)
-	s.setHidden(true)
+	s, _ := placedShell(t)
+	s.setPresence(hidden)
 	cancelled := false
 
 	s.appReopened(func() { cancelled = true })
@@ -363,12 +441,12 @@ func TestAppReopened_BringsAHiddenCompanionBackInsteadOfTheSystem(t *testing.T) 
 	if !cancelled {
 		t.Error("the system was left to show the windows itself")
 	}
-	waitFor(t, "the companion to come back", func() bool { return !s.appearance().Hidden })
+	waitFor(t, "the companion to come back", func() bool { return s.presenceNow() == shown })
 	waitFor(t, "the list to open", s.panel.IsVisible)
 }
 
 func TestAppReopened_LeavesAShownCompanionToTheSystem(t *testing.T) {
-	s, _, _ := hideableShell(t)
+	s, _ := placedShell(t)
 	cancelled := false
 
 	s.appReopened(func() { cancelled = true })
@@ -378,16 +456,80 @@ func TestAppReopened_LeavesAShownCompanionToTheSystem(t *testing.T) {
 	}
 }
 
-func TestGetAppearance_SaysWhenHidden(t *testing.T) {
-	s, _, _ := hideableShell(t)
-	s.setHidden(true)
+func TestGetAppearance_SaysThePresence(t *testing.T) {
+	s, _ := placedShell(t)
+	s.setPresence(hidden)
 
 	rec := httptest.NewRecorder()
 	s.getAppearance(rec, httptest.NewRequest(http.MethodGet, "/api/appearance", nil))
 
-	if body := strings.TrimSpace(rec.Body.String()); body != `{"animate":true,"dimWhenIdle":false,"hidden":true}` {
+	if body := strings.TrimSpace(rec.Body.String()); body != `{"animate":true,"dimWhenIdle":false,"presence":"hidden"}` {
 		t.Errorf("appearance = %s", body)
 	}
+}
+
+func TestShowRoute_LeavesAHiddenOrFadedCompanionAlone(t *testing.T) {
+	// The list asks to show itself again when an open fails, which can be
+	// long after hiding. Only the shortcut, a click or a second start brings it back.
+	s, told := placedShell(t)
+	s.setPresence(hidden)
+	toldBefore := len(*told)
+	routes := s.routes(s.inbox, fstest.MapFS{})
+
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/panel/show", nil))
+
+	if rec.Code != http.StatusNoContent || s.panel.IsVisible() || s.bubble.IsVisible() {
+		t.Errorf("POST /api/panel/show = %d, list %v; want 204 and nothing shown", rec.Code, s.panel.IsVisible())
+	}
+	if s.presenceNow() != hidden || len(*told) != toldBefore {
+		t.Error("showing the list brought a hidden companion back")
+	}
+}
+
+func TestWaiting_Gained(t *testing.T) {
+	ab := waiting{ids: map[string]bool{"a": true, "b": true}, count: 2}
+	cases := []struct {
+		name   string
+		now    waiting
+		before waiting
+		want   bool
+	}{
+		{"same", ab, ab, false},
+		{"one fewer", waiting{ids: map[string]bool{"a": true}, count: 1}, ab, false},
+		{"one more", waiting{ids: map[string]bool{"a": true, "b": true, "c": true}, count: 3}, ab, true},
+		{"one swapped", waiting{ids: map[string]bool{"a": true, "c": true}, count: 2}, ab, true},
+		{"count up only", waiting{ids: map[string]bool{"a": true, "b": true}, count: 3}, ab, true},
+	}
+	for _, tc := range cases {
+		if got := tc.now.gained(tc.before); got != tc.want {
+			t.Errorf("%s: gained = %v; want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestWaitingIn_ReadsBlockedAndUnreadRows(t *testing.T) {
+	got, ok := waitingIn([]byte(`{"needsYou":5,"conversations":[{"tool":"claude","id":"a","state":"blocked"},{"tool":"codex","id":"b","state":"unread"},{"tool":"claude","id":"c","state":"working"}]}`))
+	if !ok || got.count != 5 || len(got.ids) != 2 || !got.ids["claude:a"] || !got.ids["codex:b"] {
+		t.Errorf("waitingIn = %+v, %v", got, ok)
+	}
+}
+
+// hideableShell is a placedShell whose server, once started, is a fake agnostic-ai.
+func hideableShell(t *testing.T) (*shell, *[]appearance, string) {
+	t.Helper()
+	fake := httptest.NewServer(&fakeAgnosticAI{})
+	t.Cleanup(fake.Close)
+	started := t.TempDir() + "/started"
+	fakeCommand(t, `echo x >> "`+started+`"
+echo "Serving agnostic-ai at `+fake.URL+`/"
+cat > /dev/null`)
+	s, told := placedShell(t)
+	t.Cleanup(func() {
+		s.inbox.stop()
+		s.server.rest()
+	})
+	return s, told, started
 }
 
 // slowServer is a stand-in agnostic-ai that marks its start, takes a
@@ -432,68 +574,4 @@ func TestServer_ARestWhileAServerStartsStopsThatServer(t *testing.T) {
 	}
 	<-rested
 	waitFor(t, "the new server to stop", exists(stopped))
-}
-
-func TestServer_AResumeWhileARestWaitsKeepsTheNewServer(t *testing.T) {
-	began, _ := slowServer(t)
-	server := newServer()
-	t.Cleanup(server.rest)
-	answered := make(chan error, 1)
-	go func() {
-		_, err := server.address()
-		answered <- err
-	}()
-	waitFor(t, "the start to begin", exists(began))
-	rested := make(chan struct{})
-	go func() {
-		server.rest()
-		close(rested)
-	}()
-	waitFor(t, "the rest to be asked", server.resting.Load)
-
-	server.resume()
-
-	if err := <-answered; err != nil {
-		t.Fatalf("address after a resume = %v", err)
-	}
-	<-rested
-	if address, err := server.address(); err != nil || address != "http://127.0.0.1:1" {
-		t.Errorf("the rest that waited stopped the new server: %q, %v", address, err)
-	}
-}
-
-func TestInbox_StartReadsANewListNotOneHeldFromBefore(t *testing.T) {
-	// A list answered after hiding stays held; showing again must not send its tag.
-	in, _ := connected(t, &fakeAgnosticAI{})
-	var changes atomic.Int32
-	in.changed = func() { changes.Add(1) }
-	in.latest, in.tag = []byte(`{"needsYou":9}`), `"v1"`
-	t.Cleanup(in.stop)
-
-	in.start()
-
-	waitFor(t, "the pages to be told of a new list", func() bool { return changes.Load() > 0 })
-	if got := string(held(in)); got != `{"needsYou":2}` {
-		t.Errorf("held %s; want a new read", got)
-	}
-}
-
-func TestShowRoute_LeavesAHiddenCompanionHidden(t *testing.T) {
-	// The list asks to show itself again when an open fails, which can be
-	// long after hiding. Only the shortcut or a second start brings it back.
-	s, told, _ := hideableShell(t)
-	panel := s.panel.(*fakeWindow)
-	s.setHidden(true)
-	toldBefore := len(*told)
-	routes := s.routes(s.inbox, fstest.MapFS{})
-
-	rec := httptest.NewRecorder()
-	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/panel/show", nil))
-
-	if rec.Code != http.StatusNoContent || panel.shows != 0 || s.bubble.IsVisible() {
-		t.Errorf("POST /api/panel/show = %d, list shown %d times; want 204 and no list", rec.Code, panel.shows)
-	}
-	if !s.appearance().Hidden || !s.server.resting.Load() || len(*told) != toldBefore {
-		t.Error("showing the list brought a hidden companion back")
-	}
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dimOf, hiddenOf, motionOf } from '../frontend/look.js'
+import { dimOf, motionOf, presenceOf } from '../frontend/look.js'
 
 test('stops motion only when the person turned animation off', () => {
   assert.equal(motionOf({ animate: false }), 'off')
@@ -25,14 +25,16 @@ test('dim and motion do not change each other', () => {
   assert.equal(motionOf({ animate: true, dimWhenIdle: true }), 'on')
 })
 
-test('hidden only when the shell says so', () => {
-  assert.equal(hiddenOf({ hidden: true }), 'on')
-  assert.equal(hiddenOf({ hidden: false }), 'off')
-  assert.equal(hiddenOf({}), 'off')
-  assert.equal(hiddenOf(undefined), 'off')
+test('the presence is what the shell says, and shown otherwise', () => {
+  assert.equal(presenceOf({ presence: 'hidden' }), 'hidden')
+  assert.equal(presenceOf({ presence: 'faded' }), 'faded')
+  assert.equal(presenceOf({ presence: 'shown' }), 'shown')
+  assert.equal(presenceOf({ presence: 'elsewhere' }), 'shown')
+  assert.equal(presenceOf({}), 'shown')
+  assert.equal(presenceOf(undefined), 'shown')
 })
 
-test('hiding changes neither motion nor dim', () => {
-  assert.equal(motionOf({ animate: true, dimWhenIdle: true, hidden: true }), 'on')
-  assert.equal(dimOf({ animate: true, dimWhenIdle: true, hidden: true }), 'on')
+test('the presence changes neither motion nor dim', () => {
+  assert.equal(motionOf({ animate: true, dimWhenIdle: true, presence: 'faded' }), 'on')
+  assert.equal(dimOf({ animate: true, dimWhenIdle: true, presence: 'faded' }), 'on')
 })

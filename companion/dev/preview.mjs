@@ -32,13 +32,20 @@ const NEEDS_PERSON = { blocked: true, unread: true }
 function fixtureState(name, now) {
   const fixture = FIXTURES[name]
   if (!fixture) throw new Error(`no fixture named ${name}; choose one of ${Object.keys(FIXTURES).join(', ')}`)
+  const conversations = fixture.conversations(now)
   return {
     name,
     fixture,
-    conversations: fixture.conversations(now),
+    conversations,
     preferences: { shortcut: 'Ctrl+Alt+Space', startAtLogin: false },
-    appearance: { animate: true, dimWhenIdle: false, hidden: false },
+    appearance: { animate: true, dimWhenIdle: false, presence: 'shown' },
+    /** What waited in the last list, as the shell remembers it. */
+    waitingSeen: waitingIn(conversations),
   }
+}
+
+function waitingIn(conversations) {
+  return new Set(conversations.filter((row) => NEEDS_PERSON[row.state]).map((row) => `${row.tool}:${row.id}`))
 }
 
 function viewOf(state, conversations, query) {
@@ -110,12 +117,22 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     calls = [{ path, body }, ...calls].slice(0, 50)
   }
 
-  /** The shortcut brings a hidden companion back, which reads a new list. */
+  /** The shortcut or a click brings a hidden or faded companion back at full color. */
   function comeBack() {
-    if (!state.appearance.hidden) return
-    state.appearance.hidden = false
+    if (state.appearance.presence === 'shown') return
+    state.appearance.presence = 'shown'
     emit('appearance', state.appearance)
+  }
+
+  /** Like the shell: the pages read the new list, and a chat that starts waiting brings a hidden circle back faded. */
+  function listChanged() {
     emit('inbox')
+    const now = waitingIn(state.conversations)
+    const gained = [...now].some((key) => !state.waitingSeen.has(key))
+    state.waitingSeen = now
+    if (!gained || state.appearance.presence !== 'hidden') return
+    state.appearance.presence = 'faded'
+    emit('appearance', state.appearance)
   }
 
   // Opens a fixture holds, answered when a test releases them.
@@ -149,7 +166,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     else if (body.as === 'seen' && NEEDS_PERSON[row.state]) row.state = 'active'
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })
     noContent(response)
-    emit('inbox')
+    listChanged()
   }
 
   async function rename(request, response) {
@@ -160,7 +177,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
     row.title = body.title
     noContent(response)
-    emit('inbox')
+    listChanged()
   }
 
   async function remove(request, response) {
@@ -175,7 +192,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (row.deleteUnsupported) return sendJSON(response, 422, { error: row.deleteUnsupported, reason: 'unsupported' })
     state.conversations = state.conversations.filter((other) => other !== row)
     sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000 })
-    emit('inbox')
+    listChanged()
   }
 
   async function open(request, response) {
@@ -198,7 +215,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const row = find(body)
     if (row && NEEDS_PERSON[row.state]) row.state = 'active'
     sendJSON(response, 200, { opened: true })
-    emit('inbox')
+    listChanged()
   }
 
   function events(request, response) {
@@ -213,7 +230,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     state = fixtureState(body.name, timeOf())
     calls = []
     noContent(response)
-    emit('inbox')
+    listChanged()
   }
 
   async function serveFile(response, folder, name) {
@@ -237,11 +254,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/delete': remove,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); comeBack(); noContent(response); emit('panel-shown', 'bottom-right') },
     'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
-    // Like the shell: a hidden companion does not show the list for the page.
+    // Like the shell: a hidden or faded companion does not show the list for the page.
     'POST /api/panel/show': (request, response) => {
       logCall('/api/panel/show')
       noContent(response)
-      if (!state.appearance.hidden) emit('panel-shown', 'bottom-right')
+      if (state.appearance.presence === 'shown') emit('panel-shown', 'bottom-right')
     },
     'GET /api/preferences': (request, response) => sendJSON(response, 200, state.preferences),
     'POST /api/preferences/shortcut': async (request, response) => {
@@ -268,7 +285,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/dashboard': (request, response) => { logCall('/api/dashboard'); noContent(response) },
     'POST /api/hide': (request, response) => {
       logCall('/api/hide')
-      state.appearance.hidden = true
+      state.appearance.presence = 'hidden'
       noContent(response)
       emit('appearance', state.appearance)
     },
@@ -286,6 +303,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       for (const release of released) release()
       sendJSON(response, 200, { released: released.length })
     },
+    // Stands in for Quit in the circle's right-click menu.
+    'POST /dev/ask-quit': (request, response) => {
+      noContent(response)
+      comeBack()
+      emit('quit-asked', 'bottom-right')
+    },
     // Stands in for Open from anywhere in the circle's right-click menu.
     'POST /dev/open-settings': (request, response) => {
       noContent(response)
@@ -293,10 +316,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     },
     // Stands in for the circle's right-click menu, which the preview has not.
     'POST /dev/appearance': async (request, response) => {
-      const { animate, dimWhenIdle, hidden } = await bodyOf(request)
+      const { animate, dimWhenIdle } = await bodyOf(request)
       if (typeof animate === 'boolean') state.appearance.animate = animate
       if (typeof dimWhenIdle === 'boolean') state.appearance.dimWhenIdle = dimWhenIdle
-      if (typeof hidden === 'boolean') state.appearance.hidden = hidden
       noContent(response)
       emit('appearance', state.appearance)
     },
@@ -307,12 +329,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       row.updatedAt = new Date(timeOf()).toISOString()
       row.state = 'unread'
       noContent(response)
-      emit('inbox')
+      listChanged()
     },
     'POST /dev/arrive': (request, response) => {
       state.conversations = [arrival(timeOf()), ...state.conversations.filter((row) => row.id !== 'arrived-1')]
       noContent(response)
-      emit('inbox')
+      listChanged()
     },
   }
 

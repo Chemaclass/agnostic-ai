@@ -1,5 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hidePanel, markConversation, openConversation, openDashboard, hideCompanion, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
+import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
 import { GROUPS, PLACES, afterPage, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
@@ -656,6 +656,32 @@ list.addEventListener('scroll', () => {
   if (!rowMenu.hidden) closeRowMenu()
 })
 
+// Quit asks first: it ends the program, and the shortcut with it.
+
+const quitConfirm = document.getElementById('quit-confirm')
+const quitCancel = document.getElementById('quit-cancel')
+
+function openQuitConfirm() {
+  quitConfirm.hidden = false
+  quitCancel.focus()
+}
+
+function closeQuitConfirm() {
+  quitConfirm.hidden = true
+  queryInput.focus()
+}
+
+quitCancel.addEventListener('click', closeQuitConfirm)
+document.getElementById('quit-hide').addEventListener('click', () => {
+  quitConfirm.hidden = true
+  hideCompanion()
+})
+// The app can end before its answer arrives.
+document.getElementById('quit-go').addEventListener('click', () => quitCompanion().catch(() => {}))
+document.addEventListener('mousedown', (event) => {
+  if (!quitConfirm.hidden && !quitConfirm.contains(event.target)) closeQuitConfirm()
+})
+
 // Delete permanently
 
 const deleteConfirm = document.getElementById('delete-confirm')
@@ -785,7 +811,7 @@ const settings = {
   controls: new Map(),
   /** What the shell last said: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
   preferences: undefined,
-  /** How the pages look: {animate, dimWhenIdle, hidden}. */
+  /** How the pages look: {animate, dimWhenIdle, presence}. */
   appearance: undefined,
   /** True while the next key press becomes the shortcut. */
   recording: false,
@@ -816,8 +842,10 @@ const MENU_ACTIONS = {
     drawSettings()
   },
   hide: () => hideCompanion(),
-  // The app can end before its answer arrives.
-  quit: () => quitCompanion().catch(() => {}),
+  quit: () => {
+    closeMenu()
+    openQuitConfirm()
+  },
 }
 
 /** Builds the rows once, in menu.json order; drawSettings fills in their values. */
@@ -928,17 +956,18 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault()
     const closes = {
+      'quit-confirm': closeQuitConfirm,
       'delete-confirm': closeDeleteConfirm,
       'row-menu': closeRowMenu,
       rename: escapeRename,
       settings: closeMenu,
       panel: () => hidePanel().catch(sayFailure),
     }
-    closes[escapeTarget({ deleteConfirmOpen: !deleteConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden })]()
+    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden })]()
     return
   }
   // The open row menu and the delete confirmation take Enter and Space on their own buttons.
-  if (!rowMenu.hidden || !deleteConfirm.hidden || state.renaming) return
+  if (!rowMenu.hidden || !deleteConfirm.hidden || !quitConfirm.hidden || state.renaming) return
   if (settings.recording) {
     // Every key belongs to the new shortcut until one is complete.
     event.preventDefault()
@@ -974,6 +1003,7 @@ function opened(from) {
   closeRowMenu()
   deleteConfirm.hidden = true
   deleteFor = undefined
+  quitConfirm.hidden = true
   state.renaming = undefined
   if (!state.returning) state.activeKey = undefined
   state.returning = false
@@ -994,6 +1024,11 @@ document.addEventListener('motion', () => {
 drawPlaces()
 Events.On('inbox', refresh)
 Events.On('panel-shown', (event) => opened(event.data))
+// Quit in the right-click menu: the list opens on the question.
+Events.On('quit-asked', (event) => {
+  opened(event.data)
+  openQuitConfirm()
+})
 // Open from anywhere in the right-click menu: the list opens on its menu, ready to change the keys.
 Events.On('settings-shown', (event) => {
   opened(event.data)

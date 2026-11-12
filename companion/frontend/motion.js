@@ -1,15 +1,15 @@
-// Sets data-motion, data-dim and data-hidden on the page, from the person's
+// Sets data-motion, data-dim and data-presence on the page, from the person's
 // choices and the shell's state, and keeps them current. Each change is announced as a `motion` event on the document.
 import { Events } from '/wails/runtime.js'
 import { CallError, readAppearance } from '/api.js'
-import { dimOf, hiddenOf, motionOf } from '/look.js'
+import { dimOf, motionOf, presenceOf } from '/look.js'
 
 let told = false
 
 function apply(appearance) {
   document.documentElement.dataset.motion = motionOf(appearance)
   document.documentElement.dataset.dim = dimOf(appearance)
-  document.documentElement.dataset.hidden = hiddenOf(appearance)
+  document.documentElement.dataset.presence = presenceOf(appearance)
   document.dispatchEvent(new Event('motion'))
 }
 

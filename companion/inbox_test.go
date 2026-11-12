@@ -123,21 +123,6 @@ func TestInbox_ShowsNoOldListAfterAReadFailed(t *testing.T) {
 	}
 }
 
-func TestInbox_ReadsANewListAfterItStopped(t *testing.T) {
-	fake := &fakeAgnosticAI{}
-	in, _ := connected(t, fake)
-	in.read(context.Background())
-
-	in.stop()
-
-	if in.latest != nil || in.tag != "" {
-		t.Fatalf("a stopped inbox still holds a list (tag %q)", in.tag)
-	}
-	if status, _ := getInbox(t, in, ""); status != http.StatusOK || fake.reads != 2 {
-		t.Errorf("first list after a stop = %d, the server read %d times; want a second read", status, fake.reads)
-	}
-}
-
 func TestInbox_AsksTheServerForASearch(t *testing.T) {
 	asked := ""
 	fake := &fakeAgnosticAI{list: func(w http.ResponseWriter, r *http.Request) {
@@ -264,14 +249,9 @@ touch "`+stopped+`"`)
 		_, err := os.Stat(stopped)
 		return err == nil
 	})
-	if _, err := server.address(); err == nil || err.Error() != "the companion is hidden and asks agnostic-ai nothing" {
+	if _, err := server.address(); err == nil || err.Error() != "the companion is quitting and asks agnostic-ai nothing" {
 		t.Errorf("a resting companion started a server: %v", err)
 	}
-	server.resume()
-	if address, err := server.address(); err != nil || address == "" {
-		t.Errorf("after resume: %q, %v", address, err)
-	}
-	server.rest()
 }
 
 func TestServer_SaysWhyAgnosticAIDidNotStart(t *testing.T) {

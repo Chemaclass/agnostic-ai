@@ -1,11 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { hideLabelOf, menuRowsOf } from '../frontend/model.js'
+import { escapeTarget, hideLabelOf, menuRowsOf } from '../frontend/model.js'
 
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', startAtLogin: true }
-const appearance = { animate: false, dimWhenIdle: true, hidden: false }
+const appearance = { animate: false, dimWhenIdle: true, presence: 'shown' }
 
 test('the menu shows the six items in the list order, with the values in effect', () => {
   const rows = menuRowsOf(items, { preferences, appearance })
@@ -38,8 +38,13 @@ test('Hide names the command when the shortcut does not work', () => {
   assert.equal(hideLabelOf('Hide Agnostic AI companion', refused, true), 'Hide Agnostic AI companion (agnostic-ai companion brings it back)')
 })
 
-test('Quit says the shortcut stops working', () => {
-  assert.match(items.find((item) => item.id === 'quit').hint, /shortcut stops working/)
+test('Quit says it asks first and the shortcut stops working', () => {
+  assert.match(items.find((item) => item.id === 'quit').hint, /^Asks first.*shortcut stops working/)
+})
+
+test('Escape answers the quit question first, as Cancel', () => {
+  assert.equal(escapeTarget({ quitConfirmOpen: true, deleteConfirmOpen: true, rowMenuOpen: true, renaming: true, settingsOpen: true }), 'quit-confirm')
+  assert.equal(escapeTarget({ quitConfirmOpen: false, settingsOpen: true }), 'settings')
 })
 
 test('a switch with no value in either reply is refused', () => {

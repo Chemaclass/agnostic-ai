@@ -152,12 +152,12 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 
 **Why:** Pause is kept apart from Dim when idle. Dim is a saved setting that fades to 55% while nothing needs you and keeps watching. Pause is the off mode you can still see and click: it costs no reads. "Pause" names a state that lasts until you resume it, and it carries the companion's name so nobody reads it as pausing the agents.
 
-## 015: Hide replaces Pause, and the entry names the way back
+## 015: Hide replaces Pause, comes back dimmed, and Quit asks
 
 **Date:** 2026-11-12
 
 **Context:** Pause (014) left a faint circle on the screen, so it did not get the companion out of the way, and Quit ended the program, so the shortcut no longer brought it back ([#3344](https://github.com/Chemaclass/agnostic-ai/issues/3344)).
 
-**Decision:** **Hide Agnostic AI companion** takes the circle and the list off the screen while the program keeps running. Its label names what brings it back: the shortcut's keys, or `agnostic-ai companion` while the shortcut is not active. The shortcut, `agnostic-ai companion` or opening the app again shows the circle where it was and opens the list with a new read. A hidden companion stops its server and reads nothing, as Pause did. Hidden is not saved, so a restart starts on the screen. Quit's hint says the shortcut stops working.
+**Decision:** The companion has one presence state: shown, hidden or back dimmed. **Hide Agnostic AI companion** takes the circle and the list off the screen; the program keeps running and reading. Its label names the way back: the shortcut's keys, or `agnostic-ai companion` while the shortcut is not active. The shortcut, `agnostic-ai companion` or opening the app again shows the circle where it was, at full color, with the list. While hidden, a conversation that starts waiting brings the circle back at 25% with its count, without the list or the keys; a click or the shortcut brings back full color. The presence is never saved. **Quit** in either menu asks first, in the list, with Quit, Hide instead and Cancel; `stop`, install, upgrade, uninstall and logout never ask.
 
-**Why:** 014's problem was a person who forgot the shortcut. Naming the shortcut in the entry solves that without leaving a circle behind. Stopping the reading is the smaller change and keeps no server running for a circle nobody sees; it costs one new read on return.
+**Why:** A hidden companion that reads can call the person back when it matters, which 014's problem (a forgotten shortcut) needed. "Starts waiting" compares the waiting conversations of each list with the previous one, by tool and id, plus the count of every age: a count alone misses one conversation that starts waiting while another stops, and ids alone miss one older than the list shows. Quit asks because it is the only menu entry the shortcut cannot undo.

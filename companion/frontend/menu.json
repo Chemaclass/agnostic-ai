@@ -3,6 +3,6 @@
   { "id": "dimWhenIdle", "label": "Dim when idle", "kind": "switch" },
   { "id": "startAtLogin", "label": "Start at login", "kind": "switch" },
   { "id": "shortcut", "label": "Open from anywhere", "kind": "shortcut", "hint": "Change the shortcut" },
-  { "id": "hide", "label": "Hide Agnostic AI companion", "kind": "action", "hint": "Takes the circle and the list off the screen and stops reading. The shortcut or agnostic-ai companion brings them back with a new list." },
-  { "id": "quit", "label": "Quit Agnostic AI companion", "kind": "action", "hint": "Ends the companion and its reading. The shortcut stops working until you start it again with agnostic-ai companion." }
+  { "id": "hide", "label": "Hide Agnostic AI companion", "kind": "action", "hint": "Takes the circle and the list off the screen. The shortcut brings them back. The circle comes back faded on its own when something new waits." },
+  { "id": "quit", "label": "Quit Agnostic AI companion", "kind": "action", "hint": "Asks first, then ends the program. The shortcut stops working until you start it again with agnostic-ai companion." }
 ]

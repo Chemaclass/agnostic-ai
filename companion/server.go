@@ -35,14 +35,14 @@ const maxProblemBytes = 2 << 10
 // server is the companion's own `agnostic-ai serve --global`: every
 // conversation on this machine, read and marked by agnostic-ai itself.
 // The companion starts it when it needs a list and stops it when it
-// hides, so nothing reads the tools' stores while nobody looks.
+// quits.
 type server struct {
 	client *http.Client
 
 	mu sync.Mutex
-	// resting is set while the companion is hidden or quits: no call
-	// starts a server then. It is outside mu so a hide never waits for
-	// a server that is still starting.
+	// resting is set once the companion quits: no call starts a server
+	// then. It is outside mu so a quit never waits for a server that is
+	// still starting.
 	resting atomic.Bool
 	// base is the running server's address, such as
 	// http://127.0.0.1:52000; empty while none runs.
@@ -54,7 +54,7 @@ type server struct {
 	input io.Closer
 }
 
-var errResting = errors.New("the companion is hidden and asks agnostic-ai nothing")
+var errResting = errors.New("the companion is quitting and asks agnostic-ai nothing")
 
 func newServer() *server {
 	return &server{client: &http.Client{Timeout: callTimeout}}
@@ -128,7 +128,7 @@ func (s *server) address() (string, error) {
 			return "", fmt.Errorf("agnostic-ai serve stopped before it listened: %s", problems.String())
 		}
 		if s.resting.Load() {
-			// The companion was hidden while this server started.
+			// The companion quit while this server started.
 			_ = input.Close()
 			return "", errResting
 		}
@@ -159,24 +159,15 @@ func (s *server) readVersion(base string) string {
 }
 
 // rest ends the server this companion started, if one runs, and lets no
-// call start another until resume.
+// call start another.
 func (s *server) rest() {
 	s.resting.Store(true)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.resting.Load() {
-		// Resumed while this waited for a server to finish starting.
-		return
-	}
 	if s.input != nil {
 		_ = s.input.Close()
 	}
 	s.base, s.version, s.process, s.input = "", "", nil, nil
-}
-
-// resume lets the next call start a server again.
-func (s *server) resume() {
-	s.resting.Store(false)
 }
 
 // runningVersion is the release of the server that runs now; empty when none runs.

@@ -7,6 +7,7 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
@@ -85,6 +86,8 @@ const (
 	eventPreferences = "preferences"
 	// eventSettingsShown says the panel opened on its settings; its data is the corner nearest the bubble.
 	eventSettingsShown = "settings-shown"
+	// eventQuitAsked says the panel opened on the question whether to quit; its data is the corner nearest the bubble.
+	eventQuitAsked = "quit-asked"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -119,11 +122,15 @@ type shell struct {
 	tellPreferences func(preferences)
 	end             func()
 	endOnce         sync.Once
-	// hiding keeps a hide and a return from interleaving their server,
-	// poll and window changes. It guards hiddenAt.
-	hiding sync.Mutex
+	// placing keeps two presence changes from interleaving their window
+	// changes. It guards hiddenAt and waitingSeen.
+	placing sync.Mutex
 	// hiddenAt is where the circle was when it was hidden.
 	hiddenAt point
+	// waitingSeen is what waited in the last list read; known is false
+	// until one was read.
+	waitingSeen      waiting
+	waitingSeenKnown bool
 	// native holds the right-click menu's items by their id in menu.json.
 	// nativeMu keeps two refreshes from interleaving.
 	native   map[string]*application.MenuItem
@@ -143,57 +150,89 @@ type shell struct {
 	// hiddenByFocusAt is when the panel last hid because it lost focus.
 	hiddenByFocusAt time.Time
 	save            *time.Timer
-	// hidden is set while the circle and the list are off the screen:
-	// only the shortcut listens then, and nothing reads or asks anything.
-	// It is never saved, so a restart starts on the screen.
-	hidden bool
+	// presence is how the companion sits on the screen; the zero value is shown.
+	presence presence
 	// shownAgainAt is when a hidden companion last came back.
 	shownAgainAt time.Time
 }
 
-// hide takes the circle and the list off the screen and stops the
-// server, until the shortcut or a second start brings them back.
-func (s *shell) hide() {
-	s.setHidden(true)
+// presenceNow is the companion's presence, shown before any change.
+func (s *shell) presenceNow() presence {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.presenceLocked()
 }
 
-// setHidden takes the windows off the screen or puts them back, stops or
-// starts the reading, and tells the pages. It reports whether the state
-// changed.
-func (s *shell) setHidden(on bool) bool {
-	s.hiding.Lock()
-	defer s.hiding.Unlock()
+func (s *shell) presenceLocked() presence {
+	if s.presence == "" {
+		return shown
+	}
+	return s.presence
+}
+
+// hide takes the circle and the list off the screen, until the shortcut
+// or a second start brings them back, or something new waits.
+func (s *shell) hide() {
+	s.setPresence(hidden)
+}
+
+// setPresence puts the windows where to says and tells the pages. It
+// reports whether the presence changed.
+func (s *shell) setPresence(to presence) bool {
+	return s.changePresence("", to)
+}
+
+// changePresence is setPresence, only while the presence is from; an
+// empty from means any.
+func (s *shell) changePresence(from, to presence) bool {
+	s.placing.Lock()
+	defer s.placing.Unlock()
 	s.mu.Lock()
-	changed := s.hidden != on
-	s.hidden = on
-	if changed && !on {
+	was := s.presenceLocked()
+	if was == to || (from != "" && was != from) {
+		s.mu.Unlock()
+		return false
+	}
+	s.presence = to
+	if was == hidden {
 		s.shownAgainAt = time.Now()
 	}
 	looks := s.settings.appearance()
-	looks.Hidden = on
+	looks.Presence = to
 	s.mu.Unlock()
-	if !changed {
-		return false
-	}
-	if on {
+	// The pages hear the new look first, so a circle coming back faded never flashes at full color.
+	s.tell(looks)
+	switch {
+	case to == hidden:
 		x, y := s.bubble.Position()
 		s.hiddenAt = point{X: x, Y: y}
 		s.panel.Hide()
 		s.bubble.Hide()
-		s.inbox.stop()
-		s.restBriefly()
-	} else {
+	case was == hidden:
 		s.bubble.Show()
 		// Some window systems place a window again when it shows.
 		if x, y := s.bubble.Position(); x != s.hiddenAt.X || y != s.hiddenAt.Y {
 			s.bubble.SetPosition(s.hiddenAt.X, s.hiddenAt.Y)
 		}
-		s.server.resume()
-		s.inbox.start()
 	}
-	s.tell(looks)
 	s.refreshNative()
 	return true
+}
+
+// listRead notes what waits in a new list. While hidden, something new
+// waiting brings the circle back faded, without the list or the keys.
+func (s *shell) listRead(list json.RawMessage) {
+	now, ok := waitingIn(list)
+	if !ok {
+		return
+	}
+	s.placing.Lock()
+	before, known := s.waitingSeen, s.waitingSeenKnown
+	s.waitingSeen, s.waitingSeenKnown = now, true
+	s.placing.Unlock()
+	if known && now.gained(before) {
+		s.changePresence(hidden, fadedBack)
+	}
 }
 
 // quitRestWait is how long the companion waits for its server to stop
@@ -220,10 +259,10 @@ func (s *shell) quit() {
 	s.endOnce.Do(s.end)
 }
 
-// comeBack puts a hidden companion back on the screen and reads a new
-// list. It reports whether the companion was hidden.
+// comeBack puts a hidden or faded companion back at full color. It
+// reports whether it was hidden or faded.
 func (s *shell) comeBack() bool {
-	return s.setHidden(false)
+	return s.setPresence(shown)
 }
 
 // secondStart answers a companion started while this one runs, which
@@ -246,7 +285,7 @@ func (s *shell) secondStart(second application.SecondInstanceData) {
 	}
 }
 
-// bringBack shows a hidden companion again and opens its list.
+// bringBack shows the companion at full color and opens its list.
 func (s *shell) bringBack() {
 	s.comeBack()
 	s.showPanel()
@@ -255,7 +294,7 @@ func (s *shell) bringBack() {
 // appReopened answers macOS reopening the running app, from Finder or
 // `open`. Wails would show the hidden windows itself, behind the shell's back.
 func (s *shell) appReopened(cancel func()) {
-	if !s.appearance().Hidden {
+	if s.presenceNow() != hidden {
 		return
 	}
 	cancel()
@@ -412,7 +451,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	// The page asks after an open fails, which can come long after a hide;
 	// only the shortcut or a second start brings it back.
 	mux.HandleFunc("POST /api/panel/show", func(w http.ResponseWriter, _ *http.Request) {
-		if s.appearance().Hidden {
+		if s.presenceNow() != shown {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -494,6 +533,7 @@ func main() {
 	s := &shell{settingsPath: path, settings: saved, server: newServer()}
 	s.inbox = newInbox(s.server, version, func() {
 		s.app.Event.Emit(eventInbox)
+		s.listRead(s.inbox.held())
 	})
 	s.tell = func(looks appearance) {
 		s.app.Event.Emit(eventAppearance, looks)

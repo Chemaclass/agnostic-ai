@@ -33,28 +33,11 @@ function show({ view, note }) {
 
 // A pop left over would play again when animation is turned back on.
 badge.addEventListener('animationend', () => badge.classList.remove('is-new'))
-let wasHidden = false
 document.addEventListener('motion', () => {
   if (document.documentElement.dataset.motion === 'off') badge.classList.remove('is-new')
-  if (isHidden()) showHidden()
-  // The news of a new list can arrive before the page hears it is shown again.
-  else if (wasHidden) refresh()
-  wasHidden = isHidden()
-})
-
-function isHidden() {
-  return document.documentElement.dataset.hidden === 'on'
-}
-
-/** Hidden: nothing is read, so no old count waits for the return; the first list after it draws a new one. */
-function showHidden() {
   // The pointer may leave while the circle is off the screen, unreported.
-  bubble.classList.remove('is-working', 'is-troubled', 'is-idle', 'is-hovered')
-  bubble.setAttribute('aria-label', 'Conversations: reading a new list')
-  badge.hidden = true
-  badge.classList.remove('is-new')
-  shownCount = 0
-}
+  if (document.documentElement.dataset.presence === 'hidden') bubble.classList.remove('is-hovered')
+})
 
 /** No list could be read: an old count would be a guess, so none shows. */
 function showTrouble(message) {
@@ -67,18 +50,14 @@ function showTrouble(message) {
 }
 
 async function refresh() {
-  // A hidden companion asks nothing.
-  if (isHidden()) return
   let reply
   try {
     reply = await readInbox('')
   } catch (error) {
     if (!(error instanceof CallError)) throw error
-    // Hidden while the list was on its way: the failure is the hiding.
-    if (!isHidden()) showTrouble(error.message)
+    showTrouble(error.message)
     return
   }
-  if (isHidden()) return
   show(reply)
 }
 

@@ -99,7 +99,8 @@ export function confirmsCandidate(press) {
 }
 
 /** What Escape closes: a delete confirmation, then the row menu, then a rename, then the settings menu, then the panel. */
-export function escapeTarget({ deleteConfirmOpen, rowMenuOpen, renaming, settingsOpen }) {
+export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, rowMenuOpen, renaming, settingsOpen }) {
+  if (quitConfirmOpen) return 'quit-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
   if (rowMenuOpen) return 'row-menu'
   if (renaming) return 'rename'

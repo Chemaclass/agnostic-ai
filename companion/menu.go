@@ -61,15 +61,22 @@ func (s *shell) menuActions() map[string]func(on bool) {
 		},
 		"shortcut": func(bool) { s.openSettings() },
 		"hide":     func(bool) { s.hide() },
-		"quit":     func(bool) { s.quit() },
+		"quit":     func(bool) { s.askQuit() },
 	}
 }
 
-// openSettings brings a hidden companion back and opens the list on its menu,
+// openSettings brings a faded companion back and opens the list on its menu,
 // where the shortcut can be changed.
 func (s *shell) openSettings() {
 	s.comeBack()
 	s.showPanelOn(eventSettingsShown)
+}
+
+// askQuit opens the list on the question whether to quit: the menus
+// never end the companion without it.
+func (s *shell) askQuit() {
+	s.comeBack()
+	s.showPanelOn(eventQuitAsked)
 }
 
 // addSettingsHeader adds a native section heading where the system has
