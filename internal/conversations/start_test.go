@@ -293,6 +293,13 @@ type fakeExec struct {
 	argv []string
 }
 
+func requireBriefExecution(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		t.Skip("brief execution requires macOS or Linux")
+	}
+}
+
 func runner(t *testing.T, dir string, ran *fakeExec) BriefRunner {
 	t.Helper()
 	return BriefRunner{
@@ -316,6 +323,7 @@ func startedBrief(t *testing.T) (dir, id string) {
 }
 
 func TestRunBrief_StartsTheToolWithTheBriefAsOneArgumentOnce(t *testing.T) {
+	requireBriefExecution(t)
 	dir, id := startedBrief(t)
 	var ran fakeExec
 
@@ -375,11 +383,18 @@ func TestRunBrief_KeepsABriefWhoseJSONGrows(t *testing.T) {
 		if _, err := start.starter.Start(context.Background(), request(ToolCodex, brief)); err != nil {
 			t.Fatalf("%q: %v", brief[:2], err)
 		}
-		var ran fakeExec
 		id := tabLine.FindStringSubmatch(start.launcher.calls[0])[1]
-		if err := runner(t, start.starter.BriefsDir, &ran).Run(id); err != nil || len(ran.argv) != 2 || ran.argv[1] != "Continues claude:"+idParent+"\n\n"+brief {
-			t.Errorf("%q: err %v argv ok %v", brief[:2], err, len(ran.argv) == 2 && ran.argv[1] == "Continues claude:"+idParent+"\n\n"+brief)
+		want := "Continues claude:" + idParent + "\n\n" + brief
+		if stored := readBrief(t, filepath.Join(start.starter.BriefsDir, id+".json")); stored.Prompt != want {
+			t.Errorf("%q: stored prompt differs", brief[:2])
 		}
+		t.Run("execute", func(t *testing.T) {
+			requireBriefExecution(t)
+			var ran fakeExec
+			if err := runner(t, start.starter.BriefsDir, &ran).Run(id); err != nil || len(ran.argv) != 2 || ran.argv[1] != want {
+				t.Errorf("%q: err %v argv ok %v", brief[:2], err, len(ran.argv) == 2 && ran.argv[1] == want)
+			}
+		})
 	}
 }
 
@@ -394,6 +409,7 @@ func TestStart_RefusesABriefWithANullByteOrBrokenText(t *testing.T) {
 }
 
 func TestRunBrief_KeepsTheBriefWhenTheToolIsMissing(t *testing.T) {
+	requireBriefExecution(t)
 	dir, id := startedBrief(t)
 	var ran fakeExec
 	missing := runner(t, dir, &ran)
