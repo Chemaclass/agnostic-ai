@@ -97,6 +97,12 @@ func placedShell(t *testing.T) (*shell, *[]appearance) {
 	panel := newFakeWindow()
 	panel.visible = false
 	s.bubble, s.panel = newFakeWindow(), panel
+	s.screens = func() []*application.Screen {
+		return []*application.Screen{
+			{IsPrimary: true, WorkArea: application.Rect{Width: 1440, Height: 900}},
+			{WorkArea: application.Rect{X: 1440, Width: 1920, Height: 1080}},
+		}
+	}
 	var mu sync.Mutex
 	told := []appearance{}
 	s.tell = func(looks appearance) {
@@ -275,20 +281,43 @@ func TestHidden_OneWaitingWhileAnotherStopsStillBringsItBack(t *testing.T) {
 	}
 }
 
-func TestHidden_AListThatCouldNotReadItsMarksOrCloudChangesNothing(t *testing.T) {
-	for _, note := range []string{"marksNote", "cloudNote"} {
-		t.Run(note, func(t *testing.T) {
+// listWith is a list where the conversations named by ids wait, with extra fields such as a note.
+func listWith(extra string, ids ...string) []byte {
+	list := string(listWaiting(len(ids), ids...))
+	return []byte(`{` + extra + `,` + list[1:])
+}
+
+func TestHidden_AListThatReadLessIsANewBaselineNotNews(t *testing.T) {
+	for name, gap := range map[string]string{
+		"marks":       `"marksNote":"could not read the marks"`,
+		"cloud":       `"cloudNote":"no claude.ai sign-in"`,
+		"cursor read": `"tools":[{"tool":"cursor","found":false,"note":"locked"}]`,
+	} {
+		t.Run(name, func(t *testing.T) {
 			s, _ := placedShell(t)
 			s.listRead(listWaiting(1, "a"))
 			s.setPresence(hidden)
 
-			s.listRead([]byte(`{"needsYou":0,"` + note + `":"could not read","conversations":[]}`))
+			s.listRead(listWith(gap))
 			s.listRead(listWaiting(1, "a"))
 
 			if got := s.presenceNow(); got != hidden {
 				t.Errorf("presence = %q; want hidden: the full list again is nothing new", got)
 			}
 		})
+	}
+}
+
+func TestHidden_AStandingNoteStillLetsANewWaitBringItBack(t *testing.T) {
+	note := `"cloudNote":"no claude.ai sign-in"`
+	s, _ := placedShell(t)
+	s.listRead(listWith(note, "a"))
+	s.setPresence(hidden)
+
+	s.listRead(listWith(note, "a", "b"))
+
+	if got := s.presenceNow(); got != fadedBack {
+		t.Errorf("presence = %q; want faded: b started waiting under the same note", got)
 	}
 }
 
@@ -493,16 +522,17 @@ func TestShowRoute_LeavesAHiddenOrFadedCompanionAlone(t *testing.T) {
 }
 
 func TestWaiting_Gained(t *testing.T) {
-	ab := waiting{"a": true, "b": true}
+	ab := waiting{ids: map[string]bool{"a": true, "b": true}}
 	cases := []struct {
 		name string
 		now  waiting
 		want bool
 	}{
 		{"same", ab, false},
-		{"one fewer", waiting{"a": true}, false},
-		{"one more", waiting{"a": true, "b": true, "c": true}, true},
-		{"one swapped", waiting{"a": true, "c": true}, true},
+		{"one fewer", waiting{ids: map[string]bool{"a": true}}, false},
+		{"one more", waiting{ids: map[string]bool{"a": true, "b": true, "c": true}}, true},
+		{"one swapped", waiting{ids: map[string]bool{"a": true, "c": true}}, true},
+		{"one more, read differently", waiting{ids: map[string]bool{"a": true, "b": true, "c": true}, gaps: "cloud:down"}, false},
 	}
 	for _, tc := range cases {
 		if got := tc.now.gained(ab); got != tc.want {
@@ -513,15 +543,28 @@ func TestWaiting_Gained(t *testing.T) {
 
 func TestWaitingIn_ReadsBlockedAndUnreadRows(t *testing.T) {
 	got, ok := waitingIn([]byte(`{"needsYou":5,"conversations":[{"tool":"claude","id":"a","state":"blocked"},{"tool":"codex","id":"b","state":"unread"},{"tool":"claude","id":"c","state":"working"}]}`))
-	if !ok || len(got) != 2 || !got["claude:a"] || !got["codex:b"] {
+	if !ok || len(got.ids) != 2 || !got.ids["claude:a"] || !got.ids["codex:b"] {
 		t.Errorf("waitingIn = %+v, %v", got, ok)
+	}
+}
+
+func TestShowingAgain_KeepsACircleHiddenOnASecondScreenThere(t *testing.T) {
+	s, _ := placedShell(t)
+	bubble := s.bubble.(*fakeWindow)
+	bubble.x, bubble.y = 2000, 400
+
+	s.setPresence(hidden)
+	s.comeBack()
+
+	if bubble.x != 2000 || bubble.y != 400 {
+		t.Errorf("circle at %d,%d; want back at 2000,400 on the second screen", bubble.x, bubble.y)
 	}
 }
 
 func TestShowingAgain_PutsACircleNoScreenShowsAtTheDefaultPlace(t *testing.T) {
 	s, _ := placedShell(t)
 	bubble := s.bubble.(*fakeWindow)
-	bubble.x, bubble.y = 5000, 5000
+	bubble.x, bubble.y = 9000, 9000
 
 	s.setPresence(hidden)
 	s.comeBack()

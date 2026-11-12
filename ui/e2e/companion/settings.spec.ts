@@ -208,6 +208,16 @@ test('chats already waiting keep a hidden circle hidden, and Hide hides a faded 
   await expect(page.locator('html')).toHaveAttribute('data-presence', 'hidden')
 })
 
+test('Dim when idle does not lift a hidden idle circle to 55%', async ({ page }) => {
+  await openCircle(page, 'empty')
+  await page.request.post('/dev/appearance', { data: { dimWhenIdle: true } })
+  await expect(circle(page)).toHaveCSS('opacity', '0.55')
+
+  await page.request.post('/api/hide')
+
+  await expect(circle(page)).toHaveCSS('opacity', '0.25')
+})
+
 test('the faded circle stays at 25% with Dim when idle on', async ({ page }) => {
   await openCircle(page)
   await page.request.post('/dev/appearance', { data: { dimWhenIdle: true } })

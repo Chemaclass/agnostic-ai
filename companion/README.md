@@ -165,8 +165,9 @@ change made in one shows in the other.
   comes back where it was, at full color, and the list opens. When a
   conversation starts waiting for you, the circle comes back on its own,
   dimmed. Conversations that already waited when you hid it do not bring it
-  back; one that started waiting in the 5 seconds before Hide, before the
-  companion read it, can. Hide also hides a dimmed circle again.
+  back; one that started waiting shortly before Hide, before the companion
+  read it, can (up to 5 seconds, or about a minute for a change that shows
+  when the minute turns). Hide also hides a dimmed circle again.
 - **Quit Agnostic AI companion** asks first. The question says the program
   stops, so the shortcut will not bring it back, and that `agnostic-ai
   companion` (or your AI tool running it) starts it again. Answer **Quit** to

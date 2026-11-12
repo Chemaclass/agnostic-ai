@@ -32,13 +32,13 @@ body {
 }
 
 /* Nothing needs the person, so the circle steps back until the pointer is on it. */
-:root[data-dim='on']:not([data-presence='faded']) .bubble.is-idle:not(:hover, .is-hovered) {
+:root[data-dim='on'][data-presence='shown'] .bubble.is-idle:not(:hover, .is-hovered) {
   opacity: 0.55;
   filter: saturate(0.25);
 }
 
 /* Back on its own while hidden, because something new waits: faint, with its
-   count, even under the pointer. Dim when idle does not apply then. Hidden
+   count, even under the pointer. Dim when idle applies only when shown. Hidden
    looks the same, so the window never shows at full color before the page
    hears it came back faded. */
 :root[data-presence='faded'] .bubble,

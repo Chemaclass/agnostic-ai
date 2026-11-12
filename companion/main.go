@@ -114,6 +114,8 @@ type shell struct {
 
 	settingsPath string
 
+	// screens lists the displays.
+	screens func() []*application.Screen
 	// shortcuts takes and gives back the keys that open the list from anywhere.
 	shortcuts shortcuts
 	// login is the system's start at login setting.
@@ -220,9 +222,9 @@ func (s *shell) changePresence(from, to presence) bool {
 // screen shows any more, such as on a display unplugged meanwhile,
 // gives way to the default one.
 func (s *shell) placeReturningBubble() {
-	area := s.workArea()
-	if !onScreen(rect{X: s.hiddenAt.X, Y: s.hiddenAt.Y, Width: bubbleSide, Height: bubbleSide}, []rect{area}) {
-		x, y := defaultBubblePosition(area, bubbleSide)
+	areas := s.workAreas()
+	if len(areas) > 0 && !onScreen(rect{X: s.hiddenAt.X, Y: s.hiddenAt.Y, Width: bubbleSide, Height: bubbleSide}, areas) {
+		x, y := defaultBubblePosition(areas[0], bubbleSide)
 		s.bubble.SetPosition(x, y)
 		return
 	}
@@ -372,11 +374,11 @@ const screensWait = 2 * time.Second
 // the primary screen first. It is empty when none was listed in time.
 func (s *shell) workAreas() []rect {
 	deadline := time.Now().Add(screensWait)
-	for len(s.app.Screen.GetAll()) == 0 && time.Now().Before(deadline) {
+	for len(s.screens()) == 0 && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	var primary, others []rect
-	for _, screen := range s.app.Screen.GetAll() {
+	for _, screen := range s.screens() {
 		work := rect{X: screen.WorkArea.X, Y: screen.WorkArea.Y, Width: screen.WorkArea.Width, Height: screen.WorkArea.Height}
 		if screen.IsPrimary {
 			primary = append(primary, work)
@@ -584,6 +586,7 @@ func main() {
 		return
 	}
 
+	s.screens = s.app.Screen.GetAll
 	s.shortcuts = s.app.GlobalShortcut
 	s.login = s.app.Autostart
 	s.tellPreferences = func(prefs preferences) {
